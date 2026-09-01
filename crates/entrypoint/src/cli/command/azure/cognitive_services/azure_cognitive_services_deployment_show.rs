@@ -32,8 +32,9 @@ impl AzureCognitiveServicesDeploymentShowArgs {
             account,
             deployment,
         } = self;
-        let tenant_id = tenant.resolve().await?;
-        let accounts = fetch_all_cognitive_services_accounts(tenant_id, auth_context).await?;
+        let tenant_auth_context = tenant.bind_auth_context(auth_context).await?;
+        let tenant_id = tenant_auth_context.tenant_id;
+        let accounts = fetch_all_cognitive_services_accounts(&tenant_auth_context).await?;
         let mut account_matches = accounts
             .into_iter()
             .filter(|item| account.matches(item))

@@ -16,9 +16,9 @@ pub struct AzureEntraSpListArgs {
 
 impl AzureEntraSpListArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let tenant_id = self.tenant.resolve().await?;
+        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
         info!("Fetching service principals");
-        let sps = fetch_all_service_principals(tenant_id, auth_context).await?;
+        let sps = fetch_all_service_principals(&tenant_auth_context).await?;
         let stdout = std::io::stdout();
         let mut out = stdout.lock();
         for sp in sps {

@@ -1,14 +1,13 @@
 use crate::management_groups::fetch_root_management_group;
 use crate::resource_group_list_request::fetch_all_resource_groups;
 use cloud_terrastodon_azure_types::AsScope;
-use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::EligibleChildResource;
 use cloud_terrastodon_azure_types::EligibleChildResourceKind;
 use cloud_terrastodon_azure_types::Scope;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
 use std::borrow::Cow;
@@ -25,7 +24,7 @@ pub enum FetchChildrenBehaviour {
 pub async fn fetch_eligible_child_resources(
     scope: &impl Scope,
     behaviour: FetchChildrenBehaviour,
-    auth_context: &AuthContext,
+    auth_context: &AzureTenantAuthContext,
 ) -> Result<Vec<EligibleChildResource>> {
     let scope = scope.expanded_form();
     let scope = scope.strip_prefix('/').unwrap_or(&scope);
@@ -47,7 +46,8 @@ pub async fn fetch_eligible_child_resources(
     }
 
     let resp = RestRequest::new(http::Method::GET, &url)?
-        .auth_context(auth_context)
+        .auth_context(&auth_context.auth_context)
+        .tenant(auth_context.tenant_id)
         .cache(CacheKey::new(cache_chunks))
         .receive::<Response>()
         .await?;
@@ -57,16 +57,13 @@ pub async fn fetch_eligible_child_resources(
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Debug, Clone, facet::Facet)]
 pub struct EligibleChildResourceListRequest<'a> {
-    pub tenant_id: AzureTenantId,
-    pub auth_context: Cow<'a, AuthContext>,
+    pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
 
 pub fn fetch_all_eligible_resource_containers<'a>(
-    tenant_id: AzureTenantId,
-    auth_context: &'a AuthContext,
+    auth_context: &'a AzureTenantAuthContext,
 ) -> EligibleChildResourceListRequest<'a> {
     EligibleChildResourceListRequest {
-        tenant_id,
         auth_context: Cow::Borrowed(auth_context),
     }
 }
@@ -74,8 +71,7 @@ pub fn fetch_all_eligible_resource_containers<'a>(
 impl<'a> arbitrary::Arbitrary<'a> for EligibleChildResourceListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
-            tenant_id: arbitrary::Arbitrary::arbitrary(u)?,
-            auth_context: Cow::Owned(AuthContext::default()),
+            auth_context: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
         })
     }
 }
@@ -93,8 +89,7 @@ impl<'a> CacheableCommand for EligibleChildResourceListRequest<'a> {
     }
 
     async fn run(self) -> Result<Self::Output> {
-        let root_mg =
-            fetch_root_management_group(self.tenant_id, self.auth_context.as_ref()).await?;
+        let root_mg = fetch_root_management_group(self.auth_context.as_ref()).await?;
         let scope = root_mg.as_scope();
         let mut resource_containers = fetch_eligible_child_resources(
             scope,
@@ -104,7 +99,7 @@ impl<'a> CacheableCommand for EligibleChildResourceListRequest<'a> {
         .await?;
         // this contains management groups and subscriptions
 
-        let rgs = fetch_all_resource_groups(self.tenant_id, self.auth_context.as_ref())
+        let rgs = fetch_all_resource_groups(self.auth_context.as_ref())
             .await?
             .into_iter()
             .map(|x| EligibleChildResource {
@@ -136,14 +131,15 @@ mod tests {
 
     #[test_log::test(tokio::test)]
     async fn it_works() -> Result<()> {
-        let auth_context = AuthContext::default();
-        let mg = fetch_root_management_group(get_test_tenant_id().await?, &auth_context).await?;
+        let auth_context = AuthContext::explicit_azure_cli();
+        let tenant_auth_context = auth_context.bind_to_azure_tenant(get_test_tenant_id().await?)?;
+        let mg = fetch_root_management_group(&tenant_auth_context).await?;
         let scope = mg.as_scope();
         let Some(found) = expect_aad_premium_p2_license(
             fetch_eligible_child_resources(
                 scope,
                 FetchChildrenBehaviour::GetAllChildren,
-                &auth_context,
+                &tenant_auth_context,
             )
             .await,
         )
@@ -157,12 +153,10 @@ mod tests {
 
     #[test_log::test(tokio::test)]
     async fn it_works2() -> Result<()> {
+        let auth_context =
+            AuthContext::explicit_azure_cli().bind_to_azure_tenant(get_test_tenant_id().await?)?;
         let Some(found) = expect_aad_premium_p2_license(
-            fetch_all_eligible_resource_containers(
-                get_test_tenant_id().await?,
-                &AuthContext::default(),
-            )
-            .await,
+            fetch_all_eligible_resource_containers(&auth_context).await,
         )
         .await?
         else {
@@ -175,8 +169,9 @@ mod tests {
     #[test_log::test(tokio::test)]
     async fn it_works3() -> Result<()> {
         let tenant_id = get_test_tenant_id().await?;
-        let auth_context = AuthContext::default();
-        let rg = fetch_all_resource_groups(tenant_id, &auth_context)
+        let auth_context = AuthContext::explicit_azure_cli();
+        let tenant_auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
+        let rg = fetch_all_resource_groups(&tenant_auth_context)
             .await?
             .into_iter()
             .next()
@@ -185,7 +180,7 @@ mod tests {
             fetch_eligible_child_resources(
                 rg.as_scope(),
                 FetchChildrenBehaviour::GetAllChildren,
-                &auth_context,
+                &tenant_auth_context,
             )
             .await,
         )
@@ -201,14 +196,15 @@ mod tests {
     #[test_log::test(tokio::test)]
     async fn it_works4() -> Result<()> {
         let tenant_id = get_test_tenant_id().await?;
-        let auth_context = AuthContext::default();
-        let subs = fetch_all_subscriptions(tenant_id, &auth_context).await?;
+        let auth_context = AuthContext::explicit_azure_cli();
+        let tenant_auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
+        let subs = fetch_all_subscriptions(&tenant_auth_context).await?;
         let sub = subs.first().unwrap();
         let result = expect_aad_premium_p2_license(
             fetch_eligible_child_resources(
                 sub.as_scope(),
                 FetchChildrenBehaviour::GetAllChildren,
-                &auth_context,
+                &tenant_auth_context,
             )
             .await,
         )
@@ -224,15 +220,16 @@ mod tests {
     #[test_log::test(tokio::test)]
     #[ignore]
     async fn it_works_interactive() -> Result<()> {
-        let auth_context = AuthContext::default();
-        let mg = fetch_root_management_group(get_test_tenant_id().await?, &auth_context).await?;
+        let auth_context = AuthContext::explicit_azure_cli();
+        let tenant_auth_context = auth_context.bind_to_azure_tenant(get_test_tenant_id().await?)?;
+        let mg = fetch_root_management_group(&tenant_auth_context).await?;
         let mut scope = mg.as_scope().as_scope_impl().to_owned();
         loop {
             let Some(resources) = expect_aad_premium_p2_license(
                 fetch_eligible_child_resources(
                     &scope,
                     FetchChildrenBehaviour::default(),
-                    &auth_context,
+                    &tenant_auth_context,
                 )
                 .await,
             )
@@ -253,12 +250,10 @@ mod tests {
     #[test_log::test(tokio::test)]
     #[ignore]
     async fn it_works_interactive2() -> Result<()> {
+        let auth_context =
+            AuthContext::explicit_azure_cli().bind_to_azure_tenant(get_test_tenant_id().await?)?;
         let Some(resources) = expect_aad_premium_p2_license(
-            fetch_all_eligible_resource_containers(
-                get_test_tenant_id().await?,
-                &AuthContext::default(),
-            )
-            .await,
+            fetch_all_eligible_resource_containers(&auth_context).await,
         )
         .await?
         else {

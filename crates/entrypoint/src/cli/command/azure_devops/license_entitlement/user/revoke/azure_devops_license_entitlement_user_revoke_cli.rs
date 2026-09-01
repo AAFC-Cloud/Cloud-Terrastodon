@@ -34,7 +34,8 @@ pub struct AzureDevOpsLicenseEntitlementUserRevokeArgs {
 
 impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let tenant_id = self.tenant.resolve().await?;
+        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
+        let tenant_id = tenant_auth_context.tenant_id;
         let user_predicate = self.user.as_predicate()?;
 
         let org_url =
@@ -95,7 +96,7 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
                     .origin_id
                     .parse::<EntraGroupId>()?;
                 let group_entra_members =
-                    fetch_group_members(tenant_id, group_entra_id, auth_context).await?;
+                    fetch_group_members(group_entra_id, &tenant_auth_context).await?;
                 let user_in_group = group_entra_members
                     .iter()
                     .filter_map(|p: &Principal| match p.as_user() {

@@ -1,11 +1,10 @@
 use crate::MicrosoftGraphHelper;
-use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::EntraApplicationClientId;
 use cloud_terrastodon_azure_types::EntraApplicationRegistration;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Result;
 use facet::Facet;
 use std::borrow::Cow;
@@ -15,28 +14,24 @@ use tracing::debug;
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Facet)]
 pub struct ApplicationRegistrationGetRequest<'a> {
-    pub tenant_id: AzureTenantId,
     pub application_id: EntraApplicationClientId,
-    pub auth_context: Cow<'a, AuthContext>,
+    pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
 
 impl<'a> arbitrary::Arbitrary<'a> for ApplicationRegistrationGetRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
-            tenant_id: arbitrary::Arbitrary::arbitrary(u)?,
             application_id: arbitrary::Arbitrary::arbitrary(u)?,
-            auth_context: Cow::Owned(AuthContext::default()),
+            auth_context: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
         })
     }
 }
 
 pub fn fetch_application_registration<'a>(
-    tenant_id: AzureTenantId,
     application_id: EntraApplicationClientId,
-    auth_context: &'a AuthContext,
+    auth_context: &'a AzureTenantAuthContext,
 ) -> ApplicationRegistrationGetRequest<'a> {
     ApplicationRegistrationGetRequest {
-        tenant_id,
         application_id,
         auth_context: Cow::Borrowed(auth_context),
     }
@@ -61,19 +56,18 @@ impl CacheableCommand for ApplicationRegistrationGetRequest<'_> {
             "graph",
             "GET",
             "applications",
-            self.tenant_id.to_string().as_str(),
+            self.auth_context.tenant_id.to_string().as_str(),
             self.application_id.to_string().as_str(),
         ]))
     }
 
     async fn run(self) -> Result<Self::Output> {
         debug!(
-            tenant_id = %self.tenant_id,
+            tenant_id = %self.auth_context.tenant_id,
             application_registration_id = %self.application_id,
             "Fetching application registration by object id"
         );
         MicrosoftGraphHelper::new(
-            self.tenant_id,
             self.url(),
             Some(self.cache_key()),
             self.auth_context.as_ref(),

@@ -2,13 +2,12 @@ use crate::MicrosoftGraphHelper;
 use crate::PercentEncodeExt;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_types::AzurePrincipalArgument;
-use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::EntraUser;
 use cloud_terrastodon_azure_types::EntraUserId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Result;
 use eyre::bail;
 use facet::Facet;
@@ -58,31 +57,27 @@ impl From<AzurePrincipalArgument<'_>> for EntraUserLookup {
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Facet)]
 pub struct EntraUserGetRequest<'a> {
-    pub tenant_id: AzureTenantId,
     pub lookup: EntraUserLookup,
-    pub auth_context: Cow<'a, AuthContext>,
+    pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
 
 impl<'a> Arbitrary<'a> for EntraUserGetRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
-            tenant_id: Arbitrary::arbitrary(u)?,
             lookup: Arbitrary::arbitrary(u)?,
-            auth_context: Cow::Owned(AuthContext::default()),
+            auth_context: Cow::Owned(Arbitrary::arbitrary(u)?),
         })
     }
 }
 
 pub fn fetch_entra_user<'a, T>(
-    tenant_id: AzureTenantId,
     lookup: T,
-    auth_context: &'a AuthContext,
+    auth_context: &'a AzureTenantAuthContext,
 ) -> EntraUserGetRequest<'a>
 where
     T: Into<EntraUserLookup>,
 {
     EntraUserGetRequest {
-        tenant_id,
         lookup: lookup.into(),
         auth_context: Cow::Borrowed(auth_context),
     }
@@ -106,7 +101,7 @@ impl CacheableCommand for EntraUserGetRequest<'_> {
     type Output = EntraUser;
 
     fn cache_key(&self) -> CacheKey {
-        let tenant_id = self.tenant_id.to_string();
+        let tenant_id = self.auth_context.tenant_id.to_string();
 
         match &self.lookup {
             EntraUserLookup::ObjectId(user_id) => {
@@ -141,7 +136,7 @@ impl CacheableCommand for EntraUserGetRequest<'_> {
         match &self.lookup {
             EntraUserLookup::ObjectId(user_id) => {
                 debug!(
-                    tenant_id = %self.tenant_id,
+                    tenant_id = %self.auth_context.tenant_id,
                     user_id = %user_id,
                     "Fetching user by object id"
                 );
@@ -153,7 +148,7 @@ impl CacheableCommand for EntraUserGetRequest<'_> {
                 }
 
                 debug!(
-                    tenant_id = %self.tenant_id,
+                    tenant_id = %self.auth_context.tenant_id,
                     user_principal_name,
                     "Fetching Entra user by user principal name"
                 );
@@ -161,7 +156,6 @@ impl CacheableCommand for EntraUserGetRequest<'_> {
         }
 
         MicrosoftGraphHelper::new(
-            self.tenant_id,
             self.url(),
             Some(self.cache_key()),
             self.auth_context.as_ref(),
@@ -179,13 +173,20 @@ cloud_terrastodon_registry::register_into_future!(EntraUserGetRequest<'static> =
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cloud_terrastodon_azure_types::AzureTenantId;
+    use cloud_terrastodon_credentials::AuthContext;
 
     #[test]
     fn url_targets_the_exact_user_principal_name() {
         let request = EntraUserGetRequest {
-            tenant_id: AzureTenantId::new(cloud_terrastodon_azure_types::uuid::Uuid::nil()),
             lookup: EntraUserLookup::UserPrincipalName("O'Neil@example.com".to_owned()),
-            auth_context: Cow::Owned(AuthContext::default()),
+            auth_context: Cow::Owned(
+                AuthContext::explicit_azure_cli()
+                    .bind_to_azure_tenant(AzureTenantId::new(
+                        cloud_terrastodon_azure_types::uuid::Uuid::nil(),
+                    ))
+                    .expect("default auth context should bind to a tenant"),
+            ),
         };
 
         assert!(

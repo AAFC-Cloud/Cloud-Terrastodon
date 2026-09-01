@@ -14,7 +14,8 @@ pub struct DumpEverythingArgs {
 
 impl DumpEverythingArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        dump_everything(self.tenant.resolve().await?, auth_context).await?;
+        let auth_context = self.tenant.bind_auth_context(auth_context).await?;
+        dump_everything(&auth_context).await?;
         Ok(())
     }
 }

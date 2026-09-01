@@ -24,12 +24,12 @@ pub struct AzureEntraSpShowArgs {
 
 impl AzureEntraSpShowArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let tenant_id = self.tenant.resolve().await?;
-        info!(needle = %self.service_principal, %tenant_id, "Fetching service principals");
+        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
+        info!(needle = %self.service_principal, tenant_id = %tenant_auth_context.tenant_id, "Fetching service principals");
         let needle = self.service_principal.trim();
 
         if let Ok(service_principal_id) = needle.parse::<EntraServicePrincipalObjectId>() {
-            match fetch_service_principal(tenant_id, service_principal_id, auth_context).await {
+            match fetch_service_principal(service_principal_id, &tenant_auth_context).await {
                 Ok(service_principal) => {
                     let stdout = std::io::stdout();
                     let mut handle = stdout.lock();
@@ -46,7 +46,7 @@ impl AzureEntraSpShowArgs {
             }
         }
 
-        let service_principals = fetch_all_service_principals(tenant_id, auth_context).await?;
+        let service_principals = fetch_all_service_principals(&tenant_auth_context).await?;
         info!(
             count = service_principals.len(),
             "Fetched service principals"

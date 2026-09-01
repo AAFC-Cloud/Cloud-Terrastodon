@@ -31,11 +31,11 @@ struct EntraRoleAssignmentBrowseOutput<'a> {
 
 impl AzureEntraRoleAssignmentBrowseArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let tenant_id = self.tenant.resolve().await?;
-        info!(%tenant_id, "Fetching Entra role assignments, definitions, and principals");
+        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
+        info!(tenant_id = %tenant_auth_context.tenant_id, "Fetching Entra role assignments, definitions, and principals");
         let (rbac, principals) = try_join!(
-            fetch_all_unified_role_definitions_and_assignments(tenant_id, auth_context),
-            fetch_all_principals(tenant_id, auth_context)
+            fetch_all_unified_role_definitions_and_assignments(&tenant_auth_context),
+            fetch_all_principals(&tenant_auth_context)
         )?;
 
         let mut choices = rbac

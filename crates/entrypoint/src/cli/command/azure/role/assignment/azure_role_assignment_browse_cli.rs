@@ -34,10 +34,10 @@ struct RoleAssignmentBrowseOutput<'a> {
 impl AzureRoleAssignmentBrowseArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         info!("Fetching Azure role assignments and principals");
-        let tenant_id = self.tenant.resolve().await?;
+        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
         let (rbac, principals) = try_join!(
-            fetch_all_role_definitions_and_assignments(tenant_id, auth_context),
-            fetch_all_principals(tenant_id, auth_context)
+            fetch_all_role_definitions_and_assignments(&tenant_auth_context),
+            fetch_all_principals(&tenant_auth_context)
         )?;
 
         info!(

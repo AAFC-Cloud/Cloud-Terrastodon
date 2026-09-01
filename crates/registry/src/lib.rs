@@ -1435,6 +1435,7 @@ mod test {
         value: String,
     }
 
+    #[allow(clippy::derivable_impls)]
     impl Default for DummyManualDefault {
         fn default() -> Self {
             Self::Explicit

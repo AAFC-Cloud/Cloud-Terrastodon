@@ -1,4 +1,3 @@
-use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure::EntraGroup;
 use cloud_terrastodon_azure::Principal;
 use cloud_terrastodon_azure::PrincipalId;
@@ -11,7 +10,7 @@ use cloud_terrastodon_azure::fetch_all_role_definitions;
 use cloud_terrastodon_azure::fetch_group_members;
 use cloud_terrastodon_azure::fetch_group_owners;
 use cloud_terrastodon_azure::get_security_group_choices;
-use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use cloud_terrastodon_user_input::are_you_sure;
@@ -43,13 +42,10 @@ struct SecurityGroupRoleAssignmentRow {
     role_definition: RoleDefinition,
 }
 
-pub async fn browse_security_groups(
-    tenant_id: AzureTenantId,
-    auth_context: &AuthContext,
-) -> Result<()> {
+pub async fn browse_security_groups(auth_context: &AzureTenantAuthContext) -> Result<()> {
     let security_groups = PickerTui::<_>::new()
         .set_header("security groups")
-        .pick_many(get_security_group_choices(tenant_id, auth_context).await?)
+        .pick_many(get_security_group_choices(auth_context).await?)
         .await?;
 
     let actions = PickerTui::<_>::new()
@@ -101,8 +97,8 @@ pub async fn browse_security_groups(
                 );
                 for (group, row) in security_groups.iter().zip(rows.iter_mut()) {
                     let (owners, members) = try_join!(
-                        fetch_group_owners(tenant_id, group.id, auth_context),
-                        fetch_group_members(tenant_id, group.id, auth_context)
+                        fetch_group_owners(group.id, auth_context),
+                        fetch_group_members(group.id, auth_context)
                     )?;
                     row.owners = Some(owners);
                     row.members = Some(members);
@@ -114,8 +110,8 @@ pub async fn browse_security_groups(
                     security_groups.len()
                 );
                 let (role_assignments, role_definitions) = try_join!(
-                    fetch_all_role_assignments(tenant_id, auth_context),
-                    fetch_all_role_definitions(tenant_id, auth_context),
+                    fetch_all_role_assignments(auth_context),
+                    fetch_all_role_definitions(auth_context),
                 )?;
                 let role_assignments_by_principal: HashMap<&PrincipalId, Vec<&RoleAssignment>> =
                     role_assignments

@@ -1,4 +1,3 @@
-use crate::AzureTenantId;
 use crate::BatchRequest;
 use crate::BatchRequestEntry;
 use chrono::Datelike;
@@ -8,6 +7,7 @@ use chrono::TimeZone;
 use cloud_terrastodon_azure_types::AsScope;
 use cloud_terrastodon_azure_types::Metrics;
 use cloud_terrastodon_azure_types::Scope;
+use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_pathing::AppDir;
 use cloud_terrastodon_pathing::Existy;
 use eyre::OptionExt;
@@ -16,10 +16,10 @@ use tokio::io::AsyncWriteExt;
 use tracing::info;
 
 pub async fn fetch_metrics(
-    tenant_id: AzureTenantId,
+    auth_context: &AzureTenantAuthContext,
     resource_ids: impl IntoIterator<Item = impl AsScope>,
 ) -> eyre::Result<Metrics> {
-    let mut batch_request = BatchRequest::new();
+    let mut batch_request = BatchRequest::new(auth_context);
     for id in resource_ids {
         let id = id.as_scope().expanded_form();
         let end = chrono::Utc::now();
@@ -34,9 +34,7 @@ pub async fn fetch_metrics(
             begin.to_rfc3339_opts(SecondsFormat::Secs, true),
             end.to_rfc3339_opts(SecondsFormat::Secs, true)
         );
-        batch_request
-            .requests
-            .push(BatchRequestEntry::new_get(tenant_id, url));
+        batch_request.requests.push(BatchRequestEntry::new_get(url));
     }
     info!(
         "Fetching metrics for {} resources",
@@ -70,12 +68,14 @@ mod tests {
 
     #[tokio::test]
     async fn it_works() -> eyre::Result<()> {
-        let resources =
-            fetch_all_storage_accounts(get_test_tenant_id().await?, &AuthContext::default())
-                .await?;
+        let resources = fetch_all_storage_accounts(
+            &AuthContext::explicit_azure_cli().bind_to_azure_tenant(get_test_tenant_id().await?)?,
+        )
+        .await?;
         let tenant_id = get_test_tenant_id().await?;
+        let auth_context = AuthContext::explicit_azure_cli().bind_to_azure_tenant(tenant_id)?;
         let resources = resources.iter().take(3);
-        let _metrics = fetch_metrics(tenant_id, resources).await?;
+        let _metrics = fetch_metrics(&auth_context, resources).await?;
         Ok(())
     }
 }

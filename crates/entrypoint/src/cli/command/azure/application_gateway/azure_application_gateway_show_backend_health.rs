@@ -23,9 +23,10 @@ pub struct AzureApplicationGatewayShowBackendHealthArgs {
 
 impl AzureApplicationGatewayShowBackendHealthArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let tenant_id = self.tenant.resolve().await?;
+        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
+        let tenant_id = tenant_auth_context.tenant_id;
         info!(needle = %self.application_gateway, %tenant_id, "Resolving Azure application gateway for backend health");
-        let application_gateways = fetch_all_application_gateways(tenant_id, auth_context).await?;
+        let application_gateways = fetch_all_application_gateways(&tenant_auth_context).await?;
 
         let needle = self.application_gateway.trim();
         let mut matches = application_gateways

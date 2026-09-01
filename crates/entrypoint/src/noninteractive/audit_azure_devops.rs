@@ -1,7 +1,6 @@
 use chrono::Local;
 use chrono::TimeDelta;
 use chrono::Utc;
-use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure::fetch_all_entra_users;
 use cloud_terrastodon_azure_devops::AzureDevOpsDescriptor;
 use cloud_terrastodon_azure_devops::AzureDevOpsLicenseType;
@@ -14,8 +13,8 @@ use cloud_terrastodon_azure_devops::fetch_azure_devops_test_plans;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_test_suites;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlements;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
-use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
+use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::time::Duration;
@@ -24,10 +23,9 @@ use tracing::warn;
 
 pub async fn audit_azure_devops(
     org_url: AzureDevOpsOrganizationUrl,
-    tenant_id: AzureTenantId,
     test_license_inactivity_threshold: Duration,
     paid_license_inactivity_threshold: Duration,
-    auth_context: &AuthContext,
+    auth_context: &AzureTenantAuthContext,
 ) -> eyre::Result<()> {
     let test_license_inactivity_threshold =
         chrono::Duration::from_std(test_license_inactivity_threshold)?;
@@ -41,10 +39,10 @@ pub async fn audit_azure_devops(
     let mut total_cost_waste_cad = 0.00;
     let mut message_counts: HashMap<String, usize> = HashMap::new();
 
-    let azure_devops_auth_context = AzureDevOpsAuthContext::for_tenant(auth_context, tenant_id)?;
+    let azure_devops_auth_context = AzureDevOpsAuthContext::Bearer(auth_context.clone());
     let entitlements =
         fetch_azure_devops_user_license_entitlements(&org_url, &azure_devops_auth_context).await?;
-    let users_by_principal_name = fetch_all_entra_users(tenant_id, auth_context)
+    let users_by_principal_name = fetch_all_entra_users(auth_context)
         .await?
         .into_iter()
         .map(|user| (user.user_principal_name.to_lowercase(), user))

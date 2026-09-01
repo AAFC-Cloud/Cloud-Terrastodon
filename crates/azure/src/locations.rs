@@ -58,7 +58,10 @@ mod test {
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let tenant_id = get_test_tenant_id().await?;
-        let subs = fetch_all_subscriptions(tenant_id, &AuthContext::default()).await?;
+        let subs = fetch_all_subscriptions(
+            &AuthContext::explicit_azure_cli().bind_to_azure_tenant(tenant_id)?,
+        )
+        .await?;
         let mut found_unrecognized_location = false;
         for sub in subs {
             let locations = fetch_all_locations(sub.id).await?;

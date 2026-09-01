@@ -1,12 +1,10 @@
-use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure::pick_oauth2_permission_grants;
-use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureTenantAuthContext;
 
 pub async fn browse_oauth2_permission_grants(
-    tenant_id: AzureTenantId,
-    auth_context: &AuthContext,
+    auth_context: &AzureTenantAuthContext,
 ) -> eyre::Result<()> {
-    let chosen = pick_oauth2_permission_grants(tenant_id, auth_context).await?;
+    let chosen = pick_oauth2_permission_grants(auth_context).await?;
     // todo!("fix sorting by service principal clientid, add id in parens");
     // todo!("commit changes");
     println!("You chose {} items", chosen.len());

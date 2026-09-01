@@ -16,9 +16,9 @@ pub struct AzureEntraPrincipalListArgs {
 
 impl AzureEntraPrincipalListArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let tenant_id = self.tenant.resolve().await?;
-        info!(%tenant_id, "Fetching Entra principals");
-        let principals = fetch_all_principals(tenant_id, auth_context).await?;
+        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
+        info!(tenant_id = %tenant_auth_context.tenant_id, "Fetching Entra principals");
+        let principals = fetch_all_principals(&tenant_auth_context).await?;
         let mut principals = principals.values().collect::<Vec<_>>();
         principals.sort_unstable_by_key(|principal| principal.id().to_string());
 

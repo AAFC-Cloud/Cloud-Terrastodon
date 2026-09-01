@@ -22,13 +22,13 @@ pub struct AzureContainerInstanceShowArgs {
 
 impl AzureContainerInstanceShowArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let tenant_id = self.tenant.resolve().await?;
+        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
         info!(
             needle = %self.container_instance,
-            %tenant_id,
+            tenant_id = %tenant_auth_context.tenant_id,
             "Fetching Azure container instances"
         );
-        let container_instances = fetch_all_container_instances(tenant_id, auth_context).await?;
+        let container_instances = fetch_all_container_instances(&tenant_auth_context).await?;
         info!(
             count = container_instances.len(),
             "Fetched Azure container instances"

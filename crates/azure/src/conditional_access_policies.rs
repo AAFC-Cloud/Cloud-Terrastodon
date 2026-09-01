@@ -1,10 +1,9 @@
 use crate::MicrosoftGraphHelper;
-use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::ConditionalAccessPolicy;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Result;
 use std::borrow::Cow;
 use std::path::PathBuf;
@@ -12,25 +11,21 @@ use std::path::PathBuf;
 #[must_use = "This is a future request, you must .await it"]
 #[derive(facet::Facet)]
 pub struct ConditionalAccessPolicyListRequest<'a> {
-    pub tenant_id: AzureTenantId,
-    pub auth_context: Cow<'a, AuthContext>,
+    pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
 
 impl<'a> arbitrary::Arbitrary<'a> for ConditionalAccessPolicyListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
-            tenant_id: arbitrary::Arbitrary::arbitrary(u)?,
-            auth_context: Cow::Owned(AuthContext::default()),
+            auth_context: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
         })
     }
 }
 
 pub fn fetch_all_conditional_access_policies<'a>(
-    tenant_id: AzureTenantId,
-    auth_context: &'a AuthContext,
+    auth_context: &'a AzureTenantAuthContext,
 ) -> ConditionalAccessPolicyListRequest<'a> {
     ConditionalAccessPolicyListRequest {
-        tenant_id,
         auth_context: Cow::Borrowed(auth_context),
     }
 }
@@ -45,13 +40,12 @@ impl CacheableCommand for ConditionalAccessPolicyListRequest<'_> {
             "graph",
             "GET",
             "conditional_access_policies",
-            self.tenant_id.to_string().as_str(),
+            self.auth_context.tenant_id.to_string().as_str(),
         ]))
     }
 
     async fn run(self) -> Result<Self::Output> {
         let query = MicrosoftGraphHelper::new(
-            self.tenant_id,
             "https://graph.microsoft.com/beta/identity/conditionalAccess/policies",
             Some(self.cache_key()),
             self.auth_context.as_ref(),
@@ -80,11 +74,9 @@ mod test {
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        let found = fetch_all_conditional_access_policies(
-            get_test_tenant_id().await?,
-            &AuthContext::default(),
-        )
-        .await?;
+        let auth_context =
+            AuthContext::explicit_azure_cli().bind_to_azure_tenant(get_test_tenant_id().await?)?;
+        let found = fetch_all_conditional_access_policies(&auth_context).await?;
         assert!(!found.is_empty());
         Ok(())
     }
@@ -92,10 +84,11 @@ mod test {
     #[tokio::test]
     pub async fn disallowed_ips() -> eyre::Result<()> {
         let tenant_id = get_test_tenant_id().await?;
-        let auth_context = AuthContext::default();
+        let auth_context = AuthContext::explicit_azure_cli();
+        let auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
         let (locations, policies) = try_join!(
-            fetch_all_conditional_access_named_locations(tenant_id, &auth_context),
-            fetch_all_conditional_access_policies(tenant_id, &auth_context),
+            fetch_all_conditional_access_named_locations(&auth_context),
+            fetch_all_conditional_access_policies(&auth_context),
         )?;
         assert!(!locations.is_empty());
         assert!(!policies.is_empty());

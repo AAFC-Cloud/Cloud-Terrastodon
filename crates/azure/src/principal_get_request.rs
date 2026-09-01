@@ -3,7 +3,6 @@ use crate::MicrosoftGraphBatchResponseEntryBody;
 use crate::fetch_entra_user;
 use crate::fetch_group;
 use crate::fetch_service_principal;
-use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::EntraGroup;
 use cloud_terrastodon_azure_types::EntraServicePrincipal;
 use cloud_terrastodon_azure_types::EntraUser;
@@ -12,7 +11,7 @@ use cloud_terrastodon_azure_types::PrincipalId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Result;
 use facet_json::RawJson;
 use std::borrow::Cow;
@@ -21,28 +20,24 @@ use std::path::PathBuf;
 #[must_use = "This is a future request, you must .await it"]
 #[derive(facet::Facet)]
 pub struct PrincipalRequest<'a> {
-    pub tenant_id: AzureTenantId,
     pub principal_id: PrincipalId,
-    pub auth_context: Cow<'a, AuthContext>,
+    pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
 
 impl<'a> arbitrary::Arbitrary<'a> for PrincipalRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
-            tenant_id: arbitrary::Arbitrary::arbitrary(u)?,
             principal_id: arbitrary::Arbitrary::arbitrary(u)?,
-            auth_context: Cow::Owned(AuthContext::default()),
+            auth_context: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
         })
     }
 }
 
 pub fn fetch_principal<'a>(
-    tenant_id: AzureTenantId,
     principal_id: PrincipalId,
-    auth_context: &'a AuthContext,
+    auth_context: &'a AzureTenantAuthContext,
 ) -> PrincipalRequest<'a> {
     PrincipalRequest {
-        tenant_id,
         principal_id,
         auth_context: Cow::Borrowed(auth_context),
     }
@@ -58,7 +53,7 @@ impl CacheableCommand for PrincipalRequest<'_> {
             "graph",
             "GET",
             "principal",
-            self.tenant_id.to_string().as_str(),
+            self.auth_context.tenant_id.to_string().as_str(),
             self.principal_id.to_string().as_str(),
         ]))
     }
@@ -67,30 +62,21 @@ impl CacheableCommand for PrincipalRequest<'_> {
         let cache_key = self.cache_key();
         let auth_context = self.auth_context;
         match self.principal_id {
-            PrincipalId::UserId(user_id) => {
-                Ok(
-                    fetch_entra_user(self.tenant_id, user_id, auth_context.as_ref())
-                        .await?
-                        .into(),
-                )
-            }
+            PrincipalId::UserId(user_id) => Ok(fetch_entra_user(user_id, auth_context.as_ref())
+                .await?
+                .into()),
             PrincipalId::GroupId(group_id) => {
-                Ok(fetch_group(self.tenant_id, group_id, auth_context.as_ref())
-                    .await?
-                    .into())
+                Ok(fetch_group(group_id, auth_context.as_ref()).await?.into())
             }
             PrincipalId::ServicePrincipalId(service_principal_id) => Ok(fetch_service_principal(
-                self.tenant_id,
                 service_principal_id,
                 auth_context.as_ref(),
             )
             .await?
             .into()),
             PrincipalId::Unknown(object_id) => {
-                let mut batch = MicrosoftGraphBatchRequest::<RawJson<'static>>::new(
-                    self.tenant_id,
-                    auth_context.as_ref(),
-                );
+                let mut batch =
+                    MicrosoftGraphBatchRequest::<RawJson<'static>>::new(auth_context.as_ref());
                 batch.cache(cache_key);
                 batch.add(crate::MicrosoftGraphBatchRequestEntry::new_get(
                     "user".to_string(),

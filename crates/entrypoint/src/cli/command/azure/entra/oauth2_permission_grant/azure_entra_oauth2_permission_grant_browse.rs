@@ -15,8 +15,8 @@ pub struct AzureEntraOAuth2PermissionGrantBrowseArgs {
 
 impl AzureEntraOAuth2PermissionGrantBrowseArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let chosen =
-            pick_oauth2_permission_grants(self.tenant.resolve().await?, auth_context).await?;
+        let auth_context = self.tenant.bind_auth_context(auth_context).await?;
+        let chosen = pick_oauth2_permission_grants(&auth_context).await?;
         let chosen = chosen
             .into_iter()
             .map(|grant| grant.grant)

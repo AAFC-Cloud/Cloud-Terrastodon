@@ -22,9 +22,9 @@ pub struct AzurePublicIpShowArgs {
 
 impl AzurePublicIpShowArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let tenant_id = self.tenant.resolve().await?;
-        info!(needle = %self.public_ip, %tenant_id, "Fetching Azure public IP addresses");
-        let public_ips = fetch_all_public_ips(tenant_id, auth_context).await?;
+        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
+        info!(needle = %self.public_ip, tenant_id = %tenant_auth_context.tenant_id, "Fetching Azure public IP addresses");
+        let public_ips = fetch_all_public_ips(&tenant_auth_context).await?;
         info!(
             count = public_ips.len(),
             "Fetched Azure public IP addresses"

@@ -56,12 +56,13 @@ pub struct OutageInvestigateArgs {
 
 impl OutageInvestigateArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let tenant_id = self.tenant.resolve().await?;
+        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
+        let tenant_id = tenant_auth_context.tenant_id;
         let target_host = extract_target_host(&self.target)?;
         let dns = resolve_target(&target_host).await?;
 
         info!(%tenant_id, host = %target_host, "Fetching Azure public IP addresses for outage investigation");
-        let public_ips = fetch_all_public_ips(tenant_id, auth_context).await?;
+        let public_ips = fetch_all_public_ips(&tenant_auth_context).await?;
         info!(
             count = public_ips.len(),
             "Fetched Azure public IP addresses"
@@ -351,6 +352,7 @@ async fn enrich_matches_with_backend_resource_discovery(
     mut matches: Vec<OutagePublicIpMatch>,
     auth_context: &AuthContext,
 ) -> Result<Vec<OutagePublicIpMatch>> {
+    let tenant_auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
     let backend_candidates = matches
         .iter()
         .flat_map(|matched_public_ip| {
@@ -369,21 +371,21 @@ async fn enrich_matches_with_backend_resource_discovery(
             count = backend_candidates.len(),
             "Fetching network interfaces for backend probe investigation"
         );
-        fetch_all_network_interfaces(tenant_id, auth_context).await?
+        fetch_all_network_interfaces(&tenant_auth_context).await?
     };
 
     let virtual_networks = if backend_candidates.is_empty() {
         Vec::new()
     } else {
         info!("Fetching virtual networks for backend probe investigation");
-        fetch_all_virtual_networks(tenant_id, auth_context).await?
+        fetch_all_virtual_networks(&tenant_auth_context).await?
     };
 
     let container_instances = if backend_candidates.is_empty() {
         Vec::new()
     } else {
         info!("Fetching container instances for backend probe investigation");
-        fetch_all_container_instances(tenant_id, auth_context).await?
+        fetch_all_container_instances(&tenant_auth_context).await?
     };
 
     let relevant_private_endpoint_ids = backend_candidates
@@ -402,7 +404,7 @@ async fn enrich_matches_with_backend_resource_discovery(
             count = relevant_private_endpoint_ids.len(),
             "Fetching private endpoints for backend probe investigation"
         );
-        fetch_all_private_endpoints(tenant_id, auth_context)
+        fetch_all_private_endpoints(&tenant_auth_context)
             .await?
             .into_iter()
             .filter(|private_endpoint| {

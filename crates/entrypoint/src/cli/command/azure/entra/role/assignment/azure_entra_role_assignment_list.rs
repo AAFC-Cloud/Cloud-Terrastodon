@@ -16,10 +16,9 @@ pub struct AzureEntraRoleAssignmentListArgs {
 
 impl AzureEntraRoleAssignmentListArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let tenant_id = self.tenant.resolve().await?;
-        info!(%tenant_id, "Fetching Entra role assignments");
-        let mut role_assignments =
-            fetch_all_unified_role_assignments(tenant_id, auth_context).await?;
+        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
+        info!(tenant_id = %tenant_auth_context.tenant_id, "Fetching Entra role assignments");
+        let mut role_assignments = fetch_all_unified_role_assignments(&tenant_auth_context).await?;
         role_assignments.sort_unstable_by_key(|assignment| assignment.id.to_string());
 
         let stdout = std::io::stdout();

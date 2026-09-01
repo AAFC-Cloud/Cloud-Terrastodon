@@ -93,8 +93,9 @@ impl TerraformApplyArgs {
         println!("This plan requires: {:#?}", required_roles);
 
         // Identify RBAC roles for the current principal
+        let tenant_auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
         let entra_rbac =
-            fetch_all_unified_role_definitions_and_assignments(tenant_id, auth_context).await?;
+            fetch_all_unified_role_definitions_and_assignments(&tenant_auth_context).await?;
         let current_user = fetch_current_user().await?;
         let current_user_rbac = entra_rbac
             .iter_role_assignments()

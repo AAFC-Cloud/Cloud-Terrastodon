@@ -1,10 +1,10 @@
-use crate::AzureTenantId;
 use crate::BatchRequest;
 use crate::BatchRequestEntry;
 use crate::BatchResponse;
 use crate::invoke_batch_request;
 use cloud_terrastodon_azure_types::ResourceTagsId;
 use cloud_terrastodon_azure_types::Scope;
+use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Result;
 use http::Method;
 use itertools::Itertools;
@@ -46,18 +46,15 @@ impl TagPatchContent {
 }
 
 pub async fn get_tags_for_resources(
-    tenant_id: AzureTenantId,
+    auth_context: &AzureTenantAuthContext,
     resource_ids: Vec<ResourceTagsId>,
 ) -> Result<HashMap<ResourceTagsId, HashMap<String, String>>> {
     let url_tail = "?api-version=2022-09-01";
-    let batch = BatchRequest {
-        requests: resource_ids
-            .into_iter()
-            .map(|id| {
-                BatchRequestEntry::new_get(tenant_id, format!("{}{}", id.expanded_form(), url_tail))
-            })
-            .collect_vec(),
-    };
+    let mut batch = BatchRequest::new(auth_context);
+    batch.requests = resource_ids
+        .into_iter()
+        .map(|id| BatchRequestEntry::new_get(format!("{}{}", id.expanded_form(), url_tail)))
+        .collect_vec();
     let resp = invoke_batch_request::<_, TagContent>(&batch).await?;
     let results = extract_tags_from_response(resp);
     Ok(results)
@@ -65,23 +62,21 @@ pub async fn get_tags_for_resources(
 
 /// You MUST invalidate the cache for the affected resources after calling this function
 pub async fn replace_tags_for_resources(
-    tenant_id: AzureTenantId,
+    auth_context: &AzureTenantAuthContext,
     resource_tags: HashMap<ResourceTagsId, HashMap<String, String>>,
 ) -> Result<HashMap<ResourceTagsId, HashMap<String, String>>> {
     let url_tail = "?api-version=2022-09-01";
-    let batch = BatchRequest {
-        requests: resource_tags
-            .into_iter()
-            .map(|(resource_id, tags)| {
-                BatchRequestEntry::new(
-                    tenant_id,
-                    Method::PATCH,
-                    format!("{}{}", resource_id.expanded_form(), url_tail),
-                    Some(TagPatchContent::new("Replace", tags)),
-                )
-            })
-            .collect_vec(),
-    };
+    let mut batch = BatchRequest::new(auth_context);
+    batch.requests = resource_tags
+        .into_iter()
+        .map(|(resource_id, tags)| {
+            BatchRequestEntry::new(
+                Method::PATCH,
+                format!("{}{}", resource_id.expanded_form(), url_tail),
+                Some(TagPatchContent::new("Replace", tags)),
+            )
+        })
+        .collect_vec();
     let resp = invoke_batch_request(&batch).await?;
     let tags = extract_tags_from_response(resp);
     Ok(tags)
@@ -89,23 +84,21 @@ pub async fn replace_tags_for_resources(
 
 /// You MUST invalidate the cache for the affected resources after calling this function
 pub async fn merge_tags_for_resources(
-    tenant_id: AzureTenantId,
+    auth_context: &AzureTenantAuthContext,
     resource_tags: HashMap<ResourceTagsId, HashMap<String, String>>,
 ) -> Result<HashMap<ResourceTagsId, HashMap<String, String>>> {
     let url_tail = "?api-version=2022-09-01";
-    let batch = BatchRequest {
-        requests: resource_tags
-            .into_iter()
-            .map(|(resource_id, tags)| {
-                BatchRequestEntry::new(
-                    tenant_id,
-                    Method::PATCH,
-                    format!("{}{}", resource_id.expanded_form(), url_tail),
-                    Some(TagPatchContent::new("Merge", tags)),
-                )
-            })
-            .collect_vec(),
-    };
+    let mut batch = BatchRequest::new(auth_context);
+    batch.requests = resource_tags
+        .into_iter()
+        .map(|(resource_id, tags)| {
+            BatchRequestEntry::new(
+                Method::PATCH,
+                format!("{}{}", resource_id.expanded_form(), url_tail),
+                Some(TagPatchContent::new("Merge", tags)),
+            )
+        })
+        .collect_vec();
     let resp = invoke_batch_request(&batch).await?;
     let tags = extract_tags_from_response(resp);
     Ok(tags)
@@ -113,23 +106,21 @@ pub async fn merge_tags_for_resources(
 
 /// You MUST invalidate the cache for the affected resources after calling this function
 pub async fn delete_tags_for_resources(
-    tenant_id: AzureTenantId,
+    auth_context: &AzureTenantAuthContext,
     resource_tags: HashMap<ResourceTagsId, HashMap<String, String>>,
 ) -> Result<HashMap<ResourceTagsId, HashMap<String, String>>> {
     let url_tail = "?api-version=2022-09-01";
-    let batch = BatchRequest {
-        requests: resource_tags
-            .into_iter()
-            .map(|(resource_id, tags)| {
-                BatchRequestEntry::new(
-                    tenant_id,
-                    Method::PATCH,
-                    format!("{}{}", resource_id.expanded_form(), url_tail),
-                    Some(TagPatchContent::new("Delete", tags)),
-                )
-            })
-            .collect_vec(),
-    };
+    let mut batch = BatchRequest::new(auth_context);
+    batch.requests = resource_tags
+        .into_iter()
+        .map(|(resource_id, tags)| {
+            BatchRequestEntry::new(
+                Method::PATCH,
+                format!("{}{}", resource_id.expanded_form(), url_tail),
+                Some(TagPatchContent::new("Delete", tags)),
+            )
+        })
+        .collect_vec();
     let resp = invoke_batch_request(&batch).await?;
     let tags = extract_tags_from_response(resp);
     Ok(tags)
@@ -156,9 +147,10 @@ mod tests {
     #[tokio::test]
     async fn get_tags_test() -> Result<()> {
         let tenant_id = get_test_tenant_id().await?;
-        let resource_groups = fetch_all_resource_groups(tenant_id, &AuthContext::default()).await?;
+        let auth_context = AuthContext::explicit_azure_cli().bind_to_azure_tenant(tenant_id)?;
+        let resource_groups = fetch_all_resource_groups(&auth_context).await?;
         let tags = get_tags_for_resources(
-            tenant_id,
+            &auth_context,
             resource_groups
                 .iter()
                 .take(5)

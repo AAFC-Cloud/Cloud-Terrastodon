@@ -33,7 +33,7 @@ pub struct TerraformShowArgs {
 
 impl TerraformShowArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let tenant_id = self.tenant.resolve().await?;
+        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
         // Determine whether the given file is JSON
         let is_json = self.plan_file.extension().and_then(|s| s.to_str()) == Some("json");
 
@@ -58,6 +58,7 @@ impl TerraformShowArgs {
 
             move || {
                 let cache = cache.clone();
+                let tenant_auth_context = tenant_auth_context.clone();
                 async move {
                     // Fast path: return cached clone if present (no await, no borrow across await)
                     if let Some(cached) = cache.borrow().as_ref().cloned() {
@@ -65,7 +66,7 @@ impl TerraformShowArgs {
                     }
 
                     // Slow path: fetch, store in cache, and return
-                    let fetched = fetch_all_principals(tenant_id, auth_context).await?;
+                    let fetched = fetch_all_principals(&tenant_auth_context).await?;
                     let arc = Arc::new(fetched);
                     *cache.borrow_mut() = Some(arc.clone());
                     eyre::Ok(arc)

@@ -1,5 +1,4 @@
 use crate::ResourceGraphHelper;
-use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::ContainerRegistry;
 use cloud_terrastodon_azure_types::ContainerRegistryId;
 use cloud_terrastodon_azure_types::ContainerRegistryRepositoryName;
@@ -11,7 +10,7 @@ use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Result;
 use std::borrow::Cow;
 use std::path::PathBuf;
@@ -19,16 +18,13 @@ use std::path::PathBuf;
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Debug, Clone, facet::Facet)]
 pub struct ContainerRegistryListRequest<'a> {
-    pub tenant_id: AzureTenantId,
-    pub auth_context: Cow<'a, AuthContext>,
+    pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
 
 pub fn fetch_all_container_registries<'a>(
-    tenant_id: AzureTenantId,
-    auth_context: &'a AuthContext,
+    auth_context: &'a AzureTenantAuthContext,
 ) -> ContainerRegistryListRequest<'a> {
     ContainerRegistryListRequest {
-        tenant_id,
         auth_context: Cow::Borrowed(auth_context),
     }
 }
@@ -36,8 +32,7 @@ pub fn fetch_all_container_registries<'a>(
 impl<'a> arbitrary::Arbitrary<'a> for ContainerRegistryListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
-            tenant_id: arbitrary::Arbitrary::arbitrary(u)?,
-            auth_context: Cow::Owned(AuthContext::default()),
+            auth_context: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
         })
     }
 }
@@ -51,13 +46,12 @@ impl<'a> CacheableCommand for ContainerRegistryListRequest<'a> {
             "az",
             "resource_graph",
             "container_registries",
-            self.tenant_id.to_string().as_str(),
+            self.auth_context.tenant_id.to_string().as_str(),
         ]))
     }
 
     async fn run(self) -> Result<Self::Output> {
         let mut query = ResourceGraphHelper::new(
-            self.tenant_id,
             r#"
 Resources
 | where type =~ "Microsoft.ContainerRegistry/registries"
@@ -133,9 +127,10 @@ mod test {
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        let found =
-            fetch_all_container_registries(get_test_tenant_id().await?, &AuthContext::default())
-                .await?;
+        let found = fetch_all_container_registries(
+            &AuthContext::explicit_azure_cli().bind_to_azure_tenant(get_test_tenant_id().await?)?,
+        )
+        .await?;
         assert!(!found.is_empty());
         for registry in found.into_iter() {
             registry.name.validate_slug()?;
@@ -148,7 +143,8 @@ mod test {
     pub async fn it_works2() -> eyre::Result<()> {
         let tenant_id = get_test_tenant_id().await?;
         let mut pass = false;
-        let found = fetch_all_container_registries(tenant_id, &AuthContext::default()).await?;
+        let auth_context = AuthContext::explicit_azure_cli().bind_to_azure_tenant(tenant_id)?;
+        let found = fetch_all_container_registries(&auth_context).await?;
         let found_count = found.len();
         for (i, container_registry) in found.into_iter().enumerate() {
             let repository_names =

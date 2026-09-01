@@ -1,8 +1,7 @@
-use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure::ResourceGraphHelper;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
-use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_pathing::AppDir;
 use cloud_terrastodon_pathing::Existy;
 use cloud_terrastodon_user_input::PickerTui;
@@ -10,10 +9,7 @@ use facet_json::RawJson;
 use tracing::debug;
 use tracing::info;
 
-pub async fn run_query_menu(
-    tenant_id: AzureTenantId,
-    auth_context: &AuthContext,
-) -> eyre::Result<()> {
+pub async fn run_query_menu(auth_context: &AzureTenantAuthContext) -> eyre::Result<()> {
     let mut query = r#"
 resources 
 | union resourcecontainers
@@ -51,7 +47,7 @@ resources
 
         info!("Running query");
         let rows: Vec<RawJson<'static>> =
-            ResourceGraphHelper::new(tenant_id, query.clone(), None, auth_context)
+            ResourceGraphHelper::new(query.clone(), None, auth_context)
                 .collect_all()
                 .await?;
         let rows_json = cloud_terrastodon_command::to_string_pretty(&rows)?;

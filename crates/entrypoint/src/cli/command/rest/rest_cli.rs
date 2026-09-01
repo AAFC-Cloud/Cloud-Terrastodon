@@ -14,9 +14,6 @@ use eyre::Context;
 use eyre::ContextCompat;
 use eyre::Result;
 use reqwest::Url;
-use std::future::Future;
-use std::future::IntoFuture;
-use std::pin::Pin;
 
 #[derive(facet::Facet, Debug, Clone, Copy, PartialEq, Eq, Default)]
 #[repr(u8)]
@@ -83,30 +80,29 @@ impl<'a> Arbitrary<'a> for RestArgs {
     }
 }
 impl RestArgs {
-    pub async fn invoke(self) -> Result<SerializableRestResponse> {
-        let auth_context = AuthContext::resolve(cloud_terrastodon_credentials::AuthSource::Auto)?;
-        self.invoke_with_auth_context(&auth_context).await
-    }
-
-    pub async fn invoke_with_auth_context(
-        self,
-        auth_context: &AuthContext,
-    ) -> Result<SerializableRestResponse> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<SerializableRestResponse> {
         let url = Url::parse(&self.url).with_context(|| format!("parsing URL '{}'", self.url))?;
         let service = RestService::infer(&url).wrap_err_with(|| {
             format!("unsupported REST host '{}'", url.host_str().unwrap_or(""))
         })?;
         let tenant_inference_url = url.clone();
-        let tenant = match self.tenant {
+        let requested_tenant = match self.tenant {
             Some(tenant) => Some(tenant.resolve().await?),
+            None => None,
+        };
+        let tenant = match requested_tenant.or(auth_context.tenant_id()) {
+            Some(tenant) => Some(tenant),
             None => {
                 infer_tenant_id_for_request(service, &url, |subscription_id| async move {
-                    subscription_id.resolve_tenant_id().await.with_context(|| {
+                    subscription_id
+                        .resolve_tenant_id(auth_context)
+                        .await
+                        .with_context(|| {
                         format!(
                             "Failed to infer tracked tenant for subscription '{}' from '{}'. If the Azure CLI default tenant is intended, specify '--tenant default'.",
                             subscription_id, tenant_inference_url
                         )
-                    })
+                        })
                 })
                 .await?
             }
@@ -121,20 +117,12 @@ impl RestArgs {
         request.receive_raw().await
     }
 
-    pub async fn invoke_and_print(self) -> Result<()> {
-        let auth_context = AuthContext::resolve(cloud_terrastodon_credentials::AuthSource::Auto)?;
-        self.invoke_and_print_with_auth_context(&auth_context).await
-    }
-
-    pub async fn invoke_and_print_with_auth_context(
-        self,
-        auth_context: &AuthContext,
-    ) -> Result<()> {
+    pub async fn invoke_and_print(self, auth_context: &AuthContext) -> Result<()> {
         let output_format = match self.output_format {
             RestOutputFormat::Text => cloud_terrastodon_rest::RestOutputFormat::Text,
             RestOutputFormat::Json => cloud_terrastodon_rest::RestOutputFormat::Json,
         };
-        let response = self.invoke_with_auth_context(auth_context).await?;
+        let response = self.invoke(auth_context).await?;
         response.write(output_format, std::io::stdout())
     }
 }
@@ -218,17 +206,7 @@ mod test {
     }
 }
 
-impl IntoFuture for RestArgs {
-    type Output = Result<SerializableRestResponse>;
-    type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + Send>>;
-
-    fn into_future(self) -> Self::IntoFuture {
-        Box::pin(self.invoke())
-    }
-}
-
 cloud_terrastodon_registry::register_thing!(RestOutputFormat);
 cloud_terrastodon_registry::register_arbitrary!(RestOutputFormat);
 cloud_terrastodon_registry::register_thing!(RestArgs);
 cloud_terrastodon_registry::register_arbitrary!(RestArgs);
-cloud_terrastodon_registry::register_into_future!(RestArgs => SerializableRestResponse, effects = [Read]);

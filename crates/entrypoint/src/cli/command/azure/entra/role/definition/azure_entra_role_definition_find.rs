@@ -23,14 +23,13 @@ pub struct AzureEntraRoleDefinitionFindArgs {
 
 impl AzureEntraRoleDefinitionFindArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let tenant_id = self.tenant.resolve().await?;
+        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
         info!(
-            %tenant_id,
+            tenant_id = %tenant_auth_context.tenant_id,
             action = %self.action,
             "Fetching Entra role definitions and role assignments"
         );
-        let rbac =
-            fetch_all_unified_role_definitions_and_assignments(tenant_id, auth_context).await?;
+        let rbac = fetch_all_unified_role_definitions_and_assignments(&tenant_auth_context).await?;
 
         let fallback_chain = build_fallback_chain(&self.action);
         let literal_match_counts = fallback_chain
@@ -95,7 +94,7 @@ impl AzureEntraRoleDefinitionFindArgs {
         };
 
         info!(
-            %tenant_id,
+            tenant_id = %tenant_auth_context.tenant_id,
             action = %self.action,
             definition_matches = output.role_definition_matches.len(),
             assignment_matches = output.role_assignment_matches.len(),

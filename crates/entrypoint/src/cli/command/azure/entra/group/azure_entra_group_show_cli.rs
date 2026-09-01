@@ -88,9 +88,9 @@ impl AzureEntraGroupShowArgs {
             bail!("At least one group ID must be provided.");
         }
 
-        let tenant_id = self.tenant.resolve().await?;
-        info!(count = ids.len(), %tenant_id, "Fetching Entra groups");
-        let groups = fetch_groups_by_id(tenant_id, ids.clone(), auth_context).await?;
+        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
+        info!(count = ids.len(), tenant_id = %tenant_auth_context.tenant_id, "Fetching Entra groups");
+        let groups = fetch_groups_by_id(ids.clone(), &tenant_auth_context).await?;
 
         // Map by id for fast lookup
         let mut map: HashMap<EntraGroupId, EntraGroup> =
@@ -124,27 +124,26 @@ impl AzureEntraGroupShowArgs {
             ParallelFallibleWorkQueue::new("group members, owners, and role assignments", 8);
         for group in &chosen_groups {
             let group_id = group.id;
-            let members_auth_context = auth_context.clone();
+            let members_auth_context = tenant_auth_context.clone();
             work.enqueue(async move {
-                let members =
-                    fetch_group_members(tenant_id, group_id, &members_auth_context).await?;
+                let members = fetch_group_members(group_id, &members_auth_context).await?;
                 eyre::Ok(Resp::Members {
                     group_id,
                     principals: members,
                 })
             });
-            let owners_auth_context = auth_context.clone();
+            let owners_auth_context = tenant_auth_context.clone();
             work.enqueue(async move {
-                let owners = fetch_group_owners(tenant_id, group_id, &owners_auth_context).await?;
+                let owners = fetch_group_owners(group_id, &owners_auth_context).await?;
                 eyre::Ok(Resp::Owners {
                     group_id,
                     principals: owners,
                 })
             });
         }
-        let auth_context = auth_context.clone();
+        let auth_context = tenant_auth_context;
         work.enqueue(async move {
-            let rbac = fetch_all_role_definitions_and_assignments(tenant_id, &auth_context).await?;
+            let rbac = fetch_all_role_definitions_and_assignments(&auth_context).await?;
             eyre::Ok(Resp::Rbac(rbac))
         });
         let work_results = work.join().await?;

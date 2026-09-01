@@ -47,12 +47,12 @@ struct RoleAssignmentCreateResult {
 impl AzureRoleAssignmentCreateArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         info!("Preparing to create role assignment");
-        let tenant_id = self.tenant.resolve().await?;
+        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
 
         // Resolve role definitions
         let role_defs = if let Some(role_arg) = self.role_definition {
             // If caller provided an argument, fetch list to resolve names if needed
-            let all = fetch_all_role_definitions(tenant_id, auth_context).await?;
+            let all = fetch_all_role_definitions(&tenant_auth_context).await?;
             let matched: Vec<_> = all.into_iter().filter(|r| role_arg.matches(r)).collect();
             if matched.is_empty() {
                 eyre::bail!("No role definitions matched '{role_arg}'");
@@ -60,7 +60,7 @@ impl AzureRoleAssignmentCreateArgs {
             matched
         } else {
             info!("Fetching role definitions for interactive pick");
-            let all = fetch_all_role_definitions(tenant_id, auth_context).await?;
+            let all = fetch_all_role_definitions(&tenant_auth_context).await?;
             PickerTui::<_>::new()
                 .set_header("Roles to assign")
                 .pick_many(all.into_iter().map(|r| Choice {
@@ -72,7 +72,7 @@ impl AzureRoleAssignmentCreateArgs {
 
         // Resolve principals
         let principals = if let Some(principal_arg) = self.principal {
-            let fetched = fetch_all_principals(tenant_id, auth_context).await?;
+            let fetched = fetch_all_principals(&tenant_auth_context).await?;
             let matched: Vec<_> = fetched
                 .0
                 .into_values()
@@ -84,7 +84,7 @@ impl AzureRoleAssignmentCreateArgs {
             matched
         } else {
             info!("Fetching principals for interactive pick");
-            let fetched = fetch_all_principals(tenant_id, auth_context).await?;
+            let fetched = fetch_all_principals(&tenant_auth_context).await?;
             PickerTui::<_>::new()
                 .set_header("Principals to assign")
                 .pick_many(fetched.values().map(|u| Choice {
@@ -99,7 +99,7 @@ impl AzureRoleAssignmentCreateArgs {
             vec![scope]
         } else {
             info!("Fetching resources for interactive pick");
-            let resources = fetch_all_resources(tenant_id, auth_context).await?;
+            let resources = fetch_all_resources(&tenant_auth_context).await?;
             PickerTui::<_>::new()
                 .set_header(format!(
                     "Assigning {} to {}",

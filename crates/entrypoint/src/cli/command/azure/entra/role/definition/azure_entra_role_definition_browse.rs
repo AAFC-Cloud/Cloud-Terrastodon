@@ -19,20 +19,18 @@ pub struct AzureEntraRoleDefinitionBrowseArgs {
 
 impl AzureEntraRoleDefinitionBrowseArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let tenant_id = self.tenant.resolve().await?;
-        let auth_context = auth_context.clone();
+        let auth_context = self.tenant.bind_auth_context(auth_context).await?;
         let chosen = PickerTui::<_>::new()
             .set_header("Entra role definitions")
             .pick_many_reloadable(move |invalidate| {
                 let auth_context = auth_context.clone();
                 async move {
-                    info!(%tenant_id, "Fetching Entra role definitions");
-                    let mut role_definitions =
-                        fetch_all_entra_role_definitions(tenant_id, &auth_context)
-                            .with_invalidation(invalidate)
-                            .await?
-                            .into_iter()
-                            .collect::<Vec<_>>();
+                    info!(tenant_id = %auth_context.tenant_id, "Fetching Entra role definitions");
+                    let mut role_definitions = fetch_all_entra_role_definitions(&auth_context)
+                        .with_invalidation(invalidate)
+                        .await?
+                        .into_iter()
+                        .collect::<Vec<_>>();
                     role_definitions.sort_unstable_by(|left, right| {
                         left.display_name.cmp(&right.display_name).then_with(|| {
                             left.template_id

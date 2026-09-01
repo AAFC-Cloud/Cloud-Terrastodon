@@ -1,4 +1,3 @@
-use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure::ResourceGroupScoped;
 use cloud_terrastodon_azure::RoleAssignmentId;
 use cloud_terrastodon_azure::Scope;
@@ -8,7 +7,7 @@ use cloud_terrastodon_azure::fetch_all_security_groups;
 use cloud_terrastodon_azure::fetch_all_subscriptions;
 use cloud_terrastodon_azure::get_resource_group_choices;
 use cloud_terrastodon_azure::uuid::Uuid;
-use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_hcl::HclImportBlock;
 use cloud_terrastodon_hcl::HclProviderBlock;
 use cloud_terrastodon_hcl::HclProviderReference;
@@ -26,8 +25,7 @@ use tokio::join;
 use tracing::info;
 
 pub async fn resource_group_import_wizard_menu(
-    tenant_id: AzureTenantId,
-    auth_context: &AuthContext,
+    auth_context: &AzureTenantAuthContext,
 ) -> Result<()> {
     info!("Confirming remove existing imports");
     let start_from_scratch = "start from scratch";
@@ -56,13 +54,13 @@ pub async fn resource_group_import_wizard_menu(
         // users,
         resource_group_choices,
     ) = join!(
-        fetch_all_subscriptions(tenant_id, auth_context),
+        fetch_all_subscriptions(auth_context),
         // fetch_all_resource_groups(tenant_id),
-        fetch_all_role_assignments(tenant_id, auth_context),
+        fetch_all_role_assignments(auth_context),
         // fetch_all_role_definitions(),
-        fetch_all_security_groups(tenant_id, auth_context),
+        fetch_all_security_groups(auth_context),
         // fetch_all_users(),
-        get_resource_group_choices(tenant_id, auth_context),
+        get_resource_group_choices(auth_context),
     );
     let subscriptions = subscriptions?
         .into_iter()

@@ -1,4 +1,3 @@
-use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure::Principal;
 use cloud_terrastodon_azure::PrincipalCollection;
 use cloud_terrastodon_azure::RoleAssignment;
@@ -11,7 +10,7 @@ use cloud_terrastodon_azure::fetch_all_role_definitions_and_assignments;
 use cloud_terrastodon_command::app_work::AppWorkState;
 use cloud_terrastodon_command::app_work::Loadable;
 use cloud_terrastodon_command::app_work::LoadableWorkBuilder;
-use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Result;
 use ratatui::crossterm::event;
 use ratatui::crossterm::event::Event;
@@ -61,8 +60,7 @@ impl fmt::Debug for RoleAssignmentPickerAppResult {
 
 /// Entrypoint for the interactive role assignment picker.
 pub struct RoleAssignmentPickerApp {
-    tenant_id: AzureTenantId,
-    auth_context: AuthContext,
+    auth_context: AzureTenantAuthContext,
     data: AppData,
     work: AppWorkState<AppData>,
     ui: UiState,
@@ -71,9 +69,8 @@ pub struct RoleAssignmentPickerApp {
 
 impl RoleAssignmentPickerApp {
     /// Creates a new app instance.
-    pub fn new(tenant_id: AzureTenantId, auth_context: &AuthContext) -> Self {
+    pub fn new(auth_context: &AzureTenantAuthContext) -> Self {
         Self {
-            tenant_id,
             auth_context: auth_context.clone(),
             data: AppData::default(),
             work: AppWorkState::new(),
@@ -84,7 +81,7 @@ impl RoleAssignmentPickerApp {
 
     /// Runs the interactive picker. Returns the user's selection or cancellation.
     pub async fn run(mut self) -> Result<RoleAssignmentPickerAppResult> {
-        self.enqueue_initial_work(self.tenant_id)?;
+        self.enqueue_initial_work()?;
 
         let mut terminal = ratatui::init();
         terminal.clear()?;
@@ -119,7 +116,7 @@ impl RoleAssignmentPickerApp {
         Ok(result)
     }
 
-    fn enqueue_initial_work(&mut self, tenant_id: AzureTenantId) -> Result<()> {
+    fn enqueue_initial_work(&mut self) -> Result<()> {
         let role_auth_context = self.auth_context.clone();
         let role_work = LoadableWorkBuilder::<AppData, RoleDefinitionsHolder>::new()
             .description("fetch_all_role_definitions_and_assignments")
@@ -128,9 +125,7 @@ impl RoleAssignmentPickerApp {
                 state.changed = true;
             })
             .work(async move {
-                let data =
-                    fetch_all_role_definitions_and_assignments(tenant_id, &role_auth_context)
-                        .await?;
+                let data = fetch_all_role_definitions_and_assignments(&role_auth_context).await?;
                 Ok(RoleDefinitionsHolder(data))
             })
             .build()?;
@@ -144,7 +139,7 @@ impl RoleAssignmentPickerApp {
                 state.changed = true;
             })
             .work(async move {
-                let data = fetch_all_principals(tenant_id, &principals_auth_context).await?;
+                let data = fetch_all_principals(&principals_auth_context).await?;
                 Ok(PrincipalCollectionHolder(data))
             })
             .build()?;
@@ -587,8 +582,9 @@ mod test {
     #[ignore = "manual entrypoint"]
     async fn manual_pick() -> eyre::Result<()> {
         color_eyre::install()?;
-        let auth_context = AuthContext::default();
-        let app = RoleAssignmentPickerApp::new(get_test_tenant_id().await?, &auth_context);
+        let auth_context = AuthContext::explicit_azure_cli();
+        let auth_context = auth_context.bind_to_azure_tenant(get_test_tenant_id().await?)?;
+        let app = RoleAssignmentPickerApp::new(&auth_context);
         let _result: RoleAssignmentPickerAppResult = app.run().await?;
         Ok(())
     }

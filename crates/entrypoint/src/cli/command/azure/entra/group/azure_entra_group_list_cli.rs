@@ -22,15 +22,15 @@ pub struct AzureEntraGroupListArgs {
 
 impl AzureEntraGroupListArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let tenant_id = self.tenant.resolve().await?;
+        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
         let groups = match self.for_member {
             Some(principal_id) => {
-                info!(%tenant_id, %principal_id, "Fetching Entra groups for principal");
-                fetch_entra_groups_for_member(tenant_id, principal_id, auth_context).await?
+                info!(tenant_id = %tenant_auth_context.tenant_id, %principal_id, "Fetching Entra groups for principal");
+                fetch_entra_groups_for_member(principal_id, &tenant_auth_context).await?
             }
             None => {
-                info!(%tenant_id, "Fetching Entra groups");
-                fetch_all_groups(tenant_id, auth_context).await?
+                info!(tenant_id = %tenant_auth_context.tenant_id, "Fetching Entra groups");
+                fetch_all_groups(&tenant_auth_context).await?
             }
         };
 

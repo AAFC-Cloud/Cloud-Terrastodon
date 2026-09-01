@@ -119,7 +119,7 @@ mod test {
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let org_url = get_default_organization_url().await?;
-        let auth_context = AuthContext::default();
+        let auth_context = AuthContext::explicit_azure_cli();
         let azure_devops_auth_context = AzureDevOpsAuthContext::new(&auth_context)?;
         let entitlements =
             fetch_azure_devops_user_license_entitlements(&org_url, &azure_devops_auth_context)

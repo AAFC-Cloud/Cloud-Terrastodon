@@ -1,5 +1,4 @@
 use crate::ResourceGraphHelper;
-use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::KeyVault;
 use cloud_terrastodon_azure_types::KeyVaultName;
 use cloud_terrastodon_command::CacheKey;
@@ -7,7 +6,7 @@ use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Result;
 use std::borrow::Cow;
 use std::path::PathBuf;
@@ -15,16 +14,13 @@ use std::path::PathBuf;
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Debug, Clone, facet::Facet)]
 pub struct KeyVaultListRequest<'a> {
-    pub tenant_id: AzureTenantId,
-    pub auth_context: Cow<'a, AuthContext>,
+    pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
 
 pub fn fetch_all_key_vaults<'a>(
-    tenant_id: AzureTenantId,
-    auth_context: &'a AuthContext,
+    auth_context: &'a AzureTenantAuthContext,
 ) -> KeyVaultListRequest<'a> {
     KeyVaultListRequest {
-        tenant_id,
         auth_context: Cow::Borrowed(auth_context),
     }
 }
@@ -32,8 +28,7 @@ pub fn fetch_all_key_vaults<'a>(
 impl<'a> arbitrary::Arbitrary<'a> for KeyVaultListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
-            tenant_id: arbitrary::Arbitrary::arbitrary(u)?,
-            auth_context: Cow::Owned(AuthContext::default()),
+            auth_context: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
         })
     }
 }
@@ -47,13 +42,12 @@ impl<'a> CacheableCommand for KeyVaultListRequest<'a> {
             "az",
             "resource_graph",
             "key_vaults",
-            self.tenant_id.to_string().as_str(),
+            self.auth_context.tenant_id.to_string().as_str(),
         ]))
     }
 
     async fn run(self) -> Result<Self::Output> {
         let mut query = ResourceGraphHelper::new(
-            self.tenant_id,
             r#"
 resources
 | where type =~ "microsoft.keyvault/vaults"
@@ -92,8 +86,10 @@ mod test {
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        let key_vaults =
-            fetch_all_key_vaults(get_test_tenant_id().await?, &AuthContext::default()).await?;
+        let key_vaults = fetch_all_key_vaults(
+            &AuthContext::explicit_azure_cli().bind_to_azure_tenant(get_test_tenant_id().await?)?,
+        )
+        .await?;
         assert!(!key_vaults.is_empty());
         Ok(())
     }

@@ -18,7 +18,8 @@ pub async fn fetch_cost_query_results(
     query: &CostManagementQueryDefinition,
     auth_context: &AuthContext,
 ) -> eyre::Result<CostManagementQueryResult> {
-    let root = fetch_root_management_group(tenant_id, auth_context).await?;
+    let tenant_auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
+    let root = fetch_root_management_group(&tenant_auth_context).await?;
     let url = format!(
         "https://management.azure.com/providers/Microsoft.Management/managementGroups/{}/providers/Microsoft.CostManagement/query?api-version=2021-10-01",
         root.tenant_id
@@ -151,9 +152,12 @@ mod tests {
     #[tokio::test]
     async fn it_works1() -> eyre::Result<()> {
         let query = CostManagementQueryDefinition::new_cost_total_this_month();
-        let resp =
-            fetch_cost_query_results(get_test_tenant_id().await?, &query, &AuthContext::default())
-                .await?;
+        let resp = fetch_cost_query_results(
+            get_test_tenant_id().await?,
+            &query,
+            &AuthContext::explicit_azure_cli(),
+        )
+        .await?;
         assert_eq!(resp.properties.next_link, None);
         assert!(!resp.properties.columns.is_empty());
         Ok(())
@@ -161,9 +165,12 @@ mod tests {
     #[tokio::test]
     async fn it_works2() -> eyre::Result<()> {
         let query = CostManagementQueryDefinition::new_cost_by_day_this_month();
-        let resp =
-            fetch_cost_query_results(get_test_tenant_id().await?, &query, &AuthContext::default())
-                .await?;
+        let resp = fetch_cost_query_results(
+            get_test_tenant_id().await?,
+            &query,
+            &AuthContext::explicit_azure_cli(),
+        )
+        .await?;
         assert_eq!(resp.properties.next_link, None);
         assert!(!resp.properties.columns.is_empty());
         Ok(())
@@ -171,9 +178,12 @@ mod tests {
     #[tokio::test]
     async fn it_works3() -> eyre::Result<()> {
         let query = CostManagementQueryDefinition::new_cost_by_resource_group_this_month();
-        let resp =
-            fetch_cost_query_results(get_test_tenant_id().await?, &query, &AuthContext::default())
-                .await?;
+        let resp = fetch_cost_query_results(
+            get_test_tenant_id().await?,
+            &query,
+            &AuthContext::explicit_azure_cli(),
+        )
+        .await?;
         assert_eq!(resp.properties.next_link, None);
         assert!(!resp.properties.columns.is_empty());
         Ok(())

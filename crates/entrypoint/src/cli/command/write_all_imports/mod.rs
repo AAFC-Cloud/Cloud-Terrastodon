@@ -16,10 +16,10 @@ pub struct WriteAllImportsArgs {
 
 impl WriteAllImportsArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let tenant_id = self.tenant.resolve().await?;
-        write_imports_for_all_resource_groups(tenant_id, auth_context).await?;
-        write_imports_for_all_security_groups(tenant_id, auth_context).await?;
-        write_imports_for_all_role_assignments(tenant_id, auth_context).await?;
+        let auth_context = self.tenant.bind_auth_context(auth_context).await?;
+        write_imports_for_all_resource_groups(&auth_context).await?;
+        write_imports_for_all_security_groups(&auth_context).await?;
+        write_imports_for_all_role_assignments(&auth_context).await?;
         Ok(())
     }
 }

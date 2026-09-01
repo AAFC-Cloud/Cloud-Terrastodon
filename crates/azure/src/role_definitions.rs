@@ -1,10 +1,9 @@
 use crate::ResourceGraphHelper;
-use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::RoleDefinition;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Result;
 use std::borrow::Cow;
 use std::path::PathBuf;
@@ -16,25 +15,21 @@ use tracing::debug;
 #[must_use = "This is a future request, you must .await it"]
 #[derive(facet::Facet)]
 pub struct RoleDefinitionListRequest<'a> {
-    pub tenant_id: AzureTenantId,
-    pub auth_context: Cow<'a, AuthContext>,
+    pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
 
 impl<'a> arbitrary::Arbitrary<'a> for RoleDefinitionListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
-            tenant_id: arbitrary::Arbitrary::arbitrary(u)?,
-            auth_context: Cow::Owned(AuthContext::default()),
+            auth_context: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
         })
     }
 }
 
 pub fn fetch_all_role_definitions<'a>(
-    tenant_id: AzureTenantId,
-    auth_context: &'a AuthContext,
+    auth_context: &'a AzureTenantAuthContext,
 ) -> RoleDefinitionListRequest<'a> {
     RoleDefinitionListRequest {
-        tenant_id,
         auth_context: Cow::Borrowed(auth_context),
     }
 }
@@ -48,14 +43,13 @@ impl<'a> CacheableCommand for RoleDefinitionListRequest<'a> {
             "az",
             "resource_graph",
             "role-definitions",
-            self.tenant_id.to_string().as_str(),
+            self.auth_context.tenant_id.to_string().as_str(),
         ]))
     }
 
     async fn run(self) -> Result<Self::Output> {
         debug!("Fetching role definitions");
         let helper = ResourceGraphHelper::new(
-            self.tenant_id,
             r#"authorizationresources
 | where type =~ "microsoft.authorization/roledefinitions"
 | project id, properties
@@ -84,22 +78,23 @@ mod tests {
     use crate::get_test_tenant_id;
     use cloud_terrastodon_azure_types::RolePermissionAction;
     use cloud_terrastodon_azure_types::Scope;
+    use cloud_terrastodon_credentials::AuthContext;
     use eyre::ContextCompat;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
-        let auth_context = AuthContext::default();
-        let results =
-            fetch_all_role_definitions(get_test_tenant_id().await?, &auth_context).await?;
+        let auth_context = AuthContext::explicit_azure_cli();
+        let auth_context = auth_context.bind_to_azure_tenant(get_test_tenant_id().await?)?;
+        let results = fetch_all_role_definitions(&auth_context).await?;
         assert!(!results.is_empty());
         Ok(())
     }
 
     #[tokio::test]
     async fn key_vaults() -> Result<()> {
-        let auth_context = AuthContext::default();
-        let role_definitions =
-            fetch_all_role_definitions(get_test_tenant_id().await?, &auth_context).await?;
+        let auth_context = AuthContext::explicit_azure_cli();
+        let auth_context = auth_context.bind_to_azure_tenant(get_test_tenant_id().await?)?;
+        let role_definitions = fetch_all_role_definitions(&auth_context).await?;
         let key_vault_secrets_officer_id = "b86a8fe4-44ce-4948-aee5-eccb2c155cd7";
         let key_vault_secrets_officer = role_definitions
             .iter()

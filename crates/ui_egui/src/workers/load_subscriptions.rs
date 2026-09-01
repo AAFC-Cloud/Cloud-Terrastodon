@@ -13,7 +13,8 @@ pub fn load_subscriptions(app: &mut MyApp) {
         .description("Loading Subscriptions")
         .setter(|app, data| app.subscriptions = data.map(Rc::new))
         .work(async move {
-            let subs = fetch_all_subscriptions(tenant_id, &auth_context).await?;
+            let auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
+            let subs = fetch_all_subscriptions(&auth_context).await?;
             Ok(subs)
         })
         .build()

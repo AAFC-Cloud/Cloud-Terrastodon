@@ -48,7 +48,8 @@ impl AzureEntraOAuth2PermissionGrantUpdateArgs {
             eyre::bail!("--id cannot be used with --preset or --principal");
         }
 
-        let tenant_id = self.tenant.resolve().await?;
+        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
+        let tenant_id = tenant_auth_context.tenant_id;
         let add_scope = split_scope_csv(&self.add_scope);
         let remove_scope = split_scope_csv(&self.remove_scope);
         if add_scope.is_empty() && remove_scope.is_empty() {
@@ -68,7 +69,7 @@ impl AzureEntraOAuth2PermissionGrantUpdateArgs {
                 let principal = self
                     .principal
                     .wrap_err("--principal is required when using --preset")?;
-                let principals = fetch_all_principals(tenant_id, auth_context).await?;
+                let principals = fetch_all_principals(&tenant_auth_context).await?;
                 let principal = principal.resolve(&principals).wrap_err_with(|| {
                     format!(
                         "Could not resolve principal '{}' in tenant {tenant_id}",
@@ -113,7 +114,7 @@ impl AzureEntraOAuth2PermissionGrantUpdateArgs {
                 id: cloud_terrastodon_azure::OAuth2PermissionGrantId,
             }
 
-            remove_oauth2_permission_grant(tenant_id, grant.id.clone()).await?;
+            remove_oauth2_permission_grant(&tenant_auth_context, grant.id.clone()).await?;
             cloud_terrastodon_command::to_writer_pretty(
                 &mut handle,
                 &DeletedResponse {

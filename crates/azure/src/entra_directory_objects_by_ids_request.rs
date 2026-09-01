@@ -2,13 +2,12 @@ use crate::EntraDirectoryObject;
 use crate::MicrosoftGraphBatchRequest;
 use crate::MicrosoftGraphBatchRequestEntry;
 use crate::MicrosoftGraphResponse;
-use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::EntraDirectoryObjectType;
 use cloud_terrastodon_azure_types::uuid::Uuid;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Result;
 use facet::Facet;
 use http::Method;
@@ -24,28 +23,24 @@ const DIRECTORY_OBJECTS_BY_IDS_URL: &str =
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Debug, Facet)]
 pub struct EntraDirectoryObjectsByIdsRequest<'a> {
-    pub tenant_id: AzureTenantId,
     pub ids: Vec<Uuid>,
-    pub auth_context: Cow<'a, AuthContext>,
+    pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
 
 impl<'a> arbitrary::Arbitrary<'a> for EntraDirectoryObjectsByIdsRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
-            tenant_id: arbitrary::Arbitrary::arbitrary(u)?,
             ids: arbitrary::Arbitrary::arbitrary(u)?,
-            auth_context: Cow::Owned(AuthContext::default()),
+            auth_context: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
         })
     }
 }
 
 pub fn fetch_entra_directory_objects_by_ids<'a>(
-    tenant_id: AzureTenantId,
     ids: impl IntoIterator<Item = Uuid>,
-    auth_context: &'a AuthContext,
+    auth_context: &'a AzureTenantAuthContext,
 ) -> EntraDirectoryObjectsByIdsRequest<'a> {
     EntraDirectoryObjectsByIdsRequest {
-        tenant_id,
         ids: ids.into_iter().collect(),
         auth_context: Cow::Borrowed(auth_context),
     }
@@ -78,7 +73,7 @@ impl EntraDirectoryObjectsByIdsRequest<'_> {
             "POST",
             "directoryObjects",
             "getByIds",
-            self.tenant_id.to_string().as_str(),
+            self.auth_context.tenant_id.to_string().as_str(),
             ids_hash.as_str(),
         ]))
     }
@@ -105,20 +100,19 @@ impl CacheableCommand for EntraDirectoryObjectsByIdsRequest<'_> {
     async fn run(self) -> Result<Self::Output> {
         let ids = self.normalized_ids();
         if ids.is_empty() {
-            debug!(tenant_id = %self.tenant_id, "Skipping empty Entra directory object lookup");
+            debug!(tenant_id = %self.auth_context.tenant_id, "Skipping empty Entra directory object lookup");
             return Ok(Vec::new());
         }
 
         let cache_key = self.cache_key();
         let mut batch = MicrosoftGraphBatchRequest::<EntraDirectoryObjectsByIdsRequestBody>::new(
-            self.tenant_id,
             self.auth_context.as_ref(),
         );
         batch.cache(cache_key);
 
         for (chunk_index, ids) in ids.chunks(MAX_DIRECTORY_OBJECT_IDS).enumerate() {
             debug!(
-                tenant_id = %self.tenant_id,
+                tenant_id = %self.auth_context.tenant_id,
                 chunk_index,
                 count = ids.len(),
                 "Queueing Entra directory objects by object id lookup"
@@ -144,7 +138,7 @@ impl CacheableCommand for EntraDirectoryObjectsByIdsRequest<'_> {
             objects.extend(response.into_body()?.value);
         }
 
-        debug!(tenant_id = %self.tenant_id, count = objects.len(), "Found Entra directory objects");
+        debug!(tenant_id = %self.auth_context.tenant_id, count = objects.len(), "Found Entra directory objects");
         Ok(objects)
     }
 }
@@ -157,22 +151,20 @@ cloud_terrastodon_registry::register_into_future!(EntraDirectoryObjectsByIdsRequ
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cloud_terrastodon_azure_types::AzureTenantId;
+    use cloud_terrastodon_credentials::AuthContext;
 
     #[test]
     fn normalizes_ids_for_stable_lookup_and_cache_keys() {
-        let auth_context = AuthContext::default();
+        let auth_context = AuthContext::explicit_azure_cli();
+        let auth_context = auth_context
+            .bind_to_azure_tenant(AzureTenantId::new(Uuid::nil()))
+            .expect("default auth context should bind to a tenant");
         let first_id = Uuid::from_u128(1);
         let second_id = Uuid::from_u128(2);
-        let first = fetch_entra_directory_objects_by_ids(
-            AzureTenantId::new(Uuid::nil()),
-            [first_id, second_id, first_id],
-            &auth_context,
-        );
-        let second = fetch_entra_directory_objects_by_ids(
-            AzureTenantId::new(Uuid::nil()),
-            [second_id, first_id],
-            &auth_context,
-        );
+        let first =
+            fetch_entra_directory_objects_by_ids([first_id, second_id, first_id], &auth_context);
+        let second = fetch_entra_directory_objects_by_ids([second_id, first_id], &auth_context);
 
         assert_eq!(first.normalized_ids(), vec![first_id, second_id]);
         assert_eq!(first.cache_key().path, second.cache_key().path);

@@ -1,9 +1,8 @@
-use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::ResourceGraphEntryDeserializeError;
 use cloud_terrastodon_azure_types::ResourceGraphQueryResponse;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::FromCommandOutput;
-use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_relative_location::RelativeLocation;
 use cloud_terrastodon_rest::RestRequest;
 use cloud_terrastodon_rest::RestResponseBody;
@@ -50,8 +49,7 @@ impl ResourceGraphRateLimitState {
 pub struct ResourceGraphHelper<'a> {
     query: String,
     cache_behaviour: Option<CacheKey>,
-    tenant_id: AzureTenantId,
-    auth_context: &'a AuthContext,
+    auth_context: &'a AzureTenantAuthContext,
     skip: Option<(u64, String)>,
     index: usize,
     #[cfg(debug_assertions)]
@@ -92,15 +90,13 @@ pub struct ResourceGraphQueryRestBody {
 
 impl<'a> ResourceGraphHelper<'a> {
     pub fn new(
-        tenant_id: AzureTenantId,
         query: impl Into<String>,
         cache_behaviour: Option<CacheKey>,
-        auth_context: &'a AuthContext,
+        auth_context: &'a AzureTenantAuthContext,
     ) -> Self {
         Self {
             query: query.into(),
             cache_behaviour,
-            tenant_id,
             auth_context,
             skip: None,
             index: 0,
@@ -114,9 +110,9 @@ impl<'a> ResourceGraphHelper<'a> {
             http::Method::POST,
             "https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2022-10-01",
         )?
-        .tenant(self.tenant_id)
+        .tenant(self.auth_context.tenant_id)
         .body(body);
-        request = request.auth_context(self.auth_context);
+        request = request.auth_context(&self.auth_context.auth_context);
         request.cache_key = self.cache_behaviour.clone().or_else(|| {
             Some(CacheKey::new(PathBuf::from_iter([
                 "az",
@@ -182,7 +178,7 @@ impl<'a> ResourceGraphHelper<'a> {
                 batch_index=self.index,
                 batch_size=RESOURCE_GRAPH_BATCH_SIZE,
                 skip,
-                ?self.tenant_id,
+                ?self.auth_context.tenant_id,
                 ?self.cache_behaviour,
                 "Fetching resource graph batch",
             );
@@ -235,7 +231,7 @@ impl<'a> ResourceGraphHelper<'a> {
 
             debug!(
                 total_items=all_data.len(),
-                ?self.tenant_id,
+                ?self.auth_context.tenant_id,
                 ?self.cache_behaviour,
                 "Completed fetching all resource graph data",
             );
@@ -431,6 +427,7 @@ fn format_rest_error_body(body: &RestResponseBody) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cloud_terrastodon_credentials::AuthContext;
     use http::HeaderMap;
     use http::HeaderValue;
     use http::StatusCode;
@@ -446,15 +443,16 @@ resourcecontainers
         struct Row {
             name: String,
         }
+        let auth_context = AuthContext::explicit_azure_cli()
+            .bind_to_azure_tenant(crate::get_test_tenant_id().await?)?;
         let data = ResourceGraphHelper::new(
-            crate::get_test_tenant_id().await?,
             query,
             Some(CacheKey::new(PathBuf::from_iter([
                 "az",
                 "resource_graph",
                 "resource-container-names",
             ]))),
-            &AuthContext::default(),
+            &auth_context,
         )
         .collect_all::<Row>()
         .await?;

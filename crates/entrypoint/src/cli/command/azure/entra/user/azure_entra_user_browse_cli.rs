@@ -14,6 +14,7 @@ pub struct AzureEntraUserBrowseArgs {
 
 impl AzureEntraUserBrowseArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        browse_users(self.tenant.resolve().await?, auth_context).await
+        let auth_context = self.tenant.bind_auth_context(auth_context).await?;
+        browse_users(&auth_context).await
     }
 }

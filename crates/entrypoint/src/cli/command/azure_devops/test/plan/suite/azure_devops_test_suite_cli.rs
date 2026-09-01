@@ -29,7 +29,7 @@ impl AzureDevOpsTestSuiteArgs {
         match self.command {
             AzureDevOpsTestSuiteCommand::List(args) => args.invoke(auth_context).await?,
             AzureDevOpsTestSuiteCommand::Show(args) => args.invoke(auth_context).await?,
-            AzureDevOpsTestSuiteCommand::Case(args) => args.invoke().await?,
+            AzureDevOpsTestSuiteCommand::Case(args) => args.invoke(auth_context).await?,
         }
 
         Ok(())

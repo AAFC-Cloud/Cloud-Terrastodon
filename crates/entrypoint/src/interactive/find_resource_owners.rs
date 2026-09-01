@@ -1,5 +1,4 @@
 use crate::menu::press_enter_to_continue;
-use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure::EntraGroup;
 use cloud_terrastodon_azure::EntraServicePrincipal;
 use cloud_terrastodon_azure::Principal;
@@ -24,8 +23,8 @@ use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_service_endpoints;
 use cloud_terrastodon_azure_devops::get_default_organization_url;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
-use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
+use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::bail;
@@ -190,8 +189,7 @@ impl<'a> AsRef<Clue<'a>> for ClueChain<'a> {
 
 #[allow(dead_code)]
 struct TraversalContext<'a> {
-    pub tenant_id: cloud_terrastodon_azure::AzureTenantId,
-    pub auth_context: &'a AuthContext,
+    pub auth_context: &'a AzureTenantAuthContext,
     pub clues: Vec<ClueChain<'a>>,
     pub resource_map: HashMap<&'a ScopeImpl, &'a Resource>,
     pub role_definition_map: HashMap<&'a RoleDefinitionId, &'a RoleDefinition>,
@@ -273,9 +271,7 @@ impl Traversal {
                     principal: Principal::Group(group),
                 } = clue.as_ref()
                 {
-                    let members =
-                        fetch_group_members(context.tenant_id, group.id, context.auth_context)
-                            .await?;
+                    let members = fetch_group_members(group.id, context.auth_context).await?;
                     for member in members {
                         let Some(principal) = context.principal_map.get(&member.id()) else {
                             bail!(
@@ -293,9 +289,7 @@ impl Traversal {
                     principal: Principal::Group(group),
                 } = clue.as_ref()
                 {
-                    let owners =
-                        fetch_group_owners(context.tenant_id, group.id, context.auth_context)
-                            .await?;
+                    let owners = fetch_group_owners(group.id, context.auth_context).await?;
                     for member in owners {
                         let Some(principal) = context.principal_map.get(&member.id()) else {
                             bail!(
@@ -376,21 +370,18 @@ impl Traversal {
     }
 }
 
-pub async fn find_resource_owners_menu(
-    tenant_id: AzureTenantId,
-    auth_context: &AuthContext,
-) -> eyre::Result<()> {
+pub async fn find_resource_owners_menu(auth_context: &AzureTenantAuthContext) -> eyre::Result<()> {
     info!(
         "Fetching a bunch of stuff (resources, role assignments, role definitions, and principals)"
     );
     let (resources, role_assignments, role_definitions, principals, org_url) = try_join!(
-        fetch_all_resources(tenant_id, auth_context),
-        fetch_all_role_assignments(tenant_id, auth_context),
-        fetch_all_role_definitions(tenant_id, auth_context),
-        fetch_all_principals(tenant_id, auth_context),
+        fetch_all_resources(auth_context),
+        fetch_all_role_assignments(auth_context),
+        fetch_all_role_definitions(auth_context),
+        fetch_all_principals(auth_context),
         get_default_organization_url(),
     )?;
-    let azure_devops_auth_context = AzureDevOpsAuthContext::for_tenant(auth_context, tenant_id)?;
+    let azure_devops_auth_context = AzureDevOpsAuthContext::for_azure_tenant(auth_context);
     let projects = fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context).await?;
     let azure_devops_service_endpoints = {
         let mut work: ParallelFallibleWorkQueue<Vec<AzureDevOpsServiceEndpoint>> =
@@ -436,7 +427,6 @@ pub async fn find_resource_owners_menu(
         .collect::<HashMap<_, _>>();
 
     let mut traversal_context = TraversalContext {
-        tenant_id,
         auth_context,
         clues: Vec::new(),
         resource_map,

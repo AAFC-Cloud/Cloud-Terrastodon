@@ -5,6 +5,7 @@ pub mod azure_resource_group_list;
 
 pub use azure_resource_group::AzureResourceGroupCommand;
 pub use azure_resource_group_browse::AzureResourceGroupBrowseArgs;
+pub use azure_resource_group_browse::browse_resource_groups;
 pub use azure_resource_group_list::AzureResourceGroupListArgs;
 use eyre::Result;
 

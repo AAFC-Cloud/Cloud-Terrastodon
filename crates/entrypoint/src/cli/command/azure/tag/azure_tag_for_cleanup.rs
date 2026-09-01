@@ -22,7 +22,7 @@ pub struct AzureTagForCleanupArgs {
 
 impl AzureTagForCleanupArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let tenant_id = self.tenant.resolve().await?;
+        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
         let cleanup_tagged_date = Local::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
         let cleanup_tagged_by = fetch_current_user().await?.user_principal_name;
 
@@ -36,7 +36,7 @@ impl AzureTagForCleanupArgs {
             }
         };
 
-        let resources = fetch_all_resources(tenant_id, auth_context).await?;
+        let resources = fetch_all_resources(&tenant_auth_context).await?;
 
         let chosen_resources = PickerTui::<_>::new().pick_many(resources).await?;
 
@@ -66,7 +66,7 @@ impl AzureTagForCleanupArgs {
         }
 
         info!(?tags_to_merge, "Executing tag modifications");
-        merge_tags_for_resources(tenant_id, updates).await?;
+        merge_tags_for_resources(&tenant_auth_context, updates).await?;
 
         Ok(())
     }

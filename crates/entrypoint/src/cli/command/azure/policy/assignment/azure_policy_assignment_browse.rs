@@ -14,6 +14,7 @@ pub struct AzurePolicyAssignmentBrowseArgs {
 
 impl AzurePolicyAssignmentBrowseArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        browse_policy_assignments(self.tenant.resolve().await?, auth_context).await
+        let auth_context = self.tenant.bind_auth_context(auth_context).await?;
+        browse_policy_assignments(&auth_context).await
     }
 }

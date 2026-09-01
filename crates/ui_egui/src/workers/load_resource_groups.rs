@@ -12,7 +12,8 @@ pub fn load_resource_groups(app: &mut MyApp) {
         .description("Loading Resource Groups")
         .setter(|app, data| app.resource_groups = data.map(Rc::new))
         .work(async move {
-            let resource_groups = fetch_all_resource_groups(tenant_id, &auth_context).await?;
+            let auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
+            let resource_groups = fetch_all_resource_groups(&auth_context).await?;
             Ok(resource_groups.into())
         })
         .build()

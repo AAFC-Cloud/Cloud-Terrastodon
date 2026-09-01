@@ -78,7 +78,7 @@ mod test {
     #[ignore = "This takes a long time because it iterates all projects"]
     pub async fn it_works() -> eyre::Result<()> {
         let org_url = get_default_organization_url().await?;
-        let auth_context = AuthContext::default();
+        let auth_context = AuthContext::explicit_azure_cli();
         let azure_devops_auth_context = AzureDevOpsAuthContext::new(&auth_context)?;
         let agent_pools = fetch_azure_devops_agent_pools(&org_url).await?;
         let our_agent_pools = agent_pools

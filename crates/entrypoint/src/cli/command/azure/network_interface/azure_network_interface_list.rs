@@ -16,9 +16,9 @@ pub struct AzureNetworkInterfaceListArgs {
 
 impl AzureNetworkInterfaceListArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let tenant_id = self.tenant.resolve().await?;
-        info!(%tenant_id, "Fetching Azure network interfaces");
-        let network_interfaces = fetch_all_network_interfaces(tenant_id, auth_context).await?;
+        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
+        info!(tenant_id = %tenant_auth_context.tenant_id, "Fetching Azure network interfaces");
+        let network_interfaces = fetch_all_network_interfaces(&tenant_auth_context).await?;
         info!(
             count = network_interfaces.len(),
             "Fetched Azure network interfaces"

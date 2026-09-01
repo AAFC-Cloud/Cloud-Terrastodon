@@ -36,8 +36,8 @@ impl AzureVmPublisherBrowseArgs {
         }
         // 1) Pick subscriptions
         info!("Fetching subscriptions");
-        let tenant_id = self.tenant.resolve().await?;
-        let subs = fetch_all_subscriptions(tenant_id, auth_context).await?;
+        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
+        let subs = fetch_all_subscriptions(&tenant_auth_context).await?;
         let chosen_subs = PickerTui::<_>::new()
             .set_header("Select one or more subscriptions (Tab to mark multiple)")
             .pick_many(subs)

@@ -12,7 +12,7 @@ use cloud_terrastodon_azure::fetch_my_entra_pim_role_assignments_with_graph_acce
 use cloud_terrastodon_azure::fetch_my_role_eligibility_schedules;
 use cloud_terrastodon_azure::fetch_role_management_policy_assignments;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
-use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_credentials::fetch_pim_graph_access_token;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
@@ -38,14 +38,14 @@ impl std::fmt::Display for PimKind {
     }
 }
 
-pub async fn pim_activate(tenant_id: AzureTenantId, auth_context: &AuthContext) -> Result<()> {
+pub async fn pim_activate(auth_context: &AzureTenantAuthContext) -> Result<()> {
     match PickerTui::<_>::new()
         .set_header("Choose the kind of role to activate")
         .pick_one(vec![PimKind::Entra, PimKind::AzureRM])
         .await?
     {
-        PimKind::Entra => pim_activate_entra(tenant_id).await,
-        PimKind::AzureRM => pim_activate_azurerm(tenant_id, auth_context).await,
+        PimKind::Entra => pim_activate_entra(auth_context.tenant_id).await,
+        PimKind::AzureRM => pim_activate_azurerm(auth_context).await,
     }
 }
 
@@ -167,10 +167,7 @@ pub async fn pim_activate_entra(tenant_id: AzureTenantId) -> Result<()> {
 
     Ok(())
 }
-pub async fn pim_activate_azurerm(
-    tenant_id: AzureTenantId,
-    auth_context: &AuthContext,
-) -> Result<()> {
+pub async fn pim_activate_azurerm(auth_context: &AzureTenantAuthContext) -> Result<()> {
     let chosen_roles = PickerTui::<_>::new()
         .set_header("Choose roles to activate")
         .pick_many_reloadable(|invalidate| async move {
@@ -201,7 +198,7 @@ pub async fn pim_activate_azurerm(
         .set_header(format!("Activating {chosen_roles_display}"))
         .pick_many_reloadable(|invalidate| async move {
             info!("Fetching eligible scopes");
-            let possible_scopes = fetch_all_resources(tenant_id, auth_context)
+            let possible_scopes = fetch_all_resources(auth_context)
                 .with_invalidation(invalidate)
                 .await?
                 .into_iter()

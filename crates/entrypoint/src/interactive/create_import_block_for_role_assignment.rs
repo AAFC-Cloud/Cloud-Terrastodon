@@ -1,6 +1,5 @@
-use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure::Scope;
-use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_hcl::AsHclString;
 use cloud_terrastodon_hcl::AzureRmResourceBlockKind;
 use cloud_terrastodon_hcl::HclImportBlock;
@@ -14,13 +13,9 @@ use eyre::bail;
 use tracing::info;
 
 pub async fn create_import_block_for_role_assignment(
-    tenant_id: AzureTenantId,
-    auth_context: &AuthContext,
+    auth_context: &AzureTenantAuthContext,
 ) -> Result<()> {
-    match RoleAssignmentPickerApp::new(tenant_id, auth_context)
-        .run()
-        .await?
-    {
+    match RoleAssignmentPickerApp::new(auth_context).run().await? {
         RoleAssignmentPickerAppResult::Cancelled => {
             info!("Operation cancelled by user.");
             Ok(())

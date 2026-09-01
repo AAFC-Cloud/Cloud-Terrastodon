@@ -1,12 +1,11 @@
 use crate::fetch_all_entra_users;
 use crate::fetch_all_service_principals;
 use crate::fetch_oauth2_permission_grants;
-use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::ConsentType;
 use cloud_terrastodon_azure_types::EntraServicePrincipal;
 use cloud_terrastodon_azure_types::EntraUser;
 use cloud_terrastodon_azure_types::OAuth2PermissionGrant;
-use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::bail;
@@ -76,12 +75,11 @@ impl fmt::Display for Grant {
 }
 
 pub async fn pick_oauth2_permission_grants(
-    tenant_id: AzureTenantId,
-    auth_context: &AuthContext,
+    auth_context: &AzureTenantAuthContext,
 ) -> eyre::Result<Vec<Grant>> {
-    let grants = fetch_oauth2_permission_grants(tenant_id);
-    let service_principals = fetch_all_service_principals(tenant_id, auth_context);
-    let users = fetch_all_entra_users(tenant_id, auth_context).into_future();
+    let grants = fetch_oauth2_permission_grants(auth_context.tenant_id);
+    let service_principals = fetch_all_service_principals(auth_context);
+    let users = fetch_all_entra_users(auth_context).into_future();
     let (grants, service_principals, users) = try_join!(grants, service_principals, users)?;
     let service_principals_map = service_principals
         .iter()

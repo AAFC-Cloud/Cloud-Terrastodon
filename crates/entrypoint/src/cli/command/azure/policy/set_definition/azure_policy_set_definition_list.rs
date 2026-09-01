@@ -26,10 +26,10 @@ pub struct AzurePolicySetDefinitionListArgs {
 
 impl AzurePolicySetDefinitionListArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let tenant_id = self.tenant.resolve().await?;
+        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
         info!("Fetching Azure policy set definitions...");
         let mut policy_set_definitions =
-            fetch_all_policy_set_definitions(tenant_id, auth_context).await?;
+            fetch_all_policy_set_definitions(&tenant_auth_context).await?;
         info!(
             count = policy_set_definitions.len(),
             "Fetched Azure policy set definitions",

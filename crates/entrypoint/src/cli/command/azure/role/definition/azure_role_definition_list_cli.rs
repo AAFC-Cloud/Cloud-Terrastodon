@@ -25,8 +25,8 @@ pub struct AzureRoleDefinitionListArgs {
 impl AzureRoleDefinitionListArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         info!("Fetching Azure role definitions");
-        let tenant_id = self.tenant.resolve().await?;
-        let mut role_definitions = fetch_all_role_definitions(tenant_id, auth_context).await?;
+        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
+        let mut role_definitions = fetch_all_role_definitions(&tenant_auth_context).await?;
         role_definitions.sort_by_key(|definition| definition.polp_score());
         let total_count = role_definitions.len();
 

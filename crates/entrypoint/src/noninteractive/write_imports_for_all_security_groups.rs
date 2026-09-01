@@ -1,6 +1,5 @@
-use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure::fetch_all_security_groups;
-use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_hcl::HclImportBlock;
 use cloud_terrastodon_hcl::HclProviderBlock;
 use cloud_terrastodon_hcl::HclWriter;
@@ -9,11 +8,10 @@ use eyre::Result;
 use tracing::info;
 
 pub async fn write_imports_for_all_security_groups(
-    tenant_id: AzureTenantId,
-    auth_context: &AuthContext,
+    auth_context: &AzureTenantAuthContext,
 ) -> Result<()> {
     info!("Fetching security groups");
-    let security_groups = fetch_all_security_groups(tenant_id, auth_context).await?;
+    let security_groups = fetch_all_security_groups(auth_context).await?;
 
     info!("Building import blocks");
     let mut imports: Vec<HclImportBlock> = Vec::with_capacity(security_groups.len());

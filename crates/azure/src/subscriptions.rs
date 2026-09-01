@@ -9,6 +9,7 @@ use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Result;
 use eyre::bail;
 use indoc::indoc;
@@ -19,16 +20,13 @@ use tracing::debug;
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Debug, Clone, facet::Facet)]
 pub struct SubscriptionListRequest<'a> {
-    pub tenant_id: AzureTenantId,
-    pub auth_context: Cow<'a, AuthContext>,
+    pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
 
 pub fn fetch_all_subscriptions<'a>(
-    tenant_id: AzureTenantId,
-    auth_context: &'a AuthContext,
+    auth_context: &'a AzureTenantAuthContext,
 ) -> SubscriptionListRequest<'a> {
     SubscriptionListRequest {
-        tenant_id,
         auth_context: Cow::Borrowed(auth_context),
     }
 }
@@ -36,8 +34,7 @@ pub fn fetch_all_subscriptions<'a>(
 impl<'a> arbitrary::Arbitrary<'a> for SubscriptionListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
-            tenant_id: arbitrary::Arbitrary::arbitrary(u)?,
-            auth_context: Cow::Owned(AuthContext::default()),
+            auth_context: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
         })
     }
 }
@@ -51,7 +48,8 @@ impl SubscriptionIdExt for SubscriptionId {
     async fn resolve_tenant_id(&self, auth_context: &AuthContext) -> Result<AzureTenantId> {
         let tracked_tenants = list_tracked_tenants().await?;
         for tenant_id in tracked_tenants.iter().copied() {
-            let Some(subscription) = fetch_all_subscriptions(tenant_id, auth_context)
+            let tenant_auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
+            let Some(subscription) = fetch_all_subscriptions(&tenant_auth_context)
                 .await?
                 .into_iter()
                 .find(|subscription| subscription.id == *self)
@@ -78,7 +76,7 @@ impl<'a> CacheableCommand for SubscriptionListRequest<'a> {
             "az",
             "resource_graph",
             "subscriptions",
-            self.tenant_id.to_string().as_str(),
+            self.auth_context.tenant_id.to_string().as_str(),
         ]))
     }
 
@@ -95,14 +93,10 @@ impl<'a> CacheableCommand for SubscriptionListRequest<'a> {
             tags=tags
     "#};
 
-        let subscriptions = ResourceGraphHelper::new(
-            self.tenant_id,
-            query,
-            Some(self.cache_key()),
-            self.auth_context.as_ref(),
-        )
-        .collect_all::<Subscription>()
-        .await?;
+        let subscriptions =
+            ResourceGraphHelper::new(query, Some(self.cache_key()), self.auth_context.as_ref())
+                .collect_all::<Subscription>()
+                .await?;
         debug!("Found {} subscriptions", subscriptions.len());
         Ok(subscriptions)
     }
@@ -132,8 +126,9 @@ mod tests {
     #[tokio::test]
     async fn it_works() -> Result<()> {
         let tenant_id = get_test_tenant_id().await?;
-        let auth_context = AuthContext::default();
-        let result = fetch_all_subscriptions(tenant_id, &auth_context).await?;
+        let auth_context = AuthContext::explicit_azure_cli();
+        let result =
+            fetch_all_subscriptions(&auth_context.bind_to_azure_tenant(tenant_id)?).await?;
         assert!(!result.is_empty());
         Ok(())
     }
@@ -141,12 +136,13 @@ mod tests {
     #[tokio::test]
     async fn resolves_tenant_for_subscription_id() -> Result<()> {
         let tenant_id = get_test_tenant_id().await?;
-        let auth_context = AuthContext::default();
-        let subscription_id = fetch_all_subscriptions(tenant_id, &auth_context)
-            .await?
-            .first()
-            .unwrap()
-            .id;
+        let auth_context = AuthContext::explicit_azure_cli();
+        let subscription_id =
+            fetch_all_subscriptions(&auth_context.bind_to_azure_tenant(tenant_id)?)
+                .await?
+                .first()
+                .unwrap()
+                .id;
         let resolved = subscription_id.resolve_tenant_id(&auth_context).await?;
         assert_eq!(resolved, tenant_id);
         Ok(())

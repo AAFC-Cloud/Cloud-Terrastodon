@@ -1,12 +1,12 @@
-use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::FromCommandOutput;
-use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::bail;
 use facet::Facet;
 use facet_json::RawJson;
 use http::Method;
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::ops::DerefMut;
@@ -20,17 +20,15 @@ pub struct MicrosoftGraphBatchRequest<'a, REQ> {
     pub ids: Vec<String>,
     /// The key to use for caching the batch request
     pub cache_key: Option<CacheKey>,
-    pub tenant_id: AzureTenantId,
-    pub auth_context: &'a AuthContext,
+    pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
 impl<'a, REQ> MicrosoftGraphBatchRequest<'a, REQ> {
-    pub fn new(tenant_id: AzureTenantId, auth_context: &'a AuthContext) -> Self {
+    pub fn new(auth_context: &'a AzureTenantAuthContext) -> Self {
         MicrosoftGraphBatchRequest {
             requests: Vec::new(),
             ids: Vec::new(),
             cache_key: None,
-            tenant_id,
-            auth_context,
+            auth_context: Cow::Borrowed(auth_context),
         }
     }
     pub fn add(&mut self, entry: impl Into<MicrosoftGraphBatchRequestEntry<REQ>>) {
@@ -64,7 +62,6 @@ impl<'a, REQ> MicrosoftGraphBatchRequest<'a, REQ> {
             requests,
             ids,
             cache_key,
-            tenant_id,
             auth_context,
         } = self;
         if requests.is_empty() {
@@ -72,6 +69,7 @@ impl<'a, REQ> MicrosoftGraphBatchRequest<'a, REQ> {
                 responses: Vec::new(),
             });
         }
+        let auth_context = auth_context.as_ref();
 
         let use_base_cache_key = requests.len() <= MAX_BATCH_REQUESTS;
         let mut responses = Vec::with_capacity(requests.len());
@@ -116,8 +114,8 @@ impl<'a, REQ> MicrosoftGraphBatchRequest<'a, REQ> {
             };
             let mut request =
                 RestRequest::new(Method::POST, "https://graph.microsoft.com/v1.0/$batch")?
-                    .tenant(tenant_id)
-                    .auth_context(auth_context)
+                    .tenant(auth_context.tenant_id)
+                    .auth_context(&auth_context.auth_context)
                     .body(
                         facet_json::to_string_pretty(&body)
                             .map_err(|error| eyre::eyre!("{error:?}"))?,
@@ -364,9 +362,7 @@ pub struct MicrosoftGraphBatchResponseEntryError {
 mod test {
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        // let mut batch = MicrosoftGraphBatchRequest::new(
-        //     cloud_terrastodon_azure_types::AzureTenantId::nil(),
-        // );
+        // let mut batch = MicrosoftGraphBatchRequest::new(&auth_context);
 
         Ok(())
     }

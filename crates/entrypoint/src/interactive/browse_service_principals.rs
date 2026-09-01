@@ -1,17 +1,13 @@
-use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure::fetch_all_service_principals;
-use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use tracing::info;
 
-pub async fn browse_service_principals(
-    tenant_id: AzureTenantId,
-    auth_context: &AuthContext,
-) -> Result<()> {
+pub async fn browse_service_principals(auth_context: &AzureTenantAuthContext) -> Result<()> {
     info!("Fetching service principals");
-    let service_principals = fetch_all_service_principals(tenant_id, auth_context).await?;
+    let service_principals = fetch_all_service_principals(auth_context).await?;
     let service_principals = PickerTui::<_>::new()
         .set_header("Service Principals")
         .pick_many(service_principals.into_iter().map(|sp| Choice {

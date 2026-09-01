@@ -2,12 +2,11 @@
 // $x.value | % { $n = $_.namespace; $_.resourceTypes | % { "$n/$($_.resourceType)" } } | fzf
 
 use crate::ResourceGraphHelper;
-use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::Resource;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Result;
 use std::borrow::Cow;
 use std::path::PathBuf;
@@ -16,25 +15,21 @@ use tracing::debug;
 #[must_use = "This is a future request, you must .await it"]
 #[derive(facet::Facet)]
 pub struct ResourceListRequest<'a> {
-    pub tenant_id: AzureTenantId,
-    pub auth_context: Cow<'a, AuthContext>,
+    pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
 
 impl<'a> arbitrary::Arbitrary<'a> for ResourceListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
-            tenant_id: arbitrary::Arbitrary::arbitrary(u)?,
-            auth_context: Cow::Owned(AuthContext::default()),
+            auth_context: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
         })
     }
 }
 
 pub fn fetch_all_resources<'a>(
-    tenant_id: AzureTenantId,
-    auth_context: &'a AuthContext,
+    auth_context: &'a AzureTenantAuthContext,
 ) -> ResourceListRequest<'a> {
     ResourceListRequest {
-        tenant_id,
         auth_context: Cow::Borrowed(auth_context),
     }
 }
@@ -48,14 +43,13 @@ impl<'a> CacheableCommand for ResourceListRequest<'a> {
             "az",
             "resource_graph",
             "resources",
-            self.tenant_id.to_string().as_str(),
+            self.auth_context.tenant_id.to_string().as_str(),
         ]))
     }
 
     async fn run(self) -> Result<Self::Output> {
         debug!(fetching = "resources");
         let helper = ResourceGraphHelper::new(
-            self.tenant_id,
             r#"
 resources 
 | union resourcecontainers
@@ -85,21 +79,24 @@ mod tests {
     use cloud_terrastodon_azure_types::ResourceType;
     use cloud_terrastodon_azure_types::Scope;
     use cloud_terrastodon_azure_types::ScopeImplKind;
+    use cloud_terrastodon_credentials::AuthContext;
     use itertools::Itertools;
     use std::collections::HashMap;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
-        let auth_context = AuthContext::default();
-        let resources = fetch_all_resources(get_test_tenant_id().await?, &auth_context).await?;
+        let auth_context = AuthContext::explicit_azure_cli();
+        let auth_context = auth_context.bind_to_azure_tenant(get_test_tenant_id().await?)?;
+        let resources = fetch_all_resources(&auth_context).await?;
         assert!(resources.len() > 10);
         Ok(())
     }
 
     #[tokio::test]
     async fn resource_groups() -> Result<()> {
-        let auth_context = AuthContext::default();
-        let resources = fetch_all_resources(get_test_tenant_id().await?, &auth_context)
+        let auth_context = AuthContext::explicit_azure_cli();
+        let auth_context = auth_context.bind_to_azure_tenant(get_test_tenant_id().await?)?;
+        let resources = fetch_all_resources(&auth_context)
             .await?
             .into_iter()
             .filter(|res| res.kind.is_resource_group())
@@ -110,8 +107,9 @@ mod tests {
 
     #[tokio::test]
     async fn count() -> Result<()> {
-        let auth_context = AuthContext::default();
-        let resources = fetch_all_resources(get_test_tenant_id().await?, &auth_context).await?;
+        let auth_context = AuthContext::explicit_azure_cli();
+        let auth_context = auth_context.bind_to_azure_tenant(get_test_tenant_id().await?)?;
+        let resources = fetch_all_resources(&auth_context).await?;
         let ids: HashMap<ScopeImplKind, i32> =
             resources
                 .iter()

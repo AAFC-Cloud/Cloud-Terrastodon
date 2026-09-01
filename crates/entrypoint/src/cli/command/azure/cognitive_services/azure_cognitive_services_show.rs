@@ -23,8 +23,8 @@ pub struct AzureCognitiveServicesShowArgs {
 impl AzureCognitiveServicesShowArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let Self { tenant, account } = self;
-        let tenant_id = tenant.resolve().await?;
-        let accounts = fetch_all_cognitive_services_accounts(tenant_id, auth_context).await?;
+        let tenant_auth_context = tenant.bind_auth_context(auth_context).await?;
+        let accounts = fetch_all_cognitive_services_accounts(&tenant_auth_context).await?;
         let mut matches = accounts
             .into_iter()
             .filter(|item| account.matches(item))

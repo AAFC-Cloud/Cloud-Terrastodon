@@ -10,10 +10,11 @@ use tokio::try_join;
 pub async fn predict_would_secret_list_succeed() -> eyre::Result<()> {
     let current_user = fetch_current_user().await?;
     let tenant_id = get_test_tenant_id().await?;
-    let auth_context = cloud_terrastodon_credentials::AuthContext::default();
+    let auth_context = cloud_terrastodon_credentials::AuthContext::explicit_azure_cli();
+    let tenant_auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
     let (key_vaults, rbac) = try_join!(
-        fetch_all_key_vaults(tenant_id, &auth_context),
-        fetch_all_role_definitions_and_assignments(tenant_id, &auth_context),
+        fetch_all_key_vaults(&tenant_auth_context),
+        fetch_all_role_definitions_and_assignments(&tenant_auth_context),
     )?;
 
     let key_vaults = key_vaults

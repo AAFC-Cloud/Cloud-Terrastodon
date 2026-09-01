@@ -71,7 +71,10 @@ mod test {
     #[ignore] // this endpoint takes forever
     pub async fn it_works() -> eyre::Result<()> {
         let tenant_id = get_test_tenant_id().await?;
-        let subs = fetch_all_subscriptions(tenant_id, &AuthContext::default()).await?;
+        let subs = fetch_all_subscriptions(
+            &AuthContext::explicit_azure_cli().bind_to_azure_tenant(tenant_id)?,
+        )
+        .await?;
         let sub = subs.first().unwrap();
         let vm_skus = fetch_all_compute_skus(sub.id).await?;
         let canada_vm_skus = vm_skus

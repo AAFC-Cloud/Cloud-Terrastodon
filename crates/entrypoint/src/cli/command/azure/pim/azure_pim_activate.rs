@@ -36,13 +36,13 @@ pub enum AzurePimActivateTarget {
 
 impl AzurePimActivateArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let tenant_id = self.tenant.resolve().await?;
+        let auth_context = self.tenant.bind_auth_context(auth_context).await?;
         match self.target {
-            Some(AzurePimActivateTarget::AzureRm) => {
-                pim_activate_azurerm(tenant_id, auth_context).await
+            Some(AzurePimActivateTarget::AzureRm) => pim_activate_azurerm(&auth_context).await,
+            Some(AzurePimActivateTarget::AzureAd) => {
+                pim_activate_entra(auth_context.tenant_id).await
             }
-            Some(AzurePimActivateTarget::AzureAd) => pim_activate_entra(tenant_id).await,
-            None => pim_activate(tenant_id, auth_context).await,
+            None => pim_activate(&auth_context).await,
         }
     }
 }

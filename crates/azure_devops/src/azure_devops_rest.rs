@@ -149,7 +149,7 @@ mod tests {
 
         assert_eq!(request.tenant, Some(tenant_id));
         assert_eq!(
-            request.auth_context.as_ref().map(AuthContext::source),
+            request.auth_context.as_ref().and_then(AuthContext::source),
             Some(AuthSource::Browser)
         );
         Ok(())

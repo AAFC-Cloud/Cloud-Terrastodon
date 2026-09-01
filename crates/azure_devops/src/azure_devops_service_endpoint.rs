@@ -90,7 +90,7 @@ mod test {
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let org_url = get_default_organization_url().await?;
-        let auth_context = AuthContext::default();
+        let auth_context = AuthContext::explicit_azure_cli();
         const JUST_ONE_PROJ: bool = true;
         if JUST_ONE_PROJ {
             let proj = get_default_project_name().await?;

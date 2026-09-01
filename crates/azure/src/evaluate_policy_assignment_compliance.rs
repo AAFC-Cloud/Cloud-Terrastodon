@@ -1,11 +1,10 @@
 use crate::ResourceGraphHelper;
 use crate::fetch_all_policy_assignments;
-use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::DistinctByScope;
 use cloud_terrastodon_azure_types::PolicyAssignment;
 use cloud_terrastodon_azure_types::Scope;
 use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_hcl_types::Sanitizable;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
@@ -16,11 +15,10 @@ use std::time::Duration;
 use tracing::info;
 
 pub async fn evaluate_policy_assignment_compliance(
-    tenant_id: AzureTenantId,
-    auth_context: &AuthContext,
+    auth_context: &AzureTenantAuthContext,
 ) -> Result<()> {
     info!("Fetching policy assignments");
-    let policy_assignments = fetch_all_policy_assignments(tenant_id, auth_context).await?;
+    let policy_assignments = fetch_all_policy_assignments(auth_context).await?;
 
     let policy_assignment: PolicyAssignment = PickerTui::<_>::new()
         .set_header("Choose policy to evaluate")
@@ -72,7 +70,6 @@ policyResources
         found: u32,
     }
     let reference_ids = ResourceGraphHelper::new(
-        tenant_id,
         query,
         Some(CacheKey {
             path: PathBuf::from_iter([
@@ -145,7 +142,6 @@ policyResources
             .sanitize()
     );
     let resource_ids = ResourceGraphHelper::new(
-        tenant_id,
         query,
         Some(CacheKey {
             path: PathBuf::from_iter([

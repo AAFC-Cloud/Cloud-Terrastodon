@@ -91,9 +91,10 @@ mod test {
 
     #[tokio::test]
     pub async fn blob_works() -> eyre::Result<()> {
-        let storage_accounts =
-            fetch_all_storage_accounts(get_test_tenant_id().await?, &AuthContext::default())
-                .await?;
+        let storage_accounts = fetch_all_storage_accounts(
+            &AuthContext::explicit_azure_cli().bind_to_azure_tenant(get_test_tenant_id().await?)?,
+        )
+        .await?;
         for sa in storage_accounts.into_iter() {
             if let Ok(blob_containers) = fetch_storage_account_blob_container_names(&sa.id).await {
                 assert!(!sa.name.is_empty());

@@ -15,9 +15,9 @@ pub struct PerformCodeGenerationFromImportsArgs {
 
 impl PerformCodeGenerationFromImportsArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let tenant_id = self.tenant.resolve().await?;
+        let auth_context = self.tenant.bind_auth_context(auth_context).await?;
         perform_import().await?;
-        process_generated(tenant_id, auth_context).await?;
+        process_generated(&auth_context).await?;
         Ok(())
     }
 }

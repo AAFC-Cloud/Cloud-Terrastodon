@@ -2,6 +2,8 @@ use crate::AuthContext;
 use crate::AuthSource;
 use crate::AzureBearerToken;
 use crate::AzureRestResource;
+use crate::browser_access_token::fetch_browser_access_token;
+use crate::pim_client_id;
 use crate::workload_identity::exchange_workload_identity_assertion;
 use chrono::Local;
 use chrono::TimeDelta;
@@ -10,31 +12,36 @@ use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::FromCommandOutput;
+use cloud_terrastodon_command::RetryBehaviour;
 use reqwest::Client;
-use std::collections::HashMap;
 use std::io::IsTerminal;
-use std::sync::OnceLock;
-use tokio::sync::Mutex;
-
-type WifTokenCache =
-    HashMap<(AzureTenantId, AzureRestResource), AzureAccessToken<AzureBearerToken>>;
 
 const TOKEN_REFRESH_BUFFER_SECONDS: i64 = 120;
-
-static WIF_TOKEN_CACHE: OnceLock<Mutex<WifTokenCache>> = OnceLock::new();
 
 pub async fn fetch_azure_access_token<T: FromCommandOutput>(
     tenant: Option<AzureTenantId>,
     resource: AzureRestResource,
 ) -> eyre::Result<AzureAccessToken<T>> {
+    build_azure_cli_access_token_command(tenant, resource)
+        .run::<AzureAccessToken<T>>()
+        .await
+}
+
+fn build_azure_cli_access_token_command(
+    tenant: Option<AzureTenantId>,
+    resource: AzureRestResource,
+) -> CommandBuilder {
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["account", "get-access-token", "--output", "json"]);
+    // Token acquisition must not turn a missing CLI session into an implicit
+    // `az login`/device-code flow. Interactive login is an explicit command.
+    cmd.use_retry_behaviour(RetryBehaviour::Fail);
     if let Some(tenant) = tenant {
         let tenant = tenant.to_string();
         cmd.args(["--tenant", tenant.as_str()]);
     }
     resource.apply_access_token_args(&mut cmd);
-    cmd.run::<AzureAccessToken<T>>().await
+    cmd
 }
 
 /// Fetches a resource-specific Entra bearer token using the configured
@@ -46,7 +53,7 @@ pub async fn fetch_azure_bearer_access_token(
     resource: AzureRestResource,
 ) -> eyre::Result<AzureAccessToken<AzureBearerToken>> {
     match auth_context.source() {
-        AuthSource::WorkloadIdentity => {
+        Some(AuthSource::WorkloadIdentity) => {
             let config = auth_context.workload_identity().ok_or_else(|| {
                 eyre::eyre!(
                     "workload identity authentication requires AZURE_CLIENT_ID/AZURE_TENANT_ID/AZURE_FEDERATED_TOKEN or servicePrincipalId/tenantId/idToken"
@@ -57,8 +64,11 @@ pub async fn fetch_azure_bearer_access_token(
                 tenant == config.tenant_id,
                 "requested tenant does not match the workload identity tenant"
             );
-            let cache = WIF_TOKEN_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
-            let mut cache = cache.lock().await;
+            let mut cache = auth_context
+                .workload_identity_token_cache()
+                .ok_or_else(|| eyre::eyre!("workload identity token cache is not configured"))?
+                .lock()
+                .await;
             if let Some(token) = cache.get(&(config.tenant_id, resource))
                 && is_token_fresh(token, Local::now())
             {
@@ -78,7 +88,7 @@ pub async fn fetch_azure_bearer_access_token(
             cache.insert((config.tenant_id, resource), token.clone());
             Ok(token)
         }
-        AuthSource::AzureCli => {
+        Some(AuthSource::AzureCli) => {
             eyre::ensure!(
                 auth_context.allows_interactive_reauthentication(),
                 "Azure CLI authentication is disabled for the selected/headless authentication context; provide workload identity credentials or choose a non-interactive source"
@@ -92,14 +102,41 @@ pub async fn fetch_azure_bearer_access_token(
                 token_type: token.token_type,
             })
         }
-        AuthSource::Browser => eyre::bail!(
-            "browser authentication is reserved for delegated PIM; use workload-identity or azure-cli for ARM, Graph, and Azure DevOps REST requests"
-        ),
-        AuthSource::PersonalAccessToken => eyre::bail!(
+        Some(AuthSource::Browser) => {
+            let tenant = tenant.or_else(|| {
+                auth_context.browser_session().map(|session| session.tenant_id)
+            }).ok_or_else(|| {
+                eyre::eyre!(
+                    "browser authentication requires an explicit tenant; pass --tenant or include a subscription URL so Cloud Terrastodon can select the Entra authority"
+                )
+            })?;
+            let client_id = if let Some(session) = auth_context
+                .browser_session()
+                .filter(|session| session.tenant_id == tenant)
+            {
+                session.client_id
+            } else {
+                pim_client_id(&tenant).await?
+            };
+            fetch_browser_access_token(
+                auth_context
+                    .browser_token_cache()
+                    .ok_or_else(|| eyre::eyre!("browser token cache is not configured"))?,
+                tenant,
+                client_id,
+                resource,
+                auth_context.allows_interactive_browser_login(),
+            )
+            .await
+        }
+        Some(AuthSource::PersonalAccessToken) => eyre::bail!(
             "personal access tokens are only valid for Azure DevOps compatibility requests"
         ),
-        AuthSource::Auto => eyre::bail!(
+        Some(AuthSource::Auto) => eyre::bail!(
             "authentication source was not resolved; construct an AuthContext at the CLI entrypoint"
+        ),
+        None => eyre::bail!(
+            "the placeholder authentication context cannot acquire access tokens; attach an invocation-resolved AuthContext before executing this request"
         ),
     }
 }
@@ -157,8 +194,55 @@ mod test {
     #[test]
     fn explicit_context_is_used_for_dispatch() -> eyre::Result<()> {
         let context = AuthContext::explicit(AuthSource::WorkloadIdentity);
-        assert_eq!(context.source(), AuthSource::WorkloadIdentity);
+        assert_eq!(context.source(), Some(AuthSource::WorkloadIdentity));
         Ok(())
+    }
+
+    #[tokio::test]
+    async fn browser_auth_requires_a_tenant_before_contacting_entra() {
+        let context = AuthContext::explicit(AuthSource::Browser);
+        let error = super::fetch_azure_bearer_access_token(
+            &context,
+            None,
+            crate::AzureRestResource::AzureDevOps,
+        )
+        .await
+        .expect_err("browser authentication without a tenant should fail locally");
+        assert!(error.to_string().contains("explicit tenant"));
+    }
+
+    #[tokio::test]
+    async fn headless_cli_auth_fails_before_spawning_azure_cli() {
+        let context = AuthContext::explicit_headless(AuthSource::AzureCli);
+        let error = super::fetch_azure_bearer_access_token(
+            &context,
+            None,
+            crate::AzureRestResource::AzureDevOps,
+        )
+        .await
+        .expect_err("headless CLI authentication should fail locally");
+        assert!(error.to_string().contains("disabled"));
+    }
+
+    #[tokio::test]
+    async fn placeholder_context_fails_before_token_acquisition() {
+        let error = super::fetch_azure_bearer_access_token(
+            &AuthContext::None,
+            None,
+            crate::AzureRestResource::AzureDevOps,
+        )
+        .await
+        .expect_err("placeholder authentication must not execute");
+        assert!(error.to_string().contains("placeholder"));
+    }
+
+    #[test]
+    fn cli_token_acquisition_is_fail_fast() {
+        let command = super::build_azure_cli_access_token_command(
+            None,
+            crate::AzureRestResource::AzureDevOps,
+        );
+        assert!(format!("{command:?}").contains("retry_behaviour: Fail"));
     }
 
     #[test]

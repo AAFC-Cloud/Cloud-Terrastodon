@@ -1,30 +1,31 @@
-use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::uuid::Uuid;
 use cloud_terrastodon_command::FromCommandOutput;
+use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_relative_location::RelativeLocation;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Context;
 use eyre::Result;
 use eyre::bail;
-use eyre::ensure;
 use facet::Facet;
 use http::Method;
 use itertools::Itertools;
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::future::Future;
 use std::panic::Location;
 use tracing::debug;
 
-#[derive(Debug, Default, Clone)]
-pub struct BatchRequest<T> {
+#[derive(Debug, Clone)]
+pub struct BatchRequest<'a, T> {
     pub requests: Vec<BatchRequestEntry<T>>,
+    pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
-impl<T> BatchRequest<T>
-where
-    T: Default,
-{
-    pub fn new() -> Self {
-        BatchRequest::<T>::default()
+impl<'a, T> BatchRequest<'a, T> {
+    pub fn new(auth_context: &'a AzureTenantAuthContext) -> Self {
+        Self {
+            requests: Vec::new(),
+            auth_context: Cow::Borrowed(auth_context),
+        }
     }
 }
 
@@ -36,7 +37,6 @@ struct BatchRequestUpstream<T> {
 #[derive(Debug, Clone)]
 pub struct BatchRequestEntry<T> {
     pub http_method: Method,
-    pub tenant_id: AzureTenantId,
     pub name: Uuid,
     pub url: String,
     pub content: Option<T>,
@@ -81,10 +81,9 @@ impl<T: Clone> From<&BatchRequestEntry<T>> for BatchRequestEntryUpstream<T> {
 }
 
 impl BatchRequestEntry<()> {
-    pub fn new_get(tenant_id: AzureTenantId, url: String) -> Self {
+    pub fn new_get(url: String) -> Self {
         BatchRequestEntry {
             http_method: Method::GET,
-            tenant_id,
             name: Uuid::new_v4(),
             url,
             content: None,
@@ -92,15 +91,9 @@ impl BatchRequestEntry<()> {
     }
 }
 impl<T> BatchRequestEntry<T> {
-    pub fn new(
-        tenant_id: AzureTenantId,
-        http_method: Method,
-        url: String,
-        content: Option<T>,
-    ) -> Self {
+    pub fn new(http_method: Method, url: String, content: Option<T>) -> Self {
         BatchRequestEntry {
             http_method,
-            tenant_id,
             name: Uuid::new_v4(),
             url,
             content,
@@ -124,9 +117,9 @@ pub struct BatchResponseEntry<T> {
 }
 
 #[track_caller]
-pub fn invoke_batch_request<REQ, RESP>(
-    request: &BatchRequest<REQ>,
-) -> impl Future<Output = Result<BatchResponse<RESP>>> + '_
+pub fn invoke_batch_request<'a, REQ, RESP>(
+    request: &'a BatchRequest<'_, REQ>,
+) -> impl Future<Output = Result<BatchResponse<RESP>>> + 'a
 where
     REQ: Facet<'static> + Clone,
     RESP: FromCommandOutput,
@@ -135,7 +128,7 @@ where
 }
 
 async fn invoke_batch_request_from<REQ, RESP>(
-    request: &BatchRequest<REQ>,
+    request: &BatchRequest<'_, REQ>,
     caller: &'static Location<'static>,
 ) -> Result<BatchResponse<RESP>>
 where
@@ -149,14 +142,7 @@ where
             });
         }
 
-        let tenant_id = request.requests[0].tenant_id;
-        ensure!(
-            request
-                .requests
-                .iter()
-                .all(|entry| entry.tenant_id == tenant_id),
-            "Batch request entries must all use the same tenant ID"
-        );
+        let auth_context = request.auth_context.as_ref();
 
         let url = "https://management.azure.com/batch?api-version=2020-06-01";
 
@@ -169,15 +155,18 @@ where
         let chunks = request.requests.chunks(20);
         let num_chunks = chunks.len();
         for (i, chunk) in chunks.enumerate() {
-            let request = RestRequest::new(Method::POST, url)?.tenant(tenant_id).body(
-                facet_json::to_string_pretty(&BatchRequestUpstream {
-                    requests: chunk
-                        .iter()
-                        .map(BatchRequestEntryUpstream::from)
-                        .collect_vec(),
-                })
-                .map_err(|error| eyre::eyre!("{error:?}"))?,
-            );
+            let request = RestRequest::new(Method::POST, url)?
+                .auth_context(&auth_context.auth_context)
+                .tenant(auth_context.tenant_id)
+                .body(
+                    facet_json::to_string_pretty(&BatchRequestUpstream {
+                        requests: chunk
+                            .iter()
+                            .map(BatchRequestEntryUpstream::from)
+                            .collect_vec(),
+                    })
+                    .map_err(|error| eyre::eyre!("{error:?}"))?,
+                );
 
             debug!(
                 batch_index = i,
@@ -213,7 +202,7 @@ where
         RelativeLocation::from(caller)
     ))
 }
-impl<T> BatchRequest<T>
+impl<T> BatchRequest<'_, T>
 where
     T: Facet<'static> + Clone,
 {
@@ -233,5 +222,26 @@ where
         RESP: FromCommandOutput,
     {
         invoke_batch_request_from(self, caller).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use cloud_terrastodon_credentials::AuthContext;
+    use cloud_terrastodon_credentials::AuthSource;
+
+    #[test]
+    fn batch_request_stores_the_tenant_binding() -> Result<()> {
+        let tenant_id = "22222222-2222-2222-2222-222222222222".parse()?;
+        let auth_context =
+            AuthContext::explicit(AuthSource::AzureCli).bind_to_azure_tenant(tenant_id)?;
+        let mut request = BatchRequest::new(&auth_context);
+        request.requests.push(BatchRequestEntry::new_get(
+            "/subscriptions/example/providers/Microsoft.Resources/tags/default".to_owned(),
+        ));
+
+        assert_eq!(request.auth_context.tenant_id, tenant_id);
+        Ok(())
     }
 }

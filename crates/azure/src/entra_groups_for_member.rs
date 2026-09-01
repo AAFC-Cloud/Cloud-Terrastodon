@@ -1,12 +1,11 @@
 use crate::fetch_groups_by_id;
-use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::EntraGroup;
 use cloud_terrastodon_azure_types::EntraGroupId;
 use cloud_terrastodon_azure_types::PrincipalId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_rest::RestRequest;
 use http::Method;
 use std::borrow::Cow;
@@ -17,28 +16,24 @@ use tracing::debug;
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Debug, Clone, facet::Facet)]
 pub struct EntraGroupsForMemberRequest<'a> {
-    pub tenant_id: AzureTenantId,
     pub principal_id: PrincipalId,
-    pub auth_context: Cow<'a, AuthContext>,
+    pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
 
 impl<'a> arbitrary::Arbitrary<'a> for EntraGroupsForMemberRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
-            tenant_id: arbitrary::Arbitrary::arbitrary(u)?,
             principal_id: arbitrary::Arbitrary::arbitrary(u)?,
-            auth_context: Cow::Owned(AuthContext::default()),
+            auth_context: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
         })
     }
 }
 
 pub fn fetch_entra_groups_for_member<'a>(
-    tenant_id: AzureTenantId,
     principal_id: PrincipalId,
-    auth_context: &'a AuthContext,
+    auth_context: &'a AzureTenantAuthContext,
 ) -> EntraGroupsForMemberRequest<'a> {
     EntraGroupsForMemberRequest {
-        tenant_id,
         principal_id,
         auth_context: Cow::Borrowed(auth_context),
     }
@@ -59,14 +54,14 @@ impl CacheableCommand for EntraGroupsForMemberRequest<'_> {
             "graph".to_string(),
             "POST".to_string(),
             "entra_groups_for_member".to_string(),
-            self.tenant_id.to_string(),
+            self.auth_context.tenant_id.to_string(),
             self.principal_id.to_string(),
         ]))
     }
 
     async fn run(self) -> eyre::Result<Self::Output> {
         debug!(
-            tenant_id = %self.tenant_id,
+            tenant_id = %self.auth_context.tenant_id,
             principal_id = %self.principal_id,
             "Fetching Entra groups for principal"
         );
@@ -77,17 +72,16 @@ impl CacheableCommand for EntraGroupsForMemberRequest<'_> {
                 self.principal_id
             ),
         )?
-        .tenant(self.tenant_id)
-        .auth_context(self.auth_context.as_ref())
+        .tenant(self.auth_context.tenant_id)
+        .auth_context(&self.auth_context.auth_context)
         .body("{\"securityEnabledOnly\":false}")
         .receive::<GetMemberGroupsResponse>()
         .await?;
 
         let group_ids: HashSet<_> = response.value.into_iter().collect();
-        let groups =
-            fetch_groups_by_id(self.tenant_id, group_ids, self.auth_context.as_ref()).await?;
+        let groups = fetch_groups_by_id(group_ids, self.auth_context.as_ref()).await?;
         debug!(
-            tenant_id = %self.tenant_id,
+            tenant_id = %self.auth_context.tenant_id,
             principal_id = %self.principal_id,
             count = groups.len(),
             "Found Entra groups for principal"

@@ -22,9 +22,9 @@ pub struct AzurePolicyDefinitionShowArgs {
 
 impl AzurePolicyDefinitionShowArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let tenant_id = self.tenant.resolve().await?;
-        info!(needle = %self.policy_definition, %tenant_id, "Fetching Azure policy definitions");
-        let policy_definitions = fetch_all_policy_definitions(tenant_id, auth_context).await?;
+        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
+        info!(needle = %self.policy_definition, tenant_id = %tenant_auth_context.tenant_id, "Fetching Azure policy definitions");
+        let policy_definitions = fetch_all_policy_definitions(&tenant_auth_context).await?;
         info!(
             count = policy_definitions.len(),
             "Fetched Azure policy definitions"

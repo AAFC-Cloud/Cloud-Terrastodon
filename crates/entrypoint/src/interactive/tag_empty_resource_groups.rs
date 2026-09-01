@@ -1,21 +1,17 @@
-use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure::ResourceGraphHelper;
 use cloud_terrastodon_azure::ResourceGroupId;
 use cloud_terrastodon_azure::ResourceTagsId;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::replace_tags_for_resources;
 use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Result;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
 use tracing::info;
 
-pub async fn tag_empty_resource_group_menu(
-    tenant_id: AzureTenantId,
-    auth_context: &AuthContext,
-) -> Result<()> {
+pub async fn tag_empty_resource_group_menu(auth_context: &AzureTenantAuthContext) -> Result<()> {
     info!("Fetching empty resource groups");
     let query = r#"
 ResourceContainers  
@@ -35,7 +31,6 @@ ResourceContainers
         tags: HashMap<String, String>,
     }
     let empty_resource_groups = ResourceGraphHelper::new(
-        tenant_id,
         query,
         Some(CacheKey {
             path: PathBuf::from_iter(["az", "resource_graph", "empty-resource-groups"]),
@@ -57,7 +52,7 @@ ResourceContainers
     let tag_value = "ThisResourceContainerIsEmpty";
     info!("Adding tag {}={} to each", tag_key, tag_value);
     let result = replace_tags_for_resources(
-        tenant_id,
+        auth_context,
         empty_resource_groups
             .into_iter()
             .map(|mut rg| {

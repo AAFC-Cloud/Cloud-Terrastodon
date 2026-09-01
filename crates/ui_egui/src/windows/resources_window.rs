@@ -19,9 +19,8 @@ pub fn resources_ui(app: &mut MyApp, ui: &mut Ui) {
                 .description("Fetch resources")
                 .setter(|app, l| app.resources = l)
                 .work(async move {
-                    Ok(Arc::new(
-                        fetch_all_resources(tenant_id, &auth_context).await?,
-                    ))
+                    let auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
+                    Ok(Arc::new(fetch_all_resources(&auth_context).await?))
                 })
                 .build()
                 .expect("building work");

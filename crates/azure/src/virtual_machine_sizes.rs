@@ -40,7 +40,10 @@ mod test {
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let tenant_id = get_test_tenant_id().await?;
-        let subs = fetch_all_subscriptions(tenant_id, &AuthContext::default()).await?;
+        let subs = fetch_all_subscriptions(
+            &AuthContext::explicit_azure_cli().bind_to_azure_tenant(tenant_id)?,
+        )
+        .await?;
         let sub = subs.first().unwrap();
         let sizes =
             crate::fetch_virtual_machine_sizes(&sub.id, &AzureLocationName::CanadaCentral).await?;

@@ -23,9 +23,9 @@ pub struct AzurePrivateEndpointShowArgs {
 
 impl AzurePrivateEndpointShowArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let tenant_id = self.tenant.resolve().await?;
-        info!(needle = %self.private_endpoint, %tenant_id, "Fetching Azure private endpoints");
-        let private_endpoints = fetch_all_private_endpoints(tenant_id, auth_context).await?;
+        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
+        info!(needle = %self.private_endpoint, tenant_id = %tenant_auth_context.tenant_id, "Fetching Azure private endpoints");
+        let private_endpoints = fetch_all_private_endpoints(&tenant_auth_context).await?;
         info!(
             count = private_endpoints.len(),
             "Fetched Azure private endpoints"

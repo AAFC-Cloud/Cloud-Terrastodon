@@ -1,10 +1,9 @@
 use crate::MicrosoftGraphHelper;
-use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::UnifiedRoleDefinitionCollection;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use std::borrow::Cow;
 use std::path::PathBuf;
 
@@ -13,34 +12,28 @@ use std::path::PathBuf;
 /// Not to be confused with Azure RBAC role assignments.
 #[derive(facet::Facet)]
 pub struct UnifiedRoleDefinitionListRequest<'a> {
-    pub tenant_id: AzureTenantId,
-    pub auth_context: Cow<'a, AuthContext>,
+    pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
 
 impl<'a> arbitrary::Arbitrary<'a> for UnifiedRoleDefinitionListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
-            tenant_id: arbitrary::Arbitrary::arbitrary(u)?,
-            auth_context: Cow::Owned(AuthContext::default()),
+            auth_context: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
         })
     }
 }
 
 pub fn fetch_all_unified_role_definitions<'a>(
-    tenant_id: AzureTenantId,
-    auth_context: &'a AuthContext,
+    auth_context: &'a AzureTenantAuthContext,
 ) -> UnifiedRoleDefinitionListRequest<'a> {
     UnifiedRoleDefinitionListRequest {
-        tenant_id,
         auth_context: Cow::Borrowed(auth_context),
     }
 }
 pub fn fetch_all_entra_role_definitions<'a>(
-    tenant_id: AzureTenantId,
-    auth_context: &'a AuthContext,
+    auth_context: &'a AzureTenantAuthContext,
 ) -> UnifiedRoleDefinitionListRequest<'a> {
     UnifiedRoleDefinitionListRequest {
-        tenant_id,
         auth_context: Cow::Borrowed(auth_context),
     }
 }
@@ -55,18 +48,14 @@ impl CacheableCommand for UnifiedRoleDefinitionListRequest<'_> {
             "graph",
             "GET",
             "unified_role_definitions",
-            self.tenant_id.to_string().as_str(),
+            self.auth_context.tenant_id.to_string().as_str(),
         ]))
     }
 
     async fn run(self) -> eyre::Result<Self::Output> {
         let url = "https://graph.microsoft.com/beta/roleManagement/directory/roleDefinitions"; // ?$top=500
-        let query = MicrosoftGraphHelper::new(
-            self.tenant_id,
-            url,
-            Some(self.cache_key()),
-            self.auth_context.as_ref(),
-        );
+        let query =
+            MicrosoftGraphHelper::new(url, Some(self.cache_key()), self.auth_context.as_ref());
         query
             .fetch_all()
             .await
@@ -83,11 +72,9 @@ mod test {
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        let role_definitions = fetch_all_unified_role_definitions(
-            get_test_tenant_id().await?,
-            &AuthContext::default(),
-        )
-        .await?;
+        let auth_context =
+            AuthContext::explicit_azure_cli().bind_to_azure_tenant(get_test_tenant_id().await?)?;
+        let role_definitions = fetch_all_unified_role_definitions(&auth_context).await?;
         assert!(!role_definitions.is_empty());
         assert!(
             role_definitions

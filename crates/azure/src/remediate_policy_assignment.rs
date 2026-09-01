@@ -1,6 +1,5 @@
 use crate::fetch_all_policy_assignments;
 use crate::fetch_all_policy_set_definitions;
-use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::DistinctByScope;
 use cloud_terrastodon_azure_types::PolicyAssignment;
 use cloud_terrastodon_azure_types::PolicyDefinitionIdReference;
@@ -8,7 +7,7 @@ use cloud_terrastodon_azure_types::Scope;
 use cloud_terrastodon_azure_types::ScopeImpl;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
-use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
@@ -18,12 +17,9 @@ use itertools::Itertools;
 use rand::Rng;
 use tracing::info;
 
-pub async fn remediate_policy_assignment(
-    tenant_id: AzureTenantId,
-    auth_context: &AuthContext,
-) -> Result<()> {
+pub async fn remediate_policy_assignment(auth_context: &AzureTenantAuthContext) -> Result<()> {
     info!("Fetching policy assignments");
-    let policy_assignments = fetch_all_policy_assignments(tenant_id, auth_context).await?;
+    let policy_assignments = fetch_all_policy_assignments(auth_context).await?;
 
     info!("Building choices of policies to remediate");
     let choices = policy_assignments
@@ -51,11 +47,10 @@ pub async fn remediate_policy_assignment(
     match policy_assignment.properties.policy_definition_id {
         PolicyDefinitionIdReference::PolicySetDefinitionId(policy_set_definition_id) => {
             info!("Remediating a policy set - must prompt for inner choice");
-            let Some(policy_set_definition) =
-                fetch_all_policy_set_definitions(tenant_id, auth_context)
-                    .await?
-                    .into_iter()
-                    .find(|def| def.id == policy_set_definition_id)
+            let Some(policy_set_definition) = fetch_all_policy_set_definitions(auth_context)
+                .await?
+                .into_iter()
+                .find(|def| def.id == policy_set_definition_id)
             else {
                 bail!("Could not find policy set definition with id {policy_set_definition_id:?}");
             };

@@ -83,11 +83,13 @@ mod test {
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         let tenant_id = get_test_tenant_id().await?;
-        let subscription_id = fetch_all_subscriptions(tenant_id, &AuthContext::default())
-            .await?
-            .first()
-            .unwrap()
-            .id;
+        let subscription_id = fetch_all_subscriptions(
+            &AuthContext::explicit_azure_cli().bind_to_azure_tenant(tenant_id)?,
+        )
+        .await?
+        .first()
+        .unwrap()
+        .id;
         let publisher = "center-for-internet-security-inc".parse()?;
         let offer = "cis-windows-server-2016-v1-0-0-l2".parse()?;
         let sku_versions = fetch_compute_publisher_image_offer_skus(

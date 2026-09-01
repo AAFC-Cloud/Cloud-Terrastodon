@@ -47,7 +47,8 @@ impl AzureEntraOAuth2PermissionGrantCreateArgs {
             eyre::bail!("--preset cannot be used with --client-id or --resource-id");
         }
 
-        let tenant_id = self.tenant.resolve().await?;
+        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
+        let tenant_id = tenant_auth_context.tenant_id;
         let (client_id, resource_id) = match self.preset {
             Some(preset) => {
                 resolve_preset_service_principals(tenant_id, preset, auth_context).await?
@@ -65,7 +66,7 @@ impl AzureEntraOAuth2PermissionGrantCreateArgs {
             eyre::bail!("At least one --scope value is required");
         }
 
-        let principals = fetch_all_principals(tenant_id, auth_context).await?;
+        let principals = fetch_all_principals(&tenant_auth_context).await?;
         let principal = self.principal.resolve(&principals).wrap_err_with(|| {
             format!(
                 "Could not resolve principal '{}' in tenant {tenant_id}",

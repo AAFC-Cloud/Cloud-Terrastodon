@@ -10,8 +10,9 @@ pub async fn browse_application_registrations(
     tenant_id: AzureTenantId,
     auth_context: &AuthContext,
 ) -> Result<()> {
+    let tenant_auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
     info!(%tenant_id, "Fetching application registrations");
-    let applications = fetch_all_application_registrations(tenant_id, auth_context).await?;
+    let applications = fetch_all_application_registrations(&tenant_auth_context).await?;
     let applications = PickerTui::<_>::new()
         .set_header("Application Registrations")
         .pick_many(applications.into_iter().map(|application| Choice {

@@ -57,9 +57,10 @@ pub async fn resolve_preset_service_principals(
     preset: OAuth2PermissionGrantPreset,
     auth_context: &AuthContext,
 ) -> Result<(EntraServicePrincipalObjectId, EntraServicePrincipalObjectId)> {
+    let tenant_auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
     match preset {
         OAuth2PermissionGrantPreset::GraphExplorer => {
-            let service_principals = fetch_all_service_principals(tenant_id, auth_context).await?;
+            let service_principals = fetch_all_service_principals(&tenant_auth_context).await?;
             let client =
                 resolve_service_principal_by_app_id(&service_principals, GRAPH_EXPLORER_APP_ID)?;
             let resource =

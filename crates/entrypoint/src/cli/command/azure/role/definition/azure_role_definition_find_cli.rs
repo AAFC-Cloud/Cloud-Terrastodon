@@ -25,9 +25,8 @@ pub struct AzureRoleDefinitionFindArgs {
 impl AzureRoleDefinitionFindArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         info!(action = %self.action, "Fetching Azure role definitions and role assignments");
-        let rbac =
-            fetch_all_role_definitions_and_assignments(self.tenant.resolve().await?, auth_context)
-                .await?;
+        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
+        let rbac = fetch_all_role_definitions_and_assignments(&tenant_auth_context).await?;
 
         let fallback_chain = build_fallback_chain(&self.action);
         let literal_match_counts = fallback_chain

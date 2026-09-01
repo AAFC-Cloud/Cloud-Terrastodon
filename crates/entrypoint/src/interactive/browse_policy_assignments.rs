@@ -1,4 +1,3 @@
-use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure::PolicyAssignmentId;
 use cloud_terrastodon_azure::PolicyDefinitionIdReference;
 use cloud_terrastodon_azure::ResourceGraphHelper;
@@ -7,7 +6,7 @@ use cloud_terrastodon_azure::fetch_all_policy_assignments;
 use cloud_terrastodon_azure::fetch_all_policy_definitions;
 use cloud_terrastodon_azure::fetch_all_policy_set_definitions;
 use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Context;
 use indexmap::IndexMap;
@@ -31,8 +30,7 @@ struct PolicyComplianceRow {
 }
 
 async fn fetch_all_policy_compliance(
-    tenant_id: AzureTenantId,
-    auth_context: &AuthContext,
+    auth_context: &AzureTenantAuthContext,
 ) -> eyre::Result<Vec<PolicyComplianceRow>> {
     info!("Fetching all policy compliance information");
     let query = indoc! {r#"
@@ -52,7 +50,6 @@ policyResources
     "#};
 
     let rtn = ResourceGraphHelper::new(
-        tenant_id,
         query,
         Some(CacheKey {
             path: PathBuf::from_iter(["az", "resource_graph", "policy-compliance"]),
@@ -67,17 +64,14 @@ policyResources
 }
 
 /// This is a new function that merges “search assigned policies” with a compliance query.
-pub async fn browse_policy_assignments(
-    tenant_id: AzureTenantId,
-    auth_context: &AuthContext,
-) -> eyre::Result<()> {
+pub async fn browse_policy_assignments(auth_context: &AzureTenantAuthContext) -> eyre::Result<()> {
     info!("Fetching a bunch of data...");
     let (policy_assignments, policy_definitions, mut policy_set_definitions, mut policy_compliance) =
         match try_join!(
-            fetch_all_policy_assignments(tenant_id, auth_context),
-            fetch_all_policy_definitions(tenant_id, auth_context),
-            fetch_all_policy_set_definitions(tenant_id, auth_context),
-            fetch_all_policy_compliance(tenant_id, auth_context),
+            fetch_all_policy_assignments(auth_context),
+            fetch_all_policy_definitions(auth_context),
+            fetch_all_policy_set_definitions(auth_context),
+            fetch_all_policy_compliance(auth_context),
         ) {
             Ok(x) => x,
             Err(e) => return Err(e).context("failed to fetch policy data"),

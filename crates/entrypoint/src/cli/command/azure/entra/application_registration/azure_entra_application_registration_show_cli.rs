@@ -24,12 +24,12 @@ pub struct AzureEntraApplicationRegistrationShowArgs {
 
 impl AzureEntraApplicationRegistrationShowArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let tenant_id = self.tenant.resolve().await?;
-        info!(needle = %self.application_registration, %tenant_id, "Fetching application registrations");
+        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
+        info!(needle = %self.application_registration, tenant_id = %tenant_auth_context.tenant_id, "Fetching application registrations");
         let needle = self.application_registration.trim();
 
         if let Ok(app_id) = needle.parse::<EntraApplicationClientId>() {
-            match fetch_application_registration(tenant_id, app_id, auth_context).await {
+            match fetch_application_registration(app_id, &tenant_auth_context).await {
                 Ok(application) => {
                     let stdout = std::io::stdout();
                     let mut handle = stdout.lock();
@@ -46,7 +46,7 @@ impl AzureEntraApplicationRegistrationShowArgs {
             }
         }
 
-        let applications = fetch_all_application_registrations(tenant_id, auth_context).await?;
+        let applications = fetch_all_application_registrations(&tenant_auth_context).await?;
         info!(
             count = applications.len(),
             "Fetched application registrations"

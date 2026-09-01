@@ -1,11 +1,10 @@
 use crate::MicrosoftGraphHelper;
 use arbitrary::Arbitrary;
-use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::EntraUser;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Result;
 use facet::Facet;
 use std::borrow::Cow;
@@ -18,25 +17,21 @@ const USER_LIST_CACHE_DURATION: Duration = Duration::MAX;
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Facet)]
 pub struct EntraUserListRequest<'a> {
-    pub tenant_id: AzureTenantId,
-    pub auth_context: Cow<'a, AuthContext>,
+    pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
 
 impl<'a> Arbitrary<'a> for EntraUserListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
-            tenant_id: AzureTenantId::arbitrary(u)?,
-            auth_context: Cow::Owned(AuthContext::default()),
+            auth_context: Cow::Owned(AzureTenantAuthContext::arbitrary(u)?),
         })
     }
 }
 
 pub fn fetch_all_entra_users<'a>(
-    tenant_id: AzureTenantId,
-    auth_context: &'a AuthContext,
+    auth_context: &'a AzureTenantAuthContext,
 ) -> EntraUserListRequest<'a> {
     EntraUserListRequest {
-        tenant_id,
         auth_context: Cow::Borrowed(auth_context),
     }
 }
@@ -52,16 +47,15 @@ impl<'a> CacheableCommand for EntraUserListRequest<'a> {
                 "graph",
                 "GET",
                 "users",
-                self.tenant_id.to_string().as_str(),
+                self.auth_context.tenant_id.to_string().as_str(),
             ]),
             valid_for: USER_LIST_CACHE_DURATION,
         }
     }
 
     async fn run(self) -> Result<Self::Output> {
-        debug!(tenant_id = %self.tenant_id, "Fetching users");
+        debug!(tenant_id = %self.auth_context.tenant_id, "Fetching users");
         let helper = MicrosoftGraphHelper::new(
-            self.tenant_id,
             "https://graph.microsoft.com/v1.0/users?$select=businessPhones,displayName,givenName,id,jobTitle,mail,otherMails,mobilePhone,officeLocation,preferredLanguage,surname,userPrincipalName",
             Some(self.cache_key()),
             self.auth_context.as_ref(),
@@ -83,11 +77,13 @@ cloud_terrastodon_registry::register_into_future!(EntraUserListRequest<'static> 
 mod tests {
     use super::*;
     use crate::get_test_tenant_id;
+    use cloud_terrastodon_credentials::AuthContext;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
-        let auth_context = AuthContext::default();
-        let result = fetch_all_entra_users(get_test_tenant_id().await?, &auth_context).await?;
+        let auth_context = AuthContext::explicit_azure_cli();
+        let auth_context = auth_context.bind_to_azure_tenant(get_test_tenant_id().await?)?;
+        let result = fetch_all_entra_users(&auth_context).await?;
         assert!(!result.is_empty());
         Ok(())
     }

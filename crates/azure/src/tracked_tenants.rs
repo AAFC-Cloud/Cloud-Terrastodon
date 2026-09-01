@@ -5,6 +5,9 @@ use cloud_terrastodon_azure_types::Account;
 use cloud_terrastodon_azure_types::AzureTenantAlias;
 use cloud_terrastodon_azure_types::AzureTenantArgument;
 use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
+use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_pathing::AppDir;
 use eyre::Context;
 use eyre::bail;
@@ -71,6 +74,25 @@ impl AzureTenantAliasExt for AzureTenantAlias {
 #[expect(async_fn_in_trait)]
 pub trait AzureTenantArgumentExt {
     async fn resolve(&self) -> eyre::Result<AzureTenantId>;
+
+    /// Resolve this tenant selector against an invocation's authentication
+    /// context and bind the result into one tenant-specific context.
+    async fn bind_auth_context(
+        &self,
+        auth_context: &AuthContext,
+    ) -> eyre::Result<AzureTenantAuthContext>;
+}
+
+/// Bind an optional Azure tenant selector to the authentication shape needed
+/// by Azure DevOps. An omitted selector preserves tenant-independent Azure CLI
+/// and PAT compatibility; an explicit selector produces tenant-bound bearer
+/// authentication where applicable.
+#[expect(async_fn_in_trait)]
+pub trait AzureDevOpsTenantArgumentExt {
+    async fn bind_auth_context(
+        &self,
+        auth_context: &AuthContext,
+    ) -> eyre::Result<AzureDevOpsAuthContext>;
 }
 
 #[must_use = "This is a future request, you must .run().await it"]
@@ -103,6 +125,31 @@ impl AzureTenantArgumentExt for AzureTenantArgument<'_> {
             AzureTenantArgument::Default => get_default_tenant_id().await,
             AzureTenantArgument::Id(id) => resolve_tracked_tenant_id(*id.as_ref()).await,
             AzureTenantArgument::Alias(alias) => alias.resolve().await,
+        }
+    }
+
+    async fn bind_auth_context(
+        &self,
+        auth_context: &AuthContext,
+    ) -> eyre::Result<AzureTenantAuthContext> {
+        let tenant_id = match (self, auth_context.tenant_id()) {
+            (AzureTenantArgument::Default, Some(tenant_id)) => tenant_id,
+            _ => self.resolve().await?,
+        };
+        auth_context.bind_to_azure_tenant(tenant_id)
+    }
+}
+
+impl AzureDevOpsTenantArgumentExt for Option<AzureTenantArgument<'_>> {
+    async fn bind_auth_context(
+        &self,
+        auth_context: &AuthContext,
+    ) -> eyre::Result<AzureDevOpsAuthContext> {
+        match self {
+            Some(tenant) => {
+                AzureDevOpsAuthContext::for_tenant(auth_context, tenant.resolve().await?)
+            }
+            None => AzureDevOpsAuthContext::new(auth_context),
         }
     }
 }
@@ -510,6 +557,7 @@ fn parse_alias_lines(content: &str, file: &Path) -> Vec<AzureTenantAlias> {
 
 #[cfg(test)]
 mod tests {
+    use super::AzureTenantArgumentExt;
     use super::add_tracked_tenant_aliases_in;
     use super::add_tracked_tenant_in;
     use super::forget_tracked_tenant_in;
@@ -521,9 +569,35 @@ mod tests {
     use super::resolve_tracked_tenant_alias_in;
     use crate::tracked_tenants::discover_tracked_tenants_in;
     use cloud_terrastodon_azure_types::AzureTenantAlias;
+    use cloud_terrastodon_azure_types::AzureTenantArgument;
     use cloud_terrastodon_azure_types::AzureTenantId;
+    use cloud_terrastodon_credentials::AuthContext;
+    use cloud_terrastodon_credentials::AuthSource;
+    use cloud_terrastodon_credentials::WorkloadIdentityConfig;
     use std::str::FromStr;
     use tempfile::tempdir;
+
+    #[tokio::test]
+    async fn default_argument_binds_to_the_context_tenant_without_a_lookup() -> eyre::Result<()> {
+        let tenant_id = AzureTenantId::from_str("11111111-1111-1111-1111-111111111111")?;
+        let auth_context = AuthContext::explicit(AuthSource::WorkloadIdentity)
+            .with_workload_identity(WorkloadIdentityConfig {
+                client_id: "22222222-2222-2222-2222-222222222222".parse()?,
+                tenant_id,
+                federated_token: "test-token".to_owned(),
+            })?;
+
+        let bound = AzureTenantArgument::Default
+            .bind_auth_context(&auth_context)
+            .await?;
+
+        assert_eq!(bound.tenant_id, tenant_id);
+        assert_eq!(
+            bound.auth_context.source(),
+            Some(AuthSource::WorkloadIdentity)
+        );
+        Ok(())
+    }
 
     #[tokio::test]
     async fn it_lists_added_tenants() -> eyre::Result<()> {

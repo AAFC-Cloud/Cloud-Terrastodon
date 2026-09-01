@@ -102,7 +102,7 @@ pub async fn execute_azure_devops_request(
 ) -> Result<Response> {
     let source = auth_context.source();
 
-    if matches!(source, AuthSource::PersonalAccessToken) {
+    if matches!(source, Some(AuthSource::PersonalAccessToken)) {
         let pat = get_azure_devops_personal_access_token_from_credential_manager()
             .await
             .map_err(|error| {
@@ -229,13 +229,13 @@ mod tests {
     #[test]
     fn explicit_context_preserves_source() {
         let context = AuthContext::explicit(AuthSource::PersonalAccessToken);
-        assert_eq!(context.source(), AuthSource::PersonalAccessToken);
+        assert_eq!(context.source(), Some(AuthSource::PersonalAccessToken));
     }
 
     #[test]
     fn auth_source_remains_a_request_policy() {
         let context = AuthContext::explicit(AuthSource::AzureCli);
-        assert_eq!(context.source(), AuthSource::AzureCli);
+        assert_eq!(context.source(), Some(AuthSource::AzureCli));
     }
 
     #[test]

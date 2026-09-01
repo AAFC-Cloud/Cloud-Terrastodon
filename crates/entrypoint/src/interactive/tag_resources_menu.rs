@@ -1,4 +1,3 @@
-use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure::Resource;
 use cloud_terrastodon_azure::ResourceGroup;
 use cloud_terrastodon_azure::ResourceTagsId;
@@ -7,18 +6,15 @@ use cloud_terrastodon_azure::fetch_all_resource_groups;
 use cloud_terrastodon_azure::fetch_all_resources;
 use cloud_terrastodon_azure::get_tags_for_resources;
 use cloud_terrastodon_azure::replace_tags_for_resources;
-use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use cloud_terrastodon_user_input::prompt_line;
 use itertools::Itertools;
 use tracing::info;
 
-pub async fn tag_resources_menu(
-    tenant_id: AzureTenantId,
-    auth_context: &AuthContext,
-) -> eyre::Result<()> {
-    let resource_groups = fetch_all_resource_groups(tenant_id, auth_context).await?;
+pub async fn tag_resources_menu(auth_context: &AzureTenantAuthContext) -> eyre::Result<()> {
+    let resource_groups = fetch_all_resource_groups(auth_context).await?;
     let resource_group: ResourceGroup = PickerTui::<_>::new()
         .set_header("Choose a resource group")
         .pick_one(resource_groups.into_iter().map(|rg| Choice {
@@ -26,7 +22,7 @@ pub async fn tag_resources_menu(
             value: rg,
         }))
         .await?;
-    let resources = fetch_all_resources(tenant_id, auth_context)
+    let resources = fetch_all_resources(auth_context)
         .await?
         .into_iter()
         .filter(|res| {
@@ -42,7 +38,7 @@ pub async fn tag_resources_menu(
         }))
         .await?;
     let resource_tags = get_tags_for_resources(
-        tenant_id,
+        auth_context,
         resources
             .into_iter()
             .map(|r: Resource| ResourceTagsId::from_scope(&r))
@@ -52,7 +48,7 @@ pub async fn tag_resources_menu(
     let tag_key = prompt_line("Enter tag key: ").await?;
     let tag_value = prompt_line("Enter tag value: ").await?;
     let result = replace_tags_for_resources(
-        tenant_id,
+        auth_context,
         resource_tags
             .into_iter()
             .map(|(id, mut tags)| {

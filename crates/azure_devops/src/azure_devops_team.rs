@@ -94,7 +94,7 @@ mod tests {
     #[tokio::test]
     async fn it_works() -> eyre::Result<()> {
         let org_url = get_default_organization_url().await?;
-        let auth_context = AuthContext::default();
+        let auth_context = AuthContext::explicit_azure_cli();
         let azure_devops_auth_context = AzureDevOpsAuthContext::new(&auth_context)?;
         let project = fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context)
             .await?

@@ -43,7 +43,8 @@ pub struct AzureEntraOAuth2PermissionGrantListArgs {
 
 impl AzureEntraOAuth2PermissionGrantListArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let tenant_id = self.tenant.resolve().await?;
+        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
+        let tenant_id = tenant_auth_context.tenant_id;
         let mut client_id = self.client_id;
         let mut resource_id = self.resource_id;
         if let Some(preset) = self.preset {
@@ -55,7 +56,7 @@ impl AzureEntraOAuth2PermissionGrantListArgs {
 
         let principal_id = match self.principal.as_ref() {
             Some(principal_argument) => {
-                let principals = fetch_all_principals(tenant_id, auth_context).await?;
+                let principals = fetch_all_principals(&tenant_auth_context).await?;
                 let principal = principal_argument.resolve(&principals).wrap_err_with(|| {
                     format!(
                         "Could not resolve principal '{}' in tenant {tenant_id}",

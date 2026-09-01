@@ -6,6 +6,7 @@
 
 use cloud_terrastodon::azure::fetch_all_resource_groups;
 use cloud_terrastodon::azure::get_default_tenant_id;
+use cloud_terrastodon::credentials::AuthContext;
 use color_eyre::eyre::Result;
 
 #[tokio::main]
@@ -15,7 +16,9 @@ async fn main() -> Result<()> {
 
     // Fetch info
     let tenant_id = get_default_tenant_id().await?;
-    let resource_groups = fetch_all_resource_groups(tenant_id).await?;
+    let auth_context = AuthContext::default();
+    let resource_groups =
+        fetch_all_resource_groups(&auth_context.bind_to_azure_tenant(tenant_id)?).await?;
 
     // Print each resource group with its subscription name
     for resource_group in resource_groups {

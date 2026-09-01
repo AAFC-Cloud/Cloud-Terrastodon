@@ -1,10 +1,43 @@
 # Secretless authentication and audit pipeline support
 
-**Plan status:** Active — local implementation complete; live WIF validation deferred  
+**Plan status:** Active — browser/typed-project/audit context slice implemented; live WIF validation deferred
 **Primary implementation root:** main in ~/repos/Cloud-Terrastodon (WSL)
-**Last updated:** 2026-08-21  
+**Last updated:** 2026-08-27
 **Intent audit:** Passed 2026-08-21 against the full conversation through the request to create this local plan  
 **Public issue:** Deferred; do not create or post a GitHub issue until this plan and its first milestone are reviewed  
+
+## Current implementation slice
+
+The local Rust track now supports the first interactive Linux handoff without
+calling Azure CLI for the migrated path:
+
+- `ct az tenant login <tenant-or-alias>` uses authorization-code + PKCE by
+  default (device code remains an explicit PIM-only fallback) and persists a
+  refresh token in the platform-appropriate local store.
+- The browser consent request covers the normal Graph, ARM, and Azure DevOps
+  delegated resources in one handoff; code redemption still requests one
+  resource at a time, and the callback URL/port is printed for WSL forwarding.
+- `ct az devops project list` receives the entrypoint `AuthContext`; every
+  continuation page uses that context and its per-page cache key. It performs
+  the resource-token preflight before resolving organization metadata or
+  consulting the project-list cache, then reuses that token for all pages.
+- `ct audit azure` and `ct audit azure-devops` now receive the entrypoint
+  context, derive their default tenant from WIF/browser credentials, and pass
+  the same context through nested and parallel request families.
+- Context-aware typed request objects own a public invocation `AuthContext`
+  field, and `AuthContext` itself implements Facet with credential caches marked
+  opaque/sensitive. Their `IntoFuture` implementations execute with the
+  request's context rather than resolving an implicit global or passing `None`.
+  Legacy constructors use an explicit Azure CLI compatibility context until
+  their callers are migrated to the entrypoint context.
+- `auto` selects workload identity first, then a stored browser session for an
+  interactive local invocation, and finally Azure CLI compatibility. It does
+  not start a new browser login; that handoff is explicit through tenant login
+  or `--auth-source browser`. CLI token acquisition uses fail-fast retry
+  behavior so a missing session cannot launch an implicit device-code login.
+
+Live browser callback, tenant permissions, and WIF pipeline validation remain
+external checks and are intentionally not run during local implementation.
 
 ## How to update this plan
 
@@ -123,7 +156,7 @@ These facts were verified in the baseline checkout before this implementation pa
 
 Implementation evidence from this pass:
 
-- crates/credentials/src/auth_source.rs defines the shared `AuthSource` contract and process selector; crates/credentials/src/workload_identity.rs normalizes both environment contracts and provides the injectable Entra assertion exchange boundary; crates/credentials/src/azure_bearer_token.rs separates Entra bearer tokens from PATs.
+- crates/credentials/src/auth_source.rs defines the shared `AuthSource` contract; `AuthContext` resolves the source and owns short-lived credential caches; crates/credentials/src/workload_identity.rs normalizes both environment contracts and provides the injectable Entra assertion exchange boundary; crates/credentials/src/azure_bearer_token.rs separates Entra bearer tokens from PATs.
 - crates/azure_devops/src/azure_devops_rest.rs centralizes encoded Azure DevOps REST URL construction. The five audit request modules no longer contain `CommandKind::AzureCLI`; the existing dump-oriented group-member list remains intentionally outside the first audit slice.
 - `cargo check --all --tests --examples --workspace` passes. Deterministic tests pass for auth-source parsing, WIF normalization/form construction, Bearer-vs-PAT headers, headless reauthentication gating, REST URL/continuation parsing, and token refresh boundaries. No intentional live tenant, subscription, organization, pipeline, or issue-tracker validation was performed; the one accidental pre-existing profile-test invocation failed locally before producing validation evidence and is now ignored.
 
@@ -131,7 +164,7 @@ Implementation evidence from this pass:
 
 - The first pipeline identity is the one app registration/service connection. One registration may carry delegated public-client settings for local PIM and federated/application access required by pipeline resources, but each resource still receives a distinct token audience.
 - PIM remains a user-delegated workflow. The pipeline milestone must not attempt to make PIM activation act as a service principal.
-- The pipeline has no signed-in user. Pipeline operations act as the service connection identity and are authorized by its RBAC/application permissions.
+- The pipeline has no signed-in user. Pipeline operations act as the service connection identity: ARM uses its RBAC assignments, Graph uses its Entra application permissions, and Azure DevOps requires explicit organization membership, licensing, and organization permissions for the service principal.
 - Both environment naming conventions are supported. Values are sensitive and must never be logged, included in command summaries, or written to cache artifacts.
 - Device code is not a prerequisite. Browser PKCE remains the preferred local delegated flow; device code remains opt-in only if retained.
 - auto must not trigger interactive login when a pipeline/WIF context is detected. Missing or invalid WIF input must fail clearly in headless mode.
@@ -148,7 +181,7 @@ Implementation evidence from this pass:
 | OIDC assertion acquisition | Decide whether the first slice consumes an exposed assertion only or also refreshes through Azure DevOps’ OIDC request endpoint. | Pipeline tests prove freshness/expiry behavior. |
 | Token model and headers | Define resource-specific credentials. Entra uses Bearer; actual PAT uses Basic only in compatibility mode. | Header tests prevent an Entra token from using the PAT client. |
 | One-registration permissions | Document delegated Graph PIM permissions, non-PIM Graph application permissions needed by audit_azure, ARM RBAC, Azure DevOps access/licensing, and federated credentials. | Permission matrix and live check prove least-privilege audit access. |
-| Auth context propagation | Decide process-scoped context initialized by entrypoint versus explicit dependency. Recommended: process initialization for CLI ergonomics plus injectable provider seams for tests. | ct rest, typed requests, and migrated helpers share auth without parsing flags. |
+| Auth context propagation | Keep authentication invocation-owned and explicit: resolve once at the entrypoint, store it on migrated request objects, and pass it through request builders. Do not use process-global state or `None` as an implicit resolver. | `ct rest`, typed requests, and migrated helpers share auth without parsing flags or silently selecting another source. |
 | Audit migration boundary | Confirm the five Azure DevOps request families used by audit_azure_devops as the first direct CLI migrations. | Focused audit run proves no direct Azure CLI process is needed. |
 | CLI fallback behavior | Decide whether azure_cli is explicit-only or a final local auto fallback. Recommended: explicit in headless mode; compatibility fallback only when no WIF/browser context exists and interactivity is allowed. | Retry logic cannot invoke az login in WIF/headless mode. |
 
@@ -157,7 +190,7 @@ Implementation evidence from this pass:
 ### Repository paths
 
 - crates/credentials/src/azure_access_token.rs — current Azure CLI token acquisition and Azure DevOps token naming.
-- crates/credentials/src/auth_source.rs — global authentication-source contract and process selector.
+- crates/credentials/src/auth_source.rs and crates/credentials/src/auth_context.rs — authentication-source contract, entrypoint resolution, and invocation-owned credential state.
 - crates/credentials/src/workload_identity.rs — dual environment normalization and federated assertion exchange.
 - crates/credentials/src/azure_bearer_token.rs — sensitive Entra bearer-token wrapper.
 - crates/credentials/src/azure_devops_pat.rs — PAT environment and Windows credential-manager fallback.
@@ -177,7 +210,7 @@ Implementation evidence from this pass:
 - crates/azure_devops/src/azure_devops_test_plans.rs — typed REST test-plan request.
 - crates/azure_devops/src/azure_devops_test_suites.rs — typed REST test-suite request.
 - crates/azure_devops/src/azure_devops_group.rs — typed REST project-group request.
-- crates/azure_devops/src/azure_devops_groups_for_member.rs — existing REST member-group request that still needs shared auth.
+- crates/azure_devops/src/azure_devops_groups_for_member.rs — REST member-group request with explicit context propagation for the audit path.
 - crates/azure_devops/src/azure_devops_group_member.rs — direct CLI group-membership request used by dump flows.
 - check-all.ps1 — current check, format, and Clippy validation.
 
@@ -261,7 +294,7 @@ Implementation evidence from this pass:
 
 **Completion criteria:** Enum/value names, precedence, default, errors, and context propagation are documented and parser/provider-tested.
 
-**Completion notes:** Added `AuthSource` values `auto`, `workload-identity`, `browser`, `azure-cli`, and explicit `pat` compatibility mode. `GlobalArgs` exposes `--auth-source`; the entrypoint initializes the process-wide selector without making request types parse CLI arguments. Auto refuses interactive Azure CLI authentication in CI/headless contexts.
+**Completion notes:** Added `AuthSource` values `auto`, `workload-identity`, `browser`, `azure-cli`, and explicit `pat` compatibility mode. `GlobalArgs` exposes `--auth-source`; the entrypoint resolves one `AuthContext` and passes it through request trees without making request types parse CLI arguments or relying on process-global authentication state. Auto refuses interactive Azure CLI authentication in CI/headless contexts.
 
 ### [x] 1.2 Define and normalize both WIF environment contracts
 
@@ -343,7 +376,9 @@ Add a deterministic token-endpoint mock boundary rather than depending on a live
 
 - Implement explicit source selection and auto precedence from gate 1.1.
 - Cache by tenant/resource/source and refresh before expiry.
-- Use browser PKCE/refresh-token behavior for local delegated PIM only.
+- Use browser PKCE/refresh-token behavior for local delegated PIM and normal
+  Graph, ARM, and Azure DevOps REST requests; keep PIM's additional Graph
+  scopes explicit.
 - Prevent auto from falling into interactive login when WIF is present or process is headless.
 
 **Validation:**
@@ -353,7 +388,7 @@ Add a deterministic token-endpoint mock boundary rather than depending on a live
 
 **Completion criteria:** Repeated requests reuse valid tokens, expired tokens refresh, and headless WIF failures never attempt device/browser/CLI login.
 
-**Completion notes:** Added process-scoped source selection, WIF token caching keyed by tenant/resource with a two-minute refresh buffer, headless refusal, and a deterministic expiry-boundary test. The cache lock serializes refreshes for a tenant/resource key; live concurrent pipeline behavior remains part of phase 6.2.
+**Completion notes:** Added invocation-owned source selection, WIF token caching keyed by tenant/resource with a two-minute refresh buffer, browser PKCE/refresh-token caching for normal delegated resources, headless refusal, and deterministic expiry-boundary tests. The cache lock serializes refreshes for a tenant/resource key; live concurrent pipeline behavior remains part of phase 6.2.
 
 ### [x] 2.3 Replace fetch_azure_access_token’s unconditional CLI dependency
 
@@ -445,7 +480,7 @@ Run a Linux pipeline smoke command with the real WIF service connection when the
 
 **Completion criteria:** ct audit azure completes headlessly without Azure CLI, device code, PAT, or signed-in user.
 
-**Completion notes:** The audit's typed ARM/Graph dependency graph now flows through the shared REST provider and compiles. End-to-end completion requires the deferred external WIF pipeline run.
+**Completion notes:** The audit's typed ARM/Graph dependency graph now flows through the entrypoint-owned context and shared REST provider, including Graph pagination and Resource Graph batches. End-to-end completion requires the deferred external WIF pipeline run.
 
 ### [x] 4.2 Replace the five direct Azure DevOps CLI-backed audit request families
 
@@ -492,7 +527,7 @@ Run the real Linux Azure DevOps pipeline smoke test when service connection and 
 
 **Completion criteria:** ct audit azure-devops completes headlessly with WIF and no Azure CLI, device-code, or PAT dependency.
 
-**Completion notes:** The audit request graph is CLI-free for the five migrated families and shared-auth capable. Shared page parsing now has an offline response fixture covering JSON envelopes and continuation headers; the external pipeline run remains outstanding.
+**Completion notes:** The audit request graph is CLI-free for the five migrated families and passes one entrypoint-owned context through Graph lookup, Azure DevOps pagination, and parallel work. Shared page parsing has an offline response fixture covering JSON envelopes and continuation headers; the external pipeline run remains outstanding.
 
 ### Phase 5 — Global preference and remaining CLI classification [x]
 
@@ -567,7 +602,7 @@ policy. It contains no live credentials or tenant-specific examples.
 
 ### Phase 6 — Acceptance, propagation, and handoff [~]
 
-### [x] 6.1 Run focused and repository validation
+### [~] 6.1 Run focused and repository validation
 
 **Work:**
 
@@ -588,7 +623,7 @@ policy. It contains no live credentials or tenant-specific examples.
 
 **Completion criteria:** Focused tests and check-all.ps1 pass on the current source tree, or unavailable external tests are explicitly recorded with prerequisites.
 
-**Completion notes:** `cargo check --all --tests --examples --workspace`, `cargo clippy --all-targets --all-features -- -D warnings`, formatting, and `pwsh ./check-all.ps1` all pass locally. Focused offline suites pass for credentials (13 passed, 4 ignored), REST (18 passed), command retry gating, entrypoint CLI schema, and Azure DevOps URL construction. Existing live credential tests are now explicitly ignored. An unfiltered invocation of the pre-existing profile test attempted `az account get-access-token` but failed locally while writing command failure artifacts to the read-only `~/.cache/cloud_terrastodon` path; it did not produce successful tenant/pipeline validation. The check script's test section is commented out and live WIF validation remains external.
+**Completion notes:** `cargo check --workspace --all-targets`, `cargo build --workspace`, stable `cargo fmt --all -- --check`, and `cargo clippy --all-targets --all-features -- -D warnings` pass on Linux. Focused offline suites pass for credentials/browser OAuth, REST, command retry gating, entrypoint project-list auth preflight, entrypoint CLI schema, and Azure DevOps URL/pagination construction; the Azure DevOps test binary also compiles with `--no-run`. Its default suite contains legacy live tests, so it is not used as local validation. Live browser callback, tenant, organization, and WIF pipeline validation remain external and were not run.
 
 ### [!] 6.2 Run the Linux WIF pipeline acceptance matrix
 
@@ -608,7 +643,7 @@ policy. It contains no live credentials or tenant-specific examples.
 
 **Blocker:** This requires a real Azure DevOps WIF service connection, tenant permissions, organization access/licensing, and a Linux agent. The local-only goal forbids those external interactions. Unblock only with a separately authorized live validation step.
 
-### [~] 6.3 Update this plan and decide on public issue publication
+### [x] 6.3 Update this plan and decide on public issue publication
 
 **Work:**
 

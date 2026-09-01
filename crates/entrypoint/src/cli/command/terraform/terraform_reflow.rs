@@ -1,9 +1,10 @@
 use cloud_terrastodon_azure::AzureTenantArgument;
+use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_hcl::HclWriter;
 use cloud_terrastodon_hcl::discovery::DiscoveryDepth;
 use cloud_terrastodon_hcl::discovery::discover_hcl;
-use cloud_terrastodon_hcl::reflow::reflow_hcl;
+use cloud_terrastodon_hcl::reflow::ReflowHclRequest;
 use cloud_terrastodon_pathing::Existy;
 use eyre::Result;
 use std::collections::HashSet;
@@ -50,17 +51,18 @@ impl TerraformReflowArgs {
         let single_file_path = self
             .single_file_arg()
             .map(|single_file| self.resolve_single_file_path(single_file));
+        let tenant_auth_context = if self.full {
+            Some(self.tenant.bind_auth_context(auth_context).await?)
+        } else {
+            None
+        };
 
         info!(count = hcl.len(), "Discovered HCL files for reflowing");
-        let hcl = reflow_hcl(
-            self.tenant,
-            auth_context,
-            hcl,
-            self.full,
-            single_file_path,
-            self.mixed,
-        )
-        .await?;
+        let hcl = ReflowHclRequest::new(hcl, tenant_auth_context.as_ref())
+            .include_principal_id_comments(self.full)
+            .single_file_path(single_file_path)
+            .mixed(self.mixed)
+            .await?;
         let new_paths = hcl.keys().cloned().collect::<HashSet<_>>();
 
         info!(count = hcl.len(), "Reflowed HCL files");

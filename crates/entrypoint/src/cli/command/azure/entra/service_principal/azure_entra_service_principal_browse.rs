@@ -14,6 +14,7 @@ pub struct AzureEntraSpBrowseArgs {
 
 impl AzureEntraSpBrowseArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        browse_service_principals(self.tenant.resolve().await?, auth_context).await
+        let auth_context = self.tenant.bind_auth_context(auth_context).await?;
+        browse_service_principals(&auth_context).await
     }
 }

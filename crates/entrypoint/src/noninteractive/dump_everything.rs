@@ -1,4 +1,3 @@
-use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure::fetch_all_resource_groups;
 use cloud_terrastodon_azure::fetch_all_subscriptions;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectId;
@@ -8,8 +7,8 @@ use cloud_terrastodon_azure_devops::fetch_azure_devops_teams_for_project;
 use cloud_terrastodon_azure_devops::get_default_organization_url;
 use cloud_terrastodon_azure_devops::get_personal_access_token;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
-use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
+use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_hcl::FreshTFWorkDir;
 use cloud_terrastodon_hcl::GeneratedConfigOutTFWorkDir;
 use cloud_terrastodon_hcl::HclBlock;
@@ -24,7 +23,7 @@ use cloud_terrastodon_hcl::discovery::DiscoveryDepth;
 use cloud_terrastodon_hcl::discovery::discover_hcl;
 use cloud_terrastodon_hcl::generate_config_out_bulk;
 use cloud_terrastodon_hcl::initialize_work_dirs;
-use cloud_terrastodon_hcl::reflow::reflow_hcl;
+use cloud_terrastodon_hcl::reflow::ReflowHclRequest;
 use cloud_terrastodon_hcl::validate_work_dirs;
 use cloud_terrastodon_pathing::AppDir;
 use cloud_terrastodon_pathing::Existy;
@@ -64,15 +63,11 @@ where
     Ok((rtn, duration))
 }
 
-pub async fn dump_everything(
-    tenant_id: AzureTenantId,
-    auth_context: &AuthContext,
-) -> eyre::Result<()> {
+pub async fn dump_everything(auth_context: &AzureTenantAuthContext) -> eyre::Result<()> {
     info!("Ensuring Azure DevOps PAT is set for future steps");
     _ = get_personal_access_token().await?;
     let auth_context = auth_context.clone();
-    let (rtn, took) =
-        measure(async move { dump_everything_inner(tenant_id, &auth_context).await }).await?;
+    let (rtn, took) = measure(async move { dump_everything_inner(&auth_context).await }).await?;
     info!("Overall dump took {took}");
     Ok(rtn)
 }
@@ -107,10 +102,7 @@ impl Strategy {
         }
     }
 }
-pub async fn dump_everything_inner(
-    tenant_id: AzureTenantId,
-    auth_context: &AuthContext,
-) -> eyre::Result<()> {
+pub async fn dump_everything_inner(auth_context: &AzureTenantAuthContext) -> eyre::Result<()> {
     let strategy = *PickerTui::<_>::new()
         .set_header("Dump strategy")
         .pick_one(Strategy::VARIANTS)
@@ -181,7 +173,7 @@ pub async fn dump_everything_inner(
     let tf_work_dirs = match behaviour {
         Behaviour::CleanAndWriteImportsAndInitAndValidateAndGenerateAndProcess
         | Behaviour::WriteImportsAndInitAndValidateAndGenerateAndProcess => {
-            write_all_import_blocks(strategy, tenant_id, auth_context).await?
+            write_all_import_blocks(strategy, auth_context).await?
         }
         _ => discover_existing_dirs(strategy).await?,
     };
@@ -256,8 +248,7 @@ pub async fn dump_everything_inner(
 
     let auth_context = auth_context.clone();
     let (tf_work_dirs, duration) =
-        measure(async move { process_generated_many(tenant_id, tf_work_dirs, auth_context).await })
-            .await?;
+        measure(async move { process_generated_many(tf_work_dirs, auth_context).await }).await?;
     info!(
         "Processed generated terraform code in {} dirs in {duration}",
         tf_work_dirs.len()
@@ -270,9 +261,8 @@ pub async fn dump_everything_inner(
 }
 
 async fn process_generated_many(
-    tenant_id: AzureTenantId,
     tf_work_dirs: Vec<GeneratedConfigOutTFWorkDir>,
-    auth_context: AuthContext,
+    auth_context: AzureTenantAuthContext,
 ) -> eyre::Result<Vec<ProcessedTFWorkDir>> {
     let mut rtn: Vec<ProcessedTFWorkDir> = Default::default();
     let out_dir: PathBuf = AppDir::Processed.into();
@@ -300,7 +290,9 @@ async fn process_generated_many(
             );
 
             let hcl = discover_hcl(work_dir, DiscoveryDepth::Shallow).await?;
-            let hcl = reflow_hcl(tenant_id.into(), &auth_context, hcl, true, None, false).await?;
+            let hcl = ReflowHclRequest::new(hcl, Some(&auth_context))
+                .include_principal_id_comments(true)
+                .await?;
             drop(permit);
             Ok(WorkOutcome {
                 out_dir: out_dir.clone(),
@@ -506,16 +498,15 @@ async fn discover_existing_dirs(strategy: Strategy) -> eyre::Result<Vec<FreshTFW
 
 async fn write_all_import_blocks(
     strategy: Strategy,
-    tenant_id: AzureTenantId,
-    auth_context: &AuthContext,
+    auth_context: &AzureTenantAuthContext,
 ) -> eyre::Result<Vec<FreshTFWorkDir>> {
     info!("Writing all import blocks; fetching a lot of data");
     let org_url = get_default_organization_url().await?;
-    let azure_devops_auth_context = AzureDevOpsAuthContext::for_tenant(auth_context, tenant_id)?;
+    let azure_devops_auth_context = AzureDevOpsAuthContext::for_azure_tenant(auth_context);
     let (azure_devops_projects, subscriptions, resource_groups) = try_join!(
         fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context),
-        fetch_all_subscriptions(tenant_id, auth_context),
-        fetch_all_resource_groups(tenant_id, auth_context),
+        fetch_all_subscriptions(auth_context),
+        fetch_all_resource_groups(auth_context),
     )?;
 
     let mut tf_work_dirs: Vec<PathBuf> = Vec::new();

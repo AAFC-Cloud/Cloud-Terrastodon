@@ -53,11 +53,12 @@ pub async fn menu(auth_context: &AuthContext) -> Result<MenuActionResult> {
     chosen.reverse();
 
     let default_tenant_id = get_default_tenant_id().await?;
+    let tenant_auth_context = auth_context.bind_to_azure_tenant(default_tenant_id)?;
 
     for action in &chosen {
         info!("Invoking action \"{action}\"");
         let result = action
-            .invoke(default_tenant_id, auth_context)
+            .invoke(&tenant_auth_context)
             .await
             .context(format!("invoking action \"{action}\""));
         match result {

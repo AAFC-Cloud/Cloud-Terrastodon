@@ -1,4 +1,3 @@
-use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure::RoleAssignmentId;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::Subscription;
@@ -6,7 +5,7 @@ use cloud_terrastodon_azure::SubscriptionId;
 use cloud_terrastodon_azure::SubscriptionScoped;
 use cloud_terrastodon_azure::fetch_all_role_assignments;
 use cloud_terrastodon_azure::fetch_all_subscriptions;
-use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_hcl::HclImportBlock;
 use cloud_terrastodon_hcl::HclProviderBlock;
 use cloud_terrastodon_hcl::HclProviderReference;
@@ -21,16 +20,15 @@ use std::collections::HashSet;
 use tracing::info;
 
 pub async fn write_imports_for_all_role_assignments(
-    tenant_id: AzureTenantId,
-    auth_context: &AuthContext,
+    auth_context: &AzureTenantAuthContext,
 ) -> Result<()> {
     info!("Fetching role assignments");
-    let subscriptions = fetch_all_subscriptions(tenant_id, auth_context)
+    let subscriptions = fetch_all_subscriptions(auth_context)
         .await?
         .into_iter()
         .map(|sub| (sub.id, sub))
         .collect::<HashMap<SubscriptionId, Subscription>>();
-    let role_assignments = fetch_all_role_assignments(tenant_id, auth_context).await?;
+    let role_assignments = fetch_all_role_assignments(auth_context).await?;
 
     info!("Building import blocks");
     let mut providers: HashSet<HclProviderBlock> = HashSet::new();

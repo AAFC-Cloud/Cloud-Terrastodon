@@ -20,9 +20,9 @@ pub struct AzureEntraUserSearchArgs {
 
 impl AzureEntraUserSearchArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let tenant_id = self.tenant.resolve().await?;
-        info!(%tenant_id, search_term = %self.search_term, "Searching Entra users");
-        let users = search_entra_users(tenant_id, self.search_term, auth_context).await?;
+        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
+        info!(tenant_id = %tenant_auth_context.tenant_id, search_term = %self.search_term, "Searching Entra users");
+        let users = search_entra_users(self.search_term, &tenant_auth_context).await?;
 
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();

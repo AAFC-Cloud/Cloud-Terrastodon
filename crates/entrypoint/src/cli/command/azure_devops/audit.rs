@@ -3,6 +3,7 @@ use crate::noninteractive::audit_azure_devops;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
+use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Arguments for auditing Azure DevOps resources.
@@ -12,7 +13,8 @@ pub struct AzureDevOpsAuditArgs {
     #[facet(figue::named)]
     pub org: Option<AzureDevOpsOrganizationUrl>,
 
-    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
+    /// Tracked tenant id or alias to query. Defaults to the selected
+    /// workload-identity/browser tenant, then the Azure CLI tenant.
     #[facet(figue::named, default)]
     pub tenant: AzureTenantArgument<'static>,
 
@@ -26,12 +28,13 @@ pub struct AzureDevOpsAuditArgs {
 }
 
 impl AzureDevOpsAuditArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+        let auth_context = self.tenant.bind_auth_context(auth_context).await?;
         audit_azure_devops(
             crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?,
-            self.tenant.resolve().await?,
             self.test_license_inactivity_threshold.0.into(),
             self.paid_license_inactivity_threshold.0.into(),
+            &auth_context,
         )
         .await
     }

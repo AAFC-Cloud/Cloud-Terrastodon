@@ -1,38 +1,33 @@
 use crate::MicrosoftGraphHelper;
-use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::UnifiedRoleDefinition;
 use cloud_terrastodon_azure_types::UnifiedRoleDefinitionId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use std::borrow::Cow;
 use std::path::PathBuf;
 
 /// Fetch an individual Entra role assignment
 #[derive(facet::Facet)]
 pub struct UnifiedRoleDefinitionRequest<'a> {
-    pub tenant_id: AzureTenantId,
     pub role_definition_id: UnifiedRoleDefinitionId,
-    pub auth_context: Cow<'a, AuthContext>,
+    pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
 
 impl<'a> arbitrary::Arbitrary<'a> for UnifiedRoleDefinitionRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
-            tenant_id: arbitrary::Arbitrary::arbitrary(u)?,
             role_definition_id: arbitrary::Arbitrary::arbitrary(u)?,
-            auth_context: Cow::Owned(AuthContext::default()),
+            auth_context: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
         })
     }
 }
 
 pub fn fetch_unified_role_definition<'a>(
-    tenant_id: AzureTenantId,
     role_definition_id: UnifiedRoleDefinitionId,
-    auth_context: &'a AuthContext,
+    auth_context: &'a AzureTenantAuthContext,
 ) -> UnifiedRoleDefinitionRequest<'a> {
     UnifiedRoleDefinitionRequest {
-        tenant_id,
         role_definition_id,
         auth_context: Cow::Borrowed(auth_context),
     }
@@ -48,7 +43,7 @@ impl cloud_terrastodon_command::CacheableCommand for UnifiedRoleDefinitionReques
             "graph",
             "GET",
             "unified_role_definition",
-            self.tenant_id.to_string().as_ref(),
+            self.auth_context.tenant_id.to_string().as_ref(),
             self.role_definition_id.to_string().as_ref(),
         ]))
     }
@@ -59,14 +54,13 @@ impl cloud_terrastodon_command::CacheableCommand for UnifiedRoleDefinitionReques
             "https://graph.microsoft.com/beta/roleManagement/directory/roleDefinitions/{role_definition_id}?$expand=inheritsPermissionsFrom"
         );
         let query = MicrosoftGraphHelper::new(
-            self.tenant_id,
             url,
             Some(CacheKey::new(PathBuf::from_iter([
                 "ms",
                 "graph",
                 "GET",
                 "unified_role_definition",
-                self.tenant_id.to_string().as_ref(),
+                self.auth_context.tenant_id.to_string().as_ref(),
                 role_definition_id.to_string().as_ref(),
             ]))),
             self.auth_context.as_ref(),
@@ -82,15 +76,13 @@ cloud_terrastodon_command::impl_cacheable_into_future!(UnifiedRoleDefinitionRequ
 /// Unravels the [`UnifiedRoleDefinition::inherits_permissions_from`] chain
 /// into the top-level [`UnifiedRoleDefinition::role_permissions`]
 pub async fn fetch_unified_role_definition_deep(
-    tenant_id: AzureTenantId,
     role_definition_id: UnifiedRoleDefinitionId,
-    auth_context: &AuthContext,
+    auth_context: &AzureTenantAuthContext,
 ) -> eyre::Result<UnifiedRoleDefinition> {
-    let mut this =
-        fetch_unified_role_definition(tenant_id, role_definition_id, auth_context).await?;
+    let mut this = fetch_unified_role_definition(role_definition_id, auth_context).await?;
     let mut next = std::mem::take(&mut this.inherits_permissions_from);
     while let Some(parent_id) = next.pop() {
-        let parent = fetch_unified_role_definition(tenant_id, parent_id.id, auth_context).await?;
+        let parent = fetch_unified_role_definition(parent_id.id, auth_context).await?;
         this.inherits_permissions_from.push(parent_id);
         this.role_permissions.extend(parent.role_permissions);
         next.extend(parent.inherits_permissions_from);
@@ -114,12 +106,9 @@ mod test {
             "cf1c38e5-3621-4004-a7cb-879624dced7c".parse()?;
         let directory_readers_role_id: UnifiedRoleDefinitionId =
             "88d8e3e3-8f55-4a1e-953a-9b9898b8876b".parse()?;
-        let found = fetch_unified_role_definition(
-            tenant_id,
-            application_developer_role_id,
-            &AuthContext::default(),
-        )
-        .await?;
+        let auth_context = AuthContext::explicit_azure_cli().bind_to_azure_tenant(tenant_id)?;
+        let found =
+            fetch_unified_role_definition(application_developer_role_id, &auth_context).await?;
         assert!(
             matches!(found.inherits_permissions_from.as_slice(), [x] if x.id == directory_readers_role_id)
         );
@@ -131,12 +120,10 @@ mod test {
         let tenant_id = get_test_tenant_id().await?;
         let application_developer_role_id: UnifiedRoleDefinitionId =
             "cf1c38e5-3621-4004-a7cb-879624dced7c".parse()?;
-        let found = fetch_unified_role_definition_deep(
-            tenant_id,
-            application_developer_role_id,
-            &AuthContext::default(),
-        )
-        .await?;
+        let auth_context = AuthContext::explicit_azure_cli().bind_to_azure_tenant(tenant_id)?;
+        let found =
+            fetch_unified_role_definition_deep(application_developer_role_id, &auth_context)
+                .await?;
         assert!(!found.role_permissions.is_empty());
         Ok(())
     }
