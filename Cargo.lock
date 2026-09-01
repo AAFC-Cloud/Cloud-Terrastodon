@@ -1100,12 +1100,12 @@ dependencies = [
  "facet-json",
  "http",
  "linkme",
- "opener",
  "reqwest",
  "sha2",
  "tokio",
  "tracing",
  "uuid",
+ "webbrowser",
  "windows 0.62.2",
 ]
 

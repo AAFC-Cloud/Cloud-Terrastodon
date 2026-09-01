@@ -43,6 +43,7 @@ mod azure_rest_resource;
 mod azure_tenant_auth_context;
 mod azure_token_cache;
 mod browser_access_token;
+mod browser_opener;
 mod jwt;
 mod pim_client_id;
 mod pim_config;

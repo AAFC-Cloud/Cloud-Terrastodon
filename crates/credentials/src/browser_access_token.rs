@@ -1,5 +1,6 @@
 use crate::AzureBearerToken;
 use crate::AzureRestResource;
+use crate::browser_opener::open_browser_url;
 use base64::Engine;
 use chrono::Local;
 use chrono::TimeDelta;
@@ -11,7 +12,6 @@ use eyre::Context;
 use eyre::Result;
 use eyre::bail;
 use facet::Facet;
-use opener::open_browser;
 use reqwest::Client;
 use reqwest::Url;
 use sha2::Digest;
@@ -483,7 +483,7 @@ async fn request_with_authorization_code(
     );
 
     let callback = Box::pin(wait_for_authorization_code(listener, state, resource));
-    match open_browser(&authorization_url) {
+    match open_browser_url(&authorization_url) {
         Ok(()) => eprintln!(
             "Opened the browser for Cloud Terrastodon authentication. If the callback cannot reach this WSL instance, open this URL after forwarding port {}:\n{authorization_url}",
             callback_port

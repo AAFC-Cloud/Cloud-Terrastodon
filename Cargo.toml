@@ -67,6 +67,7 @@ humantime = "2.1.0"
 directories-next = "2.0.0"
 ratatui = "0.30.1"
 opener = "0.8.3"
+webbrowser = "1.2.1"
 emath = "0.33.0"
 crossterm = { version = "0.29.0", features = ["event-stream"] }
 futures = "0.3.31"
