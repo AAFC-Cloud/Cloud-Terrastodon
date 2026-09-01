@@ -9,6 +9,8 @@ use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_user_input::Choice;
+use cloud_terrastodon_user_input::PickError;
+use cloud_terrastodon_user_input::PickManyResult;
 use cloud_terrastodon_user_input::PickerEvent;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
@@ -65,7 +67,9 @@ impl<'a> CacheInvalidatableIntoFuture for EntraUserPickRequest<'a> {
     fn with_invalidation(self, invalidate_cache: bool) -> Self::WithInvalidation {
         Box::pin(async move {
             if invalidate_cache {
-                self.invalidate().await?;
+                self.invalidate()
+                    .await
+                    .map_err(|error| PickError::Eyre(error, Vec::new()))?;
             }
             self.into_future().await
         })
@@ -73,7 +77,7 @@ impl<'a> CacheInvalidatableIntoFuture for EntraUserPickRequest<'a> {
 }
 
 impl<'a> IntoFuture for EntraUserPickRequest<'a> {
-    type Output = Result<Vec<EntraUser>>;
+    type Output = PickManyResult<EntraUser>;
     type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + Send + 'a>>;
 
     fn into_future(self) -> Self::IntoFuture {
@@ -118,7 +122,6 @@ impl<'a> IntoFuture for EntraUserPickRequest<'a> {
                 })
                 .pick_many_events()
                 .await
-                .map_err(Into::into)
         })
     }
 }

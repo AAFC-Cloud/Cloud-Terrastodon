@@ -46,7 +46,7 @@ impl CacheKey {
         AppDir::Commands.join(self.path.no_spaces())
     }
 
-    /// Invalidate the cache by creating a sentinel file named "busted" to indicate that the cache entries should not be used.
+    /// Invalidate on-disk and in-memory cache entries below this key.
     pub async fn invalidate(&self) -> Result<()> {
         let cache_dir = self.path_on_disk();
         if cache_dir.exists() {
@@ -88,6 +88,7 @@ impl CacheKey {
                 }
             }
         }
+        crate::artifact_cache::invalidate_memory_cache(self);
         Ok(())
     }
 }

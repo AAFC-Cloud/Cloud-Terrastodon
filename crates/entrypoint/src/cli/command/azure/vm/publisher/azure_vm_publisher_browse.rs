@@ -14,6 +14,7 @@ use cloud_terrastodon_azure::fetch_compute_publisher_image_offers;
 use cloud_terrastodon_azure::fetch_compute_publishers;
 use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_user_input::Choice;
+use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use std::io::Write;
@@ -38,10 +39,12 @@ impl AzureVmPublisherBrowseArgs {
         info!("Fetching subscriptions");
         let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
         let subs = fetch_all_subscriptions(&tenant_auth_context).await?;
-        let chosen_subs = PickerTui::<_>::new()
+        let (chosen_subs, maybe_error) = PickerTui::<_>::new()
             .set_header("Select one or more subscriptions (Tab to mark multiple)")
             .pick_many(subs)
-            .await?;
+            .await
+            .into_chosen_and_maybe_error()?;
+        maybe_error?;
 
         // 2) For each chosen subscription fetch locations and present them as choices
         let mut location_choices: Vec<Choice<(SubscriptionId, AzureLocationName)>> = Vec::new();
@@ -57,10 +60,12 @@ impl AzureVmPublisherBrowseArgs {
             }
         }
 
-        let chosen_locations = PickerTui::<_>::new()
+        let (chosen_locations, maybe_error) = PickerTui::<_>::new()
             .set_header("Select one or more locations (Tab to mark multiple)")
             .pick_many(location_choices)
-            .await?;
+            .await
+            .into_chosen_and_maybe_error()?;
+        maybe_error?;
 
         // 3) Fetch publishers for each (subscription, location) and accumulate unique publishers
         use std::collections::HashSet;
@@ -76,10 +81,12 @@ impl AzureVmPublisherBrowseArgs {
         let mut publisher_choices: Vec<ComputePublisherId> = publisher_set.into_iter().collect();
         publisher_choices.sort();
 
-        let chosen_publishers = PickerTui::<_>::new()
+        let (chosen_publishers, maybe_error) = PickerTui::<_>::new()
             .set_header("Select one or more publishers (Tab to mark multiple)")
             .pick_many(publisher_choices)
-            .await?;
+            .await
+            .into_chosen_and_maybe_error()?;
+        maybe_error?;
 
         // 4) Decide to print or continue diving
         let decision = PickerTui::<_>::new()
@@ -135,10 +142,13 @@ impl AzureVmPublisherBrowseArgs {
             })
             .collect();
 
-        let chosen_offers: Vec<ComputePublisherVmImageOfferId> = PickerTui::<_>::new()
-            .set_header("Select one or more offers (Tab to mark multiple)")
-            .pick_many(offer_display_choices)
-            .await?;
+        let (chosen_offers, maybe_error): (Vec<ComputePublisherVmImageOfferId>, _) =
+            PickerTui::<_>::new()
+                .set_header("Select one or more offers (Tab to mark multiple)")
+                .pick_many(offer_display_choices)
+                .await
+                .into_chosen_and_maybe_error()?;
+        maybe_error?;
 
         // 6) Decide to print or continue diving
         let decision = PickerTui::<_>::new()
@@ -194,10 +204,13 @@ impl AzureVmPublisherBrowseArgs {
             })
             .collect();
 
-        let chosen_skus: Vec<ComputePublisherVmImageOfferSkuId> = PickerTui::<_>::new()
-            .set_header("Select one or more SKUs (Tab to mark multiple)")
-            .pick_many(sku_display_choices)
-            .await?;
+        let (chosen_skus, maybe_error): (Vec<ComputePublisherVmImageOfferSkuId>, _) =
+            PickerTui::<_>::new()
+                .set_header("Select one or more SKUs (Tab to mark multiple)")
+                .pick_many(sku_display_choices)
+                .await
+                .into_chosen_and_maybe_error()?;
+        maybe_error?;
 
         // 8) Decide to print or continue diving
         let decision = PickerTui::<_>::new()

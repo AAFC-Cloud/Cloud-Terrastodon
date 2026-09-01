@@ -23,6 +23,13 @@ impl<T> Default for PickerEventState<T> {
 }
 
 impl<T> PickerEventState<T> {
+    pub(super) fn selected_values(mut self) -> Vec<T> {
+        self.marked
+            .into_iter()
+            .filter_map(|key| self.candidates.remove(&key))
+            .collect()
+    }
+
     pub(super) fn reload(&mut self) {
         self.generation = self.generation.wrapping_add(1);
         self.candidates.clear();

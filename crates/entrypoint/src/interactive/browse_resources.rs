@@ -3,6 +3,7 @@ use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::fetch_all_resources;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_user_input::Choice;
+use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use tracing::info;
@@ -16,13 +17,14 @@ pub async fn browse_resources_menu(auth_context: &AzureTenantAuthContext) -> Res
             key: x.id.expanded_form().to_owned(),
             value: x,
         });
-    let chosen: Vec<Resource> = PickerTui::<_>::new()
+    let (chosen, maybe_error): (Vec<Resource>, _) = PickerTui::<_>::new()
         .set_header("Resources")
         .pick_many(choices)
-        .await?;
+        .await
+        .into_chosen_and_maybe_error()?;
     info!("You chose:");
-    for value in chosen {
+    for value in &chosen {
         info!("{:#?}", value);
     }
-    Ok(())
+    maybe_error
 }

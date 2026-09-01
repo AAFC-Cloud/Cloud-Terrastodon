@@ -10,8 +10,6 @@ mod picker_tui;
 mod preserved_selection;
 mod query_debouncer;
 mod query_event;
-mod return_reason;
-mod run_outcome;
 mod should_warn_for_tab;
 
 mod choice_pool;

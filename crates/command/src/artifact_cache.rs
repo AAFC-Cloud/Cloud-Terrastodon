@@ -67,6 +67,17 @@ fn cache_memory_key(cache_key: &CacheKey, fingerprint: &str) -> String {
     format!("{}::{fingerprint}", cache_key.path_on_disk().display())
 }
 
+pub(crate) fn invalidate_memory_cache(cache_key: &CacheKey) {
+    let cache_dir = cache_key.path_on_disk();
+    let mut entries = memory_cache().lock().expect("memory cache poisoned");
+    entries.retain(|memory_key, _| {
+        let Some((path, _)) = memory_key.split_once("::") else {
+            return true;
+        };
+        !Path::new(path).starts_with(&cache_dir)
+    });
+}
+
 async fn load_file(cache_dir: &Path, path: impl AsRef<Path>) -> Result<BString> {
     let path = cache_dir.join(path.as_ref());
     let mut file = OpenOptions::new()
