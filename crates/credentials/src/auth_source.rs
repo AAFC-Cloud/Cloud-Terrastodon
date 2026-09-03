@@ -4,11 +4,9 @@ use std::str::FromStr;
 
 /// Selects the credential source used by Azure resource requests.
 ///
-/// `Auto` prefers a complete workload-identity environment, then a stored
-/// delegated browser session for an interactive invocation. It retains Azure
-/// CLI as a compatibility source when neither is available; in a headless
-/// context the credential boundary reports an actionable error instead of
-/// launching an interactive login.
+/// `Auto` prefers a complete workload-identity environment and otherwise uses
+/// Azure CLI. Browser authentication must be selected explicitly or through a
+/// tracked tenant's authentication default.
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, arbitrary::Arbitrary, facet::Facet)]
 #[facet(proxy = String)]
 #[repr(u8)]

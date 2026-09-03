@@ -54,19 +54,12 @@ impl AuthContext {
             } else {
                 None
             };
-        let browser_session = if matches!(requested, AuthSource::Browser)
-            || (matches!(requested, AuthSource::Auto) && !headless)
-        {
+        let browser_session = if matches!(requested, AuthSource::Browser) {
             load_browser_session()?
         } else {
             None
         };
-        let source = select_auth_source(
-            requested,
-            workload_identity.is_some(),
-            browser_session.is_some(),
-            headless,
-        );
+        let source = select_auth_source(requested, workload_identity.is_some());
         Ok(Self::Resolved {
             requested_source: requested,
             source,
@@ -205,24 +198,17 @@ impl AuthContext {
         matches!(self.source(), Some(AuthSource::AzureCli)) && !self.is_headless()
     }
 
-    /// Automatic source selection may reuse a stored browser session, but it
-    /// must not surprise the caller by opening a browser. Interactive browser
-    /// authentication is an explicit `browser` choice or the tenant-login
-    /// command.
+    /// Automatic source selection must not surprise the caller by opening a
+    /// browser. Interactive browser authentication is an explicit `browser`
+    /// choice or the tenant-login command.
     pub fn allows_interactive_browser_login(&self) -> bool {
         matches!(self.requested_source(), Some(AuthSource::Browser)) && !self.is_headless()
     }
 }
 
-fn select_auth_source(
-    requested: AuthSource,
-    has_workload_identity: bool,
-    has_browser_session: bool,
-    headless: bool,
-) -> AuthSource {
+fn select_auth_source(requested: AuthSource, has_workload_identity: bool) -> AuthSource {
     match requested {
         AuthSource::Auto if has_workload_identity => AuthSource::WorkloadIdentity,
-        AuthSource::Auto if has_browser_session && !headless => AuthSource::Browser,
         AuthSource::Auto => AuthSource::AzureCli,
         explicit => explicit,
     }
@@ -249,21 +235,17 @@ mod tests {
     }
 
     #[test]
-    fn auto_source_precedence_is_explicit_and_headless_safe() {
+    fn auto_prefers_workload_identity_and_defaults_to_azure_cli() {
         assert_eq!(
-            select_auth_source(AuthSource::Auto, true, true, false),
+            select_auth_source(AuthSource::Auto, true),
             AuthSource::WorkloadIdentity
         );
         assert_eq!(
-            select_auth_source(AuthSource::Auto, false, true, false),
-            AuthSource::Browser
-        );
-        assert_eq!(
-            select_auth_source(AuthSource::Auto, false, true, true),
+            select_auth_source(AuthSource::Auto, false),
             AuthSource::AzureCli
         );
         assert_eq!(
-            select_auth_source(AuthSource::Browser, false, false, true),
+            select_auth_source(AuthSource::Browser, false),
             AuthSource::Browser
         );
         assert!(!AuthContext::explicit(AuthSource::Auto).allows_interactive_browser_login());

@@ -5,8 +5,9 @@ use std::path::PathBuf;
 /// Arguments that apply to all commands.
 #[derive(facet::Facet, Debug, Clone)]
 pub struct GlobalArgs {
-    /// Authentication source preference. `auto` detects a complete workload
-    /// identity environment and never launches an interactive login in CI.
+    /// Authentication source preference. `auto` uses workload identity when
+    /// configured and otherwise defaults to Azure CLI. Browser authentication
+    /// can be selected explicitly or configured per tenant.
     #[facet(
         figue::named,
         default = AuthSource::default(),

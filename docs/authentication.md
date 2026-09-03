@@ -14,8 +14,7 @@ ct --auth-source auto <command>
 
 The supported values are:
 
-- `auto` (the default): use workload identity when configured, then a stored
-  delegated browser session for an interactive local invocation, and finally
+- `auto` (the default): use workload identity when configured and otherwise use
   the Azure CLI compatibility source. It never starts a new browser login;
   use `ct az tenant login <tenant>` or select `browser` explicitly for that.
 - `workload-identity`: require the pipeline workload-identity inputs and use a
@@ -25,8 +24,7 @@ The supported values are:
   requests use the tenant from the stored browser session when one is
   available; otherwise callers must provide an explicit tenant so the correct
   Entra authority can be selected.
-- `azure-cli`: explicitly use the locally signed-in Azure CLI as a compatibility
-  source.
+- `azure-cli`: use the locally signed-in Azure CLI as a compatibility source.
 - `pat`: explicitly use the Azure DevOps PAT compatibility source. This is not
   a workload-identity flow and is not a pipeline requirement.
 
@@ -91,11 +89,13 @@ The browser provider caches access and refresh tokens only inside the explicit
 the command cache or logs. `ct az tenant login <tenant-or-alias>` performs the
 interactive login and persists only the refresh token: on Linux it is written
 to a user-only (`0600`) file, while Windows uses Credential Manager. Subsequent
-interactive commands can select the browser source automatically. The initial
-browser consent requests the delegated Graph, ARM, and Azure DevOps scopes
+commands can select the browser source explicitly or through a tenant default.
+The initial browser consent requests the delegated Graph, ARM, and Azure DevOps scopes
 together, while each access-token exchange remains resource-specific. Commands
 that need a different tenant can pass `--tenant <tenant-or-alias>`. PIM's
-existing Windows Credential Manager path remains compatible.
+existing Windows Credential Manager path remains compatible. To use browser
+authentication by default for a tracked tenant, configure its per-tenant
+authentication default.
 
 The callback listener binds to a dynamically chosen `localhost` port. In WSL,
 VS Code can forward that port to the host browser when automatic port
