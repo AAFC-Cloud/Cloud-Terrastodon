@@ -38,7 +38,7 @@ static MEMORY_CACHE: OnceLock<Mutex<HashMap<String, CommandOutput>>> = OnceLock:
 
 pub(crate) fn cache_clean_recommendation(cache_key: Option<&CacheKey>) -> &'static str {
     if cache_key.is_some_and(|cache_key| !cache_key.valid_for.is_zero()) {
-        "\n - If this is caused by stale cached data, run `ct clean` and retry."
+        "\n - If this is caused by stale cached data, run `cloud_terrastodon clean` and retry."
     } else {
         ""
     }
@@ -411,7 +411,7 @@ mod tests {
 
     #[test]
     fn recommends_cleaning_when_cache_is_enabled() {
-        assert!(cache_clean_recommendation(Some(&CacheKey::new("test"))).contains("ct clean"));
+        assert!(cache_clean_recommendation(Some(&CacheKey::new("test"))).contains("cloud_terrastodon clean"));
         assert_eq!(cache_clean_recommendation(None), "");
     }
 }
