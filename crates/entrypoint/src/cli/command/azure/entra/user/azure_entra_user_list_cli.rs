@@ -1,5 +1,6 @@
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_azure::MicrosoftGraphProgress;
 use cloud_terrastodon_azure::fetch_all_entra_users;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
@@ -18,7 +19,17 @@ impl AzureEntraUserListArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         info!("Fetching users");
         let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
-        let users = fetch_all_entra_users(&tenant_auth_context).await?;
+        let users = fetch_all_entra_users(&tenant_auth_context)
+            .progress_hook(|progress: MicrosoftGraphProgress| {
+                info!(
+                    total = ?progress.total,
+                    accumulated = progress.accumulated,
+                    received_this_page = progress.received_this_page,
+                    time_remaining = %humantime::format_duration(progress.time_remaining),
+                    "Fetched Entra users page"
+                );
+            })
+            .await?;
 
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();

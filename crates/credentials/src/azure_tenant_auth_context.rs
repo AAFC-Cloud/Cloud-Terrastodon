@@ -76,6 +76,14 @@ mod tests {
     use crate::WorkloadIdentityConfig;
 
     #[test]
+    fn defaults_to_a_nil_tenant() {
+        assert_eq!(
+            AzureTenantAuthContext::default().tenant_id,
+            AzureTenantId::new(Uuid::nil())
+        );
+    }
+
+    #[test]
     fn rejects_a_workload_identity_tenant_mismatch() -> Result<()> {
         let configured_tenant = "11111111-1111-1111-1111-111111111111".parse()?;
         let requested_tenant = "22222222-2222-2222-2222-222222222222".parse()?;

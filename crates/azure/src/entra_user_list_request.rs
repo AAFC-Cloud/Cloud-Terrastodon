@@ -18,12 +18,15 @@ const USER_LIST_CACHE_DURATION: Duration = Duration::MAX;
 #[derive(Facet)]
 pub struct EntraUserListRequest<'a> {
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
+    #[facet(opaque, skip, default)]
+    pub progress_hook: Option<crate::MicrosoftGraphProgressHook>,
 }
 
 impl<'a> Arbitrary<'a> for EntraUserListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
             auth_context: Cow::Owned(AzureTenantAuthContext::arbitrary(u)?),
+            progress_hook: None,
         })
     }
 }
@@ -33,6 +36,17 @@ pub fn fetch_all_entra_users<'a>(
 ) -> EntraUserListRequest<'a> {
     EntraUserListRequest {
         auth_context: Cow::Borrowed(auth_context),
+        progress_hook: None,
+    }
+}
+
+impl<'a> EntraUserListRequest<'a> {
+    pub fn progress_hook<F>(mut self, progress_hook: F) -> Self
+    where
+        F: Fn(crate::MicrosoftGraphProgress) + Send + Sync + 'static,
+    {
+        self.progress_hook = Some(Box::new(progress_hook));
+        self
     }
 }
 
@@ -55,14 +69,16 @@ impl<'a> CacheableCommand for EntraUserListRequest<'a> {
 
     async fn run(self) -> Result<Self::Output> {
         debug!(tenant_id = %self.auth_context.tenant_id, "Fetching users");
-        let helper = MicrosoftGraphHelper::new(
+        let mut helper = MicrosoftGraphHelper::new(
             format!(
-                "https://graph.microsoft.com/v1.0/users?$select={}",
+                "https://graph.microsoft.com/v1.0/users?$select={}&$count=true",
                 EntraUser::SELECT
             ),
             Some(self.cache_key()),
             self.auth_context.as_ref(),
-        );
+        )
+        .with_consistency_level_eventual();
+        helper.progress_hook = self.progress_hook;
         let users: Vec<EntraUser> = helper.fetch_all().await?;
         debug!("Found {} users", users.len());
         Ok(users)
