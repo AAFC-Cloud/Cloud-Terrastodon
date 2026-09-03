@@ -411,7 +411,10 @@ mod tests {
 
     #[test]
     fn recommends_cleaning_when_cache_is_enabled() {
-        assert!(cache_clean_recommendation(Some(&CacheKey::new("test"))).contains("cloud_terrastodon clean"));
+        assert!(
+            cache_clean_recommendation(Some(&CacheKey::new("test")))
+                .contains("cloud_terrastodon clean")
+        );
         assert_eq!(cache_clean_recommendation(None), "");
     }
 }
