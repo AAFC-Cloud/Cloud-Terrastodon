@@ -4,6 +4,7 @@ pub mod azure_tenant_discover;
 pub mod azure_tenant_forget;
 pub mod azure_tenant_list;
 pub mod azure_tenant_login;
+pub mod azure_tenant_set_auth_source;
 pub mod azure_tenant_show;
 
 pub use alias::AzureTenantAliasArgs;
@@ -12,6 +13,7 @@ pub use azure_tenant_discover::AzureTenantDiscoverArgs;
 pub use azure_tenant_forget::AzureTenantForgetArgs;
 pub use azure_tenant_list::AzureTenantListArgs;
 pub use azure_tenant_login::AzureTenantLoginArgs;
+pub use azure_tenant_set_auth_source::AzureTenantSetAuthSourceArgs;
 pub use azure_tenant_show::AzureTenantShowArgs;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
@@ -40,6 +42,8 @@ pub enum AzureTenantCommand {
     Forget(AzureTenantForgetArgs),
     /// Log in to an Azure tenant through browser PKCE or an explicitly selected compatibility source.
     Login(AzureTenantLoginArgs),
+    /// Set the default authentication source for a tracked Azure tenant.
+    SetAuthSource(AzureTenantSetAuthSourceArgs),
 }
 
 impl AzureTenantArgs {
@@ -52,6 +56,7 @@ impl AzureTenantArgs {
             AzureTenantCommand::Add(args) => args.invoke().await?,
             AzureTenantCommand::Show(args) => args.invoke(auth_context).await?,
             AzureTenantCommand::Forget(args) => args.invoke().await?,
+            AzureTenantCommand::SetAuthSource(args) => args.invoke().await?,
         }
 
         Ok(())

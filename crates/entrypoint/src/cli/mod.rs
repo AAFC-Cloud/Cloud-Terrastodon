@@ -58,6 +58,7 @@ mod tests {
     use crate::cli::azure::tenant::AzureTenantCommand;
     use crate::cli::azure_devops::azure_devops_command::AzureDevOpsCommand;
     use crate::cli::azure_devops::project::AzureDevOpsProjectCommand;
+    use cloud_terrastodon_credentials::AuthSource;
 
     #[test]
     fn parses_the_linux_project_list_vertical_slice() {
@@ -90,6 +91,23 @@ mod tests {
             panic!("expected the login command");
         };
         assert_eq!(login.tenant.to_string(), "agr");
+    }
+
+    #[test]
+    fn parses_the_tenant_auth_source_setting_vertical_slice() {
+        let cli: Cli =
+            figue::from_slice(&["az", "tenant", "set-auth-source", "agr", "browser"]).unwrap();
+        let Some(CloudTerrastodonCommand::Azure(azure)) = cli.command else {
+            panic!("expected the az command alias");
+        };
+        let AzureCommand::Tenant(tenant) = azure.command else {
+            panic!("expected the tenant command");
+        };
+        let AzureTenantCommand::SetAuthSource(set_auth_source) = tenant.command else {
+            panic!("expected the set-auth-source command");
+        };
+        assert_eq!(set_auth_source.tenant.to_string(), "agr");
+        assert_eq!(set_auth_source.auth_source, AuthSource::Browser);
     }
 
     #[test]

@@ -1,5 +1,6 @@
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_azure::resolve_tenant_auth_context;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_credentials::AuthContext;
@@ -42,6 +43,8 @@ pub struct AzureTenantLoginArgs {
 
 impl AzureTenantLoginArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+        let tenant_id = self.tenant.resolve().await?;
+        let auth_context = resolve_tenant_auth_context(auth_context, tenant_id).await?;
         let requested_source = auth_context.requested_source().ok_or_else(|| {
             eyre::eyre!("the placeholder authentication context cannot be used for tenant login")
         })?;
@@ -52,7 +55,6 @@ impl AzureTenantLoginArgs {
                         "browser tenant login requires an interactive terminal; use workload identity in pipelines"
                     );
                 }
-                let tenant_id = self.tenant.resolve().await?;
                 let client_id = cloud_terrastodon_credentials::pim_client_id(&tenant_id).await?;
                 login_browser_session(tenant_id, client_id).await?;
                 Ok(())
@@ -68,7 +70,6 @@ impl AzureTenantLoginArgs {
                         "Reauthentication is disabled by the CLOUD_TERRASTODON_REAUTH environment variable. Please refresh your credentials and try again."
                     )
                 }
-                let tenant_id = self.tenant.resolve().await?;
                 let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
                 cmd.args(["login", "--tenant", &tenant_id.to_string()]);
                 cmd.should_announce(true);

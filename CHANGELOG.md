@@ -13,6 +13,7 @@
 - Add tracy support for profiling in development
 - Add `ct az ad oauth2-permission-grant claim list`
 - Add support for `$env:CLOUD_TERRASTODON_PIM_CLIENT_ID` to be used for `ct az pim activate entra` with an application with `azuread_application_fallback_public_client enabled=true`
+- Add per-tenant default authentication source configuration to `ct az tenant`
 - Add `ct az ad oauth2-permission-grant claim list`
 - Change `EntraServicePrincipal.app_id` to be `EntraApplicationClientId` instead of `Uuid`
 - Change `EntraApplicationRegistration.app_id` to be `EntraApplicationClientId` instead of `Uuid`

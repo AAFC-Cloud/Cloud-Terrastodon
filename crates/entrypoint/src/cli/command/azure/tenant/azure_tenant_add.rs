@@ -2,6 +2,8 @@ use cloud_terrastodon_azure::AzureTenantAlias;
 use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure::add_tracked_tenant;
 use cloud_terrastodon_azure::add_tracked_tenant_aliases;
+use cloud_terrastodon_azure::set_tracked_tenant_auth_source;
+use cloud_terrastodon_credentials::AuthSource;
 use eyre::Result;
 use std::io::Write;
 
@@ -15,6 +17,10 @@ pub struct AzureTenantAddArgs {
     /// One or more aliases to associate with the tracked tenant.
     #[facet(figue::named, default)]
     pub alias: Vec<String>,
+
+    /// Default authentication source for this tenant.
+    #[facet(figue::named, figue::label = "SOURCE")]
+    pub auth_source: Option<AuthSource>,
 }
 
 impl AzureTenantAddArgs {
@@ -27,6 +33,9 @@ impl AzureTenantAddArgs {
         let tenant = add_tracked_tenant(self.tenant_id).await?;
         if !aliases.is_empty() {
             add_tracked_tenant_aliases(tenant, &aliases).await?;
+        }
+        if let Some(auth_source) = self.auth_source {
+            set_tracked_tenant_auth_source(tenant, auth_source).await?;
         }
 
         let stdout = std::io::stdout();
@@ -59,5 +68,18 @@ mod tests {
         .unwrap();
 
         assert_eq!(parsed.args.alias, vec!["Prod".to_owned(), "Dev".to_owned()]);
+        assert_eq!(parsed.args.auth_source, None);
+    }
+
+    #[test]
+    fn parses_an_auth_source() {
+        let parsed: ParseArgs = figue::from_slice(&[
+            "00000000-0000-0000-0000-000000000000",
+            "--auth-source",
+            "browser",
+        ])
+        .unwrap();
+
+        assert_eq!(parsed.args.auth_source, Some(AuthSource::Browser));
     }
 }

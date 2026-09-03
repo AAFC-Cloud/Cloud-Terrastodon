@@ -32,6 +32,25 @@ The supported values are:
 
 `--debug` controls diagnostics only; it does not select authentication.
 
+## Per-tenant authentication defaults
+
+Tracked tenants can have their own default source. Set it while adding a
+tenant:
+
+```text
+ct az tenant add <tenant-id> --auth-source browser
+```
+
+Or update an existing tenant, using its id or alias:
+
+```text
+ct az tenant set-auth-source <tenant-or-alias> browser
+```
+
+The tenant setting is used when the global source is `auto`; an explicit global
+`--auth-source` takes precedence. Set the tenant source to `auto` to restore
+automatic selection.
+
 In an automatically detected headless context (`CI`, Azure DevOps build
 variables, or non-terminal standard input), Cloud Terrastodon will not launch
 `az login`, device code, or browser authentication because a WIF configuration

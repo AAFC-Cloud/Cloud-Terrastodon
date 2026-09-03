@@ -6,6 +6,7 @@ use cloud_terrastodon_azure_types::AzureTenantAlias;
 use cloud_terrastodon_azure_types::AzureTenantArgument;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AuthSource;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_pathing::AppDir;
@@ -19,6 +20,7 @@ use tokio::fs;
 use tracing::warn;
 
 const ALIASES_FILE_NAME: &str = "aliases.txt";
+const AUTH_SOURCE_FILE_NAME: &str = "auth_source.txt";
 
 pub fn tracked_tenants_dir() -> PathBuf {
     AppDir::Tenants.as_path_buf()
@@ -34,6 +36,10 @@ pub fn tracked_tenant_aliases_file(tenant_id: AzureTenantId) -> PathBuf {
 
 pub fn tracked_tenant_aliases_file_for_alias(tenant_id: AzureTenantId) -> PathBuf {
     tracked_tenant_aliases_file(tenant_id)
+}
+
+pub fn tracked_tenant_auth_source_file(tenant_id: AzureTenantId) -> PathBuf {
+    tracked_tenant_dir(tenant_id).join(AUTH_SOURCE_FILE_NAME)
 }
 
 pub async fn list_tracked_tenants() -> eyre::Result<Vec<AzureTenantId>> {
@@ -58,6 +64,47 @@ pub async fn forget_tracked_tenant(
     Ok(forget_tracked_tenant_in(&tracked_tenants_dir(), tenant_id)
         .await?
         .map(|(tenant_id, _)| tenant_id))
+}
+
+pub async fn get_tracked_tenant_auth_source(
+    tenant_id: AzureTenantId,
+) -> eyre::Result<Option<AuthSource>> {
+    read_tracked_tenant_auth_source_in(&tracked_tenants_dir(), tenant_id).await
+}
+
+pub async fn set_tracked_tenant_auth_source(
+    tenant_id: AzureTenantId,
+    auth_source: AuthSource,
+) -> eyre::Result<AuthSource> {
+    ensure_tracked_tenant_exists(tenant_id).await?;
+    set_tracked_tenant_auth_source_in(&tracked_tenants_dir(), tenant_id, auth_source).await
+}
+
+/// Apply a tracked tenant's authentication preference when the invocation did
+/// not explicitly choose a source.
+pub async fn resolve_tenant_auth_context(
+    auth_context: &AuthContext,
+    tenant_id: AzureTenantId,
+) -> eyre::Result<AuthContext> {
+    resolve_tenant_auth_context_in(&tracked_tenants_dir(), auth_context, tenant_id).await
+}
+
+async fn resolve_tenant_auth_context_in(
+    root: &Path,
+    auth_context: &AuthContext,
+    tenant_id: AzureTenantId,
+) -> eyre::Result<AuthContext> {
+    let Some(auth_source) = read_tracked_tenant_auth_source_in(root, tenant_id).await? else {
+        return Ok(auth_context.clone());
+    };
+
+    if !matches!(auth_context.requested_source(), Some(AuthSource::Auto))
+        || matches!(auth_source, AuthSource::Auto)
+    {
+        return Ok(auth_context.clone());
+    }
+
+    AuthContext::resolve(auth_source)
 }
 
 #[expect(async_fn_in_trait)]
@@ -136,6 +183,7 @@ impl AzureTenantArgumentExt for AzureTenantArgument<'_> {
             (AzureTenantArgument::Default, Some(tenant_id)) => tenant_id,
             _ => self.resolve().await?,
         };
+        let auth_context = resolve_tenant_auth_context(auth_context, tenant_id).await?;
         auth_context.bind_to_azure_tenant(tenant_id)
     }
 }
@@ -147,7 +195,9 @@ impl AzureDevOpsTenantArgumentExt for Option<AzureTenantArgument<'_>> {
     ) -> eyre::Result<AzureDevOpsAuthContext> {
         match self {
             Some(tenant) => {
-                AzureDevOpsAuthContext::for_tenant(auth_context, tenant.resolve().await?)
+                let tenant_id = tenant.resolve().await?;
+                let auth_context = resolve_tenant_auth_context(auth_context, tenant_id).await?;
+                AzureDevOpsAuthContext::for_tenant(&auth_context, tenant_id)
             }
             None => AzureDevOpsAuthContext::new(auth_context),
         }
@@ -507,6 +557,52 @@ async fn read_tracked_tenant_aliases_file(file: &Path) -> eyre::Result<Vec<Azure
     Ok(parse_alias_lines(&content, file))
 }
 
+async fn read_tracked_tenant_auth_source_in(
+    root: &Path,
+    tenant_id: AzureTenantId,
+) -> eyre::Result<Option<AuthSource>> {
+    let file = root.join(tenant_id.to_string()).join(AUTH_SOURCE_FILE_NAME);
+    if !fs::try_exists(&file).await? {
+        return Ok(None);
+    }
+
+    let content = fs::read_to_string(&file)
+        .await
+        .wrap_err_with(|| format!("Reading tracked tenant auth source from {}", file.display()))?;
+    let value = content.trim();
+    if value.is_empty() {
+        bail!(
+            "Tracked tenant auth source file is empty: {}",
+            file.display()
+        );
+    }
+
+    value
+        .parse::<AuthSource>()
+        .wrap_err_with(|| format!("Parsing tracked tenant auth source from {}", file.display()))
+        .map(Some)
+}
+
+async fn set_tracked_tenant_auth_source_in(
+    root: &Path,
+    tenant_id: AzureTenantId,
+    auth_source: AuthSource,
+) -> eyre::Result<AuthSource> {
+    let file = root.join(tenant_id.to_string()).join(AUTH_SOURCE_FILE_NAME);
+    fs::create_dir_all(file.parent().unwrap_or(root))
+        .await
+        .wrap_err_with(|| {
+            format!(
+                "Creating tracked tenant auth source parent {}",
+                file.display()
+            )
+        })?;
+    fs::write(&file, format!("{auth_source}\n"))
+        .await
+        .wrap_err_with(|| format!("Writing tracked tenant auth source to {}", file.display()))?;
+    Ok(auth_source)
+}
+
 async fn write_tracked_tenant_aliases_in(
     root: &Path,
     tenant_id: AzureTenantId,
@@ -565,8 +661,11 @@ mod tests {
     use super::list_tracked_tenant_aliases_for_in;
     use super::list_tracked_tenant_aliases_in;
     use super::list_tracked_tenants_in;
+    use super::read_tracked_tenant_auth_source_in;
     use super::remove_tracked_tenant_aliases_in;
+    use super::resolve_tenant_auth_context_in;
     use super::resolve_tracked_tenant_alias_in;
+    use super::set_tracked_tenant_auth_source_in;
     use crate::tracked_tenants::discover_tracked_tenants_in;
     use cloud_terrastodon_azure_types::AzureTenantAlias;
     use cloud_terrastodon_azure_types::AzureTenantArgument;
@@ -639,6 +738,52 @@ mod tests {
                 .await?
                 .is_none()
         );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn it_sets_and_reads_a_tracked_tenant_auth_source() -> eyre::Result<()> {
+        let temp = tempdir()?;
+        let tenant_id = AzureTenantId::from_str("33333333-3333-3333-3333-333333333333")?;
+        add_tracked_tenant_in(temp.path(), tenant_id).await?;
+
+        assert_eq!(
+            read_tracked_tenant_auth_source_in(temp.path(), tenant_id).await?,
+            None
+        );
+
+        set_tracked_tenant_auth_source_in(temp.path(), tenant_id, AuthSource::Browser).await?;
+        assert_eq!(
+            read_tracked_tenant_auth_source_in(temp.path(), tenant_id).await?,
+            Some(AuthSource::Browser)
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn tenant_auth_source_overrides_auto_but_not_explicit_source() -> eyre::Result<()> {
+        let temp = tempdir()?;
+        let tenant_id = AzureTenantId::from_str("99999999-9999-9999-9999-999999999999")?;
+        add_tracked_tenant_in(temp.path(), tenant_id).await?;
+        set_tracked_tenant_auth_source_in(temp.path(), tenant_id, AuthSource::Browser).await?;
+
+        let auto = resolve_tenant_auth_context_in(
+            temp.path(),
+            &AuthContext::explicit(AuthSource::Auto),
+            tenant_id,
+        )
+        .await?;
+        assert_eq!(auto.requested_source(), Some(AuthSource::Browser));
+        assert_eq!(auto.source(), Some(AuthSource::Browser));
+
+        let explicit = resolve_tenant_auth_context_in(
+            temp.path(),
+            &AuthContext::explicit(AuthSource::AzureCli),
+            tenant_id,
+        )
+        .await?;
+        assert_eq!(explicit.requested_source(), Some(AuthSource::AzureCli));
+        assert_eq!(explicit.source(), Some(AuthSource::AzureCli));
         Ok(())
     }
 
