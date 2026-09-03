@@ -53,10 +53,10 @@ impl Cli {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cli::azure::azure_command::AzureCommand;
+    use crate::cli::azure::azure_command_cli::AzureCommand;
     use crate::cli::azure::pim::AzurePimCommand;
     use crate::cli::azure::tenant::AzureTenantCommand;
-    use crate::cli::azure_devops::azure_devops_command::AzureDevOpsCommand;
+    use crate::cli::azure_devops::azure_devops_command_cli::AzureDevOpsCommand;
     use crate::cli::azure_devops::project::AzureDevOpsProjectCommand;
     use cloud_terrastodon_credentials::AuthSource;
 

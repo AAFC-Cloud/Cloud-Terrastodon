@@ -1,9 +1,9 @@
 pub mod assignment;
-pub mod azure_entra_role;
+pub mod azure_entra_role_cli;
 pub mod definition;
 
 pub use assignment::AzureEntraRoleAssignmentArgs;
-pub use azure_entra_role::AzureEntraRoleCommand;
+pub use azure_entra_role_cli::AzureEntraRoleCommand;
 use cloud_terrastodon_credentials::AuthContext;
 pub use definition::AzureEntraRoleDefinitionArgs;
 use eyre::Result;

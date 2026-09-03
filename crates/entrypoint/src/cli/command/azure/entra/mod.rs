@@ -1,5 +1,5 @@
 pub mod application_registration;
-pub mod azure_entra;
+pub mod azure_entra_cli;
 pub mod group;
 pub mod oauth2_permission_grant;
 pub mod principal;
@@ -8,7 +8,7 @@ pub mod service_principal;
 pub mod user;
 
 pub use application_registration::AzureEntraApplicationRegistrationArgs;
-pub use azure_entra::AzureEntraCommand;
+pub use azure_entra_cli::AzureEntraCommand;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 pub use group::AzureEntraGroupArgs;

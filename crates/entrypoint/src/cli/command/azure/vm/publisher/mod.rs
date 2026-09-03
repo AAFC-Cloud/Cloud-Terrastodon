@@ -1,14 +1,14 @@
-pub mod azure_vm_publisher_browse;
-pub mod azure_vm_publisher_list;
-pub mod azure_vm_publisher_offer_list;
-pub mod azure_vm_publisher_offer_sku_list;
-pub mod azure_vm_publisher_offer_sku_version_list;
+pub mod azure_vm_publisher_browse_cli;
+pub mod azure_vm_publisher_list_cli;
+pub mod azure_vm_publisher_offer_list_cli;
+pub mod azure_vm_publisher_offer_sku_list_cli;
+pub mod azure_vm_publisher_offer_sku_version_list_cli;
 
-pub use azure_vm_publisher_browse::AzureVmPublisherBrowseArgs;
-pub use azure_vm_publisher_list::AzureVmPublisherListArgs;
-pub use azure_vm_publisher_offer_list::AzureVmPublisherOfferListArgs;
-pub use azure_vm_publisher_offer_sku_list::AzureVmPublisherOfferSkuListArgs;
-pub use azure_vm_publisher_offer_sku_version_list::AzureVmPublisherOfferSkuVersionListArgs;
+pub use azure_vm_publisher_browse_cli::AzureVmPublisherBrowseArgs;
+pub use azure_vm_publisher_list_cli::AzureVmPublisherListArgs;
+pub use azure_vm_publisher_offer_list_cli::AzureVmPublisherOfferListArgs;
+pub use azure_vm_publisher_offer_sku_list_cli::AzureVmPublisherOfferSkuListArgs;
+pub use azure_vm_publisher_offer_sku_version_list_cli::AzureVmPublisherOfferSkuVersionListArgs;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 

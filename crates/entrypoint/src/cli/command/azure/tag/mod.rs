@@ -1,8 +1,8 @@
-pub mod azure_tag;
-pub mod azure_tag_for_cleanup;
+pub mod azure_tag_cli;
+pub mod azure_tag_for_cleanup_cli;
 
-pub use azure_tag::AzureTagCommand;
-pub use azure_tag_for_cleanup::AzureTagForCleanupArgs;
+pub use azure_tag_cli::AzureTagCommand;
+pub use azure_tag_for_cleanup_cli::AzureTagForCleanupArgs;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 

@@ -1,10 +1,10 @@
-pub mod azure_entra_role_assignment;
-pub mod azure_entra_role_assignment_browse;
-pub mod azure_entra_role_assignment_list;
+pub mod azure_entra_role_assignment_browse_cli;
+pub mod azure_entra_role_assignment_cli;
+pub mod azure_entra_role_assignment_list_cli;
 
-pub use azure_entra_role_assignment::AzureEntraRoleAssignmentCommand;
-pub use azure_entra_role_assignment_browse::AzureEntraRoleAssignmentBrowseArgs;
-pub use azure_entra_role_assignment_list::AzureEntraRoleAssignmentListArgs;
+pub use azure_entra_role_assignment_browse_cli::AzureEntraRoleAssignmentBrowseArgs;
+pub use azure_entra_role_assignment_cli::AzureEntraRoleAssignmentCommand;
+pub use azure_entra_role_assignment_list_cli::AzureEntraRoleAssignmentListArgs;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 

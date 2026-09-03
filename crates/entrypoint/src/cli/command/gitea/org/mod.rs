@@ -1,11 +1,11 @@
-pub mod gitea_org_browse;
-pub mod gitea_org_list;
-pub mod gitea_org_show;
+pub mod gitea_org_browse_cli;
+pub mod gitea_org_list_cli;
+pub mod gitea_org_show_cli;
 
 use eyre::Result;
-pub use gitea_org_browse::GiteaOrgBrowseArgs;
-pub use gitea_org_list::GiteaOrgListArgs;
-pub use gitea_org_show::GiteaOrgShowArgs;
+pub use gitea_org_browse_cli::GiteaOrgBrowseArgs;
+pub use gitea_org_list_cli::GiteaOrgListArgs;
+pub use gitea_org_show_cli::GiteaOrgShowArgs;
 
 #[derive(facet::Facet, Debug, Clone)]
 pub struct GiteaOrgArgs {

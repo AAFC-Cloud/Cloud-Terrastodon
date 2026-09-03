@@ -1,10 +1,10 @@
-pub mod azure_tenant_alias_add;
-pub mod azure_tenant_alias_list;
-pub mod azure_tenant_alias_remove;
+pub mod azure_tenant_alias_add_cli;
+pub mod azure_tenant_alias_list_cli;
+pub mod azure_tenant_alias_remove_cli;
 
-pub use azure_tenant_alias_add::AzureTenantAliasAddArgs;
-pub use azure_tenant_alias_list::AzureTenantAliasListArgs;
-pub use azure_tenant_alias_remove::AzureTenantAliasRemoveArgs;
+pub use azure_tenant_alias_add_cli::AzureTenantAliasAddArgs;
+pub use azure_tenant_alias_list_cli::AzureTenantAliasListArgs;
+pub use azure_tenant_alias_remove_cli::AzureTenantAliasRemoveArgs;
 use eyre::Result;
 
 /// Alias-related commands for tracked Azure tenants.

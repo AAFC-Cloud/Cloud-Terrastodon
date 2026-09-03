@@ -1,5 +1,5 @@
-use super::audit::AzureDevOpsAuditArgs;
-use super::azure_devops_rest_command::AzureDevOpsRestArgs;
+use super::audit_cli::AzureDevOpsAuditArgs;
+use super::azure_devops_rest_command_cli::AzureDevOpsRestArgs;
 use crate::cli::azure_devops::agent::AzureDevOpsAgentArgs;
 use crate::cli::azure_devops::group::AzureDevOpsGroupArgs;
 use crate::cli::azure_devops::license_entitlement::AzureDevOpsLicenseEntitlementArgs;

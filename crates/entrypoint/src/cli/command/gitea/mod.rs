@@ -1,10 +1,10 @@
-pub mod gitea_command;
+pub mod gitea_command_cli;
 pub mod org;
 pub mod repo;
 pub mod tenant;
 pub mod user;
 
-use crate::cli::gitea::gitea_command::GiteaCommand;
+use crate::cli::gitea::gitea_command_cli::GiteaCommand;
 use eyre::Result;
 
 #[derive(facet::Facet, Debug, Clone)]

@@ -1,8 +1,8 @@
-use super::terraform_audit::TerraformAuditArgs;
-use super::terraform_reflow::TerraformReflowArgs;
-use super::terraform_show::TerraformShowArgs;
-use super::terraform_source::TerraformSourceArgs;
-use crate::cli::terraform::terraform_apply::TerraformApplyArgs;
+use super::terraform_audit_cli::TerraformAuditArgs;
+use super::terraform_reflow_cli::TerraformReflowArgs;
+use super::terraform_show_cli::TerraformShowArgs;
+use super::terraform_source_cli::TerraformSourceArgs;
+use crate::cli::terraform::terraform_apply_cli::TerraformApplyArgs;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 

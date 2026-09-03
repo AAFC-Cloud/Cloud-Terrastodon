@@ -1,10 +1,10 @@
-pub mod azure_entra_principal;
-pub mod azure_entra_principal_list;
-pub mod azure_entra_principal_show;
+pub mod azure_entra_principal_cli;
+pub mod azure_entra_principal_list_cli;
+pub mod azure_entra_principal_show_cli;
 
-pub use azure_entra_principal::AzureEntraPrincipalCommand;
-pub use azure_entra_principal_list::AzureEntraPrincipalListArgs;
-pub use azure_entra_principal_show::AzureEntraPrincipalShowArgs;
+pub use azure_entra_principal_cli::AzureEntraPrincipalCommand;
+pub use azure_entra_principal_list_cli::AzureEntraPrincipalListArgs;
+pub use azure_entra_principal_show_cli::AzureEntraPrincipalShowArgs;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 

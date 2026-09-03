@@ -1,5 +1,5 @@
-use crate::cli::pick::pick_command::PickCommonArgs;
-use crate::cli::pick::pick_command::write_selected_lines;
+use crate::cli::pick::pick_command_cli::PickCommonArgs;
+use crate::cli::pick::pick_command_cli::write_selected_lines;
 use crate::serde_json_isolation::Value;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
@@ -112,7 +112,7 @@ impl PickStdinArgs {
 #[cfg(test)]
 mod test {
     use crate::cli::pick::InputFormat;
-    use crate::cli::pick::pick_stdin_command::resolve_input_format;
+    use crate::cli::pick::pick_stdin_command_cli::resolve_input_format;
 
     #[test]
     fn resolves_pick_mode_from_stdin_content() {

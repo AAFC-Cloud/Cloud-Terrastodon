@@ -1,12 +1,12 @@
-pub mod azure_resource;
-pub mod azure_resource_browse;
-pub mod azure_resource_list;
-pub mod azure_resource_show;
+pub mod azure_resource_browse_cli;
+pub mod azure_resource_cli;
+pub mod azure_resource_list_cli;
+pub mod azure_resource_show_cli;
 
-pub use azure_resource::AzureResourceCommand;
-pub use azure_resource_browse::AzureResourceBrowseArgs;
-pub use azure_resource_list::AzureResourceListArgs;
-pub use azure_resource_show::AzureResourceShowArgs;
+pub use azure_resource_browse_cli::AzureResourceBrowseArgs;
+pub use azure_resource_cli::AzureResourceCommand;
+pub use azure_resource_list_cli::AzureResourceListArgs;
+pub use azure_resource_show_cli::AzureResourceShowArgs;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 

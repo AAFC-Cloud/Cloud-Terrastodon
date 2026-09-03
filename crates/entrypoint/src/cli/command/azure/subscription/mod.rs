@@ -1,7 +1,7 @@
 use cloud_terrastodon_credentials::AuthContext;
-pub mod azure_subscription_list;
+pub mod azure_subscription_list_cli;
 
-pub use azure_subscription_list::AzureSubscriptionListArgs;
+pub use azure_subscription_list_cli::AzureSubscriptionListArgs;
 use eyre::Result;
 
 /// Subscription-related commands.

@@ -1,9 +1,9 @@
 use super::app_service::AzureAppServiceArgs;
 use super::application_gateway::AzureApplicationGatewayArgs;
-use super::audit::AzureAuditArgs;
+use super::audit_cli::AzureAuditArgs;
 use super::cognitive_services::AzureCognitiveServicesArgs;
 use super::container_instance::AzureContainerInstanceArgs;
-use super::find::AzureFindArgs;
+use super::find_cli::AzureFindArgs;
 use super::network_interface::AzureNetworkInterfaceArgs;
 use super::pim::AzurePimArgs;
 use super::policy::AzurePolicyArgs;

@@ -1,13 +1,13 @@
 use cloud_terrastodon_credentials::AuthContext;
-pub mod azure_policy_set_definition;
-pub mod azure_policy_set_definition_browse;
-pub mod azure_policy_set_definition_list;
-pub mod azure_policy_set_definition_show;
+pub mod azure_policy_set_definition_browse_cli;
+pub mod azure_policy_set_definition_cli;
+pub mod azure_policy_set_definition_list_cli;
+pub mod azure_policy_set_definition_show_cli;
 
-pub use azure_policy_set_definition::AzurePolicySetDefinitionCommand;
-pub use azure_policy_set_definition_browse::AzurePolicySetDefinitionBrowseArgs;
-pub use azure_policy_set_definition_list::AzurePolicySetDefinitionListArgs;
-pub use azure_policy_set_definition_show::AzurePolicySetDefinitionShowArgs;
+pub use azure_policy_set_definition_browse_cli::AzurePolicySetDefinitionBrowseArgs;
+pub use azure_policy_set_definition_cli::AzurePolicySetDefinitionCommand;
+pub use azure_policy_set_definition_list_cli::AzurePolicySetDefinitionListArgs;
+pub use azure_policy_set_definition_show_cli::AzurePolicySetDefinitionShowArgs;
 use eyre::Result;
 
 /// Manage Azure policy set definitions.

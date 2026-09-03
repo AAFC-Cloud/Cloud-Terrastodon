@@ -1,4 +1,4 @@
-use crate::cli::gitea::repo::gitea_repo_list::GiteaRepoListArgs;
+use crate::cli::gitea::repo::gitea_repo_list_cli::GiteaRepoListArgs;
 use cloud_terrastodon_gitea::GiteaTenantArgumentExt;
 use cloud_terrastodon_user_input::PickResultExt;
 use eyre::Result;

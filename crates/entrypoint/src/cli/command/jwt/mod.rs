@@ -1,6 +1,6 @@
-pub mod decode;
+pub mod decode_cli;
 
-use crate::cli::command::jwt::decode::JwtDecodeArgs;
+use crate::cli::command::jwt::decode_cli::JwtDecodeArgs;
 use eyre::Result;
 
 /// JWT-related commands.

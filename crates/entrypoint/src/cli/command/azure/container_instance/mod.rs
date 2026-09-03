@@ -1,8 +1,8 @@
-mod azure_container_instance;
-mod azure_container_instance_list;
-mod azure_container_instance_show;
+mod azure_container_instance_cli;
+mod azure_container_instance_list_cli;
+mod azure_container_instance_show_cli;
 
-pub use azure_container_instance::AzureContainerInstanceArgs;
-pub use azure_container_instance::AzureContainerInstanceCommand;
-pub use azure_container_instance_list::AzureContainerInstanceListArgs;
-pub use azure_container_instance_show::AzureContainerInstanceShowArgs;
+pub use azure_container_instance_cli::AzureContainerInstanceArgs;
+pub use azure_container_instance_cli::AzureContainerInstanceCommand;
+pub use azure_container_instance_list_cli::AzureContainerInstanceListArgs;
+pub use azure_container_instance_show_cli::AzureContainerInstanceShowArgs;

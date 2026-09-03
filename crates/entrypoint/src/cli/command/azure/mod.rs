@@ -1,11 +1,11 @@
 pub mod app_service;
 pub mod application_gateway;
-pub mod audit;
-pub mod azure_command;
+pub mod audit_cli;
+pub mod azure_command_cli;
 pub mod cognitive_services;
 pub mod container_instance;
 pub mod entra;
-pub mod find;
+pub mod find_cli;
 pub mod network_interface;
 pub mod pim;
 pub mod policy;
@@ -19,7 +19,7 @@ pub mod tag;
 pub mod tenant;
 pub mod vm;
 
-use crate::cli::azure::azure_command::AzureCommand;
+use crate::cli::azure::azure_command_cli::AzureCommand;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 

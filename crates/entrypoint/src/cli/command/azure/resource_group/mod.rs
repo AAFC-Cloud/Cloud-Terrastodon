@@ -1,12 +1,12 @@
 use cloud_terrastodon_credentials::AuthContext;
-pub mod azure_resource_group;
-pub mod azure_resource_group_browse;
-pub mod azure_resource_group_list;
+pub mod azure_resource_group_browse_cli;
+pub mod azure_resource_group_cli;
+pub mod azure_resource_group_list_cli;
 
-pub use azure_resource_group::AzureResourceGroupCommand;
-pub use azure_resource_group_browse::AzureResourceGroupBrowseArgs;
-pub use azure_resource_group_browse::browse_resource_groups;
-pub use azure_resource_group_list::AzureResourceGroupListArgs;
+pub use azure_resource_group_browse_cli::AzureResourceGroupBrowseArgs;
+pub use azure_resource_group_browse_cli::browse_resource_groups;
+pub use azure_resource_group_cli::AzureResourceGroupCommand;
+pub use azure_resource_group_list_cli::AzureResourceGroupListArgs;
 use eyre::Result;
 
 /// Manage Azure resource groups.

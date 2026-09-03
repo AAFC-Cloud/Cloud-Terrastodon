@@ -1,11 +1,11 @@
-pub mod gitea_tenant_alias_add;
-pub mod gitea_tenant_alias_list;
-pub mod gitea_tenant_alias_remove;
+pub mod gitea_tenant_alias_add_cli;
+pub mod gitea_tenant_alias_list_cli;
+pub mod gitea_tenant_alias_remove_cli;
 
 use eyre::Result;
-pub use gitea_tenant_alias_add::GiteaTenantAliasAddArgs;
-pub use gitea_tenant_alias_list::GiteaTenantAliasListArgs;
-pub use gitea_tenant_alias_remove::GiteaTenantAliasRemoveArgs;
+pub use gitea_tenant_alias_add_cli::GiteaTenantAliasAddArgs;
+pub use gitea_tenant_alias_list_cli::GiteaTenantAliasListArgs;
+pub use gitea_tenant_alias_remove_cli::GiteaTenantAliasRemoveArgs;
 
 #[derive(facet::Facet, Debug, Clone)]
 pub struct GiteaTenantAliasArgs {

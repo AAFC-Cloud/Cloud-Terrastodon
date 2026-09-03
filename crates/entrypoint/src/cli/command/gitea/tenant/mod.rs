@@ -1,17 +1,17 @@
 pub mod alias;
-pub mod gitea_tenant_add;
-pub mod gitea_tenant_discover;
-pub mod gitea_tenant_forget;
-pub mod gitea_tenant_list;
-pub mod gitea_tenant_show;
+pub mod gitea_tenant_add_cli;
+pub mod gitea_tenant_discover_cli;
+pub mod gitea_tenant_forget_cli;
+pub mod gitea_tenant_list_cli;
+pub mod gitea_tenant_show_cli;
 
 pub use alias::GiteaTenantAliasArgs;
 use eyre::Result;
-pub use gitea_tenant_add::GiteaTenantAddArgs;
-pub use gitea_tenant_discover::GiteaTenantDiscoverArgs;
-pub use gitea_tenant_forget::GiteaTenantForgetArgs;
-pub use gitea_tenant_list::GiteaTenantListArgs;
-pub use gitea_tenant_show::GiteaTenantShowArgs;
+pub use gitea_tenant_add_cli::GiteaTenantAddArgs;
+pub use gitea_tenant_discover_cli::GiteaTenantDiscoverArgs;
+pub use gitea_tenant_forget_cli::GiteaTenantForgetArgs;
+pub use gitea_tenant_list_cli::GiteaTenantListArgs;
+pub use gitea_tenant_show_cli::GiteaTenantShowArgs;
 
 #[derive(facet::Facet, Debug, Clone)]
 pub struct GiteaTenantArgs {

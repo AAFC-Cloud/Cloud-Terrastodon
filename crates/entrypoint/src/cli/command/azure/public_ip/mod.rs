@@ -1,11 +1,11 @@
 use cloud_terrastodon_credentials::AuthContext;
-pub mod azure_public_ip;
-pub mod azure_public_ip_list;
-pub mod azure_public_ip_show;
+pub mod azure_public_ip_cli;
+pub mod azure_public_ip_list_cli;
+pub mod azure_public_ip_show_cli;
 
-pub use azure_public_ip::AzurePublicIpCommand;
-pub use azure_public_ip_list::AzurePublicIpListArgs;
-pub use azure_public_ip_show::AzurePublicIpShowArgs;
+pub use azure_public_ip_cli::AzurePublicIpCommand;
+pub use azure_public_ip_list_cli::AzurePublicIpListArgs;
+pub use azure_public_ip_show_cli::AzurePublicIpShowArgs;
 use eyre::Result;
 
 /// Manage Azure public IP addresses.

@@ -1,20 +1,20 @@
 pub mod alias;
-pub mod azure_tenant_add;
-pub mod azure_tenant_discover;
-pub mod azure_tenant_forget;
-pub mod azure_tenant_list;
-pub mod azure_tenant_login;
-pub mod azure_tenant_set_auth_source;
-pub mod azure_tenant_show;
+pub mod azure_tenant_add_cli;
+pub mod azure_tenant_discover_cli;
+pub mod azure_tenant_forget_cli;
+pub mod azure_tenant_list_cli;
+pub mod azure_tenant_login_cli;
+pub mod azure_tenant_set_auth_source_cli;
+pub mod azure_tenant_show_cli;
 
 pub use alias::AzureTenantAliasArgs;
-pub use azure_tenant_add::AzureTenantAddArgs;
-pub use azure_tenant_discover::AzureTenantDiscoverArgs;
-pub use azure_tenant_forget::AzureTenantForgetArgs;
-pub use azure_tenant_list::AzureTenantListArgs;
-pub use azure_tenant_login::AzureTenantLoginArgs;
-pub use azure_tenant_set_auth_source::AzureTenantSetAuthSourceArgs;
-pub use azure_tenant_show::AzureTenantShowArgs;
+pub use azure_tenant_add_cli::AzureTenantAddArgs;
+pub use azure_tenant_discover_cli::AzureTenantDiscoverArgs;
+pub use azure_tenant_forget_cli::AzureTenantForgetArgs;
+pub use azure_tenant_list_cli::AzureTenantListArgs;
+pub use azure_tenant_login_cli::AzureTenantLoginArgs;
+pub use azure_tenant_set_auth_source_cli::AzureTenantSetAuthSourceArgs;
+pub use azure_tenant_show_cli::AzureTenantShowArgs;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 

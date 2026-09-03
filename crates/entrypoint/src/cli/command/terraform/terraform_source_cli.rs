@@ -1,5 +1,5 @@
-use super::terraform_source_add_imports::TerraformSourceAddImportsArgs;
-use super::terraform_source_generate::TerraformSourceGenerateArgs;
+use super::terraform_source_add_imports_cli::TerraformSourceAddImportsArgs;
+use super::terraform_source_generate_cli::TerraformSourceGenerateArgs;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 

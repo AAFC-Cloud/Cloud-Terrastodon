@@ -1,11 +1,11 @@
-pub mod gitea_repo_browse;
-pub mod gitea_repo_list;
-pub mod gitea_repo_show;
+pub mod gitea_repo_browse_cli;
+pub mod gitea_repo_list_cli;
+pub mod gitea_repo_show_cli;
 
 use eyre::Result;
-pub use gitea_repo_browse::GiteaRepoBrowseArgs;
-pub use gitea_repo_list::GiteaRepoListArgs;
-pub use gitea_repo_show::GiteaRepoShowArgs;
+pub use gitea_repo_browse_cli::GiteaRepoBrowseArgs;
+pub use gitea_repo_list_cli::GiteaRepoListArgs;
+pub use gitea_repo_show_cli::GiteaRepoShowArgs;
 
 #[derive(facet::Facet, Debug, Clone)]
 pub struct GiteaRepoArgs {

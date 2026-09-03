@@ -1,12 +1,12 @@
-pub mod azure_entra_service_principal;
-pub mod azure_entra_service_principal_browse;
-pub mod azure_entra_service_principal_list;
-pub mod azure_entra_service_principal_show;
+pub mod azure_entra_service_principal_browse_cli;
+pub mod azure_entra_service_principal_cli;
+pub mod azure_entra_service_principal_list_cli;
+pub mod azure_entra_service_principal_show_cli;
 
-pub use azure_entra_service_principal::AzureEntraSpCommand;
-pub use azure_entra_service_principal_browse::AzureEntraSpBrowseArgs;
-pub use azure_entra_service_principal_list::AzureEntraSpListArgs;
-pub use azure_entra_service_principal_show::AzureEntraSpShowArgs;
+pub use azure_entra_service_principal_browse_cli::AzureEntraSpBrowseArgs;
+pub use azure_entra_service_principal_cli::AzureEntraSpCommand;
+pub use azure_entra_service_principal_list_cli::AzureEntraSpListArgs;
+pub use azure_entra_service_principal_show_cli::AzureEntraSpShowArgs;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 

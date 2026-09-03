@@ -1,12 +1,12 @@
-pub mod azure_entra_role_definition;
-pub mod azure_entra_role_definition_browse;
-pub mod azure_entra_role_definition_find;
-pub mod azure_entra_role_definition_list;
+pub mod azure_entra_role_definition_browse_cli;
+pub mod azure_entra_role_definition_cli;
+pub mod azure_entra_role_definition_find_cli;
+pub mod azure_entra_role_definition_list_cli;
 
-pub use azure_entra_role_definition::AzureEntraRoleDefinitionCommand;
-pub use azure_entra_role_definition_browse::AzureEntraRoleDefinitionBrowseArgs;
-pub use azure_entra_role_definition_find::AzureEntraRoleDefinitionFindArgs;
-pub use azure_entra_role_definition_list::AzureEntraRoleDefinitionListArgs;
+pub use azure_entra_role_definition_browse_cli::AzureEntraRoleDefinitionBrowseArgs;
+pub use azure_entra_role_definition_cli::AzureEntraRoleDefinitionCommand;
+pub use azure_entra_role_definition_find_cli::AzureEntraRoleDefinitionFindArgs;
+pub use azure_entra_role_definition_list_cli::AzureEntraRoleDefinitionListArgs;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 

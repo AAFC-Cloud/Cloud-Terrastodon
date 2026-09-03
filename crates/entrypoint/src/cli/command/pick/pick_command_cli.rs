@@ -1,5 +1,5 @@
-use crate::cli::pick::pick_fs_command::PickFsArgs;
-use crate::cli::pick::pick_stdin_command::PickStdinArgs;
+use crate::cli::pick::pick_fs_command_cli::PickFsArgs;
+use crate::cli::pick::pick_stdin_command_cli::PickStdinArgs;
 use crate::serde_json_isolation::Value;
 use eyre::Result;
 use jmespath::Variable;
@@ -128,7 +128,7 @@ impl PickCommand {
 mod test {
     use crate::cli::pick::PickCommand;
     use crate::cli::pick::QueryEngine;
-    use crate::cli::pick::pick_command::resolve_default_pick_command;
+    use crate::cli::pick::pick_command_cli::resolve_default_pick_command;
     use crate::serde_json_isolation::json;
 
     #[test]

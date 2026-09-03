@@ -1,11 +1,11 @@
 use cloud_terrastodon_credentials::AuthContext;
-pub mod azure_network_interface;
-pub mod azure_network_interface_list;
-pub mod azure_network_interface_show;
+pub mod azure_network_interface_cli;
+pub mod azure_network_interface_list_cli;
+pub mod azure_network_interface_show_cli;
 
-pub use azure_network_interface::AzureNetworkInterfaceCommand;
-pub use azure_network_interface_list::AzureNetworkInterfaceListArgs;
-pub use azure_network_interface_show::AzureNetworkInterfaceShowArgs;
+pub use azure_network_interface_cli::AzureNetworkInterfaceCommand;
+pub use azure_network_interface_list_cli::AzureNetworkInterfaceListArgs;
+pub use azure_network_interface_show_cli::AzureNetworkInterfaceShowArgs;
 use eyre::Result;
 
 /// Manage Azure network interfaces.

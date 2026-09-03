@@ -1,13 +1,13 @@
 use cloud_terrastodon_credentials::AuthContext;
-pub mod azure_policy_assignment;
-pub mod azure_policy_assignment_browse;
-pub mod azure_policy_assignment_list;
-pub mod azure_policy_assignment_show;
+pub mod azure_policy_assignment_browse_cli;
+pub mod azure_policy_assignment_cli;
+pub mod azure_policy_assignment_list_cli;
+pub mod azure_policy_assignment_show_cli;
 
-pub use azure_policy_assignment::AzurePolicyAssignmentCommand;
-pub use azure_policy_assignment_browse::AzurePolicyAssignmentBrowseArgs;
-pub use azure_policy_assignment_list::AzurePolicyAssignmentListArgs;
-pub use azure_policy_assignment_show::AzurePolicyAssignmentShowArgs;
+pub use azure_policy_assignment_browse_cli::AzurePolicyAssignmentBrowseArgs;
+pub use azure_policy_assignment_cli::AzurePolicyAssignmentCommand;
+pub use azure_policy_assignment_list_cli::AzurePolicyAssignmentListArgs;
+pub use azure_policy_assignment_show_cli::AzurePolicyAssignmentShowArgs;
 use eyre::Result;
 
 /// Manage Azure policy assignments.

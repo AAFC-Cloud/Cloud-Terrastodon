@@ -1,7 +1,7 @@
-pub mod clean_tui;
+pub mod clean_tui_cli;
 pub mod list;
 
-use crate::cli::cache::clean_tui::CacheCleanTuiArgs;
+use crate::cli::cache::clean_tui_cli::CacheCleanTuiArgs;
 use crate::cli::cache::list::cache_list_cli::CacheListArgs;
 use eyre::Result;
 

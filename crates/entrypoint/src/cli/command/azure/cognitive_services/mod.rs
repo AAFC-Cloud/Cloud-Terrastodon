@@ -1,21 +1,21 @@
 use cloud_terrastodon_credentials::AuthContext;
-pub mod azure_cognitive_services;
-pub mod azure_cognitive_services_account;
-pub mod azure_cognitive_services_account_argument;
-pub mod azure_cognitive_services_deployment;
-pub mod azure_cognitive_services_deployment_list;
-pub mod azure_cognitive_services_deployment_show;
-pub mod azure_cognitive_services_list;
-pub mod azure_cognitive_services_show;
+pub mod azure_cognitive_services_account_argument_cli;
+pub mod azure_cognitive_services_account_cli;
+pub mod azure_cognitive_services_cli;
+pub mod azure_cognitive_services_deployment_cli;
+pub mod azure_cognitive_services_deployment_list_cli;
+pub mod azure_cognitive_services_deployment_show_cli;
+pub mod azure_cognitive_services_list_cli;
+pub mod azure_cognitive_services_show_cli;
 
-pub use azure_cognitive_services::AzureCognitiveServicesCommand;
-pub use azure_cognitive_services_account::AzureCognitiveServicesAccountArgs;
-pub use azure_cognitive_services_account_argument::CognitiveServicesAccountArgument;
-pub use azure_cognitive_services_deployment::AzureCognitiveServicesDeploymentArgs;
-pub use azure_cognitive_services_deployment_list::AzureCognitiveServicesDeploymentListArgs;
-pub use azure_cognitive_services_deployment_show::AzureCognitiveServicesDeploymentShowArgs;
-pub use azure_cognitive_services_list::AzureCognitiveServicesListArgs;
-pub use azure_cognitive_services_show::AzureCognitiveServicesShowArgs;
+pub use azure_cognitive_services_account_argument_cli::CognitiveServicesAccountArgument;
+pub use azure_cognitive_services_account_cli::AzureCognitiveServicesAccountArgs;
+pub use azure_cognitive_services_cli::AzureCognitiveServicesCommand;
+pub use azure_cognitive_services_deployment_cli::AzureCognitiveServicesDeploymentArgs;
+pub use azure_cognitive_services_deployment_list_cli::AzureCognitiveServicesDeploymentListArgs;
+pub use azure_cognitive_services_deployment_show_cli::AzureCognitiveServicesDeploymentShowArgs;
+pub use azure_cognitive_services_list_cli::AzureCognitiveServicesListArgs;
+pub use azure_cognitive_services_show_cli::AzureCognitiveServicesShowArgs;
 use eyre::Result;
 
 /// Manage Azure Cognitive Services accounts and deployments.

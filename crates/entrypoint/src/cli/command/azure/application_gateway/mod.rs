@@ -1,13 +1,13 @@
 use cloud_terrastodon_credentials::AuthContext;
-pub mod azure_application_gateway;
-pub mod azure_application_gateway_list;
-pub mod azure_application_gateway_show;
-pub mod azure_application_gateway_show_backend_health;
+pub mod azure_application_gateway_cli;
+pub mod azure_application_gateway_list_cli;
+pub mod azure_application_gateway_show_backend_health_cli;
+pub mod azure_application_gateway_show_cli;
 
-pub use azure_application_gateway::AzureApplicationGatewayCommand;
-pub use azure_application_gateway_list::AzureApplicationGatewayListArgs;
-pub use azure_application_gateway_show::AzureApplicationGatewayShowArgs;
-pub use azure_application_gateway_show_backend_health::AzureApplicationGatewayShowBackendHealthArgs;
+pub use azure_application_gateway_cli::AzureApplicationGatewayCommand;
+pub use azure_application_gateway_list_cli::AzureApplicationGatewayListArgs;
+pub use azure_application_gateway_show_backend_health_cli::AzureApplicationGatewayShowBackendHealthArgs;
+pub use azure_application_gateway_show_cli::AzureApplicationGatewayShowArgs;
 use eyre::Result;
 
 /// Manage Azure application gateways.

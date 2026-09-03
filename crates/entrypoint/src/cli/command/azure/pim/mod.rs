@@ -1,8 +1,8 @@
-pub mod azure_pim_activate;
-pub mod azure_pim_setup;
+pub mod azure_pim_activate_cli;
+pub mod azure_pim_setup_cli;
 
-pub use azure_pim_activate::AzurePimActivateArgs;
-pub use azure_pim_setup::AzurePimSetupArgs;
+pub use azure_pim_activate_cli::AzurePimActivateArgs;
+pub use azure_pim_setup_cli::AzurePimSetupArgs;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
