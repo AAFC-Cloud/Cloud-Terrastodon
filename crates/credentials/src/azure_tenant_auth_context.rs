@@ -4,6 +4,7 @@ use crate::AzureBearerToken;
 use crate::AzureRestResource;
 use cloud_terrastodon_azure_types::AzureAccessToken;
 use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_azure_types::uuid::Uuid;
 use eyre::Result;
 use eyre::ensure;
 
@@ -15,6 +16,15 @@ use eyre::ensure;
 pub struct AzureTenantAuthContext {
     pub auth_context: AuthContext,
     pub tenant_id: AzureTenantId,
+}
+
+impl Default for AzureTenantAuthContext {
+    fn default() -> Self {
+        Self {
+            auth_context: AuthContext::default(),
+            tenant_id: AzureTenantId::new(Uuid::nil()),
+        }
+    }
 }
 
 impl<'a> arbitrary::Arbitrary<'a> for AzureTenantAuthContext {
