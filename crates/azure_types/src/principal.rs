@@ -188,6 +188,7 @@ impl std::fmt::Display for Principal {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::EntraUserExternalUserState;
     use crate::user_id::EntraUserId;
 
     #[test]
@@ -195,6 +196,9 @@ mod tests {
         let user: EntraUser = EntraUser {
             business_phones: vec![],
             display_name: "User, Fake".to_string(),
+            external_user_state: EntraUserExternalUserState::Accepted,
+            external_user_state_change_date_time: chrono::DateTime::from_timestamp(0, 0)
+                .expect("Unix epoch is a valid timestamp"),
             given_name: Some("User".to_string()),
             id: EntraUserId::new(Uuid::nil()),
             job_title: None,

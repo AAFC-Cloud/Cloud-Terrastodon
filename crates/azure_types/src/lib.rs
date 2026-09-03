@@ -75,6 +75,7 @@ mod entra_service_principal_application_role;
 mod entra_service_principal_application_role_id;
 mod entra_service_principal_object_id;
 mod entra_user;
+mod entra_user_external_user_state;
 #[cfg(test)]
 mod facet_json_equivalence;
 mod facet_proxies;
@@ -282,6 +283,7 @@ pub use crate::entra_service_principal_application_role::*;
 pub use crate::entra_service_principal_application_role_id::*;
 pub use crate::entra_service_principal_object_id::*;
 pub use crate::entra_user::*;
+pub use crate::entra_user_external_user_state::*;
 pub use crate::facet_proxies::*;
 pub use crate::governance_role_assignment::*;
 pub use crate::governance_role_definition::*;

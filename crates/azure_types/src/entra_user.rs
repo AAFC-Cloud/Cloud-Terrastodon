@@ -1,5 +1,8 @@
+use crate::EntraUserExternalUserState;
 use crate::user_id::EntraUserId;
 use arbitrary::Arbitrary;
+use chrono::DateTime;
+use chrono::Utc;
 use cloud_terrastodon_hcl_types::AzureAdResourceBlockKind;
 use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
@@ -12,6 +15,10 @@ pub struct EntraUser {
     pub business_phones: Vec<String>,
     #[facet(rename = "displayName")]
     pub display_name: String,
+    #[facet(rename = "externalUserState")]
+    pub external_user_state: EntraUserExternalUserState,
+    #[facet(rename = "externalUserStateChangeDateTime")]
+    pub external_user_state_change_date_time: DateTime<Utc>,
     #[facet(rename = "givenName")]
     pub given_name: Option<String>,
     pub id: EntraUserId,
@@ -31,6 +38,11 @@ pub struct EntraUser {
     #[facet(rename = "userPrincipalName")]
     pub user_principal_name: String,
 }
+
+impl EntraUser {
+    pub const SELECT: &str = "businessPhones,displayName,externalUserState,externalUserStateChangeDateTime,givenName,id,jobTitle,mail,otherMails,mobilePhone,officeLocation,preferredLanguage,surname,userPrincipalName";
+}
+
 impl std::fmt::Display for EntraUser {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(self.id.to_string().as_str())?;

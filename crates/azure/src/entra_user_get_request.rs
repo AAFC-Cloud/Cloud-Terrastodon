@@ -15,8 +15,6 @@ use std::borrow::Cow;
 use std::path::PathBuf;
 use tracing::debug;
 
-const USER_SELECT: &str = "businessPhones,displayName,givenName,id,jobTitle,mail,otherMails,mobilePhone,officeLocation,preferredLanguage,surname,userPrincipalName";
-
 #[derive(Arbitrary, Facet)]
 #[repr(C)]
 pub enum EntraUserLookup {
@@ -92,7 +90,10 @@ impl EntraUserGetRequest<'_> {
             }
         };
 
-        format!("https://graph.microsoft.com/v1.0/users/{lookup}?$select={USER_SELECT}")
+        format!(
+            "https://graph.microsoft.com/v1.0/users/{lookup}?$select={}",
+            EntraUser::SELECT
+        )
     }
 }
 

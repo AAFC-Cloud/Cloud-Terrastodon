@@ -56,7 +56,10 @@ impl<'a> CacheableCommand for EntraUserListRequest<'a> {
     async fn run(self) -> Result<Self::Output> {
         debug!(tenant_id = %self.auth_context.tenant_id, "Fetching users");
         let helper = MicrosoftGraphHelper::new(
-            "https://graph.microsoft.com/v1.0/users?$select=businessPhones,displayName,givenName,id,jobTitle,mail,otherMails,mobilePhone,officeLocation,preferredLanguage,surname,userPrincipalName",
+            format!(
+                "https://graph.microsoft.com/v1.0/users?$select={}",
+                EntraUser::SELECT
+            ),
             Some(self.cache_key()),
             self.auth_context.as_ref(),
         );

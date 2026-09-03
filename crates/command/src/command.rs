@@ -692,9 +692,10 @@ impl CommandBuilder {
                     .instrument(span.or_current())
                     .await?;
                 Err(e.wrap_err(format!(
-                    "Deserialization failed!\n - Command: `{summary}`\n - Called by: \"{}\"\n - Dumped to: {dir:?}\n - Type: {}",
+                    "Deserialization failed!\n - Command: `{summary}`\n - Called by: \"{}\"\n - Dumped to: {dir:?}\n - Type: {}{}",
                     RelativeLocation::from(caller),
-                    std::any::type_name::<T>()
+                    std::any::type_name::<T>(),
+                    crate::artifact_cache::cache_clean_recommendation(self.cache_key.as_ref())
                 )))
             }
         }
@@ -749,9 +750,10 @@ impl CommandBuilder {
                     .instrument(span.or_current())
                     .await?;
                 Err(e.wrap_err(format!(
-                        "Deserialization failed!\n - Command: `{summary}`\n - Called by: \"{}\"\n - Dumped to: {dir:?}\n - Type: {}",
+                        "Deserialization failed!\n - Command: `{summary}`\n - Called by: \"{}\"\n - Dumped to: {dir:?}\n - Type: {}{}",
                         RelativeLocation::from(caller),
-                        std::any::type_name::<T>()
+                        std::any::type_name::<T>(),
+                        crate::artifact_cache::cache_clean_recommendation(self.cache_key.as_ref())
                     )))
             }
         }
@@ -841,9 +843,10 @@ impl CommandBuilder {
                     .instrument(span.or_current())
                     .await?;
                 Err(e.wrap_err(format!(
-                    "Deserialization failed!\n - Command: `{summary}`\n - Called by: \"{}\"\n - Dumped to: {dir:?}\n - Type: {}",
+                    "Deserialization failed!\n - Command: `{summary}`\n - Called by: \"{}\"\n - Dumped to: {dir:?}\n - Type: {}{}",
                     RelativeLocation::from(caller),
-                    std::any::type_name::<Raw>()
+                    std::any::type_name::<Raw>(),
+                    crate::artifact_cache::cache_clean_recommendation(self.cache_key.as_ref())
                 )))
             }
             Err(CommandOutputDecodeError::Map(e)) => {
@@ -889,10 +892,11 @@ impl CommandBuilder {
             Err(e) => {
                 let dir = self.write_failure(&output).await?;
                 Err(e.wrap_err(format!(
-                    "deserializing `{}` failed\ncalled by \"{}\"\ndumped to {:?}",
+                    "deserializing `{}` failed\ncalled by \"{}\"\ndumped to {:?}{}",
                     self.summarize().await,
                     RelativeLocation::from(caller),
-                    dir
+                    dir,
+                    crate::artifact_cache::cache_clean_recommendation(self.cache_key.as_ref())
                 )))
             }
         }

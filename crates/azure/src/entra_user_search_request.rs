@@ -13,7 +13,6 @@ use std::path::PathBuf;
 use std::time::Duration;
 use tracing::debug;
 
-const USER_SELECT: &str = "businessPhones,displayName,givenName,id,jobTitle,mail,otherMails,mobilePhone,officeLocation,preferredLanguage,surname,userPrincipalName";
 const USER_SEARCH_CACHE_DURATION: Duration = Duration::from_secs(60);
 
 #[must_use = "This is a future request, you must .await it"]
@@ -50,7 +49,8 @@ impl EntraUserSearchRequest<'_> {
         );
 
         format!(
-            "https://graph.microsoft.com/v1.0/users?$select={USER_SELECT}&$filter={}",
+            "https://graph.microsoft.com/v1.0/users?$select={}&$filter={}",
+            EntraUser::SELECT,
             filter.percent_encode()
         )
     }

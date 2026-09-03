@@ -168,12 +168,17 @@ where
             }
         };
 
-    let (output, raw, extra_files) = tokio::task::spawn_blocking(move || -> Result<_> {
+    let raw_result = tokio::task::spawn_blocking(move || -> Result<_> {
         let raw = crate::json::from_slice::<Raw>(&output.stdout)?;
         let extra_files = extra_files.map(|f| f(&raw)).unwrap_or_default();
         Ok((output, raw, extra_files))
     })
-    .await??;
+    .await?
+    .wrap_err(format!(
+        "Deserializing cached work output{}",
+        artifact_cache::cache_clean_recommendation(Some(&cache_key))
+    ))?;
+    let (output, raw, extra_files) = raw_result;
     let decode_result = tokio::task::spawn_blocking(move || decode(raw)).await?;
     match decode_result {
         Ok(result) => Ok(result),
@@ -193,8 +198,9 @@ where
             )
             .await?;
             Err(error).wrap_err(format!(
-                "Decoded cached work failed, dumped to {:?}",
-                dump_dir
+                "Decoded cached work failed, dumped to {:?}{}",
+                dump_dir,
+                artifact_cache::cache_clean_recommendation(Some(&cache_key))
             ))
         }
     }
