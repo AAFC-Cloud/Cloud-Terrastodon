@@ -4,6 +4,7 @@ use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::SubscriptionIdExt;
 use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_rest::RequestHeaders;
 use cloud_terrastodon_rest::RestRequest;
 use cloud_terrastodon_rest::RestService;
 use cloud_terrastodon_rest::SerializableRestResponse;
@@ -51,6 +52,10 @@ pub struct RestArgs {
     #[facet(figue::named)]
     pub headers: Option<String>,
 
+    /// Optional request header in `name: value` form. May be specified multiple times.
+    #[facet(figue::named, default)]
+    pub header: Vec<String>,
+
     /// Optional tracked tenant id or alias to use when acquiring Azure access tokens.
     #[facet(figue::named)]
     pub tenant: Option<AzureTenantArgument<'static>>,
@@ -74,6 +79,7 @@ impl<'a> Arbitrary<'a> for RestArgs {
             url: format!("https://{host}.example.com/api"),
             body: Option::<String>::arbitrary(u)?,
             headers: Option::<String>::arbitrary(u)?,
+            header: Vec::<String>::arbitrary(u)?,
             tenant: Option::<AzureTenantArgument<'static>>::arbitrary(u)?,
             output_format: RestOutputFormat::arbitrary(u)?,
         })
@@ -109,6 +115,12 @@ impl RestArgs {
         };
         let body = read_optional_body(self.body).await?;
         let headers = read_optional_headers(self.headers).await?;
+        let header = RequestHeaders::from_header_lines(self.header.iter().map(String::as_str))?;
+        let headers = match (headers, header) {
+            (Some(headers), Some(header)) => Some(headers.merge(header)),
+            (Some(headers), None) | (None, Some(headers)) => Some(headers),
+            (None, None) => None,
+        };
         let mut request = RestRequest::new(self.method.0, url.as_str())?.auth_context(auth_context);
         request.service = service;
         request.body = body;
@@ -129,6 +141,7 @@ impl RestArgs {
 
 #[cfg(test)]
 mod test {
+    use super::RestArgs;
     use super::RestService;
     use cloud_terrastodon_rest::RestResponseBody;
     use cloud_terrastodon_rest::RestResponseHeaders;
@@ -137,6 +150,35 @@ mod test {
     use reqwest::Url;
     use reqwest::header::HeaderMap;
     use reqwest::header::HeaderValue;
+
+    #[derive(facet::Facet, Debug)]
+    struct ParseArgs {
+        #[facet(flatten)]
+        args: RestArgs,
+    }
+
+    #[test]
+    fn parses_repeated_header_options() {
+        let parsed: ParseArgs = figue::from_slice(&[
+            "--method",
+            "GET",
+            "--url",
+            "https://graph.microsoft.com/v1.0/users",
+            "--header",
+            "ConsistencyLevel: eventual",
+            "--header",
+            "Accept: application/json",
+        ])
+        .unwrap();
+
+        assert_eq!(
+            parsed.args.header,
+            vec![
+                "ConsistencyLevel: eventual".to_owned(),
+                "Accept: application/json".to_owned()
+            ]
+        );
+    }
 
     #[test]
     fn infers_microsoft_graph() {

@@ -44,6 +44,57 @@ impl RequestHeaders {
         Ok(Self(parsed))
     }
 
+    /// Parses request headers in the conventional `name: value` form.
+    pub fn from_header_lines<'a, I>(headers: I) -> Result<Option<Self>>
+    where
+        I: IntoIterator<Item = &'a str>,
+    {
+        let mut parsed = Self(BTreeMap::new());
+
+        for header in headers {
+            let (name, value) = header.split_once(':').ok_or_else(|| {
+                eyre::eyre!("Invalid request header {header:?}; expected the format 'name: value'")
+            })?;
+            let name = name.trim();
+            let value = value.trim();
+
+            HeaderName::try_from(name).wrap_err_with(|| format!("Invalid header name {name:?}"))?;
+            HeaderValue::try_from(value)
+                .wrap_err_with(|| format!("Invalid value for header {name:?}"))?;
+            parsed.append(name.to_owned(), value.to_owned());
+        }
+
+        Ok((!parsed.0.is_empty()).then_some(parsed))
+    }
+
+    /// Appends all values from `other`, retaining repeated header values.
+    pub fn merge(mut self, other: Self) -> Self {
+        for (name, values) in other.0 {
+            for value in values.iter() {
+                self.append(name.clone(), value.to_owned());
+            }
+        }
+        self
+    }
+
+    fn append(&mut self, name: String, value: String) {
+        match self.0.entry(name) {
+            std::collections::btree_map::Entry::Vacant(entry) => {
+                entry.insert(RequestHeaderValues::One(value));
+            }
+            std::collections::btree_map::Entry::Occupied(mut entry) => {
+                let values = entry.get_mut();
+                match values {
+                    RequestHeaderValues::One(existing) => {
+                        let existing = std::mem::take(existing);
+                        *values = RequestHeaderValues::Many(vec![existing, value]);
+                    }
+                    RequestHeaderValues::Many(values) => values.push(value),
+                }
+            }
+        }
+    }
+
     pub fn to_json_pretty(&self) -> Result<String> {
         let values = self
             .0
@@ -91,6 +142,7 @@ pub async fn read_optional_headers(headers: Option<String>) -> Result<Option<Req
 
 #[cfg(test)]
 mod tests {
+    use super::RequestHeaders;
     use super::read_optional_headers;
 
     #[tokio::test]
@@ -117,5 +169,33 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(values, vec!["a".to_string(), "b".to_string()]);
         Ok(())
+    }
+
+    #[test]
+    fn parses_repeated_header_lines() -> eyre::Result<()> {
+        let headers = RequestHeaders::from_header_lines([
+            "ConsistencyLevel: eventual",
+            "Accept: application/json",
+            "X-Test: one",
+            "X-Test: two",
+        ])?
+        .unwrap()
+        .to_header_map()?;
+
+        assert_eq!(headers.get("consistencylevel").unwrap(), "eventual");
+        assert_eq!(headers.get("accept").unwrap(), "application/json");
+        let values = headers
+            .get_all("x-test")
+            .iter()
+            .map(|value| value.to_str().unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(values, vec!["one", "two"]);
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_header_without_separator() {
+        let error = RequestHeaders::from_header_lines(["missing-separator"]).unwrap_err();
+        assert!(error.to_string().contains("name: value"));
     }
 }
