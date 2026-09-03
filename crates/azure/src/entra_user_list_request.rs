@@ -13,6 +13,7 @@ use std::time::Duration;
 use tracing::debug;
 
 const USER_LIST_CACHE_DURATION: Duration = Duration::MAX;
+const USER_LIST_PAGE_SIZE: usize = 999;
 
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Facet)]
@@ -71,8 +72,9 @@ impl<'a> CacheableCommand for EntraUserListRequest<'a> {
         debug!(tenant_id = %self.auth_context.tenant_id, "Fetching users");
         let mut helper = MicrosoftGraphHelper::new(
             format!(
-                "https://graph.microsoft.com/v1.0/users?$select={}&$count=true",
-                EntraUser::SELECT
+                "https://graph.microsoft.com/v1.0/users?$select={}&$count=true&$top={}",
+                EntraUser::SELECT,
+                USER_LIST_PAGE_SIZE,
             ),
             Some(self.cache_key()),
             self.auth_context.as_ref(),
