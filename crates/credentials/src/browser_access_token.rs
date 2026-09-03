@@ -261,7 +261,7 @@ pub(crate) fn delete_browser_session(
         return;
     }
     #[cfg(windows)]
-    if let Ok(Some(session)) = load_browser_session() {
+    if let Ok(Some(_session)) = load_browser_session() {
         if let Ok(target) = browser_session_target(&tenant_id, &client_id)
             && let Err(error) = crate::delete_credential_from_manager(&target)
         {
