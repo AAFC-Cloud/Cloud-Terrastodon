@@ -16,9 +16,9 @@ pub struct EntraUser {
     #[facet(rename = "displayName")]
     pub display_name: String,
     #[facet(rename = "externalUserState")]
-    pub external_user_state: EntraUserExternalUserState,
+    pub external_user_state: Option<EntraUserExternalUserState>,
     #[facet(rename = "externalUserStateChangeDateTime")]
-    pub external_user_state_change_date_time: DateTime<Utc>,
+    pub external_user_state_change_date_time: Option<DateTime<Utc>>,
     #[facet(rename = "givenName")]
     pub given_name: Option<String>,
     pub id: EntraUserId,
