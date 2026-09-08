@@ -231,6 +231,91 @@ mod tests {
             .build();
     }
 
+    fn rendered_cli_help(arguments: &[&str]) -> String {
+        let config = figue::builder::<Cli>()
+            .expect("CLI schema should be valid")
+            .cli(|cli| cli.args(arguments.iter().copied()).strict())
+            .help(|help| {
+                help.version("test")
+                    .include_implementation_source_file(true)
+                    .include_implementation_github_url("AAFC-Cloud/Cloud-Terrastodon", "test")
+            })
+            .build();
+        match Driver::new(config).run().into_result() {
+            Err(figue::DriverError::Help { text, .. }) => text,
+            other => panic!("expected parse-only help, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn root_and_tenant_leaf_help_include_all_globals_and_complete_docs() {
+        for arguments in [vec!["--help"], vec!["az", "tenant", "login", "--help"]] {
+            let help = rendered_cli_help(&arguments);
+            for spelling in [
+                "--auth-source <SOURCE>",
+                "--[no-]debug",
+                "--log-filter <DIRECTIVE>",
+                "--log-file-filter <DIRECTIVE>",
+                "--log-file <FILE|DIR>",
+                "--[no-]help",
+                "--[no-]html-help",
+                "--[no-]version",
+                "--completions",
+                "--export-jsonschemas",
+            ] {
+                assert_eq!(
+                    help.matches(spelling).count(),
+                    1,
+                    "{arguments:?}: {spelling}\n{help}"
+                );
+            }
+            let prose = help.split_whitespace().collect::<Vec<_>>().join(" ");
+            assert!(
+                prose.contains("configured and otherwise defaults to Azure CLI"),
+                "{help}"
+            );
+            assert!(
+                prose.contains("can be selected explicitly or configured per tenant"),
+                "{help}"
+            );
+            assert!(
+                help.contains("AAFC-Cloud/Cloud-Terrastodon/blob/test/"),
+                "{help}"
+            );
+        }
+    }
+
+    #[test]
+    fn tenant_leaf_parses_all_global_arguments_without_invocation() {
+        let cli: Cli = figue::from_slice(&[
+            "az",
+            "tenant",
+            "login",
+            "example-tenant",
+            "--auth-source",
+            "workload-identity",
+            "--debug",
+            "--log-level",
+            "trace",
+            "--log-file-filter",
+            "debug",
+            "--log-file",
+            "logs.ndjson",
+        ])
+        .unwrap();
+        assert_eq!(
+            cli.global_args.auth_source,
+            cloud_terrastodon_credentials::AuthSource::WorkloadIdentity
+        );
+        assert!(cli.global_args.debug);
+        assert_eq!(cli.global_args.log_filter, "trace");
+        assert_eq!(cli.global_args.log_file_filter.as_deref(), Some("debug"));
+        assert_eq!(
+            cli.global_args.log_file.as_deref(),
+            Some(std::path::Path::new("logs.ndjson"))
+        );
+    }
+
     #[test]
     fn registry_things_have_unique_shapes() {
         let mut by_shape = BTreeMap::<String, Vec<String>>::new();

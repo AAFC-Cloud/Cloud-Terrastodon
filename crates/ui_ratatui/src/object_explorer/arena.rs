@@ -561,10 +561,14 @@ mod tests {
         let lease = graph
             .borrow(&arena, ValueAddress::root(tab), borrower, "tab")
             .unwrap();
-        let borrowed = RuntimeValue::from_borrowed_pointer(
-            <Cow<'static, Tab>>::SHAPE,
-            arena.resolve_root(tab).unwrap().peek(),
-        )
+        // SAFETY: the exact source lease remains active, the arena is not
+        // mutated, and the borrowed value is dropped before releasing the lease.
+        let borrowed = unsafe {
+            RuntimeValue::from_borrowed_pointer(
+                <Cow<'static, Tab>>::SHAPE,
+                arena.resolve_root(tab).unwrap().peek(),
+            )
+        }
         .expect("Tab follows the ordinary reflected Cow pointer path");
         assert!(graph.protects_root(tab));
         drop(borrowed);

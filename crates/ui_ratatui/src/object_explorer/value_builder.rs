@@ -1210,13 +1210,20 @@ fn materialize_fields(
                             field: index,
                         });
                     }
-                    let pointer = materialize_borrow(arena, borrow_graph, &lease, field.shape)
-                        .map_err(|error| {
-                            ValueBuilderError::Reflection(format!(
-                                "could not borrow {address} into {}: {error}",
-                                field.name
-                            ))
-                        });
+                    // SAFETY: this exact source lease moves into `leases` below.
+                    // Prepared values/Partial contents drop before leases are
+                    // released on errors. Success returns the completed value
+                    // together with those leases for transfer to ready/pending
+                    // state. Those consumers must keep source protection until
+                    // dependent values die, including on cancellation/shutdown.
+                    let pointer =
+                        unsafe { materialize_borrow(arena, borrow_graph, &lease, field.shape) }
+                            .map_err(|error| {
+                                ValueBuilderError::Reflection(format!(
+                                    "could not borrow {address} into {}: {error}",
+                                    field.name
+                                ))
+                            });
                     leases.push(lease);
                     let pointer = pointer?;
                     Some(pointer)
@@ -1459,10 +1466,15 @@ mod tests {
         let mut lease = borrows
             .borrow(&arena, ValueAddress::root(source_slot), borrower, "source")
             .expect("newly completed source is immediately borrowable");
-        let borrowed = RuntimeValue::from_borrowed_pointer(
-            <Cow<'static, TestBorrowSource>>::SHAPE,
-            arena.ready_value(source_slot).unwrap().peek(),
-        )
+        // SAFETY: the source stays in its protected arena allocation, the exact
+        // lease remains active, and borrowed is dropped before lease transfer
+        // or release. No borrowed value or reference escapes this scope.
+        let borrowed = unsafe {
+            RuntimeValue::from_borrowed_pointer(
+                <Cow<'static, TestBorrowSource>>::SHAPE,
+                arena.ready_value(source_slot).unwrap().peek(),
+            )
+        }
         .expect("Facet can form the actual Cow representation");
         assert!(
             borrowed
@@ -2374,6 +2386,7 @@ mod tests {
                 .expect("the registered arbitrary implementation supplies offline test data");
         let organization = fake_request.org_url.into_owned();
         let project = fake_request.project.into_owned();
+        let auth_context = fake_request.auth_context;
 
         let mut arena = Arena::default();
         let organization = arena
@@ -2412,6 +2425,21 @@ mod tests {
                     request,
                     1,
                     FieldBinding::InlineOwned(runtime(project)),
+                )
+                .unwrap(),
+            BuilderTransition::Building
+        );
+        // Authentication is a required third field, even for an offline request
+        // fixture. Keep the arbitrary implementation's non-executable None
+        // context instead of introducing authentication or a second borrow.
+        assert_eq!(
+            builders
+                .set_field_and_finalize(
+                    &mut arena,
+                    &mut borrows,
+                    request,
+                    2,
+                    FieldBinding::InlineOwned(runtime(auth_context)),
                 )
                 .unwrap(),
             BuilderTransition::Ready

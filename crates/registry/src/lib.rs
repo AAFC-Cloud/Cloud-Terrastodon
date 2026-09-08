@@ -36,8 +36,15 @@ pub type SyncMutFn = fn(&mut (dyn Any + Send)) -> eyre::Result<Box<dyn Any + Sen
 pub type RuntimeFromBoxedFn = fn(Box<dyn Any + Send>) -> eyre::Result<RuntimeValue>;
 pub type RuntimeToBoxedFn = fn(RuntimeValue) -> eyre::Result<Box<dyn Any + Send>>;
 
+/// Constructs a pointer whose source lifetime is enforced outside Rust's types.
+///
+/// # Safety
+///
+/// Calls must uphold [`RuntimeValue::from_borrowed_pointer`]'s source-lifetime,
+/// aliasing, and escaped-reference requirements. Implementations must initialize
+/// the requested pointer shape without consuming the source.
 pub type BorrowPointerFn =
-    for<'mem, 'facet> fn(&'static Shape, Peek<'mem, 'facet>) -> eyre::Result<RuntimeValue>;
+    for<'mem, 'facet> unsafe fn(&'static Shape, Peek<'mem, 'facet>) -> eyre::Result<RuntimeValue>;
 pub type PromotePointerFn = fn(RuntimeValue) -> eyre::Result<RuntimeValue>;
 
 #[derive(Clone, Copy)]
@@ -61,7 +68,12 @@ impl BorrowedPointerKind {
     }
 }
 
-/// An owning, type-erased Facet value.
+/// An owning, type-erased Facet allocation.
+///
+/// Owning the allocation does not imply owning everything reachable from its
+/// contents. Values created through the unsafe borrowed-pointer bridge require
+/// external lifetime/alias tracking, including for shallow clones and values
+/// obtained from [`Self::into_box`].
 pub struct RuntimeValue {
     shape: &'static Shape,
     ptr: NonNull<u8>,
@@ -227,9 +239,35 @@ impl RuntimeValue {
     /// Construct a reflected borrowable pointer from an already-owned value.
     ///
     /// The pointer-kind adapter supplies the type-specific operation through
-    /// Facet's reflected pointer metadata. The caller must retain the source
-    /// value for as long as the returned pointer may be used.
-    pub fn from_borrowed_pointer(
+    /// Facet's reflected pointer metadata. The returned value erases the source
+    /// lifetime; it does not own or retain a lease on the pointee.
+    ///
+    /// # Safety
+    ///
+    /// The source allocation and referenced data must remain live and at a stable
+    /// address, with shared-reference aliasing rules respected, for every use of
+    /// the returned borrow. This includes shallow clones, nested/moved values,
+    /// typed boxes, and references extracted from them. The caller must prevent
+    /// such values/references from escaping the lifetime it can guarantee.
+    ///
+    /// Dropping or promoting one pointer does not detach its borrowed clones.
+    /// Promotion detaches the direct pointee borrow only: references retained by
+    /// the pointee's `ToOwned` implementation still need their original owners.
+    /// An Object Explorer caller must establish these requirements using active
+    /// source leases and release them only after all dependent borrows die,
+    /// including during task cancellation and engine shutdown.
+    ///
+    /// Safe code must not be able to erase a stack-owned source's lifetime:
+    ///
+    /// ```compile_fail,E0133
+    /// use cloud_terrastodon_registry::RuntimeValue;
+    /// use facet::Facet;
+    /// use std::borrow::Cow;
+    /// let source = RuntimeValue::from_box(Box::new(String::from("source"))).unwrap();
+    /// let borrowed = RuntimeValue::from_borrowed_pointer(
+    ///     <Cow<'static, String>>::SHAPE, source.peek());
+    /// ```
+    pub unsafe fn from_borrowed_pointer(
         pointer_shape: &'static Shape,
         source: Peek<'_, '_>,
     ) -> eyre::Result<Self> {
@@ -239,15 +277,18 @@ impl RuntimeValue {
                 describe_shape(pointer_shape)
             )
         })?;
-        (kind.borrow)(pointer_shape, source)
+        // SAFETY: this function's caller supplies the lifetime/alias proof, which
+        // is exactly the registered adapter's unsafe call contract.
+        unsafe { (kind.borrow)(pointer_shape, source) }
     }
 
     /// Wrap an owned pointee in a reflected owning pointer such as `Cow::Owned`.
     ///
     /// Facet's `new_into_fn` moves the pointee bytes into ordinary owning
-    /// pointers. `Cow` is formed through its borrow/promote hooks because its
-    /// reflected constructor represents the borrowed variant; the source is
-    /// retained until promotion completes and then consumed.
+    /// pointers. `Cow` instead uses its explicit borrow/promote capabilities;
+    /// its owned constructor is not advertised through `new_into_fn`. The
+    /// temporary source stays alive until in-place promotion completes, then
+    /// is consumed. This operation does not recursively own nested references.
     pub fn from_owned_pointee(
         pointer_shape: &'static Shape,
         source: RuntimeValue,
@@ -269,7 +310,11 @@ impl RuntimeValue {
             );
         }
         if pointer.known == Some(facet::KnownPointer::Cow) {
-            let borrowed = Self::from_borrowed_pointer(pointer_shape, source.peek())?;
+            // SAFETY: source is owned by this call and remains live and unchanged
+            // until the temporary borrow is promoted or dropped on an error or
+            // unwind. No borrowed pointer/reference escapes this scope. Nested
+            // references already satisfy source's RuntimeValue lifetime contract.
+            let borrowed = unsafe { Self::from_borrowed_pointer(pointer_shape, source.peek())? };
             let owned = borrowed.promote_to_owned()?;
             drop(source);
             return Ok(owned);
@@ -330,6 +375,10 @@ impl RuntimeValue {
     }
 
     /// Clone through the reflected Facet clone operation.
+    ///
+    /// Cloning is not recursive ownership promotion. A borrowed `Cow` remains
+    /// borrowed, so callers tracking external leases must retain or duplicate
+    /// those leases for the clone as well as the original.
     pub fn try_clone(&self) -> eyre::Result<Self> {
         if self
             .shape
@@ -391,8 +440,22 @@ impl RuntimeValue {
         })
     }
 
-    /// Clone an inspected child value into an owning runtime value.
-    pub fn clone_from_peek(peek: Peek<'_, '_>) -> eyre::Result<Self> {
+    /// Clone an inspected child value into an owning runtime allocation.
+    ///
+    /// The source's internal Rust references must be static (or covered by the
+    /// unsafe RuntimeValue bridge's external lifetime contract). Cloning does
+    /// not turn borrowed fields into owned fields or detach external leases.
+    /// The inspected allocation itself needs to stay alive only for this call.
+    ///
+    /// ```compile_fail
+    /// use cloud_terrastodon_registry::RuntimeValue;
+    /// use facet_reflect::Peek;
+    /// use std::borrow::Cow;
+    /// let source = String::from("source");
+    /// let borrowed = Cow::Borrowed(source.as_str());
+    /// let cloned = RuntimeValue::clone_from_peek(Peek::new(&borrowed));
+    /// ```
+    pub fn clone_from_peek(peek: Peek<'_, 'static>) -> eyre::Result<Self> {
         let shape = peek.shape();
         if !shape
             .type_ops
@@ -468,7 +531,13 @@ impl RuntimeValue {
 }
 
 #[doc(hidden)]
-pub fn borrow_pointer_runtime(
+/// # Safety
+///
+/// The caller must uphold [`RuntimeValue::from_borrowed_pointer`]'s lifetime,
+/// aliasing, and escaped-reference requirements for the returned pointer and
+/// every value retaining its borrow. This low-level adapter does not retain a
+/// source owner or a runtime lease.
+pub unsafe fn borrow_pointer_runtime(
     pointer_shape: &'static Shape,
     source: Peek<'_, '_>,
 ) -> eyre::Result<RuntimeValue> {
@@ -495,8 +564,13 @@ pub fn borrow_pointer_runtime(
         )
     })?;
     let (dst, layout) = RuntimeValue::allocate(pointer_shape)?;
-    let ptr = unsafe { borrow(dst, source.data()) };
-    Ok(unsafe { RuntimeValue::from_initialized_ptr(pointer_shape, ptr, layout) })
+    // SAFETY: the pointee shape matches source, and dst is uninitialized storage
+    // with exactly the pointer's layout. The constructor writes that storage
+    // without consuming source; the caller guarantees the resulting borrow's
+    // lifetime and shared-reference aliasing conditions.
+    unsafe { borrow(dst, source.data()) };
+    // SAFETY: the reviewed Facet constructor fully initialized dst in place.
+    Ok(unsafe { RuntimeValue::from_initialized_ptr(pointer_shape, dst.assume_init(), layout) })
 }
 
 #[doc(hidden)]
@@ -511,13 +585,12 @@ pub fn promote_pointer_runtime(value: RuntimeValue) -> eyre::Result<RuntimeValue
             describe_shape(shape)
         )
     })?;
-    let (dst, layout) = RuntimeValue::allocate(shape)?;
-    let source = std::mem::ManuallyDrop::new(value);
-    let ptr = unsafe { promote(PtrConst::new(source.ptr.as_ptr()), dst.assume_init()) };
-    unsafe {
-        facet::dealloc_for_layout(PtrMut::new(source.ptr.as_ptr()), source.layout);
-    }
-    Ok(unsafe { RuntimeValue::from_initialized_ptr(shape, ptr, layout) })
+    // SAFETY: value owns this initialized pointer allocation exclusively. Its
+    // lifetime contract keeps any borrowed pointee valid through promotion.
+    // Facet mutates the pointer in place; value stays its owner even on unwind,
+    // so ordinary Drop performs the one required destruction/deallocation.
+    unsafe { promote(PtrMut::new(value.ptr.as_ptr())) };
+    Ok(value)
 }
 
 impl Drop for RuntimeValue {
@@ -1502,10 +1575,10 @@ mod test {
             1
         );
 
-        let pointee: &'static DummyOutput = Box::leak(Box::new(DummyOutput {
+        let pointee: Cow<'static, DummyOutput> = Cow::Owned(DummyOutput {
             value: "struct".to_string(),
-        }));
-        let source = RuntimeValue::from_box(Box::new(Cow::Borrowed(pointee)))
+        });
+        let source = RuntimeValue::from_box(Box::new(pointee))
             .expect("Cow<DummyOutput> should be a reflected runtime value");
         let source_inner = source
             .peek()
@@ -1513,20 +1586,25 @@ mod test {
             .expect("Cow should reflect as a pointer")
             .borrow_inner()
             .expect("Cow should expose its pointee");
-        let borrowed =
+        // SAFETY: source remains alive and unchanged until the borrow is promoted;
+        // no borrowed value or reference escapes that interval.
+        let borrowed = unsafe {
             RuntimeValue::from_borrowed_pointer(<Cow<'static, DummyOutput>>::SHAPE, source_inner)
-                .expect("the registered Cow adapter should construct a borrow");
+        }
+        .expect("the registered Cow adapter should construct a borrow");
         let promoted = borrowed
             .promote_to_owned()
             .expect("the registered Cow adapter should promote to owned");
+        drop(source);
         let promoted = promoted
             .into_box::<Cow<'static, DummyOutput>>()
             .expect("promoted Cow should retain its reflected shape")
             .downcast::<Cow<'static, DummyOutput>>()
             .expect("promoted Cow should retain its concrete type");
         assert!(matches!(*promoted, Cow::Owned(_)));
+        assert_eq!(promoted.value, "struct");
 
-        let source_text: Cow<'static, str> = Cow::Borrowed("text");
+        let source_text: Cow<'static, str> = Cow::Owned(String::from("text"));
         let source_text = RuntimeValue::from_box(Box::new(source_text))
             .expect("Cow<str> should be a reflected runtime value");
         let source_text_inner = source_text
@@ -1535,11 +1613,15 @@ mod test {
             .expect("Cow<str> should reflect as a pointer")
             .borrow_inner()
             .expect("Cow<str> should expose its str pointee");
-        let promoted_text =
+        // SAFETY: source_text stays alive and unchanged through promotion, and
+        // the resulting owned String retains no reference to source_text.
+        let promoted_text = unsafe {
             RuntimeValue::from_borrowed_pointer(<Cow<'static, str>>::SHAPE, source_text_inner)
-                .expect("the same Cow adapter should support Cow<str>")
-                .promote_to_owned()
-                .expect("Cow<str> should promote through Cow::into_owned");
+        }
+        .expect("the same Cow adapter should support Cow<str>")
+        .promote_to_owned()
+        .expect("Cow<str> should promote in place");
+        drop(source_text);
         let promoted_text = promoted_text
             .into_box::<Cow<'static, str>>()
             .expect("promoted Cow<str> should retain its reflected shape")
@@ -1547,6 +1629,75 @@ mod test {
             .expect("promoted Cow<str> should retain its concrete type");
         assert!(matches!(*promoted_text, Cow::Owned(_)));
         assert_eq!(promoted_text.as_ref(), "text");
+    }
+
+    #[test]
+    fn cow_promotion_preserves_allocation_and_borrowed_clone_lifetimes() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        static CLONES: AtomicUsize = AtomicUsize::new(0);
+        static DROPS: AtomicUsize = AtomicUsize::new(0);
+
+        #[derive(Debug, Facet)]
+        struct Tracked {
+            value: String,
+        }
+
+        impl Clone for Tracked {
+            fn clone(&self) -> Self {
+                CLONES.fetch_add(1, Ordering::SeqCst);
+                Self {
+                    value: self.value.clone(),
+                }
+            }
+        }
+
+        impl Drop for Tracked {
+            fn drop(&mut self) {
+                DROPS.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+
+        let source = RuntimeValue::from_box(Box::new(Tracked {
+            value: "tracked".to_owned(),
+        }))
+        .unwrap();
+        // SAFETY: source stays alive and unchanged until both borrowed values
+        // are dropped or promoted. Tracked owns its String, so promotion leaves
+        // no nested reference to the source, and no reference escapes this test.
+        let borrowed = unsafe {
+            RuntimeValue::from_borrowed_pointer(<Cow<'static, Tracked>>::SHAPE, source.peek())
+        }
+        .unwrap();
+        let allocation = borrowed.ptr;
+        let shallow_clone = borrowed.try_clone().unwrap();
+        assert_eq!(CLONES.load(Ordering::SeqCst), 0);
+
+        let promoted = borrowed.promote_to_owned().unwrap();
+        assert_eq!(promoted.ptr, allocation);
+        assert_eq!(CLONES.load(Ordering::SeqCst), 1);
+        assert!(matches!(
+            shallow_clone.peek().get::<Cow<'static, Tracked>>().unwrap(),
+            Cow::Borrowed(_)
+        ));
+        drop(shallow_clone);
+        assert_eq!(DROPS.load(Ordering::SeqCst), 0);
+        drop(source);
+        assert_eq!(DROPS.load(Ordering::SeqCst), 1);
+
+        let promoted = promoted.promote_to_owned().unwrap();
+        assert_eq!(promoted.ptr, allocation);
+        assert_eq!(CLONES.load(Ordering::SeqCst), 1);
+        assert_eq!(
+            promoted
+                .peek()
+                .get::<Cow<'static, Tracked>>()
+                .unwrap()
+                .value,
+            "tracked"
+        );
+        drop(promoted);
+        assert_eq!(DROPS.load(Ordering::SeqCst), 2);
     }
 
     #[test]

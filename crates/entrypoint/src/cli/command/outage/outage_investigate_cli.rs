@@ -1489,6 +1489,30 @@ mod tests {
     use super::*;
 
     #[test]
+    fn outage_artifacts_preserve_ipv4_and_ipv6_addresses_as_json_strings() -> Result<()> {
+        let report = OutageInvestigationReport {
+            input: "example.invalid".into(),
+            tenant: "test-tenant".into(),
+            target_host: "example.invalid".into(),
+            dns: DnsResolution {
+                canonical_name: "example.invalid".into(),
+                aliases: Vec::new(),
+                addresses: vec!["192.0.2.1".parse()?, "2001:db8::1".parse()?],
+            },
+            matches: Vec::new(),
+        };
+        let directory = tempfile::tempdir()?;
+        write_investigation_artifacts(directory.path(), &report)?;
+        let json = std::fs::read(directory.path().join("report.json"))?;
+        let restored: OutageInvestigationReport = cloud_terrastodon_command::from_slice(&json)?;
+        assert_eq!(restored.dns.addresses, report.dns.addresses);
+        let text = std::str::from_utf8(&json)?;
+        assert!(text.contains("\"192.0.2.1\""), "{text}");
+        assert!(text.contains("\"2001:db8::1\""), "{text}");
+        Ok(())
+    }
+
+    #[test]
     fn extracts_host_from_url() -> Result<()> {
         assert_eq!(
             extract_target_host("https://example.com/foo")?,

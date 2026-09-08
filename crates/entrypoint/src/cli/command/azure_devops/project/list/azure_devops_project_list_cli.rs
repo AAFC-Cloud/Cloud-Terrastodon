@@ -104,6 +104,6 @@ mod tests {
             .invoke(&auth_context)
             .await
             .expect_err("headless CLI auth should fail before command or REST access");
-        assert!(error.to_string().contains("disabled"));
+        assert!(error.to_string().contains("disabled"), "{error:#}");
     }
 }
