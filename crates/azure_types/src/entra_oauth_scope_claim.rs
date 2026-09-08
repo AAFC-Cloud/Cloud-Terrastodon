@@ -59,3 +59,4 @@ impl std::fmt::Display for EntraOAuthScopeClaim {
     }
 }
 cloud_terrastodon_registry::register_thing!(EntraOAuthScopeClaim);
+cloud_terrastodon_registry::register_arbitrary!(EntraOAuthScopeClaim);

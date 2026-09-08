@@ -59,6 +59,7 @@ impl std::fmt::Display for OpenIdConnectScopeClaim {
 }
 
 cloud_terrastodon_registry::register_thing!(OpenIdConnectScopeClaim);
+cloud_terrastodon_registry::register_arbitrary!(OpenIdConnectScopeClaim);
 
 #[cfg(test)]
 mod tests {

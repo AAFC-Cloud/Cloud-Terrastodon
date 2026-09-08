@@ -1,5 +1,7 @@
 /// One reflected operation below an ownership-bearing arena root.
-#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, facet::Facet)]
+#[derive(
+    Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, arbitrary::Arbitrary, facet::Facet,
+)]
 #[repr(C)]
 pub(crate) enum ValuePathSegment {
     Field(String),

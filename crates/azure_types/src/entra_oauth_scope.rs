@@ -4,11 +4,21 @@ use std::str::FromStr;
 
 /// The space-delimited collection represented by an Entra OAuth `scope`
 /// parameter or an `oauth2PermissionGrant.scope` property.
-#[derive(
-    Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, arbitrary::Arbitrary, facet::Facet,
-)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, facet::Facet)]
 #[facet(json::proxy = String)]
 pub struct EntraOAuthScope(Vec<EntraOAuthScopeClaim>);
+
+impl<'a> arbitrary::Arbitrary<'a> for EntraOAuthScope {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        // Scope values are nonempty sets in first-seen order, not arbitrary
+        // vectors. Keep generation bounded and reuse constructor deduplication.
+        let count = u.int_in_range(1..=8usize)?;
+        let claims = (0..count)
+            .map(|_| u.arbitrary::<EntraOAuthScopeClaim>())
+            .collect::<arbitrary::Result<Vec<_>>>()?;
+        Self::try_new(claims).map_err(|_| arbitrary::Error::IncorrectFormat)
+    }
+}
 
 crate::impl_facet_string_proxy!(EntraOAuthScope, value => value.to_string());
 
@@ -76,6 +86,7 @@ impl std::fmt::Display for EntraOAuthScope {
 }
 
 cloud_terrastodon_registry::register_thing!(EntraOAuthScope);
+cloud_terrastodon_registry::register_arbitrary!(EntraOAuthScope);
 
 #[cfg(test)]
 mod tests {
@@ -83,6 +94,51 @@ mod tests {
     use super::EntraOAuthScopeClaim;
     use crate::MicrosoftGraphScopeClaim;
     use crate::OpenIdConnectScopeClaim;
+    use facet::Facet;
+
+    fn generated<T: Facet<'static> + Send + 'static>(seed: u8) -> T {
+        let constructor = cloud_terrastodon_registry::functions_from_to(
+            cloud_terrastodon_registry::ArbitraryBytes::SHAPE,
+            T::SHAPE,
+        )
+        .into_iter()
+        .find(|function| function.output_shape.is_shape(T::SHAPE))
+        .expect("the exact arbitrary constructor is registered");
+        let mut bytes = cloud_terrastodon_registry::ArbitraryBytes::new(vec![seed; 1024]);
+        *constructor
+            .invoke_mut_boxed(&mut bytes)
+            .expect("deterministic scope input should generate a value")
+            .downcast::<T>()
+            .expect("the constructor returns its declared type")
+    }
+
+    #[test]
+    fn registered_scope_generators_preserve_constructor_and_wire_invariants() -> eyre::Result<()> {
+        for seed in 0..=63 {
+            let graph = generated::<MicrosoftGraphScopeClaim>(seed);
+            assert_eq!(MicrosoftGraphScopeClaim::try_new(graph.as_str())?, graph);
+            let claim = generated::<EntraOAuthScopeClaim>(seed);
+            assert_eq!(claim.to_string().parse::<EntraOAuthScopeClaim>()?, claim);
+            let openid = generated::<OpenIdConnectScopeClaim>(seed);
+            assert_eq!(
+                openid.to_string().parse::<OpenIdConnectScopeClaim>()?,
+                openid
+            );
+
+            let scope = generated::<EntraOAuthScope>(seed);
+            assert!(!scope.as_claims().is_empty());
+            assert!(scope.as_claims().len() <= 8);
+            let distinct = scope
+                .as_claims()
+                .iter()
+                .collect::<std::collections::HashSet<_>>();
+            assert_eq!(distinct.len(), scope.as_claims().len());
+            assert_eq!(scope.to_string().parse::<EntraOAuthScope>()?, scope);
+            let json = facet_json::to_string(&scope)?;
+            assert_eq!(facet_json::from_str::<EntraOAuthScope>(&json)?, scope);
+        }
+        Ok(())
+    }
 
     #[test]
     fn joins_bare_claim_values_with_spaces() -> eyre::Result<()> {

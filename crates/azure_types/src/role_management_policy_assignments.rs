@@ -1,5 +1,6 @@
 use crate::RoleManagementPolicyAssignmentId;
 use crate::iso8601_duration::IsoDuration;
+use arbitrary::Arbitrary;
 use eyre::Result;
 use facet_json::RawJson;
 use std::collections::HashMap;
@@ -118,6 +119,54 @@ pub struct RoleManagementPolicyAssignment {
     pub id: RoleManagementPolicyAssignmentId,
 }
 
+impl<'a> Arbitrary<'a> for RoleManagementPolicyAssignment {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        // Build a coherent subscription-scoped example through the real ID
+        // parser, rather than deriving arbitrary strings for validated IDs.
+        let subscription = uuid::Uuid::arbitrary(u)?;
+        let assignment = uuid::Uuid::arbitrary(u)?;
+        let role = uuid::Uuid::arbitrary(u)?;
+        let policy = uuid::Uuid::arbitrary(u)?;
+        let scope = format!("/subscriptions/{subscription}");
+        let name = assignment.to_string();
+        let id = format!(
+            "{scope}/providers/Microsoft.Authorization/roleManagementPolicyAssignments/{name}"
+        )
+        .parse()
+        .map_err(|_| arbitrary::Error::IncorrectFormat)?;
+        let mut effective_rules = Vec::new();
+        if bool::arbitrary(u)? {
+            let hours = u.int_in_range(1..=24u64)?;
+            let rule = RoleManagementPolicyExpirationRule {
+                rule_type: "RoleManagementPolicyExpirationRule".to_owned(),
+                id: RoleManagementPolicyAssignmentPropertiesEffectiveRuleId::ExpirationEnduserAssignment,
+                maximum_duration: std::time::Duration::from_secs(hours * 60 * 60).into(),
+            };
+            effective_rules.push(RawJson::from_owned(
+                facet_json::to_string(&rule).map_err(|_| arbitrary::Error::IncorrectFormat)?,
+            ));
+        }
+        let role_definition_id =
+            format!("{scope}/providers/Microsoft.Authorization/roleDefinitions/{role}");
+        let policy_id =
+            format!("{scope}/providers/Microsoft.Authorization/roleManagementPolicies/{policy}");
+        Ok(Self {
+            properties: RoleManagementPolicyAssignmentProperties {
+                scope,
+                role_definition_id,
+                policy_id,
+                effective_rules,
+                policy_assignment_properties: HashMap::new(),
+            },
+            name,
+            id,
+        })
+    }
+}
+
+cloud_terrastodon_registry::register_arbitrary!(RoleManagementPolicyAssignment);
+cloud_terrastodon_registry::register_arbitrary!(Vec<RoleManagementPolicyAssignment>);
+
 #[derive(Debug, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 struct RoleManagementPolicyExpirationRule {
@@ -148,7 +197,79 @@ impl RoleManagementPolicyAssignment {
 mod tests {
     use super::*;
     use crate::scopes::Scope;
+    use facet::Facet;
     use uuid::Uuid;
+
+    #[test]
+    fn registered_assignment_generator_can_produce_nonempty_coherent_json() -> Result<()> {
+        let constructor = cloud_terrastodon_registry::functions_from_to(
+            cloud_terrastodon_registry::ArbitraryBytes::SHAPE,
+            Vec::<RoleManagementPolicyAssignment>::SHAPE,
+        )
+        .into_iter()
+        .find(|function| {
+            function
+                .output_shape
+                .is_shape(Vec::<RoleManagementPolicyAssignment>::SHAPE)
+        })
+        .expect("an exact vector generator must be registered");
+        // Arbitrary's vector iterator consumes a leading continuation bool;
+        // the remaining zeros generate one valid UUID-based assignment.
+        let mut bytes = vec![0; 1024];
+        bytes[0] = 1;
+        let mut input = cloud_terrastodon_registry::ArbitraryBytes::new(bytes);
+        let assignments = constructor
+            .invoke_mut_boxed(&mut input)?
+            .downcast::<Vec<RoleManagementPolicyAssignment>>()
+            .expect("constructor output has the registered vector type");
+        assert_eq!(
+            assignments.len(),
+            1,
+            "the generator must not be an empty placeholder"
+        );
+        for assignment in assignments.iter() {
+            Uuid::parse_str(&assignment.name)?;
+            let expected_id = format!(
+                "{}/providers/Microsoft.Authorization/roleManagementPolicyAssignments/{}",
+                assignment.properties.scope, assignment.name
+            );
+            assert_eq!(assignment.id.expanded_form(), expected_id);
+            assert_eq!(
+                expected_id.parse::<RoleManagementPolicyAssignmentId>()?,
+                assignment.id
+            );
+            assert!(
+                assignment
+                    .properties
+                    .role_definition_id
+                    .starts_with(&assignment.properties.scope)
+            );
+            assert!(
+                assignment
+                    .properties
+                    .policy_id
+                    .starts_with(&assignment.properties.scope)
+            );
+        }
+        let json = facet_json::to_string(assignments.as_ref())?;
+        assert_eq!(
+            facet_json::from_str::<Vec<RoleManagementPolicyAssignment>>(&json)?,
+            *assignments
+        );
+
+        // Exercise nonempty owned raw JSON too, independently of vector length.
+        let bytes = vec![1; 128];
+        let assignment =
+            RoleManagementPolicyAssignment::arbitrary(&mut arbitrary::Unstructured::new(&bytes))?;
+        assert_eq!(assignment.properties.effective_rules.len(), 1);
+        assert!(assignment.get_maximum_activation_duration().is_some());
+        let json = facet_json::to_string(&assignment)?;
+        assert_eq!(
+            facet_json::from_str::<RoleManagementPolicyAssignment>(&json)?,
+            assignment
+        );
+        Ok(())
+    }
     #[test]
     fn it_works() -> Result<()> {
         let id = format!(

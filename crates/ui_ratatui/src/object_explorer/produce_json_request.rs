@@ -68,6 +68,20 @@ pub(crate) struct ProduceJsonRequest {
     filename: String,
 }
 
+impl<'a> arbitrary::Arbitrary<'a> for ProduceJsonRequest {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        let suffix = u.arbitrary::<u64>()?;
+        let breadcrumbs = u.arbitrary::<Breadcrumbs>()?;
+        // Generated requests are still real write-capable requests. Keep the
+        // suggested output to one recognizable local filename, never an
+        // arbitrary absolute path or a traversal out of the working directory.
+        Ok(Self::new(
+            breadcrumbs,
+            format!("object-explorer-{suffix:016x}.json"),
+        ))
+    }
+}
+
 impl ProduceJsonRequest {
     pub(crate) fn new(breadcrumbs: Breadcrumbs, filename: impl Into<String>) -> Self {
         Self {
@@ -184,6 +198,7 @@ impl IntoFuture for ProduceJsonRequest {
 }
 
 cloud_terrastodon_registry::register_thing!(ProduceJsonRequest);
+cloud_terrastodon_registry::register_arbitrary!(ProduceJsonRequest);
 cloud_terrastodon_registry::register_into_future!(
     ProduceJsonRequest => String,
     effects = [Write]

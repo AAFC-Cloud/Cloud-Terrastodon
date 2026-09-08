@@ -45,37 +45,46 @@ impl AzureTenantLoginArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let tenant_id = self.tenant.resolve().await?;
         let auth_context = resolve_tenant_auth_context(auth_context, tenant_id).await?;
-        let requested_source = auth_context.requested_source().ok_or_else(|| {
-            eyre::eyre!("the placeholder authentication context cannot be used for tenant login")
-        })?;
-        match tenant_login_mode(requested_source)? {
-            TenantLoginMode::Browser => {
-                if auth_context.is_headless() {
-                    bail!(
-                        "browser tenant login requires an interactive terminal; use workload identity in pipelines"
-                    );
-                }
-                let client_id = cloud_terrastodon_credentials::pim_client_id(&tenant_id).await?;
-                login_browser_session(tenant_id, client_id).await?;
-                Ok(())
+        login_resolved_tenant(tenant_id, &auth_context).await
+    }
+}
+
+/// Dispatch after tracked-tenant resolution, so local policy tests need not
+/// read or create entries in the user's tenant store.
+async fn login_resolved_tenant(
+    tenant_id: cloud_terrastodon_azure::AzureTenantId,
+    auth_context: &AuthContext,
+) -> Result<()> {
+    let requested_source = auth_context.requested_source().ok_or_else(|| {
+        eyre::eyre!("the placeholder authentication context cannot be used for tenant login")
+    })?;
+    match tenant_login_mode(requested_source)? {
+        TenantLoginMode::Browser => {
+            if auth_context.is_headless() {
+                bail!(
+                    "browser tenant login requires an interactive terminal; use workload identity in pipelines"
+                );
             }
-            TenantLoginMode::AzureCli => {
-                // This legacy guard controls implicit/compatibility CLI
-                // reauthentication. An explicit browser login must remain
-                // usable even when the environment disables CLI reauth.
-                if cli_reauthentication_denied(
-                    std::env::var("CLOUD_TERRASTODON_REAUTH").ok().as_deref(),
-                ) {
-                    bail!(
-                        "Reauthentication is disabled by the CLOUD_TERRASTODON_REAUTH environment variable. Please refresh your credentials and try again."
-                    )
-                }
-                let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-                cmd.args(["login", "--tenant", &tenant_id.to_string()]);
-                cmd.should_announce(true);
-                cmd.run_raw().await?;
-                Ok(())
+            let client_id = cloud_terrastodon_credentials::pim_client_id(&tenant_id).await?;
+            login_browser_session(tenant_id, client_id).await?;
+            Ok(())
+        }
+        TenantLoginMode::AzureCli => {
+            // This legacy guard controls implicit/compatibility CLI
+            // reauthentication. An explicit browser login must remain
+            // usable even when the environment disables CLI reauth.
+            if cli_reauthentication_denied(
+                std::env::var("CLOUD_TERRASTODON_REAUTH").ok().as_deref(),
+            ) {
+                bail!(
+                    "Reauthentication is disabled by the CLOUD_TERRASTODON_REAUTH environment variable. Please refresh your credentials and try again."
+                )
             }
+            let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
+            cmd.args(["login", "--tenant", &tenant_id.to_string()]);
+            cmd.should_announce(true);
+            cmd.run_raw().await?;
+            Ok(())
         }
     }
 }
@@ -116,16 +125,13 @@ mod tests {
 
     #[tokio::test]
     async fn auto_tenant_login_rejects_headless_browser_dispatch_before_network() {
-        let auth_context = AuthContext::resolve(AuthSource::Auto)
-            .expect("resolving automatic authentication should be local");
-        if !auth_context.is_headless() {
-            return;
+        // No environment, credential cache, or tracked-tenant prerequisite.
+        let mut auth_context = AuthContext::explicit(AuthSource::Auto);
+        if let AuthContext::Resolved { headless, .. } = &mut auth_context {
+            *headless = true;
         }
-        let args = AzureTenantLoginArgs {
-            tenant: "11111111-1111-1111-1111-111111111111".parse().unwrap(),
-        };
-        let error = args
-            .invoke(&auth_context)
+        let tenant = "11111111-1111-1111-1111-111111111111".parse().unwrap();
+        let error = login_resolved_tenant(tenant, &auth_context)
             .await
             .expect_err("headless browser login should fail before opening a browser");
         assert!(

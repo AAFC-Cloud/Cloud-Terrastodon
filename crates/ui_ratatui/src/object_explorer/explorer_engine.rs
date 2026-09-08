@@ -379,10 +379,9 @@ async fn serve_export(
                 };
                 match command {
                     ExplorerCommand::Mutation(command) => {
-                        debug_assert!(matches!(
-                            barrier.submit(command),
-                            MutationSubmission::Deferred
-                        ));
+                        // Queuing must happen in release builds too.
+                        let submission = barrier.submit(command);
+                        debug_assert!(matches!(submission, MutationSubmission::Deferred));
                     }
                     ExplorerCommand::Read(command) => {
                         apply_read_with_source(

@@ -51,6 +51,10 @@ require synchronization.
 
 ## Update procedure
 
+Use only `cargo clean` to free disk space during builds. Do not manually delete
+build caches or artifacts with `rm`, `Remove-Item`, or other filesystem tools.
+Choose an appropriately scoped Cargo target/package cleanup when needed.
+
 1. Record old SHAs and dirty state; preserve existing branches and worktrees.
 2. Fetch actual official upstreams and select immutable commits. Recheck
    package topology, versions and whether our PRs have already merged.
@@ -112,15 +116,34 @@ tests and two tests whose missing host-configuration assumptions require
 separate isolation; `--lib` also excludes command integration tests that run
 Azure CLI. It is a dependency acceptance check, not full release validation.
 
-At the 2026-09-08 checkpoint, this selection has 729 passing tests and eight
-failing entrypoint tests (12 ignored, seven filtered). The failures concern
-fixed Arbitrary data exhaustion, a missing tracked test tenant, an assertion
-checking only an error's outer context, and absent application registry
-producers. Source review found these conditions already in the application;
-the full old-dependency test baseline was not rerun. Preserve the failures
-for follow-up rather than treating them as evidence for more fork patches.
-All 179 Ratatui tests, the registry tests, new help/parse/JSON regressions,
-workspace compilation and fresh root/intermediate/leaf help checks pass.
+At the 2026-09-08 application-repair checkpoint, this selection has **766
+passing tests, zero failures, 12 ignored and seven filtered**. The previous
+eight entrypoint failures are repaired: matching fixtures are deterministic,
+the headless tenant-login dispatch test avoids the user's tracked-tenant
+store, the CLI-auth test checks the error chain with a fresh organization
+cache namespace, and missing registry producers have value-level coverage.
+OAuth generators use validating constructors; generated JSON export requests
+use local basenames and are never executed by their generator tests. Container
+fixtures prove typed/JSON behavior, not realistic Azure resource combinations.
+No additional Facet/Figue customization was needed for these failures.
+
+Mutation deferral during export must run even when debug assertions are
+disabled. The queue operation now occurs outside `debug_assert!`. The Ratatui
+suite also passed with its debug assertions disabled using:
+
+```powershell
+cargo +1.96.0 test --offline --locked --lib -p cloud_terrastodon_ui_ratatui `
+  --config 'profile.test.package.cloud_terrastodon_ui_ratatui.debug-assertions=false'
+```
+
+This tests the relevant release-mode control flow without claiming a complete
+optimized release build. Keep the isolated license-response generator tests
+separate from live Azure DevOps tests:
+
+```powershell
+cargo +1.96.0 test --offline --locked --lib -p cloud_terrastodon_azure_devops `
+  azure_devops_user_license_entitlement_update::tests
+```
 
 The Cow adapter's unsafe contract remains a caller obligation, not a
 whole-application soundness certification. Object Explorer cancellation now

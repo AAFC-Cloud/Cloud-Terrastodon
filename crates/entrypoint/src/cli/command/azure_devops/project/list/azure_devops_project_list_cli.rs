@@ -88,22 +88,26 @@ mod tests {
 
     #[tokio::test]
     async fn headless_cli_project_list_fails_before_cli_or_rest_access() {
-        let auth_context = AuthContext::resolve(AuthSource::AzureCli)
-            .expect("resolving an explicit CLI source should be local");
-        if !auth_context.is_headless() {
-            // The test is specifically about the non-interactive path. Cargo
-            // tests are normally headless, but avoid making that assumption a
-            // correctness requirement for an unusual interactive harness.
-            return;
+        let mut auth_context = AuthContext::explicit(AuthSource::AzureCli);
+        if let AuthContext::Resolved { headless, .. } = &mut auth_context {
+            *headless = true;
         }
+        // Cached project pages intentionally bypass fresh authentication. Use
+        // a new cache namespace, without touching any existing user cache.
+        let organization = format!("offline-test-{}", uuid::Uuid::new_v4());
         let args = AzureDevOpsProjectListArgs {
-            org: Some("offline-test-organization".parse().unwrap()),
+            org: Some(organization.parse().unwrap()),
             tenant: None,
         };
         let error = args
             .invoke(&auth_context)
             .await
             .expect_err("headless CLI auth should fail before command or REST access");
-        assert!(error.to_string().contains("disabled"), "{error:#}");
+        assert!(
+            error
+                .chain()
+                .any(|cause| cause.to_string().contains("disabled")),
+            "{error:#}"
+        );
     }
 }

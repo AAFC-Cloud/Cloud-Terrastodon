@@ -304,3 +304,53 @@ pub struct AzureContainerInstanceSubnetReference {
 
 cloud_terrastodon_registry::register_thing!(AzureContainerInstanceResource);
 cloud_terrastodon_registry::register_arbitrary!(AzureContainerInstanceResource);
+cloud_terrastodon_registry::register_arbitrary!(Vec<AzureContainerInstanceResource>);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::scopes::Scope;
+    use facet::Facet;
+
+    #[test]
+    fn registered_container_generator_can_produce_nonempty_json() -> eyre::Result<()> {
+        let constructor = cloud_terrastodon_registry::functions_from_to(
+            cloud_terrastodon_registry::ArbitraryBytes::SHAPE,
+            Vec::<AzureContainerInstanceResource>::SHAPE,
+        )
+        .into_iter()
+        .find(|function| {
+            function
+                .output_shape
+                .is_shape(Vec::<AzureContainerInstanceResource>::SHAPE)
+        })
+        .expect("an exact container vector generator must be registered");
+        let mut bytes = vec![0; 4096];
+        bytes[0] = 1;
+        let mut input = cloud_terrastodon_registry::ArbitraryBytes::new(bytes);
+        let resources = constructor
+            .invoke_mut_boxed(&mut input)?
+            .downcast::<Vec<AzureContainerInstanceResource>>()
+            .expect("constructor output has the registered vector type");
+        assert_eq!(
+            resources.len(),
+            1,
+            "the generator must not be an empty placeholder"
+        );
+        let json = facet_json::to_string(resources.as_ref())?;
+        let decoded = facet_json::from_str::<Vec<AzureContainerInstanceResource>>(&json)?;
+        assert_eq!(decoded.len(), resources.len());
+        for (original, decoded) in resources.iter().zip(&decoded) {
+            assert_eq!(decoded.id, original.id);
+            assert_eq!(
+                original
+                    .id
+                    .expanded_form()
+                    .parse::<AzureContainerInstanceResourceId>()?,
+                original.id
+            );
+            assert_eq!(decoded.name, original.name);
+        }
+        Ok(())
+    }
+}

@@ -4,7 +4,7 @@ use super::breadcrumbs::Breadcrumbs;
 ///
 /// Query results are never fields of Tab. Opening a tab in the UI stores only
 /// its SlotId; evaluation reads these breadcrumbs explicitly and lazily.
-#[derive(Clone, Debug, Eq, PartialEq, facet::Facet)]
+#[derive(Clone, Debug, Eq, PartialEq, arbitrary::Arbitrary, facet::Facet)]
 #[repr(C)]
 pub(crate) struct Tab {
     name: String,
@@ -54,6 +54,7 @@ impl Tab {
 }
 
 cloud_terrastodon_registry::register_thing!(Tab);
+cloud_terrastodon_registry::register_arbitrary!(Tab);
 
 #[cfg(test)]
 mod tests {

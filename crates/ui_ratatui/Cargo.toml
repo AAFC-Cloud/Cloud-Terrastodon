@@ -11,6 +11,7 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
+arbitrary = { workspace = true }
 ratatui = { workspace = true }
 eyre = { workspace = true }
 itertools = { workspace = true }
@@ -34,7 +35,6 @@ cloud_terrastodon_user_input = { workspace = true }
 linkme = { workspace = true }
 
 [dev-dependencies]
-arbitrary = { workspace = true }
 cloud_terrastodon_azure_devops = { workspace = true }
 color-eyre = { workspace = true }
 

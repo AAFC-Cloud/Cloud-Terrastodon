@@ -9,11 +9,25 @@ pub const MICROSOFT_GRAPH_SCOPE_PREFIX: &str = "https://graph.microsoft.com/";
 /// A Microsoft Graph delegated permission claim value, such as `User.Read`.
 ///
 /// This stores the bare permission value used by `oauth2PermissionGrant.scope`.
-#[derive(
-    Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, facet::Facet, arbitrary::Arbitrary,
-)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, facet::Facet)]
 #[facet(transparent)]
 pub struct MicrosoftGraphScopeClaim(CompactString);
+
+impl<'a> arbitrary::Arbitrary<'a> for MicrosoftGraphScopeClaim {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        // Go through the same validation as parsed values. Deriving on the
+        // underlying string could create empty, whitespace-containing, or
+        // resource-qualified claims that the public constructor rejects.
+        let value = match u.int_in_range(0..=4u8)? {
+            0 => "User.Read".to_owned(),
+            1 => "Group.Read.All".to_owned(),
+            2 => "Directory.Read.All".to_owned(),
+            3 => ".default".to_owned(),
+            _ => format!("Custom.Permission{}.Read", u.arbitrary::<u32>()?),
+        };
+        Self::try_new(value).map_err(|_| arbitrary::Error::IncorrectFormat)
+    }
+}
 
 impl MicrosoftGraphScopeClaim {
     pub fn try_new(value: impl Into<CompactString>) -> eyre::Result<Self> {
@@ -98,6 +112,7 @@ impl Deref for MicrosoftGraphScopeClaim {
 }
 
 cloud_terrastodon_registry::register_thing!(MicrosoftGraphScopeClaim);
+cloud_terrastodon_registry::register_arbitrary!(MicrosoftGraphScopeClaim);
 
 #[cfg(test)]
 mod tests {

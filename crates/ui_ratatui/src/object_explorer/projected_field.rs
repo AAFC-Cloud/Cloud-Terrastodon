@@ -2,7 +2,9 @@
 ///
 /// The owner shape is part of the identity because unrelated reflected
 /// structs may use the same field name with different meanings.
-#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, facet::Facet)]
+#[derive(
+    Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, arbitrary::Arbitrary, facet::Facet,
+)]
 #[repr(C)]
 pub(crate) struct ProjectedField {
     owner_shape: String,
