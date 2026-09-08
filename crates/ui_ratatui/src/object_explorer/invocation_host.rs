@@ -29,7 +29,12 @@ pub(crate) trait InvocationHost {
     fn start(&mut self, id: InvocationId, future: InvocationFuture);
     fn is_ready(&self, id: InvocationId) -> bool;
     fn poll(&mut self, id: InvocationId) -> InvocationHostPoll;
+    /// Synchronously destroy this invocation's future and any unclaimed output
+    /// before returning. Scheduling an asynchronous abort is insufficient.
     fn cancel(&mut self, id: InvocationId) -> bool;
+    /// Synchronously destroy every held future and unclaimed output. Once this
+    /// returns, the host owns no invocation data that could borrow arena values.
+    fn shutdown(&mut self);
 }
 
 #[cfg(test)]
@@ -123,5 +128,47 @@ impl InvocationHost for FakeInvocationHost {
 
     fn cancel(&mut self, id: InvocationId) -> bool {
         self.jobs.remove(&id).is_some()
+    }
+
+    fn shutdown(&mut self) {
+        self.jobs.clear();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Arc;
+    use std::sync::atomic::AtomicBool;
+    use std::sync::atomic::Ordering;
+
+    struct DropFlag(Arc<AtomicBool>);
+
+    impl Drop for DropFlag {
+        fn drop(&mut self) {
+            self.0.store(true, Ordering::SeqCst);
+        }
+    }
+
+    #[test]
+    fn fake_shutdown_destroys_held_futures_and_completed_outputs() {
+        let future_dropped = Arc::new(AtomicBool::new(false));
+        let output_dropped = Arc::new(AtomicBool::new(false));
+        let future_value = DropFlag(future_dropped.clone());
+        let mut host = FakeInvocationHost::default();
+        host.start(
+            InvocationId::new(1),
+            Box::pin(async move {
+                let _value = future_value;
+                std::future::pending().await
+            }),
+        );
+        host.start(InvocationId::new(2), Box::pin(std::future::pending()));
+        host.complete(InvocationId::new(2), DropFlag(output_dropped.clone()));
+        host.shutdown();
+        assert!(future_dropped.load(Ordering::SeqCst));
+        assert!(output_dropped.load(Ordering::SeqCst));
+        assert!(!host.contains(InvocationId::new(1)));
+        assert!(!host.contains(InvocationId::new(2)));
     }
 }

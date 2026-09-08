@@ -744,6 +744,17 @@ pub enum FunctionExecutor {
     SyncMut(SyncMutFn),
 }
 
+/// A reflected operation exposed to the Object Explorer.
+///
+/// When called with runtime-borrowed input, an operation must keep that input
+/// and its shallow clones within the invocation future or its returned value.
+/// It must not let borrowed data escape into detached tasks, blocking jobs,
+/// globals, or other independently retained state. Awaiting a spawned task is
+/// not sufficient: cancelling the parent can detach that task. Clone the
+/// underlying data into genuinely owned storage before such an escape.
+///
+/// These are obligations of the caller using the registry's unsafe borrowed
+/// pointer bridge, not lifetime guarantees supplied by type-erased metadata.
 #[derive(Clone, Copy)]
 pub struct Function {
     pub input_shape: &'static Shape,

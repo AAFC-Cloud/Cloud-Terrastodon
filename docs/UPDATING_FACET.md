@@ -122,13 +122,21 @@ for follow-up rather than treating them as evidence for more fork patches.
 All 179 Ratatui tests, the registry tests, new help/parse/JSON regressions,
 workspace compilation and fresh root/intermediate/leaf help checks pass.
 
-The Cow adapter's unsafe contract is now explicit, but that does not certify
-the entire Object Explorer lifecycle. Review identified preexisting task
-cancellation and engine-shutdown paths that may release source protection
-before borrowed futures are destroyed. Retain/join cancelled tasks and prove
-dependent-before-source destruction with deterministic regressions before
-claiming complete lifetime safety; these application defects are not a
-reason to add another customization to the Facet fork.
+The Cow adapter's unsafe contract remains a caller obligation, not a
+whole-application soundness certification. Object Explorer cancellation now
+destroys futures and unclaimed results synchronously under the same lock used
+by background Tokio polling. Returned values conservatively inherit source
+leases until deletion; even an apparently owned result can contain a nested
+borrow. Shutdown destroys jobs, incomplete builders, then ready borrowers
+before their sources. If value destruction panics or a dependency cycle prevents
+that order, remaining owners are deliberately retained instead of freed.
+
+Registered operations receiving runtime-borrowed input must not let borrowed
+data escape into detached tasks, blocking jobs, globals, or other independent
+state. Awaiting a spawned task does not establish cancellation safety. Such
+work must receive genuinely owned data. The lifecycle regressions do not
+constitute an exhaustive audit of every registered operation's call graph;
+these application obligations do not require another Facet fork customization.
 
 ## Upstream submissions
 

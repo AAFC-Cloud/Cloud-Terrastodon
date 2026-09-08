@@ -734,9 +734,27 @@ impl BuilderStore {
         pending_slot: SlotId,
         value: RuntimeValue,
     ) -> Result<(), ValueBuilderError> {
-        arena.set_ready(pending_slot, value)?;
-        self.finish_pending_leases(borrow_graph, pending_slot);
-        Ok(())
+        // A synchronous/async function may return its input Cow or a nested
+        // borrowed value. Reflection cannot prove the result is deeply owned,
+        // so conservatively retain all source leases until the result dies.
+        // Keep them indexed even if storing the result fails or unwinds.
+        if let Some(leases) = self.pending_leases.get_mut(&pending_slot) {
+            for lease in leases.iter() {
+                if !borrow_graph.contains(lease) {
+                    return Err(BorrowError::UnknownLease(lease.id()).into());
+                }
+            }
+            for lease in leases {
+                borrow_graph.transfer_to_ready(lease, pending_slot)?;
+            }
+        }
+        if let Some(mut leases) = self.pending_leases.remove(&pending_slot) {
+            self.ready_leases
+                .entry(pending_slot)
+                .or_default()
+                .append(&mut leases);
+        }
+        arena.set_ready(pending_slot, value).map_err(Into::into)
     }
 
     pub(crate) fn fail_pending(
@@ -762,16 +780,31 @@ impl BuilderStore {
         Ok(())
     }
 
-    pub(crate) fn release_all_leases(&mut self, borrow_graph: &mut BorrowGraph) {
+    /// Drop engine-owned values before releasing their source protection.
+    ///
+    /// Returns false if unresolved dependencies prevent a safe destruction
+    /// order. The caller must retain the remaining arena/store in that case,
+    /// and also if any user-defined destructor unwinds.
+    ///
+    /// # Safety
+    ///
+    /// All invocation futures/results and external borrowed views must already
+    /// be destroyed. The caller must guard the arena/store against ordinary
+    /// out-of-order field destruction if cleanup fails or panics.
+    pub(crate) unsafe fn shutdown_values(
+        &mut self,
+        arena: &mut Arena,
+        borrow_graph: &mut BorrowGraph,
+    ) -> bool {
+        // Incomplete builders are not borrowable sources. Destroy their inline
+        // values first, while all ready roots and every lease remain intact.
+        self.builders.clear();
         let builder_leases = std::mem::take(&mut self.builder_leases)
             .into_values()
             .flat_map(BTreeMap::into_values);
         let inherited_leases = std::mem::take(&mut self.builder_inherited_leases)
             .into_values()
             .flat_map(BTreeMap::into_values)
-            .flatten();
-        let ready_leases = std::mem::take(&mut self.ready_leases)
-            .into_values()
             .flatten();
         let pending_leases = std::mem::take(&mut self.pending_leases)
             .into_values()
@@ -780,10 +813,25 @@ impl BuilderStore {
             borrow_graph,
             builder_leases
                 .chain(inherited_leases)
-                .chain(ready_leases)
                 .chain(pending_leases)
                 .collect(),
         );
+
+        loop {
+            let next = arena
+                .ready_slot_ids()
+                .find(|&slot| !borrow_graph.protects_root(slot));
+            match next {
+                Some(slot) => {
+                    // delete drops the value before releasing its outgoing
+                    // leases, allowing its sources to become the next leaves.
+                    if self.delete(arena, borrow_graph, slot).is_err() {
+                        return false;
+                    }
+                }
+                None => return arena.ready_slot_ids().next().is_none(),
+            }
+        }
     }
 
     fn replace_field_and_finalize(
@@ -2243,6 +2291,9 @@ mod tests {
             )
             .unwrap();
         assert_eq!(builders.pending_lease_count(pending), 0);
+        assert_eq!(builders.leases(pending).len(), 1);
+        assert!(builders.delete(&mut arena, &mut borrows, source).is_err());
+        builders.delete(&mut arena, &mut borrows, pending).unwrap();
         assert_eq!(borrows.edge_count(), 0);
         builders.delete(&mut arena, &mut borrows, source).unwrap();
     }
@@ -2373,8 +2424,17 @@ mod tests {
                 FieldBinding::BorrowFrom(ValueAddress::root(source)),
             )
             .unwrap();
-        builders.release_all_leases(&mut borrows);
+        let mut arena = std::mem::ManuallyDrop::new(arena);
+        let mut builders = std::mem::ManuallyDrop::new(builders);
+        // SAFETY: this test has no invocation or escaped view, and the guards
+        // retain remaining sources if a user-defined destructor unwinds.
+        assert!(unsafe { builders.shutdown_values(&mut arena, &mut borrows) });
         assert_eq!(borrows.edge_count(), 0);
+        // SAFETY: successful shutdown has destroyed every ownership-bearing value.
+        unsafe {
+            std::mem::ManuallyDrop::drop(&mut builders);
+            std::mem::ManuallyDrop::drop(&mut arena);
+        }
     }
 
     #[test]

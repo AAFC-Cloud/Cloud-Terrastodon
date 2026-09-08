@@ -37,8 +37,13 @@ use super::value_candidate_window::ValueCandidateWindow;
 use super::work_budget::WorkBudget;
 use cloud_terrastodon_registry::RuntimeValue;
 use facet::Facet;
+use std::mem::ManuallyDrop;
 use std::num::NonZeroUsize;
 use tokio::sync::oneshot;
+
+#[cfg(test)]
+#[path = "lifetime_tests.rs"]
+mod lifetime_tests;
 
 /// Headless single-owner state machine for the reflected object explorer.
 ///
@@ -61,10 +66,33 @@ pub(crate) struct ExplorerEngine {
 
 impl Drop for ExplorerEngine {
     fn drop(&mut self) {
-        // No command can interleave with engine destruction. Remove every
-        // graph edge before Arena values are dropped so no lease metadata
-        // survives its owning session.
-        self.builders.release_all_leases(&mut self.borrow_graph);
+        // Ordinary field/map destruction is not a lifetime order: a builder can
+        // reserve its slot before its source. Move all source owners behind
+        // unwind guards before dropping any user-defined future or value.
+        // A panicking destructor (including a panic payload holding a borrow)
+        // must not make unwinding drop the remaining sources out of order.
+        let mut arena = ManuallyDrop::new(std::mem::take(&mut self.arena));
+        let mut builders = ManuallyDrop::new(std::mem::take(&mut self.builders));
+
+        // Deferred mutation packets can contain user-owned values too. Dispose
+        // them under the same source guards, before ordinary field destruction.
+        drop(std::mem::take(&mut self.export_barrier));
+        // This synchronously destroys futures and unclaimed results, not just
+        // their Tokio handles. Every borrowed source is still live above.
+        self.invocation_host.shutdown();
+        // SAFETY: the host's shutdown contract ends all invocation borrows.
+        // No query Peek survives engine destruction; commands cannot interleave.
+        // The guards retain unresolved owners on a panic or inconsistent graph.
+        if unsafe { builders.shutdown_values(&mut arena, &mut self.borrow_graph) } {
+            // SAFETY: all ownership-bearing values have been destroyed in
+            // dependency order, so only empty containers/metadata remain.
+            unsafe {
+                ManuallyDrop::drop(&mut builders);
+                ManuallyDrop::drop(&mut arena);
+            }
+        }
+        // Fail closed on an inconsistent/cyclic graph: leaking the remaining
+        // owners is preferable to freeing data still referenced by a borrower.
     }
 }
 

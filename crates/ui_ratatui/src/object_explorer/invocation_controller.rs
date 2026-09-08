@@ -19,9 +19,63 @@ use cloud_terrastodon_registry::RuntimeValue;
 use cloud_terrastodon_registry::Thing;
 use cloud_terrastodon_registry::known_thing_for_shape;
 use facet::Facet;
+use std::any::Any;
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::fmt;
+use std::panic::AssertUnwindSafe;
+use std::panic::catch_unwind;
+
+/// Dispose arbitrary user panic payloads before source leases can be released.
+/// A replacement payload raised by a panicking destructor has the same lifetime
+/// obligation. Only copied, independently owned diagnostic text may escape.
+fn consume_invocation_panic(mut payload: Box<dyn Any + Send>) -> String {
+    let message = if let Some(message) = payload.downcast_ref::<String>() {
+        message.clone()
+    } else if let Some(message) = payload.downcast_ref::<&'static str>() {
+        (*message).to_owned()
+    } else {
+        "non-string panic payload".to_owned()
+    };
+    loop {
+        match catch_unwind(AssertUnwindSafe(|| drop(payload))) {
+            Ok(()) => return message,
+            Err(next) => payload = next,
+        }
+    }
+}
+
+/// Run user conversion/invocation/drop code while the caller still protects its
+/// sources. Errors can themselves contain borrowed values, and their Display
+/// and Drop implementations can panic, so normalize and dispose those here too.
+fn guarded_user_operation<T>(
+    context: &str,
+    operation: impl FnOnce() -> eyre::Result<T>,
+) -> Result<T, String> {
+    match catch_unwind(AssertUnwindSafe(operation)) {
+        Ok(Ok(value)) => Ok(value),
+        Ok(Err(error)) => {
+            let message = match catch_unwind(AssertUnwindSafe(|| error.to_string())) {
+                Ok(message) => format!("{context}: {message}"),
+                Err(payload) => format!(
+                    "{context}: error formatting panicked: {}",
+                    consume_invocation_panic(payload)
+                ),
+            };
+            match catch_unwind(AssertUnwindSafe(|| drop(error))) {
+                Ok(()) => Err(message),
+                Err(payload) => Err(format!(
+                    "{context}: error destruction panicked: {}",
+                    consume_invocation_panic(payload)
+                )),
+            }
+        }
+        Err(payload) => Err(format!(
+            "{context} panicked: {}",
+            consume_invocation_panic(payload)
+        )),
+    }
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct InvocationControllerError {
@@ -289,25 +343,39 @@ impl InvocationController {
             };
             let state = match host_result {
                 InvocationHostPoll::Pending => unreachable!(),
-                InvocationHostPoll::Ready(output) => match (pending.output_to_runtime)(output) {
-                    Ok(value) => {
-                        match builders.complete_pending(arena, borrow_graph, pending.output, value)
-                        {
-                            Ok(()) => InvocationEventState::Ready,
-                            Err(error) => InvocationEventState::Failed(error.to_string()),
+                InvocationHostPoll::Ready(output) => {
+                    match guarded_user_operation("could not store invocation output", || {
+                        (pending.output_to_runtime)(output)
+                    }) {
+                        Ok(value) => {
+                            match guarded_user_operation(
+                                "could not complete invocation output",
+                                || {
+                                    builders
+                                        .complete_pending(
+                                            arena,
+                                            borrow_graph,
+                                            pending.output,
+                                            value,
+                                        )
+                                        .map_err(Into::into)
+                                },
+                            ) {
+                                Ok(()) => InvocationEventState::Ready,
+                                Err(message) => InvocationEventState::Failed(message),
+                            }
+                        }
+                        Err(message) => {
+                            let _ = builders.fail_pending(
+                                arena,
+                                borrow_graph,
+                                pending.output,
+                                message.clone(),
+                            );
+                            InvocationEventState::Failed(message)
                         }
                     }
-                    Err(error) => {
-                        let message = format!("could not store invocation output: {error}");
-                        let _ = builders.fail_pending(
-                            arena,
-                            borrow_graph,
-                            pending.output,
-                            message.clone(),
-                        );
-                        InvocationEventState::Failed(message)
-                    }
-                },
+                }
                 InvocationHostPoll::Failed(message) => {
                     let _ =
                         builders.fail_pending(arena, borrow_graph, pending.output, message.clone());
@@ -341,6 +409,8 @@ impl InvocationController {
             .pending
             .remove(&invocation)
             .ok_or_else(|| InvocationControllerError::new("unknown pending invocation"))?;
+        // The host must synchronously destroy its future and any unclaimed
+        // result before cancel_pending releases the source leases below.
         host.cancel(invocation);
         builders
             .cancel_pending(arena, borrow_graph, pending.output)
@@ -504,16 +574,24 @@ impl InvocationController {
                 .map_err(|error| InvocationControllerError::new(error.to_string()))?;
         }
         let runtime_input = match mode {
-            InvocationMode::Retain => ready
-                .try_clone()
-                .map_err(|error| InvocationControllerError::new(error.to_string()))?,
-            InvocationMode::Consume => arena
-                .consume(input)
-                .map_err(|error| InvocationControllerError::new(error.to_string()))?,
-        };
-        let output = arena
-            .insert_pending()
-            .map_err(|error| InvocationControllerError::new(error.to_string()))?;
+            InvocationMode::Retain => {
+                guarded_user_operation("could not clone invocation input", || ready.try_clone())
+            }
+            InvocationMode::Consume => {
+                guarded_user_operation("could not consume invocation input", || {
+                    arena.consume(input).map_err(Into::into)
+                })
+            }
+        }
+        .map_err(InvocationControllerError::new)?;
+        let (runtime_input, output) =
+            guarded_user_operation("could not reserve invocation output", || {
+                // On an allocation/state error the captured input is destroyed
+                // inside the guard, while its original source leases are live.
+                let output = arena.insert_pending()?;
+                Ok((runtime_input, output))
+            })
+            .map_err(InvocationControllerError::new)?;
         let lease_result = match mode {
             InvocationMode::Retain => {
                 builders.clone_ready_leases_to_pending(arena, borrow_graph, input, output)
@@ -523,87 +601,73 @@ impl InvocationController {
             }
         };
         if let Err(error) = lease_result {
-            let _ = builders.fail_pending(arena, borrow_graph, output, error.to_string());
-            return Err(InvocationControllerError::new(error.to_string()));
+            let message =
+                guarded_user_operation("could not destroy rejected invocation input", || {
+                    drop(runtime_input);
+                    Ok(())
+                })
+                .err()
+                .unwrap_or_else(|| error.to_string());
+            let _ = builders.fail_pending(arena, borrow_graph, output, message.clone());
+            return Err(InvocationControllerError::new(message));
         }
 
-        let mut boxed_input = match input_thing.runtime_into_boxed(runtime_input) {
-            Ok(input) => input,
-            Err(error) => {
-                return Ok(self.failed_start(
-                    arena,
-                    builders,
-                    borrow_graph,
-                    output,
-                    format!("could not convert invocation input: {error}"),
-                ));
-            }
-        };
-        let invocation = match function.receiver_mode {
-            ReceiverMode::ByValue => function.invoke_value_boxed(boxed_input),
-            ReceiverMode::ByRef => function
-                .invoke_ref_boxed(boxed_input.as_ref())
-                .map(FunctionInvocation::Ready),
-            ReceiverMode::ByMut => {
-                let result = function
-                    .invoke_mut_boxed(boxed_input.as_mut())
-                    .map(FunctionInvocation::Ready);
-                if result.is_ok() && mode == InvocationMode::Retain {
-                    match input_thing.runtime_from_boxed(boxed_input) {
-                        Ok(updated) => match arena.replace_ready(input, updated) {
-                            Ok(previous) => drop(previous),
-                            Err(error) => {
-                                return Ok(self.failed_start(
-                                    arena,
-                                    builders,
-                                    borrow_graph,
-                                    output,
-                                    format!("could not store mutated input: {error}"),
-                                ));
-                            }
-                        },
-                        Err(error) => {
-                            return Ok(self.failed_start(
-                                arena,
-                                builders,
-                                borrow_graph,
-                                output,
-                                format!("could not convert mutated input: {error}"),
-                            ));
-                        }
+        // This guard owns the input and every intermediate result. In particular,
+        // ByRef/ByMut input destructors and discarded outputs finish before an
+        // error can reach failed_start and release the pending source leases.
+        let invocation = guarded_user_operation("invocation dispatch", || {
+            use eyre::WrapErr;
+
+            let mut boxed_input = input_thing
+                .runtime_into_boxed(runtime_input)
+                .wrap_err("could not convert invocation input")?;
+            match function.receiver_mode {
+                ReceiverMode::ByValue => function.invoke_value_boxed(boxed_input),
+                ReceiverMode::ByRef => function
+                    .invoke_ref_boxed(boxed_input.as_ref())
+                    .map(FunctionInvocation::Ready),
+                ReceiverMode::ByMut => {
+                    let result = function
+                        .invoke_mut_boxed(boxed_input.as_mut())
+                        .map(FunctionInvocation::Ready);
+                    if result.is_ok() && mode == InvocationMode::Retain {
+                        let updated = input_thing
+                            .runtime_from_boxed(boxed_input)
+                            .wrap_err("could not convert mutated input")?;
+                        let previous = arena
+                            .replace_ready(input, updated)
+                            .wrap_err("could not store mutated input")?;
+                        drop(previous);
                     }
+                    result
                 }
-                result
             }
-        };
+        });
         let invocation = match invocation {
             Ok(invocation) => invocation,
-            Err(error) => {
-                return Ok(self.failed_start(
-                    arena,
-                    builders,
-                    borrow_graph,
-                    output,
-                    error.to_string(),
-                ));
+            Err(message) => {
+                return Ok(self.failed_start(arena, builders, borrow_graph, output, message));
             }
         };
         match invocation {
-            FunctionInvocation::Ready(value) => match (function.output_to_runtime)(value) {
-                Ok(value) => {
-                    builders
-                        .complete_pending(arena, borrow_graph, output, value)
-                        .map_err(|error| InvocationControllerError::new(error.to_string()))?;
-                    Ok(InvocationStart::Ready { output })
+            FunctionInvocation::Ready(value) => {
+                match guarded_user_operation("could not store invocation output", || {
+                    (function.output_to_runtime)(value)
+                }) {
+                    Ok(value) => {
+                        guarded_user_operation("could not complete invocation output", || {
+                            builders
+                                .complete_pending(arena, borrow_graph, output, value)
+                                .map_err(Into::into)
+                        })
+                        .map_err(InvocationControllerError::new)?;
+                        Ok(InvocationStart::Ready { output })
+                    }
+                    Err(message) => {
+                        Ok(self.failed_start(arena, builders, borrow_graph, output, message))
+                    }
                 }
-                Err(error) => Ok(self.failed_start(
-                    arena,
-                    builders,
-                    borrow_graph,
-                    output,
-                    format!("could not store invocation output: {error}"),
-                )),
-            },
+            }
             FunctionInvocation::Pending(future) => {
                 let invocation = self.allocate_invocation();
                 host.start(invocation, future);
@@ -977,8 +1041,10 @@ mod tests {
         let events = controller.poll(&mut arena, &mut builders, &mut borrows, &mut host);
         assert_eq!(events[0].state, InvocationEventState::Ready);
         assert_eq!(builders.pending_lease_count(output), 0);
-        assert_eq!(borrows.edge_count(), 1);
+        assert_eq!(borrows.edge_count(), 2);
         builders.delete(&mut arena, &mut borrows, request).unwrap();
+        assert!(builders.delete(&mut arena, &mut borrows, source).is_err());
+        builders.delete(&mut arena, &mut borrows, output).unwrap();
         builders.delete(&mut arena, &mut borrows, source).unwrap();
 
         let moved_source = arena
@@ -1028,6 +1094,13 @@ mod tests {
 
         host.complete(invocation, String::from("moved done"));
         controller.poll(&mut arena, &mut builders, &mut borrows, &mut host);
+        assert_eq!(borrows.edge_count(), 1);
+        assert!(
+            builders
+                .delete(&mut arena, &mut borrows, moved_source)
+                .is_err()
+        );
+        builders.delete(&mut arena, &mut borrows, output).unwrap();
         assert_eq!(borrows.edge_count(), 0);
         builders
             .delete(&mut arena, &mut borrows, moved_source)
@@ -1102,6 +1175,478 @@ mod tests {
             roots_before_plan + 2,
             "only actual invocation outputs receive arena slots"
         );
+    }
+
+    fn return_borrowed_source(input: Box<dyn Any + Send>) -> eyre::Result<Box<dyn Any + Send>> {
+        let request = input
+            .downcast::<BorrowRequest<'static>>()
+            .map_err(|_| eyre::eyre!("wrong borrowed request"))?;
+        Ok(Box::new(request.source))
+    }
+
+    fn return_borrowed_source_async(input: Box<dyn Any + Send>) -> InvocationFuture {
+        Box::pin(async move { return_borrowed_source(input) })
+    }
+
+    static RETURN_BORROWED_SOURCE: Function = Function::sync_value(
+        <BorrowRequest<'static>>::SHAPE,
+        <Cow<'static, BorrowSource>>::SHAPE,
+        FunctionKind::Conversion,
+        "return source",
+        "test",
+        &[],
+        return_borrowed_source,
+        runtime_from_boxed::<Cow<'static, BorrowSource>>,
+        RegistrationSite::new(file!(), line!()),
+    );
+
+    static RETURN_BORROWED_SOURCE_ASYNC: Function = Function::async_value(
+        <BorrowRequest<'static>>::SHAPE,
+        <Cow<'static, BorrowSource>>::SHAPE,
+        FunctionKind::AsyncInvoke,
+        "return source asynchronously",
+        "test",
+        &[],
+        return_borrowed_source_async,
+        runtime_from_boxed::<Cow<'static, BorrowSource>>,
+        RegistrationSite::new(file!(), line!()),
+    );
+
+    #[tokio::test]
+    async fn sync_and_async_results_retain_borrowed_sources_in_both_invocation_modes() {
+        for function in [&RETURN_BORROWED_SOURCE, &RETURN_BORROWED_SOURCE_ASYNC] {
+            for mode in [InvocationMode::Retain, InvocationMode::Consume] {
+                let mut arena = Arena::default();
+                let source = arena
+                    .insert_ready(runtime(BorrowSource {
+                        value: "retained source".into(),
+                    }))
+                    .unwrap();
+                let request = arena.reserve_builder().unwrap();
+                let mut builders = BuilderStore::default();
+                let mut borrows = BorrowGraph::default();
+                builders
+                    .insert_and_finalize(
+                        &mut arena,
+                        &mut borrows,
+                        request,
+                        ValueBuilder::new(<BorrowRequest<'static>>::SHAPE),
+                    )
+                    .unwrap();
+                builders
+                    .set_field_and_finalize(
+                        &mut arena,
+                        &mut borrows,
+                        request,
+                        0,
+                        FieldBinding::BorrowFrom(ValueAddress::root(source)),
+                    )
+                    .unwrap();
+                let mut host = TokioInvocationHost::new(attach_nothing);
+                let mut controller = InvocationController::default();
+                let start = controller
+                    .invoke(
+                        &mut arena,
+                        &mut builders,
+                        &mut borrows,
+                        &mut host,
+                        request,
+                        &BORROW_REQUEST_THING,
+                        function,
+                        mode,
+                    )
+                    .unwrap();
+                let output = start.output();
+                if matches!(start, InvocationStart::Pending { .. }) {
+                    tokio::time::timeout(std::time::Duration::from_secs(5), async {
+                        loop {
+                            let events =
+                                controller.poll(&mut arena, &mut builders, &mut borrows, &mut host);
+                            if let Some(event) = events.first() {
+                                assert_eq!(event.state, InvocationEventState::Ready);
+                                break;
+                            }
+                            tokio::task::yield_now().await;
+                        }
+                    })
+                    .await
+                    .expect("finite invocation completes");
+                }
+                if mode == InvocationMode::Retain {
+                    builders.delete(&mut arena, &mut borrows, request).unwrap();
+                }
+                assert!(builders.delete(&mut arena, &mut borrows, source).is_err());
+                assert_eq!(builders.leases(output).len(), 1);
+                let result = arena
+                    .ready_value(output)
+                    .unwrap()
+                    .peek()
+                    .get::<Cow<'static, BorrowSource>>()
+                    .unwrap();
+                assert!(matches!(result, Cow::Borrowed(_)));
+                assert_eq!(result.value, "retained source");
+                builders.delete(&mut arena, &mut borrows, output).unwrap();
+                builders.delete(&mut arena, &mut borrows, source).unwrap();
+                assert_eq!(borrows.edge_count(), 0);
+            }
+        }
+    }
+
+    #[derive(Clone, Debug, Facet)]
+    #[facet(opaque)]
+    struct GuardDropProbe(std::sync::Arc<std::sync::atomic::AtomicUsize>);
+
+    impl Drop for GuardDropProbe {
+        fn drop(&mut self) {
+            // The probe never dereferences the borrowed source. A missing guard
+            // is detected by the count, not by exercising a dangling pointer.
+            self.0.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        }
+    }
+
+    #[derive(Clone, Debug, Facet)]
+    #[facet(traits(Clone))]
+    struct GuardRequest {
+        source: Cow<'static, BorrowSource>,
+        probe: GuardDropProbe,
+    }
+
+    #[derive(Debug)]
+    struct BorrowingError(GuardRequest);
+
+    impl fmt::Display for BorrowingError {
+        fn fmt(&self, _: &mut fmt::Formatter<'_>) -> fmt::Result {
+            // Both the error and this replacement panic payload retain a real
+            // shallow Cow borrow. Both must die before the controller releases it.
+            std::panic::panic_any(self.0.clone());
+        }
+    }
+
+    impl Error for BorrowingError {}
+
+    fn guarded_return(input: Box<dyn Any + Send>) -> eyre::Result<Box<dyn Any + Send>> {
+        Ok(input)
+    }
+
+    fn guarded_return_async(input: Box<dyn Any + Send>) -> InvocationFuture {
+        Box::pin(async move { Ok(input) })
+    }
+
+    fn guarded_ref_error(input: &(dyn Any + Send)) -> eyre::Result<Box<dyn Any + Send>> {
+        Err(eyre::Report::new(BorrowingError(
+            input.downcast_ref::<GuardRequest>().unwrap().clone(),
+        )))
+    }
+
+    fn guarded_mut_error(input: &mut (dyn Any + Send)) -> eyre::Result<Box<dyn Any + Send>> {
+        guarded_ref_error(input)
+    }
+
+    fn guarded_mut_return(input: &mut (dyn Any + Send)) -> eyre::Result<Box<dyn Any + Send>> {
+        Ok(Box::new(
+            input.downcast_ref::<GuardRequest>().unwrap().clone(),
+        ))
+    }
+
+    fn guarded_panic(input: Box<dyn Any + Send>) -> eyre::Result<Box<dyn Any + Send>> {
+        std::panic::panic_any(input);
+    }
+
+    fn guarded_error(input: Box<dyn Any + Send>) -> eyre::Result<Box<dyn Any + Send>> {
+        Err(eyre::Report::new(BorrowingError(
+            *input.downcast::<GuardRequest>().unwrap(),
+        )))
+    }
+
+    fn guarded_converter_panic(input: Box<dyn Any + Send>) -> eyre::Result<RuntimeValue> {
+        std::panic::panic_any(input);
+    }
+
+    fn guarded_converter_error(input: Box<dyn Any + Send>) -> eyre::Result<RuntimeValue> {
+        Err(eyre::Report::new(BorrowingError(
+            *input.downcast::<GuardRequest>().unwrap(),
+        )))
+    }
+
+    fn guarded_input_converter_panic(input: RuntimeValue) -> eyre::Result<Box<dyn Any + Send>> {
+        std::panic::panic_any(runtime_into_boxed::<GuardRequest>(input)?);
+    }
+
+    static GUARD_THING: Thing = Thing::value(
+        GuardRequest::SHAPE,
+        runtime_from_boxed::<GuardRequest>,
+        runtime_into_boxed::<GuardRequest>,
+        RegistrationSite::new(file!(), line!()),
+    );
+
+    static GUARD_PANICKING_INPUT_THING: Thing = Thing::value(
+        GuardRequest::SHAPE,
+        runtime_from_boxed::<GuardRequest>,
+        guarded_input_converter_panic,
+        RegistrationSite::new(file!(), line!()),
+    );
+
+    static GUARD_MUTATED_INPUT_ERROR_THING: Thing = Thing::value(
+        GuardRequest::SHAPE,
+        guarded_converter_error,
+        runtime_into_boxed::<GuardRequest>,
+        RegistrationSite::new(file!(), line!()),
+    );
+
+    static GUARD_SYNC_PANIC: Function = Function::sync_value(
+        GuardRequest::SHAPE,
+        GuardRequest::SHAPE,
+        FunctionKind::Conversion,
+        "panic with borrowed input",
+        "test",
+        &[],
+        guarded_panic,
+        runtime_from_boxed::<GuardRequest>,
+        RegistrationSite::new(file!(), line!()),
+    );
+    static GUARD_SYNC_ERROR: Function = Function::sync_value(
+        GuardRequest::SHAPE,
+        GuardRequest::SHAPE,
+        FunctionKind::Conversion,
+        "error retaining borrowed input",
+        "test",
+        &[],
+        guarded_error,
+        runtime_from_boxed::<GuardRequest>,
+        RegistrationSite::new(file!(), line!()),
+    );
+    static GUARD_CONVERTER_PANIC: Function = Function::sync_value(
+        GuardRequest::SHAPE,
+        GuardRequest::SHAPE,
+        FunctionKind::Conversion,
+        "converter panic with borrowed output",
+        "test",
+        &[],
+        guarded_return,
+        guarded_converter_panic,
+        RegistrationSite::new(file!(), line!()),
+    );
+    static GUARD_CONVERTER_ERROR: Function = Function::sync_value(
+        GuardRequest::SHAPE,
+        GuardRequest::SHAPE,
+        FunctionKind::Conversion,
+        "converter error retaining borrowed output",
+        "test",
+        &[],
+        guarded_return,
+        guarded_converter_error,
+        RegistrationSite::new(file!(), line!()),
+    );
+
+    static GUARD_ASYNC_CONVERTER_PANIC: Function = Function::async_value(
+        GuardRequest::SHAPE,
+        GuardRequest::SHAPE,
+        FunctionKind::AsyncInvoke,
+        "async converter panic",
+        "test",
+        &[],
+        guarded_return_async,
+        guarded_converter_panic,
+        RegistrationSite::new(file!(), line!()),
+    );
+    static GUARD_ASYNC_CONVERTER_ERROR: Function = Function::async_value(
+        GuardRequest::SHAPE,
+        GuardRequest::SHAPE,
+        FunctionKind::AsyncInvoke,
+        "async converter error",
+        "test",
+        &[],
+        guarded_return_async,
+        guarded_converter_error,
+        RegistrationSite::new(file!(), line!()),
+    );
+    static GUARD_REF_ERROR: Function = Function::sync_ref(
+        GuardRequest::SHAPE,
+        GuardRequest::SHAPE,
+        FunctionKind::Conversion,
+        "ByRef error",
+        "test",
+        &[],
+        guarded_ref_error,
+        runtime_from_boxed::<GuardRequest>,
+        RegistrationSite::new(file!(), line!()),
+    );
+    static GUARD_MUT_ERROR: Function = Function::sync_mut(
+        GuardRequest::SHAPE,
+        GuardRequest::SHAPE,
+        FunctionKind::Conversion,
+        "ByMut error",
+        "test",
+        &[],
+        guarded_mut_error,
+        runtime_from_boxed::<GuardRequest>,
+        RegistrationSite::new(file!(), line!()),
+    );
+    static GUARD_MUT_RETURN: Function = Function::sync_mut(
+        GuardRequest::SHAPE,
+        GuardRequest::SHAPE,
+        FunctionKind::Conversion,
+        "ByMut conversion error discards successful output",
+        "test",
+        &[],
+        guarded_mut_return,
+        runtime_from_boxed::<GuardRequest>,
+        RegistrationSite::new(file!(), line!()),
+    );
+
+    #[tokio::test]
+    async fn sync_panics_and_conversion_errors_dispose_borrowed_payloads_before_releasing_leases() {
+        use std::sync::Arc;
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        for (thing, function, mode, expected_drops) in [
+            (&GUARD_THING, &GUARD_SYNC_PANIC, InvocationMode::Consume, 1),
+            (&GUARD_THING, &GUARD_SYNC_ERROR, InvocationMode::Consume, 2),
+            (
+                &GUARD_THING,
+                &GUARD_CONVERTER_PANIC,
+                InvocationMode::Consume,
+                1,
+            ),
+            (
+                &GUARD_THING,
+                &GUARD_CONVERTER_ERROR,
+                InvocationMode::Consume,
+                2,
+            ),
+            (
+                &GUARD_PANICKING_INPUT_THING,
+                &GUARD_SYNC_PANIC,
+                InvocationMode::Consume,
+                1,
+            ),
+            (
+                &GUARD_THING,
+                &GUARD_ASYNC_CONVERTER_PANIC,
+                InvocationMode::Consume,
+                1,
+            ),
+            (
+                &GUARD_THING,
+                &GUARD_ASYNC_CONVERTER_ERROR,
+                InvocationMode::Consume,
+                2,
+            ),
+            (&GUARD_THING, &GUARD_REF_ERROR, InvocationMode::Consume, 3),
+            (&GUARD_THING, &GUARD_MUT_ERROR, InvocationMode::Consume, 3),
+            (
+                &GUARD_MUTATED_INPUT_ERROR_THING,
+                &GUARD_MUT_RETURN,
+                InvocationMode::Retain,
+                2,
+            ),
+        ] {
+            let drops = Arc::new(AtomicUsize::new(0));
+            let mut arena = Arena::default();
+            let source = arena
+                .insert_ready(runtime(BorrowSource {
+                    value: "source".into(),
+                }))
+                .unwrap();
+            let request = arena.reserve_builder().unwrap();
+            let mut builders = BuilderStore::default();
+            let mut borrows = BorrowGraph::default();
+            builders
+                .insert_and_finalize(
+                    &mut arena,
+                    &mut borrows,
+                    request,
+                    ValueBuilder::new(GuardRequest::SHAPE),
+                )
+                .unwrap();
+            builders
+                .set_field_and_finalize(
+                    &mut arena,
+                    &mut borrows,
+                    request,
+                    0,
+                    FieldBinding::BorrowFrom(ValueAddress::root(source)),
+                )
+                .unwrap();
+            builders
+                .set_field_and_finalize(
+                    &mut arena,
+                    &mut borrows,
+                    request,
+                    1,
+                    FieldBinding::InlineOwned(runtime(GuardDropProbe(drops.clone()))),
+                )
+                .unwrap();
+            assert!(matches!(
+                arena
+                    .ready_value(request)
+                    .unwrap()
+                    .peek()
+                    .get::<GuardRequest>()
+                    .unwrap()
+                    .source,
+                Cow::Borrowed(_)
+            ));
+            let mut controller = InvocationController::default();
+            let mut host = TokioInvocationHost::new(attach_nothing);
+            let start = controller
+                .invoke(
+                    &mut arena,
+                    &mut builders,
+                    &mut borrows,
+                    &mut host,
+                    request,
+                    thing,
+                    function,
+                    mode,
+                )
+                .expect("user panics become an owned failure rather than escaping the controller");
+            let output = start.output();
+            let message = match start {
+                InvocationStart::Failed { message, .. } => message,
+                InvocationStart::Pending { .. } => {
+                    tokio::time::timeout(std::time::Duration::from_secs(5), async {
+                        loop {
+                            let events =
+                                controller.poll(&mut arena, &mut builders, &mut borrows, &mut host);
+                            if let Some(event) = events.into_iter().next() {
+                                let InvocationEventState::Failed(message) = event.state else {
+                                    panic!(
+                                        "expected guarded asynchronous output-conversion failure"
+                                    );
+                                };
+                                break message;
+                            }
+                            tokio::task::yield_now().await;
+                        }
+                    })
+                    .await
+                    .expect("finite invocation completes")
+                }
+                InvocationStart::Ready { .. } => panic!("expected guarded user failure"),
+            };
+            assert!(
+                message.contains("panicked") || message.contains("could not convert mutated input"),
+                "{message}"
+            );
+            assert_eq!(
+                drops.load(Ordering::SeqCst),
+                expected_drops,
+                "{}",
+                function.label
+            );
+            assert_eq!(builders.pending_lease_count(output), 0);
+            let final_drops = if mode == InvocationMode::Retain {
+                assert!(builders.delete(&mut arena, &mut borrows, source).is_err());
+                builders.delete(&mut arena, &mut borrows, request).unwrap();
+                expected_drops + 1
+            } else {
+                expected_drops
+            };
+            assert_eq!(borrows.edge_count(), 0);
+            builders.delete(&mut arena, &mut borrows, source).unwrap();
+            assert_eq!(drops.load(Ordering::SeqCst), final_drops);
+        }
     }
 
     #[test]
