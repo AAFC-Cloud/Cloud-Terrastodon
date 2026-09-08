@@ -385,5 +385,5 @@ facet-path = { git = "https://github.com/TeamDman/facet.git", rev = "a6101f92fa8
 facet-pretty = { git = "https://github.com/TeamDman/facet.git", rev = "a6101f92fa88ada6dedd80899140577e554bd5d3" }
 facet-reflect = { git = "https://github.com/TeamDman/facet.git", rev = "a6101f92fa88ada6dedd80899140577e554bd5d3" }
 facet-solver = { git = "https://github.com/TeamDman/facet.git", rev = "a6101f92fa88ada6dedd80899140577e554bd5d3" }
-figue = { git = "https://github.com/TeamDman/figue.git", rev = "1ebad28e18d3e778c4e82cb255b26f0e23d4fed7" }
-figue-attrs = { git = "https://github.com/TeamDman/figue.git", rev = "1ebad28e18d3e778c4e82cb255b26f0e23d4fed7" }
+figue = { git = "https://github.com/TeamDman/figue.git", rev = "834293b7bc379f3502767aa6aee06958e99d8bb0" }
+figue-attrs = { git = "https://github.com/TeamDman/figue.git", rev = "834293b7bc379f3502767aa6aee06958e99d8bb0" }

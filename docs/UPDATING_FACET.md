@@ -15,16 +15,21 @@ patch-free crates.io consumption.
 | `TeamDman/facet` | Current upstream plus the reviewed Cow PR until an official compatible release includes it |
 | `TeamDman/figue` | Current upstream plus our selected CLI PRs |
 
-The root manifest records immutable revisions. The initial integration
+The root manifest records immutable revisions. The current integration
 branch `teamy/upstream-pr-stack-2026-09-08` in each fork contains:
 
 - Facet `a6101f92fa88ada6dedd80899140577e554bd5d3`: official main
   `65bae5c31a7ce401bc44630fb96250ea884cfd3e` plus [Cow PR #2657](https://github.com/facet-rs/facet/pull/2657).
-- Figue `1ebad28e18d3e778c4e82cb255b26f0e23d4fed7`: official main
+- Figue `834293b7bc379f3502767aa6aee06958e99d8bb0`: official main
   `47801613b720a7d5a05a9c8222d90104331823e2` plus
   [documentation #119](https://github.com/bearcove/figue/pull/119),
-  [no-Debug test helpers #121](https://github.com/bearcove/figue/pull/121), and
-  [inherited help #122](https://github.com/bearcove/figue/pull/122).
+  [no-Debug test helpers #121](https://github.com/bearcove/figue/pull/121),
+  [inherited help #122](https://github.com/bearcove/figue/pull/122), and
+  [transparent scalars #124](https://github.com/bearcove/figue/pull/124).
+
+Transparent-scalar support was added after the application already built and
+its eight acceptance failures were repaired. It is a separate typed-CLI
+capability, not the explanation for those application failures.
 
 Compatible baseline versions are Facet-family `0.50.0-rc.7` and Figue
 `5.0.0-rc.6`. Enable `facet-json/net` explicitly for unproxied IP addresses
