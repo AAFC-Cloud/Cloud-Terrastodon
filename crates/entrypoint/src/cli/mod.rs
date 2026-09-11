@@ -23,6 +23,12 @@ pub struct Cli {
     pub command: Option<CloudTerrastodonCommand>,
 }
 
+impl cloud_terrastodon_app::ApplicationCli for Cli {
+    fn global_args(&self) -> &GlobalArgs {
+        &self.global_args
+    }
+}
+
 impl<'a> Arbitrary<'a> for Cli {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {

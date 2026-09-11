@@ -18,6 +18,8 @@
 //!   `azure-locations`, `credentials`, `rest`.
 
 // One pub use per optional subcrate, behind its feature flag.
+#[cfg(feature = "app")]
+pub use cloud_terrastodon_app as app;
 #[cfg(feature = "azure")]
 pub use cloud_terrastodon_azure as azure;
 #[cfg(feature = "azure-devops")]

@@ -13,6 +13,7 @@ categories.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+cloud_terrastodon_app = { workspace = true, features = ["auth", "terminal", "arbitrary"] }
 cloud_terrastodon_user_input.workspace = true
 cloud_terrastodon_hcl.workspace = true
 cloud_terrastodon_azure.workspace = true
@@ -68,14 +69,6 @@ base64.workspace = true
 teamy-cancellation.workspace = true
 arbitrary.workspace = true
 
-[target.'cfg(windows)'.dependencies]
-windows = { version = "0.62.2", features = [
-    "Win32",
-    "Win32_System",
-    "Win32_System_Console",
-    "Win32_Globalization",
-] }
-
 [dev-dependencies]
 arbitrary.workspace = true
 test-log.workspace = true
@@ -83,10 +76,11 @@ test-log.workspace = true
 [features]
 default = []
 extended_observability = [
+    "cloud_terrastodon_app/extended_observability",
     "cloud_terrastodon_user_input/extended_observability",
     "cloud_terrastodon_tracing/extended_observability",
     "cloud_terrastodon_ui_ratatui/extended_observability",
 ]
-terminal_coordinator_debug = ["cloud_terrastodon_user_input/terminal_coordinator_debug"]
-tracy = ["cloud_terrastodon_tracing/tracy", "extended_observability"]
+terminal_coordinator_debug = ["cloud_terrastodon_app/terminal_coordinator_debug"]
+tracy = ["cloud_terrastodon_app/tracy", "extended_observability"]
 

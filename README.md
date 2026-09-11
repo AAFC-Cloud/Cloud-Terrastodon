@@ -46,6 +46,10 @@ to purge the cache.
 
 ## Development
 
+For a small CLI with your own arguments and subcommands, see
+[Reusable applications](docs/REUSABLE_APPLICATIONS.md) and the independently tested
+[single-file consumer example](examples/standalone-cli).
+
 ### Dependencies
 
 - [Azure CLI `az`](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli#install)

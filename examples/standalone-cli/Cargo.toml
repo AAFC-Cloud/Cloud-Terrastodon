@@ -1,0 +1,40 @@
+[package]
+name = "cloud-terrastodon-standalone-cli"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+# This is a consumer workspace, not an example target in the parent workspace.
+[workspace]
+
+[[bin]]
+name = "field-notes"
+path = "src/main.rs"
+
+[dependencies]
+cloud_terrastodon = { path = "../..", default-features = false, features = ["app"] }
+# Figue's attribute expansion currently requires ::facet in the extern prelude.
+# This dependency resolves through the same immutable patch below.
+facet = "=0.50.0-rc.7"
+
+[dev-dependencies]
+serde_json = "1.0.116"
+tempfile = "3.10.1"
+
+# Cargo only reads patches from the workspace root. Keep this complete block
+# aligned with the parent application's reviewed, immutable dependency stack.
+[patch.crates-io]
+facet = { git = "https://github.com/TeamDman/facet.git", rev = "a6101f92fa88ada6dedd80899140577e554bd5d3" }
+facet-core = { git = "https://github.com/TeamDman/facet.git", rev = "a6101f92fa88ada6dedd80899140577e554bd5d3" }
+facet-default = { git = "https://github.com/TeamDman/facet.git", rev = "a6101f92fa88ada6dedd80899140577e554bd5d3" }
+facet-error = { git = "https://github.com/TeamDman/facet.git", rev = "a6101f92fa88ada6dedd80899140577e554bd5d3" }
+facet-macro-parse = { git = "https://github.com/TeamDman/facet.git", rev = "a6101f92fa88ada6dedd80899140577e554bd5d3" }
+facet-macro-types = { git = "https://github.com/TeamDman/facet.git", rev = "a6101f92fa88ada6dedd80899140577e554bd5d3" }
+facet-macros = { git = "https://github.com/TeamDman/facet.git", rev = "a6101f92fa88ada6dedd80899140577e554bd5d3" }
+facet-macros-impl = { git = "https://github.com/TeamDman/facet.git", rev = "a6101f92fa88ada6dedd80899140577e554bd5d3" }
+facet-path = { git = "https://github.com/TeamDman/facet.git", rev = "a6101f92fa88ada6dedd80899140577e554bd5d3" }
+facet-pretty = { git = "https://github.com/TeamDman/facet.git", rev = "a6101f92fa88ada6dedd80899140577e554bd5d3" }
+facet-reflect = { git = "https://github.com/TeamDman/facet.git", rev = "a6101f92fa88ada6dedd80899140577e554bd5d3" }
+facet-solver = { git = "https://github.com/TeamDman/facet.git", rev = "a6101f92fa88ada6dedd80899140577e554bd5d3" }
+figue = { git = "https://github.com/TeamDman/figue.git", rev = "40d75efe61299bbf623cb45879f4cd9324159df6" }
+figue-attrs = { git = "https://github.com/TeamDman/figue.git", rev = "40d75efe61299bbf623cb45879f4cd9324159df6" }

@@ -9,8 +9,6 @@ mod noninteractive;
 mod serde_json_isolation;
 mod version;
 
-pub(crate) mod windows_support;
-
 pub use crate::build_timestamp::BuildTimestamp;
 pub use crate::cli::*;
 pub use crate::entrypoint::*;

@@ -20,12 +20,20 @@ branch `teamy/upstream-pr-stack-2026-09-08` in each fork contains:
 
 - Facet `a6101f92fa88ada6dedd80899140577e554bd5d3`: official main
   `65bae5c31a7ce401bc44630fb96250ea884cfd3e` plus [Cow PR #2657](https://github.com/facet-rs/facet/pull/2657).
-- Figue `834293b7bc379f3502767aa6aee06958e99d8bb0`: official main
+- Figue `40d75efe61299bbf623cb45879f4cd9324159df6`: official main
   `47801613b720a7d5a05a9c8222d90104331823e2` plus
   [documentation #119](https://github.com/bearcove/figue/pull/119),
   [no-Debug test helpers #121](https://github.com/bearcove/figue/pull/121),
-  [inherited help #122](https://github.com/bearcove/figue/pull/122), and
-  [transparent scalars #124](https://github.com/bearcove/figue/pull/124).
+  [inherited help #122](https://github.com/bearcove/figue/pull/122),
+  [transparent scalars #124](https://github.com/bearcove/figue/pull/124), and
+  [PathBuf serialization #126](https://github.com/bearcove/figue/pull/126).
+
+PathBuf support is Figue-local: ordinary UTF-8 paths serialize without a
+consumer newtype or another Facet change. Non-UTF-8 paths return an explicit
+error. It also restores PathBuf defaults inside config roots (issue #105).
+The independent PR has recorded upstream red/green regressions; Windows native
+encoding rejection was executed, while Unix runtime validation remains pending
+because the existing offline environment lacks required cached dependencies.
 
 Transparent-scalar support was added after the application already built and
 its eight acceptance failures were repaired. It is a separate typed-CLI

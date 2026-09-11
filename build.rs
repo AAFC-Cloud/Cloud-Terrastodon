@@ -7,6 +7,10 @@ use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
 
 fn main() {
+    // A library consumer owns its executable metadata and Windows resources.
+    if std::env::var_os("CARGO_FEATURE_ENTRYPOINT").is_none() {
+        return;
+    }
     add_build_script_inputs();
     add_git_revision();
     add_build_timestamp();

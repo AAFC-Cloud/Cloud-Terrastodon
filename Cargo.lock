@@ -865,6 +865,8 @@ dependencies = [
 name = "cloud_terrastodon"
 version = "0.36.0"
 dependencies = [
+ "arbitrary",
+ "cloud_terrastodon_app",
  "cloud_terrastodon_azure",
  "cloud_terrastodon_azure_devops",
  "cloud_terrastodon_azure_devops_types",
@@ -887,11 +889,31 @@ dependencies = [
  "color-eyre",
  "embed-resource",
  "eyre",
+ "facet",
  "mimalloc",
  "tokio",
  "tracing",
  "tracing-subscriber",
  "tracy-client",
+]
+
+[[package]]
+name = "cloud_terrastodon_app"
+version = "0.36.0"
+dependencies = [
+ "arbitrary",
+ "cloud_terrastodon_credentials",
+ "cloud_terrastodon_tracing",
+ "cloud_terrastodon_user_input",
+ "color-eyre",
+ "eyre",
+ "facet",
+ "figue",
+ "teamy-cancellation",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "windows 0.62.2",
 ]
 
 [[package]]
@@ -1117,6 +1139,7 @@ dependencies = [
  "async-recursion",
  "base64 0.22.1",
  "chrono",
+ "cloud_terrastodon_app",
  "cloud_terrastodon_azure",
  "cloud_terrastodon_azure_devops",
  "cloud_terrastodon_command",
@@ -1168,7 +1191,6 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "uuid",
- "windows 0.62.2",
 ]
 
 [[package]]
@@ -2535,7 +2557,7 @@ dependencies = [
 [[package]]
 name = "figue"
 version = "5.0.0-rc.6"
-source = "git+https://github.com/TeamDman/figue.git?rev=834293b7bc379f3502767aa6aee06958e99d8bb0#834293b7bc379f3502767aa6aee06958e99d8bb0"
+source = "git+https://github.com/TeamDman/figue.git?rev=40d75efe61299bbf623cb45879f4cd9324159df6#40d75efe61299bbf623cb45879f4cd9324159df6"
 dependencies = [
  "arbitrary",
  "ariadne",
@@ -2563,7 +2585,7 @@ dependencies = [
 [[package]]
 name = "figue-attrs"
 version = "5.0.0-rc.6"
-source = "git+https://github.com/TeamDman/figue.git?rev=834293b7bc379f3502767aa6aee06958e99d8bb0#834293b7bc379f3502767aa6aee06958e99d8bb0"
+source = "git+https://github.com/TeamDman/figue.git?rev=40d75efe61299bbf623cb45879f4cd9324159df6#40d75efe61299bbf623cb45879f4cd9324159df6"
 dependencies = [
  "facet",
 ]

@@ -7,200 +7,35 @@ use crate::git_revision::GitRevision;
 use crate::git_revision::set_git_revision;
 use crate::version::full_version;
 use crate::version::set_version;
-use cloud_terrastodon_tracing::StructuredLogLevel;
-use cloud_terrastodon_tracing::TerminalLogBuffer;
-use cloud_terrastodon_tracing::init_tracing_with_terminal;
-use cloud_terrastodon_user_input::PickerLogBuffer;
-use cloud_terrastodon_user_input::PickerLogBufferHandle;
-use cloud_terrastodon_user_input::PickerLogLevel;
-use cloud_terrastodon_user_input::PickerLogRecord;
-use cloud_terrastodon_user_input::PickerLogSpan;
-use cloud_terrastodon_user_input::TerminalActivity;
-use cloud_terrastodon_user_input::TerminalCoordinator;
-use cloud_terrastodon_user_input::TerminalCoordinatorFutureExt;
-use cloud_terrastodon_user_input::TerminalLogBufferFutureExt;
+use cloud_terrastodon_app::App;
 use eyre::Result;
-use figue::Driver;
-use std::str::FromStr;
-use teamy_cancellation::CtrlCHandler;
-use tracing::Instrument;
-use tracing::info_span;
-use tracing::level_filters::LevelFilter;
 
 pub fn entrypoint(
     version: Version,
     git_rev: GitRevision,
     build_timestamp: BuildTimestamp,
 ) -> Result<()> {
-    // Track version information globally
     let implementation_revision = git_rev.to_string();
     set_git_revision(git_rev);
     set_build_timestamp(build_timestamp);
     set_version(version);
 
-    color_eyre::install()?;
-
-    // Parse command line arguments.
-    let cli: Cli = Driver::new(
-        figue::builder::<Cli>()
-            .expect("CLI schema should be valid")
-            .cli(|cli| cli.args_os(std::env::args_os().skip(1)).strict())
-            .help(move |help| {
-                help.version(full_version().to_string())
-                    .include_implementation_source_file(true)
-                    .include_implementation_github_url(
-                        "AAFC-Cloud/Cloud-Terrastodon",
-                        implementation_revision,
-                    )
-            })
-            .build(),
-    )
-    .run()
-    .unwrap();
-
-    let auth_context =
-        cloud_terrastodon_credentials::AuthContext::resolve(cli.global_args.auth_source)?;
-
-    // Configure backtrace-always
-    if cli.global_args.debug {
-        unsafe { std::env::set_var("RUST_BACKTRACE", "full") };
-        // std::env::set_var("RUST_BACKTRACE", "1");
-    }
-
-    // Configure tracing
-    let log_filter = match cli.global_args.debug {
-        true => LevelFilter::DEBUG,
-        false => LevelFilter::from_str(&cli.global_args.log_filter)?,
-    };
-    let log_file_filter = cli
-        .global_args
-        .log_file_filter
-        .as_deref()
-        .map(LevelFilter::from_str)
-        .transpose()?;
-
-    let terminal_activity = TerminalActivity::new();
-    let terminal_log_buffer = TerminalLogBuffer::new();
-    init_tracing_with_terminal(
-        log_filter,
-        log_file_filter,
-        cli.global_args.log_file.as_ref(),
-        matches!(cli.command.as_ref(), Some(CloudTerrastodonCommand::Egui(_))),
-        Some(terminal_log_buffer.clone()),
-        Some(std::sync::Arc::new({
-            let terminal_activity = terminal_activity.clone();
-            move || terminal_activity.is_active()
-        })),
-    )?;
-
-    // Configure terminal colour support
-    #[cfg(windows)]
-    let _ = crate::windows_support::windows_ansi::enable_ansi_support();
-
-    // Warn if UTF-8 support is not enabled on Windows.
-    #[cfg(windows)]
-    if !crate::windows_support::windows_utf8::is_system_utf8() {
-        tracing::warn!("The current system codepage is not UTF-8. This may cause '�' problems.");
-        tracing::warn!(
-            "See https://github.com/Azure/azure-cli/issues/22616#issuecomment-1147061949"
-        );
-        tracing::warn!(
-            "Control panel -> Clock and Region -> Region -> Administrative -> Change system locale -> Check Beta: Use Unicode UTF-8 for worldwide language support."
-        );
-    }
-
-    let cancellation_token = CtrlCHandler::default().install()?;
-
-    // Build async runtime
-    let runtime = tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()?;
-    // `TerminalCoordinator::try_new_with_activity` starts its actor with
-    // `tokio::spawn`, so the runtime must be entered while the coordinator is
-    // initialized. The runtime's `block_on` call below enters it later, but that
-    // is too late for this synchronous setup boundary.
-    let terminal_coordinator = {
-        let _runtime_guard = runtime.enter();
-        TerminalCoordinator::try_new_with_activity(terminal_activity)?
-    };
-    #[cfg(feature = "terminal_coordinator_debug")]
-    let _debug_application_root = terminal_coordinator.debug_register_as_application_root()?;
-    let picker_log_buffer: PickerLogBufferHandle =
-        std::sync::Arc::new(TracingPickerLogBuffer::new(terminal_log_buffer.clone()));
-
-    let should_replay_logs = cli.global_args.debug;
-
-    // Keep the complete CLI dispatch future off the synchronous main-thread stack.  Individual
-    // requests may own substantial nested futures (the picker is one example), and the CLI
-    // future contains the whole command dispatch tree around them.
-    let invocation = Box::pin(
-        cli.invoke(&cancellation_token, &auth_context)
-            .instrument(info_span!("cli_invocation"))
-            .with_terminal_coordinator(terminal_coordinator.clone()),
-    );
-    let invocation_result =
-        runtime.block_on(invocation.with_terminal_log_buffer(picker_log_buffer));
-    if let Some(payload) = terminal_coordinator.take_actor_panic() {
-        // Preserve coordinator actor panics as process-level failures. This uses
-        // the same reporting path as invocation JoinError panics in the Ratatui
-        // UI rather than hiding an infrastructure invariant violation in a
-        // value-level error.
-        std::panic::resume_unwind(payload);
-    }
-    if should_replay_logs {
-        terminal_log_buffer.replay_to_stderr();
-    }
-    invocation_result?;
-    Ok(())
-}
-
-struct TracingPickerLogBuffer {
-    buffer: TerminalLogBuffer,
-}
-
-impl TracingPickerLogBuffer {
-    fn new(buffer: TerminalLogBuffer) -> Self {
-        Self { buffer }
-    }
-}
-
-impl PickerLogBuffer for TracingPickerLogBuffer {
-    fn records_since(&self, cursor: &mut usize) -> Vec<PickerLogRecord> {
-        self.buffer
-            .records_since(cursor)
-            .into_iter()
-            .map(|record| PickerLogRecord {
-                level: match record.level {
-                    StructuredLogLevel::Debug | StructuredLogLevel::Trace => PickerLogLevel::Debug,
-                    StructuredLogLevel::Info => PickerLogLevel::Info,
-                    StructuredLogLevel::Warn => PickerLogLevel::Warn,
-                    StructuredLogLevel::Error => PickerLogLevel::Error,
-                },
-                message: record.message,
-                target: record.target,
-                timestamp: record.timestamp,
-                fields: record
-                    .fields
-                    .into_iter()
-                    .map(|(name, value)| (name.into(), value.into()))
-                    .collect(),
-                spans: record
-                    .spans
-                    .into_iter()
-                    .map(|span| PickerLogSpan {
-                        name: span.name,
-                        fields: span
-                            .fields
-                            .into_iter()
-                            .map(|(name, value)| (name.into(), value.into()))
-                            .collect(),
-                    })
-                    .collect(),
-                file: record.file,
-                line: record.line,
-            })
-            .collect()
-    }
+    let executable_name = std::env::args_os()
+        .next()
+        .and_then(|path| {
+            std::path::Path::new(&path)
+                .file_name()
+                .map(|name| name.to_string_lossy().into_owned())
+        })
+        .unwrap_or_else(|| "cloud_terrastodon".into());
+    let app = App::new(executable_name, full_version().to_string())
+        .implementation_github("AAFC-Cloud/Cloud-Terrastodon", implementation_revision);
+    let cli: Cli = app.parse_from(std::env::args_os().skip(1)).unwrap();
+    let enable_egui = matches!(cli.command.as_ref(), Some(CloudTerrastodonCommand::Egui(_)));
+    app.egui_collector(enable_egui)
+        .run_parsed(cli, |cli, context| async move {
+            cli.invoke(&context.cancellation, &context.auth).await
+        })
 }
 
 #[cfg(test)]
@@ -232,16 +67,12 @@ mod tests {
     }
 
     fn rendered_cli_help(arguments: &[&str]) -> String {
-        let config = figue::builder::<Cli>()
-            .expect("CLI schema should be valid")
-            .cli(|cli| cli.args(arguments.iter().copied()).strict())
-            .help(|help| {
-                help.version("test")
-                    .include_implementation_source_file(true)
-                    .include_implementation_github_url("AAFC-Cloud/Cloud-Terrastodon", "test")
-            })
-            .build();
-        match Driver::new(config).run().into_result() {
+        let app = App::new("cloud_terrastodon", "test")
+            .implementation_github("AAFC-Cloud/Cloud-Terrastodon", "test");
+        match app
+            .parse_from::<Cli>(arguments.iter().copied())
+            .into_result()
+        {
             Err(figue::DriverError::Help { text, .. }) => text,
             other => panic!("expected parse-only help, got {other:?}"),
         }

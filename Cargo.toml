@@ -1,6 +1,7 @@
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [workspace]
 members = ["crates/*"]
+exclude = ["examples/standalone-cli"]
 [workspace.package]
 edition = "2024"
 authors = ["TeamDman"]
@@ -171,6 +172,10 @@ path = "./crates/command"
 version = "0.36.0"           # CT_VERSION
 path = "./crates/entrypoint"
 
+[workspace.dependencies.cloud_terrastodon_app]
+version = "0.36.0" # CT_VERSION
+path = "./crates/app"
+
 [workspace.dependencies.cloud_terrastodon_zombies]
 version = "0.36.0"        # CT_VERSION
 path = "./crates/zombies"
@@ -217,12 +222,13 @@ embed-resource = "3.0.6"
 [dependencies]
 # Make the entrypoint optional behind a feature so library users don't pull it in by default
 cloud_terrastodon_entrypoint = { workspace = true, optional = true }
+cloud_terrastodon_app = { workspace = true, optional = true }
 tokio = { workspace = true }
 eyre = { workspace = true }
 color-eyre = { workspace = true }
 tracing-subscriber = { workspace = true }
 tracing = { workspace = true }
-mimalloc = { workspace = true }
+mimalloc = { workspace = true, optional = true }
 tracy-client = { workspace = true, optional = true }
 
 # Optional re-exported crates (enable via features below)
@@ -245,10 +251,20 @@ cloud_terrastodon_ui_egui = { workspace = true, optional = true }
 cloud_terrastodon_credentials = { workspace = true, optional = true }
 cloud_terrastodon_rest = { workspace = true, optional = true }
 
+[dev-dependencies]
+# Figue's attribute expansion needs ::facet in the example crate's extern prelude.
+facet = { workspace = true }
+arbitrary = { workspace = true }
+cloud_terrastodon_app = { workspace = true, features = ["arbitrary"] }
+
 [features]
 default = ["full"]
 # Feature to enable the binary entrypoint wiring
-entrypoint = ["dep:cloud_terrastodon_entrypoint"]
+entrypoint = ["dep:cloud_terrastodon_entrypoint", "dep:mimalloc"]
+# Reusable startup for consumer-owned CLIs; these do not enable our command tree.
+app = ["dep:cloud_terrastodon_app"]
+app-auth = ["app", "cloud_terrastodon_app/auth"]
+app-terminal = ["app", "cloud_terrastodon_app/terminal"]
 # Enable high-frequency instrumentation intended for profiling and diagnosis.
 extended_observability = [
     "entrypoint",
@@ -289,6 +305,7 @@ rest = ["dep:cloud_terrastodon_rest"]
 
 # Convenience feature that enables all re-exports, similar to tokio's `full`.
 full = [
+    "app-auth",
     "pathing",
     "config",
     "azure",
@@ -315,6 +332,11 @@ name = "cloud_terrastodon"
 path = "src/main.rs"
 # Ensure the binary is only built when the 'entrypoint' feature is enabled
 required-features = ["entrypoint"]
+
+[[example]]
+name = "resource_group_list"
+required-features = ["app-auth", "azure"]
+test = true
 
 
 # https://microsoft.github.io/rust-guidelines/guidelines/universal/index.html
@@ -385,5 +407,5 @@ facet-path = { git = "https://github.com/TeamDman/facet.git", rev = "a6101f92fa8
 facet-pretty = { git = "https://github.com/TeamDman/facet.git", rev = "a6101f92fa88ada6dedd80899140577e554bd5d3" }
 facet-reflect = { git = "https://github.com/TeamDman/facet.git", rev = "a6101f92fa88ada6dedd80899140577e554bd5d3" }
 facet-solver = { git = "https://github.com/TeamDman/facet.git", rev = "a6101f92fa88ada6dedd80899140577e554bd5d3" }
-figue = { git = "https://github.com/TeamDman/figue.git", rev = "834293b7bc379f3502767aa6aee06958e99d8bb0" }
-figue-attrs = { git = "https://github.com/TeamDman/figue.git", rev = "834293b7bc379f3502767aa6aee06958e99d8bb0" }
+figue = { git = "https://github.com/TeamDman/figue.git", rev = "40d75efe61299bbf623cb45879f4cd9324159df6" }
+figue-attrs = { git = "https://github.com/TeamDman/figue.git", rev = "40d75efe61299bbf623cb45879f4cd9324159df6" }
