@@ -54,6 +54,81 @@ async fn reflow_by_block_identifier_preserves_comment_only_body() -> eyre::Resul
 }
 
 #[tokio::test]
+async fn reflow_by_block_identifier_splits_terraform_body_by_identifier() -> eyre::Result<()> {
+    let reflowed = apply_reflower(
+        ReflowByBlockIdentifier::default(),
+        [(
+            "main.tf",
+            indoc! {r#"
+                terraform {
+                  custom_setting = true
+
+                  required_version = ">= 1.8.0"
+
+                  backend "azurerm" {
+                    key                  = "state.tfstate"
+                    other                = "last"
+                    container_name       = "statefiles"
+                    resource_group_name  = "terraform-rg"
+                    tenant_id            = "tenant"
+                    storage_account_name = "terraformstate"
+                    subscription_id      = "subscription"
+                  }
+
+                  required_providers {
+                    azurerm = {
+                      source = "hashicorp/azurerm"
+                    }
+                  }
+                }
+            "#},
+        )],
+    )
+    .await?;
+
+    assert_eq!(reflowed.len(), 4);
+    assert!(reflowed.contains_key(&PathBuf::from("terraform.backend.tf")));
+    assert!(reflowed.contains_key(&PathBuf::from("terraform.custom_setting.tf")));
+    assert!(reflowed.contains_key(&PathBuf::from("terraform.required_providers.tf")));
+    assert!(reflowed.contains_key(&PathBuf::from("terraform.required_version.tf")));
+
+    let backend = reflowed
+        .get(&PathBuf::from("terraform.backend.tf"))
+        .unwrap()
+        .to_string();
+    let ordered_attributes = [
+        "tenant_id",
+        "subscription_id",
+        "resource_group_name",
+        "storage_account_name",
+        "container_name",
+        "key",
+        "other",
+    ];
+    let positions = ordered_attributes
+        .iter()
+        .map(|attribute| backend.find(attribute).unwrap())
+        .collect::<Vec<_>>();
+    assert!(positions.windows(2).all(|pair| pair[0] < pair[1]));
+
+    for (path, expected_identifier) in [
+        ("terraform.backend.tf", "backend \"azurerm\""),
+        ("terraform.custom_setting.tf", "custom_setting = true"),
+        ("terraform.required_providers.tf", "required_providers {"),
+        (
+            "terraform.required_version.tf",
+            "required_version = \">= 1.8.0\"",
+        ),
+    ] {
+        let output = reflowed.get(&PathBuf::from(path)).unwrap().to_string();
+        assert!(output.contains("terraform {"));
+        assert!(output.contains(expected_identifier));
+    }
+
+    Ok(())
+}
+
+#[tokio::test]
 async fn reflow_by_block_identifier_co_locates_import_and_moved_above_resource() -> eyre::Result<()>
 {
     let reflowed = apply_reflower(

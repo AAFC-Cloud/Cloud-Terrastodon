@@ -41,6 +41,7 @@ impl ReflowByBlockIdentifier {
 enum NodeKey {
     Terraform {
         path: PathBuf,
+        identifier: Option<String>,
     },
     Provider {
         path: PathBuf,
@@ -76,7 +77,7 @@ enum NodeKey {
 impl NodeKey {
     fn path(&self) -> &PathBuf {
         match self {
-            NodeKey::Terraform { path }
+            NodeKey::Terraform { path, .. }
             | NodeKey::Provider { path }
             | NodeKey::Variable { path, .. }
             | NodeKey::Local { path, .. }
@@ -534,14 +535,14 @@ fn collect_block(
     let source_path = source_path.to_path_buf();
     let sort_key = SortKey::new(source_path.clone(), ordinal);
     match block.ident.as_str() {
-        "terraform" => push_standard_block_node(
-            collected,
-            NodeKind::Terraform,
-            source_path,
-            source_content,
-            sort_key,
-            block,
-        ),
+        "terraform" => {
+            for terraform_node in
+                split_terraform_block(source_path, source_content, sort_key, block)
+            {
+                collected.push_node(terraform_node)?;
+            }
+            Ok(())
+        }
         "provider" => push_standard_block_node(
             collected,
             NodeKind::Provider,
@@ -752,10 +753,151 @@ fn split_locals_block(
         .collect()
 }
 
+fn split_terraform_block(
+    source_path: PathBuf,
+    source_content: &str,
+    sort_key: SortKey,
+    block: Block,
+) -> Vec<Node> {
+    let Some(dir) = source_path.parent() else {
+        return Vec::new();
+    };
+
+    let original_block = block.clone();
+    let source_location = block_location(&source_path, source_content, &original_block);
+    let body_decor = block.body.decor().clone();
+    let structures = block.body.into_iter().collect::<Vec<_>>();
+
+    if structures.is_empty() {
+        return vec![Node {
+            key: NodeKey::Terraform {
+                path: dir.join("terraform.tf"),
+                identifier: None,
+            },
+            kind: NodeKind::Terraform,
+            source_path: source_path.clone(),
+            source_location,
+            sort_key,
+            deps: HashSet::new(),
+            resource_parent: None,
+            payload: NodePayload::Structure(Structure::Block(original_block)),
+        }];
+    }
+
+    structures
+        .into_iter()
+        .enumerate()
+        .map(|(index, structure)| {
+            let structure = normalize_terraform_structure(structure);
+            let identifier = terraform_structure_identifier(&structure);
+            let key = NodeKey::Terraform {
+                path: dir.join(format!("terraform.{identifier}.tf")),
+                identifier: Some(identifier),
+            };
+            let mut terraform_block = original_block.clone();
+            if index > 0 {
+                *terraform_block.decor_mut() = Decor::default();
+            }
+
+            let mut body = Body::new();
+            if index == 0 {
+                body.decorate(body_decor.clone());
+            }
+            body.push(structure);
+            terraform_block.body = body;
+
+            Node {
+                key,
+                kind: NodeKind::Terraform,
+                source_path: source_path.clone(),
+                source_location: source_location.clone(),
+                sort_key: SortKey::new(sort_key.path.clone(), sort_key.ordinal + index),
+                deps: HashSet::new(),
+                resource_parent: None,
+                payload: NodePayload::Block(BlockPayload {
+                    block: terraform_block,
+                    imports: Vec::new(),
+                    moved: Vec::new(),
+                }),
+            }
+        })
+        .collect()
+}
+
+fn terraform_structure_identifier(structure: &Structure) -> String {
+    match structure {
+        Structure::Attribute(attribute) => attribute.key.as_str().to_owned(),
+        Structure::Block(block) => block.ident.as_str().to_owned(),
+    }
+}
+
+fn normalize_terraform_structure(structure: Structure) -> Structure {
+    let Structure::Block(mut block) = structure else {
+        return structure;
+    };
+
+    if block.ident.as_str() == "backend" && block.has_exact_labels(&["azurerm"]) {
+        reorder_azurerm_backend_attributes(&mut block);
+    }
+
+    Structure::Block(block)
+}
+
+fn reorder_azurerm_backend_attributes(block: &mut Block) {
+    let body_decor = block.body.decor().clone();
+    let mut structures = block.body.clone().into_iter().collect::<Vec<_>>();
+    let original_positions = structures
+        .iter()
+        .enumerate()
+        .map(|(position, structure)| (structure_identifier(structure), position))
+        .collect::<HashMap<_, _>>();
+
+    structures.sort_by_key(|structure| {
+        (
+            azurerm_backend_attribute_priority(structure),
+            original_positions
+                .get(&structure_identifier(structure))
+                .copied()
+                .unwrap_or_default(),
+        )
+    });
+
+    let mut body = Body::new();
+    body.decorate(body_decor);
+    for structure in structures {
+        body.push(structure);
+    }
+    block.body = body;
+}
+
+fn structure_identifier(structure: &Structure) -> String {
+    match structure {
+        Structure::Attribute(attribute) => attribute.key.as_str().to_owned(),
+        Structure::Block(block) => block.ident.as_str().to_owned(),
+    }
+}
+
+fn azurerm_backend_attribute_priority(structure: &Structure) -> usize {
+    let Structure::Attribute(attribute) = structure else {
+        return 6;
+    };
+
+    match attribute.key.as_str() {
+        "tenant_id" => 0,
+        "subscription_id" => 1,
+        "resource_group_name" => 2,
+        "storage_account_name" => 3,
+        "container_name" => 4,
+        "key" => 5,
+        _ => 6,
+    }
+}
+
 fn node_key_from_block(dir: &Path, block: &Block, kind: NodeKind, ordinal: usize) -> NodeKey {
     match kind {
         NodeKind::Terraform => NodeKey::Terraform {
             path: dir.join("terraform.tf"),
+            identifier: None,
         },
         NodeKind::Provider => NodeKey::Provider {
             path: provider_path(dir, block),

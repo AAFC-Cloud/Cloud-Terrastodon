@@ -5,7 +5,8 @@
 //!
 //! ## Terraform blocks
 //!
-//! There can only be one `terraform` block, and it must live in `terraform.tf`.
+//! Each top-level attribute or block inside a `terraform` block is placed in a
+//! wrapper block named `terraform.{identifier}.tf`.
 //!
 //! ## Provider blocks
 //!
