@@ -1,5 +1,6 @@
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
+use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemId;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_test_suite_cases;
 use cloud_terrastodon_command::to_writer_pretty;
 use cloud_terrastodon_credentials::AuthContext;
@@ -33,6 +34,7 @@ pub struct AzureDevOpsTestSuiteCaseShowArgs {
 
 impl AzureDevOpsTestSuiteCaseShowArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+        let case_id = self.case.parse::<AzureDevOpsWorkItemId>().ok();
         let org_url =
             crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?;
         let azure_devops_auth_context = AzureDevOpsAuthContext::new(auth_context)?;
@@ -50,11 +52,7 @@ impl AzureDevOpsTestSuiteCaseShowArgs {
                 .as_ref()
                 .map(|n| n == &self.case)
                 .unwrap_or(false)
-                || c.test_case
-                    .id
-                    .as_ref()
-                    .map(|id| id == &self.case)
-                    .unwrap_or(false)
+                || case_id.is_some_and(|id| c.test_case.id == Some(id))
         }) {
             to_writer_pretty(stdout(), &case)?;
             Ok(())

@@ -998,6 +998,7 @@ dependencies = [
  "eyre",
  "facet",
  "facet-json",
+ "facet-reflect",
  "iso8601-duration",
  "itertools",
  "linkme",
@@ -1005,6 +1006,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "unicode_categories",
+ "url",
  "uuid",
 ]
 
@@ -2364,6 +2366,7 @@ dependencies = [
  "impls",
  "indexmap 2.14.0",
  "taxon",
+ "url",
  "uuid",
 ]
 

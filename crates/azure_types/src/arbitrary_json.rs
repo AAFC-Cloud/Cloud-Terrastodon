@@ -10,6 +10,12 @@ impl ArbitraryJson {
     pub fn object() -> Self {
         Self(RawJson::from_owned("{}".to_string()))
     }
+
+    /// Serializes a Facet value into the raw JSON representation used by
+    /// Azure API payloads.
+    pub fn try_from_facet<T: facet::Facet<'static>>(value: &T) -> eyre::Result<Self> {
+        Ok(facet_json::RawJson::from_owned(facet_json::to_string(value)?).into())
+    }
 }
 
 impl<'a> Arbitrary<'a> for ArbitraryJson {

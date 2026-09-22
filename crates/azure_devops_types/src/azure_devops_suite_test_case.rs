@@ -1,4 +1,5 @@
 use super::azure_devops_test_plan::AzureDevOpsTestPlanIdentityRef;
+use crate::AzureDevOpsTestCaseWorkItemReference;
 use crate::AzureDevOpsTestPlanShallowReference;
 use arbitrary::Arbitrary;
 
@@ -6,17 +7,6 @@ use arbitrary::Arbitrary;
 pub struct AzureDevOpsTestCasePointAssignment {
     pub configuration: Option<AzureDevOpsTestPlanShallowReference>,
     pub tester: Option<AzureDevOpsTestPlanIdentityRef>,
-}
-
-#[derive(Debug, Eq, PartialEq, Clone, Arbitrary, facet::Facet)]
-pub struct AzureDevOpsTestCaseWorkItemReference {
-    pub id: Option<String>,
-    pub name: Option<String>,
-    #[facet(rename = "type")]
-    pub wtype: Option<String>,
-    pub url: Option<String>,
-    #[facet(rename = "webUrl")]
-    pub web_url: Option<String>,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Arbitrary, facet::Facet)]

@@ -10,7 +10,7 @@ pub mod repo;
 pub mod service_endpoint;
 pub mod team;
 pub mod test;
-pub mod work_item_query;
+pub mod work_item;
 
 use crate::cli::azure_devops::azure_devops_command_cli::AzureDevOpsCommand;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;

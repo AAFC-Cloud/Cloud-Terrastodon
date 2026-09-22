@@ -1,53 +1,11 @@
 use crate::AzureDevOpsProject;
+use crate::AzureDevOpsRepoId;
 use cloud_terrastodon_hcl_types::AzureDevOpsResourceBlockKind;
 use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
 use facet_json::RawJson;
-use std::ops::Deref;
-use std::str::FromStr;
-use uuid::Uuid;
-
-#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
-#[facet(json::proxy = String)]
-pub struct AzureDevOpsRepoId(Uuid);
-impl Deref for AzureDevOpsRepoId {
-    type Target = Uuid;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl AzureDevOpsRepoId {
-    pub fn new(uuid: Uuid) -> AzureDevOpsRepoId {
-        AzureDevOpsRepoId(uuid)
-    }
-}
-
-impl From<&AzureDevOpsRepoId> for String {
-    fn from(value: &AzureDevOpsRepoId) -> Self {
-        value.0.to_string()
-    }
-}
-
-impl TryFrom<String> for AzureDevOpsRepoId {
-    type Error = eyre::Error;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        value.parse()
-    }
-}
-
-impl FromStr for AzureDevOpsRepoId {
-    type Err = eyre::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let uuid = Uuid::parse_str(s)?;
-        Ok(AzureDevOpsRepoId::new(uuid))
-    }
-}
 
 #[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
 #[facet(rename_all = "camelCase")]

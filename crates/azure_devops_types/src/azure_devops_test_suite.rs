@@ -1,5 +1,6 @@
 use super::azure_devops_test_plan::AzureDevOpsTestPlanIdentityRef;
 use super::azure_devops_test_plan::AzureDevOpsTestPlanShallowReference;
+use crate::AzureDevOpsWorkItemId;
 use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
@@ -23,7 +24,7 @@ pub struct AzureDevOpsTestSuite {
     pub plan: Option<AzureDevOpsTestPlanShallowReference>,
     pub project: Option<AzureDevOpsTestPlanShallowReference>,
     pub query_string: Option<String>,
-    pub requirement_id: Option<u32>,
+    pub requirement_id: Option<AzureDevOpsWorkItemId>,
     pub revision: Option<u32>,
     pub state: Option<String>,
     pub suite_type: Option<String>,

@@ -85,6 +85,7 @@ eyre = "0.6.12"
 color-eyre = "0.6.3"
 bstr = "1.11.3"
 reqwest = { version = "0.12.22", features = ["json"] }
+url = "2.5.8"
 base64 = "0.22.1"
 sha2 = "0.10.9"
 async-trait = "0.1.88"
@@ -108,7 +109,7 @@ eframe = { version = "0.33.0", features = ["persistence"] }
 egui_extras = { version = "0.33.0", features = ["default", "image"] }
 egui-toast = "0.19.1"
 egui_tiles = "0.14.1"
-facet = { version = "=0.50.0-rc.7", features = ["uuid", "compact_str", "chrono", "net", "indexmap", "bstr"] }
+facet = { version = "=0.50.0-rc.7", features = ["uuid", "compact_str", "chrono", "net", "url", "indexmap", "bstr"] }
 facet-json = { version = "=0.50.0-rc.7", features = ["net"] }
 facet-reflect = "=0.50.0-rc.7"
 facet-pretty = "=0.50.0-rc.7"

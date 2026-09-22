@@ -8,7 +8,7 @@ use crate::cli::azure_devops::repo::AzureDevOpsRepoArgs;
 use crate::cli::azure_devops::service_endpoint::AzureDevOpsServiceEndpointArgs;
 use crate::cli::azure_devops::team::AzureDevOpsTeamArgs;
 use crate::cli::azure_devops::test::AzureDevOpsTestArgs;
-use crate::cli::azure_devops::work_item_query::AzureDevOpsWorkItemQueryArgs;
+use crate::cli::azure_devops::work_item::AzureDevOpsWorkItemArgs;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -34,8 +34,8 @@ pub enum AzureDevOpsCommand {
     LicenseEntitlement(AzureDevOpsLicenseEntitlementArgs),
     /// Agent-related operations (e.g. package list).
     Agent(AzureDevOpsAgentArgs),
-    /// Work item query operations.
-    Query(AzureDevOpsWorkItemQueryArgs),
+    /// Work items, queries, fields, and relations.
+    WorkItem(AzureDevOpsWorkItemArgs),
     /// Test-related commands (e.g. test plan subcommands).
     Test(AzureDevOpsTestArgs),
 }
@@ -52,7 +52,7 @@ impl AzureDevOpsCommand {
             AzureDevOpsCommand::ServiceEndpoint(args) => args.invoke().await?,
             AzureDevOpsCommand::LicenseEntitlement(args) => args.invoke(auth_context).await?,
             AzureDevOpsCommand::Agent(args) => args.invoke(auth_context).await?,
-            AzureDevOpsCommand::Query(args) => args.invoke(auth_context).await?,
+            AzureDevOpsCommand::WorkItem(args) => args.invoke(auth_context).await?,
             AzureDevOpsCommand::Test(args) => args.invoke(auth_context).await?,
         }
 

@@ -1,57 +1,11 @@
+use crate::AzureDevOpsWorkItemQueryFlattenedHierarchyEntry;
+use crate::AzureDevOpsWorkItemQueryId;
 use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
 use cloud_terrastodon_azure_types::ArbitraryJson;
 use std::collections::VecDeque;
-use std::ops::Deref;
-use std::str::FromStr;
-use uuid::Uuid;
 
-#[derive(Debug, Eq, PartialEq, Clone, Hash, Arbitrary, facet::Facet)]
-#[facet(json::proxy = String)]
-#[facet(transparent)]
-pub struct AzureDevOpsWorkItemQueryId(Uuid);
-impl std::fmt::Display for AzureDevOpsWorkItemQueryId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-impl Deref for AzureDevOpsWorkItemQueryId {
-    type Target = Uuid;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl AzureDevOpsWorkItemQueryId {
-    pub fn new(uuid: Uuid) -> AzureDevOpsWorkItemQueryId {
-        AzureDevOpsWorkItemQueryId(uuid)
-    }
-}
-
-impl From<&AzureDevOpsWorkItemQueryId> for String {
-    fn from(value: &AzureDevOpsWorkItemQueryId) -> Self {
-        value.to_string()
-    }
-}
-
-impl TryFrom<String> for AzureDevOpsWorkItemQueryId {
-    type Error = eyre::Error;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        value.parse()
-    }
-}
-
-impl FromStr for AzureDevOpsWorkItemQueryId {
-    type Err = eyre::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let uuid = Uuid::parse_str(s)?;
-        Ok(AzureDevOpsWorkItemQueryId::new(uuid))
-    }
-}
 /// Also known as: QueryHierarchyItem
 #[derive(Debug, Clone, facet::Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
@@ -74,11 +28,8 @@ pub struct AzureDevOpsWorkItemQuery {
     pub name: String,
     pub path: String,
     pub url: String,
-}
-
-pub struct AzureDevOpsWorkItemQueryFlattenedHierarchyEntry<'a> {
-    pub parents: Vec<&'a AzureDevOpsWorkItemQuery>,
-    pub child: &'a AzureDevOpsWorkItemQuery,
+    pub wiql: Option<String>,
+    pub query_type: Option<crate::QueryType>,
 }
 
 impl AzureDevOpsWorkItemQuery {
@@ -110,8 +61,6 @@ impl AzureDevOpsWorkItemQuery {
     }
 }
 
-cloud_terrastodon_registry::register_thing!(AzureDevOpsWorkItemQueryId);
-cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsWorkItemQueryId);
 cloud_terrastodon_registry::register_thing!(AzureDevOpsWorkItemQuery);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsWorkItemQuery);
 cloud_terrastodon_registry::register_arbitrary!(Vec<AzureDevOpsWorkItemQuery>);

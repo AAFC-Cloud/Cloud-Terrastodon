@@ -25,6 +25,19 @@ impl RequestHeaderValues {
 pub struct RequestHeaders(BTreeMap<String, RequestHeaderValues>);
 
 impl RequestHeaders {
+    /// Builds a header collection containing one validated header.
+    pub fn from_header(name: impl Into<String>, value: impl Into<String>) -> Result<Self> {
+        let name = name.into();
+        let value = value.into();
+        HeaderName::try_from(name.as_str())
+            .wrap_err_with(|| format!("Invalid header name {name:?}"))?;
+        HeaderValue::try_from(value.as_str())
+            .wrap_err_with(|| format!("Invalid value for header {name:?}"))?;
+        let mut parsed = Self(BTreeMap::new());
+        parsed.append(name, value);
+        Ok(parsed)
+    }
+
     pub fn from_json_str(headers: &str) -> Result<Self> {
         let raw_headers = facet_json::from_str::<BTreeMap<String, RawJson<'static>>>(headers)
             .map_err(|error| eyre::eyre!("{error:?}"))
@@ -153,6 +166,16 @@ mod tests {
                 .unwrap();
         let headers = headers.to_header_map()?;
         assert_eq!(headers.get("content-type").unwrap(), "application/json");
+        Ok(())
+    }
+
+    #[test]
+    fn builds_a_single_header() -> eyre::Result<()> {
+        let headers = RequestHeaders::from_header("Content-Type", "application/json-patch+json")?;
+        assert_eq!(
+            headers.to_header_map()?.get("content-type").unwrap(),
+            "application/json-patch+json"
+        );
         Ok(())
     }
 

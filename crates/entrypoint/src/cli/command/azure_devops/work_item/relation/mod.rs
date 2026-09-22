@@ -1,0 +1,12 @@
+mod azure_devops_work_item_relation_cli;
+mod azure_devops_work_item_relation_target_cli;
+mod azure_devops_work_item_relation_write_cli;
+pub mod create;
+pub mod list;
+pub mod remove;
+pub mod show;
+pub mod r#type;
+pub mod update;
+pub use azure_devops_work_item_relation_cli::*;
+pub use azure_devops_work_item_relation_target_cli::*;
+pub use azure_devops_work_item_relation_write_cli::*;
