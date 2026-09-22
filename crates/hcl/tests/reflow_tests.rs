@@ -562,6 +562,32 @@ async fn reflow_by_block_identifier_splits_and_preserves_locals_comments() -> ey
 }
 
 #[tokio::test]
+async fn reflow_by_block_identifier_does_not_keep_blank_line_before_split_local() -> eyre::Result<()>
+{
+    let reflowed = apply_reflower(
+        ReflowByBlockIdentifier::default(),
+        [(
+            "main.tf",
+            indoc! {r#"
+                locals {
+                  a = 4
+                  b = 5
+                }
+            "#},
+        )],
+    )
+    .await?;
+
+    assert_eq!(reflowed.len(), 2);
+    for (path, local) in [("local.a.tf", "a = 4"), ("local.b.tf", "b = 5")] {
+        let output = reflowed.get(&PathBuf::from(path)).unwrap().to_string();
+        assert!(output.contains(&format!("locals {{\n  {local}")));
+        assert!(!output.contains("locals {\n\n"));
+    }
+    Ok(())
+}
+
+#[tokio::test]
 async fn reflow_by_block_identifier_default_flat_keeps_support_blocks_separate() -> eyre::Result<()>
 {
     let reflowed = apply_reflower(
