@@ -147,6 +147,11 @@ fn an_early_error_report_does_not_prevent_runner_startup() {
     assert_success(&subprocess("early_error_report"));
 }
 
+#[test]
+fn a_preinstalled_error_hook_does_not_reinitialize_color_spantrace() {
+    assert_success(&subprocess("preinstalled_error_hook"));
+}
+
 /// Only the subprocess selected by PROBE_MODE performs process-global startup.
 #[test]
 fn runner_process_probe() {
@@ -196,6 +201,11 @@ fn runner_process_probe() {
             // This is what a fallible argument parser can do before the app
             // has had a chance to install color-eyre's richer hook.
             let _ = eyre::eyre!("an early parse error");
+            run_handler_probe("success");
+        }
+        "preinstalled_error_hook" => {
+            cloud_terrastodon_app::install_error_hook()
+                .expect("the preinstalled error hook should initialize");
             run_handler_probe("success");
         }
         "second_run" => {

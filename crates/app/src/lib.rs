@@ -31,8 +31,12 @@ pub use cloud_terrastodon_credentials::{AuthContext, AuthSource};
 use std::ffi::OsString;
 use std::future::Future;
 use std::str::FromStr;
+use std::sync::Arc;
+use std::sync::OnceLock;
 use tracing::Instrument;
 use tracing_subscriber::filter::Directive;
+
+static PANIC_HOOK: OnceLock<Arc<color_eyre::config::PanicHook>> = OnceLock::new();
 
 /// The consumer owns its root schema and command dispatch.
 ///
@@ -140,11 +144,7 @@ impl App {
         F: FnOnce(C, AppContext) -> Fut,
         Fut: Future<Output = Result<()>>,
     {
-        // We want to set the error hook as soon as possible
-        // It's okay if we install multiple times since we are ignoring the errors
-        let (_panic_hook, error_hook) = color_eyre::config::HookBuilder::default().try_into_hooks()?;
-        _ = error_hook.install();
-
+        install_error_hook()?;
         let cli = self.parse_from(std::env::args_os().skip(1)).unwrap();
         self.run_parsed(cli, invoke)
     }
@@ -159,31 +159,13 @@ impl App {
         F: FnOnce(C, AppContext) -> Fut,
         Fut: Future<Output = Result<()>>,
     {
-        let (panic_hook, error_hook) = color_eyre::config::HookBuilder::default().try_into_hooks()?;
-        _ = error_hook.install();
-
         eyre::ensure!(
             tokio::runtime::Handle::try_current().is_err(),
             "App::run must be called from synchronous main, outside a Tokio runtime"
         );
         let globals = cli.global_args();
         let debug = globals.debug;
-
-        std::panic::set_hook(Box::new(move |info| {
-            use std::io::Write;
-
-            let mut stderr = std::io::stderr().lock();
-            // A broken stderr must not cause another panic inside a panic hook.
-            let _ = writeln!(stderr, "{}", panic_hook.panic_report(info));
-            if debug {
-                // Environment mutation is unsafe once any host thread exists.
-                let _ = writeln!(
-                    stderr,
-                    "\nDebug backtrace:\n{}",
-                    std::backtrace::Backtrace::force_capture()
-                );
-            }
-        }));
+        install_panic_hook(debug)?;
 
         let (log_filter, file_filter) = logging_filters(globals)?;
 
@@ -246,6 +228,51 @@ fn logging_filters(globals: &GlobalArgs) -> Result<(Directive, Option<Directive>
         .map(Directive::from_str)
         .transpose()?;
     Ok((console, file))
+}
+
+/// Install the process-global eyre error hook before parsing arguments.
+///
+/// The panic hook is retained for installation after parsing determines the
+/// debug setting. `HookBuilder::try_into_hooks` also initializes color-spantrace
+/// globally, so the pair must be built only once even though installing the
+/// eyre hook itself is safe to retry and its error is intentionally ignored.
+pub fn install_error_hook() -> Result<()> {
+    let _ = panic_hook()?;
+    Ok(())
+}
+
+fn panic_hook() -> Result<Arc<color_eyre::config::PanicHook>> {
+    if let Some(panic_hook) = PANIC_HOOK.get() {
+        return Ok(Arc::clone(panic_hook));
+    }
+
+    let (panic_hook, error_hook) = color_eyre::config::HookBuilder::default().try_into_hooks()?;
+    let _ = error_hook.install();
+    let panic_hook = Arc::new(panic_hook);
+    let _ = PANIC_HOOK.set(Arc::clone(&panic_hook));
+    Ok(panic_hook)
+}
+
+fn install_panic_hook(debug: bool) -> Result<()> {
+    let panic_hook = panic_hook()?;
+    // `set_hook` replaces the process hook, so no separate installed guard is
+    // needed. Reinstalling captures the debug setting for this parsed CLI.
+    std::panic::set_hook(Box::new(move |info| {
+        use std::io::Write;
+
+        let mut stderr = std::io::stderr().lock();
+        // A broken stderr must not cause another panic inside a panic hook.
+        let _ = writeln!(stderr, "{}", panic_hook.panic_report(info));
+        if debug {
+            // Environment mutation is unsafe once any host thread exists.
+            let _ = writeln!(
+                stderr,
+                "\nDebug backtrace:\n{}",
+                std::backtrace::Backtrace::force_capture()
+            );
+        }
+    }));
+    Ok(())
 }
 
 struct CancelOnDrop(CancellationToken);
