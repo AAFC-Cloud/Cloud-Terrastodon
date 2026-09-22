@@ -142,6 +142,11 @@ fn invalid_parse_outcomes_do_not_occupy_the_process_error_hook() {
     assert_success(&subprocess("parse_then_run"));
 }
 
+#[test]
+fn an_early_error_report_does_not_prevent_runner_startup() {
+    assert_success(&subprocess("early_error_report"));
+}
+
 /// Only the subprocess selected by PROBE_MODE performs process-global startup.
 #[test]
 fn runner_process_probe() {
@@ -185,6 +190,12 @@ fn runner_process_probe() {
                     .into_result(),
                 Err(figue::DriverError::Builder { .. })
             ));
+            run_handler_probe("success");
+        }
+        "early_error_report" => {
+            // This is what a fallible argument parser can do before the app
+            // has had a chance to install color-eyre's richer hook.
+            let _ = eyre::eyre!("an early parse error");
             run_handler_probe("success");
         }
         "second_run" => {

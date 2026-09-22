@@ -140,6 +140,11 @@ impl App {
         F: FnOnce(C, AppContext) -> Fut,
         Fut: Future<Output = Result<()>>,
     {
+        // We want to set the error hook as soon as possible
+        // It's okay if we install multiple times since we are ignoring the errors
+        let (_panic_hook, error_hook) = color_eyre::config::HookBuilder::default().try_into_hooks()?;
+        _ = error_hook.install();
+
         let cli = self.parse_from(std::env::args_os().skip(1)).unwrap();
         self.run_parsed(cli, invoke)
     }
@@ -154,13 +159,32 @@ impl App {
         F: FnOnce(C, AppContext) -> Fut,
         Fut: Future<Output = Result<()>>,
     {
+        let (panic_hook, error_hook) = color_eyre::config::HookBuilder::default().try_into_hooks()?;
+        _ = error_hook.install();
+
         eyre::ensure!(
             tokio::runtime::Handle::try_current().is_err(),
             "App::run must be called from synchronous main, outside a Tokio runtime"
         );
         let globals = cli.global_args();
         let debug = globals.debug;
-        install_error_reporting(debug)?;
+
+        std::panic::set_hook(Box::new(move |info| {
+            use std::io::Write;
+
+            let mut stderr = std::io::stderr().lock();
+            // A broken stderr must not cause another panic inside a panic hook.
+            let _ = writeln!(stderr, "{}", panic_hook.panic_report(info));
+            if debug {
+                // Environment mutation is unsafe once any host thread exists.
+                let _ = writeln!(
+                    stderr,
+                    "\nDebug backtrace:\n{}",
+                    std::backtrace::Backtrace::force_capture()
+                );
+            }
+        }));
+
         let (log_filter, file_filter) = logging_filters(globals)?;
 
         #[cfg(feature = "auth")]
@@ -222,27 +246,6 @@ fn logging_filters(globals: &GlobalArgs) -> Result<(Directive, Option<Directive>
         .map(Directive::from_str)
         .transpose()?;
     Ok((console, file))
-}
-
-fn install_error_reporting(debug: bool) -> Result<()> {
-    use std::io::Write;
-
-    let (panic_hook, error_hook) = color_eyre::config::HookBuilder::default().try_into_hooks()?;
-    error_hook.install()?;
-    std::panic::set_hook(Box::new(move |info| {
-        let mut stderr = std::io::stderr().lock();
-        // A broken stderr must not cause another panic inside a panic hook.
-        let _ = writeln!(stderr, "{}", panic_hook.panic_report(info));
-        if debug {
-            // Environment mutation is unsafe once any host thread exists.
-            let _ = writeln!(
-                stderr,
-                "\nDebug backtrace:\n{}",
-                std::backtrace::Backtrace::force_capture()
-            );
-        }
-    }));
-    Ok(())
 }
 
 struct CancelOnDrop(CancellationToken);

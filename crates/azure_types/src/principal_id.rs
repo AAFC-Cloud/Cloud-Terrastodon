@@ -39,7 +39,7 @@ impl std::fmt::Display for PrincipalId {
 }
 
 impl std::str::FromStr for PrincipalId {
-    type Err = eyre::Error;
+    type Err = uuid::Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(Self::new(Uuid::parse_str(s)?))
     }

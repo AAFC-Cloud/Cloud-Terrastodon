@@ -15,6 +15,10 @@ pub fn entrypoint(
     git_rev: GitRevision,
     build_timestamp: BuildTimestamp,
 ) -> Result<()> {
+    let (_panic_hook, error_hook) = color_eyre::config::HookBuilder::default().try_into_hooks()?;
+    // Any eyre reports constructed before this call will install the default eyre hook instead
+    _ = error_hook.install();
+    
     let implementation_revision = git_rev.to_string();
     set_git_revision(git_rev);
     set_build_timestamp(build_timestamp);
