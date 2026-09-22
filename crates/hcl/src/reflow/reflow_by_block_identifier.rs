@@ -713,7 +713,7 @@ fn split_locals_block(
     attrs
         .into_iter()
         .enumerate()
-        .map(|(index, attr)| {
+        .map(|(index, mut attr)| {
             let name = attr.key.as_str().to_owned();
             let key = NodeKey::Local {
                 path: dir.join(format!("local.{}.tf", name)),
@@ -727,6 +727,7 @@ fn split_locals_block(
             if index == 0 {
                 body.decorate(body_decor.clone());
             }
+            normalize_split_structure_prefix(&mut attr);
             body.push(attr);
             local_block.body = body;
 
@@ -788,7 +789,8 @@ fn split_terraform_block(
         .into_iter()
         .enumerate()
         .map(|(index, structure)| {
-            let structure = normalize_terraform_structure(structure);
+            let mut structure = normalize_terraform_structure(structure);
+            normalize_split_structure_prefix(&mut structure);
             let identifier = terraform_structure_identifier(&structure);
             let key = NodeKey::Terraform {
                 path: dir.join(format!("terraform.{identifier}.tf")),
@@ -822,6 +824,16 @@ fn split_terraform_block(
             }
         })
         .collect()
+}
+
+fn normalize_split_structure_prefix<T: Decorate>(structure: &mut T) {
+    if structure
+        .decor()
+        .prefix()
+        .is_some_and(|prefix| prefix.trim().is_empty())
+    {
+        structure.decor_mut().set_prefix("  ");
+    }
 }
 
 fn terraform_structure_identifier(structure: &Structure) -> String {

@@ -123,6 +123,42 @@ async fn reflow_by_block_identifier_splits_terraform_body_by_identifier() -> eyr
         let output = reflowed.get(&PathBuf::from(path)).unwrap().to_string();
         assert!(output.contains("terraform {"));
         assert!(output.contains(expected_identifier));
+        assert!(!output.contains("terraform {\n\n"));
+    }
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn reflow_by_block_identifier_does_not_keep_blank_line_before_split_terraform_block()
+-> eyre::Result<()> {
+    let reflowed = apply_reflower(
+        ReflowByBlockIdentifier::default(),
+        [(
+            "terraform.tf",
+            indoc! {r#"
+                terraform {
+                  required_version = ">= 1.8.0"
+
+                  backend "azurerm" {
+                    key = "state.tfstate"
+                  }
+
+                  required_providers {
+                    azurerm = {
+                      source = "hashicorp/azurerm"
+                    }
+                  }
+                }
+            "#},
+        )],
+    )
+    .await?;
+
+    for path in ["terraform.backend.tf", "terraform.required_providers.tf"] {
+        let output = reflowed.get(&PathBuf::from(path)).unwrap().to_string();
+        assert!(output.contains("terraform {\n  "));
+        assert!(!output.contains("terraform {\n\n"));
     }
 
     Ok(())
