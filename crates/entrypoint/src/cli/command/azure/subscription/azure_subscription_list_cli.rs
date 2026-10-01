@@ -1,3 +1,4 @@
+use super::error_summary;
 use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_azure::AzureTenantAlias;
 use cloud_terrastodon_azure::AzureTenantArgument;
@@ -16,7 +17,7 @@ use eyre::Result;
 use std::fmt::Write;
 use std::future::Future;
 use tokio::task::JoinSet;
-use tracing::info;
+use tracing::debug;
 
 const MAX_CONCURRENT_TENANTS: usize = 4;
 
@@ -34,7 +35,7 @@ struct TenantSubscriptions {
     tenant_name: Option<String>,
     tenant_aliases: Vec<AzureTenantAlias>,
     subscriptions: Vec<ListedSubscription>,
-    /// Subscription or authentication failure; an empty successful tenant has no error.
+    /// Concise subscription/authentication failure; empty successful tenants have no error.
     error: Option<String>,
     /// Name/alias lookups may fail without preventing subscription enumeration.
     metadata_errors: Vec<String>,
@@ -63,7 +64,7 @@ impl AzureSubscriptionListArgs {
             }
             None => list_tracked_tenants().await?,
         };
-        info!(
+        debug!(
             count = tenant_ids.len(),
             "Fetching subscriptions across Azure tenants"
         );
@@ -146,7 +147,11 @@ fn tenant_output(
     let mut tenant_aliases = match aliases {
         Ok(aliases) => aliases,
         Err(error) => {
-            metadata_errors.push(format!("Tenant aliases unavailable: {error:#}"));
+            debug!(error = ?error, %tenant_id, "Tenant aliases lookup failed");
+            metadata_errors.push(format!(
+                "Tenant aliases unavailable: {}",
+                error_summary::summarize(&error)
+            ));
             Vec::new()
         }
     };
@@ -155,13 +160,20 @@ fn tenant_output(
     let tenant_name = match name {
         Ok(name) => name,
         Err(error) => {
-            metadata_errors.push(format!("Tenant name unavailable: {error:#}"));
+            debug!(error = ?error, %tenant_id, "Tenant name lookup failed");
+            metadata_errors.push(format!(
+                "Tenant name unavailable: {}",
+                error_summary::summarize(&error)
+            ));
             None
         }
     };
     let (mut subscriptions, error) = match subscriptions {
         Ok(subscriptions) => (subscriptions, None),
-        Err(error) => (Vec::new(), Some(format!("{error:#}"))),
+        Err(error) => {
+            debug!(error = ?error, %tenant_id, "Subscription lookup failed");
+            (Vec::new(), Some(error_summary::summarize(&error)))
+        }
     };
     subscriptions.sort_by(|left, right| {
         left.name
@@ -234,6 +246,13 @@ impl SubscriptionListOutput {
                 writeln!(output, "Tenant {name}  {id}  aliases: {aliases}")?;
             }
             for error in &tenant.metadata_errors {
+                // The name and subscriptions may both fail on the same token.
+                // The header already identifies the missing name.
+                if error.strip_prefix("Tenant name unavailable: ") == tenant.error.as_deref()
+                    && tenant.error.is_some()
+                {
+                    continue;
+                }
                 let error = terminal_text(error);
                 let error = if terminal {
                     error.yellow().to_string()
@@ -454,6 +473,80 @@ mod tests {
         assert!(tenant.error.is_none());
         assert!(tenant.tenant_name.is_none());
         assert_eq!(tenant.metadata_errors.len(), 2);
+        let text = SubscriptionListOutput(vec![tenant])
+            .render_text(false)
+            .unwrap();
+        assert!(text.contains("Tenant aliases unavailable: aliases file unreadable"));
+        assert!(text.contains("Tenant name unavailable: Graph access denied"));
+        assert!(text.contains("Production"));
+    }
+
+    #[test]
+    fn repeated_cli_auth_failures_show_one_concise_message_and_keep_json_errors_usable() {
+        fn cli_error(context: &str) -> eyre::Report {
+            eyre::Report::new(cloud_terrastodon_command::CommandOutput {
+                status: 1,
+                stdout: "".into(),
+                stderr: concat!(
+                    "DEBUG: cli.knack.cli: synthetic command arguments\n",
+                    "DEBUG: cli.azure.cli.core.azclierror: Traceback (most recent call last):\n",
+                    "  File synthetic.py, line 42\n",
+                    "ERROR: cli.azure.cli.core.azclierror: No subscription found. Run 'az account set' to select a subscription.\n",
+                    "ERROR: az_command_data_logger: No subscription found. Run 'az account set' to select a subscription.\n",
+                    "INFO: cli.__main__: synthetic command finished\n",
+                ).into(),
+            }).wrap_err(context.to_owned())
+        }
+
+        let tenant = tenant_output(
+            "11111111-1111-1111-1111-111111111111".parse().unwrap(),
+            Ok(vec!["example".parse().unwrap()]),
+            Err(cli_error("Fetching synthetic Graph name failed")),
+            Err(cli_error("Fetching synthetic ARM subscriptions failed")),
+        );
+        let output = SubscriptionListOutput(vec![tenant]).into_cli_output();
+        let message = "No subscription found. Run 'az account set' to select a subscription.";
+        for terminal in [true, false] {
+            let text = output
+                .render(Some(OutputFormat::Text), terminal)
+                .unwrap()
+                .unwrap();
+            assert_eq!(text.matches(message).count(), 1);
+            assert!(text.contains("Unable to list subscriptions:"));
+            assert!(!text.contains("Tenant name unavailable:"));
+            assert!(!text.contains("DEBUG:"));
+            assert!(!text.contains("Traceback"));
+            assert!(!text.contains("synthetic.py"));
+            assert_eq!(text.lines().count(), 2);
+        }
+        let json = output
+            .render(Some(OutputFormat::Json), false)
+            .unwrap()
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(json[0]["error"], message);
+        assert_eq!(
+            json[0]["metadata_errors"][0],
+            format!("Tenant name unavailable: {message}")
+        );
+    }
+
+    #[test]
+    fn distinct_metadata_errors_remain_visible_beside_a_subscription_failure() {
+        let tenant = tenant_output(
+            "11111111-1111-1111-1111-111111111111".parse().unwrap(),
+            Err(eyre::eyre!("Local aliases are unavailable")),
+            Err(eyre::eyre!("Graph permission denied").wrap_err("Fetching tenant name")),
+            Err(eyre::eyre!("Subscription request was throttled").wrap_err("Querying ARM")),
+        );
+        let text = SubscriptionListOutput(vec![tenant])
+            .render_text(false)
+            .unwrap();
+        assert!(text.contains("Tenant aliases unavailable: Local aliases are unavailable"));
+        assert!(text.contains("Tenant name unavailable: Graph permission denied"));
+        assert!(text.contains("Unable to list subscriptions: Subscription request was throttled"));
+        assert!(!text.contains("Fetching tenant name"));
+        assert!(!text.contains("Querying ARM"));
     }
 
     #[tokio::test]
