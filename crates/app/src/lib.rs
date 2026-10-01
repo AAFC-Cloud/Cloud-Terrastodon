@@ -13,26 +13,30 @@
 //! hook; finish shared startup before creating application error reports.
 
 mod global_args;
+pub mod output;
 #[cfg(feature = "terminal")]
 mod terminal;
 #[cfg(windows)]
 mod windows_support;
 
+#[cfg(feature = "auth")]
+pub use cloud_terrastodon_credentials::AuthContext;
+#[cfg(feature = "auth")]
+pub use cloud_terrastodon_credentials::AuthSource;
 pub use eyre::Result;
 pub use facet;
 pub use figue;
 pub use global_args::GlobalArgs;
-pub use teamy_cancellation::CancellationToken;
-pub use tracing;
-
-#[cfg(feature = "auth")]
-pub use cloud_terrastodon_credentials::{AuthContext, AuthSource};
-
+pub use output::CliOutput;
+pub use output::CliOutputValue;
+pub use output::OutputFormat;
 use std::ffi::OsString;
 use std::future::Future;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::OnceLock;
+pub use teamy_cancellation::CancellationToken;
+pub use tracing;
 use tracing::Instrument;
 use tracing_subscriber::filter::Directive;
 

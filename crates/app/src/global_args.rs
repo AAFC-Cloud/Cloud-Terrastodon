@@ -1,7 +1,7 @@
-use std::path::PathBuf;
-
+use crate::OutputFormat;
 #[cfg(feature = "auth")]
 use cloud_terrastodon_credentials::AuthSource;
+use std::path::PathBuf;
 
 /// Arguments that apply to all commands, including consumer-defined subcommands.
 ///
@@ -34,6 +34,12 @@ pub struct GlobalArgs {
     /// a filename will be generated there. If omitted, no JSON log file will be written.
     #[facet(figue::named, figue::label = "FILE|DIR")]
     pub log_file: Option<PathBuf>,
+
+    /// Render command output as `text`, `json`, `facet-pretty`, or `auto`.
+    /// `facet-pretty` shows the underlying data with Facet's pretty printer.
+    /// With `auto` or no format, commands use text in terminals and JSON when stdout is redirected.
+    #[facet(figue::named, figue::label = "FORMAT", figue::alias = "output")]
+    pub output_format: Option<OutputFormat>,
 }
 
 impl Default for GlobalArgs {
@@ -45,6 +51,7 @@ impl Default for GlobalArgs {
             log_filter: "info".into(),
             log_file_filter: None,
             log_file: None,
+            output_format: None,
         }
     }
 }
@@ -59,6 +66,7 @@ impl<'a> arbitrary::Arbitrary<'a> for GlobalArgs {
             log_filter: String::arbitrary(u)?,
             log_file_filter: Option::<String>::arbitrary(u)?,
             log_file: Option::<String>::arbitrary(u)?.map(PathBuf::from),
+            output_format: Option::<OutputFormat>::arbitrary(u)?,
         })
     }
 }

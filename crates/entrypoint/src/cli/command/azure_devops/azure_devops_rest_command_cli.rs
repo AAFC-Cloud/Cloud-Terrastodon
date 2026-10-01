@@ -43,7 +43,7 @@ mod test {
         let response = RestRequest::new(Method::GET, url.as_str())?
             .receive_raw()
             .await?;
-        println!("{}", facet_json::to_string_pretty(&response)?);
+        assert!(response.ok, "Unexpected HTTP status {}", response.status);
         Ok(())
     }
 }

@@ -20,6 +20,7 @@ pub mod tenant;
 pub mod vm;
 
 use crate::cli::azure::azure_command_cli::AzureCommand;
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -31,7 +32,7 @@ pub struct AzureArgs {
 }
 
 impl AzureArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<CliOutput> {
         self.command.invoke(auth_context).await
     }
 }

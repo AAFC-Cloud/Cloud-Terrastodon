@@ -92,7 +92,7 @@ The shared runner remains independent of whether your schema is private or publi
 
 | Facade feature | Facilities |
 | --- | --- |
-| `app` | Shared debug/logging arguments; Figue help/version/completions; caller-owned schema; error reporting; Tokio runtime; cooperative Ctrl-C cancellation |
+| `app` | Shared debug/logging/output arguments; text/JSON output rendering; Figue help/version/completions; caller-owned schema; error reporting; Tokio runtime; cooperative Ctrl-C cancellation |
 | `app-auth` | `GlobalArgs::auth_source`, `--auth-source`, and `AppContext::auth` using Cloud Terrastodon's authentication preferences |
 | `app-terminal` | Coordinated terminal/picker task locals and buffered human logging; no full command tree or egui |
 
@@ -114,6 +114,58 @@ Use `App::implementation_github(owner_repo, revision)` to opt into source hints
 for your own repository. The runner does not guess Cloud Terrastodon metadata for
 your executable. The facade's build script skips binary resources/metadata when
 the `entrypoint` feature is disabled.
+
+## Command output
+
+`GlobalArgs` includes `--output-format text|json|facet-pretty|auto`. `CliOutput` selects text when
+stdout is an interactive terminal and JSON when stdout is redirected, including
+PowerShell pipelines. Explicit formats override detection; `auto` uses it.
+Text rendered to redirected stdout omits terminal colors.
+`facet-pretty` displays the underlying data with Facet's pretty printer, including
+for commands with a custom `text` presentation.
+
+Let leaf `invoke` methods return `Result<CliOutput>` and pass that value through
+parent dispatchers. The top-level handler calls `emit(globals.output_format)`
+once; the runner's handler still returns `Result<()>`.
+
+`CliOutput::facet(value)` uses Facet's pretty printer for `text` and
+`facet-pretty`, and its serializer for JSON. For a command with its own text
+presentation, derive `Facet` on the report and supply a text renderer:
+
+```rust,no_run
+use cloud_terrastodon::app::{CliOutput, GlobalArgs, Result};
+use facet::Facet;
+
+#[derive(Facet)]
+struct Report {
+    count: usize,
+}
+
+impl Report {
+    fn render_text(&self, _stdout_is_terminal: bool) -> Result<String> {
+        Ok(format!("{} items", self.count))
+    }
+}
+
+async fn invoke_list() -> Result<CliOutput> {
+    let report = Report { count: 3 };
+    Ok(CliOutput::facet_with_text(report, Report::render_text))
+}
+
+async fn invoke_cli(globals: &GlobalArgs) -> Result<()> {
+    invoke_list().await?.emit(globals.output_format)
+}
+```
+
+`facet_with_text` overrides only `text`: JSON serialization and `facet-pretty`
+rendering remain shared and use the same report. Its callback receives whether
+stdout is a terminal; apply colors and hyperlinks only when that is true.
+
+For complete control over every format, implement the re-exported
+`CliOutputValue` trait and pass the value to `CliOutput::new(value)`. Its `render`
+method receives the selected `OutputFormat` and terminal status. Keep JSON free
+of terminal colors and hyperlinks. Use `CliOutput::none()` for commands that
+perform their own interaction and have no final value to emit.
 
 ## Process and ownership contract
 

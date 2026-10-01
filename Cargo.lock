@@ -908,6 +908,8 @@ dependencies = [
  "color-eyre",
  "eyre",
  "facet",
+ "facet-json",
+ "facet-pretty",
  "figue",
  "teamy-cancellation",
  "tokio",

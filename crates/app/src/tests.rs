@@ -61,6 +61,7 @@ fn shared_defaults_match_explicit_construction() {
     assert_eq!(cli.global.log_filter, defaults.log_filter);
     assert_eq!(cli.global.log_file_filter, defaults.log_file_filter);
     assert_eq!(cli.global.log_file, defaults.log_file);
+    assert_eq!(cli.global.output_format, defaults.output_format);
     #[cfg(feature = "auth")]
     assert_eq!(cli.global.auth_source, defaults.auth_source);
 }
@@ -78,6 +79,7 @@ fn help_inherits_shared_flags_and_complete_prose() {
             "--log-filter <DIRECTIVE>",
             "--log-file-filter <DIRECTIVE>",
             "--log-file <FILE|DIR>",
+            "--output-format <FORMAT>",
             "--[no-]help",
             "--[no-]version",
             "--[no-]html-help",
@@ -98,6 +100,39 @@ fn help_inherits_shared_flags_and_complete_prose() {
         #[cfg(feature = "auth")]
         assert_eq!(text.matches("--auth-source <SOURCE>").count(), 1);
     }
+}
+
+#[test]
+fn output_format_parses_before_and_after_consumer_subcommands() {
+    for format in ["text", "json", "facet-pretty", "auto"] {
+        for flag in ["--output-format", "--output"] {
+            for args in [
+                vec![flag, format, "inspect", "hello"],
+                vec!["inspect", "hello", flag, format],
+            ] {
+                let cli = app()
+                    .parse_from::<ConsumerCli>(args)
+                    .into_result()
+                    .unwrap()
+                    .value;
+                assert_eq!(
+                    cli.global.output_format,
+                    Some(match format {
+                        "text" => OutputFormat::Text,
+                        "json" => OutputFormat::Json,
+                        "facet-pretty" => OutputFormat::FacetPretty,
+                        "auto" => OutputFormat::Auto,
+                        _ => unreachable!(),
+                    })
+                );
+            }
+        }
+    }
+    assert!(
+        app()
+            .parse_from::<ConsumerCli>(["inspect", "hello", "--output-format", "yaml"])
+            .is_err()
+    );
 }
 
 #[test]

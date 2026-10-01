@@ -1,11 +1,13 @@
 use crate::cli::scalar_args::HttpMethodCli;
 use arbitrary::Arbitrary;
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::SubscriptionIdExt;
 use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_rest::RequestHeaders;
 use cloud_terrastodon_rest::RestRequest;
+use cloud_terrastodon_rest::RestResponseBody;
 use cloud_terrastodon_rest::RestService;
 use cloud_terrastodon_rest::SerializableRestResponse;
 use cloud_terrastodon_rest::infer_tenant_id_for_request;
@@ -16,23 +18,6 @@ use eyre::ContextCompat;
 use eyre::Result;
 use reqwest::Url;
 
-#[derive(facet::Facet, Debug, Clone, Copy, PartialEq, Eq, Default)]
-#[repr(u8)]
-pub enum RestOutputFormat {
-    #[default]
-    Text,
-    Json,
-}
-
-impl<'a> Arbitrary<'a> for RestOutputFormat {
-    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        Ok(if bool::arbitrary(u)? {
-            Self::Text
-        } else {
-            Self::Json
-        })
-    }
-}
 /// Arguments for issuing raw REST calls with Cloud Terrastodon's auth helpers.
 #[derive(facet::Facet, Debug, Clone)]
 pub struct RestArgs {
@@ -59,10 +44,6 @@ pub struct RestArgs {
     /// Optional tracked tenant id or alias to use when acquiring Azure access tokens.
     #[facet(figue::named)]
     pub tenant: Option<AzureTenantArgument<'static>>,
-
-    /// Output format. `text` prints the response body only; `json` includes status and headers.
-    #[facet(figue::named, default)]
-    pub output_format: RestOutputFormat,
 }
 
 impl<'a> Arbitrary<'a> for RestArgs {
@@ -81,12 +62,17 @@ impl<'a> Arbitrary<'a> for RestArgs {
             headers: Option::<String>::arbitrary(u)?,
             header: Vec::<String>::arbitrary(u)?,
             tenant: Option::<AzureTenantArgument<'static>>::arbitrary(u)?,
-            output_format: RestOutputFormat::arbitrary(u)?,
         })
     }
 }
 impl RestArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<SerializableRestResponse> {
+    /// Return the response with body-only text and shared JSON/Facet rendering.
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<CliOutput> {
+        let response = self.fetch_response(auth_context).await?;
+        Ok(response_output(response))
+    }
+
+    async fn fetch_response(self, auth_context: &AuthContext) -> Result<SerializableRestResponse> {
         let url = Url::parse(&self.url).with_context(|| format!("parsing URL '{}'", self.url))?;
         let service = RestService::infer(&url).wrap_err_with(|| {
             format!("unsupported REST host '{}'", url.host_str().unwrap_or(""))
@@ -128,25 +114,44 @@ impl RestArgs {
         request.tenant = tenant;
         request.receive_raw().await
     }
+}
 
-    pub async fn invoke_and_print(self, auth_context: &AuthContext) -> Result<()> {
-        let output_format = match self.output_format {
-            RestOutputFormat::Text => cloud_terrastodon_rest::RestOutputFormat::Text,
-            RestOutputFormat::Json => cloud_terrastodon_rest::RestOutputFormat::Json,
-        };
-        let response = self.invoke(auth_context).await?;
-        response.write(output_format, std::io::stdout())
-    }
+fn response_output(response: SerializableRestResponse) -> CliOutput {
+    let status_result = if response.ok {
+        Ok(())
+    } else {
+        Err(eyre::eyre!(
+            "REST call failed with status {}: {}",
+            response.status,
+            response.reason_phrase.as_deref().unwrap_or("Unknown error")
+        ))
+    };
+    CliOutput::facet_with_text(response, render_response_body).with_result(status_result)
+}
+
+fn render_response_body(
+    response: &SerializableRestResponse,
+    _stdout_is_terminal: bool,
+) -> Result<String> {
+    Ok(match &response.body {
+        RestResponseBody::Json(body) => body.as_str().to_owned(),
+        RestResponseBody::Text(body) => body.clone(),
+    })
 }
 
 #[cfg(test)]
 mod test {
     use super::RestArgs;
     use super::RestService;
+    use super::SerializableRestResponse;
+    use super::response_output;
+    use cloud_terrastodon_app::GlobalArgs;
+    use cloud_terrastodon_app::OutputFormat;
     use cloud_terrastodon_rest::RestResponseBody;
     use cloud_terrastodon_rest::RestResponseHeaders;
     use cloud_terrastodon_rest::parse_response_body;
     use facet_json::RawJson;
+    use http::StatusCode;
     use reqwest::Url;
     use reqwest::header::HeaderMap;
     use reqwest::header::HeaderValue;
@@ -154,7 +159,89 @@ mod test {
     #[derive(facet::Facet, Debug)]
     struct ParseArgs {
         #[facet(flatten)]
+        global_args: GlobalArgs,
+
+        #[facet(flatten)]
         args: RestArgs,
+    }
+
+    #[test]
+    fn facet_pretty_renders_the_full_response_without_colors_when_redirected() {
+        let response = SerializableRestResponse::new(
+            StatusCode::OK,
+            &HeaderMap::new(),
+            "synthetic response body".to_owned(),
+        );
+        let mut output = Vec::new();
+        response_output(response)
+            .write_to(Some(OutputFormat::FacetPretty), false, &mut output)
+            .unwrap();
+        let output = String::from_utf8(output).unwrap();
+        assert!(output.contains("status"));
+        assert!(output.contains("200"));
+        assert!(output.contains("synthetic response body"));
+        assert!(!output.contains('\x1b'));
+        assert!(output.ends_with('\n'));
+    }
+
+    #[test]
+    fn failed_responses_are_printed_before_returning_http_error_in_all_formats() {
+        for format in [
+            OutputFormat::Text,
+            OutputFormat::Json,
+            OutputFormat::FacetPretty,
+        ] {
+            let response = SerializableRestResponse::new(
+                StatusCode::FORBIDDEN,
+                &HeaderMap::new(),
+                "synthetic access denied".to_owned(),
+            );
+            let mut output = Vec::new();
+            let error = response_output(response)
+                .write_to(Some(format), false, &mut output)
+                .expect_err("a failed REST status must remain a command failure");
+            let output = String::from_utf8(output).unwrap();
+            assert!(output.contains("synthetic access denied"));
+            assert!(error.to_string().contains("403"));
+        }
+    }
+
+    #[test]
+    fn custom_text_keeps_only_the_body_and_redirected_default_keeps_full_json() {
+        let response = SerializableRestResponse::new(
+            StatusCode::OK,
+            &HeaderMap::new(),
+            "synthetic response body".to_owned(),
+        );
+        let mut text = Vec::new();
+        response_output(response.clone())
+            .write_to(Some(OutputFormat::Text), false, &mut text)
+            .unwrap();
+        assert_eq!(text, b"synthetic response body\n");
+
+        let mut json = Vec::new();
+        response_output(response)
+            .write_to(None, false, &mut json)
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&json).unwrap();
+        assert_eq!(json["status"], 200);
+        assert_eq!(json["ok"], true);
+        assert!(json.get("headers").is_some());
+    }
+
+    #[test]
+    fn parses_shared_output_format_with_rest_arguments() {
+        let parsed: ParseArgs = figue::from_slice(&[
+            "--method",
+            "GET",
+            "--url",
+            "https://graph.microsoft.com/v1.0/users",
+            "--output-format",
+            "json",
+        ])
+        .unwrap();
+
+        assert_eq!(parsed.global_args.output_format, Some(OutputFormat::Json));
     }
 
     #[test]
@@ -248,7 +335,5 @@ mod test {
     }
 }
 
-cloud_terrastodon_registry::register_thing!(RestOutputFormat);
-cloud_terrastodon_registry::register_arbitrary!(RestOutputFormat);
 cloud_terrastodon_registry::register_thing!(RestArgs);
 cloud_terrastodon_registry::register_arbitrary!(RestArgs);

@@ -90,6 +90,7 @@ mod tests {
                 "--log-filter <DIRECTIVE>",
                 "--log-file-filter <DIRECTIVE>",
                 "--log-file <FILE|DIR>",
+                "--output-format <FORMAT>",
                 "--[no-]help",
                 "--[no-]html-help",
                 "--[no-]version",

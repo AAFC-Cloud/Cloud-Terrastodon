@@ -44,6 +44,7 @@ use crate::cli::ratatui::RatatuiArgs;
 use crate::cli::rest::RestArgs;
 use crate::cli::terraform::TerraformArgs;
 use crate::cli::write_all_imports::WriteAllImportsArgs;
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use teamy_cancellation::CancellationToken;
@@ -114,7 +115,7 @@ impl CloudTerrastodonCommand {
         self,
         _cancellation_token: &CancellationToken,
         auth_context: &AuthContext,
-    ) -> Result<()> {
+    ) -> Result<CliOutput> {
         match self {
             CloudTerrastodonCommand::Ratatui(args) => args.invoke().await,
             CloudTerrastodonCommand::Egui(args) => args.invoke(auth_context).await,
@@ -129,17 +130,18 @@ impl CloudTerrastodonCommand {
             CloudTerrastodonCommand::GetPath(args) => args.invoke().await,
             CloudTerrastodonCommand::Nslookup(args) => args.invoke().await,
             CloudTerrastodonCommand::Outage(args) => args.invoke(auth_context).await,
-            CloudTerrastodonCommand::Rest(args) => args.invoke_and_print(auth_context).await,
+            CloudTerrastodonCommand::Rest(args) => return args.invoke(auth_context).await,
             CloudTerrastodonCommand::CopyResults(args) => args.invoke().await,
             CloudTerrastodonCommand::AddWorkDir(args) => args.invoke().await,
             CloudTerrastodonCommand::Terraform(args) => args.invoke(auth_context).await,
             CloudTerrastodonCommand::AzureDevOps(args) => args.invoke(auth_context).await,
-            CloudTerrastodonCommand::Azure(args) => args.invoke(auth_context).await,
+            CloudTerrastodonCommand::Azure(args) => return args.invoke(auth_context).await,
             CloudTerrastodonCommand::Tea(args) => args.invoke().await,
             CloudTerrastodonCommand::Jwt(args) => args.invoke().await,
             CloudTerrastodonCommand::ExtractUuid(args) => args.invoke().await,
             CloudTerrastodonCommand::Pick(args) => args.invoke().await,
             CloudTerrastodonCommand::Cache(args) => args.invoke().await,
-        }
+        }?;
+        Ok(CliOutput::none())
     }
 }

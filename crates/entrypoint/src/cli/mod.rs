@@ -1,6 +1,11 @@
 use arbitrary::Arbitrary;
 pub mod command;
 pub mod global_args;
+pub mod output {
+    pub use cloud_terrastodon_app::CliOutput;
+    pub use cloud_terrastodon_app::CliOutputValue;
+    pub use cloud_terrastodon_app::OutputFormat;
+}
 pub(crate) mod scalar_args;
 
 use crate::menu::menu_loop;
@@ -46,13 +51,15 @@ impl Cli {
         cancellation_token: &CancellationToken,
         auth_context: &AuthContext,
     ) -> eyre::Result<()> {
-        match self.command {
-            Some(cmd) => cmd.invoke(cancellation_token, auth_context).await,
+        let requested_format = self.global_args.output_format;
+        let output = match self.command {
+            Some(cmd) => cmd.invoke(cancellation_token, auth_context).await?,
             None => {
                 menu_loop(auth_context).await?;
-                Ok(())
+                output::CliOutput::none()
             }
-        }
+        };
+        output.emit(requested_format)
     }
 }
 
@@ -61,10 +68,112 @@ mod tests {
     use super::*;
     use crate::cli::azure::azure_command_cli::AzureCommand;
     use crate::cli::azure::pim::AzurePimCommand;
+    use crate::cli::azure::subscription::AzureSubscriptionCommand;
     use crate::cli::azure::tenant::AzureTenantCommand;
     use crate::cli::azure_devops::azure_devops_command_cli::AzureDevOpsCommand;
     use crate::cli::azure_devops::project::AzureDevOpsProjectCommand;
+    use cloud_terrastodon_app::OutputFormat;
     use cloud_terrastodon_credentials::AuthSource;
+
+    #[test]
+    fn subscription_list_parses_global_output_format_before_and_after_subcommands() {
+        for arguments in [
+            vec!["--output-format", "json", "az", "sub", "list"],
+            vec!["az", "subscription", "list", "--output-format", "json"],
+        ] {
+            let cli: Cli = figue::from_slice(&arguments).unwrap();
+            assert_eq!(cli.global_args.output_format, Some(OutputFormat::Json));
+            let Some(CloudTerrastodonCommand::Azure(azure)) = cli.command else {
+                panic!("expected Azure command");
+            };
+            let AzureCommand::Subscription(subscription) = azure.command else {
+                panic!("expected subscription command");
+            };
+            let AzureSubscriptionCommand::List(list) = subscription.command;
+            assert!(list.tenant.is_none());
+        }
+    }
+
+    #[test]
+    fn subscription_list_parses_a_tenant_filter_and_explicit_text() {
+        let cli: Cli = figue::from_slice(&[
+            "az",
+            "sub",
+            "list",
+            "--tenant",
+            "agr",
+            "--output-format",
+            "text",
+        ])
+        .unwrap();
+        assert_eq!(cli.global_args.output_format, Some(OutputFormat::Text));
+        let Some(CloudTerrastodonCommand::Azure(azure)) = cli.command else {
+            panic!("expected Azure command");
+        };
+        let AzureCommand::Subscription(subscription) = azure.command else {
+            panic!("expected subscription command");
+        };
+        let AzureSubscriptionCommand::List(list) = subscription.command;
+        assert_eq!(list.tenant.unwrap().to_string(), "agr");
+    }
+
+    #[test]
+    fn shared_output_format_parses_for_existing_format_aware_commands() {
+        for arguments in [
+            vec![
+                "rest",
+                "--method",
+                "GET",
+                "--url",
+                "https://example.com",
+                "--output-format",
+                "json",
+            ],
+            vec![
+                "az",
+                "entra",
+                "group",
+                "show",
+                "--group-id",
+                "11111111-1111-1111-1111-111111111111",
+                "--output",
+                "text",
+            ],
+            vec![
+                "az",
+                "entra",
+                "group",
+                "show",
+                "--group-id",
+                "11111111-1111-1111-1111-111111111111",
+                "--output-format",
+                "auto",
+            ],
+            vec!["az", "sub", "list", "--output-format", "facet-pretty"],
+            vec![
+                "rest",
+                "--method",
+                "GET",
+                "--url",
+                "https://example.com",
+                "--output-format",
+                "facet-pretty",
+            ],
+            vec![
+                "az",
+                "entra",
+                "group",
+                "show",
+                "--group-id",
+                "11111111-1111-1111-1111-111111111111",
+                "--output-format",
+                "facet-pretty",
+            ],
+        ] {
+            let cli: Cli = figue::from_slice(&arguments).unwrap();
+            assert!(cli.global_args.output_format.is_some());
+        }
+    }
 
     #[test]
     fn parses_the_linux_project_list_vertical_slice() {

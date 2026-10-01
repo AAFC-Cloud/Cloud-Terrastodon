@@ -32,6 +32,26 @@ By defauilt, the app takes no arguments and enters an interactive terminal user 
 
 The most helpful commands are "pim activate" and the "browse ..." ones.
 
+`cloud_terrastodon az subscription list` lists subscriptions grouped by tracked
+tenant, with tenant IDs, names, aliases, and links to subscriptions in the Azure
+portal. Tenants with unavailable authentication appear with an error while other
+tenants continue. Use `--tenant <ID|ALIAS>` to query one tenant.
+
+Subscription output defaults to coloured text in a terminal and JSON when stdout
+is redirected, including PowerShell pipelines. Override this with the global
+`--output-format text` or `--output-format json` flag:
+
+```pwsh
+cloud_terrastodon az subscription list
+cloud_terrastodon az subscription list --tenant agr --output-format json
+cloud_terrastodon az subscription list --output-format facet-pretty
+$tenants = cloud_terrastodon az subscription list | ConvertFrom-Json
+$tenants.subscriptions
+```
+
+Use `--output-format facet-pretty` to inspect the underlying tenant and
+subscription data with Facet's pretty printer.
+
 ## Caching
 
 Note that Cloud Terrastodon uses a caching strategy to avoid refetching information, reducing the time it takes for consecutive actions. However, this cache can sometimes get out of date before the automatic expiry window.

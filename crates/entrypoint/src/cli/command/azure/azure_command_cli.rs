@@ -18,6 +18,7 @@ use super::tenant::AzureTenantArgs;
 use super::vm::AzureVmArgs;
 use crate::cli::azure::entra::AzureEntraArgs;
 use crate::cli::azure_devops::AzureDevOpsArgs;
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -67,7 +68,7 @@ pub enum AzureCommand {
     Entra(AzureEntraArgs),
     /// VM-related commands (images, publishers, sizes, etc.)
     Vm(AzureVmArgs),
-    /// Manage subscriptions within the tenant.
+    /// Manage subscriptions across tracked tenants.
     #[facet(figue::alias = "sub")]
     Subscription(AzureSubscriptionArgs),
     /// Manage tracked tenants for later login flows.
@@ -78,7 +79,7 @@ pub enum AzureCommand {
 }
 
 impl AzureCommand {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<CliOutput> {
         match self {
             AzureCommand::DevOps(args) => args.invoke(auth_context).await?,
             AzureCommand::Tenant(args) => args.invoke(auth_context).await?,
@@ -97,11 +98,11 @@ impl AzureCommand {
             AzureCommand::Resource(args) => args.invoke(auth_context).await?,
             AzureCommand::Role(args) => args.invoke(auth_context).await?,
             AzureCommand::Pim(args) => args.invoke(auth_context).await?,
-            AzureCommand::Entra(args) => args.invoke(auth_context).await?,
+            AzureCommand::Entra(args) => return args.invoke(auth_context).await,
             AzureCommand::Vm(args) => args.invoke(auth_context).await?,
-            AzureCommand::Subscription(args) => args.invoke(auth_context).await?,
+            AzureCommand::Subscription(args) => return args.invoke(auth_context).await,
         }
 
-        Ok(())
+        Ok(CliOutput::none())
     }
 }
