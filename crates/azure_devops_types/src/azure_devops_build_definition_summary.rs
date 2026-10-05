@@ -2,10 +2,13 @@ use crate::AzureDevOpsBuildDefinitionId;
 use crate::AzureDevOpsBuildDefinitionName;
 use crate::AzureDevOpsBuildDefinitionQueueStatus;
 use crate::AzureDevOpsBuildDefinitionType;
+use crate::AzureDevOpsBuildDefinitionUri;
 use crate::AzureDevOpsBuildDefinitionUrl;
 use crate::AzureDevOpsBuildFolderPath;
 use crate::AzureDevOpsProjectReference;
 use arbitrary::Arbitrary;
+use chrono::DateTime;
+use chrono::Utc;
 
 /// A possibly shallow definition reference embedded in a build response.
 ///
@@ -19,6 +22,8 @@ pub struct AzureDevOpsBuildDefinitionSummary {
     pub id: AzureDevOpsBuildDefinitionId,
     pub name: Option<AzureDevOpsBuildDefinitionName>,
     pub path: Option<AzureDevOpsBuildFolderPath>,
+    pub uri: Option<AzureDevOpsBuildDefinitionUri>,
+    pub created_date: Option<DateTime<Utc>>,
     pub revision: Option<i32>,
     pub queue_status: Option<AzureDevOpsBuildDefinitionQueueStatus>,
     pub r#type: Option<AzureDevOpsBuildDefinitionType>,

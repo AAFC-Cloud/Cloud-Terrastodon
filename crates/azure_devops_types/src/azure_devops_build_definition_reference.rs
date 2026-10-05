@@ -1,13 +1,18 @@
+use crate::AzureDevOpsAgentPoolQueue;
 use crate::AzureDevOpsBuildDefinitionId;
 use crate::AzureDevOpsBuildDefinitionName;
 use crate::AzureDevOpsBuildDefinitionQuality;
 use crate::AzureDevOpsBuildDefinitionQueueStatus;
 use crate::AzureDevOpsBuildDefinitionSummary;
 use crate::AzureDevOpsBuildDefinitionType;
+use crate::AzureDevOpsBuildDefinitionUri;
 use crate::AzureDevOpsBuildDefinitionUrl;
 use crate::AzureDevOpsBuildFolderPath;
+use crate::AzureDevOpsIdentityReference;
 use crate::AzureDevOpsProjectReference;
 use arbitrary::Arbitrary;
+use chrono::DateTime;
+use chrono::Utc;
 use cloud_terrastodon_azure_types::ArbitraryJson;
 
 /// A definition reference returned by the build definitions list endpoint.
@@ -23,10 +28,15 @@ pub struct AzureDevOpsBuildDefinitionReference {
     pub id: AzureDevOpsBuildDefinitionId,
     pub name: AzureDevOpsBuildDefinitionName,
     pub path: AzureDevOpsBuildFolderPath,
+    pub uri: AzureDevOpsBuildDefinitionUri,
+    pub created_date: DateTime<Utc>,
     pub revision: Option<i32>,
     pub quality: Option<AzureDevOpsBuildDefinitionQuality>,
+    pub authored_by: Option<AzureDevOpsIdentityReference>,
     pub drafts: Option<Vec<AzureDevOpsBuildDefinitionSummary>>,
     pub draft_of: Option<AzureDevOpsBuildDefinitionSummary>,
+    /// Default agent queue metadata, when included in the shallow reference.
+    pub queue: Option<AzureDevOpsAgentPoolQueue>,
     pub queue_status: Option<AzureDevOpsBuildDefinitionQueueStatus>,
     pub r#type: Option<AzureDevOpsBuildDefinitionType>,
     pub url: Option<AzureDevOpsBuildDefinitionUrl>,

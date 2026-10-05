@@ -124,6 +124,7 @@ mod tests {
     use cloud_terrastodon_azure_devops_types::AzureDevOpsBuildDefinitionId;
     use cloud_terrastodon_azure_devops_types::AzureDevOpsBuildDefinitionReference;
     use cloud_terrastodon_azure_devops_types::AzureDevOpsBuildDefinitionSummary;
+    use cloud_terrastodon_azure_devops_types::AzureDevOpsBuildDefinitionUri;
     use cloud_terrastodon_azure_devops_types::AzureDevOpsBuildFolder;
 
     fn snapshot(
@@ -152,10 +153,14 @@ mod tests {
             id: AzureDevOpsBuildDefinitionId::new(id).unwrap(),
             name: "Synthetic pipeline".parse().unwrap(),
             path: path.parse().unwrap(),
+            uri: AzureDevOpsBuildDefinitionUri::new(AzureDevOpsBuildDefinitionId::new(id).unwrap()),
+            created_date: chrono::DateTime::UNIX_EPOCH,
             revision: None,
             quality: None,
+            authored_by: None,
             drafts: None,
             draft_of: None,
+            queue: None,
             queue_status: None,
             r#type: None,
             url: None,
@@ -169,6 +174,8 @@ mod tests {
             id: AzureDevOpsBuildDefinitionId::new(id).unwrap(),
             name: None,
             path: path.map(|path| path.parse().unwrap()),
+            uri: None,
+            created_date: None,
             revision: None,
             queue_status: None,
             r#type: None,
