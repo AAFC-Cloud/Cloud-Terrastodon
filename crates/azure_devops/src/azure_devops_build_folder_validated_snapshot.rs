@@ -125,7 +125,6 @@ mod tests {
     use cloud_terrastodon_azure_devops_types::AzureDevOpsBuildDefinitionReference;
     use cloud_terrastodon_azure_devops_types::AzureDevOpsBuildDefinitionSummary;
     use cloud_terrastodon_azure_devops_types::AzureDevOpsBuildFolder;
-    use cloud_terrastodon_azure_devops_types::AzureDevOpsIdentityReference;
 
     fn snapshot(
         folders: &[&str],
@@ -140,11 +139,7 @@ mod tests {
                     project: None,
                     created_by: None,
                     created_on: None,
-                    last_changed_by: AzureDevOpsIdentityReference {
-                        id: Some("synthetic-editor".into()),
-                        descriptor: None,
-                        display_name: Some("Synthetic editor".into()),
-                    },
+                    last_changed_by: None,
                     last_changed_date: None,
                 })
                 .collect(),

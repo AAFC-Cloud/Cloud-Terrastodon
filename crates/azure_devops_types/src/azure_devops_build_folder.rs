@@ -7,8 +7,8 @@ use chrono::Utc;
 
 /// A build-definition folder. The required path identifies the folder;
 /// Azure DevOps uses backslash-separated paths, with `\` representing root.
-/// Azure DevOps can omit the creator identity from folder-list responses;
-/// the last-change identity remains required by this response model.
+/// Creator and last-change identity metadata is optional in this response model;
+/// absent metadata remains unknown.
 ///
 /// Microsoft documentation: [Folder](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/folders/list?view=azure-devops-rest-7.1#folder).
 #[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
@@ -22,7 +22,7 @@ pub struct AzureDevOpsBuildFolder {
     pub created_by: Option<AzureDevOpsIdentityReference>,
     pub created_on: Option<DateTime<Utc>>,
     /// The person or process that last changed the folder.
-    pub last_changed_by: AzureDevOpsIdentityReference,
+    pub last_changed_by: Option<AzureDevOpsIdentityReference>,
     pub last_changed_date: Option<DateTime<Utc>>,
 }
 

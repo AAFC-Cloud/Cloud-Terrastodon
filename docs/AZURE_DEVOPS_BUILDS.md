@@ -105,8 +105,12 @@ opaque HTTP(S) URLs without a guessed image route. Timestamps use `DateTime<Utc>
 JSON retains scalar IDs, names, paths, URLs, and vocabulary strings.
 
 Modeled build properties are required, including timestamps and retention flags.
-Folder creator identity references are optional because the service has been
-observed omitting them; last-change identity references remain required. The
+Folder creator and last-change identity references preserve absent metadata.
+Identity references model the [IdentityRef schema](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/folders/list?view=azure-devops-rest-7.1#identityref),
+including typed source and image URLs, relation links, legacy names, and provider
+flags. Source URLs can refer to distributed identity services rather than an
+organization endpoint; they remain opaque without inferring a human organization
+or resource route. Relation names are an open dictionary of typed link records. The
 build REST response records, nested references, and list envelope reject unknown
 fields when debug assertions are enabled, making unmodeled metadata visible during
 request use. Release builds continue accepting additional fields.

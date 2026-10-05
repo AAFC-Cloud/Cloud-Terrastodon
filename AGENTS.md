@@ -148,6 +148,11 @@ Standalone examples may remain self-contained, as described in
   schema anchor where useful.
 - When a newtype has no dedicated documentation page, link to the documented
   property it represents, such as the `id` field of its parent API object.
+- Mark platform-deprecated Rust fields with `#[deprecated(note = "...")]`,
+  naming the documented replacement or stating when none is documented. Keep
+  those fields in response models for wire compatibility; deprecating a field
+  does not require deprecating its domain type. Do not use a platform API version
+  as Rust's `since`, which refers to the crate's version.
 - Verify endpoint paths, versions, pagination, filters, and destructive behavior
   against official documentation or the platform's official source before
   implementing them. Explain material behavior and limitations in the comments.
