@@ -46,19 +46,22 @@ pub enum AzureDevOpsCommand {
 
 impl AzureDevOpsCommand {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<CliOutput> {
+        // Box child futures so large commands do not enlarge every dispatcher stack frame.
         match self {
-            AzureDevOpsCommand::Build(args) => return args.invoke(auth_context).await,
-            AzureDevOpsCommand::Project(args) => args.invoke(auth_context).await?,
-            AzureDevOpsCommand::Audit(args) => args.invoke(auth_context).await?,
-            AzureDevOpsCommand::Rest(args) => args.invoke().await?,
-            AzureDevOpsCommand::Group(args) => args.invoke(auth_context).await?,
-            AzureDevOpsCommand::Team(args) => args.invoke().await?,
-            AzureDevOpsCommand::Repo(args) => args.invoke(auth_context).await?,
-            AzureDevOpsCommand::ServiceEndpoint(args) => args.invoke().await?,
-            AzureDevOpsCommand::LicenseEntitlement(args) => args.invoke(auth_context).await?,
-            AzureDevOpsCommand::Agent(args) => args.invoke(auth_context).await?,
-            AzureDevOpsCommand::WorkItem(args) => args.invoke(auth_context).await?,
-            AzureDevOpsCommand::Test(args) => args.invoke(auth_context).await?,
+            AzureDevOpsCommand::Build(args) => return Box::pin(args.invoke(auth_context)).await,
+            AzureDevOpsCommand::Project(args) => Box::pin(args.invoke(auth_context)).await?,
+            AzureDevOpsCommand::Audit(args) => Box::pin(args.invoke(auth_context)).await?,
+            AzureDevOpsCommand::Rest(args) => Box::pin(args.invoke()).await?,
+            AzureDevOpsCommand::Group(args) => Box::pin(args.invoke(auth_context)).await?,
+            AzureDevOpsCommand::Team(args) => Box::pin(args.invoke()).await?,
+            AzureDevOpsCommand::Repo(args) => Box::pin(args.invoke(auth_context)).await?,
+            AzureDevOpsCommand::ServiceEndpoint(args) => Box::pin(args.invoke()).await?,
+            AzureDevOpsCommand::LicenseEntitlement(args) => {
+                Box::pin(args.invoke(auth_context)).await?
+            }
+            AzureDevOpsCommand::Agent(args) => Box::pin(args.invoke(auth_context)).await?,
+            AzureDevOpsCommand::WorkItem(args) => Box::pin(args.invoke(auth_context)).await?,
+            AzureDevOpsCommand::Test(args) => Box::pin(args.invoke(auth_context)).await?,
         }
 
         Ok(CliOutput::none())

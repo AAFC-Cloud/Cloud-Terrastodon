@@ -288,6 +288,9 @@ Standalone examples may remain self-contained, as described in
 
 - Output-producing leaves return `Result<CliOutput>`; parent dispatchers forward
   that output and the top-level handler selects the format and emits it once.
+- Box child invocation futures at broad CLI dispatch boundaries. Keeping every
+  command branch's future inline enlarges nested debug poll frames and can exhaust
+  Windows' small main-thread stack; boxing only the outer invocation is insufficient.
 - Prefer `CliOutput::facet` for default presentation or
   `CliOutput::facet_with_text` for custom text with shared JSON/Facet Pretty
   behavior. Implement `CliOutputValue` when all formats need custom behavior.

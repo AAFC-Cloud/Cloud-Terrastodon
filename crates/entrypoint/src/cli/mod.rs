@@ -52,10 +52,12 @@ impl Cli {
         auth_context: &AuthContext,
     ) -> eyre::Result<()> {
         let requested_format = self.global_args.output_format;
+        // Keep command and interactive-menu futures out of this outer future's
+        // inline state; nested debug poll frames otherwise exhaust small stacks.
         let output = match self.command {
-            Some(cmd) => cmd.invoke(cancellation_token, auth_context).await?,
+            Some(cmd) => Box::pin(cmd.invoke(cancellation_token, auth_context)).await?,
             None => {
-                menu_loop(auth_context).await?;
+                Box::pin(menu_loop(auth_context)).await?;
                 output::CliOutput::none()
             }
         };
@@ -66,14 +68,79 @@ impl Cli {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cli::azure::AzureArgs;
     use crate::cli::azure::azure_command_cli::AzureCommand;
     use crate::cli::azure::pim::AzurePimCommand;
     use crate::cli::azure::subscription::AzureSubscriptionCommand;
     use crate::cli::azure::tenant::AzureTenantCommand;
+    use crate::cli::azure_devops::AzureDevOpsArgs;
     use crate::cli::azure_devops::azure_devops_command_cli::AzureDevOpsCommand;
+    use crate::cli::azure_devops::build::AzureDevOpsBuildArgs;
+    use crate::cli::azure_devops::build::AzureDevOpsBuildCommand;
+    use crate::cli::azure_devops::build::definition::AzureDevOpsBuildDefinitionArgs;
+    use crate::cli::azure_devops::build::definition::AzureDevOpsBuildDefinitionCommand;
+    use crate::cli::azure_devops::build::definition::folder::AzureDevOpsBuildDefinitionFolderArgs;
+    use crate::cli::azure_devops::build::definition::folder::AzureDevOpsBuildDefinitionFolderCommand;
+    use crate::cli::azure_devops::build::definition::folder::list::AzureDevOpsBuildDefinitionFolderListArgs;
     use crate::cli::azure_devops::project::AzureDevOpsProjectCommand;
     use cloud_terrastodon_app::OutputFormat;
     use cloud_terrastodon_credentials::AuthSource;
+
+    #[test]
+    fn build_folder_dispatch_reports_auth_error_on_a_small_stack() -> eyre::Result<()> {
+        // Windows main normally has a 1 MiB stack. Leave room for application,
+        // tracing, REST, and runtime frames by exercising dispatch with half that.
+        std::thread::Builder::new()
+            .stack_size(512 * 1024)
+            .spawn(|| {
+                let folder = AzureDevOpsBuildDefinitionFolderArgs {
+                    command: AzureDevOpsBuildDefinitionFolderCommand::List(
+                        AzureDevOpsBuildDefinitionFolderListArgs {
+                            org: Some("https://dev.azure.com/example".parse().unwrap()),
+                            project: Some("offline-project".parse().unwrap()),
+                            tenant: None,
+                            no_cache: false,
+                            path: None,
+                        },
+                    ),
+                };
+                let definition = AzureDevOpsBuildDefinitionArgs {
+                    command: AzureDevOpsBuildDefinitionCommand::Folder(folder),
+                };
+                let build = AzureDevOpsBuildArgs {
+                    command: AzureDevOpsBuildCommand::Definition(definition),
+                };
+                let devops = AzureDevOpsArgs {
+                    command: AzureDevOpsCommand::Build(build),
+                };
+                let azure = AzureArgs {
+                    command: AzureCommand::DevOps(devops),
+                };
+                let cli = Cli {
+                    global_args: GlobalArgs::default(),
+                    builtins: figue::FigueBuiltins::default(),
+                    command: Some(CloudTerrastodonCommand::Azure(azure)),
+                };
+                // The placeholder context must fail while configuring REST auth,
+                // before credentials, cached output, or HTTP are accessed.
+                let auth_context = AuthContext::None;
+                let cancellation_token = CancellationToken::new();
+                let runtime = tokio::runtime::Builder::new_current_thread()
+                    .build()
+                    .unwrap();
+                let error = runtime
+                    .block_on(Box::pin(cli.invoke(&cancellation_token, &auth_context)))
+                    .expect_err("placeholder authentication should fail locally");
+                assert!(error.chain().any(|cause| {
+                    cause
+                        .to_string()
+                        .contains("Azure DevOps authentication is not configured for this request")
+                }));
+            })?
+            .join()
+            .expect("command dispatch should fit on a small stack");
+        Ok(())
+    }
 
     #[test]
     fn subscription_list_parses_global_output_format_before_and_after_subcommands() {

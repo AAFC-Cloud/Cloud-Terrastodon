@@ -80,27 +80,28 @@ pub enum AzureCommand {
 
 impl AzureCommand {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<CliOutput> {
+        // Box child futures so large commands do not enlarge every dispatcher stack frame.
         match self {
-            AzureCommand::DevOps(args) => return args.invoke(auth_context).await,
-            AzureCommand::Tenant(args) => args.invoke(auth_context).await?,
-            AzureCommand::AppService(args) => args.invoke(auth_context).await?,
-            AzureCommand::Audit(args) => args.invoke(auth_context).await?,
-            AzureCommand::ApplicationGateway(args) => args.invoke(auth_context).await?,
-            AzureCommand::CognitiveServices(args) => args.invoke(auth_context).await?,
-            AzureCommand::ContainerInstance(args) => args.invoke(auth_context).await?,
-            AzureCommand::Find(args) => args.invoke(auth_context).await?,
-            AzureCommand::NetworkInterface(args) => args.invoke(auth_context).await?,
-            AzureCommand::ResourceGroup(args) => args.invoke(auth_context).await?,
-            AzureCommand::Policy(args) => args.invoke(auth_context).await?,
-            AzureCommand::PrivateEndpoint(args) => args.invoke(auth_context).await?,
-            AzureCommand::PublicIp(args) => args.invoke(auth_context).await?,
-            AzureCommand::Tag(args) => args.invoke(auth_context).await?,
-            AzureCommand::Resource(args) => args.invoke(auth_context).await?,
-            AzureCommand::Role(args) => args.invoke(auth_context).await?,
-            AzureCommand::Pim(args) => args.invoke(auth_context).await?,
-            AzureCommand::Entra(args) => return args.invoke(auth_context).await,
-            AzureCommand::Vm(args) => args.invoke(auth_context).await?,
-            AzureCommand::Subscription(args) => return args.invoke(auth_context).await,
+            AzureCommand::DevOps(args) => return Box::pin(args.invoke(auth_context)).await,
+            AzureCommand::Tenant(args) => Box::pin(args.invoke(auth_context)).await?,
+            AzureCommand::AppService(args) => Box::pin(args.invoke(auth_context)).await?,
+            AzureCommand::Audit(args) => Box::pin(args.invoke(auth_context)).await?,
+            AzureCommand::ApplicationGateway(args) => Box::pin(args.invoke(auth_context)).await?,
+            AzureCommand::CognitiveServices(args) => Box::pin(args.invoke(auth_context)).await?,
+            AzureCommand::ContainerInstance(args) => Box::pin(args.invoke(auth_context)).await?,
+            AzureCommand::Find(args) => Box::pin(args.invoke(auth_context)).await?,
+            AzureCommand::NetworkInterface(args) => Box::pin(args.invoke(auth_context)).await?,
+            AzureCommand::ResourceGroup(args) => Box::pin(args.invoke(auth_context)).await?,
+            AzureCommand::Policy(args) => Box::pin(args.invoke(auth_context)).await?,
+            AzureCommand::PrivateEndpoint(args) => Box::pin(args.invoke(auth_context)).await?,
+            AzureCommand::PublicIp(args) => Box::pin(args.invoke(auth_context)).await?,
+            AzureCommand::Tag(args) => Box::pin(args.invoke(auth_context)).await?,
+            AzureCommand::Resource(args) => Box::pin(args.invoke(auth_context)).await?,
+            AzureCommand::Role(args) => Box::pin(args.invoke(auth_context)).await?,
+            AzureCommand::Pim(args) => Box::pin(args.invoke(auth_context)).await?,
+            AzureCommand::Entra(args) => return Box::pin(args.invoke(auth_context)).await,
+            AzureCommand::Vm(args) => Box::pin(args.invoke(auth_context)).await?,
+            AzureCommand::Subscription(args) => return Box::pin(args.invoke(auth_context)).await,
         }
 
         Ok(CliOutput::none())
