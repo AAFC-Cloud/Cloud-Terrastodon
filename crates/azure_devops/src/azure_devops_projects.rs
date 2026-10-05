@@ -1,7 +1,3 @@
-use crate::azure_devops_rest::authenticate_azure_devops_request;
-use crate::azure_devops_rest::azure_devops_api_url;
-use crate::azure_devops_rest::page_cache_key;
-use crate::azure_devops_rest::receive_azure_devops_page;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProject;
@@ -67,16 +63,18 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsProjectsList
         let cache_key = self.cache_key();
         let mut page_index = 0;
         let query = [("api-version", "7.1")];
-        let url = azure_devops_api_url(&self.org_url, "dev.azure.com", "_apis/projects", &query)?;
+        let url = self
+            .org_url
+            .api_url("dev.azure.com", "_apis/projects", &query)?;
         // Attaching authentication only records request policy. RestRequest
         // resolves credentials after its cache lookup, so healthy cached pages
         // remain usable when the selected authentication source has expired.
-        let request = authenticate_azure_devops_request(
-            RestRequest::new(Method::GET, url)?.cache(page_cache_key(&cache_key, page_index)),
-            self.auth_context.as_ref(),
-        )?;
-        let (mut response, mut continuation) =
-            receive_azure_devops_page::<Response>(request).await?;
+        let request = RestRequest::from_method_and_url(Method::GET, url)?
+            .cache(cache_key.join(page_index.to_string()))
+            .azure_devops_auth_context(self.auth_context.as_ref())?;
+        let (mut response, mut continuation) = request
+            .receive_with_ms_continuation_token::<Response>()
+            .await?;
         projects.extend(response.value);
         page_index += 1;
 
@@ -86,13 +84,13 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsProjectsList
                 ("api-version", "7.1"),
                 ("continuationToken", next_continuation.as_str()),
             ];
-            let url =
-                azure_devops_api_url(&self.org_url, "dev.azure.com", "_apis/projects", &query)?;
-            let request = authenticate_azure_devops_request(
-                RestRequest::new(Method::GET, url)?.cache(page_cache_key(&cache_key, page_index)),
-                self.auth_context.as_ref(),
-            )?;
-            (response, continuation) = receive_azure_devops_page(request).await?;
+            let url = self
+                .org_url
+                .api_url("dev.azure.com", "_apis/projects", &query)?;
+            let request = RestRequest::from_method_and_url(Method::GET, url)?
+                .cache(cache_key.join(page_index.to_string()))
+                .azure_devops_auth_context(self.auth_context.as_ref())?;
+            (response, continuation) = request.receive_with_ms_continuation_token().await?;
             projects.extend(response.value);
             page_index += 1;
         }

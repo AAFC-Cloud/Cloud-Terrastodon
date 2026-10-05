@@ -60,7 +60,8 @@ impl<'a> CacheableCommand for WorkItemsForQueryRequest<'a> {
     async fn run(self) -> eyre::Result<Self::Output> {
         debug!(
             "Fetching work item query results for {} from in organization {}",
-            self.query_id, self.org_url.name()
+            self.query_id,
+            self.org_url.name()
         );
         // We have to use REST instead of `az devops invoke` because of https://developercommunity.visualstudio.com/t/Its-impossible-to-use-az-devops-invoke/10880749
         // There is also `az boards query --organization {} --id {}` but it has a different output format.
@@ -71,12 +72,10 @@ impl<'a> CacheableCommand for WorkItemsForQueryRequest<'a> {
             query_id = self.query_id,
         );
         let request = RestRequest::new(Method::GET, url.as_str())?.cache(self.cache_key());
-        crate::azure_devops_rest::authenticate_azure_devops_request(
-            request,
-            self.auth_context.as_ref(),
-        )?
-        .receive()
-        .await
+        request
+            .azure_devops_auth_context(self.auth_context.as_ref())?
+            .receive()
+            .await
     }
 }
 

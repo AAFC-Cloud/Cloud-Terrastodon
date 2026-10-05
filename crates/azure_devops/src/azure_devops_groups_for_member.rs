@@ -76,11 +76,9 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupsForMem
             organization = organization,
             subject_descriptor = subject_descriptor
         );
-        let request = RestRequest::new(Method::GET, url.as_str())?.cache(self.cache_key());
-        let request = crate::azure_devops_rest::authenticate_azure_devops_request(
-            request,
-            self.auth_context.as_ref(),
-        )?;
+        let request = RestRequest::new(Method::GET, url.as_str())?
+            .cache(self.cache_key())
+            .azure_devops_auth_context(self.auth_context.as_ref())?;
         Ok(request
             .receive::<AzureDevOpsGroupsForMemberResponse>()
             .await?

@@ -1,12 +1,10 @@
-use crate::azure_devops_rest::azure_devops_api_url;
-use crate::azure_devops_rest::page_cache_key;
-use crate::azure_devops_rest::receive_azure_devops_page;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsUserLicenseEntitlement;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
+use cloud_terrastodon_rest::MicrosoftContinuationToken;
 use cloud_terrastodon_rest::RestRequest;
 use facet::Facet;
 use reqwest::Method;
@@ -66,29 +64,24 @@ impl<'a> cloud_terrastodon_command::CacheableCommand
         }
 
         let mut entitlements = Vec::new();
-        let mut continuation = None;
+        let mut continuation: Option<MicrosoftContinuationToken> = None;
         let mut count = 0;
         let cache_key = self.cache_key();
         let mut page_index = 0;
         loop {
             let mut query = vec![("api-version", "7.1-preview.3")];
-            if let Some(token) = continuation.as_deref() {
-                query.push(("continuationToken", token));
+            if let Some(token) = continuation.as_ref() {
+                query.push(("continuationToken", token.as_str()));
             }
-            let url = azure_devops_api_url(
-                &self.org_url,
-                "vsaex.dev.azure.com",
-                "_apis/userentitlements",
-                &query,
-            )?;
-            let request =
-                RestRequest::new(Method::GET, url)?.cache(page_cache_key(&cache_key, page_index));
-            let request = crate::azure_devops_rest::authenticate_azure_devops_request(
-                request,
-                self.auth_context.as_ref(),
-            )?;
-            let (response, next_continuation) =
-                receive_azure_devops_page::<InvokeResponse>(request).await?;
+            let url =
+                self.org_url
+                    .api_url("vsaex.dev.azure.com", "_apis/userentitlements", &query)?;
+            let request = RestRequest::from_method_and_url(Method::GET, url)?
+                .cache(cache_key.join(page_index.to_string()))
+                .azure_devops_auth_context(self.auth_context.as_ref())?;
+            let (response, next_continuation) = request
+                .receive_with_ms_continuation_token::<InvokeResponse>()
+                .await?;
             count += response.count;
             entitlements.extend(response.value);
             continuation = next_continuation;

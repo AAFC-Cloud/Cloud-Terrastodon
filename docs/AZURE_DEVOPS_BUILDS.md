@@ -105,9 +105,10 @@ opaque HTTP(S) URLs without a guessed image route. Timestamps use `DateTime<Utc>
 JSON retains scalar IDs, names, paths, URLs, and vocabulary strings.
 
 Modeled build properties are required, including timestamps and retention flags.
-Folder creator and last-change identity references are required. The build REST
-response records, nested references, and list envelope reject unknown fields
-when debug assertions are enabled, making unmodeled metadata visible during
+Folder creator identity references are optional because the service has been
+observed omitting them; last-change identity references remain required. The
+build REST response records, nested references, and list envelope reject unknown
+fields when debug assertions are enabled, making unmodeled metadata visible during
 request use. Release builds continue accepting additional fields.
 
 ## Empty-folder pruning
@@ -170,11 +171,16 @@ contract addresses its inspection artifact; after success, its `IntoFuture`
 procedure constructs and invalidates affected list requests without
 reconstructing their cache keys.
 Pruning awaits those lists for fresh inventories and uses the folder
-delete request after its checks. Shared authentication and REST execution remain
-in the existing transport helpers; API records and validated properties stay
-in `azure_devops_types`. Command dispatch forwards `CliOutput` to the single
-top-level emitter, and leaf text renderers read the same typed values used for
-JSON and Facet Pretty output.
+delete request after its checks. Each request passes its authentication context to
+`RestRequest::azure_devops_auth_context`; the setter preserves the selected source
+and bearer tenant. Requests obtain the decoded page and continuation header through
+`RestRequest::receive_with_ms_continuation_token` and follow pages locally. The
+REST crate's `MicrosoftContinuationToken` rejects blank tokens at construction
+and preserves all other token text unchanged; list requests retain their
+operation-specific repeated-token checks.
+API records and validated properties stay in `azure_devops_types`. Command dispatch
+forwards `CliOutput` to the single top-level emitter, and leaf text renderers read
+the same typed values used for JSON and Facet Pretty output.
 
 Offline tests use typed synthetic records to check domain validation and pruning
 policy: root and occupied-folder protection, scope boundaries, candidate ordering,

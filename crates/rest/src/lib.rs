@@ -1,3 +1,4 @@
+mod microsoft_continuation_token;
 mod request_execution;
 mod request_headers;
 mod rest_request;
@@ -7,6 +8,7 @@ mod rest_response_headers;
 mod rest_service;
 mod tenant_inference;
 
+pub use microsoft_continuation_token::*;
 pub use request_execution::*;
 pub use request_headers::*;
 pub use rest_request::*;

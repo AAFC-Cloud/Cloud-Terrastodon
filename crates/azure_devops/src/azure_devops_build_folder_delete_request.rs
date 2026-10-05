@@ -1,4 +1,3 @@
-use crate::azure_devops_rest::authenticate_azure_devops_request;
 use crate::fetch_azure_devops_build_definitions;
 use crate::fetch_azure_devops_build_folders;
 use crate::fetch_azure_devops_builds;
@@ -133,10 +132,9 @@ impl<'a> IntoFuture for AzureDevOpsBuildFolderDeleteRequest<'a> {
             url.query_pairs_mut()
                 .append_pair("api-version", "7.1-preview.2")
                 .append_pair("path", self.path.as_str());
-            let request = authenticate_azure_devops_request(
-                RestRequest::new(Method::DELETE, url.as_str())?.cache(self.cache_key()),
-                &self.auth_context,
-            )?;
+            let request = RestRequest::from_method_and_url(Method::DELETE, url)?
+                .cache(self.cache_key())
+                .azure_devops_auth_context(self.auth_context.as_ref())?;
             let response = request.receive_raw().await?;
             // A successful DELETE may return HTTP 204 with no JSON body.
             ensure!(

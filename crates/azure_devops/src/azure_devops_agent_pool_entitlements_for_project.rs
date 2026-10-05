@@ -1,6 +1,4 @@
 use crate::AzureDevOpsProjectArgument;
-use crate::azure_devops_rest::authenticate_azure_devops_request;
-use crate::azure_devops_rest::azure_devops_api_url;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_command::CacheKey;
@@ -71,14 +69,14 @@ impl<'a> cloud_terrastodon_command::CacheableCommand
         }
 
         let project = project.to_string();
-        let url = azure_devops_api_url(
-            &self.org_url,
+        let url = self.org_url.api_url(
             "dev.azure.com",
             &format!("{project}/_apis/distributedtask/queues"),
             &[("api-version", "7.1")],
         )?;
-        let request = RestRequest::new(Method::GET, url)?.cache(self.cache_key());
-        let response = authenticate_azure_devops_request(request, self.auth_context.as_ref())?
+        let request = RestRequest::from_method_and_url(Method::GET, url)?.cache(self.cache_key());
+        let response = request
+            .azure_devops_auth_context(self.auth_context.as_ref())?
             .receive::<Response>()
             .await?;
 

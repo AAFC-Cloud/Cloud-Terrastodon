@@ -107,7 +107,8 @@ impl RestArgs {
             (Some(headers), None) | (None, Some(headers)) => Some(headers),
             (None, None) => None,
         };
-        let mut request = RestRequest::new(self.method.0, url.as_str())?.auth_context(auth_context);
+        let mut request =
+            RestRequest::from_method_and_url(self.method.0, url)?.azure_auth_context(auth_context);
         request.service = service;
         request.body = body;
         request.headers = headers;

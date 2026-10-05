@@ -156,7 +156,7 @@ where
         let num_chunks = chunks.len();
         for (i, chunk) in chunks.enumerate() {
             let request = RestRequest::new(Method::POST, url)?
-                .auth_context(&auth_context.auth_context)
+                .azure_auth_context(&auth_context.auth_context)
                 .tenant(auth_context.tenant_id)
                 .body(
                     facet_json::to_string_pretty(&BatchRequestUpstream {

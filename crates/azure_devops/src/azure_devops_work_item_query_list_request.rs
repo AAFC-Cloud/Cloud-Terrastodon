@@ -1,11 +1,10 @@
 use crate::WorkItemListResponse;
-use crate::azure_devops_rest::authenticate_azure_devops_request;
-use crate::azure_devops_rest::receive_azure_devops_page;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemQuery;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
+use cloud_terrastodon_rest::MicrosoftContinuationToken;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
 use eyre::ensure;
@@ -60,20 +59,19 @@ impl<'a> IntoFuture for AzureDevOpsWorkItemQueryListRequest<'a> {
                 .append_pair("$expand", "all")
                 .append_pair("$depth", &self.depth.to_string());
 
-            let mut continuation: Option<String> = None;
+            let mut continuation: Option<MicrosoftContinuationToken> = None;
             let mut seen = std::collections::BTreeSet::new();
             let mut queries = Vec::new();
             loop {
                 let mut url = base_url.clone();
                 if let Some(token) = &continuation {
                     url.query_pairs_mut()
-                        .append_pair("continuationToken", token);
+                        .append_pair("continuationToken", token.as_str());
                 }
-                let request = RestRequest::new(Method::GET, url.as_str())?;
-                let request =
-                    authenticate_azure_devops_request(request, self.auth_context.as_ref())?;
+                let request = RestRequest::from_method_and_url(Method::GET, url)?
+                    .azure_devops_auth_context(self.auth_context.as_ref())?;
                 let (response, next): (WorkItemListResponse<AzureDevOpsWorkItemQuery>, _) =
-                    receive_azure_devops_page(request).await?;
+                    request.receive_with_ms_continuation_token().await?;
                 queries.extend(response.value);
                 let Some(token) = next else {
                     break;

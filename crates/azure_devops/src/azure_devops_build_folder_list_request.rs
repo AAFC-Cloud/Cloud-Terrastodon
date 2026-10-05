@@ -1,7 +1,4 @@
 use crate::azure_devops_build_page::AzureDevOpsBuildPage;
-use crate::azure_devops_rest::authenticate_azure_devops_request;
-use crate::azure_devops_rest::page_cache_key;
-use crate::azure_devops_rest::receive_azure_devops_page;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsBuildFolder;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsBuildFolderPath;
@@ -13,6 +10,7 @@ use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::HasCacheKey;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use cloud_terrastodon_pathing::sanitize_windows_path_component;
+use cloud_terrastodon_rest::MicrosoftContinuationToken;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
 use eyre::ensure;
@@ -147,7 +145,7 @@ impl<'a> IntoFuture for AzureDevOpsBuildFolderListRequest<'a> {
 
     fn into_future(self) -> Self::IntoFuture {
         Box::pin(async move {
-            let mut cache_key = self.cache_key();
+            let cache_key = self.cache_key();
             let mut base_url = Url::parse(&self.org_url.to_string())?;
             base_url
                 .path_segments_mut()
@@ -172,37 +170,30 @@ impl<'a> IntoFuture for AzureDevOpsBuildFolderListRequest<'a> {
                 .append_pair("api-version", "7.1-preview.2");
             // The encoded request URL distinguishes project, path, and service
             // URL variants beneath the shared invalidation root.
-            cache_key.path = cache_key
-                .path
-                .join(blake3::hash(base_url.as_str().as_bytes()).to_hex().as_str());
+            let cache_key =
+                cache_key.join(blake3::hash(base_url.as_str().as_bytes()).to_hex().as_str());
 
             // Folders List does not document pagination. Honor any continuation
             // header nevertheless so an inventory cannot silently be incomplete.
             let mut folders = Vec::new();
-            let mut continuation: Option<String> = None;
+            let mut continuation: Option<MicrosoftContinuationToken> = None;
             let mut seen = BTreeSet::new();
             let mut page_index = 0;
             loop {
                 let mut url = base_url.clone();
                 if let Some(token) = &continuation {
                     url.query_pairs_mut()
-                        .append_pair("continuationToken", token);
+                        .append_pair("continuationToken", token.as_str());
                 }
-                let request = authenticate_azure_devops_request(
-                    RestRequest::new(Method::GET, url.as_str())?
-                        .cache(page_cache_key(&cache_key, page_index)),
-                    &self.auth_context,
-                )?;
+                let request = RestRequest::from_method_and_url(Method::GET, url)?
+                    .cache(cache_key.join(page_index.to_string()))
+                    .azure_devops_auth_context(self.auth_context.as_ref())?;
                 let (page, next): (AzureDevOpsBuildPage<AzureDevOpsBuildFolder>, _) =
-                    receive_azure_devops_page(request).await?;
+                    request.receive_with_ms_continuation_token().await?;
                 folders.extend(page.value);
                 let Some(token) = next else {
                     break;
                 };
-                ensure!(
-                    !token.trim().is_empty(),
-                    "Build API returned an empty continuation token"
-                );
                 ensure!(
                     seen.insert(token.clone()),
                     "Build API returned a repeated continuation token"

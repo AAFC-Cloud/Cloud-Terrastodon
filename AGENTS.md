@@ -166,7 +166,13 @@ Standalone examples may remain self-contained, as described in
   crate. Keep authentication and network execution out of those types.
 - Put service requests, transport coordination, pagination, and domain workflows
   in the SDK crate. Follow existing request/`IntoFuture` patterns and reuse shared
-  authentication and REST execution helpers.
+  authentication contexts and REST execution facilities. Pass authentication to
+  `RestRequest::azure_auth_context` or `azure_devops_auth_context`; those setters
+  own transferring the authentication source and selected tenant. Do not repeat
+  authentication-context enum matches or source/tenant plumbing in SDK requests.
+- Pass an already parsed `url::Url` to `RestRequest::from_method_and_url` rather
+  than converting it to text for `RestRequest::new` to parse again. Transport URL
+  builders should return `Url`; stringify only at boundaries that require text.
 - Cache GET and other nonmutating service requests through the existing cache
   layers. Give paginated responses separate entries beneath an invalidatable
   request key, and include the service identity, operation, filters, and limits
@@ -227,6 +233,17 @@ Standalone examples may remain self-contained, as described in
   `wrap_err_with` over replacing an error with a new message. When an API returns
   an error without diagnostic information, such as `Err(())`, explain its actual
   failure condition rather than using a vague label or printing `()`.
+- Decode typed REST bodies inside `RestRequest`'s receive methods so failures
+  retain the existing response artifacts. Use `receive_with_mapper` to combine
+  a decoded value with header metadata rather than decoding after `receive_raw`.
+  Use `receive_with_ms_continuation_token` for documented Microsoft continuation
+  headers instead of repeating the same metadata extraction in SDK requests.
+  The shared REST boundary owns this header convention; each SDK request still
+  owns its pagination loop, query parameters, limits, and cache keys. Avoid
+  feature-specific receive wrappers that only forward into this boundary.
+  Helpers that return futures must capture callers in synchronous
+  `#[track_caller]` functions and preserve the caller and tracing span through
+  blocking decoding, so diagnostics identify the owning request.
 - Keep registrations beside the owning type. Register reusable values, request
   operations, arbitrary generators, and collection outputs as required by the
   registry's consumers. Declare accurate read/write effects for operations.

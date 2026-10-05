@@ -85,13 +85,11 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsTestSuiteCas
             suiteId = self.suite,
         );
         let request = RestRequest::new(Method::GET, url.as_str())?.cache(self.cache_key());
-        Ok(crate::azure_devops_rest::authenticate_azure_devops_request(
-            request,
-            self.auth_context.as_ref(),
-        )?
-        .receive::<InvokeResponse>()
-        .await?
-        .value)
+        Ok(request
+            .azure_devops_auth_context(self.auth_context.as_ref())?
+            .receive::<InvokeResponse>()
+            .await?
+            .value)
     }
 }
 

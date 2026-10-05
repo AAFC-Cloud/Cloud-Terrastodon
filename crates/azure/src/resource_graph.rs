@@ -112,7 +112,7 @@ impl<'a> ResourceGraphHelper<'a> {
         )?
         .tenant(self.auth_context.tenant_id)
         .body(body);
-        request = request.auth_context(&self.auth_context.auth_context);
+        request = request.azure_auth_context(&self.auth_context.auth_context);
         request.cache_key = self.cache_behaviour.clone().or_else(|| {
             Some(CacheKey::new(PathBuf::from_iter([
                 "az",

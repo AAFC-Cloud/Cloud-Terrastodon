@@ -1,5 +1,4 @@
 use crate::WorkItemListResponse;
-use crate::azure_devops_rest::authenticate_azure_devops_request;
 use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
@@ -100,12 +99,12 @@ impl<'a> IntoFuture for AzureDevOpsWorkItemsGetRequest<'a> {
                     path.extend(["_apis", "wit", "workitemsbatch"]);
                 }
                 url.query_pairs_mut().append_pair("api-version", "7.1");
-                let request = RestRequest::new(Method::POST, url.as_str())?
+                let request = RestRequest::from_method_and_url(Method::POST, url)?
                     .body(facet_json::to_string(&body)?);
-                let response: WorkItemListResponse<AzureDevOpsWorkItem> =
-                    authenticate_azure_devops_request(request, self.auth_context.as_ref())?
-                        .receive()
-                        .await?;
+                let response: WorkItemListResponse<AzureDevOpsWorkItem> = request
+                    .azure_devops_auth_context(self.auth_context.as_ref())?
+                    .receive()
+                    .await?;
                 for item in response.value {
                     ensure!(
                         seen.contains(&item.id),

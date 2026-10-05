@@ -52,6 +52,7 @@ fn tracy_log_filter() -> Result<EnvFilter> {
 
 /// Initialize tracing for the whole application, registering independently filtered stderr and
 /// optional JSON file layers, and the GUI event collector so that `egui_tracing::Logs` works.
+/// The error context layer lets error reports capture the active tracing spans.
 pub fn init_tracing(
     level: impl Into<Directive>,
     file_level: Option<impl Into<Directive>>,
@@ -206,7 +207,10 @@ fn build_subscriber(
             } else {
                 None
             }
-        });
+        })
+        // Error reports capture their span context independently of where logs
+        // are rendered or whether a JSON log file is enabled.
+        .with(tracing_error::ErrorLayer::default());
 
     #[cfg(all(feature = "tracy", not(test)))]
     let subscriber =
@@ -221,6 +225,37 @@ mod tests {
     use std::sync::Arc;
     use tracing_subscriber::Layer;
     use tracing_subscriber::layer::SubscriberExt;
+
+    #[test]
+    fn built_subscriber_supports_span_traces_for_both_terminal_modes() {
+        for terminal in [false, true] {
+            let subscriber = build_subscriber(
+                tracing_subscriber::filter::LevelFilter::INFO.into(),
+                None,
+                None,
+                terminal.then(TerminalLogBuffer::new),
+                terminal.then(|| Arc::new(|| true) as TerminalActivityProbe),
+                None,
+            )
+            .expect("subscriber should build");
+
+            tracing::subscriber::with_default(subscriber, || {
+                let span = tracing::info_span!("synthetic_request", operation = "list_folders");
+                let _entered = span.enter();
+                let trace = tracing_error::SpanTrace::capture();
+                assert_eq!(trace.status(), tracing_error::SpanTraceStatus::CAPTURED);
+
+                let mut captured = Vec::new();
+                trace.with_spans(|metadata, fields| {
+                    captured.push((metadata.name(), fields.to_owned()));
+                    true
+                });
+                assert_eq!(captured.len(), 1);
+                assert_eq!(captured[0].0, "synthetic_request");
+                assert!(captured[0].1.contains("list_folders"));
+            });
+        }
+    }
 
     #[cfg(feature = "tracy")]
     #[test]

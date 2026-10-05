@@ -1,4 +1,3 @@
-use crate::azure_devops_rest::authenticate_azure_devops_request;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
@@ -51,8 +50,9 @@ impl<'a> IntoFuture for AzureDevOpsWorkItemQueryGetRequest<'a> {
                 .append_pair("api-version", "7.1")
                 .append_pair("$expand", "all");
 
-            let request = RestRequest::new(Method::GET, url.as_str())?;
-            authenticate_azure_devops_request(request, self.auth_context.as_ref())?
+            let request = RestRequest::from_method_and_url(Method::GET, url)?;
+            request
+                .azure_devops_auth_context(self.auth_context.as_ref())?
                 .receive()
                 .await
         })

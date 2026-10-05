@@ -1,4 +1,3 @@
-use crate::azure_devops_rest::authenticate_azure_devops_request;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsJsonPatch;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
@@ -74,13 +73,14 @@ impl<'a> IntoFuture for AzureDevOpsWorkItemCreateRequest<'a> {
                     },
                 )
                 .append_pair("$expand", "all");
-            let request = RestRequest::new(Method::POST, url.as_str())?
+            let request = RestRequest::from_method_and_url(Method::POST, url)?
                 .headers(RequestHeaders::from_header(
                     "Content-Type",
                     "application/json-patch+json",
                 )?)
                 .body(facet_json::to_string(&self.patch)?);
-            authenticate_azure_devops_request(request, self.auth_context.as_ref())?
+            request
+                .azure_devops_auth_context(self.auth_context.as_ref())?
                 .receive()
                 .await
         })

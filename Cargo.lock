@@ -1331,6 +1331,7 @@ dependencies = [
  "eyre",
  "tokio",
  "tracing",
+ "tracing-error",
  "tracing-subscriber",
  "tracing-tracy",
 ]

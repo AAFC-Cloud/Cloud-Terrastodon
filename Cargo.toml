@@ -36,6 +36,7 @@ indoc = "2.0.5"
 hcl-rs = "0.19.4"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter", "json"] }
+tracing-error = "0.2.0"
 mimalloc = "0.1.52"
 tracy-client = { version = "0.18.4", default-features = false, features = [
     "enable",

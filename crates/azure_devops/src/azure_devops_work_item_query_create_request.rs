@@ -1,4 +1,3 @@
-use crate::azure_devops_rest::authenticate_azure_devops_request;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
@@ -63,7 +62,8 @@ impl<'a> IntoFuture for AzureDevOpsWorkItemQueryCreateRequest<'a> {
                     name: self.name,
                     wiql: self.wiql,
                 })?);
-            authenticate_azure_devops_request(request, self.auth_context.as_ref())?
+            request
+                .azure_devops_auth_context(self.auth_context.as_ref())?
                 .receive()
                 .await
         })

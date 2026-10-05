@@ -153,12 +153,10 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupMembers
             subject_descriptor = subject_descriptor
         );
         let request = RestRequest::new(Method::GET, url)?.cache(self.cache_key());
-        let response = crate::azure_devops_rest::authenticate_azure_devops_request(
-            request,
-            self.auth_context.as_ref(),
-        )?
-        .receive_raw()
-        .await?;
+        let response = request
+            .azure_devops_auth_context(self.auth_context.as_ref())?
+            .receive_raw()
+            .await?;
         Ok(AzureDevOpsGroupMembersV2Response(
             response.into_json_body()?,
         ))

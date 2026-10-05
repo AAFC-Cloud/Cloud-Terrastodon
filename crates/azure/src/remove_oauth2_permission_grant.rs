@@ -61,7 +61,7 @@ impl CacheableCommand for OAuth2PermissionGrantRemoveRequest<'_> {
         );
         RestRequest::new(Method::DELETE, &url)?
             .tenant(self.auth_context.tenant_id)
-            .auth_context(&self.auth_context.auth_context)
+            .azure_auth_context(&self.auth_context.auth_context)
             .cache(cache_key)
             .receive_raw()
             .await?;

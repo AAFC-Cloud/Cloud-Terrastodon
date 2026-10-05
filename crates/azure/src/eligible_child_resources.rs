@@ -46,7 +46,7 @@ pub async fn fetch_eligible_child_resources(
     }
 
     let resp = RestRequest::new(http::Method::GET, &url)?
-        .auth_context(&auth_context.auth_context)
+        .azure_auth_context(&auth_context.auth_context)
         .tenant(auth_context.tenant_id)
         .cache(CacheKey::new(cache_chunks))
         .receive::<Response>()

@@ -138,11 +138,7 @@ mod tests {
                     path: path.parse().unwrap(),
                     description: None,
                     project: None,
-                    created_by: AzureDevOpsIdentityReference {
-                        id: Some("synthetic-creator".into()),
-                        descriptor: None,
-                        display_name: Some("Synthetic creator".into()),
-                    },
+                    created_by: None,
                     created_on: None,
                     last_changed_by: AzureDevOpsIdentityReference {
                         id: Some("synthetic-editor".into()),

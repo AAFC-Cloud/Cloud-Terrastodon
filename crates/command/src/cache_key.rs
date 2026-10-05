@@ -3,6 +3,7 @@ use chrono::Local;
 use cloud_terrastodon_pathing::AppDir;
 use eyre::Context;
 use eyre::Result;
+use std::path::Path;
 use std::path::PathBuf;
 use std::time::Duration;
 use tokio::fs::OpenOptions;
@@ -38,6 +39,17 @@ impl CacheKey {
         CacheKey {
             path: path.into(),
             valid_for: Duration::MAX,
+        }
+    }
+
+    /// Return a key with a joined path and the same validity period.
+    ///
+    /// Uses [`Path::join`] semantics and leaves this key unchanged.
+    #[must_use]
+    pub fn join(&self, path: impl AsRef<Path>) -> Self {
+        Self {
+            path: self.path.join(path),
+            valid_for: self.valid_for,
         }
     }
 

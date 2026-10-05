@@ -62,7 +62,7 @@ impl<'a> MicrosoftGraphHelper<'a> {
     fn get_request(&self, url: &str) -> Result<RestRequest> {
         let mut request = RestRequest::new(http::Method::GET, url)?;
         request.tenant = Some(self.auth_context.tenant_id);
-        request = request.auth_context(&self.auth_context.auth_context);
+        request = request.azure_auth_context(&self.auth_context.auth_context);
         request.cache_key = self.cache_key.clone();
         request.headers = self.headers.clone();
         Ok(request)
@@ -116,10 +116,7 @@ impl<'a> MicrosoftGraphHelper<'a> {
                 .get_request(url)
                 .map_err(|error| (error, request_index > 0))?;
             if let Some(ref cache_key) = self.cache_key {
-                request.cache_key = Some(CacheKey {
-                    path: cache_key.path.join(request_index.to_string()),
-                    valid_for: cache_key.valid_for,
-                });
+                request.cache_key = Some(cache_key.join(request_index.to_string()));
             }
 
             let mut response = request

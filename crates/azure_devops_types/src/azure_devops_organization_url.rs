@@ -240,6 +240,33 @@ impl AzureDevOpsOrganizationUrl {
         }
     }
 
+    /// Build a REST endpoint for a cloud API area's service host, encoding query
+    /// parameters with [`Url`]. Legacy organization URLs retain their host and
+    /// collection prefix. Server collection scopes do not have a cloud
+    /// organization name and return an error.
+    ///
+    /// See Microsoft's [Azure DevOps service URL forms](https://learn.microsoft.com/en-us/azure/devops/extend/develop/work-with-urls?view=azure-devops).
+    #[track_caller]
+    pub fn api_url(&self, host: &str, path: &str, query: &[(&str, &str)]) -> Result<Url> {
+        let base = if self.is_visual_studio_com_format() {
+            self.expanded_form()
+        } else {
+            format!("https://{host}/{}", self.organization_name()?.as_ref())
+        };
+        let mut url = Url::parse(&format!(
+            "{}/{}",
+            base.trim_end_matches('/'),
+            path.trim_start_matches('/')
+        ))?;
+        {
+            let mut pairs = url.query_pairs_mut();
+            for (name, value) in query {
+                pairs.append_pair(name, value);
+            }
+        }
+        Ok(url)
+    }
+
     pub fn is_dev_azure_com_format(&self) -> bool {
         matches!(self.name, AzureDevOpsOrganizationUrlName::Organization(_))
             && self.base_url.host_str() == Some("dev.azure.com")

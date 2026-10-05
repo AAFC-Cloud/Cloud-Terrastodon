@@ -115,7 +115,7 @@ impl<'a, REQ> MicrosoftGraphBatchRequest<'a, REQ> {
             let mut request =
                 RestRequest::new(Method::POST, "https://graph.microsoft.com/v1.0/$batch")?
                     .tenant(auth_context.tenant_id)
-                    .auth_context(&auth_context.auth_context)
+                    .azure_auth_context(&auth_context.auth_context)
                     .body(
                         facet_json::to_string_pretty(&body)
                             .map_err(|error| eyre::eyre!("{error:?}"))?,
@@ -124,10 +124,7 @@ impl<'a, REQ> MicrosoftGraphBatchRequest<'a, REQ> {
                 if use_base_cache_key {
                     cache_key.clone()
                 } else {
-                    CacheKey {
-                        path: cache_key.path.join(batch_index.to_string()),
-                        valid_for: cache_key.valid_for,
-                    }
+                    cache_key.join(batch_index.to_string())
                 }
             });
             let response = request.receive::<MicrosoftGraphBatchWireResponse>().await?;

@@ -1,3 +1,4 @@
+use crate::MicrosoftContinuationToken;
 use crate::RequestHeaders;
 use crate::RestResponseBody;
 use crate::RestService;
@@ -15,6 +16,7 @@ use cloud_terrastodon_command::to_vec_pretty;
 use cloud_terrastodon_command::write_failure_with_extra_files;
 use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_credentials::AuthSource;
+use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use cloud_terrastodon_relative_location::RelativeLocation;
 use eyre::Context;
 use eyre::ContextCompat;
@@ -49,7 +51,8 @@ pub struct RestRequest {
     /// Authentication is request-scoped. The optional value keeps the
     /// low-level builder source-compatible for non-CLI callers while callers
     /// that have an invocation context should always set it with
-    /// [`RestRequest::auth_context`].
+    /// [`RestRequest::azure_auth_context`] or
+    /// [`RestRequest::azure_devops_auth_context`].
     pub auth_context: Option<AuthContext>,
     pub service: RestService,
     pub method: Method,
@@ -86,10 +89,22 @@ impl std::fmt::Debug for RestRequest {
 }
 
 impl RestRequest {
+    /// Parse a URL and construct a request for a supported REST service.
+    ///
+    /// Use [`Self::from_method_and_url`] when the URL is already parsed.
+    #[track_caller]
     pub fn new(method: Method, url: impl AsRef<str>) -> Result<Self> {
-        let url_string = url.as_ref().to_string();
-        let url =
-            Url::parse(&url_string).with_context(|| format!("parsing URL '{}'", url_string))?;
+        let url_text = url.as_ref();
+        let url = Url::parse(url_text).with_context(|| format!("parsing URL '{url_text}'"))?;
+        Self::from_method_and_url(method, url)
+    }
+
+    /// Construct a request using an already parsed URL without reparsing it.
+    ///
+    /// Takes ownership of the URL and infers its REST service. Unsupported hosts
+    /// are rejected, as they are by [`Self::new`].
+    #[track_caller]
+    pub fn from_method_and_url(method: Method, url: Url) -> Result<Self> {
         let service = RestService::infer(&url).wrap_err_with(|| {
             format!("unsupported REST host '{}'", url.host_str().unwrap_or(""))
         })?;
@@ -108,9 +123,36 @@ impl RestRequest {
         })
     }
 
-    pub fn auth_context(mut self, auth_context: &AuthContext) -> Self {
+    /// Attach authentication policy without acquiring credentials.
+    ///
+    /// Explicit tenant overrides are set through [`Self::tenant`]. Azure DevOps
+    /// callers should use [`Self::azure_devops_auth_context`] to preserve their
+    /// authentication source and tenant together.
+    pub fn azure_auth_context(mut self, auth_context: &AuthContext) -> Self {
         self.auth_context = Some(auth_context.clone());
         self
+    }
+
+    /// Attach Azure DevOps authentication policy and its selected bearer tenant.
+    ///
+    /// Azure CLI active-tenant authentication and personal access tokens retain
+    /// their underlying context. This only configures the request: credentials
+    /// are acquired during execution, after any cache lookup. A missing context
+    /// is rejected locally and attributed to the caller.
+    #[track_caller]
+    pub fn azure_devops_auth_context(self, auth_context: &AzureDevOpsAuthContext) -> Result<Self> {
+        Ok(match auth_context {
+            AzureDevOpsAuthContext::None => {
+                bail!("Azure DevOps authentication is not configured for this request")
+            }
+            AzureDevOpsAuthContext::Bearer(context) => self
+                .azure_auth_context(&context.auth_context)
+                .tenant(context.tenant_id),
+            AzureDevOpsAuthContext::AzureCli(context)
+            | AzureDevOpsAuthContext::PersonalAccessToken(context) => {
+                self.azure_auth_context(context)
+            }
+        })
     }
 
     pub fn body(mut self, body: impl Into<String>) -> Self {
@@ -189,6 +231,10 @@ impl RestRequest {
         async move {
             self.execute_without_cache_inner()
                 .await
+                .map_err(|mut error| {
+                    error.handler_mut().track_caller(caller);
+                    error
+                })
                 .wrap_err(format!(
                     "RestRequest::execute_without_cache failed, called from {location}"
                 ))
@@ -258,6 +304,20 @@ impl RestRequest {
         .or_current();
 
         async move {
+            // Decode runs on a blocking thread. Preserve the request span and
+            // originating call site for both cached and uncached failures.
+            let decode_span = tracing::Span::current();
+            let decode_dispatch = tracing::dispatcher::get_default(Clone::clone);
+            let decode = move |response| {
+                tracing::dispatcher::with_default(&decode_dispatch, || {
+                    decode_span.in_scope(|| {
+                        decode(response).map_err(|mut error| {
+                            error.handler_mut().track_caller(caller);
+                            error
+                        })
+                    })
+                })
+            };
             let Some(cache_key) = self.cache_key.clone() else {
                 let debug_inputs = self.debug_inputs();
                 let failure_extra_files = self.failure_extra_files;
@@ -342,6 +402,56 @@ impl RestRequest {
         self.receive_with_validator_from(validator, Location::caller())
     }
 
+    /// Deserialize the JSON body, then map the value with response metadata.
+    ///
+    /// The mapper can validate or adjust the value and return additional data,
+    /// such as a continuation token from the headers. The extra value does not
+    /// need to implement `Facet`; caches and diagnostic artifacts retain the
+    /// original response. HTTP status, decoding, and mapping failures use the same
+    /// diagnostic path as [`Self::receive`], attributed to this call site.
+    #[track_caller]
+    pub fn receive_with_mapper<T, H, F>(
+        self,
+        mapper: F,
+    ) -> impl Future<Output = Result<(T, H)>> + Send
+    where
+        T: Facet<'static> + Send + 'static,
+        H: Send + 'static,
+        F: FnOnce(T, &SerializableRestResponse) -> Result<(T, H)> + Send + 'static,
+    {
+        self.receive_with_mapper_from(mapper, Location::caller())
+    }
+
+    /// Deserialize the body and return its Microsoft continuation header.
+    ///
+    /// Reads `x-ms-continuationtoken`, documented by [Azure DevOps Test Plans
+    /// List](https://learn.microsoft.com/en-us/rest/api/azure/devops/testplan/test-plans/list?view=azure-devops-rest-7.1#uri-parameters).
+    /// Falls back to `x-ms-continuation-token`, documented by [Durable Functions'
+    /// Get all instances status](https://learn.microsoft.com/en-us/azure/durable-task/durable-functions/durable-functions-http-api#get-all-instances-status).
+    /// Header lookup is case-insensitive. An absent header returns `None`; a
+    /// present blank token is an error. Nonblank token text is retained unchanged.
+    /// Decoding uses the same cache, failure artifacts, and caller attribution as
+    /// [`Self::receive`]. Each SDK request remains responsible for following pages.
+    #[track_caller]
+    pub fn receive_with_ms_continuation_token<T>(
+        self,
+    ) -> impl Future<Output = Result<(T, Option<MicrosoftContinuationToken>)>> + Send
+    where
+        T: Facet<'static> + Send + 'static,
+    {
+        self.receive_with_mapper_from(
+            |value, response| {
+                let token = response
+                    .header("x-ms-continuationtoken")
+                    .or_else(|| response.header("x-ms-continuation-token"))
+                    .map(MicrosoftContinuationToken::try_new)
+                    .transpose()?;
+                Ok((value, token))
+            },
+            Location::caller(),
+        )
+    }
+
     fn receive_with_validator_from<T, F>(
         self,
         validator: F,
@@ -350,6 +460,23 @@ impl RestRequest {
     where
         T: Facet<'static> + Send + 'static,
         F: FnOnce(T) -> Result<T> + Send + 'static,
+    {
+        let response = self.receive_with_mapper_from(
+            move |value, _response| validator(value).map(|value| (value, ())),
+            caller,
+        );
+        async move { response.await.map(|(value, ())| value) }
+    }
+
+    fn receive_with_mapper_from<T, H, F>(
+        self,
+        mapper: F,
+        caller: &'static Location<'static>,
+    ) -> impl Future<Output = Result<(T, H)>> + Send
+    where
+        T: Facet<'static> + Send + 'static,
+        H: Send + 'static,
+        F: FnOnce(T, &SerializableRestResponse) -> Result<(T, H)> + Send + 'static,
     {
         self.receive_raw_with_decoder_from(
             move |response| {
@@ -361,7 +488,11 @@ impl RestRequest {
                         caller
                     );
                 }
-                let parsed = facet_json::from_str::<T>(response.into_json_body()?.as_str())
+                let body = match &response.body {
+                    RestResponseBody::Json(body) => body.as_str(),
+                    RestResponseBody::Text(content) => content.as_str(),
+                };
+                let parsed = facet_json::from_str::<T>(body)
                     .map_err(|error| eyre::eyre!("{error:?}"))
                     .wrap_err_with(|| {
                         format!(
@@ -369,7 +500,7 @@ impl RestRequest {
                             std::any::type_name::<T>()
                         )
                     })?;
-                validator(parsed)
+                mapper(parsed, &response)
             },
             caller,
         )
@@ -387,8 +518,10 @@ fn rest_response_extra_files(
         RestResponseBody::Json(body) => {
             files.insert(
                 PathBuf::from("response.body.json"),
-                facet_json::to_string_pretty(body)
-                    .unwrap_or_else(|_| body.as_str().to_string())
+                facet_json::from_str::<facet_value::Value>(body.as_str())
+                    .ok()
+                    .and_then(|value| facet_json::to_string_pretty(&value).ok())
+                    .unwrap_or_else(|| body.as_str().to_string())
                     .into(),
             );
         }

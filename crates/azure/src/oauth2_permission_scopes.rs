@@ -63,7 +63,7 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for OAuth2PermissionScopesL
             oauth2_permission_scopes: Vec<OAuth2PermissionScope>,
         }
         let entries = RestRequest::new(http::Method::GET, url.as_str())?
-            .auth_context(&self.auth_context.auth_context)
+            .azure_auth_context(&self.auth_context.auth_context)
             .tenant(self.auth_context.tenant_id)
             .cache(self.cache_key())
             .receive::<Response>()

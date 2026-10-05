@@ -1,4 +1,3 @@
-use crate::azure_devops_rest::authenticate_azure_devops_request;
 use crate::azure_devops_work_item_relation_change::AzureDevOpsWorkItemRelationChange;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsJsonPatchOperation;
@@ -64,11 +63,11 @@ impl<'a> IntoFuture for AzureDevOpsWorkItemRelationChangeRequest<'a> {
         Box::pin(async move {
             let mut get_url = self.item_url()?;
             get_url.query_pairs_mut().append_pair("$expand", "all");
-            let get_request = RestRequest::new(Method::GET, get_url.as_str())?;
-            let item: AzureDevOpsWorkItem =
-                authenticate_azure_devops_request(get_request, self.auth_context.as_ref())?
-                    .receive()
-                    .await?;
+            let get_request = RestRequest::from_method_and_url(Method::GET, get_url)?;
+            let item: AzureDevOpsWorkItem = get_request
+                .azure_devops_auth_context(self.auth_context.as_ref())?
+                .receive()
+                .await?;
             ensure!(
                 item.id == self.id,
                 "Work item response did not match the requested ID"
@@ -105,13 +104,14 @@ impl<'a> IntoFuture for AzureDevOpsWorkItemRelationChangeRequest<'a> {
                     },
                 )
                 .append_pair("$expand", "all");
-            let patch_request = RestRequest::new(Method::PATCH, patch_url.as_str())?
+            let patch_request = RestRequest::from_method_and_url(Method::PATCH, patch_url)?
                 .body(facet_json::to_string(&patch)?)
                 .headers(RequestHeaders::from_header(
                     "Content-Type",
                     "application/json-patch+json",
                 )?);
-            authenticate_azure_devops_request(patch_request, self.auth_context.as_ref())?
+            patch_request
+                .azure_devops_auth_context(self.auth_context.as_ref())?
                 .receive()
                 .await
         })

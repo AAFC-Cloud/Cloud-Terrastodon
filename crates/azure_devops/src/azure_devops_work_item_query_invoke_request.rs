@@ -1,4 +1,3 @@
-use crate::azure_devops_rest::authenticate_azure_devops_request;
 use crate::azure_devops_work_item_query_selector::AzureDevOpsWorkItemQuerySelector;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
@@ -75,9 +74,10 @@ impl<'a> IntoFuture for AzureDevOpsWorkItemQueryInvokeRequest<'a> {
                 }
             };
 
-            let mut request = RestRequest::new(method, url.as_str())?;
+            let mut request = RestRequest::from_method_and_url(method, url)?;
             request.body = body;
-            authenticate_azure_devops_request(request, self.auth_context.as_ref())?
+            request
+                .azure_devops_auth_context(self.auth_context.as_ref())?
                 .receive()
                 .await
         })

@@ -1,4 +1,3 @@
-use crate::azure_devops_rest::authenticate_azure_devops_request;
 use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
@@ -79,11 +78,11 @@ impl<'a> IntoFuture for AzureDevOpsWorkItemGetRequest<'a> {
                     .append_pair("asOf", &as_of.to_rfc3339());
             }
             let id = self.id;
-            let request = RestRequest::new(Method::GET, url.as_str())?;
-            let item: AzureDevOpsWorkItem =
-                authenticate_azure_devops_request(request, self.auth_context.as_ref())?
-                    .receive()
-                    .await?;
+            let request = RestRequest::from_method_and_url(Method::GET, url)?;
+            let item: AzureDevOpsWorkItem = request
+                .azure_devops_auth_context(self.auth_context.as_ref())?
+                .receive()
+                .await?;
             ensure!(
                 item.id == id,
                 "Work item response did not match the requested ID"

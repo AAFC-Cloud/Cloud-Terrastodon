@@ -73,7 +73,7 @@ impl CacheableCommand for EntraGroupsForMemberRequest<'_> {
             ),
         )?
         .tenant(self.auth_context.tenant_id)
-        .auth_context(&self.auth_context.auth_context)
+        .azure_auth_context(&self.auth_context.auth_context)
         .body("{\"securityEnabledOnly\":false}")
         .receive::<GetMemberGroupsResponse>()
         .await?;

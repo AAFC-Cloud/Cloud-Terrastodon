@@ -1,7 +1,4 @@
 use crate::azure_devops_build_page::AzureDevOpsBuildPage;
-use crate::azure_devops_rest::authenticate_azure_devops_request;
-use crate::azure_devops_rest::page_cache_key;
-use crate::azure_devops_rest::receive_azure_devops_page;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsBuild;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsBuildDefinitionId;
@@ -16,6 +13,7 @@ use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::HasCacheKey;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use cloud_terrastodon_pathing::sanitize_windows_path_component;
+use cloud_terrastodon_rest::MicrosoftContinuationToken;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
 use eyre::ensure;
@@ -170,7 +168,7 @@ impl<'a> IntoFuture for AzureDevOpsBuildListRequest<'a> {
 
     fn into_future(self) -> Self::IntoFuture {
         Box::pin(async move {
-            let mut cache_key = self.cache_key();
+            let cache_key = self.cache_key();
             let mut url = Url::parse(&self.org_url.to_string())?;
             url.path_segments_mut()
                 .map_err(|()| {
@@ -219,13 +217,13 @@ impl<'a> IntoFuture for AzureDevOpsBuildListRequest<'a> {
                     .query_pairs_mut()
                     .append_pair("$top", &limit.to_string());
             }
-            cache_key.path = cache_key.path.join(
+            let cache_key = cache_key.join(
                 blake3::hash(cache_url.as_str().as_bytes())
                     .to_hex()
                     .as_str(),
             );
             let mut builds = Vec::new();
-            let mut continuation: Option<String> = None;
+            let mut continuation: Option<MicrosoftContinuationToken> = None;
             let mut seen = BTreeSet::new();
             let mut page_index = 0;
             loop {
@@ -233,7 +231,7 @@ impl<'a> IntoFuture for AzureDevOpsBuildListRequest<'a> {
                 if let Some(token) = &continuation {
                     page_url
                         .query_pairs_mut()
-                        .append_pair("continuationToken", token);
+                        .append_pair("continuationToken", token.as_str());
                 }
                 // `$top` limits each server response. Keep it equal to the
                 // remaining total so callers receive at most the requested count.
@@ -243,13 +241,11 @@ impl<'a> IntoFuture for AzureDevOpsBuildListRequest<'a> {
                         .query_pairs_mut()
                         .append_pair("$top", &remaining.to_string());
                 }
-                let request = authenticate_azure_devops_request(
-                    RestRequest::new(Method::GET, page_url.as_str())?
-                        .cache(page_cache_key(&cache_key, page_index)),
-                    &self.auth_context,
-                )?;
+                let request = RestRequest::from_method_and_url(Method::GET, page_url)?
+                    .cache(cache_key.join(page_index.to_string()))
+                    .azure_devops_auth_context(self.auth_context.as_ref())?;
                 let (page, next): (AzureDevOpsBuildPage<AzureDevOpsBuild>, _) =
-                    receive_azure_devops_page(request).await?;
+                    request.receive_with_ms_continuation_token().await?;
                 builds.extend(page.value.into_iter().take(remaining.unwrap_or(usize::MAX)));
                 if limit.is_some_and(|limit| builds.len() == limit) {
                     break;
@@ -257,10 +253,6 @@ impl<'a> IntoFuture for AzureDevOpsBuildListRequest<'a> {
                 let Some(token) = next else {
                     break;
                 };
-                ensure!(
-                    !token.trim().is_empty(),
-                    "Build API returned an empty continuation token"
-                );
                 ensure!(
                     seen.insert(token.clone()),
                     "Build API returned a repeated continuation token"

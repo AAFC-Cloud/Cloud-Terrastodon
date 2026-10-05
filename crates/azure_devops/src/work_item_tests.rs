@@ -272,13 +272,11 @@ fn browser_auth_retains_tenant_and_revision_uses_a_test_operation() -> Result<()
     let tenant = format!("{:032x}", rand::random::<u128>()).parse()?;
     let auth_context =
         AzureDevOpsAuthContext::for_tenant(&AuthContext::explicit(AuthSource::Browser), tenant)?;
-    let request = crate::azure_devops_rest::authenticate_azure_devops_request(
-        cloud_terrastodon_rest::RestRequest::new(
-            reqwest::Method::PATCH,
-            "https://dev.azure.com/fixture/_apis/wit/workitems/1?api-version=7.1",
-        )?,
-        &auth_context,
-    )?;
+    let request = cloud_terrastodon_rest::RestRequest::new(
+        reqwest::Method::PATCH,
+        "https://dev.azure.com/fixture/_apis/wit/workitems/1?api-version=7.1",
+    )?
+    .azure_devops_auth_context(&auth_context)?;
     assert!(request.tenant == Some(tenant));
     let revision = AzureDevOpsJsonPatchOperation::Test {
         path: "/rev".to_owned(),
