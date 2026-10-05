@@ -251,7 +251,7 @@ impl ProviderManager {
         // Get devops url
         let org_service_url = format!(
             "https://dev.azure.com/{name}/",
-            name = get_default_organization_url().await?.organization_name
+            name = get_default_organization_url().await?.organization_name()?
         );
 
         // Get active sub

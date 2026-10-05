@@ -15,6 +15,8 @@ use cloud_terrastodon_azure::fetch_group_owners;
 use cloud_terrastodon_azure::fetch_groups_by_id;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
 use cloud_terrastodon_credentials::AuthContext;
+use color_eyre::owo_colors::OwoColorize;
+use color_eyre::owo_colors::Stream;
 use color_eyre::owo_colors::Style;
 use eyre::OptionExt;
 use eyre::Result;
@@ -192,23 +194,16 @@ impl AzureEntraGroupShowArgs {
 }
 
 impl GroupShowOutput {
-    fn render_text(&self, stdout_is_terminal: bool) -> Result<String> {
+    fn render_text(&self) -> Result<String> {
         let mut output = String::new();
-        let terminal_style = |style| {
-            if stdout_is_terminal {
-                style
-            } else {
-                Style::new()
-            }
-        };
-        let header = terminal_style(Style::new().cyan().bold());
-        let dimmed = terminal_style(Style::new().dimmed());
-        let mail = terminal_style(Style::new().blue().underline());
-        let magenta = terminal_style(Style::new().magenta());
-        let green = terminal_style(Style::new().green().bold());
-        let red = terminal_style(Style::new().red().bold());
-        let blue = terminal_style(Style::new().blue().bold());
-        let section = terminal_style(Style::new().yellow().bold());
+        let header = Style::new().cyan().bold();
+        let dimmed = Style::new().dimmed();
+        let mail = Style::new().blue().underline();
+        let magenta = Style::new().magenta();
+        let green = Style::new().green().bold();
+        let red = Style::new().red().bold();
+        let blue = Style::new().blue().bold();
+        let section = Style::new().yellow().bold();
         for group_data in &self.0 {
             let group = &group_data.group;
             let members = &group_data.members;
@@ -218,36 +213,54 @@ impl GroupShowOutput {
             writeln!(
                 output,
                 "{}",
-                dimmed.style("────────────────────────────────────────")
+                "────────────────────────────────────────"
+                    .if_supports_color(Stream::Stdout, |text| text.style(dimmed))
             )?;
-            writeln!(output, "{} {}", header.style("Group ID:"), group.id)?;
             writeln!(
                 output,
                 "{} {}",
-                header.style("Display Name:"),
-                header.style(&group.display_name)
+                "Group ID:".if_supports_color(Stream::Stdout, |text| text.style(header)),
+                group.id
+            )?;
+            writeln!(
+                output,
+                "{} {}",
+                "Display Name:".if_supports_color(Stream::Stdout, |text| text.style(header)),
+                group
+                    .display_name
+                    .if_supports_color(Stream::Stdout, |text| text.style(header))
             )?;
             if let Some(desc) = &group.description {
                 writeln!(
                     output,
                     "{} {}",
-                    header.style("Description:"),
-                    dimmed.style(desc)
+                    "Description:".if_supports_color(Stream::Stdout, |text| text.style(header)),
+                    desc.if_supports_color(Stream::Stdout, |text| text.style(dimmed))
                 )?;
             }
             if let Some(created_date) = &group.created_date_time {
                 writeln!(
                     output,
                     "{} {}",
-                    header.style("Created DateTime:"),
-                    dimmed.style(created_date)
+                    "Created DateTime:"
+                        .if_supports_color(Stream::Stdout, |text| text.style(header)),
+                    created_date.if_supports_color(Stream::Stdout, |date| date.style(dimmed))
                 )?;
             }
             if let Some(address) = &group.mail {
-                writeln!(output, "{} {}", header.style("Mail:"), mail.style(address))?;
+                writeln!(
+                    output,
+                    "{} {}",
+                    "Mail:".if_supports_color(Stream::Stdout, |text| text.style(header)),
+                    address.if_supports_color(Stream::Stdout, |text| text.style(mail))
+                )?;
             }
 
-            write!(output, "{} ", header.style("Group Types:"))?;
+            write!(
+                output,
+                "{} ",
+                "Group Types:".if_supports_color(Stream::Stdout, |text| text.style(header))
+            )?;
             if group.group_types.is_empty() {
                 writeln!(output, "None")?;
             } else {
@@ -255,59 +268,84 @@ impl GroupShowOutput {
                     if i > 0 {
                         write!(output, ", ")?;
                     }
-                    write!(output, "{}", magenta.style(group_type))?;
+                    write!(
+                        output,
+                        "{}",
+                        group_type.if_supports_color(Stream::Stdout, |text| text.style(magenta))
+                    )?;
                 }
                 writeln!(output)?;
             }
 
-            let sec = if group.security_enabled {
-                green.style("true").to_string()
+            let (security, security_style) = if group.security_enabled {
+                ("true", green)
             } else {
-                red.style("false").to_string()
+                ("false", red)
             };
-            writeln!(output, "{} {}", header.style("Is Security Group:"), sec)?;
+            writeln!(
+                output,
+                "{} {}",
+                "Is Security Group:".if_supports_color(Stream::Stdout, |text| text.style(header)),
+                security.if_supports_color(Stream::Stdout, |text| text.style(security_style))
+            )?;
 
             writeln!(
                 output,
                 "{}",
-                section.style(format!("Owners ({}):", owners.len()))
+                format!("Owners ({}):", owners.len())
+                    .if_supports_color(Stream::Stdout, |text| text.style(section))
             )?;
             for owner in owners {
                 writeln!(
                     output,
                     "  - {} ({})",
-                    green.style(owner.name()),
-                    dimmed.style(owner.id())
+                    owner
+                        .name()
+                        .if_supports_color(Stream::Stdout, |text| text.style(green)),
+                    owner
+                        .id()
+                        .if_supports_color(Stream::Stdout, |id| id.style(dimmed))
                 )?;
             }
             writeln!(
                 output,
                 "{}",
-                section.style(format!("Members ({}):", members.len()))
+                format!("Members ({}):", members.len())
+                    .if_supports_color(Stream::Stdout, |text| text.style(section))
             )?;
             for member in members {
                 writeln!(
                     output,
                     "  - {} ({})",
-                    blue.style(member.name()),
-                    dimmed.style(member.id())
+                    member
+                        .name()
+                        .if_supports_color(Stream::Stdout, |text| text.style(blue)),
+                    member
+                        .id()
+                        .if_supports_color(Stream::Stdout, |id| id.style(dimmed))
                 )?;
             }
             writeln!(
                 output,
                 "{}",
-                section.style(format!("Role Assignments ({}):", role_assignments.len()))
+                format!("Role Assignments ({}):", role_assignments.len())
+                    .if_supports_color(Stream::Stdout, |text| text.style(section))
             )?;
             for (role_assignment, role_definition) in role_assignments {
                 writeln!(
                     output,
                     "  - Role: {}",
-                    header.style(&role_definition.display_name)
+                    role_definition
+                        .display_name
+                        .if_supports_color(Stream::Stdout, |text| text.style(header))
                 )?;
                 writeln!(
                     output,
                     "    Scope: {}",
-                    dimmed.style(role_assignment.scope.expanded_form())
+                    role_assignment
+                        .scope
+                        .expanded_form()
+                        .if_supports_color(Stream::Stdout, |scope| scope.style(dimmed))
                 )?;
             }
             writeln!(output)?;
@@ -373,37 +411,38 @@ mod tests {
     }
 
     #[test]
-    fn group_text_preserves_sections_and_only_colors_terminal_output() {
+    fn group_text_preserves_sections_and_fields() {
         let output = CliOutput::facet_with_text(example_report(), GroupShowOutput::render_text);
         let plain = output
             .render(Some(OutputFormat::Text), false)
             .unwrap()
             .unwrap();
         for expected in [
-            "Display Name: Synthetic Test Group",
-            "Description: Offline fixture",
-            "Mail: group@example.invalid",
-            "Group Types: Unified, DynamicMembership",
-            "Is Security Group: true",
+            "Display Name:",
+            "Synthetic Test Group",
+            "Description:",
+            "Offline fixture",
+            "Mail:",
+            "group@example.invalid",
+            "Group Types:",
+            "Unified",
+            "DynamicMembership",
+            "Is Security Group:",
+            "true",
             "Owners (1):",
             "Members (1):",
             "member@example.invalid",
             "Role Assignments (1):",
-            "Role: Synthetic Reader",
-            "Scope: /subscriptions/33333333-3333-3333-3333-333333333333",
+            "Role:",
+            "Synthetic Reader",
+            "Scope:",
+            "/subscriptions/33333333-3333-3333-3333-333333333333",
         ] {
             assert!(
                 plain.contains(expected),
                 "missing fixture field: {expected}"
             );
         }
-        assert!(!plain.contains('\x1b'));
-        let terminal = output
-            .render(Some(OutputFormat::Text), true)
-            .unwrap()
-            .unwrap();
-        assert!(terminal.contains('\x1b'));
-        assert!(terminal.contains("Synthetic Test Group"));
     }
 
     #[test]

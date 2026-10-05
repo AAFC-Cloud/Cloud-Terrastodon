@@ -48,7 +48,7 @@ fn parses_item_reads_and_tenant_context() {
     assert!(
         args.org
             .as_ref()
-            .is_some_and(|value| value.organization_name.as_ref() == org)
+            .is_some_and(|value| value.name() == org)
     );
     let cli: crate::cli::Cli = figue::from_slice(&[
         "--auth-source",

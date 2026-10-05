@@ -32,7 +32,12 @@ pub struct AzureDevOpsLicenseEntitlementUserUpdateArgs {
     pub license: AzureDevOpsLicenseType,
 
     /// Don't use cached license entitlement information, fetch fresh from Azure DevOps.
-    #[facet(figue::named, default = false)]
+    #[facet(
+        figue::named,
+        figue::alias = "skip-cache",
+        figue::alias = "clean",
+        default = false
+    )]
     pub no_cache: bool,
 }
 

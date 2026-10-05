@@ -1,6 +1,7 @@
 use super::audit_cli::AzureDevOpsAuditArgs;
 use super::azure_devops_rest_command_cli::AzureDevOpsRestArgs;
 use crate::cli::azure_devops::agent::AzureDevOpsAgentArgs;
+use crate::cli::azure_devops::build::AzureDevOpsBuildArgs;
 use crate::cli::azure_devops::group::AzureDevOpsGroupArgs;
 use crate::cli::azure_devops::license_entitlement::AzureDevOpsLicenseEntitlementArgs;
 use crate::cli::azure_devops::project::AzureDevOpsProjectArgs;
@@ -9,6 +10,7 @@ use crate::cli::azure_devops::service_endpoint::AzureDevOpsServiceEndpointArgs;
 use crate::cli::azure_devops::team::AzureDevOpsTeamArgs;
 use crate::cli::azure_devops::test::AzureDevOpsTestArgs;
 use crate::cli::azure_devops::work_item::AzureDevOpsWorkItemArgs;
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -16,6 +18,8 @@ use eyre::Result;
 #[derive(facet::Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum AzureDevOpsCommand {
+    /// Build runs, pipeline definitions, and definition folders.
+    Build(AzureDevOpsBuildArgs),
     /// Audit Azure DevOps resources for configuration issues.
     Audit(AzureDevOpsAuditArgs),
     /// Issue raw Azure DevOps REST requests.
@@ -41,8 +45,9 @@ pub enum AzureDevOpsCommand {
 }
 
 impl AzureDevOpsCommand {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(self, auth_context: &AuthContext) -> Result<CliOutput> {
         match self {
+            AzureDevOpsCommand::Build(args) => return args.invoke(auth_context).await,
             AzureDevOpsCommand::Project(args) => args.invoke(auth_context).await?,
             AzureDevOpsCommand::Audit(args) => args.invoke(auth_context).await?,
             AzureDevOpsCommand::Rest(args) => args.invoke().await?,
@@ -56,6 +61,6 @@ impl AzureDevOpsCommand {
             AzureDevOpsCommand::Test(args) => args.invoke(auth_context).await?,
         }
 
-        Ok(())
+        Ok(CliOutput::none())
     }
 }

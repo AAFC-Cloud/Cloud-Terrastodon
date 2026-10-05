@@ -38,7 +38,10 @@ pub(crate) fn azure_devops_api_url(
     let base = if organization.is_visual_studio_com_format() {
         organization.expanded_form()
     } else {
-        format!("https://{host}/{}", organization.organization_name.as_ref())
+        format!(
+            "https://{host}/{}",
+            organization.organization_name()?.as_ref()
+        )
     };
     let mut url = Url::parse(&format!(
         "{}/{}",

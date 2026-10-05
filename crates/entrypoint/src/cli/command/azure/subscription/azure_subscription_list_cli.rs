@@ -13,9 +13,12 @@ use cloud_terrastodon_azure::list_tracked_tenants;
 use cloud_terrastodon_azure::resolve_tenant_auth_context;
 use cloud_terrastodon_credentials::AuthContext;
 use color_eyre::owo_colors::OwoColorize;
+use color_eyre::owo_colors::Stream;
+use color_eyre::owo_colors::Style;
 use eyre::Result;
 use std::fmt::Write;
 use std::future::Future;
+use std::io::IsTerminal;
 use tokio::task::JoinSet;
 use tracing::debug;
 
@@ -206,7 +209,7 @@ impl SubscriptionListOutput {
         CliOutput::facet_with_text(self, Self::render_text)
     }
 
-    fn render_text(&self, terminal: bool) -> Result<String> {
+    fn render_text(&self) -> Result<String> {
         let mut output = String::new();
         if self.0.is_empty() {
             output.push_str("No tracked Azure tenants. Add one with `cloud_terrastodon az tenant add <tenant-id>` or discover them with `cloud_terrastodon az tenant discover`.\n");
@@ -233,18 +236,16 @@ impl SubscriptionListOutput {
                     .collect::<Vec<_>>()
                     .join(", ")
             };
-            if terminal {
-                writeln!(
-                    output,
-                    "{} {}  {}  aliases: {}",
-                    "Tenant".cyan().bold(),
-                    name.cyan().bold(),
-                    id.dimmed(),
-                    aliases.magenta()
-                )?;
-            } else {
-                writeln!(output, "Tenant {name}  {id}  aliases: {aliases}")?;
-            }
+            writeln!(
+                output,
+                "{} {}  {}  aliases: {}",
+                "Tenant".if_supports_color(Stream::Stdout, |text| text
+                    .style(Style::new().cyan().bold())),
+                name.if_supports_color(Stream::Stdout, |text| text
+                    .style(Style::new().cyan().bold())),
+                id.if_supports_color(Stream::Stdout, |text| text.dimmed()),
+                aliases.if_supports_color(Stream::Stdout, |text| text.magenta())
+            )?;
             for error in &tenant.metadata_errors {
                 // The name and subscriptions may both fail on the same token.
                 // The header already identifies the missing name.
@@ -254,21 +255,19 @@ impl SubscriptionListOutput {
                     continue;
                 }
                 let error = terminal_text(error);
-                let error = if terminal {
-                    error.yellow().to_string()
-                } else {
-                    error
-                };
-                writeln!(output, "  │  {error}")?;
+                writeln!(
+                    output,
+                    "  │  {}",
+                    error.if_supports_color(Stream::Stdout, |text| text.yellow())
+                )?;
             }
             if let Some(error) = &tenant.error {
                 let message = format!("Unable to list subscriptions: {}", terminal_text(error));
-                let message = if terminal {
-                    message.yellow().to_string()
-                } else {
-                    message
-                };
-                writeln!(output, "  └─ {message}")?;
+                writeln!(
+                    output,
+                    "  └─ {}",
+                    message.if_supports_color(Stream::Stdout, |text| text.yellow())
+                )?;
             } else if tenant.subscriptions.is_empty() {
                 writeln!(output, "  └─ No subscriptions found.")?;
             } else {
@@ -280,26 +279,20 @@ impl SubscriptionListOutput {
                     };
                     let name = terminal_text(&listed.subscription.name);
                     let id = listed.subscription.id.to_string();
-                    let link = if terminal {
+                    let link = if std::io::stdout().is_terminal() {
                         terminal_link("Azure portal", &listed.portal_url)
-                            .bright_blue()
-                            .underline()
-                            .to_string()
                     } else {
                         listed.portal_url.clone()
                     };
-                    if terminal {
-                        writeln!(
-                            output,
-                            "  {} {}  {}  {}",
-                            branch.dimmed(),
-                            id.green(),
-                            name.bold(),
-                            link
-                        )?;
-                    } else {
-                        writeln!(output, "  {branch} {id}  {name}  {link}")?;
-                    }
+                    writeln!(
+                        output,
+                        "  {} {}  {}  {}",
+                        branch.if_supports_color(Stream::Stdout, |text| text.dimmed()),
+                        id.if_supports_color(Stream::Stdout, |text| text.green()),
+                        name.if_supports_color(Stream::Stdout, |text| text.bold()),
+                        link.if_supports_color(Stream::Stdout, |text| text
+                            .style(Style::new().bright_blue().underline()))
+                    )?;
                 }
             }
         }
@@ -385,7 +378,7 @@ mod tests {
     }
 
     #[test]
-    fn terminal_text_shows_tenant_metadata_subscriptions_and_clickable_portal_link() {
+    fn text_shows_tenant_metadata_subscriptions_and_portal_destination() {
         let output = example_output()
             .into_cli_output()
             .render(Some(OutputFormat::Text), true)
@@ -396,19 +389,19 @@ mod tests {
         assert!(output.contains("cloud, prod"));
         assert!(output.contains("22222222-2222-2222-2222-222222222222"));
         assert!(output.contains("Production"));
-        assert!(output.contains("\x1b["));
-        assert!(output.contains("\x1b]8;;https://portal.azure.com/#@11111111-1111-1111-1111-111111111111/resource/subscriptions/22222222-2222-2222-2222-222222222222/overview\x1b\\"));
+        let destination = "https://portal.azure.com/#@11111111-1111-1111-1111-111111111111/resource/subscriptions/22222222-2222-2222-2222-222222222222/overview";
+        assert!(output.contains(destination));
     }
 
     #[test]
-    fn piped_text_has_visible_portal_url_without_terminal_escapes() {
+    fn piped_text_has_visible_portal_url() {
         let output = example_output()
             .into_cli_output()
             .render(Some(OutputFormat::Text), false)
             .unwrap()
             .unwrap();
         assert!(output.contains("https://portal.azure.com/#@"));
-        assert!(!output.contains('\x1b'));
+        assert!(!output.contains("\x1b]8;;"));
     }
 
     #[test]
@@ -425,7 +418,6 @@ mod tests {
             assert!(output.contains("Contoso"), "{output}");
             assert!(output.contains("Production"), "{output}");
             assert!(!output.contains("\x1b]8;;"), "{output}");
-            assert_eq!(output.contains('\x1b'), terminal, "{output}");
         }
     }
 
@@ -473,9 +465,7 @@ mod tests {
         assert!(tenant.error.is_none());
         assert!(tenant.tenant_name.is_none());
         assert_eq!(tenant.metadata_errors.len(), 2);
-        let text = SubscriptionListOutput(vec![tenant])
-            .render_text(false)
-            .unwrap();
+        let text = SubscriptionListOutput(vec![tenant]).render_text().unwrap();
         assert!(text.contains("Tenant aliases unavailable: aliases file unreadable"));
         assert!(text.contains("Tenant name unavailable: Graph access denied"));
         assert!(text.contains("Production"));
@@ -539,9 +529,7 @@ mod tests {
             Err(eyre::eyre!("Graph permission denied").wrap_err("Fetching tenant name")),
             Err(eyre::eyre!("Subscription request was throttled").wrap_err("Querying ARM")),
         );
-        let text = SubscriptionListOutput(vec![tenant])
-            .render_text(false)
-            .unwrap();
+        let text = SubscriptionListOutput(vec![tenant]).render_text().unwrap();
         assert!(text.contains("Tenant aliases unavailable: Local aliases are unavailable"));
         assert!(text.contains("Tenant name unavailable: Graph permission denied"));
         assert!(text.contains("Unable to list subscriptions: Subscription request was throttled"));
@@ -625,15 +613,13 @@ mod tests {
 
     #[test]
     fn empty_tracking_is_actionable_and_terminal_control_characters_are_neutralized() {
-        let output = SubscriptionListOutput(Vec::new())
-            .render_text(false)
-            .unwrap();
+        let output = SubscriptionListOutput(Vec::new()).render_text().unwrap();
         assert!(output.contains("cloud_terrastodon az tenant discover"));
         assert!(output.contains("cloud_terrastodon az tenant add"));
         let mut output = example_output();
         output.0[0].tenant_name = Some("Contoso\n\x1b]8;;bad\x07".to_owned());
-        let text = output.render_text(false).unwrap();
-        assert!(!text.contains('\x1b'));
+        let text = output.render_text().unwrap();
+        assert!(!text.contains("\x1b]8;;bad"));
         assert!(!text.contains('\x07'));
         assert_eq!(text.lines().count(), 2);
     }

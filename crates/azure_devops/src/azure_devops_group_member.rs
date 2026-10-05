@@ -48,7 +48,7 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupMembers
         CacheKey::new(PathBuf::from_iter([
             "az",
             "devops",
-            self.org_url.organization_name.as_ref(),
+            self.org_url.name(),
             "security",
             "group",
             "membership",
@@ -137,7 +137,7 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupMembers
         CacheKey::new(PathBuf::from_iter([
             "az",
             "devops",
-            self.org_url.organization_name.as_ref(),
+            self.org_url.name(),
             "graph",
             "memberships",
             self.group_id.to_string().as_ref(),
@@ -145,7 +145,7 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupMembers
     }
 
     async fn run(self) -> eyre::Result<Self::Output> {
-        let organization = &self.org_url.organization_name;
+        let organization = self.org_url.organization_name()?;
         let subject_descriptor = self.group_id.as_ref();
         let url = format!(
             "https://vssps.dev.azure.com/{organization}/_apis/graph/Memberships/{subject_descriptor}?api-version=7.1-preview.1&direction=down",

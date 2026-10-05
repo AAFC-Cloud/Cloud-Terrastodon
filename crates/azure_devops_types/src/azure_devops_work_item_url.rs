@@ -72,9 +72,9 @@ impl<'a> AzureDevOpsWorkItemUrl<'a> {
     ) -> Result<AzureDevOpsWorkItemId> {
         ensure!(
             self.org_id
-                .organization_name
+                .organization_name()?
                 .as_ref()
-                .eq_ignore_ascii_case(organization.organization_name.as_ref()),
+                .eq_ignore_ascii_case(organization.organization_name()?.as_ref()),
             "Relation targets another organization"
         );
         Ok(self.work_item_id)

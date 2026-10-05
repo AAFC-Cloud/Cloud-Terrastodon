@@ -52,6 +52,10 @@ $tenants.subscriptions
 Use `--output-format facet-pretty` to inspect the underlying tenant and
 subscription data with Facet's pretty printer.
 
+Azure DevOps [build commands](docs/AZURE_DEVOPS_BUILDS.md) list build runs,
+definitions, and definition folders, and prune empty folders with an optional
+`--dry-run`. They support the same global output formats.
+
 ## Caching
 
 Note that Cloud Terrastodon uses a caching strategy to avoid refetching information, reducing the time it takes for consecutive actions. However, this cache can sometimes get out of date before the automatic expiry window.

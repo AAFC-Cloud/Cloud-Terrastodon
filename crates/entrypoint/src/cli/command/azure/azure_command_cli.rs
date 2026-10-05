@@ -81,7 +81,7 @@ pub enum AzureCommand {
 impl AzureCommand {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<CliOutput> {
         match self {
-            AzureCommand::DevOps(args) => args.invoke(auth_context).await?,
+            AzureCommand::DevOps(args) => return args.invoke(auth_context).await,
             AzureCommand::Tenant(args) => args.invoke(auth_context).await?,
             AzureCommand::AppService(args) => args.invoke(auth_context).await?,
             AzureCommand::Audit(args) => args.invoke(auth_context).await?,

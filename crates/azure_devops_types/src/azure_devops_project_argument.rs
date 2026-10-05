@@ -7,7 +7,7 @@ use std::borrow::Cow;
 use std::str::FromStr;
 
 /// Project ID or name
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
 #[facet(proxy = String)]
 #[facet(traits(Clone))]
 #[repr(C)]

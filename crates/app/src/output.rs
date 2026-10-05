@@ -1,5 +1,7 @@
 //! Command output with terminal-friendly text and pipeline-friendly JSON.
 
+use color_eyre::owo_colors::OwoColorize;
+use color_eyre::owo_colors::Stream;
 use eyre::Context;
 use facet::Facet;
 use facet_pretty::ColorMode;
@@ -58,17 +60,14 @@ impl core::fmt::Debug for CliOutput {
 /// [`CliOutput::facet_with_text`].
 ///
 /// JSON renderers should serialize the underlying data without terminal colors
-/// or hyperlinks. Text renderers may use those facilities when
-/// `stdout_is_terminal` is true.
+/// or hyperlinks. Text renderers should use stream-aware color support to honor
+/// `NO_COLOR` and `FORCE_COLOR` when applying styles, and detect stdout locally
+/// if they emit terminal hyperlinks.
 /// [`CliOutput`] resolves automatic selection before calling this method, so
 /// renderers receive [`OutputFormat::Text`], [`OutputFormat::Json`], or
 /// [`OutputFormat::FacetPretty`].
 pub trait CliOutputValue {
-    fn render(
-        &self,
-        format: OutputFormat,
-        stdout_is_terminal: bool,
-    ) -> eyre::Result<Option<String>>;
+    fn render(&self, format: OutputFormat) -> eyre::Result<Option<String>>;
 }
 
 struct FacetCliOutput<T> {
@@ -110,13 +109,14 @@ impl CliOutput {
 
     /// Customize text while retaining Facet's JSON and pretty representations.
     ///
-    /// The callback receives the value and stdout terminal status. It runs only
-    /// for text, including automatic selection in an interactive terminal.
+    /// The callback receives the value. It runs only for text, including
+    /// automatic selection in an interactive terminal. Use stream-aware styling
+    /// to honor color preferences independently of automatic format selection.
     #[must_use]
     pub fn facet_with_text<T, F>(value: T, render_text: F) -> Self
     where
         T: Facet<'static> + 'static,
-        F: Fn(&T, bool) -> eyre::Result<String> + 'static,
+        F: Fn(&T) -> eyre::Result<String> + 'static,
     {
         Self::new(FacetWithTextCliOutput { value, render_text })
     }
@@ -131,11 +131,14 @@ impl CliOutput {
         self
     }
 
-    /// Render without writing, using the supplied stdout terminal status.
+    /// Render without writing, using stdout terminal status for format selection.
     ///
     /// An explicit representation overrides detection. An omitted format or `auto`
     /// selects text for terminals and JSON for redirected stdout, including
     /// PowerShell pipelines.
+    /// The supplied terminal status controls automatic format selection only.
+    /// Renderers detect color support from the actual stdout stream and
+    /// environment independently.
     /// This preview does not return the deferred result from [`Self::with_result`].
     ///
     /// # Errors
@@ -150,7 +153,7 @@ impl CliOutput {
             return Ok(None);
         };
         let format = OutputFormat::resolve(requested_format, stdout_is_terminal);
-        output.render(format, stdout_is_terminal)
+        output.render(format)
     }
 
     /// Render and write a newline-terminated value, then return the command result.
@@ -201,47 +204,44 @@ impl<T> CliOutputValue for FacetCliOutput<T>
 where
     T: Facet<'static> + 'static,
 {
-    fn render(
-        &self,
-        format: OutputFormat,
-        stdout_is_terminal: bool,
-    ) -> eyre::Result<Option<String>> {
-        render_facet(&self.value, format, stdout_is_terminal).map(Some)
+    fn render(&self, format: OutputFormat) -> eyre::Result<Option<String>> {
+        render_facet(&self.value, format).map(Some)
     }
 }
 
 impl<T, F> CliOutputValue for FacetWithTextCliOutput<T, F>
 where
     T: Facet<'static> + 'static,
-    F: Fn(&T, bool) -> eyre::Result<String>,
+    F: Fn(&T) -> eyre::Result<String>,
 {
-    fn render(
-        &self,
-        format: OutputFormat,
-        stdout_is_terminal: bool,
-    ) -> eyre::Result<Option<String>> {
+    fn render(&self, format: OutputFormat) -> eyre::Result<Option<String>> {
         let rendered = if format == OutputFormat::Text {
-            (self.render_text)(&self.value, stdout_is_terminal)?
+            (self.render_text)(&self.value)?
         } else {
-            render_facet(&self.value, format, stdout_is_terminal)?
+            render_facet(&self.value, format)?
         };
         Ok(Some(rendered))
     }
 }
 
-fn render_facet<T: Facet<'static>>(
-    value: &T,
-    format: OutputFormat,
-    stdout_is_terminal: bool,
-) -> eyre::Result<String> {
+fn render_facet<T: Facet<'static>>(value: &T, format: OutputFormat) -> eyre::Result<String> {
     match format {
-        OutputFormat::Text | OutputFormat::FacetPretty => Ok(PrettyPrinter::new()
-            .with_colors(if stdout_is_terminal {
-                ColorMode::Always
-            } else {
-                ColorMode::Never
-            })
-            .format(value)),
+        OutputFormat::Text | OutputFormat::FacetPretty => {
+            let plain = std::fmt::from_fn(|formatter| {
+                formatter.write_str(
+                    &PrettyPrinter::new()
+                        .with_colors(ColorMode::Never)
+                        .format(value),
+                )
+            });
+            Ok(plain
+                .if_supports_color(Stream::Stdout, |_| {
+                    PrettyPrinter::new()
+                        .with_colors(ColorMode::Always)
+                        .format(value)
+                })
+                .to_string())
+        }
         OutputFormat::Json => facet_json::to_string_pretty(value)
             .wrap_err("failed to serialize command output as JSON"),
         OutputFormat::Auto => {
@@ -259,11 +259,7 @@ mod tests {
     struct SelectedFormat;
 
     impl CliOutputValue for SelectedFormat {
-        fn render(
-            &self,
-            format: OutputFormat,
-            _stdout_is_terminal: bool,
-        ) -> eyre::Result<Option<String>> {
+        fn render(&self, format: OutputFormat) -> eyre::Result<Option<String>> {
             Ok(Some(format!("{format:?}")))
         }
     }
@@ -302,12 +298,9 @@ mod tests {
         };
         let calls = Rc::new(Cell::new(0));
         let callback_calls = Rc::clone(&calls);
-        let output = CliOutput::facet_with_text(report.clone(), move |report, terminal| {
+        let output = CliOutput::facet_with_text(report.clone(), move |report| {
             callback_calls.set(callback_calls.get() + 1);
-            Ok(format!(
-                "{}: {} items (terminal={terminal})",
-                report.name, report.count
-            ))
+            Ok(format!("{}: {} items", report.name, report.count))
         });
         let generic = CliOutput::facet(report.clone());
 
@@ -329,13 +322,13 @@ mod tests {
         for terminal in [true, false] {
             assert_eq!(
                 output.render(Some(OutputFormat::Text), terminal).unwrap(),
-                Some(format!("sample: 3 items (terminal={terminal})"))
+                Some("sample: 3 items".into())
             );
         }
         assert_eq!(calls.get(), 2);
         assert_eq!(
             output.render(Some(OutputFormat::Auto), true).unwrap(),
-            Some("sample: 3 items (terminal=true)".into())
+            Some("sample: 3 items".into())
         );
         assert_eq!(calls.get(), 3);
     }
@@ -347,7 +340,7 @@ mod tests {
                 name: "sample".into(),
                 count: 3,
             },
-            |_, _| Err(eyre::eyre!("custom text rendering failed")),
+            |_| Err(eyre::eyre!("custom text rendering failed")),
         );
         let mut bytes = Vec::new();
         let error = output
@@ -438,7 +431,7 @@ mod tests {
     }
 
     #[test]
-    fn redirected_text_has_no_terminal_escapes() {
+    fn explicit_text_shows_the_underlying_value() {
         let text = CliOutput::facet(Report {
             name: "sample".into(),
             count: 3,
@@ -447,11 +440,10 @@ mod tests {
         .unwrap()
         .unwrap();
         assert!(text.contains("sample"), "{text}");
-        assert!(!text.contains('\u{1b}'), "{text}");
     }
 
     #[test]
-    fn facet_pretty_shows_fields_and_only_colors_terminal_output() {
+    fn facet_pretty_shows_fields_regardless_of_format_detection() {
         for terminal in [true, false] {
             let text = CliOutput::facet(Report {
                 name: "sample".into(),
@@ -463,7 +455,6 @@ mod tests {
             assert!(text.contains("name"), "{text}");
             assert!(text.contains("sample"), "{text}");
             assert!(text.contains("count"), "{text}");
-            assert_eq!(text.contains('\u{1b}'), terminal, "{text}");
         }
     }
 

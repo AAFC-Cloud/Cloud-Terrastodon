@@ -129,10 +129,7 @@ fn response_output(response: SerializableRestResponse) -> CliOutput {
     CliOutput::facet_with_text(response, render_response_body).with_result(status_result)
 }
 
-fn render_response_body(
-    response: &SerializableRestResponse,
-    _stdout_is_terminal: bool,
-) -> Result<String> {
+fn render_response_body(response: &SerializableRestResponse) -> Result<String> {
     Ok(match &response.body {
         RestResponseBody::Json(body) => body.as_str().to_owned(),
         RestResponseBody::Text(body) => body.clone(),
@@ -166,7 +163,7 @@ mod test {
     }
 
     #[test]
-    fn facet_pretty_renders_the_full_response_without_colors_when_redirected() {
+    fn facet_pretty_renders_the_full_response() {
         let response = SerializableRestResponse::new(
             StatusCode::OK,
             &HeaderMap::new(),
@@ -180,7 +177,6 @@ mod test {
         assert!(output.contains("status"));
         assert!(output.contains("200"));
         assert!(output.contains("synthetic response body"));
-        assert!(!output.contains('\x1b'));
         assert!(output.ends_with('\n'));
     }
 

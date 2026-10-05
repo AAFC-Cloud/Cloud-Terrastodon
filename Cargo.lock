@@ -958,6 +958,7 @@ version = "0.36.0"
 dependencies = [
  "arbitrary",
  "base64 0.22.1",
+ "blake3",
  "chrono",
  "cloud_terrastodon_azure_devops_types",
  "cloud_terrastodon_azure_types",
@@ -1271,6 +1272,7 @@ name = "cloud_terrastodon_pathing"
 version = "0.36.0"
 dependencies = [
  "async-trait",
+ "blake3",
  "directories-next",
  "eyre",
  "facet",

@@ -52,7 +52,7 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsTestPlanList
         CacheKey::new(PathBuf::from_iter([
             "az",
             "devops",
-            self.org_url.organization_name.as_ref(),
+            self.org_url.name(),
             "test",
             "plan",
             "list",

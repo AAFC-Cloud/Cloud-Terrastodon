@@ -120,7 +120,8 @@ the `entrypoint` feature is disabled.
 `GlobalArgs` includes `--output-format text|json|facet-pretty|auto`. `CliOutput` selects text when
 stdout is an interactive terminal and JSON when stdout is redirected, including
 PowerShell pipelines. Explicit formats override detection; `auto` uses it.
-Text rendered to redirected stdout omits terminal colors.
+Text renderers use stream-aware color support independently of format selection,
+honoring `NO_COLOR` and `FORCE_COLOR` as well as stdout detection.
 `facet-pretty` displays the underlying data with Facet's pretty printer, including
 for commands with a custom `text` presentation.
 
@@ -142,7 +143,7 @@ struct Report {
 }
 
 impl Report {
-    fn render_text(&self, _stdout_is_terminal: bool) -> Result<String> {
+    fn render_text(&self) -> Result<String> {
         Ok(format!("{} items", self.count))
     }
 }
@@ -158,12 +159,14 @@ async fn invoke_cli(globals: &GlobalArgs) -> Result<()> {
 ```
 
 `facet_with_text` overrides only `text`: JSON serialization and `facet-pretty`
-rendering remain shared and use the same report. Its callback receives whether
-stdout is a terminal; apply colors and hyperlinks only when that is true.
+rendering remain shared and use the same report. Its callback receives only the
+value. Apply text styles using `if_supports_color(Stream::Stdout, |text| ...)`
+from `color_eyre::owo_colors::OwoColorize`, and detect stdout locally when
+emitting terminal hyperlinks.
 
 For complete control over every format, implement the re-exported
 `CliOutputValue` trait and pass the value to `CliOutput::new(value)`. Its `render`
-method receives the selected `OutputFormat` and terminal status. Keep JSON free
+method receives the selected `OutputFormat`. Keep JSON free
 of terminal colors and hyperlinks. Use `CliOutput::none()` for commands that
 perform their own interaction and have no final value to emit.
 

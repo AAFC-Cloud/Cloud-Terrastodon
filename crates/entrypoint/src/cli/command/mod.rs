@@ -134,7 +134,7 @@ impl CloudTerrastodonCommand {
             CloudTerrastodonCommand::CopyResults(args) => args.invoke().await,
             CloudTerrastodonCommand::AddWorkDir(args) => args.invoke().await,
             CloudTerrastodonCommand::Terraform(args) => args.invoke(auth_context).await,
-            CloudTerrastodonCommand::AzureDevOps(args) => args.invoke(auth_context).await,
+            CloudTerrastodonCommand::AzureDevOps(args) => return args.invoke(auth_context).await,
             CloudTerrastodonCommand::Azure(args) => return args.invoke(auth_context).await,
             CloudTerrastodonCommand::Tea(args) => args.invoke().await,
             CloudTerrastodonCommand::Jwt(args) => args.invoke().await,

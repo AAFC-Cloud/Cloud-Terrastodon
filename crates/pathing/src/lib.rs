@@ -1,6 +1,9 @@
+mod sanitize_windows_path_component;
+
 use directories_next::ProjectDirs;
 use eyre::Context;
 use eyre::bail;
+pub use sanitize_windows_path_component::sanitize_windows_path_component;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::LazyLock;

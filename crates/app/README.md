@@ -15,7 +15,7 @@ startup hooks or resolving authentication.
 `facet-pretty` displays the underlying data using Facet's pretty printer, while
 `text` allows commands to provide their own presentation. Commands can
 return `CliOutput::facet(value)` for generic Facet output, or use
-`CliOutput::facet_with_text(value, |value, stdout_is_terminal| { ... })` with a
+`CliOutput::facet_with_text(value, |value| { ... })` with a
 callback returning `Result<String>` for custom text. JSON and `facet-pretty`
 continue to render the same underlying value through the shared Facet renderer.
 Implement `CliOutputValue` and return `CliOutput::new(value)` when all formats
@@ -30,6 +30,8 @@ written and flushed, allowing an unsuccessful REST response to remain visible.
 The deferred result does not change serialized output. `render` previews output;
 `emit` writes to stdout, while `write_to(format, stdout_is_terminal, writer)`
 supports a caller-owned writer and returns any deferred command error.
+The supplied terminal status controls automatic format selection only; renderers
+detect color support themselves using the stdout stream and color preferences.
 
 Optional `auth` enables `--auth-source` and `AppContext::auth`. Optional `terminal`
 enables coordinated pickers/logs. Neither enables Cloud Terrastodon's full command
