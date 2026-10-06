@@ -1,3 +1,5 @@
 mod azure_devops_build_definition_folder_list_cli;
+mod azure_devops_build_definition_folder_list_entry;
 
 pub use azure_devops_build_definition_folder_list_cli::*;
+pub use azure_devops_build_definition_folder_list_entry::*;
