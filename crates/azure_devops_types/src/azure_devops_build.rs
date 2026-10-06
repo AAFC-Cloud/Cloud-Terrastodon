@@ -12,7 +12,7 @@ use cloud_terrastodon_azure_types::ArbitraryJson;
 
 /// A build returned by Azure DevOps. Typed response status/result vocabularies
 /// preserve unknown server values without losing their wire spelling.
-/// Modeled properties are required; omissions surface as decoding errors.
+/// Properties are required unless documented or observed to be omitted.
 ///
 /// See Microsoft's [Build schema](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/builds/list?view=azure-devops-rest-7.1#build).
 #[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
@@ -33,7 +33,9 @@ pub struct AzureDevOpsBuild {
     pub url: AzureDevOpsBuildUrl,
     #[facet(rename = "_links")]
     pub links: ArbitraryJson,
-    pub keep_forever: bool,
+    /// Whether the build is retained indefinitely. Build-list responses can omit
+    /// this property; absence is distinct from an explicit `false` value.
+    pub keep_forever: Option<bool>,
     pub retained_by_release: bool,
     pub deleted: bool,
 }
