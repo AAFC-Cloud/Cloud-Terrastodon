@@ -19,7 +19,8 @@ pub enum OutputFormat {
     #[default]
     Text,
     Json,
-    /// Show the underlying data with Facet's pretty printer.
+    /// Show the underlying data with Facet's pretty printer (`facet-pretty` or `facet`).
+    #[facet(alias = "facet")]
     FacetPretty,
     /// Select text for an interactive terminal and JSON for redirected stdout.
     Auto,

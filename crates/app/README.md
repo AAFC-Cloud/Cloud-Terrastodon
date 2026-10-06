@@ -11,9 +11,14 @@ from synchronous `main`. Your types do not need `Debug`, `Arbitrary`, or registr
 registration. `parse_from` returns a non-exiting Figue outcome without installing
 startup hooks or resolving authentication.
 
+`App::run` prepares Windows console output before parsing, so ANSI colors work
+for help and parse errors too. A custom process entrypoint using `parse_from`
+should call `prepare_process()` before printing or unwrapping its parse outcome.
+
 `GlobalArgs::output_format` exposes `--output-format text|json|facet-pretty|auto`.
-`facet-pretty` displays the underlying data using Facet's pretty printer, while
-`text` allows commands to provide their own presentation. Commands can
+`facet-pretty` (also accepted as `facet`) displays the underlying data using
+Facet's pretty printer, while `text` allows commands to provide their own
+presentation. Commands can
 return `CliOutput::facet(value)` for generic Facet output, or use
 `CliOutput::facet_with_text(value, |value| { ... })` with a
 callback returning `Result<String>` for custom text. JSON and `facet-pretty`

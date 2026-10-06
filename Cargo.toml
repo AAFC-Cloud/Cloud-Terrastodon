@@ -397,17 +397,20 @@ negative_feature_names = "allow"
 # Current upstream plus reviewed PRs; see docs/UPDATING_FACET.md.
 # Workspace-root patches must be repeated by downstream Rust consumers.
 [patch.crates-io]
-facet = { git = "https://github.com/TeamDman/facet.git", rev = "a6101f92fa88ada6dedd80899140577e554bd5d3" }
-facet-core = { git = "https://github.com/TeamDman/facet.git", rev = "a6101f92fa88ada6dedd80899140577e554bd5d3" }
-facet-default = { git = "https://github.com/TeamDman/facet.git", rev = "a6101f92fa88ada6dedd80899140577e554bd5d3" }
-facet-error = { git = "https://github.com/TeamDman/facet.git", rev = "a6101f92fa88ada6dedd80899140577e554bd5d3" }
-facet-macro-parse = { git = "https://github.com/TeamDman/facet.git", rev = "a6101f92fa88ada6dedd80899140577e554bd5d3" }
-facet-macro-types = { git = "https://github.com/TeamDman/facet.git", rev = "a6101f92fa88ada6dedd80899140577e554bd5d3" }
-facet-macros = { git = "https://github.com/TeamDman/facet.git", rev = "a6101f92fa88ada6dedd80899140577e554bd5d3" }
-facet-macros-impl = { git = "https://github.com/TeamDman/facet.git", rev = "a6101f92fa88ada6dedd80899140577e554bd5d3" }
-facet-path = { git = "https://github.com/TeamDman/facet.git", rev = "a6101f92fa88ada6dedd80899140577e554bd5d3" }
-facet-pretty = { git = "https://github.com/TeamDman/facet.git", rev = "a6101f92fa88ada6dedd80899140577e554bd5d3" }
-facet-reflect = { git = "https://github.com/TeamDman/facet.git", rev = "a6101f92fa88ada6dedd80899140577e554bd5d3" }
-facet-solver = { git = "https://github.com/TeamDman/facet.git", rev = "a6101f92fa88ada6dedd80899140577e554bd5d3" }
-figue = { git = "https://github.com/TeamDman/figue.git", rev = "1ad7d9e1b4a97124a93780610861b55e478d13cc" }
-figue-attrs = { git = "https://github.com/TeamDman/figue.git", rev = "1ad7d9e1b4a97124a93780610861b55e478d13cc" }
+facet = { git = "https://github.com/TeamDman/facet.git", rev = "345ebb7ba42f7c6644c1d89ef53288fe81204fa5" }
+facet-core = { git = "https://github.com/TeamDman/facet.git", rev = "345ebb7ba42f7c6644c1d89ef53288fe81204fa5" }
+facet-default = { git = "https://github.com/TeamDman/facet.git", rev = "345ebb7ba42f7c6644c1d89ef53288fe81204fa5" }
+facet-error = { git = "https://github.com/TeamDman/facet.git", rev = "345ebb7ba42f7c6644c1d89ef53288fe81204fa5" }
+facet-macro-parse = { git = "https://github.com/TeamDman/facet.git", rev = "345ebb7ba42f7c6644c1d89ef53288fe81204fa5" }
+facet-macro-types = { git = "https://github.com/TeamDman/facet.git", rev = "345ebb7ba42f7c6644c1d89ef53288fe81204fa5" }
+facet-macros = { git = "https://github.com/TeamDman/facet.git", rev = "345ebb7ba42f7c6644c1d89ef53288fe81204fa5" }
+facet-macros-impl = { git = "https://github.com/TeamDman/facet.git", rev = "345ebb7ba42f7c6644c1d89ef53288fe81204fa5" }
+facet-path = { git = "https://github.com/TeamDman/facet.git", rev = "345ebb7ba42f7c6644c1d89ef53288fe81204fa5" }
+facet-pretty = { git = "https://github.com/TeamDman/facet.git", rev = "345ebb7ba42f7c6644c1d89ef53288fe81204fa5" }
+facet-reflect = { git = "https://github.com/TeamDman/facet.git", rev = "345ebb7ba42f7c6644c1d89ef53288fe81204fa5" }
+facet-solver = { git = "https://github.com/TeamDman/facet.git", rev = "345ebb7ba42f7c6644c1d89ef53288fe81204fa5" }
+figue = { git = "https://github.com/TeamDman/figue.git", rev = "d0df4a9b76ba05a41a5e984d99e979ef917f6a25" }
+figue-attrs = { git = "https://github.com/TeamDman/figue.git", rev = "d0df4a9b76ba05a41a5e984d99e979ef917f6a25" }
+# Format owns enum error spans; patch its sibling to keep one shared source identity.
+facet-format = { git = "https://github.com/TeamDman/facet-format.git", rev = "a1ca5f97253eb49fb080a39e32377dcebb0499f5" }
+facet-dessert = { git = "https://github.com/TeamDman/facet-format.git", rev = "a1ca5f97253eb49fb080a39e32377dcebb0499f5" }

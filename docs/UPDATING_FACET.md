@@ -2,7 +2,7 @@
 
 Cloud Terrastodon declares compatible registry requirements and selects
 reviewed, unmerged changes through `[patch.crates-io]` at the workspace root.
-The development graph temporarily uses two forks. This is not a promise of
+The development graph temporarily uses three forks. This is not a promise of
 patch-free crates.io consumption.
 
 ## Source policy
@@ -11,22 +11,38 @@ patch-free crates.io consumption.
 | --- | --- |
 | `facet-rs/facet` | Core monorepo: Facet, macros, reflection, solver, path, errors and pretty printing |
 | `bearcove/figue` | Figue and `figue-attrs`, separate from the core Facet repository |
-| Official registry Format/JSON/Value | Split-out packages; no bundled Teamy Format snapshot |
-| `TeamDman/facet` | Current upstream plus the reviewed Cow PR until an official compatible release includes it |
+| `facet-rs/facet-format` | Official split-out Format, JSON, Value and Dessert repository |
+| Official registry JSON/Value | Keep the compatible published packages; no bundled Teamy Format snapshot |
+| `TeamDman/facet` | Current upstream plus the reviewed Cow and enum-alias PRs until compatible official releases include them |
+| `TeamDman/facet-format` | Current upstream plus the reviewed scalar-enum error-span PR; Format and Dessert use the same immutable revision |
 | `TeamDman/figue` | Current upstream plus our selected CLI PRs |
 
-The root manifest records immutable revisions. The current integration
-branch `teamy/upstream-pr-stack-2026-09-08` in each fork contains:
+The root manifest and standalone CLI example record immutable revisions from
+each fork's `teamy-main`. The 2026-10-06 integration contains:
 
-- Facet `a6101f92fa88ada6dedd80899140577e554bd5d3`: official main
-  `65bae5c31a7ce401bc44630fb96250ea884cfd3e` plus [Cow PR #2657](https://github.com/facet-rs/facet/pull/2657).
-- Figue `40d75efe61299bbf623cb45879f4cd9324159df6`: official main
+- Facet `345ebb7ba42f7c6644c1d89ef53288fe81204fa5`: official main
+  `65bae5c31a7ce401bc44630fb96250ea884cfd3e` plus
+  [Cow PR #2657](https://github.com/facet-rs/facet/pull/2657) and
+  [enum-alias PR #2664](https://github.com/facet-rs/facet/pull/2664), addressing
+  [issue #2663](https://github.com/facet-rs/facet/issues/2663).
+- Format and Dessert `a1ca5f97253eb49fb080a39e32377dcebb0499f5`: official main
+  `4279debff780ae1cd5b028201f446c26594b1120` plus
+  [scalar-enum span PR #70](https://github.com/facet-rs/facet-format/pull/70),
+  addressing [issue #69](https://github.com/facet-rs/facet-format/issues/69).
+- Figue `d0df4a9b76ba05a41a5e984d99e979ef917f6a25`: official main
   `47801613b720a7d5a05a9c8222d90104331823e2` plus
   [documentation #119](https://github.com/bearcove/figue/pull/119),
   [no-Debug test helpers #121](https://github.com/bearcove/figue/pull/121),
   [inherited help #122](https://github.com/bearcove/figue/pull/122),
-  [transparent scalars #124](https://github.com/bearcove/figue/pull/124), and
-  [PathBuf serialization #126](https://github.com/bearcove/figue/pull/126).
+  [transparent scalars #124](https://github.com/bearcove/figue/pull/124),
+  [PathBuf serialization #126](https://github.com/bearcove/figue/pull/126), and
+  the reviewed nested-subcommand help correction.
+
+The Figue integration is a normal merge of the previous published `teamy-main`
+`04f6516d2d95ab6299457652c9c1f67ad2fb09db` and the reviewed application stack
+`1ad7d9e1b4a97124a93780610861b55e478d13cc`. It preserves both histories and
+the older public implementation-URL helper spelling, executable normalization,
+environment-prefix hints, positional Vec support and duplicate-flag diagnostics.
 
 PathBuf support is Figue-local: ordinary UTF-8 paths serialize without a
 consumer newtype or another Facet change. Non-UTF-8 paths return an explicit
@@ -43,12 +59,42 @@ Compatible baseline versions are Facet-family `0.50.0-rc.7` and Figue
 `5.0.0-rc.6`. Enable `facet-json/net` explicitly for unproxied IP addresses
 in outage artifacts; core Facet's `net` does not enable Format serialization.
 
+At the 2026-10-06 library checkpoint, the integrated Facet reflection suite has
+95 passing tests, Format has six, and Figue has 500 passing library tests and
+243 passing integration tests, with three library tests still ignored. Figue's
+integration tests run serially because some manipulate synthetic environment
+variables.
+
+A temporary consumer using Cloud Terrastodon's actual `OutputFormat` source
+accepts both `facet` and `facet-pretty`, retains `facet-pretty` serialization,
+and highlights the rejected output-format value rather than a preceding
+argument. The fixes were reproduced separately against the recorded official
+revisions and have focused red/green library regressions. These checks use
+synthetic values; no production services, credentials or application response
+caches were accessed. This checkpoint supplements the historical application
+acceptance results below rather than replacing them.
+
+With the published Git pins, the workspace check passes for all targets. The
+audited application selection passes 20 app tests, eight entrypoint
+schema/help/registry tests, and all 14 standalone consumer integration tests.
+Locked Windows dependency metadata has one source identity for each interacting
+Facet/Figue package in both workspaces. Root lockfile changes update only the
+selected sources; the standalone lockfile also records the existing tracing
+crate's `tracing-error` dependency.
+Freshly built build-folder help succeeds, and a synthetic invalid format on
+the actual nested CLI reports the correct value before application startup.
+
 ## Root patches and consumers
 
 All interacting Facet traits, shapes and values must share one compatible
 core identity. Patch the relevant core family, not just `facet`, so Figue and
 `facet-pretty` cannot pull a second implementation. Inspect actual resolution;
 an unused optional-family override may produce a harmless Cargo warning.
+
+Patch `facet-format` and `facet-dessert` together to their reviewed Format fork
+revision. Format has a sibling Dessert dependency; a matching root override
+keeps other consumers on the same helper source. JSON and Value remain their
+official compatible registry packages and use the selected Format override.
 
 Cargo ignores dependency-level patches. Rust consumers of this development
 version must repeat necessary root overrides in their own workspace. See
@@ -71,15 +117,27 @@ Choose an appropriately scoped Cargo target/package cleanup when needed.
 1. Record old SHAs and dirty state; preserve existing branches and worktrees.
 2. Fetch actual official upstreams and select immutable commits. Recheck
    package topology, versions and whether our PRs have already merged.
-3. Use new integration branches containing only selected upstream PRs.
-   Keep proposals independently reviewable. Do not blindly copy old in-Facet
-   Figue, tuple or Format adapters without consumer-level evidence.
-4. Test the fork stacks before publishing their new refs. Update compatible
-   registry requirements and root patch revisions together, then inspect the
-   lockfile diff; avoid unrelated wholesale dependency updates.
+3. Start each proposed fix on a new branch from the exact latest fetched
+   official upstream revision. Keep the change minimal and independently
+   reviewable, with its own issue, PR and focused regression. Merge the reviewed
+   fixes into the existing fork's `teamy-main` with normal merge commits,
+   preserving its published history and selected behavior. Do not rewrite or
+   replace old branches, or blindly copy old in-Facet Figue, tuple or Format
+   adapters.
+4. Test the fork stacks before publishing their new refs. Pin the tested,
+   published `teamy-main` SHAs without waiting for upstream PR merges. Update
+   compatible registry requirements and root patch revisions together,
+   including the standalone CLI example, then inspect each lockfile diff;
+   avoid unrelated wholesale dependency updates.
 5. Run application tests, source-identity checks and freshly built CLI help.
    Synthetic probes supplement this evidence; they do not prove a current
    application command requires every proposed library capability.
+
+If `teamy-main` is missing, inspect the fork's existing branches and the
+application's current pin before creating it from the reviewed compatible
+stack. If the branch is older than the current pin, reconcile both histories
+and verify retained behavior before advancing it. Starting over from official
+main must not discard the application's selected, unmerged contributions.
 
 The integration is tested with installed Rust 1.96.0 on Windows; this alone
 does not establish a new minimum supported Rust version.

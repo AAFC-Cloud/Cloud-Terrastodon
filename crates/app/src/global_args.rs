@@ -36,7 +36,7 @@ pub struct GlobalArgs {
     pub log_file: Option<PathBuf>,
 
     /// Render command output as `text`, `json`, `facet-pretty`, or `auto`.
-    /// `facet-pretty` shows the underlying data with Facet's pretty printer.
+    /// `facet-pretty` (alias `facet`) shows the underlying data with Facet's pretty printer.
     /// With `auto` or no format, commands use text in terminals and JSON when stdout is redirected.
     #[facet(figue::named, figue::label = "FORMAT", figue::alias = "output")]
     pub output_format: Option<OutputFormat>,

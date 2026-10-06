@@ -15,7 +15,7 @@ pub fn entrypoint(
     git_rev: GitRevision,
     build_timestamp: BuildTimestamp,
 ) -> Result<()> {
-    cloud_terrastodon_app::install_error_hook()?;
+    cloud_terrastodon_app::prepare_process()?;
 
     let implementation_revision = git_rev.to_string();
     set_git_revision(git_rev);

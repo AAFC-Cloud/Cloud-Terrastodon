@@ -148,7 +148,7 @@ impl App {
         F: FnOnce(C, AppContext) -> Fut,
         Fut: Future<Output = Result<()>>,
     {
-        install_error_hook()?;
+        prepare_process()?;
         let cli = self.parse_from(std::env::args_os().skip(1)).unwrap();
         self.run_parsed(cli, invoke)
     }
@@ -167,6 +167,8 @@ impl App {
             tokio::runtime::Handle::try_current().is_err(),
             "App::run must be called from synchronous main, outside a Tokio runtime"
         );
+        #[cfg(windows)]
+        windows_support::enable_virtual_terminal_processing();
         let globals = cli.global_args();
         let debug = globals.debug;
         install_panic_hook(debug)?;
@@ -193,7 +195,7 @@ impl App {
             terminal_activity,
         )?;
         #[cfg(windows)]
-        windows_support::initialize();
+        windows_support::warn_if_not_utf8();
 
         let cancellation = teamy_cancellation::CtrlCHandler::default().install()?;
         let context = AppContext {
@@ -232,6 +234,18 @@ fn logging_filters(globals: &GlobalArgs) -> Result<(Directive, Option<Directive>
         .map(Directive::from_str)
         .transpose()?;
     Ok((console, file))
+}
+
+/// Prepare process output before parsing can print help or errors and exit.
+///
+/// Enable virtual terminal processing for Windows stdout/stderr consoles and
+/// install the eyre error hook. Redirected streams do not need a console mode.
+/// [`App::run`] calls this automatically. Call it before [`App::parse_from`] when
+/// implementing a process entrypoint that handles its own parse outcomes.
+pub fn prepare_process() -> Result<()> {
+    #[cfg(windows)]
+    windows_support::enable_virtual_terminal_processing();
+    install_error_hook()
 }
 
 /// Install the process-global eyre error hook before parsing arguments.

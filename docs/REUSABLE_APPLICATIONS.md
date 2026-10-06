@@ -122,8 +122,8 @@ stdout is an interactive terminal and JSON when stdout is redirected, including
 PowerShell pipelines. Explicit formats override detection; `auto` uses it.
 Text renderers use stream-aware color support independently of format selection,
 honoring `NO_COLOR` and `FORCE_COLOR` as well as stdout detection.
-`facet-pretty` displays the underlying data with Facet's pretty printer, including
-for commands with a custom `text` presentation.
+`facet-pretty` (alias `facet`) displays the underlying data with Facet's pretty
+printer, including for commands with a custom `text` presentation.
 
 Let leaf `invoke` methods return `Result<CliOutput>` and pass that value through
 parent dispatchers. The top-level handler calls `emit(globals.output_format)`
@@ -178,6 +178,9 @@ perform their own interaction and have no final value to emit.
   ownership contract and permits startup policy based on the parsed command.
   Even constructing an `eyre::Report` first can install its default error hook;
   let the runner own startup before creating application error reports.
+  `App::run` prepares console output before parsing. Custom process entrypoints
+  that parse first should call `app::prepare_process()` before printing or
+  unwrapping parse outcomes, so Windows help and diagnostics render ANSI colors.
 - `App::parse_from::<Cli>(arguments)` accepts arguments without the executable
   name and returns a non-exiting `figue::DriverOutcome<Cli>`. Use `into_result()`
   to inspect `.value`, help, version or errors. It does not install startup hooks
