@@ -91,10 +91,6 @@ Update our `std::fmt::Display` to `core::fmt::Display` following the guidance in
 - Update tests to not print details when fetching resources; avoid AI agents seeing our resource info. Just print "Found {} resource groups" instead of printing the names and stuff.
 - Should ensure a `browse` or `list` cli command exists for the tests that will no longer print names and stuff
 
-## Azure DevOps
-
-Azure DevOps commands require an explicit --org selector; project-scoped commands also require --project. Do not fall back to configured organization/project defaults.
-
 ## Logging
 
 Allow specifying a path after `--json` global arg, using current logic if not provided.
