@@ -81,6 +81,32 @@ foreach ($packageName in $publicationOrder) {
     Write-Output "Publishing $($package.name) $($package.version)"
     $publishArguments = @('publish', '--registry', 'crates-io', '--manifest-path', $package.manifest_path, '--locked')
     if ($AllowDirty) { $publishArguments += '--allow-dirty' }
-    & cargo @publishArguments
-    if ($LASTEXITCODE -ne 0) { throw "Publication failed: $($package.name) $($package.version)" }
+    while ($true) {
+        & cargo @publishArguments 2>&1 | Tee-Object -Variable publishOutput
+        if ($LASTEXITCODE -eq 0) { break }
+
+        # Only retry an explicit rate-limit response with a server deadline.
+        # Other failures, including authentication and verification, still stop.
+        $rateLimit = [regex]::Match(
+            ($publishOutput -join [Environment]::NewLine),
+            'status 429[\s\S]*?Please try again after (?<deadline>[A-Za-z]{3}, \d{2} [A-Za-z]{3} \d{4} \d{2}:\d{2}:\d{2} GMT)'
+        )
+        if (-not $rateLimit.Success) {
+            throw "Publication failed: $($package.name) $($package.version)"
+        }
+        $retryAfter = [DateTimeOffset]::ParseExact(
+            $rateLimit.Groups['deadline'].Value,
+            'r',
+            [Globalization.CultureInfo]::InvariantCulture,
+            [Globalization.DateTimeStyles]::AssumeUniversal
+        ).AddSeconds(2)
+        if ($retryAfter -le [DateTimeOffset]::UtcNow) {
+            $retryAfter = [DateTimeOffset]::UtcNow.AddMinutes(1)
+        }
+        Write-Output "Rate limited: $($package.name); retrying after $($retryAfter.ToString('u'))"
+        while ([DateTimeOffset]::UtcNow -lt $retryAfter) {
+            $waitSeconds = [Math]::Min(60, [Math]::Ceiling(($retryAfter - [DateTimeOffset]::UtcNow).TotalSeconds))
+            Start-Sleep -Seconds ([Math]::Max(1, $waitSeconds))
+        }
+    }
 }
