@@ -17,6 +17,7 @@ pub mod role;
 pub mod subscription;
 pub mod tag;
 pub mod tenant;
+pub mod virtual_network;
 pub mod vm;
 
 use crate::cli::azure::azure_command_cli::AzureCommand;

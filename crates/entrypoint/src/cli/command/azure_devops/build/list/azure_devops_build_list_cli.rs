@@ -1,5 +1,4 @@
 use crate::cli::azure_devops::build::output;
-use crate::cli::azure_devops::resolve_azure_devops_organization_url;
 use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_azure::AzureDevOpsTenantArgumentExt;
 use cloud_terrastodon_azure::AzureTenantArgument;
@@ -11,7 +10,6 @@ use cloud_terrastodon_azure_devops::AzureDevOpsBuildStatus;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_builds;
-use cloud_terrastodon_azure_devops::get_default_project_name;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_credentials::AuthContext;
 use color_eyre::owo_colors::OwoColorize;
@@ -23,12 +21,12 @@ use std::fmt::Write;
 /// List the latest build runs matching the supplied filters.
 #[derive(Debug, Clone, facet::Facet)]
 pub struct AzureDevOpsBuildListArgs {
-    /// Organization name or URL. Defaults to the configured organization.
+    /// Organization name or URL.
     #[facet(figue::named)]
-    pub org: Option<AzureDevOpsOrganizationUrl>,
-    /// Project ID or name. Defaults to the configured project.
+    pub org: AzureDevOpsOrganizationUrl,
+    /// Project ID or name.
     #[facet(figue::named)]
-    pub project: Option<AzureDevOpsProjectArgument<'static>>,
+    pub project: AzureDevOpsProjectArgument<'static>,
     /// Tenant ID or tracked alias for delegated authentication.
     #[facet(figue::named)]
     pub tenant: Option<AzureTenantArgument<'static>>,
@@ -60,14 +58,9 @@ pub struct AzureDevOpsBuildListArgs {
 impl AzureDevOpsBuildListArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<CliOutput> {
         let auth_context = self.tenant.bind_auth_context(auth_context).await?;
-        let org = resolve_azure_devops_organization_url(self.org).await?;
-        let project = match self.project {
-            Some(project) => project,
-            None => get_default_project_name().await?.into(),
-        };
         let builds = fetch_azure_devops_builds(
-            &org,
-            project,
+            &self.org,
+            self.project,
             &auth_context,
             self.definition,
             self.status,

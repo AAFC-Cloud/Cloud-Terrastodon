@@ -22,6 +22,8 @@
 - Change `PickerTui` to be async and support late injection of choices
 - Fix breaking on az account list when logged in as service principal
 - Add `ct rest --header "a: b"` support
+- Add `ct az vnet list|show` and `ct az vnet subnet list|show` with name/ID selectors, tenant selection, optional subnet `--vnet`, and shared output formats
+- Add `ct az devops build definition show <ID>` with full pipeline details, including the YAML filename and repository configuration
 
 # v0.36.0
 

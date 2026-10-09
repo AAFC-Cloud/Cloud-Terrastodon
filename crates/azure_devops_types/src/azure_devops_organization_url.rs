@@ -20,6 +20,8 @@ use url::Url;
 /// Cloud organization names and Server collection names have different platform
 /// rules and are represented separately. Server collection URLs encode their
 /// exact name as a path segment, including spaces and Unicode.
+/// Parsing also accepts a cloud organization name such as `abc123`, expanding it
+/// to `https://dev.azure.com/abc123` without consulting configured defaults.
 ///
 /// See Microsoft's [organization URL forms](https://learn.microsoft.com/en-us/azure/devops/extend/develop/work-with-urls?view=azure-devops)
 /// and [REST instance/collection URL structure](https://learn.microsoft.com/en-us/rest/api/azure/devops/?view=azure-devops-rest-7.1#components-of-a-rest-api-requestresponse-pair).
@@ -474,13 +476,16 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_bare_organization_name() -> Result<()> {
-        let url = "myorg".parse::<AzureDevOpsOrganizationUrl>()?;
-        assert_eq!(
-            url,
-            AzureDevOpsOrganizationUrl::try_new_dev_azure_com("myorg")?
+    fn organization_name_shorthand_is_normalized() -> Result<()> {
+        let shorthand = "synthetic".parse::<AzureDevOpsOrganizationUrl>()?;
+        let explicit = "https://dev.azure.com/synthetic".parse::<AzureDevOpsOrganizationUrl>()?;
+        assert_eq!(shorthand, explicit);
+        assert_eq!(shorthand.to_string(), "https://dev.azure.com/synthetic");
+        assert!(
+            "synthetic/project"
+                .parse::<AzureDevOpsOrganizationUrl>()
+                .is_err()
         );
-        assert_eq!(url.to_string(), "https://dev.azure.com/myorg");
         Ok(())
     }
 

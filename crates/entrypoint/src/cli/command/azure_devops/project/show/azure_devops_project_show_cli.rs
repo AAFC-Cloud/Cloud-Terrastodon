@@ -11,9 +11,9 @@ use std::io::stdout;
 /// Azure DevOps project-related commands.
 #[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsProjectShowArgs {
-    /// Azure DevOps organization name or URL. Defaults to the configured organization.
+    /// Azure DevOps organization name or URL.
     #[facet(figue::named)]
-    pub org: Option<AzureDevOpsOrganizationUrl>,
+    pub org: AzureDevOpsOrganizationUrl,
     /// Project id (UUID) or project name.
     #[facet(figue::positional, proxy = String)]
     pub project: AzureDevOpsProjectArgument<'static>,
@@ -21,13 +21,11 @@ pub struct AzureDevOpsProjectShowArgs {
 
 impl AzureDevOpsProjectShowArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let org_url =
-            crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?;
         let azure_devops_auth_context = AzureDevOpsAuthContext::new(auth_context)?;
         let projects =
-            fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context).await?;
+            fetch_all_azure_devops_projects(&self.org, &azure_devops_auth_context).await?;
 
-        // Parse the argument (must be a valid id or name) and find the project.
+        // Find the project matching the resolved ID or name.
         let maybe = projects.into_iter().find(|p| self.project.matches(p));
 
         if let Some(project) = maybe {

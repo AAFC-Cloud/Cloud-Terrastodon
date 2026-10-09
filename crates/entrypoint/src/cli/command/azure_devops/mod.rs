@@ -15,8 +15,6 @@ pub mod work_item;
 
 use crate::cli::azure_devops::azure_devops_command_cli::AzureDevOpsCommand;
 use cloud_terrastodon_app::CliOutput;
-use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
-use cloud_terrastodon_azure_devops::get_default_organization_url;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -25,15 +23,6 @@ use eyre::Result;
 pub struct AzureDevOpsArgs {
     #[facet(figue::subcommand)]
     pub command: AzureDevOpsCommand,
-}
-
-pub async fn resolve_azure_devops_organization_url(
-    org: Option<AzureDevOpsOrganizationUrl>,
-) -> Result<AzureDevOpsOrganizationUrl> {
-    match org {
-        Some(org) => Ok(org),
-        None => Ok(get_default_organization_url().await?),
-    }
 }
 
 impl AzureDevOpsArgs {

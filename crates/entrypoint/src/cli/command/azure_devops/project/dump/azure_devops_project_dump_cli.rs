@@ -22,9 +22,9 @@ use tracing::info_span;
 /// Azure DevOps project dump command.
 #[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsProjectDumpArgs {
-    /// Azure DevOps organization name or URL. Defaults to the configured organization.
+    /// Azure DevOps organization name or URL.
     #[facet(figue::named)]
-    pub org: Option<AzureDevOpsOrganizationUrl>,
+    pub org: AzureDevOpsOrganizationUrl,
     /// Project id (UUID) or project name.
     #[facet(figue::positional, proxy = String)]
     project: AzureDevOpsProjectArgument<'static>,
@@ -45,12 +45,8 @@ impl AzureDevOpsProjectDumpArgs {
         let _guard = span.clone().entered();
 
         info!("Fetching projects");
-        let org_url = crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org)
-            .into_future()
-            .instrument(span.clone())
-            .await?;
         let azure_devops_auth_context = AzureDevOpsAuthContext::new(auth_context)?;
-        let projects = fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context)
+        let projects = fetch_all_azure_devops_projects(&self.org, &azure_devops_auth_context)
             .into_future()
             .instrument(span.clone())
             .await?;
@@ -59,20 +55,20 @@ impl AzureDevOpsProjectDumpArgs {
             bail!("No project found matching '{}'.", self.project);
         };
 
-        let teams = fetch_azure_devops_teams_for_project(&org_url, &project)
+        let teams = fetch_azure_devops_teams_for_project(&self.org, &project)
             .into_future()
             .instrument(span.clone())
             .await?;
 
         let groups =
-            fetch_azure_devops_groups_for_project(&org_url, &project, &azure_devops_auth_context)
+            fetch_azure_devops_groups_for_project(&self.org, &project, &azure_devops_auth_context)
                 .into_future()
                 .instrument(span.clone())
                 .await?;
 
         let mut group_members = ParallelFallibleWorkQueue::new("fetching group members", 4);
         for group in groups.iter() {
-            let org_url = org_url.clone();
+            let org_url = self.org.clone();
             let group_descriptor = group.descriptor.clone();
             let azure_devops_auth_context = azure_devops_auth_context.clone();
             let span = span.clone();

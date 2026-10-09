@@ -10,9 +10,9 @@ use std::collections::HashMap;
 /// Summarize Azure DevOps user license entitlements by license type.
 #[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsLicenseEntitlementUserSummaryArgs {
-    /// Azure DevOps organization name or URL. Defaults to the configured organization.
+    /// Azure DevOps organization name or URL.
     #[facet(figue::named)]
-    pub org: Option<AzureDevOpsOrganizationUrl>,
+    pub org: AzureDevOpsOrganizationUrl,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -25,11 +25,9 @@ struct LicenseSummaryRow {
 
 impl AzureDevOpsLicenseEntitlementUserSummaryArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let org_url =
-            crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?;
         let azure_devops_auth_context = AzureDevOpsAuthContext::new(auth_context)?;
         let entitlements =
-            fetch_azure_devops_user_license_entitlements(&org_url, &azure_devops_auth_context)
+            fetch_azure_devops_user_license_entitlements(&self.org, &azure_devops_auth_context)
                 .await?;
         let rows = summarize_licenses(entitlements.iter().map(|entitlement| &entitlement.license));
         let total_users: usize = rows.iter().map(|row| row.count).sum();
@@ -67,7 +65,7 @@ impl AzureDevOpsLicenseEntitlementUserSummaryArgs {
         println!(
             "{} {}",
             "Organization:".cyan().bold(),
-            org_url.to_string().bright_blue()
+            self.org.to_string().bright_blue()
         );
         println!(
             "{} {}",

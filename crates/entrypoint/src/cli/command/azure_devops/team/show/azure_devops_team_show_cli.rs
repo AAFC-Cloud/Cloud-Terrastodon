@@ -9,9 +9,9 @@ use std::io::stdout;
 /// Show Azure DevOps team details.
 #[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsTeamShowArgs {
-    /// Azure DevOps organization name or URL. Defaults to the configured organization.
+    /// Azure DevOps organization name or URL.
     #[facet(figue::named)]
-    pub org: Option<AzureDevOpsOrganizationUrl>,
+    pub org: AzureDevOpsOrganizationUrl,
     /// Project id or project name.
     #[facet(figue::named, proxy = String)]
     pub project: AzureDevOpsProjectArgument<'static>,
@@ -23,9 +23,7 @@ pub struct AzureDevOpsTeamShowArgs {
 
 impl AzureDevOpsTeamShowArgs {
     pub async fn invoke(self) -> Result<()> {
-        let org_url =
-            crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?;
-        let teams = fetch_azure_devops_teams_for_project(&org_url, self.project).await?;
+        let teams = fetch_azure_devops_teams_for_project(&self.org, self.project).await?;
         if let Some(team) = teams
             .into_iter()
             .find(|t| t.name == self.team || t.id.to_string() == self.team)

@@ -21,7 +21,7 @@ use tracing::error;
 #[derive(Debug, Clone, facet::Facet)]
 pub struct AzureDevOpsWorkItemCopyArgs {
     #[facet(figue::named)]
-    pub org: Option<AzureDevOpsOrganizationUrl>,
+    pub org: AzureDevOpsOrganizationUrl,
     #[facet(figue::named)]
     pub project: AzureDevOpsProjectArgument<'static>,
     #[facet(figue::named)]
@@ -89,8 +89,6 @@ impl AzureDevOpsWorkItemCopyArgs {
             keep_external_relations: self.keep_external_relations,
             as_of: self.as_of,
         };
-        let organization =
-            crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?;
         let auth_context = self.tenant.bind_auth_context(auth).await?;
         let plan = if self.resume {
             let journal = AzureDevOpsWorkItemCopyJournal::load(
@@ -105,7 +103,7 @@ impl AzureDevOpsWorkItemCopyArgs {
             journal.plan
         } else {
             AzureDevOpsWorkItemCopyPlanRequest {
-                org_url: Cow::Borrowed(&organization),
+                org_url: Cow::Borrowed(&self.org),
                 project: self.project.clone(),
                 auth_context: Cow::Borrowed(&auth_context),
                 root: self.id,
@@ -122,7 +120,7 @@ impl AzureDevOpsWorkItemCopyArgs {
         });
         error!(journal = %journal_path.display(), "Copy progress journal");
         let result = AzureDevOpsWorkItemCopyRequest {
-            org_url: Cow::Borrowed(&organization),
+            org_url: Cow::Borrowed(&self.org),
             project: self.project,
             auth_context: Cow::Borrowed(&auth_context),
             plan,

@@ -17,11 +17,9 @@ pub struct AzureDevOpsWorkItemTypeFieldShowArgs {
 
 impl AzureDevOpsWorkItemTypeFieldShowArgs {
     pub async fn invoke(self, auth: &AuthContext) -> Result<()> {
-        let org_url =
-            crate::cli::azure_devops::resolve_azure_devops_organization_url(self.args.org).await?;
         let auth_context = self.args.tenant.bind_auth_context(auth).await?;
         let value = AzureDevOpsWorkItemTypeFieldGetRequest {
-            org_url: Cow::Owned(org_url),
+            org_url: Cow::Owned(self.args.org),
             project: self.args.project,
             auth_context: Cow::Owned(auth_context),
             work_item_type: self.args.work_item_type,

@@ -93,7 +93,7 @@ Update our `std::fmt::Display` to `core::fmt::Display` following the guidance in
 
 ## Azure DevOps
 
-Add optional --org-url arg to commands that use an org url to support overriding the default organization url
+Azure DevOps commands require an explicit --org selector; project-scoped commands also require --project. Do not fall back to configured organization/project defaults.
 
 ## Logging
 

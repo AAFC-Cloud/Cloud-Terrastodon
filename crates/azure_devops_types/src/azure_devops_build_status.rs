@@ -4,9 +4,10 @@ use std::str::FromStr;
 /// A build status used in API records and build-list filters.
 ///
 /// Microsoft's [API vocabulary](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/builds/list?view=azure-devops-rest-7.1#buildstatus) is recognized exactly.
-/// Unknown values retain their original wire spelling for forward compatibility.
-/// Filters use the same API spelling, including any unknown value supplied by
-/// the caller; Azure DevOps determines which filter values it accepts.
+/// Unknown values panic in debug builds so unmodeled vocabulary is surfaced.
+/// Release builds retain their original wire spelling for forward compatibility.
+/// Filters use the same API spelling. In release builds, Azure DevOps determines
+/// which unknown filter values it accepts.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, facet::Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
@@ -18,6 +19,7 @@ pub enum AzureDevOpsBuildStatus {
     Postponed,
     NotStarted,
     All,
+    #[arbitrary(skip)]
     Unknown(String),
 }
 
@@ -48,7 +50,12 @@ impl FromStr for AzureDevOpsBuildStatus {
             "postponed" => Self::Postponed,
             "notStarted" => Self::NotStarted,
             "all" => Self::All,
-            value => Self::Unknown(value.to_owned()),
+            value => {
+                #[cfg(debug_assertions)]
+                unreachable!("Unknown {} value: {value:?}", std::any::type_name::<Self>());
+                #[cfg(not(debug_assertions))]
+                Self::Unknown(value.to_owned())
+            }
         })
     }
 }
@@ -81,7 +88,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn build_status_preserves_known_and_unknown_wire_values() {
+    fn build_status_preserves_known_wire_values() {
         for (wire, expected) in [
             ("none", AzureDevOpsBuildStatus::None),
             ("inProgress", AzureDevOpsBuildStatus::InProgress),
@@ -90,11 +97,6 @@ mod tests {
             ("postponed", AzureDevOpsBuildStatus::Postponed),
             ("notStarted", AzureDevOpsBuildStatus::NotStarted),
             ("all", AzureDevOpsBuildStatus::All),
-            (
-                "futureSyntheticValue",
-                AzureDevOpsBuildStatus::Unknown("futureSyntheticValue".to_owned()),
-            ),
-            ("NONE", AzureDevOpsBuildStatus::Unknown("NONE".to_owned())),
         ] {
             let value: AzureDevOpsBuildStatus = wire.parse().unwrap();
             assert_eq!(value, expected);

@@ -16,9 +16,9 @@ use tracing::info;
 #[derive(facet::Facet, Debug, Clone)]
 /// Update an Azure DevOps user's license entitlement.
 pub struct AzureDevOpsLicenseEntitlementUserUpdateArgs {
-    /// Azure DevOps organization name or URL. Defaults to the configured organization.
+    /// Azure DevOps organization name or URL.
     #[facet(figue::named)]
-    pub org: Option<AzureDevOpsOrganizationUrl>,
+    pub org: AzureDevOpsOrganizationUrl,
     #[facet(figue::named)]
     pub user: Vec<AzureDevOpsUserArgument<'static>>,
 
@@ -43,8 +43,6 @@ pub struct AzureDevOpsLicenseEntitlementUserUpdateArgs {
 
 impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let org_url =
-            crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?;
         let azure_devops_auth_context = AzureDevOpsAuthContext::new(auth_context)?;
 
         if let AzureDevOpsLicenseType::Other(s) = &self.license {
@@ -79,7 +77,7 @@ impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
         for (i, user) in self.user.into_iter().enumerate() {
             let was = if let Some(ref expected) = self.has_license {
                 if let Some(entitlement) = match fetch_azure_devops_user_license_entitlement(
-                    &org_url,
+                    &self.org,
                     &user,
                     &azure_devops_auth_context,
                 )
@@ -140,7 +138,7 @@ impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
                 "Updating license entitlement for user"
             );
 
-            update_azure_devops_user_license_entitlement(&org_url, &user, self.license.clone())
+            update_azure_devops_user_license_entitlement(&self.org, &user, self.license.clone())
                 .await?;
             outcomes.push(Outcome::Updated { user, was });
         }
@@ -169,7 +167,7 @@ impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
 
             // Fetch to verify
             let new_license = fetch_azure_devops_user_license_entitlement(
-                &org_url,
+                &self.org,
                 &user,
                 &azure_devops_auth_context,
             )

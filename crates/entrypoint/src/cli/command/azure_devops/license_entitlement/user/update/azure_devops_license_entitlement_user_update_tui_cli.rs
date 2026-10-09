@@ -13,22 +13,20 @@ use tracing::info;
 #[derive(facet::Facet, Debug, Clone)]
 /// Update an Azure DevOps user's license entitlement.
 pub struct AzureDevOpsLicenseEntitlementUserUpdateTuiArgs {
-    /// Azure DevOps organization name or URL. Defaults to the configured organization.
+    /// Azure DevOps organization name or URL.
     #[facet(figue::named)]
-    pub org: Option<AzureDevOpsOrganizationUrl>,
+    pub org: AzureDevOpsOrganizationUrl,
 }
 
 impl AzureDevOpsLicenseEntitlementUserUpdateTuiArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let org_url =
-            crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?;
         let azure_devops_auth_context = AzureDevOpsAuthContext::new(auth_context)?;
 
         let chosen_entitlements = PickerTui::<_>::new()
             .set_header("Azure DevOps License Entitlements")
             .pick_many_reloadable(|invalidate| {
                 let future = fetch_azure_devops_user_license_entitlements(
-                    &org_url,
+                    &self.org,
                     &azure_devops_auth_context,
                 )
                 .with_invalidation(invalidate);
@@ -56,7 +54,7 @@ impl AzureDevOpsLicenseEntitlementUserUpdateTuiArgs {
 
         for entitlement in chosen_entitlements {
             let resp = update_azure_devops_user_license_entitlement(
-                &org_url,
+                &self.org,
                 entitlement.user_id,
                 license.clone(),
             )

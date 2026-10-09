@@ -36,6 +36,7 @@ use std::pin::Pin;
 #[derive(Debug, Clone, Facet)]
 pub struct AzureDevOpsBuildFolderListRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
+    /// Project ID or name.
     pub project: AzureDevOpsProjectArgument<'a>,
     pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
     /// Optional starting folder path. Omit this for a complete project inventory.
@@ -282,7 +283,7 @@ mod tests {
 
     #[test]
     fn folder_cache_invalidation_is_scoped_to_the_project_selector() {
-        let organization = "synthetic".parse().unwrap();
+        let organization = "https://dev.azure.com/synthetic".parse().unwrap();
         let auth_context = AzureDevOpsAuthContext::None;
         let project: AzureDevOpsProjectArgument<'static> = "Synthetic project".parse().unwrap();
         let same_project: AzureDevOpsProjectArgument<'static> =
@@ -320,7 +321,7 @@ mod tests {
 
     #[test]
     fn readable_project_scopes_survive_no_spaces_without_identity_collisions() {
-        let organization = "synthetic".parse().unwrap();
+        let organization = "https://dev.azure.com/synthetic".parse().unwrap();
         let auth_context = AzureDevOpsAuthContext::None;
         let names = [
             "Synthetic project",

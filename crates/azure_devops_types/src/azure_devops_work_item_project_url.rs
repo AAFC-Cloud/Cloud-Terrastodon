@@ -15,6 +15,7 @@ use url::Url;
 #[facet(proxy = String)]
 pub struct AzureDevOpsWorkItemProjectUrl<'a> {
     pub org_id: Cow<'a, AzureDevOpsOrganizationUrl>,
+    /// Project ID or name.
     pub project: AzureDevOpsProjectArgument<'a>,
     pub work_item_id: AzureDevOpsWorkItemId,
 }
@@ -52,21 +53,15 @@ impl TryFrom<&AzureDevOpsWorkItemProjectUrl<'_>> for Url {
 
 impl From<&AzureDevOpsWorkItemProjectUrl<'_>> for String {
     fn from(value: &AzureDevOpsWorkItemProjectUrl<'_>) -> Self {
-        match build_url(&value.org_id, Some(&value.project), value.work_item_id) {
-            Ok(url) => url.into(),
-            Err(_) => format!(
-                "{}/{}/_apis/wit/workitems/{}?api-version=7.1",
-                value.org_id.expanded_form().trim_end_matches('/'),
-                value.project,
-                value.work_item_id
-            ),
-        }
+        value.to_string()
     }
 }
 
 impl std::fmt::Display for AzureDevOpsWorkItemProjectUrl<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(String::from(self).as_str())
+        let url = build_url(&self.org_id, Some(&self.project), self.work_item_id)
+            .map_err(|_| std::fmt::Error)?;
+        f.write_str(url.as_str())
     }
 }
 
@@ -120,14 +115,17 @@ mod tests {
 
     #[test]
     fn project_urls_preserve_project_information() -> Result<()> {
-        let url: AzureDevOpsWorkItemProjectUrl<'static> =
-            "https://dev.azure.com/example/project/_apis/wit/workitems/42".parse()?;
-        assert_eq!(url.work_item_id.get(), 42);
-        assert_eq!(url.project.to_string(), "project");
-        assert_eq!(
-            url.clone().into_url()?.path(),
-            "/example/project/_apis/wit/workitems/42"
-        );
+        for project in ["project", "default"] {
+            let url: AzureDevOpsWorkItemProjectUrl<'static> =
+                format!("https://dev.azure.com/example/{project}/_apis/wit/workitems/42")
+                    .parse()?;
+            assert_eq!(url.work_item_id.get(), 42);
+            assert_eq!(url.project.to_string(), project);
+            assert_eq!(
+                url.clone().into_url()?.path(),
+                format!("/example/{project}/_apis/wit/workitems/42")
+            );
+        }
         Ok(())
     }
 }

@@ -204,6 +204,44 @@ cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsProjectUrl);
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::AzureDevOpsBuildDefinitionId;
+    use crate::AzureDevOpsBuildDefinitionUrl;
+    use crate::AzureDevOpsBuildId;
+    use crate::AzureDevOpsBuildUrl;
+    use crate::AzureDevOpsProjectName;
+
+    #[test]
+    fn literal_default_project_names_remain_explicit_url_identities() -> Result<()> {
+        let organization = AzureDevOpsOrganizationUrl::try_new_dev_azure_com("synthetic")?;
+        let project = AzureDevOpsProjectArgument::from(AzureDevOpsProjectName::try_new("default")?);
+        let project_url = AzureDevOpsProjectUrl::new(&organization, &project)?;
+        let build_url =
+            AzureDevOpsBuildUrl::new(&organization, &project, AzureDevOpsBuildId::new(42)?)?;
+        let definition_url = AzureDevOpsBuildDefinitionUrl::new(
+            &organization,
+            &project,
+            AzureDevOpsBuildDefinitionId::new(7)?,
+        )?;
+        assert_eq!(project_url.project, project);
+        assert_eq!(build_url.project, project);
+        assert_eq!(definition_url.project, project);
+        assert_eq!(
+            project_url.to_string().parse::<AzureDevOpsProjectUrl>()?,
+            project_url
+        );
+        assert_eq!(
+            build_url.to_string().parse::<AzureDevOpsBuildUrl>()?,
+            build_url
+        );
+        assert_eq!(
+            definition_url
+                .to_string()
+                .parse::<AzureDevOpsBuildDefinitionUrl>()?,
+            definition_url
+        );
+
+        Ok(())
+    }
 
     #[test]
     fn constructs_project_routes_and_encodes_names() -> Result<()> {

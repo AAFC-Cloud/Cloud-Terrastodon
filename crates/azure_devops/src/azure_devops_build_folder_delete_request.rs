@@ -38,6 +38,7 @@ use std::time::Duration;
 #[derive(Debug, Clone, facet::Facet)]
 pub struct AzureDevOpsBuildFolderDeleteRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
+    /// Project ID or name.
     pub project: AzureDevOpsProjectArgument<'a>,
     pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
     /// Exact folder spelling returned by the service, without CLI normalization.
@@ -205,7 +206,7 @@ mod tests {
     #[test]
     fn build_folder_delete_artifacts_never_supply_cached_results() {
         let request = AzureDevOpsBuildFolderDeleteRequest {
-            org_url: Cow::Owned("fixture".parse().unwrap()),
+            org_url: Cow::Owned("https://dev.azure.com/fixture".parse().unwrap()),
             project: "Synthetic project".parse().unwrap(),
             auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
             path: AzureDevOpsBuildFolderPath::try_new(r"\Synthetic").unwrap(),
@@ -223,7 +224,7 @@ mod tests {
     #[tokio::test]
     async fn build_folder_delete_rejects_root_before_authentication_or_network() {
         let error = AzureDevOpsBuildFolderDeleteRequest {
-            org_url: Cow::Owned("fixture".parse().unwrap()),
+            org_url: Cow::Owned("https://dev.azure.com/fixture".parse().unwrap()),
             project: "Synthetic project".parse().unwrap(),
             // Missing auth also rejects locally if root protection regresses;
             // this test can never acquire credentials or execute HTTP.

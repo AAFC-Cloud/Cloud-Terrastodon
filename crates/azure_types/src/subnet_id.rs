@@ -71,8 +71,9 @@ impl Scope for SubnetId {
     fn try_from_expanded(expanded: &str) -> eyre::Result<Self> {
         // Parse subnet ID format: /subscriptions/{subId}/resourceGroups/{rgName}/providers/Microsoft.Network/virtualNetworks/{vnetName}/subnets/{subnetName}
 
-        // Find the last "/subnets/" occurrence
-        if let Some(subnets_pos) = expanded.rfind("/subnets/") {
+        // Azure resource ID route segments are case insensitive. ASCII folding
+        // preserves byte offsets so the original validated names retain spelling.
+        if let Some(subnets_pos) = expanded.to_ascii_lowercase().rfind("/subnets/") {
             let vnet_part = &expanded[..subnets_pos];
             let subnet_name_part = &expanded[subnets_pos + "/subnets/".len()..];
 
@@ -154,6 +155,29 @@ mod tests {
     use crate::SubscriptionId;
     use crate::VirtualNetworkName;
     use uuid::Uuid;
+
+    #[test]
+    fn subnet_resource_id_accepts_route_casing_and_preserves_name_spelling() {
+        let id = "/SUBSCRIPTIONS/00000000-0000-0000-0000-000000000000/RESOURCEGROUPS/ExampleGroup/PROVIDERS/MICROSOFT.NETWORK/VIRTUALNETWORKS/ExampleNetwork/SUBNETS/ExampleSubnet"
+            .parse::<SubnetId>()
+            .unwrap();
+        assert_eq!(id.subnet_name.as_str(), "ExampleSubnet");
+        assert_eq!(
+            id.virtual_network_id.virtual_network_name.as_str(),
+            "ExampleNetwork"
+        );
+    }
+
+    #[test]
+    fn subnet_resource_id_rejects_missing_or_nested_subnet_names() {
+        let prefix = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/example/providers/Microsoft.Network/virtualNetworks/example/SUBNETS/";
+        assert!(prefix.parse::<SubnetId>().is_err());
+        assert!(
+            format!("{prefix}example/child")
+                .parse::<SubnetId>()
+                .is_err()
+        );
+    }
 
     #[test]
     fn test_subnet_id_creation_and_scopes() -> eyre::Result<()> {

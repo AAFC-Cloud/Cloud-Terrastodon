@@ -10,9 +10,9 @@ use std::io::stdout;
 /// List Azure DevOps groups in a project.
 #[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsGroupListArgs {
-    /// Azure DevOps organization name or URL. Defaults to the configured organization.
+    /// Azure DevOps organization name or URL.
     #[facet(figue::named)]
-    pub org: Option<AzureDevOpsOrganizationUrl>,
+    pub org: AzureDevOpsOrganizationUrl,
     /// Project id or project name.
     #[facet(figue::named, proxy = String)]
     pub project: AzureDevOpsProjectArgument<'static>,
@@ -20,11 +20,9 @@ pub struct AzureDevOpsGroupListArgs {
 
 impl AzureDevOpsGroupListArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let org_url =
-            crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?;
         let azure_devops_auth_context = AzureDevOpsAuthContext::new(auth_context)?;
         let groups = fetch_azure_devops_groups_for_project(
-            &org_url,
+            &self.org,
             self.project,
             &azure_devops_auth_context,
         )

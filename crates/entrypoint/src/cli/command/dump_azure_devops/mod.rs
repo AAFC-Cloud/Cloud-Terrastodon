@@ -4,18 +4,16 @@ use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Dump Azure DevOps metadata to disk.
-#[derive(facet::Facet, Debug, Clone, Default)]
+#[derive(facet::Facet, Debug, Clone)]
 pub struct DumpAzureDevOpsArgs {
-    /// Azure DevOps organization name or URL. Defaults to the configured organization.
+    /// Azure DevOps organization name or URL.
     #[facet(figue::named)]
-    pub org: Option<AzureDevOpsOrganizationUrl>,
+    pub org: AzureDevOpsOrganizationUrl,
 }
 
 impl DumpAzureDevOpsArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let org_url =
-            crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?;
-        dump_azure_devops(org_url, auth_context).await?;
+        dump_azure_devops(self.org, auth_context).await?;
         Ok(())
     }
 }

@@ -96,8 +96,8 @@ mod tests {
                 let folder = AzureDevOpsBuildDefinitionFolderArgs {
                     command: AzureDevOpsBuildDefinitionFolderCommand::List(
                         AzureDevOpsBuildDefinitionFolderListArgs {
-                            org: Some("https://dev.azure.com/example".parse().unwrap()),
-                            project: Some("offline-project".parse().unwrap()),
+                            org: "https://dev.azure.com/example".parse().unwrap(),
+                            project: "offline-project".parse().unwrap(),
                             tenant: None,
                             no_cache: false,
                             path: None,
@@ -244,7 +244,8 @@ mod tests {
 
     #[test]
     fn parses_the_linux_project_list_vertical_slice() {
-        let cli: Cli = figue::from_slice(&["az", "devops", "project", "list"]).unwrap();
+        let cli: Cli =
+            figue::from_slice(&["az", "devops", "project", "list", "--org", "synthetic"]).unwrap();
         let Some(CloudTerrastodonCommand::Azure(azure)) = cli.command else {
             panic!("expected the az command alias");
         };

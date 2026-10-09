@@ -24,13 +24,10 @@ pub struct AzureDevOpsWorkItemRelationRemoveArgs {
 
 impl AzureDevOpsWorkItemRelationRemoveArgs {
     pub async fn invoke(self, auth: &AuthContext) -> Result<()> {
-        let organization =
-            crate::cli::azure_devops::resolve_azure_devops_organization_url(self.relation.org)
-                .await?;
         let target = self
             .relation
             .target
-            .into_relation_url(&organization)
+            .into_relation_url(&self.relation.org)
             .into_work_item()?;
         let auth_context = self.relation.tenant.bind_auth_context(auth).await?;
         let change =
@@ -39,8 +36,8 @@ impl AzureDevOpsWorkItemRelationRemoveArgs {
                 target,
             });
         let item = AzureDevOpsWorkItemRelationChangeRequest {
-            org_url: Cow::Owned(organization),
-            project: self.relation.project,
+            org_url: Cow::Owned(self.relation.org),
+            project: Some(self.relation.project),
             auth_context: Cow::Owned(auth_context),
             id: self.relation.id,
             change,

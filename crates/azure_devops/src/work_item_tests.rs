@@ -19,7 +19,7 @@ fn scope() -> Result<(
 )> {
     let suffix = rand::random::<u32>();
     Ok((
-        format!("fixture-{suffix:x}").parse()?,
+        format!("https://dev.azure.com/fixture-{suffix:x}").parse()?,
         format!("fixture {suffix:x}").parse()?,
         AzureDevOpsAuthContext::None,
     ))

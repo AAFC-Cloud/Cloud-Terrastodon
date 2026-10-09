@@ -118,6 +118,12 @@ Standalone examples may remain self-contained, as described in
   canonical `\Team\CI` path. Parse and validate during argument construction,
   before authentication, defaults, or service calls; avoid raw `String` fields
   followed by manual domain parsing in command handlers. Keep API decoding strict.
+- A domain type may accept unambiguous shorthand and normalize it during parsing
+  when the resulting value preserves its invariants. For example,
+  `AzureDevOpsOrganizationUrl` accepts a cloud organization name and expands it
+  to `https://dev.azure.com/{name}` without consulting configured defaults.
+  Use that type directly in CLI fields; do not add an argument wrapper solely
+  to expose the same value through an `into_url()` conversion.
 - An argument type may store an already validated domain value and expose an
   infallible conversion that simply unwraps it. Delegating normalization and
   validation to domain constructors or helpers does not make the argument type
@@ -133,8 +139,18 @@ Standalone examples may remain self-contained, as described in
   Choose optionality from documented or observed omission; do not make documented
   response properties optional solely as a speculative compatibility precaution.
 - Prefer typed response vocabularies. When the service may introduce new values,
-  preserve unknown values explicitly rather than breaking response decoding.
-  Request filter enums may have a different, closed vocabulary or wire spelling.
+  preserve unknown values explicitly in release builds. Guard unknown-variant
+  parsing fallbacks with `#[cfg(debug_assertions)] unreachable!(...)`, including
+  the type and received value in the diagnostic, so development exposes values
+  we still need to model. Obtain the type name with `std::any::type_name::<Self>()`
+  rather than a hardcoded name that can drift when the type is renamed. Keep
+  genuinely open vocabularies extensible in all builds, and do not reject a
+  documented value merely because it is named
+  `Unknown`. Always mark unknown fallback variants with `#[arbitrary(skip)]` so
+  fuzz generation produces modeled vocabulary in every build. These fallbacks
+  preserve new upstream values; they should not generate arbitrary vocabulary
+  the consuming code does not yet model. Request filter enums may have a
+  different, closed vocabulary or wire spelling.
 - Reuse a domain vocabulary for request filters when the API defines the same
   type and values for requests and responses. A property's role as a filter does
   not by itself justify a duplicate enum. Separate types need a distinct contract;
@@ -146,6 +162,11 @@ Standalone examples may remain self-contained, as described in
   directly to the corresponding official platform schema or API documentation
   (Microsoft Learn for Azure and Azure DevOps), including the API version and
   schema anchor where useful.
+- Prefer the service's REST API reference over JavaScript extension API
+  documentation. When REST documentation omits a nested or derived shape, link
+  to its containing REST response/property and clearly label supplemental SDK
+  documentation for the shape. Do not imply that the REST page documents fields
+  it omits. Preserve useful existing official source links alongside web docs.
 - When a newtype has no dedicated documentation page, link to the documented
   property it represents, such as the `id` field of its parent API object.
 - Mark platform-deprecated Rust fields with `#[deprecated(note = "...")]`,
@@ -223,6 +244,11 @@ Standalone examples may remain self-contained, as described in
   construct the URL and query parameters, apply authentication, execute REST
   calls, follow pages, and interpret the response there. A longer procedural
   body is appropriate when those steps all belong to the same operation.
+- Avoid intermediary locals that only rename, borrow, or move an existing field.
+  Pass fields such as `&self.org` and `self.project` directly to the operation
+  instead of writing `let org_url = self.org;`. Keep locals for computed values,
+  mutable state, or a concrete ownership or lifetime need; do not add clones
+  solely to make an unnecessary local work.
 - Do not introduce a feature `Client` intermediary solely to hold organization,
   project, or auth fields and hide operations already represented by request
   types. Compose workflows by awaiting those request types directly. A client
@@ -280,6 +306,11 @@ Standalone examples may remain self-contained, as described in
   account ID/name/pattern selector. Keep each type in its own file. Put flags such
   as `org`, `project`, and `tenant` directly on each command's argument struct;
   do not extract a shared scope struct solely to reuse field declarations.
+- Scoped Azure DevOps commands require an explicit `--org`; project-scoped commands
+  also require an explicit `--project`. Do not fill omitted scope from configured
+  organization/project defaults, or introduce a default-selector variant that
+  hides that lookup. Organization-level operations need no artificial project
+  field. Keep scope selection separate from authentication and tenant selection.
 - Keep `mod.rs` focused on child modules and re-exports. Avoid generic command
   implementation filenames such as `list.rs`, `show.rs`, or `prune.rs` and avoid
   adding new command types or implementation bodies to `mod.rs`. Descriptively
@@ -319,6 +350,9 @@ Standalone examples may remain self-contained, as described in
 - Focus tests on behavior this code owns: domain invariants, conversions, policy
   decisions, and meaningful failure handling. Prefer small typed fixtures for
   pure policy tests.
+- Do not add tests that merely repeat enum match arms, unknown-fallback
+  debug/release branches, or standard derive behavior. These restate the
+  implementation without exercising a separate invariant or meaningful scenario.
 - Fabricated service responses can exercise local procedure, but cannot establish
   remote API compatibility. Avoid brittle assertions that merely repeat fixed
   endpoints, parameter forwarding, or assumed response shapes. Test coverage must

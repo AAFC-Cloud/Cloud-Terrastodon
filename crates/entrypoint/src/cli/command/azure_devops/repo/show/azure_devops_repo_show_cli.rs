@@ -12,9 +12,9 @@ use std::io::stdout;
 /// Show Azure DevOps repo details.
 #[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsRepoShowArgs {
-    /// Azure DevOps organization name or URL. Defaults to the configured organization.
+    /// Azure DevOps organization name or URL.
     #[facet(figue::named)]
-    pub org: Option<AzureDevOpsOrganizationUrl>,
+    pub org: AzureDevOpsOrganizationUrl,
     /// Project id or project name.
     #[facet(figue::named, proxy = String)]
     pub project: AzureDevOpsProjectArgument<'static>,
@@ -26,17 +26,14 @@ pub struct AzureDevOpsRepoShowArgs {
 
 impl AzureDevOpsRepoShowArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let org_url =
-            crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?;
-
         // Find a project matching the provided identifier (id or name).
         let azure_devops_auth_context = AzureDevOpsAuthContext::new(auth_context)?;
         let projects =
-            fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context).await?;
+            fetch_all_azure_devops_projects(&self.org, &azure_devops_auth_context).await?;
         let maybe = projects.into_iter().find(|p| self.project.matches(p));
 
         if let Some(project) = maybe {
-            let repos = fetch_all_azure_devops_repos_for_project(&org_url, &project.id).await?;
+            let repos = fetch_all_azure_devops_repos_for_project(&self.org, &project.id).await?;
             if let Some(repo) = repos
                 .into_iter()
                 .find(|r| r.name == self.repo || r.id.to_string() == self.repo)

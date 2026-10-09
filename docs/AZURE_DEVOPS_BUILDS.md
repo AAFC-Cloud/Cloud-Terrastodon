@@ -4,22 +4,28 @@ The Build commands use the Azure DevOps Build REST API. They cover build runs,
 pipeline definitions, and the folders containing those definitions.
 
 ```powershell
-ct az devops build definition list
-ct az devops build definition list --project abc --name 'CI*' --path '\Team'
-ct az devops build list --project abc
-ct az devops build list --project abc --no-cache
-ct az devops build list --project abc --definition 42 --status completed --result failed --branch refs/heads/main --limit 25
-ct az devops build definition folder list --project abc
-ct az devops build definition folder list --project abc --path '\Team'
-ct az devops build definition folder prune --project abc --dry-run
-ct az devops build definition folder prune --project abc
-ct az devops build definition folder prune --project abc --path '\Team' --dry-run
+ct az devops build definition list --org example-org --project abc
+ct az devops build definition list --org example-org --project abc --name 'CI*' --path '\Team'
+ct az devops build definition show 42 --org example-org --project abc
+ct az devops build definition show 42 --org example-org --project abc --revision 3 --output-format json
+ct az devops build list --org example-org --project abc
+ct az devops build list --org example-org --project abc --no-cache
+ct az devops build list --org example-org --project abc --definition 42 --status completed --result failed --branch refs/heads/main --limit 25
+ct az devops build definition folder list --org example-org --project abc
+ct az devops build definition folder list --org example-org --project abc --path '\Team'
+ct az devops build definition folder prune --org example-org --project abc --dry-run
+ct az devops build definition folder prune --org example-org --project abc
+ct az devops build definition folder prune --org example-org --project abc --path '\Team' --dry-run
 ```
 
-Listings accept `--org` and `--project`; omitted values use the configured Azure
-DevOps defaults. Pruning requires an explicit `--project`. `--tenant` selects a
-tracked tenant or alias for delegated authentication, following the other Azure
-DevOps commands. Both `ct az devops` and `ct azdo` reach the same command surface.
+All build commands require explicit `--org` and `--project` selectors.
+`--org` accepts a full organization/Server collection URL or a cloud organization
+name; bare names expand to `https://dev.azure.com/{name}`.
+`--project` accepts a project ID or name, including the literal name `default`.
+Commands do not read configured organization or project defaults.
+`--tenant` selects a tracked tenant or alias for delegated authentication,
+following the other Azure DevOps commands. Both `ct az devops` and `ct azdo` reach
+the same command surface.
 
 Build, definition, and folder listings cache GET responses through the shared
 REST cache, including continuation pages. Each list command accepts `--no-cache`
@@ -29,6 +35,28 @@ keeping other projects' entries.
 `--skip-cache` and `--clean` are aliases for `--no-cache` with the same refresh
 behavior. Service identity, project selector, filters, and limits distinguish
 cache entries.
+
+`build definition list` returns shallow definition references. To inspect one
+pipeline, use `build definition show <ID>`, which calls
+[Definitions Get 7.1](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/definitions/get?view=azure-devops-rest-7.1).
+The full definition includes `repository.id`, the repository's provider, URL and
+default branch, and `process.yamlFilename` for YAML pipelines. Classic pipelines
+have a designer process instead of a YAML filename. Microsoft's
+[YAML process interface](https://github.com/microsoft/azure-devops-node-api/blob/master/api/interfaces/BuildInterfaces.ts)
+documents the process-specific fields beyond the REST page's base `BuildProcess`.
+Show returns the full typed record through the shared Facet text, JSON and Facet
+Pretty output support. Definition listing continues making only list requests.
+Repository IDs retain their source provider's identity, which may be a UUID or a
+provider-specific string. Variables, resource references, triggers and retention
+settings have typed response shapes. Designer phase graphs and process parameter
+schemas are retained as explicit opaque subtrees for inspection.
+
+Show retrieves the latest definition unless `--revision` selects a specific
+revision. Its GET responses are cached beneath
+`build/definition/show/{id}/latest` or `build/definition/show/{id}/revision/{revision}`
+in the same organization/project scope as the listings. `--no-cache` (also
+`--skip-cache` or `--clean`) refreshes this definition's cached variants without
+clearing other definitions or projects.
 
 Project IDs and project names are distinct cache scopes unless resolved to a
 shared identity. Project-name scopes use the selector's ASCII case-insensitive
@@ -66,7 +94,8 @@ result filters use the same domain
 types and spellings as API records: `inProgress`, `completed`, `cancelling`,
 `postponed`, `notStarted`, `none`, or `all` for status; `succeeded`,
 `partiallySucceeded`, `failed`, `canceled`, or `none` for result. Unknown values
-are preserved and sent unchanged; Azure DevOps validates filter support.
+panic during parsing in debug builds. Release builds preserve and send them
+unchanged; Azure DevOps validates filter support.
 
 Leaves return `CliOutput`, so the global `--output-format text|json|facet-pretty|auto`
 works throughout this surface. Interactive text shows concise colored rows;
@@ -92,7 +121,10 @@ Build and definition IDs, exact definition names, build numbers, folder paths,
 and list limits use domain types with validation at construction and decoding.
 Name patterns used by `--name` remain separate from exact definition names.
 Response status, result, queue status, definition type and quality have known
-values while preserving unknown server values. Nested projects use shallow
+values. Their unknown fallbacks panic in debug builds with the type and received
+value so new vocabulary can be modeled; release builds preserve those values.
+Unknown fallback variants always use `#[arbitrary(skip)]` so fuzz generation
+produces modeled vocabulary. Nested projects use shallow
 references with typed project IDs and names. Build, definition, project, and
 team-image URLs use their own domain types with validated string proxies and
 offline `Arbitrary` implementations; records need no URL generator overrides.
@@ -152,7 +184,8 @@ check and the delete request. A dry run is a preview, not a reservation.
 
 ## API and offline validation
 
-The implementation uses [Definitions List](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/definitions/list?view=azure-devops-rest-7.1)
+The implementation uses [Definitions List](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/definitions/list?view=azure-devops-rest-7.1),
+[Definitions Get](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/definitions/get?view=azure-devops-rest-7.1),
 and [Builds List](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/builds/list?view=azure-devops-rest-7.1)
 at version `7.1`; [Folders List](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/folders/list?view=azure-devops-rest-7.1)
 and folder deletion use `7.1-preview.2`. Projects, path selectors, filters, and
@@ -161,9 +194,11 @@ inventories before using them.
 
 Production types have their own files, except each CLI group's paired argument
 struct and command enum share its `_cli.rs` file. CLI argument schemas, command
-enums, and default selection stay in `entrypoint`. Each listing command declares
-its organization, project, and tenant flags directly and resolves them through
-the existing field-level functions. Each SDK request constructs its URL and
+enums, and explicit scope selection stay in `entrypoint`. Each listing command
+declares its required organization/project and optional tenant flags directly.
+Organization shorthand is normalized by `AzureDevOpsOrganizationUrl` without
+configured defaults. Project selectors contain an explicit ID or name. Each SDK
+request constructs its URL and
 executes its REST calls in `IntoFuture`, with pagination directly in each list
 request. Each list request assembles its readable organization or collection,
 project, and operation cache root locally, reuses `pathing`'s shared Windows

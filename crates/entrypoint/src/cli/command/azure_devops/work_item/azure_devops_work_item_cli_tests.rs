@@ -40,16 +40,8 @@ fn parses_item_reads_and_tenant_context() {
             .as_ref()
             .is_some_and(|value| value.to_string() == tenant)
     );
-    assert!(
-        args.project
-            .as_ref()
-            .is_some_and(|value| value.to_string() == project)
-    );
-    assert!(
-        args.org
-            .as_ref()
-            .is_some_and(|value| value.name() == org)
-    );
+    assert!(args.project.to_string() == project);
+    assert!(args.org.name() == org);
     let cli: crate::cli::Cli = figue::from_slice(&[
         "--auth-source",
         "browser",
@@ -69,7 +61,7 @@ fn parses_item_reads_and_tenant_context() {
     .expect("full command with named scope parses")
     .get();
     assert!(cli.global_args.auth_source == cloud_terrastodon_credentials::AuthSource::Browser);
-    let parsed = parse(&["list", "--ids", &id]);
+    let parsed = parse(&["list", "--ids", &id, "--org", &org, "--project", &project]);
     assert!(matches!(
         parsed.command,
         AzureDevOpsWorkItemCommand::List(_)
@@ -79,11 +71,21 @@ fn parses_item_reads_and_tenant_context() {
 #[test]
 fn parses_field_values_and_definitions_as_separate_commands() {
     let id = id();
+    let org = "synthetic";
     let project = "Synthetic project";
     for args in [
-        vec!["field", "list", &id],
-        vec!["field", "remove", &id, "Custom.Flag"],
-        vec!["field", "definition", "list"],
+        vec!["field", "list", &id, "--org", org, "--project", project],
+        vec![
+            "field",
+            "remove",
+            &id,
+            "Custom.Flag",
+            "--org",
+            org,
+            "--project",
+            project,
+        ],
+        vec!["field", "definition", "list", "--org", org],
     ] {
         assert!(matches!(
             parse(&args).command,
@@ -91,8 +93,16 @@ fn parses_field_values_and_definitions_as_separate_commands() {
         ));
     }
     for args in [
-        vec!["type", "list", "--project", project],
-        vec!["type", "show", "Synthetic type", "--project", project],
+        vec!["type", "list", "--project", project, "--org", org],
+        vec![
+            "type",
+            "show",
+            "Synthetic type",
+            "--project",
+            project,
+            "--org",
+            org,
+        ],
         vec![
             "type",
             "field",
@@ -102,6 +112,8 @@ fn parses_field_values_and_definitions_as_separate_commands() {
             "Synthetic type",
             "--project",
             project,
+            "--org",
+            org,
         ],
     ] {
         assert!(matches!(
@@ -110,7 +122,17 @@ fn parses_field_values_and_definitions_as_separate_commands() {
         ));
     }
     assert!(matches!(
-        parse(&["field", "show", &id, "Custom.Flag"]).command,
+        parse(&[
+            "field",
+            "show",
+            &id,
+            "Custom.Flag",
+            "--org",
+            org,
+            "--project",
+            project
+        ])
+        .command,
         AzureDevOpsWorkItemCommand::Field(_)
     ));
     assert!(matches!(
@@ -122,13 +144,17 @@ fn parses_field_values_and_definitions_as_separate_commands() {
             "--value",
             "false",
             "--if-rev",
-            "1"
+            "1",
+            "--org",
+            org,
+            "--project",
+            project,
         ])
         .command,
         AzureDevOpsWorkItemCommand::Field(_)
     ));
     assert!(matches!(
-        parse(&["field", "definition", "show", "System.Title"]).command,
+        parse(&["field", "definition", "show", "System.Title", "--org", org]).command,
         AzureDevOpsWorkItemCommand::Field(_)
     ));
     assert!(matches!(
@@ -140,6 +166,8 @@ fn parses_field_values_and_definitions_as_separate_commands() {
             "Synthetic type",
             "--project",
             project,
+            "--org",
+            org,
         ])
         .command,
         AzureDevOpsWorkItemCommand::Type(_)
@@ -149,10 +177,18 @@ fn parses_field_values_and_definitions_as_separate_commands() {
 #[test]
 fn parses_relation_operations_and_create_inputs() {
     let id = id();
+    let org = "synthetic";
     let project = "Synthetic project";
     for args in [
-        vec!["relation", "list", &id],
-        vec!["relation", "type", "show", "System.LinkTypes.Related"],
+        vec!["relation", "list", &id, "--org", org, "--project", project],
+        vec![
+            "relation",
+            "type",
+            "show",
+            "System.LinkTypes.Related",
+            "--org",
+            org,
+        ],
     ] {
         assert!(matches!(
             parse(&args).command,
@@ -160,7 +196,17 @@ fn parses_relation_operations_and_create_inputs() {
         ));
     }
     assert!(matches!(
-        parse(&["update", &id, "--patch", "[]"]).command,
+        parse(&[
+            "update",
+            &id,
+            "--patch",
+            "[]",
+            "--org",
+            org,
+            "--project",
+            project
+        ])
+        .command,
         AzureDevOpsWorkItemCommand::Update(_)
     ));
     let target = id
@@ -178,14 +224,18 @@ fn parses_relation_operations_and_create_inputs() {
                 "--type",
                 "System.LinkTypes.Related",
                 "--target",
-                &target
+                &target,
+                "--org",
+                org,
+                "--project",
+                project,
             ])
             .command,
             AzureDevOpsWorkItemCommand::Relation(_)
         ));
     }
     assert!(matches!(
-        parse(&["relation", "type", "list"]).command,
+        parse(&["relation", "type", "list", "--org", org]).command,
         AzureDevOpsWorkItemCommand::Relation(_)
     ));
     let parsed = parse(&[
@@ -198,6 +248,8 @@ fn parses_relation_operations_and_create_inputs() {
         &id,
         "--project",
         project,
+        "--org",
+        org,
         "--validate-only",
     ]);
     let AzureDevOpsWorkItemCommand::Create(args) = parsed.command else {
@@ -209,10 +261,19 @@ fn parses_relation_operations_and_create_inputs() {
 #[test]
 fn parses_moved_queries_and_copy_dry_run() {
     let query_id = uuid::Uuid::new_v4().to_string();
+    let org = "synthetic";
     let project = "Synthetic project";
     for args in [
-        vec!["query", "list", "--project", project],
-        vec!["query", "show", &query_id, "--project", project],
+        vec!["query", "list", "--project", project, "--org", org],
+        vec![
+            "query",
+            "show",
+            &query_id,
+            "--project",
+            project,
+            "--org",
+            org,
+        ],
         vec![
             "query",
             "create",
@@ -224,6 +285,8 @@ fn parses_moved_queries_and_copy_dry_run() {
             "SELECT [System.Id] FROM WorkItems",
             "--project",
             project,
+            "--org",
+            org,
         ],
     ] {
         assert!(matches!(
@@ -232,7 +295,16 @@ fn parses_moved_queries_and_copy_dry_run() {
         ));
     }
     assert!(matches!(
-        parse(&["query", "invoke", &query_id]).command,
+        parse(&[
+            "query",
+            "invoke",
+            &query_id,
+            "--org",
+            org,
+            "--project",
+            project
+        ])
+        .command,
         AzureDevOpsWorkItemCommand::Query(_)
     ));
     assert!(matches!(
@@ -240,18 +312,27 @@ fn parses_moved_queries_and_copy_dry_run() {
             "query",
             "invoke",
             "--wiql",
-            "SELECT [System.Id] FROM WorkItems"
+            "SELECT [System.Id] FROM WorkItems",
+            "--org",
+            org,
+            "--project",
+            project,
         ])
         .command,
         AzureDevOpsWorkItemCommand::Query(_)
     ));
     let id = id();
-    assert!(figue::from_slice::<AzureDevOpsWorkItemArgs>(&["copy", &id, "--dry-run"]).is_err());
+    assert!(
+        figue::from_slice::<AzureDevOpsWorkItemArgs>(&["copy", &id, "--org", org, "--dry-run"])
+            .is_err()
+    );
     let parsed = parse(&[
         "copy",
         &id,
         "--project",
         project,
+        "--org",
+        org,
         "--deep",
         "--allowed-ids",
         &id,
@@ -273,6 +354,8 @@ fn azure_devops_dispatch_exposes_queries_only_under_work_item() {
         "list",
         "--project",
         "Synthetic project",
+        "--org",
+        "synthetic",
     ])
     .into_result()
     .expect("new path parses")

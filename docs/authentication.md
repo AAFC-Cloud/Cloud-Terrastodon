@@ -128,8 +128,10 @@ request.
 
 In a workload-identity pipeline, pass `--tenant` to an audit command when the
 tenant cannot be inferred from the service-connection environment, and pass
-`--org` for Azure DevOps when no organization default is configured. This avoids
-depending on a signed-in Azure CLI account for tenant or organization metadata.
+`--org` explicitly for Azure DevOps. Project-scoped commands also require
+`--project`; neither selector falls back to configured Azure DevOps defaults.
+This avoids depending on a signed-in Azure CLI account for tenant or organization
+metadata.
 For raw `ct rest` ARM requests, an explicit `--tenant` wins; otherwise the
 tenant carried by workload identity or the stored browser session is used
 before the legacy tracked-subscription fallback.

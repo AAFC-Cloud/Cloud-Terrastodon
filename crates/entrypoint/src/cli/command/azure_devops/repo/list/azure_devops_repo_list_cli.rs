@@ -2,7 +2,6 @@ use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_repos_for_project;
-use cloud_terrastodon_azure_devops::fetch_azure_devops_repos_batch;
 use cloud_terrastodon_command::to_writer_pretty;
 use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
@@ -12,44 +11,29 @@ use std::io::stdout;
 /// List Azure DevOps repositories in a project.
 #[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsRepoListArgs {
-    /// Azure DevOps organization name or URL. Defaults to the configured organization.
+    /// Azure DevOps organization name or URL.
     #[facet(figue::named)]
-    pub org: Option<AzureDevOpsOrganizationUrl>,
+    pub org: AzureDevOpsOrganizationUrl,
 
-    /// Optional project id or project name.
+    /// Project id or project name.
     #[facet(figue::named)]
-    pub project: Option<AzureDevOpsProjectArgument<'static>>,
+    pub project: AzureDevOpsProjectArgument<'static>,
 }
 
 impl AzureDevOpsRepoListArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let org_url =
-            crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?;
-
         let azure_devops_auth_context = AzureDevOpsAuthContext::new(auth_context)?;
         let projects =
-            fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context).await?;
+            fetch_all_azure_devops_projects(&self.org, &azure_devops_auth_context).await?;
 
-        if let Some(project_filter) = self.project {
-            // Find a project matching the provided identifier (id or name).
-            let maybe = projects.into_iter().find(|p| project_filter.matches(p));
-
-            if let Some(project) = maybe {
-                let repos = fetch_all_azure_devops_repos_for_project(&org_url, &project.id).await?;
-                to_writer_pretty(stdout(), &repos)?;
-                Ok(())
-            } else {
-                eyre::bail!("No project found matching '{}'.", project_filter);
-            }
-        } else {
-            let repo_map = fetch_azure_devops_repos_batch(
-                &org_url,
-                projects.into_iter().map(|p| p.id).collect(),
-            )
-            .await?;
-            let repos = repo_map.into_values().flatten().collect::<Vec<_>>();
-            to_writer_pretty(stdout(), &repos)?;
-            Ok(())
-        }
+        let Some(project) = projects
+            .into_iter()
+            .find(|project| self.project.matches(project))
+        else {
+            eyre::bail!("No project found matching '{}'.", self.project);
+        };
+        let repos = fetch_all_azure_devops_repos_for_project(&self.org, &project.id).await?;
+        to_writer_pretty(stdout(), &repos)?;
+        Ok(())
     }
 }

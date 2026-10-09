@@ -17,7 +17,7 @@ use std::borrow::Cow;
 #[derive(Debug, Clone, facet::Facet)]
 pub struct AzureDevOpsWorkItemCreateArgs {
     #[facet(figue::named)]
-    pub org: Option<AzureDevOpsOrganizationUrl>,
+    pub org: AzureDevOpsOrganizationUrl,
     #[facet(figue::named)]
     pub project: AzureDevOpsProjectArgument<'static>,
     #[facet(figue::named)]
@@ -77,15 +77,13 @@ impl AzureDevOpsWorkItemCreateArgs {
             }
             None => Vec::new(),
         };
-        let org_url =
-            crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?;
         let auth_context = self.tenant.bind_auth_context(auth).await?;
         if let Some(parent) = self.parent {
-            relations.push(AzureDevOpsWorkItemRelationInput::parent(&org_url, parent)?);
+            relations.push(AzureDevOpsWorkItemRelationInput::parent(&self.org, parent)?);
         }
         let patch = AzureDevOpsJsonPatch::work_item_create_patch(fields, &relations)?;
         let item = AzureDevOpsWorkItemCreateRequest {
-            org_url: Cow::Owned(org_url),
+            org_url: Cow::Owned(self.org),
             project: self.project,
             auth_context: Cow::Owned(auth_context),
             work_item_type: self.work_item_type,

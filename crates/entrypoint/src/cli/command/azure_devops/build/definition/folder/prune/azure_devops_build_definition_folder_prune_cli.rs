@@ -18,11 +18,11 @@ use std::fmt::Write;
 /// visibility of every definition and no concurrent pipeline or folder edits.
 #[derive(Debug, Clone, facet::Facet)]
 pub struct AzureDevOpsBuildDefinitionFolderPruneArgs {
-    /// Organization name or URL. Defaults to the configured organization.
+    /// Organization name or URL.
     #[facet(figue::named)]
-    pub org: Option<AzureDevOpsOrganizationUrl>,
-    /// Explicit project ID or name; pruning never uses the configured default.
-    #[facet(figue::named, proxy = String)]
+    pub org: AzureDevOpsOrganizationUrl,
+    /// Explicit project ID, name, or `default`; a project selector is required.
+    #[facet(figue::named)]
     pub project: AzureDevOpsProjectArgument<'static>,
     /// Tenant ID or tracked alias for delegated authentication.
     #[facet(figue::named)]
@@ -39,9 +39,8 @@ impl AzureDevOpsBuildDefinitionFolderPruneArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<CliOutput> {
         let path = self.path.map(AzureDevOpsBuildFolderPathArgument::into_path);
         let auth_context = self.tenant.bind_auth_context(auth_context).await?;
-        let org = crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?;
         let report = prune_azure_devops_build_definition_folders(
-            &org,
+            &self.org,
             self.project,
             &auth_context,
             path,

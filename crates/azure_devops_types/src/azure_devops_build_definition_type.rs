@@ -4,7 +4,8 @@ use std::str::FromStr;
 /// The response type of a build definition.
 ///
 /// Microsoft's [response vocabulary](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/definitions/list?view=azure-devops-rest-7.1#definitiontype) is recognized exactly.
-/// Unknown values retain their original wire spelling for forward compatibility.
+/// Unknown values panic in debug builds so unmodeled vocabulary is surfaced.
+/// Release builds retain their original wire spelling for forward compatibility.
 /// Request filters remain a separate closed vocabulary.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, facet::Facet)]
 #[facet(proxy = String)]
@@ -12,6 +13,7 @@ use std::str::FromStr;
 pub enum AzureDevOpsBuildDefinitionType {
     Xaml,
     Build,
+    #[arbitrary(skip)]
     Unknown(String),
 }
 
@@ -32,7 +34,12 @@ impl FromStr for AzureDevOpsBuildDefinitionType {
         Ok(match value {
             "xaml" => Self::Xaml,
             "build" => Self::Build,
-            value => Self::Unknown(value.to_owned()),
+            value => {
+                #[cfg(debug_assertions)]
+                unreachable!("Unknown {} value: {value:?}", std::any::type_name::<Self>());
+                #[cfg(not(debug_assertions))]
+                Self::Unknown(value.to_owned())
+            }
         })
     }
 }
@@ -65,18 +72,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn build_definition_type_preserves_known_and_unknown_wire_values() {
+    fn build_definition_type_preserves_known_wire_values() {
         for (wire, expected) in [
             ("xaml", AzureDevOpsBuildDefinitionType::Xaml),
             ("build", AzureDevOpsBuildDefinitionType::Build),
-            (
-                "futureSyntheticValue",
-                AzureDevOpsBuildDefinitionType::Unknown("futureSyntheticValue".to_owned()),
-            ),
-            (
-                "XAML",
-                AzureDevOpsBuildDefinitionType::Unknown("XAML".to_owned()),
-            ),
         ] {
             let value: AzureDevOpsBuildDefinitionType = wire.parse().unwrap();
             assert_eq!(value, expected);

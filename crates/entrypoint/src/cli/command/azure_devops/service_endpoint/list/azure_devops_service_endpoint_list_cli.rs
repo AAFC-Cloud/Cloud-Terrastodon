@@ -8,9 +8,9 @@ use std::io::stdout;
 /// List Azure DevOps service endpoints in a project.
 #[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsServiceEndpointListArgs {
-    /// Azure DevOps organization name or URL. Defaults to the configured organization.
+    /// Azure DevOps organization name or URL.
     #[facet(figue::named)]
-    pub org: Option<AzureDevOpsOrganizationUrl>,
+    pub org: AzureDevOpsOrganizationUrl,
     /// Project id or project name.
     #[facet(figue::named, proxy = String)]
     pub project: AzureDevOpsProjectArgument<'static>,
@@ -18,9 +18,7 @@ pub struct AzureDevOpsServiceEndpointListArgs {
 
 impl AzureDevOpsServiceEndpointListArgs {
     pub async fn invoke(self) -> Result<()> {
-        let org_url =
-            crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?;
-        let endpoints = fetch_all_azure_devops_service_endpoints(&org_url, self.project).await?;
+        let endpoints = fetch_all_azure_devops_service_endpoints(&self.org, self.project).await?;
         to_writer_pretty(stdout(), &endpoints)?;
         Ok(())
     }

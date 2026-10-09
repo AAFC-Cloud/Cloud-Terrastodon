@@ -16,22 +16,18 @@ use std::collections::HashSet;
 /// Print a summary of agent pools and projects that belong to each pool.
 #[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsAgentPoolSummaryArgs {
-    /// Azure DevOps organization name or URL. Defaults to the configured organization.
+    /// Azure DevOps organization name or URL.
     #[facet(figue::named)]
-    pub org: Option<AzureDevOpsOrganizationUrl>,
+    pub org: AzureDevOpsOrganizationUrl,
 }
 
 impl AzureDevOpsAgentPoolSummaryArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        // Organization and caches
-        let org_url =
-            crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?;
-
         // Fetch pools and projects once
-        let pools = fetch_azure_devops_agent_pools(&org_url).await?;
+        let pools = fetch_azure_devops_agent_pools(&self.org).await?;
         let azure_devops_auth_context = AzureDevOpsAuthContext::new(auth_context)?;
         let projects =
-            fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context).await?;
+            fetch_all_azure_devops_projects(&self.org, &azure_devops_auth_context).await?;
 
         // Map project id -> project name and record project ids
         let mut project_map: HashMap<_, String> = HashMap::with_capacity(projects.len());
@@ -52,7 +48,7 @@ impl AzureDevOpsAgentPoolSummaryArgs {
         )> = ParallelFallibleWorkQueue::new("fetching project agent pool entitlements", 8);
         for pid in project_ids.iter() {
             let pid = pid.clone();
-            let org_clone = org_url.clone();
+            let org_clone = self.org.clone();
             let azure_devops_auth_context = azure_devops_auth_context.clone();
             work.enqueue(async move {
                 let entitlements = fetch_azure_devops_agent_pool_entitlements_for_project(

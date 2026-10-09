@@ -14,10 +14,12 @@ Use `ct az devops work-item`. Saved queries moved from `az devops query` to
 | Fields for a type | `type field list`, `show` |
 | Queries | `query list`, `show`, `invoke`, `create` |
 
-Every leaf command accepts `--org`, `--project`, and `--tenant`. With
-`--auth-source browser`, commands use Cloud Terrastodon's stored browser session,
-independently of Azure CLI's login. Organization defaults to the configured value.
-Creation, copying, saved-query management, and type metadata require a project.
+Every leaf command requires `--org`; project-scoped commands also require
+`--project`. Neither selector falls back to configured defaults. `--org` accepts
+a full organization/Server collection URL or a cloud organization name, and
+`--project` accepts a project ID or name. `--tenant` selects the authentication
+tenant. With `--auth-source browser`, commands use Cloud Terrastodon's stored
+browser session, independently of Azure CLI's login.
 
 Examples use PowerShell variables for your chosen scope, type, field, and IDs.
 `$itemIds` is a comma-separated string of permitted IDs.

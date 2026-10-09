@@ -13,9 +13,9 @@ use std::io::stdout;
 /// Azure DevOps project-related commands.
 #[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsProjectListArgs {
-    /// Azure DevOps organization name or URL. Defaults to the configured organization.
+    /// Azure DevOps organization name or URL.
     #[facet(figue::named)]
-    pub org: Option<AzureDevOpsOrganizationUrl>,
+    pub org: AzureDevOpsOrganizationUrl,
 
     /// Tenant id or tracked alias for delegated authentication.
     #[facet(figue::named)]
@@ -24,11 +24,9 @@ pub struct AzureDevOpsProjectListArgs {
 
 impl AzureDevOpsProjectListArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let org_url =
-            crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?;
         let azure_devops_auth_context = self.tenant.bind_auth_context(auth_context).await?;
         let projects =
-            fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context).await?;
+            fetch_all_azure_devops_projects(&self.org, &azure_devops_auth_context).await?;
         let mut out = stdout().lock();
         to_writer_pretty(&mut out, &projects)?;
         out.write_all(b"\n")?;
@@ -49,7 +47,8 @@ mod tests {
 
     #[test]
     fn parses_an_explicit_tenant_alias() {
-        let parsed: ParseArgs = figue::from_slice(&["--tenant", "agr"]).unwrap();
+        let parsed: ParseArgs =
+            figue::from_slice(&["--org", "offline-test-organization", "--tenant", "agr"]).unwrap();
         assert_eq!(
             parsed.args.tenant.as_ref().map(ToString::to_string),
             Some("agr".to_owned())
@@ -59,7 +58,7 @@ mod tests {
     #[tokio::test]
     async fn project_list_authenticates_before_reading_organization_or_cache() {
         let args = AzureDevOpsProjectListArgs {
-            org: Some("offline-test-organization".parse().unwrap()),
+            org: "offline-test-organization".parse().unwrap(),
             tenant: None,
         };
         let error = args
@@ -76,7 +75,7 @@ mod tests {
     #[tokio::test]
     async fn browser_project_list_requires_a_tenant_without_a_stored_session() {
         let args = AzureDevOpsProjectListArgs {
-            org: Some("offline-test-organization".parse().unwrap()),
+            org: "offline-test-organization".parse().unwrap(),
             tenant: None,
         };
         let error = args
@@ -96,7 +95,7 @@ mod tests {
         // a new cache namespace, without touching any existing user cache.
         let organization = format!("offline-test-{}", uuid::Uuid::new_v4());
         let args = AzureDevOpsProjectListArgs {
-            org: Some(organization.parse().unwrap()),
+            org: organization.parse().unwrap(),
             tenant: None,
         };
         let error = args

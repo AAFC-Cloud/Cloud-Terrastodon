@@ -6,7 +6,9 @@ use eyre::bail;
 use std::borrow::Cow;
 use std::str::FromStr;
 
-/// Project ID or name
+/// An explicit project ID or project name.
+///
+/// Microsoft documentation: [project parameter](https://learn.microsoft.com/en-us/rest/api/azure/devops/core/projects/get?view=azure-devops-rest-7.1).
 #[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
 #[facet(proxy = String)]
 #[facet(traits(Clone))]
@@ -82,9 +84,9 @@ impl<'a> FromStr for AzureDevOpsProjectArgument<'a> {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if let Ok(id) = s.parse::<AzureDevOpsProjectId>() {
-            Ok(AzureDevOpsProjectArgument::Id(Cow::Owned(id)))
+            Ok(Self::Id(Cow::Owned(id)))
         } else if let Ok(name) = AzureDevOpsProjectName::try_new(s) {
-            Ok(AzureDevOpsProjectArgument::Name(Cow::Owned(name)))
+            Ok(Self::Name(Cow::Owned(name)))
         } else {
             bail!("'{s}' is not a valid Azure DevOps project id or name")
         }
@@ -107,6 +109,7 @@ impl From<&AzureDevOpsProjectArgument<'_>> for String {
 
 impl<'a> Arbitrary<'a> for AzureDevOpsProjectArgument<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        // Synthetic requests and URLs must not depend on local configuration.
         Ok(match u.int_in_range(0..=1)? {
             0 => Self::Id(Cow::Owned(AzureDevOpsProjectId::arbitrary(u)?)),
             _ => Self::Name(Cow::Owned(AzureDevOpsProjectName::arbitrary(u)?)),

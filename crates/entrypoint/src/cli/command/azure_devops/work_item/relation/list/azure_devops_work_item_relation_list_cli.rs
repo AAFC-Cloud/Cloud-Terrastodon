@@ -12,9 +12,10 @@ use std::borrow::Cow;
 #[derive(Debug, Clone, facet::Facet)]
 pub struct AzureDevOpsWorkItemRelationListArgs {
     #[facet(figue::named)]
-    pub org: Option<AzureDevOpsOrganizationUrl>,
+    pub org: AzureDevOpsOrganizationUrl,
+    /// Project ID or name.
     #[facet(figue::named)]
-    pub project: Option<AzureDevOpsProjectArgument<'static>>,
+    pub project: AzureDevOpsProjectArgument<'static>,
     #[facet(figue::named)]
     pub tenant: Option<AzureTenantArgument<'static>>,
     /// Work item ID.
@@ -27,12 +28,10 @@ pub struct AzureDevOpsWorkItemRelationListArgs {
 
 impl AzureDevOpsWorkItemRelationListArgs {
     pub async fn invoke(self, auth: &AuthContext) -> Result<()> {
-        let org_url =
-            crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?;
         let auth_context = self.tenant.bind_auth_context(auth).await?;
         let relations: Vec<_> = AzureDevOpsWorkItemGetRequest {
-            org_url: Cow::Owned(org_url),
-            project: self.project,
+            org_url: Cow::Owned(self.org),
+            project: Some(self.project),
             auth_context: Cow::Owned(auth_context),
             id: self.id,
             expand: Default::default(),

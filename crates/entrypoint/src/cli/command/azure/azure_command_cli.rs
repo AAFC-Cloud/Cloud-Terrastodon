@@ -15,6 +15,7 @@ use super::role::AzureRoleArgs;
 use super::subscription::AzureSubscriptionArgs;
 use super::tag::AzureTagArgs;
 use super::tenant::AzureTenantArgs;
+use super::virtual_network::AzureVirtualNetworkArgs;
 use super::vm::AzureVmArgs;
 use crate::cli::azure::entra::AzureEntraArgs;
 use crate::cli::azure_devops::AzureDevOpsArgs;
@@ -44,6 +45,9 @@ pub enum AzureCommand {
     /// Manage Azure network interfaces.
     #[facet(figue::alias = "nic")]
     NetworkInterface(AzureNetworkInterfaceArgs),
+    /// List virtual networks and inspect their subnets.
+    #[facet(figue::alias = "vnet")]
+    VirtualNetwork(AzureVirtualNetworkArgs),
     /// Manage Azure resource groups.
     #[facet(figue::alias = "rg", figue::alias = "group")]
     ResourceGroup(AzureResourceGroupArgs),
@@ -91,6 +95,7 @@ impl AzureCommand {
             AzureCommand::ContainerInstance(args) => Box::pin(args.invoke(auth_context)).await?,
             AzureCommand::Find(args) => Box::pin(args.invoke(auth_context)).await?,
             AzureCommand::NetworkInterface(args) => Box::pin(args.invoke(auth_context)).await?,
+            AzureCommand::VirtualNetwork(args) => return Box::pin(args.invoke(auth_context)).await,
             AzureCommand::ResourceGroup(args) => Box::pin(args.invoke(auth_context)).await?,
             AzureCommand::Policy(args) => Box::pin(args.invoke(auth_context)).await?,
             AzureCommand::PrivateEndpoint(args) => Box::pin(args.invoke(auth_context)).await?,

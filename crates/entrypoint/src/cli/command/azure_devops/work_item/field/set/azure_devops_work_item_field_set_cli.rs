@@ -40,12 +40,10 @@ impl AzureDevOpsWorkItemFieldSetArgs {
                     .map_err(|error| eyre::eyre!("Invalid JSON input: {error}"))?
             },
         }])?;
-        let org_url =
-            crate::cli::azure_devops::resolve_azure_devops_organization_url(self.field.org).await?;
         let auth_context = self.field.tenant.bind_auth_context(auth).await?;
         let item = AzureDevOpsWorkItemUpdateRequest {
-            org_url: Cow::Owned(org_url),
-            project: self.field.project,
+            org_url: Cow::Owned(self.field.org),
+            project: Some(self.field.project),
             auth_context: Cow::Owned(auth_context),
             id: self.field.id,
             patch,

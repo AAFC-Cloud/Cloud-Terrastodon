@@ -54,7 +54,30 @@ subscription data with Facet's pretty printer.
 
 Azure DevOps [build commands](docs/AZURE_DEVOPS_BUILDS.md) list build runs,
 definitions, and definition folders, and prune empty folders with an optional
-`--dry-run`. They support the same global output formats.
+`--dry-run`. They support the same global output formats and require explicit
+`--org` and `--project` selectors:
+
+```pwsh
+ct az devops build definition list --org example-org --project example-project
+ct az devops build list --org example-org --project example-project
+```
+
+Azure DevOps commands accept an organization URL or name through `--org`.
+Project-scoped commands require a project ID or name through `--project`.
+Configured organization/project defaults are not used.
+
+Azure [virtual-network commands](docs/AZURE_VIRTUAL_NETWORKS.md) list and show
+virtual networks and subnets using typed name/ID selectors and tenant selection.
+List commands return collections; show commands require exactly one match and
+return a single record. Subnet commands can filter across all virtual networks
+matching `--vnet`:
+
+```pwsh
+ct az vnet list
+ct az vnet show example-vnet
+ct az vnet subnet list --vnet example-vnet
+ct az vnet subnet show example-subnet --vnet example-vnet --output-format json
+```
 
 ## Caching
 

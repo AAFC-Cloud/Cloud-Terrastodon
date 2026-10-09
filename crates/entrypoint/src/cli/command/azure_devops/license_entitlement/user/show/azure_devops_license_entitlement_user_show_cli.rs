@@ -10,20 +10,18 @@ use std::io::stdout;
 /// Show a single Azure DevOps user license entitlement by user id.
 #[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsLicenseEntitlementUserShowArgs {
-    /// Azure DevOps organization name or URL. Defaults to the configured organization.
+    /// Azure DevOps organization name or URL.
     #[facet(figue::named)]
-    pub org: Option<AzureDevOpsOrganizationUrl>,
+    pub org: AzureDevOpsOrganizationUrl,
     #[facet(figue::named, proxy = String)]
     pub user: AzureDevOpsUserArgument<'static>,
 }
 
 impl AzureDevOpsLicenseEntitlementUserShowArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let org_url =
-            crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?;
         let azure_devops_auth_context = AzureDevOpsAuthContext::new(auth_context)?;
         let found = fetch_azure_devops_user_license_entitlement(
-            &org_url,
+            &self.org,
             &self.user,
             &azure_devops_auth_context,
         )

@@ -1,10 +1,11 @@
 use arbitrary::Arbitrary;
 use std::str::FromStr;
 
-/// The open project-state vocabulary in a shallow project reference.
+/// The project-state vocabulary in a shallow project reference.
 ///
 /// See Microsoft's [schema](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/builds/list?view=azure-devops-rest-7.1#projectstate).
-/// Unknown values preserve their exact wire spelling.
+/// Unmodeled values panic during debug parsing so new service values are reviewed.
+/// Release parsing preserves their exact wire spelling in [`Self::Unknown`].
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, facet::Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
@@ -16,6 +17,7 @@ pub enum AzureDevOpsProjectReferenceState {
     All,
     Unchanged,
     Deleted,
+    #[arbitrary(skip)]
     Unknown(String),
 }
 
@@ -46,7 +48,15 @@ impl FromStr for AzureDevOpsProjectReferenceState {
             "all" => Self::All,
             "unchanged" => Self::Unchanged,
             "deleted" => Self::Deleted,
-            value => Self::Unknown(value.to_owned()),
+            value => {
+                #[cfg(debug_assertions)]
+                unreachable!(
+                    "Unmodeled {} value: {value:?}",
+                    std::any::type_name::<Self>()
+                );
+                #[cfg(not(debug_assertions))]
+                Self::Unknown(value.to_owned())
+            }
         })
     }
 }
@@ -79,7 +89,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn build_project_reference_state_preserves_known_and_unknown_values() {
+    fn build_project_reference_state_parses_known_values() {
         for (wire, expected) in [
             ("deleting", AzureDevOpsProjectReferenceState::Deleting),
             ("new", AzureDevOpsProjectReferenceState::New),
@@ -91,10 +101,6 @@ mod tests {
             ("all", AzureDevOpsProjectReferenceState::All),
             ("unchanged", AzureDevOpsProjectReferenceState::Unchanged),
             ("deleted", AzureDevOpsProjectReferenceState::Deleted),
-            (
-                "futureSyntheticValue",
-                AzureDevOpsProjectReferenceState::Unknown("futureSyntheticValue".to_owned()),
-            ),
         ] {
             let value: AzureDevOpsProjectReferenceState = wire.parse().unwrap();
             assert_eq!(value, expected);

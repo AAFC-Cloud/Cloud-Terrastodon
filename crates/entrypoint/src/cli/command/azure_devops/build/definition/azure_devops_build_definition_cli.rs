@@ -1,5 +1,6 @@
 use super::folder::AzureDevOpsBuildDefinitionFolderArgs;
 use super::list::AzureDevOpsBuildDefinitionListArgs;
+use super::show::AzureDevOpsBuildDefinitionShowArgs;
 use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
@@ -23,6 +24,8 @@ impl AzureDevOpsBuildDefinitionArgs {
 pub enum AzureDevOpsBuildDefinitionCommand {
     /// List pipeline definitions in a project.
     List(AzureDevOpsBuildDefinitionListArgs),
+    /// Show a pipeline's full definition, including its repository and process.
+    Show(AzureDevOpsBuildDefinitionShowArgs),
     /// List and prune definition folders.
     Folder(AzureDevOpsBuildDefinitionFolderArgs),
 }
@@ -31,6 +34,7 @@ impl AzureDevOpsBuildDefinitionCommand {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<CliOutput> {
         match self {
             Self::List(args) => args.invoke(auth_context).await,
+            Self::Show(args) => args.invoke(auth_context).await,
             Self::Folder(args) => args.invoke(auth_context).await,
         }
     }

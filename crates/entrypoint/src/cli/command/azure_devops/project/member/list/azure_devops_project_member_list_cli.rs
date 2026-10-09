@@ -11,9 +11,9 @@ use std::io::stdout;
 /// List users that are transitively members of an Azure DevOps project.
 #[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsProjectMemberListArgs {
-    /// Azure DevOps organization name or URL. Defaults to the configured organization.
+    /// Azure DevOps organization name or URL.
     #[facet(figue::named)]
-    pub org: Option<AzureDevOpsOrganizationUrl>,
+    pub org: AzureDevOpsOrganizationUrl,
     /// Project id or project name.
     #[facet(figue::named, proxy = String)]
     pub project: AzureDevOpsProjectArgument<'static>,
@@ -21,11 +21,9 @@ pub struct AzureDevOpsProjectMemberListArgs {
 
 impl AzureDevOpsProjectMemberListArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let org_url =
-            crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?;
         let azure_devops_auth_context = AzureDevOpsAuthContext::new(auth_context)?;
         let members =
-            fetch_azure_devops_project_members(&org_url, self.project, &azure_devops_auth_context)
+            fetch_azure_devops_project_members(&self.org, self.project, &azure_devops_auth_context)
                 .await?;
 
         let mut out = stdout().lock();

@@ -39,6 +39,7 @@ use std::pin::Pin;
 #[derive(Debug, Clone, Facet)]
 pub struct AzureDevOpsBuildListRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
+    /// Project ID or name.
     pub project: AzureDevOpsProjectArgument<'a>,
     pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
     pub definitions: Vec<AzureDevOpsBuildDefinitionId>,

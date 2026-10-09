@@ -9,16 +9,14 @@ use std::io::stdout;
 /// Show the newest Azure DevOps agent package by `createdOn`, for each `platform`.
 #[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsAgentPackageShowNewestArgs {
-    /// Azure DevOps organization name or URL. Defaults to the configured organization.
+    /// Azure DevOps organization name or URL.
     #[facet(figue::named)]
-    pub org: Option<AzureDevOpsOrganizationUrl>,
+    pub org: AzureDevOpsOrganizationUrl,
 }
 
 impl AzureDevOpsAgentPackageShowNewestArgs {
     pub async fn invoke(self) -> Result<()> {
-        let org_url =
-            crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?;
-        let pkgs = fetch_azure_devops_agent_packages(&org_url).await?;
+        let pkgs = fetch_azure_devops_agent_packages(&self.org).await?;
 
         // Group by platform and keep the package with the most recent created_on per platform
         let mut newest_by_platform: HashMap<String, AzureDevOpsAgentPackage> = HashMap::new();

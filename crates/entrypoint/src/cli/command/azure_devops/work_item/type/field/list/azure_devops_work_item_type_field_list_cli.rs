@@ -11,7 +11,7 @@ use std::borrow::Cow;
 #[derive(Debug, Clone, facet::Facet)]
 pub struct AzureDevOpsWorkItemTypeFieldListArgs {
     #[facet(figue::named)]
-    pub org: Option<AzureDevOpsOrganizationUrl>,
+    pub org: AzureDevOpsOrganizationUrl,
     #[facet(figue::named)]
     pub project: AzureDevOpsProjectArgument<'static>,
     #[facet(figue::named)]
@@ -23,11 +23,9 @@ pub struct AzureDevOpsWorkItemTypeFieldListArgs {
 
 impl AzureDevOpsWorkItemTypeFieldListArgs {
     pub async fn invoke(self, auth: &AuthContext) -> Result<()> {
-        let org_url =
-            crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?;
         let auth_context = self.tenant.bind_auth_context(auth).await?;
         let values = AzureDevOpsWorkItemTypeFieldListRequest {
-            org_url: Cow::Owned(org_url),
+            org_url: Cow::Owned(self.org),
             project: self.project,
             auth_context: Cow::Owned(auth_context),
             work_item_type: self.work_item_type,

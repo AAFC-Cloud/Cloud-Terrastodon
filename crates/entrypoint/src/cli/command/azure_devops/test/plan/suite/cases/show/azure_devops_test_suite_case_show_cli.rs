@@ -12,9 +12,9 @@ use std::io::stdout;
 /// Show Azure DevOps test case details.
 #[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsTestSuiteCaseShowArgs {
-    /// Azure DevOps organization name or URL. Defaults to the configured organization.
+    /// Azure DevOps organization name or URL.
     #[facet(figue::named)]
-    pub org: Option<AzureDevOpsOrganizationUrl>,
+    pub org: AzureDevOpsOrganizationUrl,
     /// Project id or project name.
     #[facet(figue::named, proxy = String)]
     pub project: AzureDevOpsProjectArgument<'static>,
@@ -35,11 +35,9 @@ pub struct AzureDevOpsTestSuiteCaseShowArgs {
 impl AzureDevOpsTestSuiteCaseShowArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
         let case_id = self.case.parse::<AzureDevOpsWorkItemId>().ok();
-        let org_url =
-            crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?;
         let azure_devops_auth_context = AzureDevOpsAuthContext::new(auth_context)?;
         let cases = fetch_azure_devops_test_suite_cases(
-            &org_url,
+            &self.org,
             self.project,
             self.plan,
             self.suite,

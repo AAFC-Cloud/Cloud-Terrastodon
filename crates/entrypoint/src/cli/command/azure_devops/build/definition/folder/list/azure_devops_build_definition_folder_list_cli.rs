@@ -1,6 +1,5 @@
 use super::AzureDevOpsBuildDefinitionFolderListEntry;
 use crate::cli::azure_devops::build::output;
-use crate::cli::azure_devops::resolve_azure_devops_organization_url;
 use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_azure::AzureDevOpsTenantArgumentExt;
 use cloud_terrastodon_azure::AzureTenantArgument;
@@ -11,7 +10,6 @@ use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_build_definitions;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_build_folders;
-use cloud_terrastodon_azure_devops::get_default_project_name;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_credentials::AuthContext;
 use color_eyre::owo_colors::OwoColorize;
@@ -24,12 +22,12 @@ use std::fmt::Write;
 /// List build definition folders and their definitions, including empty folders.
 #[derive(Debug, Clone, facet::Facet)]
 pub struct AzureDevOpsBuildDefinitionFolderListArgs {
-    /// Organization name or URL. Defaults to the configured organization.
+    /// Organization name or URL.
     #[facet(figue::named)]
-    pub org: Option<AzureDevOpsOrganizationUrl>,
-    /// Project ID or name. Defaults to the configured project.
+    pub org: AzureDevOpsOrganizationUrl,
+    /// Project ID or name.
     #[facet(figue::named)]
-    pub project: Option<AzureDevOpsProjectArgument<'static>>,
+    pub project: AzureDevOpsProjectArgument<'static>,
     /// Tenant ID or tracked alias for delegated authentication.
     #[facet(figue::named)]
     pub tenant: Option<AzureTenantArgument<'static>>,
@@ -50,20 +48,21 @@ impl AzureDevOpsBuildDefinitionFolderListArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<CliOutput> {
         let path = self.path.map(AzureDevOpsBuildFolderPathArgument::into_path);
         let auth_context = self.tenant.bind_auth_context(auth_context).await?;
-        let org = resolve_azure_devops_organization_url(self.org).await?;
-        let project = match self.project {
-            Some(project) => project,
-            None => get_default_project_name().await?.into(),
-        };
-        let folders = fetch_azure_devops_build_folders(&org, project.clone(), &auth_context, path)
-            .with_invalidation(self.no_cache)
-            .await?;
-        // Join the complete project inventory locally, rather than relying on
-        // a definition path filter to include every returned child folder.
-        let definitions =
-            fetch_azure_devops_build_definitions(&org, project, &auth_context, None, None)
+        let folders =
+            fetch_azure_devops_build_folders(&self.org, self.project.clone(), &auth_context, path)
                 .with_invalidation(self.no_cache)
                 .await?;
+        // Join the complete project inventory locally, rather than relying on
+        // a definition path filter to include every returned child folder.
+        let definitions = fetch_azure_devops_build_definitions(
+            &self.org,
+            self.project,
+            &auth_context,
+            None,
+            None,
+        )
+        .with_invalidation(self.no_cache)
+        .await?;
         let folders = group_folders(folders, definitions);
         Ok(CliOutput::facet_with_text(folders, |folders| {
             render_folders(folders)

@@ -14,9 +14,10 @@ use std::borrow::Cow;
 #[derive(Debug, Clone, facet::Facet)]
 pub struct AzureDevOpsWorkItemRelationShowArgs {
     #[facet(figue::named)]
-    pub org: Option<AzureDevOpsOrganizationUrl>,
+    pub org: AzureDevOpsOrganizationUrl,
+    /// Project ID or name.
     #[facet(figue::named)]
-    pub project: Option<AzureDevOpsProjectArgument<'static>>,
+    pub project: AzureDevOpsProjectArgument<'static>,
     #[facet(figue::named)]
     pub tenant: Option<AzureTenantArgument<'static>>,
     /// Work item ID.
@@ -32,17 +33,11 @@ pub struct AzureDevOpsWorkItemRelationShowArgs {
 
 impl AzureDevOpsWorkItemRelationShowArgs {
     pub async fn invoke(self, auth: &AuthContext) -> Result<()> {
-        let organization =
-            crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?;
-        let target = self
-            .target
-            .into_relation_url(&organization)
-            .into_work_item()?;
-        let project = self.project;
+        let target = self.target.into_relation_url(&self.org).into_work_item()?;
         let auth_context = self.tenant.bind_auth_context(auth).await?;
         let item = AzureDevOpsWorkItemGetRequest {
-            org_url: Cow::Owned(organization.clone()),
-            project,
+            org_url: Cow::Borrowed(&self.org),
+            project: Some(self.project),
             auth_context: Cow::Owned(auth_context),
             id: self.id,
             expand: Default::default(),
@@ -54,7 +49,7 @@ impl AzureDevOpsWorkItemRelationShowArgs {
             rel: self.relation_type,
             target,
         }
-        .index(&organization, &item)?;
+        .index(&self.org, &item)?;
         let relation = &item
             .relations
             .as_ref()

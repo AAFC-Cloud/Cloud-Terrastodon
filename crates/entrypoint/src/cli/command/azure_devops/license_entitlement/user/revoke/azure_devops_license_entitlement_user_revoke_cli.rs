@@ -21,9 +21,9 @@ use tracing::info;
 /// Demote a user to Stakeholder license level, including removing the user from any groups involved in transitive license assignment.
 #[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsLicenseEntitlementUserRevokeArgs {
-    /// Azure DevOps organization name or URL. Defaults to the configured organization.
+    /// Azure DevOps organization name or URL.
     #[facet(figue::named)]
-    pub org: Option<AzureDevOpsOrganizationUrl>,
+    pub org: AzureDevOpsOrganizationUrl,
     #[facet(figue::named, proxy = String)]
     pub user: AzureDevOpsUserArgument<'static>,
 
@@ -38,14 +38,10 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
         let tenant_id = tenant_auth_context.tenant_id;
         let user_predicate = self.user.as_predicate()?;
 
-        let org_url =
-            crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org.clone())
-                .await?;
-
         let azure_devops_auth_context =
             AzureDevOpsAuthContext::for_tenant(auth_context, tenant_id)?;
         let entitlements =
-            fetch_azure_devops_user_license_entitlements(&org_url, &azure_devops_auth_context)
+            fetch_azure_devops_user_license_entitlements(&self.org, &azure_devops_auth_context)
                 .await?;
 
         let user_entitlement = entitlements
@@ -74,7 +70,7 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
 
             // Fetch groups that are granting licenses
             let group_entitlements =
-                fetch_azure_devops_group_license_entitlements(&org_url).await?;
+                fetch_azure_devops_group_license_entitlements(&self.org).await?;
 
             // Identify groups which grant the license that the user has
             for group_license_entitlement in group_entitlements {
@@ -130,7 +126,7 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
         } else {
             // Direct assignment - just downgrade the license
             update_azure_devops_user_license_entitlement(
-                &org_url,
+                &self.org,
                 user_entitlement.user_id,
                 AzureDevOpsLicenseType::AccountStakeholder,
             )

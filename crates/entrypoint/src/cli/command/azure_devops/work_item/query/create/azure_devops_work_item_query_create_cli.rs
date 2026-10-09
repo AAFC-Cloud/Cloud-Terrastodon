@@ -10,9 +10,9 @@ use std::borrow::Cow;
 
 #[derive(Debug, Clone, facet::Facet)]
 pub struct AzureDevOpsWorkItemQueryCreateArgs {
-    /// Azure DevOps organization name or URL. Defaults to the configured organization.
+    /// Azure DevOps organization name or URL.
     #[facet(figue::named)]
-    pub org: Option<AzureDevOpsOrganizationUrl>,
+    pub org: AzureDevOpsOrganizationUrl,
     /// Project id or project name.
     #[facet(figue::named)]
     pub project: AzureDevOpsProjectArgument<'static>,
@@ -33,10 +33,8 @@ pub struct AzureDevOpsWorkItemQueryCreateArgs {
 impl AzureDevOpsWorkItemQueryCreateArgs {
     pub async fn invoke(self, auth: &AuthContext) -> Result<()> {
         let auth_context = self.tenant.bind_auth_context(auth).await?;
-        let org_url =
-            crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?;
         let query = AzureDevOpsWorkItemQueryCreateRequest {
-            org_url: Cow::Borrowed(&org_url),
+            org_url: Cow::Borrowed(&self.org),
             project: self.project,
             auth_context: Cow::Borrowed(&auth_context),
             folder: self.folder,

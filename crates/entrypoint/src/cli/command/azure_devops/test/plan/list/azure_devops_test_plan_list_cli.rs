@@ -10,9 +10,9 @@ use std::io::stdout;
 /// List Azure DevOps test plans in a project.
 #[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsTestPlanListArgs {
-    /// Azure DevOps organization name or URL. Defaults to the configured organization.
+    /// Azure DevOps organization name or URL.
     #[facet(figue::named)]
-    pub org: Option<AzureDevOpsOrganizationUrl>,
+    pub org: AzureDevOpsOrganizationUrl,
     /// Project id or project name.
     #[facet(figue::named, proxy = String)]
     pub project: AzureDevOpsProjectArgument<'static>,
@@ -20,11 +20,9 @@ pub struct AzureDevOpsTestPlanListArgs {
 
 impl AzureDevOpsTestPlanListArgs {
     pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let org_url =
-            crate::cli::azure_devops::resolve_azure_devops_organization_url(self.org).await?;
         let azure_devops_auth_context = AzureDevOpsAuthContext::new(auth_context)?;
         let plans =
-            fetch_azure_devops_test_plans(&org_url, self.project, &azure_devops_auth_context)
+            fetch_azure_devops_test_plans(&self.org, self.project, &azure_devops_auth_context)
                 .await?;
         to_writer_pretty(stdout(), &plans)?;
         Ok(())
