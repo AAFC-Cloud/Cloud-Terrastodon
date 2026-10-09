@@ -2,6 +2,8 @@
 
 - Switch from `serde` to `facet`
 - Switch CLI argument parsing from `clap` to `figue`
+- Prepare the Facet/Figue dependency graph for crates.io using explicitly named `teamy-facet-*` and `teamy-figue` fork packages instead of root Git patches
+- Replace the vendored `tui-textarea` with Ratatui's maintained `ratatui-textarea` package
 - Add `ct az ad role definition find {action}` command
 - Update `ct az role definition find` to include role definition in results
 - Add `ct az devops project member list --project {}` command

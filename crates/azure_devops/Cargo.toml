@@ -9,7 +9,7 @@ license.workspace = true
 keywords.workspace = true
 categories.workspace = true
 
-version = "0.36.0" # CT_VERSION
+version = "0.37.0" # CT_VERSION
 
 [dependencies]
 cloud_terrastodon_azure_devops_types.workspace = true
@@ -33,7 +33,7 @@ rand.workspace = true
 indoc.workspace = true
 humantime.workspace = true
 ratatui = { workspace = true, optional = true }
-tui-textarea = { workspace = true, optional = true }
+ratatui-textarea = { workspace = true, optional = true }
 base64.workspace = true
 blake3.workspace = true
 reqwest.workspace = true
@@ -45,8 +45,5 @@ test-log.workspace = true
 
 [features]
 # Enables text user interface support
-tui = ["ratatui", "tui-textarea"]
+tui = ["ratatui", "ratatui-textarea"]
 default = ["tui"]
-
-
-

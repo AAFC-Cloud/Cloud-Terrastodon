@@ -51,6 +51,8 @@ panic backtraces without mutating `RUST_BACKTRACE`; ordinary error backtraces st
 follow the environment. Explicit Figue HTML-help/schema-export requests can write
 files even through the non-exiting parser.
 
-This is a locally validated development API, not a patch-free publication claim.
-Consumers currently repeat the Facet/Figue root patches documented in
-`docs/UPDATING_FACET.md` at the repository root.
+The prepared release uses the independent `teamy-facet-*` and `teamy-figue`
+packages with canonical Rust aliases. Local development requires the sibling
+fork clones; consumers need no root patch block. Registry installation requires
+publication of the exact Teamy versions first. See
+[`docs/UPDATING_FACET.md`](../../docs/UPDATING_FACET.md).

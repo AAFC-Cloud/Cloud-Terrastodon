@@ -1,7 +1,7 @@
 [package]
 name = "cloud_terrastodon_ui_ratatui"
 description = "User interface for the Cloud Terrastodon project leveraging Ratatui"
-version = "0.36.0"                                                                  # CT_VERSION
+version = "0.37.0"                                                                  # CT_VERSION
 readme.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -26,7 +26,7 @@ facet-reflect.workspace = true
 rand = { workspace = true }
 rustc-hash = { workspace = true }
 nucleo = { workspace = true }
-tui-textarea = { workspace = true }
+ratatui-textarea = { workspace = true }
 cloud_terrastodon_azure = { workspace = true }
 cloud_terrastodon_command = { workspace = true }
 cloud_terrastodon_credentials = { workspace = true }
@@ -41,4 +41,3 @@ color-eyre = { workspace = true }
 [features]
 default = []
 extended_observability = []
-

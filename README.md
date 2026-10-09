@@ -93,6 +93,15 @@ to purge the cache.
 
 ## Development
 
+The prepared 0.37.0 release depends on TeamDman's independent Facet and Figue
+forks: `teamy-facet-* 0.50.0-rc.7` and `teamy-figue` /
+`teamy-figue-attrs 6.0.0-rc.1`. These are separate from the official upstream
+packages. Rust imports retain names such as `facet` and `figue` through
+dependency aliases. Local builds use sibling `facet`, `facet-format`, and
+`figue` clones on `teamy-main`; the exact Teamy versions must be published
+before installing this release from crates.io. See
+[the dependency release guide](docs/UPDATING_FACET.md).
+
 For a small CLI with your own arguments and subcommands, see
 [Reusable applications](docs/REUSABLE_APPLICATIONS.md) and the independently tested
 [single-file consumer example](examples/standalone-cli).

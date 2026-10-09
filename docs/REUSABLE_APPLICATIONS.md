@@ -7,7 +7,7 @@ Cloud Terrastodon's main executable uses the same runner.
 ## Local development
 
 The [standalone example](../examples/standalone-cli) is a separate Cargo workspace
-with a local dependency, its own lockfile and explicit Facet/Figue patches. Its
+with local dependencies and its own lockfile. Its
 complete CLI implementation is [one main.rs](../examples/standalone-cli/src/main.rs).
 It does not initialize or copy the Teamy Rust CLI template.
 
@@ -17,15 +17,17 @@ and this dependency shape (adjust the path):
 ```toml
 [dependencies]
 cloud_terrastodon = { path = "../cloud-terrastodon", default-features = false, features = ["app"] }
-facet = "=0.50.0-rc.7"
+facet = { package = "teamy-facet", version = "=0.50.0-rc.7", path = "../facet/facet" }
 ```
 
-Also copy the complete `[patch.crates-io]` block from the example's manifest into
-the consuming workspace root. These immutable overrides are intentional;
-dependency-level patches are not inherited. The explicit `facet` dependency is
-currently needed because Figue's attribute expansion references `::facet` even
-when Figue is imported through our facade. It resolves to the same patched Facet,
-not another implementation. No separate Figue dependency is needed.
+The sibling clones `facet`, `facet-format`, and `figue` must use TeamDman's
+`teamy-main` branches for local development. The explicit `facet` dependency
+is needed because Figue's attribute expansion references `::facet` even when
+Figue is imported through our facade. Its package is `teamy-facet`, matching
+the facade's fork identity. No separate Figue dependency or root patch block
+is needed. Once the prepared Teamy versions and Cloud Terrastodon 0.37.0 are
+published, registry consumers can remove these development paths. See
+[the dependency release guide](UPDATING_FACET.md).
 
 Keep `default-features = false`: the facade's existing default is `full`, which
 includes the actual Cloud Terrastodon command tree and UIs.
@@ -219,9 +221,10 @@ cargo +1.96.0 test -p cloud_terrastodon_app --features auth,terminal,arbitrary,t
 
 The example has `publish = false`: it is a neutral local acceptance fixture, not
 an implementation of a particular business task. No release is performed by this
-workflow. Shared patches remain required as described in [Updating Facet](UPDATING_FACET.md).
-Before an eventual crates.io release, verify clean packaged consumers, account
-for vendored dependencies, and explicitly first-publish the new app crate (the
-current `publish.ps1` skips packages that do not already exist on crates.io).
+workflow. The prepared Teamy dependency graph is described in
+[Updating Facet](UPDATING_FACET.md). Before a crates.io release, verify clean
+packaged consumers and publish the exact dependency versions first.
+`publish.ps1 -DryRun` previews production dependency order and supports both
+new packages and new versions of existing packages.
 
 Use only `cargo clean` if build-space cleanup is necessary.

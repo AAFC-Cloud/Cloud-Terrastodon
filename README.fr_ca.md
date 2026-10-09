@@ -44,6 +44,14 @@ pour purger le cache.
 
 ## Développement
 
+La version 0.37.0 en préparation utilise les forks indépendants de TeamDman :
+`teamy-facet-* 0.50.0-rc.7` et `teamy-figue` / `teamy-figue-attrs 6.0.0-rc.1`.
+Ces paquets sont distincts des paquets officiels. Les noms Rust `facet` et
+`figue` sont conservés grâce aux alias de dépendances. Les compilations locales
+utilisent les clones voisins `facet`, `facet-format` et `figue` sur `teamy-main`.
+Ces versions doivent être publiées avant l'installation depuis crates.io.
+Voir le [guide des dépendances](docs/UPDATING_FACET.md) en anglais.
+
 ### Dépendances
 
 - [Azure CLI `az`](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli#install)

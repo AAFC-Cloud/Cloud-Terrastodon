@@ -96,7 +96,7 @@ arbitrary = { version = "1.4.1", features = ["derive"] }
 unicode_categories = "0.1.1"
 ipnetwork = "0.21.1"
 nucleo = "0.5.0"
-tui-textarea = { version = "0.7.0", path = "./vendor/tui-textarea" }
+ratatui-textarea = "=0.9.3"
 rustc-hash = "2.1.1"
 jsonpath-rust = "1.0.4"
 jmespath = "0.4"
@@ -110,105 +110,107 @@ eframe = { version = "0.33.0", features = ["persistence"] }
 egui_extras = { version = "0.33.0", features = ["default", "image"] }
 egui-toast = "0.19.1"
 egui_tiles = "0.14.1"
-facet = { version = "=0.50.0-rc.7", features = ["uuid", "compact_str", "chrono", "net", "url", "indexmap", "bstr"] }
-facet-json = { version = "=0.50.0-rc.7", features = ["net"] }
-facet-reflect = "=0.50.0-rc.7"
-facet-pretty = "=0.50.0-rc.7"
-facet-value = "=0.50.0-rc.7"
-figue = { version = "=5.0.0-rc.6", features = ["arbitrary"] }
+# TeamDman's independently published forks. Keep Rust dependency aliases for
+# generated Facet/Figue macro paths; versioned paths are removed by packaging.
+facet = { package = "teamy-facet", version = "=0.50.0-rc.7", path = "../facet/facet", features = ["uuid", "compact_str", "chrono", "net", "url", "indexmap", "bstr"] }
+facet-json = { package = "teamy-facet-json", version = "=0.50.0-rc.7", path = "../facet-format/facet-json", features = ["net"] }
+facet-reflect = { package = "teamy-facet-reflect", version = "=0.50.0-rc.7", path = "../facet/facet-reflect" }
+facet-pretty = { package = "teamy-facet-pretty", version = "=0.50.0-rc.7", path = "../facet/facet-pretty" }
+facet-value = { package = "teamy-facet-value", version = "=0.50.0-rc.7", path = "../facet-format/facet-value" }
+figue = { package = "teamy-figue", version = "=6.0.0-rc.1", path = "../figue/figue", features = ["arbitrary"] }
 linkme = { version = "0.3.36" }
 
 [workspace.dependencies.cloud_terrastodon_pathing]
-version = "0.36.0"        # CT_VERSION
+version = "0.37.0"        # CT_VERSION
 path = "./crates/pathing"
 
 [workspace.dependencies.cloud_terrastodon_config]
-version = "0.36.0"       # CT_VERSION
+version = "0.37.0"       # CT_VERSION
 path = "./crates/config"
 
 [workspace.dependencies.cloud_terrastodon_azure]
-version = "0.36.0"      # CT_VERSION
+version = "0.37.0"      # CT_VERSION
 path = "./crates/azure"
 
 [workspace.dependencies.cloud_terrastodon_registry]
-version = "0.36.0"         # CT_VERSION
+version = "0.37.0"         # CT_VERSION
 path = "./crates/registry"
 
 [workspace.dependencies.cloud_terrastodon_azure_types]
-version = "0.36.0"            # CT_VERSION
+version = "0.37.0"            # CT_VERSION
 path = "./crates/azure_types"
 
 [workspace.dependencies.cloud_terrastodon_azure_resource_types]
-version = "0.36.0"                     # CT_VERSION
+version = "0.37.0"                     # CT_VERSION
 path = "./crates/azure_resource_types"
 
 [workspace.dependencies.cloud_terrastodon_azure_devops]
-version = "0.36.0"             # CT_VERSION
+version = "0.37.0"             # CT_VERSION
 path = "./crates/azure_devops"
 
 [workspace.dependencies.cloud_terrastodon_azure_devops_types]
-version = "0.36.0"                   # CT_VERSION
+version = "0.37.0"                   # CT_VERSION
 path = "./crates/azure_devops_types"
 
 [workspace.dependencies.cloud_terrastodon_gitea]
-version = "0.36.0"             # CT_VERSION
+version = "0.37.0"             # CT_VERSION
 path = "./crates/gitea"
 
 [workspace.dependencies.cloud_terrastodon_hcl]
-version = "0.36.0"    # CT_VERSION
+version = "0.37.0"    # CT_VERSION
 path = "./crates/hcl"
 
 [workspace.dependencies.cloud_terrastodon_hcl_types]
-version = "0.36.0"          # CT_VERSION
+version = "0.37.0"          # CT_VERSION
 path = "./crates/hcl_types"
 
 [workspace.dependencies.cloud_terrastodon_user_input]
-version = "0.36.0"           # CT_VERSION
+version = "0.37.0"           # CT_VERSION
 path = "./crates/user_input"
 
 [workspace.dependencies.cloud_terrastodon_command]
-version = "0.36.0"        # CT_VERSION
+version = "0.37.0"        # CT_VERSION
 path = "./crates/command"
 
 [workspace.dependencies.cloud_terrastodon_entrypoint]
-version = "0.36.0"           # CT_VERSION
+version = "0.37.0"           # CT_VERSION
 path = "./crates/entrypoint"
 
 [workspace.dependencies.cloud_terrastodon_app]
-version = "0.36.0" # CT_VERSION
+version = "0.37.0" # CT_VERSION
 path = "./crates/app"
 
 [workspace.dependencies.cloud_terrastodon_zombies]
-version = "0.36.0"        # CT_VERSION
+version = "0.37.0"        # CT_VERSION
 path = "./crates/zombies"
 
 [workspace.dependencies.cloud_terrastodon_relative_location]
-version = "0.36.0"                  # CT_VERSION
+version = "0.37.0"                  # CT_VERSION
 path = "./crates/relative_location"
 
 [workspace.dependencies.cloud_terrastodon_ui_ratatui]
-version = "0.36.0"           # CT_VERSION
+version = "0.37.0"           # CT_VERSION
 path = "./crates/ui_ratatui"
 
 [workspace.dependencies.cloud_terrastodon_ui_egui]
-version = "0.36.0"        # CT_VERSION
+version = "0.37.0"        # CT_VERSION
 path = "./crates/ui_egui"
 
 [workspace.dependencies.cloud_terrastodon_tracing]
-version = "0.36.0"            # CT_VERSION
+version = "0.37.0"            # CT_VERSION
 path = "./crates/tracing"
 
 [workspace.dependencies.cloud_terrastodon_credentials]
-version = "0.36.0"            # CT_VERSION
+version = "0.37.0"            # CT_VERSION
 path = "./crates/credentials"
 
 [workspace.dependencies.cloud_terrastodon_rest]
-version = "0.36.0"            # CT_VERSION
+version = "0.37.0"            # CT_VERSION
 path = "./crates/rest"
 
 [package]
 name = "cloud_terrastodon"
-version = "0.36.0"                                                        # CT_VERSION
+version = "0.37.0"                                                        # CT_VERSION
 description = "A command-line tool for interacting with cloud ecosystems"
 readme.workspace = true
 edition.workspace = true
@@ -393,24 +395,3 @@ unused_result_ok = "warn"
 
 [workspace.lints.clippy]
 negative_feature_names = "allow"
-
-# Current upstream plus reviewed PRs; see docs/UPDATING_FACET.md.
-# Workspace-root patches must be repeated by downstream Rust consumers.
-[patch.crates-io]
-facet = { git = "https://github.com/TeamDman/facet.git", rev = "345ebb7ba42f7c6644c1d89ef53288fe81204fa5" }
-facet-core = { git = "https://github.com/TeamDman/facet.git", rev = "345ebb7ba42f7c6644c1d89ef53288fe81204fa5" }
-facet-default = { git = "https://github.com/TeamDman/facet.git", rev = "345ebb7ba42f7c6644c1d89ef53288fe81204fa5" }
-facet-error = { git = "https://github.com/TeamDman/facet.git", rev = "345ebb7ba42f7c6644c1d89ef53288fe81204fa5" }
-facet-macro-parse = { git = "https://github.com/TeamDman/facet.git", rev = "345ebb7ba42f7c6644c1d89ef53288fe81204fa5" }
-facet-macro-types = { git = "https://github.com/TeamDman/facet.git", rev = "345ebb7ba42f7c6644c1d89ef53288fe81204fa5" }
-facet-macros = { git = "https://github.com/TeamDman/facet.git", rev = "345ebb7ba42f7c6644c1d89ef53288fe81204fa5" }
-facet-macros-impl = { git = "https://github.com/TeamDman/facet.git", rev = "345ebb7ba42f7c6644c1d89ef53288fe81204fa5" }
-facet-path = { git = "https://github.com/TeamDman/facet.git", rev = "345ebb7ba42f7c6644c1d89ef53288fe81204fa5" }
-facet-pretty = { git = "https://github.com/TeamDman/facet.git", rev = "345ebb7ba42f7c6644c1d89ef53288fe81204fa5" }
-facet-reflect = { git = "https://github.com/TeamDman/facet.git", rev = "345ebb7ba42f7c6644c1d89ef53288fe81204fa5" }
-facet-solver = { git = "https://github.com/TeamDman/facet.git", rev = "345ebb7ba42f7c6644c1d89ef53288fe81204fa5" }
-figue = { git = "https://github.com/TeamDman/figue.git", rev = "d0df4a9b76ba05a41a5e984d99e979ef917f6a25" }
-figue-attrs = { git = "https://github.com/TeamDman/figue.git", rev = "d0df4a9b76ba05a41a5e984d99e979ef917f6a25" }
-# Format owns enum error spans; patch its sibling to keep one shared source identity.
-facet-format = { git = "https://github.com/TeamDman/facet-format.git", rev = "a1ca5f97253eb49fb080a39e32377dcebb0499f5" }
-facet-dessert = { git = "https://github.com/TeamDman/facet-format.git", rev = "a1ca5f97253eb49fb080a39e32377dcebb0499f5" }

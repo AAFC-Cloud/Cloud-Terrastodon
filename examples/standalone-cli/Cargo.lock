@@ -193,14 +193,14 @@ name = "cloud-terrastodon-standalone-cli"
 version = "0.1.0"
 dependencies = [
  "cloud_terrastodon",
- "facet",
+ "teamy-facet",
  "serde_json",
  "tempfile",
 ]
 
 [[package]]
 name = "cloud_terrastodon"
-version = "0.36.0"
+version = "0.37.0"
 dependencies = [
  "cloud_terrastodon_app",
  "color-eyre",
@@ -213,15 +213,15 @@ dependencies = [
 
 [[package]]
 name = "cloud_terrastodon_app"
-version = "0.36.0"
+version = "0.37.0"
 dependencies = [
  "cloud_terrastodon_tracing",
  "color-eyre",
  "eyre",
- "facet",
- "facet-json",
- "facet-pretty",
- "figue",
+ "teamy-facet",
+ "teamy-facet-json",
+ "teamy-facet-pretty",
+ "teamy-figue",
  "teamy-cancellation",
  "tokio",
  "tracing",
@@ -231,7 +231,7 @@ dependencies = [
 
 [[package]]
 name = "cloud_terrastodon_tracing"
-version = "0.36.0"
+version = "0.37.0"
 dependencies = [
  "chrono",
  "eyre",
@@ -469,19 +469,17 @@ dependencies = [
 ]
 
 [[package]]
-name = "facet"
+name = "teamy-facet"
 version = "0.50.0-rc.7"
-source = "git+https://github.com/TeamDman/facet.git?rev=345ebb7ba42f7c6644c1d89ef53288fe81204fa5#345ebb7ba42f7c6644c1d89ef53288fe81204fa5"
 dependencies = [
  "autocfg",
- "facet-core",
- "facet-macros",
+ "teamy-facet-core",
+ "teamy-facet-macros",
 ]
 
 [[package]]
-name = "facet-core"
+name = "teamy-facet-core"
 version = "0.50.0-rc.7"
-source = "git+https://github.com/TeamDman/facet.git?rev=345ebb7ba42f7c6644c1d89ef53288fe81204fa5#345ebb7ba42f7c6644c1d89ef53288fe81204fa5"
 dependencies = [
  "autocfg",
  "bstr",
@@ -498,60 +496,53 @@ dependencies = [
 ]
 
 [[package]]
-name = "facet-dessert"
+name = "teamy-facet-dessert"
 version = "0.50.0-rc.7"
-source = "git+https://github.com/TeamDman/facet-format.git?rev=a1ca5f97253eb49fb080a39e32377dcebb0499f5#a1ca5f97253eb49fb080a39e32377dcebb0499f5"
 dependencies = [
- "facet-core",
- "facet-reflect",
+ "teamy-facet-core",
+ "teamy-facet-reflect",
 ]
 
 [[package]]
-name = "facet-error"
+name = "teamy-facet-error"
 version = "0.50.0-rc.7"
-source = "git+https://github.com/TeamDman/facet.git?rev=345ebb7ba42f7c6644c1d89ef53288fe81204fa5#345ebb7ba42f7c6644c1d89ef53288fe81204fa5"
 dependencies = [
- "facet",
+ "teamy-facet",
 ]
 
 [[package]]
-name = "facet-format"
+name = "teamy-facet-format"
 version = "0.50.0-rc.7"
-source = "git+https://github.com/TeamDman/facet-format.git?rev=a1ca5f97253eb49fb080a39e32377dcebb0499f5#a1ca5f97253eb49fb080a39e32377dcebb0499f5"
 dependencies = [
- "facet-core",
- "facet-dessert",
- "facet-path",
- "facet-reflect",
- "facet-solver",
+ "teamy-facet-core",
+ "teamy-facet-dessert",
+ "teamy-facet-path",
+ "teamy-facet-reflect",
+ "teamy-facet-solver",
 ]
 
 [[package]]
-name = "facet-json"
+name = "teamy-facet-json"
 version = "0.50.0-rc.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91b8be2433eba7a2df5cb744714cb62d9ecee4db09722436d6acf68a921723cf"
 dependencies = [
- "facet",
- "facet-core",
- "facet-format",
- "facet-reflect",
+ "teamy-facet",
+ "teamy-facet-core",
+ "teamy-facet-format",
+ "teamy-facet-reflect",
 ]
 
 [[package]]
-name = "facet-macro-parse"
+name = "teamy-facet-macro-parse"
 version = "0.50.0-rc.7"
-source = "git+https://github.com/TeamDman/facet.git?rev=345ebb7ba42f7c6644c1d89ef53288fe81204fa5#345ebb7ba42f7c6644c1d89ef53288fe81204fa5"
 dependencies = [
- "facet-macro-types",
+ "teamy-facet-macro-types",
  "proc-macro2",
  "quote",
 ]
 
 [[package]]
-name = "facet-macro-types"
+name = "teamy-facet-macro-types"
 version = "0.50.0-rc.7"
-source = "git+https://github.com/TeamDman/facet.git?rev=345ebb7ba42f7c6644c1d89ef53288fe81204fa5#345ebb7ba42f7c6644c1d89ef53288fe81204fa5"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -559,20 +550,18 @@ dependencies = [
 ]
 
 [[package]]
-name = "facet-macros"
+name = "teamy-facet-macros"
 version = "0.50.0-rc.7"
-source = "git+https://github.com/TeamDman/facet.git?rev=345ebb7ba42f7c6644c1d89ef53288fe81204fa5#345ebb7ba42f7c6644c1d89ef53288fe81204fa5"
 dependencies = [
- "facet-macros-impl",
+ "teamy-facet-macros-impl",
 ]
 
 [[package]]
-name = "facet-macros-impl"
+name = "teamy-facet-macros-impl"
 version = "0.50.0-rc.7"
-source = "git+https://github.com/TeamDman/facet.git?rev=345ebb7ba42f7c6644c1d89ef53288fe81204fa5#345ebb7ba42f7c6644c1d89ef53288fe81204fa5"
 dependencies = [
- "facet-macro-parse",
- "facet-macro-types",
+ "teamy-facet-macro-parse",
+ "teamy-facet-macro-types",
  "proc-macro2",
  "quote",
  "strsim",
@@ -580,42 +569,38 @@ dependencies = [
 ]
 
 [[package]]
-name = "facet-path"
+name = "teamy-facet-path"
 version = "0.50.0-rc.7"
-source = "git+https://github.com/TeamDman/facet.git?rev=345ebb7ba42f7c6644c1d89ef53288fe81204fa5#345ebb7ba42f7c6644c1d89ef53288fe81204fa5"
 dependencies = [
- "facet-core",
+ "teamy-facet-core",
 ]
 
 [[package]]
-name = "facet-pretty"
+name = "teamy-facet-pretty"
 version = "0.50.0-rc.7"
-source = "git+https://github.com/TeamDman/facet.git?rev=345ebb7ba42f7c6644c1d89ef53288fe81204fa5#345ebb7ba42f7c6644c1d89ef53288fe81204fa5"
 dependencies = [
- "facet-core",
- "facet-reflect",
+ "teamy-facet-core",
+ "teamy-facet-reflect",
  "owo-colors",
  "terminal-light",
 ]
 
 [[package]]
-name = "facet-reflect"
+name = "teamy-facet-reflect"
 version = "0.50.0-rc.7"
-source = "git+https://github.com/TeamDman/facet.git?rev=345ebb7ba42f7c6644c1d89ef53288fe81204fa5#345ebb7ba42f7c6644c1d89ef53288fe81204fa5"
 dependencies = [
- "facet-core",
- "facet-path",
+ "teamy-facet-core",
+ "teamy-facet-path",
  "hashbrown",
  "smallvec 2.0.0-alpha.13",
 ]
 
 [[package]]
-name = "facet-solver"
+name = "teamy-facet-solver"
 version = "0.50.0-rc.7"
-source = "git+https://github.com/TeamDman/facet.git?rev=345ebb7ba42f7c6644c1d89ef53288fe81204fa5#345ebb7ba42f7c6644c1d89ef53288fe81204fa5"
 dependencies = [
- "facet-core",
- "facet-reflect",
+ "teamy-facet-core",
+ "teamy-facet-reflect",
  "strsim",
 ]
 
@@ -626,21 +611,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "da7c62ceae207dd37ea5b845da6a0696c799f85e97da1ab5b7910be3c1c80223"
 
 [[package]]
-name = "figue"
-version = "5.0.0-rc.6"
-source = "git+https://github.com/TeamDman/figue.git?rev=d0df4a9b76ba05a41a5e984d99e979ef917f6a25#d0df4a9b76ba05a41a5e984d99e979ef917f6a25"
+name = "teamy-figue"
+version = "6.0.0-rc.1"
 dependencies = [
  "arbitrary",
  "ariadne",
  "camino",
- "facet",
- "facet-core",
- "facet-error",
- "facet-format",
- "facet-json",
- "facet-pretty",
- "facet-reflect",
- "figue-attrs",
+ "teamy-facet",
+ "teamy-facet-core",
+ "teamy-facet-error",
+ "teamy-facet-format",
+ "teamy-facet-json",
+ "teamy-facet-pretty",
+ "teamy-facet-reflect",
+ "teamy-figue-attrs",
  "heck",
  "indexmap",
  "owo-colors",
@@ -654,11 +638,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "figue-attrs"
-version = "5.0.0-rc.6"
-source = "git+https://github.com/TeamDman/figue.git?rev=d0df4a9b76ba05a41a5e984d99e979ef917f6a25#d0df4a9b76ba05a41a5e984d99e979ef917f6a25"
+name = "teamy-figue-attrs"
+version = "6.0.0-rc.1"
 dependencies = [
- "facet",
+ "teamy-facet",
 ]
 
 [[package]]
@@ -2264,8 +2247,3 @@ name = "zmij"
 version = "1.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "29666d0abbfad1e3dc4dcf6144730dd3a3ab225bbbdac83319345b1b44ccfc1b"
-
-[[patch.unused]]
-name = "facet-default"
-version = "0.50.0-rc.7"
-source = "git+https://github.com/TeamDman/facet.git?rev=345ebb7ba42f7c6644c1d89ef53288fe81204fa5#345ebb7ba42f7c6644c1d89ef53288fe81204fa5"

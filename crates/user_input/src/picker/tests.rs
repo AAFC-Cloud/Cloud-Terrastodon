@@ -28,12 +28,12 @@ use crossterm::event::KeyEvent;
 use crossterm::event::KeyModifiers;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
+use ratatui_textarea::TextArea;
 use rustc_hash::FxHashSet;
 use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
 use std::time::SystemTime;
-use tui_textarea::TextArea;
 
 fn log_record(level: PickerLogLevel, message: &str) -> PickerLogRecord {
     PickerLogRecord {

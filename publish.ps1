@@ -1,114 +1,86 @@
-$meta = cargo metadata --format-version 1 --no-deps | ConvertFrom-Json
-$ct_packages = $meta.packages | Where-Object { $_.name.StartsWith("cloud_terrastodon")}
+[CmdletBinding()]
+param(
+    # Include all three fork workspaces for the first coordinated Teamy release.
+    [string[]]$ManifestPath = @((Join-Path $PSScriptRoot 'Cargo.toml')),
+    [switch]$DryRun,
+    [switch]$AllowDirty
+)
 
-# Build dependency graph (only internal dependencies)
-$dependencies = @{}
-$all_package_names = $ct_packages | ForEach-Object { $_.name }
+$ErrorActionPreference = 'Stop'
+$releasePackages = @{}
 
-foreach ($package in $ct_packages) {
-    $internal_deps = $package.dependencies | Where-Object { 
-        $_.name -in $all_package_names 
-    } | ForEach-Object { $_.name }
-    
-    $dependencies[$package.name] = $internal_deps
-}
-
-# Topological sort using Kahn's algorithm
-$sorted_packages = @()
-$in_degree = @{}
-$queue = New-Object System.Collections.Queue
-
-# Initialize in-degrees to 0
-foreach ($pkg_name in $all_package_names) {
-    $in_degree[$pkg_name] = 0
-}
-
-# Calculate in-degrees - if A depends on B, then A's in-degree increases
-foreach ($pkg_name in $dependencies.Keys) {
-    $in_degree[$pkg_name] = $dependencies[$pkg_name].Count
-}
-
-# Find packages with no dependencies (in-degree = 0)
-foreach ($pkg_name in $all_package_names) {
-    if ($in_degree[$pkg_name] -eq 0) {
-        $queue.Enqueue($pkg_name)
-    }
-}
-
-# Process packages in topological order
-while ($queue.Count -gt 0) {
-    $current = $queue.Dequeue()
-    $sorted_packages += $current
-    
-    # For each package that depends on the current package, reduce its in-degree
-    foreach ($pkg_name in $dependencies.Keys) {
-        if ($current -in $dependencies[$pkg_name]) {
-            $in_degree[$pkg_name]--
-            if ($in_degree[$pkg_name] -eq 0) {
-                $queue.Enqueue($pkg_name)
+foreach ($manifest in $ManifestPath) {
+    $metadataJson = cargo metadata --manifest-path $manifest --format-version 1 --no-deps
+    if ($LASTEXITCODE -ne 0) { throw "Could not read Cargo metadata for $manifest" }
+    $metadata = $metadataJson | ConvertFrom-Json
+    foreach ($package in $metadata.packages) {
+        if ($package.id -notin $metadata.workspace_members) { continue }
+        if ($null -ne $package.publish -and $package.publish.Count -eq 0) { continue }
+        if ($package.name -notmatch '^(cloud_terrastodon($|_)|teamy-facet($|-)|teamy-figue($|-))') { continue }
+        if ($releasePackages.ContainsKey($package.name)) {
+            if ($releasePackages[$package.name].manifest_path -ne $package.manifest_path) {
+                throw "Two workspaces supply $($package.name); choose one release source"
             }
+            continue
         }
+        $releasePackages[$package.name] = $package
     }
 }
 
-# Check for circular dependencies
-if ($sorted_packages.Count -ne $all_package_names.Count) {
-    Write-Warning "Circular dependency detected! Some packages were not processed."
-    $unprocessed = $all_package_names | Where-Object { $_ -notin $sorted_packages }
-    Write-Host "Unprocessed packages: $($unprocessed -join ', ')"
-    exit 1
+if ($releasePackages.Count -eq 0) { throw 'No publishable Cloud Terrastodon or Teamy packages selected' }
+
+# Development dependencies may form cycles; publication follows production and
+# build dependencies. Packaged consumer validation is a separate release gate.
+$remainingDependencies = @{}
+foreach ($packageName in $releasePackages.Keys) {
+    $remainingDependencies[$packageName] = @(
+        $releasePackages[$packageName].dependencies |
+            Where-Object { $_.kind -ne 'dev' -and $releasePackages.ContainsKey($_.name) } |
+            Select-Object -ExpandProperty name -Unique
+    )
+}
+$publicationOrder = [System.Collections.Generic.List[string]]::new()
+while ($remainingDependencies.Count -gt 0) {
+    $readyPackages = @($remainingDependencies.Keys | Where-Object { $remainingDependencies[$_].Count -eq 0 } | Sort-Object)
+    if ($readyPackages.Count -eq 0) {
+        throw "Production dependency cycle: $(@($remainingDependencies.Keys | Sort-Object) -join ', ')"
+    }
+    foreach ($packageName in $readyPackages) {
+        $publicationOrder.Add($packageName)
+        $remainingDependencies.Remove($packageName)
+    }
+    foreach ($packageName in @($remainingDependencies.Keys)) {
+        $remainingDependencies[$packageName] = @($remainingDependencies[$packageName] | Where-Object { $_ -notin $readyPackages })
+    }
 }
 
-# Process each package in dependency order
-foreach ($pkg_name in $sorted_packages) {
-    $package = $ct_packages | Where-Object { $_.name -eq $pkg_name }
-    Write-Host "Processing: $($package.name) v$($package.version)"
-    
-    # Check if package exists on crates.io
-    Write-Host "  Checking if package exists on crates.io..."
-    $checkResult = cargo info $package.name --registry crates-io 2>$null
-
-    
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "  Package not found on crates.io, skipping..." -ForegroundColor Yellow
+foreach ($packageName in $publicationOrder) {
+    $package = $releasePackages[$packageName]
+    if ($DryRun) {
+        Write-Output "$($package.name) $($package.version) $($package.manifest_path)"
         continue
     }
 
-    # Extract the latest version reported by crates.io
-    $checkVersion = $checkResult `
-        | Select-String "(?<=^version: )(\d+\.\d+\.\d+.*)" `
-        | Select-Object -First 1 -ExpandProperty Matches `
-        | Select-Object -ExpandProperty Value
-
-    if (-not $checkVersion) {
-        Write-Warning "  Could not determine crates.io version for $($package.name); skipping publish."
-        continue
-    }
-
-    # Compare with local version from cargo metadata
-    if ($checkVersion -eq $package.version) {
-        Write-Host "  Version $($package.version) already on crates.io, skipping publish." -ForegroundColor Yellow
-        continue
-    }
-
-    Write-Host "  Package exists on crates.io, publishing..." -ForegroundColor Green
-    
-    # Navigate to package directory and publish
-    $packagePath = Split-Path $package.manifest_path -Parent
-    Push-Location $packagePath
-    
+    # Check the exact version, not the registry's latest stable version. A 404
+    # means first publication is allowed; authentication/network errors must fail.
+    $versionUri = 'https://crates.io/api/v1/crates/{0}/{1}' -f
+        [Uri]::EscapeDataString($package.name), [Uri]::EscapeDataString($package.version)
+    $versionExists = $false
     try {
-        cargo publish --registry crates-io
-        if ($LASTEXITCODE -ne 0) {
-            Write-Error "Failed to publish $($package.name)"
-            Pop-Location
-            exit 1
-        }
-        Write-Host "  Successfully published $($package.name)" -ForegroundColor Green
+        $null = Invoke-RestMethod -Uri $versionUri -Headers @{ 'User-Agent' = 'Cloud-Terrastodon-release' }
+        $versionExists = $true
     }
-    finally {
-        Pop-Location
+    catch {
+        if ($null -eq $_.Exception.Response -or [int]$_.Exception.Response.StatusCode -ne 404) { throw }
     }
-}
+    if ($versionExists) {
+        Write-Output "Already published: $($package.name) $($package.version)"
+        continue
+    }
 
-Write-Host "All packages processed successfully!" -ForegroundColor Green
+    Write-Output "Publishing $($package.name) $($package.version)"
+    $publishArguments = @('publish', '--registry', 'crates-io', '--manifest-path', $package.manifest_path, '--locked')
+    if ($AllowDirty) { $publishArguments += '--allow-dirty' }
+    & cargo @publishArguments
+    if ($LASTEXITCODE -ne 0) { throw "Publication failed: $($package.name) $($package.version)" }
+}

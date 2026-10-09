@@ -14,30 +14,9 @@ path = "src/main.rs"
 [dependencies]
 cloud_terrastodon = { path = "../..", default-features = false, features = ["app"] }
 # Figue's attribute expansion currently requires ::facet in the extern prelude.
-# This dependency resolves through the same immutable patch below.
-facet = "=0.50.0-rc.7"
+# Keep the canonical Rust alias for TeamDman's distinct published package.
+facet = { package = "teamy-facet", version = "=0.50.0-rc.7", path = "../../../facet/facet" }
 
 [dev-dependencies]
 serde_json = "1.0.116"
 tempfile = "3.10.1"
-
-# Cargo only reads patches from the workspace root. Keep this complete block
-# aligned with the parent application's reviewed, immutable dependency stack.
-[patch.crates-io]
-facet = { git = "https://github.com/TeamDman/facet.git", rev = "345ebb7ba42f7c6644c1d89ef53288fe81204fa5" }
-facet-core = { git = "https://github.com/TeamDman/facet.git", rev = "345ebb7ba42f7c6644c1d89ef53288fe81204fa5" }
-facet-default = { git = "https://github.com/TeamDman/facet.git", rev = "345ebb7ba42f7c6644c1d89ef53288fe81204fa5" }
-facet-error = { git = "https://github.com/TeamDman/facet.git", rev = "345ebb7ba42f7c6644c1d89ef53288fe81204fa5" }
-facet-macro-parse = { git = "https://github.com/TeamDman/facet.git", rev = "345ebb7ba42f7c6644c1d89ef53288fe81204fa5" }
-facet-macro-types = { git = "https://github.com/TeamDman/facet.git", rev = "345ebb7ba42f7c6644c1d89ef53288fe81204fa5" }
-facet-macros = { git = "https://github.com/TeamDman/facet.git", rev = "345ebb7ba42f7c6644c1d89ef53288fe81204fa5" }
-facet-macros-impl = { git = "https://github.com/TeamDman/facet.git", rev = "345ebb7ba42f7c6644c1d89ef53288fe81204fa5" }
-facet-path = { git = "https://github.com/TeamDman/facet.git", rev = "345ebb7ba42f7c6644c1d89ef53288fe81204fa5" }
-facet-pretty = { git = "https://github.com/TeamDman/facet.git", rev = "345ebb7ba42f7c6644c1d89ef53288fe81204fa5" }
-facet-reflect = { git = "https://github.com/TeamDman/facet.git", rev = "345ebb7ba42f7c6644c1d89ef53288fe81204fa5" }
-facet-solver = { git = "https://github.com/TeamDman/facet.git", rev = "345ebb7ba42f7c6644c1d89ef53288fe81204fa5" }
-figue = { git = "https://github.com/TeamDman/figue.git", rev = "d0df4a9b76ba05a41a5e984d99e979ef917f6a25" }
-figue-attrs = { git = "https://github.com/TeamDman/figue.git", rev = "d0df4a9b76ba05a41a5e984d99e979ef917f6a25" }
-# Format owns enum error spans; patch its sibling to keep one shared source identity.
-facet-format = { git = "https://github.com/TeamDman/facet-format.git", rev = "a1ca5f97253eb49fb080a39e32377dcebb0499f5" }
-facet-dessert = { git = "https://github.com/TeamDman/facet-format.git", rev = "a1ca5f97253eb49fb080a39e32377dcebb0499f5" }

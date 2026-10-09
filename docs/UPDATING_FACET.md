@@ -1,9 +1,61 @@
 # Updating Facet and Figue
 
-Cloud Terrastodon declares compatible registry requirements and selects
-reviewed, unmerged changes through `[patch.crates-io]` at the workspace root.
-The development graph temporarily uses three forks. This is not a promise of
-patch-free crates.io consumption.
+Cloud Terrastodon uses TeamDman's independent Facet and Figue forks. The
+prepared registry graph uses `teamy-facet-* 0.50.0-rc.7` and
+`teamy-figue` / `teamy-figue-attrs 6.0.0-rc.1`, with canonical Rust dependency
+aliases such as `facet` and `figue`. These packages are not the official
+upstream crates. They must be published before Cloud Terrastodon 0.37.0 can
+be installed from crates.io.
+
+Local development uses exact-version dependencies with sibling paths to
+`../facet`, `../facet-format`, and `../figue`. Cargo removes those paths when
+packaging, leaving registry dependencies on the Teamy packages. Neither the
+workspace nor the standalone example requires `[patch.crates-io]` overrides.
+
+## 0.37.0 release preparation
+
+The coordinated release contains 43 packages:
+
+| Family | Packages | Version |
+| --- | --- | --- |
+| Core Facet fork | 11 runtime crates, plus Default, Testhelpers and Testhelpers Macros | `0.50.0-rc.7` |
+| Format fork | Format, Dessert, JSON and Value | `0.50.0-rc.7` |
+| Figue fork | Figue and its attribute macros | `6.0.0-rc.1` |
+| Cloud Terrastodon | Facade and 22 workspace crates | `0.37.0` |
+
+The vendored textarea has been replaced with the published
+[`ratatui-textarea 0.9.3`](https://github.com/ratatui/ratatui-textarea), maintained
+by Ratatui in a separate repository. It supports the selected Ratatui 0.30.1
+and Crossterm 0.29 graph, so no Teamy textarea package is needed.
+The 22 existing picker tests and Azure DevOps TUI/Ratatui compilation pass.
+The lockfile adds this package and removes 32 obsolete vendored dependency
+entries; retained third-party versions are unchanged.
+
+Source-tree verification passes the core library check and five reflection
+alias regressions, 142 Format-family tests, 760 Figue tests and 30 Figue
+Rustdoc examples (eight existing examples remain ignored). The historical
+converted-default regression also passes without porting old production code.
+Format's process-global cache tests require serial execution for this suite.
+Cloud Terrastodon's all-target workspace check, 20 app tests and eight exact
+CLI schema/help/registry tests pass. The initial CLI substring filter also
+matched 61 nested command tests; the corrected selection runs the intended
+eight exactly. The additional tests passed and were audited: one checked
+existence of a fresh UUID-based cache path, without reading cache contents;
+none reached credential loading, Azure CLI, HTTP or DNS.
+
+All 43 normalized archives have registry dependencies without Git overrides
+or local paths. An independent consumer using the archived facade and Teamy
+packages passes all 14 standalone integration tests through a temporary Cargo
+directory source, without a patch block. The same consumer also compiles the
+facade's `full` feature against the normalized registry graph, including both
+UIs and the SDK/CLI crates. Locked packaging with generated lock
+files also succeeds for Core and Format. These are prepublication checks;
+they do not claim the unpublished versions are already available on crates.io.
+
+The ten named scratch/build directories have been removed. Recovery notes and
+uncommitted patches are retained in `../fork-recovery/2026-10-09`, and the Format
+clone is now at `../facet-format`. Figue's older local edits remain in its
+named stash as well as the recovery patch. Old branches retain their history.
 
 ## Source policy
 
@@ -12,13 +64,17 @@ patch-free crates.io consumption.
 | `facet-rs/facet` | Core monorepo: Facet, macros, reflection, solver, path, errors and pretty printing |
 | `bearcove/figue` | Figue and `figue-attrs`, separate from the core Facet repository |
 | `facet-rs/facet-format` | Official split-out Format, JSON, Value and Dessert repository |
-| Official registry JSON/Value | Keep the compatible published packages; no bundled Teamy Format snapshot |
+| Teamy registry packages | Publish the compatible core, Format/JSON/Value/Dessert, and Figue families together; keep their Rust aliases |
 | `TeamDman/facet` | Current upstream plus the reviewed Cow and enum-alias PRs until compatible official releases include them |
 | `TeamDman/facet-format` | Current upstream plus the reviewed scalar-enum error-span PR; Format and Dessert use the same immutable revision |
 | `TeamDman/figue` | Current upstream plus our selected CLI PRs |
 
-The root manifest and standalone CLI example record immutable revisions from
-each fork's `teamy-main`. The 2026-10-06 integration contains:
+`teamy-main` is the primary branch in all three GitHub forks and the local
+clones. Facet and Figue's old divergent `main` histories are preserved under
+`legacy/published-main-2026-10-09`; they are not release branches. Package
+READMEs and Rustdoc identify the forks and retain upstream attribution.
+
+The release preparation builds on this recorded 2026-10-06 integration:
 
 - Facet `345ebb7ba42f7c6644c1d89ef53288fe81204fa5`: official main
   `65bae5c31a7ce401bc44630fb96250ea884cfd3e` plus
@@ -55,8 +111,9 @@ Transparent-scalar support was added after the application already built and
 its eight acceptance failures were repaired. It is a separate typed-CLI
 capability, not the explanation for those application failures.
 
-Compatible baseline versions are Facet-family `0.50.0-rc.7` and Figue
-`5.0.0-rc.6`. Enable `facet-json/net` explicitly for unproxied IP addresses
+The upstream baseline versions were Facet-family `0.50.0-rc.7` and Figue
+`5.0.0-rc.6`. The Teamy Figue major version changes to 6 for its updated Facet
+graph. Enable `facet-json/net` explicitly for unproxied IP addresses
 in outage artifacts; core Facet's `net` does not enable Format serialization.
 
 At the 2026-10-06 library checkpoint, the integrated Facet reflection suite has
@@ -84,24 +141,27 @@ crate's `tracing-error` dependency.
 Freshly built build-folder help succeeds, and a synthetic invalid format on
 the actual nested CLI reports the correct value before application startup.
 
-## Root patches and consumers
+## Package identities and consumers
 
 All interacting Facet traits, shapes and values must share one compatible
-core identity. Patch the relevant core family, not just `facet`, so Figue and
-`facet-pretty` cannot pull a second implementation. Inspect actual resolution;
-an unused optional-family override may produce a harmless Cargo warning.
+core identity. Every normal/build dependency in the release graph names a
+Teamy package, including JSON and Value. Mixing official `facet-*` packages
+with `teamy-facet-*` creates distinct Rust types even when their versions match.
 
-Patch `facet-format` and `facet-dessert` together to their reviewed Format fork
-revision. Format has a sibling Dessert dependency; a matching root override
-keeps other consumers on the same helper source. JSON and Value remain their
-official compatible registry packages and use the selected Format override.
+Keep the canonical dependency keys required by generated macro paths:
 
-Cargo ignores dependency-level patches. Rust consumers of this development
-version must repeat necessary root overrides in their own workspace. See
-the [Cargo patch reference](https://doc.rust-lang.org/cargo/reference/overriding-dependencies.html#the-patch-section).
-Test a clean external consumer without inherited overrides before claiming
-patch-free publication. Remove patches only after required APIs and behavior
-exist in the selected official releases.
+```toml
+facet = { package = "teamy-facet", version = "=0.50.0-rc.7" }
+figue = { package = "teamy-figue", version = "=6.0.0-rc.1" }
+```
+
+See [Cargo's dependency renaming reference](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#renaming-dependencies-in-cargotoml).
+Normal/build dependencies have both a version and a development path. Fork
+internal dev-dependencies use paths only so Cargo omits them from archives,
+avoiding bootstrap cycles; run their complete test suites in the source trees.
+Archive validation checks library builds and an independent consumer using
+the normalized registry graph. Do not claim registry installation works until
+the exact versions have actually been published.
 
 Cloud Terrastodon currently uses Facet-free `teamy-cancellation 0.2.0`.
 The cancellation repository's newer optional Facet/Figue features must be
@@ -124,11 +184,11 @@ Choose an appropriately scoped Cargo target/package cleanup when needed.
    preserving its published history and selected behavior. Do not rewrite or
    replace old branches, or blindly copy old in-Facet Figue, tuple or Format
    adapters.
-4. Test the fork stacks before publishing their new refs. Pin the tested,
-   published `teamy-main` SHAs without waiting for upstream PR merges. Update
-   compatible registry requirements and root patch revisions together,
-   including the standalone CLI example, then inspect each lockfile diff;
-   avoid unrelated wholesale dependency updates.
+4. Test the fork stacks before publishing their new refs. Record the tested
+   `teamy-main` SHAs without waiting for upstream PR merges. Update exact Teamy
+   package versions and development paths together, including the standalone
+   CLI example, then inspect each lockfile diff; avoid unrelated dependency
+   updates. Verify normalized archives and a consumer without Git overrides.
 5. Run application tests, source-identity checks and freshly built CLI help.
    Synthetic probes supplement this evidence; they do not prove a current
    application command requires every proposed library capability.
@@ -146,13 +206,24 @@ does not establish a new minimum supported Rust version.
 cargo +1.96.0 check --workspace --all-targets --locked
 $env:CLOUD_TERRASTODON_REAUTH = 'DENY'
 cargo +1.96.0 test --workspace --locked --no-run
-cargo +1.96.0 tree --locked --invert facet
-cargo +1.96.0 tree --locked --invert facet-core
-cargo +1.96.0 tree --locked --invert figue
+cargo +1.96.0 tree --locked --invert teamy-facet
+cargo +1.96.0 tree --locked --invert teamy-facet-core
+cargo +1.96.0 tree --locked --invert teamy-figue
 cargo +1.96.0 tree --locked --duplicates
 cargo +1.96.0 run --quiet --locked --bin cloud_terrastodon -- az tenant login --help
 git diff --check
 ```
+
+Preview the coordinated publication order, including first-time crates:
+
+```powershell
+./publish.ps1 -DryRun -ManifestPath ../facet/Cargo.toml,../facet-format/Cargo.toml,../figue/Cargo.toml,./Cargo.toml
+```
+
+The script skips only an already published exact version, fails on registry
+errors other than a missing version, and orders packages by production/build
+dependencies. `-DryRun` reads metadata without publishing. Actual publication
+is a separate step after the prepared changes and validation are reviewed.
 
 Do not use an installed, potentially stale `ct` executable as proof.
 Entrypoint regressions check root/leaf global options, complete authentication

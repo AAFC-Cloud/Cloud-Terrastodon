@@ -19,8 +19,8 @@ use ratatui::widgets::Block;
 use ratatui::widgets::Borders;
 use ratatui::widgets::Paragraph;
 use ratatui::widgets::Widget;
+use ratatui_textarea::TextArea;
 use std::borrow::Cow;
-use tui_textarea::TextArea;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NavigationTarget {
@@ -124,7 +124,7 @@ impl AzureDevOpsDefaultOrganizationUrlTui {
                 .title("Default Azure DevOps Organization Url")
                 .borders(Borders::ALL),
         );
-        self.text_input.move_cursor(tui_textarea::CursorMove::End);
+        self.text_input.move_cursor(ratatui_textarea::CursorMove::End);
 
         const RECOMMENDED_URL: &str = "https://dev.azure.com/aafc";
 
@@ -178,7 +178,7 @@ impl AzureDevOpsDefaultOrganizationUrlTui {
                         }
                         NavigationTarget::RecommendedUrl => {
                             self.text_input = TextArea::new(vec![RECOMMENDED_URL.to_string()]);
-                            self.text_input.move_cursor(tui_textarea::CursorMove::End);
+                            self.text_input.move_cursor(ratatui_textarea::CursorMove::End);
                             self.focus = NavigationTarget::TextInput;
                             self.update_validation();
                         }
@@ -188,7 +188,7 @@ impl AzureDevOpsDefaultOrganizationUrlTui {
                             } else {
                                 self.text_input = TextArea::new(vec!["".to_string()]);
                             }
-                            self.text_input.move_cursor(tui_textarea::CursorMove::End);
+                            self.text_input.move_cursor(ratatui_textarea::CursorMove::End);
                             self.focus = NavigationTarget::TextInput;
                             self.update_validation();
                         }

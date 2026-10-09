@@ -56,6 +56,8 @@ use ratatui::widgets::Block;
 use ratatui::widgets::ListState;
 use ratatui::widgets::Paragraph;
 use ratatui::widgets::Widget;
+use ratatui_textarea::CursorMove;
+use ratatui_textarea::TextArea;
 use rustc_hash::FxHashSet;
 use std::collections::VecDeque;
 use std::future::Future;
@@ -71,8 +73,6 @@ use tokio::sync::mpsc;
 use tracing::Instrument;
 use tracing::info_span;
 use tracing::trace_span;
-use tui_textarea::CursorMove;
-use tui_textarea::TextArea;
 
 #[cfg(feature = "extended_observability")]
 macro_rules! extended_trace_span {

@@ -7,7 +7,7 @@ with a root CLI containing only `GlobalArgs` and Figue's builtins. There are no
 subcommands or required positional arguments. The runner supplies logging, error
 reporting, a Tokio runtime, authentication preferences and cooperative cancellation.
 
-This is a Cargo example target: its dependencies, features, patches and lockfile
+This is a Cargo example target: its dependencies, features and lockfile
 come from the repository root, so it needs no separate `Cargo.toml`. The default
 `full` feature includes `app-auth` (which includes `app`) and `azure`.
 
@@ -54,7 +54,7 @@ native paths return a serialization error instead of being converted lossily.
 ## Independent consumer
 
 [standalone-cli](standalone-cli) intentionally has its own `Cargo.toml`, lockfile
-and repeated patches. It tests an independent project using a local Cloud
+and Teamy dependency aliases. It tests an independent project using a local Cloud
 Terrastodon dependency, with its own subcommands in a single `src/main.rs`.
 It enables only `app`, so authentication is not included in that consumer.
 
