@@ -1,6 +1,7 @@
 # v0.37.0
 
 - Switch from `serde` to `facet`
+- Switch CLI argument parsing from `clap` to `figue`
 - Add `ct az ad role definition find {action}` command
 - Update `ct az role definition find` to include role definition in results
 - Add `ct az devops project member list --project {}` command
@@ -10,11 +11,10 @@
 - Add `--log-file-filter` to independently control structured log-file verbosity
 - Add `ct az container-instance|aci list|show` support
 - Update `ct outage investigate {hostname}` command
-- Add tracy support for profiling in development
+- Add Tracy support for development profiling, including optional `tracy-alloc` allocation profiling, and use `mimalloc` as the CLI allocator
 - Add `ct az ad oauth2-permission-grant claim list`
 - Add support for `$env:CLOUD_TERRASTODON_PIM_CLIENT_ID` to be used for `ct az pim activate entra` with an application with `azuread_application_fallback_public_client enabled=true`
 - Add per-tenant default authentication source configuration to `ct az tenant`
-- Add `ct az ad oauth2-permission-grant claim list`
 - Change `EntraServicePrincipal.app_id` to be `EntraApplicationClientId` instead of `Uuid`
 - Change `EntraApplicationRegistration.app_id` to be `EntraApplicationClientId` instead of `Uuid`
 - Rename `EntraApplicationId` to `EntraApplicationObjectId`
@@ -24,6 +24,48 @@
 - Add `ct rest --header "a: b"` support
 - Add `ct az vnet list|show` and `ct az vnet subnet list|show` with name/ID selectors, tenant selection, optional subnet `--vnet`, and shared output formats
 - Add `ct az devops build definition show <ID>` with full pipeline details, including the YAML filename and repository configuration
+- Add `ct az devops build list` with definition, status, result, and branch filters, pagination, `--limit`, and `--no-cache`
+- Add `ct az devops build definition list` with name/path filters and `ct az devops build definition folder list` with definitions grouped into folders, including empty folders
+- Add `ct az devops build definition folder prune` with `--path` and `--dry-run`, preserving root and occupied folders and refreshing inventories before each deletion
+- Add `ct az devops work-item list|show|create|update`, field and relation read/write commands, and field, relation, and work-item type metadata commands with typed SDK requests
+- Add `ct az devops work-item copy` with `--deep`, `--allowed-ids`, dry-run plans, and resumable progress journals; copies omit attachments and comments/history
+- Move `ct az devops query` to `ct az devops work-item query`, adding query show/create and WIQL invocation from inline text or `@file`
+- Require explicit `--org` for scoped Azure DevOps commands and `--project` for project-scoped commands instead of configured defaults; `repo list` now requires a project and no longer lists across all projects
+- Accept organization names or full cloud/Server collection URLs through Azure DevOps `--org`; treat `--project default` as a literal project name
+- Fix Azure DevOps license update verification to refresh cached entitlements even without `--no-cache`
+- Add shared `AuthContext` authentication for Graph, ARM, and Azure DevOps REST requests with global `--auth-source auto|workload-identity|browser|azure-cli|pat` selection
+- Add workload identity authentication from Azure SDK or Azure DevOps service-connection environment variables; automatic selection prefers workload identity, then Azure CLI, and missing credentials in headless commands fail without starting an interactive login
+- Update `ct az tenant login` to use delegated browser/PKCE authentication by default, persist a refresh token for subsequent REST requests, and retain Azure CLI login through `--auth-source azure-cli`
+- Add `ct az pim setup` to discover and validate the PIM app registration, or persist an explicit `--client-id` without authenticated discovery
+- Add repeatable `--alias` flags to `ct az tenant add`
+- Add `ct az ad user search <text>` and `ct az ad app search <text>`
+- Update `ct az ad user show` to accept a user principal name as well as an object ID
+- Add `ct az ad principal show` with object ID, display name, and user principal name selectors
+- Add `ct az ad group member list --group-id {}` and `ct az ad group list --for-member {}` with transitive membership lookup
+- Add nullable `external_user_state` and `external_user_state_change_date_time` fields to `EntraUser`
+- Add cached Entra SDK requests for individual users, groups, service principals, and application registrations, plus batched directory-object lookup
+- Add Microsoft Graph pagination progress callbacks and increase the user-list page size to 999
+- Fix cache invalidation to clear memory entries as well as disk entries, and retry failed Graph continuation requests after refreshing their cached pages
+- Add bounded retries for throttled Cost Management requests using response retry headers
+- Add global `--output-format` / `--output` selection for supported commands with text, JSON, Facet Pretty, and automatic terminal/pipeline formatting
+- Update `ct az subscription list` to group subscriptions by tenant, show tenant aliases and portal links in text output, and report individual tenant authentication failures while continuing other tenants
+- Update `ct rest` to show the response body in text output and the full response in JSON/Facet Pretty, including failed HTTP responses before reporting the error
+- Preserve REST decoding and Resource Graph transformation failure artifacts with originating caller information
+- Add reusable `cloud_terrastodon_app` startup/output facilities, an `app` facade feature, and a standalone CLI example
+- Add `cloud_terrastodon_registry` for reflected types, constructors, request invocation, and arbitrary generation
+- Add `ct jwt decode <JWT|->` and `ct echo` commands
+- Revamp `ct ratatui` with typed object builders, asynchronous request invocation, tabs, filtering, projections, move/clone/borrow links, and JSON export
+- Improve picker responsiveness for large choice sets, show background activity and log toasts, coordinate nested TUIs, and preserve selected choices when background work fails
+- Update `ct clean` to report a cleanup summary
+- Update `ct tf reflow` to split Terraform configuration into `terraform.<setting>.tf`, order AzureRM backend attributes, and fix whitespace in split Terraform and locals blocks
+- Update `ct tf reflow --full` to batch directory-object lookups for UUIDs found in source, and avoid tenant/authentication lookup during ordinary reflow
+- Add `ct tf audit --fix` and checks for missing tenant/subscription IDs in AzureRM backend, provider, and remote-state configuration
+- Use Facet-compatible `IsoDuration` values for ISO 8601 durations in Azure models
+- Back `RolePermissionActionSet` with `IndexSet` to preserve insertion order
+- Fix structured JSON logging crashes and ANSI formatting, and apply text color controls when rendering output
+- Fix Windows CLI stack overflow in nested command dispatch
+- Fix Linux builds and executable defaults, and browser opening in WSL without Windows executables on `PATH`
+- Update the installation script to use `cargo install --path . --locked`
 
 # v0.36.0
 
