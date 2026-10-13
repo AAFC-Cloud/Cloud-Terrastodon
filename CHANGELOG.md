@@ -4,6 +4,7 @@
 - Switch CLI argument parsing from `clap` to `figue`
 - Prepare the Facet/Figue dependency graph for crates.io using explicitly named `teamy-facet-*` and `teamy-figue` fork packages instead of root Git patches
 - Replace the vendored `tui-textarea` with Ratatui's maintained `ratatui-textarea` package
+- Update the locked `chacha20` dependency to `0.10.2`, fixing the yanked version's SSE2 backend bug for locked CLI installations
 - Add `ct az ad role definition find {action}` command
 - Update `ct az role definition find` to include role definition in results
 - Add `ct az devops project member list --project {}` command
