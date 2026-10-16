@@ -1,5 +1,6 @@
 use crate::cli::azure_devops::agent_package::list::AzureDevOpsAgentPackageListArgs;
 use crate::cli::azure_devops::agent_package::show_newest::AzureDevOpsAgentPackageShowNewestArgs;
+use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 
 /// Azure DevOps agent package-related commands.
@@ -19,10 +20,13 @@ pub enum AzureDevOpsAgentPackageCommand {
 }
 
 impl AzureDevOpsAgentPackageArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(
+        self,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self.command {
-            AzureDevOpsAgentPackageCommand::List(args) => args.invoke().await?,
-            AzureDevOpsAgentPackageCommand::ShowNewest(args) => args.invoke().await?,
+            AzureDevOpsAgentPackageCommand::List(args) => args.invoke(cancellation).await?,
+            AzureDevOpsAgentPackageCommand::ShowNewest(args) => args.invoke(cancellation).await?,
         }
 
         Ok(())

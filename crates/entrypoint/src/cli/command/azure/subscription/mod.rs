@@ -1,4 +1,5 @@
 use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 pub mod azure_subscription_list_cli;
 mod error_summary;
@@ -21,9 +22,13 @@ pub enum AzureSubscriptionCommand {
 }
 
 impl AzureSubscriptionArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<CliOutput> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<CliOutput> {
         match self.command {
-            AzureSubscriptionCommand::List(args) => args.invoke(auth_context).await,
+            AzureSubscriptionCommand::List(args) => args.invoke(auth_context, cancellation).await,
         }
     }
 }

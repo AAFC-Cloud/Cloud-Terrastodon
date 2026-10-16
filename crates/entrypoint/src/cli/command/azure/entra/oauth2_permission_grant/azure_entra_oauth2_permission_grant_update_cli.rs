@@ -9,6 +9,7 @@ use cloud_terrastodon_azure::fetch_oauth2_permission_grants;
 use cloud_terrastodon_azure::merge_oauth2_permission_grant_scopes;
 use cloud_terrastodon_azure::remove_oauth2_permission_grant;
 use cloud_terrastodon_azure::update_oauth2_permission_grant;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::ContextCompat;
 use eyre::Result;
@@ -43,12 +44,19 @@ pub struct AzureEntraOAuth2PermissionGrantUpdateArgs {
 }
 
 impl AzureEntraOAuth2PermissionGrantUpdateArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         if self.id.is_some() && (self.preset.is_some() || self.principal.is_some()) {
             eyre::bail!("--id cannot be used with --preset or --principal");
         }
 
-        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
+        let tenant_auth_context = self
+            .tenant
+            .bind_auth_context(auth_context, cancellation)
+            .await?;
         let tenant_id = tenant_auth_context.tenant_id;
         let add_scope = split_scope_csv(&self.add_scope);
         let remove_scope = split_scope_csv(&self.remove_scope);
@@ -56,7 +64,7 @@ impl AzureEntraOAuth2PermissionGrantUpdateArgs {
             eyre::bail!("Specify at least one of --add-scope or --remove-scope");
         }
 
-        let grants = fetch_oauth2_permission_grants(tenant_id).await?;
+        let grants = fetch_oauth2_permission_grants(tenant_id, cancellation).await?;
         let grant = match self.id {
             Some(id) => grants
                 .into_iter()
@@ -69,7 +77,7 @@ impl AzureEntraOAuth2PermissionGrantUpdateArgs {
                 let principal = self
                     .principal
                     .wrap_err("--principal is required when using --preset")?;
-                let principals = fetch_all_principals(&tenant_auth_context).await?;
+                let principals = fetch_all_principals(&tenant_auth_context, cancellation).await?;
                 let principal = principal.resolve(&principals).wrap_err_with(|| {
                     format!(
                         "Could not resolve principal '{}' in tenant {tenant_id}",
@@ -84,8 +92,13 @@ impl AzureEntraOAuth2PermissionGrantUpdateArgs {
                             "Delegated oauth2 permission grants require a user principal, got '{principal}'"
                         )
                     })?;
-                let (client_id, resource_id) =
-                    resolve_preset_service_principals(tenant_id, preset, auth_context).await?;
+                let (client_id, resource_id) = resolve_preset_service_principals(
+                    tenant_id,
+                    preset,
+                    auth_context,
+                    cancellation,
+                )
+                .await?;
                 grants
                     .into_iter()
                     .find(|grant| {
@@ -114,7 +127,8 @@ impl AzureEntraOAuth2PermissionGrantUpdateArgs {
                 id: cloud_terrastodon_azure::OAuth2PermissionGrantId,
             }
 
-            remove_oauth2_permission_grant(&tenant_auth_context, grant.id.clone()).await?;
+            remove_oauth2_permission_grant(&tenant_auth_context, grant.id.clone(), cancellation)
+                .await?;
             cloud_terrastodon_command::to_writer_pretty(
                 &mut handle,
                 &DeletedResponse {
@@ -133,8 +147,13 @@ impl AzureEntraOAuth2PermissionGrantUpdateArgs {
             scope: String,
         }
 
-        let () = update_oauth2_permission_grant(tenant_id, grant.id.clone(), merged_scope.clone())
-            .await?;
+        let () = update_oauth2_permission_grant(
+            tenant_id,
+            grant.id.clone(),
+            merged_scope.clone(),
+            cancellation,
+        )
+        .await?;
         cloud_terrastodon_command::to_writer_pretty(
             &mut handle,
             &UpdatedResponse {

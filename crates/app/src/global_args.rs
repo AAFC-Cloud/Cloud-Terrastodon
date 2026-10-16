@@ -5,7 +5,8 @@ use std::path::PathBuf;
 
 /// Arguments that apply to all commands, including consumer-defined subcommands.
 ///
-/// Flatten this into your own root CLI alongside `figue::FigueBuiltins`.
+/// Flatten this into your own root CLI. [`crate::App::parse_from`] and
+/// [`crate::App::run`] supply Figue's standard builtin flags internally.
 /// Authentication selection is available with the `auth` feature. Prefer
 /// `Default` over exhaustive struct literals so optional facilities compose.
 #[derive(facet::Facet, Debug, Clone, PartialEq, Eq)]

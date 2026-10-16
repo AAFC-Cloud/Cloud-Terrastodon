@@ -2,6 +2,7 @@ use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::RolePermissionAction;
 use cloud_terrastodon_azure::fetch_all_role_definitions;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use std::io::Write;
@@ -23,10 +24,18 @@ pub struct AzureRoleDefinitionListArgs {
 }
 
 impl AzureRoleDefinitionListArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         info!("Fetching Azure role definitions");
-        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
-        let mut role_definitions = fetch_all_role_definitions(&tenant_auth_context).await?;
+        let tenant_auth_context = self
+            .tenant
+            .bind_auth_context(auth_context, cancellation)
+            .await?;
+        let mut role_definitions =
+            fetch_all_role_definitions(&tenant_auth_context, cancellation).await?;
         role_definitions.sort_by_key(|definition| definition.polp_score());
         let total_count = role_definitions.len();
 

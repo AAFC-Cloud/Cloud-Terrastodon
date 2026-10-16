@@ -1,5 +1,6 @@
 use super::AzureCognitiveServicesDeploymentListArgs;
 use super::AzureCognitiveServicesDeploymentShowArgs;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -11,8 +12,12 @@ pub struct AzureCognitiveServicesDeploymentArgs {
 }
 
 impl AzureCognitiveServicesDeploymentArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        self.command.invoke(auth_context).await
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        self.command.invoke(auth_context, cancellation).await
     }
 }
 
@@ -26,10 +31,18 @@ pub enum AzureCognitiveServicesDeploymentCommand {
 }
 
 impl AzureCognitiveServicesDeploymentCommand {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self {
-            AzureCognitiveServicesDeploymentCommand::List(args) => args.invoke(auth_context).await,
-            AzureCognitiveServicesDeploymentCommand::Show(args) => args.invoke(auth_context).await,
+            AzureCognitiveServicesDeploymentCommand::List(args) => {
+                args.invoke(auth_context, cancellation).await
+            }
+            AzureCognitiveServicesDeploymentCommand::Show(args) => {
+                args.invoke(auth_context, cancellation).await
+            }
         }
     }
 }

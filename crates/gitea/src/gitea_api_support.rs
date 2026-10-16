@@ -3,6 +3,8 @@ use crate::GiteaRepo;
 use crate::GiteaRepoId;
 use crate::GiteaSearchResults;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CancellationError;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::CommandOutput;
@@ -20,24 +22,30 @@ pub async fn gitea_api_get<T: Facet<'static> + Send + 'static>(
     tenant: &GiteaInstanceUrl,
     endpoint: &str,
     cache_key: Option<CacheKey>,
+    cancellation: &CancellationScope,
 ) -> Result<T> {
     let mut cmd = CommandBuilder::new(CommandKind::Gitea);
+    cmd.cancellation_safe();
     cmd.args(["api", tenant.api_url(endpoint).as_str()]);
     cmd.use_cache(cache_key);
-    cmd.run_polite(GITEA_UNCACHED_DELAY).await
+    cmd.run_polite(GITEA_UNCACHED_DELAY, cancellation).await
 }
 
 pub async fn gitea_api_get_best_effort<T: Facet<'static> + Send + 'static>(
     tenant: &GiteaInstanceUrl,
     endpoint: &str,
     cache_key: Option<CacheKey>,
+    cancellation: &CancellationScope,
 ) -> Result<Option<T>> {
     let mut cmd = CommandBuilder::new(CommandKind::Gitea);
+    cmd.cancellation_safe();
     cmd.args(["api", tenant.api_url(endpoint).as_str()]);
     cmd.use_cache(cache_key);
-    match cmd.run_raw_polite(GITEA_UNCACHED_DELAY).await {
+    match cmd.run_raw_polite(GITEA_UNCACHED_DELAY, cancellation).await {
         Ok(output) => Ok(Some(parse_command_output::<T>(&output)?)),
+        Err(error) if error.downcast_ref::<CancellationError>().is_some() => Err(error),
         Err(error) => {
+            cancellation.bail_if_cancelled()?;
             tracing::debug!(%error, endpoint, "Skipping Gitea endpoint after best-effort failure");
             Ok(None)
         }
@@ -48,6 +56,7 @@ pub async fn gitea_api_get_paged<T>(
     tenant: &GiteaInstanceUrl,
     cache_root: CacheKey,
     endpoint_builder: impl Fn(usize, usize) -> String,
+    cancellation: &CancellationScope,
 ) -> Result<Vec<T>>
 where
     T: Facet<'static> + Send + 'static,
@@ -55,13 +64,16 @@ where
     let mut items = Vec::new();
     let mut page = 1usize;
     loop {
+        cancellation.bail_if_cancelled()?;
         let page_cache_key = CacheKey::new(cache_root.path.join("pages").join(page.to_string()));
         let page_items: Vec<T> = gitea_api_get(
             tenant,
             &endpoint_builder(page, GITEA_PAGE_SIZE),
             Some(page_cache_key),
+            cancellation,
         )
         .await?;
+        cancellation.bail_if_cancelled()?;
         let count = page_items.len();
         items.extend(page_items);
         if count < GITEA_PAGE_SIZE {
@@ -69,6 +81,7 @@ where
         }
         page += 1;
     }
+    cancellation.bail_if_cancelled()?;
     Ok(items)
 }
 
@@ -76,6 +89,7 @@ pub async fn gitea_api_get_search_paged<T>(
     tenant: &GiteaInstanceUrl,
     cache_root: CacheKey,
     endpoint_builder: impl Fn(usize, usize) -> String,
+    cancellation: &CancellationScope,
 ) -> Result<Vec<T>>
 where
     T: Facet<'static> + Send + 'static,
@@ -83,13 +97,16 @@ where
     let mut items = Vec::new();
     let mut page = 1usize;
     loop {
+        cancellation.bail_if_cancelled()?;
         let page_cache_key = CacheKey::new(cache_root.path.join("pages").join(page.to_string()));
         let results: GiteaSearchResults<T> = gitea_api_get(
             tenant,
             &endpoint_builder(page, GITEA_PAGE_SIZE),
             Some(page_cache_key),
+            cancellation,
         )
         .await?;
+        cancellation.bail_if_cancelled()?;
         let count = results.data.len();
         items.extend(results.data);
         if count < GITEA_PAGE_SIZE {
@@ -97,6 +114,7 @@ where
         }
         page += 1;
     }
+    cancellation.bail_if_cancelled()?;
     Ok(items)
 }
 

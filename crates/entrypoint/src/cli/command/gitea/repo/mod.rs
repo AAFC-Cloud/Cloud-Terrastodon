@@ -2,6 +2,7 @@ pub mod gitea_repo_browse_cli;
 pub mod gitea_repo_list_cli;
 pub mod gitea_repo_show_cli;
 
+use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 pub use gitea_repo_browse_cli::GiteaRepoBrowseArgs;
 pub use gitea_repo_list_cli::GiteaRepoListArgs;
@@ -25,11 +26,14 @@ pub enum GiteaRepoCommand {
 }
 
 impl GiteaRepoArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(
+        self,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self.command {
-            GiteaRepoCommand::List(args) => args.invoke().await?,
-            GiteaRepoCommand::Browse(args) => args.invoke().await?,
-            GiteaRepoCommand::Show(args) => args.invoke().await?,
+            GiteaRepoCommand::List(args) => args.invoke(cancellation).await?,
+            GiteaRepoCommand::Browse(args) => args.invoke(cancellation).await?,
+            GiteaRepoCommand::Show(args) => args.invoke(cancellation).await?,
         }
         Ok(())
     }

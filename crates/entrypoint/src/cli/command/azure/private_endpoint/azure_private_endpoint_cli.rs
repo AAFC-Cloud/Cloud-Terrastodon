@@ -1,5 +1,6 @@
 use super::AzurePrivateEndpointListArgs;
 use super::AzurePrivateEndpointShowArgs;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -14,10 +15,18 @@ pub enum AzurePrivateEndpointCommand {
 }
 
 impl AzurePrivateEndpointCommand {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self {
-            AzurePrivateEndpointCommand::List(args) => args.invoke(auth_context).await,
-            AzurePrivateEndpointCommand::Show(args) => args.invoke(auth_context).await,
+            AzurePrivateEndpointCommand::List(args) => {
+                args.invoke(auth_context, cancellation).await
+            }
+            AzurePrivateEndpointCommand::Show(args) => {
+                args.invoke(auth_context, cancellation).await
+            }
         }
     }
 }

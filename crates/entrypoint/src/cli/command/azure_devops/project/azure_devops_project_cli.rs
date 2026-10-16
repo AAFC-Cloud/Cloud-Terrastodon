@@ -2,6 +2,7 @@ use crate::cli::azure_devops::project::dump::AzureDevOpsProjectDumpArgs;
 use crate::cli::azure_devops::project::list::AzureDevOpsProjectListArgs;
 use crate::cli::azure_devops::project::member::AzureDevOpsProjectMemberArgs;
 use crate::cli::azure_devops::project::show::AzureDevOpsProjectShowArgs;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -26,12 +27,24 @@ pub enum AzureDevOpsProjectCommand {
 }
 
 impl AzureDevOpsProjectArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self.command {
-            AzureDevOpsProjectCommand::List(args) => args.invoke(auth_context).await?,
-            AzureDevOpsProjectCommand::Show(args) => args.invoke(auth_context).await?,
-            AzureDevOpsProjectCommand::Dump(args) => args.invoke(auth_context).await?,
-            AzureDevOpsProjectCommand::Member(args) => args.invoke(auth_context).await?,
+            AzureDevOpsProjectCommand::List(args) => {
+                args.invoke(auth_context, cancellation).await?
+            }
+            AzureDevOpsProjectCommand::Show(args) => {
+                args.invoke(auth_context, cancellation).await?
+            }
+            AzureDevOpsProjectCommand::Dump(args) => {
+                args.invoke(auth_context, cancellation).await?
+            }
+            AzureDevOpsProjectCommand::Member(args) => {
+                args.invoke(auth_context, cancellation).await?
+            }
         }
 
         Ok(())

@@ -15,6 +15,7 @@ pub use azure_tenant_list_cli::AzureTenantListArgs;
 pub use azure_tenant_login_cli::AzureTenantLoginArgs;
 pub use azure_tenant_set_auth_source_cli::AzureTenantSetAuthSourceArgs;
 pub use azure_tenant_show_cli::AzureTenantShowArgs;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -47,16 +48,20 @@ pub enum AzureTenantCommand {
 }
 
 impl AzureTenantArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self.command {
-            AzureTenantCommand::Login(args) => args.invoke(auth_context).await?,
-            AzureTenantCommand::List(args) => args.invoke().await?,
-            AzureTenantCommand::Discover(args) => args.invoke().await?,
-            AzureTenantCommand::Alias(args) => args.invoke().await?,
-            AzureTenantCommand::Add(args) => args.invoke().await?,
-            AzureTenantCommand::Show(args) => args.invoke(auth_context).await?,
-            AzureTenantCommand::Forget(args) => args.invoke().await?,
-            AzureTenantCommand::SetAuthSource(args) => args.invoke().await?,
+            AzureTenantCommand::Login(args) => args.invoke(auth_context, cancellation).await?,
+            AzureTenantCommand::List(args) => args.invoke(cancellation).await?,
+            AzureTenantCommand::Discover(args) => args.invoke(cancellation).await?,
+            AzureTenantCommand::Alias(args) => args.invoke(cancellation).await?,
+            AzureTenantCommand::Add(args) => args.invoke(cancellation).await?,
+            AzureTenantCommand::Show(args) => args.invoke(auth_context, cancellation).await?,
+            AzureTenantCommand::Forget(args) => args.invoke(cancellation).await?,
+            AzureTenantCommand::SetAuthSource(args) => args.invoke(cancellation).await?,
         }
 
         Ok(())

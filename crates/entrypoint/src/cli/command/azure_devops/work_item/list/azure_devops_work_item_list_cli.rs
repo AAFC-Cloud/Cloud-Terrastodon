@@ -3,6 +3,7 @@ use chrono::Utc;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemExpand;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemsGetRequest;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use std::borrow::Cow;
@@ -31,14 +32,19 @@ pub struct AzureDevOpsWorkItemListArgs {
 }
 
 impl AzureDevOpsWorkItemListArgs {
-    pub async fn invoke(self, auth: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         let ids = self
             .ids
             .split(',')
             .map(|id| id.trim().parse())
             .collect::<Result<Vec<_>>>()?;
-        let auth_context = self.tenant.bind_auth_context(auth).await?;
+        let auth_context = self.tenant.bind_auth_context(auth, cancellation).await?;
         let items = AzureDevOpsWorkItemsGetRequest {
+            cancellation: cancellation.clone(),
             org_url: Cow::Owned(self.org),
             project: Some(self.project),
             auth_context: Cow::Owned(auth_context),

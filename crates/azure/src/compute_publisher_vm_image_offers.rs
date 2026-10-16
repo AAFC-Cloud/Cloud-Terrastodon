@@ -4,12 +4,16 @@ use cloud_terrastodon_azure_types::ComputePublisherVmImageOfferId;
 use cloud_terrastodon_azure_types::SubscriptionId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_rest::RestRequest;
 use std::path::PathBuf;
 
 #[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct ComputePublisherImageOfferListRequest {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub subscription_id: SubscriptionId,
     pub location: AzureLocationName,
     pub publisher_name: ComputePublisherName,
@@ -19,8 +23,10 @@ pub fn fetch_compute_publisher_image_offers(
     subscription_id: SubscriptionId,
     location: AzureLocationName,
     publisher_name: ComputePublisherName,
+    cancellation: &CancellationScope,
 ) -> ComputePublisherImageOfferListRequest {
     ComputePublisherImageOfferListRequest {
+        cancellation: cancellation.clone(),
         subscription_id,
         location,
         publisher_name,
@@ -54,7 +60,7 @@ impl CacheableCommand for ComputePublisherImageOfferListRequest {
             id: ComputePublisherVmImageOfferId,
             // The location and name are also present but are contained within the ID so we ignore them.
         }
-        let rtn = RestRequest::new(http::Method::GET, &url)?
+        let rtn = RestRequest::new(http::Method::GET, &url, &self.cancellation)?
             .cache(self.cache_key())
             .receive::<Vec<Row>>()
             .await?
@@ -74,26 +80,33 @@ mod test {
     use cloud_terrastodon_azure_types::AzureLocationName;
     use cloud_terrastodon_azure_types::ComputePublisherName;
     use cloud_terrastodon_azure_types::Slug;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_credentials::AuthContext;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        let tenant_id = get_test_tenant_id().await?;
-        let subs = fetch_all_subscriptions(
-            &AuthContext::explicit_azure_cli().bind_to_azure_tenant(tenant_id)?,
-        )
-        .await?;
-        let sub = subs.first().unwrap();
-        let publisher = ComputePublisherName::try_new("center-for-internet-security-inc")?;
-        let offers = super::fetch_compute_publisher_image_offers(
-            sub.id,
-            AzureLocationName::CanadaCentral,
-            publisher,
-        )
-        .await?;
-        assert!(!offers.is_empty());
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let tenant_id = get_test_tenant_id(&cancellation).await?;
+                let subs = fetch_all_subscriptions(
+                    &AuthContext::explicit_azure_cli().bind_to_azure_tenant(tenant_id)?,
+                    &cancellation,
+                )
+                .await?;
+                let sub = subs.first().unwrap();
+                let publisher = ComputePublisherName::try_new("center-for-internet-security-inc")?;
+                let offers = super::fetch_compute_publisher_image_offers(
+                    sub.id,
+                    AzureLocationName::CanadaCentral,
+                    publisher,
+                    &cancellation,
+                )
+                .await?;
+                assert!(!offers.is_empty());
 
-        Ok(())
+                Ok(())
+            })
+            .await
     }
 }
 

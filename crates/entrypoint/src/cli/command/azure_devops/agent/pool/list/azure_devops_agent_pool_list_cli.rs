@@ -1,5 +1,6 @@
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_agent_pools;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::to_writer_pretty;
 use eyre::Result;
 use std::io::stdout;
@@ -16,8 +17,11 @@ pub struct AzureDevOpsAgentPoolListArgs {
 }
 
 impl AzureDevOpsAgentPoolListArgs {
-    pub async fn invoke(self) -> Result<()> {
-        let pools = fetch_azure_devops_agent_pools(&self.org).await?;
+    pub async fn invoke(
+        self,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let pools = fetch_azure_devops_agent_pools(&self.org, cancellation).await?;
         let pools: Vec<_> = if self.all {
             pools
         } else {

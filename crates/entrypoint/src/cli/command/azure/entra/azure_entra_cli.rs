@@ -6,6 +6,7 @@ use super::role::AzureEntraRoleArgs;
 use super::service_principal::AzureEntraServicePrincipalArgs;
 use super::user::AzureEntraUserArgs;
 use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -37,26 +38,30 @@ pub enum AzureEntraCommand {
 }
 
 impl AzureEntraCommand {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<CliOutput> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<CliOutput> {
         match self {
             AzureEntraCommand::User(args) => {
-                args.invoke(auth_context).await?;
+                args.invoke(auth_context, cancellation).await?;
             }
             AzureEntraCommand::Principal(args) => {
-                args.invoke(auth_context).await?;
+                args.invoke(auth_context, cancellation).await?;
             }
             AzureEntraCommand::Role(args) => {
-                args.invoke(auth_context).await?;
+                args.invoke(auth_context, cancellation).await?;
             }
             AzureEntraCommand::ServicePrincipal(args) => {
-                args.invoke(auth_context).await?;
+                args.invoke(auth_context, cancellation).await?;
             }
             AzureEntraCommand::ApplicationRegistration(args) => {
-                args.invoke(auth_context).await?;
+                args.invoke(auth_context, cancellation).await?;
             }
-            AzureEntraCommand::Group(args) => return args.invoke(auth_context).await,
+            AzureEntraCommand::Group(args) => return args.invoke(auth_context, cancellation).await,
             AzureEntraCommand::OAuth2PermissionGrant(args) => {
-                args.invoke(auth_context).await?;
+                args.invoke(auth_context, cancellation).await?;
             }
         }
 

@@ -1,3 +1,4 @@
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_gitea::GiteaTenantArgument;
 use cloud_terrastodon_gitea::GiteaTenantArgumentExt;
 use cloud_terrastodon_gitea::fetch_all_gitea_organization_repositories;
@@ -40,9 +41,12 @@ pub struct GiteaRepoListArgs {
 }
 
 impl GiteaRepoListArgs {
-    pub async fn invoke(self) -> Result<()> {
-        let tenant = self.tenant.resolve().await?;
-        let repositories = self.fetch_repositories(&tenant).await?;
+    pub async fn invoke(
+        self,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let tenant = self.tenant.resolve(cancellation).await?;
+        let repositories = self.fetch_repositories(&tenant, cancellation).await?;
         info!(count = repositories.len(), ?self.method, "Fetched Gitea repositories");
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();
@@ -54,33 +58,47 @@ impl GiteaRepoListArgs {
     pub async fn fetch_repositories(
         &self,
         tenant: &cloud_terrastodon_gitea::GiteaInstanceUrl,
+        cancellation: &CancellationScope,
     ) -> Result<Vec<cloud_terrastodon_gitea::GiteaRepo>> {
         match self.method {
-            GiteaRepoListMethod::Combined => fetch_all_gitea_repositories(tenant).await,
-            GiteaRepoListMethod::Search => fetch_all_gitea_repositories_via_search(tenant).await,
+            GiteaRepoListMethod::Combined => {
+                fetch_all_gitea_repositories(tenant, cancellation).await
+            }
+            GiteaRepoListMethod::Search => {
+                fetch_all_gitea_repositories_via_search(tenant, cancellation).await
+            }
             GiteaRepoListMethod::Organizations => {
-                let organizations = fetch_all_gitea_organizations(tenant).await?;
+                let organizations = fetch_all_gitea_organizations(tenant, cancellation).await?;
                 let mut repositories = Vec::new();
                 for organization in &organizations {
                     repositories.extend(
-                        fetch_all_gitea_organization_repositories(tenant, &organization.username)
-                            .await?,
+                        fetch_all_gitea_organization_repositories(
+                            tenant,
+                            &organization.username,
+                            cancellation,
+                        )
+                        .await?,
                     );
                 }
                 Ok(cloud_terrastodon_gitea::dedupe_repositories(repositories))
             }
             GiteaRepoListMethod::Users => {
-                let users = fetch_all_gitea_users(tenant).await?;
+                let users = fetch_all_gitea_users(tenant, cancellation).await?;
                 let mut repositories = Vec::new();
                 for user in &users {
-                    repositories
-                        .extend(fetch_all_gitea_user_repositories(tenant, &user.login).await?);
+                    repositories.extend(
+                        fetch_all_gitea_user_repositories(tenant, &user.login, cancellation)
+                            .await?,
+                    );
                 }
                 Ok(cloud_terrastodon_gitea::dedupe_repositories(repositories))
             }
-            GiteaRepoListMethod::CurrentUser => fetch_current_user_gitea_repositories(tenant).await,
+            GiteaRepoListMethod::CurrentUser => {
+                fetch_current_user_gitea_repositories(tenant, cancellation).await
+            }
             GiteaRepoListMethod::IdRange => {
-                fetch_gitea_repositories_by_id_range(tenant, 1, self.max_repo_id).await
+                fetch_gitea_repositories_by_id_range(tenant, 1, self.max_repo_id, cancellation)
+                    .await
             }
         }
     }

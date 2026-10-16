@@ -4,6 +4,7 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemQuery;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
@@ -14,6 +15,9 @@ use tracing::info;
 
 #[derive(Debug, Clone, facet::Facet)]
 pub struct WorkItemQueriesForProjectRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub project: AzureDevOpsProjectArgument<'a>,
 }
@@ -21,8 +25,10 @@ pub struct WorkItemQueriesForProjectRequest<'a> {
 pub fn fetch_queries_for_project<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     project: impl Into<AzureDevOpsProjectArgument<'a>>,
+    cancellation: &CancellationScope,
 ) -> WorkItemQueriesForProjectRequest<'a> {
     WorkItemQueriesForProjectRequest {
+        cancellation: cancellation.clone(),
         org_url: Cow::Borrowed(org_url),
         project: project.into(),
     }
@@ -31,6 +37,7 @@ pub fn fetch_queries_for_project<'a>(
 impl<'a> Arbitrary<'a> for WorkItemQueriesForProjectRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: CancellationScope::arbitrary(u)?,
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
         })
@@ -55,6 +62,7 @@ impl<'a> CacheableCommand for WorkItemQueriesForProjectRequest<'a> {
     async fn run(self) -> eyre::Result<Self::Output> {
         info!("Fetching queries for Azure DevOps project {}", self.project);
         let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
+        cmd.cancellation_safe();
         cmd.args(["devops", "invoke"]);
         cmd.args(["--organization", self.org_url.to_string().as_str()]);
         cmd.args(["--area", "wit"]);
@@ -73,7 +81,7 @@ impl<'a> CacheableCommand for WorkItemQueriesForProjectRequest<'a> {
             count: u32,
             value: Vec<AzureDevOpsWorkItemQuery>,
         }
-        let resp = cmd.run::<InvokeResponse>().await?;
+        let resp = cmd.run::<InvokeResponse>(&self.cancellation).await?;
         let queries = resp.value;
         let total = AzureDevOpsWorkItemQuery::flatten_many(&queries).len();
         info!(
@@ -98,21 +106,27 @@ mod test {
     use crate::get_default_organization_url;
     use crate::get_default_project_name;
     use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemQuery;
+    use cloud_terrastodon_command::CancellationToken;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        let org_url = get_default_organization_url().await?;
-        let project_name = get_default_project_name().await?;
-        let queries = fetch_queries_for_project(&org_url, &project_name).await?;
-        let flattened = AzureDevOpsWorkItemQuery::flatten_many(&queries);
-        assert!(
-            !flattened.is_empty(),
-            "Expected at least one Azure DevOps work item query"
-        );
-        assert!(
-            flattened.iter().all(|entry| !entry.child.name.is_empty()),
-            "Expected Azure DevOps work item queries to include names"
-        );
-        Ok(())
+        CancellationToken::new()
+            .with_async_scope(|cancellation| async move {
+                let org_url = get_default_organization_url(&cancellation).await?;
+                let project_name = get_default_project_name(&cancellation).await?;
+                let queries =
+                    fetch_queries_for_project(&org_url, &project_name, &cancellation).await?;
+                let flattened = AzureDevOpsWorkItemQuery::flatten_many(&queries);
+                assert!(
+                    !flattened.is_empty(),
+                    "Expected at least one Azure DevOps work item query"
+                );
+                assert!(
+                    flattened.iter().all(|entry| !entry.child.name.is_empty()),
+                    "Expected Azure DevOps work item queries to include names"
+                );
+                Ok(())
+            })
+            .await
     }
 }

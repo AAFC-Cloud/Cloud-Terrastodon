@@ -1,5 +1,6 @@
 use super::terraform_source_add_imports_cli::TerraformSourceAddImportsArgs;
 use super::terraform_source_generate_cli::TerraformSourceGenerateArgs;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -11,8 +12,12 @@ pub struct TerraformSourceArgs {
 }
 
 impl TerraformSourceArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        self.command.invoke(auth_context).await
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        self.command.invoke(auth_context, cancellation).await
     }
 }
 
@@ -28,10 +33,16 @@ pub enum TerraformSourceCommand {
 }
 
 impl TerraformSourceCommand {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self {
-            TerraformSourceCommand::Generate(args) => args.invoke(auth_context).await,
-            TerraformSourceCommand::AddImports(args) => args.invoke(auth_context).await,
+            TerraformSourceCommand::Generate(args) => args.invoke(auth_context, cancellation).await,
+            TerraformSourceCommand::AddImports(args) => {
+                args.invoke(auth_context, cancellation).await
+            }
         }
     }
 }

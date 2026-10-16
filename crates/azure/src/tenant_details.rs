@@ -2,6 +2,7 @@ use crate::MicrosoftGraphHelper;
 use cloud_terrastodon_azure_types::MicrosoftGraphOrganization;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Result;
@@ -12,12 +13,16 @@ use std::path::PathBuf;
 #[must_use = "This is a future request, you must .await it"]
 #[derive(facet::Facet)]
 pub struct AzureTenantDetailsRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
 
 impl<'a> arbitrary::Arbitrary<'a> for AzureTenantDetailsRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: arbitrary::Arbitrary::arbitrary(u)?,
             auth_context: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
         })
     }
@@ -25,8 +30,10 @@ impl<'a> arbitrary::Arbitrary<'a> for AzureTenantDetailsRequest<'static> {
 
 pub fn fetch_azure_tenant_details<'a>(
     auth_context: &'a AzureTenantAuthContext,
+    cancellation: &CancellationScope,
 ) -> AzureTenantDetailsRequest<'a> {
     AzureTenantDetailsRequest {
+        cancellation: cancellation.clone(),
         auth_context: Cow::Borrowed(auth_context),
     }
 }
@@ -47,10 +54,14 @@ impl CacheableCommand for AzureTenantDetailsRequest<'_> {
 
     async fn run(self) -> Result<Self::Output> {
         let url = "https://graph.microsoft.com/v1.0/organization";
-        let resp =
-            MicrosoftGraphHelper::new(url, Some(self.cache_key()), self.auth_context.as_ref())
-                .fetch_all::<MicrosoftGraphOrganization>()
-                .await?;
+        let resp = MicrosoftGraphHelper::new(
+            url,
+            Some(self.cache_key()),
+            self.auth_context.as_ref(),
+            &self.cancellation,
+        )
+        .fetch_all::<MicrosoftGraphOrganization>(&self.cancellation)
+        .await?;
         ensure!(
             resp.len() == 1,
             "Expected exactly one organization in response, got {}",
@@ -66,23 +77,29 @@ cloud_terrastodon_command::impl_cacheable_into_future!(AzureTenantDetailsRequest
 mod test {
     use crate::fetch_azure_tenant_details;
     use crate::list_tracked_tenants;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_credentials::AuthContext;
     use eyre::ensure;
     use std::collections::HashSet;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        let tenants = list_tracked_tenants().await?;
-        ensure!(!tenants.is_empty(), "Expected at least one tracked tenant");
-        let mut seen = HashSet::new();
-        let auth_context = AuthContext::explicit_azure_cli();
-        for tenant_id in tenants {
-            let tenant_auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
-            let details = fetch_azure_tenant_details(&tenant_auth_context).await?;
-            let unique = seen.insert(details.entity.id.clone());
-            ensure!(unique, "Duplicate tenant ID found: {}", details.entity.id);
-        }
-        Ok(())
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let tenants = list_tracked_tenants().await?;
+                ensure!(!tenants.is_empty(), "Expected at least one tracked tenant");
+                let mut seen = HashSet::new();
+                let auth_context = AuthContext::explicit_azure_cli();
+                for tenant_id in tenants {
+                    let tenant_auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
+                    let details =
+                        fetch_azure_tenant_details(&tenant_auth_context, &cancellation).await?;
+                    let unique = seen.insert(details.entity.id.clone());
+                    ensure!(unique, "Duplicate tenant ID found: {}", details.entity.id);
+                }
+                Ok(())
+            })
+            .await
     }
 }
 

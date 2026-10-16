@@ -1,5 +1,6 @@
 use crate::cli::azure_devops::agent::pool::AzureDevOpsAgentPoolArgs;
 use crate::cli::azure_devops::agent_package::AzureDevOpsAgentPackageArgs;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -20,10 +21,14 @@ pub enum AzureDevOpsAgentCommand {
 }
 
 impl AzureDevOpsAgentArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self.command {
-            AzureDevOpsAgentCommand::Package(args) => args.invoke().await?,
-            AzureDevOpsAgentCommand::Pool(args) => args.invoke(auth_context).await?,
+            AzureDevOpsAgentCommand::Package(args) => args.invoke(cancellation).await?,
+            AzureDevOpsAgentCommand::Pool(args) => args.invoke(auth_context, cancellation).await?,
         }
 
         Ok(())

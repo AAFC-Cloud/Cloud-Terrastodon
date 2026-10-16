@@ -1,6 +1,7 @@
 pub mod outage_cli;
 pub mod outage_investigate_cli;
 
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 pub use outage_cli::OutageCommand;
@@ -14,7 +15,11 @@ pub struct OutageArgs {
 }
 
 impl OutageArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        self.command.invoke(auth_context).await
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        self.command.invoke(auth_context, cancellation).await
     }
 }

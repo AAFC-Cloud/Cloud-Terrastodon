@@ -1,7 +1,9 @@
 use crate::cli::pick::pick_command_cli::PickCommonArgs;
+use crate::cli::pick::pick_command_cli::QueryEngine;
 use crate::cli::pick::pick_command_cli::write_selected_lines;
 use crate::serde_json_isolation::Value;
 use crate::serde_json_isolation::json;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_user_input::CandidateSink;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerEvent;
@@ -103,7 +105,11 @@ async fn visit_fs_entries(
 
 impl PickFsArgs {
     #[instrument(name = "pick_fs_command", skip_all)]
-    pub(crate) async fn invoke(self, common: PickCommonArgs) -> Result<()> {
+    pub(crate) async fn invoke(
+        self,
+        common: PickCommonArgs,
+        _cancellation: &CancellationScope,
+    ) -> Result<()> {
         let cwd = std::env::current_dir()?;
         let recursive = self.recursive;
         let query = common.query.clone();
@@ -142,7 +148,7 @@ impl PickFsArgs {
 async fn stream_fs_choices(
     root: &Path,
     recursive: bool,
-    query_engine: &crate::cli::pick::pick_command_cli::QueryEngine,
+    query_engine: &QueryEngine,
     query: &str,
     sink: &CandidateSink<String>,
 ) -> Result<()> {

@@ -4,6 +4,7 @@ use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemId;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemUpdateRequest;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use std::borrow::Cow;
@@ -35,14 +36,19 @@ pub struct AzureDevOpsWorkItemUpdateArgs {
 }
 
 impl AzureDevOpsWorkItemUpdateArgs {
-    pub async fn invoke(self, auth: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         let body = cloud_terrastodon_rest::read_optional_body(Some(self.patch))
             .await?
             .ok_or_else(|| eyre::eyre!("Missing JSON input"))?;
         let patch = facet_json::from_str(&body)
             .map_err(|error| eyre::eyre!("Invalid JSON input: {error}"))?;
-        let auth_context = self.tenant.bind_auth_context(auth).await?;
+        let auth_context = self.tenant.bind_auth_context(auth, cancellation).await?;
         let item = AzureDevOpsWorkItemUpdateRequest {
+            cancellation: cancellation.clone(),
             org_url: Cow::Owned(self.org),
             project: Some(self.project),
             auth_context: Cow::Owned(auth_context),

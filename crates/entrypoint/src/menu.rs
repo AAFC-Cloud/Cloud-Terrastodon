@@ -1,6 +1,7 @@
 use crate::menu_action::MenuAction;
 use crate::menu_action::MenuActionResult;
 use cloud_terrastodon_azure::get_default_tenant_id;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_user_input::PickError;
 use cloud_terrastodon_user_input::PickerTui;
@@ -10,7 +11,10 @@ use eyre::Result;
 use strum::VariantArray;
 use tracing::info;
 
-pub async fn menu(auth_context: &AuthContext) -> Result<MenuActionResult> {
+pub async fn menu(
+    auth_context: &AuthContext,
+    cancellation: &CancellationScope,
+) -> Result<MenuActionResult> {
     // Create a container for the choices we are about to gather
     let mut choices = Vec::new();
 
@@ -38,7 +42,10 @@ pub async fn menu(auth_context: &AuthContext) -> Result<MenuActionResult> {
         })
         .pick_many(choices);
 
-    let mut chosen = match chosen.await {
+    let mut chosen = match cancellation
+        .cancellable_scope(|_cancellation| async { Ok::<_, eyre::Report>(chosen.await) })
+        .await?
+    {
         Ok(c) => c,
         Err(PickError::Cancelled) => {
             info!("Operation cancelled by user");
@@ -52,13 +59,13 @@ pub async fn menu(auth_context: &AuthContext) -> Result<MenuActionResult> {
     // restore execution order
     chosen.reverse();
 
-    let default_tenant_id = get_default_tenant_id().await?;
+    let default_tenant_id = get_default_tenant_id(cancellation).await?;
     let tenant_auth_context = auth_context.bind_to_azure_tenant(default_tenant_id)?;
 
     for action in &chosen {
         info!("Invoking action \"{action}\"");
         let result = action
-            .invoke(&tenant_auth_context)
+            .invoke(&tenant_auth_context, cancellation)
             .await
             .context(format!("invoking action \"{action}\""));
         match result {
@@ -83,9 +90,13 @@ pub async fn press_enter_to_continue() -> Result<()> {
     Ok(())
 }
 
-pub async fn menu_loop(auth_context: &AuthContext) -> Result<()> {
+pub async fn menu_loop(
+    auth_context: &AuthContext,
+    cancellation: &CancellationScope,
+) -> Result<()> {
     loop {
-        if menu(auth_context).await? == MenuActionResult::QuitApplication {
+        cancellation.bail_if_cancelled()?;
+        if menu(auth_context, cancellation).await? == MenuActionResult::QuitApplication {
             info!("Goodbye!");
             return Ok(());
         }

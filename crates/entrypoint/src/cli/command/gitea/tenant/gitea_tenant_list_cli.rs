@@ -1,3 +1,4 @@
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_gitea::list_tracked_tenants;
 use eyre::Result;
 use std::io::Write;
@@ -6,7 +7,10 @@ use std::io::Write;
 pub struct GiteaTenantListArgs {}
 
 impl GiteaTenantListArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(
+        self,
+        _cancellation: &CancellationScope,
+    ) -> Result<()> {
         let tenants = list_tracked_tenants().await?;
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();

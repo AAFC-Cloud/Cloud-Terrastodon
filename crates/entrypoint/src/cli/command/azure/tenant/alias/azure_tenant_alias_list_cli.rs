@@ -2,6 +2,7 @@ use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::list_tracked_tenant_aliases;
 use cloud_terrastodon_azure::list_tracked_tenant_aliases_for;
+use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 use std::io::Write;
 
@@ -14,12 +15,15 @@ pub struct AzureTenantAliasListArgs {
 }
 
 impl AzureTenantAliasListArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(
+        self,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();
 
         if let Some(tenant) = self.tenant {
-            let tenant_id = tenant.resolve().await?;
+            let tenant_id = tenant.resolve(cancellation).await?;
             let mut aliases = list_tracked_tenant_aliases_for(tenant_id).await?;
             aliases.sort();
             cloud_terrastodon_command::to_writer_pretty(&mut handle, &aliases)?;

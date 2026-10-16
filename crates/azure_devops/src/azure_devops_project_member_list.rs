@@ -11,6 +11,7 @@ use cloud_terrastodon_command::CacheInvalidatable;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
@@ -30,6 +31,9 @@ use tracing::info;
 /// Lists users that are transitively members of an Azure DevOps project.
 #[derive(Debug, Clone, facet::Facet)]
 pub struct AzureDevOpsProjectMemberListRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub project: AzureDevOpsProjectArgument<'a>,
     pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
@@ -39,8 +43,10 @@ pub fn fetch_azure_devops_project_members<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     project: impl Into<AzureDevOpsProjectArgument<'a>>,
     auth_context: &'a AzureDevOpsAuthContext,
+    cancellation: &CancellationScope,
 ) -> AzureDevOpsProjectMemberListRequest<'a> {
     AzureDevOpsProjectMemberListRequest {
+        cancellation: cancellation.clone(),
         org_url: Cow::Borrowed(org_url),
         project: project.into(),
         auth_context: Cow::Borrowed(auth_context),
@@ -50,6 +56,7 @@ pub fn fetch_azure_devops_project_members<'a>(
 impl<'a> Arbitrary<'a> for AzureDevOpsProjectMemberListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: CancellationScope::arbitrary(u)?,
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
             auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
@@ -89,13 +96,17 @@ struct AzureDevOpsProjectMemberAccumulator {
 #[async_trait]
 impl<'a> CacheInvalidatable for AzureDevOpsProjectMemberListRequest<'a> {
     async fn invalidate(&self) -> Result<()> {
-        let projects =
-            fetch_all_azure_devops_projects(self.org_url.as_ref(), self.auth_context.as_ref())
-                .cache_key();
+        let projects = fetch_all_azure_devops_projects(
+            self.org_url.as_ref(),
+            self.auth_context.as_ref(),
+            &self.cancellation,
+        )
+        .cache_key();
         let groups = fetch_azure_devops_groups_for_project(
             self.org_url.as_ref(),
             self.project.clone(),
             self.auth_context.as_ref(),
+            &self.cancellation,
         )
         .cache_key();
         let memberships = CacheKey::new(PathBuf::from_iter([
@@ -123,7 +134,12 @@ impl<'a> CacheInvalidatableIntoFuture for AzureDevOpsProjectMemberListRequest<'a
     fn with_invalidation(self, invalidate_cache: bool) -> Self::WithInvalidation {
         Box::pin(async move {
             if invalidate_cache {
-                self.invalidate().await?;
+                self.cancellation
+                    .deferred(
+                        "finishing filesystem and memory cache invalidation",
+                        |_invalidation| async { self.invalidate().await },
+                    )
+                    .await?;
             }
             self.into_future().await
         })
@@ -135,103 +151,124 @@ impl<'a> IntoFuture for AzureDevOpsProjectMemberListRequest<'a> {
     type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + Send + 'a>>;
 
     fn into_future(self) -> Self::IntoFuture {
-        Box::pin(async move {
-            let projects =
-                fetch_all_azure_devops_projects(self.org_url.as_ref(), self.auth_context.as_ref())
+        Box::pin(
+            self.cancellation
+                .clone()
+                .cancellable_scope(move |cancellation| async move {
+                    let projects = fetch_all_azure_devops_projects(
+                        self.org_url.as_ref(),
+                        self.auth_context.as_ref(),
+                        &cancellation,
+                    )
                     .await?;
-            let Some(project) = projects
-                .into_iter()
-                .find(|project| self.project.matches(project))
-            else {
-                bail!("No project found matching '{}'.", self.project);
-            };
+                    let Some(project) = projects
+                        .into_iter()
+                        .find(|project| self.project.matches(project))
+                    else {
+                        bail!("No project found matching '{}'.", self.project);
+                    };
 
-            info!(project = %project.name, "Fetching project permission objects");
-            let permission_objects = fetch_azure_devops_groups_for_project(
-                self.org_url.as_ref(),
-                &project,
-                self.auth_context.as_ref(),
-            )
-            .await?;
+                    info!(project = %project.name, "Fetching project permission objects");
+                    let permission_objects = fetch_azure_devops_groups_for_project(
+                        self.org_url.as_ref(),
+                        &project,
+                        self.auth_context.as_ref(),
+                        &cancellation,
+                    )
+                    .await?;
 
-            let mut work = ParallelFallibleWorkQueue::new("fetching transitive project members", 4);
-            for permission_object in permission_objects {
-                let org_url = self.org_url.clone().into_owned();
-                work.enqueue(async move {
-                    let members =
-                        collect_transitive_user_members(&org_url, &permission_object.descriptor)
-                            .await
-                            .wrap_err_with(|| {
-                                format!(
-                                    "Failed to collect members for permission object {} ({})",
-                                    permission_object.display_name, permission_object.descriptor
+                    let mut work =
+                        ParallelFallibleWorkQueue::new("fetching transitive project members", 4);
+                    for permission_object in permission_objects {
+                        cancellation.bail_if_cancelled()?;
+                        let org_url = self.org_url.as_ref().clone();
+                        work.enqueue(cancellation.cancellable_scope(
+                            move |cancellation| async move {
+                                let members = collect_transitive_user_members(
+                                    &org_url,
+                                    &permission_object.descriptor,
+                                    &cancellation,
                                 )
-                            })?;
-                    Ok((permission_object, members))
-                });
-            }
+                                .await
+                                .wrap_err_with(|| {
+                                    format!(
+                                        "Failed to collect members for permission object {} ({})",
+                                        permission_object.display_name,
+                                        permission_object.descriptor
+                                    )
+                                })?;
+                                Ok((permission_object, members))
+                            },
+                        ));
+                    }
 
-            let mut members_by_descriptor =
-                HashMap::<AzureDevOpsDescriptor, AzureDevOpsProjectMemberAccumulator>::new();
-            for (permission_object, members) in work.join().await? {
-                let permission_object = AzureDevOpsProjectPermissionObject::from(permission_object);
-                for member in members {
-                    members_by_descriptor
-                        .entry(member.descriptor.clone())
-                        .and_modify(|entry| {
-                            entry
-                                .permission_objects
-                                .entry(permission_object.descriptor.clone())
-                                .or_insert_with(|| permission_object.clone());
-                        })
-                        .or_insert_with(|| {
-                            let mut permission_objects = HashMap::new();
-                            permission_objects.insert(
-                                permission_object.descriptor.clone(),
-                                permission_object.clone(),
-                            );
-                            AzureDevOpsProjectMemberAccumulator {
-                                member,
-                                permission_objects,
-                            }
-                        });
-                }
-            }
+                    let members = work.join().await?;
+                    let mut members_by_descriptor =
+                        HashMap::<AzureDevOpsDescriptor, AzureDevOpsProjectMemberAccumulator>::new(
+                        );
+                    for (permission_object, members) in members {
+                        let permission_object =
+                            AzureDevOpsProjectPermissionObject::from(permission_object);
+                        for member in members {
+                            members_by_descriptor
+                                .entry(member.descriptor.clone())
+                                .and_modify(|entry| {
+                                    entry
+                                        .permission_objects
+                                        .entry(permission_object.descriptor.clone())
+                                        .or_insert_with(|| permission_object.clone());
+                                })
+                                .or_insert_with(|| {
+                                    let mut permission_objects = HashMap::new();
+                                    permission_objects.insert(
+                                        permission_object.descriptor.clone(),
+                                        permission_object.clone(),
+                                    );
+                                    AzureDevOpsProjectMemberAccumulator {
+                                        member,
+                                        permission_objects,
+                                    }
+                                });
+                        }
+                    }
 
-            let mut members = members_by_descriptor
-                .into_values()
-                .map(AzureDevOpsProjectMember::from)
-                .collect::<Vec<_>>();
-            members.sort_by(|a, b| {
-                a.principal_name
-                    .to_lowercase()
-                    .cmp(&b.principal_name.to_lowercase())
-                    .then_with(|| {
-                        a.display_name
+                    let mut members = members_by_descriptor
+                        .into_values()
+                        .map(AzureDevOpsProjectMember::from)
+                        .collect::<Vec<_>>();
+                    members.sort_by(|a, b| {
+                        a.principal_name
                             .to_lowercase()
-                            .cmp(&b.display_name.to_lowercase())
-                    })
-            });
+                            .cmp(&b.principal_name.to_lowercase())
+                            .then_with(|| {
+                                a.display_name
+                                    .to_lowercase()
+                                    .cmp(&b.display_name.to_lowercase())
+                            })
+                    });
 
-            Ok(members)
-        })
+                    Ok(members)
+                }),
+        )
     }
 }
 
 async fn collect_transitive_user_members(
     org_url: &AzureDevOpsOrganizationUrl,
     root_descriptor: &AzureDevOpsDescriptor,
+    cancellation: &CancellationScope,
 ) -> Result<Vec<AzureDevOpsGroupMember>> {
     let mut visited_permission_objects = HashSet::new();
     let mut pending_permission_objects = VecDeque::from([root_descriptor.clone()]);
     let mut users = HashMap::<AzureDevOpsDescriptor, AzureDevOpsGroupMember>::new();
 
     while let Some(descriptor) = pending_permission_objects.pop_front() {
+        cancellation.bail_if_cancelled()?;
         if !visited_permission_objects.insert(descriptor.clone()) {
             continue;
         }
 
-        let members = fetch_azure_devops_group_members(org_url, &descriptor)
+        let members = fetch_azure_devops_group_members(org_url, &descriptor, &cancellation)
             .await
             .wrap_err_with(|| {
                 format!("Failed to list members for permission object {descriptor}")

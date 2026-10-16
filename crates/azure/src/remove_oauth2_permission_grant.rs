@@ -2,6 +2,7 @@ use crate::bust_oauth2_permission_grants_cache;
 use cloud_terrastodon_azure_types::OAuth2PermissionGrantId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_rest::RestRequest;
@@ -12,6 +13,9 @@ use std::time::Duration;
 
 #[derive(facet::Facet)]
 pub struct OAuth2PermissionGrantRemoveRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
     pub id: OAuth2PermissionGrantId,
 }
@@ -19,6 +23,7 @@ pub struct OAuth2PermissionGrantRemoveRequest<'a> {
 impl<'a> arbitrary::Arbitrary<'a> for OAuth2PermissionGrantRemoveRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: arbitrary::Arbitrary::arbitrary(u)?,
             auth_context: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
             id: arbitrary::Arbitrary::arbitrary(u)?,
         })
@@ -28,8 +33,10 @@ impl<'a> arbitrary::Arbitrary<'a> for OAuth2PermissionGrantRemoveRequest<'static
 pub fn remove_oauth2_permission_grant<'a>(
     auth_context: &'a AzureTenantAuthContext,
     id: OAuth2PermissionGrantId,
+    cancellation: &CancellationScope,
 ) -> OAuth2PermissionGrantRemoveRequest<'a> {
     OAuth2PermissionGrantRemoveRequest {
+        cancellation: cancellation.clone(),
         auth_context: Cow::Borrowed(auth_context),
         id,
     }
@@ -54,19 +61,27 @@ impl CacheableCommand for OAuth2PermissionGrantRemoveRequest<'_> {
     }
 
     async fn run(self) -> eyre::Result<Self::Output> {
-        let cache_key = self.cache_key();
-        let url = format!(
-            "https://graph.microsoft.com/v1.0/oauth2PermissionGrants/{}",
-            self.id
-        );
-        RestRequest::new(Method::DELETE, &url)?
-            .tenant(self.auth_context.tenant_id)
-            .azure_auth_context(&self.auth_context.auth_context)
-            .cache(cache_key)
-            .receive_raw()
-            .await?;
-        bust_oauth2_permission_grants_cache(self.auth_context.tenant_id).await?;
-        Ok(())
+        self.cancellation
+            .clone()
+            .deferred(
+                "Finish the submitted Azure mutation and its cache cleanup",
+                |cancellation| async move {
+                    let cache_key = self.cache_key();
+                    let url = format!(
+                        "https://graph.microsoft.com/v1.0/oauth2PermissionGrants/{}",
+                        self.id
+                    );
+                    RestRequest::new(Method::DELETE, &url, &cancellation)?
+                        .tenant(self.auth_context.tenant_id)
+                        .azure_auth_context(&self.auth_context.auth_context)
+                        .cache(cache_key)
+                        .receive_raw()
+                        .await?;
+                    bust_oauth2_permission_grants_cache(self.auth_context.tenant_id).await?;
+                    Ok(())
+                },
+            )
+            .await
     }
 }
 

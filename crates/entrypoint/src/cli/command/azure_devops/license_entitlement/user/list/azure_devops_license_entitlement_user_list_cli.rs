@@ -1,5 +1,6 @@
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlements;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::to_writer_pretty;
 use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
@@ -15,11 +16,18 @@ pub struct AzureDevOpsLicenseEntitlementUserListArgs {
 }
 
 impl AzureDevOpsLicenseEntitlementUserListArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         let azure_devops_auth_context = AzureDevOpsAuthContext::new(auth_context)?;
-        let entitlements =
-            fetch_azure_devops_user_license_entitlements(&self.org, &azure_devops_auth_context)
-                .await?;
+        let entitlements = fetch_azure_devops_user_license_entitlements(
+            &self.org,
+            &azure_devops_auth_context,
+            cancellation,
+        )
+        .await?;
         to_writer_pretty(stdout(), &entitlements)?;
         Ok(())
     }

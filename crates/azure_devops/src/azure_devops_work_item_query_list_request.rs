@@ -3,6 +3,7 @@ use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemQuery;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use cloud_terrastodon_rest::MicrosoftContinuationToken;
 use cloud_terrastodon_rest::RestRequest;
@@ -18,6 +19,9 @@ use std::pin::Pin;
 
 #[derive(Debug, Clone, Facet)]
 pub struct AzureDevOpsWorkItemQueryListRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub project: AzureDevOpsProjectArgument<'a>,
     pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
@@ -27,6 +31,7 @@ pub struct AzureDevOpsWorkItemQueryListRequest<'a> {
 impl<'a> Arbitrary<'a> for AzureDevOpsWorkItemQueryListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: CancellationScope::arbitrary(u)?,
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
             auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
@@ -63,13 +68,15 @@ impl<'a> IntoFuture for AzureDevOpsWorkItemQueryListRequest<'a> {
             let mut seen = std::collections::BTreeSet::new();
             let mut queries = Vec::new();
             loop {
+                self.cancellation.bail_if_cancelled()?;
                 let mut url = base_url.clone();
                 if let Some(token) = &continuation {
                     url.query_pairs_mut()
                         .append_pair("continuationToken", token.as_str());
                 }
-                let request = RestRequest::from_method_and_url(Method::GET, url)?
-                    .azure_devops_auth_context(self.auth_context.as_ref())?;
+                let request =
+                    RestRequest::from_method_and_url(Method::GET, url, &self.cancellation)?
+                        .azure_devops_auth_context(self.auth_context.as_ref())?;
                 let (response, next): (WorkItemListResponse<AzureDevOpsWorkItemQuery>, _) =
                     request.receive_with_ms_continuation_token().await?;
                 queries.extend(response.value);

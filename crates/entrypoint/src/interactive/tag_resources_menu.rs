@@ -6,6 +6,7 @@ use cloud_terrastodon_azure::fetch_all_resource_groups;
 use cloud_terrastodon_azure::fetch_all_resources;
 use cloud_terrastodon_azure::get_tags_for_resources;
 use cloud_terrastodon_azure::replace_tags_for_resources;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
@@ -13,8 +14,11 @@ use cloud_terrastodon_user_input::prompt_line;
 use itertools::Itertools;
 use tracing::info;
 
-pub async fn tag_resources_menu(auth_context: &AzureTenantAuthContext) -> eyre::Result<()> {
-    let resource_groups = fetch_all_resource_groups(auth_context).await?;
+pub async fn tag_resources_menu(
+    auth_context: &AzureTenantAuthContext,
+    cancellation: &CancellationScope,
+) -> eyre::Result<()> {
+    let resource_groups = fetch_all_resource_groups(auth_context, cancellation).await?;
     let resource_group: ResourceGroup = PickerTui::<_>::new()
         .set_header("Choose a resource group")
         .pick_one(resource_groups.into_iter().map(|rg| Choice {
@@ -22,7 +26,7 @@ pub async fn tag_resources_menu(auth_context: &AzureTenantAuthContext) -> eyre::
             value: rg,
         }))
         .await?;
-    let resources = fetch_all_resources(auth_context)
+    let resources = fetch_all_resources(auth_context, cancellation)
         .await?
         .into_iter()
         .filter(|res| {
@@ -43,6 +47,7 @@ pub async fn tag_resources_menu(auth_context: &AzureTenantAuthContext) -> eyre::
             .into_iter()
             .map(|r: Resource| ResourceTagsId::from_scope(&r))
             .collect_vec(),
+        cancellation,
     )
     .await?;
     let tag_key = prompt_line("Enter tag key: ").await?;
@@ -56,6 +61,7 @@ pub async fn tag_resources_menu(auth_context: &AzureTenantAuthContext) -> eyre::
                 (id, tags)
             })
             .collect(),
+        cancellation,
     )
     .await?;
     for tags in result.values() {

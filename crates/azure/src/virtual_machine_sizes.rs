@@ -2,12 +2,14 @@ use cloud_terrastodon_azure_types::AzureLocationName;
 use cloud_terrastodon_azure_types::SubscriptionId;
 use cloud_terrastodon_azure_types::VirtualMachineSize;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_rest::RestRequest;
 use std::path::PathBuf;
 
 pub async fn fetch_virtual_machine_sizes(
     subscription_id: &SubscriptionId,
     location: &AzureLocationName,
+    cancellation: &CancellationScope,
 ) -> eyre::Result<Vec<VirtualMachineSize>> {
     let url = format!(
         "https://management.azure.com/subscriptions/{subscription_id}/providers/Microsoft.Compute/locations/{location}/vmSizes?api-version=2022-11-01"
@@ -16,7 +18,7 @@ pub async fn fetch_virtual_machine_sizes(
     struct Response {
         value: Vec<VirtualMachineSize>,
     }
-    let rtn = RestRequest::new(http::Method::GET, &url)?
+    let rtn = RestRequest::new(http::Method::GET, &url, cancellation)?
         .cache(CacheKey::new(PathBuf::from_iter([
             "az",
             "vm",
@@ -35,19 +37,29 @@ mod test {
     use crate::fetch_all_subscriptions;
     use crate::get_test_tenant_id;
     use cloud_terrastodon_azure_types::AzureLocationName;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_credentials::AuthContext;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        let tenant_id = get_test_tenant_id().await?;
-        let subs = fetch_all_subscriptions(
-            &AuthContext::explicit_azure_cli().bind_to_azure_tenant(tenant_id)?,
-        )
-        .await?;
-        let sub = subs.first().unwrap();
-        let sizes =
-            crate::fetch_virtual_machine_sizes(&sub.id, &AzureLocationName::CanadaCentral).await?;
-        assert!(!sizes.is_empty());
-        Ok(())
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let tenant_id = get_test_tenant_id(&cancellation).await?;
+                let subs = fetch_all_subscriptions(
+                    &AuthContext::explicit_azure_cli().bind_to_azure_tenant(tenant_id)?,
+                    &cancellation,
+                )
+                .await?;
+                let sub = subs.first().unwrap();
+                let sizes = crate::fetch_virtual_machine_sizes(
+                    &sub.id,
+                    &AzureLocationName::CanadaCentral,
+                    &cancellation,
+                )
+                .await?;
+                assert!(!sizes.is_empty());
+                Ok(())
+            })
+            .await
     }
 }

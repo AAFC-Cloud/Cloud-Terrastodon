@@ -2,6 +2,8 @@ use super::arena_query_context::ArenaQueryContext;
 use super::arena_query_context::ArenaQueryContextError;
 use super::arena_query_session::JsonBatchBudget;
 use super::breadcrumbs::Breadcrumbs;
+use cloud_terrastodon_command::CancellationError;
+use cloud_terrastodon_command::CancellationScope;
 use std::error::Error;
 use std::fmt;
 use std::future::Future;
@@ -15,6 +17,7 @@ const EXPORT_BYTES_PER_BATCH: usize = 64 * 1024;
 
 #[derive(Debug)]
 pub(crate) enum ProduceJsonError {
+    Cancelled(CancellationError),
     Query(ArenaQueryContextError),
     Io {
         path: PathBuf,
@@ -26,6 +29,7 @@ pub(crate) enum ProduceJsonError {
 impl fmt::Display for ProduceJsonError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::Cancelled(error) => error.fmt(formatter),
             Self::Query(error) => error.fmt(formatter),
             Self::Io {
                 path,
@@ -43,6 +47,7 @@ impl fmt::Display for ProduceJsonError {
 impl Error for ProduceJsonError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
+            Self::Cancelled(error) => Some(error),
             Self::Query(error) => Some(error),
             Self::Io { source, .. } => Some(source),
         }
@@ -52,6 +57,12 @@ impl Error for ProduceJsonError {
 impl From<ArenaQueryContextError> for ProduceJsonError {
     fn from(value: ArenaQueryContextError) -> Self {
         Self::Query(value)
+    }
+}
+
+impl From<CancellationError> for ProduceJsonError {
+    fn from(value: CancellationError) -> Self {
+        Self::Cancelled(value)
     }
 }
 
@@ -66,6 +77,8 @@ impl From<ArenaQueryContextError> for ProduceJsonError {
 pub(crate) struct ProduceJsonRequest {
     breadcrumbs: Breadcrumbs,
     filename: String,
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
 }
 
 impl<'a> arbitrary::Arbitrary<'a> for ProduceJsonRequest {
@@ -78,15 +91,21 @@ impl<'a> arbitrary::Arbitrary<'a> for ProduceJsonRequest {
         Ok(Self::new(
             breadcrumbs,
             format!("object-explorer-{suffix:016x}.json"),
+            &CancellationScope::unbound(),
         ))
     }
 }
 
 impl ProduceJsonRequest {
-    pub(crate) fn new(breadcrumbs: Breadcrumbs, filename: impl Into<String>) -> Self {
+    pub(crate) fn new(
+        breadcrumbs: Breadcrumbs,
+        filename: impl Into<String>,
+        cancellation: &CancellationScope,
+    ) -> Self {
         Self {
             breadcrumbs,
             filename: filename.into(),
+            cancellation: cancellation.clone(),
         }
     }
 
@@ -99,20 +118,31 @@ impl ProduceJsonRequest {
     }
 
     pub(crate) fn run(
-        self,
+        mut self,
         context: ArenaQueryContext,
     ) -> Pin<Box<dyn Future<Output = Result<String, ProduceJsonError>> + Send>> {
         Box::pin(async move {
-            let filename = PathBuf::from(&self.filename);
-            let mut file = tokio::fs::File::create(&filename).await.map_err(|source| {
-                ProduceJsonError::Io {
-                    path: filename.clone(),
-                    operation: "create",
-                    source,
-                }
-            })?;
+            let cancellation = self.cancellation.clone();
+            cancellation
+                .deferred(
+                    "writing and flushing the exported JSON document",
+                    |scope| async move {
+                        // Protect truncation, the whole document, and export-session completion.
+                        self.cancellation = scope;
+                        let filename = PathBuf::from(&self.filename);
+                        let mut file =
+                            tokio::fs::File::create(&filename).await.map_err(|source| {
+                                ProduceJsonError::Io {
+                                    path: filename.clone(),
+                                    operation: "create",
+                                    source,
+                                }
+                            })?;
 
-            self.write_to_sink(context, &mut file).await
+                        self.write_to_sink(context, &mut file).await
+                    },
+                )
+                .await
         })
     }
 
@@ -129,57 +159,66 @@ impl ProduceJsonRequest {
     where
         W: AsyncWrite + Unpin + Send,
     {
-        let Self {
-            breadcrumbs,
-            filename,
-        } = self;
-        let path = PathBuf::from(&filename);
-        let session = context.open_export(breadcrumbs).await?;
+        let cancellation = self.cancellation.clone();
+        cancellation
+            .deferred(
+                "finishing the JSON document and export session",
+                |_| async move {
+                    let Self {
+                        breadcrumbs,
+                        filename,
+                        cancellation: _,
+                    } = self;
+                    let path = PathBuf::from(&filename);
+                    let session = context.open_export(breadcrumbs).await?;
 
-        sink.write_all(b"[")
+                    sink.write_all(b"[")
+                        .await
+                        .map_err(|source| ProduceJsonError::Io {
+                            path: path.clone(),
+                            operation: "write",
+                            source,
+                        })?;
+
+                    let mut emitted_any = false;
+                    loop {
+                        let batch = session
+                            .next_json_batch(JsonBatchBudget::new(
+                                EXPORT_WORK_PER_BATCH,
+                                EXPORT_BYTES_PER_BATCH,
+                            ))
+                            .await?;
+                        sink.write_all(batch.fragment.as_bytes())
+                            .await
+                            .map_err(|source| ProduceJsonError::Io {
+                                path: path.clone(),
+                                operation: "write",
+                                source,
+                            })?;
+                        emitted_any |= batch.emitted != 0;
+                        if batch.complete {
+                            break;
+                        }
+                    }
+
+                    sink.write_all(if emitted_any { b"\n]\n" } else { b"]\n" })
+                        .await
+                        .map_err(|source| ProduceJsonError::Io {
+                            path: path.clone(),
+                            operation: "finish writing",
+                            source,
+                        })?;
+                    sink.flush().await.map_err(|source| ProduceJsonError::Io {
+                        path: path.clone(),
+                        operation: "flush",
+                        source,
+                    })?;
+
+                    session.complete().await?;
+                    Ok(path.display().to_string())
+                },
+            )
             .await
-            .map_err(|source| ProduceJsonError::Io {
-                path: path.clone(),
-                operation: "write",
-                source,
-            })?;
-
-        let mut emitted_any = false;
-        loop {
-            let batch = session
-                .next_json_batch(JsonBatchBudget::new(
-                    EXPORT_WORK_PER_BATCH,
-                    EXPORT_BYTES_PER_BATCH,
-                ))
-                .await?;
-            sink.write_all(batch.fragment.as_bytes())
-                .await
-                .map_err(|source| ProduceJsonError::Io {
-                    path: path.clone(),
-                    operation: "write",
-                    source,
-                })?;
-            emitted_any |= batch.emitted != 0;
-            if batch.complete {
-                break;
-            }
-        }
-
-        sink.write_all(if emitted_any { b"\n]\n" } else { b"]\n" })
-            .await
-            .map_err(|source| ProduceJsonError::Io {
-                path: path.clone(),
-                operation: "finish writing",
-                source,
-            })?;
-        sink.flush().await.map_err(|source| ProduceJsonError::Io {
-            path: path.clone(),
-            operation: "flush",
-            source,
-        })?;
-
-        session.complete().await?;
-        Ok(path.display().to_string())
     }
 }
 
@@ -215,6 +254,7 @@ mod tests {
     use crate::object_explorer::explorer_engine::ExplorerEngine;
     use crate::object_explorer::tab::Tab;
     use crate::object_explorer::value_address::ValueAddress;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_registry::RuntimeValue;
     use facet::Facet;
     use facet::Type;
@@ -258,6 +298,7 @@ mod tests {
         let fields = request
             .fields
             .iter()
+            .filter(|field| field.effective_name() != "cancellation")
             .map(|field| (field.effective_name(), field.shape()))
             .collect::<Vec<_>>();
 
@@ -270,335 +311,472 @@ mod tests {
 
     #[tokio::test]
     async fn produce_json_into_future_reports_typed_missing_context() {
-        let request = ProduceJsonRequest::new(
-            Breadcrumbs::default(),
-            test_path("missing").display().to_string(),
-        );
+        CancellationToken::new()
+            .with_async_scope(|cancellation| async move {
+                let request = ProduceJsonRequest::new(
+                    Breadcrumbs::default(),
+                    test_path("missing").display().to_string(),
+                    &cancellation,
+                );
 
-        let error = request
-            .into_future()
+                let error = request
+                    .into_future()
+                    .await
+                    .expect_err("unscoped request must fail");
+
+                assert!(matches!(
+                    error.downcast_ref::<ProduceJsonError>(),
+                    Some(ProduceJsonError::Query(ArenaQueryContextError::Missing))
+                ));
+                Ok::<_, eyre::Report>(())
+            })
             .await
-            .expect_err("unscoped request must fail");
-
-        assert!(matches!(
-            error.downcast_ref::<ProduceJsonError>(),
-            Some(ProduceJsonError::Query(ArenaQueryContextError::Missing))
-        ));
+            .expect("test execution scope remains valid");
     }
 
     #[tokio::test]
     async fn produce_json_context_free_future_streams_engine_query() {
-        let mut arena = Arena::default();
-        arena
-            .insert_ready(runtime(Tab::new("export", Breadcrumbs::default())))
-            .unwrap();
-        arena
-            .insert_ready(runtime(String::from("streamed-value")))
-            .unwrap();
-        let engine = ExplorerEngine::new(arena);
-        let (context, inbox) = ArenaQueryContext::channel(4);
-        let filename = test_path("stream");
-        let request =
-            ProduceJsonRequest::new(Breadcrumbs::default(), filename.display().to_string());
+        CancellationToken::new()
+            .with_async_scope(|cancellation| async move {
+                let mut arena = Arena::default();
+                arena
+                    .insert_ready(runtime(Tab::new("export", Breadcrumbs::default())))
+                    .unwrap();
+                arena
+                    .insert_ready(runtime(String::from("streamed-value")))
+                    .unwrap();
+                let engine = ExplorerEngine::new(arena);
+                let (context, inbox) = ArenaQueryContext::channel(4);
+                let filename = test_path("stream");
+                let request = ProduceJsonRequest::new(
+                    Breadcrumbs::default(),
+                    filename.display().to_string(),
+                    &cancellation,
+                );
 
-        let client = async move {
-            let producer = tokio::spawn(
-                request
-                    .into_future()
-                    .with_arena_query_context(context.clone()),
-            );
-            let written = producer
-                .await
-                .expect("producer task completes")
-                .expect("export succeeds");
-            assert_eq!(written, filename.display().to_string());
-            let document = tokio::fs::read_to_string(&filename)
-                .await
-                .expect("exported file is readable");
-            tokio::fs::remove_file(&filename)
-                .await
-                .expect("test export is removed");
-            drop(context);
-            document
-        };
+                let client = async move {
+                    let producer = tokio::spawn(
+                        request
+                            .into_future()
+                            .with_arena_query_context(context.clone()),
+                    );
+                    let written = producer
+                        .await
+                        .expect("producer task completes")
+                        .expect("export succeeds");
+                    assert_eq!(written, filename.display().to_string());
+                    let document = tokio::fs::read_to_string(&filename)
+                        .await
+                        .expect("exported file is readable");
+                    tokio::fs::remove_file(&filename)
+                        .await
+                        .expect("test export is removed");
+                    drop(context);
+                    document
+                };
 
-        let (_engine, document) = tokio::join!(engine.run(inbox), client);
-        assert!(document.starts_with('['));
-        assert!(document.trim_end().ends_with(']'));
-        assert!(document.contains("streamed-value"));
+                let (_engine, document) = tokio::join!(engine.run(inbox), client);
+                assert!(document.starts_with('['));
+                assert!(document.trim_end().ends_with(']'));
+                assert!(document.contains("streamed-value"));
+                Ok::<_, eyre::Report>(())
+            })
+            .await
+            .expect("test execution scope remains valid");
     }
 
     #[tokio::test]
     async fn produce_json_explicit_run_needs_no_task_local_context() {
-        let mut arena = Arena::default();
-        arena
-            .insert_ready(runtime(String::from("explicit-run")))
-            .unwrap();
-        let engine = ExplorerEngine::new(arena);
-        let (context, inbox) = ArenaQueryContext::channel(2);
-        let filename = test_path("explicit");
-        let request =
-            ProduceJsonRequest::new(Breadcrumbs::default(), filename.display().to_string());
+        CancellationToken::new()
+            .with_async_scope(|cancellation| async move {
+                let mut arena = Arena::default();
+                arena
+                    .insert_ready(runtime(String::from("explicit-run")))
+                    .unwrap();
+                let engine = ExplorerEngine::new(arena);
+                let (context, inbox) = ArenaQueryContext::channel(2);
+                let filename = test_path("explicit");
+                let request = ProduceJsonRequest::new(
+                    Breadcrumbs::default(),
+                    filename.display().to_string(),
+                    &cancellation,
+                );
 
-        let client = async move {
-            assert!(ArenaQueryContext::try_current().is_none());
-            request
-                .run(context.clone())
-                .await
-                .expect("explicit context export succeeds");
-            let document = tokio::fs::read_to_string(&filename)
-                .await
-                .expect("exported file is readable");
-            tokio::fs::remove_file(&filename)
-                .await
-                .expect("test export is removed");
-            drop(context);
-            document
-        };
+                let client = async move {
+                    assert!(ArenaQueryContext::try_current().is_none());
+                    request
+                        .run(context.clone())
+                        .await
+                        .expect("explicit context export succeeds");
+                    let document = tokio::fs::read_to_string(&filename)
+                        .await
+                        .expect("exported file is readable");
+                    tokio::fs::remove_file(&filename)
+                        .await
+                        .expect("test export is removed");
+                    drop(context);
+                    document
+                };
 
-        let (_engine, document) = tokio::join!(engine.run(inbox), client);
-        assert!(document.contains("explicit-run"));
+                let (_engine, document) = tokio::join!(engine.run(inbox), client);
+                assert!(document.contains("explicit-run"));
+                Ok::<_, eyre::Report>(())
+            })
+            .await
+            .expect("test execution scope remains valid");
     }
 
     #[tokio::test]
     async fn produce_json_streams_tab_query_without_materializing_results() {
-        let mut arena = Arena::default();
-        arena
-            .insert_ready(runtime(String::from("selected")))
-            .unwrap();
-        arena.insert_ready(runtime(42_u64)).unwrap();
-        let tab = Tab::new(
-            "selected strings",
-            Breadcrumbs::new(vec![
-                Breadcrumb::ShapeFilter {
-                    included_shapes: vec![cloud_terrastodon_registry::describe_shape(
-                        String::SHAPE,
-                    )],
-                },
-                Breadcrumb::AddressKindFilter {
-                    include_roots: true,
-                    include_descendants: false,
-                },
-            ]),
-        );
-        let request =
-            ProduceJsonRequest::new(tab.breadcrumbs().clone(), "in-memory-tab-query.json");
-        arena.insert_ready(runtime(tab)).unwrap();
-        let engine = ExplorerEngine::new(arena);
-        let (context, inbox) = ArenaQueryContext::channel(2);
+        CancellationToken::new()
+            .with_async_scope(|cancellation| async move {
+                let mut arena = Arena::default();
+                arena
+                    .insert_ready(runtime(String::from("selected")))
+                    .unwrap();
+                arena.insert_ready(runtime(42_u64)).unwrap();
+                let tab = Tab::new(
+                    "selected strings",
+                    Breadcrumbs::new(vec![
+                        Breadcrumb::ShapeFilter {
+                            included_shapes: vec![cloud_terrastodon_registry::describe_shape(
+                                String::SHAPE,
+                            )],
+                        },
+                        Breadcrumb::AddressKindFilter {
+                            include_roots: true,
+                            include_descendants: false,
+                        },
+                    ]),
+                );
+                let request = ProduceJsonRequest::new(
+                    tab.breadcrumbs().clone(),
+                    "in-memory-tab-query.json",
+                    &cancellation,
+                );
+                arena.insert_ready(runtime(tab)).unwrap();
+                let engine = ExplorerEngine::new(arena);
+                let (context, inbox) = ArenaQueryContext::channel(2);
 
-        let client = async move {
-            let mut sink = Vec::new();
-            request
-                .write_to_sink(context.clone(), &mut sink)
-                .await
-                .expect("filtered export succeeds");
-            drop(context);
-            String::from_utf8(sink).expect("JSON is UTF-8")
-        };
+                let client = async move {
+                    let mut sink = Vec::new();
+                    request
+                        .write_to_sink(context.clone(), &mut sink)
+                        .await
+                        .expect("filtered export succeeds");
+                    drop(context);
+                    String::from_utf8(sink).expect("JSON is UTF-8")
+                };
 
-        let (engine, document) = tokio::join!(engine.run(inbox), client);
-        assert_eq!(document, "[\n  \"selected\"\n]\n");
-        assert_eq!(
-            engine.json_serialization_count(),
-            1,
-            "only matched addresses cross the explicit JSON boundary"
-        );
+                let (engine, document) = tokio::join!(engine.run(inbox), client);
+                assert_eq!(document, "[\n  \"selected\"\n]\n");
+                assert_eq!(
+                    engine.json_serialization_count(),
+                    1,
+                    "only matched addresses cross the explicit JSON boundary"
+                );
+                Ok::<_, eyre::Report>(())
+            })
+            .await
+            .expect("test execution scope remains valid");
     }
 
     #[tokio::test]
     async fn produce_json_uses_facet_pretty_json_without_materializing_the_array() {
-        let mut arena = Arena::default();
-        arena
-            .insert_ready(runtime(PrettyThing {
-                name: "Ada".to_owned(),
-                enabled: true,
-            }))
-            .unwrap();
-        let request = ProduceJsonRequest::new(
-            Breadcrumbs::new(vec![
-                Breadcrumb::ShapeFilter {
-                    included_shapes: vec![cloud_terrastodon_registry::describe_shape(
-                        PrettyThing::SHAPE,
-                    )],
-                },
-                Breadcrumb::AddressKindFilter {
-                    include_roots: true,
-                    include_descendants: false,
-                },
-            ]),
-            "pretty.json",
-        );
-        let engine = ExplorerEngine::new(arena);
-        let (context, inbox) = ArenaQueryContext::channel(2);
-        let client = async move {
-            let mut sink = Vec::new();
-            request
-                .write_to_sink(context.clone(), &mut sink)
-                .await
-                .unwrap();
-            drop(context);
-            String::from_utf8(sink).unwrap()
-        };
+        CancellationToken::new()
+            .with_async_scope(|cancellation| async move {
+                let mut arena = Arena::default();
+                arena
+                    .insert_ready(runtime(PrettyThing {
+                        name: "Ada".to_owned(),
+                        enabled: true,
+                    }))
+                    .unwrap();
+                let request = ProduceJsonRequest::new(
+                    Breadcrumbs::new(vec![
+                        Breadcrumb::ShapeFilter {
+                            included_shapes: vec![cloud_terrastodon_registry::describe_shape(
+                                PrettyThing::SHAPE,
+                            )],
+                        },
+                        Breadcrumb::AddressKindFilter {
+                            include_roots: true,
+                            include_descendants: false,
+                        },
+                    ]),
+                    "pretty.json",
+                    &cancellation,
+                );
+                let engine = ExplorerEngine::new(arena);
+                let (context, inbox) = ArenaQueryContext::channel(2);
+                let client = async move {
+                    let mut sink = Vec::new();
+                    request
+                        .write_to_sink(context.clone(), &mut sink)
+                        .await
+                        .unwrap();
+                    drop(context);
+                    String::from_utf8(sink).unwrap()
+                };
 
-        let (engine, document) = tokio::join!(engine.run(inbox), client);
-        assert_eq!(
-            document,
-            "[\n  {\n    \"name\": \"Ada\",\n    \"enabled\": true\n  }\n]\n"
-        );
-        assert_eq!(engine.json_serialization_count(), 1);
+                let (engine, document) = tokio::join!(engine.run(inbox), client);
+                assert_eq!(
+                    document,
+                    "[\n  {\n    \"name\": \"Ada\",\n    \"enabled\": true\n  }\n]\n"
+                );
+                assert_eq!(engine.json_serialization_count(), 1);
+                Ok::<_, eyre::Report>(())
+            })
+            .await
+            .expect("test execution scope remains valid");
+    }
+
+    #[tokio::test]
+    async fn cooperative_cancellation_finishes_json_before_releasing_the_export_barrier() {
+        CancellationToken::new()
+            .with_async_scope(|cancellation| async move {
+                let mut arena = Arena::default();
+                arena.insert_ready(runtime(vec![1_i32, 2])).unwrap();
+                let pending = arena.insert_pending().unwrap();
+                let engine = ExplorerEngine::new(arena);
+                let (context, inbox) = ArenaQueryContext::channel(8);
+                let handle = context.engine_handle();
+                let wait = Duration::from_secs(2);
+                let client = async move {
+                    let request = ProduceJsonRequest::new(
+                        Breadcrumbs::default(),
+                        "in-memory-export.json",
+                        &cancellation,
+                    );
+                    let producer_context = context.clone();
+                    let (writer, mut reader) = duplex(1);
+                    let producer = tokio::spawn(async move {
+                        let mut writer = writer;
+                        request.write_to_sink(producer_context, &mut writer).await
+                    });
+                    let mut opening = [0_u8; 1];
+                    timeout(wait, reader.read_exact(&mut opening))
+                        .await
+                        .unwrap()
+                        .unwrap();
+                    assert_eq!(opening, *b"[");
+                    let mut receipt = handle
+                        .submit_set_ready(
+                            pending,
+                            OwnedValuePacket::new(String::from("after coherent export")),
+                        )
+                        .await
+                        .unwrap();
+                    assert!(receipt.try_result().unwrap().is_none());
+
+                    cancellation.request_cancel("window closed during export");
+                    assert!(cancellation.is_cancelled());
+                    assert!(cancellation.bail_if_cancelled().is_ok());
+                    assert!(!producer.is_finished());
+                    let mut document = opening.to_vec();
+                    timeout(wait, reader.read_to_end(&mut document))
+                        .await
+                        .unwrap()
+                        .unwrap();
+                    timeout(wait, producer).await.unwrap().unwrap().unwrap();
+                    // An unfiltered export includes reflected descendants alongside
+                    // roots. Decode the complete heterogeneous snapshot, then verify
+                    // that the root retains its pre-mutation value.
+                    let snapshot =
+                        facet_json::from_slice::<Vec<facet_json::RawJson<'static>>>(&document)
+                            .unwrap();
+                    assert!(snapshot.iter().any(|value| {
+                        facet_json::from_str::<Vec<i32>>(value.as_str()).ok() == Some(vec![1, 2])
+                    }));
+                    assert!(
+                        !std::str::from_utf8(&document)
+                            .unwrap()
+                            .contains("after coherent export"),
+                        "the queued mutation must remain outside the coherent snapshot"
+                    );
+                    timeout(wait, receipt.wait()).await.unwrap().unwrap();
+                    assert!(cancellation.bail_if_cancelled().is_err());
+                    drop(handle);
+                    drop(context);
+                    pending
+                };
+                let (engine, pending) = tokio::join!(engine.run(inbox), client);
+                assert_eq!(
+                    engine
+                        .arena()
+                        .ready_value(pending)
+                        .and_then(|value| value.peek().as_str()),
+                    Some("after coherent export")
+                );
+                Ok::<_, eyre::Report>(())
+            })
+            .await
+            .expect("test execution scope remains valid");
     }
 
     #[tokio::test]
     async fn produce_json_releases_barrier_on_failure_and_cancel() {
-        let wait = Duration::from_secs(5);
+        CancellationToken::new()
+            .with_async_scope(|cancellation| async move {
+                let wait = Duration::from_secs(5);
 
-        // A bounded in-memory pipe models a slow sink. Once its one-byte
-        // buffer fills, reads remain serviceable and mutations are retained
-        // by the barrier. Closing the reader turns that backpressure into a
-        // write failure; dropping the session must then ingest the mutation.
-        {
-            let mut arena = Arena::default();
-            let stable = arena
-                .insert_ready(runtime(String::from("stable-before-failure")))
-                .unwrap();
-            let pending = arena.insert_pending().unwrap();
-            let engine = ExplorerEngine::new(arena);
-            let (context, inbox) = ArenaQueryContext::channel(8);
-            let handle = context.engine_handle();
+                // A bounded in-memory pipe models a slow sink. Once its one-byte
+                // buffer fills, reads remain serviceable and mutations are retained
+                // by the barrier. Closing the reader turns that backpressure into a
+                // write failure; dropping the session must then ingest the mutation.
+                {
+                    let mut arena = Arena::default();
+                    let stable = arena
+                        .insert_ready(runtime(String::from("stable-before-failure")))
+                        .unwrap();
+                    let pending = arena.insert_pending().unwrap();
+                    let engine = ExplorerEngine::new(arena);
+                    let (context, inbox) = ArenaQueryContext::channel(8);
+                    let handle = context.engine_handle();
 
-            let client = async move {
-                let producer_context = context.clone();
-                let request =
-                    ProduceJsonRequest::new(Breadcrumbs::default(), "blocked-failure.json");
-                let (writer, mut reader) = duplex(1);
-                let producer = tokio::spawn(async move {
-                    let mut writer = writer;
-                    request.write_to_sink(producer_context, &mut writer).await
-                });
+                    let cancellation = cancellation.clone();
+                    let client = async move {
+                        let producer_context = context.clone();
+                        let request = ProduceJsonRequest::new(
+                            Breadcrumbs::default(),
+                            "blocked-failure.json",
+                            &cancellation,
+                        );
+                        let (writer, mut reader) = duplex(1);
+                        let producer = tokio::spawn(async move {
+                            let mut writer = writer;
+                            request.write_to_sink(producer_context, &mut writer).await
+                        });
 
-                let mut opening = [0_u8; 1];
-                timeout(wait, reader.read_exact(&mut opening))
-                    .await
-                    .expect("slow sink receives opening bracket promptly")
-                    .expect("in-memory sink remains readable");
-                assert_eq!(opening, *b"[");
+                        let mut opening = [0_u8; 1];
+                        timeout(wait, reader.read_exact(&mut opening))
+                            .await
+                            .expect("slow sink receives opening bracket promptly")
+                            .expect("in-memory sink remains readable");
+                        assert_eq!(opening, *b"[");
 
-                let mut receipt = handle
-                    .submit_set_ready(
-                        pending,
-                        OwnedValuePacket::new(String::from("ingested-after-failure")),
-                    )
-                    .await
-                    .expect("mutation enters the engine inbox");
-                assert_eq!(
-                    timeout(wait, handle.resolve_json(ValueAddress::root(stable)))
-                        .await
-                        .expect("sink backpressure does not block engine reads")
-                        .expect("stable value resolves"),
-                    "\"stable-before-failure\""
-                );
-                assert_eq!(receipt.try_result().expect("receipt remains valid"), None);
+                        let mut receipt = handle
+                            .submit_set_ready(
+                                pending,
+                                OwnedValuePacket::new(String::from("ingested-after-failure")),
+                            )
+                            .await
+                            .expect("mutation enters the engine inbox");
+                        assert_eq!(
+                            timeout(wait, handle.resolve_json(ValueAddress::root(stable)))
+                                .await
+                                .expect("sink backpressure does not block engine reads")
+                                .expect("stable value resolves"),
+                            "\"stable-before-failure\""
+                        );
+                        assert_eq!(receipt.try_result().expect("receipt remains valid"), None);
 
-                drop(reader);
-                let error = timeout(wait, producer)
-                    .await
-                    .expect("broken sink wakes the producer")
-                    .expect("producer task itself remains healthy")
-                    .expect_err("closed sink must fail the export");
-                assert!(matches!(error, ProduceJsonError::Io { .. }));
-                timeout(wait, receipt.wait())
-                    .await
-                    .expect("failure releases the export barrier")
-                    .expect("deferred mutation succeeds");
+                        drop(reader);
+                        let error = timeout(wait, producer)
+                            .await
+                            .expect("broken sink wakes the producer")
+                            .expect("producer task itself remains healthy")
+                            .expect_err("closed sink must fail the export");
+                        assert!(matches!(error, ProduceJsonError::Io { .. }));
+                        timeout(wait, receipt.wait())
+                            .await
+                            .expect("failure releases the export barrier")
+                            .expect("deferred mutation succeeds");
 
-                drop(handle);
-                drop(context);
-                pending
-            };
+                        drop(handle);
+                        drop(context);
+                        pending
+                    };
 
-            let (engine, pending) = tokio::join!(engine.run(inbox), client);
-            assert_eq!(
-                engine
-                    .arena()
-                    .ready_value(pending)
-                    .and_then(|value| value.peek().as_str()),
-                Some("ingested-after-failure")
-            );
-        }
+                    let (engine, pending) = tokio::join!(engine.run(inbox), client);
+                    assert_eq!(
+                        engine
+                            .arena()
+                            .ready_value(pending)
+                            .and_then(|value| value.peek().as_str()),
+                        Some("ingested-after-failure")
+                    );
+                }
 
-        // Task abortion exercises the cancellation lease rather than an
-        // async cleanup path. The queued mutation resumes in the same way.
-        {
-            let mut arena = Arena::default();
-            let stable = arena
-                .insert_ready(runtime(String::from("stable-before-cancel")))
-                .unwrap();
-            let pending = arena.insert_pending().unwrap();
-            let engine = ExplorerEngine::new(arena);
-            let (context, inbox) = ArenaQueryContext::channel(8);
-            let handle = context.engine_handle();
+                // Task abortion exercises the cancellation lease rather than an
+                // async cleanup path. The queued mutation resumes in the same way.
+                {
+                    let mut arena = Arena::default();
+                    let stable = arena
+                        .insert_ready(runtime(String::from("stable-before-cancel")))
+                        .unwrap();
+                    let pending = arena.insert_pending().unwrap();
+                    let engine = ExplorerEngine::new(arena);
+                    let (context, inbox) = ArenaQueryContext::channel(8);
+                    let handle = context.engine_handle();
 
-            let client = async move {
-                let producer_context = context.clone();
-                let request =
-                    ProduceJsonRequest::new(Breadcrumbs::default(), "blocked-cancel.json");
-                let (writer, mut reader) = duplex(1);
-                let producer = tokio::spawn(async move {
-                    let mut writer = writer;
-                    request.write_to_sink(producer_context, &mut writer).await
-                });
+                    let client = async move {
+                        let producer_context = context.clone();
+                        let request = ProduceJsonRequest::new(
+                            Breadcrumbs::default(),
+                            "blocked-cancel.json",
+                            &cancellation,
+                        );
+                        let (writer, mut reader) = duplex(1);
+                        let producer = tokio::spawn(async move {
+                            let mut writer = writer;
+                            request.write_to_sink(producer_context, &mut writer).await
+                        });
 
-                let mut opening = [0_u8; 1];
-                timeout(wait, reader.read_exact(&mut opening))
-                    .await
-                    .expect("slow sink receives opening bracket promptly")
-                    .expect("in-memory sink remains readable");
-                assert_eq!(opening, *b"[");
+                        let mut opening = [0_u8; 1];
+                        timeout(wait, reader.read_exact(&mut opening))
+                            .await
+                            .expect("slow sink receives opening bracket promptly")
+                            .expect("in-memory sink remains readable");
+                        assert_eq!(opening, *b"[");
 
-                let mut receipt = handle
-                    .submit_set_ready(
-                        pending,
-                        OwnedValuePacket::new(String::from("ingested-after-cancel")),
-                    )
-                    .await
-                    .expect("mutation enters the engine inbox");
-                assert_eq!(
-                    timeout(wait, handle.resolve_json(ValueAddress::root(stable)))
-                        .await
-                        .expect("sink backpressure does not block engine reads")
-                        .expect("stable value resolves"),
-                    "\"stable-before-cancel\""
-                );
-                assert_eq!(receipt.try_result().expect("receipt remains valid"), None);
+                        let mut receipt = handle
+                            .submit_set_ready(
+                                pending,
+                                OwnedValuePacket::new(String::from("ingested-after-cancel")),
+                            )
+                            .await
+                            .expect("mutation enters the engine inbox");
+                        assert_eq!(
+                            timeout(wait, handle.resolve_json(ValueAddress::root(stable)))
+                                .await
+                                .expect("sink backpressure does not block engine reads")
+                                .expect("stable value resolves"),
+                            "\"stable-before-cancel\""
+                        );
+                        assert_eq!(receipt.try_result().expect("receipt remains valid"), None);
 
-                producer.abort();
-                assert!(
-                    timeout(wait, producer)
-                        .await
-                        .expect("aborted producer joins")
-                        .expect_err("producer is cancelled")
-                        .is_cancelled()
-                );
-                drop(reader);
-                timeout(wait, receipt.wait())
-                    .await
-                    .expect("cancellation releases the export barrier")
-                    .expect("deferred mutation succeeds");
+                        producer.abort();
+                        assert!(
+                            timeout(wait, producer)
+                                .await
+                                .expect("aborted producer joins")
+                                .expect_err("producer is cancelled")
+                                .is_cancelled()
+                        );
+                        drop(reader);
+                        timeout(wait, receipt.wait())
+                            .await
+                            .expect("cancellation releases the export barrier")
+                            .expect("deferred mutation succeeds");
 
-                drop(handle);
-                drop(context);
-                pending
-            };
+                        drop(handle);
+                        drop(context);
+                        pending
+                    };
 
-            let (engine, pending) = tokio::join!(engine.run(inbox), client);
-            assert_eq!(
-                engine
-                    .arena()
-                    .ready_value(pending)
-                    .and_then(|value| value.peek().as_str()),
-                Some("ingested-after-cancel")
-            );
-        }
+                    let (engine, pending) = tokio::join!(engine.run(inbox), client);
+                    assert_eq!(
+                        engine
+                            .arena()
+                            .ready_value(pending)
+                            .and_then(|value| value.peek().as_str()),
+                        Some("ingested-after-cancel")
+                    );
+                }
+                Ok::<_, eyre::Report>(())
+            })
+            .await
+            .expect("test execution scope remains valid");
     }
 }

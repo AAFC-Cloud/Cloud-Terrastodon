@@ -1,4 +1,5 @@
 use super::AzureEntraApplicationRegistrationRoleListArgs;
+use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 
 /// Application role and application-permission operations.
@@ -16,15 +17,21 @@ pub enum AzureEntraApplicationRegistrationRoleCommand {
 }
 
 impl AzureEntraApplicationRegistrationRoleArgs {
-    pub async fn invoke(self) -> Result<()> {
-        self.command.invoke().await
+    pub async fn invoke(
+        self,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        self.command.invoke(cancellation).await
     }
 }
 
 impl AzureEntraApplicationRegistrationRoleCommand {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(
+        self,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self {
-            Self::List(args) => args.invoke().await,
+            Self::List(args) => args.invoke(cancellation).await,
         }
     }
 }

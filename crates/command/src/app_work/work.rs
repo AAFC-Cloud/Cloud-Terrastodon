@@ -1,5 +1,6 @@
 use super::AppboundWorkFinishedMessage;
 use super::StateMutator;
+use crate::CancellationError;
 use crate::app_work::AppWorkTracker;
 use cloud_terrastodon_relative_location::RelativeLocation;
 use eyre::eyre;
@@ -111,6 +112,9 @@ where
                     }
                 }
                 Err(error) => {
+                    if error.chain().any(|cause| cause.is::<CancellationError>()) {
+                        return Err(error);
+                    }
                     let error = error
                         .wrap_err(format!(
                             "Work location: {}",

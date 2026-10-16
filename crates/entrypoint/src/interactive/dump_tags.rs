@@ -1,4 +1,5 @@
 use cloud_terrastodon_azure::ResourceGraphHelper;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_user_input::PickerTui;
 use facet_json::RawJson;
@@ -9,7 +10,10 @@ use tokio::io::AsyncWriteExt;
 use tracing::info;
 use tracing::warn;
 
-pub async fn dump_tags(auth_context: &AzureTenantAuthContext) -> eyre::Result<()> {
+pub async fn dump_tags(
+    auth_context: &AzureTenantAuthContext,
+    cancellation: &CancellationScope,
+) -> eyre::Result<()> {
     let path = PathBuf::from("resource_tags.json");
     if try_exists(&path).await.unwrap_or(false) {
         let yes = "yes";
@@ -41,6 +45,7 @@ resources
 "#,
         None,
         auth_context,
+        cancellation,
     )
     .collect_all::<RawJson<'static>>()
     .await?;

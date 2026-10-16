@@ -1,6 +1,7 @@
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::fetch_all_resource_groups;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use std::io::Write;
@@ -15,10 +16,17 @@ pub struct AzureResourceGroupListArgs {
 }
 
 impl AzureResourceGroupListArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let tenant_auth_context = self
+            .tenant
+            .bind_auth_context(auth_context, cancellation)
+            .await?;
         info!(tenant_id = %tenant_auth_context.tenant_id, "Fetching all Azure resource groups");
-        let groups = fetch_all_resource_groups(&tenant_auth_context).await?;
+        let groups = fetch_all_resource_groups(&tenant_auth_context, cancellation).await?;
         info!(count = groups.len(), "Fetched resource groups");
 
         let stdout = std::io::stdout();

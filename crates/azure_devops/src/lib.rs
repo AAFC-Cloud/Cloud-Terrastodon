@@ -70,7 +70,9 @@ mod default_organization;
 mod default_organization_tui;
 mod default_project;
 mod get_pat;
+mod rest_work_item_copy_writer;
 mod work_item_copy;
+mod work_item_copy_writer;
 #[cfg(test)]
 mod work_item_tests;
 

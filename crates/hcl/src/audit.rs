@@ -5,6 +5,7 @@ use crate::HclWriter;
 use crate::TerraformBlockExtracterPatcher;
 use crate::discovery::DiscoveryDepth;
 use crate::discovery::discover_hcl;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_hcl_types::ProviderKind;
 use cloud_terrastodon_hcl_types::ProviderVersionConstraint;
 use cloud_terrastodon_hcl_types::ProviderVersionConstraintClause;
@@ -281,7 +282,10 @@ fn expression_has_object_key(expression: &Expression, expected_key: &str) -> boo
     }
 }
 
-async fn audit_latest_provider_versions(hcl: &HclProject) -> eyre::Result<Vec<HclAuditProblem>> {
+async fn audit_latest_provider_versions(
+    hcl: &HclProject,
+    _cancellation: &CancellationScope,
+) -> eyre::Result<Vec<HclAuditProblem>> {
     let terraform_block = extract_terraform_block(project_body(hcl));
     let mut problems = Vec::new();
 
@@ -322,11 +326,18 @@ async fn audit_latest_provider_versions(hcl: &HclProject) -> eyre::Result<Vec<Hc
     Ok(problems)
 }
 
-pub async fn audit(source_dir: &Path) -> eyre::Result<()> {
-    audit_with_fix(source_dir, false).await
+pub async fn audit(
+    source_dir: &Path,
+    cancellation: &CancellationScope,
+) -> eyre::Result<()> {
+    audit_with_fix(source_dir, false, cancellation).await
 }
 
-pub async fn audit_with_fix(source_dir: &Path, fix: bool) -> eyre::Result<()> {
+pub async fn audit_with_fix(
+    source_dir: &Path,
+    fix: bool,
+    cancellation: &CancellationScope,
+) -> eyre::Result<()> {
     info!(?source_dir, fix, "Auditing");
 
     let project = discover_hcl(source_dir, DiscoveryDepth::Shallow).await?;
@@ -336,8 +347,17 @@ pub async fn audit_with_fix(source_dir: &Path, fix: bool) -> eyre::Result<()> {
         .collect::<std::collections::HashMap<_, _>>();
 
     let mut auditor = TerraformAuditor;
-    let (audited_project, mut problems) = auditor.audit(project).await?;
-    problems.extend(audit_latest_provider_versions(&audited_project).await?);
+    let (audited_project, mut problems) = cancellation
+        .cancellable_scope(|_| auditor.audit(project))
+        .await?;
+    problems.extend(
+        cancellation
+            .cancellable_scope(|cancellation| {
+                let audited_project = &audited_project;
+                async move { audit_latest_provider_versions(audited_project, &cancellation).await }
+            })
+            .await?,
+    );
 
     for problem in &problems {
         warn!(
@@ -353,7 +373,9 @@ pub async fn audit_with_fix(source_dir: &Path, fix: bool) -> eyre::Result<()> {
                 continue;
             }
             info!(path = %path.display(), "Applying Terraform audit fix");
-            HclWriter::new(path).overwrite(body.clone()).await?;
+            HclWriter::new(path)
+                .overwrite(body.clone(), cancellation)
+                .await?;
         }
     }
 

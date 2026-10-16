@@ -1,6 +1,7 @@
 use super::AzurePolicyAssignmentBrowseArgs;
 use super::AzurePolicyAssignmentListArgs;
 use super::AzurePolicyAssignmentShowArgs;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -17,11 +18,21 @@ pub enum AzurePolicyAssignmentCommand {
 }
 
 impl AzurePolicyAssignmentCommand {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self {
-            AzurePolicyAssignmentCommand::List(args) => args.invoke(auth_context).await,
-            AzurePolicyAssignmentCommand::Browse(args) => args.invoke(auth_context).await,
-            AzurePolicyAssignmentCommand::Show(args) => args.invoke(auth_context).await,
+            AzurePolicyAssignmentCommand::List(args) => {
+                args.invoke(auth_context, cancellation).await
+            }
+            AzurePolicyAssignmentCommand::Browse(args) => {
+                args.invoke(auth_context, cancellation).await
+            }
+            AzurePolicyAssignmentCommand::Show(args) => {
+                args.invoke(auth_context, cancellation).await
+            }
         }
     }
 }

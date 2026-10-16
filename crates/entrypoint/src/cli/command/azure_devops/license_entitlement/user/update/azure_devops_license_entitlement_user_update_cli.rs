@@ -4,6 +4,7 @@ use cloud_terrastodon_azure_devops::AzureDevOpsUserArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsUserLicenseEntitlement;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlement;
 use cloud_terrastodon_azure_devops::update_azure_devops_user_license_entitlement;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
@@ -42,7 +43,11 @@ pub struct AzureDevOpsLicenseEntitlementUserUpdateArgs {
 }
 
 impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         let azure_devops_auth_context = AzureDevOpsAuthContext::new(auth_context)?;
 
         if let AzureDevOpsLicenseType::Other(s) = &self.license {
@@ -80,6 +85,7 @@ impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
                     &self.org,
                     &user,
                     &azure_devops_auth_context,
+                    cancellation,
                 )
                 .with_invalidation(i == 0 && self.no_cache)
                 .await
@@ -138,8 +144,13 @@ impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
                 "Updating license entitlement for user"
             );
 
-            update_azure_devops_user_license_entitlement(&self.org, &user, self.license.clone())
-                .await?;
+            update_azure_devops_user_license_entitlement(
+                &self.org,
+                &user,
+                self.license.clone(),
+                cancellation,
+            )
+            .await?;
             outcomes.push(Outcome::Updated { user, was });
         }
 
@@ -170,6 +181,7 @@ impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
                 &self.org,
                 &user,
                 &azure_devops_auth_context,
+                cancellation,
             )
             // underlying cache is shared for all users, so only invalidate on the first check
             .with_invalidation(i == 0)

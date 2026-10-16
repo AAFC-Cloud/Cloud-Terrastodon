@@ -1,3 +1,10 @@
+# Unreleased
+
+- Require caller-supplied cancellation tokens on SDK requests and fetch helpers, including tenant resolution, pagination, and command/REST execution.
+- Add awaitable cancellation and explained `CancellationDeferral` scopes through `teamy-cancellation`; required mutation, cache-invalidation, and copy-journal completion can finish before cancellation stops subsequent work.
+- Update the standalone CLI example to audit resource group names and share the parent workspace's dependencies.
+- Supply Figue's builtin flags inside `App` so consumer CLI schemas only declare their application arguments.
+
 # v0.37.0
 
 - Switch from `serde` to `facet`

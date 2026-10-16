@@ -3,6 +3,7 @@ use cloud_terrastodon_azure_types::KeyVault;
 use cloud_terrastodon_azure_types::KeyVaultName;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
@@ -14,13 +15,18 @@ use std::path::PathBuf;
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Debug, Clone, facet::Facet)]
 pub struct KeyVaultListRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
 
 pub fn fetch_all_key_vaults<'a>(
     auth_context: &'a AzureTenantAuthContext,
+    cancellation: &CancellationScope,
 ) -> KeyVaultListRequest<'a> {
     KeyVaultListRequest {
+        cancellation: cancellation.clone(),
         auth_context: Cow::Borrowed(auth_context),
     }
 }
@@ -28,6 +34,7 @@ pub fn fetch_all_key_vaults<'a>(
 impl<'a> arbitrary::Arbitrary<'a> for KeyVaultListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: arbitrary::Arbitrary::arbitrary(u)?,
             auth_context: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
         })
     }
@@ -55,6 +62,7 @@ resources
         "#,
             Some(self.cache_key()),
             self.auth_context.as_ref(),
+            &self.cancellation,
         );
         query.collect_all().await
     }
@@ -63,8 +71,12 @@ resources
 cloud_terrastodon_command::impl_cacheable_into_future!(KeyVaultListRequest<'a>, 'a);
 
 #[deprecated(note = "https://github.com/Azure/azure-cli/issues/31178")]
-pub async fn is_key_vault_name_available(name: &KeyVaultName) -> eyre::Result<bool> {
+pub async fn is_key_vault_name_available(
+    name: &KeyVaultName,
+    cancellation: &CancellationScope,
+) -> eyre::Result<bool> {
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
+    cmd.cancellation_safe();
     cmd.args(["keyvault", "check-name", "--name", name]);
     #[derive(facet::Facet)]
     #[allow(unused)]
@@ -74,7 +86,7 @@ pub async fn is_key_vault_name_available(name: &KeyVaultName) -> eyre::Result<bo
         name_available: bool,
         reason: facet_json::RawJson<'static>,
     }
-    let response = cmd.run::<Response>().await?;
+    let response = cmd.run::<Response>(cancellation).await?;
     Ok(response.name_available)
 }
 
@@ -82,16 +94,23 @@ pub async fn is_key_vault_name_available(name: &KeyVaultName) -> eyre::Result<bo
 mod test {
     use crate::fetch_all_key_vaults;
     use crate::get_test_tenant_id;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_credentials::AuthContext;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        let key_vaults = fetch_all_key_vaults(
-            &AuthContext::explicit_azure_cli().bind_to_azure_tenant(get_test_tenant_id().await?)?,
-        )
-        .await?;
-        assert!(!key_vaults.is_empty());
-        Ok(())
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let key_vaults = fetch_all_key_vaults(
+                    &AuthContext::explicit_azure_cli()
+                        .bind_to_azure_tenant(get_test_tenant_id(&cancellation).await?)?,
+                    &cancellation,
+                )
+                .await?;
+                assert!(!key_vaults.is_empty());
+                Ok(())
+            })
+            .await
     }
 }
 

@@ -2,6 +2,7 @@ use crate::get_resource_group_choices;
 use crate::get_role_assignment_choices;
 use crate::get_security_group_choices;
 use cloud_terrastodon_azure_types::Scope;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderBlock;
@@ -32,11 +33,12 @@ impl HclImportable {
     pub async fn try_into_import_blocks(
         &self,
         auth_context: &AzureTenantAuthContext,
+        cancellation: &CancellationScope,
     ) -> eyre::Result<Vec<Choice<(HclImportBlock, Option<HclProviderBlock>)>>> {
         let rtn: Vec<Choice<(HclImportBlock, Option<HclProviderBlock>)>> = match self {
             HclImportable::ResourceGroup => {
                 info!("Fetching resource groups");
-                get_resource_group_choices(auth_context)
+                get_resource_group_choices(auth_context, cancellation)
                     .await?
                     .into_iter()
                     .map(|Choice { key, value: rg }| {
@@ -60,7 +62,7 @@ impl HclImportable {
                     })
                     .collect()
             }
-            HclImportable::SecurityGroup => get_security_group_choices(auth_context)
+            HclImportable::SecurityGroup => get_security_group_choices(auth_context, cancellation)
                 .await?
                 .into_iter()
                 .map(|choice| Choice {
@@ -68,44 +70,61 @@ impl HclImportable {
                     value: (choice.value.into(), None),
                 })
                 .collect(),
-            HclImportable::RoleAssignment => get_role_assignment_choices(auth_context)
-                .await?
-                .into_iter()
-                .map(|choice| Choice {
-                    key: choice.key,
-                    value: (choice.value.into(), None),
-                })
-                .collect(),
+            HclImportable::RoleAssignment => {
+                get_role_assignment_choices(auth_context, cancellation)
+                    .await?
+                    .into_iter()
+                    .map(|choice| Choice {
+                        key: choice.key,
+                        value: (choice.value.into(), None),
+                    })
+                    .collect()
+            }
         };
         Ok(rtn)
     }
-    pub async fn pick() -> eyre::Result<HclImportable> {
-        Ok(PickerTui::<_>::new()
-            .set_header("Pick the kind of thing to import")
-            .pick_one(HclImportable::VARIANTS.iter().copied().map(|x| Choice {
-                key: x.to_string(),
-                value: x,
-            }))
-            .await?)
+    pub async fn pick(cancellation: &CancellationScope) -> eyre::Result<HclImportable> {
+        cancellation
+            .cancellable_scope(|_| async move {
+                Ok(PickerTui::<_>::new()
+                    .set_header("Pick the kind of thing to import")
+                    .pick_one(HclImportable::VARIANTS.iter().copied().map(|x| Choice {
+                        key: x.to_string(),
+                        value: x,
+                    }))
+                    .await?)
+            })
+            .await
     }
-    pub async fn pick_into_body(self, auth_context: &AzureTenantAuthContext) -> eyre::Result<Body> {
-        let import_blocks = self.try_into_import_blocks(auth_context).await?;
-        let import_blocks = PickerTui::<_>::new()
-            .set_header("Pick the resources to import")
-            .pick_many(import_blocks)
-            .await?;
-        let providers = import_blocks
-            .iter()
-            .filter_map(|(_, provider)| provider.clone())
-            .collect::<HashSet<_>>();
-        let body = Body::builder().blocks(providers).blocks(
-            import_blocks
-                .into_iter()
-                .map(|(import_block, _)| Block::try_from(import_block))
-                .collect::<Result<Vec<Block>, _>>()?,
-        );
+    pub async fn pick_into_body(
+        self,
+        auth_context: &AzureTenantAuthContext,
+        cancellation: &CancellationScope,
+    ) -> eyre::Result<Body> {
+        cancellation
+            .cancellable_scope(|cancellation| async move {
+                let cancellation = &cancellation;
+                let import_blocks = self
+                    .try_into_import_blocks(auth_context, cancellation)
+                    .await?;
+                let import_blocks = PickerTui::<_>::new()
+                    .set_header("Pick the resources to import")
+                    .pick_many(import_blocks)
+                    .await?;
+                let providers = import_blocks
+                    .iter()
+                    .filter_map(|(_, provider)| provider.clone())
+                    .collect::<HashSet<_>>();
+                let body = Body::builder().blocks(providers).blocks(
+                    import_blocks
+                        .into_iter()
+                        .map(|(import_block, _)| Block::try_from(import_block))
+                        .collect::<Result<Vec<Block>, _>>()?,
+                );
 
-        let body = body.build();
-        Ok(body)
+                let body = body.build();
+                Ok(body)
+            })
+            .await
     }
 }

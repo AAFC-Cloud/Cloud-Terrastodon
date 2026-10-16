@@ -2,6 +2,7 @@ use crate::AuthContext;
 use crate::AuthSource;
 use crate::AzureBearerToken;
 use crate::AzureRestResource;
+use crate::CancellationScope;
 use cloud_terrastodon_azure_types::AzureAccessToken;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::uuid::Uuid;
@@ -64,8 +65,19 @@ impl AzureTenantAuthContext {
     pub async fn fetch_bearer_access_token(
         &self,
         resource: AzureRestResource,
+        cancellation: &CancellationScope,
     ) -> Result<AzureAccessToken<AzureBearerToken>> {
-        crate::fetch_azure_bearer_access_token(&self.auth_context, Some(self.tenant_id), resource)
+        cancellation
+            .cancellable_scope(|cancellation| async move {
+                let cancellation = &cancellation;
+                crate::fetch_azure_bearer_access_token(
+                    &self.auth_context,
+                    Some(self.tenant_id),
+                    resource,
+                    cancellation,
+                )
+                .await
+            })
             .await
     }
 }

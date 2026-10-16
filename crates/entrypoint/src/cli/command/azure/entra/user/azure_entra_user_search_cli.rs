@@ -1,6 +1,7 @@
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::search_entra_users;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use std::io::Write;
@@ -19,10 +20,18 @@ pub struct AzureEntraUserSearchArgs {
 }
 
 impl AzureEntraUserSearchArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let tenant_auth_context = self
+            .tenant
+            .bind_auth_context(auth_context, cancellation)
+            .await?;
         info!(tenant_id = %tenant_auth_context.tenant_id, search_term = %self.search_term, "Searching Entra users");
-        let users = search_entra_users(self.search_term, &tenant_auth_context).await?;
+        let users =
+            search_entra_users(self.search_term, &tenant_auth_context, cancellation).await?;
 
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();

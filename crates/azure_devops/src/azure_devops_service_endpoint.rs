@@ -4,6 +4,7 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsServiceEndpoint;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
@@ -12,6 +13,9 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone, facet::Facet)]
 pub struct AzureDevOpsServiceEndpointsListRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub project: AzureDevOpsProjectArgument<'a>,
 }
@@ -19,8 +23,10 @@ pub struct AzureDevOpsServiceEndpointsListRequest<'a> {
 pub fn fetch_all_azure_devops_service_endpoints<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     project: impl Into<AzureDevOpsProjectArgument<'a>>,
+    cancellation: &CancellationScope,
 ) -> AzureDevOpsServiceEndpointsListRequest<'a> {
     AzureDevOpsServiceEndpointsListRequest {
+        cancellation: cancellation.clone(),
         org_url: Cow::Borrowed(org_url),
         project: project.into(),
     }
@@ -29,6 +35,7 @@ pub fn fetch_all_azure_devops_service_endpoints<'a>(
 impl<'a> Arbitrary<'a> for AzureDevOpsServiceEndpointsListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: CancellationScope::arbitrary(u)?,
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
         })
@@ -52,6 +59,7 @@ impl<'a> CacheableCommand for AzureDevOpsServiceEndpointsListRequest<'a> {
 
     async fn run(self) -> eyre::Result<Self::Output> {
         let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
+        cmd.cancellation_safe();
         cmd.args([
             "devops",
             "service-endpoint",
@@ -65,7 +73,9 @@ impl<'a> CacheableCommand for AzureDevOpsServiceEndpointsListRequest<'a> {
         ]);
         cmd.cache(self.cache_key());
 
-        let response = cmd.run::<Vec<AzureDevOpsServiceEndpoint>>().await?;
+        let response = cmd
+            .run::<Vec<AzureDevOpsServiceEndpoint>>(&self.cancellation)
+            .await?;
         Ok(response)
     }
 }
@@ -82,6 +92,7 @@ mod test {
     use crate::get_default_organization_url;
     use crate::get_default_project_name;
     use cloud_terrastodon_azure_devops_types::AzureDevOpsServiceEndpoint;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_command::ParallelFallibleWorkQueue;
     use cloud_terrastodon_credentials::AuthContext;
     use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
@@ -89,52 +100,76 @@ mod test {
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        let org_url = get_default_organization_url().await?;
-        let auth_context = AuthContext::explicit_azure_cli();
-        const JUST_ONE_PROJ: bool = true;
-        if JUST_ONE_PROJ {
-            let proj = get_default_project_name().await?;
-            let service_endpoints =
-                super::fetch_all_azure_devops_service_endpoints(&org_url, &proj).await?;
-            assert!(
-                service_endpoints
-                    .iter()
-                    .all(|endpoint| !endpoint.name.to_string().is_empty())
-            );
-        } else {
-            let azure_devops_auth_context = AzureDevOpsAuthContext::new(&auth_context)?;
-            let projects =
-                fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context).await?;
-            let azure_devops_service_endpoints = {
-                let mut work: ParallelFallibleWorkQueue<Vec<AzureDevOpsServiceEndpoint>> =
-                    ParallelFallibleWorkQueue::new("azure devops service endpoints", 8);
-                for project in projects.iter() {
-                    // We will queue using project name and project ID to ensure the endpoint allows both
-                    {
-                        let project_name = project.name.clone();
-                        let org_url = org_url.clone();
-                        work.enqueue(async move {
-                            fetch_all_azure_devops_service_endpoints(&org_url, &project_name).await
-                        });
-                    }
-                    {
-                        let project_id = project.id.clone();
-                        let org_url = org_url.clone();
-                        work.enqueue(async move {
-                            fetch_all_azure_devops_service_endpoints(&org_url, &project_id).await
-                        });
-                    }
+        CancellationToken::new()
+            .with_async_scope(|cancellation| async move {
+                let org_url = get_default_organization_url(&cancellation).await?;
+                let auth_context = AuthContext::explicit_azure_cli();
+                const JUST_ONE_PROJ: bool = true;
+                if JUST_ONE_PROJ {
+                    let proj = get_default_project_name(&cancellation).await?;
+                    let service_endpoints = super::fetch_all_azure_devops_service_endpoints(
+                        &org_url,
+                        &proj,
+                        &cancellation,
+                    )
+                    .await?;
+                    assert!(
+                        service_endpoints
+                            .iter()
+                            .all(|endpoint| !endpoint.name.to_string().is_empty())
+                    );
+                } else {
+                    let azure_devops_auth_context = AzureDevOpsAuthContext::new(&auth_context)?;
+                    let projects = fetch_all_azure_devops_projects(
+                        &org_url,
+                        &azure_devops_auth_context,
+                        &cancellation,
+                    )
+                    .await?;
+                    let azure_devops_service_endpoints = {
+                        let mut work: ParallelFallibleWorkQueue<Vec<AzureDevOpsServiceEndpoint>> =
+                            ParallelFallibleWorkQueue::new("azure devops service endpoints", 8);
+                        for project in projects.iter() {
+                            // We will queue using project name and project ID to ensure the endpoint allows both
+                            {
+                                let project_name = project.name.clone();
+                                let org_url = org_url.clone();
+                                let cancellation = cancellation.clone();
+                                work.enqueue(async move {
+                                    fetch_all_azure_devops_service_endpoints(
+                                        &org_url,
+                                        &project_name,
+                                        &cancellation,
+                                    )
+                                    .await
+                                });
+                            }
+                            {
+                                let project_id = project.id.clone();
+                                let org_url = org_url.clone();
+                                let cancellation = cancellation.clone();
+                                work.enqueue(async move {
+                                    fetch_all_azure_devops_service_endpoints(
+                                        &org_url,
+                                        &project_id,
+                                        &cancellation,
+                                    )
+                                    .await
+                                });
+                            }
+                        }
+                        work.join().await?.into_iter().flatten().collect_vec()
+                    };
+                    assert!(
+                        azure_devops_service_endpoints
+                            .iter()
+                            .all(|endpoint| !endpoint.name.to_string().is_empty())
+                    );
+                    assert!(!projects.is_empty());
                 }
-                work.join().await?.into_iter().flatten().collect_vec()
-            };
-            assert!(
-                azure_devops_service_endpoints
-                    .iter()
-                    .all(|endpoint| !endpoint.name.to_string().is_empty())
-            );
-            assert!(!projects.is_empty());
-        }
 
-        Ok(())
+                Ok(())
+            })
+            .await
     }
 }

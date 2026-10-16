@@ -6,6 +6,7 @@ use cloud_terrastodon_azure_devops::fetch_azure_devops_repos_batch;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_teams_for_project;
 use cloud_terrastodon_azure_devops::get_default_organization_url;
 use cloud_terrastodon_azure_devops::get_personal_access_token;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
@@ -52,7 +53,7 @@ use tracing::warn;
 pub async fn measure<F, T>(runnable: F) -> eyre::Result<(T, FormattedDuration)>
 where
     F: std::future::Future<Output = eyre::Result<T>>,
-    F: Send + 'static,
+    F: Send,
 {
     let start = Instant::now();
     let rtn = runnable.await?;
@@ -63,11 +64,15 @@ where
     Ok((rtn, duration))
 }
 
-pub async fn dump_everything(auth_context: &AzureTenantAuthContext) -> eyre::Result<()> {
+pub async fn dump_everything(
+    auth_context: &AzureTenantAuthContext,
+    cancellation: &CancellationScope,
+) -> eyre::Result<()> {
     info!("Ensuring Azure DevOps PAT is set for future steps");
-    _ = get_personal_access_token().await?;
+    _ = get_personal_access_token(cancellation).await?;
     let auth_context = auth_context.clone();
-    let (rtn, took) = measure(async move { dump_everything_inner(&auth_context).await }).await?;
+    let (rtn, took) =
+        measure(async move { dump_everything_inner(&auth_context, cancellation).await }).await?;
     info!("Overall dump took {took}");
     Ok(rtn)
 }
@@ -102,7 +107,10 @@ impl Strategy {
         }
     }
 }
-pub async fn dump_everything_inner(auth_context: &AzureTenantAuthContext) -> eyre::Result<()> {
+pub async fn dump_everything_inner(
+    auth_context: &AzureTenantAuthContext,
+    cancellation: &CancellationScope,
+) -> eyre::Result<()> {
     let strategy = *PickerTui::<_>::new()
         .set_header("Dump strategy")
         .pick_one(Strategy::VARIANTS)
@@ -173,7 +181,7 @@ pub async fn dump_everything_inner(auth_context: &AzureTenantAuthContext) -> eyr
     let tf_work_dirs = match behaviour {
         Behaviour::CleanAndWriteImportsAndInitAndValidateAndGenerateAndProcess
         | Behaviour::WriteImportsAndInitAndValidateAndGenerateAndProcess => {
-            write_all_import_blocks(strategy, auth_context).await?
+            write_all_import_blocks(strategy, auth_context, cancellation).await?
         }
         _ => discover_existing_dirs(strategy).await?,
     };
@@ -191,7 +199,7 @@ pub async fn dump_everything_inner(auth_context: &AzureTenantAuthContext) -> eyr
         let tf_work_dir_count = tf_work_dirs.len();
         info!("Performing init for {} tf work dirs", tf_work_dir_count);
         let (tf_work_dirs, took) =
-            measure(async move { initialize_work_dirs(tf_work_dirs).await }).await?;
+            measure(async move { initialize_work_dirs(tf_work_dirs, cancellation).await }).await?;
         info!("Performed init for {tf_work_dir_count} work dirs in {took}");
         tf_work_dirs
     } else {
@@ -201,7 +209,7 @@ pub async fn dump_everything_inner(auth_context: &AzureTenantAuthContext) -> eyr
     let should_clean_old_generated_tf_files =
         matches!(behaviour, Behaviour::ValidateAndGenerateAndProcess);
     if should_clean_old_generated_tf_files {
-        clean_up_generated_files(&tf_work_dirs).await?;
+        clean_up_generated_files(&tf_work_dirs, cancellation).await?;
     }
 
     let should_validate = matches!(
@@ -214,7 +222,7 @@ pub async fn dump_everything_inner(auth_context: &AzureTenantAuthContext) -> eyr
     let tf_work_dirs: Vec<ValidatedTFWorkDir> = if should_validate {
         let tf_work_dir_count = tf_work_dirs.len();
         let (work_dirs, duration) =
-            measure(async move { validate_work_dirs(tf_work_dirs).await }).await?;
+            measure(async move { validate_work_dirs(tf_work_dirs, cancellation).await }).await?;
         info!("Validated {tf_work_dir_count} work dirs in {duration}");
         work_dirs
     } else {
@@ -239,7 +247,8 @@ pub async fn dump_everything_inner(auth_context: &AzureTenantAuthContext) -> eyr
     let tf_work_dirs = if should_generate {
         let tf_work_dir_count = tf_work_dirs.len();
         let (tf_work_dirs, duration) =
-            measure(async move { generate_config_out_bulk(tf_work_dirs).await }).await?;
+            measure(async move { generate_config_out_bulk(tf_work_dirs, cancellation).await })
+                .await?;
         info!("Generated configs for {tf_work_dir_count} work dirs in {duration}");
         tf_work_dirs
     } else {
@@ -248,7 +257,10 @@ pub async fn dump_everything_inner(auth_context: &AzureTenantAuthContext) -> eyr
 
     let auth_context = auth_context.clone();
     let (tf_work_dirs, duration) =
-        measure(async move { process_generated_many(tf_work_dirs, auth_context).await }).await?;
+        measure(
+            async move { process_generated_many(tf_work_dirs, auth_context, cancellation).await },
+        )
+        .await?;
     info!(
         "Processed generated terraform code in {} dirs in {duration}",
         tf_work_dirs.len()
@@ -263,11 +275,20 @@ pub async fn dump_everything_inner(auth_context: &AzureTenantAuthContext) -> eyr
 async fn process_generated_many(
     tf_work_dirs: Vec<GeneratedConfigOutTFWorkDir>,
     auth_context: AzureTenantAuthContext,
+    cancellation: &CancellationScope,
 ) -> eyre::Result<Vec<ProcessedTFWorkDir>> {
     let mut rtn: Vec<ProcessedTFWorkDir> = Default::default();
     let out_dir: PathBuf = AppDir::Processed.into();
     if out_dir.exists_async().await? {
-        tokio::fs::remove_dir_all(&out_dir).await?;
+        cancellation
+            .deferred(
+                "Finish clearing the previous processed Terraform directory",
+                |_completion| async {
+                    tokio::fs::remove_dir_all(&out_dir).await?;
+                    eyre::Ok(())
+                },
+            )
+            .await?;
     }
     let imports_dir = AppDir::Imports.as_path_buf().canonicalize()?;
     struct WorkOutcome {
@@ -280,75 +301,123 @@ async fn process_generated_many(
         let imports_dir_clone = imports_dir.clone();
         let rate_limit = rate_limit.clone();
         let auth_context = auth_context.clone();
-        reflow_jobs.spawn(async move {
-            let permit = rate_limit.acquire().await?;
-            let out_dir = AppDir::Processed.join(
-                work_dir
-                    .canonicalize()?
-                    .strip_prefix(&imports_dir_clone)
-                    .map(PathBuf::from)?,
-            );
+        reflow_jobs.spawn({
+            cancellation.cancellable_scope(move |cancellation| async move {
+                let cancellation = &cancellation;
+                let permit = cancellation
+                    .cancellable_scope(|_cancellation| async {
+                        eyre::Ok(rate_limit.acquire().await?)
+                    })
+                    .await?;
+                let out_dir = AppDir::Processed.join(
+                    work_dir
+                        .canonicalize()?
+                        .strip_prefix(&imports_dir_clone)
+                        .map(PathBuf::from)?,
+                );
 
-            let hcl = discover_hcl(work_dir, DiscoveryDepth::Shallow).await?;
-            let hcl = ReflowHclRequest::new(hcl, Some(&auth_context))
-                .include_principal_id_comments(true)
-                .await?;
-            drop(permit);
-            Ok(WorkOutcome {
-                out_dir: out_dir.clone(),
-                file_contents: hcl,
+                let hcl = discover_hcl(work_dir, DiscoveryDepth::Shallow).await?;
+                let hcl = ReflowHclRequest::new(hcl, Some(&auth_context), cancellation)
+                    .include_principal_id_comments(true)
+                    .await?;
+                drop(permit);
+                Ok(WorkOutcome {
+                    out_dir: out_dir.clone(),
+                    file_contents: hcl,
+                })
             })
         });
     }
 
-    let mut write_jobs: JoinSet<eyre::Result<()>> = JoinSet::new();
-    let rate_limit = Arc::new(Semaphore::new(16));
-    while let Some(reflow_result) = reflow_jobs.join_next().await {
-        let WorkOutcome {
-            out_dir,
-            file_contents,
-        } = reflow_result??;
+    cancellation
+        .with_async_scope(|phase_cancellation| async move {
+            let mut write_jobs: JoinSet<eyre::Result<()>> = JoinSet::new();
+            let rate_limit = Arc::new(Semaphore::new(16));
+            let task_parent = phase_cancellation.clone();
+            let planning_result = {
+                let reflow_jobs = &mut reflow_jobs;
+                let write_jobs = &mut write_jobs;
+                let rtn = &mut rtn;
+                phase_cancellation
+                    .cancellable_scope(move |planning_cancellation| async move {
+                        while let Some(reflow_result) = reflow_jobs.join_next().await {
+                            let outcome = reflow_result??;
+                            planning_cancellation.bail_if_cancelled()?;
+                            let WorkOutcome {
+                                out_dir,
+                                file_contents,
+                            } = outcome;
 
-        info!(
-            "Reflowing workspace and spawning write tasks, {} remain",
-            reflow_jobs.len()
-        );
+                            info!(
+                                "Reflowing workspace and spawning write tasks, {} remain",
+                                reflow_jobs.len()
+                            );
 
-        rtn.push(ProcessedTFWorkDir::new(out_dir.clone()));
+                            rtn.push(ProcessedTFWorkDir::new(out_dir.clone()));
 
-        for (path, content) in file_contents {
-            let path_clone = path.clone();
-            let rate_limit = rate_limit.clone();
-            write_jobs.spawn(async move {
-                let permit = rate_limit.acquire().await?;
-                path_clone.ensure_parent_dir_exists().await?;
-                HclWriter::new(path_clone)
-                    .format_on_write()
-                    .overwrite(content)
-                    .await?;
-                drop(permit);
-                Ok(())
-            });
-        }
+                            for (path, content) in file_contents {
+                                planning_cancellation.bail_if_cancelled()?;
+                                let path_clone = path.clone();
+                                let rate_limit = rate_limit.clone();
+                                write_jobs.spawn({
+                                    task_parent.cancellable_scope(move |cancellation| async move {
+                                        let cancellation = &cancellation;
+                                        let permit = cancellation
+                                            .cancellable_scope(|_cancellation| async {
+                                                eyre::Ok(rate_limit.acquire().await?)
+                                            })
+                                            .await?;
+                                        path_clone.ensure_parent_dir_exists().await?;
+                                        HclWriter::new(path_clone)
+                                            .format_on_write()
+                                            .overwrite(content, cancellation)
+                                            .await?;
+                                        drop(permit);
+                                        Ok(())
+                                    })
+                                });
+                            }
 
-        // we don't need to write provider configs for processed dir since it will get the terraform config from the import dir
-        // write_jobs.spawn(async move {
-        //     let provider_manager = ProviderManager::try_new()?;
-        //     provider_manager
-        //         .write_default_provider_configs(&out_dir)
-        //         .await?;
-        //     Ok(())
-        // });
-    }
-    while let Some(write_result) = write_jobs.join_next().await {
-        write_result??;
-        info!(
-            "Writing processed files, {} tasks remain...",
-            write_jobs.len()
-        );
-    }
+                            // we don't need to write provider configs for processed dir since it will get the terraform config from the import dir
+                            // write_jobs.spawn(async move {
+                            //     let provider_manager = ProviderManager::try_new()?;
+                            //     provider_manager
+                            //         .write_default_provider_configs(&out_dir)
+                            //         .await?;
+                            //     Ok(())
+                            // });
+                        }
+                        eyre::Ok(())
+                    })
+                    .await
+            };
+            // Reflow only reads and prepares data, so abandon remaining jobs on failure.
+            drop(reflow_jobs);
+            let mut first_error = planning_result.err();
 
-    Ok(rtn)
+            // Writes may already be replacing files. Drain them before returning any error.
+            while let Some(write_result) = write_jobs.join_next().await {
+                match write_result {
+                    Ok(Ok(())) => {}
+                    Ok(Err(error)) => {
+                        first_error.get_or_insert(error);
+                    }
+                    Err(error) => {
+                        first_error.get_or_insert(error.into());
+                    }
+                }
+                info!(
+                    "Writing processed files, {} tasks remain...",
+                    write_jobs.len()
+                );
+            }
+
+            if let Some(error) = first_error {
+                return Err(error);
+            }
+            Ok(rtn)
+        })
+        .await
 }
 
 async fn prune_dirs_containing_generated_tf_file(
@@ -379,27 +448,69 @@ async fn prune_dirs_containing_generated_tf_file(
     Ok(rtn)
 }
 
-async fn clean_up_generated_files(tf_work_dirs: &[InitializedTFWorkDir]) -> eyre::Result<()> {
+async fn clean_up_generated_files(
+    tf_work_dirs: &[InitializedTFWorkDir],
+    cancellation: &CancellationScope,
+) -> eyre::Result<()> {
     debug!("Checking for generated.tf files from previous runs, going to delete them");
-    let mut join_set: JoinSet<eyre::Result<()>> = JoinSet::new();
-    for work_dir in tf_work_dirs {
-        let generated_path = work_dir.join("generated.tf");
-        join_set.spawn(async move {
-            if let Ok(true) = tokio::fs::try_exists(&generated_path).await {
-                warn!("Removing old generated file: {}", generated_path.display());
-                tokio::fs::remove_file(generated_path).await?;
+    cancellation
+        .with_async_scope(|cancellation| async move {
+            let mut join_set: JoinSet<eyre::Result<()>> = JoinSet::new();
+            for work_dir in tf_work_dirs {
+                let generated_path = work_dir.join("generated.tf");
+                join_set.spawn(
+                    cancellation.cancellable_scope(move |cancellation| async move {
+                        let cancellation = &cancellation;
+                        let exists = cancellation
+                            .cancellable_scope(|_cancellation| async {
+                                eyre::Ok(matches!(
+                                    tokio::fs::try_exists(&generated_path).await,
+                                    Ok(true)
+                                ))
+                            })
+                            .await?;
+                        if exists {
+                            cancellation
+                                .deferred(
+                                    "Finish removing the previous generated Terraform file",
+                                    |_completion| async move {
+                                        warn!(
+                                            "Removing old generated file: {}",
+                                            generated_path.display()
+                                        );
+                                        tokio::fs::remove_file(generated_path).await?;
+                                        eyre::Ok(())
+                                    },
+                                )
+                                .await?;
+                        }
+                        Ok(())
+                    }),
+                );
+            }
+            // Finish file removals already in flight before reporting a failure.
+            let mut first_error: Option<eyre::Report> = None;
+            while let Some(result) = join_set.join_next().await {
+                info!(
+                    "Cleaning up old generated.tf files, {} tasks remain",
+                    join_set.len()
+                );
+                match result {
+                    Ok(Ok(())) => {}
+                    Ok(Err(error)) => {
+                        first_error.get_or_insert(error);
+                    }
+                    Err(error) => {
+                        first_error.get_or_insert(error.into());
+                    }
+                }
+            }
+            if let Some(error) = first_error {
+                return Err(error);
             }
             Ok(())
-        });
-    }
-    while let Some(x) = join_set.join_next().await {
-        info!(
-            "Cleaning up old generated.tf files, {} tasks remain",
-            join_set.len()
-        );
-        x??;
-    }
-    Ok(())
+        })
+        .await
 }
 
 async fn write_import_blocks(
@@ -407,6 +518,7 @@ async fn write_import_blocks(
     import_blocks: impl IntoIterator<Item = impl Into<HclImportBlock>>,
     all_in_one: UnboundedSender<Vec<HclImportBlock>>,
     strategy: Strategy,
+    cancellation: &CancellationScope,
 ) -> eyre::Result<()> {
     let import_blocks: Vec<HclImportBlock> = import_blocks.into_iter().map(|x| x.into()).collect();
     if strategy.all_in_one() {
@@ -416,7 +528,7 @@ async fn write_import_blocks(
         let len = import_blocks.len();
         HclWriter::new(&file_path)
             .format_on_write()
-            .overwrite(import_blocks)
+            .overwrite(import_blocks, cancellation)
             .await?;
         debug!(
             "Wrote {} import blocks to {}",
@@ -499,14 +611,15 @@ async fn discover_existing_dirs(strategy: Strategy) -> eyre::Result<Vec<FreshTFW
 async fn write_all_import_blocks(
     strategy: Strategy,
     auth_context: &AzureTenantAuthContext,
+    cancellation: &CancellationScope,
 ) -> eyre::Result<Vec<FreshTFWorkDir>> {
     info!("Writing all import blocks; fetching a lot of data");
-    let org_url = get_default_organization_url().await?;
+    let org_url = get_default_organization_url(cancellation).await?;
     let azure_devops_auth_context = AzureDevOpsAuthContext::for_azure_tenant(auth_context);
     let (azure_devops_projects, subscriptions, resource_groups) = try_join!(
-        fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context),
-        fetch_all_subscriptions(auth_context),
-        fetch_all_resource_groups(auth_context),
+        fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context, cancellation),
+        fetch_all_subscriptions(auth_context, cancellation),
+        fetch_all_resource_groups(auth_context, cancellation),
     )?;
 
     let mut tf_work_dirs: Vec<PathBuf> = Vec::new();
@@ -518,16 +631,23 @@ async fn write_all_import_blocks(
         .map(|project| project.id.clone())
         .collect();
     let mut azure_devops_project_repos =
-        fetch_azure_devops_repos_batch(&org_url, project_ids.clone()).await?;
+        fetch_azure_devops_repos_batch(&org_url, project_ids.clone(), cancellation).await?;
 
     let mut azure_devops_project_teams = {
         async move {
             let mut work = ParallelFallibleWorkQueue::new("Fetching Azure DevOps teams", 10);
             for project_id in project_ids {
                 let org_url = org_url.clone();
-                work.enqueue(async move {
-                    let teams = fetch_azure_devops_teams_for_project(&org_url, &project_id);
-                    teams.await.map(|teams| (project_id.clone(), teams))
+                work.enqueue({
+                    cancellation.cancellable_scope(move |cancellation| async move {
+                        let cancellation = &cancellation;
+                        let teams = fetch_azure_devops_teams_for_project(
+                            &org_url,
+                            &project_id,
+                            cancellation,
+                        );
+                        teams.await.map(|teams| (project_id.clone(), teams))
+                    })
                 });
             }
             let results = work.join().await?.into_iter().collect::<HashMap<_, _>>();
@@ -540,150 +660,264 @@ async fn write_all_import_blocks(
 
     let mut join_set: JoinSet<eyre::Result<()>> = JoinSet::new();
 
-    info!("Writing Azure DevOps tf files");
-    for project in azure_devops_projects {
-        let Some(repos) = azure_devops_project_repos.remove(&project.id) else {
-            warn!("Failed to get repos for project {project:?}");
-            continue;
-        };
-        let Some(teams) = azure_devops_project_teams.remove(&project.id) else {
-            warn!("Failed to get teams for project {project:?}");
-            continue;
-        };
-
-        let project_dir = azure_devops_dir.join(project.name.replace(" ", "-"));
-
-        let project_creation_dir = project_dir.join("project_creation");
-        let project_repos_dir = project_dir.join("repos");
-        let project_teams_dir = project_dir.join("teams");
-
-        let project_tf_file = project_creation_dir.join("project.tf");
-        let repos_tf_file = project_repos_dir.join("repos.tf");
-        let teams_tf_file = project_teams_dir.join("teams.tf");
-
-        if strategy.split() {
-            project_creation_dir.ensure_dir_exists().await?;
-            project_repos_dir.ensure_dir_exists().await?;
-            project_teams_dir.ensure_dir_exists().await?;
-
-            tf_work_dirs.push(project_creation_dir.clone());
-            tf_work_dirs.push(project_repos_dir.clone());
-            tf_work_dirs.push(project_teams_dir.clone());
-
-            join_set.spawn(async move {
-                let provider_manager = ProviderManager::try_new()?;
-                provider_manager
-                    .write_default_provider_configs(&project_creation_dir)
-                    .await?;
-                Ok(())
-            });
-            join_set.spawn(async move {
-                let provider_manager = ProviderManager::try_new()?;
-
-                provider_manager
-                    .write_default_provider_configs(&project_repos_dir)
-                    .await?;
-                Ok(())
-            });
-            join_set.spawn(async move {
-                let provider_manager = ProviderManager::try_new()?;
-                provider_manager
-                    .write_default_provider_configs(&project_teams_dir)
-                    .await?;
-                Ok(())
-            });
-        }
-
-        let sender = all_in_one_imports_tx.clone();
-        join_set.spawn(async move {
-            write_import_blocks(project_tf_file, vec![project], sender, strategy).await?;
-            Ok(())
-        });
-
-        let sender = all_in_one_imports_tx.clone();
-        join_set.spawn(async move {
-            write_import_blocks(repos_tf_file, repos, sender, strategy).await?;
-            Ok(())
-        });
-
-        let sender = all_in_one_imports_tx.clone();
-        join_set.spawn(async move {
-            write_import_blocks(teams_tf_file, teams, sender, strategy).await?;
-            Ok(())
-        });
-    }
-
-    info!("Writing Azure Portal tf files");
-    let azure_portal_dir = AppDir::Imports.join("AzurePortal");
-    let subscriptions_dir = azure_portal_dir.join("subscriptions");
-
-    let subscriptions_by_id = subscriptions
-        .into_iter()
-        .map(|sub| (sub.id.to_owned(), sub))
-        .collect::<HashMap<_, _>>();
-    let mut provider_blocks: HashSet<_> = Default::default();
-    for rg in resource_groups {
-        let Some(sub) = subscriptions_by_id.get(&rg.id.subscription_id) else {
-            bail!(
-                "Failed to find subscription {} for resource group {}",
-                rg.id.subscription_id,
-                rg.name
-            );
-        };
-        let subscription_dir = subscriptions_dir.join(sub.name.replace(" ", "-"));
-        let resource_group_dir = subscription_dir.join(rg.name.replace(" ", "-"));
-        if strategy.split() {
-            tf_work_dirs.push(resource_group_dir.clone());
-        }
-
-        let boilerplate_file = resource_group_dir.join("boilerplate.tf");
-        let resource_group_import_file = resource_group_dir.join("resource-group.tf");
-
-        let azurerm_provider_block = sub.into_provider_block();
-        provider_blocks.insert(azurerm_provider_block.clone());
-        let mut resource_group_import_block: HclImportBlock = rg.into();
-        resource_group_import_block.provider = azurerm_provider_block.as_reference();
-
-        let sender = all_in_one_imports_tx.clone();
-        join_set.spawn(async move {
-            if strategy.split() {
-                HclWriter::new(&boilerplate_file)
-                    .format_on_write()
-                    .merge([azurerm_provider_block])
-                    .await?;
-            }
-
-            write_import_blocks(
-                resource_group_import_file,
-                [resource_group_import_block],
-                sender,
-                strategy,
-            )
-            .await?;
-            Ok(())
-        });
-    }
-
-    info!("Prepping all-in-one dir");
     let all_in_one_dir = AppDir::Imports.join("all_in_one");
-    if strategy.all_in_one() {
-        tf_work_dirs.push(all_in_one_dir.clone());
-        let all_in_one_dir = all_in_one_dir.clone();
-        join_set.spawn(async move {
-            let provider_manager = ProviderManager::try_new()?;
-            provider_manager
-                .write_default_provider_configs(&all_in_one_dir)
-                .await?;
-            Ok(())
-        });
-    }
+    let mut provider_blocks: HashSet<_> = Default::default();
+    let first_error = {
+        let join_set = &mut join_set;
+        let tf_work_dirs = &mut tf_work_dirs;
+        let provider_blocks = &mut provider_blocks;
+        let all_in_one_imports_rx = &mut all_in_one_imports_rx;
+        let all_in_one_dir = &all_in_one_dir;
+        cancellation
+            .with_async_scope(move |phase_cancellation| async move {
+                let task_parent = phase_cancellation.clone();
+                let planning_result = {
+                    let join_set = &mut *join_set;
+                    let tf_work_dirs = &mut *tf_work_dirs;
+                    let provider_blocks = &mut *provider_blocks;
+                    phase_cancellation
+                        .cancellable_scope(move |cancellation| async move {
+                            let cancellation = &cancellation;
+                            info!("Writing Azure DevOps tf files");
+                            for project in azure_devops_projects {
+                                cancellation.bail_if_cancelled()?;
+                                let Some(repos) = azure_devops_project_repos.remove(&project.id)
+                                else {
+                                    warn!("Failed to get repos for project {project:?}");
+                                    continue;
+                                };
+                                let Some(teams) = azure_devops_project_teams.remove(&project.id)
+                                else {
+                                    warn!("Failed to get teams for project {project:?}");
+                                    continue;
+                                };
 
-    info!("Waiting for tasks to finish...");
-    while let Some(result) = join_set.join_next().await {
-        result??;
-        info!("{} import write tasks remaining...", join_set.len());
+                                let project_dir =
+                                    azure_devops_dir.join(project.name.replace(" ", "-"));
+
+                                let project_creation_dir = project_dir.join("project_creation");
+                                let project_repos_dir = project_dir.join("repos");
+                                let project_teams_dir = project_dir.join("teams");
+
+                                let project_tf_file = project_creation_dir.join("project.tf");
+                                let repos_tf_file = project_repos_dir.join("repos.tf");
+                                let teams_tf_file = project_teams_dir.join("teams.tf");
+
+                                if strategy.split() {
+                                    project_creation_dir.ensure_dir_exists().await?;
+                                    project_repos_dir.ensure_dir_exists().await?;
+                                    project_teams_dir.ensure_dir_exists().await?;
+
+                                    tf_work_dirs.push(project_creation_dir.clone());
+                                    tf_work_dirs.push(project_repos_dir.clone());
+                                    tf_work_dirs.push(project_teams_dir.clone());
+
+                                    join_set.spawn({
+                                        task_parent.cancellable_scope(
+                                            move |cancellation| async move {
+                                                let cancellation = &cancellation;
+                                                let provider_manager = ProviderManager::try_new()?;
+                                                provider_manager
+                                                    .write_default_provider_configs(
+                                                        &project_creation_dir,
+                                                        cancellation,
+                                                    )
+                                                    .await?;
+                                                Ok(())
+                                            },
+                                        )
+                                    });
+                                    join_set.spawn({
+                                        task_parent.cancellable_scope(
+                                            move |cancellation| async move {
+                                                let cancellation = &cancellation;
+                                                let provider_manager = ProviderManager::try_new()?;
+
+                                                provider_manager
+                                                    .write_default_provider_configs(
+                                                        &project_repos_dir,
+                                                        cancellation,
+                                                    )
+                                                    .await?;
+                                                Ok(())
+                                            },
+                                        )
+                                    });
+                                    join_set.spawn({
+                                        task_parent.cancellable_scope(
+                                            move |cancellation| async move {
+                                                let cancellation = &cancellation;
+                                                let provider_manager = ProviderManager::try_new()?;
+                                                provider_manager
+                                                    .write_default_provider_configs(
+                                                        &project_teams_dir,
+                                                        cancellation,
+                                                    )
+                                                    .await?;
+                                                Ok(())
+                                            },
+                                        )
+                                    });
+                                }
+
+                                let sender = all_in_one_imports_tx.clone();
+                                join_set.spawn({
+                                    task_parent.cancellable_scope(move |cancellation| async move {
+                                        let cancellation = &cancellation;
+                                        write_import_blocks(
+                                            project_tf_file,
+                                            vec![project],
+                                            sender,
+                                            strategy,
+                                            cancellation,
+                                        )
+                                        .await?;
+                                        Ok(())
+                                    })
+                                });
+
+                                let sender = all_in_one_imports_tx.clone();
+                                join_set.spawn({
+                                    task_parent.cancellable_scope(move |cancellation| async move {
+                                        let cancellation = &cancellation;
+                                        write_import_blocks(
+                                            repos_tf_file,
+                                            repos,
+                                            sender,
+                                            strategy,
+                                            cancellation,
+                                        )
+                                        .await?;
+                                        Ok(())
+                                    })
+                                });
+
+                                let sender = all_in_one_imports_tx.clone();
+                                join_set.spawn({
+                                    task_parent.cancellable_scope(move |cancellation| async move {
+                                        let cancellation = &cancellation;
+                                        write_import_blocks(
+                                            teams_tf_file,
+                                            teams,
+                                            sender,
+                                            strategy,
+                                            cancellation,
+                                        )
+                                        .await?;
+                                        Ok(())
+                                    })
+                                });
+                            }
+
+                            info!("Writing Azure Portal tf files");
+                            let azure_portal_dir = AppDir::Imports.join("AzurePortal");
+                            let subscriptions_dir = azure_portal_dir.join("subscriptions");
+
+                            let subscriptions_by_id = subscriptions
+                                .into_iter()
+                                .map(|sub| (sub.id.to_owned(), sub))
+                                .collect::<HashMap<_, _>>();
+                            for rg in resource_groups {
+                                cancellation.bail_if_cancelled()?;
+                                let Some(sub) = subscriptions_by_id.get(&rg.id.subscription_id)
+                                else {
+                                    bail!(
+                                        "Failed to find subscription {} for resource group {}",
+                                        rg.id.subscription_id,
+                                        rg.name
+                                    );
+                                };
+                                let subscription_dir =
+                                    subscriptions_dir.join(sub.name.replace(" ", "-"));
+                                let resource_group_dir =
+                                    subscription_dir.join(rg.name.replace(" ", "-"));
+                                if strategy.split() {
+                                    tf_work_dirs.push(resource_group_dir.clone());
+                                }
+
+                                let boilerplate_file = resource_group_dir.join("boilerplate.tf");
+                                let resource_group_import_file =
+                                    resource_group_dir.join("resource-group.tf");
+
+                                let azurerm_provider_block = sub.into_provider_block();
+                                provider_blocks.insert(azurerm_provider_block.clone());
+                                let mut resource_group_import_block: HclImportBlock = rg.into();
+                                resource_group_import_block.provider =
+                                    azurerm_provider_block.as_reference();
+
+                                let sender = all_in_one_imports_tx.clone();
+                                join_set.spawn({
+                                    task_parent.cancellable_scope(move |cancellation| async move {
+                                        let cancellation = &cancellation;
+                                        if strategy.split() {
+                                            HclWriter::new(&boilerplate_file)
+                                                .format_on_write()
+                                                .merge([azurerm_provider_block], cancellation)
+                                                .await?;
+                                        }
+
+                                        write_import_blocks(
+                                            resource_group_import_file,
+                                            [resource_group_import_block],
+                                            sender,
+                                            strategy,
+                                            cancellation,
+                                        )
+                                        .await?;
+                                        Ok(())
+                                    })
+                                });
+                            }
+
+                            info!("Prepping all-in-one dir");
+                            cancellation.bail_if_cancelled()?;
+                            if strategy.all_in_one() {
+                                tf_work_dirs.push(all_in_one_dir.to_path_buf());
+                                let all_in_one_dir = all_in_one_dir.to_path_buf();
+                                join_set.spawn({
+                                    task_parent.cancellable_scope(move |cancellation| async move {
+                                        let cancellation = &cancellation;
+                                        let provider_manager = ProviderManager::try_new()?;
+                                        provider_manager
+                                            .write_default_provider_configs(
+                                                &all_in_one_dir,
+                                                cancellation,
+                                            )
+                                            .await?;
+                                        Ok(())
+                                    })
+                                });
+                            }
+
+                            Ok(())
+                        })
+                        .await
+                };
+                let mut first_error = planning_result.err();
+
+                // Import/provider writes may have truncated files; retain them on errors.
+                info!("Waiting for tasks to finish...");
+                while let Some(result) = join_set.join_next().await {
+                    match result {
+                        Ok(Ok(())) => {}
+                        Ok(Err(error)) => {
+                            first_error.get_or_insert(error);
+                        }
+                        Err(error) => {
+                            first_error.get_or_insert(error.into());
+                        }
+                    }
+                    info!("{} import write tasks remaining...", join_set.len());
+                }
+                all_in_one_imports_rx.close();
+                eyre::Ok(first_error)
+            })
+            .await?
+    };
+    if let Some(error) = first_error {
+        return Err(error);
     }
-    all_in_one_imports_rx.close();
+    cancellation.bail_if_cancelled()?;
 
     info!("Writing the all-in-one");
     if strategy.all_in_one() {
@@ -702,7 +936,7 @@ async fn write_all_import_blocks(
 
         HclWriter::new(&all_in_one_file)
             .format_on_write()
-            .merge(together)
+            .merge(together, cancellation)
             .await?;
     } else {
         assert!(all_in_one_imports_rx.is_empty());

@@ -2,6 +2,7 @@ use crate::GiteaLogin;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
@@ -10,10 +11,15 @@ use std::time::Duration;
 
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Debug, Clone, Arbitrary, facet::Facet)]
-pub struct GiteaLoginsListRequest;
+pub struct GiteaLoginsListRequest {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+}
 
-pub fn list_gitea_logins() -> GiteaLoginsListRequest {
-    GiteaLoginsListRequest
+pub fn list_gitea_logins(cancellation: &CancellationScope) -> GiteaLoginsListRequest {
+    GiteaLoginsListRequest {
+        cancellation: cancellation.clone(),
+    }
 }
 
 #[async_trait]
@@ -29,9 +35,10 @@ impl CacheableCommand for GiteaLoginsListRequest {
 
     async fn run(self) -> eyre::Result<Self::Output> {
         let mut cmd = CommandBuilder::new(CommandKind::Gitea);
+        cmd.cancellation_safe();
         cmd.args(["logins", "list", "--output", "json"]);
         cmd.cache(self.cache_key());
-        cmd.run().await
+        cmd.run(&self.cancellation).await
     }
 }
 

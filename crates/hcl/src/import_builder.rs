@@ -1,3 +1,4 @@
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::bstr::ByteSlice;
@@ -9,12 +10,16 @@ use hcl::edit::Decorate;
 use hcl::edit::structure::Body;
 use std::path::Path;
 
-pub async fn get_imports_from_existing(path: impl AsRef<Path>) -> Result<Vec<HclImportBlock>> {
+pub async fn get_imports_from_existing(
+    path: impl AsRef<Path>,
+    cancellation: &CancellationScope,
+) -> Result<Vec<HclImportBlock>> {
     let body = CommandBuilder::new(CommandKind::Terraform)
+        .cancellation_safe()
         .should_announce(true)
         .arg("show")
         .use_run_dir(path)
-        .run_raw()
+        .run_raw(cancellation)
         .await?
         .stdout
         .to_str()?

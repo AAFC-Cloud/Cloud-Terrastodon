@@ -1,5 +1,6 @@
 use super::AzurePublicIpListArgs;
 use super::AzurePublicIpShowArgs;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -14,10 +15,14 @@ pub enum AzurePublicIpCommand {
 }
 
 impl AzurePublicIpCommand {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self {
-            AzurePublicIpCommand::List(args) => args.invoke(auth_context).await,
-            AzurePublicIpCommand::Show(args) => args.invoke(auth_context).await,
+            AzurePublicIpCommand::List(args) => args.invoke(auth_context, cancellation).await,
+            AzurePublicIpCommand::Show(args) => args.invoke(auth_context, cancellation).await,
         }
     }
 }

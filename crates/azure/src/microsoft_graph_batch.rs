@@ -1,4 +1,5 @@
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::FromCommandOutput;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_rest::RestRequest;
@@ -14,6 +15,11 @@ use std::ops::DerefMut;
 const MAX_BATCH_REQUESTS: usize = 20;
 
 pub struct MicrosoftGraphBatchRequest<'a, REQ> {
+    pub cancellation: CancellationScope,
+    /// Allow interruption only when the caller guarantees every entry is read-only.
+    /// False keeps generic batches running through completion.
+    pub cancellation_safe: bool,
+
     /// The requests to be made in the batch
     pub requests: Vec<MicrosoftGraphBatchRequestEntry<REQ>>,
     /// The IDs of the requests, in the order the requests were added
@@ -23,14 +29,22 @@ pub struct MicrosoftGraphBatchRequest<'a, REQ> {
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
 impl<'a, REQ> MicrosoftGraphBatchRequest<'a, REQ> {
-    pub fn new(auth_context: &'a AzureTenantAuthContext) -> Self {
+    pub fn new(auth_context: &'a AzureTenantAuthContext, cancellation: &CancellationScope) -> Self {
         MicrosoftGraphBatchRequest {
+            cancellation: cancellation.clone(),
+            cancellation_safe: false,
             requests: Vec::new(),
             ids: Vec::new(),
             cache_key: None,
             auth_context: Cow::Borrowed(auth_context),
         }
     }
+    /// Allow cancellation to drop a batch whose entries the caller guarantees are read-only.
+    pub fn cancellation_safe(mut self) -> Self {
+        self.cancellation_safe = true;
+        self
+    }
+
     pub fn add(&mut self, entry: impl Into<MicrosoftGraphBatchRequestEntry<REQ>>) {
         let entry = entry.into();
         self.ids.push(entry.id.clone());
@@ -59,6 +73,8 @@ impl<'a, REQ> MicrosoftGraphBatchRequest<'a, REQ> {
         REQ: Facet<'static>,
     {
         let Self {
+            cancellation,
+            cancellation_safe,
             requests,
             ids,
             cache_key,
@@ -77,6 +93,7 @@ impl<'a, REQ> MicrosoftGraphBatchRequest<'a, REQ> {
         let mut ids = ids.into_iter();
         let mut batch_index = 0;
         loop {
+            cancellation.bail_if_cancelled()?;
             let mut batch_requests = Vec::with_capacity(MAX_BATCH_REQUESTS);
             let mut batch_ids = Vec::with_capacity(MAX_BATCH_REQUESTS);
             for _ in 0..MAX_BATCH_REQUESTS {
@@ -100,6 +117,13 @@ impl<'a, REQ> MicrosoftGraphBatchRequest<'a, REQ> {
                 break;
             }
 
+            let request_cache_key = cache_key.as_ref().map(|cache_key| {
+                if use_base_cache_key {
+                    cache_key.clone()
+                } else {
+                    cache_key.join(batch_index.to_string())
+                }
+            });
             let body = MicrosoftGraphBatchRequestWire {
                 requests: batch_requests
                     .into_iter()
@@ -112,21 +136,18 @@ impl<'a, REQ> MicrosoftGraphBatchRequest<'a, REQ> {
                     })
                     .collect(),
             };
-            let mut request =
-                RestRequest::new(Method::POST, "https://graph.microsoft.com/v1.0/$batch")?
-                    .tenant(auth_context.tenant_id)
-                    .azure_auth_context(&auth_context.auth_context)
-                    .body(
-                        facet_json::to_string_pretty(&body)
-                            .map_err(|error| eyre::eyre!("{error:?}"))?,
-                    );
-            request.cache_key = cache_key.as_ref().map(|cache_key| {
-                if use_base_cache_key {
-                    cache_key.clone()
-                } else {
-                    cache_key.join(batch_index.to_string())
-                }
-            });
+            let mut request = RestRequest::new(
+                Method::POST,
+                "https://graph.microsoft.com/v1.0/$batch",
+                &cancellation,
+            )?
+            .tenant(auth_context.tenant_id)
+            .azure_auth_context(&auth_context.auth_context)
+            .body(facet_json::to_string_pretty(&body).map_err(|error| eyre::eyre!("{error:?}"))?);
+            if cancellation_safe {
+                request = request.cancellation_safe();
+            }
+            request.cache_key = request_cache_key;
             let response = request.receive::<MicrosoftGraphBatchWireResponse>().await?;
             let mut response = response.into_typed::<RESP>()?;
             // Reorder each response chunk to match the order of its requests.

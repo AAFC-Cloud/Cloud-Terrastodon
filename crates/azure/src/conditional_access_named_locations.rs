@@ -2,6 +2,7 @@ use crate::MicrosoftGraphHelper;
 use cloud_terrastodon_azure_types::ConditionalAccessNamedLocation;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Result;
@@ -11,12 +12,16 @@ use std::path::PathBuf;
 #[must_use = "This is a future request, you must .await it"]
 #[derive(facet::Facet)]
 pub struct ConditionalAccessNamedLocationListRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
 
 impl<'a> arbitrary::Arbitrary<'a> for ConditionalAccessNamedLocationListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: arbitrary::Arbitrary::arbitrary(u)?,
             auth_context: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
         })
     }
@@ -24,8 +29,10 @@ impl<'a> arbitrary::Arbitrary<'a> for ConditionalAccessNamedLocationListRequest<
 
 pub fn fetch_all_conditional_access_named_locations<'a>(
     auth_context: &'a AzureTenantAuthContext,
+    cancellation: &CancellationScope,
 ) -> ConditionalAccessNamedLocationListRequest<'a> {
     ConditionalAccessNamedLocationListRequest {
+        cancellation: cancellation.clone(),
         auth_context: Cow::Borrowed(auth_context),
     }
 }
@@ -49,9 +56,10 @@ impl CacheableCommand for ConditionalAccessNamedLocationListRequest<'_> {
             "https://graph.microsoft.com/beta/identity/conditionalAccess/namedLocations",
             Some(self.cache_key()),
             self.auth_context.as_ref(),
+            &self.cancellation,
         );
 
-        let found = query.fetch_all().await?;
+        let found = query.fetch_all(&self.cancellation).await?;
         Ok(found)
     }
 }
@@ -62,15 +70,22 @@ cloud_terrastodon_command::impl_cacheable_into_future!(ConditionalAccessNamedLoc
 mod test {
     use crate::fetch_all_conditional_access_named_locations;
     use crate::get_test_tenant_id;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_credentials::AuthContext;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        let auth_context =
-            AuthContext::explicit_azure_cli().bind_to_azure_tenant(get_test_tenant_id().await?)?;
-        let found = fetch_all_conditional_access_named_locations(&auth_context).await?;
-        assert!(!found.is_empty());
-        Ok(())
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let auth_context = AuthContext::explicit_azure_cli()
+                    .bind_to_azure_tenant(get_test_tenant_id(&cancellation).await?)?;
+                let found =
+                    fetch_all_conditional_access_named_locations(&auth_context, &cancellation)
+                        .await?;
+                assert!(!found.is_empty());
+                Ok(())
+            })
+            .await
     }
 }
 

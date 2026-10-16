@@ -6,6 +6,7 @@ use crate::try_fetch_gitea_repository_by_id;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use std::borrow::Cow;
 use std::path::PathBuf;
@@ -13,6 +14,8 @@ use std::path::PathBuf;
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Debug, Clone, facet::Facet)]
 pub struct GiteaRepoScanByIdRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
     pub tenant: Cow<'a, GiteaInstanceUrl>,
     pub start_id: u64,
     pub end_id: u64,
@@ -22,8 +25,10 @@ pub fn fetch_gitea_repositories_by_id_range<'a>(
     tenant: &'a GiteaInstanceUrl,
     start_id: u64,
     end_id: u64,
+    cancellation: &CancellationScope,
 ) -> GiteaRepoScanByIdRequest<'a> {
     GiteaRepoScanByIdRequest {
+        cancellation: cancellation.clone(),
         tenant: Cow::Borrowed(tenant),
         start_id,
         end_id,
@@ -33,6 +38,7 @@ pub fn fetch_gitea_repositories_by_id_range<'a>(
 impl<'a> Arbitrary<'a> for GiteaRepoScanByIdRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: CancellationScope::unbound(),
             tenant: Cow::Owned(GiteaInstanceUrl::arbitrary(u)?),
             start_id: u64::arbitrary(u)?,
             end_id: u64::arbitrary(u)?,
@@ -56,15 +62,20 @@ impl<'a> CacheableCommand for GiteaRepoScanByIdRequest<'a> {
     }
 
     async fn run(self) -> eyre::Result<Self::Output> {
-        let tenant = self.tenant;
         let mut repositories = Vec::new();
         for repo_id in self.start_id..=self.end_id {
-            if let Some(repo) =
-                try_fetch_gitea_repository_by_id(tenant.as_ref(), GiteaRepoId::new(repo_id)).await?
+            self.cancellation.bail_if_cancelled()?;
+            if let Some(repo) = try_fetch_gitea_repository_by_id(
+                self.tenant.as_ref(),
+                GiteaRepoId::new(repo_id),
+                &self.cancellation,
+            )
+            .await?
             {
                 repositories.push(repo);
             }
         }
+        self.cancellation.bail_if_cancelled()?;
         Ok(dedupe_repositories(repositories))
     }
 }

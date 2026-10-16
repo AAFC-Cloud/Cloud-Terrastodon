@@ -11,6 +11,7 @@ use cloud_terrastodon_azure::fetch_entra_pim_role_settings_with_graph_access_tok
 use cloud_terrastodon_azure::fetch_my_entra_pim_role_assignments_with_graph_access_token;
 use cloud_terrastodon_azure::fetch_my_role_eligibility_schedules;
 use cloud_terrastodon_azure::fetch_role_management_policy_assignments;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_credentials::fetch_pim_graph_access_token;
@@ -38,18 +39,24 @@ impl std::fmt::Display for PimKind {
     }
 }
 
-pub async fn pim_activate(auth_context: &AzureTenantAuthContext) -> Result<()> {
+pub async fn pim_activate(
+    auth_context: &AzureTenantAuthContext,
+    cancellation: &CancellationScope,
+) -> Result<()> {
     match PickerTui::<_>::new()
         .set_header("Choose the kind of role to activate")
         .pick_one(vec![PimKind::Entra, PimKind::AzureRM])
         .await?
     {
-        PimKind::Entra => pim_activate_entra(auth_context.tenant_id).await,
-        PimKind::AzureRM => pim_activate_azurerm(auth_context).await,
+        PimKind::Entra => pim_activate_entra(auth_context.tenant_id, cancellation).await,
+        PimKind::AzureRM => pim_activate_azurerm(auth_context, cancellation).await,
     }
 }
 
-pub async fn pim_activate_entra(tenant_id: AzureTenantId) -> Result<()> {
+pub async fn pim_activate_entra(
+    tenant_id: AzureTenantId,
+    cancellation: &CancellationScope,
+) -> Result<()> {
     // https://learn.microsoft.com/en-us/graph/api/resources/unifiedroleassignmentschedulerequest?view=graph-rest-beta
     // https://learn.microsoft.com/en-us/graph/api/governancerolesetting-list?view=graph-rest-beta
     // https://learn.microsoft.com/en-us/graph/api/resources/privilegedidentitymanagementv3-overview?view=graph-rest-1.0
@@ -57,10 +64,12 @@ pub async fn pim_activate_entra(tenant_id: AzureTenantId) -> Result<()> {
     // https://learn.microsoft.com/en-us/graph/api/resources/privilegedidentitymanagementv3-overview?view=graph-rest-1.0
     // https://github.com/Azure/azure-cli/issues/28854
 
-    let access_token = Arc::new(Box::pin(fetch_pim_graph_access_token(tenant_id)).await?);
-    let principal_id = fetch_current_user_with_graph_access_token(tenant_id, access_token.as_str())
-        .await?
-        .id;
+    let access_token =
+        Arc::new(Box::pin(fetch_pim_graph_access_token(tenant_id, cancellation)).await?);
+    let principal_id =
+        fetch_current_user_with_graph_access_token(tenant_id, access_token.as_str(), cancellation)
+            .await?
+            .id;
 
     info!("Prompting user choice");
     let chosen_roles = PickerTui::<_>::new()
@@ -73,6 +82,7 @@ pub async fn pim_activate_entra(tenant_id: AzureTenantId) -> Result<()> {
                     fetch_all_entra_pim_role_definitions_with_graph_access_token(
                         tenant_id,
                         access_token.as_str(),
+                        cancellation,
                     )
                     .await?
                     .into_iter()
@@ -85,6 +95,7 @@ pub async fn pim_activate_entra(tenant_id: AzureTenantId) -> Result<()> {
                         tenant_id,
                         principal_id,
                         access_token.as_str(),
+                        cancellation,
                     )
                     .await?
                     .into_iter()
@@ -124,6 +135,7 @@ pub async fn pim_activate_entra(tenant_id: AzureTenantId) -> Result<()> {
                         tenant_id,
                         role_assignment.role_definition_id,
                         access_token.as_str(),
+                        cancellation,
                     )
                     .await?
                     .get_maximum_grant_period()?;
@@ -161,18 +173,22 @@ pub async fn pim_activate_entra(tenant_id: AzureTenantId) -> Result<()> {
             justification.clone(),
             chosen_duration,
             access_token.as_str(),
+            cancellation,
         )
         .await?;
     }
 
     Ok(())
 }
-pub async fn pim_activate_azurerm(auth_context: &AzureTenantAuthContext) -> Result<()> {
+pub async fn pim_activate_azurerm(
+    auth_context: &AzureTenantAuthContext,
+    cancellation: &CancellationScope,
+) -> Result<()> {
     let chosen_roles = PickerTui::<_>::new()
         .set_header("Choose roles to activate")
         .pick_many_reloadable(|invalidate| async move {
             info!("Fetching role eligibility schedules");
-            let possible_roles = fetch_my_role_eligibility_schedules()
+            let possible_roles = fetch_my_role_eligibility_schedules(cancellation)
                 .with_invalidation(invalidate)
                 .await?;
             let choices = possible_roles.into_iter().map(|x| Choice {
@@ -198,7 +214,7 @@ pub async fn pim_activate_azurerm(auth_context: &AzureTenantAuthContext) -> Resu
         .set_header(format!("Activating {chosen_roles_display}"))
         .pick_many_reloadable(|invalidate| async move {
             info!("Fetching eligible scopes");
-            let possible_scopes = fetch_all_resources(auth_context)
+            let possible_scopes = fetch_all_resources(auth_context, cancellation)
                 .with_invalidation(invalidate)
                 .await?
                 .into_iter()
@@ -228,6 +244,7 @@ pub async fn pim_activate_azurerm(auth_context: &AzureTenantAuthContext) -> Resu
                     let policies = fetch_role_management_policy_assignments(
                         scope.id.clone(),
                         role.properties.role_definition_id.clone(),
+                        cancellation,
                     )
                     .with_invalidation(invalidate)
                     .await?;
@@ -256,7 +273,7 @@ pub async fn pim_activate_azurerm(auth_context: &AzureTenantAuthContext) -> Resu
 
     let justification = prompt_line("Justification: ").await?;
 
-    let principal_id = fetch_current_user().await?.id;
+    let principal_id = fetch_current_user(cancellation).await?.id;
     for role in chosen_roles.iter() {
         info!(
             "Activating {role} for {} at: ",
@@ -271,6 +288,7 @@ pub async fn pim_activate_azurerm(auth_context: &AzureTenantAuthContext) -> Resu
                 role.id.clone(),
                 justification.clone(),
                 chosen_duration,
+                cancellation,
             )
             .await?;
         }

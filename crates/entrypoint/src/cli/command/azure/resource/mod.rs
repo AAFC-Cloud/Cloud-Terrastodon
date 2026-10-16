@@ -7,6 +7,7 @@ pub use azure_resource_browse_cli::AzureResourceBrowseArgs;
 pub use azure_resource_cli::AzureResourceCommand;
 pub use azure_resource_list_cli::AzureResourceListArgs;
 pub use azure_resource_show_cli::AzureResourceShowArgs;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -18,7 +19,11 @@ pub struct AzureResourceArgs {
 }
 
 impl AzureResourceArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        self.command.invoke(auth_context).await
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        self.command.invoke(auth_context, cancellation).await
     }
 }

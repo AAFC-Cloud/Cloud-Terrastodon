@@ -1,4 +1,5 @@
 use cloud_terrastodon_azure::fetch_all_groups;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_hcl::HclImportBlock;
 use cloud_terrastodon_hcl::HclWriter;
@@ -9,9 +10,12 @@ use eyre::eyre;
 use itertools::Itertools;
 use tracing::info;
 
-pub async fn build_group_imports(auth_context: &AzureTenantAuthContext) -> Result<()> {
+pub async fn build_group_imports(
+    auth_context: &AzureTenantAuthContext,
+    cancellation: &CancellationScope,
+) -> Result<()> {
     info!("Fetching groups");
-    let groups = fetch_all_groups(auth_context)
+    let groups = fetch_all_groups(auth_context, cancellation)
         .await?
         .into_iter()
         .filter(|def| def.security_enabled)
@@ -29,7 +33,7 @@ pub async fn build_group_imports(auth_context: &AzureTenantAuthContext) -> Resul
     }
 
     HclWriter::new(AppDir::Imports.join("group_imports.tf"))
-        .overwrite(imports)
+        .overwrite(imports, cancellation)
         .await?;
 
     Ok(())

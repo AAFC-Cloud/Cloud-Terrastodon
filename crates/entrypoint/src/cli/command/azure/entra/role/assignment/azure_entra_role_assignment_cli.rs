@@ -1,5 +1,6 @@
 use super::AzureEntraRoleAssignmentBrowseArgs;
 use super::AzureEntraRoleAssignmentListArgs;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -14,10 +15,18 @@ pub enum AzureEntraRoleAssignmentCommand {
 }
 
 impl AzureEntraRoleAssignmentCommand {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self {
-            AzureEntraRoleAssignmentCommand::List(args) => args.invoke(auth_context).await,
-            AzureEntraRoleAssignmentCommand::Browse(args) => args.invoke(auth_context).await,
+            AzureEntraRoleAssignmentCommand::List(args) => {
+                args.invoke(auth_context, cancellation).await
+            }
+            AzureEntraRoleAssignmentCommand::Browse(args) => {
+                args.invoke(auth_context, cancellation).await
+            }
         }
     }
 }

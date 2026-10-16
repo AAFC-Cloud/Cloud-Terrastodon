@@ -6,6 +6,7 @@ use cloud_terrastodon_azure_types::EligibleChildResourceKind;
 use cloud_terrastodon_azure_types::Scope;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_rest::RestRequest;
@@ -25,6 +26,7 @@ pub async fn fetch_eligible_child_resources(
     scope: &impl Scope,
     behaviour: FetchChildrenBehaviour,
     auth_context: &AzureTenantAuthContext,
+    cancellation: &CancellationScope,
 ) -> Result<Vec<EligibleChildResource>> {
     let scope = scope.expanded_form();
     let scope = scope.strip_prefix('/').unwrap_or(&scope);
@@ -45,7 +47,7 @@ pub async fn fetch_eligible_child_resources(
         value: Vec<EligibleChildResource>,
     }
 
-    let resp = RestRequest::new(http::Method::GET, &url)?
+    let resp = RestRequest::new(http::Method::GET, &url, cancellation)?
         .azure_auth_context(&auth_context.auth_context)
         .tenant(auth_context.tenant_id)
         .cache(CacheKey::new(cache_chunks))
@@ -57,13 +59,18 @@ pub async fn fetch_eligible_child_resources(
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Debug, Clone, facet::Facet)]
 pub struct EligibleChildResourceListRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
 
 pub fn fetch_all_eligible_resource_containers<'a>(
     auth_context: &'a AzureTenantAuthContext,
+    cancellation: &CancellationScope,
 ) -> EligibleChildResourceListRequest<'a> {
     EligibleChildResourceListRequest {
+        cancellation: cancellation.clone(),
         auth_context: Cow::Borrowed(auth_context),
     }
 }
@@ -71,6 +78,7 @@ pub fn fetch_all_eligible_resource_containers<'a>(
 impl<'a> arbitrary::Arbitrary<'a> for EligibleChildResourceListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: arbitrary::Arbitrary::arbitrary(u)?,
             auth_context: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
         })
     }
@@ -89,17 +97,19 @@ impl<'a> CacheableCommand for EligibleChildResourceListRequest<'a> {
     }
 
     async fn run(self) -> Result<Self::Output> {
-        let root_mg = fetch_root_management_group(self.auth_context.as_ref()).await?;
+        let root_mg =
+            fetch_root_management_group(self.auth_context.as_ref(), &self.cancellation).await?;
         let scope = root_mg.as_scope();
         let mut resource_containers = fetch_eligible_child_resources(
             scope,
             FetchChildrenBehaviour::GetAllChildren,
             self.auth_context.as_ref(),
+            &self.cancellation,
         )
         .await?;
         // this contains management groups and subscriptions
 
-        let rgs = fetch_all_resource_groups(self.auth_context.as_ref())
+        let rgs = fetch_all_resource_groups(self.auth_context.as_ref(), &self.cancellation)
             .await?
             .into_iter()
             .map(|x| EligibleChildResource {
@@ -125,148 +135,179 @@ mod tests {
     use crate::test_helpers::expect_aad_premium_p2_license;
     use cloud_terrastodon_azure_types::AsScope;
     use cloud_terrastodon_azure_types::Scope;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_credentials::AuthContext;
     use cloud_terrastodon_user_input::Choice;
     use cloud_terrastodon_user_input::PickerTui;
 
     #[test_log::test(tokio::test)]
     async fn it_works() -> Result<()> {
-        let auth_context = AuthContext::explicit_azure_cli();
-        let tenant_auth_context = auth_context.bind_to_azure_tenant(get_test_tenant_id().await?)?;
-        let mg = fetch_root_management_group(&tenant_auth_context).await?;
-        let scope = mg.as_scope();
-        let Some(found) = expect_aad_premium_p2_license(
-            fetch_eligible_child_resources(
-                scope,
-                FetchChildrenBehaviour::GetAllChildren,
-                &tenant_auth_context,
-            )
-            .await,
-        )
-        .await?
-        else {
-            return Ok(());
-        };
-        assert!(!found.is_empty());
-        Ok(())
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let auth_context = AuthContext::explicit_azure_cli();
+                let tenant_auth_context =
+                    auth_context.bind_to_azure_tenant(get_test_tenant_id(&cancellation).await?)?;
+                let mg = fetch_root_management_group(&tenant_auth_context, &cancellation).await?;
+                let scope = mg.as_scope();
+                let Some(found) = expect_aad_premium_p2_license(
+                    fetch_eligible_child_resources(
+                        scope,
+                        FetchChildrenBehaviour::GetAllChildren,
+                        &tenant_auth_context,
+                        &cancellation,
+                    )
+                    .await,
+                )
+                .await?
+                else {
+                    return Ok(());
+                };
+                assert!(!found.is_empty());
+                Ok(())
+            })
+            .await
     }
 
     #[test_log::test(tokio::test)]
     async fn it_works2() -> Result<()> {
-        let auth_context =
-            AuthContext::explicit_azure_cli().bind_to_azure_tenant(get_test_tenant_id().await?)?;
-        let Some(found) = expect_aad_premium_p2_license(
-            fetch_all_eligible_resource_containers(&auth_context).await,
-        )
-        .await?
-        else {
-            return Ok(());
-        };
-        assert!(!found.is_empty());
-        Ok(())
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let auth_context = AuthContext::explicit_azure_cli()
+                    .bind_to_azure_tenant(get_test_tenant_id(&cancellation).await?)?;
+                let Some(found) = expect_aad_premium_p2_license(
+                    fetch_all_eligible_resource_containers(&auth_context, &cancellation).await,
+                )
+                .await?
+                else {
+                    return Ok(());
+                };
+                assert!(!found.is_empty());
+                Ok(())
+            })
+            .await
     }
 
     #[test_log::test(tokio::test)]
     async fn it_works3() -> Result<()> {
-        let tenant_id = get_test_tenant_id().await?;
-        let auth_context = AuthContext::explicit_azure_cli();
-        let tenant_auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
-        let rg = fetch_all_resource_groups(&tenant_auth_context)
-            .await?
-            .into_iter()
-            .next()
-            .unwrap();
-        let result = expect_aad_premium_p2_license(
-            fetch_eligible_child_resources(
-                rg.as_scope(),
-                FetchChildrenBehaviour::GetAllChildren,
-                &tenant_auth_context,
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+            let tenant_id = get_test_tenant_id(&cancellation).await?;
+            let auth_context = AuthContext::explicit_azure_cli();
+            let tenant_auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
+            let rg = fetch_all_resource_groups(&tenant_auth_context, &cancellation)
+                .await?
+                .into_iter()
+                .next()
+                .unwrap();
+            let result = expect_aad_premium_p2_license(
+                fetch_eligible_child_resources(
+                    rg.as_scope(),
+                    FetchChildrenBehaviour::GetAllChildren,
+                    &tenant_auth_context,
+                    &cancellation,
+                )
+                .await,
             )
-            .await,
-        )
-        .await;
-        match result {
-            Ok(_) => eyre::bail!(
-                "Expected error, but got success; GetAllChildren is only supported for management groups?"
-            ),
-            Err(_) => return Ok(()),
-        }
+            .await;
+            match result {
+                Ok(_) => eyre::bail!(
+                    "Expected error, but got success; GetAllChildren is only supported for management groups?"
+                ),
+                Err(_) => return Ok(()),
+            }
+            })
+            .await
     }
 
     #[test_log::test(tokio::test)]
     async fn it_works4() -> Result<()> {
-        let tenant_id = get_test_tenant_id().await?;
-        let auth_context = AuthContext::explicit_azure_cli();
-        let tenant_auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
-        let subs = fetch_all_subscriptions(&tenant_auth_context).await?;
-        let sub = subs.first().unwrap();
-        let result = expect_aad_premium_p2_license(
-            fetch_eligible_child_resources(
-                sub.as_scope(),
-                FetchChildrenBehaviour::GetAllChildren,
-                &tenant_auth_context,
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+            let tenant_id = get_test_tenant_id(&cancellation).await?;
+            let auth_context = AuthContext::explicit_azure_cli();
+            let tenant_auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
+            let subs = fetch_all_subscriptions(&tenant_auth_context, &cancellation).await?;
+            let sub = subs.first().unwrap();
+            let result = expect_aad_premium_p2_license(
+                fetch_eligible_child_resources(
+                    sub.as_scope(),
+                    FetchChildrenBehaviour::GetAllChildren,
+                    &tenant_auth_context,
+                    &cancellation,
+                )
+                .await,
             )
-            .await,
-        )
-        .await;
-        match result {
-            Ok(_) => eyre::bail!(
-                "Expected error, but got success; GetAllChildren is only supported for management groups?"
-            ),
-            Err(_) => return Ok(()),
-        }
+            .await;
+            match result {
+                Ok(_) => eyre::bail!(
+                    "Expected error, but got success; GetAllChildren is only supported for management groups?"
+                ),
+                Err(_) => return Ok(()),
+            }
+            })
+            .await
     }
 
     #[test_log::test(tokio::test)]
     #[ignore]
     async fn it_works_interactive() -> Result<()> {
-        let auth_context = AuthContext::explicit_azure_cli();
-        let tenant_auth_context = auth_context.bind_to_azure_tenant(get_test_tenant_id().await?)?;
-        let mg = fetch_root_management_group(&tenant_auth_context).await?;
-        let mut scope = mg.as_scope().as_scope_impl().to_owned();
-        loop {
-            let Some(resources) = expect_aad_premium_p2_license(
-                fetch_eligible_child_resources(
-                    &scope,
-                    FetchChildrenBehaviour::default(),
-                    &tenant_auth_context,
-                )
-                .await,
-            )
-            .await?
-            else {
-                return Ok(());
-            };
-            let next_scope: EligibleChildResource = PickerTui::<_>::new()
-                .set_header("Choose a scope")
-                .pick_one(resources.into_iter().map(|x| Choice {
-                    key: x.name.to_owned(),
-                    value: x,
-                }))
-                .await?;
-            scope = next_scope.id;
-        }
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let auth_context = AuthContext::explicit_azure_cli();
+                let tenant_auth_context =
+                    auth_context.bind_to_azure_tenant(get_test_tenant_id(&cancellation).await?)?;
+                let mg = fetch_root_management_group(&tenant_auth_context, &cancellation).await?;
+                let mut scope = mg.as_scope().as_scope_impl().to_owned();
+                loop {
+                    let Some(resources) = expect_aad_premium_p2_license(
+                        fetch_eligible_child_resources(
+                            &scope,
+                            FetchChildrenBehaviour::default(),
+                            &tenant_auth_context,
+                            &cancellation,
+                        )
+                        .await,
+                    )
+                    .await?
+                    else {
+                        return Ok(());
+                    };
+                    let next_scope: EligibleChildResource = PickerTui::<_>::new()
+                        .set_header("Choose a scope")
+                        .pick_one(resources.into_iter().map(|x| Choice {
+                            key: x.name.to_owned(),
+                            value: x,
+                        }))
+                        .await?;
+                    scope = next_scope.id;
+                }
+            })
+            .await
     }
     #[test_log::test(tokio::test)]
     #[ignore]
     async fn it_works_interactive2() -> Result<()> {
-        let auth_context =
-            AuthContext::explicit_azure_cli().bind_to_azure_tenant(get_test_tenant_id().await?)?;
-        let Some(resources) = expect_aad_premium_p2_license(
-            fetch_all_eligible_resource_containers(&auth_context).await,
-        )
-        .await?
-        else {
-            return Ok(());
-        };
-        let chosen: Vec<EligibleChildResource> = PickerTui::<_>::new()
-            .pick_many(resources.into_iter().map(|x| Choice {
-                key: x.to_string(),
-                value: x,
-            }))
-            .await?;
-        assert!(!chosen.is_empty());
-        Ok(())
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let auth_context = AuthContext::explicit_azure_cli()
+                    .bind_to_azure_tenant(get_test_tenant_id(&cancellation).await?)?;
+                let Some(resources) = expect_aad_premium_p2_license(
+                    fetch_all_eligible_resource_containers(&auth_context, &cancellation).await,
+                )
+                .await?
+                else {
+                    return Ok(());
+                };
+                let chosen: Vec<EligibleChildResource> = PickerTui::<_>::new()
+                    .pick_many(resources.into_iter().map(|x| Choice {
+                        key: x.to_string(),
+                        value: x,
+                    }))
+                    .await?;
+                assert!(!chosen.is_empty());
+                Ok(())
+            })
+            .await
     }
 }
 

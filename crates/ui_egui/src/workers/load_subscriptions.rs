@@ -12,11 +12,14 @@ pub fn load_subscriptions(app: &mut MyApp) {
     LoadableWorkBuilder::<Vec<Subscription>>::new()
         .description("Loading Subscriptions")
         .setter(|app, data| app.subscriptions = data.map(Rc::new))
-        .work(async move {
-            let auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
-            let subs = fetch_all_subscriptions(&auth_context).await?;
-            Ok(subs)
-        })
+        .work(
+            app.cancellation
+                .cancellable_scope(move |cancellation| async move {
+                    let auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
+                    let subs = fetch_all_subscriptions(&auth_context, &cancellation).await?;
+                    Ok(subs)
+                }),
+        )
         .build()
         .unwrap()
         .enqueue(app);

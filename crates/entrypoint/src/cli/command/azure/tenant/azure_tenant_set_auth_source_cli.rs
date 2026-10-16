@@ -1,6 +1,7 @@
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::set_tracked_tenant_auth_source;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthSource;
 use eyre::Result;
 use std::io::Write;
@@ -18,8 +19,11 @@ pub struct AzureTenantSetAuthSourceArgs {
 }
 
 impl AzureTenantSetAuthSourceArgs {
-    pub async fn invoke(self) -> Result<()> {
-        let tenant_id = self.tenant.resolve().await?;
+    pub async fn invoke(
+        self,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let tenant_id = self.tenant.resolve(cancellation).await?;
         let auth_source = set_tracked_tenant_auth_source(tenant_id, self.auth_source).await?;
 
         let stdout = std::io::stdout();

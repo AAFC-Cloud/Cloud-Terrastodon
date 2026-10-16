@@ -4,6 +4,7 @@ use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::fetch_all_cognitive_services_accounts;
 use cloud_terrastodon_azure::fetch_cognitive_services_account_deployments;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use eyre::bail;
@@ -26,15 +27,20 @@ pub struct AzureCognitiveServicesDeploymentShowArgs {
 }
 
 impl AzureCognitiveServicesDeploymentShowArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         let Self {
             tenant,
             account,
             deployment,
         } = self;
-        let tenant_auth_context = tenant.bind_auth_context(auth_context).await?;
+        let tenant_auth_context = tenant.bind_auth_context(auth_context, cancellation).await?;
         let tenant_id = tenant_auth_context.tenant_id;
-        let accounts = fetch_all_cognitive_services_accounts(&tenant_auth_context).await?;
+        let accounts =
+            fetch_all_cognitive_services_accounts(&tenant_auth_context, cancellation).await?;
         let mut account_matches = accounts
             .into_iter()
             .filter(|item| account.matches(item))
@@ -62,14 +68,15 @@ impl AzureCognitiveServicesDeploymentShowArgs {
         };
 
         let deployment_needle = deployment.trim();
-        let mut matches = fetch_cognitive_services_account_deployments(tenant_id, account.id)
-            .await?
-            .into_iter()
-            .filter(|deployment| {
-                deployment.id.expanded_form() == deployment_needle
-                    || deployment.name.eq_ignore_ascii_case(deployment_needle)
-            })
-            .collect::<Vec<_>>();
+        let mut matches =
+            fetch_cognitive_services_account_deployments(tenant_id, account.id, cancellation)
+                .await?
+                .into_iter()
+                .filter(|deployment| {
+                    deployment.id.expanded_form() == deployment_needle
+                        || deployment.name.eq_ignore_ascii_case(deployment_needle)
+                })
+                .collect::<Vec<_>>();
 
         match matches.len() {
             0 => bail!("No deployment found matching '{}'.", deployment_needle),

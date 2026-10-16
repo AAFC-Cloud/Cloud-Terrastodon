@@ -3,6 +3,7 @@ use cloud_terrastodon_azure_types::ComputeSkuName;
 use cloud_terrastodon_azure_types::Price;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
@@ -10,6 +11,9 @@ use std::path::PathBuf;
 
 #[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct ComputeSkuPricesRequest {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub location: AzureLocationName,
     pub sku: ComputeSkuName,
 }
@@ -17,8 +21,13 @@ pub struct ComputeSkuPricesRequest {
 pub fn fetch_compute_sku_prices(
     location: AzureLocationName,
     sku: ComputeSkuName,
+    cancellation: &CancellationScope,
 ) -> ComputeSkuPricesRequest {
-    ComputeSkuPricesRequest { location, sku }
+    ComputeSkuPricesRequest {
+        cancellation: cancellation.clone(),
+        location,
+        sku,
+    }
 }
 
 #[async_trait]
@@ -46,6 +55,7 @@ impl CacheableCommand for ComputeSkuPricesRequest {
             )
         );
         let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
+        cmd.cancellation_safe();
         cmd.args(["rest", "--method", "GET", "--url"]);
         cmd.azure_file_arg("url.txt", url);
         cmd.cache(self.cache_key());
@@ -66,7 +76,7 @@ impl CacheableCommand for ComputeSkuPricesRequest {
             #[facet(rename = "NextPageLink")]
             next_page_link: Option<String>,
         }
-        let rtn = cmd.run::<Response>().await?.items;
+        let rtn = cmd.run::<Response>(&self.cancellation).await?.items;
         Ok(rtn)
     }
 }
@@ -78,15 +88,20 @@ mod test {
     use crate::fetch_compute_sku_prices;
     use cloud_terrastodon_azure_types::AzureLocationName;
     use cloud_terrastodon_azure_types::ComputeSkuName;
+    use cloud_terrastodon_command::CancellationToken;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        let sku = ComputeSkuName::try_new("Standard_D2s_v5")?;
-        let location = AzureLocationName::CanadaCentral;
-        let prices = fetch_compute_sku_prices(location, sku).await?;
-        assert!(!prices.is_empty()); // idk why failing, add CLI for sku browse
-        assert!(prices.iter().any(|price| price.unit_price > 0.0));
-        Ok(())
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let sku = ComputeSkuName::try_new("Standard_D2s_v5")?;
+                let location = AzureLocationName::CanadaCentral;
+                let prices = fetch_compute_sku_prices(location, sku, &cancellation).await?;
+                assert!(!prices.is_empty()); // idk why failing, add CLI for sku browse
+                assert!(prices.iter().any(|price| price.unit_price > 0.0));
+                Ok(())
+            })
+            .await
     }
 }
 

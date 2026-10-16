@@ -3,6 +3,7 @@ use crate::fetch_all_unified_role_definitions;
 use cloud_terrastodon_azure_types::UnifiedRoleDefinitionsAndAssignments;
 use cloud_terrastodon_command::CacheInvalidatable;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use std::borrow::Cow;
@@ -15,12 +16,16 @@ use tokio::try_join;
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Debug, Clone, facet::Facet)]
 pub struct UnifiedRoleDefinitionsAndAssignmentsListRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
 
 impl<'a> arbitrary::Arbitrary<'a> for UnifiedRoleDefinitionsAndAssignmentsListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: arbitrary::Arbitrary::arbitrary(u)?,
             auth_context: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
         })
     }
@@ -28,8 +33,10 @@ impl<'a> arbitrary::Arbitrary<'a> for UnifiedRoleDefinitionsAndAssignmentsListRe
 
 pub fn fetch_all_unified_role_definitions_and_assignments<'a>(
     auth_context: &'a AzureTenantAuthContext,
+    cancellation: &CancellationScope,
 ) -> UnifiedRoleDefinitionsAndAssignmentsListRequest<'a> {
     UnifiedRoleDefinitionsAndAssignmentsListRequest {
+        cancellation: cancellation.clone(),
         auth_context: Cow::Borrowed(auth_context),
     }
 }
@@ -38,9 +45,11 @@ pub fn fetch_all_unified_role_definitions_and_assignments<'a>(
 impl<'a> CacheInvalidatable for UnifiedRoleDefinitionsAndAssignmentsListRequest<'a> {
     async fn invalidate(&self) -> eyre::Result<()> {
         let definitions =
-            fetch_all_unified_role_definitions(self.auth_context.as_ref()).cache_key();
+            fetch_all_unified_role_definitions(self.auth_context.as_ref(), &self.cancellation)
+                .cache_key();
         let assignments =
-            fetch_all_unified_role_assignments(self.auth_context.as_ref()).cache_key();
+            fetch_all_unified_role_assignments(self.auth_context.as_ref(), &self.cancellation)
+                .cache_key();
         try_join!(definitions.invalidate(), assignments.invalidate())?;
         Ok(())
     }
@@ -51,15 +60,20 @@ impl<'a> IntoFuture for UnifiedRoleDefinitionsAndAssignmentsListRequest<'a> {
     type IntoFuture = Pin<Box<dyn std::future::Future<Output = Self::Output> + Send + 'a>>;
 
     fn into_future(self) -> Self::IntoFuture {
-        Box::pin(async move {
-            let auth_context = self.auth_context;
+        let cancellation = self.cancellation.clone();
+        Box::pin(cancellation.cancellable_scope(move |scope| async move {
+            let request = Self {
+                cancellation: scope,
+                ..self
+            };
+            let auth_context = request.auth_context;
             let (role_definitions, role_assignments) = try_join!(
-                fetch_all_unified_role_definitions(auth_context.as_ref()),
-                fetch_all_unified_role_assignments(auth_context.as_ref())
+                fetch_all_unified_role_definitions(auth_context.as_ref(), &request.cancellation),
+                fetch_all_unified_role_assignments(auth_context.as_ref(), &request.cancellation)
             )?;
 
             UnifiedRoleDefinitionsAndAssignments::try_new(role_definitions, role_assignments)
-        })
+        }))
     }
 }
 
@@ -70,31 +84,41 @@ mod test {
     use crate::get_test_tenant_id;
     use cloud_terrastodon_azure_types::RolePermissionAction;
     use cloud_terrastodon_azure_types::UnifiedRoleDefinitionsAndAssignmentsIterTools;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_credentials::AuthContext;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        let tenant_id = get_test_tenant_id().await?;
-        let auth_context = AuthContext::explicit_azure_cli();
-        let tenant_auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
-        let rbac = fetch_all_unified_role_definitions_and_assignments(&tenant_auth_context).await?;
-        let principals = fetch_all_principals(&tenant_auth_context).await?;
-        let permissions = &[RolePermissionAction::new(
-            "microsoft.directory/users/standard/read",
-        )];
-        let mut matching_assignments = 0usize;
-        let mut resolved_principals = 0usize;
-        for (assignment, definition) in rbac.iter_role_assignments().filter_satisfying(permissions)
-        {
-            matching_assignments += 1;
-            if let Some(principal) = principals.get(&assignment.principal_id) {
-                assert!(!principal.display_name().is_empty());
-                assert!(!definition.display_name.is_empty());
-                resolved_principals += 1;
-            }
-        }
-        assert!(resolved_principals <= matching_assignments);
-        Ok(())
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let tenant_id = get_test_tenant_id(&cancellation).await?;
+                let auth_context = AuthContext::explicit_azure_cli();
+                let tenant_auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
+                let rbac = fetch_all_unified_role_definitions_and_assignments(
+                    &tenant_auth_context,
+                    &cancellation,
+                )
+                .await?;
+                let principals = fetch_all_principals(&tenant_auth_context, &cancellation).await?;
+                let permissions = &[RolePermissionAction::new(
+                    "microsoft.directory/users/standard/read",
+                )];
+                let mut matching_assignments = 0usize;
+                let mut resolved_principals = 0usize;
+                for (assignment, definition) in
+                    rbac.iter_role_assignments().filter_satisfying(permissions)
+                {
+                    matching_assignments += 1;
+                    if let Some(principal) = principals.get(&assignment.principal_id) {
+                        assert!(!principal.display_name().is_empty());
+                        assert!(!definition.display_name.is_empty());
+                        resolved_principals += 1;
+                    }
+                }
+                assert!(resolved_principals <= matching_assignments);
+                Ok(())
+            })
+            .await
     }
 }
 

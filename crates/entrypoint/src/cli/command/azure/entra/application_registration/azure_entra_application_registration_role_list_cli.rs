@@ -2,6 +2,7 @@ use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::EntraApplicationClientId;
 use cloud_terrastodon_azure::fetch_application_roles;
+use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 use std::io::Write;
 use tracing::info;
@@ -19,14 +20,18 @@ pub struct AzureEntraApplicationRegistrationRoleListArgs {
 }
 
 impl AzureEntraApplicationRegistrationRoleListArgs {
-    pub async fn invoke(self) -> Result<()> {
-        let tenant_id = self.tenant.resolve().await?;
+    pub async fn invoke(
+        self,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let tenant_id = self.tenant.resolve(cancellation).await?;
         info!(
             %tenant_id,
             application_id = %self.application_id,
             "Fetching application roles"
         );
-        let permissions = fetch_application_roles(tenant_id, self.application_id).await?;
+        let permissions =
+            fetch_application_roles(tenant_id, self.application_id, cancellation).await?;
 
         let stdout: std::io::Stdout = std::io::stdout();
         let mut handle = stdout.lock();

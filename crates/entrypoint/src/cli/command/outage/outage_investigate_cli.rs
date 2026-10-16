@@ -17,6 +17,7 @@ use cloud_terrastodon_azure::fetch_all_private_endpoints;
 use cloud_terrastodon_azure::fetch_all_public_ips;
 use cloud_terrastodon_azure::fetch_all_virtual_networks;
 use cloud_terrastodon_azure::fetch_application_gateway_backend_health;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use color_eyre::owo_colors::OwoColorize;
 use eyre::Context;
@@ -55,14 +56,21 @@ pub struct OutageInvestigateArgs {
 }
 
 impl OutageInvestigateArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let tenant_auth_context = self
+            .tenant
+            .bind_auth_context(auth_context, cancellation)
+            .await?;
         let tenant_id = tenant_auth_context.tenant_id;
         let target_host = extract_target_host(&self.target)?;
         let dns = resolve_target(&target_host).await?;
 
         info!(%tenant_id, host = %target_host, "Fetching Azure public IP addresses for outage investigation");
-        let public_ips = fetch_all_public_ips(&tenant_auth_context).await?;
+        let public_ips = fetch_all_public_ips(&tenant_auth_context, cancellation).await?;
         info!(
             count = public_ips.len(),
             "Fetched Azure public IP addresses"
@@ -81,11 +89,19 @@ impl OutageInvestigateArgs {
                 match_public_ip(public_ip, &normalized_hosts, &resolved_addresses)
             })
             .collect::<Vec<_>>();
-        let matches =
-            enrich_matches_with_application_gateway_backend_health(tenant_id, matches).await?;
-        let matches =
-            enrich_matches_with_backend_resource_discovery(tenant_id, matches, auth_context)
-                .await?;
+        let matches = enrich_matches_with_application_gateway_backend_health(
+            tenant_id,
+            matches,
+            cancellation,
+        )
+        .await?;
+        let matches = enrich_matches_with_backend_resource_discovery(
+            tenant_id,
+            matches,
+            auth_context,
+            cancellation,
+        )
+        .await?;
 
         let report = OutageInvestigationReport {
             input: self.target,
@@ -326,9 +342,11 @@ fn match_public_ip(
 async fn enrich_matches_with_application_gateway_backend_health(
     tenant_id: cloud_terrastodon_azure::AzureTenantId,
     mut matches: Vec<OutagePublicIpMatch>,
+    cancellation: &CancellationScope,
 ) -> Result<Vec<OutagePublicIpMatch>> {
     let backend_health_by_gateway_id =
-        fetch_application_gateway_backend_health_for_matches(tenant_id, &matches).await;
+        fetch_application_gateway_backend_health_for_matches(tenant_id, &matches, cancellation)
+            .await;
 
     for matched_public_ip in &mut matches {
         let Some(application_gateway_id) = matched_public_ip.application_gateway_id.as_deref()
@@ -351,6 +369,7 @@ async fn enrich_matches_with_backend_resource_discovery(
     tenant_id: cloud_terrastodon_azure::AzureTenantId,
     mut matches: Vec<OutagePublicIpMatch>,
     auth_context: &AuthContext,
+    cancellation: &CancellationScope,
 ) -> Result<Vec<OutagePublicIpMatch>> {
     let tenant_auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
     let backend_candidates = matches
@@ -371,21 +390,21 @@ async fn enrich_matches_with_backend_resource_discovery(
             count = backend_candidates.len(),
             "Fetching network interfaces for backend probe investigation"
         );
-        fetch_all_network_interfaces(&tenant_auth_context).await?
+        fetch_all_network_interfaces(&tenant_auth_context, cancellation).await?
     };
 
     let virtual_networks = if backend_candidates.is_empty() {
         Vec::new()
     } else {
         info!("Fetching virtual networks for backend probe investigation");
-        fetch_all_virtual_networks(&tenant_auth_context).await?
+        fetch_all_virtual_networks(&tenant_auth_context, cancellation).await?
     };
 
     let container_instances = if backend_candidates.is_empty() {
         Vec::new()
     } else {
         info!("Fetching container instances for backend probe investigation");
-        fetch_all_container_instances(&tenant_auth_context).await?
+        fetch_all_container_instances(&tenant_auth_context, cancellation).await?
     };
 
     let relevant_private_endpoint_ids = backend_candidates
@@ -404,7 +423,7 @@ async fn enrich_matches_with_backend_resource_discovery(
             count = relevant_private_endpoint_ids.len(),
             "Fetching private endpoints for backend probe investigation"
         );
-        fetch_all_private_endpoints(&tenant_auth_context)
+        fetch_all_private_endpoints(&tenant_auth_context, cancellation)
             .await?
             .into_iter()
             .filter(|private_endpoint| {
@@ -481,6 +500,7 @@ async fn enrich_matches_with_backend_resource_discovery(
 async fn fetch_application_gateway_backend_health_for_matches(
     tenant_id: cloud_terrastodon_azure::AzureTenantId,
     matches: &[OutagePublicIpMatch],
+    cancellation: &CancellationScope,
 ) -> BTreeMap<String, ApplicationGatewayBackendHealthLookup> {
     let application_gateway_ids = matches
         .iter()
@@ -500,8 +520,12 @@ async fn fetch_application_gateway_backend_health_for_matches(
     for application_gateway_id in application_gateway_ids {
         let lookup = match application_gateway_id.parse::<AzureApplicationGatewayResourceId>() {
             Ok(application_gateway_id) => {
-                match fetch_application_gateway_backend_health(tenant_id, application_gateway_id)
-                    .await
+                match fetch_application_gateway_backend_health(
+                    tenant_id,
+                    application_gateway_id,
+                    cancellation,
+                )
+                .await
                 {
                     Ok(backend_health) => ApplicationGatewayBackendHealthLookup {
                         backend_health: Some(backend_health),

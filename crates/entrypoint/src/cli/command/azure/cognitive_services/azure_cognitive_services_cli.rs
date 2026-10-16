@@ -1,4 +1,5 @@
 use super::AzureCognitiveServicesAccountArgs;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -11,9 +12,15 @@ pub enum AzureCognitiveServicesCommand {
 }
 
 impl AzureCognitiveServicesCommand {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self {
-            AzureCognitiveServicesCommand::Account(args) => args.invoke(auth_context).await,
+            AzureCognitiveServicesCommand::Account(args) => {
+                args.invoke(auth_context, cancellation).await
+            }
         }
     }
 }

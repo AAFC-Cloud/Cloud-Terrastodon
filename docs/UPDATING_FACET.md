@@ -1,16 +1,18 @@
 # Updating Facet and Figue
 
 Cloud Terrastodon uses TeamDman's independent Facet and Figue forks. The
-prepared registry graph uses `teamy-facet-* 0.50.0-rc.7` and
-`teamy-figue` / `teamy-figue-attrs 6.0.0-rc.1`, with canonical Rust dependency
+published registry graph uses `teamy-facet-* 0.50.0-rc.7` and
+`teamy-figue` / `teamy-figue-attrs 6.0.0-rc.2`, with canonical Rust dependency
 aliases such as `facet` and `figue`. These packages are not the official
-upstream crates. They must be published before Cloud Terrastodon 0.37.0 can
-be installed from crates.io.
+upstream crates. Cloud Terrastodon 0.37.0 was published with Figue 6.0.0-rc.1;
+workspace development uses the newer Figue version above.
 
-Local development uses exact-version dependencies with sibling paths to
-`../facet`, `../facet-format`, and `../figue`. Cargo removes those paths when
-packaging, leaving registry dependencies on the Teamy packages. Neither the
-workspace nor the standalone example requires `[patch.crates-io]` overrides.
+Workspace development uses exact published Teamy Facet/Figue versions from
+crates.io, matching the registry dependencies in published packages.
+The standalone example is a workspace member sharing the root lockfile and
+using the local facade with the same workspace Teamy dependency pins.
+Neither the workspace nor the standalone example requires `[patch.crates-io]`
+overrides.
 
 ## 0.37.0 release preparation
 
@@ -131,8 +133,8 @@ synthetic values; no production services, credentials or application response
 caches were accessed. This checkpoint supplements the historical application
 acceptance results below rather than replacing them.
 
-With the published Git pins, the workspace check passes for all targets. The
-audited application selection passes 20 app tests, eight entrypoint
+At the historical Git-pin checkpoint, the workspace check passes for all
+targets. The audited application selection passes 20 app tests, eight entrypoint
 schema/help/registry tests, and all 14 standalone consumer integration tests.
 Locked Windows dependency metadata has one source identity for each interacting
 Facet/Figue package in both workspaces. Root lockfile changes update only the
@@ -152,21 +154,25 @@ Keep the canonical dependency keys required by generated macro paths:
 
 ```toml
 facet = { package = "teamy-facet", version = "=0.50.0-rc.7" }
-figue = { package = "teamy-figue", version = "=6.0.0-rc.1" }
+figue = { package = "teamy-figue", version = "=6.0.0-rc.2" }
 ```
 
 See [Cargo's dependency renaming reference](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#renaming-dependencies-in-cargotoml).
-Normal/build dependencies have both a version and a development path. Fork
-internal dev-dependencies use paths only so Cargo omits them from archives,
-avoiding bootstrap cycles; run their complete test suites in the source trees.
+Within the fork source repositories, internal normal/build dependencies have
+both a version and a development path. Fork internal dev-dependencies use paths
+only so Cargo omits them from archives, avoiding bootstrap cycles; run their
+complete test suites in the source trees. Cloud Terrastodon consumes the published
+Teamy packages from the registry.
 Archive validation checks library builds and an independent consumer using
 the normalized registry graph. Do not claim registry installation works until
 the exact versions have actually been published.
 
-Cloud Terrastodon currently uses Facet-free `teamy-cancellation 0.2.0`.
-The cancellation repository's newer optional Facet/Figue features must be
-tested in its own root. `teamy-mft` is no longer a dependency and does not
-require synchronization.
+Cloud Terrastodon pins published `teamy-cancellation =0.4.0` from crates.io
+with `async`, `deferral`, `facet`, and `arbitrary` enabled. Its optional Facet/Figue
+features use the same exact published Teamy registry package versions as this
+workspace; check those features in its own root when changing the dependency graph.
+`teamy-mft` is no longer a dependency and
+does not require synchronization.
 
 ## Update procedure
 
@@ -185,10 +191,11 @@ Choose an appropriately scoped Cargo target/package cleanup when needed.
    replace old branches, or blindly copy old in-Facet Figue, tuple or Format
    adapters.
 4. Test the fork stacks before publishing their new refs. Record the tested
-   `teamy-main` SHAs without waiting for upstream PR merges. Update exact Teamy
-   package versions and development paths together, including the standalone
-   CLI example, then inspect each lockfile diff; avoid unrelated dependency
-   updates. Verify normalized archives and a consumer without Git overrides.
+   `teamy-main` SHAs without waiting for upstream PR merges. Publish the reviewed
+   compatible Teamy versions, then update the workspace's exact registry pins.
+   The standalone CLI inherits the workspace's Teamy dependencies. Inspect each
+   lockfile diff; avoid unrelated dependency updates. Verify normalized archives and a
+   consumer without Git overrides.
 5. Run application tests, source-identity checks and freshly built CLI help.
    Synthetic probes supplement this evidence; they do not prove a current
    application command requires every proposed library capability.
@@ -214,7 +221,8 @@ cargo +1.96.0 run --quiet --locked --bin cloud_terrastodon -- az tenant login --
 git diff --check
 ```
 
-Preview the coordinated publication order, including first-time crates:
+When preparing a new coordinated fork release from the fork source checkouts,
+preview the publication order, including first-time crates:
 
 ```powershell
 ./publish.ps1 -DryRun -ManifestPath ../facet/Cargo.toml,../facet-format/Cargo.toml,../figue/Cargo.toml,./Cargo.toml

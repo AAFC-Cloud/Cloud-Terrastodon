@@ -4,6 +4,7 @@ use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemQueryInvokeRequest;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemQuerySelector;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use eyre::bail;
@@ -27,7 +28,11 @@ pub struct AzureDevOpsWorkItemQueryInvokeArgs {
 }
 
 impl AzureDevOpsWorkItemQueryInvokeArgs {
-    pub async fn invoke(self, auth: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         let query = match (self.id, self.wiql) {
             (Some(id), None) => AzureDevOpsWorkItemQuerySelector::Id(id.parse()?),
             (None, Some(wiql)) => AzureDevOpsWorkItemQuerySelector::Wiql(
@@ -37,8 +42,9 @@ impl AzureDevOpsWorkItemQueryInvokeArgs {
             ),
             _ => bail!("Specify exactly one saved query ID or --wiql"),
         };
-        let auth_context = self.tenant.bind_auth_context(auth).await?;
+        let auth_context = self.tenant.bind_auth_context(auth, cancellation).await?;
         let result = AzureDevOpsWorkItemQueryInvokeRequest {
+            cancellation: cancellation.clone(),
             org_url: Cow::Owned(self.org),
             project: Some(self.project),
             auth_context: Cow::Owned(auth_context),

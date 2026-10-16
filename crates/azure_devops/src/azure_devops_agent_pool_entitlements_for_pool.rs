@@ -3,11 +3,14 @@ use crate::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsAgentPoolArgument;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use std::borrow::Cow;
 use std::pin::Pin;
 
 pub struct AzureDevOpsAgentPoolEntitlementListForPoolRequest<'a> {
+    pub cancellation: CancellationScope,
+
     pub org_url: &'a AzureDevOpsOrganizationUrl,
     pub pool: AzureDevOpsAgentPoolArgument<'a>,
     pub invalidate_cache: bool,
@@ -18,8 +21,10 @@ pub fn fetch_azure_devops_agent_pool_entitlements_for_pool<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     pool: impl Into<AzureDevOpsAgentPoolArgument<'a>>,
     auth_context: &'a AzureDevOpsAuthContext,
+    cancellation: &CancellationScope,
 ) -> AzureDevOpsAgentPoolEntitlementListForPoolRequest<'a> {
     AzureDevOpsAgentPoolEntitlementListForPoolRequest {
+        cancellation: cancellation.clone(),
         org_url,
         pool: pool.into(),
         invalidate_cache: false,
@@ -42,16 +47,21 @@ impl<'a> IntoFuture for AzureDevOpsAgentPoolEntitlementListForPoolRequest<'a> {
 
     fn into_future(self) -> Self::IntoFuture {
         Box::pin(async move {
-            let projects =
-                fetch_all_azure_devops_projects(self.org_url, self.auth_context.as_ref())
-                    .with_invalidation(self.invalidate_cache)
-                    .await?;
+            let projects = fetch_all_azure_devops_projects(
+                self.org_url,
+                self.auth_context.as_ref(),
+                &self.cancellation,
+            )
+            .with_invalidation(self.invalidate_cache)
+            .await?;
             let mut all_entitlements = Vec::new();
             for project in projects {
+                self.cancellation.bail_if_cancelled()?;
                 let entitlements = fetch_azure_devops_agent_pool_entitlements_for_project(
                     self.org_url,
                     &project,
                     self.auth_context.as_ref(),
+                    &self.cancellation,
                 )
                 .with_invalidation(self.invalidate_cache)
                 .await?;
@@ -71,43 +81,49 @@ mod test {
     use super::*;
     use crate::fetch_azure_devops_agent_pools;
     use crate::get_default_organization_url;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_credentials::AuthContext;
     use itertools::Itertools;
 
     #[tokio::test]
     #[ignore = "This takes a long time because it iterates all projects"]
     pub async fn it_works() -> eyre::Result<()> {
-        let org_url = get_default_organization_url().await?;
-        let auth_context = AuthContext::explicit_azure_cli();
-        let azure_devops_auth_context = AzureDevOpsAuthContext::new(&auth_context)?;
-        let agent_pools = fetch_azure_devops_agent_pools(&org_url).await?;
-        let our_agent_pools = agent_pools
-            .iter()
-            .filter(|pool| !pool.is_hosted)
-            .collect_vec();
-        assert!(
-            !our_agent_pools.is_empty(),
-            "Expected at least one of our agent pools"
-        );
-        for pool in our_agent_pools {
-            let entitlements = fetch_azure_devops_agent_pool_entitlements_for_pool(
-                &org_url,
-                pool,
-                &azure_devops_auth_context,
-            )
-            .await?;
-            if !entitlements.is_empty() {
+        CancellationToken::new()
+            .with_async_scope(|cancellation| async move {
+                let org_url = get_default_organization_url(&cancellation).await?;
+                let auth_context = AuthContext::explicit_azure_cli();
+                let azure_devops_auth_context = AzureDevOpsAuthContext::new(&auth_context)?;
+                let agent_pools = fetch_azure_devops_agent_pools(&org_url, &cancellation).await?;
+                let our_agent_pools = agent_pools
+                    .iter()
+                    .filter(|pool| !pool.is_hosted)
+                    .collect_vec();
                 assert!(
-                    entitlements.iter().all(|entitlement| {
-                        !entitlement.name.is_empty()
-                            && entitlement.pool.id == pool.id
-                            && entitlement.pool.name == pool.name
-                    }),
-                    "Expected agent pool entitlements to match the requested pool"
+                    !our_agent_pools.is_empty(),
+                    "Expected at least one of our agent pools"
                 );
-                return Ok(());
-            }
-        }
-        eyre::bail!("Expected at least one agent pool entitlement across all pools");
+                for pool in our_agent_pools {
+                    let entitlements = fetch_azure_devops_agent_pool_entitlements_for_pool(
+                        &org_url,
+                        pool,
+                        &azure_devops_auth_context,
+                        &cancellation,
+                    )
+                    .await?;
+                    if !entitlements.is_empty() {
+                        assert!(
+                            entitlements.iter().all(|entitlement| {
+                                !entitlement.name.is_empty()
+                                    && entitlement.pool.id == pool.id
+                                    && entitlement.pool.name == pool.name
+                            }),
+                            "Expected agent pool entitlements to match the requested pool"
+                        );
+                        return Ok(());
+                    }
+                }
+                eyre::bail!("Expected at least one agent pool entitlement across all pools");
+            })
+            .await
     }
 }

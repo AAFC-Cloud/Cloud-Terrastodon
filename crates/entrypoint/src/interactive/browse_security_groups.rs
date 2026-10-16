@@ -10,6 +10,7 @@ use cloud_terrastodon_azure::fetch_all_role_definitions;
 use cloud_terrastodon_azure::fetch_group_members;
 use cloud_terrastodon_azure::fetch_group_owners;
 use cloud_terrastodon_azure::get_security_group_choices;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickResultExt;
@@ -43,10 +44,13 @@ struct SecurityGroupRoleAssignmentRow {
     role_definition: RoleDefinition,
 }
 
-pub async fn browse_security_groups(auth_context: &AzureTenantAuthContext) -> Result<()> {
+pub async fn browse_security_groups(
+    auth_context: &AzureTenantAuthContext,
+    cancellation: &CancellationScope,
+) -> Result<()> {
     let (security_groups, maybe_error) = PickerTui::<_>::new()
         .set_header("security groups")
-        .pick_many(get_security_group_choices(auth_context).await?)
+        .pick_many(get_security_group_choices(auth_context, cancellation).await?)
         .await
         .into_chosen_and_maybe_error()?;
 
@@ -100,8 +104,8 @@ pub async fn browse_security_groups(auth_context: &AzureTenantAuthContext) -> Re
                 );
                 for (group, row) in security_groups.iter().zip(rows.iter_mut()) {
                     let (owners, members) = try_join!(
-                        fetch_group_owners(group.id, auth_context),
-                        fetch_group_members(group.id, auth_context)
+                        fetch_group_owners(group.id, auth_context, cancellation),
+                        fetch_group_members(group.id, auth_context, cancellation)
                     )?;
                     row.owners = Some(owners);
                     row.members = Some(members);
@@ -113,8 +117,8 @@ pub async fn browse_security_groups(auth_context: &AzureTenantAuthContext) -> Re
                     security_groups.len()
                 );
                 let (role_assignments, role_definitions) = try_join!(
-                    fetch_all_role_assignments(auth_context),
-                    fetch_all_role_definitions(auth_context),
+                    fetch_all_role_assignments(auth_context, cancellation),
+                    fetch_all_role_definitions(auth_context, cancellation),
                 )?;
                 let role_assignments_by_principal: HashMap<&PrincipalId, Vec<&RoleAssignment>> =
                     role_assignments

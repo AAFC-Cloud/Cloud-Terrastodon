@@ -9,6 +9,7 @@ use crate::reflow::ReflowJsonAttributes;
 use crate::reflow::ReflowPrincipalIdComments;
 use crate::reflow::ReflowRemoveDefaultAttributes;
 use cloud_terrastodon_azure::fetch_entra_directory_objects_by_ids;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::OptionExt;
 use std::borrow::Cow;
@@ -20,6 +21,7 @@ use tracing::info;
 
 #[must_use = "This is a future request, you must .await it"]
 pub struct ReflowHclRequest<'a> {
+    pub cancellation: CancellationScope,
     pub auth_context: Option<Cow<'a, AzureTenantAuthContext>>,
     pub hcl: HclProject,
     pub include_principal_id_comments: bool,
@@ -31,8 +33,10 @@ impl<'a> ReflowHclRequest<'a> {
     pub fn new(
         hcl: HclProject,
         auth_context: Option<&'a AzureTenantAuthContext>,
+        cancellation: &CancellationScope,
     ) -> ReflowHclRequest<'a> {
         Self {
+            cancellation: cancellation.clone(),
             auth_context: auth_context.map(Cow::Borrowed),
             hcl,
             include_principal_id_comments: false,
@@ -58,6 +62,7 @@ impl<'a> ReflowHclRequest<'a> {
 
     async fn run(self) -> eyre::Result<HclProject> {
         let Self {
+            cancellation,
             auth_context,
             mut hcl,
             include_principal_id_comments,
@@ -84,7 +89,8 @@ impl<'a> ReflowHclRequest<'a> {
                 "An Azure tenant authentication context is required to fetch principals",
             )?;
             let principals =
-                fetch_entra_directory_objects_by_ids(principal_ids, auth_context).await?;
+                fetch_entra_directory_objects_by_ids(principal_ids, auth_context, &cancellation)
+                    .await?;
             reflowers.insert(
                 3,
                 Box::new(ReflowPrincipalIdComments::from_directory_objects(
@@ -93,7 +99,10 @@ impl<'a> ReflowHclRequest<'a> {
             );
         }
         for mut reflower in reflowers {
-            hcl = reflower.reflow(hcl).await?;
+            cancellation.bail_if_cancelled()?;
+            hcl = cancellation
+                .cancellable_scope(|_| reflower.reflow(hcl))
+                .await?;
         }
         Ok(hcl)
     }

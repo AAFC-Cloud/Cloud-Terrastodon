@@ -1,6 +1,7 @@
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_test_suites;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::to_writer_pretty;
 use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
@@ -23,13 +24,18 @@ pub struct AzureDevOpsTestSuiteListArgs {
 }
 
 impl AzureDevOpsTestSuiteListArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         let azure_devops_auth_context = AzureDevOpsAuthContext::new(auth_context)?;
         let suites = fetch_azure_devops_test_suites(
             &self.org,
             self.project,
             self.plan,
             &azure_devops_auth_context,
+            cancellation,
         )
         .await?;
         to_writer_pretty(stdout(), &suites)?;

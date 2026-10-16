@@ -3,6 +3,7 @@ use crate::interactive::pim_activate_azurerm;
 use crate::interactive::pim_activate_entra;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -35,14 +36,23 @@ pub enum AzurePimActivateTarget {
 }
 
 impl AzurePimActivateArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let auth_context = self.tenant.bind_auth_context(auth_context).await?;
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let auth_context = self
+            .tenant
+            .bind_auth_context(auth_context, cancellation)
+            .await?;
         match self.target {
-            Some(AzurePimActivateTarget::AzureRm) => pim_activate_azurerm(&auth_context).await,
-            Some(AzurePimActivateTarget::AzureAd) => {
-                pim_activate_entra(auth_context.tenant_id).await
+            Some(AzurePimActivateTarget::AzureRm) => {
+                pim_activate_azurerm(&auth_context, cancellation).await
             }
-            None => pim_activate(&auth_context).await,
+            Some(AzurePimActivateTarget::AzureAd) => {
+                pim_activate_entra(auth_context.tenant_id, cancellation).await
+            }
+            None => pim_activate(&auth_context, cancellation).await,
         }
     }
 }

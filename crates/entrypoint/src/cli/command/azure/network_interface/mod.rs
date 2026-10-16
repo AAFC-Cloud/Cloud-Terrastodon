@@ -1,3 +1,4 @@
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 pub mod azure_network_interface_cli;
 pub mod azure_network_interface_list_cli;
@@ -16,7 +17,11 @@ pub struct AzureNetworkInterfaceArgs {
 }
 
 impl AzureNetworkInterfaceArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        self.command.invoke(auth_context).await
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        self.command.invoke(auth_context, cancellation).await
     }
 }

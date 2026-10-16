@@ -2,6 +2,7 @@ use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::MicrosoftGraphProgress;
 use cloud_terrastodon_azure::fetch_all_entra_users;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use std::io::Write;
@@ -16,10 +17,17 @@ pub struct AzureEntraUserListArgs {
 }
 
 impl AzureEntraUserListArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         info!("Fetching users");
-        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
-        let users = fetch_all_entra_users(&tenant_auth_context)
+        let tenant_auth_context = self
+            .tenant
+            .bind_auth_context(auth_context, cancellation)
+            .await?;
+        let users = fetch_all_entra_users(&tenant_auth_context, cancellation)
             .progress_hook(|progress: MicrosoftGraphProgress| {
                 info!(
                     total = ?progress.total,

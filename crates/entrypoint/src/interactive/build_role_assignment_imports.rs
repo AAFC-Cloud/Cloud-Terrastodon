@@ -1,5 +1,6 @@
 use cloud_terrastodon_azure::fetch_all_role_assignments;
 use cloud_terrastodon_azure::fetch_all_subscriptions;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_hcl::HclImportBlock;
 use cloud_terrastodon_hcl::HclProviderReference;
@@ -15,15 +16,18 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use tracing::info;
 
-pub async fn build_role_assignment_imports(auth_context: &AzureTenantAuthContext) -> Result<()> {
+pub async fn build_role_assignment_imports(
+    auth_context: &AzureTenantAuthContext,
+    cancellation: &CancellationScope,
+) -> Result<()> {
     info!("Fetching role assignments");
-    let role_assignments = fetch_all_role_assignments(auth_context).await?;
+    let role_assignments = fetch_all_role_assignments(auth_context, cancellation).await?;
 
     info!("Building import blocks");
     let mut used_subscriptions = HashSet::new();
     let mut seen_ids = HashSet::new();
     let mut import_blocks = Vec::new();
-    let subscriptions = fetch_all_subscriptions(auth_context)
+    let subscriptions = fetch_all_subscriptions(auth_context, cancellation)
         .await?
         .into_iter()
         .map(|sub| (sub.id, sub))
@@ -54,9 +58,9 @@ pub async fn build_role_assignment_imports(auth_context: &AzureTenantAuthContext
 
     info!("Writing imports to file");
     HclWriter::new(AppDir::Imports.join("role_assignment_imports.tf"))
-        .overwrite(import_blocks)
+        .overwrite(import_blocks, cancellation)
         .await?
-        .format_file()
+        .format_file(cancellation)
         .await?;
 
     info!("Writing providers to boilerplate");
@@ -65,9 +69,9 @@ pub async fn build_role_assignment_imports(auth_context: &AzureTenantAuthContext
         .map(|sub| sub.into_provider_block())
         .collect_vec();
     HclWriter::new(AppDir::Imports.join("boilerplate.tf"))
-        .merge(providers)
+        .merge(providers, cancellation)
         .await?
-        .format_file()
+        .format_file(cancellation)
         .await?;
 
     Ok(())

@@ -1,23 +1,32 @@
 use crate::ArtifactMetadata;
 use crate::CacheKey;
+use crate::CancellationError;
+use crate::CancellationScope;
 use crate::CommandArgument;
 use crate::CommandKind;
 use crate::CommandOutput;
+use crate::FromCommandOutput;
+use crate::OutputBehaviour;
 use crate::PathMapper;
+use crate::RetryBehaviour;
+use crate::command_output_decode_error::CommandOutputDecodeError;
+use crate::process_fingerprint::ProcessFingerprint;
 use async_recursion::async_recursion;
 pub use bstr;
 use bstr::BString;
 use bstr::ByteSlice;
 use cloud_terrastodon_relative_location::RelativeLocation;
 use eyre::Context;
+use eyre::Report;
 use eyre::Result;
 use eyre::bail;
-use facet::Facet;
+use std::any::type_name;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::ffi::OsString;
 use std::future::Future;
+use std::future::IntoFuture;
 use std::io::IsTerminal;
 use std::panic::Location;
 use std::path::Path;
@@ -26,40 +35,21 @@ use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
+use teamy_cancellation::CancellableScopeFuture;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 use tokio::sync::Mutex;
-use tokio::sync::OnceCell;
 use tokio::task::spawn_blocking;
+use tokio::time::sleep;
 use tokio::time::timeout;
 use tracing::Instrument;
+use tracing::Span;
 use tracing::debug;
 use tracing::error;
 use tracing::info;
 use tracing::info_span;
 use tracing::warn;
-
-pub trait FromCommandOutput: Facet<'static> + Send + 'static {}
-impl<T> FromCommandOutput for T where T: Facet<'static> + Send + 'static {}
-
-enum CommandOutputDecodeError {
-    Deserialize(eyre::Report),
-    Map(eyre::Report),
-}
-
-#[derive(Clone, Copy, Default, Debug)]
-pub enum RetryBehaviour {
-    Fail,
-    #[default]
-    Retry,
-}
-#[derive(Clone, Copy, Default, Debug)]
-pub enum OutputBehaviour {
-    Display,
-    #[default]
-    Capture,
-}
 
 #[derive(Debug, Default, Clone)]
 pub struct CommandBuilder {
@@ -74,26 +64,50 @@ pub struct CommandBuilder {
     pub(crate) should_announce: bool,
     pub(crate) timeout: Option<Duration>,
     pub(crate) stdin_content: Option<String>,
+    /// False by default: retain command execution, decoding, and artifacts.
+    pub(crate) cancellation_safe: bool,
 }
 
-static LOGIN_LOCK: OnceCell<Arc<Mutex<()>>> = OnceCell::const_new();
-
-#[derive(facet::Facet)]
-struct ProcessFingerprint {
-    program: String,
-    args: Vec<String>,
-    env: BTreeMap<String, String>,
-    run_dir: Option<String>,
-    stdin_content: Option<String>,
-    debug_inputs: BTreeMap<String, BString>,
-}
+static LOGIN_LOCK: Mutex<()> = Mutex::const_new(());
 
 impl CommandBuilder {
     pub fn new(kind: CommandKind) -> CommandBuilder {
-        let mut cmd = CommandBuilder::default();
-        cmd.use_command(kind);
-        cmd
+        Self {
+            kind,
+            ..Self::default()
+        }
     }
+    /// Allows this command to be abandoned in response to cooperative cancellation.
+    ///
+    /// Commands otherwise defer cancellation through execution, output decoding,
+    /// and artifact persistence. Opt in only when interrupting the command is
+    /// acceptable. An enclosing protected scope still takes precedence; explicit
+    /// future drops, task aborts, ordinary errors, and timeouts still apply.
+    pub fn cancellation_safe(&mut self) -> &mut Self {
+        self.cancellation_safe = true;
+        self
+    }
+
+    #[track_caller]
+    fn with_cancellation_policy<C, F, T>(
+        &self,
+        cancellation: &CancellationScope,
+        execute: C,
+    ) -> CancellableScopeFuture<C, F>
+    where
+        C: FnOnce(CancellationScope) -> F,
+        F: IntoFuture<Output = Result<T>>,
+    {
+        if self.cancellation_safe {
+            cancellation.cancellable_scope(execute)
+        } else {
+            cancellation.deferred(
+                "finishing command execution, decoding its outcome, and retaining execution artifacts",
+                execute,
+            )
+        }
+    }
+
     pub fn use_command(&mut self, kind: CommandKind) -> &mut Self {
         self.kind = kind;
         self
@@ -233,12 +247,8 @@ impl CommandBuilder {
             .collect()
     }
 
-    async fn cache_metadata(&self, fingerprint: &str) -> ArtifactMetadata {
-        ArtifactMetadata::new(
-            fingerprint,
-            "process",
-            std::any::type_name::<CommandOutput>(),
-        )
+    fn cache_metadata(fingerprint: &str) -> ArtifactMetadata {
+        ArtifactMetadata::new(fingerprint, "process", type_name::<CommandOutput>())
     }
 
     async fn cache_fingerprint(&self, debug_inputs: &BTreeMap<PathBuf, BString>) -> Result<String> {
@@ -294,7 +304,7 @@ impl CommandBuilder {
         let context = self.summarize().await;
         let debug_inputs = self.cache_debug_inputs();
         let fingerprint = self.cache_fingerprint(&debug_inputs).await?;
-        let metadata = self.cache_metadata(&fingerprint).await;
+        let metadata = Self::cache_metadata(&fingerprint);
         crate::artifact_cache::write_output(parent_dir, &context, &debug_inputs, output, &metadata)
             .await
     }
@@ -305,7 +315,11 @@ impl CommandBuilder {
         self
     }
 
-    async fn run_raw_inner(&self, caller: &'static Location<'static>) -> Result<CommandOutput> {
+    async fn run_raw_inner(
+        &self,
+        caller: &'static Location<'static>,
+        cancellation: &CancellationScope,
+    ) -> Result<CommandOutput> {
         let mut command = Command::new(self.kind.program().await);
         match self.output_behaviour {
             OutputBehaviour::Capture => {
@@ -340,6 +354,7 @@ impl CommandBuilder {
 
         // Launch command
         command.kill_on_drop(true);
+        cancellation.bail_if_cancelled()?;
         let mut child = command.spawn().wrap_err("Failed to spawn command")?;
 
         // Send stdin content if provided
@@ -352,25 +367,28 @@ impl CommandBuilder {
                 if let Err(e) = stdin.write_all(content.as_bytes()).await {
                     error!("Failed to write to stdin: {:?}", e);
                 }
-                // stdin.shutdown().await.ok(); // Not strictly needed, stdin will close when dropped
             });
         }
 
         // Wait for it to finish
-        let timeout_duration = self.timeout.unwrap_or(Duration::MAX);
-        let output: CommandOutput = match timeout(timeout_duration, child.wait_with_output()).await
-        {
-            Ok(result) => result
-                .wrap_err("Acquiring result of command execution")?
-                .try_into()
-                .wrap_err("Converting output of command")?,
-            Err(elapsed) => {
-                bail!(
-                    "Command timeout, {elapsed:?} ({})",
-                    humantime::format_duration(timeout_duration)
-                );
+        // The public execution boundary owns cancellation for these plain waits.
+        let output = if let Some(timeout_duration) = self.timeout {
+            match timeout(timeout_duration, child.wait_with_output()).await {
+                Ok(output) => output,
+                Err(elapsed) => {
+                    bail!(
+                        "Command timeout, {elapsed:?} ({})",
+                        humantime::format_duration(timeout_duration)
+                    );
+                }
             }
+        } else {
+            child.wait_with_output().await
         };
+        let output: CommandOutput = output
+            .wrap_err("Acquiring result of command execution")?
+            .try_into()
+            .wrap_err("Converting output of command")?;
 
         // Return if errored
         if !output.success() {
@@ -406,12 +424,13 @@ impl CommandBuilder {
 
                     // Retry the failed command, no further retries
                     warn!("Rate limit detected ⏳ Retrying command after {sleep_duration:?} wait...");
-                    tokio::time::sleep(sleep_duration).await;
+                    sleep(sleep_duration).await;
+                    cancellation.bail_if_cancelled()?;
 
                     info!("It's been {sleep_duration:?}, retrying command `{}`", self.summarize().await);
                     let mut retry = self.clone();
                     retry.use_retry_behaviour(RetryBehaviour::Fail);
-                    let output = retry.run_raw_from(caller).await;
+                    let output = retry.run_raw_from(Duration::ZERO, caller, cancellation).await;
 
                     // Return the result
                     return output;
@@ -440,11 +459,8 @@ impl CommandBuilder {
                     if std::env::var("CLOUD_TERRASTODON_REAUTH").unwrap_or_default().to_uppercase() == "DENY" {
                         bail!("Command failed due to bad auth, and automatic reauthentication is disabled by the CLOUD_TERRASTODON_REAUTH environment variable. Please refresh your credentials and try again.")
                     }
-                    let mutex = LOGIN_LOCK
-                        .get_or_init(async || Arc::new(Mutex::new(())))
-                        .await;
-                    match mutex.try_lock() {
-                        Ok(x) => {
+                    match LOGIN_LOCK.try_lock() {
+                        Ok(login_guard) => {
                             debug!(
                                 "Acquired login lock without waiting, there isn't a login in progress"
                             );
@@ -458,7 +474,10 @@ impl CommandBuilder {
                             // This could maybe be moved to cloud_terrastodon_credentials
                             // We could also try and extract `--tenant {}` from args
                             // or just make the tenant id be explicitly set for CommandBuilder
+                            // Reauthentication commands must not retry and reacquire this lock.
                             let tenant_id = CommandBuilder::new(CommandKind::AzureCLI)
+                                .cancellation_safe()
+                                .use_retry_behaviour(RetryBehaviour::Fail)
                                 .args([
                                     "account",
                                     "list",
@@ -467,7 +486,7 @@ impl CommandBuilder {
                                     "--output",
                                     "tsv",
                                 ])
-                                .run_raw_from(caller)
+                                .run_raw_scoped_from(Duration::ZERO, caller, cancellation)
                                 .await?
                                 .stdout;
                             let tenant_id = tenant_id.trim();
@@ -476,12 +495,14 @@ impl CommandBuilder {
                                     "Failed to find tenant ID from default account, the login command without tenant ID has been flaky for me .-. trying anyways"
                                 );
                                 CommandBuilder::new(CommandKind::AzureCLI)
+                                    .use_retry_behaviour(RetryBehaviour::Fail)
                                     .arg("login")
                                     .use_output_behaviour(OutputBehaviour::Display)
-                                    .run_raw_from(caller)
+                                    .run_raw_scoped_from(Duration::ZERO, caller, cancellation)
                                     .await?;
                             } else {
                                 CommandBuilder::new(CommandKind::AzureCLI)
+                                    .use_retry_behaviour(RetryBehaviour::Fail)
                                     .args([
                                         "login",
                                         "--tenant",
@@ -489,33 +510,34 @@ impl CommandBuilder {
                                             .to_str()
                                             .wrap_err("converting tenant id to str")?,
                                     ])
-                                    .run_raw_from(caller)
+                                    .run_raw_scoped_from(Duration::ZERO, caller, cancellation)
                                     .await?;
                             }
 
-                            drop(x);
+                            drop(login_guard);
                         }
                         Err(_) => {
                             debug!("Login lock busy, waiting for the login to complete");
                             warn!(
                                 "Command failed due to bad auth. Waiting for login in progress..."
                             );
-                            _ = mutex.lock().await;
+                            let _login_guard = LOGIN_LOCK.lock().await;
                         }
                     }
 
-                    // Retry the failed command, no further retries
+                    // The retry is a new execution after the authentication wait.
+                    cancellation.bail_if_cancelled()?;
                     info!("Retrying command with refreshed credential...");
                     let mut retry = self.clone();
                     retry.use_retry_behaviour(RetryBehaviour::Fail);
-                    let output = retry.run_raw_from(caller).await;
+                    let output = retry.run_raw_from(Duration::ZERO, caller, cancellation).await;
 
                     // Return the result
                     return output;
                 }
                 _ => {
                     let dir = self.write_failure(&output).await?;
-                    let mut error = Err(eyre::Error::from(output).wrap_err(format!(
+                    let mut error = Err(Report::from(output).wrap_err(format!(
                         "Command did not execute successfully, using retry behaviour {:?}, dumped to {dir:?}",
                         self.retry_behaviour
                     )));
@@ -532,311 +554,254 @@ impl CommandBuilder {
             }
         }
 
-        // Write happy results to the cache
-        if output.success()
-            && let Some(cache_key) = &self.cache_key
-            && let Err(e) = self.write_output(&output, &cache_key.path_on_disk()).await
-        {
-            crate::artifact_cache::note_cache_write_failure(&e);
+        if let Some(cache_key) = &self.cache_key {
+            cancellation
+                .finish_required(
+                    "persisting command output and execution artifacts",
+                    |_| async {
+                        if let Err(error) =
+                            self.write_output(&output, &cache_key.path_on_disk()).await
+                        {
+                            crate::artifact_cache::note_cache_write_failure(&error);
+                        }
+                        Ok::<_, Report>(())
+                    },
+                )
+                .await?;
         }
-
-        // Return success
         Ok(output)
     }
 
+    /// Executes a command using its configured cancellation policy.
     #[track_caller]
-    pub fn run_raw(&self) -> impl Future<Output = Result<CommandOutput>> + Send + '_ {
-        self.run_raw_from(Location::caller())
+    pub fn run_raw<'a>(
+        &'a self,
+        cancellation: &'a CancellationScope,
+    ) -> impl Future<Output = Result<CommandOutput>> + Send + 'a {
+        self.run_raw_scoped_from(Duration::ZERO, Location::caller(), cancellation)
     }
 
+    /// Returns cached output immediately, or waits before an uncached execution.
     #[track_caller]
-    pub fn run_raw_polite(
-        &self,
+    pub fn run_raw_polite<'a>(
+        &'a self,
         uncached_delay: Duration,
-    ) -> impl Future<Output = Result<CommandOutput>> + Send + '_ {
-        self.run_raw_polite_from(uncached_delay, Location::caller())
+        cancellation: &'a CancellationScope,
+    ) -> impl Future<Output = Result<CommandOutput>> + Send + 'a {
+        self.run_raw_scoped_from(uncached_delay, Location::caller(), cancellation)
     }
 
-    async fn run_raw_polite_from(
-        &self,
+    #[track_caller]
+    fn run_raw_scoped_from<'a>(
+        &'a self,
         uncached_delay: Duration,
         caller: &'static Location<'static>,
-    ) -> Result<CommandOutput> {
-        let cached_output = match self.get_cached_output().await {
-            Ok(Some(output)) => return Ok(output),
-            cached_output => cached_output,
-        };
-
-        if !uncached_delay.is_zero() {
-            debug!(
-                delay_ms = uncached_delay.as_millis(),
-                "Sleeping before uncached command execution"
-            );
-            tokio::time::sleep(uncached_delay).await;
-        }
-        self.run_raw_from_with_cached_output(caller, Some(cached_output))
-            .await
+        cancellation: &'a CancellationScope,
+    ) -> impl Future<Output = Result<CommandOutput>> + Send + 'a {
+        self.with_cancellation_policy(cancellation, move |scope| async move {
+            self.run_raw_from(uncached_delay, caller, &scope).await
+        })
     }
 
+    /// Runs within an already-admitted policy; retries reuse that same owner.
     #[async_recursion]
-    async fn run_raw_from(&self, caller: &'static Location<'static>) -> Result<CommandOutput> {
-        self.run_raw_from_with_cached_output(caller, None).await
-    }
-
-    async fn run_raw_from_with_cached_output(
+    async fn run_raw_from(
         &self,
+        uncached_delay: Duration,
         caller: &'static Location<'static>,
-        cached_output: Option<Result<Option<CommandOutput>>>,
+        cancellation: &CancellationScope,
     ) -> Result<CommandOutput> {
         let summary = self.summarize().await;
-        let span =
-            info_span!("command_run_raw", summary, ?self.run_dir, ?self.cache_key, location=%RelativeLocation::from(caller)).or_current();
+        let span = info_span!("command_run_raw", summary, ?self.run_dir, ?self.cache_key, location=%RelativeLocation::from(caller)).or_current();
 
         async {
-            // Check cache
-            let cached_output = match cached_output {
-                Some(cached_output) => cached_output,
-                None => self.get_cached_output().instrument(span.clone()).await,
-            };
-            match cached_output {
+            match self.get_cached_output().await {
+                Ok(Some(output)) => return Ok(output),
                 Ok(None) => {}
-                Ok(Some(output)) => {
-                    return Ok(output);
+                Err(error) if error.downcast_ref::<CancellationError>().is_some() => {
+                    return Err(error);
                 }
-                Err(error) => {
-                    debug!(?self.cache_key, %error, "Cache load failed");
-                }
+                Err(error) => debug!(?self.cache_key, %error, "Cache load failed"),
+            }
+
+            if !uncached_delay.is_zero() {
+                debug!(
+                    delay_ms = uncached_delay.as_millis(),
+                    "Sleeping before uncached command execution"
+                );
+                sleep(uncached_delay).await;
             }
 
             let start = Instant::now();
-            let rtn = self.run_raw_inner(caller).instrument(span.clone()).await;
-            let elapsed = Instant::now().duration_since(start);
+            let output = self.run_raw_inner(caller, cancellation).await;
+            let elapsed = start.elapsed();
             debug!(
                 elapsed_ms = elapsed.as_millis(),
                 "Command executed in {}",
                 humantime::format_duration(elapsed),
             );
-            rtn
+            output
         }
-        .instrument(span.clone())
+        .instrument(span)
         .await
-        .wrap_err(format!(
-            "Command::run_raw failed, called from {}",
-            RelativeLocation::from(caller)
-        ))
-        .wrap_err(format!("Invoking command failed: {summary}",))
-    }
-
-    #[track_caller]
-    pub fn run<T: FromCommandOutput>(&self) -> impl Future<Output = Result<T>> + Send + '_ {
-        self.run_from(Location::caller())
-    }
-
-    /// Politely wait between uncached command executions, but still return cached results if available.
-    #[track_caller]
-    pub fn run_polite<T: FromCommandOutput>(
-        &self,
-        uncached_delay: Duration,
-    ) -> impl Future<Output = Result<T>> + Send + '_ {
-        self.run_polite_from(uncached_delay, Location::caller())
-    }
-
-    /// Politely wait between uncached command executions, but still return cached results if available.
-    async fn run_polite_from<T: FromCommandOutput>(
-        &self,
-        uncached_delay: Duration,
-        caller: &'static Location<'static>,
-    ) -> Result<T> {
-        let summary = self.summarize().await;
-        let span = info_span!("command_run_polite", summary, ?self.run_dir, ?self.cache_key, location=%RelativeLocation::from(caller)).or_current();
-
-        let output = self
-            .run_raw_polite_from(uncached_delay, caller)
-            .instrument(span.clone())
-            .await
-            .wrap_err(format!(
-                "Command::run_polite failed, called from {}",
+        .wrap_err_with(|| {
+            format!(
+                "Command::run_raw failed, called from {}",
                 RelativeLocation::from(caller)
-            ))?;
-        let output = Arc::new(output);
-
-        let parse_result = {
-            let output = Arc::clone(&output);
-            let span = span.clone();
-            spawn_blocking(move || {
-                let _guard = span.enter();
-                let span2 = info_span!("command_parse_output").or_current();
-                let _guard2 = span2.enter();
-                let start = Instant::now();
-
-                let stdout = output.stdout.to_str_lossy();
-                let slice = stdout.as_bytes();
-                let parse_result = crate::json::from_slice(slice);
-
-                let elapsed = Instant::now().duration_since(start);
-                debug!(
-                    parse_ms = elapsed.as_millis(),
-                    "Parsed command output in {}",
-                    humantime::format_duration(elapsed),
-                );
-                parse_result
-            })
-            .await?
-        };
-
-        match parse_result {
-            Ok(results) => Ok(results),
-            Err(e) => {
-                let dir = self
-                    .write_failure(&output)
-                    .instrument(span.or_current())
-                    .await?;
-                Err(e.wrap_err(format!(
-                    "Deserialization failed!\n - Command: `{summary}`\n - Called by: \"{}\"\n - Dumped to: {dir:?}\n - Type: {}{}",
-                    RelativeLocation::from(caller),
-                    std::any::type_name::<T>(),
-                    crate::artifact_cache::cache_clean_recommendation(self.cache_key.as_ref())
-                )))
-            }
-        }
-    }
-
-    async fn run_from<T: FromCommandOutput>(
-        &self,
-        caller: &'static Location<'static>,
-    ) -> Result<T> {
-        let summary = self.summarize().await;
-        let span = info_span!("command_run", summary, ?self.run_dir, ?self.cache_key, location=%RelativeLocation::from(caller)).or_current();
-
-        let output = self
-            .run_raw_from(caller)
-            .instrument(span.clone())
-            .await
-            .wrap_err(format!(
-                "Command::run failed, called from {}",
-                RelativeLocation::from(caller)
-            ))?;
-        let output = Arc::new(output);
-
-        let parse_result = {
-            let output = Arc::clone(&output);
-            let span = span.clone();
-            spawn_blocking(move || {
-                let _guard = span.enter();
-                let span2 = info_span!("command_parse_output").or_current();
-                let _guard2 = span2.enter();
-                let start = Instant::now();
-
-                let stdout = output.stdout.to_str_lossy();
-                let slice = stdout.as_bytes();
-                let parse_result = crate::json::from_slice(slice);
-
-                let elapsed = Instant::now().duration_since(start);
-                debug!(
-                    parse_ms = elapsed.as_millis(),
-                    "Parsed command output in {}",
-                    humantime::format_duration(elapsed),
-                );
-                parse_result
-            })
-            .await?
-        };
-
-        match parse_result {
-            Ok(results) => Ok(results),
-            Err(e) => {
-                let dir = self
-                    .write_failure(&output)
-                    .instrument(span.or_current())
-                    .await?;
-                Err(e.wrap_err(format!(
-                        "Deserialization failed!\n - Command: `{summary}`\n - Called by: \"{}\"\n - Dumped to: {dir:?}\n - Type: {}{}",
-                        RelativeLocation::from(caller),
-                        std::any::type_name::<T>(),
-                        crate::artifact_cache::cache_clean_recommendation(self.cache_key.as_ref())
-                    )))
-            }
-        }
+            )
+        })
+        .wrap_err_with(|| format!("Invoking command failed: {summary}"))
     }
 
     #[track_caller]
-    pub fn run_with_validator<T, F>(
-        &self,
+    pub fn run<'a, T: FromCommandOutput>(
+        &'a self,
+        cancellation: &'a CancellationScope,
+    ) -> impl Future<Output = Result<T>> + Send + 'a {
+        self.run_from(None, Location::caller(), cancellation)
+    }
+
+    /// Returns decoded cached output immediately, or delays an uncached execution.
+    #[track_caller]
+    pub fn run_polite<'a, T: FromCommandOutput>(
+        &'a self,
+        uncached_delay: Duration,
+        cancellation: &'a CancellationScope,
+    ) -> impl Future<Output = Result<T>> + Send + 'a {
+        self.run_from(Some(uncached_delay), Location::caller(), cancellation)
+    }
+
+    #[track_caller]
+    fn run_from<'a, T: FromCommandOutput>(
+        &'a self,
+        uncached_delay: Option<Duration>,
+        caller: &'static Location<'static>,
+        cancellation: &'a CancellationScope,
+    ) -> impl Future<Output = Result<T>> + Send + 'a {
+        self.with_cancellation_policy(cancellation, move |scope| async move {
+            let summary = self.summarize().await;
+            let (operation, span) = if uncached_delay.is_some() {
+                ("Command::run_polite", info_span!("command_run_polite", summary, ?self.run_dir, ?self.cache_key, location=%RelativeLocation::from(caller)).or_current())
+            } else {
+                ("Command::run", info_span!("command_run", summary, ?self.run_dir, ?self.cache_key, location=%RelativeLocation::from(caller)).or_current())
+            };
+            async {
+                let output = self
+                    .run_raw_from(uncached_delay.unwrap_or_default(), caller, &scope)
+                    .await
+                    .wrap_err_with(|| format!("{operation} failed, called from {}", RelativeLocation::from(caller)))?;
+                self.decode_output::<T, T, _>(output, Ok, caller, &summary).await
+            }
+            .instrument(span)
+            .await
+        })
+    }
+
+    #[track_caller]
+    pub fn run_with_validator<'a, T, F>(
+        &'a self,
         validator: F,
-    ) -> impl Future<Output = Result<T>> + Send + '_
+        cancellation: &'a CancellationScope,
+    ) -> impl Future<Output = Result<T>> + Send + 'a
     where
         T: FromCommandOutput,
         F: FnOnce(T) -> Result<T> + Send + 'static,
     {
-        self.run_with_validator_from(validator, Location::caller())
+        self.run_with_validator_from(validator, Location::caller(), cancellation)
     }
 
     /// Parse command output as `Raw`, then fallibly map it to a different output shape.
     /// Both parse and map failures are dumped through the command failure artifact path.
     #[track_caller]
-    pub fn run_with_mapper<Raw, Output, F>(
-        &self,
+    pub fn run_with_mapper<'a, Raw, Output, F>(
+        &'a self,
         mapper: F,
-    ) -> impl Future<Output = Result<Output>> + Send + '_
+        cancellation: &'a CancellationScope,
+    ) -> impl Future<Output = Result<Output>> + Send + 'a
     where
         Raw: FromCommandOutput,
         Output: Send + 'static,
         F: FnOnce(Raw) -> Result<Output> + Send + 'static,
     {
-        self.run_with_mapper_from(mapper, Location::caller())
+        self.run_with_mapper_from(mapper, Location::caller(), cancellation)
     }
 
-    async fn run_with_mapper_from<Raw, Output, F>(
-        &self,
+    #[track_caller]
+    fn run_with_mapper_from<'a, Raw, Output, F>(
+        &'a self,
         mapper: F,
         caller: &'static Location<'static>,
+        cancellation: &'a CancellationScope,
+    ) -> impl Future<Output = Result<Output>> + Send + 'a
+    where
+        Raw: FromCommandOutput,
+        Output: Send + 'static,
+        F: FnOnce(Raw) -> Result<Output> + Send + 'static,
+    {
+        self.with_cancellation_policy(cancellation, move |scope| async move {
+            let summary = self.summarize().await;
+            let span = info_span!("command_run_with_mapper", summary, ?self.run_dir, ?self.cache_key, location=%RelativeLocation::from(caller)).or_current();
+            async {
+                let output = self.run_raw_from(Duration::ZERO, caller, &scope).await
+                    .wrap_err_with(|| format!("Command::run_with_mapper failed, called from {}", RelativeLocation::from(caller)))?;
+                self.decode_output::<Raw, Output, F>(output, mapper, caller, &summary).await
+            }
+            .instrument(span)
+            .await
+        })
+    }
+
+    async fn decode_output<Raw, Output, F>(
+        &self,
+        output: CommandOutput,
+        mapper: F,
+        caller: &'static Location<'static>,
+        summary: &str,
     ) -> Result<Output>
     where
         Raw: FromCommandOutput,
         Output: Send + 'static,
         F: FnOnce(Raw) -> Result<Output> + Send + 'static,
     {
-        let summary = self.summarize().await;
-        let span = info_span!("command_run_with_mapper", summary, ?self.run_dir, ?self.cache_key, location=%RelativeLocation::from(caller)).or_current();
-
-        let output = self
-            .run_raw_from(caller)
-            .instrument(span.clone())
-            .await
-            .wrap_err(format!(
-                "Command::run_with_mapper failed, called from {}",
-                RelativeLocation::from(caller)
-            ))?;
+        let span = Span::current();
         let output = Arc::new(output);
 
         let decode_result = {
             let output = Arc::clone(&output);
             let span = span.clone();
+            let dispatch = tracing::dispatcher::get_default(Clone::clone);
             spawn_blocking(move || {
-                let _guard = span.enter();
-                let span2 = info_span!("command_parse_and_map_output").or_current();
-                let _guard2 = span2.enter();
-                let start = Instant::now();
+                tracing::dispatcher::with_default(&dispatch, || {
+                    let _guard = span.enter();
+                    let span2 = info_span!("command_parse_and_map_output").or_current();
+                    let _guard2 = span2.enter();
+                    let start = Instant::now();
 
-                let stdout = output.stdout.to_str_lossy();
-                let slice = stdout.as_bytes();
-                let decode_result = crate::json::from_slice::<Raw>(slice)
-                    .map_err(CommandOutputDecodeError::Deserialize)
-                    .and_then(|raw| mapper(raw).map_err(CommandOutputDecodeError::Map));
+                    let stdout = output.stdout.to_str_lossy();
+                    let slice = stdout.as_bytes();
+                    let decode_result = crate::json::from_slice::<Raw>(slice)
+                        .map_err(CommandOutputDecodeError::Deserialize)
+                        .and_then(|raw| mapper(raw).map_err(CommandOutputDecodeError::Map));
 
-                let elapsed = Instant::now().duration_since(start);
-                debug!(
-                    parse_ms = elapsed.as_millis(),
-                    "Parsed and mapped command output in {}",
-                    humantime::format_duration(elapsed),
-                );
-                decode_result
+                    let elapsed = Instant::now().duration_since(start);
+                    debug!(
+                        parse_ms = elapsed.as_millis(),
+                        "Parsed and mapped command output in {}",
+                        humantime::format_duration(elapsed),
+                    );
+                    decode_result
+                })
             })
             .await?
         };
 
         match decode_result {
             Ok(results) => Ok(results),
+            Err(CommandOutputDecodeError::Deserialize(e) | CommandOutputDecodeError::Map(e))
+                if e.downcast_ref::<CancellationError>().is_some() =>
+            {
+                Err(e)
+            }
             Err(CommandOutputDecodeError::Deserialize(e)) => {
                 let dir = self
                     .write_failure(&output)
@@ -845,7 +810,7 @@ impl CommandBuilder {
                 Err(e.wrap_err(format!(
                     "Deserialization failed!\n - Command: `{summary}`\n - Called by: \"{}\"\n - Dumped to: {dir:?}\n - Type: {}{}",
                     RelativeLocation::from(caller),
-                    std::any::type_name::<Raw>(),
+                    type_name::<Raw>(),
                     crate::artifact_cache::cache_clean_recommendation(self.cache_key.as_ref())
                 )))
             }
@@ -857,8 +822,8 @@ impl CommandBuilder {
                 Err(e.wrap_err(format!(
                     "Output mapping failed!\n - Command: `{summary}`\n - Called by: \"{}\"\n - Dumped to: {dir:?}\n - Parsed Type: {}\n - Output Type: {}",
                     RelativeLocation::from(caller),
-                    std::any::type_name::<Raw>(),
-                    std::any::type_name::<Output>()
+                    type_name::<Raw>(),
+                    type_name::<Output>()
                 )))
             }
         }
@@ -868,45 +833,51 @@ impl CommandBuilder {
         &self,
         validator: F,
         caller: &'static Location<'static>,
+        cancellation: &CancellationScope,
     ) -> Result<T>
     where
         T: FromCommandOutput,
         F: FnOnce(T) -> Result<T>,
     {
-        // Get stdout
-        let output = self.run_raw().await?;
+        self.with_cancellation_policy(cancellation, |cancellation| async move {
+            // Get stdout
+            let output = self.run_raw_from(Duration::ZERO, caller, &cancellation).await?;
 
-        // Parse
-        match crate::json::from_slice(&output.stdout) {
-            Ok(results) => match validator(results) {
-                Ok(results) => Ok(results),
+            // Parse
+            match crate::json::from_slice(&output.stdout) {
+                Ok(results) => match validator(results) {
+                    Ok(results) => Ok(results),
+                    Err(e) if e.downcast_ref::<CancellationError>().is_some() => Err(e),
+                    Err(e) => {
+                        let dir = self.write_failure(&output).await?;
+                        Err(e).context(format!("Encountered validation error after successful invocation of `{}`\ncalled by \"{}\"\ndumped to {:?}",
+                                    self.summarize().await,
+                                    RelativeLocation::from(caller),
+                                    dir
+                                ))
+                    }
+                },
+                Err(e) if e.downcast_ref::<CancellationError>().is_some() => Err(e),
                 Err(e) => {
                     let dir = self.write_failure(&output).await?;
-                    Err(e).context(format!("Encountered validation error after successful invocation of `{}`\ncalled by \"{}\"\ndumped to {:?}",
-                                self.summarize().await,
-                                RelativeLocation::from(caller),
-                                dir
-                            ))
+                    Err(e.wrap_err(format!(
+                        "deserializing `{}` failed\ncalled by \"{}\"\ndumped to {:?}{}",
+                        self.summarize().await,
+                        RelativeLocation::from(caller),
+                        dir,
+                        crate::artifact_cache::cache_clean_recommendation(self.cache_key.as_ref())
+                    )))
                 }
-            },
-            Err(e) => {
-                let dir = self.write_failure(&output).await?;
-                Err(e.wrap_err(format!(
-                    "deserializing `{}` failed\ncalled by \"{}\"\ndumped to {:?}{}",
-                    self.summarize().await,
-                    RelativeLocation::from(caller),
-                    dir,
-                    crate::artifact_cache::cache_clean_recommendation(self.cache_key.as_ref())
-                )))
             }
-        }
+        })
+        .await
     }
 
     pub async fn write_failure(&self, output: &CommandOutput) -> Result<PathBuf> {
         let context = self.summarize().await;
         let debug_inputs = self.cache_debug_inputs();
         let fingerprint = self.cache_fingerprint(&debug_inputs).await?;
-        let metadata = self.cache_metadata(&fingerprint).await;
+        let metadata = Self::cache_metadata(&fingerprint);
         crate::artifact_cache::write_failure(
             self.cache_key.as_ref(),
             &context,

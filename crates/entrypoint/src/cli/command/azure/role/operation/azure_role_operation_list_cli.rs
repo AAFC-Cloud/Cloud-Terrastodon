@@ -2,6 +2,7 @@ use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::fetch_all_role_operation_metadata;
 use cloud_terrastodon_azure::flatten_role_operations;
+use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 use std::io::Write;
 use tracing::info;
@@ -15,10 +16,14 @@ pub struct AzureRoleOperationListArgs {
 }
 
 impl AzureRoleOperationListArgs {
-    pub async fn invoke(self) -> Result<()> {
-        let tenant_id = self.tenant.resolve().await?;
+    pub async fn invoke(
+        self,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let tenant_id = self.tenant.resolve(cancellation).await?;
         info!(%tenant_id, "Fetching Azure provider operations metadata");
-        let provider_operations = fetch_all_role_operation_metadata(tenant_id).await?;
+        let provider_operations =
+            fetch_all_role_operation_metadata(tenant_id, cancellation).await?;
         let mut operations = flatten_role_operations(&provider_operations);
         operations.sort_by(|left, right| {
             left.name

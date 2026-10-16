@@ -3,6 +3,7 @@ use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::GovernanceRoleAssignment;
 use cloud_terrastodon_azure_types::PrincipalId;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
@@ -10,10 +11,17 @@ use itertools::Itertools;
 use std::path::PathBuf;
 
 #[derive(arbitrary::Arbitrary, facet::Facet)]
-pub struct MyEntraPimRoleAssignmentsListRequest;
+pub struct MyEntraPimRoleAssignmentsListRequest {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+}
 
-pub fn fetch_my_entra_pim_role_assignments() -> MyEntraPimRoleAssignmentsListRequest {
-    MyEntraPimRoleAssignmentsListRequest
+pub fn fetch_my_entra_pim_role_assignments(
+    cancellation: &CancellationScope,
+) -> MyEntraPimRoleAssignmentsListRequest {
+    MyEntraPimRoleAssignmentsListRequest {
+        cancellation: cancellation.clone(),
+    }
 }
 
 #[async_trait]
@@ -30,7 +38,7 @@ impl cloud_terrastodon_command::CacheableCommand for MyEntraPimRoleAssignmentsLi
     }
 
     async fn run(self) -> Result<Self::Output> {
-        let my_object_id = fetch_current_user().await?.id;
+        let my_object_id = fetch_current_user(&self.cancellation).await?.id;
         let url = format!(
             "{}{}{}{}",
             "https://graph.microsoft.com/beta/",
@@ -61,9 +69,11 @@ impl cloud_terrastodon_command::CacheableCommand for MyEntraPimRoleAssignmentsLi
             value: Vec<GovernanceRoleAssignment>,
         }
 
-        let request = RestRequest::new(http::Method::GET, &url)?.cache(self.cache_key());
+        let request =
+            RestRequest::new(http::Method::GET, &url, &self.cancellation)?.cache(self.cache_key());
         let mut result: Result<Response, _> = request.clone().receive().await;
         if result.is_err() {
+            self.cancellation.bail_if_cancelled()?;
             // single retry - sometimes this returns a gateway error
             result = request.receive().await;
         }
@@ -77,16 +87,23 @@ cloud_terrastodon_command::impl_cacheable_into_future!(MyEntraPimRoleAssignments
 mod tests {
     use super::*;
     use crate::test_helpers::expect_aad_premium_p2_license;
+    use cloud_terrastodon_command::CancellationToken;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
-        let Some(result) =
-            expect_aad_premium_p2_license(fetch_my_entra_pim_role_assignments().await).await?
-        else {
-            return Ok(());
-        };
-        assert!(!result.is_empty());
-        Ok(())
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let Some(result) = expect_aad_premium_p2_license(
+                    fetch_my_entra_pim_role_assignments(&cancellation).await,
+                )
+                .await?
+                else {
+                    return Ok(());
+                };
+                assert!(!result.is_empty());
+                Ok(())
+            })
+            .await
     }
 }
 
@@ -95,6 +112,7 @@ pub async fn fetch_my_entra_pim_role_assignments_with_graph_access_token(
     tenant_id: AzureTenantId,
     principal_id: impl Into<PrincipalId>,
     access_token: &str,
+    cancellation: &CancellationScope,
 ) -> Result<Vec<GovernanceRoleAssignment>> {
     let principal_id: PrincipalId = principal_id.into();
     let url = format!(
@@ -117,11 +135,12 @@ pub async fn fetch_my_entra_pim_role_assignments_with_graph_access_token(
         value: Vec<GovernanceRoleAssignment>,
     }
 
-    let request = RestRequest::new(http::Method::GET, &url)?
+    let request = RestRequest::new(http::Method::GET, &url, cancellation)?
         .tenant(tenant_id)
         .bearer_token(access_token);
     let mut result: Result<Response, _> = request.clone().receive().await;
     if result.is_err() {
+        cancellation.bail_if_cancelled()?;
         result = request.receive().await;
     }
     Ok(result?.value)

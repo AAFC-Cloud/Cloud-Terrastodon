@@ -35,6 +35,7 @@ use super::value_builder::BuilderStore;
 use super::value_candidate::ValueCandidate;
 use super::value_candidate_window::ValueCandidateWindow;
 use super::work_budget::WorkBudget;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_registry::RuntimeValue;
 use facet::Facet;
 use std::mem::ManuallyDrop;
@@ -116,18 +117,23 @@ impl ExplorerEngine {
         attach: fn(
             cloud_terrastodon_registry::InvocationFuture,
         ) -> cloud_terrastodon_registry::InvocationFuture,
+        cancellation: &CancellationScope,
     ) -> Self {
-        Self::with_invocation_host(Arena::default(), Box::new(TokioInvocationHost::new(attach)))
+        Self::with_invocation_host(
+            Arena::default(),
+            Box::new(TokioInvocationHost::with_cancellation(attach, cancellation)),
+        )
     }
 
     fn with_invocation_host(arena: Arena, invocation_host: Box<dyn InvocationHost>) -> Self {
+        let cancellation = CancellationScope::unbound();
         Self {
             arena,
             next_query_session: 1,
             next_browse_session: 1,
             export_barrier: ExportReadBarrier::default(),
             json_encoder: JsonEncoder::default(),
-            builders: BuilderStore::default(),
+            builders: BuilderStore::with_cancellation(&cancellation),
             borrow_graph: BorrowGraph::default(),
             invocations: InvocationController::default(),
             productions: ProductionController::default(),
@@ -189,6 +195,7 @@ impl ExplorerEngine {
                         &self.borrow_graph,
                         &mut self.json_encoder,
                         command,
+                        self.invocations.pending_count(),
                     );
                 }
                 ExplorerCommand::Query(ArenaQueryCommand::BeginExport {
@@ -391,6 +398,7 @@ async fn serve_export(
                             borrow_graph,
                             json_encoder,
                             command,
+                            invocations.pending_count(),
                         )
                     }
                     ExplorerCommand::Query(ArenaQueryCommand::NextJsonBatch {
@@ -558,6 +566,7 @@ async fn serve_browse(
                                 borrow_graph,
                                 json_encoder,
                                 command,
+                                invocations.pending_count(),
                             );
                         }
                         ExplorerCommand::Query(ArenaQueryCommand::BeginExport {
@@ -1187,6 +1196,7 @@ fn apply_read(
     borrow_graph: &BorrowGraph,
     json_encoder: &mut JsonEncoder,
     command: ArenaReadCommand,
+    pending_invocations: usize,
 ) {
     let source = ArenaAddressSource::new(arena);
     apply_read_with_source(
@@ -1196,6 +1206,7 @@ fn apply_read(
         borrow_graph,
         json_encoder,
         command,
+        pending_invocations,
     );
 }
 
@@ -1206,8 +1217,12 @@ fn apply_read_with_source(
     borrow_graph: &BorrowGraph,
     json_encoder: &mut JsonEncoder,
     command: ArenaReadCommand,
+    pending_invocations: usize,
 ) {
     match command {
+        ArenaReadCommand::PendingInvocations { response } => {
+            let _ = response.send(Ok(pending_invocations));
+        }
         ArenaReadCommand::ResolveJson { address, response } => {
             let result = source
                 .resolve(&address)
@@ -1482,6 +1497,7 @@ mod tests {
     use crate::object_explorer::value_candidate::scan_value_candidates;
     use crate::object_explorer::value_candidate_window::ValueCandidateWindowBudget;
     use crate::object_explorer::value_path::ValuePathSegment;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_registry::Function;
     use cloud_terrastodon_registry::FunctionKind;
     use cloud_terrastodon_registry::InvocationFuture;
@@ -1604,6 +1620,16 @@ mod tests {
         })
     }
 
+    fn hold_engine_request(input: Box<dyn Any + Send>) -> InvocationFuture {
+        Box::pin(async move {
+            let request = input
+                .downcast::<EngineInvocationRequest>()
+                .map_err(|_| eyre::eyre!("wrong engine request input"))?;
+            std::future::pending::<()>().await;
+            Ok(Box::new(request.value.clone()) as Box<dyn Any + Send>)
+        })
+    }
+
     static ENGINE_INVOCATION_THING: Thing = Thing::value(
         EngineInvocationRequest::SHAPE,
         runtime_from_boxed::<EngineInvocationRequest>,
@@ -1622,6 +1648,89 @@ mod tests {
         runtime_from_boxed::<String>,
         RegistrationSite::new(file!(), line!()),
     );
+
+    static ENGINE_HELD_INVOCATION_FUNCTION: Function = Function::async_value(
+        EngineInvocationRequest::SHAPE,
+        String::SHAPE,
+        FunctionKind::AsyncInvoke,
+        "invoke",
+        "held engine operation",
+        &[],
+        hold_engine_request,
+        runtime_from_boxed::<String>,
+        RegistrationSite::new(file!(), line!()),
+    );
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn graceful_invocation_drain_keeps_the_engine_alive_until_deferrals_finish() {
+        let parent = CancellationToken::new();
+        let requester = parent.clone();
+        parent.with_async_scope(|parent| async move {
+        let mut arena = Arena::default();
+        let input = arena
+            .insert_ready(runtime(EngineInvocationRequest {
+                value: "owned test input".to_owned(),
+            }))
+            .unwrap();
+        let mut builders = BuilderStore::default();
+        let mut borrows = BorrowGraph::default();
+        let mut controller = InvocationController::default();
+        let mut host = TokioInvocationHost::with_cancellation(identity_invocation_future, &parent);
+        let super::super::invocation_controller::InvocationStart::Pending { invocation, .. } =
+            controller
+                .invoke(
+                    &mut arena,
+                    &mut builders,
+                    &mut borrows,
+                    &mut host,
+                    input,
+                    &ENGINE_INVOCATION_THING,
+                    &ENGINE_HELD_INVOCATION_FUNCTION,
+                    super::super::invocation_mode::InvocationMode::Consume,
+                )
+                .unwrap()
+        else {
+            panic!("The held invocation must be pending");
+        };
+        tokio::task::yield_now().await;
+        let cancellation = host.operation_scope(invocation).unwrap();
+        let mut deferral = Box::pin(cancellation.deferred("finishing required work before GUI teardown", |_| {
+            std::future::pending::<Result<(), eyre::Report>>()
+        }));
+        std::future::poll_fn(|context| {
+            assert!(deferral.as_mut().poll(context).is_pending());
+            std::task::Poll::Ready(())
+        }).await;
+        let mut engine = ExplorerEngine::empty_with_invocation_host(Box::new(host));
+        engine.arena = arena;
+        engine.builders = builders;
+        engine.borrow_graph = borrows;
+        engine.invocations = controller;
+        let (context, inbox) = ArenaQueryContext::channel(8);
+        let handle = context.engine_handle();
+        drop(context);
+        let client = async move {
+            requester.request_cancel("GUI closed");
+            let mut draining = Box::pin(handle.finish_pending_invocations());
+            tokio::select! {
+                result = &mut draining => panic!("The guard must postpone teardown: {result:?}"),
+                () = tokio::time::sleep(std::time::Duration::from_millis(25)) => {},
+            }
+            assert_eq!(handle.pending_invocations().await.unwrap(), 1);
+            drop(deferral);
+            tokio::time::timeout(std::time::Duration::from_secs(2), &mut draining)
+                .await
+                .unwrap()
+                .unwrap();
+            drop(draining);
+            assert_eq!(handle.pending_invocations().await.unwrap(), 0);
+            drop(handle);
+        };
+        let (engine, ()) = tokio::join!(engine.run(inbox), client);
+        assert_eq!(engine.pending_invocation_count(), 0);
+        Ok::<_, eyre::Report>(())
+        }).await.unwrap();
+    }
 
     fn engine_default_producer() -> &'static Function {
         functions_from(EngineDefaultProducerRequest::SHAPE)

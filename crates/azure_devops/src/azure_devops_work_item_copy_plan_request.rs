@@ -10,6 +10,7 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemId;
 use cloud_terrastodon_azure_devops_types::WORK_ITEM_CHILD_RELATION;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use eyre::Result;
 use eyre::ensure;
@@ -23,6 +24,9 @@ use std::pin::Pin;
 
 #[derive(Debug, Clone, Facet)]
 pub struct AzureDevOpsWorkItemCopyPlanRequest<'a> {
+    /// Caller-owned cancellation scope, excluded from serialized request input.
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub project: AzureDevOpsProjectArgument<'a>,
     pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
@@ -33,6 +37,7 @@ pub struct AzureDevOpsWorkItemCopyPlanRequest<'a> {
 impl<'a> Arbitrary<'a> for AzureDevOpsWorkItemCopyPlanRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: CancellationScope::arbitrary(u)?,
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
             auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
@@ -53,12 +58,14 @@ impl<'a> IntoFuture for AzureDevOpsWorkItemCopyPlanRequest<'a> {
             let mut frontier = vec![self.root];
             let mut items = BTreeMap::new();
             while !frontier.is_empty() {
+                self.cancellation.bail_if_cancelled()?;
                 // Check every ID before constructing a request, including the root.
                 ensure!(
                     allowed.is_empty() || frontier.iter().all(|id| allowed.contains(id)),
                     "Copy discovery reached an item outside --allowed-ids; no changes were made"
                 );
                 let fetched = AzureDevOpsWorkItemsGetRequest {
+                    cancellation: self.cancellation.clone(),
                     org_url: Cow::Borrowed(self.org_url.as_ref()),
                     project: Some(self.project.clone()),
                     auth_context: Cow::Borrowed(self.auth_context.as_ref()),
@@ -70,8 +77,10 @@ impl<'a> IntoFuture for AzureDevOpsWorkItemCopyPlanRequest<'a> {
                 .await?;
                 let mut next = BTreeSet::new();
                 for item in fetched {
+                    self.cancellation.bail_if_cancelled()?;
                     if self.options.deep {
                         for relation in item.relations.as_deref().unwrap_or_default() {
+                            self.cancellation.bail_if_cancelled()?;
                             if relation.rel.as_ref() == WORK_ITEM_CHILD_RELATION {
                                 next.insert(
                                     relation
@@ -92,11 +101,13 @@ impl<'a> IntoFuture for AzureDevOpsWorkItemCopyPlanRequest<'a> {
                     .collect();
             }
             let fields = AzureDevOpsWorkItemFieldDefinitionListRequest {
+                cancellation: self.cancellation.clone(),
                 org_url: Cow::Borrowed(self.org_url.as_ref()),
                 auth_context: Cow::Borrowed(self.auth_context.as_ref()),
             }
             .await?;
             let relations = AzureDevOpsWorkItemRelationTypeListRequest {
+                cancellation: self.cancellation.clone(),
                 org_url: Cow::Borrowed(self.org_url.as_ref()),
                 auth_context: Cow::Borrowed(self.auth_context.as_ref()),
             }
@@ -112,7 +123,9 @@ impl<'a> IntoFuture for AzureDevOpsWorkItemCopyPlanRequest<'a> {
                 .collect::<Result<_>>()?;
             let mut type_fields = BTreeMap::new();
             for work_item_type in types {
+                self.cancellation.bail_if_cancelled()?;
                 let metadata = AzureDevOpsWorkItemTypeFieldListRequest {
+                    cancellation: self.cancellation.clone(),
                     org_url: Cow::Borrowed(self.org_url.as_ref()),
                     project: self.project.clone(),
                     auth_context: Cow::Borrowed(self.auth_context.as_ref()),
@@ -121,7 +134,8 @@ impl<'a> IntoFuture for AzureDevOpsWorkItemCopyPlanRequest<'a> {
                 .await?;
                 type_fields.insert(work_item_type, metadata);
             }
-            build_work_item_copy_plan(
+            self.cancellation.bail_if_cancelled()?;
+            let plan = build_work_item_copy_plan(
                 self.org_url.as_ref(),
                 &self.project,
                 self.root,
@@ -131,7 +145,9 @@ impl<'a> IntoFuture for AzureDevOpsWorkItemCopyPlanRequest<'a> {
                 &fields,
                 &type_fields,
                 &relations,
-            )
+            )?;
+            self.cancellation.bail_if_cancelled()?;
+            Ok(plan)
         })
     }
 }

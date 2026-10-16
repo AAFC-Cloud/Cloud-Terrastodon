@@ -3,6 +3,7 @@ use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::fetch_all_application_gateways;
 use cloud_terrastodon_azure::fetch_application_gateway_backend_health;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use eyre::bail;
@@ -22,11 +23,19 @@ pub struct AzureApplicationGatewayShowBackendHealthArgs {
 }
 
 impl AzureApplicationGatewayShowBackendHealthArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let tenant_auth_context = self
+            .tenant
+            .bind_auth_context(auth_context, cancellation)
+            .await?;
         let tenant_id = tenant_auth_context.tenant_id;
         info!(needle = %self.application_gateway, %tenant_id, "Resolving Azure application gateway for backend health");
-        let application_gateways = fetch_all_application_gateways(&tenant_auth_context).await?;
+        let application_gateways =
+            fetch_all_application_gateways(&tenant_auth_context, cancellation).await?;
 
         let needle = self.application_gateway.trim();
         let mut matches = application_gateways
@@ -41,9 +50,12 @@ impl AzureApplicationGatewayShowBackendHealthArgs {
             0 => bail!("No application gateway found matching '{}'.", needle),
             1 => {
                 let application_gateway = matches.remove(0);
-                let backend_health =
-                    fetch_application_gateway_backend_health(tenant_id, application_gateway.id)
-                        .await?;
+                let backend_health = fetch_application_gateway_backend_health(
+                    tenant_id,
+                    application_gateway.id,
+                    cancellation,
+                )
+                .await?;
                 let stdout = std::io::stdout();
                 let mut handle = stdout.lock();
                 cloud_terrastodon_command::to_writer_pretty(&mut handle, &backend_health)?;

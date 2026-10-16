@@ -12,6 +12,7 @@ use cloud_terrastodon_azure_devops::fetch_azure_devops_groups_for_project;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_test_plans;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_test_suites;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlements;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
@@ -26,6 +27,7 @@ pub async fn audit_azure_devops(
     test_license_inactivity_threshold: Duration,
     paid_license_inactivity_threshold: Duration,
     auth_context: &AzureTenantAuthContext,
+    cancellation: &CancellationScope,
 ) -> eyre::Result<()> {
     let test_license_inactivity_threshold =
         chrono::Duration::from_std(test_license_inactivity_threshold)?;
@@ -40,9 +42,13 @@ pub async fn audit_azure_devops(
     let mut message_counts: HashMap<String, usize> = HashMap::new();
 
     let azure_devops_auth_context = AzureDevOpsAuthContext::Bearer(auth_context.clone());
-    let entitlements =
-        fetch_azure_devops_user_license_entitlements(&org_url, &azure_devops_auth_context).await?;
-    let users_by_principal_name = fetch_all_entra_users(auth_context)
+    let entitlements = fetch_azure_devops_user_license_entitlements(
+        &org_url,
+        &azure_devops_auth_context,
+        cancellation,
+    )
+    .await?;
+    let users_by_principal_name = fetch_all_entra_users(auth_context, cancellation)
         .await?
         .into_iter()
         .map(|user| (user.user_principal_name.to_lowercase(), user))
@@ -138,22 +144,25 @@ pub async fn audit_azure_devops(
         "Analyzing test plan license usage",
     );
 
-    let projects = fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context).await?;
+    let projects =
+        fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context, cancellation).await?;
     let project_test_plans = projects
         .iter()
         .map(|project| {
             let org_url = org_url.clone();
             let project_id = project.id.clone();
             let azure_devops_auth_context = azure_devops_auth_context.clone();
-            async move {
+            cancellation.cancellable_scope(move |cancellation| async move {
+                let cancellation = &cancellation;
                 let plans = fetch_azure_devops_test_plans(
                     &org_url,
                     &project_id,
                     &azure_devops_auth_context,
+                    cancellation,
                 )
                 .await?;
                 Ok((project_id, plans))
-            }
+            })
         })
         .fold(
             ParallelFallibleWorkQueue::new("fetching azure devops test plans for projects", 4),
@@ -174,16 +183,18 @@ pub async fn audit_azure_devops(
             let org_url = org_url.clone();
             let plan_id = test_plan.id;
             let azure_devops_auth_context = azure_devops_auth_context.clone();
-            async move {
+            cancellation.cancellable_scope(move |cancellation| async move {
+                let cancellation = &cancellation;
                 let suites = fetch_azure_devops_test_suites(
                     &org_url,
                     &project_id,
                     plan_id.to_string(),
                     &azure_devops_auth_context,
+                    cancellation,
                 )
                 .await?;
                 Ok((project_id, plan_id, suites))
-            }
+            })
         })
         .fold(
             ParallelFallibleWorkQueue::new(
@@ -207,14 +218,18 @@ pub async fn audit_azure_devops(
             let member_id = entitlement.user.descriptor.clone();
             let org_url = org_url.clone();
             let azure_devops_auth_context = azure_devops_auth_context.clone();
-            async move {
-                let groups = fetch_azure_devops_groups_for_member(
-                    &org_url,
-                    &member_id,
-                    &azure_devops_auth_context,
-                )
-                .await?;
-                Ok((member_id, groups))
+            {
+                cancellation.cancellable_scope(move |cancellation| async move {
+                    let cancellation = &cancellation;
+                    let groups = fetch_azure_devops_groups_for_member(
+                        &org_url,
+                        &member_id,
+                        &azure_devops_auth_context,
+                        cancellation,
+                    )
+                    .await?;
+                    Ok((member_id, groups))
+                })
             }
         })
         .fold(
@@ -235,14 +250,18 @@ pub async fn audit_azure_devops(
             let org_url = org_url.clone();
             let project_id = project.id.clone();
             let azure_devops_auth_context = azure_devops_auth_context.clone();
-            async move {
-                let groups = fetch_azure_devops_groups_for_project(
-                    &org_url,
-                    &project_id,
-                    &azure_devops_auth_context,
-                )
-                .await?;
-                Ok((project_id, groups))
+            {
+                cancellation.cancellable_scope(move |cancellation| async move {
+                    let cancellation = &cancellation;
+                    let groups = fetch_azure_devops_groups_for_project(
+                        &org_url,
+                        &project_id,
+                        &azure_devops_auth_context,
+                        cancellation,
+                    )
+                    .await?;
+                    Ok((project_id, groups))
+                })
             }
         })
         .fold(

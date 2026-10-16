@@ -5,6 +5,7 @@ use cloud_terrastodon_azure::ComputePublisherName;
 use cloud_terrastodon_azure::fetch_all_subscriptions;
 use cloud_terrastodon_azure::fetch_compute_publisher_image_offers;
 use cloud_terrastodon_azure::get_active_subscription_id;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use std::io::Write;
@@ -33,8 +34,15 @@ pub struct AzureVmPublisherOfferListArgs {
 }
 
 impl AzureVmPublisherOfferListArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let tenant_auth_context = self
+            .tenant
+            .bind_auth_context(auth_context, cancellation)
+            .await?;
         // Resolve the subscription argument (string) into a SubscriptionId.
         let subscription = match self.subscription {
             Some(s) => {
@@ -44,7 +52,8 @@ impl AzureVmPublisherOfferListArgs {
                     Ok(id) => id,
                     Err(_) => {
                         // Try to match by subscription name (case-insensitive).
-                        let subs = fetch_all_subscriptions(&tenant_auth_context).await?;
+                        let subs =
+                            fetch_all_subscriptions(&tenant_auth_context, cancellation).await?;
                         let target = s.to_lowercase();
                         if let Some(found) = subs
                             .into_iter()
@@ -57,7 +66,7 @@ impl AzureVmPublisherOfferListArgs {
                     }
                 }
             }
-            None => get_active_subscription_id().await?,
+            None => get_active_subscription_id(cancellation).await?,
         };
 
         let location = self.location.unwrap_or(AzureLocationName::CanadaCentral);
@@ -66,7 +75,8 @@ impl AzureVmPublisherOfferListArgs {
 
         info!(subscription = %subscription, location = %location, publisher = %publisher, "Fetching VM publisher offers");
         let offers =
-            fetch_compute_publisher_image_offers(subscription, location, publisher).await?;
+            fetch_compute_publisher_image_offers(subscription, location, publisher, cancellation)
+                .await?;
 
         let stdout = std::io::stdout();
         let mut out = stdout.lock();

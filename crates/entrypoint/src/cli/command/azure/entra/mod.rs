@@ -10,6 +10,7 @@ pub mod user;
 pub use application_registration::AzureEntraApplicationRegistrationArgs;
 pub use azure_entra_cli::AzureEntraCommand;
 use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 pub use group::AzureEntraGroupArgs;
@@ -27,7 +28,11 @@ pub struct AzureEntraArgs {
 }
 
 impl AzureEntraArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<CliOutput> {
-        self.command.invoke(auth_context).await
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<CliOutput> {
+        self.command.invoke(auth_context, cancellation).await
     }
 }

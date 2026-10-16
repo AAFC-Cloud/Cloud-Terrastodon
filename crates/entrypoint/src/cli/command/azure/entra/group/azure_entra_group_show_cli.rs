@@ -13,6 +13,7 @@ use cloud_terrastodon_azure::fetch_all_role_definitions_and_assignments;
 use cloud_terrastodon_azure::fetch_group_members;
 use cloud_terrastodon_azure::fetch_group_owners;
 use cloud_terrastodon_azure::fetch_groups_by_id;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
 use cloud_terrastodon_credentials::AuthContext;
 use color_eyre::owo_colors::OwoColorize;
@@ -53,7 +54,11 @@ struct GroupData {
 struct GroupShowOutput(Vec<GroupData>);
 
 impl AzureEntraGroupShowArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<CliOutput> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<CliOutput> {
         // Determine requested IDs. Support `-` as stdin source when a single `-` is provided.
         let id_strings: Vec<String> = if self.group_id.len() == 1 && self.group_id[0] == "-" {
             let mut v = Vec::new();
@@ -80,9 +85,12 @@ impl AzureEntraGroupShowArgs {
             bail!("At least one group ID must be provided.");
         }
 
-        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
+        let tenant_auth_context = self
+            .tenant
+            .bind_auth_context(auth_context, cancellation)
+            .await?;
         info!(count = ids.len(), tenant_id = %tenant_auth_context.tenant_id, "Fetching Entra groups");
-        let groups = fetch_groups_by_id(ids.clone(), &tenant_auth_context).await?;
+        let groups = fetch_groups_by_id(ids.clone(), &tenant_auth_context, cancellation).await?;
 
         // Map by id for fast lookup
         let mut map: HashMap<EntraGroupId, EntraGroup> =
@@ -117,16 +125,22 @@ impl AzureEntraGroupShowArgs {
         for group in &chosen_groups {
             let group_id = group.id;
             let members_auth_context = tenant_auth_context.clone();
+            let members_cancellation = cancellation.clone();
             work.enqueue(async move {
-                let members = fetch_group_members(group_id, &members_auth_context).await?;
+                let members =
+                    fetch_group_members(group_id, &members_auth_context, &members_cancellation)
+                        .await?;
                 eyre::Ok(Resp::Members {
                     group_id,
                     principals: members,
                 })
             });
             let owners_auth_context = tenant_auth_context.clone();
+            let owners_cancellation = cancellation.clone();
             work.enqueue(async move {
-                let owners = fetch_group_owners(group_id, &owners_auth_context).await?;
+                let owners =
+                    fetch_group_owners(group_id, &owners_auth_context, &owners_cancellation)
+                        .await?;
                 eyre::Ok(Resp::Owners {
                     group_id,
                     principals: owners,
@@ -134,8 +148,11 @@ impl AzureEntraGroupShowArgs {
             });
         }
         let auth_context = tenant_auth_context;
+        let rbac_cancellation = cancellation.clone();
         work.enqueue(async move {
-            let rbac = fetch_all_role_definitions_and_assignments(&auth_context).await?;
+            let rbac =
+                fetch_all_role_definitions_and_assignments(&auth_context, &rbac_cancellation)
+                    .await?;
             eyre::Ok(Resp::Rbac(rbac))
         });
         let work_results = work.join().await?;

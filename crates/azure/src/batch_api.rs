@@ -1,4 +1,5 @@
 use cloud_terrastodon_azure_types::uuid::Uuid;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::FromCommandOutput;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_relative_location::RelativeLocation;
@@ -17,15 +18,27 @@ use tracing::debug;
 
 #[derive(Debug, Clone)]
 pub struct BatchRequest<'a, T> {
+    pub cancellation: CancellationScope,
+    /// Allow interruption only when the caller guarantees every entry is read-only.
+    /// False keeps generic batches running through completion.
+    pub cancellation_safe: bool,
+
     pub requests: Vec<BatchRequestEntry<T>>,
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
 impl<'a, T> BatchRequest<'a, T> {
-    pub fn new(auth_context: &'a AzureTenantAuthContext) -> Self {
+    pub fn new(auth_context: &'a AzureTenantAuthContext, cancellation: &CancellationScope) -> Self {
         Self {
+            cancellation: cancellation.clone(),
+            cancellation_safe: false,
             requests: Vec::new(),
             auth_context: Cow::Borrowed(auth_context),
         }
+    }
+    /// Allow cancellation to drop a batch whose entries the caller guarantees are read-only.
+    pub fn cancellation_safe(mut self) -> Self {
+        self.cancellation_safe = true;
+        self
     }
 }
 
@@ -119,17 +132,19 @@ pub struct BatchResponseEntry<T> {
 #[track_caller]
 pub fn invoke_batch_request<'a, REQ, RESP>(
     request: &'a BatchRequest<'_, REQ>,
+    cancellation: &'a CancellationScope,
 ) -> impl Future<Output = Result<BatchResponse<RESP>>> + 'a
 where
     REQ: Facet<'static> + Clone,
     RESP: FromCommandOutput,
 {
-    invoke_batch_request_from(request, Location::caller())
+    invoke_batch_request_from(request, Location::caller(), cancellation)
 }
 
 async fn invoke_batch_request_from<REQ, RESP>(
     request: &BatchRequest<'_, REQ>,
     caller: &'static Location<'static>,
+    cancellation: &CancellationScope,
 ) -> Result<BatchResponse<RESP>>
 where
     REQ: Facet<'static> + Clone,
@@ -155,7 +170,7 @@ where
         let chunks = request.requests.chunks(20);
         let num_chunks = chunks.len();
         for (i, chunk) in chunks.enumerate() {
-            let request = RestRequest::new(Method::POST, url)?
+            let rest_request = RestRequest::new(Method::POST, url, cancellation)?
                 .azure_auth_context(&auth_context.auth_context)
                 .tenant(auth_context.tenant_id)
                 .body(
@@ -168,12 +183,18 @@ where
                     .map_err(|error| eyre::eyre!("{error:?}"))?,
                 );
 
+            let rest_request = if request.cancellation_safe {
+                rest_request.cancellation_safe()
+            } else {
+                rest_request
+            };
+
             debug!(
                 batch_index = i,
                 total_batches = num_chunks,
                 "Performing batch request"
             );
-            let response = request
+            let response = rest_request
                 .receive_with_validator(|response: BatchResponse<RESP>| {
                     let failures = response
                         .responses
@@ -221,27 +242,30 @@ where
     where
         RESP: FromCommandOutput,
     {
-        invoke_batch_request_from(self, caller).await
+        invoke_batch_request_from(self, caller, &self.cancellation).await
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_credentials::AuthContext;
     use cloud_terrastodon_credentials::AuthSource;
 
     #[test]
     fn batch_request_stores_the_tenant_binding() -> Result<()> {
-        let tenant_id = "22222222-2222-2222-2222-222222222222".parse()?;
-        let auth_context =
-            AuthContext::explicit(AuthSource::AzureCli).bind_to_azure_tenant(tenant_id)?;
-        let mut request = BatchRequest::new(&auth_context);
-        request.requests.push(BatchRequestEntry::new_get(
-            "/subscriptions/example/providers/Microsoft.Resources/tags/default".to_owned(),
-        ));
+        CancellationToken::new().with_scope(|cancellation| {
+            let tenant_id = "22222222-2222-2222-2222-222222222222".parse()?;
+            let auth_context =
+                AuthContext::explicit(AuthSource::AzureCli).bind_to_azure_tenant(tenant_id)?;
+            let mut request = BatchRequest::new(&auth_context, &cancellation);
+            request.requests.push(BatchRequestEntry::new_get(
+                "/subscriptions/example/providers/Microsoft.Resources/tags/default".to_owned(),
+            ));
 
-        assert_eq!(request.auth_context.tenant_id, tenant_id);
-        Ok(())
+            assert_eq!(request.auth_context.tenant_id, tenant_id);
+            Ok(())
+        })
     }
 }

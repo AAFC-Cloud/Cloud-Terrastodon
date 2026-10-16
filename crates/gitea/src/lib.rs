@@ -83,24 +83,33 @@ mod tests {
     use crate::analyze_gitea_repo_enumeration;
     use crate::fetch_all_gitea_repositories;
     use crate::get_default_gitea_instance_url;
+    use cloud_terrastodon_command::CancellationToken;
 
     #[test_log::test(tokio::test)]
     async fn it_fetches_repositories_without_empty_ids() -> eyre::Result<()> {
-        let tenant = get_default_gitea_instance_url().await?;
-        let repositories = fetch_all_gitea_repositories(&tenant).await?;
-        assert!(!repositories.is_empty());
-        assert!(repositories.iter().all(|repo| *repo.id > 0));
-        Ok(())
+        CancellationToken::new()
+            .with_async_scope(|cancellation| async move {
+                let tenant = get_default_gitea_instance_url(&cancellation).await?;
+                let repositories = fetch_all_gitea_repositories(&tenant, &cancellation).await?;
+                assert!(!repositories.is_empty());
+                assert!(repositories.iter().all(|repo| *repo.id > 0));
+                Ok(())
+            })
+            .await
     }
 
     #[test_log::test(tokio::test)]
     #[ignore]
     async fn it_analyzes_repo_enumeration_methods() -> eyre::Result<()> {
-        let tenant = get_default_gitea_instance_url().await?;
-        let report = analyze_gitea_repo_enumeration(&tenant, 1000).await?;
-        assert!(report.combined.repo_count > 0);
-        assert!(report.search.repo_count > 0);
-        assert!(report.search_missing_from_combined.is_empty());
-        Ok(())
+        CancellationToken::new()
+            .with_async_scope(|cancellation| async move {
+                let tenant = get_default_gitea_instance_url(&cancellation).await?;
+                let report = analyze_gitea_repo_enumeration(&tenant, 1000, &cancellation).await?;
+                assert!(report.combined.repo_count > 0);
+                assert!(report.search.repo_count > 0);
+                assert!(report.search_missing_from_combined.is_empty());
+                Ok(())
+            })
+            .await
     }
 }

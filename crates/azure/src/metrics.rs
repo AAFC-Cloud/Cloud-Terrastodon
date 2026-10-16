@@ -7,6 +7,7 @@ use chrono::TimeZone;
 use cloud_terrastodon_azure_types::AsScope;
 use cloud_terrastodon_azure_types::Metrics;
 use cloud_terrastodon_azure_types::Scope;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_pathing::AppDir;
 use cloud_terrastodon_pathing::Existy;
@@ -18,8 +19,9 @@ use tracing::info;
 pub async fn fetch_metrics(
     auth_context: &AzureTenantAuthContext,
     resource_ids: impl IntoIterator<Item = impl AsScope>,
+    cancellation: &CancellationScope,
 ) -> eyre::Result<Metrics> {
-    let mut batch_request = BatchRequest::new(auth_context);
+    let mut batch_request = BatchRequest::new(auth_context, cancellation).cancellation_safe();
     for id in resource_ids {
         let id = id.as_scope().expanded_form();
         let end = chrono::Utc::now();
@@ -64,18 +66,26 @@ mod tests {
     use super::*;
     use crate::fetch_all_storage_accounts;
     use crate::get_test_tenant_id;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_credentials::AuthContext;
 
     #[tokio::test]
     async fn it_works() -> eyre::Result<()> {
-        let resources = fetch_all_storage_accounts(
-            &AuthContext::explicit_azure_cli().bind_to_azure_tenant(get_test_tenant_id().await?)?,
-        )
-        .await?;
-        let tenant_id = get_test_tenant_id().await?;
-        let auth_context = AuthContext::explicit_azure_cli().bind_to_azure_tenant(tenant_id)?;
-        let resources = resources.iter().take(3);
-        let _metrics = fetch_metrics(&auth_context, resources).await?;
-        Ok(())
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let resources = fetch_all_storage_accounts(
+                    &AuthContext::explicit_azure_cli()
+                        .bind_to_azure_tenant(get_test_tenant_id(&cancellation).await?)?,
+                    &cancellation,
+                )
+                .await?;
+                let tenant_id = get_test_tenant_id(&cancellation).await?;
+                let auth_context =
+                    AuthContext::explicit_azure_cli().bind_to_azure_tenant(tenant_id)?;
+                let resources = resources.iter().take(3);
+                let _metrics = fetch_metrics(&auth_context, resources, &cancellation).await?;
+                Ok(())
+            })
+            .await
     }
 }

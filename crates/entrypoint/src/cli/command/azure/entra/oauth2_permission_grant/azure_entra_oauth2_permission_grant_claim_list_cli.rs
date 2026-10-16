@@ -5,6 +5,7 @@ use cloud_terrastodon_azure::EntraServicePrincipalObjectId;
 use cloud_terrastodon_azure::fetch_all_service_principals;
 use cloud_terrastodon_azure::fetch_oauth2_permission_scopes;
 use cloud_terrastodon_azure::fetch_service_principal;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Result;
@@ -25,19 +26,33 @@ pub struct AzureEntraOAuth2PermissionGrantClaimListArgs {
 }
 
 impl AzureEntraOAuth2PermissionGrantClaimListArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
-        let service_principal_id =
-            resolve_service_principal_id(&tenant_auth_context, self.service_principal.trim())
-                .await?;
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let tenant_auth_context = self
+            .tenant
+            .bind_auth_context(auth_context, cancellation)
+            .await?;
+        let service_principal_id = resolve_service_principal_id(
+            &tenant_auth_context,
+            self.service_principal.trim(),
+            cancellation,
+        )
+        .await?;
 
         info!(
             tenant_id = %tenant_auth_context.tenant_id,
             %service_principal_id,
             "Fetching delegated OAuth2 permission claims"
         );
-        let mut scopes =
-            fetch_oauth2_permission_scopes(service_principal_id, &tenant_auth_context).await?;
+        let mut scopes = fetch_oauth2_permission_scopes(
+            service_principal_id,
+            &tenant_auth_context,
+            cancellation,
+        )
+        .await?;
         scopes.sort_by(|left, right| left.value.cmp(&right.value));
 
         let stdout = std::io::stdout();
@@ -51,9 +66,10 @@ impl AzureEntraOAuth2PermissionGrantClaimListArgs {
 async fn resolve_service_principal_id(
     auth_context: &AzureTenantAuthContext,
     needle: &str,
+    cancellation: &CancellationScope,
 ) -> Result<EntraServicePrincipalObjectId> {
     if let Ok(service_principal_id) = needle.parse::<EntraServicePrincipalObjectId>() {
-        match fetch_service_principal(service_principal_id, auth_context).await {
+        match fetch_service_principal(service_principal_id, auth_context, cancellation).await {
             Ok(_) => return Ok(service_principal_id),
             Err(error) => {
                 info!(
@@ -64,7 +80,7 @@ async fn resolve_service_principal_id(
         }
     }
 
-    let service_principals = fetch_all_service_principals(auth_context).await?;
+    let service_principals = fetch_all_service_principals(auth_context, cancellation).await?;
     let mut matches = service_principals
         .iter()
         .filter(|service_principal| matches_service_principal(service_principal, needle))

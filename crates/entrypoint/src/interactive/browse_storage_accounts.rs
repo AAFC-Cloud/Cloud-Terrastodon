@@ -1,14 +1,18 @@
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::StorageAccount;
 use cloud_terrastodon_azure::fetch_all_storage_accounts;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 
-pub async fn browse_storage_accounts(auth_context: &AzureTenantAuthContext) -> Result<()> {
-    let storage_accounts = fetch_all_storage_accounts(auth_context).await?;
+pub async fn browse_storage_accounts(
+    auth_context: &AzureTenantAuthContext,
+    cancellation: &CancellationScope,
+) -> Result<()> {
+    let storage_accounts = fetch_all_storage_accounts(auth_context, cancellation).await?;
     let (chosen, maybe_error): (Vec<StorageAccount>, _) = PickerTui::<_>::new()
         .pick_many(storage_accounts.into_iter().map(|storage_account| Choice {
             key: storage_account.id.expanded_form(),

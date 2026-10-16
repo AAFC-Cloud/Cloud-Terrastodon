@@ -2,6 +2,7 @@ use cloud_terrastodon_azure_types::EntraGroupId;
 use cloud_terrastodon_azure_types::PrincipalId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
@@ -10,6 +11,9 @@ use std::time::Duration;
 
 #[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct EntraGroupMemberAddRequest {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub group_id: EntraGroupId,
     pub member_id: PrincipalId,
 }
@@ -17,8 +21,10 @@ pub struct EntraGroupMemberAddRequest {
 pub fn add_group_member(
     group_id: impl Into<EntraGroupId>,
     member_id: impl Into<PrincipalId>,
+    cancellation: &CancellationScope,
 ) -> EntraGroupMemberAddRequest {
     EntraGroupMemberAddRequest {
+        cancellation: cancellation.clone(),
         group_id: group_id.into(),
         member_id: member_id.into(),
     }
@@ -56,7 +62,7 @@ impl CacheableCommand for EntraGroupMemberAddRequest {
             self.member_id.to_string().as_str(),
         ]);
         cmd.cache(self.cache_key());
-        cmd.run_raw().await?;
+        cmd.run_raw(&self.cancellation).await?;
         Ok(())
     }
 }

@@ -4,6 +4,7 @@ use cloud_terrastodon_azure_types::EntraGroupId;
 use cloud_terrastodon_azure_types::PrincipalId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_rest::RestRequest;
@@ -16,6 +17,9 @@ use tracing::debug;
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Debug, Clone, facet::Facet)]
 pub struct EntraGroupsForMemberRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub principal_id: PrincipalId,
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
@@ -23,6 +27,7 @@ pub struct EntraGroupsForMemberRequest<'a> {
 impl<'a> arbitrary::Arbitrary<'a> for EntraGroupsForMemberRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: arbitrary::Arbitrary::arbitrary(u)?,
             principal_id: arbitrary::Arbitrary::arbitrary(u)?,
             auth_context: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
         })
@@ -32,8 +37,10 @@ impl<'a> arbitrary::Arbitrary<'a> for EntraGroupsForMemberRequest<'static> {
 pub fn fetch_entra_groups_for_member<'a>(
     principal_id: PrincipalId,
     auth_context: &'a AzureTenantAuthContext,
+    cancellation: &CancellationScope,
 ) -> EntraGroupsForMemberRequest<'a> {
     EntraGroupsForMemberRequest {
+        cancellation: cancellation.clone(),
         principal_id,
         auth_context: Cow::Borrowed(auth_context),
     }
@@ -71,7 +78,9 @@ impl CacheableCommand for EntraGroupsForMemberRequest<'_> {
                 "https://graph.microsoft.com/v1.0/directoryObjects/{}/getMemberGroups",
                 self.principal_id
             ),
+            &self.cancellation,
         )?
+        .cancellation_safe()
         .tenant(self.auth_context.tenant_id)
         .azure_auth_context(&self.auth_context.auth_context)
         .body("{\"securityEnabledOnly\":false}")
@@ -79,7 +88,8 @@ impl CacheableCommand for EntraGroupsForMemberRequest<'_> {
         .await?;
 
         let group_ids: HashSet<_> = response.value.into_iter().collect();
-        let groups = fetch_groups_by_id(group_ids, self.auth_context.as_ref()).await?;
+        let groups =
+            fetch_groups_by_id(group_ids, self.auth_context.as_ref(), &self.cancellation).await?;
         debug!(
             tenant_id = %self.auth_context.tenant_id,
             principal_id = %self.principal_id,

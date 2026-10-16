@@ -7,6 +7,7 @@ use cloud_terrastodon_azure::RoleDefinitionsAndAssignments;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::fetch_all_principals;
 use cloud_terrastodon_azure::fetch_all_role_definitions_and_assignments;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::app_work::AppWorkState;
 use cloud_terrastodon_command::app_work::Loadable;
 use cloud_terrastodon_command::app_work::LoadableWorkBuilder;
@@ -60,6 +61,7 @@ impl fmt::Debug for RoleAssignmentPickerAppResult {
 
 /// Entrypoint for the interactive role assignment picker.
 pub struct RoleAssignmentPickerApp {
+    cancellation: CancellationScope,
     auth_context: AzureTenantAuthContext,
     data: AppData,
     work: AppWorkState<AppData>,
@@ -69,8 +71,9 @@ pub struct RoleAssignmentPickerApp {
 
 impl RoleAssignmentPickerApp {
     /// Creates a new app instance.
-    pub fn new(auth_context: &AzureTenantAuthContext) -> Self {
+    pub fn new(auth_context: &AzureTenantAuthContext, cancellation: &CancellationScope) -> Self {
         Self {
+            cancellation: cancellation.clone(),
             auth_context: auth_context.clone(),
             data: AppData::default(),
             work: AppWorkState::new(),
@@ -81,39 +84,52 @@ impl RoleAssignmentPickerApp {
 
     /// Runs the interactive picker. Returns the user's selection or cancellation.
     pub async fn run(mut self) -> Result<RoleAssignmentPickerAppResult> {
-        self.enqueue_initial_work()?;
+        let (_shutdown, run) =
+            self.cancellation
+                .clone()
+                .with_async_child_scope(move |cancellation| async move {
+                    self.cancellation = cancellation;
+                    self.enqueue_initial_work()?;
 
-        let mut terminal = ratatui::init();
-        terminal.clear()?;
-        self.ui.status_message = "Loading role assignments and principals...".to_string();
+                    let mut terminal = ratatui::init();
+                    terminal.clear()?;
+                    self.ui.status_message =
+                        "Loading role assignments and principals...".to_string();
 
-        let result = 'outer: loop {
-            // 1. Handle background work completion
-            self.work.handle_messages(&mut self.data)?;
+                    let result = 'outer: loop {
+                        if self.cancellation.is_cancelled() {
+                            break RoleAssignmentPickerAppResult::Cancelled;
+                        }
+                        // 1. Handle background work completion
+                        self.work.handle_messages(&mut self.data)?;
 
-            // 2. Handle keyboard input
-            while event::poll(Duration::from_millis(0))? {
-                let evt = event::read()?;
-                if let Some(result) = self.handle_event(evt)? {
-                    break 'outer result;
-                }
-            }
+                        // 2. Handle keyboard input
+                        while event::poll(Duration::from_millis(0))? {
+                            let evt = event::read()?;
+                            if let Some(result) = self.handle_event(evt)? {
+                                break 'outer result;
+                            }
+                        }
 
-            // 3. Rebuild rows if data changed
-            if self.data.changed {
-                self.rebuild_rows_if_ready();
-            }
+                        // 3. Rebuild rows if data changed
+                        if self.data.changed {
+                            self.rebuild_rows_if_ready();
+                        }
 
-            // 4. Draw the UI
-            terminal.draw(|frame| self.draw(frame))?;
+                        // 4. Draw the UI
+                        terminal.draw(|frame| self.draw(frame))?;
 
-            // 5. Throttle loop to avoid busy waiting
-            tokio::time::sleep(Duration::from_millis(10)).await;
-        };
+                        // 5. Throttle loop to avoid busy waiting
+                        tokio::time::sleep(Duration::from_millis(10)).await;
+                    };
 
-        ratatui::restore();
-        self.work.work_tracker.finish().await?;
-        Ok(result)
+                    ratatui::restore();
+                    self.cancellation
+                        .request_cancel("role assignment picker closed");
+                    self.work.work_tracker.finish().await?;
+                    Ok(result)
+                });
+        run.await
     }
 
     fn enqueue_initial_work(&mut self) -> Result<()> {
@@ -124,10 +140,17 @@ impl RoleAssignmentPickerApp {
                 state.role_definitions_and_assignments = value;
                 state.changed = true;
             })
-            .work(async move {
-                let data = fetch_all_role_definitions_and_assignments(&role_auth_context).await?;
-                Ok(RoleDefinitionsHolder(data))
-            })
+            .work(
+                self.cancellation
+                    .cancellable_scope(move |role_cancellation| async move {
+                        let data = fetch_all_role_definitions_and_assignments(
+                            &role_auth_context,
+                            &role_cancellation,
+                        )
+                        .await?;
+                        Ok(RoleDefinitionsHolder(data))
+                    }),
+            )
             .build()?;
         role_work.enqueue(&self.work, &mut self.data)?;
 
@@ -138,10 +161,17 @@ impl RoleAssignmentPickerApp {
                 state.principals = value;
                 state.changed = true;
             })
-            .work(async move {
-                let data = fetch_all_principals(&principals_auth_context).await?;
-                Ok(PrincipalCollectionHolder(data))
-            })
+            .work(
+                self.cancellation
+                    .cancellable_scope(move |principals_cancellation| async move {
+                        let data = fetch_all_principals(
+                            &principals_auth_context,
+                            &principals_cancellation,
+                        )
+                        .await?;
+                        Ok(PrincipalCollectionHolder(data))
+                    }),
+            )
             .build()?;
         principals_work.enqueue(&self.work, &mut self.data)?;
 
@@ -576,16 +606,22 @@ mod test {
     use super::RoleAssignmentPickerApp;
     use super::RoleAssignmentPickerAppResult;
     use cloud_terrastodon_azure::get_test_tenant_id;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_credentials::AuthContext;
 
     #[tokio::test]
     #[ignore = "manual entrypoint"]
     async fn manual_pick() -> eyre::Result<()> {
-        color_eyre::install()?;
-        let auth_context = AuthContext::explicit_azure_cli();
-        let auth_context = auth_context.bind_to_azure_tenant(get_test_tenant_id().await?)?;
-        let app = RoleAssignmentPickerApp::new(&auth_context);
-        let _result: RoleAssignmentPickerAppResult = app.run().await?;
-        Ok(())
+        CancellationToken::new()
+            .with_async_scope(|cancellation| async move {
+                color_eyre::install()?;
+                let auth_context = AuthContext::explicit_azure_cli();
+                let auth_context =
+                    auth_context.bind_to_azure_tenant(get_test_tenant_id(&cancellation).await?)?;
+                let app = RoleAssignmentPickerApp::new(&auth_context, &cancellation);
+                let _result: RoleAssignmentPickerAppResult = app.run().await?;
+                Ok(())
+            })
+            .await
     }
 }

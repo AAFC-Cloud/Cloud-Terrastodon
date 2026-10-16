@@ -5,6 +5,7 @@ use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::fetch_all_policy_assignments;
 use cloud_terrastodon_azure::fetch_all_policy_definitions;
 use cloud_terrastodon_azure::fetch_all_policy_set_definitions;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_user_input::PickResultExt;
@@ -32,6 +33,7 @@ struct PolicyComplianceRow {
 
 async fn fetch_all_policy_compliance(
     auth_context: &AzureTenantAuthContext,
+    cancellation: &CancellationScope,
 ) -> eyre::Result<Vec<PolicyComplianceRow>> {
     info!("Fetching all policy compliance information");
     let query = indoc! {r#"
@@ -57,6 +59,7 @@ policyResources
             valid_for: Duration::from_mins(15),
         }),
         auth_context,
+        cancellation,
     )
     .collect_all::<PolicyComplianceRow>()
     .await?;
@@ -65,14 +68,17 @@ policyResources
 }
 
 /// This is a new function that merges “search assigned policies” with a compliance query.
-pub async fn browse_policy_assignments(auth_context: &AzureTenantAuthContext) -> eyre::Result<()> {
+pub async fn browse_policy_assignments(
+    auth_context: &AzureTenantAuthContext,
+    cancellation: &CancellationScope,
+) -> eyre::Result<()> {
     info!("Fetching a bunch of data...");
     let (policy_assignments, policy_definitions, mut policy_set_definitions, mut policy_compliance) =
         match try_join!(
-            fetch_all_policy_assignments(auth_context),
-            fetch_all_policy_definitions(auth_context),
-            fetch_all_policy_set_definitions(auth_context),
-            fetch_all_policy_compliance(auth_context),
+            fetch_all_policy_assignments(auth_context, cancellation),
+            fetch_all_policy_definitions(auth_context, cancellation),
+            fetch_all_policy_set_definitions(auth_context, cancellation),
+            fetch_all_policy_compliance(auth_context, cancellation),
         ) {
             Ok(x) => x,
             Err(e) => return Err(e).context("failed to fetch policy data"),

@@ -4,6 +4,7 @@ use crate::GiteaTenantArgument;
 use crate::default_tenant::get_default_gitea_instance_url;
 use crate::list_gitea_logins;
 use arbitrary::Arbitrary;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_pathing::AppDir;
 use eyre::Context;
 use eyre::ContextCompat;
@@ -59,37 +60,54 @@ pub async fn forget_tracked_tenant(
     forget_tracked_tenant_in(&tracked_tenants_dir(), url).await
 }
 
-pub async fn discover_and_track_tenants() -> eyre::Result<Vec<GiteaTrackedTenant>> {
-    let logins = list_gitea_logins().await?;
+pub async fn discover_and_track_tenants(
+    cancellation: &CancellationScope,
+) -> eyre::Result<Vec<GiteaTrackedTenant>> {
+    let logins = list_gitea_logins(cancellation).await?;
     let mut tenants = Vec::with_capacity(logins.len());
     for login in logins {
-        tenants.push(add_tracked_tenant(login.url).await?);
+        tenants.push(
+            cancellation
+                .deferred("recording a discovered Gitea instance", |_| {
+                    add_tracked_tenant(login.url)
+                })
+                .await?,
+        );
     }
+    cancellation.bail_if_cancelled()?;
     Ok(tenants)
 }
 
 #[expect(async_fn_in_trait)]
 pub trait GiteaTenantAliasExt {
-    async fn resolve(&self) -> eyre::Result<GiteaInstanceUrl>;
+    async fn resolve(&self, cancellation: &CancellationScope) -> eyre::Result<GiteaInstanceUrl>;
 }
 
 impl GiteaTenantAliasExt for GiteaTenantAlias {
-    async fn resolve(&self) -> eyre::Result<GiteaInstanceUrl> {
-        resolve_tracked_tenant_alias(self).await
+    async fn resolve(&self, cancellation: &CancellationScope) -> eyre::Result<GiteaInstanceUrl> {
+        cancellation
+            .cancellable_scope(|_| resolve_tracked_tenant_alias(self))
+            .await
     }
 }
 
 #[expect(async_fn_in_trait)]
 pub trait GiteaTenantArgumentExt {
-    async fn resolve(&self) -> eyre::Result<GiteaInstanceUrl>;
+    async fn resolve(&self, cancellation: &CancellationScope) -> eyre::Result<GiteaInstanceUrl>;
 }
 
 impl GiteaTenantArgumentExt for GiteaTenantArgument<'_> {
-    async fn resolve(&self) -> eyre::Result<GiteaInstanceUrl> {
+    async fn resolve(&self, cancellation: &CancellationScope) -> eyre::Result<GiteaInstanceUrl> {
         match self {
-            GiteaTenantArgument::Default => get_default_gitea_instance_url().await,
-            GiteaTenantArgument::Url(url) => resolve_tracked_tenant_url(url.as_ref()).await,
-            GiteaTenantArgument::Alias(alias) => alias.resolve().await,
+            GiteaTenantArgument::Default => get_default_gitea_instance_url(cancellation).await,
+            GiteaTenantArgument::Url(url) => {
+                cancellation
+                    .deferred("recording the selected Gitea instance", |_| {
+                        resolve_tracked_tenant_url(url.as_ref())
+                    })
+                    .await
+            }
+            GiteaTenantArgument::Alias(alias) => alias.resolve(cancellation).await,
         }
     }
 }

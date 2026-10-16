@@ -2,6 +2,7 @@ use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_repos_for_project;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::to_writer_pretty;
 use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
@@ -25,15 +26,22 @@ pub struct AzureDevOpsRepoShowArgs {
 }
 
 impl AzureDevOpsRepoShowArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         // Find a project matching the provided identifier (id or name).
         let azure_devops_auth_context = AzureDevOpsAuthContext::new(auth_context)?;
         let projects =
-            fetch_all_azure_devops_projects(&self.org, &azure_devops_auth_context).await?;
+            fetch_all_azure_devops_projects(&self.org, &azure_devops_auth_context, cancellation)
+                .await?;
         let maybe = projects.into_iter().find(|p| self.project.matches(p));
 
         if let Some(project) = maybe {
-            let repos = fetch_all_azure_devops_repos_for_project(&self.org, &project.id).await?;
+            let repos =
+                fetch_all_azure_devops_repos_for_project(&self.org, &project.id, cancellation)
+                    .await?;
             if let Some(repo) = repos
                 .into_iter()
                 .find(|r| r.name == self.repo || r.id.to_string() == self.repo)

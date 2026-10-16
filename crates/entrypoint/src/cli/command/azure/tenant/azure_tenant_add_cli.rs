@@ -3,6 +3,7 @@ use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure::add_tracked_tenant;
 use cloud_terrastodon_azure::add_tracked_tenant_aliases;
 use cloud_terrastodon_azure::set_tracked_tenant_auth_source;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthSource;
 use eyre::Result;
 use std::io::Write;
@@ -24,7 +25,10 @@ pub struct AzureTenantAddArgs {
 }
 
 impl AzureTenantAddArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(
+        self,
+        _cancellation: &CancellationScope,
+    ) -> Result<()> {
         let aliases = self
             .alias
             .into_iter()

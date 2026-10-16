@@ -7,6 +7,7 @@ pub mod terraform_source_add_imports_cli;
 pub mod terraform_source_cli;
 pub mod terraform_source_generate_cli;
 
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 pub use terraform_command_cli::TerraformCommand;
@@ -19,7 +20,11 @@ pub struct TerraformArgs {
 }
 
 impl TerraformArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        self.command.invoke(auth_context).await
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        self.command.invoke(auth_context, cancellation).await
     }
 }

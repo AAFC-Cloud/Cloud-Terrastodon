@@ -1,6 +1,7 @@
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_project_members;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::to_writer_pretty;
 use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
@@ -20,11 +21,19 @@ pub struct AzureDevOpsProjectMemberListArgs {
 }
 
 impl AzureDevOpsProjectMemberListArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         let azure_devops_auth_context = AzureDevOpsAuthContext::new(auth_context)?;
-        let members =
-            fetch_azure_devops_project_members(&self.org, self.project, &azure_devops_auth_context)
-                .await?;
+        let members = fetch_azure_devops_project_members(
+            &self.org,
+            self.project,
+            &azure_devops_auth_context,
+            cancellation,
+        )
+        .await?;
 
         let mut out = stdout().lock();
         to_writer_pretty(&mut out, &members)?;

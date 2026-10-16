@@ -9,6 +9,7 @@ use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemId;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemPatchFields;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemRelationInput;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemType;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use eyre::ensure;
@@ -46,7 +47,11 @@ pub struct AzureDevOpsWorkItemCreateArgs {
 }
 
 impl AzureDevOpsWorkItemCreateArgs {
-    pub async fn invoke(self, auth: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         let mut fields: AzureDevOpsWorkItemPatchFields = match self.fields {
             Some(input) => {
                 let body = cloud_terrastodon_rest::read_optional_body(Some(input))
@@ -77,12 +82,13 @@ impl AzureDevOpsWorkItemCreateArgs {
             }
             None => Vec::new(),
         };
-        let auth_context = self.tenant.bind_auth_context(auth).await?;
+        let auth_context = self.tenant.bind_auth_context(auth, cancellation).await?;
         if let Some(parent) = self.parent {
             relations.push(AzureDevOpsWorkItemRelationInput::parent(&self.org, parent)?);
         }
         let patch = AzureDevOpsJsonPatch::work_item_create_patch(fields, &relations)?;
         let item = AzureDevOpsWorkItemCreateRequest {
+            cancellation: cancellation.clone(),
             org_url: Cow::Owned(self.org),
             project: self.project,
             auth_context: Cow::Owned(auth_context),

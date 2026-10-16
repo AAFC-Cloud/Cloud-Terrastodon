@@ -6,6 +6,7 @@ use crate::object_explorer::ArenaQueryContextFutureExt;
 use crate::object_explorer::ExplorerEngine;
 #[cfg(test)]
 use crate::object_explorer::TokioInvocationHost;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_registry::InvocationFuture;
 use cloud_terrastodon_user_input::TerminalBackend;
 use cloud_terrastodon_user_input::TerminalCoordinator;
@@ -23,15 +24,18 @@ use std::time::Duration;
 const FRAMES_PER_SECOND: f32 = 60.0;
 const COMMAND_CAPACITY: usize = 256;
 
-pub(crate) async fn run_object_browser() -> Result<()> {
+pub(crate) async fn run_object_browser(cancellation: &CancellationScope) -> Result<()> {
     let coordinator = TerminalCoordinator::try_current().unwrap_or_default();
     let scoped_coordinator = coordinator.clone();
     coordinator
-        .scope(async move { run_with_terminal(scoped_coordinator).await })
+        .scope(async move { run_with_terminal(scoped_coordinator, cancellation).await })
         .await
 }
 
-async fn run_with_terminal(coordinator: TerminalCoordinator) -> Result<()> {
+async fn run_with_terminal(
+    coordinator: TerminalCoordinator,
+    cancellation: &CancellationScope,
+) -> Result<()> {
     tracing::info!("Starting arena-backed object browser");
     let mut guard = coordinator.acquire().await?;
     let mut terminal = None;
@@ -50,7 +54,7 @@ async fn run_with_terminal(coordinator: TerminalCoordinator) -> Result<()> {
         };
     }
 
-    let app_result = run_engine_and_ui(&mut terminal, &mut guard, &coordinator).await;
+    let app_result = run_engine_and_ui(&mut terminal, &mut guard, &coordinator, cancellation).await;
     let restore_result = if terminal.take().is_some() {
         restore_terminal(&coordinator)
     } else {
@@ -69,27 +73,61 @@ async fn run_engine_and_ui(
     terminal: &mut Option<DefaultTerminal>,
     guard: &mut TerminalGuard,
     coordinator: &TerminalCoordinator,
+    cancellation: &CancellationScope,
 ) -> Result<()> {
-    let (context, inbox) = ArenaQueryContext::channel(COMMAND_CAPACITY);
-    let app_context = context.clone();
-    let app_scope_context = app_context.clone();
-    let engine_context = context.clone();
-    drop(context);
+    let (_shutdown, run) = cancellation.with_async_child_scope(move |cancellation| async move {
+        let app_cancellation = cancellation.clone();
+        let (context, inbox) = ArenaQueryContext::channel(COMMAND_CAPACITY);
+        let shutdown_handle = context.engine_handle();
+        let app_context = context.clone();
+        let app_scope_context = app_context.clone();
+        let engine_context = context.clone();
+        drop(context);
 
-    let engine = ExplorerEngine::empty_with_tokio_invocation_host(attach_invocation_contexts);
-    let engine_future = engine.run(inbox).with_arena_query_context(engine_context);
-    let app_future = async move {
-        let app = ObjectBrowserApp::bootstrap(app_context.clone()).await?;
-        run_event_loop(app, terminal, guard, coordinator).await
-    }
-    .with_arena_query_context(app_scope_context);
-    tokio::pin!(engine_future);
-    tokio::pin!(app_future);
+        let engine =
+            ExplorerEngine::empty_with_tokio_invocation_host(attach_invocation_contexts, &cancellation);
+        let engine_future = engine.run(inbox).with_arena_query_context(engine_context);
+        let app_future = async {
+            let app = ObjectBrowserApp::bootstrap(app_context.clone()).await?;
+            run_event_loop(app, terminal, guard, coordinator, &app_cancellation).await
+        }
+        .with_arena_query_context(app_scope_context);
+        tokio::pin!(engine_future);
+        let mut app_future = Box::pin(app_future);
 
-    tokio::select! {
-        result = &mut app_future => result,
-        _engine = &mut engine_future => Err(eyre::eyre!("explorer engine stopped while the UI was active")),
-    }
+        let result = tokio::select! {
+            result = &mut app_future => result,
+            _engine = &mut engine_future => return Err(eyre::eyre!("explorer engine stopped while the UI was active")),
+        };
+        drop(app_future);
+        cancellation.request_cancel("object browser closed");
+        // Restore normal console input/output before waiting so cancellation
+        // acknowledgments remain visible and Ctrl-C can still force an exit.
+        let restore_result = if terminal.take().is_some() {
+            restore_terminal(coordinator)
+        } else {
+            Ok(())
+        };
+        let draining = async {
+            shutdown_handle
+                .finish_pending_invocations()
+                .await
+                .map_err(eyre::Report::from)
+        };
+        tokio::pin!(draining);
+        // Export writers may need engine-side query/session completion while
+        // cancellation is postponed. Continue polling the engine until they end.
+        let drained = tokio::select! {
+            drained = &mut draining => drained,
+            _engine = &mut engine_future => Err(eyre::eyre!("explorer engine stopped before pending operations finished")),
+        };
+        match (result, restore_result, drained) {
+            (Err(error), _, _) => Err(error),
+            (Ok(()), Err(error), _) => Err(error),
+            (Ok(()), Ok(()), drained) => drained,
+        }
+    });
+    run.await
 }
 
 async fn run_event_loop(
@@ -97,6 +135,7 @@ async fn run_event_loop(
     terminal: &mut Option<DefaultTerminal>,
     guard: &mut TerminalGuard,
     coordinator: &TerminalCoordinator,
+    cancellation: &CancellationScope,
 ) -> Result<()> {
     let period = Duration::from_secs_f32(1.0 / FRAMES_PER_SECOND);
     let mut interval = tokio::time::interval(period);
@@ -104,6 +143,9 @@ async fn run_event_loop(
 
     while !app.should_quit {
         tokio::select! {
+            () = cancellation.cancelled() => {
+                break;
+            }
             control = guard.next_control() => {
                 let Some(control) = control else {
                     return Err(eyre::eyre!("terminal coordinator owner channel closed"));

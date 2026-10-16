@@ -7,6 +7,7 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
 use cloud_terrastodon_command::CacheInvalidatable;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::HasCacheKey;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use cloud_terrastodon_pathing::sanitize_windows_path_component;
@@ -35,6 +36,9 @@ use std::pin::Pin;
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Debug, Clone, Facet)]
 pub struct AzureDevOpsBuildFolderListRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     /// Project ID or name.
     pub project: AzureDevOpsProjectArgument<'a>,
@@ -51,8 +55,10 @@ pub fn fetch_azure_devops_build_folders<'a>(
     project: impl Into<AzureDevOpsProjectArgument<'a>>,
     auth_context: &'a AzureDevOpsAuthContext,
     path: Option<AzureDevOpsBuildFolderPath>,
+    cancellation: &CancellationScope,
 ) -> AzureDevOpsBuildFolderListRequest<'a> {
     AzureDevOpsBuildFolderListRequest {
+        cancellation: cancellation.clone(),
         org_url: Cow::Borrowed(org_url),
         project: project.into(),
         auth_context: Cow::Borrowed(auth_context),
@@ -63,6 +69,7 @@ pub fn fetch_azure_devops_build_folders<'a>(
 impl<'a> Arbitrary<'a> for AzureDevOpsBuildFolderListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: CancellationScope::arbitrary(u)?,
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
             auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
@@ -133,7 +140,12 @@ impl<'a> CacheInvalidatableIntoFuture for AzureDevOpsBuildFolderListRequest<'a> 
     fn with_invalidation(self, invalidate_cache: bool) -> Self::WithInvalidation {
         Box::pin(async move {
             if invalidate_cache {
-                self.invalidate().await?;
+                self.cancellation
+                    .deferred(
+                        "finishing filesystem and memory cache invalidation",
+                        |_invalidation| async { self.invalidate().await },
+                    )
+                    .await?;
             }
             self.into_future().await
         })
@@ -181,14 +193,16 @@ impl<'a> IntoFuture for AzureDevOpsBuildFolderListRequest<'a> {
             let mut seen = BTreeSet::new();
             let mut page_index = 0;
             loop {
+                self.cancellation.bail_if_cancelled()?;
                 let mut url = base_url.clone();
                 if let Some(token) = &continuation {
                     url.query_pairs_mut()
                         .append_pair("continuationToken", token.as_str());
                 }
-                let request = RestRequest::from_method_and_url(Method::GET, url)?
-                    .cache(cache_key.join(page_index.to_string()))
-                    .azure_devops_auth_context(self.auth_context.as_ref())?;
+                let request =
+                    RestRequest::from_method_and_url(Method::GET, url, &self.cancellation)?
+                        .cache(cache_key.join(page_index.to_string()))
+                        .azure_devops_auth_context(self.auth_context.as_ref())?;
                 let (page, next): (AzureDevOpsBuildPage<AzureDevOpsBuildFolder>, _) =
                     request.receive_with_ms_continuation_token().await?;
                 folders.extend(page.value);
@@ -222,14 +236,22 @@ mod tests {
 
     #[test]
     fn cloud_url_aliases_share_folder_invalidation_root() {
+        let cancellation = CancellationScope::unbound();
         let modern = "https://dev.azure.com/synthetic".parse().unwrap();
         let legacy = "https://synthetic.visualstudio.com".parse().unwrap();
         let project: AzureDevOpsProjectArgument<'static> = "Synthetic project".parse().unwrap();
         let auth_context = AzureDevOpsAuthContext::None;
         assert_eq!(
-            fetch_azure_devops_build_folders(&modern, project.clone(), &auth_context, None)
-                .cache_key(),
-            fetch_azure_devops_build_folders(&legacy, project, &auth_context, None).cache_key()
+            fetch_azure_devops_build_folders(
+                &modern,
+                project.clone(),
+                &auth_context,
+                None,
+                &cancellation
+            )
+            .cache_key(),
+            fetch_azure_devops_build_folders(&legacy, project, &auth_context, None, &cancellation)
+                .cache_key()
         );
         let key = fetch_azure_devops_build_folders(
             &modern,
@@ -238,6 +260,7 @@ mod tests {
                 .unwrap(),
             &auth_context,
             None,
+            &cancellation,
         )
         .cache_key();
         assert_eq!(
@@ -250,6 +273,7 @@ mod tests {
 
     #[test]
     fn server_cache_scopes_include_the_instance_and_collection() {
+        let cancellation = CancellationScope::unbound();
         let urls = [
             "https://one.example.invalid/tfs/Collection",
             "https://two.example.invalid/tfs/Collection",
@@ -261,8 +285,14 @@ mod tests {
         let auth_context = AzureDevOpsAuthContext::None;
         let keys = urls.map(|url| {
             let organization = url.parse().unwrap();
-            fetch_azure_devops_build_folders(&organization, project.clone(), &auth_context, None)
-                .cache_key()
+            fetch_azure_devops_build_folders(
+                &organization,
+                project.clone(),
+                &auth_context,
+                None,
+                &cancellation,
+            )
+            .cache_key()
         });
         for (index, key) in keys.iter().enumerate() {
             assert!(!keys[..index].contains(key));
@@ -283,15 +313,21 @@ mod tests {
 
     #[test]
     fn folder_cache_invalidation_is_scoped_to_the_project_selector() {
+        let cancellation = CancellationScope::unbound();
         let organization = "https://dev.azure.com/synthetic".parse().unwrap();
         let auth_context = AzureDevOpsAuthContext::None;
         let project: AzureDevOpsProjectArgument<'static> = "Synthetic project".parse().unwrap();
         let same_project: AzureDevOpsProjectArgument<'static> =
             "SYNTHETIC PROJECT".parse().unwrap();
         let other_project: AzureDevOpsProjectArgument<'static> = "Other project".parse().unwrap();
-        let key =
-            fetch_azure_devops_build_folders(&organization, project.clone(), &auth_context, None)
-                .cache_key();
+        let key = fetch_azure_devops_build_folders(
+            &organization,
+            project.clone(),
+            &auth_context,
+            None,
+            &cancellation,
+        )
+        .cache_key();
         assert_eq!(
             key,
             fetch_azure_devops_build_folders(
@@ -299,28 +335,48 @@ mod tests {
                 same_project,
                 &auth_context,
                 Some(AzureDevOpsBuildFolderPath::try_new(r"\Synthetic\CI").unwrap()),
+                &cancellation
             )
             .cache_key()
         );
         assert_ne!(
             key,
-            fetch_azure_devops_build_folders(&organization, other_project, &auth_context, None)
-                .cache_key()
+            fetch_azure_devops_build_folders(
+                &organization,
+                other_project,
+                &auth_context,
+                None,
+                &cancellation
+            )
+            .cache_key()
         );
 
         let id_text = "11111111-1111-1111-1111-111111111111";
         let project_id: AzureDevOpsProjectArgument<'static> = id_text.parse().unwrap();
         let project_name = AzureDevOpsProjectName::try_new(id_text).unwrap();
         assert_ne!(
-            fetch_azure_devops_build_folders(&organization, project_id, &auth_context, None)
-                .cache_key(),
-            fetch_azure_devops_build_folders(&organization, project_name, &auth_context, None)
-                .cache_key()
+            fetch_azure_devops_build_folders(
+                &organization,
+                project_id,
+                &auth_context,
+                None,
+                &cancellation
+            )
+            .cache_key(),
+            fetch_azure_devops_build_folders(
+                &organization,
+                project_name,
+                &auth_context,
+                None,
+                &cancellation
+            )
+            .cache_key()
         );
     }
 
     #[test]
     fn readable_project_scopes_survive_no_spaces_without_identity_collisions() {
+        let cancellation = CancellationScope::unbound();
         let organization = "https://dev.azure.com/synthetic".parse().unwrap();
         let auth_context = AzureDevOpsAuthContext::None;
         let names = [
@@ -330,10 +386,16 @@ mod tests {
         ];
         let keys = names.map(|name| {
             let project = AzureDevOpsProjectName::try_new(name).unwrap();
-            fetch_azure_devops_build_folders(&organization, project, &auth_context, None)
-                .cache_key()
-                .path
-                .no_spaces()
+            fetch_azure_devops_build_folders(
+                &organization,
+                project,
+                &auth_context,
+                None,
+                &cancellation,
+            )
+            .cache_key()
+            .path
+            .no_spaces()
         });
         for (index, key) in keys.iter().enumerate() {
             assert!(!keys[..index].contains(key));

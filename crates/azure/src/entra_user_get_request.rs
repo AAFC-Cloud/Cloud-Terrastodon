@@ -6,6 +6,7 @@ use cloud_terrastodon_azure_types::EntraUser;
 use cloud_terrastodon_azure_types::EntraUserId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Result;
@@ -55,6 +56,9 @@ impl From<AzurePrincipalArgument<'_>> for EntraUserLookup {
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Facet)]
 pub struct EntraUserGetRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub lookup: EntraUserLookup,
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
@@ -62,6 +66,7 @@ pub struct EntraUserGetRequest<'a> {
 impl<'a> Arbitrary<'a> for EntraUserGetRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: Arbitrary::arbitrary(u)?,
             lookup: Arbitrary::arbitrary(u)?,
             auth_context: Cow::Owned(Arbitrary::arbitrary(u)?),
         })
@@ -71,11 +76,13 @@ impl<'a> Arbitrary<'a> for EntraUserGetRequest<'static> {
 pub fn fetch_entra_user<'a, T>(
     lookup: T,
     auth_context: &'a AzureTenantAuthContext,
+    cancellation: &CancellationScope,
 ) -> EntraUserGetRequest<'a>
 where
     T: Into<EntraUserLookup>,
 {
     EntraUserGetRequest {
+        cancellation: cancellation.clone(),
         lookup: lookup.into(),
         auth_context: Cow::Borrowed(auth_context),
     }
@@ -160,8 +167,9 @@ impl CacheableCommand for EntraUserGetRequest<'_> {
             self.url(),
             Some(self.cache_key()),
             self.auth_context.as_ref(),
+            &self.cancellation,
         )
-        .fetch_one()
+        .fetch_one(&self.cancellation)
         .await
     }
 }
@@ -175,26 +183,33 @@ cloud_terrastodon_registry::register_into_future!(EntraUserGetRequest<'static> =
 mod tests {
     use super::*;
     use cloud_terrastodon_azure_types::AzureTenantId;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_credentials::AuthContext;
 
     #[test]
     fn url_targets_the_exact_user_principal_name() {
-        let request = EntraUserGetRequest {
-            lookup: EntraUserLookup::UserPrincipalName("O'Neil@example.com".to_owned()),
-            auth_context: Cow::Owned(
-                AuthContext::explicit_azure_cli()
-                    .bind_to_azure_tenant(AzureTenantId::new(
-                        cloud_terrastodon_azure_types::uuid::Uuid::nil(),
-                    ))
-                    .expect("default auth context should bind to a tenant"),
-            ),
-        };
+        CancellationToken::new()
+            .with_scope(|cancellation| {
+                let request = EntraUserGetRequest {
+                    cancellation: cancellation.clone(),
+                    lookup: EntraUserLookup::UserPrincipalName("O'Neil@example.com".to_owned()),
+                    auth_context: Cow::Owned(
+                        AuthContext::explicit_azure_cli()
+                            .bind_to_azure_tenant(AzureTenantId::new(
+                                cloud_terrastodon_azure_types::uuid::Uuid::nil(),
+                            ))
+                            .expect("default auth context should bind to a tenant"),
+                    ),
+                };
 
-        assert!(
-            request
-                .url()
-                .contains("/users/O%27Neil%40example.com?$select=")
-        );
+                assert!(
+                    request
+                        .url()
+                        .contains("/users/O%27Neil%40example.com?$select=")
+                );
+                Ok::<_, eyre::Error>(())
+            })
+            .expect("uncancelled test scope");
     }
 
     #[test]

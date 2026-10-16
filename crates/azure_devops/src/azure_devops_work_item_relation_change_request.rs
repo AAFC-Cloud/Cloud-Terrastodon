@@ -7,6 +7,7 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItem;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemId;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemUrl;
 use cloud_terrastodon_azure_types::ArbitraryJson;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use cloud_terrastodon_rest::RequestHeaders;
 use cloud_terrastodon_rest::RestRequest;
@@ -21,6 +22,9 @@ use std::pin::Pin;
 
 #[derive(Debug, Clone, facet::Facet)]
 pub struct AzureDevOpsWorkItemRelationChangeRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub project: Option<AzureDevOpsProjectArgument<'a>>,
     pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
@@ -36,6 +40,7 @@ pub struct AzureDevOpsWorkItemRelationChangeRequest<'a> {
 impl<'a> Arbitrary<'a> for AzureDevOpsWorkItemRelationChangeRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: CancellationScope::arbitrary(u)?,
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: Option::<AzureDevOpsProjectArgument<'static>>::arbitrary(u)?,
             auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
@@ -63,7 +68,8 @@ impl<'a> IntoFuture for AzureDevOpsWorkItemRelationChangeRequest<'a> {
         Box::pin(async move {
             let mut get_url = self.item_url()?;
             get_url.query_pairs_mut().append_pair("$expand", "all");
-            let get_request = RestRequest::from_method_and_url(Method::GET, get_url)?;
+            let get_request =
+                RestRequest::from_method_and_url(Method::GET, get_url, &self.cancellation)?;
             let item: AzureDevOpsWorkItem = get_request
                 .azure_devops_auth_context(self.auth_context.as_ref())?
                 .receive()
@@ -104,12 +110,13 @@ impl<'a> IntoFuture for AzureDevOpsWorkItemRelationChangeRequest<'a> {
                     },
                 )
                 .append_pair("$expand", "all");
-            let patch_request = RestRequest::from_method_and_url(Method::PATCH, patch_url)?
-                .body(facet_json::to_string(&patch)?)
-                .headers(RequestHeaders::from_header(
-                    "Content-Type",
-                    "application/json-patch+json",
-                )?);
+            let patch_request =
+                RestRequest::from_method_and_url(Method::PATCH, patch_url, &self.cancellation)?
+                    .body(facet_json::to_string(&patch)?)
+                    .headers(RequestHeaders::from_header(
+                        "Content-Type",
+                        "application/json-patch+json",
+                    )?);
             patch_request
                 .azure_devops_auth_context(self.auth_context.as_ref())?
                 .receive()

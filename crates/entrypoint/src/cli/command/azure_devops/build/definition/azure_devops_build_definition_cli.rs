@@ -2,6 +2,7 @@ use super::folder::AzureDevOpsBuildDefinitionFolderArgs;
 use super::list::AzureDevOpsBuildDefinitionListArgs;
 use super::show::AzureDevOpsBuildDefinitionShowArgs;
 use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -13,8 +14,12 @@ pub struct AzureDevOpsBuildDefinitionArgs {
 }
 
 impl AzureDevOpsBuildDefinitionArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<CliOutput> {
-        self.command.invoke(auth_context).await
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<CliOutput> {
+        self.command.invoke(auth_context, cancellation).await
     }
 }
 
@@ -31,11 +36,15 @@ pub enum AzureDevOpsBuildDefinitionCommand {
 }
 
 impl AzureDevOpsBuildDefinitionCommand {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<CliOutput> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<CliOutput> {
         match self {
-            Self::List(args) => args.invoke(auth_context).await,
-            Self::Show(args) => args.invoke(auth_context).await,
-            Self::Folder(args) => args.invoke(auth_context).await,
+            Self::List(args) => args.invoke(auth_context, cancellation).await,
+            Self::Show(args) => args.invoke(auth_context, cancellation).await,
+            Self::Folder(args) => args.invoke(auth_context, cancellation).await,
         }
     }
 }

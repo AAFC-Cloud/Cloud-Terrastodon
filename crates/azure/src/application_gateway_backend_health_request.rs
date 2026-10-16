@@ -4,6 +4,7 @@ use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::Scope;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_rest::RequestHeaders;
 use cloud_terrastodon_rest::RestRequest;
@@ -26,6 +27,9 @@ const MAX_POLL_ATTEMPTS: usize = 10;
 #[must_use = "This is a future request, you must .await it"]
 #[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct AzureApplicationGatewayResourceBackendHealthRequest {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub tenant_id: AzureTenantId,
     pub application_gateway_id: AzureApplicationGatewayResourceId,
 }
@@ -33,8 +37,10 @@ pub struct AzureApplicationGatewayResourceBackendHealthRequest {
 pub fn fetch_application_gateway_backend_health(
     tenant_id: AzureTenantId,
     application_gateway_id: AzureApplicationGatewayResourceId,
+    cancellation: &CancellationScope,
 ) -> AzureApplicationGatewayResourceBackendHealthRequest {
     AzureApplicationGatewayResourceBackendHealthRequest {
+        cancellation: cancellation.clone(),
         tenant_id,
         application_gateway_id,
     }
@@ -77,7 +83,8 @@ impl CacheableCommand for AzureApplicationGatewayResourceBackendHealthRequest {
 
         let backend_health_url = build_backend_health_url(&self.application_gateway_id);
         let initial_response = {
-            RestRequest::new(http::Method::POST, &backend_health_url)?
+            RestRequest::new(http::Method::POST, &backend_health_url, &self.cancellation)?
+                .cancellation_safe()
                 .tenant(self.tenant_id)
                 .headers(RequestHeaders::from_json_str(
                     APPLICATION_GATEWAY_BACKEND_HEALTH_HEADERS,
@@ -110,7 +117,7 @@ impl CacheableCommand for AzureApplicationGatewayResourceBackendHealthRequest {
 
                 for attempt in 0..MAX_POLL_ATTEMPTS {
                     let response = {
-                        RestRequest::new(http::Method::GET, &next_url)?
+                        RestRequest::new(http::Method::GET, &next_url, &self.cancellation)?
                             .tenant(self.tenant_id)
                             .receive_raw()
                             .await?

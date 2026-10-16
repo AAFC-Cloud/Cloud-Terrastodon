@@ -2,6 +2,7 @@ use cloud_terrastodon_azure_types::TenantLicense;
 use cloud_terrastodon_azure_types::TenantLicenseCollection;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
@@ -9,10 +10,15 @@ use std::path::PathBuf;
 
 #[must_use = "This is a future request, you must .await it"]
 #[derive(arbitrary::Arbitrary, facet::Facet)]
-pub struct TenantLicenseListRequest;
+pub struct TenantLicenseListRequest {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+}
 
-pub fn fetch_all_tenant_licenses() -> TenantLicenseListRequest {
-    TenantLicenseListRequest
+pub fn fetch_all_tenant_licenses(cancellation: &CancellationScope) -> TenantLicenseListRequest {
+    TenantLicenseListRequest {
+        cancellation: cancellation.clone(),
+    }
 }
 
 #[async_trait]
@@ -31,7 +37,7 @@ impl CacheableCommand for TenantLicenseListRequest {
             context: String,
             value: Vec<TenantLicense>,
         }
-        let resp = RestRequest::new(http::Method::GET, url)?
+        let resp = RestRequest::new(http::Method::GET, url, &self.cancellation)?
             .cache(self.cache_key())
             .receive::<Response>()
             .await?;
@@ -44,6 +50,7 @@ cloud_terrastodon_command::impl_cacheable_into_future!(TenantLicenseListRequest)
 #[cfg(test)]
 pub mod test_helpers {
     use crate::fetch_all_tenant_licenses;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_command::CommandOutput;
     use cloud_terrastodon_command::bstr::ByteSlice;
 
@@ -53,49 +60,58 @@ pub mod test_helpers {
     pub async fn expect_aad_premium_p2_license<T>(
         result: eyre::Result<T>,
     ) -> eyre::Result<Option<T>> {
-        let tenant_licenses = fetch_all_tenant_licenses().await?;
-        let has_aad_premium_p2_license = tenant_licenses.has_aad_premium_p2();
-        match result {
-            Ok(x) => {
-                eyre::ensure!(
-                    has_aad_premium_p2_license,
-                    "Expected AAD Premium P2 license, but it was not found in tenant licenses: {tenant_licenses:#?}"
-                );
-                Ok(Some(x))
-            }
-            Err(e) => {
-                if has_aad_premium_p2_license {
-                    return Err(e.wrap_err(
-                        "A result failed while wrapped in a guard that expected AAD Premium P2 license to be missing, but it was found in tenant licenses, this means the inner command truly failed?"
-                    ));
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+            let tenant_licenses = fetch_all_tenant_licenses(&cancellation).await?;
+            let has_aad_premium_p2_license = tenant_licenses.has_aad_premium_p2();
+            match result {
+                Ok(x) => {
+                    eyre::ensure!(
+                        has_aad_premium_p2_license,
+                        "Expected AAD Premium P2 license, but it was not found in tenant licenses: {tenant_licenses:#?}"
+                    );
+                    Ok(Some(x))
                 }
-                let expected = "The tenant needs to have Microsoft Entra ID P2 or Microsoft Entra ID Governance license.";
-                let has_expected_message = e
-                    .downcast_ref::<CommandOutput>()
-                    .map(|command_output| command_output.stderr.contains_str(expected))
-                    .unwrap_or(false)
-                    || format!("{e:?}").contains(expected);
-                if !has_expected_message {
-                    return Err(e.wrap_err("A result failed while wrapped in a guard that expected AAD Premium P2 license to be missing, but the error did not contain expected AAD Premium P2 license error text"));
+                Err(e) => {
+                    if has_aad_premium_p2_license {
+                        return Err(e.wrap_err(
+                            "A result failed while wrapped in a guard that expected AAD Premium P2 license to be missing, but it was found in tenant licenses, this means the inner command truly failed?"
+                        ));
+                    }
+                    let expected = "The tenant needs to have Microsoft Entra ID P2 or Microsoft Entra ID Governance license.";
+                    let has_expected_message = e
+                        .downcast_ref::<CommandOutput>()
+                        .map(|command_output| command_output.stderr.contains_str(expected))
+                        .unwrap_or(false)
+                        || format!("{e:?}").contains(expected);
+                    if !has_expected_message {
+                        return Err(e.wrap_err("A result failed while wrapped in a guard that expected AAD Premium P2 license to be missing, but the error did not contain expected AAD Premium P2 license error text"));
+                    }
+                    eprintln!(
+                        "Result failed with expected error due to missing AAD_PREMIUM_P2 licenses."
+                    );
+                    Ok(None)
                 }
-                eprintln!(
-                    "Result failed with expected error due to missing AAD_PREMIUM_P2 licenses."
-                );
-                Ok(None)
             }
-        }
+            })
+            .await
     }
 }
 
 #[cfg(test)]
 mod test {
     use crate::fetch_all_tenant_licenses;
+    use cloud_terrastodon_command::CancellationToken;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        let tenant_licenses = fetch_all_tenant_licenses().await?;
-        assert!(!tenant_licenses.0.is_empty());
-        Ok(())
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let tenant_licenses = fetch_all_tenant_licenses(&cancellation).await?;
+                assert!(!tenant_licenses.0.is_empty());
+                Ok(())
+            })
+            .await
     }
 }
 

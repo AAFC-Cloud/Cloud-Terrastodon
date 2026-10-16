@@ -3,6 +3,7 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsTestPlan;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use cloud_terrastodon_rest::MicrosoftContinuationToken;
@@ -15,6 +16,9 @@ use tracing::debug;
 
 #[derive(Debug, Clone, facet::Facet)]
 pub struct AzureDevOpsTestPlanListRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub project: AzureDevOpsProjectArgument<'a>,
     pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
@@ -24,8 +28,10 @@ pub fn fetch_azure_devops_test_plans<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     project: impl Into<AzureDevOpsProjectArgument<'a>>,
     auth_context: &'a AzureDevOpsAuthContext,
+    cancellation: &CancellationScope,
 ) -> AzureDevOpsTestPlanListRequest<'a> {
     AzureDevOpsTestPlanListRequest {
+        cancellation: cancellation.clone(),
         org_url: Cow::Borrowed(org_url),
         project: project.into(),
         auth_context: Cow::Borrowed(auth_context),
@@ -35,6 +41,7 @@ pub fn fetch_azure_devops_test_plans<'a>(
 impl<'a> Arbitrary<'a> for AzureDevOpsTestPlanListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: CancellationScope::arbitrary(u)?,
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
             auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
@@ -83,7 +90,7 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsTestPlanList
                 &format!("{}/_apis/testplan/plans", project),
                 &query,
             )?;
-            let request = RestRequest::from_method_and_url(Method::GET, url)?
+            let request = RestRequest::from_method_and_url(Method::GET, url, &self.cancellation)?
                 .cache(cache_key.join(page_index.to_string()))
                 .azure_devops_auth_context(self.auth_context.as_ref())?;
             let (response, next_continuation) = request
@@ -112,32 +119,45 @@ mod test {
     use super::*;
     use crate::fetch_all_azure_devops_projects;
     use crate::get_default_organization_url;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_credentials::AuthContext;
     use eyre::bail;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        let org_url = get_default_organization_url().await?;
-        let auth_context = AuthContext::explicit_azure_cli();
-        let azure_devops_auth_context = AzureDevOpsAuthContext::new(&auth_context)?;
-        let projects =
-            fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context).await?;
-        for project in projects {
-            let test_plans =
-                fetch_azure_devops_test_plans(&org_url, &project, &azure_devops_auth_context)
+        CancellationToken::new()
+            .with_async_scope(|cancellation| async move {
+                let org_url = get_default_organization_url(&cancellation).await?;
+                let auth_context = AuthContext::explicit_azure_cli();
+                let azure_devops_auth_context = AzureDevOpsAuthContext::new(&auth_context)?;
+                let projects = fetch_all_azure_devops_projects(
+                    &org_url,
+                    &azure_devops_auth_context,
+                    &cancellation,
+                )
+                .await?;
+                for project in projects {
+                    let test_plans = fetch_azure_devops_test_plans(
+                        &org_url,
+                        &project,
+                        &azure_devops_auth_context,
+                        &cancellation,
+                    )
                     .await?;
-            if test_plans.is_empty() {
-                continue;
-            }
-            assert!(
-                test_plans
-                    .iter()
-                    .all(|test_plan| !test_plan.name.is_empty() && test_plan.id > 0),
-                "Expected sampled Azure DevOps test plans to include names and ids"
-            );
-            return Ok(());
-        }
+                    if test_plans.is_empty() {
+                        continue;
+                    }
+                    assert!(
+                        test_plans
+                            .iter()
+                            .all(|test_plan| !test_plan.name.is_empty() && test_plan.id > 0),
+                        "Expected sampled Azure DevOps test plans to include names and ids"
+                    );
+                    return Ok(());
+                }
 
-        bail!("Failed to find any test plans in any project");
+                bail!("Failed to find any test plans in any project");
+            })
+            .await
     }
 }

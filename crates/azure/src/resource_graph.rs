@@ -1,6 +1,7 @@
 use cloud_terrastodon_azure_types::ResourceGraphEntryDeserializeError;
 use cloud_terrastodon_azure_types::ResourceGraphQueryResponse;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::FromCommandOutput;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_relative_location::RelativeLocation;
@@ -47,6 +48,7 @@ impl ResourceGraphRateLimitState {
 }
 
 pub struct ResourceGraphHelper<'a> {
+    cancellation: CancellationScope,
     query: String,
     cache_behaviour: Option<CacheKey>,
     auth_context: &'a AzureTenantAuthContext,
@@ -93,8 +95,10 @@ impl<'a> ResourceGraphHelper<'a> {
         query: impl Into<String>,
         cache_behaviour: Option<CacheKey>,
         auth_context: &'a AzureTenantAuthContext,
+        cancellation: &CancellationScope,
     ) -> Self {
         Self {
+            cancellation: cancellation.clone(),
             query: query.into(),
             cache_behaviour,
             auth_context,
@@ -109,7 +113,7 @@ impl<'a> ResourceGraphHelper<'a> {
         let mut request = RestRequest::new(
             http::Method::POST,
             "https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2022-10-01",
-        )?
+         &self.cancellation)?.cancellation_safe()
         .tenant(self.auth_context.tenant_id)
         .body(body);
         request = request.azure_auth_context(&self.auth_context.auth_context);
@@ -127,12 +131,15 @@ impl<'a> ResourceGraphHelper<'a> {
     pub fn fetch<T: FromCommandOutput>(
         &mut self,
     ) -> impl Future<Output = Result<Option<ResourceGraphQueryResponse<T>>>> + '_ {
-        self.fetch_from(Location::caller())
+        let caller = Location::caller();
+        let cancellation = self.cancellation.clone();
+        async move { self.fetch_from(caller, &cancellation).await }
     }
 
     async fn fetch_from<T: FromCommandOutput>(
         &mut self,
         caller: &'static Location<'static>,
+        _cancellation: &CancellationScope,
     ) -> Result<Option<ResourceGraphQueryResponse<T>>> {
         async {
             #[cfg(debug_assertions)]
@@ -220,8 +227,9 @@ impl<'a> ResourceGraphHelper<'a> {
         caller: &'static Location<'static>,
     ) -> Result<Vec<T>> {
         let result: Result<Vec<T>> = async {
+            let cancellation = self.cancellation.clone();
             let mut all_data = Vec::new();
-            while let Some(response) = self.fetch_from(caller).await? {
+            while let Some(response) = self.fetch_from(caller, &cancellation).await? {
                 all_data.extend(response.data);
 
                 if self.skip.is_none() {
@@ -325,12 +333,19 @@ async fn receive_resource_graph_response<T: FromCommandOutput>(
         Raw(SerializableRestResponse),
     }
 
+    let cancellation = request.cancellation.clone();
     let mut retries = 0usize;
     let request = request.failure_extra_files(resource_graph_failure_extra_files);
 
     loop {
-        let _recovery_guard = acquire_resource_graph_recovery_guard().await;
-        wait_for_resource_graph_rate_limit_window().await;
+        cancellation.bail_if_cancelled()?;
+        let _recovery_guard = cancellation
+            .cancellable_scope(|_| async {
+                let guard = acquire_resource_graph_recovery_guard().await;
+                wait_for_resource_graph_rate_limit_window().await;
+                eyre::Ok(guard)
+            })
+            .await?;
 
         let cache_key = request.cache_key.clone();
         let cache_path = cache_key.as_ref().map(|key| key.path_on_disk());
@@ -375,7 +390,12 @@ async fn receive_resource_graph_response<T: FromCommandOutput>(
             ResourceGraphResponse::Raw(response) => response,
         };
 
-        note_resource_graph_rate_limit(&response).await;
+        cancellation
+            .cancellable_scope(|_| async {
+                note_resource_graph_rate_limit(&response).await;
+                eyre::Ok(())
+            })
+            .await?;
 
         let is_throttled = response.status == http::StatusCode::TOO_MANY_REQUESTS.as_u16()
             || response.headers.resource_graph_quota_remaining() == Some(0);
@@ -427,6 +447,7 @@ fn format_rest_error_body(body: &RestResponseBody) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_credentials::AuthContext;
     use http::HeaderMap;
     use http::HeaderValue;
@@ -435,30 +456,35 @@ mod tests {
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
-        let query = r#"
-resourcecontainers
-| project name
-"#;
-        #[derive(facet::Facet)]
-        struct Row {
-            name: String,
-        }
-        let auth_context = AuthContext::explicit_azure_cli()
-            .bind_to_azure_tenant(crate::get_test_tenant_id().await?)?;
-        let data = ResourceGraphHelper::new(
-            query,
-            Some(CacheKey::new(PathBuf::from_iter([
-                "az",
-                "resource_graph",
-                "resource-container-names",
-            ]))),
-            &auth_context,
-        )
-        .collect_all::<Row>()
-        .await?;
-        assert!(data.len() > 10);
-        assert!(data.iter().all(|row| !row.name.is_empty()));
-        Ok(())
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let query = r#"
+    resourcecontainers
+    | project name
+    "#;
+                #[derive(facet::Facet)]
+                struct Row {
+                    name: String,
+                }
+                let auth_context = AuthContext::explicit_azure_cli()
+                    .bind_to_azure_tenant(crate::get_test_tenant_id(&cancellation).await?)?;
+                let data = ResourceGraphHelper::new(
+                    query,
+                    Some(CacheKey::new(PathBuf::from_iter([
+                        "az",
+                        "resource_graph",
+                        "resource-container-names",
+                    ]))),
+                    &auth_context,
+                    &cancellation,
+                )
+                .collect_all::<Row>()
+                .await?;
+                assert!(data.len() > 10);
+                assert!(data.iter().all(|row| !row.name.is_empty()));
+                Ok(())
+            })
+            .await
     }
 
     #[test]

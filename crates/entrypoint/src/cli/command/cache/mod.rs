@@ -3,6 +3,7 @@ pub mod list;
 
 use crate::cli::cache::clean_tui_cli::CacheCleanTuiArgs;
 use crate::cli::cache::list::cache_list_cli::CacheListArgs;
+use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 
 /// Cache-related commands
@@ -22,16 +23,22 @@ pub enum CacheCommand {
 }
 
 impl CacheArgs {
-    pub async fn invoke(self) -> Result<()> {
-        self.command.invoke().await
+    pub async fn invoke(
+        self,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        self.command.invoke(cancellation).await
     }
 }
 
 impl CacheCommand {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(
+        self,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self {
-            CacheCommand::List(args) => args.invoke().await,
-            CacheCommand::CleanTui(args) => args.invoke().await,
+            CacheCommand::List(args) => args.invoke(cancellation).await,
+            CacheCommand::CleanTui(args) => args.invoke(cancellation).await,
         }
     }
 }

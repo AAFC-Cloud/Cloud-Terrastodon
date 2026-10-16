@@ -1,5 +1,6 @@
 use crate::AzureBearerToken;
 use crate::AzureRestResource;
+use crate::CancellationScope;
 use crate::browser_opener::open_browser_url;
 use base64::Engine;
 use chrono::Local;
@@ -312,7 +313,10 @@ pub(crate) async fn fetch_browser_access_token(
     client_id: EntraApplicationClientId,
     resource: AzureRestResource,
     allow_interactive: bool,
+    cancellation: &CancellationScope,
 ) -> Result<AzureAccessToken<AzureBearerToken>> {
+    cancellation.cancellable_scope(|cancellation| async move {
+                let cancellation = &cancellation;
     let scopes = format!("{} offline_access", resource.delegated_scope());
     let key = BrowserTokenCacheKey {
         tenant_id,
@@ -337,7 +341,7 @@ pub(crate) async fn fetch_browser_access_token(
         cache.refresh_token(tenant_id, client_id).await
     };
     let token = if let Some(refresh_token) = refresh_token.as_deref() {
-        match request_with_refresh_token(tenant_id, client_id, resource, &scopes, refresh_token)
+        match request_with_refresh_token(tenant_id, client_id, resource, &scopes, refresh_token, cancellation)
             .await
         {
             Ok(mut token) => {
@@ -358,7 +362,7 @@ pub(crate) async fn fetch_browser_access_token(
                     "Stored browser refresh token requires interactive login"
                 );
                 delete_browser_session(tenant_id, client_id);
-                request_with_authorization_code(tenant_id, client_id, resource, &scopes).await?
+                request_with_authorization_code(tenant_id, client_id, resource, &scopes, cancellation).await?
             }
             Err(error) => return Err(error),
         }
@@ -368,27 +372,35 @@ pub(crate) async fn fetch_browser_access_token(
                 "browser authentication has no stored refresh token and interactive authentication is unavailable in a headless context"
             );
         }
-        request_with_authorization_code(tenant_id, client_id, resource, &scopes).await?
+        request_with_authorization_code(tenant_id, client_id, resource, &scopes, cancellation).await?
     };
 
-    if let Some(refresh_token) = token.refresh_token.as_deref() {
-        store_browser_session(&BrowserSession {
-            tenant_id,
-            client_id,
-            refresh_token: refresh_token.to_owned(),
-        })?;
-    }
-    let access_token = token.access_token.clone();
-    cache
-        .insert(
-            key,
-            BrowserCachedToken {
-                access_token: token.access_token,
-                refresh_token: token.refresh_token,
-            },
-        )
-        .await;
-    Ok(access_token)
+    cancellation
+        .finish_required("persisting the acquired browser session and updating its token cache", |_| async move {
+            if let Some(refresh_token) = token.refresh_token.as_deref() {
+                store_browser_session(&BrowserSession {
+                    tenant_id,
+                    client_id,
+                    refresh_token: refresh_token.to_owned(),
+                })?;
+            }
+
+            let access_token = token.access_token.clone();
+            cache
+                .insert(
+                    key,
+                    BrowserCachedToken {
+                        access_token: token.access_token,
+                        refresh_token: token.refresh_token,
+                    },
+                )
+                .await;
+            Ok(access_token)
+
+        })
+        .await
+
+    }).await
 }
 
 /// Complete one delegated browser login and persist the resulting refresh
@@ -396,29 +408,36 @@ pub(crate) async fn fetch_browser_access_token(
 pub async fn login_browser_session(
     tenant_id: AzureTenantId,
     client_id: EntraApplicationClientId,
+    cancellation: &CancellationScope,
 ) -> Result<()> {
-    // Request consent for every delegated resource during the one browser
-    // handoff. Entra can then redeem the resulting refresh token for one
-    // resource at a time without forcing a second browser prompt when the
-    // caller first reaches ARM or Azure DevOps.
-    let scopes = delegated_login_scopes();
-    let token = request_with_authorization_code(
-        tenant_id,
-        client_id,
-        AzureRestResource::MicrosoftGraph,
-        &scopes,
-    )
-    .await?;
-    let refresh_token = token
-        .refresh_token
-        .clone()
-        .ok_or_else(|| eyre::eyre!("Entra browser login did not return a refresh token"))?;
-    store_browser_session(&BrowserSession {
-        tenant_id,
-        client_id,
-        refresh_token,
-    })?;
-    Ok(())
+    cancellation
+        .cancellable_scope(|cancellation| async move {
+            let cancellation = &cancellation;
+            // Request consent for every delegated resource during the one browser
+            // handoff. Entra can then redeem the resulting refresh token for one
+            // resource at a time without forcing a second browser prompt when the
+            // caller first reaches ARM or Azure DevOps.
+            let scopes = delegated_login_scopes();
+            let token = request_with_authorization_code(
+                tenant_id,
+                client_id,
+                AzureRestResource::MicrosoftGraph,
+                &scopes,
+                cancellation,
+            )
+            .await?;
+            let refresh_token = token
+                .refresh_token
+                .clone()
+                .ok_or_else(|| eyre::eyre!("Entra browser login did not return a refresh token"))?;
+            store_browser_session(&BrowserSession {
+                tenant_id,
+                client_id,
+                refresh_token,
+            })?;
+            Ok(())
+        })
+        .await
 }
 
 fn delegated_login_scopes() -> String {
@@ -439,8 +458,15 @@ pub(crate) async fn fetch_browser_access_token_with_scopes(
     client_id: EntraApplicationClientId,
     resource: AzureRestResource,
     scopes: &str,
+    cancellation: &CancellationScope,
 ) -> Result<BrowserAccessToken> {
-    request_with_authorization_code(tenant_id, client_id, resource, scopes).await
+    cancellation
+        .cancellable_scope(|cancellation| async move {
+            let cancellation = &cancellation;
+            request_with_authorization_code(tenant_id, client_id, resource, scopes, cancellation)
+                .await
+        })
+        .await
 }
 
 pub(crate) async fn refresh_browser_access_token(
@@ -449,8 +475,17 @@ pub(crate) async fn refresh_browser_access_token(
     resource: AzureRestResource,
     scopes: &str,
     refresh_token: &str,
+    cancellation: &CancellationScope,
 ) -> Result<BrowserAccessToken> {
-    request_with_refresh_token(tenant_id, client_id, resource, scopes, refresh_token).await
+    request_with_refresh_token(
+        tenant_id,
+        client_id,
+        resource,
+        scopes,
+        refresh_token,
+        cancellation,
+    )
+    .await
 }
 
 #[instrument(level = "debug", skip_all)]
@@ -459,7 +494,9 @@ async fn request_with_authorization_code(
     client_id: EntraApplicationClientId,
     resource: AzureRestResource,
     scopes: &str,
+    cancellation: &CancellationScope,
 ) -> Result<BrowserAccessToken> {
+    cancellation.cancellable_scope(|_| async move {
     let authority = format!("https://login.microsoftonline.com/{tenant_id}");
     let listener = TcpListener::bind(("127.0.0.1", 0))
         .await
@@ -511,6 +548,8 @@ async fn request_with_authorization_code(
         .await
         .wrap_err("requesting an Entra browser access token")?;
     parse_token_response(token_response, tenant_id, resource).await
+
+    }).await
 }
 
 async fn request_with_refresh_token(
@@ -519,23 +558,28 @@ async fn request_with_refresh_token(
     resource: AzureRestResource,
     scopes: &str,
     refresh_token: &str,
+    cancellation: &CancellationScope,
 ) -> Result<BrowserAccessToken> {
-    let authority = format!("https://login.microsoftonline.com/{tenant_id}");
-    let token_url = format!("{authority}/oauth2/v2.0/token");
-    let client = Client::new();
-    let token_response = client
-        .post(token_url)
-        .header("Content-Type", "application/x-www-form-urlencoded")
-        .body(form_urlencoded(&[
-            ("client_id", client_id.to_string().as_str()),
-            ("grant_type", "refresh_token"),
-            ("refresh_token", refresh_token),
-            ("scope", scopes),
-        ]))
-        .send()
+    cancellation
+        .cancellable_scope(|_| async move {
+            let authority = format!("https://login.microsoftonline.com/{tenant_id}");
+            let token_url = format!("{authority}/oauth2/v2.0/token");
+            let client = Client::new();
+            let token_response = client
+                .post(token_url)
+                .header("Content-Type", "application/x-www-form-urlencoded")
+                .body(form_urlencoded(&[
+                    ("client_id", client_id.to_string().as_str()),
+                    ("grant_type", "refresh_token"),
+                    ("refresh_token", refresh_token),
+                    ("scope", scopes),
+                ]))
+                .send()
+                .await
+                .wrap_err("requesting an Entra access token from a browser refresh token")?;
+            parse_token_response(token_response, tenant_id, resource).await
+        })
         .await
-        .wrap_err("requesting an Entra access token from a browser refresh token")?;
-    parse_token_response(token_response, tenant_id, resource).await
 }
 
 async fn parse_token_response(
@@ -715,6 +759,14 @@ fn is_token_fresh(token: &AzureAccessToken<AzureBearerToken>) -> bool {
 }
 
 fn refresh_token_needs_interactive_login(error: &eyre::Report) -> bool {
+    // Cancellation is a separate outcome, even when its reason contains an
+    // OAuth marker. It must not delete a valid session or prompt for login.
+    if error
+        .downcast_ref::<cloud_terrastodon_command::CancellationError>()
+        .is_some()
+    {
+        return false;
+    }
     let error = error.to_string();
     [
         "(invalid_grant)",
@@ -949,5 +1001,17 @@ mod tests {
         let requested_scopes = query.get("scope").unwrap();
         assert!(requested_scopes.contains(AzureRestResource::AzureDevOps.delegated_scope()));
         assert!(requested_scopes.contains("offline_access"));
+    }
+}
+
+#[cfg(test)]
+mod cancellation_tests {
+    #[test]
+    fn cancellation_with_oauth_marker_never_requests_reauthentication() {
+        let error = eyre::Report::from(cloud_terrastodon_command::CancellationError::new(
+            "(invalid_grant) cancelling this invocation",
+        ))
+        .wrap_err("refresh operation");
+        assert!(!super::refresh_token_needs_interactive_login(&error));
     }
 }

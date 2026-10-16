@@ -30,7 +30,10 @@ pub fn entrypoint(
                 .map(|name| name.to_string_lossy().into_owned())
         })
         .unwrap_or_else(|| "cloud_terrastodon".into());
+    // Interactive commands await terminal restoration and background-job shutdown.
+    // Keep this owner cooperative; requests and scoped jobs cancel independently.
     let app = App::new(executable_name, full_version().to_string())
+        .automatic_cancellation(false)
         .implementation_github("AAFC-Cloud/Cloud-Terrastodon", implementation_revision);
     let cli: Cli = app.parse_from(std::env::args_os().skip(1)).unwrap();
     let enable_egui = matches!(cli.command.as_ref(), Some(CloudTerrastodonCommand::Egui(_)));

@@ -6,6 +6,7 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
 use cloud_terrastodon_command::CacheInvalidatable;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use cloud_terrastodon_user_input::Choice;
@@ -22,6 +23,9 @@ use tracing::info;
 #[must_use = "This is an interactive future request, you must .await it"]
 #[derive(Facet)]
 pub struct AzureDevOpsProjectPickRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub org_url: AzureDevOpsOrganizationUrl,
     pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
 }
@@ -29,6 +33,7 @@ pub struct AzureDevOpsProjectPickRequest<'a> {
 impl<'a> Arbitrary<'a> for AzureDevOpsProjectPickRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: CancellationScope::arbitrary(u)?,
             org_url: AzureDevOpsOrganizationUrl::arbitrary(u)?,
             auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
         })
@@ -38,8 +43,10 @@ impl<'a> Arbitrary<'a> for AzureDevOpsProjectPickRequest<'static> {
 pub fn pick_azure_devops_project<'a>(
     org_url: AzureDevOpsOrganizationUrl,
     auth_context: &'a AzureDevOpsAuthContext,
+    cancellation: &CancellationScope,
 ) -> AzureDevOpsProjectPickRequest<'a> {
     AzureDevOpsProjectPickRequest {
+        cancellation: cancellation.clone(),
         org_url,
         auth_context: Cow::Borrowed(auth_context),
     }
@@ -48,10 +55,14 @@ pub fn pick_azure_devops_project<'a>(
 #[async_trait]
 impl<'a> CacheInvalidatable for AzureDevOpsProjectPickRequest<'a> {
     async fn invalidate(&self) -> Result<()> {
-        fetch_all_azure_devops_projects(&self.org_url, self.auth_context.as_ref())
-            .cache_key()
-            .invalidate()
-            .await
+        fetch_all_azure_devops_projects(
+            &self.org_url,
+            self.auth_context.as_ref(),
+            &self.cancellation,
+        )
+        .cache_key()
+        .invalidate()
+        .await
     }
 }
 
@@ -61,7 +72,12 @@ impl<'a> CacheInvalidatableIntoFuture for AzureDevOpsProjectPickRequest<'a> {
     fn with_invalidation(self, invalidate_cache: bool) -> Self::WithInvalidation {
         Box::pin(async move {
             if invalidate_cache {
-                self.invalidate().await?;
+                self.cancellation
+                    .deferred(
+                        "finishing filesystem and memory cache invalidation",
+                        |_invalidation| async { self.invalidate().await },
+                    )
+                    .await?;
             }
             self.into_future().await
         })
@@ -76,16 +92,18 @@ impl<'a> IntoFuture for AzureDevOpsProjectPickRequest<'a> {
         Box::pin(async move {
             let org_url = self.org_url;
             let auth_context = self.auth_context;
+            let cancellation = self.cancellation;
             let projects = PickerTui::<AzureDevOpsProject>::new()
                 .set_header("Azure DevOps Projects")
                 .add_event_handler(move |event, sink| {
                     let org_url = org_url.clone();
                     let auth_context = auth_context.clone();
+                    let cancellation = cancellation.clone();
                     async move {
                         if matches!(event.as_ref(), PickerEvent::InitialLoad) {
                             info!(organization = %org_url, "Fetching Azure DevOps projects");
                             let projects =
-                                fetch_all_azure_devops_projects(&org_url, auth_context.as_ref())
+                                fetch_all_azure_devops_projects(&org_url, auth_context.as_ref(), &cancellation)
                                     .await?;
                             sink.push(projects.into_iter().map(project_choice))?;
                             info!(organization = %org_url, "Finished fetching Azure DevOps projects");

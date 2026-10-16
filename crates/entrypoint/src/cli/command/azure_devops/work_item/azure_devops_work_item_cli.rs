@@ -7,6 +7,7 @@ use crate::cli::azure_devops::work_item::relation::AzureDevOpsWorkItemRelationAr
 use crate::cli::azure_devops::work_item::show::AzureDevOpsWorkItemShowArgs;
 use crate::cli::azure_devops::work_item::r#type::AzureDevOpsWorkItemTypeArgs;
 use crate::cli::azure_devops::work_item::update::AzureDevOpsWorkItemUpdateArgs;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -41,17 +42,21 @@ pub enum AzureDevOpsWorkItemCommand {
 }
 
 impl AzureDevOpsWorkItemArgs {
-    pub async fn invoke(self, auth: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self.command {
-            AzureDevOpsWorkItemCommand::List(args) => args.invoke(auth).await,
-            AzureDevOpsWorkItemCommand::Show(args) => args.invoke(auth).await,
-            AzureDevOpsWorkItemCommand::Create(args) => args.invoke(auth).await,
-            AzureDevOpsWorkItemCommand::Update(args) => args.invoke(auth).await,
-            AzureDevOpsWorkItemCommand::Copy(args) => args.invoke(auth).await,
-            AzureDevOpsWorkItemCommand::Field(args) => args.invoke(auth).await,
-            AzureDevOpsWorkItemCommand::Relation(args) => args.invoke(auth).await,
-            AzureDevOpsWorkItemCommand::Type(args) => args.invoke(auth).await,
-            AzureDevOpsWorkItemCommand::Query(args) => args.invoke(auth).await,
+            AzureDevOpsWorkItemCommand::List(args) => args.invoke(auth, cancellation).await,
+            AzureDevOpsWorkItemCommand::Show(args) => args.invoke(auth, cancellation).await,
+            AzureDevOpsWorkItemCommand::Create(args) => args.invoke(auth, cancellation).await,
+            AzureDevOpsWorkItemCommand::Update(args) => args.invoke(auth, cancellation).await,
+            AzureDevOpsWorkItemCommand::Copy(args) => args.invoke(auth, cancellation).await,
+            AzureDevOpsWorkItemCommand::Field(args) => args.invoke(auth, cancellation).await,
+            AzureDevOpsWorkItemCommand::Relation(args) => args.invoke(auth, cancellation).await,
+            AzureDevOpsWorkItemCommand::Type(args) => args.invoke(auth, cancellation).await,
+            AzureDevOpsWorkItemCommand::Query(args) => args.invoke(auth, cancellation).await,
         }
     }
 }

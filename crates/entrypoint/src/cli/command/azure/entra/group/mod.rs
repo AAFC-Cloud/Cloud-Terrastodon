@@ -7,6 +7,7 @@ pub use azure_entra_group_cli::AzureEntraGroupCommand;
 pub use azure_entra_group_list_cli::AzureEntraGroupListArgs;
 pub use azure_entra_group_show_cli::AzureEntraGroupShowArgs;
 use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 pub use member::AzureEntraGroupMemberArgs;
@@ -19,7 +20,11 @@ pub struct AzureEntraGroupArgs {
 }
 
 impl AzureEntraGroupArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<CliOutput> {
-        self.command.invoke(auth_context).await
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<CliOutput> {
+        self.command.invoke(auth_context, cancellation).await
     }
 }

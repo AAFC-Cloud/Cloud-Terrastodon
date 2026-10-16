@@ -2,6 +2,7 @@ use crate::cli::azure_devops::work_item::query::create::AzureDevOpsWorkItemQuery
 use crate::cli::azure_devops::work_item::query::invoke::AzureDevOpsWorkItemQueryInvokeArgs;
 use crate::cli::azure_devops::work_item::query::list::AzureDevOpsWorkItemQueryListArgs;
 use crate::cli::azure_devops::work_item::query::show::AzureDevOpsWorkItemQueryShowArgs;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -26,12 +27,16 @@ pub enum AzureDevOpsWorkItemQueryCommand {
 }
 
 impl AzureDevOpsWorkItemQueryArgs {
-    pub async fn invoke(self, auth: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self.command {
-            AzureDevOpsWorkItemQueryCommand::List(args) => args.invoke(auth).await,
-            AzureDevOpsWorkItemQueryCommand::Show(args) => args.invoke(auth).await,
-            AzureDevOpsWorkItemQueryCommand::Invoke(args) => args.invoke(auth).await,
-            AzureDevOpsWorkItemQueryCommand::Create(args) => args.invoke(auth).await,
+            AzureDevOpsWorkItemQueryCommand::List(args) => args.invoke(auth, cancellation).await,
+            AzureDevOpsWorkItemQueryCommand::Show(args) => args.invoke(auth, cancellation).await,
+            AzureDevOpsWorkItemQueryCommand::Invoke(args) => args.invoke(auth, cancellation).await,
+            AzureDevOpsWorkItemQueryCommand::Create(args) => args.invoke(auth, cancellation).await,
         }
     }
 }

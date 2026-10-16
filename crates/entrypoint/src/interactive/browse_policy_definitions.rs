@@ -1,6 +1,7 @@
 use cloud_terrastodon_azure::PolicyDefinition;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::fetch_all_policy_definitions;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickResultExt;
@@ -8,8 +9,11 @@ use cloud_terrastodon_user_input::PickerTui;
 use itertools::Itertools;
 use tracing::info;
 
-pub async fn browse_policy_definitions(auth_context: &AzureTenantAuthContext) -> eyre::Result<()> {
-    let policy_definitions = fetch_all_policy_definitions(auth_context)
+pub async fn browse_policy_definitions(
+    auth_context: &AzureTenantAuthContext,
+    cancellation: &CancellationScope,
+) -> eyre::Result<()> {
+    let policy_definitions = fetch_all_policy_definitions(auth_context, cancellation)
         .await?
         .into_iter()
         .map(|def| Choice {

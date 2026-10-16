@@ -2,6 +2,7 @@ use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::fetch_all_application_gateways;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use eyre::bail;
@@ -21,10 +22,18 @@ pub struct AzureApplicationGatewayShowArgs {
 }
 
 impl AzureApplicationGatewayShowArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let tenant_auth_context = self
+            .tenant
+            .bind_auth_context(auth_context, cancellation)
+            .await?;
         info!(needle = %self.application_gateway, tenant_id = %tenant_auth_context.tenant_id, "Fetching Azure application gateways");
-        let application_gateways = fetch_all_application_gateways(&tenant_auth_context).await?;
+        let application_gateways =
+            fetch_all_application_gateways(&tenant_auth_context, cancellation).await?;
         info!(
             count = application_gateways.len(),
             "Fetched Azure application gateways"

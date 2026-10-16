@@ -41,7 +41,13 @@ impl BuilderSnapshot {
     pub(crate) fn observe(builder: &ValueBuilder, max_fields: usize) -> Self {
         let shape = builder.shape();
         let field_count = builder.field_count();
-        let fields = (0..field_count.min(max_fields))
+        // Keep real Facet indexes: runtime fields are initialized by the caller
+        // but do not consume the UI's editable-field or observation budget.
+        let mut visible_indexes =
+            (0..field_count).filter(|index| !builder.field_is_runtime_state(*index));
+        let fields = visible_indexes
+            .by_ref()
+            .take(max_fields)
             .map(|index| {
                 BuilderFieldSnapshot::new(
                     index,
@@ -60,6 +66,7 @@ impl BuilderSnapshot {
                 )
             })
             .collect();
+        let fields_complete = visible_indexes.next().is_none();
         let kind = match shape.ty {
             Type::User(UserType::Struct(_)) => BuilderKindSnapshot::Struct,
             Type::User(UserType::Enum(object)) => {
@@ -84,7 +91,7 @@ impl BuilderSnapshot {
             shape_name: Some(cloud_terrastodon_registry::describe_shape(shape).to_owned()),
             kind,
             fields,
-            fields_complete: field_count <= max_fields,
+            fields_complete,
         }
     }
 

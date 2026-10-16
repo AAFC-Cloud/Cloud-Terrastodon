@@ -7,12 +7,15 @@ use crate::gitea_api_support::tenant_cache_key_prefix;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use std::borrow::Cow;
 
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Debug, Clone, facet::Facet)]
 pub struct GiteaRepoGetByIdRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
     pub tenant: Cow<'a, GiteaInstanceUrl>,
     pub repo_id: GiteaRepoId,
 }
@@ -20,8 +23,10 @@ pub struct GiteaRepoGetByIdRequest<'a> {
 pub fn fetch_gitea_repository_by_id<'a>(
     tenant: &'a GiteaInstanceUrl,
     repo_id: GiteaRepoId,
+    cancellation: &CancellationScope,
 ) -> GiteaRepoGetByIdRequest<'a> {
     GiteaRepoGetByIdRequest {
+        cancellation: cancellation.clone(),
         tenant: Cow::Borrowed(tenant),
         repo_id,
     }
@@ -30,6 +35,7 @@ pub fn fetch_gitea_repository_by_id<'a>(
 pub async fn try_fetch_gitea_repository_by_id(
     tenant: &GiteaInstanceUrl,
     repo_id: GiteaRepoId,
+    cancellation: &CancellationScope,
 ) -> eyre::Result<Option<GiteaRepo>> {
     let cache_key = CacheKey::new(
         tenant_cache_key_prefix(tenant)
@@ -37,12 +43,19 @@ pub async fn try_fetch_gitea_repository_by_id(
             .join("by-id")
             .join(repo_id.to_string()),
     );
-    gitea_api_get_best_effort(tenant, &format!("/repositories/{repo_id}"), Some(cache_key)).await
+    gitea_api_get_best_effort(
+        tenant,
+        &format!("/repositories/{repo_id}"),
+        Some(cache_key),
+        cancellation,
+    )
+    .await
 }
 
 impl<'a> Arbitrary<'a> for GiteaRepoGetByIdRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: CancellationScope::unbound(),
             tenant: Cow::Owned(GiteaInstanceUrl::arbitrary(u)?),
             repo_id: GiteaRepoId::arbitrary(u)?,
         })
@@ -67,6 +80,7 @@ impl<'a> CacheableCommand for GiteaRepoGetByIdRequest<'a> {
             self.tenant.as_ref(),
             &format!("/repositories/{}", self.repo_id),
             Some(self.cache_key()),
+            &self.cancellation,
         )
         .await
     }

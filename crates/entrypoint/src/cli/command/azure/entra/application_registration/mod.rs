@@ -13,6 +13,7 @@ pub use azure_entra_application_registration_role_cli::AzureEntraApplicationRegi
 pub use azure_entra_application_registration_role_list_cli::AzureEntraApplicationRegistrationRoleListArgs;
 pub use azure_entra_application_registration_search_cli::AzureEntraApplicationRegistrationSearchArgs;
 pub use azure_entra_application_registration_show_cli::AzureEntraApplicationRegistrationShowArgs;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -24,7 +25,11 @@ pub struct AzureEntraApplicationRegistrationArgs {
 }
 
 impl AzureEntraApplicationRegistrationArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        self.command.invoke(auth_context).await
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        self.command.invoke(auth_context, cancellation).await
     }
 }

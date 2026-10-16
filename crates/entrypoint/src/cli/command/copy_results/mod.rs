@@ -1,3 +1,4 @@
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_pathing::AppDir;
 use eyre::Result;
 use std::path::Path;
@@ -12,7 +13,10 @@ pub struct CopyResultsArgs {
 }
 
 impl CopyResultsArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(
+        self,
+        _cancellation: &CancellationScope,
+    ) -> Result<()> {
         // from https://stackoverflow.com/a/78769977/11141271
         #[async_recursion::async_recursion]
         async fn copy_dir_all<S, D>(src: S, dst: D) -> Result<(), std::io::Error>

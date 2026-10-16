@@ -1,6 +1,7 @@
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::fetch_all_entra_role_definitions;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_user_input::Choice;
@@ -19,19 +20,27 @@ pub struct AzureEntraRoleDefinitionBrowseArgs {
 }
 
 impl AzureEntraRoleDefinitionBrowseArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let auth_context = self.tenant.bind_auth_context(auth_context).await?;
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let auth_context = self
+            .tenant
+            .bind_auth_context(auth_context, cancellation)
+            .await?;
         let (chosen, maybe_error) = PickerTui::<_>::new()
             .set_header("Entra role definitions")
             .pick_many_reloadable(move |invalidate| {
                 let auth_context = auth_context.clone();
                 async move {
                     info!(tenant_id = %auth_context.tenant_id, "Fetching Entra role definitions");
-                    let mut role_definitions = fetch_all_entra_role_definitions(&auth_context)
-                        .with_invalidation(invalidate)
-                        .await?
-                        .into_iter()
-                        .collect::<Vec<_>>();
+                    let mut role_definitions =
+                        fetch_all_entra_role_definitions(&auth_context, cancellation)
+                            .with_invalidation(invalidate)
+                            .await?
+                            .into_iter()
+                            .collect::<Vec<_>>();
                     role_definitions.sort_unstable_by(|left, right| {
                         left.display_name.cmp(&right.display_name).then_with(|| {
                             left.template_id

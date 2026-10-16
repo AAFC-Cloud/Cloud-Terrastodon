@@ -1,3 +1,4 @@
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_gitea::GiteaTenantArgument;
 use cloud_terrastodon_gitea::GiteaTenantArgumentExt;
 use cloud_terrastodon_gitea::GiteaUserArgument;
@@ -19,14 +20,17 @@ pub struct GiteaUserShowArgs {
 }
 
 impl GiteaUserShowArgs {
-    pub async fn invoke(self) -> Result<()> {
-        let tenant = self.tenant.resolve().await?;
+    pub async fn invoke(
+        self,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let tenant = self.tenant.resolve(cancellation).await?;
         let user = match &self.user {
             GiteaUserArgument::Username(username) => {
-                fetch_gitea_user(&tenant, username.as_ref()).await?
+                fetch_gitea_user(&tenant, username.as_ref(), cancellation).await?
             }
             GiteaUserArgument::Id(_) => {
-                let users = fetch_all_gitea_users(&tenant).await?;
+                let users = fetch_all_gitea_users(&tenant, cancellation).await?;
                 let matches = users
                     .into_iter()
                     .filter(|user| self.user.matches(user))

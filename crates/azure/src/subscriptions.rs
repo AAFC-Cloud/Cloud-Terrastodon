@@ -5,6 +5,7 @@ use cloud_terrastodon_azure_types::Subscription;
 use cloud_terrastodon_azure_types::SubscriptionId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
@@ -20,13 +21,18 @@ use tracing::debug;
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Debug, Clone, facet::Facet)]
 pub struct SubscriptionListRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
 
 pub fn fetch_all_subscriptions<'a>(
     auth_context: &'a AzureTenantAuthContext,
+    cancellation: &CancellationScope,
 ) -> SubscriptionListRequest<'a> {
     SubscriptionListRequest {
+        cancellation: cancellation.clone(),
         auth_context: Cow::Borrowed(auth_context),
     }
 }
@@ -34,6 +40,7 @@ pub fn fetch_all_subscriptions<'a>(
 impl<'a> arbitrary::Arbitrary<'a> for SubscriptionListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: arbitrary::Arbitrary::arbitrary(u)?,
             auth_context: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
         })
     }
@@ -41,15 +48,23 @@ impl<'a> arbitrary::Arbitrary<'a> for SubscriptionListRequest<'static> {
 
 #[expect(async_fn_in_trait)]
 pub trait SubscriptionIdExt {
-    async fn resolve_tenant_id(&self, auth_context: &AuthContext) -> Result<AzureTenantId>;
+    async fn resolve_tenant_id(
+        &self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<AzureTenantId>;
 }
 
 impl SubscriptionIdExt for SubscriptionId {
-    async fn resolve_tenant_id(&self, auth_context: &AuthContext) -> Result<AzureTenantId> {
+    async fn resolve_tenant_id(
+        &self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<AzureTenantId> {
         let tracked_tenants = list_tracked_tenants().await?;
         for tenant_id in tracked_tenants.iter().copied() {
             let tenant_auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
-            let Some(subscription) = fetch_all_subscriptions(&tenant_auth_context)
+            let Some(subscription) = fetch_all_subscriptions(&tenant_auth_context, cancellation)
                 .await?
                 .into_iter()
                 .find(|subscription| subscription.id == *self)
@@ -93,17 +108,24 @@ impl<'a> CacheableCommand for SubscriptionListRequest<'a> {
             tags=tags
     "#};
 
-        let subscriptions =
-            ResourceGraphHelper::new(query, Some(self.cache_key()), self.auth_context.as_ref())
-                .collect_all::<Subscription>()
-                .await?;
+        let subscriptions = ResourceGraphHelper::new(
+            query,
+            Some(self.cache_key()),
+            self.auth_context.as_ref(),
+            &self.cancellation,
+        )
+        .collect_all::<Subscription>()
+        .await?;
         debug!("Found {} subscriptions", subscriptions.len());
         Ok(subscriptions)
     }
 }
 
-pub async fn get_active_subscription_id() -> Result<SubscriptionId> {
+pub async fn get_active_subscription_id(
+    cancellation: &CancellationScope,
+) -> Result<SubscriptionId> {
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
+    cmd.cancellation_safe();
     cmd.args([
         "account",
         "list",
@@ -112,7 +134,7 @@ pub async fn get_active_subscription_id() -> Result<SubscriptionId> {
         "--output",
         "json",
     ]);
-    let rtn = cmd.run::<[SubscriptionId; 1]>().await?[0];
+    let rtn = cmd.run::<[SubscriptionId; 1]>(cancellation).await?[0];
     Ok(rtn)
 }
 
@@ -122,38 +144,58 @@ cloud_terrastodon_command::impl_cacheable_into_future!(SubscriptionListRequest<'
 mod tests {
     use super::*;
     use crate::get_test_tenant_id;
+    use cloud_terrastodon_command::CancellationToken;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
-        let tenant_id = get_test_tenant_id().await?;
-        let auth_context = AuthContext::explicit_azure_cli();
-        let result =
-            fetch_all_subscriptions(&auth_context.bind_to_azure_tenant(tenant_id)?).await?;
-        assert!(!result.is_empty());
-        Ok(())
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let tenant_id = get_test_tenant_id(&cancellation).await?;
+                let auth_context = AuthContext::explicit_azure_cli();
+                let result = fetch_all_subscriptions(
+                    &auth_context.bind_to_azure_tenant(tenant_id)?,
+                    &cancellation,
+                )
+                .await?;
+                assert!(!result.is_empty());
+                Ok(())
+            })
+            .await
     }
 
     #[tokio::test]
     async fn resolves_tenant_for_subscription_id() -> Result<()> {
-        let tenant_id = get_test_tenant_id().await?;
-        let auth_context = AuthContext::explicit_azure_cli();
-        let subscription_id =
-            fetch_all_subscriptions(&auth_context.bind_to_azure_tenant(tenant_id)?)
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let tenant_id = get_test_tenant_id(&cancellation).await?;
+                let auth_context = AuthContext::explicit_azure_cli();
+                let subscription_id = fetch_all_subscriptions(
+                    &auth_context.bind_to_azure_tenant(tenant_id)?,
+                    &cancellation,
+                )
                 .await?
                 .first()
                 .unwrap()
                 .id;
-        let resolved = subscription_id.resolve_tenant_id(&auth_context).await?;
-        assert_eq!(resolved, tenant_id);
-        Ok(())
+                let resolved = subscription_id
+                    .resolve_tenant_id(&auth_context, &cancellation)
+                    .await?;
+                assert_eq!(resolved, tenant_id);
+                Ok(())
+            })
+            .await
     }
 
     #[tokio::test]
     pub async fn get_active() -> eyre::Result<()> {
-        let active = get_active_subscription_id().await?;
-        let active_text = active.to_string();
-        assert!(!active_text.is_empty());
-        Ok(())
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let active = get_active_subscription_id(&cancellation).await?;
+                let active_text = active.to_string();
+                assert!(!active_text.is_empty());
+                Ok(())
+            })
+            .await
     }
 }
 

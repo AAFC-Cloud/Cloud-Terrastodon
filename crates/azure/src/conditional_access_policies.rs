@@ -2,6 +2,7 @@ use crate::MicrosoftGraphHelper;
 use cloud_terrastodon_azure_types::ConditionalAccessPolicy;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Result;
@@ -11,12 +12,16 @@ use std::path::PathBuf;
 #[must_use = "This is a future request, you must .await it"]
 #[derive(facet::Facet)]
 pub struct ConditionalAccessPolicyListRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
 
 impl<'a> arbitrary::Arbitrary<'a> for ConditionalAccessPolicyListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: arbitrary::Arbitrary::arbitrary(u)?,
             auth_context: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
         })
     }
@@ -24,8 +29,10 @@ impl<'a> arbitrary::Arbitrary<'a> for ConditionalAccessPolicyListRequest<'static
 
 pub fn fetch_all_conditional_access_policies<'a>(
     auth_context: &'a AzureTenantAuthContext,
+    cancellation: &CancellationScope,
 ) -> ConditionalAccessPolicyListRequest<'a> {
     ConditionalAccessPolicyListRequest {
+        cancellation: cancellation.clone(),
         auth_context: Cow::Borrowed(auth_context),
     }
 }
@@ -49,9 +56,10 @@ impl CacheableCommand for ConditionalAccessPolicyListRequest<'_> {
             "https://graph.microsoft.com/beta/identity/conditionalAccess/policies",
             Some(self.cache_key()),
             self.auth_context.as_ref(),
+            &self.cancellation,
         );
 
-        let policies = query.fetch_all().await?;
+        let policies = query.fetch_all(&self.cancellation).await?;
         Ok(policies)
     }
 }
@@ -67,6 +75,7 @@ mod test {
     use cloud_terrastodon_azure_types::ConditionalAccessPolicyGrantControlBuiltInControl;
     use cloud_terrastodon_azure_types::ConditionalAccessPolicyState;
     use cloud_terrastodon_azure_types::ipnetwork::Ipv4Network;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_credentials::AuthContext;
     use std::net::Ipv4Addr;
     use tokio::try_join;
@@ -74,109 +83,118 @@ mod test {
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        let auth_context =
-            AuthContext::explicit_azure_cli().bind_to_azure_tenant(get_test_tenant_id().await?)?;
-        let found = fetch_all_conditional_access_policies(&auth_context).await?;
-        assert!(!found.is_empty());
-        Ok(())
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let auth_context = AuthContext::explicit_azure_cli()
+                    .bind_to_azure_tenant(get_test_tenant_id(&cancellation).await?)?;
+                let found =
+                    fetch_all_conditional_access_policies(&auth_context, &cancellation).await?;
+                assert!(!found.is_empty());
+                Ok(())
+            })
+            .await
     }
 
     #[tokio::test]
     pub async fn disallowed_ips() -> eyre::Result<()> {
-        let tenant_id = get_test_tenant_id().await?;
-        let auth_context = AuthContext::explicit_azure_cli();
-        let auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
-        let (locations, policies) = try_join!(
-            fetch_all_conditional_access_named_locations(&auth_context),
-            fetch_all_conditional_access_policies(&auth_context),
-        )?;
-        assert!(!locations.is_empty());
-        assert!(!policies.is_empty());
-        let locations_by_id = locations
-            .into_iter()
-            .map(|location| (*location.id(), location))
-            .collect::<std::collections::HashMap<_, _>>();
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let tenant_id = get_test_tenant_id(&cancellation).await?;
+                let auth_context = AuthContext::explicit_azure_cli();
+                let auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
+                let (locations, policies) = try_join!(
+                    fetch_all_conditional_access_named_locations(&auth_context, &cancellation),
+                    fetch_all_conditional_access_policies(&auth_context, &cancellation),
+                )?;
+                assert!(!locations.is_empty());
+                assert!(!policies.is_empty());
+                let locations_by_id = locations
+                    .into_iter()
+                    .map(|location| (*location.id(), location))
+                    .collect::<std::collections::HashMap<_, _>>();
 
-        enum IncludeOrExclude {
-            Include,
-            Exclude,
-        }
-        for policy in policies {
-            if policy.state != ConditionalAccessPolicyState::Enabled {
-                continue;
-            }
-            if policy.grant_controls.is_none() {
-                warn!(
-                    "Policy {} has no grant controls, skipping",
-                    policy.display_name
-                );
-                continue;
-            }
-            if !policy
-                .grant_controls
-                .as_ref()
-                .unwrap()
-                .built_in_controls
-                .contains(&ConditionalAccessPolicyGrantControlBuiltInControl::Block)
-            {
-                warn!(
-                    "Policy {} does not block access, skipping",
-                    policy.display_name
-                );
-                continue;
-            }
-            if let Some(locations) = policy.conditions.locations {
-                for (location, _mode) in locations
-                    .include_locations
-                    .iter()
-                    .map(|location| (location, IncludeOrExclude::Include))
-                    .chain(
-                        locations
-                            .exclude_locations
-                            .iter()
-                            .map(|location| (location, IncludeOrExclude::Exclude)),
-                    )
-                {
-                    let _ips = match location {
-                        AllOr::All => {
-                            vec![(
-                                "All".to_string(),
-                                Ipv4Network::new(Ipv4Addr::new(0, 0, 0, 0), 0)?,
-                            )]
-                        }
-                        AllOr::Some(location) => {
-                            let Some(location) = locations_by_id.get(location) else {
-                                warn!("Failed to find location {}", location);
-                                continue;
-                            };
-                            location
-                                .ips()
-                                .into_iter()
-                                .map(|ip| (location.display_name().to_string(), *ip))
-                                .collect()
-                        }
-                        x => {
-                            warn!("Unexpected include location type: {:?}", x);
-                            vec![]
-                        }
-                    };
-                    // todo: this should become a cli command to preview this info
-                    // match mode {
-                    //     IncludeOrExclude::Include => {
-                    //         for (display, ip) in ips {
-                    //             println!("\tInclude: {} | {}", display, ip);
-                    //         }
-                    //     }
-                    //     IncludeOrExclude::Exclude => {
-                    //         for (display, ip) in ips {
-                    //             println!("\tExclude: {} | {}", display, ip);
-                    //         }
-                    //     }
-                    // }
+                enum IncludeOrExclude {
+                    Include,
+                    Exclude,
                 }
-            }
-        }
-        Ok(())
+                for policy in policies {
+                    if policy.state != ConditionalAccessPolicyState::Enabled {
+                        continue;
+                    }
+                    if policy.grant_controls.is_none() {
+                        warn!(
+                            "Policy {} has no grant controls, skipping",
+                            policy.display_name
+                        );
+                        continue;
+                    }
+                    if !policy
+                        .grant_controls
+                        .as_ref()
+                        .unwrap()
+                        .built_in_controls
+                        .contains(&ConditionalAccessPolicyGrantControlBuiltInControl::Block)
+                    {
+                        warn!(
+                            "Policy {} does not block access, skipping",
+                            policy.display_name
+                        );
+                        continue;
+                    }
+                    if let Some(locations) = policy.conditions.locations {
+                        for (location, _mode) in locations
+                            .include_locations
+                            .iter()
+                            .map(|location| (location, IncludeOrExclude::Include))
+                            .chain(
+                                locations
+                                    .exclude_locations
+                                    .iter()
+                                    .map(|location| (location, IncludeOrExclude::Exclude)),
+                            )
+                        {
+                            let _ips = match location {
+                                AllOr::All => {
+                                    vec![(
+                                        "All".to_string(),
+                                        Ipv4Network::new(Ipv4Addr::new(0, 0, 0, 0), 0)?,
+                                    )]
+                                }
+                                AllOr::Some(location) => {
+                                    let Some(location) = locations_by_id.get(location) else {
+                                        warn!("Failed to find location {}", location);
+                                        continue;
+                                    };
+                                    location
+                                        .ips()
+                                        .into_iter()
+                                        .map(|ip| (location.display_name().to_string(), *ip))
+                                        .collect()
+                                }
+                                x => {
+                                    warn!("Unexpected include location type: {:?}", x);
+                                    vec![]
+                                }
+                            };
+                            // todo: this should become a cli command to preview this info
+                            // match mode {
+                            //     IncludeOrExclude::Include => {
+                            //         for (display, ip) in ips {
+                            //             println!("\tInclude: {} | {}", display, ip);
+                            //         }
+                            //     }
+                            //     IncludeOrExclude::Exclude => {
+                            //         for (display, ip) in ips {
+                            //             println!("\tExclude: {} | {}", display, ip);
+                            //         }
+                            //     }
+                            // }
+                        }
+                    }
+                }
+                Ok(())
+            })
+            .await
     }
 }
 

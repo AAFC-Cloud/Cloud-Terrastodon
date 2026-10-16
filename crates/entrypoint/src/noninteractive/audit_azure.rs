@@ -2,6 +2,7 @@ use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::fetch_all_principals;
 use cloud_terrastodon_azure::fetch_all_resources;
 use cloud_terrastodon_azure::fetch_all_role_definitions_and_assignments;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use itertools::Itertools;
 use std::collections::HashMap;
@@ -11,7 +12,10 @@ use tracing::warn;
 
 #[allow(unused_mut)]
 #[allow(unused)]
-pub async fn audit_azure(auth_context: &AzureTenantAuthContext) -> eyre::Result<()> {
+pub async fn audit_azure(
+    auth_context: &AzureTenantAuthContext,
+    cancellation: &CancellationScope,
+) -> eyre::Result<()> {
     // TODO: audit admin accounts without corresponding user accounts should be disabled
     // TODO: audit admin accounts without corresponding user accounts should be deleted
     info!("Fetching information...");
@@ -20,9 +24,9 @@ pub async fn audit_azure(auth_context: &AzureTenantAuthContext) -> eyre::Result<
     let total_cost_waste_cad = 0.00;
     let mut message_counts: HashMap<&'static str, usize> = HashMap::new();
     let (rbac, principals, resources) = try_join!(
-        fetch_all_role_definitions_and_assignments(auth_context),
-        fetch_all_principals(auth_context),
-        fetch_all_resources(auth_context)
+        fetch_all_role_definitions_and_assignments(auth_context, cancellation),
+        fetch_all_principals(auth_context, cancellation),
+        fetch_all_resources(auth_context, cancellation)
     )?;
     let elapsed = start.elapsed();
     info!(

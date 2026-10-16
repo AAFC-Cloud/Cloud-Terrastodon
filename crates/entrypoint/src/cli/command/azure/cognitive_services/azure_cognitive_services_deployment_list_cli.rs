@@ -6,6 +6,7 @@ use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::fetch_all_cognitive_services_accounts;
 use cloud_terrastodon_azure::fetch_cognitive_services_account_deployments;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use eyre::bail;
@@ -30,11 +31,16 @@ pub struct AzureCognitiveServicesDeploymentListArgs {
 }
 
 impl AzureCognitiveServicesDeploymentListArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         let Self { tenant, account } = self;
-        let tenant_auth_context = tenant.bind_auth_context(auth_context).await?;
+        let tenant_auth_context = tenant.bind_auth_context(auth_context, cancellation).await?;
         let tenant_id = tenant_auth_context.tenant_id;
-        let accounts = fetch_all_cognitive_services_accounts(&tenant_auth_context).await?;
+        let accounts =
+            fetch_all_cognitive_services_accounts(&tenant_auth_context, cancellation).await?;
 
         let deployments = if let Some(account_argument) = account {
             let mut matches = accounts
@@ -49,9 +55,12 @@ impl AzureCognitiveServicesDeploymentListArgs {
                 ),
                 1 => {
                     let account = matches.remove(0);
-                    let deployments =
-                        fetch_cognitive_services_account_deployments(tenant_id, account.id.clone())
-                            .await?;
+                    let deployments = fetch_cognitive_services_account_deployments(
+                        tenant_id,
+                        account.id.clone(),
+                        cancellation,
+                    )
+                    .await?;
                     deployments
                         .into_iter()
                         .map(|deployment| CognitiveServicesAccountDeploymentListEntry {
@@ -77,9 +86,12 @@ impl AzureCognitiveServicesDeploymentListArgs {
         } else {
             let mut deployments = Vec::new();
             for account in accounts {
-                let account_deployments =
-                    fetch_cognitive_services_account_deployments(tenant_id, account.id.clone())
-                        .await?;
+                let account_deployments = fetch_cognitive_services_account_deployments(
+                    tenant_id,
+                    account.id.clone(),
+                    cancellation,
+                )
+                .await?;
                 deployments.extend(account_deployments.into_iter().map(|deployment| {
                     CognitiveServicesAccountDeploymentListEntry {
                         account: account.clone(),

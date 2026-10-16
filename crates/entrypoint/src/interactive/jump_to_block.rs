@@ -1,3 +1,4 @@
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::OutputBehaviour;
@@ -8,7 +9,10 @@ use eyre::Result;
 use std::path::PathBuf;
 use tracing::info;
 
-pub async fn jump_to_block(dir: PathBuf) -> Result<()> {
+pub async fn jump_to_block(
+    dir: PathBuf,
+    cancellation: &CancellationScope,
+) -> Result<()> {
     // We don't use `as_single_body` because we need to track the files that each block comes from
     let choices = list_blocks_for_dir(dir).await?;
     info!("Found {} blocks", choices.len());
@@ -18,6 +22,7 @@ pub async fn jump_to_block(dir: PathBuf) -> Result<()> {
         .pick_one(choices)
         .await?;
     CommandBuilder::new(CommandKind::VSCode)
+        .cancellation_safe()
         .args([
             "--goto",
             format!(
@@ -29,7 +34,7 @@ pub async fn jump_to_block(dir: PathBuf) -> Result<()> {
             .as_str(),
         ])
         .use_output_behaviour(OutputBehaviour::Display)
-        .run_raw()
+        .run_raw(cancellation)
         .await
         .context("running vscode command")?;
     Ok(())

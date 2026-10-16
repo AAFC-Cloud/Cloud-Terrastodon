@@ -1,6 +1,7 @@
 use crate::AZURE_DEVOPS_RESOURCE_ID;
 use crate::AzureClaims;
 use crate::AzureRestResource;
+use crate::CancellationScope;
 use crate::fetch_azure_access_token;
 use base64::Engine;
 use base64::prelude::BASE64_URL_SAFE_NO_PAD;
@@ -12,20 +13,29 @@ pub struct DecodedJwt {
     pub signature: String,
 }
 
-pub async fn get_azure_access_token_jwt() -> eyre::Result<()> {
-    let access_token =
-        fetch_azure_access_token::<String>(None, AzureRestResource::AzureResourceManager).await?;
-    let claims = decode_azure_claims(&access_token.access_token)?;
-    eyre::ensure!(
-        [
-            "https://management.core.windows.net/",
-            AZURE_DEVOPS_RESOURCE_ID
-        ]
-        .contains(&claims.audience.as_str()),
-        "unexpected JWT audience: {}",
-        claims.audience,
-    );
-    Ok(())
+pub async fn get_azure_access_token_jwt(cancellation: &CancellationScope) -> eyre::Result<()> {
+    cancellation
+        .cancellable_scope(|cancellation| async move {
+            let cancellation = &cancellation;
+            let access_token = fetch_azure_access_token::<String>(
+                None,
+                AzureRestResource::AzureResourceManager,
+                cancellation,
+            )
+            .await?;
+            let claims = decode_azure_claims(&access_token.access_token)?;
+            eyre::ensure!(
+                [
+                    "https://management.core.windows.net/",
+                    AZURE_DEVOPS_RESOURCE_ID
+                ]
+                .contains(&claims.audience.as_str()),
+                "unexpected JWT audience: {}",
+                claims.audience,
+            );
+            Ok(())
+        })
+        .await
 }
 
 pub fn decode_jwt(token: &str) -> eyre::Result<DecodedJwt> {
@@ -73,6 +83,7 @@ fn decode_jwt_segment(segment: &str, label: &str) -> eyre::Result<String> {
 mod test {
     use base64::Engine;
     use base64::prelude::BASE64_URL_SAFE_NO_PAD;
+    use cloud_terrastodon_command::CancellationToken;
 
     #[test]
     fn decodes_claims() -> eyre::Result<()> {
@@ -154,7 +165,11 @@ mod test {
     #[tokio::test]
     // #[ignore = "requires a signed-in Azure CLI and live Azure access"]
     pub async fn it_works() -> eyre::Result<()> {
-        super::get_azure_access_token_jwt().await?;
-        Ok(())
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                super::get_azure_access_token_jwt(&cancellation).await?;
+                Ok(())
+            })
+            .await
     }
 }

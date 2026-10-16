@@ -4,6 +4,7 @@ use crate::BatchResponse;
 use crate::invoke_batch_request;
 use cloud_terrastodon_azure_types::ResourceTagsId;
 use cloud_terrastodon_azure_types::Scope;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Result;
 use http::Method;
@@ -48,14 +49,15 @@ impl TagPatchContent {
 pub async fn get_tags_for_resources(
     auth_context: &AzureTenantAuthContext,
     resource_ids: Vec<ResourceTagsId>,
+    cancellation: &CancellationScope,
 ) -> Result<HashMap<ResourceTagsId, HashMap<String, String>>> {
     let url_tail = "?api-version=2022-09-01";
-    let mut batch = BatchRequest::new(auth_context);
+    let mut batch = BatchRequest::new(auth_context, cancellation).cancellation_safe();
     batch.requests = resource_ids
         .into_iter()
         .map(|id| BatchRequestEntry::new_get(format!("{}{}", id.expanded_form(), url_tail)))
         .collect_vec();
-    let resp = invoke_batch_request::<_, TagContent>(&batch).await?;
+    let resp = invoke_batch_request::<_, TagContent>(&batch, cancellation).await?;
     let results = extract_tags_from_response(resp);
     Ok(results)
 }
@@ -64,9 +66,10 @@ pub async fn get_tags_for_resources(
 pub async fn replace_tags_for_resources(
     auth_context: &AzureTenantAuthContext,
     resource_tags: HashMap<ResourceTagsId, HashMap<String, String>>,
+    cancellation: &CancellationScope,
 ) -> Result<HashMap<ResourceTagsId, HashMap<String, String>>> {
     let url_tail = "?api-version=2022-09-01";
-    let mut batch = BatchRequest::new(auth_context);
+    let mut batch = BatchRequest::new(auth_context, cancellation);
     batch.requests = resource_tags
         .into_iter()
         .map(|(resource_id, tags)| {
@@ -77,7 +80,7 @@ pub async fn replace_tags_for_resources(
             )
         })
         .collect_vec();
-    let resp = invoke_batch_request(&batch).await?;
+    let resp = invoke_batch_request(&batch, cancellation).await?;
     let tags = extract_tags_from_response(resp);
     Ok(tags)
 }
@@ -86,9 +89,10 @@ pub async fn replace_tags_for_resources(
 pub async fn merge_tags_for_resources(
     auth_context: &AzureTenantAuthContext,
     resource_tags: HashMap<ResourceTagsId, HashMap<String, String>>,
+    cancellation: &CancellationScope,
 ) -> Result<HashMap<ResourceTagsId, HashMap<String, String>>> {
     let url_tail = "?api-version=2022-09-01";
-    let mut batch = BatchRequest::new(auth_context);
+    let mut batch = BatchRequest::new(auth_context, cancellation);
     batch.requests = resource_tags
         .into_iter()
         .map(|(resource_id, tags)| {
@@ -99,7 +103,7 @@ pub async fn merge_tags_for_resources(
             )
         })
         .collect_vec();
-    let resp = invoke_batch_request(&batch).await?;
+    let resp = invoke_batch_request(&batch, cancellation).await?;
     let tags = extract_tags_from_response(resp);
     Ok(tags)
 }
@@ -108,9 +112,10 @@ pub async fn merge_tags_for_resources(
 pub async fn delete_tags_for_resources(
     auth_context: &AzureTenantAuthContext,
     resource_tags: HashMap<ResourceTagsId, HashMap<String, String>>,
+    cancellation: &CancellationScope,
 ) -> Result<HashMap<ResourceTagsId, HashMap<String, String>>> {
     let url_tail = "?api-version=2022-09-01";
-    let mut batch = BatchRequest::new(auth_context);
+    let mut batch = BatchRequest::new(auth_context, cancellation);
     batch.requests = resource_tags
         .into_iter()
         .map(|(resource_id, tags)| {
@@ -121,7 +126,7 @@ pub async fn delete_tags_for_resources(
             )
         })
         .collect_vec();
-    let resp = invoke_batch_request(&batch).await?;
+    let resp = invoke_batch_request(&batch, cancellation).await?;
     let tags = extract_tags_from_response(resp);
     Ok(tags)
 }
@@ -142,24 +147,32 @@ mod tests {
     use super::*;
     use crate::fetch_all_resource_groups;
     use crate::get_test_tenant_id;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_credentials::AuthContext;
 
     #[tokio::test]
     async fn get_tags_test() -> Result<()> {
-        let tenant_id = get_test_tenant_id().await?;
-        let auth_context = AuthContext::explicit_azure_cli().bind_to_azure_tenant(tenant_id)?;
-        let resource_groups = fetch_all_resource_groups(&auth_context).await?;
-        let tags = get_tags_for_resources(
-            &auth_context,
-            resource_groups
-                .iter()
-                .take(5)
-                .map(ResourceTagsId::from_scope)
-                .collect_vec(),
-        )
-        .await?;
-        assert_eq!(tags.len(), 5);
-        assert!(tags.values().any(|x| !x.is_empty()));
-        Ok(())
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let tenant_id = get_test_tenant_id(&cancellation).await?;
+                let auth_context =
+                    AuthContext::explicit_azure_cli().bind_to_azure_tenant(tenant_id)?;
+                let resource_groups =
+                    fetch_all_resource_groups(&auth_context, &cancellation).await?;
+                let tags = get_tags_for_resources(
+                    &auth_context,
+                    resource_groups
+                        .iter()
+                        .take(5)
+                        .map(ResourceTagsId::from_scope)
+                        .collect_vec(),
+                    &cancellation,
+                )
+                .await?;
+                assert_eq!(tags.len(), 5);
+                assert!(tags.values().any(|x| !x.is_empty()));
+                Ok(())
+            })
+            .await
     }
 }

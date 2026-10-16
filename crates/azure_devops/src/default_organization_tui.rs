@@ -1,6 +1,7 @@
 use crate::get_default_organization_url;
 use crate::set_default_organization_url;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
+use cloud_terrastodon_command::CancellationScope;
 use eyre::ContextCompat;
 use ratatui::crossterm::event::Event;
 use ratatui::crossterm::event::KeyCode;
@@ -56,26 +57,22 @@ impl NavigationTarget {
 }
 
 pub struct AzureDevOpsDefaultOrganizationUrlTui {
+    pub cancellation: CancellationScope,
     text_input: TextArea<'static>,
     focus: NavigationTarget,
     current_value: Option<String>,
     validation: eyre::Result<()>,
 }
 
-impl Default for AzureDevOpsDefaultOrganizationUrlTui {
-    fn default() -> Self {
+impl AzureDevOpsDefaultOrganizationUrlTui {
+    pub fn new(cancellation: &CancellationScope) -> Self {
         Self {
+            cancellation: cancellation.clone(),
             text_input: TextArea::new(vec![]),
             focus: NavigationTarget::TextInput,
             current_value: None,
             validation: Ok(()),
         }
-    }
-}
-
-impl AzureDevOpsDefaultOrganizationUrlTui {
-    pub fn new() -> Self {
-        Self::default()
     }
 
     pub fn update_validation(&mut self) {
@@ -108,7 +105,7 @@ impl AzureDevOpsDefaultOrganizationUrlTui {
 
     pub async fn run(mut self) -> eyre::Result<DefaultOrganizationTuiResponse> {
         // fetch current configured value (may be None)
-        self.current_value = get_default_organization_url()
+        self.current_value = get_default_organization_url(&self.cancellation)
             .await
             .map(|s| s.to_string())
             .ok();
@@ -124,7 +121,8 @@ impl AzureDevOpsDefaultOrganizationUrlTui {
                 .title("Default Azure DevOps Organization Url")
                 .borders(Borders::ALL),
         );
-        self.text_input.move_cursor(ratatui_textarea::CursorMove::End);
+        self.text_input
+            .move_cursor(ratatui_textarea::CursorMove::End);
 
         const RECOMMENDED_URL: &str = "https://dev.azure.com/aafc";
 
@@ -134,6 +132,11 @@ impl AzureDevOpsDefaultOrganizationUrlTui {
         let rtn;
 
         loop {
+            if self.cancellation.is_cancelled() {
+                // Finish through the normal terminal restoration path.
+                rtn = DefaultOrganizationTuiResponse::Cancel;
+                break;
+            }
             // handle keyboard input
             if event::poll(std::time::Duration::from_millis(100))?
                 && let Event::Key(key) = event::read()?
@@ -178,7 +181,8 @@ impl AzureDevOpsDefaultOrganizationUrlTui {
                         }
                         NavigationTarget::RecommendedUrl => {
                             self.text_input = TextArea::new(vec![RECOMMENDED_URL.to_string()]);
-                            self.text_input.move_cursor(ratatui_textarea::CursorMove::End);
+                            self.text_input
+                                .move_cursor(ratatui_textarea::CursorMove::End);
                             self.focus = NavigationTarget::TextInput;
                             self.update_validation();
                         }
@@ -188,7 +192,8 @@ impl AzureDevOpsDefaultOrganizationUrlTui {
                             } else {
                                 self.text_input = TextArea::new(vec!["".to_string()]);
                             }
-                            self.text_input.move_cursor(ratatui_textarea::CursorMove::End);
+                            self.text_input
+                                .move_cursor(ratatui_textarea::CursorMove::End);
                             self.focus = NavigationTarget::TextInput;
                             self.update_validation();
                         }
@@ -332,10 +337,10 @@ pub enum DefaultOrganizationTuiResponse {
     Cancel,
 }
 impl DefaultOrganizationTuiResponse {
-    pub async fn handle(self) -> eyre::Result<()> {
+    pub async fn handle(self, cancellation: &CancellationScope) -> eyre::Result<()> {
         match self {
             DefaultOrganizationTuiResponse::SetDefaultOrganizationUrl(url) => {
-                set_default_organization_url(url).await?;
+                set_default_organization_url(url, cancellation).await?;
                 Ok(())
             }
             DefaultOrganizationTuiResponse::Cancel => Ok(()),
@@ -345,11 +350,16 @@ impl DefaultOrganizationTuiResponse {
 
 #[cfg(test)]
 mod test {
+    use cloud_terrastodon_command::CancellationToken;
     #[test_log::test(tokio::test)]
     #[ignore]
     pub async fn it_works() -> eyre::Result<()> {
-        let tui = super::AzureDevOpsDefaultOrganizationUrlTui::new();
-        tui.run().await?.handle().await?;
-        Ok(())
+        CancellationToken::new()
+            .with_async_scope(|cancellation| async move {
+                let tui = super::AzureDevOpsDefaultOrganizationUrlTui::new(&cancellation);
+                tui.run().await?.handle(&cancellation).await?;
+                Ok(())
+            })
+            .await
     }
 }

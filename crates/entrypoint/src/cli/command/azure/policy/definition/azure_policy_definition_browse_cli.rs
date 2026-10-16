@@ -2,6 +2,7 @@ use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::PolicyDefinition;
 use cloud_terrastodon_azure::fetch_all_policy_definitions;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickResultExt;
@@ -19,10 +20,18 @@ pub struct AzurePolicyDefinitionBrowseArgs {
 }
 
 impl AzurePolicyDefinitionBrowseArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let tenant_auth_context = self
+            .tenant
+            .bind_auth_context(auth_context, cancellation)
+            .await?;
         info!("Fetching Azure policy definitions...");
-        let policy_definitions = fetch_all_policy_definitions(&tenant_auth_context).await?;
+        let policy_definitions =
+            fetch_all_policy_definitions(&tenant_auth_context, cancellation).await?;
         info!(
             count = policy_definitions.len(),
             "Fetched Azure policy definitions",

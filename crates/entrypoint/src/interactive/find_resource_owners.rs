@@ -22,6 +22,7 @@ use cloud_terrastodon_azure_devops::AzureDevOpsServiceEndpoint;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_service_endpoints;
 use cloud_terrastodon_azure_devops::get_default_organization_url;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
@@ -216,6 +217,7 @@ impl Traversal {
         &self,
         clue: &ClueChain<'a>,
         context: &TraversalContext<'a>,
+        cancellation: &CancellationScope,
     ) -> eyre::Result<Vec<ClueChain<'a>>> {
         let mut rtn = Vec::new();
         match self {
@@ -271,7 +273,8 @@ impl Traversal {
                     principal: Principal::Group(group),
                 } = clue.as_ref()
                 {
-                    let members = fetch_group_members(group.id, context.auth_context).await?;
+                    let members =
+                        fetch_group_members(group.id, context.auth_context, cancellation).await?;
                     for member in members {
                         let Some(principal) = context.principal_map.get(&member.id()) else {
                             bail!(
@@ -289,7 +292,8 @@ impl Traversal {
                     principal: Principal::Group(group),
                 } = clue.as_ref()
                 {
-                    let owners = fetch_group_owners(group.id, context.auth_context).await?;
+                    let owners =
+                        fetch_group_owners(group.id, context.auth_context, cancellation).await?;
                     for member in owners {
                         let Some(principal) = context.principal_map.get(&member.id()) else {
                             bail!(
@@ -370,27 +374,35 @@ impl Traversal {
     }
 }
 
-pub async fn find_resource_owners_menu(auth_context: &AzureTenantAuthContext) -> eyre::Result<()> {
+pub async fn find_resource_owners_menu(
+    auth_context: &AzureTenantAuthContext,
+    cancellation: &CancellationScope,
+) -> eyre::Result<()> {
     info!(
         "Fetching a bunch of stuff (resources, role assignments, role definitions, and principals)"
     );
     let (resources, role_assignments, role_definitions, principals, org_url) = try_join!(
-        fetch_all_resources(auth_context),
-        fetch_all_role_assignments(auth_context),
-        fetch_all_role_definitions(auth_context),
-        fetch_all_principals(auth_context),
-        get_default_organization_url(),
+        fetch_all_resources(auth_context, cancellation),
+        fetch_all_role_assignments(auth_context, cancellation),
+        fetch_all_role_definitions(auth_context, cancellation),
+        fetch_all_principals(auth_context, cancellation),
+        get_default_organization_url(cancellation),
     )?;
     let azure_devops_auth_context = AzureDevOpsAuthContext::for_azure_tenant(auth_context);
-    let projects = fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context).await?;
+    let projects =
+        fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context, cancellation).await?;
     let azure_devops_service_endpoints = {
         let mut work: ParallelFallibleWorkQueue<Vec<AzureDevOpsServiceEndpoint>> =
             ParallelFallibleWorkQueue::new("azure devops service endpoints", 8);
         for project in projects.iter() {
             let org_url = org_url.clone();
             let project_name = project.name.clone();
-            work.enqueue(async move {
-                fetch_all_azure_devops_service_endpoints(&org_url, &project_name).await
+            work.enqueue({
+                cancellation.cancellable_scope(move |cancellation| async move {
+                    let cancellation = &cancellation;
+                    fetch_all_azure_devops_service_endpoints(&org_url, &project_name, cancellation)
+                        .await
+                })
             });
         }
         work.join().await?.into_iter().flatten().collect_vec()
@@ -497,7 +509,9 @@ pub async fn find_resource_owners_menu(auth_context: &AzureTenantAuthContext) ->
         .collect::<VecDeque<_>>();
     while let Some(clue) = to_visit.pop_front() {
         for traversal in Traversal::VARIANTS {
-            let found = traversal.gather_clues(&clue, &traversal_context).await?;
+            let found = traversal
+                .gather_clues(&clue, &traversal_context, cancellation)
+                .await?;
             let found_count = found.len();
             if found_count > 0 {
                 info!(

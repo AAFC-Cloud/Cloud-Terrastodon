@@ -2,6 +2,7 @@ pub mod gitea_org_browse_cli;
 pub mod gitea_org_list_cli;
 pub mod gitea_org_show_cli;
 
+use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 pub use gitea_org_browse_cli::GiteaOrgBrowseArgs;
 pub use gitea_org_list_cli::GiteaOrgListArgs;
@@ -25,11 +26,14 @@ pub enum GiteaOrgCommand {
 }
 
 impl GiteaOrgArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(
+        self,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self.command {
-            GiteaOrgCommand::List(args) => args.invoke().await?,
-            GiteaOrgCommand::Browse(args) => args.invoke().await?,
-            GiteaOrgCommand::Show(args) => args.invoke().await?,
+            GiteaOrgCommand::List(args) => args.invoke(cancellation).await?,
+            GiteaOrgCommand::Browse(args) => args.invoke(cancellation).await?,
+            GiteaOrgCommand::Show(args) => args.invoke(cancellation).await?,
         }
         Ok(())
     }

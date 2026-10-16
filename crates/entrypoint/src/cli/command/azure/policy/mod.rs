@@ -1,3 +1,4 @@
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 pub mod assignment;
 pub mod definition;
@@ -38,17 +39,27 @@ pub enum AzurePolicyCommand {
 }
 
 impl AzurePolicyArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        self.command.invoke(auth_context).await
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        self.command.invoke(auth_context, cancellation).await
     }
 }
 
 impl AzurePolicyCommand {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self {
-            AzurePolicyCommand::Assignment(args) => args.invoke(auth_context).await,
-            AzurePolicyCommand::Definition(args) => args.invoke(auth_context).await,
-            AzurePolicyCommand::SetDefinition(args) => args.invoke(auth_context).await,
+            AzurePolicyCommand::Assignment(args) => args.invoke(auth_context, cancellation).await,
+            AzurePolicyCommand::Definition(args) => args.invoke(auth_context, cancellation).await,
+            AzurePolicyCommand::SetDefinition(args) => {
+                args.invoke(auth_context, cancellation).await
+            }
         }
     }
 }

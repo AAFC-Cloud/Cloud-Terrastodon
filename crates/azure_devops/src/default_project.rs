@@ -2,6 +2,7 @@ use crate::get_azure_devops_cli_config;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectName;
 use cloud_terrastodon_command::CacheInvalidatable;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use eyre::OptionExt;
 use eyre::bail;
@@ -9,16 +10,25 @@ use std::pin::Pin;
 
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Debug, Clone, Arbitrary, facet::Facet)]
-pub struct DefaultAzureDevOpsProjectNameRequest;
+pub struct DefaultAzureDevOpsProjectNameRequest {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+}
 
-pub fn get_default_project_name() -> DefaultAzureDevOpsProjectNameRequest {
-    DefaultAzureDevOpsProjectNameRequest
+pub fn get_default_project_name(
+    cancellation: &CancellationScope,
+) -> DefaultAzureDevOpsProjectNameRequest {
+    DefaultAzureDevOpsProjectNameRequest {
+        cancellation: cancellation.clone(),
+    }
 }
 
 #[async_trait]
 impl CacheInvalidatable for DefaultAzureDevOpsProjectNameRequest {
     async fn invalidate(&self) -> eyre::Result<()> {
-        get_azure_devops_cli_config().invalidate().await?;
+        get_azure_devops_cli_config(&self.cancellation)
+            .invalidate()
+            .await?;
         Ok(())
     }
 }
@@ -29,7 +39,7 @@ impl IntoFuture for DefaultAzureDevOpsProjectNameRequest {
 
     fn into_future(self) -> Self::IntoFuture {
         Box::pin(async move {
-            let config = get_azure_devops_cli_config().await?;
+            let config = get_azure_devops_cli_config(&self.cancellation).await?;
             let project = config
                 .lines()
                 .find(|line| line.contains("project"))
@@ -54,11 +64,16 @@ cloud_terrastodon_registry::register_into_future!(
 #[cfg(test)]
 mod test {
     use crate::get_default_project_name;
+    use cloud_terrastodon_command::CancellationToken;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        let x = get_default_project_name().await?;
-        assert!(!format!("{x:?}").is_empty());
-        Ok(())
+        CancellationToken::new()
+            .with_async_scope(|cancellation| async move {
+                let x = get_default_project_name(&cancellation).await?;
+                assert!(!format!("{x:?}").is_empty());
+                Ok(())
+            })
+            .await
     }
 }

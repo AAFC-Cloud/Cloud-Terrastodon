@@ -1,5 +1,6 @@
 use crate::cli::azure_devops::test::plan::suite::cases::list::AzureDevOpsTestSuiteCaseListArgs;
 use crate::cli::azure_devops::test::plan::suite::cases::show::AzureDevOpsTestSuiteCaseShowArgs;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -21,10 +22,18 @@ pub enum AzureDevOpsTestSuiteCaseCommand {
 }
 
 impl AzureDevOpsTestSuiteCaseArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self.command {
-            AzureDevOpsTestSuiteCaseCommand::List(args) => args.invoke(auth_context).await?,
-            AzureDevOpsTestSuiteCaseCommand::Show(args) => args.invoke(auth_context).await?,
+            AzureDevOpsTestSuiteCaseCommand::List(args) => {
+                args.invoke(auth_context, cancellation).await?
+            }
+            AzureDevOpsTestSuiteCaseCommand::Show(args) => {
+                args.invoke(auth_context, cancellation).await?
+            }
         }
 
         Ok(())

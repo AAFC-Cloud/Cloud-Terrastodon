@@ -1,5 +1,6 @@
 use crate::HclBlock;
 use crate::sorting::HclBlockSortable;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_hcl_types::AsHclString;
@@ -41,47 +42,66 @@ impl HclWriter {
         self
     }
 
-    pub async fn format_file(&self) -> Result<()> {
+    pub async fn format_file(&self, cancellation: &CancellationScope) -> Result<()> {
         debug!(path = %self.path.display(), "Formatting tf file");
         CommandBuilder::new(CommandKind::Terraform)
             .arg("fmt")
             .arg(self.path.as_os_str())
-            .run_raw()
+            .run_raw(cancellation)
             .await?;
         Ok(())
     }
 
-    async fn write(&self, file: &mut File, content: impl AsHclString + Sync) -> eyre::Result<()> {
-        let content = if self.format_on_write {
-            content.as_formatted_hcl_string().await?
-        } else {
-            content.as_hcl_string()
-        };
+    async fn write(
+        &self,
+        file: &mut File,
+        content: &str,
+        _cancellation: &CancellationScope,
+    ) -> eyre::Result<()> {
         let content = content.trim();
         file.write_all(content.as_bytes())
             .await
             .context("writing content")?;
-        file.write(b"\n").await.context("writing newline")?;
+        file.write_all(b"\n").await.context("writing newline")?;
+        file.flush().await.context("flushing Terraform content")?;
         Ok(())
     }
 
-    pub async fn overwrite(&self, content: impl AsHclString + Sync) -> Result<&Self> {
-        debug!("Overwriting tf file {}", self.path.display());
-        self.path.ensure_parent_dir_exists().await?;
-        let mut tf_file = OpenOptions::new()
-            .create(true)
-            .truncate(true)
-            .write(true)
-            .open(&self.path)
+    pub async fn overwrite(
+        &self,
+        content: impl AsHclString + Sync,
+        cancellation: &CancellationScope,
+    ) -> Result<&Self> {
+        let content = if self.format_on_write {
+            content.as_formatted_hcl_string(cancellation).await?
+        } else {
+            content.as_hcl_string()
+        };
+        // Once the target is truncated, finish writing its prepared replacement.
+        cancellation
+            .deferred(
+                "Finish replacing the Terraform file",
+                |cancellation| async move {
+                    debug!("Overwriting tf file {}", self.path.display());
+                    self.path.ensure_parent_dir_exists().await?;
+                    let mut tf_file = OpenOptions::new()
+                        .create(true)
+                        .truncate(true)
+                        .write(true)
+                        .open(&self.path)
+                        .await
+                        .context(format!("opening file {}", self.path.display()))?;
+                    debug!("Writing {:?}", self.path);
+                    self.write(&mut tf_file, &content, &cancellation).await?;
+                    Ok(self)
+                },
+            )
             .await
-            .context(format!("opening file {}", self.path.display()))?;
-        debug!("Writing {:?}", self.path);
-        self.write(&mut tf_file, content).await?;
-        Ok(self)
     }
     pub async fn merge(
         &self,
         to_merge: impl IntoIterator<Item = impl Into<HclBlock>>,
+        cancellation: &CancellationScope,
     ) -> Result<&Self> {
         debug!(path = %self.path.display(), "Merging into tf file");
         self.path.ensure_parent_dir_exists().await?;
@@ -220,59 +240,82 @@ impl HclWriter {
         }
         let result_body = result_body.build();
 
-        // Truncate and write merged content
-        file.set_len(0).await?;
-        file.seek(std::io::SeekFrom::Start(0)).await?;
-        file.write_all(result_body.as_formatted_hcl_string().await?.as_bytes())
+        // Prepare the replacement before truncating the original file.
+        let content = result_body.as_formatted_hcl_string(cancellation).await?;
+        cancellation
+            .deferred(
+                "Finish writing the merged Terraform file",
+                |_completion| async move {
+                    // Truncate and write merged content
+                    file.set_len(0).await?;
+                    file.seek(std::io::SeekFrom::Start(0)).await?;
+                    file.write_all(content.as_bytes())
+                        .await
+                        .context("appending content")?;
+                    file.flush()
+                        .await
+                        .context("flushing merged Terraform content")?;
+                    Ok(self)
+                },
+            )
             .await
-            .context("appending content")?;
-        Ok(self)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cloud_terrastodon_command::CancellationToken;
     use itertools::Itertools;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
-        // Create provider blocks
-        let mut providers = HashSet::new();
-        providers.insert(HclProviderBlock::AzureRM {
-            alias: None,
-            subscription_id: None,
-        });
-        providers.insert(HclProviderBlock::AzureRM {
-            alias: Some("bruh".to_owned()),
-            subscription_id: None,
-        });
+        CancellationToken::new()
+            .with_async_scope(|cancellation| async move {
+                // Create provider blocks
+                let mut providers = HashSet::new();
+                providers.insert(HclProviderBlock::AzureRM {
+                    alias: None,
+                    subscription_id: None,
+                });
+                providers.insert(HclProviderBlock::AzureRM {
+                    alias: Some("bruh".to_owned()),
+                    subscription_id: None,
+                });
 
-        // Write some content
-        let path = tempfile::Builder::new().tempfile()?.into_temp_path();
-        let writer = HclWriter::new(path);
+                // Write some content
+                let path = tempfile::Builder::new().tempfile()?.into_temp_path();
+                let writer = HclWriter::new(path);
 
-        // ensure deduplication
-        writer.merge(providers.clone()).await?;
-        writer.merge(providers.clone()).await?;
-        // ensure old entries are kept
-        writer
-            .merge(providers.iter().take(1).cloned().collect_vec())
-            .await?;
-        writer
-            .merge(providers.iter().skip(1).take(1).cloned().collect_vec())
-            .await?;
+                // ensure deduplication
+                writer.merge(providers.clone(), &cancellation).await?;
+                writer.merge(providers.clone(), &cancellation).await?;
+                // ensure old entries are kept
+                writer
+                    .merge(
+                        providers.iter().take(1).cloned().collect_vec(),
+                        &cancellation,
+                    )
+                    .await?;
+                writer
+                    .merge(
+                        providers.iter().skip(1).take(1).cloned().collect_vec(),
+                        &cancellation,
+                    )
+                    .await?;
 
-        // Read back the content
-        let mut file = OpenOptions::new().read(true).open(&writer.path).await?;
-        let mut content = String::new();
-        file.read_to_string(&mut content).await?;
-        let body: Body = content.parse()?;
+                // Read back the content
+                let mut file = OpenOptions::new().read(true).open(&writer.path).await?;
+                let mut content = String::new();
+                file.read_to_string(&mut content).await?;
+                let body: Body = content.parse()?;
 
-        // Assert that the merging successfully deduplicated
-        let num_blocks = body.into_blocks().count();
-        assert_eq!(num_blocks, providers.len());
+                // Assert that the merging successfully deduplicated
+                let num_blocks = body.into_blocks().count();
+                assert_eq!(num_blocks, providers.len());
 
-        Ok(())
+                Ok(())
+            })
+            .await
     }
 }

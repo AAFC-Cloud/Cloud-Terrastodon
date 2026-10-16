@@ -9,6 +9,7 @@ pub use azure_vm_publisher_list_cli::AzureVmPublisherListArgs;
 pub use azure_vm_publisher_offer_list_cli::AzureVmPublisherOfferListArgs;
 pub use azure_vm_publisher_offer_sku_list_cli::AzureVmPublisherOfferSkuListArgs;
 pub use azure_vm_publisher_offer_sku_version_list_cli::AzureVmPublisherOfferSkuVersionListArgs;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -19,8 +20,12 @@ pub struct AzureVmPublisherArgs {
 }
 
 impl AzureVmPublisherArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        self.command.invoke(auth_context).await
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        self.command.invoke(auth_context, cancellation).await
     }
 }
 
@@ -31,8 +36,12 @@ pub struct AzureVmPublisherOfferArgs {
 }
 
 impl AzureVmPublisherOfferArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        self.command.invoke(auth_context).await
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        self.command.invoke(auth_context, cancellation).await
     }
 }
 
@@ -46,10 +55,18 @@ pub enum AzureVmPublisherOfferCommand {
 }
 
 impl AzureVmPublisherOfferCommand {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self {
-            AzureVmPublisherOfferCommand::List(args) => args.invoke(auth_context).await,
-            AzureVmPublisherOfferCommand::Sku(args) => args.invoke(auth_context).await,
+            AzureVmPublisherOfferCommand::List(args) => {
+                args.invoke(auth_context, cancellation).await
+            }
+            AzureVmPublisherOfferCommand::Sku(args) => {
+                args.invoke(auth_context, cancellation).await
+            }
         }
     }
 }
@@ -61,8 +78,12 @@ pub struct AzureVmPublisherOfferSkuArgs {
 }
 
 impl AzureVmPublisherOfferSkuArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        self.command.invoke(auth_context).await
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        self.command.invoke(auth_context, cancellation).await
     }
 }
 
@@ -76,10 +97,18 @@ pub enum AzureVmPublisherOfferSkuCommand {
 }
 
 impl AzureVmPublisherOfferSkuCommand {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self {
-            AzureVmPublisherOfferSkuCommand::List(args) => args.invoke(auth_context).await,
-            AzureVmPublisherOfferSkuCommand::Version(args) => args.invoke(auth_context).await,
+            AzureVmPublisherOfferSkuCommand::List(args) => {
+                args.invoke(auth_context, cancellation).await
+            }
+            AzureVmPublisherOfferSkuCommand::Version(args) => {
+                args.invoke(auth_context, cancellation).await
+            }
         }
     }
 }
@@ -91,8 +120,12 @@ pub struct AzureVmPublisherOfferSkuVersionArgs {
 }
 
 impl AzureVmPublisherOfferSkuVersionArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        self.command.invoke(auth_context).await
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        self.command.invoke(auth_context, cancellation).await
     }
 }
 
@@ -104,9 +137,15 @@ pub enum AzureVmPublisherOfferSkuVersionCommand {
 }
 
 impl AzureVmPublisherOfferSkuVersionCommand {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self {
-            AzureVmPublisherOfferSkuVersionCommand::List(args) => args.invoke(auth_context).await,
+            AzureVmPublisherOfferSkuVersionCommand::List(args) => {
+                args.invoke(auth_context, cancellation).await
+            }
         }
     }
 }
@@ -124,11 +163,15 @@ pub enum AzureVmPublisherCommand {
 }
 
 impl AzureVmPublisherCommand {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self {
-            AzureVmPublisherCommand::List(args) => args.invoke(auth_context).await,
-            AzureVmPublisherCommand::Browse(args) => args.invoke(auth_context).await,
-            AzureVmPublisherCommand::Offer(args) => args.invoke(auth_context).await,
+            AzureVmPublisherCommand::List(args) => args.invoke(auth_context, cancellation).await,
+            AzureVmPublisherCommand::Browse(args) => args.invoke(auth_context, cancellation).await,
+            AzureVmPublisherCommand::Offer(args) => args.invoke(auth_context, cancellation).await,
         }
     }
 }

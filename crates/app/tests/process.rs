@@ -2,10 +2,12 @@
 
 use cloud_terrastodon_app::App;
 use cloud_terrastodon_app::ApplicationCli;
-use cloud_terrastodon_app::CancellationToken;
+use cloud_terrastodon_app::CancellationScope;
 use cloud_terrastodon_app::GlobalArgs;
 use cloud_terrastodon_app::Result;
 use std::cell::Cell;
+use std::future::pending;
+use std::future::poll_fn;
 use std::panic::AssertUnwindSafe;
 use std::panic::catch_unwind;
 use std::process::Command;
@@ -13,6 +15,10 @@ use std::process::Output;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::task::Poll;
+use std::time::Duration;
+use teamy_cancellation::CancellationError;
+use tokio::sync::oneshot;
 
 const PROBE_MODE: &str = "CLOUD_TERRASTODON_APP_PROCESS_TEST_MODE";
 const HANDLER_ERROR: &str = "consumer-handler-error-sentinel";
@@ -97,6 +103,21 @@ fn handler_error_returns_without_losing_cancellation_cleanup() {
 #[test]
 fn shutdown_preserves_the_consumers_existing_cancellation_reason() {
     assert_success(&subprocess("already_cancelled"));
+}
+
+#[test]
+fn default_cancellation_wakes_and_drops_a_pending_handler() {
+    assert_success(&subprocess("pending_cancellation"));
+}
+
+#[test]
+fn default_cancellation_finishes_nested_deferred_work_before_dropping_the_handler() {
+    assert_success(&subprocess("deferred_cancellation"));
+}
+
+#[test]
+fn disabling_automatic_cancellation_allows_async_shutdown_cleanup() {
+    assert_success(&subprocess("cooperative_cancellation"));
 }
 
 #[test]
@@ -217,6 +238,9 @@ fn runner_process_probe() {
                 .expect_err("installing process-global hooks twice must return an error");
             assert!(!error.to_string().is_empty());
         }
+        "pending_cancellation" | "deferred_cancellation" | "cooperative_cancellation" => {
+            run_cancellation_probe(&mode);
+        }
         "success" | "error" | "already_cancelled" | "panic_debug" | "panic_plain" => {
             run_handler_probe(&mode);
         }
@@ -231,7 +255,7 @@ fn assert_backtrace_environment_unchanged() {
 }
 
 fn run_handler_probe(mode: &str) {
-    let token_slot: Arc<Mutex<Option<CancellationToken>>> = Arc::new(Mutex::new(None));
+    let token_slot: Arc<Mutex<Option<CancellationScope>>> = Arc::new(Mutex::new(None));
     let progress = Rc::new(Cell::new(0));
     // Catch only to inspect shutdown after a panic, then resume the original
     // payload so the child process still reports a failing test.
@@ -307,5 +331,109 @@ fn run_handler_probe(mode: &str) {
         _ => output
             .expect("successful invocation must not panic")
             .expect("successful invocation must return success"),
+    }
+}
+
+struct HandlerDropped(Rc<Cell<bool>>);
+
+impl Drop for HandlerDropped {
+    fn drop(&mut self) {
+        self.0.set(true);
+    }
+}
+
+fn run_cancellation_probe(mode: &str) {
+    let dropped = Rc::new(Cell::new(false));
+    let completed = Rc::new(Cell::new(false));
+    let runner = if mode == "cooperative_cancellation" {
+        app().automatic_cancellation(false)
+    } else {
+        app()
+    };
+    let result = runner.run_parsed(cli(false), |_, context| {
+        let dropped = Rc::clone(&dropped);
+        let completed = Rc::clone(&completed);
+        async move {
+            let _dropped = HandlerDropped(dropped);
+            tokio::time::timeout(Duration::from_secs(5), async move {
+                let (started, started_receiver) = oneshot::channel();
+                let (may_finish, may_finish_receiver) = oneshot::channel();
+                let signal = context.cancellation.clone();
+                tokio::spawn(async move {
+                    started_receiver
+                        .await
+                        .expect("handler should start waiting");
+                    signal.request_cancel(CONSUMER_REASON);
+                    tokio::task::yield_now().await;
+                    let _ = may_finish.send(());
+                });
+                match mode {
+                    "pending_cancellation" => {
+                        let mut started = Some(started);
+                        poll_fn(move |_| {
+                            if let Some(started) = started.take() {
+                                started.send(()).expect("cancellation task should wait");
+                            }
+                            Poll::<Result<()>>::Pending
+                        })
+                        .await
+                    }
+                    "deferred_cancellation" => {
+                        context
+                            .cancellation
+                            .deferred("Finish synthetic required work", |protected| async move {
+                                started.send(()).expect("cancellation task should wait");
+                                may_finish_receiver.await?;
+                                assert!(protected.is_cancelled());
+                                protected.bail_if_cancelled()?;
+                                completed.set(true);
+                                Result::<()>::Ok(())
+                            })
+                            .await?;
+                        pending::<Result<()>>().await
+                    }
+                    "cooperative_cancellation" => {
+                        started.send(()).expect("cancellation task should wait");
+                        context.cancellation.cancelled().await;
+                        assert!(context.cancellation.is_cancelled());
+                        // Shutdown must survive a pending await before cleanup starts.
+                        tokio::task::yield_now().await;
+                        context
+                            .cancellation
+                            .finish_required(
+                                "Finish synthetic shutdown cleanup",
+                                |cleanup| async move {
+                                    may_finish_receiver.await?;
+                                    cleanup.bail_if_cancelled()?;
+                                    completed.set(true);
+                                    Result::<()>::Ok(())
+                                },
+                            )
+                            .await
+                    }
+                    unexpected => panic!("unexpected cancellation probe {unexpected}"),
+                }
+            })
+            .await
+            .map_err(|_| eyre::eyre!("cancellation probe handler exceeded its watchdog"))?
+        }
+    });
+
+    assert!(
+        dropped.get(),
+        "runner must drop the completed handler future"
+    );
+    assert_eq!(completed.get(), mode != "pending_cancellation");
+    if mode == "cooperative_cancellation" {
+        result.expect("the handler must finish its own asynchronous cleanup");
+    } else {
+        let error = result.expect_err("automatic cancellation must end the pending handler");
+        assert_eq!(
+            error
+                .downcast_ref::<CancellationError>()
+                .expect("runner must preserve the typed cancellation error")
+                .reason,
+            CONSUMER_REASON,
+        );
     }
 }

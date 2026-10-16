@@ -5,6 +5,7 @@ use cloud_terrastodon_azure_types::EntraGroup;
 use cloud_terrastodon_azure_types::EntraGroupId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Result;
@@ -15,6 +16,9 @@ use tracing::debug;
 #[must_use = "This is a future request, you must .await it"]
 #[derive(facet::Facet)]
 pub struct EntraGroupGetRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub group_id: EntraGroupId,
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
@@ -22,6 +26,7 @@ pub struct EntraGroupGetRequest<'a> {
 impl<'a> arbitrary::Arbitrary<'a> for EntraGroupGetRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: arbitrary::Arbitrary::arbitrary(u)?,
             group_id: arbitrary::Arbitrary::arbitrary(u)?,
             auth_context: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
         })
@@ -31,8 +36,10 @@ impl<'a> arbitrary::Arbitrary<'a> for EntraGroupGetRequest<'static> {
 pub fn fetch_group<'a>(
     group_id: EntraGroupId,
     auth_context: &'a AzureTenantAuthContext,
+    cancellation: &CancellationScope,
 ) -> EntraGroupGetRequest<'a> {
     EntraGroupGetRequest {
+        cancellation: cancellation.clone(),
         group_id,
         auth_context: Cow::Borrowed(auth_context),
     }
@@ -47,6 +54,9 @@ impl EntraGroupGetRequest<'_> {
 #[must_use = "This is a future request, you must .await it"]
 #[derive(facet::Facet)]
 pub struct GroupByIdRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub group_ids: Vec<EntraGroupId>,
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
@@ -54,6 +64,7 @@ pub struct GroupByIdRequest<'a> {
 impl<'a> arbitrary::Arbitrary<'a> for GroupByIdRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: arbitrary::Arbitrary::arbitrary(u)?,
             group_ids: arbitrary::Arbitrary::arbitrary(u)?,
             auth_context: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
         })
@@ -63,8 +74,10 @@ impl<'a> arbitrary::Arbitrary<'a> for GroupByIdRequest<'static> {
 pub fn fetch_groups_by_id<'a>(
     group_ids: impl IntoIterator<Item = EntraGroupId>,
     auth_context: &'a AzureTenantAuthContext,
+    cancellation: &CancellationScope,
 ) -> GroupByIdRequest<'a> {
     GroupByIdRequest {
+        cancellation: cancellation.clone(),
         group_ids: group_ids.into_iter().collect(),
         auth_context: Cow::Borrowed(auth_context),
     }
@@ -95,8 +108,9 @@ impl CacheableCommand for EntraGroupGetRequest<'_> {
             self.url(),
             Some(self.cache_key()),
             self.auth_context.as_ref(),
+            &self.cancellation,
         )
-        .fetch_one()
+        .fetch_one(&self.cancellation)
         .await
     }
 }
@@ -126,7 +140,11 @@ impl CacheableCommand for GroupByIdRequest<'_> {
         }
 
         let cache_key = self.cache_key();
-        let mut batch = MicrosoftGraphBatchRequest::<EntraGroup>::new(self.auth_context.as_ref());
+        let mut batch = MicrosoftGraphBatchRequest::<EntraGroup>::new(
+            self.auth_context.as_ref(),
+            &self.cancellation,
+        )
+        .cancellation_safe();
         batch.cache(cache_key);
         for (index, group_id) in self.group_ids.iter().enumerate() {
             batch.add(MicrosoftGraphBatchRequestEntry::new_get(

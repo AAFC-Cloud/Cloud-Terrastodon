@@ -1,8 +1,9 @@
 //! Shared application startup without a prescribed command tree.
 //!
-//! Define a public root CLI, flatten [`GlobalArgs`] and [`figue::FigueBuiltins`],
-//! implement [`ApplicationCli`], then pass your handler to [`App::run`]. Neither
-//! `Debug`, `Arbitrary`, nor registry registration is required on your CLI.
+//! Define a public root CLI, flatten [`GlobalArgs`], implement [`ApplicationCli`],
+//! then pass your handler to [`App::run`]. App supplies Figue's builtin flags
+//! through an internal parsing schema. Neither `Debug`, `Arbitrary`, nor registry
+//! registration is required on your CLI.
 //!
 //! `run` owns the process-global error, tracing and signal hooks and a Tokio
 //! runtime: call it once, from synchronous `main`. Libraries and tests that only
@@ -12,6 +13,7 @@
 //! Creating an `eyre::Report` before startup may itself install the default error
 //! hook; finish shared startup before creating application error reports.
 
+mod app_cli;
 mod global_args;
 pub mod output;
 #[cfg(feature = "terminal")]
@@ -19,6 +21,7 @@ mod terminal;
 #[cfg(windows)]
 mod windows_support;
 
+use app_cli::AppCli;
 #[cfg(feature = "auth")]
 pub use cloud_terrastodon_credentials::AuthContext;
 #[cfg(feature = "auth")]
@@ -35,7 +38,8 @@ use std::future::Future;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::OnceLock;
-pub use teamy_cancellation::CancellationToken;
+pub use teamy_cancellation::CancellationScope;
+use teamy_cancellation::CancellationToken;
 pub use tracing;
 use tracing::Instrument;
 use tracing_subscriber::filter::Directive;
@@ -45,16 +49,16 @@ static PANIC_HOOK: OnceLock<Arc<color_eyre::config::PanicHook>> = OnceLock::new(
 /// The consumer owns its root schema and command dispatch.
 ///
 /// Return the same shared global-arguments field that your Figue schema flattens.
-/// Keep builtins explicit in the schema so callers can inspect and expose the
-/// complete CLI type, including their own subcommands.
+/// App adds Figue's builtin flags around this schema when parsing, then passes
+/// only your CLI to the handler. Do not declare a second builtin field.
 pub trait ApplicationCli: facet::Facet<'static> {
     fn global_args(&self) -> &GlobalArgs;
 }
 
 /// Facilities owned by this invocation, not process-global application state.
 pub struct AppContext {
-    /// Cooperative cancellation, including the installed Ctrl-C handler.
-    pub cancellation: CancellationToken,
+    /// The handler's execution scope, including the installed Ctrl-C handler.
+    pub cancellation: CancellationScope,
     /// Resolved authentication preferences; does not itself request a token.
     #[cfg(feature = "auth")]
     pub auth: AuthContext,
@@ -68,6 +72,7 @@ pub struct App {
     implementation: Option<(String, String)>,
     implementation_source_file: bool,
     egui_collector: bool,
+    automatic_cancellation: bool,
 }
 
 impl App {
@@ -79,6 +84,7 @@ impl App {
             implementation: None,
             implementation_source_file: false,
             egui_collector: false,
+            automatic_cancellation: true,
         }
     }
 
@@ -106,15 +112,30 @@ impl App {
         self
     }
 
+    /// Controls whether cancellation automatically stops polling the handler.
+    ///
+    /// Enabled by default. Linked nested deferrals keep the handler polling until
+    /// their required work finishes. Checks occur at poll boundaries; synchronous
+    /// loops still need explicit checkpoints or yields.
+    ///
+    /// Disable this when the handler must observe cancellation and await its own
+    /// shutdown, such as restoring a terminal or draining background jobs. The
+    /// supplied scope can still start explicitly cancellable child operations.
+    pub fn automatic_cancellation(mut self, enable: bool) -> Self {
+        self.automatic_cancellation = enable;
+        self
+    }
+
     /// Parse arguments excluding argv[0], without exiting or installing hooks.
     ///
     /// Inspect `into_result()` to distinguish help/version from real failures.
     /// Do not propagate a help outcome with `?` as an application error.
+    /// Builtin flags are supplied by App; successful values contain only `C`.
     pub fn parse_from<C: ApplicationCli>(
         &self,
         args: impl IntoIterator<Item = impl Into<OsString>>,
     ) -> figue::DriverOutcome<C> {
-        let builder = match figue::builder::<C>() {
+        let builder = match figue::builder::<AppCli<C>>() {
             Ok(builder) => builder,
             Err(error) => return figue::DriverOutcome::err(figue::DriverError::Builder { error }),
         };
@@ -124,6 +145,7 @@ impl App {
                 let mut help = help
                     .program_name(self.name.clone())
                     .version(self.version.clone())
+                    .root_shape(C::SHAPE)
                     .include_implementation_source_file(self.implementation_source_file);
                 if let Some((repository, revision)) = &self.implementation {
                     help = help
@@ -132,7 +154,7 @@ impl App {
                 help
             })
             .build();
-        figue::Driver::new(config).run()
+        figue::Driver::new(config).run().map(|cli| cli.cli)
     }
 
     /// Parse process arguments and run the caller's async handler.
@@ -140,8 +162,11 @@ impl App {
     /// Help, version, completions and parse errors use Figue's CLI exit behavior
     /// before runtime/auth/log initialization. Handler errors return to `main`.
     /// Call once at process entry, not inside another async runtime or a host
-    /// which already owns tracing/error/signal hooks. Cancellation is cooperative:
-    /// this function does not drop arbitrary application futures on Ctrl-C.
+    /// which already owns tracing/error/signal hooks. The handler is automatically
+    /// cancellable by default and respects linked nested deferrals. Call
+    /// [`automatic_cancellation(false)`](Self::automatic_cancellation) when the
+    /// handler owns asynchronous shutdown. Synchronous work still needs
+    /// cancellation checkpoints or yields.
     pub fn run<C, F, Fut>(self, invoke: F) -> Result<()>
     where
         C: ApplicationCli,
@@ -157,6 +182,9 @@ impl App {
     ///
     /// This is useful when startup policy depends on the selected command. It
     /// has the same once-per-process and synchronous-main contract as [`Self::run`].
+    /// The value is your consumer CLI; builtin flags have already been handled
+    /// when parsing with [`Self::parse_from`]. The automatic cancellation policy
+    /// configured by [`Self::automatic_cancellation`] applies to this handler too.
     pub fn run_parsed<C, F, Fut>(self, cli: C, invoke: F) -> Result<()>
     where
         C: ApplicationCli,
@@ -198,11 +226,6 @@ impl App {
         windows_support::warn_if_not_utf8();
 
         let cancellation = teamy_cancellation::CtrlCHandler::default().install()?;
-        let context = AppContext {
-            cancellation,
-            #[cfg(feature = "auth")]
-            auth,
-        };
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()?;
@@ -210,8 +233,21 @@ impl App {
         // are active, not while calling a synchronous closure before block_on.
         let invocation = Box::pin(
             async move {
-                let _cancel_on_exit = CancelOnDrop(context.cancellation.clone());
-                invoke(cli, context).await
+                let _cancel_on_exit = CancelOnDrop(cancellation.clone());
+                let run_handler = |cancellation| async move {
+                    let context = AppContext {
+                        cancellation,
+                        #[cfg(feature = "auth")]
+                        auth,
+                    };
+                    invoke(cli, context).await
+                };
+                let handler = if self.automatic_cancellation {
+                    cancellation.cancellable_scope(run_handler)
+                } else {
+                    cancellation.with_async_scope(run_handler)
+                };
+                handler.await
             }
             .instrument(tracing::info_span!("cli_invocation")),
         );

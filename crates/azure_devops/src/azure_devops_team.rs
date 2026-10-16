@@ -4,6 +4,7 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsTeam;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
@@ -13,6 +14,9 @@ use tracing::debug;
 
 #[derive(Debug, Clone, facet::Facet)]
 pub struct AzureDevOpsTeamsForProjectRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub project: AzureDevOpsProjectArgument<'a>,
 }
@@ -20,8 +24,10 @@ pub struct AzureDevOpsTeamsForProjectRequest<'a> {
 pub fn fetch_azure_devops_teams_for_project<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     project: impl Into<AzureDevOpsProjectArgument<'a>>,
+    cancellation: &CancellationScope,
 ) -> AzureDevOpsTeamsForProjectRequest<'a> {
     AzureDevOpsTeamsForProjectRequest {
+        cancellation: cancellation.clone(),
         org_url: Cow::Borrowed(org_url),
         project: project.into(),
     }
@@ -30,6 +36,7 @@ pub fn fetch_azure_devops_teams_for_project<'a>(
 impl<'a> Arbitrary<'a> for AzureDevOpsTeamsForProjectRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: CancellationScope::arbitrary(u)?,
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
         })
@@ -55,6 +62,7 @@ impl<'a> CacheableCommand for AzureDevOpsTeamsForProjectRequest<'a> {
     async fn run(self) -> eyre::Result<Self::Output> {
         debug!("Fetching Azure DevOps teams for project {}", self.project);
         let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
+        cmd.cancellation_safe();
         cmd.args([
             "devops",
             "team",
@@ -68,7 +76,7 @@ impl<'a> CacheableCommand for AzureDevOpsTeamsForProjectRequest<'a> {
         ]);
         cmd.cache(self.cache_key());
 
-        let response = cmd.run::<Vec<AzureDevOpsTeam>>().await?;
+        let response = cmd.run::<Vec<AzureDevOpsTeam>>(&self.cancellation).await?;
         debug!(
             "Found {} Azure DevOps teams for project {}",
             response.len(),
@@ -88,22 +96,33 @@ mod tests {
     use super::*;
     use crate::fetch_all_azure_devops_projects;
     use crate::get_default_organization_url;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_credentials::AuthContext;
     use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 
     #[tokio::test]
     async fn it_works() -> eyre::Result<()> {
-        let org_url = get_default_organization_url().await?;
-        let auth_context = AuthContext::explicit_azure_cli();
-        let azure_devops_auth_context = AzureDevOpsAuthContext::new(&auth_context)?;
-        let project = fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context)
-            .await?
-            .into_iter()
-            .next()
-            .unwrap();
-        let results = fetch_azure_devops_teams_for_project(&org_url, &project.id).await?;
-        assert!(!results.is_empty());
-        assert!(results.iter().all(|team| !team.name.is_empty()));
-        Ok(())
+        CancellationToken::new()
+            .with_async_scope(|cancellation| async move {
+                let org_url = get_default_organization_url(&cancellation).await?;
+                let auth_context = AuthContext::explicit_azure_cli();
+                let azure_devops_auth_context = AzureDevOpsAuthContext::new(&auth_context)?;
+                let project = fetch_all_azure_devops_projects(
+                    &org_url,
+                    &azure_devops_auth_context,
+                    &cancellation,
+                )
+                .await?
+                .into_iter()
+                .next()
+                .unwrap();
+                let results =
+                    fetch_azure_devops_teams_for_project(&org_url, &project.id, &cancellation)
+                        .await?;
+                assert!(!results.is_empty());
+                assert!(results.iter().all(|team| !team.name.is_empty()));
+                Ok(())
+            })
+            .await
     }
 }

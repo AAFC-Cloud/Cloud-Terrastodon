@@ -6,12 +6,15 @@ use crate::gitea_api_support::tenant_cache_key_prefix;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use std::borrow::Cow;
 
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Debug, Clone, facet::Facet)]
 pub struct GiteaRepoGetRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
     pub tenant: Cow<'a, GiteaInstanceUrl>,
     pub repo_full_name: Cow<'a, GiteaRepoFullName>,
 }
@@ -19,8 +22,10 @@ pub struct GiteaRepoGetRequest<'a> {
 pub fn fetch_gitea_repository<'a>(
     tenant: &'a GiteaInstanceUrl,
     repo_full_name: &'a GiteaRepoFullName,
+    cancellation: &CancellationScope,
 ) -> GiteaRepoGetRequest<'a> {
     GiteaRepoGetRequest {
+        cancellation: cancellation.clone(),
         tenant: Cow::Borrowed(tenant),
         repo_full_name: Cow::Borrowed(repo_full_name),
     }
@@ -29,6 +34,7 @@ pub fn fetch_gitea_repository<'a>(
 impl<'a> Arbitrary<'a> for GiteaRepoGetRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: CancellationScope::unbound(),
             tenant: Cow::Owned(GiteaInstanceUrl::arbitrary(u)?),
             repo_full_name: Cow::Owned(GiteaRepoFullName::arbitrary(u)?),
         })
@@ -57,6 +63,7 @@ impl<'a> CacheableCommand for GiteaRepoGetRequest<'a> {
                 self.repo_full_name.owner, self.repo_full_name.repo_name
             ),
             Some(self.cache_key()),
+            &self.cancellation,
         )
         .await
     }

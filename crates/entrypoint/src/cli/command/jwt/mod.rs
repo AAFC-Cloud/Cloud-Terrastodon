@@ -1,6 +1,7 @@
 pub mod decode_cli;
 
 use crate::cli::command::jwt::decode_cli::JwtDecodeArgs;
+use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 
 /// JWT-related commands.
@@ -18,15 +19,21 @@ pub enum JwtCommand {
 }
 
 impl JwtArgs {
-    pub async fn invoke(self) -> Result<()> {
-        self.command.invoke().await
+    pub async fn invoke(
+        self,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        self.command.invoke(cancellation).await
     }
 }
 
 impl JwtCommand {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(
+        self,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self {
-            JwtCommand::Decode(args) => args.invoke().await,
+            JwtCommand::Decode(args) => args.invoke(cancellation).await,
         }
     }
 }

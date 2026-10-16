@@ -1,4 +1,5 @@
 use crate::ProviderManager;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::CommandOutput;
@@ -38,18 +39,25 @@ impl GenerateConfigOutHelper {
         self
     }
     #[track_caller]
-    pub fn run(&mut self) -> impl Future<Output = Result<()>> + '_ {
-        self.run_from(Location::caller())
+    pub fn run<'a>(
+        &'a mut self,
+        cancellation: &'a CancellationScope,
+    ) -> impl Future<Output = Result<()>> + 'a {
+        self.run_from(Location::caller(), cancellation)
     }
 
-    async fn run_from(&mut self, caller: &'static Location<'static>) -> Result<()> {
+    async fn run_from(
+        &mut self,
+        caller: &'static Location<'static>,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         // Check preconditions
         let Some(ref work_dir) = self.run_dir else {
             return Err(eyre!("Run dir not set!"));
         };
         let result: eyre::Result<()> = async {
             let provider_manager = ProviderManager::try_new()?;
-            provider_manager.write_default_provider_configs(&work_dir).await?;
+            provider_manager.write_default_provider_configs(&work_dir, cancellation).await?;
             // provider_manager.populate_provider_cache(&TerraformRequiredProvidersBlock::common()).await?;
 
             // tf init
@@ -63,7 +71,7 @@ impl GenerateConfigOutHelper {
                 init_cmd.arg(format!("-plugin-dir={}", plugin_dir.display()));
                 // init_cmd.arg(plugin_dir);
             }
-            init_cmd.run_raw().await?;
+            init_cmd.run_raw(cancellation).await?;
             info!("Terraform init successful!");
 
             // remove old plan outputs
@@ -77,12 +85,13 @@ impl GenerateConfigOutHelper {
             }
 
             let mut validate_cmd = CommandBuilder::new(CommandKind::Terraform);
+            validate_cmd.cancellation_safe();
             validate_cmd.should_announce(true);
             validate_cmd.use_run_dir(work_dir);
             validate_cmd.use_output_behaviour(OutputBehaviour::Display);
             // validate_cmd.use_timeout(Duration::from_secs(30));
             validate_cmd.arg("validate");
-            validate_cmd.run_raw().await?;
+            validate_cmd.run_raw(cancellation).await?;
 
             // tf plan
             let mut plan_cmd = CommandBuilder::new(CommandKind::Terraform);
@@ -96,12 +105,15 @@ impl GenerateConfigOutHelper {
             ]);
 
             info!("Executing import, please be patient.");
-            let plan_result = plan_cmd.run_raw().await;
+            let plan_result = plan_cmd.run_raw(cancellation).await;
             match plan_result {
                 Ok(_) => {
                     info!("Import success!");
                 }
                 Err(mut e) => {
+                    if e.downcast_ref::<cloud_terrastodon_command::CancellationError>().is_some() {
+                        return Err(e);
+                    }
                     let output = e
                         .downcast_mut::<CommandOutput>()
                         .ok_or_eyre("Failed to get command output details from error report")?;
@@ -186,6 +198,7 @@ impl GenerateConfigOutHelper {
 mod test {
     use crate::GenerateConfigOutHelper;
     use crate::ProviderManager;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_hcl_types::TerraformRequiredProvidersBlock;
     use cloud_terrastodon_pathing::AppDir;
     use cloud_terrastodon_pathing::Existy;
@@ -197,6 +210,7 @@ mod test {
     #[tokio::test]
     #[ignore]
     pub async fn terraform_concurrent_init_fail() -> eyre::Result<()> {
+        CancellationToken::new().with_async_scope(|cancellation| async move {
         let plugin_dir = ProviderManager::get_default_tf_plugin_cache_dir()?;
         println!(
             "This test can leave your plugin dir in a broken config, I recommend deleting {} after",
@@ -207,11 +221,12 @@ mod test {
         let mut join_set: JoinSet<eyre::Result<()>> = JoinSet::new();
         for i in 0..num_workspaces {
             let workspace_dir = temp_dir.path().join(format!("workspace_{i:03}"));
+            let cancellation = cancellation.clone();
             join_set.spawn(async move {
                 workspace_dir.ensure_dir_exists().await?;
                 GenerateConfigOutHelper::new()
                     .with_run_dir(&workspace_dir)
-                    .run()
+                    .run(&cancellation)
                     .await?;
                 Ok(())
             });
@@ -220,46 +235,55 @@ mod test {
             x??;
         }
         Ok(())
+            }).await
     }
 
     #[tokio::test]
     #[ignore]
     pub async fn terraform_concurrent_init_happy() -> eyre::Result<()> {
-        let temp_dir = Builder::new().tempdir_in(AppDir::Temp.as_path_buf())?;
-        let num_workspaces = 25;
-        let mut join_set: JoinSet<eyre::Result<()>> = JoinSet::new();
+        CancellationToken::new()
+            .with_async_scope(|cancellation| async move {
+                let temp_dir = Builder::new().tempdir_in(AppDir::Temp.as_path_buf())?;
+                let num_workspaces = 25;
+                let mut join_set: JoinSet<eyre::Result<()>> = JoinSet::new();
 
-        let provider_manager = ProviderManager::try_new()?;
-        provider_manager
-            .populate_provider_cache(&TerraformRequiredProvidersBlock::common())
-            .await?;
-
-        // let limit = Arc::new(Semaphore::new(1));
-        let limit = Arc::new(Semaphore::new(num_workspaces));
-
-        let cache_dir = provider_manager.local_mirror_dir;
-        for i in 0..num_workspaces {
-            let workspace_dir = temp_dir.path().join(format!("workspace_{i:03}"));
-            let cache_dir = cache_dir.clone();
-            let limit = limit.clone();
-            join_set.spawn(async move {
-                workspace_dir.ensure_dir_exists().await?;
-                let permit = limit.acquire().await?;
-                GenerateConfigOutHelper::new()
-                    .with_run_dir(&workspace_dir)
-                    .with_plugin_dir(cache_dir)
-                    .run()
+                let provider_manager = ProviderManager::try_new()?;
+                provider_manager
+                    .populate_provider_cache(
+                        &TerraformRequiredProvidersBlock::common(),
+                        &cancellation,
+                    )
                     .await?;
-                drop(permit);
+
+                // let limit = Arc::new(Semaphore::new(1));
+                let limit = Arc::new(Semaphore::new(num_workspaces));
+
+                let cache_dir = provider_manager.local_mirror_dir;
+                for i in 0..num_workspaces {
+                    let workspace_dir = temp_dir.path().join(format!("workspace_{i:03}"));
+                    let cache_dir = cache_dir.clone();
+                    let limit = limit.clone();
+                    let cancellation = cancellation.clone();
+                    join_set.spawn(async move {
+                        workspace_dir.ensure_dir_exists().await?;
+                        let permit = limit.acquire().await?;
+                        GenerateConfigOutHelper::new()
+                            .with_run_dir(&workspace_dir)
+                            .with_plugin_dir(cache_dir)
+                            .run(&cancellation)
+                            .await?;
+                        drop(permit);
+                        Ok(())
+                    });
+                }
+
+                _ = temp_dir.keep(); // keep it around
+
+                while let Some(x) = join_set.join_next().await {
+                    x??;
+                }
                 Ok(())
-            });
-        }
-
-        _ = temp_dir.keep(); // keep it around
-
-        while let Some(x) = join_set.join_next().await {
-            x??;
-        }
-        Ok(())
+            })
+            .await
     }
 }

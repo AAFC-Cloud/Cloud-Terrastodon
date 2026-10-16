@@ -1,3 +1,4 @@
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_hcl::HclWriter;
 use cloud_terrastodon_hcl::get_imports_from_existing;
 use cloud_terrastodon_pathing::AppDir;
@@ -5,7 +6,9 @@ use cloud_terrastodon_user_input::prompt_line;
 use eyre::Result;
 use eyre::eyre;
 
-pub async fn build_imports_from_existing() -> Result<()> {
+pub async fn build_imports_from_existing(
+    cancellation: &CancellationScope,
+) -> Result<()> {
     let tf_dir = prompt_line("Enter the path to the existing workspace: ").await?;
 
     // println!("Enter the name for the output file [existing.tf]:");
@@ -15,13 +18,13 @@ pub async fn build_imports_from_existing() -> Result<()> {
     // }
     let name = "existing.tf";
 
-    let imports = get_imports_from_existing(tf_dir).await?;
+    let imports = get_imports_from_existing(tf_dir, cancellation).await?;
     if imports.is_empty() {
         return Err(eyre!("Imports should not be empty"));
     }
 
     HclWriter::new(AppDir::Imports.join(name))
-        .overwrite(imports)
+        .overwrite(imports, cancellation)
         .await?;
 
     Ok(())

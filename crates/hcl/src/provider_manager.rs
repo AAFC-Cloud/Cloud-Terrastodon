@@ -2,6 +2,7 @@ use crate::writer::HclWriter;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::get_active_subscription_id;
 use cloud_terrastodon_azure_devops::get_default_organization_url;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::OutputBehaviour;
@@ -196,6 +197,7 @@ impl ProviderManager {
     pub async fn populate_provider_cache(
         &self,
         desired_providers: &TerraformRequiredProvidersBlock,
+        cancellation: &CancellationScope,
     ) -> eyre::Result<Option<TempDir>> {
         let provider_manager = self;
         let available_providers = provider_manager.list_cached_providers().await?;
@@ -218,9 +220,9 @@ impl ProviderManager {
         let temp_dir = tempfile::Builder::new().tempdir_in(&app_temp_dir)?;
         let boilerplate_tf_path = temp_dir.path().join("boilerplate.tf");
         HclWriter::new(boilerplate_tf_path)
-            .overwrite(boilerplate_tf)
+            .overwrite(boilerplate_tf, cancellation)
             .await?
-            .format_file()
+            .format_file(cancellation)
             .await?;
 
         let mut cmd = CommandBuilder::new(CommandKind::Terraform);
@@ -239,47 +241,56 @@ impl ProviderManager {
         ]);
         cmd.use_output_behaviour(OutputBehaviour::Display);
         cmd.use_run_dir(temp_dir.path());
-        cmd.run_raw().await?;
+        cmd.run_raw(cancellation).await?;
         Ok(Some(temp_dir))
     }
 
     pub async fn write_default_provider_configs(
         &self,
         work_dir: impl AsRef<Path>,
+        cancellation: &CancellationScope,
     ) -> eyre::Result<()> {
         let work_dir = work_dir.as_ref();
         // Get devops url
         let org_service_url = format!(
             "https://dev.azure.com/{name}/",
-            name = get_default_organization_url().await?.organization_name()?
+            name = get_default_organization_url(cancellation)
+                .await?
+                .organization_name()?
         );
 
         // Get active sub
-        let active_sub_id = get_active_subscription_id().await?;
+        let active_sub_id = get_active_subscription_id(cancellation).await?;
 
         // Open boilerplate file
         debug!(path = %work_dir.display(), "Writing default provider configs");
         let boilerplate_path = work_dir.join("boilerplate.tf");
         HclWriter::new(boilerplate_path)
-            .merge(vec![TerraformBlock {
-                required_providers: Some(TerraformRequiredProvidersBlock::common()),
-                ..Default::default()
-            }])
+            .merge(
+                vec![TerraformBlock {
+                    required_providers: Some(TerraformRequiredProvidersBlock::common()),
+                    ..Default::default()
+                }],
+                cancellation,
+            )
             .await
             .wrap_err("Writing terraform block")?
-            .merge(vec![
-                HclProviderBlock::AzureDevOps {
-                    alias: None,
-                    org_service_url,
-                },
-                HclProviderBlock::AzureRM {
-                    alias: None,
-                    subscription_id: Some(active_sub_id.short_form()),
-                },
-            ])
+            .merge(
+                vec![
+                    HclProviderBlock::AzureDevOps {
+                        alias: None,
+                        org_service_url,
+                    },
+                    HclProviderBlock::AzureRM {
+                        alias: None,
+                        subscription_id: Some(active_sub_id.short_form()),
+                    },
+                ],
+                cancellation,
+            )
             .await
             .wrap_err("Writing default provider blocks")?
-            .format_file()
+            .format_file(cancellation)
             .await?;
         Ok(())
     }
@@ -288,6 +299,7 @@ impl ProviderManager {
 #[cfg(test)]
 mod test {
     use crate::ProviderManager;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_hcl_types::TerraformRequiredProvidersBlock;
     use eyre::bail;
     use hcl::edit::structure::Body;
@@ -303,8 +315,10 @@ mod test {
     #[tokio::test]
     #[ignore]
     pub async fn install_missing_providers() -> eyre::Result<()> {
-        let required_providers = TerraformRequiredProvidersBlock::try_from(
-            r#"
+        CancellationToken::new()
+            .with_async_scope(|cancellation| async move {
+                let required_providers = TerraformRequiredProvidersBlock::try_from(
+                    r#"
                 required_providers {
                     azurerm = {
                         source = "hashicorp/azurerm"
@@ -312,44 +326,50 @@ mod test {
                     }
                 }
             "#
-            .parse::<Body>()?
-            .into_blocks()
-            .next()
-            .unwrap(),
-        )?;
-        let provider_manager = ProviderManager::try_new()?;
-        let temp_dir = provider_manager
-            .populate_provider_cache(&required_providers)
-            .await?;
-        let temp_dir = match temp_dir {
-            None => {
-                bail!("All required providers are already installed");
-            }
-            Some(x) => x,
-        };
+                    .parse::<Body>()?
+                    .into_blocks()
+                    .next()
+                    .unwrap(),
+                )?;
+                let provider_manager = ProviderManager::try_new()?;
+                let temp_dir = provider_manager
+                    .populate_provider_cache(&required_providers, &cancellation)
+                    .await?;
+                let temp_dir = match temp_dir {
+                    None => {
+                        bail!("All required providers are already installed");
+                    }
+                    Some(x) => x,
+                };
 
-        let persist = temp_dir.keep();
-        println!("Persisting dir for testing at {}", persist.display());
-        Ok(())
+                let persist = temp_dir.keep();
+                println!("Persisting dir for testing at {}", persist.display());
+                Ok(())
+            })
+            .await
     }
 
     #[tokio::test]
     #[ignore]
     pub async fn install_default_providers() -> eyre::Result<()> {
-        let required_providers = TerraformRequiredProvidersBlock::common();
-        let provider_manager = ProviderManager::try_new()?;
-        let temp_dir = provider_manager
-            .populate_provider_cache(&required_providers)
-            .await?;
-        let temp_dir = match temp_dir {
-            None => {
-                bail!("All required providers are already installed");
-            }
-            Some(x) => x,
-        };
+        CancellationToken::new()
+            .with_async_scope(|cancellation| async move {
+                let required_providers = TerraformRequiredProvidersBlock::common();
+                let provider_manager = ProviderManager::try_new()?;
+                let temp_dir = provider_manager
+                    .populate_provider_cache(&required_providers, &cancellation)
+                    .await?;
+                let temp_dir = match temp_dir {
+                    None => {
+                        bail!("All required providers are already installed");
+                    }
+                    Some(x) => x,
+                };
 
-        let persist = temp_dir.keep();
-        println!("Persisting dir for testing at {}", persist.display());
-        Ok(())
+                let persist = temp_dir.keep();
+                println!("Persisting dir for testing at {}", persist.display());
+                Ok(())
+            })
+            .await
     }
 }

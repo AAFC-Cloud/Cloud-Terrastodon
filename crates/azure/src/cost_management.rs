@@ -2,6 +2,7 @@ use crate::fetch_root_management_group;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::CostManagementQueryDefinition;
 use cloud_terrastodon_azure_types::CostManagementQueryResult;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_rest::RestRequest;
 use cloud_terrastodon_rest::RestResponseBody;
@@ -17,14 +18,16 @@ pub async fn fetch_cost_query_results(
     tenant_id: AzureTenantId,
     query: &CostManagementQueryDefinition,
     auth_context: &AuthContext,
+    cancellation: &CancellationScope,
 ) -> eyre::Result<CostManagementQueryResult> {
     let tenant_auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
-    let root = fetch_root_management_group(&tenant_auth_context).await?;
+    let root = fetch_root_management_group(&tenant_auth_context, cancellation).await?;
     let url = format!(
         "https://management.azure.com/providers/Microsoft.Management/managementGroups/{}/providers/Microsoft.CostManagement/query?api-version=2021-10-01",
         root.tenant_id
     );
-    let request = RestRequest::new(http::Method::POST, url.as_str())?
+    let request = RestRequest::new(http::Method::POST, url.as_str(), cancellation)?
+        .cancellation_safe()
         .azure_auth_context(auth_context)
         .tenant(tenant_id)
         .body(facet_json::to_string_pretty(query).map_err(|error| eyre::eyre!("{error:?}"))?);
@@ -39,9 +42,11 @@ async fn receive_cost_management_response(
         Raw(SerializableRestResponse),
     }
 
+    let cancellation = request.cancellation.clone();
     let mut retries = 0usize;
 
     loop {
+        cancellation.bail_if_cancelled()?;
         let cache_key = request.cache_key.clone();
         let outcome = request
             .clone()
@@ -86,7 +91,12 @@ async fn receive_cost_management_response(
                 reset_in = %humantime::format_duration(delay),
                 "Retrying throttled Cost Management request"
             );
-            tokio::time::sleep(delay).await;
+            cancellation
+                .cancellable_scope(|_| async {
+                    tokio::time::sleep(delay).await;
+                    eyre::Ok(())
+                })
+                .await?;
             continue;
         }
 
@@ -115,6 +125,7 @@ fn format_rest_error_body(body: &RestResponseBody) -> String {
 mod tests {
     use super::*;
     use crate::get_test_tenant_id;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_credentials::AuthContext;
     use http::HeaderMap;
     use http::HeaderValue;
@@ -151,41 +162,56 @@ mod tests {
 
     #[tokio::test]
     async fn it_works1() -> eyre::Result<()> {
-        let query = CostManagementQueryDefinition::new_cost_total_this_month();
-        let resp = fetch_cost_query_results(
-            get_test_tenant_id().await?,
-            &query,
-            &AuthContext::explicit_azure_cli(),
-        )
-        .await?;
-        assert_eq!(resp.properties.next_link, None);
-        assert!(!resp.properties.columns.is_empty());
-        Ok(())
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let query = CostManagementQueryDefinition::new_cost_total_this_month();
+                let resp = fetch_cost_query_results(
+                    get_test_tenant_id(&cancellation).await?,
+                    &query,
+                    &AuthContext::explicit_azure_cli(),
+                    &cancellation,
+                )
+                .await?;
+                assert_eq!(resp.properties.next_link, None);
+                assert!(!resp.properties.columns.is_empty());
+                Ok(())
+            })
+            .await
     }
     #[tokio::test]
     async fn it_works2() -> eyre::Result<()> {
-        let query = CostManagementQueryDefinition::new_cost_by_day_this_month();
-        let resp = fetch_cost_query_results(
-            get_test_tenant_id().await?,
-            &query,
-            &AuthContext::explicit_azure_cli(),
-        )
-        .await?;
-        assert_eq!(resp.properties.next_link, None);
-        assert!(!resp.properties.columns.is_empty());
-        Ok(())
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let query = CostManagementQueryDefinition::new_cost_by_day_this_month();
+                let resp = fetch_cost_query_results(
+                    get_test_tenant_id(&cancellation).await?,
+                    &query,
+                    &AuthContext::explicit_azure_cli(),
+                    &cancellation,
+                )
+                .await?;
+                assert_eq!(resp.properties.next_link, None);
+                assert!(!resp.properties.columns.is_empty());
+                Ok(())
+            })
+            .await
     }
     #[tokio::test]
     async fn it_works3() -> eyre::Result<()> {
-        let query = CostManagementQueryDefinition::new_cost_by_resource_group_this_month();
-        let resp = fetch_cost_query_results(
-            get_test_tenant_id().await?,
-            &query,
-            &AuthContext::explicit_azure_cli(),
-        )
-        .await?;
-        assert_eq!(resp.properties.next_link, None);
-        assert!(!resp.properties.columns.is_empty());
-        Ok(())
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let query = CostManagementQueryDefinition::new_cost_by_resource_group_this_month();
+                let resp = fetch_cost_query_results(
+                    get_test_tenant_id(&cancellation).await?,
+                    &query,
+                    &AuthContext::explicit_azure_cli(),
+                    &cancellation,
+                )
+                .await?;
+                assert_eq!(resp.properties.next_link, None);
+                assert!(!resp.properties.columns.is_empty());
+                Ok(())
+            })
+            .await
     }
 }

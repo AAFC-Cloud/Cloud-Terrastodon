@@ -4,6 +4,7 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsUserArgument;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsUserLicenseEntitlement;
 use cloud_terrastodon_command::CacheInvalidatable;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use eyre::bail;
@@ -11,6 +12,8 @@ use std::borrow::Cow;
 use std::pin::Pin;
 
 pub struct AzureDevOpsUserLicenseEntitlementShowRequest<'a> {
+    pub cancellation: CancellationScope,
+
     pub org_url: &'a AzureDevOpsOrganizationUrl,
     pub user: AzureDevOpsUserArgument<'a>,
     pub invalidate_cache: bool,
@@ -21,8 +24,10 @@ pub fn fetch_azure_devops_user_license_entitlement<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     user: impl Into<AzureDevOpsUserArgument<'a>>,
     auth_context: &'a AzureDevOpsAuthContext,
+    cancellation: &CancellationScope,
 ) -> AzureDevOpsUserLicenseEntitlementShowRequest<'a> {
     AzureDevOpsUserLicenseEntitlementShowRequest {
+        cancellation: cancellation.clone(),
         org_url,
         user: user.into(),
         invalidate_cache: false,
@@ -33,9 +38,13 @@ pub fn fetch_azure_devops_user_license_entitlement<'a>(
 #[async_trait]
 impl<'a> CacheInvalidatable for AzureDevOpsUserLicenseEntitlementShowRequest<'a> {
     async fn invalidate(&self) -> eyre::Result<()> {
-        fetch_azure_devops_user_license_entitlements(self.org_url, self.auth_context.as_ref())
-            .invalidate()
-            .await
+        fetch_azure_devops_user_license_entitlements(
+            self.org_url,
+            self.auth_context.as_ref(),
+            &self.cancellation,
+        )
+        .invalidate()
+        .await
     }
 }
 
@@ -57,6 +66,7 @@ impl<'a> IntoFuture for AzureDevOpsUserLicenseEntitlementShowRequest<'a> {
             let entitlements = fetch_azure_devops_user_license_entitlements(
                 self.org_url,
                 self.auth_context.as_ref(),
+                &self.cancellation,
             )
             .with_invalidation(self.invalidate_cache)
             .await?;

@@ -3,6 +3,7 @@ use super::AzureEntraApplicationRegistrationListArgs;
 use super::AzureEntraApplicationRegistrationRoleArgs;
 use super::AzureEntraApplicationRegistrationSearchArgs;
 use super::AzureEntraApplicationRegistrationShowArgs;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -23,16 +24,24 @@ pub enum AzureEntraApplicationRegistrationCommand {
 }
 
 impl AzureEntraApplicationRegistrationCommand {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self {
-            AzureEntraApplicationRegistrationCommand::List(args) => args.invoke(auth_context).await,
-            AzureEntraApplicationRegistrationCommand::Show(args) => args.invoke(auth_context).await,
-            AzureEntraApplicationRegistrationCommand::Browse(args) => {
-                args.invoke(auth_context).await
+            AzureEntraApplicationRegistrationCommand::List(args) => {
+                args.invoke(auth_context, cancellation).await
             }
-            AzureEntraApplicationRegistrationCommand::Role(args) => args.invoke().await,
+            AzureEntraApplicationRegistrationCommand::Show(args) => {
+                args.invoke(auth_context, cancellation).await
+            }
+            AzureEntraApplicationRegistrationCommand::Browse(args) => {
+                args.invoke(auth_context, cancellation).await
+            }
+            AzureEntraApplicationRegistrationCommand::Role(args) => args.invoke(cancellation).await,
             AzureEntraApplicationRegistrationCommand::Search(args) => {
-                args.invoke(auth_context).await
+                args.invoke(auth_context, cancellation).await
             }
         }
     }

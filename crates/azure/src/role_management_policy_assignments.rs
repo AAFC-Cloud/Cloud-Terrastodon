@@ -2,6 +2,7 @@ use cloud_terrastodon_azure_types::RoleDefinitionId;
 use cloud_terrastodon_azure_types::RoleManagementPolicyAssignment;
 use cloud_terrastodon_azure_types::Scope;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_hcl_types::Sanitizable;
 use cloud_terrastodon_rest::RestRequest;
@@ -10,6 +11,9 @@ use std::path::PathBuf;
 
 #[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct RoleManagementPolicyAssignmentsForRoleRequest<T: Scope + Send> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub scope: T,
     pub role_definition_id: RoleDefinitionId,
 }
@@ -17,8 +21,10 @@ pub struct RoleManagementPolicyAssignmentsForRoleRequest<T: Scope + Send> {
 pub fn fetch_role_management_policy_assignments<T: Scope + Send>(
     scope: T,
     role_definition_id: RoleDefinitionId,
+    cancellation: &CancellationScope,
 ) -> RoleManagementPolicyAssignmentsForRoleRequest<T> {
     RoleManagementPolicyAssignmentsForRoleRequest {
+        cancellation: cancellation.clone(),
         scope,
         role_definition_id,
     }
@@ -54,9 +60,11 @@ impl<T: Scope + Send> cloud_terrastodon_command::CacheableCommand
             value: Vec<RoleManagementPolicyAssignment>,
         }
 
-        let request = RestRequest::new(http::Method::GET, &url)?.cache(self.cache_key());
+        let request =
+            RestRequest::new(http::Method::GET, &url, &self.cancellation)?.cache(self.cache_key());
         let mut result: Result<Response, _> = request.clone().receive().await;
         if result.is_err() {
+            self.cancellation.bail_if_cancelled()?;
             // single retry - sometimes this returns a gateway error
             result = request.receive().await;
         }
@@ -86,25 +94,36 @@ mod tests {
     use super::*;
     use crate::role_eligibility_schedules::fetch_my_role_eligibility_schedules;
     use crate::test_helpers::expect_aad_premium_p2_license;
+    use cloud_terrastodon_command::CancellationToken;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
-        let Some(mut my_roles) =
-            expect_aad_premium_p2_license(fetch_my_role_eligibility_schedules().await).await?
-        else {
-            return Ok(());
-        };
-        let role = my_roles.swap_remove(0);
-        let scope = role.properties.scope;
-        let role_definition_id = role.properties.role_definition_id;
-        let found_policy_assignments =
-            fetch_role_management_policy_assignments(scope, role_definition_id).await?;
-        assert!(!found_policy_assignments.is_empty());
-        assert!(
-            found_policy_assignments
-                .iter()
-                .any(|assignment| assignment.get_maximum_activation_duration().is_some())
-        );
-        Ok(())
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let Some(mut my_roles) = expect_aad_premium_p2_license(
+                    fetch_my_role_eligibility_schedules(&cancellation).await,
+                )
+                .await?
+                else {
+                    return Ok(());
+                };
+                let role = my_roles.swap_remove(0);
+                let scope = role.properties.scope;
+                let role_definition_id = role.properties.role_definition_id;
+                let found_policy_assignments = fetch_role_management_policy_assignments(
+                    scope,
+                    role_definition_id,
+                    &cancellation,
+                )
+                .await?;
+                assert!(!found_policy_assignments.is_empty());
+                assert!(
+                    found_policy_assignments
+                        .iter()
+                        .any(|assignment| assignment.get_maximum_activation_duration().is_some())
+                );
+                Ok(())
+            })
+            .await
     }
 }

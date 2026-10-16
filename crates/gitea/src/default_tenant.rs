@@ -1,6 +1,7 @@
 use crate::GiteaInstanceUrl;
 use crate::list_gitea_logins;
 use cloud_terrastodon_command::CacheInvalidatable;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use eyre::OptionExt;
 use eyre::bail;
@@ -9,16 +10,23 @@ use std::pin::Pin;
 
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Debug, Clone, arbitrary::Arbitrary, facet::Facet)]
-pub struct DefaultGiteaInstanceUrlRequest;
+pub struct DefaultGiteaInstanceUrlRequest {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+}
 
-pub fn get_default_gitea_instance_url() -> DefaultGiteaInstanceUrlRequest {
-    DefaultGiteaInstanceUrlRequest
+pub fn get_default_gitea_instance_url(
+    cancellation: &CancellationScope,
+) -> DefaultGiteaInstanceUrlRequest {
+    DefaultGiteaInstanceUrlRequest {
+        cancellation: cancellation.clone(),
+    }
 }
 
 #[async_trait]
 impl CacheInvalidatable for DefaultGiteaInstanceUrlRequest {
     async fn invalidate(&self) -> eyre::Result<()> {
-        list_gitea_logins().invalidate().await
+        list_gitea_logins(&self.cancellation).invalidate().await
     }
 }
 
@@ -28,7 +36,7 @@ impl IntoFuture for DefaultGiteaInstanceUrlRequest {
 
     fn into_future(self) -> Self::IntoFuture {
         Box::pin(async move {
-            let logins = list_gitea_logins().await?;
+            let logins = list_gitea_logins(&self.cancellation).await?;
             if logins.is_empty() {
                 bail!("No Gitea logins were found. Configure one with the `tea` CLI first.");
             }

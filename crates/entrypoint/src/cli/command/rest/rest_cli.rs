@@ -4,6 +4,7 @@ use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::SubscriptionIdExt;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_rest::RequestHeaders;
 use cloud_terrastodon_rest::RestRequest;
@@ -67,19 +68,27 @@ impl<'a> Arbitrary<'a> for RestArgs {
 }
 impl RestArgs {
     /// Return the response with body-only text and shared JSON/Facet rendering.
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<CliOutput> {
-        let response = self.fetch_response(auth_context).await?;
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<CliOutput> {
+        let response = self.fetch_response(auth_context, cancellation).await?;
         Ok(response_output(response))
     }
 
-    async fn fetch_response(self, auth_context: &AuthContext) -> Result<SerializableRestResponse> {
+    async fn fetch_response(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<SerializableRestResponse> {
         let url = Url::parse(&self.url).with_context(|| format!("parsing URL '{}'", self.url))?;
         let service = RestService::infer(&url).wrap_err_with(|| {
             format!("unsupported REST host '{}'", url.host_str().unwrap_or(""))
         })?;
         let tenant_inference_url = url.clone();
         let requested_tenant = match self.tenant {
-            Some(tenant) => Some(tenant.resolve().await?),
+            Some(tenant) => Some(tenant.resolve(cancellation).await?),
             None => None,
         };
         let tenant = match requested_tenant.or(auth_context.tenant_id()) {
@@ -87,7 +96,7 @@ impl RestArgs {
             None => {
                 infer_tenant_id_for_request(service, &url, |subscription_id| async move {
                     subscription_id
-                        .resolve_tenant_id(auth_context)
+                        .resolve_tenant_id(auth_context, cancellation)
                         .await
                         .with_context(|| {
                         format!(
@@ -107,8 +116,8 @@ impl RestArgs {
             (Some(headers), None) | (None, Some(headers)) => Some(headers),
             (None, None) => None,
         };
-        let mut request =
-            RestRequest::from_method_and_url(self.method.0, url)?.azure_auth_context(auth_context);
+        let mut request = RestRequest::from_method_and_url(self.method.0, url, cancellation)?
+            .azure_auth_context(auth_context);
         request.service = service;
         request.body = body;
         request.headers = headers;

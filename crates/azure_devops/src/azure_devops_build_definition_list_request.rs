@@ -7,6 +7,7 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
 use cloud_terrastodon_command::CacheInvalidatable;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::HasCacheKey;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use cloud_terrastodon_pathing::sanitize_windows_path_component;
@@ -35,6 +36,9 @@ use std::pin::Pin;
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Debug, Clone, Facet)]
 pub struct AzureDevOpsBuildDefinitionListRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     /// Project ID or name.
     pub project: AzureDevOpsProjectArgument<'a>,
@@ -53,8 +57,10 @@ pub fn fetch_azure_devops_build_definitions<'a>(
     auth_context: &'a AzureDevOpsAuthContext,
     name: Option<String>,
     path: Option<AzureDevOpsBuildFolderPath>,
+    cancellation: &CancellationScope,
 ) -> AzureDevOpsBuildDefinitionListRequest<'a> {
     AzureDevOpsBuildDefinitionListRequest {
+        cancellation: cancellation.clone(),
         org_url: Cow::Borrowed(org_url),
         project: project.into(),
         auth_context: Cow::Borrowed(auth_context),
@@ -66,6 +72,7 @@ pub fn fetch_azure_devops_build_definitions<'a>(
 impl<'a> Arbitrary<'a> for AzureDevOpsBuildDefinitionListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: CancellationScope::arbitrary(u)?,
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
             auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
@@ -137,7 +144,12 @@ impl<'a> CacheInvalidatableIntoFuture for AzureDevOpsBuildDefinitionListRequest<
     fn with_invalidation(self, invalidate_cache: bool) -> Self::WithInvalidation {
         Box::pin(async move {
             if invalidate_cache {
-                self.invalidate().await?;
+                self.cancellation
+                    .deferred(
+                        "finishing filesystem and memory cache invalidation",
+                        |_invalidation| async { self.invalidate().await },
+                    )
+                    .await?;
             }
             self.into_future().await
         })
@@ -177,15 +189,17 @@ impl<'a> IntoFuture for AzureDevOpsBuildDefinitionListRequest<'a> {
             let mut seen = BTreeSet::new();
             let mut page_index = 0;
             loop {
+                self.cancellation.bail_if_cancelled()?;
                 let mut page_url = url.clone();
                 if let Some(token) = &continuation {
                     page_url
                         .query_pairs_mut()
                         .append_pair("continuationToken", token.as_str());
                 }
-                let request = RestRequest::from_method_and_url(Method::GET, page_url)?
-                    .cache(cache_key.join(page_index.to_string()))
-                    .azure_devops_auth_context(self.auth_context.as_ref())?;
+                let request =
+                    RestRequest::from_method_and_url(Method::GET, page_url, &self.cancellation)?
+                        .cache(cache_key.join(page_index.to_string()))
+                        .azure_devops_auth_context(self.auth_context.as_ref())?;
                 let (page, next): (AzureDevOpsBuildPage<AzureDevOpsBuildDefinitionReference>, _) =
                     request.receive_with_ms_continuation_token().await?;
                 definitions.extend(page.value);

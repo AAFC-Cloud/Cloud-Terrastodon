@@ -2,6 +2,7 @@ use cloud_terrastodon_azure_devops::AzureDevOpsLicenseType;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlements;
 use cloud_terrastodon_azure_devops::update_azure_devops_user_license_entitlement;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
@@ -19,7 +20,11 @@ pub struct AzureDevOpsLicenseEntitlementUserUpdateTuiArgs {
 }
 
 impl AzureDevOpsLicenseEntitlementUserUpdateTuiArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         let azure_devops_auth_context = AzureDevOpsAuthContext::new(auth_context)?;
 
         let chosen_entitlements = PickerTui::<_>::new()
@@ -28,6 +33,7 @@ impl AzureDevOpsLicenseEntitlementUserUpdateTuiArgs {
                 let future = fetch_azure_devops_user_license_entitlements(
                     &self.org,
                     &azure_devops_auth_context,
+                    cancellation,
                 )
                 .with_invalidation(invalidate);
                 async move {
@@ -57,6 +63,7 @@ impl AzureDevOpsLicenseEntitlementUserUpdateTuiArgs {
                 &self.org,
                 entitlement.user_id,
                 license.clone(),
+                cancellation,
             )
             .await?;
             info!(

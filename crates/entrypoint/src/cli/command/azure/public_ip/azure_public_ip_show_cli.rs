@@ -2,6 +2,7 @@ use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::fetch_all_public_ips;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use eyre::bail;
@@ -21,10 +22,17 @@ pub struct AzurePublicIpShowArgs {
 }
 
 impl AzurePublicIpShowArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let tenant_auth_context = self
+            .tenant
+            .bind_auth_context(auth_context, cancellation)
+            .await?;
         info!(needle = %self.public_ip, tenant_id = %tenant_auth_context.tenant_id, "Fetching Azure public IP addresses");
-        let public_ips = fetch_all_public_ips(&tenant_auth_context).await?;
+        let public_ips = fetch_all_public_ips(&tenant_auth_context, cancellation).await?;
         info!(
             count = public_ips.len(),
             "Fetched Azure public IP addresses"

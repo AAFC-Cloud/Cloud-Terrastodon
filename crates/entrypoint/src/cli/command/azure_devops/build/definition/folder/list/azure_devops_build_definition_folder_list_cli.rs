@@ -10,6 +10,7 @@ use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_build_definitions;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_build_folders;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_credentials::AuthContext;
 use color_eyre::owo_colors::OwoColorize;
@@ -45,13 +46,25 @@ pub struct AzureDevOpsBuildDefinitionFolderListArgs {
 }
 
 impl AzureDevOpsBuildDefinitionFolderListArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<CliOutput> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<CliOutput> {
         let path = self.path.map(AzureDevOpsBuildFolderPathArgument::into_path);
-        let auth_context = self.tenant.bind_auth_context(auth_context).await?;
-        let folders =
-            fetch_azure_devops_build_folders(&self.org, self.project.clone(), &auth_context, path)
-                .with_invalidation(self.no_cache)
-                .await?;
+        let auth_context = self
+            .tenant
+            .bind_auth_context(auth_context, cancellation)
+            .await?;
+        let folders = fetch_azure_devops_build_folders(
+            &self.org,
+            self.project.clone(),
+            &auth_context,
+            path,
+            cancellation,
+        )
+        .with_invalidation(self.no_cache)
+        .await?;
         // Join the complete project inventory locally, rather than relying on
         // a definition path filter to include every returned child folder.
         let definitions = fetch_azure_devops_build_definitions(
@@ -60,6 +73,7 @@ impl AzureDevOpsBuildDefinitionFolderListArgs {
             &auth_context,
             None,
             None,
+            cancellation,
         )
         .with_invalidation(self.no_cache)
         .await?;

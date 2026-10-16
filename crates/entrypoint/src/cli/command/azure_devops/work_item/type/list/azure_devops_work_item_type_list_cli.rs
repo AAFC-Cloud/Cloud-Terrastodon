@@ -3,6 +3,7 @@ use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemTypeListRequest;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use std::borrow::Cow;
@@ -18,9 +19,14 @@ pub struct AzureDevOpsWorkItemTypeListArgs {
 }
 
 impl AzureDevOpsWorkItemTypeListArgs {
-    pub async fn invoke(self, auth: &AuthContext) -> Result<()> {
-        let auth_context = self.tenant.bind_auth_context(auth).await?;
+    pub async fn invoke(
+        self,
+        auth: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let auth_context = self.tenant.bind_auth_context(auth, cancellation).await?;
         let values = AzureDevOpsWorkItemTypeListRequest {
+            cancellation: cancellation.clone(),
             org_url: Cow::Owned(self.org),
             project: self.project,
             auth_context: Cow::Owned(auth_context),

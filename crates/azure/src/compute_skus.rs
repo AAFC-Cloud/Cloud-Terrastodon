@@ -2,6 +2,7 @@ use cloud_terrastodon_azure_types::ComputeSku;
 use cloud_terrastodon_azure_types::SubscriptionId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_rest::RestRequest;
 use std::path::PathBuf;
@@ -9,11 +10,20 @@ use tracing::debug;
 
 #[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct ComputeSkuListRequest {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub subscription_id: SubscriptionId,
 }
 
-pub fn fetch_all_compute_skus(subscription_id: SubscriptionId) -> ComputeSkuListRequest {
-    ComputeSkuListRequest { subscription_id }
+pub fn fetch_all_compute_skus(
+    subscription_id: SubscriptionId,
+    cancellation: &CancellationScope,
+) -> ComputeSkuListRequest {
+    ComputeSkuListRequest {
+        cancellation: cancellation.clone(),
+        subscription_id,
+    }
 }
 
 #[async_trait]
@@ -42,7 +52,7 @@ impl CacheableCommand for ComputeSkuListRequest {
         struct Response {
             value: Vec<ComputeSku>,
         }
-        let rtn = RestRequest::new(http::Method::GET, &url)?
+        let rtn = RestRequest::new(http::Method::GET, &url, &self.cancellation)?
             .cache(CacheKey::new(PathBuf::from_iter(["az", "vm", "list-skus"])))
             .receive::<Response>()
             .await?
@@ -65,28 +75,34 @@ mod test {
     use crate::get_test_tenant_id;
     use cloud_terrastodon_azure_types::AzureLocationName;
     use cloud_terrastodon_azure_types::ComputeSkuResourceType;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_credentials::AuthContext;
 
     #[tokio::test]
     #[ignore] // this endpoint takes forever
     pub async fn it_works() -> eyre::Result<()> {
-        let tenant_id = get_test_tenant_id().await?;
-        let subs = fetch_all_subscriptions(
-            &AuthContext::explicit_azure_cli().bind_to_azure_tenant(tenant_id)?,
-        )
-        .await?;
-        let sub = subs.first().unwrap();
-        let vm_skus = fetch_all_compute_skus(sub.id).await?;
-        let canada_vm_skus = vm_skus
-            .iter()
-            .filter(|s| s.locations.iter().any(AzureLocationName::is_canada))
-            .collect::<Vec<_>>();
-        let vm_skus_in_canada = canada_vm_skus
-            .into_iter()
-            .filter(|sku| sku.resource_type == ComputeSkuResourceType::VirtualMachines)
-            .count();
-        assert!(vm_skus_in_canada > 0);
-        Ok(())
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let tenant_id = get_test_tenant_id(&cancellation).await?;
+                let subs = fetch_all_subscriptions(
+                    &AuthContext::explicit_azure_cli().bind_to_azure_tenant(tenant_id)?,
+                    &cancellation,
+                )
+                .await?;
+                let sub = subs.first().unwrap();
+                let vm_skus = fetch_all_compute_skus(sub.id, &cancellation).await?;
+                let canada_vm_skus = vm_skus
+                    .iter()
+                    .filter(|s| s.locations.iter().any(AzureLocationName::is_canada))
+                    .collect::<Vec<_>>();
+                let vm_skus_in_canada = canada_vm_skus
+                    .into_iter()
+                    .filter(|sku| sku.resource_type == ComputeSkuResourceType::VirtualMachines)
+                    .count();
+                assert!(vm_skus_in_canada > 0);
+                Ok(())
+            })
+            .await
     }
 }
 

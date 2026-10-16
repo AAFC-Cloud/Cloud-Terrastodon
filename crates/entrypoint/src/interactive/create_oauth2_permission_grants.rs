@@ -7,6 +7,7 @@ use cloud_terrastodon_azure::find_matching_oauth2_permission_grant;
 use cloud_terrastodon_azure::join_oauth2_permission_grant_scopes;
 use cloud_terrastodon_azure::merge_oauth2_permission_grant_scopes;
 use cloud_terrastodon_azure::update_oauth2_permission_grant;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
@@ -14,10 +15,13 @@ use eyre::Result;
 use std::collections::HashSet;
 use tracing::info;
 
-pub async fn create_oauth2_permission_grants(auth_context: &AzureTenantAuthContext) -> Result<()> {
+pub async fn create_oauth2_permission_grants(
+    auth_context: &AzureTenantAuthContext,
+    cancellation: &CancellationScope,
+) -> Result<()> {
     let tenant_id = auth_context.tenant_id;
     info!("Fetching all service principals");
-    let service_principals = fetch_all_service_principals(auth_context).await?;
+    let service_principals = fetch_all_service_principals(auth_context, cancellation).await?;
     let resource = PickerTui::<_>::new()
         .set_header("Pick the underlying resource being granted access to")
         .set_query("'Microsoft\\ Graph")
@@ -38,7 +42,7 @@ pub async fn create_oauth2_permission_grants(auth_context: &AzureTenantAuthConte
         .await?;
     info!("You chose: {} - {}", client.display_name, client.id);
 
-    let scopes = fetch_oauth2_permission_scopes(resource.id, auth_context)
+    let scopes = fetch_oauth2_permission_scopes(resource.id, auth_context, cancellation)
         .await?
         .into_iter()
         .collect::<HashSet<_>>();
@@ -51,7 +55,7 @@ pub async fn create_oauth2_permission_grants(auth_context: &AzureTenantAuthConte
         }))
         .await?;
 
-    let users = fetch_all_entra_users(auth_context).await?;
+    let users = fetch_all_entra_users(auth_context, cancellation).await?;
     let users_to_add = PickerTui::<_>::new()
         .set_header(format!(
             "Select the users to add {} grants to",
@@ -63,7 +67,7 @@ pub async fn create_oauth2_permission_grants(auth_context: &AzureTenantAuthConte
         }))
         .await?;
 
-    let mut existing_grants = fetch_oauth2_permission_grants(tenant_id).await?;
+    let mut existing_grants = fetch_oauth2_permission_grants(tenant_id, cancellation).await?;
     let requested_scope =
         join_oauth2_permission_grant_scopes(scopes_to_add.iter().map(|scope| scope.value.as_str()));
 
@@ -85,9 +89,13 @@ pub async fn create_oauth2_permission_grants(auth_context: &AzureTenantAuthConte
             }
 
             println!("Updating scopes for {}", user);
-            let () =
-                update_oauth2_permission_grant(tenant_id, existing.id.clone(), new_scope.clone())
-                    .await?;
+            let () = update_oauth2_permission_grant(
+                tenant_id,
+                existing.id.clone(),
+                new_scope.clone(),
+                cancellation,
+            )
+            .await?;
             existing.scope = new_scope;
         } else {
             println!("Creating grant for {}", user);
@@ -97,6 +105,7 @@ pub async fn create_oauth2_permission_grants(auth_context: &AzureTenantAuthConte
                 client.id,
                 user.id,
                 requested_scope.clone(),
+                cancellation,
             )
             .await?;
             existing_grants.push(created);

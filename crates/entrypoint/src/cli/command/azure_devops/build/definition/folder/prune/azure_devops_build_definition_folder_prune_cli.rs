@@ -6,6 +6,7 @@ use cloud_terrastodon_azure_devops::AzureDevOpsBuildFolderPruneReport;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::prune_azure_devops_build_definition_folders;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use color_eyre::owo_colors::OwoColorize;
 use color_eyre::owo_colors::Stream;
@@ -36,15 +37,23 @@ pub struct AzureDevOpsBuildDefinitionFolderPruneArgs {
 }
 
 impl AzureDevOpsBuildDefinitionFolderPruneArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<CliOutput> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<CliOutput> {
         let path = self.path.map(AzureDevOpsBuildFolderPathArgument::into_path);
-        let auth_context = self.tenant.bind_auth_context(auth_context).await?;
+        let auth_context = self
+            .tenant
+            .bind_auth_context(auth_context, cancellation)
+            .await?;
         let report = prune_azure_devops_build_definition_folders(
             &self.org,
             self.project,
             &auth_context,
             path,
             self.dry_run,
+            cancellation,
         )
         .await?;
         Ok(CliOutput::facet_with_text(report, render_prune_report))

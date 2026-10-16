@@ -11,6 +11,7 @@ use cloud_terrastodon_azure_devops::AzureDevOpsUserArgument;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_group_license_entitlements;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlements;
 use cloud_terrastodon_azure_devops::update_azure_devops_user_license_entitlement;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use eyre::ContextCompat;
@@ -33,16 +34,26 @@ pub struct AzureDevOpsLicenseEntitlementUserRevokeArgs {
 }
 
 impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let tenant_auth_context = self
+            .tenant
+            .bind_auth_context(auth_context, cancellation)
+            .await?;
         let tenant_id = tenant_auth_context.tenant_id;
         let user_predicate = self.user.as_predicate()?;
 
         let azure_devops_auth_context =
             AzureDevOpsAuthContext::for_tenant(auth_context, tenant_id)?;
-        let entitlements =
-            fetch_azure_devops_user_license_entitlements(&self.org, &azure_devops_auth_context)
-                .await?;
+        let entitlements = fetch_azure_devops_user_license_entitlements(
+            &self.org,
+            &azure_devops_auth_context,
+            cancellation,
+        )
+        .await?;
 
         let user_entitlement = entitlements
             .into_iter()
@@ -70,7 +81,7 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
 
             // Fetch groups that are granting licenses
             let group_entitlements =
-                fetch_azure_devops_group_license_entitlements(&self.org).await?;
+                fetch_azure_devops_group_license_entitlements(&self.org, cancellation).await?;
 
             // Identify groups which grant the license that the user has
             for group_license_entitlement in group_entitlements {
@@ -92,7 +103,7 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
                     .origin_id
                     .parse::<EntraGroupId>()?;
                 let group_entra_members =
-                    fetch_group_members(group_entra_id, &tenant_auth_context).await?;
+                    fetch_group_members(group_entra_id, &tenant_auth_context, cancellation).await?;
                 let user_in_group = group_entra_members
                     .iter()
                     .filter_map(|p: &Principal| match p.as_user() {
@@ -120,7 +131,7 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
                         "User is granted license via this group - removing the user from this group to revoke the license"
                     );
 
-                    remove_group_member(group_entra_id, entra_user.id).await?;
+                    remove_group_member(group_entra_id, entra_user.id, cancellation).await?;
                 }
             }
         } else {
@@ -129,6 +140,7 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
                 &self.org,
                 user_entitlement.user_id,
                 AzureDevOpsLicenseType::AccountStakeholder,
+                cancellation,
             )
             .await?;
         }

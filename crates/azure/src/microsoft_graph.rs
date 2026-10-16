@@ -1,4 +1,5 @@
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::FromCommandOutput;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_rest::RequestHeaders;
@@ -23,6 +24,7 @@ enum NextLink {
     StopIteration,
 }
 pub struct MicrosoftGraphHelper<'a> {
+    cancellation: CancellationScope,
     pub url: String,
     pub cache_key: Option<CacheKey>,
     pub auth_context: &'a AzureTenantAuthContext,
@@ -34,8 +36,10 @@ impl<'a> MicrosoftGraphHelper<'a> {
         url: impl ToString,
         cache_key: Option<CacheKey>,
         auth_context: &'a AzureTenantAuthContext,
+        cancellation: &CancellationScope,
     ) -> Self {
         MicrosoftGraphHelper {
+            cancellation: cancellation.clone(),
             url: url.to_string(),
             cache_key,
             auth_context,
@@ -60,7 +64,7 @@ impl<'a> MicrosoftGraphHelper<'a> {
     }
 
     fn get_request(&self, url: &str) -> Result<RestRequest> {
-        let mut request = RestRequest::new(http::Method::GET, url)?;
+        let mut request = RestRequest::new(http::Method::GET, url, &self.cancellation)?;
         request.tenant = Some(self.auth_context.tenant_id);
         request = request.azure_auth_context(&self.auth_context.auth_context);
         request.cache_key = self.cache_key.clone();
@@ -68,13 +72,19 @@ impl<'a> MicrosoftGraphHelper<'a> {
         Ok(request)
     }
 
-    pub async fn fetch_one<T: FromCommandOutput>(self) -> Result<T> {
+    pub async fn fetch_one<T: FromCommandOutput>(
+        self,
+        _cancellation: &CancellationScope,
+    ) -> Result<T> {
         self.get_request(&self.url)?.receive::<T>().await
     }
 
     /// This doesn't handle 'singleton' responses like https://graph.microsoft.com/v1.0/me
-    pub async fn fetch_all<T: FromCommandOutput>(&self) -> Result<Vec<T>> {
-        match self.fetch_all_once().await {
+    pub async fn fetch_all<T: FromCommandOutput>(
+        &self,
+        cancellation: &CancellationScope,
+    ) -> Result<Vec<T>> {
+        match self.fetch_all_once(cancellation).await {
             Ok(results) => Ok(results),
             Err((error, true)) => {
                 let Some(cache_key) = self.cache_key.as_ref() else {
@@ -86,11 +96,14 @@ impl<'a> MicrosoftGraphHelper<'a> {
                     path = %cache_key.path.display(),
                     "Invalidating paginated Microsoft Graph cache before retry"
                 );
+                cancellation.bail_if_cancelled()?;
                 cache_key.invalidate().await?;
-                self.fetch_all_once().await.map_err(|(retry_error, _)| {
-                    retry_error
-                        .wrap_err("cached retry after invalidating Graph continuation failed")
-                })
+                self.fetch_all_once(cancellation)
+                    .await
+                    .map_err(|(retry_error, _)| {
+                        retry_error
+                            .wrap_err("cached retry after invalidating Graph continuation failed")
+                    })
             }
             Err((error, _)) => Err(error),
         }
@@ -98,6 +111,7 @@ impl<'a> MicrosoftGraphHelper<'a> {
 
     async fn fetch_all_once<T: FromCommandOutput>(
         &self,
+        cancellation: &CancellationScope,
     ) -> std::result::Result<Vec<T>, (eyre::Report, bool)> {
         let mut results = Vec::new();
         let mut next_link = NextLink::Uninitialized;
@@ -105,6 +119,9 @@ impl<'a> MicrosoftGraphHelper<'a> {
         let mut total = None;
         let started_at = Instant::now();
         loop {
+            cancellation
+                .bail_if_cancelled()
+                .map_err(|error| (eyre::Report::from(error), false))?;
             // Determine URL, considering pagination
             let url = match &next_link {
                 NextLink::Uninitialized => &self.url,
@@ -171,37 +188,41 @@ pub struct MicrosoftGraphResponse<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_credentials::AzureTenantAuthContext;
 
     #[test]
     fn consistency_level_eventual_adds_the_expected_header() -> Result<()> {
-        let auth_context = AzureTenantAuthContext::default();
-        let helper = MicrosoftGraphHelper::new(
-            "https://graph.microsoft.com/v1.0/users",
-            None,
-            &auth_context,
-        )
-        .add_headers(
-            RequestHeaders::from_header_lines(["X-Test: value"])
-                .expect("the test header is valid")
-                .expect("the test header is always present"),
-        )
-        .with_consistency_level_eventual();
+        CancellationToken::new().with_scope(|cancellation| {
+            let auth_context = AzureTenantAuthContext::default();
+            let helper = MicrosoftGraphHelper::new(
+                "https://graph.microsoft.com/v1.0/users",
+                None,
+                &auth_context,
+                &cancellation,
+            )
+            .add_headers(
+                RequestHeaders::from_header_lines(["X-Test: value"])
+                    .expect("the test header is valid")
+                    .expect("the test header is always present"),
+            )
+            .with_consistency_level_eventual();
 
-        let headers = helper
-            .headers
-            .expect("the consistency level header should be configured")
-            .to_header_map()?;
-        assert_eq!(
-            headers
-                .get("ConsistencyLevel")
-                .and_then(|value| value.to_str().ok()),
-            Some("eventual")
-        );
-        assert_eq!(
-            headers.get("X-Test").and_then(|value| value.to_str().ok()),
-            Some("value")
-        );
-        Ok(())
+            let headers = helper
+                .headers
+                .expect("the consistency level header should be configured")
+                .to_header_map()?;
+            assert_eq!(
+                headers
+                    .get("ConsistencyLevel")
+                    .and_then(|value| value.to_str().ok()),
+                Some("eventual")
+            );
+            assert_eq!(
+                headers.get("X-Test").and_then(|value| value.to_str().ok()),
+                Some("value")
+            );
+            Ok(())
+        })
     }
 }

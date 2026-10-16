@@ -1,6 +1,7 @@
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::resolve_tenant_auth_context;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_credentials::AuthContext;
@@ -42,10 +43,15 @@ pub struct AzureTenantLoginArgs {
 }
 
 impl AzureTenantLoginArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let tenant_id = self.tenant.resolve().await?;
-        let auth_context = resolve_tenant_auth_context(auth_context, tenant_id).await?;
-        login_resolved_tenant(tenant_id, &auth_context).await
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let tenant_id = self.tenant.resolve(cancellation).await?;
+        let auth_context =
+            resolve_tenant_auth_context(auth_context, tenant_id, cancellation).await?;
+        login_resolved_tenant(tenant_id, &auth_context, cancellation).await
     }
 }
 
@@ -54,6 +60,7 @@ impl AzureTenantLoginArgs {
 async fn login_resolved_tenant(
     tenant_id: cloud_terrastodon_azure::AzureTenantId,
     auth_context: &AuthContext,
+    cancellation: &CancellationScope,
 ) -> Result<()> {
     let requested_source = auth_context.requested_source().ok_or_else(|| {
         eyre::eyre!("the placeholder authentication context cannot be used for tenant login")
@@ -65,8 +72,9 @@ async fn login_resolved_tenant(
                     "browser tenant login requires an interactive terminal; use workload identity in pipelines"
                 );
             }
-            let client_id = cloud_terrastodon_credentials::pim_client_id(&tenant_id).await?;
-            login_browser_session(tenant_id, client_id).await?;
+            let client_id =
+                cloud_terrastodon_credentials::pim_client_id(&tenant_id, cancellation).await?;
+            login_browser_session(tenant_id, client_id, cancellation).await?;
             Ok(())
         }
         TenantLoginMode::AzureCli => {
@@ -83,7 +91,7 @@ async fn login_resolved_tenant(
             let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
             cmd.args(["login", "--tenant", &tenant_id.to_string()]);
             cmd.should_announce(true);
-            cmd.run_raw().await?;
+            cmd.run_raw(cancellation).await?;
             Ok(())
         }
     }
@@ -92,6 +100,7 @@ async fn login_resolved_tenant(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cloud_terrastodon_command::CancellationToken;
 
     #[test]
     fn auto_and_browser_tenant_login_use_pkce() {
@@ -125,18 +134,25 @@ mod tests {
 
     #[tokio::test]
     async fn auto_tenant_login_rejects_headless_browser_dispatch_before_network() {
-        // No environment, credential cache, or tracked-tenant prerequisite.
-        let mut auth_context = AuthContext::explicit(AuthSource::Auto);
-        if let AuthContext::Resolved { headless, .. } = &mut auth_context {
-            *headless = true;
-        }
-        let tenant = "11111111-1111-1111-1111-111111111111".parse().unwrap();
-        let error = login_resolved_tenant(tenant, &auth_context)
+        CancellationToken::new()
+            .with_async_scope(|cancellation| async move {
+                // No environment, credential cache, or tracked-tenant prerequisite.
+                let mut auth_context = AuthContext::explicit(AuthSource::Auto);
+                if let AuthContext::Resolved { headless, .. } = &mut auth_context {
+                    *headless = true;
+                }
+                let tenant = "11111111-1111-1111-1111-111111111111".parse().unwrap();
+                let error = login_resolved_tenant(tenant, &auth_context, &cancellation)
+                    .await
+                    .expect_err("headless browser login should fail before opening a browser");
+                assert!(
+                    error.to_string().contains("interactive terminal"),
+                    "unexpected headless tenant-login error: {error}"
+                );
+
+                Ok::<_, eyre::Report>(())
+            })
             .await
-            .expect_err("headless browser login should fail before opening a browser");
-        assert!(
-            error.to_string().contains("interactive terminal"),
-            "unexpected headless tenant-login error: {error}"
-        );
+            .unwrap();
     }
 }

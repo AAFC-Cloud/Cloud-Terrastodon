@@ -5,19 +5,24 @@ use crate::gitea_api_support::tenant_cache_key_prefix;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use std::borrow::Cow;
 
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Debug, Clone, facet::Facet)]
 pub struct GiteaRepoSearchRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
     pub tenant: Cow<'a, GiteaInstanceUrl>,
 }
 
 pub fn fetch_all_gitea_repositories_via_search<'a>(
     tenant: &'a GiteaInstanceUrl,
+    cancellation: &CancellationScope,
 ) -> GiteaRepoSearchRequest<'a> {
     GiteaRepoSearchRequest {
+        cancellation: cancellation.clone(),
         tenant: Cow::Borrowed(tenant),
     }
 }
@@ -25,6 +30,7 @@ pub fn fetch_all_gitea_repositories_via_search<'a>(
 impl<'a> Arbitrary<'a> for GiteaRepoSearchRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: CancellationScope::unbound(),
             tenant: Cow::Owned(GiteaInstanceUrl::arbitrary(u)?),
         })
     }
@@ -43,9 +49,12 @@ impl<'a> CacheableCommand for GiteaRepoSearchRequest<'a> {
     }
 
     async fn run(self) -> eyre::Result<Self::Output> {
-        gitea_api_get_search_paged(self.tenant.as_ref(), self.cache_key(), |page, limit| {
-            format!("/repos/search?page={page}&limit={limit}")
-        })
+        gitea_api_get_search_paged(
+            self.tenant.as_ref(),
+            self.cache_key(),
+            |page, limit| format!("/repos/search?page={page}&limit={limit}"),
+            &self.cancellation,
+        )
         .await
     }
 }

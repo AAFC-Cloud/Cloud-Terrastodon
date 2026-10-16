@@ -1,4 +1,5 @@
 use cloud_terrastodon_azure::ResourceGraphHelper;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
@@ -9,7 +10,10 @@ use facet_json::RawJson;
 use tracing::debug;
 use tracing::info;
 
-pub async fn run_query_menu(auth_context: &AzureTenantAuthContext) -> eyre::Result<()> {
+pub async fn run_query_menu(
+    auth_context: &AzureTenantAuthContext,
+    cancellation: &CancellationScope,
+) -> eyre::Result<()> {
     let mut query = r#"
 resources 
 | union resourcecontainers
@@ -39,15 +43,16 @@ resources
 
         info!("Getting query from user");
         let mut cmd = CommandBuilder::new(CommandKind::VSCode);
+        cmd.cancellation_safe();
         cmd.arg(query_path.as_os_str());
         cmd.arg("--wait");
-        cmd.run_raw().await?;
+        cmd.run_raw(cancellation).await?;
         query = tokio::fs::read_to_string(&query_path).await?;
         debug!("Received query:\n{}", query);
 
         info!("Running query");
         let rows: Vec<RawJson<'static>> =
-            ResourceGraphHelper::new(query.clone(), None, auth_context)
+            ResourceGraphHelper::new(query.clone(), None, auth_context, cancellation)
                 .collect_all()
                 .await?;
         let rows_json = cloud_terrastodon_command::to_string_pretty(&rows)?;
@@ -62,8 +67,9 @@ resources
 
         info!("Displaying results");
         let mut cmd = CommandBuilder::new(CommandKind::VSCode);
+        cmd.cancellation_safe();
         cmd.arg(results_path.as_os_str());
-        cmd.run_raw().await?;
+        cmd.run_raw(cancellation).await?;
 
         let run_another_query = "run another query";
         let return_to_menu = "return to menu";

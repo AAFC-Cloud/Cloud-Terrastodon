@@ -1,3 +1,4 @@
+use crate::CancellationScope;
 use crate::Function;
 use crate::FunctionInvocation;
 use crate::InvocationFuture;
@@ -84,7 +85,13 @@ pub fn shape_can_be_produced_from_defaults(shape: &'static Shape) -> bool {
 
 /// Invoke a registered function after recursively producing its input from
 /// the registry's default-production plan.
-pub fn invoke_with_default_input(function: &'static Function) -> InvocationFuture {
+/// Executable requests are bound to the supplied operation token before dispatch;
+/// reflected input defaults never determine their cancellation lifetime.
+pub fn invoke_with_default_input(
+    function: &'static Function,
+    cancellation: &CancellationScope,
+) -> InvocationFuture {
+    let cancellation = cancellation.clone();
     Box::pin(async move {
         let plan = default_production_plan(function.input_shape).ok_or_else(|| {
             eyre::eyre!(
@@ -92,10 +99,10 @@ pub fn invoke_with_default_input(function: &'static Function) -> InvocationFutur
                 describe_shape(function.input_shape)
             )
         })?;
-        let input = realize_plan_as_boxed(&plan).await?;
+        let input = realize_plan_as_boxed(&plan, &cancellation).await?;
 
         let output = match function.receiver_mode {
-            crate::ReceiverMode::ByValue => function.invoke_value_boxed(input)?,
+            crate::ReceiverMode::ByValue => function.invoke_value_boxed(input, &cancellation)?,
             crate::ReceiverMode::ByRef => {
                 FunctionInvocation::Ready(function.invoke_ref_boxed(input.as_ref())?)
             }
@@ -180,9 +187,10 @@ fn plan_for_shape(
     plan
 }
 
-fn realize_plan(
-    plan: &DefaultProductionPlan,
-) -> Pin<Box<dyn Future<Output = eyre::Result<RuntimeValue>> + Send + '_>> {
+fn realize_plan<'a>(
+    plan: &'a DefaultProductionPlan,
+    cancellation: &'a CancellationScope,
+) -> Pin<Box<dyn Future<Output = eyre::Result<RuntimeValue>> + Send + 'a>> {
     Box::pin(async move {
         match &plan.kind {
             DefaultProductionKind::Default => RuntimeValue::from_default(plan.shape),
@@ -198,7 +206,7 @@ fn realize_plan(
                     values.push((
                         field.field_index,
                         thing,
-                        realize_plan_as_boxed(&field.plan).await?,
+                        realize_plan_as_boxed(&field.plan, cancellation).await?,
                     ));
                 }
                 RuntimeValue::build_with(plan.shape, |mut partial| {
@@ -213,9 +221,11 @@ fn realize_plan(
                 })
             }
             DefaultProductionKind::Invoke { function, input } => {
-                let input = realize_plan_as_boxed(input).await?;
+                let input = realize_plan_as_boxed(input, cancellation).await?;
                 let output = match function.receiver_mode {
-                    crate::ReceiverMode::ByValue => function.invoke_value_boxed(input)?,
+                    crate::ReceiverMode::ByValue => {
+                        function.invoke_value_boxed(input, cancellation)?
+                    }
                     crate::ReceiverMode::ByRef => {
                         FunctionInvocation::Ready(function.invoke_ref_boxed(input.as_ref())?)
                     }
@@ -234,9 +244,12 @@ fn realize_plan(
     })
 }
 
-fn realize_plan_as_boxed(plan: &DefaultProductionPlan) -> BoxedDefaultInputFuture<'_> {
+fn realize_plan_as_boxed<'a>(
+    plan: &'a DefaultProductionPlan,
+    cancellation: &'a CancellationScope,
+) -> BoxedDefaultInputFuture<'a> {
     Box::pin(async move {
-        let value = realize_plan(plan).await?;
+        let value = realize_plan(plan, cancellation).await?;
         let thing = known_thing_for_shape(plan.shape).ok_or_else(|| {
             eyre::eyre!(
                 "{} is not a registered input thing",

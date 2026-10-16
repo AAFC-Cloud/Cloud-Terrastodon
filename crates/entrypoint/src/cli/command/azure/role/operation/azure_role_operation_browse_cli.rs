@@ -2,6 +2,7 @@ use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::fetch_all_role_operation_metadata;
 use cloud_terrastodon_azure::flatten_role_operations;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::PickerTui;
@@ -18,14 +19,18 @@ pub struct AzureRoleOperationBrowseArgs {
 }
 
 impl AzureRoleOperationBrowseArgs {
-    pub async fn invoke(self) -> Result<()> {
-        let tenant_id = self.tenant.resolve().await?;
+    pub async fn invoke(
+        self,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let tenant_id = self.tenant.resolve(cancellation).await?;
         let (chosen, maybe_error) = PickerTui::<_>::new()
             .pick_many_reloadable(|invalidate| async move {
                 info!(%tenant_id, "Fetching Azure provider operations metadata");
-                let provider_operations = fetch_all_role_operation_metadata(tenant_id)
-                    .with_invalidation(invalidate)
-                    .await?;
+                let provider_operations =
+                    fetch_all_role_operation_metadata(tenant_id, cancellation)
+                        .with_invalidation(invalidate)
+                        .await?;
                 let mut operations = flatten_role_operations(&provider_operations);
                 operations.sort_by(|left, right| {
                     left.name

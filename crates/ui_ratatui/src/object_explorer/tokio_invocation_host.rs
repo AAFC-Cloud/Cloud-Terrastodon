@@ -1,6 +1,9 @@
 use super::invocation_host::InvocationHost;
 use super::invocation_host::InvocationHostPoll;
 use super::invocation_host::InvocationId;
+use cloud_terrastodon_command::CancellationError;
+use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_command::CancellationToken;
 use cloud_terrastodon_registry::InvocationFuture;
 use std::any::Any;
 use std::collections::BTreeMap;
@@ -19,11 +22,14 @@ use tokio::task::JoinHandle;
 /// The context attachment function must wrap its input without detaching it or
 /// transferring its ownership anywhere except the returned future.
 pub(crate) struct TokioInvocationHost {
+    cancellation: Option<CancellationScope>,
     attach: fn(InvocationFuture) -> InvocationFuture,
     jobs: BTreeMap<InvocationId, InvocationJob>,
 }
 
 struct InvocationJob {
+    cancellation: CancellationToken,
+    scope: Arc<Mutex<Option<CancellationScope>>>,
     state: Arc<Mutex<JobState>>,
     task: Option<JoinHandle<()>>,
 }
@@ -36,8 +42,14 @@ struct JobState {
 }
 
 impl InvocationJob {
-    fn new(future: InvocationFuture) -> Self {
+    fn new(
+        future: InvocationFuture,
+        cancellation: &CancellationToken,
+        scope: Arc<Mutex<Option<CancellationScope>>>,
+    ) -> Self {
         Self {
+            cancellation: cancellation.clone(),
+            scope,
             state: Arc::new(Mutex::new(JobState {
                 future: Some(future),
                 outcome: None,
@@ -121,6 +133,11 @@ impl JobState {
                 self.outcome = Some(match result {
                     Ok(output) => InvocationHostPoll::Ready(output),
                     Err(error) => {
+                        let classification = catch_unwind(AssertUnwindSafe(|| {
+                            error.chain().any(|cause| cause.is::<CancellationError>())
+                        }));
+                        let cancelled = matches!(&classification, Ok(true));
+                        let classification_panic = classification.err().map(consume_panic);
                         let message = match catch_unwind(AssertUnwindSafe(|| error.to_string())) {
                             Ok(message) => message,
                             Err(payload) => format!(
@@ -129,9 +146,17 @@ impl JobState {
                             ),
                         };
                         let drop_panic = dispose(error);
-                        InvocationHostPoll::Failed(drop_panic.map_or(message, |panic| {
-                            format!("invocation error destruction panicked: {panic}")
-                        }))
+                        if cancelled && drop_panic.is_none() {
+                            InvocationHostPoll::Cancelled
+                        } else {
+                            InvocationHostPoll::Failed(
+                                drop_panic
+                                    .or(classification_panic)
+                                    .map_or(message, |panic| {
+                                        format!("invocation error destruction panicked: {panic}")
+                                    }),
+                            )
+                        }
                     }
                 });
                 if let Some(message) = dispose(self.future.take()) {
@@ -161,6 +186,18 @@ impl JobState {
 impl TokioInvocationHost {
     pub(crate) fn new(attach: fn(InvocationFuture) -> InvocationFuture) -> Self {
         Self {
+            cancellation: None,
+            attach,
+            jobs: BTreeMap::new(),
+        }
+    }
+
+    pub(crate) fn with_cancellation(
+        attach: fn(InvocationFuture) -> InvocationFuture,
+        cancellation: &CancellationScope,
+    ) -> Self {
+        Self {
+            cancellation: Some(cancellation.clone()),
             attach,
             jobs: BTreeMap::new(),
         }
@@ -169,11 +206,50 @@ impl TokioInvocationHost {
     pub(crate) fn pending_count(&self) -> usize {
         self.jobs.len()
     }
+
+    #[cfg(test)]
+    pub(crate) fn operation_scope(&self, id: InvocationId) -> Option<CancellationScope> {
+        self.jobs.get(&id).and_then(|job| {
+            job.scope
+                .lock()
+                .unwrap_or_else(|error| error.into_inner())
+                .clone()
+        })
+    }
 }
 
 impl InvocationHost for TokioInvocationHost {
     fn start(&mut self, id: InvocationId, future: InvocationFuture) {
-        let mut job = InvocationJob::new(future);
+        self.start_scoped(id, Box::new(move |_| future));
+    }
+
+    fn start_scoped(
+        &mut self,
+        id: InvocationId,
+        factory: Box<dyn FnOnce(CancellationScope) -> InvocationFuture + Send>,
+    ) {
+        let scope = Arc::new(Mutex::new(None));
+        let admitted_scope = Arc::clone(&scope);
+        let factory = move |scope: CancellationScope| {
+            *admitted_scope
+                .lock()
+                .unwrap_or_else(|error| error.into_inner()) = Some(scope.clone());
+            factory(scope)
+        };
+        let (cancellation, future): (CancellationToken, InvocationFuture) = match &self.cancellation
+        {
+            Some(parent) => {
+                let (cancellation, future) = parent.cancellable_child_scope(factory);
+                (cancellation, Box::pin(future))
+            }
+            None => {
+                let cancellation = CancellationToken::new();
+                let future = Box::pin(cancellation.cancellable_scope(factory));
+                (cancellation, future)
+            }
+        };
+        let mut job = InvocationJob::new(future, &cancellation, scope);
+
         assert!(
             !self.jobs.contains_key(&id),
             "invocation identities are unique"
@@ -219,10 +295,27 @@ impl InvocationHost for TokioInvocationHost {
     }
 
     fn cancel(&mut self, id: InvocationId) -> bool {
-        let Some(mut job) = self.jobs.remove(&id) else {
+        let Some(job) = self.jobs.get(&id) else {
             return false;
         };
-        job.cancel();
+        job.cancellation
+            .request_cancel("invocation cancelled by the user");
+        {
+            // Polling and destruction serialize under this lock. A future
+            // cannot enter a new deferral between this check and clear().
+            let mut state = lock_state(&job.state);
+            if job
+                .scope
+                .lock()
+                .unwrap_or_else(|error| error.into_inner())
+                .as_ref()
+                .is_some_and(|scope| scope.bail_if_cancelled().is_ok())
+            {
+                return false;
+            }
+            state.clear();
+        }
+        self.jobs.remove(&id);
         true
     }
 
@@ -272,6 +365,118 @@ mod tests {
             let _value = value;
             std::future::pending().await
         })
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn cooperative_cancel_finishes_deferred_work_before_destroying_the_future() {
+        let mut host = TokioInvocationHost::new(attach_nothing);
+        let (entered, entry) = tokio::sync::oneshot::channel();
+        let (finish, finished) = tokio::sync::oneshot::channel();
+        let (value, dropped) = flag();
+        let id = InvocationId::new(91);
+        host.start_scoped(
+            id,
+            Box::new(move |scope| {
+                Box::pin(scope.deferred("recording completed work", |_| async move {
+                    let _value = value;
+                    let _ = entered.send(());
+                    finished.await?;
+                    Ok(Box::new(String::from("completed outcome")) as Box<dyn Any + Send>)
+                }))
+            }),
+        );
+        tokio::time::timeout(Duration::from_secs(2), entry)
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert!(!host.cancel(id));
+        assert!(!dropped.load(Ordering::SeqCst));
+        assert!(matches!(host.poll(id), InvocationHostPoll::Pending));
+        assert_eq!(host.pending_count(), 1);
+        finish.send(()).unwrap();
+        let outcome = tokio::time::timeout(Duration::from_secs(2), async {
+            loop {
+                match host.poll(id) {
+                    InvocationHostPoll::Pending => tokio::task::yield_now().await,
+                    outcome => break outcome,
+                }
+            }
+        })
+        .await
+        .unwrap();
+        let InvocationHostPoll::Ready(outcome) = outcome else {
+            panic!("Deferred completion must preserve its result");
+        };
+        assert_eq!(*outcome.downcast::<String>().unwrap(), "completed outcome");
+        assert!(dropped.load(Ordering::SeqCst));
+        assert_eq!(host.pending_count(), 0);
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn parent_cancellation_stops_an_independent_job_while_another_finishes() {
+        let parent = CancellationToken::new();
+        let requester = parent.clone();
+        parent
+            .with_async_scope(|parent| async move {
+                let mut host = TokioInvocationHost::with_cancellation(attach_nothing, &parent);
+                let (entered, entry) = tokio::sync::oneshot::channel();
+                let (finish, finished) = tokio::sync::oneshot::channel();
+                let protected_id = InvocationId::new(92);
+                let independent_id = InvocationId::new(93);
+                host.start_scoped(
+                    protected_id,
+                    Box::new(move |scope| {
+                        Box::pin(
+                            scope.deferred("saving an operation outcome", |_| async move {
+                                let _ = entered.send(());
+                                finished.await?;
+                                Ok(Box::new(42_u8) as Box<dyn Any + Send>)
+                            }),
+                        )
+                    }),
+                );
+                host.start(independent_id, Box::pin(std::future::pending()));
+                tokio::time::timeout(Duration::from_secs(2), entry)
+                    .await
+                    .unwrap()
+                    .unwrap();
+                requester.request_cancel("window closed");
+                let independent = tokio::time::timeout(Duration::from_secs(2), async {
+                    loop {
+                        match host.poll(independent_id) {
+                            InvocationHostPoll::Pending => tokio::task::yield_now().await,
+                            outcome => break outcome,
+                        }
+                    }
+                })
+                .await
+                .unwrap();
+                assert!(matches!(independent, InvocationHostPoll::Cancelled));
+                assert!(matches!(
+                    host.poll(protected_id),
+                    InvocationHostPoll::Pending
+                ));
+                finish.send(()).unwrap();
+                let protected = tokio::time::timeout(Duration::from_secs(2), async {
+                    loop {
+                        match host.poll(protected_id) {
+                            InvocationHostPoll::Pending => tokio::task::yield_now().await,
+                            outcome => break outcome,
+                        }
+                    }
+                })
+                .await
+                .unwrap();
+                let InvocationHostPoll::Ready(outcome) = protected else {
+                    panic!("Protected work must complete after the parent requests cancellation");
+                };
+                assert_eq!(*outcome.downcast::<u8>().unwrap(), 42);
+                assert_eq!(host.pending_count(), 0);
+                Ok::<_, eyre::Report>(())
+            })
+            .await
+            .unwrap();
     }
 
     #[tokio::test(flavor = "current_thread")]

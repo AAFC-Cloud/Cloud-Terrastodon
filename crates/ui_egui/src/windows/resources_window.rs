@@ -18,10 +18,15 @@ pub fn resources_ui(app: &mut MyApp, ui: &mut Ui) {
             let work = LoadableWorkBuilder::new()
                 .description("Fetch resources")
                 .setter(|app, l| app.resources = l)
-                .work(async move {
-                    let auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
-                    Ok(Arc::new(fetch_all_resources(&auth_context).await?))
-                })
+                .work(
+                    app.cancellation
+                        .cancellable_scope(move |cancellation| async move {
+                            let auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
+                            Ok(Arc::new(
+                                fetch_all_resources(&auth_context, &cancellation).await?,
+                            ))
+                        }),
+                )
                 .build()
                 .expect("building work");
             work.enqueue(app);

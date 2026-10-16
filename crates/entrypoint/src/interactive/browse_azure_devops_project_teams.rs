@@ -1,6 +1,7 @@
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_teams_for_project;
 use cloud_terrastodon_azure_devops::get_default_organization_url;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickResultExt;
@@ -9,9 +10,10 @@ use eyre::Result;
 
 pub async fn browse_azure_devops_project_teams(
     auth_context: &AzureDevOpsAuthContext,
+    cancellation: &CancellationScope,
 ) -> Result<()> {
-    let org_url = get_default_organization_url().await?;
-    let projects = fetch_all_azure_devops_projects(&org_url, auth_context).await?;
+    let org_url = get_default_organization_url(cancellation).await?;
+    let projects = fetch_all_azure_devops_projects(&org_url, auth_context, cancellation).await?;
     let project = PickerTui::<_>::new()
         .set_header("Azure DevOps Projects")
         .pick_one(projects.into_iter().map(|project| Choice {
@@ -25,7 +27,7 @@ pub async fn browse_azure_devops_project_teams(
         }))
         .await?;
 
-    let teams = fetch_azure_devops_teams_for_project(&org_url, &project.id).await?;
+    let teams = fetch_azure_devops_teams_for_project(&org_url, &project.id, cancellation).await?;
     let (teams, maybe_error) = PickerTui::<_>::new()
         .set_header("Azure DevOps Teams")
         .pick_many(teams.into_iter().map(|team| Choice {

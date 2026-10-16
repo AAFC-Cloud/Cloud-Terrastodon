@@ -3,6 +3,7 @@ pub mod azure_pim_setup_cli;
 
 pub use azure_pim_activate_cli::AzurePimActivateArgs;
 pub use azure_pim_setup_cli::AzurePimSetupArgs;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -24,16 +25,24 @@ pub enum AzurePimCommand {
 }
 
 impl AzurePimArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        self.command.invoke(auth_context).await
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        self.command.invoke(auth_context, cancellation).await
     }
 }
 
 impl AzurePimCommand {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self {
-            AzurePimCommand::Activate(args) => args.invoke(auth_context).await,
-            AzurePimCommand::Setup(args) => args.invoke(auth_context).await,
+            AzurePimCommand::Activate(args) => args.invoke(auth_context, cancellation).await,
+            AzurePimCommand::Setup(args) => args.invoke(auth_context, cancellation).await,
         }
     }
 }

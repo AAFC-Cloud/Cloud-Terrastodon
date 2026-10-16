@@ -5,19 +5,24 @@ use crate::gitea_api_support::tenant_cache_key_prefix;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use std::borrow::Cow;
 
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Debug, Clone, facet::Facet)]
 pub struct GiteaUserCurrentGetRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
     pub tenant: Cow<'a, GiteaInstanceUrl>,
 }
 
 pub fn fetch_current_gitea_user<'a>(
     tenant: &'a GiteaInstanceUrl,
+    cancellation: &CancellationScope,
 ) -> GiteaUserCurrentGetRequest<'a> {
     GiteaUserCurrentGetRequest {
+        cancellation: cancellation.clone(),
         tenant: Cow::Borrowed(tenant),
     }
 }
@@ -25,6 +30,7 @@ pub fn fetch_current_gitea_user<'a>(
 impl<'a> Arbitrary<'a> for GiteaUserCurrentGetRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: CancellationScope::unbound(),
             tenant: Cow::Owned(GiteaInstanceUrl::arbitrary(u)?),
         })
     }
@@ -43,7 +49,13 @@ impl<'a> CacheableCommand for GiteaUserCurrentGetRequest<'a> {
     }
 
     async fn run(self) -> eyre::Result<Self::Output> {
-        gitea_api_get(self.tenant.as_ref(), "/user", Some(self.cache_key())).await
+        gitea_api_get(
+            self.tenant.as_ref(),
+            "/user",
+            Some(self.cache_key()),
+            &self.cancellation,
+        )
+        .await
     }
 }
 

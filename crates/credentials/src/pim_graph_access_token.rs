@@ -1,3 +1,4 @@
+use crate::CancellationScope;
 use crate::browser_access_token::fetch_browser_access_token_with_scopes;
 use crate::browser_access_token::form_urlencoded;
 use crate::browser_access_token::refresh_browser_access_token;
@@ -80,8 +81,11 @@ struct TokenResponse {
 /// Conditional Access policy.
 pub async fn fetch_pim_graph_access_token(
     tenant_id: AzureTenantId,
+    cancellation: &CancellationScope,
 ) -> Result<MicrosoftGraphAccessToken> {
-    let client_id = pim_client_id(&tenant_id).await?;
+    cancellation.cancellable_scope(|cancellation| async move {
+                let cancellation = &cancellation;
+    let client_id = pim_client_id(&tenant_id, cancellation).await?;
     let scopes = pim_graph_scopes();
 
     if let Some(refresh_token) = load_pim_refresh_token(&tenant_id, &client_id)? {
@@ -91,6 +95,7 @@ pub async fn fetch_pim_graph_access_token(
             crate::AzureRestResource::MicrosoftGraph,
             &scopes,
             &refresh_token,
+            cancellation,
         )
         .await
         {
@@ -111,40 +116,52 @@ pub async fn fetch_pim_graph_access_token(
     }
 
     if std::env::var(PIM_AUTH_FLOW_ENV).as_deref() == Ok("device_code") {
-        fetch_pim_graph_access_token_device_code(tenant_id).await
+        fetch_pim_graph_access_token_device_code(tenant_id, cancellation).await
     } else {
-        fetch_pim_graph_access_token_interactive(tenant_id).await
+        fetch_pim_graph_access_token_interactive(tenant_id, cancellation).await
     }
+
+    }).await
 }
 
 /// Acquire a delegated Graph token through a localhost OAuth authorization-code
 /// callback, equivalent to Azure CLI's non-device interactive login path.
 pub async fn fetch_pim_graph_access_token_interactive(
     tenant_id: AzureTenantId,
+    cancellation: &CancellationScope,
 ) -> Result<MicrosoftGraphAccessToken> {
-    let client_id = pim_client_id(&tenant_id).await?;
-    let scopes = pim_graph_scopes();
-    let token = fetch_browser_access_token_with_scopes(
-        tenant_id,
-        client_id,
-        crate::AzureRestResource::MicrosoftGraph,
-        &scopes,
-    )
-    .await?;
-    if let Some(refresh_token) = token.refresh_token {
-        store_pim_refresh_token(&tenant_id, &client_id, &refresh_token)?;
-    }
-    Ok(MicrosoftGraphAccessToken(
-        token.access_token.access_token.as_str().to_owned(),
-    ))
+    cancellation
+        .cancellable_scope(|cancellation| async move {
+            let cancellation = &cancellation;
+            let client_id = pim_client_id(&tenant_id, cancellation).await?;
+            let scopes = pim_graph_scopes();
+            let token = fetch_browser_access_token_with_scopes(
+                tenant_id,
+                client_id,
+                crate::AzureRestResource::MicrosoftGraph,
+                &scopes,
+                cancellation,
+            )
+            .await?;
+            if let Some(refresh_token) = token.refresh_token {
+                store_pim_refresh_token(&tenant_id, &client_id, &refresh_token)?;
+            }
+            Ok(MicrosoftGraphAccessToken(
+                token.access_token.access_token.as_str().to_owned(),
+            ))
+        })
+        .await
 }
 
 /// Acquire a delegated Microsoft Graph token using the app registration's
 /// public-client device-code flow.
 pub async fn fetch_pim_graph_access_token_device_code(
     tenant_id: AzureTenantId,
+    cancellation: &CancellationScope,
 ) -> Result<MicrosoftGraphAccessToken> {
-    let client_id = pim_client_id(&tenant_id).await?;
+    cancellation.cancellable_scope(|cancellation| async move {
+                let cancellation = &cancellation;
+    let client_id = pim_client_id(&tenant_id, cancellation).await?;
     let scopes = pim_graph_scopes();
     let authority = format!("https://login.microsoftonline.com/{tenant_id}");
     let client = Client::new();
@@ -232,6 +249,8 @@ pub async fn fetch_pim_graph_access_token_device_code(
             None => bail!("Microsoft Graph token response did not contain an access token"),
         }
     }
+
+    }).await
 }
 
 fn pim_graph_scopes() -> String {
@@ -247,6 +266,14 @@ fn pim_graph_scopes() -> String {
 }
 
 fn refresh_token_needs_interactive_login(error: &eyre::Report) -> bool {
+    // Cancellation is a separate outcome, even when its reason contains an
+    // OAuth marker. It must not delete a valid session or prompt for login.
+    if error
+        .downcast_ref::<cloud_terrastodon_command::CancellationError>()
+        .is_some()
+    {
+        return false;
+    }
     let error = error.to_string();
     [
         "(invalid_grant)",
@@ -344,4 +371,16 @@ fn oauth_error_description(body: &str) -> String {
         .ok()
         .and_then(|response| response.error_description)
         .unwrap_or_else(|| "no description".to_string())
+}
+
+#[cfg(test)]
+mod cancellation_tests {
+    #[test]
+    fn cancellation_with_oauth_marker_never_requests_reauthentication() {
+        let error = eyre::Report::from(cloud_terrastodon_command::CancellationError::new(
+            "(invalid_grant) cancelling this invocation",
+        ))
+        .wrap_err("refresh operation");
+        assert!(!super::refresh_token_needs_interactive_login(&error));
+    }
 }

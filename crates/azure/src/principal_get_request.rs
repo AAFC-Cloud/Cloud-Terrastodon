@@ -10,6 +10,7 @@ use cloud_terrastodon_azure_types::Principal;
 use cloud_terrastodon_azure_types::PrincipalId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Result;
@@ -20,6 +21,9 @@ use std::path::PathBuf;
 #[must_use = "This is a future request, you must .await it"]
 #[derive(facet::Facet)]
 pub struct PrincipalRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub principal_id: PrincipalId,
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
@@ -27,6 +31,7 @@ pub struct PrincipalRequest<'a> {
 impl<'a> arbitrary::Arbitrary<'a> for PrincipalRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: arbitrary::Arbitrary::arbitrary(u)?,
             principal_id: arbitrary::Arbitrary::arbitrary(u)?,
             auth_context: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
         })
@@ -36,8 +41,10 @@ impl<'a> arbitrary::Arbitrary<'a> for PrincipalRequest<'static> {
 pub fn fetch_principal<'a>(
     principal_id: PrincipalId,
     auth_context: &'a AzureTenantAuthContext,
+    cancellation: &CancellationScope,
 ) -> PrincipalRequest<'a> {
     PrincipalRequest {
+        cancellation: cancellation.clone(),
         principal_id,
         auth_context: Cow::Borrowed(auth_context),
     }
@@ -62,21 +69,33 @@ impl CacheableCommand for PrincipalRequest<'_> {
         let cache_key = self.cache_key();
         let auth_context = self.auth_context;
         match self.principal_id {
-            PrincipalId::UserId(user_id) => Ok(fetch_entra_user(user_id, auth_context.as_ref())
-                .await?
-                .into()),
+            PrincipalId::UserId(user_id) => {
+                Ok(
+                    fetch_entra_user(user_id, auth_context.as_ref(), &self.cancellation)
+                        .await?
+                        .into(),
+                )
+            }
             PrincipalId::GroupId(group_id) => {
-                Ok(fetch_group(group_id, auth_context.as_ref()).await?.into())
+                Ok(
+                    fetch_group(group_id, auth_context.as_ref(), &self.cancellation)
+                        .await?
+                        .into(),
+                )
             }
             PrincipalId::ServicePrincipalId(service_principal_id) => Ok(fetch_service_principal(
                 service_principal_id,
                 auth_context.as_ref(),
+                &self.cancellation,
             )
             .await?
             .into()),
             PrincipalId::Unknown(object_id) => {
-                let mut batch =
-                    MicrosoftGraphBatchRequest::<RawJson<'static>>::new(auth_context.as_ref());
+                let mut batch = MicrosoftGraphBatchRequest::<RawJson<'static>>::new(
+                    auth_context.as_ref(),
+                    &self.cancellation,
+                )
+                .cancellation_safe();
                 batch.cache(cache_key);
                 batch.add(crate::MicrosoftGraphBatchRequestEntry::new_get(
                     "user".to_string(),

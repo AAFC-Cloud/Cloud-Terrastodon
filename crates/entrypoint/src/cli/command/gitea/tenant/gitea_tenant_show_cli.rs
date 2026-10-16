@@ -1,3 +1,4 @@
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_gitea::GiteaTenantArgument;
 use cloud_terrastodon_gitea::GiteaTenantArgumentExt;
 use cloud_terrastodon_gitea::get_tracked_tenant;
@@ -13,8 +14,11 @@ pub struct GiteaTenantShowArgs {
 }
 
 impl GiteaTenantShowArgs {
-    pub async fn invoke(self) -> Result<()> {
-        let tenant_url = self.tenant.resolve().await?;
+    pub async fn invoke(
+        self,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let tenant_url = self.tenant.resolve(cancellation).await?;
         let Some(tenant) = get_tracked_tenant(&tenant_url).await? else {
             bail!("Tracked Gitea tenant '{}' was not found.", tenant_url);
         };

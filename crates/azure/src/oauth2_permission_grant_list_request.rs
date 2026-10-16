@@ -2,18 +2,26 @@ use crate::FETCH_OAUTH2_PERMISSION_GRANTS_CACHE_DIR;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::OAuth2PermissionGrant;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_rest::RestRequest;
 
 #[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct OAuth2PermissionGrantListRequest {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub tenant_id: AzureTenantId,
 }
 
 pub fn fetch_oauth2_permission_grants(
     tenant_id: AzureTenantId,
+    cancellation: &CancellationScope,
 ) -> OAuth2PermissionGrantListRequest {
-    OAuth2PermissionGrantListRequest { tenant_id }
+    OAuth2PermissionGrantListRequest {
+        cancellation: cancellation.clone(),
+        tenant_id,
+    }
 }
 
 #[async_trait]
@@ -26,7 +34,7 @@ impl cloud_terrastodon_command::CacheableCommand for OAuth2PermissionGrantListRe
 
     async fn run(self) -> eyre::Result<Self::Output> {
         let url = "https://graph.microsoft.com/v1.0/oauth2PermissionGrants";
-        let resp = RestRequest::new(http::Method::GET, url)?
+        let resp = RestRequest::new(http::Method::GET, url, &self.cancellation)?
             .tenant(self.tenant_id)
             .cache(self.cache_key())
             .receive::<crate::microsoft_graph::MicrosoftGraphResponse<OAuth2PermissionGrant>>()

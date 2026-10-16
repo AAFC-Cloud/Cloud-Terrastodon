@@ -3,6 +3,7 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsDescriptor;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_types::ArbitraryJson;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use cloud_terrastodon_rest::RestRequest;
@@ -14,8 +15,10 @@ pub fn fetch_azure_devops_groups_for_member<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     member_id: &'a AzureDevOpsDescriptor,
     auth_context: &'a AzureDevOpsAuthContext,
+    cancellation: &CancellationScope,
 ) -> AzureDevOpsGroupsForMemberRequest<'a> {
     AzureDevOpsGroupsForMemberRequest {
+        cancellation: cancellation.clone(),
         org_url: Cow::Borrowed(org_url),
         member_id: Cow::Borrowed(member_id),
         auth_context: Cow::Borrowed(auth_context),
@@ -24,6 +27,9 @@ pub fn fetch_azure_devops_groups_for_member<'a>(
 
 #[derive(Debug, Clone, facet::Facet)]
 pub struct AzureDevOpsGroupsForMemberRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub member_id: Cow<'a, AzureDevOpsDescriptor>,
     pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
@@ -32,6 +38,7 @@ pub struct AzureDevOpsGroupsForMemberRequest<'a> {
 impl<'a> Arbitrary<'a> for AzureDevOpsGroupsForMemberRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: CancellationScope::arbitrary(u)?,
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             member_id: Cow::Owned(AzureDevOpsDescriptor::arbitrary(u)?),
             auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
@@ -76,7 +83,7 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupsForMem
             organization = organization,
             subject_descriptor = subject_descriptor
         );
-        let request = RestRequest::new(Method::GET, url.as_str())?
+        let request = RestRequest::new(Method::GET, url.as_str(), &self.cancellation)?
             .cache(self.cache_key())
             .azure_devops_auth_context(self.auth_context.as_ref())?;
         Ok(request
@@ -97,30 +104,39 @@ mod test {
     use crate::fetch_azure_devops_groups_for_member;
     use crate::fetch_azure_devops_user_license_entitlements;
     use crate::get_default_organization_url;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_credentials::AuthContext;
     use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        let org_url = get_default_organization_url().await?;
-        let auth_context = AuthContext::explicit_azure_cli();
-        let azure_devops_auth_context = AzureDevOpsAuthContext::new(&auth_context)?;
-        let users =
-            fetch_azure_devops_user_license_entitlements(&org_url, &azure_devops_auth_context)
+        CancellationToken::new()
+            .with_async_scope(|cancellation| async move {
+                let org_url = get_default_organization_url(&cancellation).await?;
+                let auth_context = AuthContext::explicit_azure_cli();
+                let azure_devops_auth_context = AzureDevOpsAuthContext::new(&auth_context)?;
+                let users = fetch_azure_devops_user_license_entitlements(
+                    &org_url,
+                    &azure_devops_auth_context,
+                    &cancellation,
+                )
                 .await?;
-        for user in users.iter().take(2) {
-            let groups_for_user = fetch_azure_devops_groups_for_member(
-                &org_url,
-                &user.user.descriptor,
-                &azure_devops_auth_context,
-            )
-            .await?;
-            assert!(
-                groups_for_user
-                    .iter()
-                    .all(|entry| entry.member_descriptor == user.user.descriptor)
-            );
-        }
-        Ok(())
+                for user in users.iter().take(2) {
+                    let groups_for_user = fetch_azure_devops_groups_for_member(
+                        &org_url,
+                        &user.user.descriptor,
+                        &azure_devops_auth_context,
+                        &cancellation,
+                    )
+                    .await?;
+                    assert!(
+                        groups_for_user
+                            .iter()
+                            .all(|entry| entry.member_descriptor == user.user.descriptor)
+                    );
+                }
+                Ok(())
+            })
+            .await
     }
 }

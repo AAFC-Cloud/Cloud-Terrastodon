@@ -1,3 +1,4 @@
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_registry::InvocationFuture;
 use std::any::Any;
 
@@ -27,10 +28,20 @@ pub(crate) enum InvocationHostPoll {
 /// never receive Arena, RuntimeValue, Facet Peek, or borrow-lease ownership.
 pub(crate) trait InvocationHost {
     fn start(&mut self, id: InvocationId, future: InvocationFuture);
+    /// Bind executable input only after the host admits its owning scope.
+    fn start_scoped(
+        &mut self,
+        id: InvocationId,
+        factory: Box<dyn FnOnce(CancellationScope) -> InvocationFuture + Send>,
+    ) {
+        // Deterministic fake hosts hold futures without executing the request.
+        self.start(id, factory(CancellationScope::unbound()));
+    }
     fn is_ready(&self, id: InvocationId) -> bool;
     fn poll(&mut self, id: InvocationId) -> InvocationHostPoll;
-    /// Synchronously destroy this invocation's future and any unclaimed output
-    /// before returning. Scheduling an asynchronous abort is insufficient.
+    /// Request cancellation. A true result guarantees synchronous destruction
+    /// of the future and unclaimed output. False keeps deferred work alive;
+    /// its input leases must remain until poll reports its actual completion.
     fn cancel(&mut self, id: InvocationId) -> bool;
     /// Synchronously destroy every held future and unclaimed output. Once this
     /// returns, the host owns no invocation data that could borrow arena values.

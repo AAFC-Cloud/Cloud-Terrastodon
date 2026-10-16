@@ -1,3 +1,4 @@
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_ui_ratatui::ui_main;
 use eyre::Result;
 
@@ -6,8 +7,8 @@ use eyre::Result;
 pub struct RatatuiArgs;
 
 impl RatatuiArgs {
-    pub async fn invoke(self) -> Result<()> {
-        ui_main().await?;
+    pub async fn invoke(self, cancellation: &CancellationScope) -> Result<()> {
+        ui_main(cancellation).await?;
         Ok(())
     }
 }

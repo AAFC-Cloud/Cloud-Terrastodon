@@ -10,6 +10,7 @@ use cloud_terrastodon_azure_devops::AzureDevOpsBuildStatus;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_builds;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_credentials::AuthContext;
 use color_eyre::owo_colors::OwoColorize;
@@ -56,8 +57,15 @@ pub struct AzureDevOpsBuildListArgs {
 }
 
 impl AzureDevOpsBuildListArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<CliOutput> {
-        let auth_context = self.tenant.bind_auth_context(auth_context).await?;
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<CliOutput> {
+        let auth_context = self
+            .tenant
+            .bind_auth_context(auth_context, cancellation)
+            .await?;
         let builds = fetch_azure_devops_builds(
             &self.org,
             self.project,
@@ -67,6 +75,7 @@ impl AzureDevOpsBuildListArgs {
             self.result,
             self.branch,
             Some(self.limit),
+            cancellation,
         )
         .with_invalidation(self.no_cache)
         .await?;

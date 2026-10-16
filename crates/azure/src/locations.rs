@@ -2,17 +2,27 @@ use cloud_terrastodon_azure_types::AzureLocation;
 use cloud_terrastodon_azure_types::SubscriptionId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_rest::RestRequest;
 use std::path::PathBuf;
 
 #[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct LocationListRequest {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub subscription_id: SubscriptionId,
 }
 
-pub fn fetch_all_locations(subscription_id: SubscriptionId) -> LocationListRequest {
-    LocationListRequest { subscription_id }
+pub fn fetch_all_locations(
+    subscription_id: SubscriptionId,
+    cancellation: &CancellationScope,
+) -> LocationListRequest {
+    LocationListRequest {
+        cancellation: cancellation.clone(),
+        subscription_id,
+    }
 }
 
 #[async_trait]
@@ -38,7 +48,7 @@ impl CacheableCommand for LocationListRequest {
         struct Response {
             value: Vec<AzureLocation>,
         }
-        let rtn = RestRequest::new(http::Method::GET, &url)?
+        let rtn = RestRequest::new(http::Method::GET, &url, &self.cancellation)?
             .cache(self.cache_key())
             .receive::<Response>()
             .await?;
@@ -53,26 +63,32 @@ mod test {
     use crate::fetch_all_locations;
     use crate::fetch_all_subscriptions;
     use crate::get_test_tenant_id;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_credentials::AuthContext;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        let tenant_id = get_test_tenant_id().await?;
-        let subs = fetch_all_subscriptions(
-            &AuthContext::explicit_azure_cli().bind_to_azure_tenant(tenant_id)?,
-        )
-        .await?;
-        let mut found_unrecognized_location = false;
-        for sub in subs {
-            let locations = fetch_all_locations(sub.id).await?;
-            found_unrecognized_location |= locations
-                .iter()
-                .any(|location| location.name.as_other().is_some());
-        }
-        if found_unrecognized_location {
-            eyre::bail!("One or more subscriptions had unrecognized locations");
-        }
-        Ok(())
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let tenant_id = get_test_tenant_id(&cancellation).await?;
+                let subs = fetch_all_subscriptions(
+                    &AuthContext::explicit_azure_cli().bind_to_azure_tenant(tenant_id)?,
+                    &cancellation,
+                )
+                .await?;
+                let mut found_unrecognized_location = false;
+                for sub in subs {
+                    let locations = fetch_all_locations(sub.id, &cancellation).await?;
+                    found_unrecognized_location |= locations
+                        .iter()
+                        .any(|location| location.name.as_other().is_some());
+                }
+                if found_unrecognized_location {
+                    eyre::bail!("One or more subscriptions had unrecognized locations");
+                }
+                Ok(())
+            })
+            .await
     }
 }
 

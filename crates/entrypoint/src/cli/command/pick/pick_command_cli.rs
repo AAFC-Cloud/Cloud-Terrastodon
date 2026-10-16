@@ -1,6 +1,7 @@
 use crate::cli::pick::pick_fs_command_cli::PickFsArgs;
 use crate::cli::pick::pick_stdin_command_cli::PickStdinArgs;
 use crate::serde_json_isolation::Value;
+use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 use jmespath::Variable;
 use jsonpath_rust::JsonPath;
@@ -106,20 +107,24 @@ fn resolve_default_pick_command(stdin_is_terminal: bool) -> PickCommand {
 
 impl PickArgs {
     #[instrument(name = "pick_command", skip_all)]
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(self, cancellation: &CancellationScope) -> Result<()> {
         let command = self
             .command
             .unwrap_or_else(|| resolve_default_pick_command(std::io::stdin().is_terminal()));
 
-        command.invoke(self.common).await
+        command.invoke(self.common, cancellation).await
     }
 }
 
 impl PickCommand {
-    pub(crate) async fn invoke(self, common: PickCommonArgs) -> Result<()> {
+    pub(crate) async fn invoke(
+        self,
+        common: PickCommonArgs,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self {
-            PickCommand::Stdin(args) => args.invoke(common).await,
-            PickCommand::Fs(args) => args.invoke(common).await,
+            PickCommand::Stdin(args) => args.invoke(common, cancellation).await,
+            PickCommand::Fs(args) => args.invoke(common, cancellation).await,
         }
     }
 }

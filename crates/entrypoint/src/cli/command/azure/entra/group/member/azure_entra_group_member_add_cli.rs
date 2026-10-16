@@ -1,6 +1,7 @@
 use cloud_terrastodon_azure::EntraGroupId;
 use cloud_terrastodon_azure::PrincipalId;
 use cloud_terrastodon_azure::add_group_member;
+use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 use tracing::info;
 
@@ -17,8 +18,11 @@ pub struct AzureEntraGroupMemberAddArgs {
 }
 
 impl AzureEntraGroupMemberAddArgs {
-    pub async fn invoke(self) -> Result<()> {
-        add_group_member(self.group_id, self.member_id).await?;
+    pub async fn invoke(
+        self,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        add_group_member(self.group_id, self.member_id, cancellation).await?;
         info!(group_id=%self.group_id, member_id=%self.member_id, "Added member to group");
         Ok(())
     }

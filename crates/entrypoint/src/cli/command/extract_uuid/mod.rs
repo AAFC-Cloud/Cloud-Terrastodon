@@ -1,3 +1,4 @@
+use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 use std::io::Read;
 use std::io::Write;
@@ -12,7 +13,10 @@ pub struct ExtractUuidArgs {
 }
 
 impl ExtractUuidArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(
+        self,
+        _cancellation: &CancellationScope,
+    ) -> Result<()> {
         // read input
         let data = if self.input == "-" {
             let mut s = String::new();

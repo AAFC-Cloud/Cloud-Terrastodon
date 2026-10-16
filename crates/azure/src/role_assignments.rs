@@ -2,6 +2,7 @@ use crate::ResourceGraphHelper;
 use cloud_terrastodon_azure_types::RoleAssignment;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Result;
@@ -15,12 +16,16 @@ use tracing::debug;
 #[must_use = "This is a future request, you must .await it"]
 #[derive(facet::Facet)]
 pub struct RoleAssignmentListRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
 
 impl<'a> arbitrary::Arbitrary<'a> for RoleAssignmentListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: arbitrary::Arbitrary::arbitrary(u)?,
             auth_context: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
         })
     }
@@ -28,8 +33,10 @@ impl<'a> arbitrary::Arbitrary<'a> for RoleAssignmentListRequest<'static> {
 
 pub fn fetch_all_role_assignments<'a>(
     auth_context: &'a AzureTenantAuthContext,
+    cancellation: &CancellationScope,
 ) -> RoleAssignmentListRequest<'a> {
     RoleAssignmentListRequest {
+        cancellation: cancellation.clone(),
         auth_context: Cow::Borrowed(auth_context),
     }
 }
@@ -61,6 +68,7 @@ authorizationresources
 "#,
             Some(self.cache_key()),
             self.auth_context.as_ref(),
+            &self.cancellation,
         );
         let mut query = query;
         let role_assignments: Vec<RoleAssignment> = query.collect_all().await?;
@@ -76,24 +84,30 @@ mod tests {
     use super::*;
     use crate::get_test_tenant_id;
     use cloud_terrastodon_azure_types::RoleAssignmentId;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_credentials::AuthContext;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
-        let auth_context = AuthContext::explicit_azure_cli();
-        let auth_context = auth_context.bind_to_azure_tenant(get_test_tenant_id().await?)?;
-        let result = fetch_all_role_assignments(&auth_context).await?;
-        assert!(result.len() > 2);
-        let _interesting_assignments = result
-            .into_iter()
-            .filter(|role_assignment| {
-                matches!(
-                    role_assignment.id,
-                    RoleAssignmentId::Unscoped(_) | RoleAssignmentId::PortalScoped(_)
-                )
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let auth_context = AuthContext::explicit_azure_cli();
+                let auth_context =
+                    auth_context.bind_to_azure_tenant(get_test_tenant_id(&cancellation).await?)?;
+                let result = fetch_all_role_assignments(&auth_context, &cancellation).await?;
+                assert!(result.len() > 2);
+                let _interesting_assignments = result
+                    .into_iter()
+                    .filter(|role_assignment| {
+                        matches!(
+                            role_assignment.id,
+                            RoleAssignmentId::Unscoped(_) | RoleAssignmentId::PortalScoped(_)
+                        )
+                    })
+                    .count();
+                Ok(())
             })
-            .count();
-        Ok(())
+            .await
     }
 }
 

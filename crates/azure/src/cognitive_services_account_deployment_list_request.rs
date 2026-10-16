@@ -5,6 +5,7 @@ use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::Scope;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
@@ -18,6 +19,9 @@ const COGNITIVE_SERVICES_ACCOUNT_DEPLOYMENTS_API_VERSION: &str = "2025-06-01";
 #[must_use = "This is a future request, you must .await it"]
 #[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct CognitiveServicesAccountDeploymentListRequest {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub tenant_id: AzureTenantId,
     pub account_id: AzureCognitiveServicesAccountResourceId,
 }
@@ -25,8 +29,10 @@ pub struct CognitiveServicesAccountDeploymentListRequest {
 pub fn fetch_cognitive_services_account_deployments(
     tenant_id: AzureTenantId,
     account_id: AzureCognitiveServicesAccountResourceId,
+    cancellation: &CancellationScope,
 ) -> CognitiveServicesAccountDeploymentListRequest {
     CognitiveServicesAccountDeploymentListRequest {
+        cancellation: cancellation.clone(),
         tenant_id,
         account_id,
     }
@@ -69,7 +75,7 @@ impl CacheableCommand for CognitiveServicesAccountDeploymentListRequest {
             self.account_id.expanded_form(),
             COGNITIVE_SERVICES_ACCOUNT_DEPLOYMENTS_API_VERSION
         );
-        let response = RestRequest::new(http::Method::GET, &url)?
+        let response = RestRequest::new(http::Method::GET, &url, &self.cancellation)?
             .tenant(self.tenant_id)
             .cache(self.cache_key())
             .receive_raw()

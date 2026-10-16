@@ -2,6 +2,7 @@ use crate::MicrosoftGraphHelper;
 use cloud_terrastodon_azure_types::UnifiedRoleDefinition;
 use cloud_terrastodon_azure_types::UnifiedRoleDefinitionId;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use std::borrow::Cow;
@@ -10,6 +11,9 @@ use std::path::PathBuf;
 /// Fetch an individual Entra role assignment
 #[derive(facet::Facet)]
 pub struct UnifiedRoleDefinitionRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub role_definition_id: UnifiedRoleDefinitionId,
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
@@ -17,6 +21,7 @@ pub struct UnifiedRoleDefinitionRequest<'a> {
 impl<'a> arbitrary::Arbitrary<'a> for UnifiedRoleDefinitionRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: arbitrary::Arbitrary::arbitrary(u)?,
             role_definition_id: arbitrary::Arbitrary::arbitrary(u)?,
             auth_context: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
         })
@@ -26,8 +31,10 @@ impl<'a> arbitrary::Arbitrary<'a> for UnifiedRoleDefinitionRequest<'static> {
 pub fn fetch_unified_role_definition<'a>(
     role_definition_id: UnifiedRoleDefinitionId,
     auth_context: &'a AzureTenantAuthContext,
+    cancellation: &CancellationScope,
 ) -> UnifiedRoleDefinitionRequest<'a> {
     UnifiedRoleDefinitionRequest {
+        cancellation: cancellation.clone(),
         role_definition_id,
         auth_context: Cow::Borrowed(auth_context),
     }
@@ -64,9 +71,10 @@ impl cloud_terrastodon_command::CacheableCommand for UnifiedRoleDefinitionReques
                 role_definition_id.to_string().as_ref(),
             ]))),
             self.auth_context.as_ref(),
+            &self.cancellation,
         );
 
-        let found = query.fetch_one().await?;
+        let found = query.fetch_one(&self.cancellation).await?;
         Ok(found)
     }
 }
@@ -78,11 +86,14 @@ cloud_terrastodon_command::impl_cacheable_into_future!(UnifiedRoleDefinitionRequ
 pub async fn fetch_unified_role_definition_deep(
     role_definition_id: UnifiedRoleDefinitionId,
     auth_context: &AzureTenantAuthContext,
+    cancellation: &CancellationScope,
 ) -> eyre::Result<UnifiedRoleDefinition> {
-    let mut this = fetch_unified_role_definition(role_definition_id, auth_context).await?;
+    let mut this =
+        fetch_unified_role_definition(role_definition_id, auth_context, cancellation).await?;
     let mut next = std::mem::take(&mut this.inherits_permissions_from);
     while let Some(parent_id) = next.pop() {
-        let parent = fetch_unified_role_definition(parent_id.id, auth_context).await?;
+        let parent =
+            fetch_unified_role_definition(parent_id.id, auth_context, cancellation).await?;
         this.inherits_permissions_from.push(parent_id);
         this.role_permissions.extend(parent.role_permissions);
         next.extend(parent.inherits_permissions_from);
@@ -97,35 +108,52 @@ mod test {
     use crate::fetch_unified_role_definition_deep;
     use crate::get_test_tenant_id;
     use cloud_terrastodon_azure_types::UnifiedRoleDefinitionId;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_credentials::AuthContext;
 
     #[tokio::test]
     pub async fn it_works_single() -> eyre::Result<()> {
-        let tenant_id = get_test_tenant_id().await?;
-        let application_developer_role_id: UnifiedRoleDefinitionId =
-            "cf1c38e5-3621-4004-a7cb-879624dced7c".parse()?;
-        let directory_readers_role_id: UnifiedRoleDefinitionId =
-            "88d8e3e3-8f55-4a1e-953a-9b9898b8876b".parse()?;
-        let auth_context = AuthContext::explicit_azure_cli().bind_to_azure_tenant(tenant_id)?;
-        let found =
-            fetch_unified_role_definition(application_developer_role_id, &auth_context).await?;
-        assert!(
-            matches!(found.inherits_permissions_from.as_slice(), [x] if x.id == directory_readers_role_id)
-        );
-        Ok(())
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+            let tenant_id = get_test_tenant_id(&cancellation).await?;
+            let application_developer_role_id: UnifiedRoleDefinitionId =
+                "cf1c38e5-3621-4004-a7cb-879624dced7c".parse()?;
+            let directory_readers_role_id: UnifiedRoleDefinitionId =
+                "88d8e3e3-8f55-4a1e-953a-9b9898b8876b".parse()?;
+            let auth_context = AuthContext::explicit_azure_cli().bind_to_azure_tenant(tenant_id)?;
+            let found = fetch_unified_role_definition(
+                application_developer_role_id,
+                &auth_context,
+                &cancellation,
+            )
+            .await?;
+            assert!(
+                matches!(found.inherits_permissions_from.as_slice(), [x] if x.id == directory_readers_role_id)
+            );
+            Ok(())
+            })
+            .await
     }
 
     #[tokio::test]
     pub async fn it_works_single_deep() -> eyre::Result<()> {
-        let tenant_id = get_test_tenant_id().await?;
-        let application_developer_role_id: UnifiedRoleDefinitionId =
-            "cf1c38e5-3621-4004-a7cb-879624dced7c".parse()?;
-        let auth_context = AuthContext::explicit_azure_cli().bind_to_azure_tenant(tenant_id)?;
-        let found =
-            fetch_unified_role_definition_deep(application_developer_role_id, &auth_context)
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let tenant_id = get_test_tenant_id(&cancellation).await?;
+                let application_developer_role_id: UnifiedRoleDefinitionId =
+                    "cf1c38e5-3621-4004-a7cb-879624dced7c".parse()?;
+                let auth_context =
+                    AuthContext::explicit_azure_cli().bind_to_azure_tenant(tenant_id)?;
+                let found = fetch_unified_role_definition_deep(
+                    application_developer_role_id,
+                    &auth_context,
+                    &cancellation,
+                )
                 .await?;
-        assert!(!found.role_permissions.is_empty());
-        Ok(())
+                assert!(!found.role_permissions.is_empty());
+                Ok(())
+            })
+            .await
     }
 }
 

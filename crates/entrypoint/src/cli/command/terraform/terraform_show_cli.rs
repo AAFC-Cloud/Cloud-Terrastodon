@@ -3,6 +3,7 @@ use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::PrincipalCollection;
 use cloud_terrastodon_azure::PrincipalId;
 use cloud_terrastodon_azure::fetch_all_principals;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_credentials::AuthContext;
@@ -32,8 +33,15 @@ pub struct TerraformShowArgs {
 }
 
 impl TerraformShowArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let tenant_auth_context = self
+            .tenant
+            .bind_auth_context(auth_context, cancellation)
+            .await?;
         // Determine whether the given file is JSON
         let is_json = self.plan_file.extension().and_then(|s| s.to_str()) == Some("json");
 
@@ -46,9 +54,10 @@ impl TerraformShowArgs {
                 .to_str()
                 .wrap_err("Plan file path is not valid UTF-8")?;
             let mut cmd = CommandBuilder::new(CommandKind::Terraform);
+            cmd.cancellation_safe();
             cmd.should_announce(true);
             cmd.args(["show", "--json", path_str]);
-            cmd.run::<TerraformPlan>().await?
+            cmd.run::<TerraformPlan>(cancellation).await?
         };
 
         // Async lazy loader for principals scoped to this function.
@@ -66,7 +75,7 @@ impl TerraformShowArgs {
                     }
 
                     // Slow path: fetch, store in cache, and return
-                    let fetched = fetch_all_principals(&tenant_auth_context).await?;
+                    let fetched = fetch_all_principals(&tenant_auth_context, cancellation).await?;
                     let arc = Arc::new(fetched);
                     *cache.borrow_mut() = Some(arc.clone());
                     eyre::Ok(arc)

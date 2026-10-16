@@ -7,6 +7,7 @@ pub use azure_entra_role_definition_browse_cli::AzureEntraRoleDefinitionBrowseAr
 pub use azure_entra_role_definition_cli::AzureEntraRoleDefinitionCommand;
 pub use azure_entra_role_definition_find_cli::AzureEntraRoleDefinitionFindArgs;
 pub use azure_entra_role_definition_list_cli::AzureEntraRoleDefinitionListArgs;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -18,7 +19,11 @@ pub struct AzureEntraRoleDefinitionArgs {
 }
 
 impl AzureEntraRoleDefinitionArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        self.command.invoke(auth_context).await
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        self.command.invoke(auth_context, cancellation).await
     }
 }

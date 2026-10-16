@@ -1,6 +1,7 @@
 use crate::cli::azure_devops::agent::pool::entitlement::AzureDevOpsAgentPoolEntitlementArgs;
 use crate::cli::azure_devops::agent::pool::list::AzureDevOpsAgentPoolListArgs;
 use crate::cli::azure_devops::agent::pool::summary::AzureDevOpsAgentPoolSummaryArgs;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -23,11 +24,19 @@ pub enum AzureDevOpsAgentPoolCommand {
 }
 
 impl AzureDevOpsAgentPoolArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self.command {
-            AzureDevOpsAgentPoolCommand::List(args) => args.invoke().await?,
-            AzureDevOpsAgentPoolCommand::Entitlement(args) => args.invoke(auth_context).await?,
-            AzureDevOpsAgentPoolCommand::Summary(args) => args.invoke(auth_context).await?,
+            AzureDevOpsAgentPoolCommand::List(args) => args.invoke(cancellation).await?,
+            AzureDevOpsAgentPoolCommand::Entitlement(args) => {
+                args.invoke(auth_context, cancellation).await?
+            }
+            AzureDevOpsAgentPoolCommand::Summary(args) => {
+                args.invoke(auth_context, cancellation).await?
+            }
         }
 
         Ok(())

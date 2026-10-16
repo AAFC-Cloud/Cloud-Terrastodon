@@ -5,6 +5,7 @@ use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemRelationChangeRequest;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemRelationInput;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemRelationInputAttributes;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemRelationSelector;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use eyre::ensure;
@@ -32,7 +33,12 @@ pub struct AzureDevOpsWorkItemRelationWriteArgs {
 }
 
 impl AzureDevOpsWorkItemRelationWriteArgs {
-    pub(crate) async fn invoke(self, auth: &AuthContext, create: bool) -> Result<()> {
+    pub(crate) async fn invoke(
+        self,
+        auth: &AuthContext,
+        create: bool,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         let mut attributes: AzureDevOpsWorkItemRelationInputAttributes = match self.attributes {
             Some(input) => {
                 let body = cloud_terrastodon_rest::read_optional_body(Some(input))
@@ -51,7 +57,11 @@ impl AzureDevOpsWorkItemRelationWriteArgs {
             attributes.comment = Some(comment);
         }
         let target = self.relation.target.into_relation_url(&self.relation.org);
-        let auth_context = self.relation.tenant.bind_auth_context(auth).await?;
+        let auth_context = self
+            .relation
+            .tenant
+            .bind_auth_context(auth, cancellation)
+            .await?;
         let change = if create {
             AzureDevOpsWorkItemRelationChange::Create(AzureDevOpsWorkItemRelationInput {
                 rel: self.relation.relation_type,
@@ -68,6 +78,7 @@ impl AzureDevOpsWorkItemRelationWriteArgs {
             }
         };
         let item = AzureDevOpsWorkItemRelationChangeRequest {
+            cancellation: cancellation.clone(),
             org_url: Cow::Owned(self.relation.org),
             project: Some(self.relation.project),
             auth_context: Cow::Owned(auth_context),

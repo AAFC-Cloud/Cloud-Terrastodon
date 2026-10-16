@@ -1,3 +1,4 @@
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_gitea::GiteaTenantArgument;
 use cloud_terrastodon_gitea::GiteaTenantArgumentExt;
@@ -15,11 +16,14 @@ pub struct GiteaOrgBrowseArgs {
 }
 
 impl GiteaOrgBrowseArgs {
-    pub async fn invoke(self) -> Result<()> {
-        let tenant = self.tenant.resolve().await?;
+    pub async fn invoke(
+        self,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let tenant = self.tenant.resolve(cancellation).await?;
         let (chosen, maybe_error) = PickerTui::<_>::new()
             .pick_many_reloadable(|invalidate| {
-                fetch_all_gitea_organizations(&tenant).with_invalidation(invalidate)
+                fetch_all_gitea_organizations(&tenant, cancellation).with_invalidation(invalidate)
             })
             .await
             .into_chosen_and_maybe_error()?;

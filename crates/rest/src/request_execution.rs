@@ -1,6 +1,7 @@
 use crate::RequestHeaders;
 use crate::RestService;
 use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_credentials::AuthSource;
 use cloud_terrastodon_credentials::create_azure_devops_rest_client;
@@ -48,6 +49,7 @@ pub async fn execute_rest_request(
     headers: Option<RequestHeaders>,
     tenant: Option<AzureTenantId>,
     bearer_token: Option<String>,
+    cancellation: &CancellationScope,
 ) -> Result<Response> {
     match service {
         RestService::AzureDevOps => {
@@ -59,6 +61,7 @@ pub async fn execute_rest_request(
                 headers,
                 tenant,
                 bearer_token,
+                cancellation,
             )
             .await
         }
@@ -72,6 +75,7 @@ pub async fn execute_rest_request(
                 tenant,
                 bearer_token,
                 AzureRestResource::MicrosoftGraph,
+                cancellation,
             )
             .await
         }
@@ -85,6 +89,7 @@ pub async fn execute_rest_request(
                 tenant,
                 bearer_token,
                 AzureRestResource::AzureResourceManager,
+                cancellation,
             )
             .await
         }
@@ -99,6 +104,7 @@ pub async fn execute_azure_devops_request(
     headers: Option<RequestHeaders>,
     tenant: Option<AzureTenantId>,
     bearer_token: Option<String>,
+    cancellation: &CancellationScope,
 ) -> Result<Response> {
     let source = auth_context.source();
 
@@ -110,7 +116,15 @@ pub async fn execute_azure_devops_request(
                     "Azure DevOps PAT authentication was selected but no PAT was available: {error}"
                 )
             })?;
-        return execute_authenticated_azure_devops_request(method, url, body, headers, &pat).await;
+        return execute_authenticated_azure_devops_request(
+            method,
+            url,
+            body,
+            headers,
+            &pat,
+            cancellation,
+        )
+        .await;
     }
 
     if let Some(bearer_token) = bearer_token {
@@ -121,6 +135,7 @@ pub async fn execute_azure_devops_request(
             body,
             headers,
             &bearer_token,
+            cancellation,
         )
         .await;
     }
@@ -129,9 +144,11 @@ pub async fn execute_azure_devops_request(
         auth_context,
         tenant,
         cloud_terrastodon_credentials::AzureRestResource::AzureDevOps,
+        cancellation,
     )
     .await?;
-    execute_authenticated_azure_devops_request(method, url, body, headers, &token).await
+    execute_authenticated_azure_devops_request(method, url, body, headers, &token, cancellation)
+        .await
 }
 
 async fn execute_authenticated_azure_devops_request(
@@ -140,6 +157,7 @@ async fn execute_authenticated_azure_devops_request(
     body: Option<String>,
     headers: Option<RequestHeaders>,
     token: &impl cloud_terrastodon_credentials::AuthBearerExt,
+    cancellation: &CancellationScope,
 ) -> Result<Response> {
     let client = create_azure_devops_rest_client(token).await?;
     debug!(?method, %url, "Executing Azure DevOps REST request");
@@ -152,7 +170,9 @@ async fn execute_authenticated_azure_devops_request(
     if let Some(headers) = headers {
         request_builder = request_builder.headers(headers.to_header_map()?);
     }
-    Ok(request_builder.send().await?)
+    Ok(cancellation
+        .cancellable_scope(|_| async { Ok::<_, eyre::Report>(request_builder.send().await?) })
+        .await?)
 }
 
 #[expect(
@@ -168,6 +188,7 @@ pub async fn execute_azure_bearer_request(
     tenant: Option<AzureTenantId>,
     bearer_token: Option<String>,
     resource: AzureRestResource,
+    cancellation: &CancellationScope,
 ) -> Result<Response> {
     let token = match bearer_token {
         Some(token) => token,
@@ -176,6 +197,7 @@ pub async fn execute_azure_bearer_request(
                 auth_context,
                 tenant,
                 cloud_terrastodon_credentials::AzureRestResource::MicrosoftGraph,
+                cancellation,
             )
             .await?
             .access_token
@@ -185,6 +207,7 @@ pub async fn execute_azure_bearer_request(
                 auth_context,
                 tenant,
                 cloud_terrastodon_credentials::AzureRestResource::AzureResourceManager,
+                cancellation,
             )
             .await?
             .access_token
@@ -194,6 +217,7 @@ pub async fn execute_azure_bearer_request(
                 auth_context,
                 tenant,
                 cloud_terrastodon_credentials::AzureRestResource::AzureDevOps,
+                cancellation,
             )
             .await?
             .access_token
@@ -212,7 +236,9 @@ pub async fn execute_azure_bearer_request(
     if let Some(headers) = headers {
         request_builder = request_builder.headers(headers.to_header_map()?);
     }
-    Ok(request_builder.send().await?)
+    Ok(cancellation
+        .cancellable_scope(|_| async { Ok::<_, eyre::Report>(request_builder.send().await?) })
+        .await?)
 }
 
 fn create_tls12_client() -> Result<Client> {

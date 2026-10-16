@@ -7,6 +7,7 @@ use cloud_terrastodon_azure::fetch_all_security_groups;
 use cloud_terrastodon_azure::fetch_all_subscriptions;
 use cloud_terrastodon_azure::get_resource_group_choices;
 use cloud_terrastodon_azure::uuid::Uuid;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_hcl::HclImportBlock;
 use cloud_terrastodon_hcl::HclProviderBlock;
@@ -26,6 +27,7 @@ use tracing::info;
 
 pub async fn resource_group_import_wizard_menu(
     auth_context: &AzureTenantAuthContext,
+    cancellation: &CancellationScope,
 ) -> Result<()> {
     info!("Confirming remove existing imports");
     let start_from_scratch = "start from scratch";
@@ -54,13 +56,13 @@ pub async fn resource_group_import_wizard_menu(
         // users,
         resource_group_choices,
     ) = join!(
-        fetch_all_subscriptions(auth_context),
+        fetch_all_subscriptions(auth_context, cancellation),
         // fetch_all_resource_groups(tenant_id),
-        fetch_all_role_assignments(auth_context),
+        fetch_all_role_assignments(auth_context, cancellation),
         // fetch_all_role_definitions(),
-        fetch_all_security_groups(auth_context),
+        fetch_all_security_groups(auth_context, cancellation),
         // fetch_all_users(),
-        get_resource_group_choices(auth_context),
+        get_resource_group_choices(auth_context, cancellation),
     );
     let subscriptions = subscriptions?
         .into_iter()
@@ -106,9 +108,9 @@ pub async fn resource_group_import_wizard_menu(
 
     info!("Writing resource group imports");
     HclWriter::new(AppDir::Imports.join("resource_group_imports.tf"))
-        .overwrite(rg_imports)
+        .overwrite(rg_imports, cancellation)
         .await?
-        .format_file()
+        .format_file(cancellation)
         .await?;
 
     let mut used_principals: HashSet<Uuid> = HashSet::new();
@@ -152,9 +154,9 @@ pub async fn resource_group_import_wizard_menu(
 
     info!("Writing role assignment imports");
     HclWriter::new(AppDir::Imports.join("role_assignment_imports.tf"))
-        .overwrite(ra_imports)
+        .overwrite(ra_imports, cancellation)
         .await?
-        .format_file()
+        .format_file(cancellation)
         .await?;
 
     info!("Building security group imports");
@@ -174,9 +176,9 @@ pub async fn resource_group_import_wizard_menu(
 
     info!("Writing security group imports");
     HclWriter::new(AppDir::Imports.join("security_groups.tf"))
-        .overwrite(sg_imports)
+        .overwrite(sg_imports, cancellation)
         .await?
-        .format_file()
+        .format_file(cancellation)
         .await?;
 
     info!("Building provider blocks");
@@ -191,9 +193,9 @@ pub async fn resource_group_import_wizard_menu(
 
     info!("Writing provider blocks");
     HclWriter::new(AppDir::Imports.join("boilerplate.tf"))
-        .merge(providers)
+        .merge(providers, cancellation)
         .await?
-        .format_file()
+        .format_file(cancellation)
         .await?;
 
     Ok(())

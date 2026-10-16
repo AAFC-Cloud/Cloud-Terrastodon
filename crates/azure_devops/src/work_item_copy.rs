@@ -7,7 +7,6 @@ use crate::azure_devops_work_item_copy_plan::AzureDevOpsWorkItemCopyPlan;
 use chrono::{DateTime, Utc};
 use cloud_terrastodon_azure_devops_types::*;
 use cloud_terrastodon_azure_types::ArbitraryJson;
-use cloud_terrastodon_command::async_trait;
 use eyre::Result;
 use eyre::ensure;
 use std::collections::BTreeMap;
@@ -15,21 +14,6 @@ use std::collections::BTreeSet;
 use std::collections::VecDeque;
 use std::io::Write;
 use std::path::Path;
-
-#[async_trait]
-pub(crate) trait WorkItemCopyWriter: Sync {
-    async fn create(
-        &self,
-        work_item_type: AzureDevOpsWorkItemType,
-        patch: AzureDevOpsJsonPatch,
-    ) -> Result<AzureDevOpsWorkItem>;
-    async fn relate(
-        &self,
-        source: AzureDevOpsWorkItemId,
-        relation: AzureDevOpsWorkItemRelationInput,
-    ) -> Result<()>;
-    async fn read(&self, ids: Vec<AzureDevOpsWorkItemId>) -> Result<Vec<AzureDevOpsWorkItem>>;
-}
 
 fn omit(
     omissions: &mut Vec<AzureDevOpsWorkItemCopyOmission>,

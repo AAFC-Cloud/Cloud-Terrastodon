@@ -2,6 +2,7 @@ use cloud_terrastodon_azure_types::RoleAssignmentId;
 use cloud_terrastodon_azure_types::RoleDefinitionId;
 use cloud_terrastodon_azure_types::Scope;
 use cloud_terrastodon_azure_types::uuid::Uuid;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
@@ -10,6 +11,7 @@ pub async fn create_role_assignment(
     scope: &impl Scope,
     role_definition_id: &RoleDefinitionId,
     principal_object_id: &Uuid,
+    cancellation: &CancellationScope,
 ) -> Result<RoleAssignmentId> {
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
     cmd.args(["role", "assignment", "create"]);
@@ -20,5 +22,5 @@ pub async fn create_role_assignment(
     struct Response {
         id: RoleAssignmentId,
     }
-    Ok(cmd.run::<Response>().await?.id)
+    Ok(cmd.run::<Response>(cancellation).await?.id)
 }

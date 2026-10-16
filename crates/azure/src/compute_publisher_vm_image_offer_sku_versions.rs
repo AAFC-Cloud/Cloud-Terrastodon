@@ -6,12 +6,16 @@ use cloud_terrastodon_azure_types::ComputePublisherVmImageOfferSkuVersionId;
 use cloud_terrastodon_azure_types::SubscriptionId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_rest::RestRequest;
 use std::path::PathBuf;
 
 #[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct ComputePublisherImageOfferSkuVersionListRequest {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub subscription_id: SubscriptionId,
     pub location: AzureLocationName,
     pub publisher_name: ComputePublisherName,
@@ -25,8 +29,10 @@ pub fn fetch_compute_publisher_image_offer_sku_versions(
     publisher_name: ComputePublisherName,
     offer_name: ComputePublisherVmImageOfferName,
     sku_name: ComputePublisherVmImageOfferSkuName,
+    cancellation: &CancellationScope,
 ) -> ComputePublisherImageOfferSkuVersionListRequest {
     ComputePublisherImageOfferSkuVersionListRequest {
+        cancellation: cancellation.clone(),
         subscription_id,
         location,
         publisher_name,
@@ -66,7 +72,7 @@ impl CacheableCommand for ComputePublisherImageOfferSkuVersionListRequest {
             id: ComputePublisherVmImageOfferSkuVersionId,
             // properties: Value,
         }
-        let rtn = RestRequest::new(http::Method::GET, &url)?
+        let rtn = RestRequest::new(http::Method::GET, &url, &self.cancellation)?
             .cache(self.cache_key())
             .receive::<Vec<Row>>()
             .await?
@@ -87,31 +93,38 @@ mod test {
     use crate::fetch_compute_publisher_image_offer_sku_versions;
     use crate::get_test_tenant_id;
     use cloud_terrastodon_azure_types::AzureLocationName;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_credentials::AuthContext;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        let tenant_id = get_test_tenant_id().await?;
-        let subscription_id = fetch_all_subscriptions(
-            &AuthContext::explicit_azure_cli().bind_to_azure_tenant(tenant_id)?,
-        )
-        .await?
-        .first()
-        .unwrap()
-        .id;
-        let publisher = "center-for-internet-security-inc".parse()?;
-        let offer = "cis-windows-server-2016-v1-0-0-l2".parse()?;
-        let sku = "cis-ws2016-l2".parse()?;
-        let sku_versions = fetch_compute_publisher_image_offer_sku_versions(
-            subscription_id,
-            AzureLocationName::CanadaCentral,
-            publisher,
-            offer,
-            sku,
-        )
-        .await?;
-        assert!(!sku_versions.is_empty());
-        Ok(())
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let tenant_id = get_test_tenant_id(&cancellation).await?;
+                let subscription_id = fetch_all_subscriptions(
+                    &AuthContext::explicit_azure_cli().bind_to_azure_tenant(tenant_id)?,
+                    &cancellation,
+                )
+                .await?
+                .first()
+                .unwrap()
+                .id;
+                let publisher = "center-for-internet-security-inc".parse()?;
+                let offer = "cis-windows-server-2016-v1-0-0-l2".parse()?;
+                let sku = "cis-ws2016-l2".parse()?;
+                let sku_versions = fetch_compute_publisher_image_offer_sku_versions(
+                    subscription_id,
+                    AzureLocationName::CanadaCentral,
+                    publisher,
+                    offer,
+                    sku,
+                    &cancellation,
+                )
+                .await?;
+                assert!(!sku_versions.is_empty());
+                Ok(())
+            })
+            .await
     }
 }
 

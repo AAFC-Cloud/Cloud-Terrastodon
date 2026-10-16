@@ -3,6 +3,7 @@ use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::OAuth2PermissionGrantId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_rest::RestRequest;
 use http::Method;
@@ -12,6 +13,9 @@ use tracing::info;
 
 #[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct OAuth2PermissionGrantUpdateRequest {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub tenant_id: AzureTenantId,
     pub id: OAuth2PermissionGrantId,
     pub scope: String,
@@ -21,8 +25,10 @@ pub fn update_oauth2_permission_grant(
     tenant_id: AzureTenantId,
     id: OAuth2PermissionGrantId,
     scope: String,
+    cancellation: &CancellationScope,
 ) -> OAuth2PermissionGrantUpdateRequest {
     OAuth2PermissionGrantUpdateRequest {
+        cancellation: cancellation.clone(),
         tenant_id,
         id,
         scope,
@@ -48,27 +54,38 @@ impl CacheableCommand for OAuth2PermissionGrantUpdateRequest {
     }
 
     async fn run(self) -> eyre::Result<Self::Output> {
-        let cache_key = self.cache_key();
-        info!("Updating OAuth2 permission grant {}", self.id);
-        let url = format!(
-            "https://graph.microsoft.com/v1.0/oauth2PermissionGrants/{}",
-            self.id
-        );
+        self.cancellation
+            .clone()
+            .deferred(
+                "Finish the submitted Azure mutation and its cache cleanup",
+                |cancellation| async move {
+                    let cache_key = self.cache_key();
+                    info!("Updating OAuth2 permission grant {}", self.id);
+                    let url = format!(
+                        "https://graph.microsoft.com/v1.0/oauth2PermissionGrants/{}",
+                        self.id
+                    );
 
-        #[derive(facet::Facet)]
-        struct UpdateBody {
-            scope: String,
-        }
+                    #[derive(facet::Facet)]
+                    struct UpdateBody {
+                        scope: String,
+                    }
 
-        let body = UpdateBody { scope: self.scope };
-        RestRequest::new(Method::PATCH, &url)?
-            .tenant(self.tenant_id)
-            .cache(cache_key)
-            .body(facet_json::to_string_pretty(&body).map_err(|error| eyre::eyre!("{error:?}"))?)
-            .receive_raw()
-            .await?;
-        bust_oauth2_permission_grants_cache(self.tenant_id).await?;
-        Ok(())
+                    let body = UpdateBody { scope: self.scope };
+                    RestRequest::new(Method::PATCH, &url, &cancellation)?
+                        .tenant(self.tenant_id)
+                        .cache(cache_key)
+                        .body(
+                            facet_json::to_string_pretty(&body)
+                                .map_err(|error| eyre::eyre!("{error:?}"))?,
+                        )
+                        .receive_raw()
+                        .await?;
+                    bust_oauth2_permission_grants_cache(self.tenant_id).await?;
+                    Ok(())
+                },
+            )
+            .await
     }
 }
 

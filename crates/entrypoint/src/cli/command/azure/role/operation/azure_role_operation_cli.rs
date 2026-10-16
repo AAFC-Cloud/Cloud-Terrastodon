@@ -1,5 +1,6 @@
 use super::AzureRoleOperationBrowseArgs;
 use super::AzureRoleOperationListArgs;
+use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 
 /// Subcommands for Azure provider operation metadata.
@@ -13,10 +14,13 @@ pub enum AzureRoleOperationCommand {
 }
 
 impl AzureRoleOperationCommand {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(
+        self,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self {
-            AzureRoleOperationCommand::List(args) => args.invoke().await,
-            AzureRoleOperationCommand::Browse(args) => args.invoke().await,
+            AzureRoleOperationCommand::List(args) => args.invoke(cancellation).await,
+            AzureRoleOperationCommand::Browse(args) => args.invoke(cancellation).await,
         }
     }
 }

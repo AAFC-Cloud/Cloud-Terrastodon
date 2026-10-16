@@ -1,3 +1,4 @@
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_pathing::AppDir;
 use eyre::Result;
 use tokio::io::AsyncWriteExt;
@@ -12,7 +13,10 @@ pub struct GetPathArgs {
 }
 
 impl GetPathArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(
+        self,
+        _cancellation: &CancellationScope,
+    ) -> Result<()> {
         let mut out = stdout();
         out.write_all(self.dir.as_path_buf().as_os_str().as_encoded_bytes())
             .await?;

@@ -1,6 +1,7 @@
 use crate::cli::pick::pick_command_cli::PickCommonArgs;
 use crate::cli::pick::pick_command_cli::write_selected_lines;
 use crate::serde_json_isolation::Value;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
@@ -46,7 +47,11 @@ fn resolve_input_format(input_format: Option<InputFormat>, stdin_buf: &str) -> I
 
 impl PickStdinArgs {
     #[instrument(name = "pick_stdin_command", skip_all)]
-    pub(crate) async fn invoke(self, common: PickCommonArgs) -> Result<()> {
+    pub(crate) async fn invoke(
+        self,
+        common: PickCommonArgs,
+        _cancellation: &CancellationScope,
+    ) -> Result<()> {
         self.invoke_inner(common).await
     }
 

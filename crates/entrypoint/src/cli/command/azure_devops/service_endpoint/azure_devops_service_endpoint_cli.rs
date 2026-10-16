@@ -1,5 +1,6 @@
 use crate::cli::azure_devops::service_endpoint::list::AzureDevOpsServiceEndpointListArgs;
 use crate::cli::azure_devops::service_endpoint::show::AzureDevOpsServiceEndpointShowArgs;
+use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 
 /// Azure DevOps service endpoint-related commands.
@@ -19,10 +20,13 @@ pub enum AzureDevOpsServiceEndpointCommand {
 }
 
 impl AzureDevOpsServiceEndpointArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(
+        self,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self.command {
-            AzureDevOpsServiceEndpointCommand::List(args) => args.invoke().await?,
-            AzureDevOpsServiceEndpointCommand::Show(args) => args.invoke().await?,
+            AzureDevOpsServiceEndpointCommand::List(args) => args.invoke(cancellation).await?,
+            AzureDevOpsServiceEndpointCommand::Show(args) => args.invoke(cancellation).await?,
         }
 
         Ok(())

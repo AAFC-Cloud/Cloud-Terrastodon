@@ -4,6 +4,7 @@ use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemQueryCreateRequest;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemQueryPath;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use std::borrow::Cow;
@@ -31,9 +32,14 @@ pub struct AzureDevOpsWorkItemQueryCreateArgs {
 }
 
 impl AzureDevOpsWorkItemQueryCreateArgs {
-    pub async fn invoke(self, auth: &AuthContext) -> Result<()> {
-        let auth_context = self.tenant.bind_auth_context(auth).await?;
+    pub async fn invoke(
+        self,
+        auth: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let auth_context = self.tenant.bind_auth_context(auth, cancellation).await?;
         let query = AzureDevOpsWorkItemQueryCreateRequest {
+            cancellation: cancellation.clone(),
             org_url: Cow::Borrowed(&self.org),
             project: self.project,
             auth_context: Cow::Borrowed(&auth_context),

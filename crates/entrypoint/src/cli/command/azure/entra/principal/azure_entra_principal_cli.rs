@@ -1,5 +1,6 @@
 use super::AzureEntraPrincipalListArgs;
 use super::AzureEntraPrincipalShowArgs;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -14,10 +15,14 @@ pub enum AzureEntraPrincipalCommand {
 }
 
 impl AzureEntraPrincipalCommand {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self {
-            AzureEntraPrincipalCommand::List(args) => args.invoke(auth_context).await,
-            AzureEntraPrincipalCommand::Show(args) => args.invoke(auth_context).await,
+            AzureEntraPrincipalCommand::List(args) => args.invoke(auth_context, cancellation).await,
+            AzureEntraPrincipalCommand::Show(args) => args.invoke(auth_context, cancellation).await,
         }
     }
 }

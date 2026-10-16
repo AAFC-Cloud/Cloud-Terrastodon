@@ -5,6 +5,7 @@ pub mod azure_tenant_alias_remove_cli;
 pub use azure_tenant_alias_add_cli::AzureTenantAliasAddArgs;
 pub use azure_tenant_alias_list_cli::AzureTenantAliasListArgs;
 pub use azure_tenant_alias_remove_cli::AzureTenantAliasRemoveArgs;
+use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 
 /// Alias-related commands for tracked Azure tenants.
@@ -26,11 +27,14 @@ pub enum AzureTenantAliasCommand {
 }
 
 impl AzureTenantAliasArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(
+        self,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self.command {
-            AzureTenantAliasCommand::Add(args) => args.invoke().await?,
-            AzureTenantAliasCommand::List(args) => args.invoke().await?,
-            AzureTenantAliasCommand::Remove(args) => args.invoke().await?,
+            AzureTenantAliasCommand::Add(args) => args.invoke(cancellation).await?,
+            AzureTenantAliasCommand::List(args) => args.invoke(cancellation).await?,
+            AzureTenantAliasCommand::Remove(args) => args.invoke(cancellation).await?,
         }
 
         Ok(())

@@ -3,6 +3,7 @@ use cloud_terrastodon_azure::ResourceGroupId;
 use cloud_terrastodon_azure::ResourceTagsId;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::replace_tags_for_resources;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Result;
@@ -11,7 +12,10 @@ use std::path::PathBuf;
 use std::time::Duration;
 use tracing::info;
 
-pub async fn tag_empty_resource_group_menu(auth_context: &AzureTenantAuthContext) -> Result<()> {
+pub async fn tag_empty_resource_group_menu(
+    auth_context: &AzureTenantAuthContext,
+    cancellation: &CancellationScope,
+) -> Result<()> {
     info!("Fetching empty resource groups");
     let query = r#"
 ResourceContainers  
@@ -37,6 +41,7 @@ ResourceContainers
             valid_for: Duration::ZERO,
         }),
         auth_context,
+        cancellation,
     )
     .collect_all::<Row>()
     .await?;
@@ -60,6 +65,7 @@ ResourceContainers
                 (ResourceTagsId::from_scope(&rg.id), rg.tags)
             })
             .collect(),
+        cancellation,
     )
     .await?;
 

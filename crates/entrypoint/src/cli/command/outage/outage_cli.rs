@@ -1,4 +1,5 @@
 use super::OutageInvestigateArgs;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -11,9 +12,13 @@ pub enum OutageCommand {
 }
 
 impl OutageCommand {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self {
-            OutageCommand::Investigate(args) => args.invoke(auth_context).await,
+            OutageCommand::Investigate(args) => args.invoke(auth_context, cancellation).await,
         }
     }
 }

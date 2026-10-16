@@ -6,6 +6,7 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItem;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemExpand;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemId;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
@@ -20,6 +21,9 @@ use std::pin::Pin;
 
 #[derive(Debug, Clone, Facet)]
 pub struct AzureDevOpsWorkItemGetRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub project: Option<AzureDevOpsProjectArgument<'a>>,
     pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
@@ -37,6 +41,7 @@ pub struct AzureDevOpsWorkItemGetRequest<'a> {
 impl<'a> Arbitrary<'a> for AzureDevOpsWorkItemGetRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: CancellationScope::arbitrary(u)?,
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: Some(AzureDevOpsProjectArgument::arbitrary(u)?.into_owned()),
             auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
@@ -78,7 +83,7 @@ impl<'a> IntoFuture for AzureDevOpsWorkItemGetRequest<'a> {
                     .append_pair("asOf", &as_of.to_rfc3339());
             }
             let id = self.id;
-            let request = RestRequest::from_method_and_url(Method::GET, url)?;
+            let request = RestRequest::from_method_and_url(Method::GET, url, &self.cancellation)?;
             let item: AzureDevOpsWorkItem = request
                 .azure_devops_auth_context(self.auth_context.as_ref())?
                 .receive()

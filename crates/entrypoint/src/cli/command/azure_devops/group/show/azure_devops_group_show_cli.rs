@@ -1,6 +1,7 @@
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_groups_for_project;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::to_writer_pretty;
 use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
@@ -24,12 +25,17 @@ pub struct AzureDevOpsGroupShowArgs {
 }
 
 impl AzureDevOpsGroupShowArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         let azure_devops_auth_context = AzureDevOpsAuthContext::new(auth_context)?;
         let groups = fetch_azure_devops_groups_for_project(
             &self.org,
             self.project,
             &azure_devops_auth_context,
+            cancellation,
         )
         .await?;
         if let Some(group) = groups.into_iter().find(|g| {

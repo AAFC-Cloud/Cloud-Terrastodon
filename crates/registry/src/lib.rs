@@ -19,8 +19,11 @@ use std::future::IntoFuture;
 use std::pin::Pin;
 use std::ptr::NonNull;
 
+mod bind_request_cancellation;
 mod default_production;
 
+#[doc(hidden)]
+pub use bind_request_cancellation::bind_request_cancellation;
 pub use default_production::DefaultProductionField;
 pub use default_production::DefaultProductionPlan;
 pub use default_production::DefaultProductionPlanKind;
@@ -30,6 +33,9 @@ pub use default_production::shape_can_be_produced_from_defaults;
 
 pub type InvocationFuture = Pin<Box<dyn Future<Output = eyre::Result<Box<dyn Any + Send>>> + Send>>;
 pub type AsyncValueFn = fn(Box<dyn Any + Send>) -> InvocationFuture;
+pub use teamy_cancellation::CancellationScope;
+/// Attach caller-owned cancellation to a reflected executable request.
+pub type CancellationBindingFn = fn(&mut (dyn Any + Send), &CancellationScope) -> eyre::Result<()>;
 pub type SyncValueFn = fn(Box<dyn Any + Send>) -> eyre::Result<Box<dyn Any + Send>>;
 pub type SyncRefFn = fn(&(dyn Any + Send)) -> eyre::Result<Box<dyn Any + Send>>;
 pub type SyncMutFn = fn(&mut (dyn Any + Send)) -> eyre::Result<Box<dyn Any + Send>>;
@@ -767,6 +773,8 @@ pub struct Function {
     pub executor: FunctionExecutor,
     pub output_to_runtime: RuntimeFromBoxedFn,
     pub registration_site: RegistrationSite,
+    /// Runtime binding performed before an executable request starts.
+    pub cancellation_binding: Option<CancellationBindingFn>,
 }
 
 impl Function {
@@ -796,6 +804,7 @@ impl Function {
             executor: FunctionExecutor::AsyncValue(invoke),
             output_to_runtime,
             registration_site,
+            cancellation_binding: None,
         }
     }
 
@@ -825,6 +834,7 @@ impl Function {
             executor: FunctionExecutor::SyncValue(invoke),
             output_to_runtime,
             registration_site,
+            cancellation_binding: None,
         }
     }
 
@@ -854,6 +864,7 @@ impl Function {
             executor: FunctionExecutor::SyncRef(invoke),
             output_to_runtime,
             registration_site,
+            cancellation_binding: None,
         }
     }
 
@@ -883,7 +894,13 @@ impl Function {
             executor: FunctionExecutor::SyncMut(invoke),
             output_to_runtime,
             registration_site,
+            cancellation_binding: None,
         }
+    }
+
+    pub const fn with_cancellation_binding(mut self, binding: CancellationBindingFn) -> Self {
+        self.cancellation_binding = Some(binding);
+        self
     }
 
     pub fn production_kind(&self, requested_shape: &'static Shape) -> Option<ProductionKind> {
@@ -905,8 +922,12 @@ impl Function {
 
     pub fn invoke_value_boxed(
         &self,
-        input: Box<dyn Any + Send>,
+        mut input: Box<dyn Any + Send>,
+        cancellation: &CancellationScope,
     ) -> eyre::Result<FunctionInvocation> {
+        if let Some(bind) = self.cancellation_binding {
+            bind(input.as_mut(), cancellation)?;
+        }
         match self.executor {
             FunctionExecutor::AsyncValue(invoke) => Ok(FunctionInvocation::Pending(invoke(input))),
             FunctionExecutor::SyncValue(invoke) => Ok(FunctionInvocation::Ready(invoke(input)?)),
@@ -1040,6 +1061,11 @@ macro_rules! register_arbitrary {
     };
 }
 
+/// Register an executable request with shape-discovered caller cancellation.
+///
+/// A single direct cancellation-token field is replaced before invocation,
+/// including opaque fields. Tokenless inputs are unchanged; multiple matching
+/// fields produce an error rather than selecting an arbitrary token.
 #[macro_export]
 macro_rules! register_into_future {
     ($thing_ty:ty => $output_ty:ty) => {
@@ -1058,7 +1084,7 @@ macro_rules! register_into_future {
                 $crate::invoke_result_future::<$thing_ty, $output_ty, _>,
                 $crate::runtime_from_boxed::<$output_ty>,
                 $crate::RegistrationSite::new(file!(), line!()),
-            );
+            ).with_cancellation_binding($crate::bind_request_cancellation::<$thing_ty>);
         };
     };
 }
@@ -1460,6 +1486,10 @@ fn default_value_label(field: &facet::Field) -> Option<String> {
     }
 }
 
+// Runtime cancellation handles are supplied by invocation hosts rather than
+// deserialized from user input. Register their reflection interoperability here.
+register_thing!(CancellationScope);
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -1467,6 +1497,7 @@ mod test {
     use std::borrow::Cow;
     use std::future::Future;
     use std::future::IntoFuture;
+    use teamy_cancellation::CancellationToken;
 
     #[derive(Debug, Clone, Copy, Default, Facet)]
     #[repr(C)]
@@ -1818,33 +1849,44 @@ mod test {
 
     #[tokio::test]
     async fn async_functions_invoke_erased_requests() -> eyre::Result<()> {
-        let function = functions_from(DummyListRequest::SHAPE)
-            .into_iter()
-            .find(|f| f.kind == FunctionKind::AsyncInvoke)
-            .unwrap();
-        let output = match function.invoke_value_boxed(Box::new(DummyListRequest {
-            tenant: DummyTenant,
-        }))? {
-            FunctionInvocation::Pending(future) => future.await?,
-            FunctionInvocation::Ready(_) => panic!("expected pending"),
-        };
-        let output = output.downcast::<Vec<DummyOutput>>().unwrap();
-        assert_eq!(output[0].value, "ok");
-        Ok(())
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let function = functions_from(DummyListRequest::SHAPE)
+                    .into_iter()
+                    .find(|f| f.kind == FunctionKind::AsyncInvoke)
+                    .unwrap();
+                let output = match function.invoke_value_boxed(
+                    Box::new(DummyListRequest {
+                        tenant: DummyTenant,
+                    }),
+                    &cancellation,
+                )? {
+                    FunctionInvocation::Pending(future) => future.await?,
+                    FunctionInvocation::Ready(_) => panic!("expected pending"),
+                };
+                let output = output.downcast::<Vec<DummyOutput>>().unwrap();
+                assert_eq!(output[0].value, "ok");
+                Ok(())
+            })
+            .await
     }
 
     #[tokio::test]
     async fn default_production_composes_registered_field_producers() -> eyre::Result<()> {
-        assert!(shape_can_be_produced_from_defaults(DummyListRequest::SHAPE));
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                assert!(shape_can_be_produced_from_defaults(DummyListRequest::SHAPE));
 
-        let function = functions_from(DummyListRequest::SHAPE)
-            .into_iter()
-            .find(|function| function.kind == FunctionKind::AsyncInvoke)
-            .unwrap();
-        let output = invoke_with_default_input(function).await?;
-        let output = output.downcast::<Vec<DummyOutput>>().unwrap();
-        assert_eq!(output[0].value, "ok");
-        Ok(())
+                let function = functions_from(DummyListRequest::SHAPE)
+                    .into_iter()
+                    .find(|function| function.kind == FunctionKind::AsyncInvoke)
+                    .unwrap();
+                let output = invoke_with_default_input(function, &cancellation).await?;
+                let output = output.downcast::<Vec<DummyOutput>>().unwrap();
+                assert_eq!(output[0].value, "ok");
+                Ok(())
+            })
+            .await
     }
 
     #[test]
@@ -1859,5 +1901,48 @@ mod test {
         let ending = input.downcast_ref::<ArbitraryBytes>().unwrap().0.len();
         assert!(ending < starting);
         Ok(())
+    }
+    #[derive(facet::Facet)]
+    struct CancellationProbeRequest {
+        #[facet(skip_serializing)]
+        stop_signal: CancellationScope,
+    }
+
+    impl std::future::IntoFuture for CancellationProbeRequest {
+        type Output = eyre::Result<bool>;
+        type IntoFuture = std::pin::Pin<Box<dyn std::future::Future<Output = Self::Output> + Send>>;
+
+        fn into_future(self) -> Self::IntoFuture {
+            Box::pin(async move { Ok(!self.stop_signal.is_cancelled()) })
+        }
+    }
+    register_thing!(CancellationProbeRequest);
+    register_into_future!(CancellationProbeRequest => bool);
+
+    #[tokio::test]
+    async fn invocation_binds_the_callers_token_instead_of_reflected_input_state()
+    -> eyre::Result<()> {
+        CancellationToken::new()
+            .cancellable_scope(|invocation_token| async move {
+                let input_token = CancellationScope::unbound();
+                input_token.request_cancel("stale input cancellation");
+
+                let function = functions_from(CancellationProbeRequest::SHAPE)
+                    .into_iter()
+                    .find(|function| function.kind == FunctionKind::AsyncInvoke)
+                    .unwrap();
+                let invocation = function.invoke_value_boxed(
+                    Box::new(CancellationProbeRequest {
+                        stop_signal: input_token,
+                    }),
+                    &invocation_token,
+                )?;
+                let FunctionInvocation::Pending(future) = invocation else {
+                    panic!("expected async probe")
+                };
+                assert!(*future.await?.downcast::<bool>().unwrap());
+                Ok(())
+            })
+            .await
     }
 }

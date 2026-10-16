@@ -2,6 +2,7 @@ use crate::AuthContext;
 use crate::AuthSource;
 use crate::AzureBearerToken;
 use crate::AzureRestResource;
+use crate::CancellationScope;
 use crate::browser_access_token::fetch_browser_access_token;
 use crate::pim_client_id;
 use crate::workload_identity::exchange_workload_identity_assertion;
@@ -21,9 +22,15 @@ const TOKEN_REFRESH_BUFFER_SECONDS: i64 = 120;
 pub async fn fetch_azure_access_token<T: FromCommandOutput>(
     tenant: Option<AzureTenantId>,
     resource: AzureRestResource,
+    cancellation: &CancellationScope,
 ) -> eyre::Result<AzureAccessToken<T>> {
-    build_azure_cli_access_token_command(tenant, resource)
-        .run::<AzureAccessToken<T>>()
+    cancellation
+        .cancellable_scope(|cancellation| async move {
+            let cancellation = &cancellation;
+            build_azure_cli_access_token_command(tenant, resource)
+                .run::<AzureAccessToken<T>>(cancellation)
+                .await
+        })
         .await
 }
 
@@ -32,6 +39,7 @@ fn build_azure_cli_access_token_command(
     resource: AzureRestResource,
 ) -> CommandBuilder {
     let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
+    cmd.cancellation_safe();
     cmd.args(["account", "get-access-token", "--output", "json"]);
     // Token acquisition must not turn a missing CLI session into an implicit
     // `az login`/device-code flow. Interactive login is an explicit command.
@@ -51,7 +59,10 @@ pub async fn fetch_azure_bearer_access_token(
     auth_context: &AuthContext,
     tenant: Option<AzureTenantId>,
     resource: AzureRestResource,
+    cancellation: &CancellationScope,
 ) -> eyre::Result<AzureAccessToken<AzureBearerToken>> {
+    cancellation.cancellable_scope(|cancellation| async move {
+                let cancellation = &cancellation;
     match auth_context.source() {
         Some(AuthSource::WorkloadIdentity) => {
             let config = auth_context.workload_identity().ok_or_else(|| {
@@ -76,7 +87,7 @@ pub async fn fetch_azure_bearer_access_token(
             }
             let endpoint = config.token_endpoint()?;
             let (token, expires_in) =
-                exchange_workload_identity_assertion(&Client::new(), endpoint, config, resource)
+                exchange_workload_identity_assertion(&Client::new(), endpoint, config, resource, cancellation)
                     .await?;
             let token = AzureAccessToken {
                 access_token: AzureBearerToken::new(token),
@@ -93,7 +104,7 @@ pub async fn fetch_azure_bearer_access_token(
                 auth_context.allows_interactive_reauthentication(),
                 "Azure CLI authentication is disabled for the selected/headless authentication context; provide workload identity credentials or choose a non-interactive source"
             );
-            let token = fetch_azure_access_token::<String>(tenant, resource).await?;
+            let token = fetch_azure_access_token::<String>(tenant, resource, cancellation).await?;
             Ok(AzureAccessToken {
                 access_token: AzureBearerToken::new(token.access_token),
                 expires_on: token.expires_on,
@@ -116,7 +127,7 @@ pub async fn fetch_azure_bearer_access_token(
             {
                 session.client_id
             } else {
-                pim_client_id(&tenant).await?
+                pim_client_id(&tenant, cancellation).await?
             };
             fetch_browser_access_token(
                 auth_context
@@ -126,7 +137,7 @@ pub async fn fetch_azure_bearer_access_token(
                 client_id,
                 resource,
                 auth_context.allows_interactive_browser_login(),
-            )
+             cancellation)
             .await
         }
         Some(AuthSource::PersonalAccessToken) => eyre::bail!(
@@ -139,6 +150,8 @@ pub async fn fetch_azure_bearer_access_token(
             "the placeholder authentication context cannot acquire access tokens; attach an invocation-resolved AuthContext before executing this request"
         ),
     }
+
+    }).await
 }
 
 fn is_token_fresh(
@@ -161,19 +174,30 @@ pub fn is_headless_auth_context() -> bool {
 /// Please explicitly log in with:
 /// az login --scope 499b84ac-1321-427f-aa17-267ca6975798/.default
 /// ```
-pub async fn fetch_azure_devops_personal_access_token()
--> eyre::Result<AzureAccessToken<AzureBearerToken>> {
-    // https://www.dylanberry.com/2021/02/21/how-to-get-a-pat-personal-access-token-for-azure-devops-from-the-az-cli/
-    // https://learn.microsoft.com/en-us/rest/api/azure/devops/tokens/?view=azure-devops-rest-7.1&tabs=powershell
-    // https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-auth-code-flow
-    let token = fetch_azure_access_token::<String>(None, AzureRestResource::AzureDevOps).await?;
-    Ok(AzureAccessToken {
-        access_token: AzureBearerToken::new(token.access_token),
-        expires_on: token.expires_on,
-        subscription: token.subscription,
-        tenant: token.tenant,
-        token_type: token.token_type,
-    })
+pub async fn fetch_azure_devops_personal_access_token(
+    cancellation: &CancellationScope,
+) -> eyre::Result<AzureAccessToken<AzureBearerToken>> {
+    cancellation
+        .cancellable_scope(|cancellation| async move {
+            let cancellation = &cancellation;
+            // https://www.dylanberry.com/2021/02/21/how-to-get-a-pat-personal-access-token-for-azure-devops-from-the-az-cli/
+            // https://learn.microsoft.com/en-us/rest/api/azure/devops/tokens/?view=azure-devops-rest-7.1&tabs=powershell
+            // https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-auth-code-flow
+            let token = fetch_azure_access_token::<String>(
+                None,
+                AzureRestResource::AzureDevOps,
+                cancellation,
+            )
+            .await?;
+            Ok(AzureAccessToken {
+                access_token: AzureBearerToken::new(token.access_token),
+                expires_on: token.expires_on,
+                subscription: token.subscription,
+                tenant: token.tenant,
+                token_type: token.token_type,
+            })
+        })
+        .await
 }
 
 #[cfg(test)]
@@ -189,6 +213,7 @@ mod test {
     use cloud_terrastodon_azure_types::AzureAccessToken;
     use cloud_terrastodon_azure_types::AzureTenantId;
     use cloud_terrastodon_azure_types::TokenType;
+    use cloud_terrastodon_command::CancellationToken;
     use facet_json::RawJson;
 
     #[test]
@@ -200,40 +225,61 @@ mod test {
 
     #[tokio::test]
     async fn browser_auth_requires_a_tenant_before_contacting_entra() {
-        let context = AuthContext::explicit(AuthSource::Browser);
-        let error = super::fetch_azure_bearer_access_token(
-            &context,
-            None,
-            crate::AzureRestResource::AzureDevOps,
-        )
-        .await
-        .expect_err("browser authentication without a tenant should fail locally");
-        assert!(error.to_string().contains("explicit tenant"));
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let context = AuthContext::explicit(AuthSource::Browser);
+                let error = super::fetch_azure_bearer_access_token(
+                    &context,
+                    None,
+                    crate::AzureRestResource::AzureDevOps,
+                    &cancellation,
+                )
+                .await
+                .expect_err("browser authentication without a tenant should fail locally");
+                assert!(error.to_string().contains("explicit tenant"));
+                Ok::<_, eyre::Error>(())
+            })
+            .await
+            .expect("test execution scope remains valid");
     }
 
     #[tokio::test]
     async fn headless_cli_auth_fails_before_spawning_azure_cli() {
-        let context = AuthContext::explicit_headless(AuthSource::AzureCli);
-        let error = super::fetch_azure_bearer_access_token(
-            &context,
-            None,
-            crate::AzureRestResource::AzureDevOps,
-        )
-        .await
-        .expect_err("headless CLI authentication should fail locally");
-        assert!(error.to_string().contains("disabled"));
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let context = AuthContext::explicit_headless(AuthSource::AzureCli);
+                let error = super::fetch_azure_bearer_access_token(
+                    &context,
+                    None,
+                    crate::AzureRestResource::AzureDevOps,
+                    &cancellation,
+                )
+                .await
+                .expect_err("headless CLI authentication should fail locally");
+                assert!(error.to_string().contains("disabled"));
+                Ok::<_, eyre::Error>(())
+            })
+            .await
+            .expect("test execution scope remains valid");
     }
 
     #[tokio::test]
     async fn placeholder_context_fails_before_token_acquisition() {
-        let error = super::fetch_azure_bearer_access_token(
-            &AuthContext::None,
-            None,
-            crate::AzureRestResource::AzureDevOps,
-        )
-        .await
-        .expect_err("placeholder authentication must not execute");
-        assert!(error.to_string().contains("placeholder"));
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let error = super::fetch_azure_bearer_access_token(
+                    &AuthContext::None,
+                    None,
+                    crate::AzureRestResource::AzureDevOps,
+                    &cancellation,
+                )
+                .await
+                .expect_err("placeholder authentication must not execute");
+                assert!(error.to_string().contains("placeholder"));
+                Ok::<_, eyre::Error>(())
+            })
+            .await
+            .expect("test execution scope remains valid");
     }
 
     #[test]
@@ -270,46 +316,55 @@ mod test {
     #[tokio::test]
     #[ignore = "requires a signed-in Azure CLI and live Azure DevOps access"]
     pub async fn it_works_profiles() -> eyre::Result<()> {
-        // this endpoint only works with the `az account get-access-token`, not with a raw PAT
-        let url = "https://app.vssps.visualstudio.com/_apis/profile/profiles/me?api-version=6.0";
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                // this endpoint only works with the `az account get-access-token`, not with a raw PAT
+                let url =
+                    "https://app.vssps.visualstudio.com/_apis/profile/profiles/me?api-version=6.0";
 
-        let token = fetch_azure_devops_personal_access_token().await?;
-        let client = create_azure_devops_rest_client(&token).await?;
+                let token = fetch_azure_devops_personal_access_token(&cancellation).await?;
+                let client = create_azure_devops_rest_client(&token).await?;
 
-        let resp = client.get(url).send().await?;
-        let status = resp.status();
+                let resp = client.get(url).send().await?;
+                let status = resp.status();
 
-        let content = resp.text().await?;
+                let content = resp.text().await?;
 
-        assert_eq!(200, status.as_u16(), "{:?}", status.canonical_reason());
-        let parsed = facet_json::from_str::<RawJson<'static>>(&content)?;
-        assert!(parsed.as_str().trim_start().starts_with('{'));
-        Ok(())
+                assert_eq!(200, status.as_u16(), "{:?}", status.canonical_reason());
+                let parsed = facet_json::from_str::<RawJson<'static>>(&content)?;
+                assert!(parsed.as_str().trim_start().starts_with('{'));
+                Ok(())
+            })
+            .await
     }
 
     #[tokio::test]
     #[ignore] // todo: remove, deprecate in favour of get_azure_devops_personal_access_token_from_credential_manager
     pub async fn it_works_projects() -> eyre::Result<()> {
-        // this endpoint only works with the `az account get-access-token`, not with a raw PAT
-        let url = "https://dev.azure.com/aafc/_apis/projects?api-version=7.1";
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                // this endpoint only works with the `az account get-access-token`, not with a raw PAT
+                let url = "https://dev.azure.com/aafc/_apis/projects?api-version=7.1";
 
-        let token = fetch_azure_devops_personal_access_token().await?;
-        let client = create_azure_devops_rest_client(&token).await?;
+                let token = fetch_azure_devops_personal_access_token(&cancellation).await?;
+                let client = create_azure_devops_rest_client(&token).await?;
 
-        let resp = client.get(url).send().await?;
-        let status = resp.status();
+                let resp = client.get(url).send().await?;
+                let status = resp.status();
 
-        let content = resp.text().await?;
+                let content = resp.text().await?;
 
-        assert_eq!(
-            200,
-            status.as_u16(),
-            "{} - {:?}",
-            status.as_u16(),
-            status.canonical_reason()
-        );
-        let parsed = facet_json::from_str::<RawJson<'static>>(&content)?;
-        assert!(parsed.as_str().trim_start().starts_with('{'));
-        Ok(())
+                assert_eq!(
+                    200,
+                    status.as_u16(),
+                    "{} - {:?}",
+                    status.as_u16(),
+                    status.canonical_reason()
+                );
+                let parsed = facet_json::from_str::<RawJson<'static>>(&content)?;
+                assert!(parsed.as_str().trim_start().starts_with('{'));
+                Ok(())
+            })
+            .await
     }
 }

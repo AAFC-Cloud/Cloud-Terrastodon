@@ -2,6 +2,7 @@ use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemId;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_test_suite_cases;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::to_writer_pretty;
 use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
@@ -33,7 +34,11 @@ pub struct AzureDevOpsTestSuiteCaseShowArgs {
 }
 
 impl AzureDevOpsTestSuiteCaseShowArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         let case_id = self.case.parse::<AzureDevOpsWorkItemId>().ok();
         let azure_devops_auth_context = AzureDevOpsAuthContext::new(auth_context)?;
         let cases = fetch_azure_devops_test_suite_cases(
@@ -42,6 +47,7 @@ impl AzureDevOpsTestSuiteCaseShowArgs {
             self.plan,
             self.suite,
             &azure_devops_auth_context,
+            cancellation,
         )
         .await?;
         if let Some(case) = cases.into_iter().find(|c| {

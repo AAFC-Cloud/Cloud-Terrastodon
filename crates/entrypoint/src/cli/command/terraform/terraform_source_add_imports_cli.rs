@@ -6,6 +6,7 @@ use cloud_terrastodon_azure::ScopeImpl;
 use cloud_terrastodon_azure::SubnetId;
 use cloud_terrastodon_azure::VirtualNetworkId;
 use cloud_terrastodon_azure::fetch_all_resources;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_hcl::AsHclString;
 use cloud_terrastodon_hcl::DataBlockReference;
@@ -38,10 +39,17 @@ pub struct TerraformSourceAddImportsArgs {
 }
 
 impl TerraformSourceAddImportsArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let tenant_auth_context = self
+            .tenant
+            .bind_auth_context(auth_context, cancellation)
+            .await?;
         info!("Fetching resources from Azure...");
-        let resources = fetch_all_resources(&tenant_auth_context)
+        let resources = fetch_all_resources(&tenant_auth_context, cancellation)
             .await?
             .into_iter()
             .into_group_map_by(|res| res.name.clone());

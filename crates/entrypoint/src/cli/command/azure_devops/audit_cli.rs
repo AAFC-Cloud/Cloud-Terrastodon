@@ -3,6 +3,7 @@ use crate::noninteractive::audit_azure_devops;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -28,13 +29,21 @@ pub struct AzureDevOpsAuditArgs {
 }
 
 impl AzureDevOpsAuditArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let auth_context = self.tenant.bind_auth_context(auth_context).await?;
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let auth_context = self
+            .tenant
+            .bind_auth_context(auth_context, cancellation)
+            .await?;
         audit_azure_devops(
             self.org,
             self.test_license_inactivity_threshold.0.into(),
             self.paid_license_inactivity_threshold.0.into(),
             &auth_context,
+            cancellation,
         )
         .await
     }

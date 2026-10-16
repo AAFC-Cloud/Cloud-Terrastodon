@@ -2,6 +2,7 @@ use cloud_terrastodon_azure::create_role_assignment;
 use cloud_terrastodon_azure::fetch_all_entra_users;
 use cloud_terrastodon_azure::fetch_all_resources;
 use cloud_terrastodon_azure::fetch_all_role_definitions;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
@@ -9,9 +10,12 @@ use eyre::Result;
 use itertools::Itertools;
 use tracing::info;
 
-pub async fn create_role_assignment_menu(auth_context: &AzureTenantAuthContext) -> Result<()> {
+pub async fn create_role_assignment_menu(
+    auth_context: &AzureTenantAuthContext,
+    cancellation: &CancellationScope,
+) -> Result<()> {
     info!("Fetching role definition list");
-    let role_definitions = fetch_all_role_definitions(auth_context).await?;
+    let role_definitions = fetch_all_role_definitions(auth_context, cancellation).await?;
     let role_definitions = PickerTui::<_>::new()
         .set_header("Roles to assign")
         .pick_many(role_definitions.into_iter().map(|r| Choice {
@@ -21,7 +25,7 @@ pub async fn create_role_assignment_menu(auth_context: &AzureTenantAuthContext) 
         .await?;
 
     info!("Fetching principals");
-    let users = fetch_all_entra_users(auth_context).await?;
+    let users = fetch_all_entra_users(auth_context, cancellation).await?;
     let principals = PickerTui::<_>::new()
         .set_header(format!(
             "Assigning {}",
@@ -34,7 +38,7 @@ pub async fn create_role_assignment_menu(auth_context: &AzureTenantAuthContext) 
         .await?;
 
     info!("Fetching resources");
-    let resources = fetch_all_resources(auth_context).await?;
+    let resources = fetch_all_resources(auth_context, cancellation).await?;
     let resources = PickerTui::<_>::new()
         .set_header(format!(
             "Assigning: {} TO {}",
@@ -55,7 +59,7 @@ pub async fn create_role_assignment_menu(auth_context: &AzureTenantAuthContext) 
                     "Assigning {} to {} on {}",
                     role.display_name, principal.user_principal_name, res.id
                 );
-                create_role_assignment(&res.id, &role.id, &principal.id).await?;
+                create_role_assignment(&res.id, &role.id, &principal.id, cancellation).await?;
                 total += 1;
             }
         }

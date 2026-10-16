@@ -1,5 +1,6 @@
 use super::AzureContainerInstanceListArgs;
 use super::AzureContainerInstanceShowArgs;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -21,16 +22,24 @@ pub struct AzureContainerInstanceArgs {
 }
 
 impl AzureContainerInstanceArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        self.command.invoke(auth_context).await
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        self.command.invoke(auth_context, cancellation).await
     }
 }
 
 impl AzureContainerInstanceCommand {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self {
-            Self::List(args) => args.invoke(auth_context).await,
-            Self::Show(args) => args.invoke(auth_context).await,
+            Self::List(args) => args.invoke(auth_context, cancellation).await,
+            Self::Show(args) => args.invoke(auth_context, cancellation).await,
         }
     }
 }

@@ -1,3 +1,4 @@
+use cloud_terrastodon_command::CancellationScope;
 use eyre::Context;
 use eyre::Result;
 use eyre::bail;
@@ -20,7 +21,10 @@ pub struct NslookupArgs {
 }
 
 impl NslookupArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(
+        self,
+        _cancellation: &CancellationScope,
+    ) -> Result<()> {
         let target = self.target.trim();
         if target.is_empty() {
             bail!("target cannot be empty");

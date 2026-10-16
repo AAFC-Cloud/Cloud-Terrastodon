@@ -1,6 +1,7 @@
 use crate::app::MyApp;
 use crate::work_tracker::WorkTracker;
 use cloud_terrastodon_azure::AzureTenantId;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_pathing::AppDir;
 use eframe::NativeOptions;
@@ -15,44 +16,59 @@ pub async fn run_app(
     app_info: String,
     tenant_id: AzureTenantId,
     auth_context: AuthContext,
+    cancellation: &CancellationScope,
 ) -> eyre::Result<()> {
-    let native_options = NativeOptions {
-        persist_window: true,
-        persistence_path: Some(AppDir::Config.join("egui_window_state.ron")),
-        run_and_return: true,
-        ..Default::default()
-    };
-
-    let work_tracker = Rc::new(WorkTracker::new());
-
-    {
-        let work_tracker2 = work_tracker.clone();
-        if let Err(e) = block_in_place(move || {
-            eframe::run_native(
-                "MyApp",
-                native_options,
-                Box::new(|cc: &eframe::CreationContext<'_>| {
-                    // This gives us image support:
-                    egui_extras::install_image_loaders(&cc.egui_ctx);
-                    let app = runtime::Handle::current().block_on(async move {
-                        MyApp::new(cc, tenant_id, auth_context, work_tracker2, app_info).await
-                    })?;
-                    Ok(Box::new(app))
-                }),
-            )
-        }) {
-            let work_tracker =
-                Rc::try_unwrap(work_tracker).map_err(|_| eyre!("Failed to take work_tracker"))?;
-            work_tracker.finish().await?;
-            bail!("Failed to run app: {e:#?}");
-        } else {
-            let work_tracker =
-                Rc::try_unwrap(work_tracker).map_err(|_| eyre!("Failed to take work_tracker"))?;
-            work_tracker.finish().await?;
+    let (_shutdown, run) = cancellation.with_async_child_scope(move |cancellation| async move {
+        let native_options = NativeOptions {
+            persist_window: true,
+            persistence_path: Some(AppDir::Config.join("egui_window_state.ron")),
+            run_and_return: true,
+            ..Default::default()
         };
-    }
 
-    info!("Goodbye!");
+        let work_tracker = Rc::new(WorkTracker::new());
 
-    Ok(())
+        {
+            let work_tracker2 = work_tracker.clone();
+            let app_cancellation = cancellation.clone();
+            if let Err(e) = block_in_place(move || {
+                eframe::run_native(
+                    "MyApp",
+                    native_options,
+                    Box::new(|cc: &eframe::CreationContext<'_>| {
+                        // This gives us image support:
+                        egui_extras::install_image_loaders(&cc.egui_ctx);
+                        let app = runtime::Handle::current().block_on(async move {
+                            MyApp::new(
+                                cc,
+                                tenant_id,
+                                auth_context,
+                                work_tracker2,
+                                app_info,
+                                &app_cancellation,
+                            )
+                            .await
+                        })?;
+                        Ok(Box::new(app))
+                    }),
+                )
+            }) {
+                cancellation.request_cancel("GUI stopped after an error");
+                let work_tracker = Rc::try_unwrap(work_tracker)
+                    .map_err(|_| eyre!("Failed to take work_tracker"))?;
+                work_tracker.finish().await?;
+                bail!("Failed to run app: {e:#?}");
+            } else {
+                cancellation.request_cancel("GUI window closed");
+                let work_tracker = Rc::try_unwrap(work_tracker)
+                    .map_err(|_| eyre!("Failed to take work_tracker"))?;
+                work_tracker.finish().await?;
+            };
+        }
+
+        info!("Goodbye!");
+
+        Ok(())
+    });
+    run.await
 }

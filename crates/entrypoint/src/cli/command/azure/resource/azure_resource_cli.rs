@@ -1,6 +1,7 @@
 use super::AzureResourceBrowseArgs;
 use super::AzureResourceListArgs;
 use super::AzureResourceShowArgs;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -17,11 +18,15 @@ pub enum AzureResourceCommand {
 }
 
 impl AzureResourceCommand {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self {
-            AzureResourceCommand::List(args) => args.invoke(auth_context).await,
-            AzureResourceCommand::Browse(args) => args.invoke(auth_context).await,
-            AzureResourceCommand::Show(args) => args.invoke(auth_context).await,
+            AzureResourceCommand::List(args) => args.invoke(auth_context, cancellation).await,
+            AzureResourceCommand::Browse(args) => args.invoke(auth_context, cancellation).await,
+            AzureResourceCommand::Show(args) => args.invoke(auth_context, cancellation).await,
         }
     }
 }

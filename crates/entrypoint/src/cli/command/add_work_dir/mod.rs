@@ -1,3 +1,4 @@
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_config::Config;
 use cloud_terrastodon_config::WorkDirsConfig;
 use eyre::Context;
@@ -14,7 +15,10 @@ pub struct AddWorkDirArgs {
 }
 
 impl AddWorkDirArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(
+        self,
+        _cancellation: &CancellationScope,
+    ) -> Result<()> {
         let mut dir = self.dir;
         if !dir.is_absolute() {
             dir = canonicalize(&dir)

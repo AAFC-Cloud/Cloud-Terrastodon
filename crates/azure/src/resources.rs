@@ -5,6 +5,7 @@ use crate::ResourceGraphHelper;
 use cloud_terrastodon_azure_types::Resource;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Result;
@@ -15,12 +16,16 @@ use tracing::debug;
 #[must_use = "This is a future request, you must .await it"]
 #[derive(facet::Facet)]
 pub struct ResourceListRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
 
 impl<'a> arbitrary::Arbitrary<'a> for ResourceListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: arbitrary::Arbitrary::arbitrary(u)?,
             auth_context: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
         })
     }
@@ -28,8 +33,10 @@ impl<'a> arbitrary::Arbitrary<'a> for ResourceListRequest<'static> {
 
 pub fn fetch_all_resources<'a>(
     auth_context: &'a AzureTenantAuthContext,
+    cancellation: &CancellationScope,
 ) -> ResourceListRequest<'a> {
     ResourceListRequest {
+        cancellation: cancellation.clone(),
         auth_context: Cow::Borrowed(auth_context),
     }
 }
@@ -62,6 +69,7 @@ resources
 "#,
             Some(self.cache_key()),
             self.auth_context.as_ref(),
+            &self.cancellation,
         );
         let mut helper = helper;
         let resources = helper.collect_all().await?;
@@ -79,69 +87,84 @@ mod tests {
     use cloud_terrastodon_azure_types::ResourceType;
     use cloud_terrastodon_azure_types::Scope;
     use cloud_terrastodon_azure_types::ScopeImplKind;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_credentials::AuthContext;
     use itertools::Itertools;
     use std::collections::HashMap;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
-        let auth_context = AuthContext::explicit_azure_cli();
-        let auth_context = auth_context.bind_to_azure_tenant(get_test_tenant_id().await?)?;
-        let resources = fetch_all_resources(&auth_context).await?;
-        assert!(resources.len() > 10);
-        Ok(())
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let auth_context = AuthContext::explicit_azure_cli();
+                let auth_context =
+                    auth_context.bind_to_azure_tenant(get_test_tenant_id(&cancellation).await?)?;
+                let resources = fetch_all_resources(&auth_context, &cancellation).await?;
+                assert!(resources.len() > 10);
+                Ok(())
+            })
+            .await
     }
 
     #[tokio::test]
     async fn resource_groups() -> Result<()> {
-        let auth_context = AuthContext::explicit_azure_cli();
-        let auth_context = auth_context.bind_to_azure_tenant(get_test_tenant_id().await?)?;
-        let resources = fetch_all_resources(&auth_context)
-            .await?
-            .into_iter()
-            .filter(|res| res.kind.is_resource_group())
-            .collect_vec();
-        assert!(!resources.is_empty());
-        Ok(())
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let auth_context = AuthContext::explicit_azure_cli();
+                let auth_context =
+                    auth_context.bind_to_azure_tenant(get_test_tenant_id(&cancellation).await?)?;
+                let resources = fetch_all_resources(&auth_context, &cancellation)
+                    .await?
+                    .into_iter()
+                    .filter(|res| res.kind.is_resource_group())
+                    .collect_vec();
+                assert!(!resources.is_empty());
+                Ok(())
+            })
+            .await
     }
 
     #[tokio::test]
     async fn count() -> Result<()> {
-        let auth_context = AuthContext::explicit_azure_cli();
-        let auth_context = auth_context.bind_to_azure_tenant(get_test_tenant_id().await?)?;
-        let resources = fetch_all_resources(&auth_context).await?;
-        let ids: HashMap<ScopeImplKind, i32> =
-            resources
-                .iter()
-                .map(|res| res.id.kind())
-                .fold(HashMap::default(), |mut acc, kind| {
-                    *acc.entry(kind).or_insert(0) += 1;
-                    acc
-                });
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let auth_context = AuthContext::explicit_azure_cli();
+                let auth_context =
+                    auth_context.bind_to_azure_tenant(get_test_tenant_id(&cancellation).await?)?;
+                let resources = fetch_all_resources(&auth_context, &cancellation).await?;
+                let ids: HashMap<ScopeImplKind, i32> = resources
+                    .iter()
+                    .map(|res| res.id.kind())
+                    .fold(HashMap::default(), |mut acc, kind| {
+                        *acc.entry(kind).or_insert(0) += 1;
+                        acc
+                    });
 
-        let known_count: i32 = ids
-            .iter()
-            .filter(|x| *x.0 != ScopeImplKind::Unknown)
-            .map(|(_, v)| *v)
-            .sum();
-        let unknown_count = ids
-            .get(&ScopeImplKind::Unknown)
-            .cloned()
-            .unwrap_or_default();
+                let known_count: i32 = ids
+                    .iter()
+                    .filter(|x| *x.0 != ScopeImplKind::Unknown)
+                    .map(|(_, v)| *v)
+                    .sum();
+                let unknown_count = ids
+                    .get(&ScopeImplKind::Unknown)
+                    .cloned()
+                    .unwrap_or_default();
 
-        let unknown_kinds: HashMap<ResourceType, i32> = resources
-            .iter()
-            .filter(|res| res.id.kind() == ScopeImplKind::Unknown)
-            .map(|res| res.kind.clone())
-            .fold(HashMap::new(), |mut acc, kind| {
-                *acc.entry(kind).or_insert(0) += 1;
-                acc
-            });
+                let unknown_kinds: HashMap<ResourceType, i32> = resources
+                    .iter()
+                    .filter(|res| res.id.kind() == ScopeImplKind::Unknown)
+                    .map(|res| res.kind.clone())
+                    .fold(HashMap::new(), |mut acc, kind| {
+                        *acc.entry(kind).or_insert(0) += 1;
+                        acc
+                    });
 
-        assert_eq!(known_count + unknown_count, resources.len() as i32);
-        assert_eq!(unknown_kinds.values().sum::<i32>(), unknown_count);
+                assert_eq!(known_count + unknown_count, resources.len() as i32);
+                assert_eq!(unknown_kinds.values().sum::<i32>(), unknown_count);
 
-        Ok(())
+                Ok(())
+            })
+            .await
     }
 }
 

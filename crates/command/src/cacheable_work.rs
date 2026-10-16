@@ -1,5 +1,7 @@
 use crate::ArtifactMetadata;
 use crate::CacheKey;
+use crate::CancellationError;
+use crate::CancellationScope;
 use crate::CommandOutput;
 use crate::artifact_cache;
 use async_trait::async_trait;
@@ -78,6 +80,7 @@ async fn execute_and_cache_output<Exec, ExecFuture, Raw>(
     metadata: &ArtifactMetadata,
     extra_files: Option<RawExtraFilesFn<Raw>>,
     execute_raw: Exec,
+    cancellation: &CancellationScope,
 ) -> Result<CommandOutput>
 where
     Exec: FnOnce() -> ExecFuture + Send,
@@ -85,37 +88,42 @@ where
     Raw: Facet<'static> + Send + 'static,
 {
     let raw = execute_raw().await?;
-    let (output, extra_files) = tokio::task::spawn_blocking(move || -> Result<_> {
-        let extra_files = extra_files.map(|f| f(&raw)).unwrap_or_default();
-        let stdout = crate::json::to_vec_pretty(&raw)
-            .context("serializing cached work raw output to JSON")?;
-        let output = CommandOutput {
-            stdout: BString::from(stdout),
-            stderr: BString::default(),
-            status: 0,
-        };
-        Ok((output, extra_files))
-    })
-    .await??;
-    if let Err(error) = artifact_cache::write_output_with_extra_files(
-        &cache_key.path_on_disk(),
-        context,
-        debug_inputs,
-        &output,
-        metadata,
-        &extra_files,
-    )
-    .await
-    {
-        artifact_cache::note_cache_write_failure(&error);
-    } else {
-        artifact_cache::put_memory_cache_entry(cache_key, &metadata.fingerprint, &output);
-    }
-    Ok(output)
+    cancellation
+        .finish_required("persisting request output and cache artifacts", |_| async {
+            let (output, extra_files) = tokio::task::spawn_blocking(move || -> Result<_> {
+                let extra_files = extra_files.map(|f| f(&raw)).unwrap_or_default();
+                let stdout = crate::json::to_vec_pretty(&raw)
+                    .context("serializing cached work raw output to JSON")?;
+                let output = CommandOutput {
+                    stdout: BString::from(stdout),
+                    stderr: BString::default(),
+                    status: 0,
+                };
+                Ok((output, extra_files))
+            })
+            .await??;
+            if let Err(error) = artifact_cache::write_output_with_extra_files(
+                &cache_key.path_on_disk(),
+                context,
+                debug_inputs,
+                &output,
+                metadata,
+                &extra_files,
+            )
+            .await
+            {
+                artifact_cache::note_cache_write_failure(&error);
+            } else {
+                artifact_cache::put_memory_cache_entry(cache_key, &metadata.fingerprint, &output);
+            }
+            Ok(output)
+        })
+        .await
 }
 
 pub async fn run_cached_work<Exec, ExecFuture, Decode, Raw, Output>(
     spec: CachedWorkSpec<Exec, ExecFuture, Decode, Raw, Output>,
+    cancellation: &CancellationScope,
 ) -> Result<Output>
 where
     Exec: FnOnce() -> ExecFuture + Send,
@@ -138,35 +146,45 @@ where
     let fingerprint = work_fingerprint(&cache_key, &context, &debug_inputs)?;
     let metadata = ArtifactMetadata::new(&fingerprint, executor_kind, output_type);
 
-    let output =
-        match artifact_cache::get_cached_output(&cache_key, &context, &debug_inputs, &fingerprint)
-            .await
-        {
-            Ok(Some(output)) => output,
-            Ok(None) => {
-                execute_and_cache_output(
-                    &cache_key,
-                    &context,
-                    &debug_inputs,
-                    &metadata,
-                    extra_files,
-                    execute_raw,
-                )
-                .await?
-            }
-            Err(error) => {
-                tracing::debug!(?cache_key, %error, "Cache load failed");
-                execute_and_cache_output(
-                    &cache_key,
-                    &context,
-                    &debug_inputs,
-                    &metadata,
-                    extra_files,
-                    execute_raw,
-                )
-                .await?
-            }
-        };
+    let output = match cancellation
+        .cancellable_scope(|_| {
+            artifact_cache::get_cached_output(&cache_key, &context, &debug_inputs, &fingerprint)
+        })
+        .await
+    {
+        Ok(Some(output)) => {
+            cancellation.bail_if_cancelled()?;
+            output
+        }
+        Ok(None) => {
+            cancellation.bail_if_cancelled()?;
+            execute_and_cache_output(
+                &cache_key,
+                &context,
+                &debug_inputs,
+                &metadata,
+                extra_files,
+                execute_raw,
+                cancellation,
+            )
+            .await?
+        }
+        Err(error) if error.downcast_ref::<CancellationError>().is_some() => return Err(error),
+        Err(error) => {
+            tracing::debug!(?cache_key, %error, "Cache load failed");
+            cancellation.bail_if_cancelled()?;
+            execute_and_cache_output(
+                &cache_key,
+                &context,
+                &debug_inputs,
+                &metadata,
+                extra_files,
+                execute_raw,
+                cancellation,
+            )
+            .await?
+        }
+    };
 
     let raw_result = tokio::task::spawn_blocking(move || -> Result<_> {
         let raw = crate::json::from_slice::<Raw>(&output.stdout)?;
@@ -182,6 +200,7 @@ where
     let decode_result = tokio::task::spawn_blocking(move || decode(raw)).await?;
     match decode_result {
         Ok(result) => Ok(result),
+        Err(error) if error.downcast_ref::<CancellationError>().is_some() => Err(error),
         Err(error) => {
             let mut extra_files = extra_files;
             if let Some(failure_extra_files) = failure_extra_files {
@@ -207,24 +226,30 @@ where
 }
 
 #[doc(hidden)]
-pub async fn run_cached_work_request<Request>(request: Request) -> Result<Request::Output>
+pub async fn run_cached_work_request<Request>(
+    request: Request,
+    cancellation: &CancellationScope,
+) -> Result<Request::Output>
 where
     Request: CacheableWorkRequest + 'static,
 {
     let cache_key = request.cache_key();
     let context = request.context();
     let debug_inputs = request.debug_inputs();
-    run_cached_work(CachedWorkSpec {
-        cache_key,
-        context,
-        debug_inputs,
-        extra_files: None,
-        failure_extra_files: None,
-        executor_kind: "in_process".to_string(),
-        output_type: std::any::type_name::<Request::Output>().to_string(),
-        execute_raw: move || request.execute_raw(),
-        decode: Request::decode,
-    })
+    run_cached_work(
+        CachedWorkSpec {
+            cache_key,
+            context,
+            debug_inputs,
+            extra_files: None,
+            failure_extra_files: None,
+            executor_kind: "in_process".to_string(),
+            output_type: std::any::type_name::<Request::Output>().to_string(),
+            execute_raw: move || request.execute_raw(),
+            decode: Request::decode,
+        },
+        cancellation,
+    )
     .await
 }
 
@@ -236,8 +261,12 @@ macro_rules! impl_cacheable_work_into_future {
             type IntoFuture =
                 ::std::pin::Pin<Box<dyn ::std::future::Future<Output = Self::Output> + Send>>;
 
-            fn into_future(self) -> Self::IntoFuture {
-                Box::pin($crate::run_cached_work_request(self))
+            fn into_future(mut self) -> Self::IntoFuture {
+                let parent = self.cancellation.clone();
+                Box::pin(parent.cancellable_scope(move |scope| async move {
+                    self.cancellation = scope.clone();
+                    $crate::run_cached_work_request(self, &scope).await
+                }))
             }
         }
 
@@ -252,11 +281,18 @@ macro_rules! impl_cacheable_work_into_future {
             fn with_invalidation(self, invalidate_cache: bool) -> Self::WithInvalidation {
                 Box::pin(async move {
                     if invalidate_cache {
-                        <$ty as $crate::CacheableWorkRequest>::cache_key(&self)
-                            .invalidate()
+                        self.cancellation
+                            .deferred(
+                                "finishing filesystem and memory cache invalidation",
+                                |_| async {
+                                    <$ty as $crate::CacheableWorkRequest>::cache_key(&self)
+                                        .invalidate()
+                                        .await
+                                },
+                            )
                             .await?;
                     }
-                    $crate::run_cached_work_request(self).await
+                    ::std::future::IntoFuture::into_future(self).await
                 })
             }
         }
@@ -268,8 +304,12 @@ macro_rules! impl_cacheable_work_into_future {
             type IntoFuture =
                 ::std::pin::Pin<Box<dyn ::std::future::Future<Output = Self::Output> + Send + $lt>>;
 
-            fn into_future(self) -> Self::IntoFuture {
-                Box::pin($crate::run_cached_work_request(self))
+            fn into_future(mut self) -> Self::IntoFuture {
+                let parent = self.cancellation.clone();
+                Box::pin(parent.cancellable_scope(move |scope| async move {
+                    self.cancellation = scope.clone();
+                    $crate::run_cached_work_request(self, &scope).await
+                }))
             }
         }
 
@@ -285,11 +325,18 @@ macro_rules! impl_cacheable_work_into_future {
             fn with_invalidation(self, invalidate_cache: bool) -> Self::WithInvalidation {
                 Box::pin(async move {
                     if invalidate_cache {
-                        <$ty as $crate::CacheableWorkRequest>::cache_key(&self)
-                            .invalidate()
+                        self.cancellation
+                            .deferred(
+                                "finishing filesystem and memory cache invalidation",
+                                |_| async {
+                                    <$ty as $crate::CacheableWorkRequest>::cache_key(&self)
+                                        .invalidate()
+                                        .await
+                                },
+                            )
                             .await?;
                     }
-                    $crate::run_cached_work_request(self).await
+                    ::std::future::IntoFuture::into_future(self).await
                 })
             }
         }

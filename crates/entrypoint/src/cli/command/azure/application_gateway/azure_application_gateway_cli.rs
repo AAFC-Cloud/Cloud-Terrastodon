@@ -1,6 +1,7 @@
 use super::AzureApplicationGatewayListArgs;
 use super::AzureApplicationGatewayShowArgs;
 use super::AzureApplicationGatewayShowBackendHealthArgs;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -17,12 +18,20 @@ pub enum AzureApplicationGatewayCommand {
 }
 
 impl AzureApplicationGatewayCommand {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self {
-            AzureApplicationGatewayCommand::List(args) => args.invoke(auth_context).await,
-            AzureApplicationGatewayCommand::Show(args) => args.invoke(auth_context).await,
+            AzureApplicationGatewayCommand::List(args) => {
+                args.invoke(auth_context, cancellation).await
+            }
+            AzureApplicationGatewayCommand::Show(args) => {
+                args.invoke(auth_context, cancellation).await
+            }
             AzureApplicationGatewayCommand::ShowBackendHealth(args) => {
-                args.invoke(auth_context).await
+                args.invoke(auth_context, cancellation).await
             }
         }
     }

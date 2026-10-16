@@ -5,6 +5,7 @@ use cloud_terrastodon_azure_types::EntraGroupId;
 use cloud_terrastodon_azure_types::Principal;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Context;
@@ -14,6 +15,9 @@ use std::path::PathBuf;
 
 #[derive(facet::Facet)]
 pub struct EntraGroupMembersListBatchRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub group_ids: Vec<EntraGroupId>,
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
@@ -21,6 +25,7 @@ pub struct EntraGroupMembersListBatchRequest<'a> {
 impl<'a> arbitrary::Arbitrary<'a> for EntraGroupMembersListBatchRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: arbitrary::Arbitrary::arbitrary(u)?,
             group_ids: arbitrary::Arbitrary::arbitrary(u)?,
             auth_context: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
         })
@@ -32,8 +37,10 @@ impl<'a> arbitrary::Arbitrary<'a> for EntraGroupMembersListBatchRequest<'static>
 pub fn fetch_group_members_batch<'a>(
     group_ids: impl IntoIterator<Item = EntraGroupId>,
     auth_context: &'a AzureTenantAuthContext,
+    cancellation: &CancellationScope,
 ) -> EntraGroupMembersListBatchRequest<'a> {
     EntraGroupMembersListBatchRequest {
+        cancellation: cancellation.clone(),
         group_ids: group_ids.into_iter().collect(),
         auth_context: Cow::Borrowed(auth_context),
     }
@@ -64,12 +71,14 @@ impl CacheableCommand for EntraGroupMembersListBatchRequest<'_> {
     async fn run(self) -> eyre::Result<Self::Output> {
         let cache_key = self.cache_key();
         let EntraGroupMembersListBatchRequest {
+            cancellation,
             group_ids,
             auth_context,
         } = self;
         // Construct the request
         let mut batch_request: MicrosoftGraphBatchRequest<'_, Vec<Principal>> =
-            MicrosoftGraphBatchRequest::new(auth_context.as_ref());
+            MicrosoftGraphBatchRequest::new(auth_context.as_ref(), &cancellation)
+                .cancellation_safe();
 
         // Enable caching since it's a GET request
         batch_request.cache(cache_key);
@@ -77,6 +86,7 @@ impl CacheableCommand for EntraGroupMembersListBatchRequest<'_> {
         // Add the request for each group
         for group_id in &group_ids {
             batch_request.add(EntraGroupMembersListRequest {
+                cancellation: cancellation.clone(),
                 group_id: *group_id,
                 auth_context: Cow::Borrowed(auth_context.as_ref()),
             });

@@ -6,6 +6,7 @@ use cloud_terrastodon_azure::RolePermissionAction;
 use cloud_terrastodon_azure::UnifiedRoleDefinitionsAndAssignmentsIterTools;
 use cloud_terrastodon_azure::fetch_all_unified_role_definitions_and_assignments;
 use cloud_terrastodon_azure::fetch_current_user;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::OutputBehaviour;
@@ -33,8 +34,12 @@ pub struct TerraformApplyArgs {
 }
 
 impl TerraformApplyArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let tenant_id = self.tenant.resolve().await?;
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let tenant_id = self.tenant.resolve(cancellation).await?;
         // Generate the plan file
         let plan_file = "apply.tfplan";
         let mut cmd = CommandBuilder::new(CommandKind::Terraform);
@@ -42,7 +47,7 @@ impl TerraformApplyArgs {
         cmd.args(["plan", "-out", plan_file]);
         cmd.use_output_behaviour(OutputBehaviour::Display);
         cmd.should_announce(true);
-        cmd.run_raw().await?;
+        cmd.run_raw(cancellation).await?;
 
         // Verify the plan file exists
         let plan_file_path = self.source_dir.join(plan_file);
@@ -58,10 +63,11 @@ impl TerraformApplyArgs {
 
         // Convert the plan file to JSON
         let mut cmd = CommandBuilder::new(CommandKind::Terraform);
+        cmd.cancellation_safe();
         cmd.use_run_dir(&self.source_dir);
         cmd.should_announce(true);
         cmd.args(["show", "--json", plan_file]);
-        let plan_json = cmd.run::<TerraformPlan>().await?;
+        let plan_json = cmd.run::<TerraformPlan>(cancellation).await?;
 
         // Identify RBAC roles required by the plan
         #[derive(Debug, Eq, PartialEq, Hash)]
@@ -95,8 +101,9 @@ impl TerraformApplyArgs {
         // Identify RBAC roles for the current principal
         let tenant_auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
         let entra_rbac =
-            fetch_all_unified_role_definitions_and_assignments(&tenant_auth_context).await?;
-        let current_user = fetch_current_user().await?;
+            fetch_all_unified_role_definitions_and_assignments(&tenant_auth_context, cancellation)
+                .await?;
+        let current_user = fetch_current_user(cancellation).await?;
         let current_user_rbac = entra_rbac
             .iter_role_assignments()
             .filter_principal(&current_user.id)
@@ -139,7 +146,7 @@ impl TerraformApplyArgs {
                 unsatisfied_requirements
             );
             press_enter_to_continue().await?;
-            pim_activate_entra(tenant_id).await?;
+            pim_activate_entra(tenant_id, cancellation).await?;
         }
 
         // Apply the plan
@@ -148,7 +155,7 @@ impl TerraformApplyArgs {
         cmd.args(["apply", plan_file]);
         cmd.use_output_behaviour(OutputBehaviour::Display);
         cmd.should_announce(true);
-        cmd.run_raw().await?;
+        cmd.run_raw(cancellation).await?;
 
         Ok(())
     }

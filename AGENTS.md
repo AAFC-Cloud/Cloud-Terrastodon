@@ -60,6 +60,57 @@ Standalone examples may remain self-contained, as described in
   large helper file. Extract abstractions for actual shared behavior; do not
   introduce a generic framework just to reduce repetition or line counts.
 
+## Imports and cooperative cancellation
+
+- Use `use` imports for unambiguous type names in signatures and bodies instead
+  of repeating fully qualified paths.
+- Use `CancellationToken` for shared cancellation intent and notifications;
+  executing operations receive a `CancellationScope` owned by a bounded callback
+  or future. Do not manufacture an independent root inside an SDK operation.
+- Callers own deciding whether to begin an operation after cancellation has been
+  requested. Do not start a scope-taking function with an entry-only
+  `bail_if_cancelled()` check.
+- Use the supplied scope for cancellation during the operation, such as loop,
+  pagination, and post-await checkpoints. Preserve checkpoints for distinct
+  preparation, read, verification, and continuation work.
+- Let `deferred` and `with_deferral` check admission to protected work. Do not
+  precede them with a duplicate `bail_if_cancelled()` check, including when only
+  simple local bindings or comments separate the check from the call. Keep
+  earlier checkpoints that serve a separate work boundary. Do not gate
+  `finish_required` or `finish_required_sync` cleanup with a cancellation-only
+  early return; those helpers admit completion work already owed after a request.
+- Keep mandatory cancellation-scope parameters even when an operation has no
+  cancellation points. Prefix an unused parameter with `_` instead of adding an
+  entry check solely to use it.
+- Pass the supplied scope through serial operations. Create independent jobs
+  with linked `scope.cancellable_scope(|child| async move { ... })` helpers and
+  use each callback's child scope. Capturing an ancestor bypasses that child's
+  ownership relationship. Automatic interruption remains explicit; use
+  `with_async_scope` for owners that must run their own shutdown and cleanup.
+- `App::run` and `run_parsed` automatically cancel their handler at poll
+  boundaries by default, while respecting linked nested deferrals. Use
+  `.automatic_cancellation(false)` when the handler must await its own shutdown
+  or drain jobs. A cooperative child alone cannot prevent an automatic ancestor
+  from dropping it. Synchronous loops still need checkpoints or yields.
+- Bound required-completion units with `deferred` or synchronous `with_deferral`,
+  passing their protected scope through nested requests. Use `finish_required`
+  only for cleanup already owed after cancellation. Scope clones cannot extend
+  protection beyond the owning callback/future. Explicit drops, ordinary errors,
+  and fail-fast combinators can still abandon protected work; coordinators must
+  deliberately retain and drain required children.
+- Rely on `RestRequest` for cancellation policy around a single HTTP exchange:
+  GET, HEAD, and OPTIONS are cancellable by default; other methods retain their
+  response, decoding, and execution artifacts. Use `.cancellation_safe()` for
+  documented read-only operations with other methods. SDK deferrals should cover
+  additional completion work, such as affected-cache invalidation, durable
+  journal updates, or related writes.
+- `CommandBuilder` defers cancellation by default through execution, decoding,
+  and artifact persistence because it cannot infer a process's effects. Mark
+  reads and other safely interruptible commands with `.cancellation_safe()`.
+  An enclosing protected scope still applies. Keep explicit SDK deferrals when
+  a command and additional cache invalidation, journal updates, or related writes
+  must finish together; a single command needs no extra wrapper.
+
 ## Domain types and invariants
 
 - Prefer `pub` fields for domain records, requests, responses, and CLI schemas.

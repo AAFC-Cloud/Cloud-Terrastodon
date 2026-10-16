@@ -1,3 +1,4 @@
+use cloud_terrastodon_command::CancellationScope;
 use tracing::info;
 
 /// Emit a message through the configured logging pipeline.
@@ -9,7 +10,10 @@ pub struct EchoArgs {
 }
 
 impl EchoArgs {
-    pub async fn invoke(self) -> eyre::Result<()> {
+    pub async fn invoke(
+        self,
+        _cancellation: &CancellationScope,
+    ) -> eyre::Result<()> {
         info!("{}", self.message.join(" "));
         Ok(())
     }

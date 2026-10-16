@@ -3,6 +3,7 @@ use cloud_terrastodon_azure::AzureDevOpsTenantArgumentExt;
 use cloud_terrastodon_azure_devops::AzureDevOpsJsonPatch;
 use cloud_terrastodon_azure_devops::AzureDevOpsJsonPatchOperation;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemUpdateRequest;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use std::borrow::Cow;
@@ -23,15 +24,24 @@ pub struct AzureDevOpsWorkItemFieldRemoveArgs {
 }
 
 impl AzureDevOpsWorkItemFieldRemoveArgs {
-    pub async fn invoke(self, auth: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         let patch = AzureDevOpsJsonPatch::try_from(vec![AzureDevOpsJsonPatchOperation::Remove {
             path: format!(
                 "/fields/{}",
                 self.field.field.replace('~', "~0").replace('/', "~1")
             ),
         }])?;
-        let auth_context = self.field.tenant.bind_auth_context(auth).await?;
+        let auth_context = self
+            .field
+            .tenant
+            .bind_auth_context(auth, cancellation)
+            .await?;
         let item = AzureDevOpsWorkItemUpdateRequest {
+            cancellation: cancellation.clone(),
             org_url: Cow::Owned(self.field.org),
             project: Some(self.field.project),
             auth_context: Cow::Owned(auth_context),

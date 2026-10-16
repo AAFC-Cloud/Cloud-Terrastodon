@@ -5,6 +5,7 @@ use cloud_terrastodon_azure_devops::AzureDevOpsBuildDefinitionId;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_build_definition;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
@@ -40,14 +41,22 @@ pub struct AzureDevOpsBuildDefinitionShowArgs {
 }
 
 impl AzureDevOpsBuildDefinitionShowArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<CliOutput> {
-        let auth_context = self.tenant.bind_auth_context(auth_context).await?;
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<CliOutput> {
+        let auth_context = self
+            .tenant
+            .bind_auth_context(auth_context, cancellation)
+            .await?;
         let definition = fetch_azure_devops_build_definition(
             &self.org,
             self.project,
             &auth_context,
             self.id,
             self.revision,
+            cancellation,
         )
         .with_invalidation(self.no_cache)
         .await?;

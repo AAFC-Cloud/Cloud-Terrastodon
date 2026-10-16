@@ -3,6 +3,7 @@ use cloud_terrastodon_azure_types::GovernanceRoleAssignment;
 use cloud_terrastodon_azure_types::PrincipalId;
 use cloud_terrastodon_azure_types::RoleAssignmentRequest;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
 use http::Method;
@@ -15,9 +16,10 @@ pub async fn activate_pim_entra_role(
     role_assignment: &GovernanceRoleAssignment,
     justification: String,
     duration: Duration,
+    cancellation: &CancellationScope,
 ) -> Result<()> {
     let url = "https://graph.microsoft.com/beta/privilegedAccess/aadroles/roleAssignmentRequests";
-    RestRequest::new(Method::POST, url)?
+    RestRequest::new(Method::POST, url, cancellation)?
         .tenant(tenant_id)
         .cache(CacheKey {
             path: PathBuf::from_iter(["az", "rest", "POST", "roleAssignmentScheduleRequests"]),
@@ -46,9 +48,10 @@ pub async fn activate_pim_entra_role_with_graph_access_token(
     justification: String,
     duration: Duration,
     access_token: &str,
+    cancellation: &CancellationScope,
 ) -> Result<()> {
     let url = "https://graph.microsoft.com/beta/privilegedAccess/aadroles/roleAssignmentRequests";
-    RestRequest::new(Method::POST, url)?
+    RestRequest::new(Method::POST, url, cancellation)?
         .tenant(tenant_id)
         .bearer_token(access_token)
         .cache(CacheKey {

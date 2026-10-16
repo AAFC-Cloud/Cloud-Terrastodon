@@ -4,19 +4,12 @@ version = "0.1.0"
 edition = "2024"
 publish = false
 
-# This is a consumer workspace, not an example target in the parent workspace.
-[workspace]
-
 [[bin]]
 name = "field-notes"
 path = "src/main.rs"
 
 [dependencies]
-cloud_terrastodon = { path = "../..", default-features = false, features = ["app"] }
+cloud_terrastodon = { path = "../..", version = "=0.37.0", default-features = false, features = ["app-auth", "azure"] }
 # Figue's attribute expansion currently requires ::facet in the extern prelude.
 # Keep the canonical Rust alias for TeamDman's distinct published package.
-facet = { package = "teamy-facet", version = "=0.50.0-rc.7", path = "../../../facet/facet" }
-
-[dev-dependencies]
-serde_json = "1.0.116"
-tempfile = "3.10.1"
+facet.workspace = true

@@ -2,6 +2,7 @@ use crate::get_azure_devops_cli_config;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_command::CacheInvalidatable;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind::AzureCLI;
 use cloud_terrastodon_command::async_trait;
@@ -12,17 +13,26 @@ use std::pin::Pin;
 use tracing::info;
 
 #[must_use = "This is a future request, you must .await it"]
-#[derive(Debug, Clone, Arbitrary, facet::Facet, Default)]
-pub struct DefaultAzureDevOpsOrganizationUrlRequest;
+#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+pub struct DefaultAzureDevOpsOrganizationUrlRequest {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+}
 
-pub fn get_default_organization_url() -> DefaultAzureDevOpsOrganizationUrlRequest {
-    DefaultAzureDevOpsOrganizationUrlRequest
+pub fn get_default_organization_url(
+    cancellation: &CancellationScope,
+) -> DefaultAzureDevOpsOrganizationUrlRequest {
+    DefaultAzureDevOpsOrganizationUrlRequest {
+        cancellation: cancellation.clone(),
+    }
 }
 
 #[async_trait]
 impl CacheInvalidatable for DefaultAzureDevOpsOrganizationUrlRequest {
     async fn invalidate(&self) -> eyre::Result<()> {
-        get_azure_devops_cli_config().invalidate().await?;
+        get_azure_devops_cli_config(&self.cancellation)
+            .invalidate()
+            .await?;
         Ok(())
     }
 }
@@ -33,7 +43,7 @@ impl IntoFuture for DefaultAzureDevOpsOrganizationUrlRequest {
 
     fn into_future(self) -> Self::IntoFuture {
         Box::pin(async move {
-            let config = get_azure_devops_cli_config().await?;
+            let config = get_azure_devops_cli_config(&self.cancellation).await?;
             let org = config
                 .lines()
                 .find(|line| line.contains("organization"))
@@ -50,7 +60,10 @@ impl IntoFuture for DefaultAzureDevOpsOrganizationUrlRequest {
     }
 }
 
-pub async fn set_default_organization_url(org: AzureDevOpsOrganizationUrl) -> eyre::Result<()> {
+pub async fn set_default_organization_url(
+    org: AzureDevOpsOrganizationUrl,
+    cancellation: &CancellationScope,
+) -> eyre::Result<()> {
     info!("Setting default organization to {}", org);
     let mut cmd = CommandBuilder::new(AzureCLI);
     cmd.args([
@@ -59,16 +72,25 @@ pub async fn set_default_organization_url(org: AzureDevOpsOrganizationUrl) -> ey
         "--defaults",
         format!("organization={}", org).as_str(),
     ]);
-    let resp = cmd.run_raw().await?;
-    if !resp.success() {
-        bail!(
-            "Failed to set default organization: {}",
-            resp.stderr.to_str()?
-        );
-    }
+    cancellation
+        .deferred(
+            "setting default organization and invalidating cached configuration",
+            |cancellation| async move {
+                let resp = cmd.run_raw(&cancellation).await?;
+                if !resp.success() {
+                    bail!(
+                        "Failed to set default organization: {}",
+                        resp.stderr.to_str()?
+                    );
+                }
 
-    get_default_organization_url().invalidate().await?;
-    Ok(())
+                get_default_organization_url(&cancellation)
+                    .invalidate()
+                    .await?;
+                Ok(())
+            },
+        )
+        .await
 }
 
 cloud_terrastodon_registry::register_thing!(DefaultAzureDevOpsOrganizationUrlRequest);
@@ -81,11 +103,16 @@ cloud_terrastodon_registry::register_into_future!(
 #[cfg(test)]
 mod test {
     use crate::get_default_organization_url;
+    use cloud_terrastodon_command::CancellationToken;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        let x = get_default_organization_url().await?;
-        assert!(!x.to_string().is_empty());
-        Ok(())
+        CancellationToken::new()
+            .with_async_scope(|cancellation| async move {
+                let x = get_default_organization_url(&cancellation).await?;
+                assert!(!x.to_string().is_empty());
+                Ok(())
+            })
+            .await
     }
 }

@@ -6,12 +6,15 @@ use crate::gitea_api_support::tenant_cache_key_prefix;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use std::borrow::Cow;
 
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Debug, Clone, facet::Facet)]
 pub struct GiteaOrganizationRepoListRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
     pub tenant: Cow<'a, GiteaInstanceUrl>,
     pub organization_name: Cow<'a, GiteaOrganizationName>,
 }
@@ -19,8 +22,10 @@ pub struct GiteaOrganizationRepoListRequest<'a> {
 pub fn fetch_all_gitea_organization_repositories<'a>(
     tenant: &'a GiteaInstanceUrl,
     organization_name: &'a GiteaOrganizationName,
+    cancellation: &CancellationScope,
 ) -> GiteaOrganizationRepoListRequest<'a> {
     GiteaOrganizationRepoListRequest {
+        cancellation: cancellation.clone(),
         tenant: Cow::Borrowed(tenant),
         organization_name: Cow::Borrowed(organization_name),
     }
@@ -29,6 +34,7 @@ pub fn fetch_all_gitea_organization_repositories<'a>(
 impl<'a> Arbitrary<'a> for GiteaOrganizationRepoListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: CancellationScope::unbound(),
             tenant: Cow::Owned(GiteaInstanceUrl::arbitrary(u)?),
             organization_name: Cow::Owned(GiteaOrganizationName::arbitrary(u)?),
         })
@@ -50,12 +56,17 @@ impl<'a> CacheableCommand for GiteaOrganizationRepoListRequest<'a> {
     }
 
     async fn run(self) -> eyre::Result<Self::Output> {
-        gitea_api_get_paged(self.tenant.as_ref(), self.cache_key(), |page, limit| {
-            format!(
-                "/orgs/{}/repos?page={page}&limit={limit}",
-                self.organization_name
-            )
-        })
+        gitea_api_get_paged(
+            self.tenant.as_ref(),
+            self.cache_key(),
+            |page, limit| {
+                format!(
+                    "/orgs/{}/repos?page={page}&limit={limit}",
+                    self.organization_name
+                )
+            },
+            &self.cancellation,
+        )
         .await
     }
 }

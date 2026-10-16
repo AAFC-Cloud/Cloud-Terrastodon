@@ -1,4 +1,5 @@
 use crate::cli::azure_devops::project::member::list::AzureDevOpsProjectMemberListArgs;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -17,9 +18,15 @@ pub enum AzureDevOpsProjectMemberCommand {
 }
 
 impl AzureDevOpsProjectMemberArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self.command {
-            AzureDevOpsProjectMemberCommand::List(args) => args.invoke(auth_context).await?,
+            AzureDevOpsProjectMemberCommand::List(args) => {
+                args.invoke(auth_context, cancellation).await?
+            }
         }
 
         Ok(())

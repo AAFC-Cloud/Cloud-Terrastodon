@@ -1,3 +1,4 @@
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
@@ -14,7 +15,10 @@ use tracing::info;
 use tracing::instrument;
 
 #[instrument(level = "debug")]
-pub async fn process_generated(auth_context: &AzureTenantAuthContext) -> Result<()> {
+pub async fn process_generated(
+    auth_context: &AzureTenantAuthContext,
+    cancellation: &CancellationScope,
+) -> Result<()> {
     // Determine output directory
     let out_dir: PathBuf = AppDir::Processed.into();
 
@@ -31,14 +35,18 @@ pub async fn process_generated(auth_context: &AzureTenantAuthContext) -> Result<
 
     // Determine output files
     let hcl = discover_hcl(&workspace_path, DiscoveryDepth::Shallow).await?;
-    let hcl = ReflowHclRequest::new(hcl, Some(auth_context))
+    let hcl = ReflowHclRequest::new(hcl, Some(auth_context), cancellation)
         .include_principal_id_comments(true)
         .await?;
 
     // Write files
     let mut error_count = 0;
     for (path, contents) in hcl {
-        error_count += HclWriter::new(path).overwrite(contents).await.is_err() as usize;
+        cancellation.bail_if_cancelled()?;
+        error_count += HclWriter::new(path)
+            .overwrite(contents, cancellation)
+            .await
+            .is_err() as usize;
     }
 
     // Format the files
@@ -46,7 +54,7 @@ pub async fn process_generated(auth_context: &AzureTenantAuthContext) -> Result<
         .should_announce(true)
         .use_run_dir(out_dir)
         .args(["fmt", "-recursive"])
-        .run_raw()
+        .run_raw(cancellation)
         .await?;
 
     info!("Processing finished with {} problems.", error_count);

@@ -1,5 +1,6 @@
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_group_license_entitlements;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::to_writer_pretty;
 use eyre::Result;
 use std::io::stdout;
@@ -13,8 +14,12 @@ pub struct AzureDevOpsLicenseEntitlementGroupListArgs {
 }
 
 impl AzureDevOpsLicenseEntitlementGroupListArgs {
-    pub async fn invoke(self) -> Result<()> {
-        let entitlements = fetch_azure_devops_group_license_entitlements(&self.org).await?;
+    pub async fn invoke(
+        self,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let entitlements =
+            fetch_azure_devops_group_license_entitlements(&self.org, cancellation).await?;
         to_writer_pretty(stdout(), &entitlements)?;
         Ok(())
     }

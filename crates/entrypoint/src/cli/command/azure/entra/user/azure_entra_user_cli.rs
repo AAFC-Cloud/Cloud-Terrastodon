@@ -2,6 +2,7 @@ use super::AzureEntraUserBrowseArgs;
 use super::AzureEntraUserListArgs;
 use super::AzureEntraUserSearchArgs;
 use super::AzureEntraUserShowArgs;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -20,12 +21,16 @@ pub enum AzureEntraUserCommand {
 }
 
 impl AzureEntraUserCommand {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self {
-            AzureEntraUserCommand::List(args) => args.invoke(auth_context).await,
-            AzureEntraUserCommand::Show(args) => args.invoke(auth_context).await,
-            AzureEntraUserCommand::Search(args) => args.invoke(auth_context).await,
-            AzureEntraUserCommand::Browse(args) => args.invoke(auth_context).await,
+            AzureEntraUserCommand::List(args) => args.invoke(auth_context, cancellation).await,
+            AzureEntraUserCommand::Show(args) => args.invoke(auth_context, cancellation).await,
+            AzureEntraUserCommand::Search(args) => args.invoke(auth_context, cancellation).await,
+            AzureEntraUserCommand::Browse(args) => args.invoke(auth_context, cancellation).await,
         }
     }
 }

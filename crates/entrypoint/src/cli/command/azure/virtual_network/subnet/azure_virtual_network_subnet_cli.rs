@@ -1,6 +1,7 @@
 use super::AzureVirtualNetworkSubnetListArgs;
 use super::AzureVirtualNetworkSubnetShowArgs;
 use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -12,8 +13,12 @@ pub struct AzureVirtualNetworkSubnetArgs {
 }
 
 impl AzureVirtualNetworkSubnetArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<CliOutput> {
-        self.command.invoke(auth_context).await
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<CliOutput> {
+        self.command.invoke(auth_context, cancellation).await
     }
 }
 
@@ -29,10 +34,14 @@ pub enum AzureVirtualNetworkSubnetCommand {
 }
 
 impl AzureVirtualNetworkSubnetCommand {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<CliOutput> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<CliOutput> {
         match self {
-            Self::List(args) => Box::pin(args.invoke(auth_context)).await,
-            Self::Show(args) => Box::pin(args.invoke(auth_context)).await,
+            Self::List(args) => Box::pin(args.invoke(auth_context, cancellation)).await,
+            Self::Show(args) => Box::pin(args.invoke(auth_context, cancellation)).await,
         }
     }
 }

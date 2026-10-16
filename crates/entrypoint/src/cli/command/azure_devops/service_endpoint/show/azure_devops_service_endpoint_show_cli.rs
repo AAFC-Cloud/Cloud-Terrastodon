@@ -1,6 +1,7 @@
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_service_endpoints;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::to_writer_pretty;
 use eyre::Result;
 use eyre::bail;
@@ -22,8 +23,12 @@ pub struct AzureDevOpsServiceEndpointShowArgs {
 }
 
 impl AzureDevOpsServiceEndpointShowArgs {
-    pub async fn invoke(self) -> Result<()> {
-        let endpoints = fetch_all_azure_devops_service_endpoints(&self.org, self.project).await?;
+    pub async fn invoke(
+        self,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let endpoints =
+            fetch_all_azure_devops_service_endpoints(&self.org, self.project, cancellation).await?;
         if let Some(ep) = endpoints
             .into_iter()
             .find(|e| e.name.to_string() == self.endpoint || e.id.to_string() == self.endpoint)

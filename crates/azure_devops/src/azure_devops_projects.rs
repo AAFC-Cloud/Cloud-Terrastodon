@@ -2,6 +2,7 @@ use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProject;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use cloud_terrastodon_rest::RestRequest;
@@ -14,6 +15,9 @@ use tracing::debug;
 
 #[derive(Debug, Clone, facet::Facet)]
 pub struct AzureDevOpsProjectsListRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
 }
@@ -21,8 +25,10 @@ pub struct AzureDevOpsProjectsListRequest<'a> {
 pub fn fetch_all_azure_devops_projects<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     auth_context: &'a AzureDevOpsAuthContext,
+    cancellation: &CancellationScope,
 ) -> AzureDevOpsProjectsListRequest<'a> {
     AzureDevOpsProjectsListRequest {
+        cancellation: cancellation.clone(),
         org_url: Cow::Borrowed(org_url),
         auth_context: Cow::Borrowed(auth_context),
     }
@@ -31,6 +37,7 @@ pub fn fetch_all_azure_devops_projects<'a>(
 impl<'a> Arbitrary<'a> for AzureDevOpsProjectsListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: CancellationScope::arbitrary(u)?,
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
         })
@@ -69,7 +76,7 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsProjectsList
         // Attaching authentication only records request policy. RestRequest
         // resolves credentials after its cache lookup, so healthy cached pages
         // remain usable when the selected authentication source has expired.
-        let request = RestRequest::from_method_and_url(Method::GET, url)?
+        let request = RestRequest::from_method_and_url(Method::GET, url, &self.cancellation)?
             .cache(cache_key.join(page_index.to_string()))
             .azure_devops_auth_context(self.auth_context.as_ref())?;
         let (mut response, mut continuation) = request
@@ -79,6 +86,7 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsProjectsList
         page_index += 1;
 
         while let Some(next_continuation) = continuation.take() {
+            self.cancellation.bail_if_cancelled()?;
             debug!("Fetching the next page of projects");
             let query = [
                 ("api-version", "7.1"),
@@ -87,7 +95,7 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsProjectsList
             let url = self
                 .org_url
                 .api_url("dev.azure.com", "_apis/projects", &query)?;
-            let request = RestRequest::from_method_and_url(Method::GET, url)?
+            let request = RestRequest::from_method_and_url(Method::GET, url, &self.cancellation)?
                 .cache(cache_key.join(page_index.to_string()))
                 .azure_devops_auth_context(self.auth_context.as_ref())?;
             (response, continuation) = request.receive_with_ms_continuation_token().await?;
@@ -113,17 +121,26 @@ cloud_terrastodon_registry::register_into_future!(
 mod tests {
     use super::*;
     use crate::get_default_organization_url;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_credentials::AuthContext;
 
     #[tokio::test]
     async fn test_fetch_all_azure_devops_projects() -> Result<()> {
-        let org_url = get_default_organization_url().await?;
-        let auth_context = AuthContext::explicit_azure_cli();
-        let azure_devops_auth_context = AzureDevOpsAuthContext::new(&auth_context)?;
-        let projects =
-            fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context).await?;
-        assert!(!projects.is_empty());
-        assert!(projects.iter().all(|project| !project.name.is_empty()));
-        Ok(())
+        CancellationToken::new()
+            .with_async_scope(|cancellation| async move {
+                let org_url = get_default_organization_url(&cancellation).await?;
+                let auth_context = AuthContext::explicit_azure_cli();
+                let azure_devops_auth_context = AzureDevOpsAuthContext::new(&auth_context)?;
+                let projects = fetch_all_azure_devops_projects(
+                    &org_url,
+                    &azure_devops_auth_context,
+                    &cancellation,
+                )
+                .await?;
+                assert!(!projects.is_empty());
+                assert!(projects.iter().all(|project| !project.name.is_empty()));
+                Ok(())
+            })
+            .await
     }
 }

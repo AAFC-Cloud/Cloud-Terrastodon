@@ -3,6 +3,7 @@ use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::fetch_all_cognitive_services_accounts;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use eyre::bail;
@@ -21,10 +22,15 @@ pub struct AzureCognitiveServicesShowArgs {
 }
 
 impl AzureCognitiveServicesShowArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         let Self { tenant, account } = self;
-        let tenant_auth_context = tenant.bind_auth_context(auth_context).await?;
-        let accounts = fetch_all_cognitive_services_accounts(&tenant_auth_context).await?;
+        let tenant_auth_context = tenant.bind_auth_context(auth_context, cancellation).await?;
+        let accounts =
+            fetch_all_cognitive_services_accounts(&tenant_auth_context, cancellation).await?;
         let mut matches = accounts
             .into_iter()
             .filter(|item| account.matches(item))

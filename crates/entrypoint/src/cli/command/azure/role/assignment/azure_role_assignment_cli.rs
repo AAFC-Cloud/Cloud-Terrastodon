@@ -1,6 +1,7 @@
 use super::AzureRoleAssignmentBrowseArgs;
 use super::AzureRoleAssignmentListArgs;
 use super::azure_role_assignment_create_cli::AzureRoleAssignmentCreateArgs;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -18,11 +19,19 @@ pub enum AzureRoleAssignmentCommand {
 }
 
 impl AzureRoleAssignmentCommand {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self {
-            AzureRoleAssignmentCommand::List(args) => args.invoke(auth_context).await,
-            AzureRoleAssignmentCommand::Browse(args) => args.invoke(auth_context).await,
-            AzureRoleAssignmentCommand::Create(args) => args.invoke(auth_context).await,
+            AzureRoleAssignmentCommand::List(args) => args.invoke(auth_context, cancellation).await,
+            AzureRoleAssignmentCommand::Browse(args) => {
+                args.invoke(auth_context, cancellation).await
+            }
+            AzureRoleAssignmentCommand::Create(args) => {
+                args.invoke(auth_context, cancellation).await
+            }
         }
     }
 }

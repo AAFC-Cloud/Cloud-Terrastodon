@@ -1,3 +1,4 @@
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 pub mod azure_policy_assignment_browse_cli;
 pub mod azure_policy_assignment_cli;
@@ -18,7 +19,11 @@ pub struct AzurePolicyAssignmentArgs {
 }
 
 impl AzurePolicyAssignmentArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        self.command.invoke(auth_context).await
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        self.command.invoke(auth_context, cancellation).await
     }
 }

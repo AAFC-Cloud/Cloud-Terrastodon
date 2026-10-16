@@ -5,6 +5,7 @@ use cloud_terrastodon_azure_types::RoleEligibilityScheduleId;
 use cloud_terrastodon_azure_types::Scope;
 use cloud_terrastodon_azure_types::uuid::Uuid;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
 use std::path::PathBuf;
@@ -17,6 +18,7 @@ pub async fn activate_pim_role(
     role_eligibility_schedule_id: RoleEligibilityScheduleId,
     justification: String,
     duration: Duration,
+    cancellation: &CancellationScope,
 ) -> Result<()> {
     let scope = scope.expanded_form();
     let id = Uuid::new_v4();
@@ -24,7 +26,7 @@ pub async fn activate_pim_role(
         "https://management.azure.com/{scope}/providers/Microsoft.Authorization/roleAssignmentScheduleRequests/{id}?api-version=2020-10-01"
     );
     let url: &str = &url;
-    RestRequest::new(http::Method::PUT, url)?
+    RestRequest::new(http::Method::PUT, url, cancellation)?
         .cache(CacheKey {
             path: PathBuf::from_iter(["az", "rest", "PUT", "roleAssignmentScheduleRequests"]),
             valid_for: Duration::ZERO,

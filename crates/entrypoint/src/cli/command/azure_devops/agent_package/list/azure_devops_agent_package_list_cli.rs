@@ -1,5 +1,6 @@
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_agent_packages;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::to_writer_pretty;
 use eyre::Result;
 use std::io::stdout;
@@ -13,8 +14,11 @@ pub struct AzureDevOpsAgentPackageListArgs {
 }
 
 impl AzureDevOpsAgentPackageListArgs {
-    pub async fn invoke(self) -> Result<()> {
-        let pkgs = fetch_azure_devops_agent_packages(&self.org).await?;
+    pub async fn invoke(
+        self,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let pkgs = fetch_azure_devops_agent_packages(&self.org, cancellation).await?;
         to_writer_pretty(stdout(), &pkgs)?;
         Ok(())
     }

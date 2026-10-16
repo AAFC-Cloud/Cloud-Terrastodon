@@ -1,10 +1,13 @@
+use cloud_terrastodon_command::CancellationScope;
 use eyre::bail;
 
 pub struct SensitiveString {
     pub inner: String,
 }
 
-pub async fn get_personal_access_token() -> eyre::Result<SensitiveString> {
+pub async fn get_personal_access_token(
+    _cancellation: &CancellationScope,
+) -> eyre::Result<SensitiveString> {
     match std::env::var("AZDO_PERSONAL_ACCESS_TOKEN") {
         Ok(token) => Ok(SensitiveString { inner: token }),
         Err(e) => match e {

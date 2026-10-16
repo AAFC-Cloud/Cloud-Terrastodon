@@ -1,3 +1,4 @@
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_gitea::GiteaOrganizationArgument;
 use cloud_terrastodon_gitea::GiteaTenantArgument;
 use cloud_terrastodon_gitea::GiteaTenantArgumentExt;
@@ -18,9 +19,12 @@ pub struct GiteaOrgShowArgs {
 }
 
 impl GiteaOrgShowArgs {
-    pub async fn invoke(self) -> Result<()> {
-        let tenant = self.tenant.resolve().await?;
-        let organizations = fetch_all_gitea_organizations(&tenant).await?;
+    pub async fn invoke(
+        self,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let tenant = self.tenant.resolve(cancellation).await?;
+        let organizations = fetch_all_gitea_organizations(&tenant, cancellation).await?;
         let matches = organizations
             .into_iter()
             .filter(|organization| self.organization.matches(organization))

@@ -5,8 +5,10 @@ use cloud_terrastodon_azure_types::ConsentType;
 use cloud_terrastodon_azure_types::EntraServicePrincipal;
 use cloud_terrastodon_azure_types::EntraUser;
 use cloud_terrastodon_azure_types::OAuth2PermissionGrant;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_user_input::Choice;
+use cloud_terrastodon_user_input::PickError;
 use cloud_terrastodon_user_input::PickManyResult;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::bail;
@@ -77,57 +79,65 @@ impl fmt::Display for Grant {
 
 pub async fn pick_oauth2_permission_grants(
     auth_context: &AzureTenantAuthContext,
+    cancellation: &CancellationScope,
 ) -> PickManyResult<Grant> {
-    let grants = fetch_oauth2_permission_grants(auth_context.tenant_id);
-    let service_principals = fetch_all_service_principals(auth_context);
-    let users = fetch_all_entra_users(auth_context).into_future();
-    let (grants, service_principals, users) = try_join!(grants, service_principals, users)?;
-    let service_principals_map = service_principals
-        .iter()
-        .map(|x| (&x.id, x))
-        .collect::<HashMap<_, _>>();
-    let users_map = users.iter().map(|x| (&x.id, x)).collect::<HashMap<_, _>>();
+    cancellation
+        .cancellable_scope(|cancellation| async move {
+            let cancellation = &cancellation;
+            let grants = fetch_oauth2_permission_grants(auth_context.tenant_id, cancellation);
+            let service_principals = fetch_all_service_principals(auth_context, cancellation);
+            let users = fetch_all_entra_users(auth_context, cancellation).into_future();
+            let (grants, service_principals, users) = try_join!(grants, service_principals, users)?;
+            let service_principals_map = service_principals
+                .iter()
+                .map(|x| (&x.id, x))
+                .collect::<HashMap<_, _>>();
+            let users_map = users.iter().map(|x| (&x.id, x)).collect::<HashMap<_, _>>();
 
-    let grants = grants
-        .into_iter()
-        .map(|grant| {
-            let Some(service_principal) = service_principals_map.get(&grant.client_id) else {
-                bail!(
-                    "Failed to find service principal with id {:?} for grant {:?}",
-                    &grant.client_id,
-                    grant
-                );
-            };
-            Ok(match (&grant.consent_type, &grant.principal_id) {
-                (ConsentType::AllPrincipals, None) => Grant {
-                    grant,
-                    service_principal: (*service_principal).clone(),
-                    target: Target::AllPrincipals,
-                },
-                (ConsentType::Principal, Some(user_id)) => {
-                    let Some(user) = users_map.get(&user_id.clone()) else {
-                        bail!("User not found with id {} for grant {:?}", user_id, grant);
+            let grants = grants
+                .into_iter()
+                .map(|grant| {
+                    let Some(service_principal) = service_principals_map.get(&grant.client_id)
+                    else {
+                        bail!(
+                            "Failed to find service principal with id {:?} for grant {:?}",
+                            &grant.client_id,
+                            grant
+                        );
                     };
-                    Grant {
-                        grant,
-                        service_principal: (*service_principal).clone(),
-                        target: Target::User(Box::new((*user).clone())),
-                    }
-                }
-                _ => bail!(
-                    "Invalid state: consent type inconsistent with principal id for {:?}",
-                    grant
-                ),
-            })
+                    Ok(match (&grant.consent_type, &grant.principal_id) {
+                        (ConsentType::AllPrincipals, None) => Grant {
+                            grant,
+                            service_principal: (*service_principal).clone(),
+                            target: Target::AllPrincipals,
+                        },
+                        (ConsentType::Principal, Some(user_id)) => {
+                            let Some(user) = users_map.get(&user_id.clone()) else {
+                                bail!("User not found with id {} for grant {:?}", user_id, grant);
+                            };
+                            Grant {
+                                grant,
+                                service_principal: (*service_principal).clone(),
+                                target: Target::User(Box::new((*user).clone())),
+                            }
+                        }
+                        _ => bail!(
+                            "Invalid state: consent type inconsistent with principal id for {:?}",
+                            grant
+                        ),
+                    })
+                })
+                .collect::<eyre::Result<Vec<Grant>>>()?;
+            let choices = grants.into_iter().sorted_unstable().map(|g| Choice {
+                key: g.to_string(),
+                value: g,
+            });
+            let chosen = PickerTui::<_>::new()
+                .set_header("Pick the items to browse")
+                .pick_many(choices)
+                .await;
+            eyre::Ok(chosen)
         })
-        .collect::<eyre::Result<Vec<Grant>>>()?;
-    let choices = grants.into_iter().sorted_unstable().map(|g| Choice {
-        key: g.to_string(),
-        value: g,
-    });
-    let chosen = PickerTui::<_>::new()
-        .set_header("Pick the items to browse")
-        .pick_many(choices)
-        .await?;
-    Ok(chosen)
+        .await
+        .map_err(|error| PickError::Eyre(error, Vec::new()))?
 }

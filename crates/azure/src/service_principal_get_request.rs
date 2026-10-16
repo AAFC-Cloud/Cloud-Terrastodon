@@ -3,6 +3,7 @@ use cloud_terrastodon_azure_types::EntraServicePrincipal;
 use cloud_terrastodon_azure_types::EntraServicePrincipalObjectId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Result;
@@ -13,6 +14,9 @@ use tracing::debug;
 #[must_use = "This is a future request, you must .await it"]
 #[derive(facet::Facet)]
 pub struct ServicePrincipalRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub service_principal_id: EntraServicePrincipalObjectId,
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
@@ -20,6 +24,7 @@ pub struct ServicePrincipalRequest<'a> {
 impl<'a> arbitrary::Arbitrary<'a> for ServicePrincipalRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: arbitrary::Arbitrary::arbitrary(u)?,
             service_principal_id: arbitrary::Arbitrary::arbitrary(u)?,
             auth_context: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
         })
@@ -29,8 +34,10 @@ impl<'a> arbitrary::Arbitrary<'a> for ServicePrincipalRequest<'static> {
 pub fn fetch_service_principal<'a>(
     service_principal_id: EntraServicePrincipalObjectId,
     auth_context: &'a AzureTenantAuthContext,
+    cancellation: &CancellationScope,
 ) -> ServicePrincipalRequest<'a> {
     ServicePrincipalRequest {
+        cancellation: cancellation.clone(),
         service_principal_id,
         auth_context: Cow::Borrowed(auth_context),
     }
@@ -70,8 +77,9 @@ impl CacheableCommand for ServicePrincipalRequest<'_> {
             self.url(),
             Some(self.cache_key()),
             self.auth_context.as_ref(),
+            &self.cancellation,
         )
-        .fetch_one()
+        .fetch_one(&self.cancellation)
         .await
     }
 }

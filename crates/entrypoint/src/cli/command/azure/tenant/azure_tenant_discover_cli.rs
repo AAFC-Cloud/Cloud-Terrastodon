@@ -1,4 +1,5 @@
 use cloud_terrastodon_azure::discover_and_track_tenants;
+use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 use std::io::Write;
 
@@ -7,8 +8,11 @@ use std::io::Write;
 pub struct AzureTenantDiscoverArgs {}
 
 impl AzureTenantDiscoverArgs {
-    pub async fn invoke(self) -> Result<()> {
-        let tenants = discover_and_track_tenants().await?;
+    pub async fn invoke(
+        self,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let tenants = discover_and_track_tenants(cancellation).await?;
 
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();

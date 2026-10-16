@@ -9,6 +9,7 @@ use cloud_terrastodon_command::ArtifactMetadata;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableWorkRequest;
 use cloud_terrastodon_command::CachedWorkSpec;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandOutput;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_command::run_cached_work;
@@ -48,6 +49,12 @@ pub enum RestOutputFormat {
 
 #[derive(Clone)]
 pub struct RestRequest {
+    /// Cancellation belongs to the caller's operation and is shared by nested requests.
+    pub cancellation: CancellationScope,
+    /// Whether execution must retain a mutation's outcome before stopping.
+    /// Defaults to true for methods other than GET, HEAD, and OPTIONS.
+    /// Read-only POST operations can explicitly opt into [`Self::cancellation_safe`].
+    pub complete_on_cancellation: bool,
     /// Authentication is request-scoped. The optional value keeps the
     /// low-level builder source-compatible for non-CLI callers while callers
     /// that have an invocation context should always set it with
@@ -93,10 +100,14 @@ impl RestRequest {
     ///
     /// Use [`Self::from_method_and_url`] when the URL is already parsed.
     #[track_caller]
-    pub fn new(method: Method, url: impl AsRef<str>) -> Result<Self> {
+    pub fn new(
+        method: Method,
+        url: impl AsRef<str>,
+        cancellation: &CancellationScope,
+    ) -> Result<Self> {
         let url_text = url.as_ref();
         let url = Url::parse(url_text).with_context(|| format!("parsing URL '{url_text}'"))?;
-        Self::from_method_and_url(method, url)
+        Self::from_method_and_url(method, url, cancellation)
     }
 
     /// Construct a request using an already parsed URL without reparsing it.
@@ -104,11 +115,20 @@ impl RestRequest {
     /// Takes ownership of the URL and infers its REST service. Unsupported hosts
     /// are rejected, as they are by [`Self::new`].
     #[track_caller]
-    pub fn from_method_and_url(method: Method, url: Url) -> Result<Self> {
+    pub fn from_method_and_url(
+        method: Method,
+        url: Url,
+        cancellation: &CancellationScope,
+    ) -> Result<Self> {
         let service = RestService::infer(&url).wrap_err_with(|| {
             format!("unsupported REST host '{}'", url.host_str().unwrap_or(""))
         })?;
         Ok(Self {
+            cancellation: cancellation.clone(),
+            complete_on_cancellation: !matches!(
+                method,
+                Method::GET | Method::HEAD | Method::OPTIONS
+            ),
             auth_context: None,
             service,
             method,
@@ -157,6 +177,16 @@ impl RestRequest {
 
     pub fn body(mut self, body: impl Into<String>) -> Self {
         self.body = Some(body.into());
+        self
+    }
+
+    /// Permit this request to be abandoned while waiting for its response.
+    ///
+    /// Use for a documented read-only operation that uses a non-GET method,
+    /// such as a resource-graph query. A mutation must retain its deferral
+    /// through outcome processing and affected cache invalidation instead.
+    pub fn cancellation_safe(mut self) -> Self {
+        self.complete_on_cancellation = false;
         self
     }
 
@@ -243,33 +273,55 @@ impl RestRequest {
     }
 
     async fn execute_without_cache_inner(self) -> Result<SerializableRestResponse> {
-        let start = Instant::now();
-        // Direct library users predate the CLI invocation context. Keep that
-        // API usable, but make the compatibility resolution local to this
-        // request rather than storing policy in process-global state.
-        let auth_context = match self.auth_context {
-            Some(auth_context) => auth_context,
-            None => AuthContext::resolve(AuthSource::Auto)?,
+        let cancellation = self.cancellation.clone();
+        let complete_on_cancellation = self.complete_on_cancellation;
+        let execute = |scope| async move {
+            let request = Self {
+                cancellation: scope,
+                ..self
+            };
+            let start = Instant::now();
+            // Direct library users predate the CLI invocation context. Keep that
+            // API usable, but make the compatibility resolution local to this
+            // request rather than storing policy in process-global state.
+            let auth_context = match request.auth_context {
+                Some(auth_context) => auth_context,
+                None => AuthContext::resolve(AuthSource::Auto)?,
+            };
+            let response = execute_rest_request(
+                &auth_context,
+                request.service,
+                request.method,
+                request.url,
+                request.body,
+                request.headers,
+                request.tenant,
+                request.bearer_token,
+                &request.cancellation,
+            )
+            .await?;
+            let serialized = request
+                .cancellation
+                .cancellable_scope(|_| SerializableRestResponse::from_response(response))
+                .await?;
+            let elapsed = start.elapsed();
+            debug!(
+                elapsed_ms = elapsed.as_millis(),
+                "REST request completed in {}",
+                humantime::format_duration(elapsed)
+            );
+            Ok(serialized)
         };
-        let response = execute_rest_request(
-            &auth_context,
-            self.service,
-            self.method,
-            self.url,
-            self.body,
-            self.headers,
-            self.tenant,
-            self.bearer_token,
-        )
-        .await?;
-        let serialized = SerializableRestResponse::from_response(response).await?;
-        let elapsed = start.elapsed();
-        debug!(
-            elapsed_ms = elapsed.as_millis(),
-            "REST request completed in {}",
-            humantime::format_duration(elapsed)
-        );
-        Ok(serialized)
+        if complete_on_cancellation {
+            cancellation
+                .deferred(
+                    "completing a REST mutation and retaining its response",
+                    execute,
+                )
+                .await
+        } else {
+            cancellation.cancellable_scope(execute).await
+        }
     }
 
     #[track_caller]
@@ -285,7 +337,7 @@ impl RestRequest {
     }
 
     fn receive_raw_with_decoder_from<T, Decode>(
-        self,
+        mut self,
         decode: Decode,
         caller: &'static Location<'static>,
     ) -> impl Future<Output = Result<T>> + Send
@@ -304,68 +356,83 @@ impl RestRequest {
         .or_current();
 
         async move {
-            // Decode runs on a blocking thread. Preserve the request span and
-            // originating call site for both cached and uncached failures.
-            let decode_span = tracing::Span::current();
-            let decode_dispatch = tracing::dispatcher::get_default(Clone::clone);
-            let decode = move |response| {
-                tracing::dispatcher::with_default(&decode_dispatch, || {
-                    decode_span.in_scope(|| {
-                        decode(response).map_err(|mut error| {
-                            error.handler_mut().track_caller(caller);
-                            error
+            let cancellation = self.cancellation.clone();
+            let complete_on_cancellation = self.complete_on_cancellation;
+            let receive = move |scope| async move {
+                self.cancellation = scope;
+                let cancellation = self.cancellation.clone();
+                // Decode runs on a blocking thread. Preserve the request span and
+                // originating call site for both cached and uncached failures.
+                let decode_span = tracing::Span::current();
+                let decode_dispatch = tracing::dispatcher::get_default(Clone::clone);
+                let decode = move |response| {
+                    tracing::dispatcher::with_default(&decode_dispatch, || {
+                        decode_span.in_scope(|| {
+                            decode(response).map_err(|mut error| {
+                                error.handler_mut().track_caller(caller);
+                                error
+                            })
                         })
                     })
-                })
-            };
-            let Some(cache_key) = self.cache_key.clone() else {
+                };
+                let Some(cache_key) = self.cache_key.clone() else {
+                    let debug_inputs = self.debug_inputs();
+                    let failure_extra_files = self.failure_extra_files;
+                    let response = self.execute_without_cache_from(caller).await?;
+                    let response_for_failure = response.clone();
+                    let decoded = tokio::task::spawn_blocking(move || decode(response)).await?;
+                    return match decoded {
+                        Ok(result) => Ok(result),
+                        Err(error) => {
+                            let output = rest_response_output(&response_for_failure)?;
+                            let extra_files = rest_response_extra_files(&response_for_failure);
+                            let dump_dir = write_rest_decode_failure(
+                                None,
+                                &context,
+                                &debug_inputs,
+                                &output,
+                                extra_files,
+                                failure_extra_files,
+                                &error,
+                                std::any::type_name::<T>(),
+                            )
+                            .await?;
+                            Err(error).wrap_err(format!(
+                                "Decoded REST response failed, dumped to {:?}",
+                                dump_dir
+                            ))
+                        }
+                    };
+                };
+
                 let debug_inputs = self.debug_inputs();
                 let failure_extra_files = self.failure_extra_files;
-                let response = self.execute_without_cache_from(caller).await?;
-                let response_for_failure = response.clone();
-                let decoded = tokio::task::spawn_blocking(move || decode(response)).await?;
-                return match decoded {
-                    Ok(result) => Ok(result),
-                    Err(error) => {
-                        let output = rest_response_output(&response_for_failure)?;
-                        let extra_files = rest_response_extra_files(&response_for_failure);
-                        let dump_dir = write_rest_decode_failure(
-                            None,
-                            &context,
-                            &debug_inputs,
-                            &output,
-                            extra_files,
-                            failure_extra_files,
-                            &error,
-                            std::any::type_name::<T>(),
-                        )
-                        .await?;
-                        Err(error).wrap_err(format!(
-                            "Decoded REST response failed, dumped to {:?}",
-                            dump_dir
-                        ))
-                    }
-                };
+                run_cached_work(CachedWorkSpec {
+                    cache_key,
+                    context: context.clone(),
+                    debug_inputs,
+                    extra_files: Some(rest_response_extra_files as ResponseExtraFiles),
+                    failure_extra_files,
+                    executor_kind: "rest".to_string(),
+                    output_type: std::any::type_name::<T>().to_string(),
+                    execute_raw: move || Box::pin(self.execute_without_cache_from(caller)),
+                    decode,
+                }, &cancellation)
+                .await
+                .wrap_err(format!(
+                    "RestRequest::receive_raw_with_decoder failed, called from {location}"
+                ))
+                .wrap_err(format!("Invoking REST request failed: {context}"))
             };
-
-            let debug_inputs = self.debug_inputs();
-            let failure_extra_files = self.failure_extra_files;
-            run_cached_work(CachedWorkSpec {
-                cache_key,
-                context: context.clone(),
-                debug_inputs,
-                extra_files: Some(rest_response_extra_files as ResponseExtraFiles),
-                failure_extra_files,
-                executor_kind: "rest".to_string(),
-                output_type: std::any::type_name::<T>().to_string(),
-                execute_raw: move || Box::pin(self.execute_without_cache_from(caller)),
-                decode,
-            })
-            .await
-            .wrap_err(format!(
-                "RestRequest::receive_raw_with_decoder failed, called from {location}"
-            ))
-            .wrap_err(format!("Invoking REST request failed: {context}"))
+            // Mutations retain their outcome through decoding and artifacts.
+            // SDK mutation scopes additionally retain affected cache invalidation.
+            if complete_on_cancellation {
+                cancellation
+                    .deferred("completing a REST mutation, decoding its outcome, and retaining its execution artifacts", receive)
+                    .await
+            } else {
+                cancellation.cancellable_scope(receive).await
+            }
         }
         .instrument(span)
     }
@@ -622,8 +689,15 @@ impl cloud_terrastodon_command::CacheInvalidatableIntoFuture for RestRequest {
         let caller = Location::caller();
         Box::pin(async move {
             if invalidate_cache {
-                <RestRequest as CacheableWorkRequest>::cache_key(&self)
-                    .invalidate()
+                self.cancellation
+                    .deferred(
+                        "finishing filesystem and memory cache invalidation",
+                        |_| async {
+                            <RestRequest as CacheableWorkRequest>::cache_key(&self)
+                                .invalidate()
+                                .await
+                        },
+                    )
                     .await?;
             }
             self.receive_raw_from(caller).await

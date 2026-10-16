@@ -9,10 +9,10 @@ pub mod output {
 pub(crate) mod scalar_args;
 
 use crate::menu::menu_loop;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 pub use command::*;
 pub use global_args::GlobalArgs;
-use teamy_cancellation::CancellationToken;
 
 /// The primary entrypoint for command-line parsing.
 #[derive(facet::Facet, Debug)]
@@ -20,9 +20,6 @@ use teamy_cancellation::CancellationToken;
 pub struct Cli {
     #[facet(flatten)]
     pub global_args: GlobalArgs,
-
-    #[facet(flatten)]
-    pub builtins: figue::FigueBuiltins,
 
     #[facet(figue::subcommand, default)]
     pub command: Option<CloudTerrastodonCommand>,
@@ -38,7 +35,6 @@ impl<'a> Arbitrary<'a> for Cli {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
             global_args: GlobalArgs::arbitrary(u)?,
-            builtins: figue::FigueBuiltins::default(),
             command: Option::<CloudTerrastodonCommand>::arbitrary(u)?,
         })
     }
@@ -48,16 +44,16 @@ cloud_terrastodon_registry::register_arbitrary!(Cli);
 impl Cli {
     pub async fn invoke(
         self,
-        cancellation_token: &CancellationToken,
+        cancellation: &CancellationScope,
         auth_context: &AuthContext,
     ) -> eyre::Result<()> {
         let requested_format = self.global_args.output_format;
         // Keep command and interactive-menu futures out of this outer future's
         // inline state; nested debug poll frames otherwise exhaust small stacks.
         let output = match self.command {
-            Some(cmd) => Box::pin(cmd.invoke(cancellation_token, auth_context)).await?,
+            Some(cmd) => Box::pin(cmd.invoke(cancellation, auth_context)).await?,
             None => {
-                Box::pin(menu_loop(auth_context)).await?;
+                Box::pin(menu_loop(auth_context, cancellation)).await?;
                 output::CliOutput::none()
             }
         };
@@ -84,6 +80,7 @@ mod tests {
     use crate::cli::azure_devops::build::definition::folder::list::AzureDevOpsBuildDefinitionFolderListArgs;
     use crate::cli::azure_devops::project::AzureDevOpsProjectCommand;
     use cloud_terrastodon_app::OutputFormat;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_credentials::AuthSource;
 
     #[test]
@@ -118,7 +115,6 @@ mod tests {
                 };
                 let cli = Cli {
                     global_args: GlobalArgs::default(),
-                    builtins: figue::FigueBuiltins::default(),
                     command: Some(CloudTerrastodonCommand::Azure(azure)),
                 };
                 // The placeholder context must fail while configuring REST auth,
@@ -129,7 +125,11 @@ mod tests {
                     .build()
                     .unwrap();
                 let error = runtime
-                    .block_on(Box::pin(cli.invoke(&cancellation_token, &auth_context)))
+                    .block_on(Box::pin(
+                        cancellation_token.with_async_scope(|cancellation| async move {
+                            cli.invoke(&cancellation, &auth_context).await
+                        }),
+                    ))
                     .expect_err("placeholder authentication should fail locally");
                 assert!(error.chain().any(|cause| {
                     cause

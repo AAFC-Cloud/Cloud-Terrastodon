@@ -4,6 +4,7 @@ use cloud_terrastodon_azure_types::DistinctByScope;
 use cloud_terrastodon_azure_types::PolicyAssignment;
 use cloud_terrastodon_azure_types::Scope;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_hcl_types::Sanitizable;
 use cloud_terrastodon_user_input::Choice;
@@ -16,9 +17,10 @@ use tracing::info;
 
 pub async fn evaluate_policy_assignment_compliance(
     auth_context: &AzureTenantAuthContext,
+    cancellation: &CancellationScope,
 ) -> Result<()> {
     info!("Fetching policy assignments");
-    let policy_assignments = fetch_all_policy_assignments(auth_context).await?;
+    let policy_assignments = fetch_all_policy_assignments(auth_context, cancellation).await?;
 
     let policy_assignment: PolicyAssignment = PickerTui::<_>::new()
         .set_header("Choose policy to evaluate")
@@ -84,6 +86,7 @@ policyResources
             valid_for: Duration::from_secs(15 * 60),
         }),
         auth_context,
+        cancellation,
     )
     .collect_all::<ReferenceIdRow>()
     .await?;
@@ -152,6 +155,7 @@ policyResources
             valid_for: Duration::from_secs(15 * 60),
         }),
         auth_context,
+        cancellation,
     )
     .collect_all::<ResourceRow>()
     .await?;

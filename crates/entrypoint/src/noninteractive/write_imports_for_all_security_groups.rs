@@ -1,4 +1,5 @@
 use cloud_terrastodon_azure::fetch_all_security_groups;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_hcl::HclImportBlock;
 use cloud_terrastodon_hcl::HclProviderBlock;
@@ -9,9 +10,10 @@ use tracing::info;
 
 pub async fn write_imports_for_all_security_groups(
     auth_context: &AzureTenantAuthContext,
+    cancellation: &CancellationScope,
 ) -> Result<()> {
     info!("Fetching security groups");
-    let security_groups = fetch_all_security_groups(auth_context).await?;
+    let security_groups = fetch_all_security_groups(auth_context, cancellation).await?;
 
     info!("Building import blocks");
     let mut imports: Vec<HclImportBlock> = Vec::with_capacity(security_groups.len());
@@ -21,17 +23,17 @@ pub async fn write_imports_for_all_security_groups(
 
     info!("Writing import blocks");
     HclWriter::new(AppDir::Imports.join("security_group_imports.tf"))
-        .overwrite(imports)
+        .overwrite(imports, cancellation)
         .await?
-        .format_file()
+        .format_file(cancellation)
         .await?;
 
     info!("Writing provider blocks");
     let providers = vec![HclProviderBlock::AzureAD { alias: None }];
     HclWriter::new(AppDir::Imports.join("boilerplate.tf"))
-        .merge(providers)
+        .merge(providers, cancellation)
         .await?
-        .format_file()
+        .format_file(cancellation)
         .await?;
 
     Ok(())

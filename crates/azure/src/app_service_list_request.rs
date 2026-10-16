@@ -2,6 +2,7 @@ use crate::ResourceGraphHelper;
 use cloud_terrastodon_azure_types::AzureAppServiceResource;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Result;
@@ -13,13 +14,18 @@ use tracing::info;
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Debug, Clone, facet::Facet)]
 pub struct AppServiceListRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
 
 pub fn fetch_all_app_services<'a>(
     auth_context: &'a AzureTenantAuthContext,
+    cancellation: &CancellationScope,
 ) -> AppServiceListRequest<'a> {
     AppServiceListRequest {
+        cancellation: cancellation.clone(),
         auth_context: Cow::Borrowed(auth_context),
     }
 }
@@ -27,6 +33,7 @@ pub fn fetch_all_app_services<'a>(
 impl<'a> arbitrary::Arbitrary<'a> for AppServiceListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: arbitrary::Arbitrary::arbitrary(u)?,
             auth_context: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
         })
     }
@@ -61,10 +68,14 @@ impl<'a> CacheableCommand for AppServiceListRequest<'a> {
         "#}
         .to_owned();
 
-        let app_services =
-            ResourceGraphHelper::new(query, Some(self.cache_key()), self.auth_context.as_ref())
-                .collect_all::<AzureAppServiceResource>()
-                .await?;
+        let app_services = ResourceGraphHelper::new(
+            query,
+            Some(self.cache_key()),
+            self.auth_context.as_ref(),
+            &self.cancellation,
+        )
+        .collect_all::<AzureAppServiceResource>()
+        .await?;
         info!(count = app_services.len(), "Fetched app services");
         Ok(app_services)
     }
@@ -76,18 +87,25 @@ cloud_terrastodon_command::impl_cacheable_into_future!(AppServiceListRequest<'a>
 mod tests {
     use super::*;
     use crate::get_test_tenant_id;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_credentials::AuthContext;
 
     #[test_log::test(tokio::test)]
     async fn it_works() -> eyre::Result<()> {
-        let result = fetch_all_app_services(
-            &AuthContext::explicit_azure_cli().bind_to_azure_tenant(get_test_tenant_id().await?)?,
-        )
-        .await?;
-        for app_service in &result {
-            assert!(!app_service.name.is_empty());
-        }
-        Ok(())
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let result = fetch_all_app_services(
+                    &AuthContext::explicit_azure_cli()
+                        .bind_to_azure_tenant(get_test_tenant_id(&cancellation).await?)?,
+                    &cancellation,
+                )
+                .await?;
+                for app_service in &result {
+                    assert!(!app_service.name.is_empty());
+                }
+                Ok(())
+            })
+            .await
     }
 }
 

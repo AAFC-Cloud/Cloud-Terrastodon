@@ -1,3 +1,4 @@
+use crate::CancellationScope;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::EntraApplicationClientId;
 use eyre::Context;
@@ -207,27 +208,32 @@ pub(crate) async fn exchange_workload_identity_assertion(
     endpoint: Url,
     config: &WorkloadIdentityConfig,
     resource: super::AzureRestResource,
+    cancellation: &CancellationScope,
 ) -> Result<(String, u64)> {
-    let body = form_urlencoded(&[
-        ("client_id", &config.client_id.to_string()),
-        ("scope", resource_scope(resource)),
-        (
-            "client_assertion_type",
-            "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
-        ),
-        ("client_assertion", config.federated_token()),
-        ("grant_type", "client_credentials"),
-    ]);
-    let response = client
-        .post(endpoint)
-        .header("Content-Type", "application/x-www-form-urlencoded")
-        .body(body)
-        .send()
+    cancellation
+        .cancellable_scope(|_| async move {
+            let body = form_urlencoded(&[
+                ("client_id", &config.client_id.to_string()),
+                ("scope", resource_scope(resource)),
+                (
+                    "client_assertion_type",
+                    "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+                ),
+                ("client_assertion", config.federated_token()),
+                ("grant_type", "client_credentials"),
+            ]);
+            let response = client
+                .post(endpoint)
+                .header("Content-Type", "application/x-www-form-urlencoded")
+                .body(body)
+                .send()
+                .await
+                .wrap_err("requesting an Entra workload-identity access token")?;
+            let status = response.status();
+            let response_body = response.text().await?;
+            parse_token_response(status, &response_body)
+        })
         .await
-        .wrap_err("requesting an Entra workload-identity access token")?;
-    let status = response.status();
-    let response_body = response.text().await?;
-    parse_token_response(status, &response_body)
 }
 
 fn parse_token_response(status: reqwest::StatusCode, response_body: &str) -> Result<(String, u64)> {

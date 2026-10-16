@@ -4,6 +4,7 @@ use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::AzureVirtualNetworkArgument;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::fetch_all_virtual_networks;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
@@ -29,9 +30,16 @@ pub struct AzureVirtualNetworkSubnetListArgs {
 }
 
 impl AzureVirtualNetworkSubnetListArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<CliOutput> {
-        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
-        let networks = fetch_all_virtual_networks(&tenant_auth_context)
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<CliOutput> {
+        let tenant_auth_context = self
+            .tenant
+            .bind_auth_context(auth_context, cancellation)
+            .await?;
+        let networks = fetch_all_virtual_networks(&tenant_auth_context, cancellation)
             .with_invalidation(self.no_cache)
             .await?;
         let mut subnets = networks

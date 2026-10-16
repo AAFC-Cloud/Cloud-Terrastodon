@@ -1,3 +1,4 @@
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_gitea::GiteaTenantArgument;
 use cloud_terrastodon_gitea::GiteaTenantArgumentExt;
 use cloud_terrastodon_gitea::forget_tracked_tenant;
@@ -12,8 +13,11 @@ pub struct GiteaTenantForgetArgs {
 }
 
 impl GiteaTenantForgetArgs {
-    pub async fn invoke(self) -> Result<()> {
-        let tenant_url = self.tenant.resolve().await?;
+    pub async fn invoke(
+        self,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let tenant_url = self.tenant.resolve(cancellation).await?;
         let forgotten = forget_tracked_tenant(&tenant_url).await?;
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();

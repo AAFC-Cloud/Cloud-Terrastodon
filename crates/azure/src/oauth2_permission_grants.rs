@@ -97,12 +97,21 @@ mod tests {
     use super::*;
     use crate::fetch_oauth2_permission_grants;
     use crate::get_test_tenant_id;
+    use cloud_terrastodon_command::CancellationToken;
 
     #[tokio::test]
     async fn it_works() -> eyre::Result<()> {
-        let found = fetch_oauth2_permission_grants(get_test_tenant_id().await?).await?;
-        assert!(!found.is_empty());
-        Ok(())
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let found = fetch_oauth2_permission_grants(
+                    get_test_tenant_id(&cancellation).await?,
+                    &cancellation,
+                )
+                .await?;
+                assert!(!found.is_empty());
+                Ok(())
+            })
+            .await
     }
 
     #[test]

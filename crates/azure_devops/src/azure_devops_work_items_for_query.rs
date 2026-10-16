@@ -5,6 +5,7 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemQueryId;
 use cloud_terrastodon_azure_devops_types::WorkItemQueryResult;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use cloud_terrastodon_rest::RestRequest;
@@ -15,6 +16,9 @@ use tracing::debug;
 
 #[derive(Debug, Clone, facet::Facet)]
 pub struct WorkItemsForQueryRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub query_id: Cow<'a, AzureDevOpsWorkItemQueryId>,
     pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
@@ -24,8 +28,10 @@ pub fn fetch_work_items_for_query<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     query_id: &'a AzureDevOpsWorkItemQueryId,
     auth_context: &'a AzureDevOpsAuthContext,
+    cancellation: &CancellationScope,
 ) -> WorkItemsForQueryRequest<'a> {
     WorkItemsForQueryRequest {
+        cancellation: cancellation.clone(),
         org_url: Cow::Borrowed(org_url),
         query_id: Cow::Borrowed(query_id),
         auth_context: Cow::Borrowed(auth_context),
@@ -35,6 +41,7 @@ pub fn fetch_work_items_for_query<'a>(
 impl<'a> Arbitrary<'a> for WorkItemsForQueryRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: CancellationScope::arbitrary(u)?,
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             query_id: Cow::Owned(AzureDevOpsWorkItemQueryId::arbitrary(u)?),
             auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
@@ -71,7 +78,8 @@ impl<'a> CacheableCommand for WorkItemsForQueryRequest<'a> {
             org_url = self.org_url,
             query_id = self.query_id,
         );
-        let request = RestRequest::new(Method::GET, url.as_str())?.cache(self.cache_key());
+        let request = RestRequest::new(Method::GET, url.as_str(), &self.cancellation)?
+            .cache(self.cache_key());
         request
             .azure_devops_auth_context(self.auth_context.as_ref())?
             .receive()
@@ -92,6 +100,7 @@ mod test {
     use crate::fetch_work_items_for_query;
     use crate::get_default_organization_url;
     use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemQuery;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_credentials::AuthContext;
     use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
     use eyre::Context;
@@ -100,44 +109,58 @@ mod test {
     #[tokio::test]
     #[ignore]
     pub async fn it_works() -> eyre::Result<()> {
-        // get all projects
-        let org_url = get_default_organization_url().await?;
-        let auth_context = AuthContext::explicit_azure_cli();
-        let azure_devops_auth_context = AzureDevOpsAuthContext::new(&auth_context)?;
-        let mut projects =
-            fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context).await?;
-        while let Some(project) = projects.pop() {
-            // get queries for project
-            let queries = fetch_queries_for_project(&org_url, &project.name).await?;
+        CancellationToken::new()
+            .with_async_scope(|cancellation| async move {
+                // get all projects
+                let org_url = get_default_organization_url(&cancellation).await?;
+                let auth_context = AuthContext::explicit_azure_cli();
+                let azure_devops_auth_context = AzureDevOpsAuthContext::new(&auth_context)?;
+                let mut projects = fetch_all_azure_devops_projects(
+                    &org_url,
+                    &azure_devops_auth_context,
+                    &cancellation,
+                )
+                .await?;
+                while let Some(project) = projects.pop() {
+                    // get queries for project
+                    let queries =
+                        fetch_queries_for_project(&org_url, &project.name, &cancellation).await?;
 
-            // get query we can run
-            let query = AzureDevOpsWorkItemQuery::flatten_many(&queries)
-                .into_iter()
-                .find(|x| !x.child.is_folder)
-                .map(|x| x.child)
-                .cloned();
-            let Some(query) = query else {
-                continue;
-            };
+                    // get query we can run
+                    let query = AzureDevOpsWorkItemQuery::flatten_many(&queries)
+                        .into_iter()
+                        .find(|x| !x.child.is_folder)
+                        .map(|x| x.child)
+                        .cloned();
+                    let Some(query) = query else {
+                        continue;
+                    };
 
-            // get items from the query
-            let items = fetch_work_items_for_query(&org_url, &query.id, &azure_devops_auth_context)
-                .await
-                .wrap_err(format!(
-                    "Failed to fetch work items for query {query} from project {project}",
-                    query = query.name,
-                    project = project.name
-                ))?;
+                    // get items from the query
+                    let items = fetch_work_items_for_query(
+                        &org_url,
+                        &query.id,
+                        &azure_devops_auth_context,
+                        &cancellation,
+                    )
+                    .await
+                    .wrap_err(format!(
+                        "Failed to fetch work items for query {query} from project {project}",
+                        query = query.name,
+                        project = project.name
+                    ))?;
 
-            // success if found some items
-            if let Some(items) = items {
-                if items.work_items.is_empty() {
-                    continue;
-                } else {
-                    return Ok(());
+                    // success if found some items
+                    if let Some(items) = items {
+                        if items.work_items.is_empty() {
+                            continue;
+                        } else {
+                            return Ok(());
+                        }
+                    }
                 }
-            }
-        }
-        bail!("Failed to find any work items");
+                bail!("Failed to find any work items");
+            })
+            .await
     }
 }

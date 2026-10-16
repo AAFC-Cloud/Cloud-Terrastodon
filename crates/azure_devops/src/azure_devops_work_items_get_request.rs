@@ -7,6 +7,7 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItem;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemExpand;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemId;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
@@ -23,6 +24,9 @@ use std::pin::Pin;
 
 #[derive(Debug, Clone, Facet)]
 pub struct AzureDevOpsWorkItemsGetRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub project: Option<AzureDevOpsProjectArgument<'a>>,
     pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
@@ -40,6 +44,7 @@ pub struct AzureDevOpsWorkItemsGetRequest<'a> {
 impl<'a> Arbitrary<'a> for AzureDevOpsWorkItemsGetRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: CancellationScope::arbitrary(u)?,
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: Some(AzureDevOpsProjectArgument::arbitrary(u)?.into_owned()),
             auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
@@ -67,6 +72,7 @@ impl<'a> IntoFuture for AzureDevOpsWorkItemsGetRequest<'a> {
                 .collect();
             let mut items = BTreeMap::new();
             for chunk in ids.chunks(200) {
+                self.cancellation.bail_if_cancelled()?;
                 #[derive(Facet)]
                 #[facet(rename_all = "camelCase")]
                 struct Body {
@@ -99,8 +105,10 @@ impl<'a> IntoFuture for AzureDevOpsWorkItemsGetRequest<'a> {
                     path.extend(["_apis", "wit", "workitemsbatch"]);
                 }
                 url.query_pairs_mut().append_pair("api-version", "7.1");
-                let request = RestRequest::from_method_and_url(Method::POST, url)?
-                    .body(facet_json::to_string(&body)?);
+                let request =
+                    RestRequest::from_method_and_url(Method::POST, url, &self.cancellation)?
+                        .cancellation_safe()
+                        .body(facet_json::to_string(&body)?);
                 let response: WorkItemListResponse<AzureDevOpsWorkItem> = request
                     .azure_devops_auth_context(self.auth_context.as_ref())?
                     .receive()

@@ -3,6 +3,7 @@ use cloud_terrastodon_azure_types::EntraApplicationClientId;
 use cloud_terrastodon_azure_types::EntraServicePrincipalApplicationPermissions;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
@@ -12,6 +13,9 @@ use tracing::info;
 
 #[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct ApplicationRoleListRequest {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub tenant_id: AzureTenantId,
     pub application_id: EntraApplicationClientId,
 }
@@ -19,8 +23,10 @@ pub struct ApplicationRoleListRequest {
 pub fn fetch_application_roles(
     tenant_id: AzureTenantId,
     application_id: EntraApplicationClientId,
+    cancellation: &CancellationScope,
 ) -> ApplicationRoleListRequest {
     ApplicationRoleListRequest {
+        cancellation: cancellation.clone(),
         tenant_id,
         application_id,
     }
@@ -51,7 +57,7 @@ impl CacheableCommand for ApplicationRoleListRequest {
             "https://graph.microsoft.com/v1.0/servicePrincipals(appId='{application_id}')?$select=appRoles,resourceSpecificApplicationPermissions",
             application_id = self.application_id
         );
-        RestRequest::new(Method::GET, url)?
+        RestRequest::new(Method::GET, url, &self.cancellation)?
             .tenant(self.tenant_id)
             .cache(self.cache_key())
             .receive()

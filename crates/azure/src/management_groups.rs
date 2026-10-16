@@ -2,6 +2,7 @@ use crate::ResourceGraphHelper;
 use cloud_terrastodon_azure_types::ManagementGroup;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Result;
@@ -14,9 +15,10 @@ use tracing::info;
 
 pub async fn fetch_root_management_group(
     auth_context: &AzureTenantAuthContext,
+    cancellation: &CancellationScope,
 ) -> Result<ManagementGroup> {
     info!("Fetching root management group");
-    let found = fetch_all_management_groups(auth_context)
+    let found = fetch_all_management_groups(auth_context, cancellation)
         .await?
         .into_iter()
         .find(|mg| mg.name() == mg.tenant_id.to_string());
@@ -36,13 +38,18 @@ pub async fn fetch_root_management_group(
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Debug, Clone, facet::Facet)]
 pub struct ManagementGroupListRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
 
 pub fn fetch_all_management_groups<'a>(
     auth_context: &'a AzureTenantAuthContext,
+    cancellation: &CancellationScope,
 ) -> ManagementGroupListRequest<'a> {
     ManagementGroupListRequest {
+        cancellation: cancellation.clone(),
         auth_context: Cow::Borrowed(auth_context),
     }
 }
@@ -50,6 +57,7 @@ pub fn fetch_all_management_groups<'a>(
 impl<'a> arbitrary::Arbitrary<'a> for ManagementGroupListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: arbitrary::Arbitrary::arbitrary(u)?,
             auth_context: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
         })
     }
@@ -80,10 +88,14 @@ impl<'a> CacheableCommand for ManagementGroupListRequest<'a> {
             management_group_ancestors_chain=properties.details.managementGroupAncestorsChain
     "#};
 
-        let management_groups =
-            ResourceGraphHelper::new(query, Some(self.cache_key()), self.auth_context.as_ref())
-                .collect_all::<ManagementGroup>()
-                .await?;
+        let management_groups = ResourceGraphHelper::new(
+            query,
+            Some(self.cache_key()),
+            self.auth_context.as_ref(),
+            &self.cancellation,
+        )
+        .collect_all::<ManagementGroup>()
+        .await?;
         let count = management_groups.len();
         if count == 0 {
             bail!(
@@ -102,16 +114,23 @@ cloud_terrastodon_command::impl_cacheable_into_future!(ManagementGroupListReques
 mod tests {
     use super::*;
     use crate::get_test_tenant_id;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_credentials::AuthContext;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
-        let result = fetch_all_management_groups(
-            &AuthContext::explicit_azure_cli().bind_to_azure_tenant(get_test_tenant_id().await?)?,
-        )
-        .await?;
-        assert!(!result.is_empty());
-        Ok(())
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let result = fetch_all_management_groups(
+                    &AuthContext::explicit_azure_cli()
+                        .bind_to_azure_tenant(get_test_tenant_id(&cancellation).await?)?,
+                    &cancellation,
+                )
+                .await?;
+                assert!(!result.is_empty());
+                Ok(())
+            })
+            .await
     }
 }
 

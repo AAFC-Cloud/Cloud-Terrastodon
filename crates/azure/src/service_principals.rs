@@ -2,6 +2,7 @@ use crate::MicrosoftGraphHelper;
 use cloud_terrastodon_azure_types::EntraServicePrincipal;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Result;
@@ -12,12 +13,16 @@ use tracing::debug;
 #[must_use = "This is a future request, you must .await it"]
 #[derive(facet::Facet)]
 pub struct ServicePrincipalListRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
 
 impl<'a> arbitrary::Arbitrary<'a> for ServicePrincipalListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: arbitrary::Arbitrary::arbitrary(u)?,
             auth_context: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
         })
     }
@@ -25,8 +30,10 @@ impl<'a> arbitrary::Arbitrary<'a> for ServicePrincipalListRequest<'static> {
 
 pub fn fetch_all_service_principals<'a>(
     auth_context: &'a AzureTenantAuthContext,
+    cancellation: &CancellationScope,
 ) -> ServicePrincipalListRequest<'a> {
     ServicePrincipalListRequest {
+        cancellation: cancellation.clone(),
         auth_context: Cow::Borrowed(auth_context),
     }
 }
@@ -51,8 +58,9 @@ impl<'a> CacheableCommand for ServicePrincipalListRequest<'a> {
             "https://graph.microsoft.com/v1.0/servicePrincipals",
             Some(self.cache_key()),
             self.auth_context.as_ref(),
+            &self.cancellation,
         );
-        let entries: Vec<EntraServicePrincipal> = query.fetch_all().await?;
+        let entries: Vec<EntraServicePrincipal> = query.fetch_all(&self.cancellation).await?;
         debug!("Found {} service principals", entries.len());
         Ok(entries)
     }
@@ -65,15 +73,22 @@ mod tests {
     use crate::fetch_all_service_principals;
     use crate::get_test_tenant_id;
     use cloud_terrastodon_azure_types::EntraServicePrincipal;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_credentials::AuthContext;
 
     #[tokio::test]
     async fn it_works() -> eyre::Result<()> {
-        let auth_context = AuthContext::explicit_azure_cli();
-        let auth_context = auth_context.bind_to_azure_tenant(get_test_tenant_id().await?)?;
-        let found: Vec<EntraServicePrincipal> = fetch_all_service_principals(&auth_context).await?;
-        assert!(found.len() > 10);
-        Ok(())
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let auth_context = AuthContext::explicit_azure_cli();
+                let auth_context =
+                    auth_context.bind_to_azure_tenant(get_test_tenant_id(&cancellation).await?)?;
+                let found: Vec<EntraServicePrincipal> =
+                    fetch_all_service_principals(&auth_context, &cancellation).await?;
+                assert!(found.len() > 10);
+                Ok(())
+            })
+            .await
     }
 }
 

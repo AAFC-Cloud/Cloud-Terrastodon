@@ -2,6 +2,7 @@ use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_repos_for_project;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::to_writer_pretty;
 use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
@@ -21,10 +22,15 @@ pub struct AzureDevOpsRepoListArgs {
 }
 
 impl AzureDevOpsRepoListArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         let azure_devops_auth_context = AzureDevOpsAuthContext::new(auth_context)?;
         let projects =
-            fetch_all_azure_devops_projects(&self.org, &azure_devops_auth_context).await?;
+            fetch_all_azure_devops_projects(&self.org, &azure_devops_auth_context, cancellation)
+                .await?;
 
         let Some(project) = projects
             .into_iter()
@@ -32,7 +38,8 @@ impl AzureDevOpsRepoListArgs {
         else {
             eyre::bail!("No project found matching '{}'.", self.project);
         };
-        let repos = fetch_all_azure_devops_repos_for_project(&self.org, &project.id).await?;
+        let repos =
+            fetch_all_azure_devops_repos_for_project(&self.org, &project.id, cancellation).await?;
         to_writer_pretty(stdout(), &repos)?;
         Ok(())
     }

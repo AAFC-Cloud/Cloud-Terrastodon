@@ -1,3 +1,4 @@
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_gitea::GiteaTenantArgument;
 use cloud_terrastodon_gitea::GiteaTenantArgumentExt;
 use cloud_terrastodon_gitea::fetch_all_gitea_users;
@@ -13,10 +14,13 @@ pub struct GiteaUserListArgs {
 }
 
 impl GiteaUserListArgs {
-    pub async fn invoke(self) -> Result<()> {
-        let tenant = self.tenant.resolve().await?;
+    pub async fn invoke(
+        self,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let tenant = self.tenant.resolve(cancellation).await?;
         info!(%tenant, "Fetching Gitea users");
-        let users = fetch_all_gitea_users(&tenant).await?;
+        let users = fetch_all_gitea_users(&tenant, cancellation).await?;
         info!(count = users.len(), "Fetched Gitea users");
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();

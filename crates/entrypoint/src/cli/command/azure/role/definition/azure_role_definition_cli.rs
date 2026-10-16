@@ -1,6 +1,7 @@
 use super::AzureRoleDefinitionBrowseArgs;
 use super::AzureRoleDefinitionFindArgs;
 use super::AzureRoleDefinitionListArgs;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -17,11 +18,17 @@ pub enum AzureRoleDefinitionCommand {
 }
 
 impl AzureRoleDefinitionCommand {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self {
-            AzureRoleDefinitionCommand::List(args) => args.invoke(auth_context).await,
-            AzureRoleDefinitionCommand::Browse(args) => args.invoke(auth_context).await,
-            AzureRoleDefinitionCommand::Find(args) => args.invoke(auth_context).await,
+            AzureRoleDefinitionCommand::List(args) => args.invoke(auth_context, cancellation).await,
+            AzureRoleDefinitionCommand::Browse(args) => {
+                args.invoke(auth_context, cancellation).await
+            }
+            AzureRoleDefinitionCommand::Find(args) => args.invoke(auth_context, cancellation).await,
         }
     }
 }

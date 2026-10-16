@@ -6,6 +6,7 @@ use cloud_terrastodon_azure_types::EntraDirectoryObjectType;
 use cloud_terrastodon_azure_types::uuid::Uuid;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Result;
@@ -23,6 +24,9 @@ const DIRECTORY_OBJECTS_BY_IDS_URL: &str =
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Debug, Facet)]
 pub struct EntraDirectoryObjectsByIdsRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub ids: Vec<Uuid>,
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
@@ -30,6 +34,7 @@ pub struct EntraDirectoryObjectsByIdsRequest<'a> {
 impl<'a> arbitrary::Arbitrary<'a> for EntraDirectoryObjectsByIdsRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: arbitrary::Arbitrary::arbitrary(u)?,
             ids: arbitrary::Arbitrary::arbitrary(u)?,
             auth_context: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
         })
@@ -39,8 +44,10 @@ impl<'a> arbitrary::Arbitrary<'a> for EntraDirectoryObjectsByIdsRequest<'static>
 pub fn fetch_entra_directory_objects_by_ids<'a>(
     ids: impl IntoIterator<Item = Uuid>,
     auth_context: &'a AzureTenantAuthContext,
+    cancellation: &CancellationScope,
 ) -> EntraDirectoryObjectsByIdsRequest<'a> {
     EntraDirectoryObjectsByIdsRequest {
+        cancellation: cancellation.clone(),
         ids: ids.into_iter().collect(),
         auth_context: Cow::Borrowed(auth_context),
     }
@@ -107,7 +114,9 @@ impl CacheableCommand for EntraDirectoryObjectsByIdsRequest<'_> {
         let cache_key = self.cache_key();
         let mut batch = MicrosoftGraphBatchRequest::<EntraDirectoryObjectsByIdsRequestBody>::new(
             self.auth_context.as_ref(),
-        );
+            &self.cancellation,
+        )
+        .cancellation_safe();
         batch.cache(cache_key);
 
         for (chunk_index, ids) in ids.chunks(MAX_DIRECTORY_OBJECT_IDS).enumerate() {
@@ -152,22 +161,35 @@ cloud_terrastodon_registry::register_into_future!(EntraDirectoryObjectsByIdsRequ
 mod tests {
     use super::*;
     use cloud_terrastodon_azure_types::AzureTenantId;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_credentials::AuthContext;
 
     #[test]
     fn normalizes_ids_for_stable_lookup_and_cache_keys() {
-        let auth_context = AuthContext::explicit_azure_cli();
-        let auth_context = auth_context
-            .bind_to_azure_tenant(AzureTenantId::new(Uuid::nil()))
-            .expect("default auth context should bind to a tenant");
-        let first_id = Uuid::from_u128(1);
-        let second_id = Uuid::from_u128(2);
-        let first =
-            fetch_entra_directory_objects_by_ids([first_id, second_id, first_id], &auth_context);
-        let second = fetch_entra_directory_objects_by_ids([second_id, first_id], &auth_context);
+        CancellationToken::new()
+            .with_scope(|cancellation| {
+                let auth_context = AuthContext::explicit_azure_cli();
+                let auth_context = auth_context
+                    .bind_to_azure_tenant(AzureTenantId::new(Uuid::nil()))
+                    .expect("default auth context should bind to a tenant");
+                let first_id = Uuid::from_u128(1);
+                let second_id = Uuid::from_u128(2);
+                let first = fetch_entra_directory_objects_by_ids(
+                    [first_id, second_id, first_id],
+                    &auth_context,
+                    &cancellation,
+                );
+                let second = fetch_entra_directory_objects_by_ids(
+                    [second_id, first_id],
+                    &auth_context,
+                    &cancellation,
+                );
 
-        assert_eq!(first.normalized_ids(), vec![first_id, second_id]);
-        assert_eq!(first.cache_key().path, second.cache_key().path);
+                assert_eq!(first.normalized_ids(), vec![first_id, second_id]);
+                assert_eq!(first.cache_key().path, second.cache_key().path);
+                Ok::<_, eyre::Error>(())
+            })
+            .expect("uncancelled test scope");
     }
 
     #[test]

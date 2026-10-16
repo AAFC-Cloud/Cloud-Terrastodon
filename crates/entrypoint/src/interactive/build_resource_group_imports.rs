@@ -3,6 +3,7 @@ use cloud_terrastodon_azure::Subscription;
 use cloud_terrastodon_azure::SubscriptionId;
 use cloud_terrastodon_azure::fetch_all_resource_groups;
 use cloud_terrastodon_azure::fetch_all_subscriptions;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_hcl::HclImportBlock;
 use cloud_terrastodon_hcl::HclProviderBlock;
@@ -30,15 +31,18 @@ impl std::fmt::Display for SubRGPair<'_> {
     }
 }
 
-pub async fn build_resource_group_imports(auth_context: &AzureTenantAuthContext) -> Result<()> {
+pub async fn build_resource_group_imports(
+    auth_context: &AzureTenantAuthContext,
+    cancellation: &CancellationScope,
+) -> Result<()> {
     info!("Fetching resource groups");
-    let subscriptions = fetch_all_subscriptions(auth_context)
+    let subscriptions = fetch_all_subscriptions(auth_context, cancellation)
         .await?
         .into_iter()
         .map(|sub| (sub.id, sub))
         .collect::<HashMap<SubscriptionId, Subscription>>();
 
-    let resource_groups = fetch_all_resource_groups(auth_context).await?;
+    let resource_groups = fetch_all_resource_groups(auth_context, cancellation).await?;
 
     info!("Prompting for which to import");
     let mut choices: Vec<Choice<SubRGPair>> = Vec::with_capacity(resource_groups.len());
@@ -78,15 +82,15 @@ pub async fn build_resource_group_imports(auth_context: &AzureTenantAuthContext)
 
     info!("Writing import blocks");
     HclWriter::new(AppDir::Imports.join("resource_group_imports.tf"))
-        .overwrite(imports)
+        .overwrite(imports, cancellation)
         .await?
-        .format_file()
+        .format_file(cancellation)
         .await?;
 
     HclWriter::new(AppDir::Imports.join("boilerplate.tf"))
-        .merge(providers)
+        .merge(providers, cancellation)
         .await?
-        .format_file()
+        .format_file(cancellation)
         .await?;
 
     Ok(())

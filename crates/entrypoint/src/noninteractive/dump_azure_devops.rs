@@ -3,6 +3,7 @@ use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_group_members;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_groups_for_project;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlements;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
 use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
@@ -31,26 +32,36 @@ struct AzureDevOpsDumpGroupMembers {
 pub async fn dump_azure_devops(
     org_url: AzureDevOpsOrganizationUrl,
     auth_context: &AuthContext,
+    cancellation: &CancellationScope,
 ) -> eyre::Result<()> {
     let azure_devops_auth_context = AzureDevOpsAuthContext::new(auth_context)?;
-    let projects = fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context).await?;
+    let projects =
+        fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context, cancellation).await?;
 
-    let users =
-        fetch_azure_devops_user_license_entitlements(&org_url, &azure_devops_auth_context).await?;
+    let users = fetch_azure_devops_user_license_entitlements(
+        &org_url,
+        &azure_devops_auth_context,
+        cancellation,
+    )
+    .await?;
 
     let mut project_groups = ParallelFallibleWorkQueue::new("fetch_azure_devops_groups", 10);
     for project in projects.iter() {
         let org_url = org_url.clone();
         let project_id = project.id.clone();
         let azure_devops_auth_context = azure_devops_auth_context.clone();
-        project_groups.enqueue(async move {
-            let groups = fetch_azure_devops_groups_for_project(
-                &org_url,
-                &project_id,
-                &azure_devops_auth_context,
-            )
-            .await?;
-            eyre::Ok((project_id, groups))
+        project_groups.enqueue({
+            cancellation.cancellable_scope(move |cancellation| async move {
+                let cancellation = &cancellation;
+                let groups = fetch_azure_devops_groups_for_project(
+                    &org_url,
+                    &project_id,
+                    &azure_devops_auth_context,
+                    cancellation,
+                )
+                .await?;
+                eyre::Ok((project_id, groups))
+            })
         });
     }
 
@@ -68,11 +79,16 @@ pub async fn dump_azure_devops(
         .cloned()
     {
         let org_url = org_url.clone();
-        group_members.enqueue(async move {
-            let members = fetch_azure_devops_group_members(&org_url, &group.descriptor).await?;
-            eyre::Ok(AzureDevOpsDumpGroupMembers {
-                group_descriptor: group.descriptor.clone(),
-                members: members.into_values().collect(),
+        group_members.enqueue({
+            cancellation.cancellable_scope(move |cancellation| async move {
+                let cancellation = &cancellation;
+                let members =
+                    fetch_azure_devops_group_members(&org_url, &group.descriptor, cancellation)
+                        .await?;
+                eyre::Ok(AzureDevOpsDumpGroupMembers {
+                    group_descriptor: group.descriptor.clone(),
+                    members: members.into_values().collect(),
+                })
             })
         });
     }

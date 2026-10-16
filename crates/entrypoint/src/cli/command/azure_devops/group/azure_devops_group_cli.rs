@@ -1,5 +1,6 @@
 use crate::cli::azure_devops::group::list::AzureDevOpsGroupListArgs;
 use crate::cli::azure_devops::group::show::AzureDevOpsGroupShowArgs;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -20,10 +21,14 @@ pub enum AzureDevOpsGroupCommand {
 }
 
 impl AzureDevOpsGroupArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self.command {
-            AzureDevOpsGroupCommand::List(args) => args.invoke(auth_context).await?,
-            AzureDevOpsGroupCommand::Show(args) => args.invoke(auth_context).await?,
+            AzureDevOpsGroupCommand::List(args) => args.invoke(auth_context, cancellation).await?,
+            AzureDevOpsGroupCommand::Show(args) => args.invoke(auth_context, cancellation).await?,
         }
 
         Ok(())

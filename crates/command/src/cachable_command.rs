@@ -24,6 +24,9 @@ where
 /// Implement `IntoFuture` and `CacheInvalidatableIntoFuture` for a concrete
 /// `CacheableCommand` type without repeating boilerplate.
 ///
+/// Request types must expose an owned `cancellation: CancellationScope` field.
+/// The caller supplies the scope; the macro owns a linked execution child.
+///
 /// Usage:
 /// - `impl_cacheable_into_future!(MyCommandType);`
 /// - `impl_cacheable_into_future!(MyCommandType<'a>, 'a);` for request types that carry a lifetime
@@ -37,8 +40,12 @@ macro_rules! impl_cacheable_into_future {
             type IntoFuture =
                 ::std::pin::Pin<Box<dyn ::std::future::Future<Output = Self::Output> + Send>>;
 
-            fn into_future(self) -> Self::IntoFuture {
-                Box::pin($crate::CacheableCommand::run(self))
+            fn into_future(mut self) -> Self::IntoFuture {
+                let parent = self.cancellation.clone();
+                Box::pin(parent.cancellable_scope(move |scope| async move {
+                    self.cancellation = scope;
+                    $crate::CacheableCommand::run(self).await
+                }))
             }
         }
 
@@ -49,9 +56,16 @@ macro_rules! impl_cacheable_into_future {
             fn with_invalidation(self, invalidate_cache: bool) -> Self::WithInvalidation {
                 Box::pin(async move {
                     if invalidate_cache {
-                        <Self as $crate::CacheInvalidatable>::invalidate(&self).await?;
+                        self.cancellation
+                            .deferred(
+                                "finishing filesystem and memory cache invalidation",
+                                |_| async {
+                                    <Self as $crate::CacheInvalidatable>::invalidate(&self).await
+                                },
+                            )
+                            .await?;
                     }
-                    $crate::CacheableCommand::run(self).await
+                    ::std::future::IntoFuture::into_future(self).await
                 })
             }
         }
@@ -64,8 +78,12 @@ macro_rules! impl_cacheable_into_future {
             type IntoFuture =
                 ::std::pin::Pin<Box<dyn ::std::future::Future<Output = Self::Output> + Send + $lt>>;
 
-            fn into_future(self) -> Self::IntoFuture {
-                Box::pin($crate::CacheableCommand::run(self))
+            fn into_future(mut self) -> Self::IntoFuture {
+                let parent = self.cancellation.clone();
+                Box::pin(parent.cancellable_scope(move |scope| async move {
+                    self.cancellation = scope;
+                    $crate::CacheableCommand::run(self).await
+                }))
             }
         }
 
@@ -76,9 +94,16 @@ macro_rules! impl_cacheable_into_future {
             fn with_invalidation(self, invalidate_cache: bool) -> Self::WithInvalidation {
                 Box::pin(async move {
                     if invalidate_cache {
-                        <Self as $crate::CacheInvalidatable>::invalidate(&self).await?;
+                        self.cancellation
+                            .deferred(
+                                "finishing filesystem and memory cache invalidation",
+                                |_| async {
+                                    <Self as $crate::CacheInvalidatable>::invalidate(&self).await
+                                },
+                            )
+                            .await?;
                     }
-                    $crate::CacheableCommand::run(self).await
+                    ::std::future::IntoFuture::into_future(self).await
                 })
             }
         }
@@ -92,8 +117,12 @@ macro_rules! impl_cacheable_into_future {
             type IntoFuture =
                 ::std::pin::Pin<Box<dyn ::std::future::Future<Output = Self::Output> + Send>>;
 
-            fn into_future(self) -> Self::IntoFuture {
-                Box::pin($crate::CacheableCommand::run(self))
+            fn into_future(mut self) -> Self::IntoFuture {
+                let parent = self.cancellation.clone();
+                Box::pin(parent.cancellable_scope(move |scope| async move {
+                    self.cancellation = scope;
+                    $crate::CacheableCommand::run(self).await
+                }))
             }
         }
 
@@ -104,9 +133,16 @@ macro_rules! impl_cacheable_into_future {
             fn with_invalidation(self, invalidate_cache: bool) -> Self::WithInvalidation {
                 Box::pin(async move {
                     if invalidate_cache {
-                        <Self as $crate::CacheInvalidatable>::invalidate(&self).await?;
+                        self.cancellation
+                            .deferred(
+                                "finishing filesystem and memory cache invalidation",
+                                |_| async {
+                                    <Self as $crate::CacheInvalidatable>::invalidate(&self).await
+                                },
+                            )
+                            .await?;
                     }
-                    $crate::CacheableCommand::run(self).await
+                    ::std::future::IntoFuture::into_future(self).await
                 })
             }
         }
@@ -120,8 +156,12 @@ macro_rules! impl_cacheable_into_future {
                 Box<dyn ::std::future::Future<Output = Self::Output> + Send + $lt>
             >;
 
-            fn into_future(self) -> Self::IntoFuture {
-                Box::pin($crate::CacheableCommand::run(self))
+            fn into_future(mut self) -> Self::IntoFuture {
+                let parent = self.cancellation.clone();
+                Box::pin(parent.cancellable_scope(move |scope| async move {
+                    self.cancellation = scope;
+                    $crate::CacheableCommand::run(self).await
+                }))
             }
         }
 
@@ -133,9 +173,16 @@ macro_rules! impl_cacheable_into_future {
             fn with_invalidation(self, invalidate_cache: bool) -> Self::WithInvalidation {
                 Box::pin(async move {
                     if invalidate_cache {
-                        <Self as $crate::CacheInvalidatable>::invalidate(&self).await?;
+                        self.cancellation
+                            .deferred(
+                                "finishing filesystem and memory cache invalidation",
+                                |_| async {
+                                    <Self as $crate::CacheInvalidatable>::invalidate(&self).await
+                                },
+                            )
+                            .await?;
                     }
-                    $crate::CacheableCommand::run(self).await
+                    ::std::future::IntoFuture::into_future(self).await
                 })
             }
         }

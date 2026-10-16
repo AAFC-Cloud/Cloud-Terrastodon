@@ -5,6 +5,7 @@ use crate::RoleDefinitionId;
 use crate::fetch_all_entra_users;
 use crate::fetch_all_role_assignments;
 use crate::fetch_all_role_definitions;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_user_input::Choice;
 use std::collections::HashMap;
@@ -14,11 +15,12 @@ use tracing::warn;
 
 pub async fn get_role_assignment_choices(
     auth_context: &AzureTenantAuthContext,
+    cancellation: &CancellationScope,
 ) -> eyre::Result<Vec<Choice<RoleAssignment>>> {
     let (role_assignments, role_definitions, users) = try_join!(
-        fetch_all_role_assignments(auth_context),
-        fetch_all_role_definitions(auth_context),
-        fetch_all_entra_users(auth_context).into_future()
+        fetch_all_role_assignments(auth_context, cancellation),
+        fetch_all_role_definitions(auth_context, cancellation),
+        fetch_all_entra_users(auth_context, cancellation).into_future()
     )?;
 
     let role_definition_lookup: HashMap<&RoleDefinitionId, &RoleDefinition> =

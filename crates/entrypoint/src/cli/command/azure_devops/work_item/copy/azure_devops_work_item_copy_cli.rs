@@ -9,6 +9,7 @@ use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemCopyOptions;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemCopyPlanRequest;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemCopyRequest;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemId;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use eyre::ensure;
@@ -62,7 +63,11 @@ pub struct AzureDevOpsWorkItemCopyArgs {
 }
 
 impl AzureDevOpsWorkItemCopyArgs {
-    pub async fn invoke(self, auth: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         ensure!(
             !self.resume || (self.journal.is_some() && !self.dry_run),
             "Resume requires --journal and cannot be combined with --dry-run"
@@ -89,7 +94,7 @@ impl AzureDevOpsWorkItemCopyArgs {
             keep_external_relations: self.keep_external_relations,
             as_of: self.as_of,
         };
-        let auth_context = self.tenant.bind_auth_context(auth).await?;
+        let auth_context = self.tenant.bind_auth_context(auth, cancellation).await?;
         let plan = if self.resume {
             let journal = AzureDevOpsWorkItemCopyJournal::load(
                 self.journal
@@ -103,6 +108,7 @@ impl AzureDevOpsWorkItemCopyArgs {
             journal.plan
         } else {
             AzureDevOpsWorkItemCopyPlanRequest {
+                cancellation: cancellation.clone(),
                 org_url: Cow::Borrowed(&self.org),
                 project: self.project.clone(),
                 auth_context: Cow::Borrowed(&auth_context),
@@ -120,6 +126,7 @@ impl AzureDevOpsWorkItemCopyArgs {
         });
         error!(journal = %journal_path.display(), "Copy progress journal");
         let result = AzureDevOpsWorkItemCopyRequest {
+            cancellation: cancellation.clone(),
             org_url: Cow::Borrowed(&self.org),
             project: self.project,
             auth_context: Cow::Borrowed(&auth_context),

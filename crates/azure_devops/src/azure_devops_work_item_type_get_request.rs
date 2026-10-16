@@ -3,6 +3,7 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemType;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemTypeDefinition;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
@@ -16,6 +17,9 @@ use std::pin::Pin;
 
 #[derive(Debug, Clone, Facet)]
 pub struct AzureDevOpsWorkItemTypeGetRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub project: AzureDevOpsProjectArgument<'a>,
     pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
@@ -25,6 +29,7 @@ pub struct AzureDevOpsWorkItemTypeGetRequest<'a> {
 impl<'a> Arbitrary<'a> for AzureDevOpsWorkItemTypeGetRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: CancellationScope::arbitrary(u)?,
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
             auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
@@ -48,7 +53,7 @@ impl<'a> IntoFuture for AzureDevOpsWorkItemTypeGetRequest<'a> {
                 .extend(["_apis", "wit", "workitemtypes"])
                 .push(self.name.as_ref());
             url.query_pairs_mut().append_pair("api-version", "7.1");
-            let request = RestRequest::from_method_and_url(Method::GET, url)?
+            let request = RestRequest::from_method_and_url(Method::GET, url, &self.cancellation)?
                 .azure_devops_auth_context(self.auth_context.as_ref())?;
             request.receive().await
         })

@@ -2,6 +2,7 @@ use cloud_terrastodon_azure::Subscription;
 use cloud_terrastodon_azure::SubscriptionId;
 use cloud_terrastodon_azure::fetch_all_resource_groups;
 use cloud_terrastodon_azure::fetch_all_subscriptions;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_hcl::HclImportBlock;
 use cloud_terrastodon_hcl::HclProviderReference;
@@ -18,17 +19,18 @@ use tracing::info;
 
 pub async fn write_imports_for_all_resource_groups(
     auth_context: &AzureTenantAuthContext,
+    cancellation: &CancellationScope,
 ) -> Result<()> {
     info!("Writing imports for all resource groups");
 
     info!("Fetching resource groups");
-    let subscriptions = fetch_all_subscriptions(auth_context)
+    let subscriptions = fetch_all_subscriptions(auth_context, cancellation)
         .await?
         .into_iter()
         .map(|sub| (sub.id, sub))
         .collect::<HashMap<SubscriptionId, Subscription>>();
 
-    let resource_groups = fetch_all_resource_groups(auth_context).await?;
+    let resource_groups = fetch_all_resource_groups(auth_context, cancellation).await?;
 
     info!("Building import blocks");
     let mut used_subscriptions = HashSet::new();
@@ -52,9 +54,9 @@ pub async fn write_imports_for_all_resource_groups(
 
     info!("Writing import blocks");
     HclWriter::new(AppDir::Imports.join("resource_group_imports.tf"))
-        .overwrite(imports)
+        .overwrite(imports, cancellation)
         .await?
-        .format_file()
+        .format_file(cancellation)
         .await?;
 
     info!("Writing provider blocks");
@@ -64,9 +66,9 @@ pub async fn write_imports_for_all_resource_groups(
         providers.push(provider);
     }
     HclWriter::new(AppDir::Imports.join("boilerplate.tf"))
-        .merge(providers)
+        .merge(providers, cancellation)
         .await?
-        .format_file()
+        .format_file(cancellation)
         .await?;
 
     Ok(())

@@ -5,8 +5,6 @@ use super::*;
 struct ConsumerCli {
     #[facet(flatten)]
     global: GlobalArgs,
-    #[facet(flatten)]
-    builtins: figue::FigueBuiltins,
     #[facet(figue::subcommand)]
     command: Command,
 }
@@ -42,7 +40,7 @@ fn consumer_owns_root_and_subcommands_without_debug() {
         .parse_from::<ConsumerCli>(["inspect", "hello", "--debug", "--log-level", "warn"])
         .into_result()
         .unwrap()
-        .value;
+        .get_silent();
     assert!(cli.global.debug);
     assert_eq!(cli.global.log_filter, "warn");
     let Command::Inspect(inspect) = cli.command;
@@ -55,7 +53,7 @@ fn shared_defaults_match_explicit_construction() {
         .parse_from::<ConsumerCli>(["inspect", "hello"])
         .into_result()
         .unwrap()
-        .value;
+        .get_silent();
     let defaults = GlobalArgs::default();
     assert_eq!(cli.global.debug, defaults.debug);
     assert_eq!(cli.global.log_filter, defaults.log_filter);
@@ -114,7 +112,7 @@ fn output_format_parses_before_and_after_consumer_subcommands() {
                     .parse_from::<ConsumerCli>(args)
                     .into_result()
                     .unwrap()
-                    .value;
+                    .get_silent();
                 assert_eq!(
                     cli.global.output_format,
                     Some(match format {
@@ -233,7 +231,7 @@ fn nested_runtime_is_rejected_without_invoking_handler() {
             .parse_from::<ConsumerCli>(["inspect", "value"])
             .into_result()
             .unwrap()
-            .value;
+            .get_silent();
         let error = app()
             .run_parsed(cli, |_, _| async { panic!("must not invoke") })
             .unwrap_err();

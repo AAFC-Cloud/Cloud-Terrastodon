@@ -1,13 +1,15 @@
 use crate::fetch_all_resource_groups;
 use cloud_terrastodon_azure_types::ResourceGroup;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_user_input::Choice;
 
 /// Returns (Resource group, Subscription name)
 pub async fn get_resource_group_choices(
     auth_context: &AzureTenantAuthContext,
+    cancellation: &CancellationScope,
 ) -> eyre::Result<Vec<Choice<ResourceGroup>>> {
-    let resource_groups = fetch_all_resource_groups(auth_context).await?;
+    let resource_groups = fetch_all_resource_groups(auth_context, cancellation).await?;
 
     let mut choices = Vec::new();
     for rg in resource_groups {

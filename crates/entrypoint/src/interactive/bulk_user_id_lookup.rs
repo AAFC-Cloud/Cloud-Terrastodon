@@ -1,5 +1,6 @@
 use cloud_terrastodon_azure::EntraUserId;
 use cloud_terrastodon_azure::fetch_all_entra_users;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_user_input::prompt_line;
 use eyre::Result;
@@ -7,7 +8,10 @@ use indexmap::IndexSet;
 use std::collections::HashMap;
 use tracing::info;
 
-pub async fn bulk_user_id_lookup(auth_context: &AzureTenantAuthContext) -> Result<()> {
+pub async fn bulk_user_id_lookup(
+    auth_context: &AzureTenantAuthContext,
+    cancellation: &CancellationScope,
+) -> Result<()> {
     info!("Enter the user IDs, one per line. Enter a blank line to proceed.");
     let mut user_ids = IndexSet::new();
     loop {
@@ -19,7 +23,7 @@ pub async fn bulk_user_id_lookup(auth_context: &AzureTenantAuthContext) -> Resul
         }
     }
 
-    let users = fetch_all_entra_users(auth_context)
+    let users = fetch_all_entra_users(auth_context, cancellation)
         .await?
         .into_iter()
         .filter(|x| user_ids.contains(&x.id))

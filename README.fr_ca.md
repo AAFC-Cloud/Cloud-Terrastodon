@@ -44,12 +44,18 @@ pour purger le cache.
 
 ## Développement
 
-La version 0.37.0 en préparation utilise les forks indépendants de TeamDman :
+La version 0.37.0 publiée utilise les forks indépendants de TeamDman :
 `teamy-facet-* 0.50.0-rc.7` et `teamy-figue` / `teamy-figue-attrs 6.0.0-rc.1`.
 Ces paquets sont distincts des paquets officiels. Les noms Rust `facet` et
-`figue` sont conservés grâce aux alias de dépendances. Les compilations locales
-utilisent les clones voisins `facet`, `facet-format` et `figue` sur `teamy-main`.
-Ces versions doivent être publiées avant l'installation depuis crates.io.
+`figue` sont conservés grâce aux alias de dépendances. Les compilations de
+l'espace de travail utilisent Teamy Figue et ses attributs en version exacte
+`6.0.0-rc.2` sur crates.io, avec les versions Facet indiquées ci-dessus.
+L'espace de travail utilise aussi le dépôt voisin `../teamy-cancellation` pour
+sa nouvelle API de portées d'exécution, avec `async`, `deferral`, `facet` et
+`arbitrary` activés. Clonez ce dépôt à côté de celui-ci pour le développement.
+Cette API ne fait pas partie de la version `teamy-cancellation 0.4.0` publiée :
+une nouvelle version de cette dépendance doit précéder la publication de cet
+espace de travail.
 Voir le [guide des dépendances](docs/UPDATING_FACET.md) en anglais.
 
 ### Dépendances

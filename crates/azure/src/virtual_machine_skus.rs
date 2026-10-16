@@ -4,15 +4,25 @@ use cloud_terrastodon_azure_types::ComputeSkuResourceType;
 use cloud_terrastodon_azure_types::SubscriptionId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 
 #[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct VirtualMachineSkuRequest {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub subscription_id: SubscriptionId,
 }
 
-pub fn fetch_virtual_machine_skus(subscription_id: SubscriptionId) -> VirtualMachineSkuRequest {
-    VirtualMachineSkuRequest { subscription_id }
+pub fn fetch_virtual_machine_skus(
+    subscription_id: SubscriptionId,
+    cancellation: &CancellationScope,
+) -> VirtualMachineSkuRequest {
+    VirtualMachineSkuRequest {
+        cancellation: cancellation.clone(),
+        subscription_id,
+    }
 }
 
 #[async_trait]
@@ -20,15 +30,17 @@ impl CacheableCommand for VirtualMachineSkuRequest {
     type Output = Vec<ComputeSku>;
 
     fn cache_key(&self) -> CacheKey {
-        fetch_all_compute_skus(self.subscription_id).cache_key()
+        fetch_all_compute_skus(self.subscription_id, &self.cancellation).cache_key()
     }
 
     async fn run(self) -> eyre::Result<Self::Output> {
-        Ok(fetch_all_compute_skus(self.subscription_id)
-            .await?
-            .into_iter()
-            .filter(|sku| sku.resource_type == ComputeSkuResourceType::VirtualMachines)
-            .collect())
+        Ok(
+            fetch_all_compute_skus(self.subscription_id, &self.cancellation)
+                .await?
+                .into_iter()
+                .filter(|sku| sku.resource_type == ComputeSkuResourceType::VirtualMachines)
+                .collect(),
+        )
     }
 }
 

@@ -2,6 +2,7 @@ use cloud_terrastodon_azure_devops::AzureDevOpsAgentPoolArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_agent_pool_entitlements_for_project;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::to_writer_pretty;
 use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
@@ -22,12 +23,17 @@ pub struct AzureDevOpsAgentPoolEntitlementListArgs {
 }
 
 impl AzureDevOpsAgentPoolEntitlementListArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         let azure_devops_auth_context = AzureDevOpsAuthContext::new(auth_context)?;
         let entitlements = fetch_azure_devops_agent_pool_entitlements_for_project(
             &self.org,
             self.project,
             &azure_devops_auth_context,
+            cancellation,
         )
         .await?;
         let entitlements: Vec<_> = entitlements

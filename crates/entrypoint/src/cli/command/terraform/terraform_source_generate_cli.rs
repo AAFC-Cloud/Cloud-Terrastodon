@@ -2,6 +2,7 @@ use chrono::Local;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::HclImportable;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_hcl::GenerateConfigOutHelper;
 use cloud_terrastodon_hcl::HclWriter;
@@ -26,12 +27,21 @@ pub struct TerraformSourceGenerateArgs {
 }
 
 impl TerraformSourceGenerateArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let tenant_auth_context = self
+            .tenant
+            .bind_auth_context(auth_context, cancellation)
+            .await?;
         let work_dir = self.work_dir;
 
-        let kind_to_import = HclImportable::pick().await?;
-        let imports = kind_to_import.pick_into_body(&tenant_auth_context).await?;
+        let kind_to_import = HclImportable::pick(cancellation).await?;
+        let imports = kind_to_import
+            .pick_into_body(&tenant_auth_context, cancellation)
+            .await?;
 
         work_dir.ensure_dir_exists().await?;
         let temp_dir = Builder::new()
@@ -45,23 +55,23 @@ impl TerraformSourceGenerateArgs {
 
         HclWriter::new(import_dir.join("imports.tf"))
             .format_on_write()
-            .overwrite(imports)
+            .overwrite(imports, cancellation)
             .await?;
 
         GenerateConfigOutHelper::new()
             .with_run_dir(&import_dir)
-            .run()
+            .run(cancellation)
             .await?;
 
         info!("Reflowing content");
         let hcl = discover_hcl(import_dir, DiscoveryDepth::Shallow).await?;
-        let hcl = ReflowHclRequest::new(hcl, Some(&tenant_auth_context))
+        let hcl = ReflowHclRequest::new(hcl, Some(&tenant_auth_context), cancellation)
             .include_principal_id_comments(true)
             .await?;
         for (path, contents) in hcl {
             HclWriter::new(path)
                 .format_on_write()
-                .overwrite(contents)
+                .overwrite(contents, cancellation)
                 .await?;
         }
 

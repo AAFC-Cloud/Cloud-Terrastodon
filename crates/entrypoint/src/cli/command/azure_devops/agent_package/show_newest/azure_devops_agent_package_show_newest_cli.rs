@@ -1,6 +1,7 @@
 use cloud_terrastodon_azure_devops::AzureDevOpsAgentPackage;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_agent_packages;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::to_writer_pretty;
 use eyre::Result;
 use std::collections::HashMap;
@@ -15,8 +16,11 @@ pub struct AzureDevOpsAgentPackageShowNewestArgs {
 }
 
 impl AzureDevOpsAgentPackageShowNewestArgs {
-    pub async fn invoke(self) -> Result<()> {
-        let pkgs = fetch_azure_devops_agent_packages(&self.org).await?;
+    pub async fn invoke(
+        self,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let pkgs = fetch_azure_devops_agent_packages(&self.org, cancellation).await?;
 
         // Group by platform and keep the package with the most recent created_on per platform
         let mut newest_by_platform: HashMap<String, AzureDevOpsAgentPackage> = HashMap::new();

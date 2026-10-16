@@ -20,9 +20,14 @@ mod command_argument;
 mod command_cache_discovery;
 mod command_kind;
 mod command_output;
+mod command_output_decode_error;
+mod from_command_output;
 mod json;
 mod no_spaces;
+mod output_behaviour;
 mod path_mapper;
+mod process_fingerprint;
+mod retry_behaviour;
 mod work;
 
 pub use crate::artifact_cache::*;
@@ -35,12 +40,18 @@ pub use crate::command_argument::*;
 pub use crate::command_cache_discovery::*;
 pub use crate::command_kind::*;
 pub use crate::command_output::*;
+pub use crate::from_command_output::FromCommandOutput;
 pub use crate::json::*;
 pub use crate::no_spaces::*;
+pub use crate::output_behaviour::OutputBehaviour;
 pub use crate::path_mapper::*;
+pub use crate::retry_behaviour::RetryBehaviour;
 pub use crate::work::*;
 // Re-export async_trait for use in command implementations
 pub use async_trait::async_trait;
+pub use teamy_cancellation::CancellationError;
+pub use teamy_cancellation::CancellationScope;
+pub use teamy_cancellation::CancellationToken;
 
 // TODO: add a `last_used` file to cache entries so we can
 // give the user the list of recently used cache entries to

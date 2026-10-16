@@ -31,6 +31,7 @@
 //! idk what to think.
 
 mod auth_bearer_ext;
+pub use cloud_terrastodon_command::CancellationScope;
 mod auth_context;
 mod auth_source;
 mod azure_access_token;

@@ -5,6 +5,7 @@ pub mod azure_entra_group_member_remove_cli;
 pub use azure_entra_group_member_add_cli::AzureEntraGroupMemberAddArgs;
 pub use azure_entra_group_member_list_cli::AzureEntraGroupMemberListArgs;
 pub use azure_entra_group_member_remove_cli::AzureEntraGroupMemberRemoveArgs;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -27,11 +28,15 @@ pub enum AzureEntraGroupMemberCommand {
 }
 
 impl AzureEntraGroupMemberArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self.command {
-            AzureEntraGroupMemberCommand::Add(a) => a.invoke().await?,
-            AzureEntraGroupMemberCommand::List(a) => a.invoke(auth_context).await?,
-            AzureEntraGroupMemberCommand::Remove(a) => a.invoke().await?,
+            AzureEntraGroupMemberCommand::Add(a) => a.invoke(cancellation).await?,
+            AzureEntraGroupMemberCommand::List(a) => a.invoke(auth_context, cancellation).await?,
+            AzureEntraGroupMemberCommand::Remove(a) => a.invoke(cancellation).await?,
         }
         Ok(())
     }

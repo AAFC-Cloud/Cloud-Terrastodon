@@ -9,6 +9,7 @@ use super::invocation_plan::InvocationPlanId;
 use super::invocation_plan::PlannedInvocation;
 use super::slot_id::SlotId;
 use super::value_builder::BuilderStore;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_registry::ArbitraryBytes;
 use cloud_terrastodon_registry::Function;
 use cloud_terrastodon_registry::FunctionInvocation;
@@ -160,6 +161,7 @@ pub(crate) enum InvocationEventState {
     Ready,
     Failed(String),
     Cancelled,
+    CancellationRequested,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -407,11 +409,22 @@ impl InvocationController {
     ) -> Result<InvocationEvent, InvocationControllerError> {
         let pending = self
             .pending
-            .remove(&invocation)
+            .get(&invocation)
             .ok_or_else(|| InvocationControllerError::new("unknown pending invocation"))?;
         // The host must synchronously destroy its future and any unclaimed
         // result before cancel_pending releases the source leases below.
-        host.cancel(invocation);
+        if !host.cancel(invocation) {
+            return Ok(InvocationEvent {
+                invocation,
+                input: pending.input,
+                output: pending.output,
+                state: InvocationEventState::CancellationRequested,
+            });
+        }
+        let pending = self
+            .pending
+            .remove(&invocation)
+            .expect("pending invocation was checked above");
         builders
             .cancel_pending(arena, borrow_graph, pending.output)
             .map_err(|error| InvocationControllerError::new(error.to_string()))?;
@@ -615,6 +628,47 @@ impl InvocationController {
         // This guard owns the input and every intermediate result. In particular,
         // ByRef/ByMut input destructors and discarded outputs finish before an
         // error can reach failed_start and release the pending source leases.
+        if function.is_async() {
+            // Convert while source leases are live, before crossing the host boundary.
+            let boxed_input =
+                match guarded_user_operation("could not convert invocation input", || {
+                    input_thing.runtime_into_boxed(runtime_input)
+                }) {
+                    Ok(input) => input,
+                    Err(message) => {
+                        return Ok(self.failed_start(
+                            arena,
+                            builders,
+                            borrow_graph,
+                            output,
+                            message,
+                        ));
+                    }
+                };
+            let invocation = self.allocate_invocation();
+            host.start_scoped(
+                invocation,
+                Box::new(move |cancellation| {
+                    Box::pin(async move {
+                        match function.invoke_value_boxed(boxed_input, &cancellation)? {
+                            FunctionInvocation::Pending(future) => future.await,
+                            FunctionInvocation::Ready(value) => Ok(value),
+                        }
+                    })
+                }),
+            );
+            self.pending.insert(
+                invocation,
+                PendingInvocation {
+                    input,
+                    output,
+                    output_to_runtime: function.output_to_runtime,
+                    plan_step,
+                },
+            );
+            return Ok(InvocationStart::Pending { invocation, output });
+        }
+        let cancellation = CancellationScope::unbound();
         let invocation = guarded_user_operation("invocation dispatch", || {
             use eyre::WrapErr;
 
@@ -622,7 +676,7 @@ impl InvocationController {
                 .runtime_into_boxed(runtime_input)
                 .wrap_err("could not convert invocation input")?;
             match function.receiver_mode {
-                ReceiverMode::ByValue => function.invoke_value_boxed(boxed_input),
+                ReceiverMode::ByValue => function.invoke_value_boxed(boxed_input, &cancellation),
                 ReceiverMode::ByRef => function
                     .invoke_ref_boxed(boxed_input.as_ref())
                     .map(FunctionInvocation::Ready),
@@ -722,6 +776,7 @@ impl InvocationController {
             InvocationEventState::Ready => plan.mark_complete(link.step, output),
             InvocationEventState::Failed(message) => plan.mark_failed(link.step, message.clone()),
             InvocationEventState::Cancelled => plan.mark_cancelled(link.step),
+            InvocationEventState::CancellationRequested => {}
         }
     }
 }
@@ -784,6 +839,16 @@ mod tests {
         })
     }
 
+    fn hold_borrow_request(input: Box<dyn Any + Send>) -> InvocationFuture {
+        Box::pin(async move {
+            let request = input
+                .downcast::<BorrowRequest<'static>>()
+                .map_err(|_| eyre::eyre!("wrong borrow request input"))?;
+            std::future::pending::<()>().await;
+            Ok(Box::new(request.source.value.clone()) as Box<dyn Any + Send>)
+        })
+    }
+
     static TEST_REQUEST_THING: Thing = Thing::value(
         TestRequest::SHAPE,
         runtime_from_boxed::<TestRequest>,
@@ -822,6 +887,18 @@ mod tests {
         RegistrationSite::new(file!(), line!()),
     );
 
+    static BORROW_HELD_FUNCTION: Function = Function::async_value(
+        <BorrowRequest<'static>>::SHAPE,
+        String::SHAPE,
+        FunctionKind::AsyncInvoke,
+        "invoke",
+        "held borrow",
+        &[],
+        hold_borrow_request,
+        runtime_from_boxed::<String>,
+        RegistrationSite::new(file!(), line!()),
+    );
+
     fn runtime<T>(value: T) -> RuntimeValue
     where
         T: Facet<'static> + Send + 'static,
@@ -835,6 +912,101 @@ mod tests {
 
     fn attach_nothing(future: InvocationFuture) -> InvocationFuture {
         future
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn deferred_cancellation_retains_pending_borrow_leases_until_the_future_is_destroyed() {
+        let mut arena = Arena::default();
+        let source = arena
+            .insert_ready(runtime(BorrowSource {
+                value: "protected source".to_owned(),
+            }))
+            .unwrap();
+        let request = arena.reserve_builder().unwrap();
+        let mut builders = BuilderStore::default();
+        let mut borrows = BorrowGraph::default();
+        builders
+            .insert_and_finalize(
+                &mut arena,
+                &mut borrows,
+                request,
+                ValueBuilder::new(<BorrowRequest<'static>>::SHAPE),
+            )
+            .unwrap();
+        builders
+            .set_field_and_finalize(
+                &mut arena,
+                &mut borrows,
+                request,
+                0,
+                FieldBinding::BorrowFrom(ValueAddress::root(source)),
+            )
+            .unwrap();
+        let mut host = TokioInvocationHost::new(attach_nothing);
+        let mut controller = InvocationController::default();
+        let InvocationStart::Pending { invocation, output } = controller
+            .invoke(
+                &mut arena,
+                &mut builders,
+                &mut borrows,
+                &mut host,
+                request,
+                &BORROW_REQUEST_THING,
+                &BORROW_HELD_FUNCTION,
+                InvocationMode::Consume,
+            )
+            .unwrap()
+        else {
+            panic!("The held borrow must remain pending");
+        };
+        tokio::task::yield_now().await;
+        let cancellation = host.operation_scope(invocation).unwrap();
+        let mut deferral = Box::pin(
+            cancellation.deferred("finishing work that borrows an arena source", |_| {
+                std::future::pending::<Result<(), eyre::Report>>()
+            }),
+        );
+        std::future::poll_fn(|context| {
+            assert!(deferral.as_mut().poll(context).is_pending());
+            std::task::Poll::Ready(())
+        })
+        .await;
+        let event = controller
+            .cancel(
+                &mut arena,
+                &mut builders,
+                &mut borrows,
+                &mut host,
+                invocation,
+            )
+            .unwrap();
+        assert_eq!(event.state, InvocationEventState::CancellationRequested);
+        assert_eq!(controller.pending_count(), 1);
+        assert_eq!(builders.pending_lease_count(output), 1);
+        assert!(builders.delete(&mut arena, &mut borrows, source).is_err());
+        tokio::task::yield_now().await;
+        assert!(
+            controller
+                .poll(&mut arena, &mut builders, &mut borrows, &mut host)
+                .is_empty()
+        );
+
+        drop(deferral);
+        let events = tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            loop {
+                let events = controller.poll(&mut arena, &mut builders, &mut borrows, &mut host);
+                if !events.is_empty() {
+                    break events;
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        assert_eq!(events[0].state, InvocationEventState::Cancelled);
+        assert_eq!(builders.pending_lease_count(output), 0);
+        assert_eq!(borrows.edge_count(), 0);
+        builders.delete(&mut arena, &mut borrows, source).unwrap();
     }
 
     #[tokio::test]

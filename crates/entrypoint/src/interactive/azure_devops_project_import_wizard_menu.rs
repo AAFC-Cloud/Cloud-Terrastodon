@@ -1,5 +1,6 @@
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::get_default_organization_url;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::OutputBehaviour;
@@ -16,6 +17,7 @@ use tracing::info;
 
 pub async fn azure_devops_project_import_wizard_menu(
     auth_context: &AzureDevOpsAuthContext,
+    cancellation: &CancellationScope,
 ) -> Result<()> {
     info!("Confirming remove existing imports");
     let start_from_scratch = "start from scratch";
@@ -34,8 +36,8 @@ pub async fn azure_devops_project_import_wizard_menu(
         _ => unreachable!(),
     }
 
-    let org_url = get_default_organization_url().await?;
-    let projects = fetch_all_azure_devops_projects(&org_url, auth_context).await?;
+    let org_url = get_default_organization_url(cancellation).await?;
+    let projects = fetch_all_azure_devops_projects(&org_url, auth_context, cancellation).await?;
     let projects: Vec<cloud_terrastodon_azure_devops::AzureDevOpsProject> = PickerTui::<_>::new()
         .set_header("Choose the projects to import")
         .pick_many(projects.into_iter().map(|project| Choice {
@@ -52,16 +54,17 @@ pub async fn azure_devops_project_import_wizard_menu(
 
     let tf_file_path = AppDir::Imports.join("azure_devops_project_imports.tf");
     HclWriter::new(tf_file_path.clone())
-        .overwrite(project_import_blocks)
+        .overwrite(project_import_blocks, cancellation)
         .await?
-        .format_file()
+        .format_file(cancellation)
         .await?;
 
     info!("Opening written imports in VSCode");
     CommandBuilder::new(CommandKind::VSCode)
+        .cancellation_safe()
         .args([tf_file_path.as_os_str()])
         .use_output_behaviour(OutputBehaviour::Display)
-        .run_raw()
+        .run_raw(cancellation)
         .await
         .wrap_err("running vscode command")?;
 

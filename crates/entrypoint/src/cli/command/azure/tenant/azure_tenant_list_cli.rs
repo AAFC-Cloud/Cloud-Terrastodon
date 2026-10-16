@@ -1,4 +1,5 @@
 use cloud_terrastodon_azure::list_tracked_tenants;
+use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 use std::io::Write;
 
@@ -7,7 +8,10 @@ use std::io::Write;
 pub struct AzureTenantListArgs {}
 
 impl AzureTenantListArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(
+        self,
+        _cancellation: &CancellationScope,
+    ) -> Result<()> {
         let tenants = list_tracked_tenants().await?;
 
         let stdout = std::io::stdout();

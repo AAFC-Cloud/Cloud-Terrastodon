@@ -1,4 +1,5 @@
 use crate::noninteractive::clean;
+use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 
 /// Remove generated artifacts from previous runs.
@@ -6,7 +7,10 @@ use eyre::Result;
 pub struct CleanArgs;
 
 impl CleanArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(
+        self,
+        _cancellation: &CancellationScope,
+    ) -> Result<()> {
         clean().await?;
         Ok(())
     }

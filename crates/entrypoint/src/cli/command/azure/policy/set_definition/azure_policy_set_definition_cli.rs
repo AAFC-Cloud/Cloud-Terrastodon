@@ -1,6 +1,7 @@
 use super::AzurePolicySetDefinitionBrowseArgs;
 use super::AzurePolicySetDefinitionListArgs;
 use super::AzurePolicySetDefinitionShowArgs;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -17,11 +18,21 @@ pub enum AzurePolicySetDefinitionCommand {
 }
 
 impl AzurePolicySetDefinitionCommand {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self {
-            AzurePolicySetDefinitionCommand::List(args) => args.invoke(auth_context).await,
-            AzurePolicySetDefinitionCommand::Browse(args) => args.invoke(auth_context).await,
-            AzurePolicySetDefinitionCommand::Show(args) => args.invoke(auth_context).await,
+            AzurePolicySetDefinitionCommand::List(args) => {
+                args.invoke(auth_context, cancellation).await
+            }
+            AzurePolicySetDefinitionCommand::Browse(args) => {
+                args.invoke(auth_context, cancellation).await
+            }
+            AzurePolicySetDefinitionCommand::Show(args) => {
+                args.invoke(auth_context, cancellation).await
+            }
         }
     }
 }

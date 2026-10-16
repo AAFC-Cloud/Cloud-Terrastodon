@@ -5,6 +5,7 @@ use cloud_terrastodon_azure_devops::AzureDevOpsProjectId;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_agent_pool_entitlements_for_project;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_agent_pools;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
 use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
@@ -22,12 +23,17 @@ pub struct AzureDevOpsAgentPoolSummaryArgs {
 }
 
 impl AzureDevOpsAgentPoolSummaryArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         // Fetch pools and projects once
-        let pools = fetch_azure_devops_agent_pools(&self.org).await?;
+        let pools = fetch_azure_devops_agent_pools(&self.org, cancellation).await?;
         let azure_devops_auth_context = AzureDevOpsAuthContext::new(auth_context)?;
         let projects =
-            fetch_all_azure_devops_projects(&self.org, &azure_devops_auth_context).await?;
+            fetch_all_azure_devops_projects(&self.org, &azure_devops_auth_context, cancellation)
+                .await?;
 
         // Map project id -> project name and record project ids
         let mut project_map: HashMap<_, String> = HashMap::with_capacity(projects.len());
@@ -50,14 +56,18 @@ impl AzureDevOpsAgentPoolSummaryArgs {
             let pid = pid.clone();
             let org_clone = self.org.clone();
             let azure_devops_auth_context = azure_devops_auth_context.clone();
-            work.enqueue(async move {
-                let entitlements = fetch_azure_devops_agent_pool_entitlements_for_project(
-                    &org_clone,
-                    pid.clone(),
-                    &azure_devops_auth_context,
-                )
-                .await?;
-                Ok((pid, entitlements))
+            work.enqueue({
+                cancellation.cancellable_scope(move |cancellation| async move {
+                    let cancellation = &cancellation;
+                    let entitlements = fetch_azure_devops_agent_pool_entitlements_for_project(
+                        &org_clone,
+                        pid.clone(),
+                        &azure_devops_auth_context,
+                        cancellation,
+                    )
+                    .await?;
+                    Ok((pid, entitlements))
+                })
             });
         }
 

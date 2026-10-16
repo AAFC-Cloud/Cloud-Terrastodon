@@ -1,5 +1,6 @@
 use super::AzureAppServiceListArgs;
 use super::AzureAppServiceShowArgs;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -14,10 +15,14 @@ pub enum AzureAppServiceCommand {
 }
 
 impl AzureAppServiceCommand {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self {
-            AzureAppServiceCommand::List(args) => args.invoke(auth_context).await,
-            AzureAppServiceCommand::Show(args) => args.invoke(auth_context).await,
+            AzureAppServiceCommand::List(args) => args.invoke(auth_context, cancellation).await,
+            AzureAppServiceCommand::Show(args) => args.invoke(auth_context, cancellation).await,
         }
     }
 }

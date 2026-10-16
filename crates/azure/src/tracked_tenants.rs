@@ -5,6 +5,7 @@ use cloud_terrastodon_azure_types::Account;
 use cloud_terrastodon_azure_types::AzureTenantAlias;
 use cloud_terrastodon_azure_types::AzureTenantArgument;
 use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_credentials::AuthSource;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
@@ -85,8 +86,13 @@ pub async fn set_tracked_tenant_auth_source(
 pub async fn resolve_tenant_auth_context(
     auth_context: &AuthContext,
     tenant_id: AzureTenantId,
+    cancellation: &CancellationScope,
 ) -> eyre::Result<AuthContext> {
-    resolve_tenant_auth_context_in(&tracked_tenants_dir(), auth_context, tenant_id).await
+    cancellation
+        .cancellable_scope(|_| async {
+            resolve_tenant_auth_context_in(&tracked_tenants_dir(), auth_context, tenant_id).await
+        })
+        .await
 }
 
 async fn resolve_tenant_auth_context_in(
@@ -109,24 +115,25 @@ async fn resolve_tenant_auth_context_in(
 
 #[expect(async_fn_in_trait)]
 pub trait AzureTenantAliasExt {
-    async fn resolve(&self) -> eyre::Result<AzureTenantId>;
+    async fn resolve(&self, cancellation: &CancellationScope) -> eyre::Result<AzureTenantId>;
 }
 
 impl AzureTenantAliasExt for AzureTenantAlias {
-    async fn resolve(&self) -> eyre::Result<AzureTenantId> {
-        resolve_tracked_tenant_alias(self).await
+    async fn resolve(&self, cancellation: &CancellationScope) -> eyre::Result<AzureTenantId> {
+        resolve_tracked_tenant_alias(self, cancellation).await
     }
 }
 
 #[expect(async_fn_in_trait)]
 pub trait AzureTenantArgumentExt {
-    async fn resolve(&self) -> eyre::Result<AzureTenantId>;
+    async fn resolve(&self, cancellation: &CancellationScope) -> eyre::Result<AzureTenantId>;
 
     /// Resolve this tenant selector against an invocation's authentication
     /// context and bind the result into one tenant-specific context.
     async fn bind_auth_context(
         &self,
         auth_context: &AuthContext,
+        cancellation: &CancellationScope,
     ) -> eyre::Result<AzureTenantAuthContext>;
 }
 
@@ -139,25 +146,37 @@ pub trait AzureDevOpsTenantArgumentExt {
     async fn bind_auth_context(
         &self,
         auth_context: &AuthContext,
+        cancellation: &CancellationScope,
     ) -> eyre::Result<AzureDevOpsAuthContext>;
 }
 
 #[must_use = "This is a future request, you must .run().await it"]
-#[derive(Debug, Clone, Default, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, facet::Facet)]
 pub struct AzureTenantIdResolveRequest {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub tenant: AzureTenantArgument<'static>,
 }
 
 impl AzureTenantIdResolveRequest {
     pub async fn run(self) -> eyre::Result<AzureTenantId> {
-        self.tenant.resolve().await
+        self.cancellation
+            .cancellable_scope(
+                |cancellation| async move { self.tenant.resolve(&cancellation).await },
+            )
+            .await
     }
 }
 
 pub fn resolve_azure_tenant_id(
     tenant: AzureTenantArgument<'static>,
+    cancellation: &CancellationScope,
 ) -> AzureTenantIdResolveRequest {
-    AzureTenantIdResolveRequest { tenant }
+    AzureTenantIdResolveRequest {
+        cancellation: cancellation.clone(),
+        tenant,
+    }
 }
 cloud_terrastodon_registry::register_thing!(AzureTenantIdResolveRequest);
 cloud_terrastodon_registry::register_arbitrary!(AzureTenantIdResolveRequest);
@@ -167,23 +186,27 @@ cloud_terrastodon_registry::register_into_future!(
 );
 
 impl AzureTenantArgumentExt for AzureTenantArgument<'_> {
-    async fn resolve(&self) -> eyre::Result<AzureTenantId> {
+    async fn resolve(&self, cancellation: &CancellationScope) -> eyre::Result<AzureTenantId> {
         match self {
-            AzureTenantArgument::Default => get_default_tenant_id().await,
-            AzureTenantArgument::Id(id) => resolve_tracked_tenant_id(*id.as_ref()).await,
-            AzureTenantArgument::Alias(alias) => alias.resolve().await,
+            AzureTenantArgument::Default => get_default_tenant_id(cancellation).await,
+            AzureTenantArgument::Id(id) => {
+                resolve_tracked_tenant_id(*id.as_ref(), cancellation).await
+            }
+            AzureTenantArgument::Alias(alias) => alias.resolve(cancellation).await,
         }
     }
 
     async fn bind_auth_context(
         &self,
         auth_context: &AuthContext,
+        cancellation: &CancellationScope,
     ) -> eyre::Result<AzureTenantAuthContext> {
         let tenant_id = match (self, auth_context.tenant_id()) {
             (AzureTenantArgument::Default, Some(tenant_id)) => tenant_id,
-            _ => self.resolve().await?,
+            _ => self.resolve(cancellation).await?,
         };
-        let auth_context = resolve_tenant_auth_context(auth_context, tenant_id).await?;
+        let auth_context =
+            resolve_tenant_auth_context(auth_context, tenant_id, cancellation).await?;
         auth_context.bind_to_azure_tenant(tenant_id)
     }
 }
@@ -192,11 +215,13 @@ impl AzureDevOpsTenantArgumentExt for Option<AzureTenantArgument<'_>> {
     async fn bind_auth_context(
         &self,
         auth_context: &AuthContext,
+        cancellation: &CancellationScope,
     ) -> eyre::Result<AzureDevOpsAuthContext> {
         match self {
             Some(tenant) => {
-                let tenant_id = tenant.resolve().await?;
-                let auth_context = resolve_tenant_auth_context(auth_context, tenant_id).await?;
+                let tenant_id = tenant.resolve(cancellation).await?;
+                let auth_context =
+                    resolve_tenant_auth_context(auth_context, tenant_id, cancellation).await?;
                 AzureDevOpsAuthContext::for_tenant(&auth_context, tenant_id)
             }
             None => AzureDevOpsAuthContext::new(auth_context),
@@ -232,8 +257,10 @@ pub async fn remove_tracked_tenant_aliases(
     remove_tracked_tenant_aliases_in(&tracked_tenants_dir(), tenant_id, aliases).await
 }
 
-pub async fn discover_and_track_tenants() -> eyre::Result<Vec<AzureTenantId>> {
-    let accounts = az_account_list().await?;
+pub async fn discover_and_track_tenants(
+    cancellation: &CancellationScope,
+) -> eyre::Result<Vec<AzureTenantId>> {
+    let accounts = az_account_list(cancellation).await?;
     discover_tracked_tenants_from_accounts(accounts).await
 }
 
@@ -367,8 +394,13 @@ async fn forget_tracked_tenant_in(
     Ok(Some((tenant_id, path)))
 }
 
-async fn resolve_tracked_tenant_id(tenant_id: AzureTenantId) -> eyre::Result<AzureTenantId> {
-    ensure_tracked_tenant_exists(tenant_id).await?;
+async fn resolve_tracked_tenant_id(
+    tenant_id: AzureTenantId,
+    cancellation: &CancellationScope,
+) -> eyre::Result<AzureTenantId> {
+    cancellation
+        .cancellable_scope(|_| ensure_tracked_tenant_exists(tenant_id))
+        .await?;
     Ok(tenant_id)
 }
 
@@ -382,8 +414,15 @@ async fn ensure_tracked_tenant_exists(tenant_id: AzureTenantId) -> eyre::Result<
     }
 }
 
-async fn resolve_tracked_tenant_alias(alias: &AzureTenantAlias) -> eyre::Result<AzureTenantId> {
-    resolve_tracked_tenant_alias_in(&tracked_tenants_dir(), alias).await
+async fn resolve_tracked_tenant_alias(
+    alias: &AzureTenantAlias,
+    cancellation: &CancellationScope,
+) -> eyre::Result<AzureTenantId> {
+    cancellation
+        .cancellable_scope(|_| async {
+            resolve_tracked_tenant_alias_in(&tracked_tenants_dir(), alias).await
+        })
+        .await
 }
 
 async fn resolve_tracked_tenant_alias_in(
@@ -670,6 +709,7 @@ mod tests {
     use cloud_terrastodon_azure_types::AzureTenantAlias;
     use cloud_terrastodon_azure_types::AzureTenantArgument;
     use cloud_terrastodon_azure_types::AzureTenantId;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_credentials::AuthContext;
     use cloud_terrastodon_credentials::AuthSource;
     use cloud_terrastodon_credentials::WorkloadIdentityConfig;
@@ -678,24 +718,28 @@ mod tests {
 
     #[tokio::test]
     async fn default_argument_binds_to_the_context_tenant_without_a_lookup() -> eyre::Result<()> {
-        let tenant_id = AzureTenantId::from_str("11111111-1111-1111-1111-111111111111")?;
-        let auth_context = AuthContext::explicit(AuthSource::WorkloadIdentity)
-            .with_workload_identity(WorkloadIdentityConfig {
-                client_id: "22222222-2222-2222-2222-222222222222".parse()?,
-                tenant_id,
-                federated_token: "test-token".to_owned(),
-            })?;
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let tenant_id = AzureTenantId::from_str("11111111-1111-1111-1111-111111111111")?;
+                let auth_context = AuthContext::explicit(AuthSource::WorkloadIdentity)
+                    .with_workload_identity(WorkloadIdentityConfig {
+                        client_id: "22222222-2222-2222-2222-222222222222".parse()?,
+                        tenant_id,
+                        federated_token: "test-token".to_owned(),
+                    })?;
 
-        let bound = AzureTenantArgument::Default
-            .bind_auth_context(&auth_context)
-            .await?;
+                let bound = AzureTenantArgument::Default
+                    .bind_auth_context(&auth_context, &cancellation)
+                    .await?;
 
-        assert_eq!(bound.tenant_id, tenant_id);
-        assert_eq!(
-            bound.auth_context.source(),
-            Some(AuthSource::WorkloadIdentity)
-        );
-        Ok(())
+                assert_eq!(bound.tenant_id, tenant_id);
+                assert_eq!(
+                    bound.auth_context.source(),
+                    Some(AuthSource::WorkloadIdentity)
+                );
+                Ok(())
+            })
+            .await
     }
 
     #[tokio::test]

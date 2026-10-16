@@ -3,6 +3,7 @@ use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::PrincipalId;
 use cloud_terrastodon_azure::fetch_all_groups;
 use cloud_terrastodon_azure::fetch_entra_groups_for_member;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use std::io::Write;
@@ -21,16 +22,24 @@ pub struct AzureEntraGroupListArgs {
 }
 
 impl AzureEntraGroupListArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let tenant_auth_context = self
+            .tenant
+            .bind_auth_context(auth_context, cancellation)
+            .await?;
         let groups = match self.for_member {
             Some(principal_id) => {
                 info!(tenant_id = %tenant_auth_context.tenant_id, %principal_id, "Fetching Entra groups for principal");
-                fetch_entra_groups_for_member(principal_id, &tenant_auth_context).await?
+                fetch_entra_groups_for_member(principal_id, &tenant_auth_context, cancellation)
+                    .await?
             }
             None => {
                 info!(tenant_id = %tenant_auth_context.tenant_id, "Fetching Entra groups");
-                fetch_all_groups(&tenant_auth_context).await?
+                fetch_all_groups(&tenant_auth_context, cancellation).await?
             }
         };
 

@@ -1,6 +1,7 @@
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_teams_for_project;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::to_writer_pretty;
 use eyre::Result;
 use std::io::stdout;
@@ -17,8 +18,12 @@ pub struct AzureDevOpsTeamListArgs {
 }
 
 impl AzureDevOpsTeamListArgs {
-    pub async fn invoke(self) -> Result<()> {
-        let teams = fetch_azure_devops_teams_for_project(&self.org, self.project).await?;
+    pub async fn invoke(
+        self,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let teams =
+            fetch_azure_devops_teams_for_project(&self.org, self.project, cancellation).await?;
         to_writer_pretty(stdout(), &teams)?;
         Ok(())
     }

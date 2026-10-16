@@ -1,4 +1,5 @@
 use crate::work::WorkHandle;
+use cloud_terrastodon_command::CancellationError;
 use eyre::bail;
 use std::cell::RefCell;
 use tracing::error;
@@ -30,30 +31,20 @@ impl WorkTracker {
         }
         let mut pass = true;
         while let Some(work) = remaining_work.pop() {
-            match work.is_err_if_discarded {
-                true => {
-                    info!(
-                        "Waiting for task {:?} to finish, {} remain...",
-                        work.description,
-                        remaining_work.len()
-                    );
-                    match work.join_handle.await? {
-                        Ok(()) => {}
-                        Err(e) => {
-                            pass = false;
-                            error!(
-                                "Error encountered when waiting for background work to finish: {e:?}"
-                            );
-                        }
+            info!(
+                "Waiting for task {:?} to finish, {} remain...",
+                work.description,
+                remaining_work.len()
+            );
+            match work.join_handle.await? {
+                Ok(()) => {}
+                Err(e) => {
+                    if e.chain().any(|cause| cause.is::<CancellationError>()) {
+                        info!(description = %work.description, "Background work acknowledged cancellation");
+                        continue;
                     }
-                }
-                false => {
-                    info!(
-                        "Discarding work {:?} because it is not marked as important, {} remain...",
-                        work.description,
-                        remaining_work.len()
-                    );
-                    work.join_handle.abort();
+                    pass &= !work.is_err_if_discarded;
+                    error!("Error encountered when waiting for background work to finish: {e:?}");
                 }
             }
         }

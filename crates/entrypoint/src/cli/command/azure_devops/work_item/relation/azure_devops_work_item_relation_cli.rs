@@ -4,6 +4,7 @@ use crate::cli::azure_devops::work_item::relation::remove::AzureDevOpsWorkItemRe
 use crate::cli::azure_devops::work_item::relation::show::AzureDevOpsWorkItemRelationShowArgs;
 use crate::cli::azure_devops::work_item::relation::r#type::AzureDevOpsWorkItemRelationTypeArgs;
 use crate::cli::azure_devops::work_item::relation::update::AzureDevOpsWorkItemRelationUpdateArgs;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -32,14 +33,24 @@ pub enum AzureDevOpsWorkItemRelationCommand {
 }
 
 impl AzureDevOpsWorkItemRelationArgs {
-    pub async fn invoke(self, auth: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self.command {
-            AzureDevOpsWorkItemRelationCommand::List(args) => args.invoke(auth).await,
-            AzureDevOpsWorkItemRelationCommand::Show(args) => args.invoke(auth).await,
-            AzureDevOpsWorkItemRelationCommand::Create(args) => args.invoke(auth).await,
-            AzureDevOpsWorkItemRelationCommand::Update(args) => args.invoke(auth).await,
-            AzureDevOpsWorkItemRelationCommand::Remove(args) => args.invoke(auth).await,
-            AzureDevOpsWorkItemRelationCommand::Type(args) => args.invoke(auth).await,
+            AzureDevOpsWorkItemRelationCommand::List(args) => args.invoke(auth, cancellation).await,
+            AzureDevOpsWorkItemRelationCommand::Show(args) => args.invoke(auth, cancellation).await,
+            AzureDevOpsWorkItemRelationCommand::Create(args) => {
+                args.invoke(auth, cancellation).await
+            }
+            AzureDevOpsWorkItemRelationCommand::Update(args) => {
+                args.invoke(auth, cancellation).await
+            }
+            AzureDevOpsWorkItemRelationCommand::Remove(args) => {
+                args.invoke(auth, cancellation).await
+            }
+            AzureDevOpsWorkItemRelationCommand::Type(args) => args.invoke(auth, cancellation).await,
         }
     }
 }

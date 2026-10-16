@@ -13,13 +13,20 @@ pub fn load_azure_devops_projects(app: &mut MyApp) {
     LoadableWorkBuilder::<Vec<AzureDevOpsProject>>::new()
         .description("loading Azure DevOps projects")
         .setter(|app, data| app.azure_devops_projects = data.map(Rc::new))
-        .work(async move {
-            let org_url = get_default_organization_url().await?;
-            let azure_devops_auth_context = AzureDevOpsAuthContext::new(&auth_context)?;
-            let projects =
-                fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context).await?;
-            Ok(projects)
-        })
+        .work(
+            app.cancellation
+                .cancellable_scope(move |cancellation| async move {
+                    let org_url = get_default_organization_url(&cancellation).await?;
+                    let azure_devops_auth_context = AzureDevOpsAuthContext::new(&auth_context)?;
+                    let projects = fetch_all_azure_devops_projects(
+                        &org_url,
+                        &azure_devops_auth_context,
+                        &cancellation,
+                    )
+                    .await?;
+                    Ok(projects)
+                }),
+        )
         .build()
         .unwrap()
         .enqueue(app);

@@ -2,6 +2,7 @@ use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::SubscriptionName;
 use cloud_terrastodon_azure::fetch_all_storage_accounts;
 use cloud_terrastodon_azure::fetch_all_subscriptions;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
@@ -14,7 +15,10 @@ use std::collections::HashMap;
 use tokio::join;
 use tracing::info;
 
-pub async fn copy_azurerm_backend_menu(auth_context: &AzureTenantAuthContext) -> Result<()> {
+pub async fn copy_azurerm_backend_menu(
+    auth_context: &AzureTenantAuthContext,
+    cancellation: &CancellationScope,
+) -> Result<()> {
     info!("Picking storage account");
     let chosen_storage_account = PickerTui::<_>::new()
         .set_header("Picking the storage account for the state file")
@@ -24,8 +28,10 @@ pub async fn copy_azurerm_backend_menu(auth_context: &AzureTenantAuthContext) ->
                 info!("Fetching storage accounts");
                 info!("Fetching subscriptions");
                 let (storage_accounts, subscriptions) = join!(
-                    fetch_all_storage_accounts(&auth_context).with_invalidation(invalidate),
-                    fetch_all_subscriptions(&auth_context).with_invalidation(invalidate)
+                    fetch_all_storage_accounts(&auth_context, cancellation)
+                        .with_invalidation(invalidate),
+                    fetch_all_subscriptions(&auth_context, cancellation)
+                        .with_invalidation(invalidate)
                 );
                 let storage_accounts = storage_accounts?;
                 let subscriptions = subscriptions?
@@ -61,6 +67,7 @@ pub async fn copy_azurerm_backend_menu(auth_context: &AzureTenantAuthContext) ->
             let chosen_storage_account = &chosen_storage_account;
             async move {
                 let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
+                cmd.cancellation_safe();
                 cmd.args(["storage", "container", "list", "--account-name"]);
                 cmd.arg(&*chosen_storage_account.0.name);
                 cmd.arg("--subscription");
@@ -73,7 +80,7 @@ pub async fn copy_azurerm_backend_menu(auth_context: &AzureTenantAuthContext) ->
                         .short_form(),
                 );
                 cmd.args(["--query", "[].name", "--output", "json"]);
-                let blob_container_names = cmd.run::<Vec<String>>().await?;
+                let blob_container_names = cmd.run::<Vec<String>>(cancellation).await?;
 
                 if blob_container_names.is_empty() {
                     bail!("No blob containers found in {}", chosen_storage_account.1);

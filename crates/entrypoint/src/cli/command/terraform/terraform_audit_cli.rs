@@ -1,3 +1,4 @@
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_hcl::discover_terraform_source_dirs;
 use eyre::Result;
 use std::path::PathBuf;
@@ -15,14 +16,17 @@ pub struct TerraformAuditArgs {
 }
 
 impl TerraformAuditArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(
+        self,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         if self.recursive {
             let source_dirs = discover_terraform_source_dirs(self.source_dir).await?;
             for dir in source_dirs {
-                cloud_terrastodon_hcl::audit_with_fix(&dir, self.fix).await?;
+                cloud_terrastodon_hcl::audit_with_fix(&dir, self.fix, cancellation).await?;
             }
         } else {
-            cloud_terrastodon_hcl::audit_with_fix(&self.source_dir, self.fix).await?;
+            cloud_terrastodon_hcl::audit_with_fix(&self.source_dir, self.fix, cancellation).await?;
         }
 
         Ok(())

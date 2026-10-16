@@ -1,6 +1,7 @@
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::fetch_all_policy_assignments;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use eyre::ensure;
@@ -25,10 +26,18 @@ pub struct AzurePolicyAssignmentListArgs {
 }
 
 impl AzurePolicyAssignmentListArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let tenant_auth_context = self.tenant.bind_auth_context(auth_context).await?;
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let tenant_auth_context = self
+            .tenant
+            .bind_auth_context(auth_context, cancellation)
+            .await?;
         info!("Fetching Azure policy assignments...");
-        let mut policy_assignments = fetch_all_policy_assignments(&tenant_auth_context).await?;
+        let mut policy_assignments =
+            fetch_all_policy_assignments(&tenant_auth_context, cancellation).await?;
         info!(
             count = policy_assignments.len(),
             "Fetched Azure policy assignments",

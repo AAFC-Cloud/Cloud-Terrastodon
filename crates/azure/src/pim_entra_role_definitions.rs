@@ -2,6 +2,7 @@ use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::PimEntraRoleDefinition;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
@@ -10,13 +11,20 @@ use std::path::PathBuf;
 #[must_use = "This is a future request, you must .await it"]
 #[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct PimEntraRoleDefinitionListRequest {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     tenant_id: AzureTenantId,
 }
 
 pub fn fetch_all_entra_pim_role_definitions(
     tenant_id: AzureTenantId,
+    cancellation: &CancellationScope,
 ) -> PimEntraRoleDefinitionListRequest {
-    PimEntraRoleDefinitionListRequest { tenant_id }
+    PimEntraRoleDefinitionListRequest {
+        cancellation: cancellation.clone(),
+        tenant_id,
+    }
 }
 
 #[async_trait]
@@ -42,9 +50,11 @@ impl CacheableCommand for PimEntraRoleDefinitionListRequest {
             value: Vec<PimEntraRoleDefinition>,
         }
 
-        let request = RestRequest::new(http::Method::GET, &url)?.cache(self.cache_key());
+        let request =
+            RestRequest::new(http::Method::GET, &url, &self.cancellation)?.cache(self.cache_key());
         let mut result: Result<Response, _> = request.clone().receive().await;
         if result.is_err() {
+            self.cancellation.bail_if_cancelled()?;
             // single retry - sometimes this returns a gateway error
             result = request.receive().await;
         }
@@ -59,18 +69,27 @@ mod tests {
     use super::*;
     use crate::get_test_tenant_id;
     use crate::test_helpers::expect_aad_premium_p2_license;
+    use cloud_terrastodon_command::CancellationToken;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
-        let Some(result) = expect_aad_premium_p2_license(
-            fetch_all_entra_pim_role_definitions(get_test_tenant_id().await?).await,
-        )
-        .await?
-        else {
-            return Ok(());
-        };
-        assert!(!result.is_empty());
-        Ok(())
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let Some(result) = expect_aad_premium_p2_license(
+                    fetch_all_entra_pim_role_definitions(
+                        get_test_tenant_id(&cancellation).await?,
+                        &cancellation,
+                    )
+                    .await,
+                )
+                .await?
+                else {
+                    return Ok(());
+                };
+                assert!(!result.is_empty());
+                Ok(())
+            })
+            .await
     }
 }
 
@@ -81,6 +100,7 @@ cloud_terrastodon_registry::register_arbitrary!(PimEntraRoleDefinitionListReques
 pub async fn fetch_all_entra_pim_role_definitions_with_graph_access_token(
     tenant_id: AzureTenantId,
     access_token: &str,
+    cancellation: &CancellationScope,
 ) -> Result<Vec<PimEntraRoleDefinition>> {
     let url = format!(
         "https://graph.microsoft.com/beta/privilegedAccess/aadroles/resources/{tenant_id}/roleDefinitions?$select=id,displayName,type,isbuiltIn&$orderby=displayName"
@@ -90,11 +110,12 @@ pub async fn fetch_all_entra_pim_role_definitions_with_graph_access_token(
         value: Vec<PimEntraRoleDefinition>,
     }
 
-    let request = RestRequest::new(http::Method::GET, &url)?
+    let request = RestRequest::new(http::Method::GET, &url, cancellation)?
         .tenant(tenant_id)
         .bearer_token(access_token);
     let mut result: Result<Response, _> = request.clone().receive().await;
     if result.is_err() {
+        cancellation.bail_if_cancelled()?;
         result = request.receive().await;
     }
     Ok(result?.value)

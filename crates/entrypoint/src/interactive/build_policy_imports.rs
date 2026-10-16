@@ -2,6 +2,7 @@ use cloud_terrastodon_azure::fetch_all_policy_assignments;
 use cloud_terrastodon_azure::fetch_all_policy_definitions;
 use cloud_terrastodon_azure::fetch_all_policy_set_definitions;
 use cloud_terrastodon_azure::fetch_all_subscriptions;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_hcl::HclImportBlock;
 use cloud_terrastodon_hcl::HclProviderReference;
@@ -16,13 +17,16 @@ use std::collections::HashSet;
 use tokio::try_join;
 use tracing::info;
 
-pub async fn build_policy_imports(auth_context: &AzureTenantAuthContext) -> Result<()> {
+pub async fn build_policy_imports(
+    auth_context: &AzureTenantAuthContext,
+    cancellation: &CancellationScope,
+) -> Result<()> {
     info!("Fetching information");
     let (policy_definitions, policy_set_definitions, policy_assignments, subscriptions) = try_join!(
-        fetch_all_policy_definitions(auth_context),
-        fetch_all_policy_set_definitions(auth_context),
-        fetch_all_policy_assignments(auth_context),
-        fetch_all_subscriptions(auth_context),
+        fetch_all_policy_definitions(auth_context, cancellation),
+        fetch_all_policy_set_definitions(auth_context, cancellation),
+        fetch_all_policy_assignments(auth_context, cancellation),
+        fetch_all_subscriptions(auth_context, cancellation),
     )?;
 
     let subscriptions = subscriptions
@@ -105,13 +109,13 @@ pub async fn build_policy_imports(auth_context: &AzureTenantAuthContext) -> Resu
     info!("Writing boilerplate.tf");
     HclWriter::new(AppDir::Imports.join("boilerplate.tf"))
         .format_on_write()
-        .merge(provider_blocks)
+        .merge(provider_blocks, cancellation)
         .await?;
 
     info!("Writing policy_imports.tf");
     HclWriter::new(AppDir::Imports.join("policy_imports.tf"))
         .format_on_write()
-        .overwrite(imports)
+        .overwrite(imports, cancellation)
         .await?;
 
     Ok(())

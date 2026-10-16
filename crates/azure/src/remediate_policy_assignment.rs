@@ -5,6 +5,7 @@ use cloud_terrastodon_azure_types::PolicyAssignment;
 use cloud_terrastodon_azure_types::PolicyDefinitionIdReference;
 use cloud_terrastodon_azure_types::Scope;
 use cloud_terrastodon_azure_types::ScopeImpl;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
@@ -17,9 +18,14 @@ use itertools::Itertools;
 use rand::Rng;
 use tracing::info;
 
-pub async fn remediate_policy_assignment(auth_context: &AzureTenantAuthContext) -> Result<()> {
+pub async fn remediate_policy_assignment(
+    auth_context: &AzureTenantAuthContext,
+    cancellation: &CancellationScope,
+) -> Result<()> {
+    cancellation.cancellable_scope(|cancellation| async move {
+                let cancellation = &cancellation;
     info!("Fetching policy assignments");
-    let policy_assignments = fetch_all_policy_assignments(auth_context).await?;
+    let policy_assignments = fetch_all_policy_assignments(auth_context, cancellation).await?;
 
     info!("Building choices of policies to remediate");
     let choices = policy_assignments
@@ -47,10 +53,11 @@ pub async fn remediate_policy_assignment(auth_context: &AzureTenantAuthContext) 
     match policy_assignment.properties.policy_definition_id {
         PolicyDefinitionIdReference::PolicySetDefinitionId(policy_set_definition_id) => {
             info!("Remediating a policy set - must prompt for inner choice");
-            let Some(policy_set_definition) = fetch_all_policy_set_definitions(auth_context)
-                .await?
-                .into_iter()
-                .find(|def| def.id == policy_set_definition_id)
+            let Some(policy_set_definition) =
+                fetch_all_policy_set_definitions(auth_context, cancellation)
+                    .await?
+                    .into_iter()
+                    .find(|def| def.id == policy_set_definition_id)
             else {
                 bail!("Could not find policy set definition with id {policy_set_definition_id:?}");
             };
@@ -100,7 +107,7 @@ pub async fn remediate_policy_assignment(auth_context: &AzureTenantAuthContext) 
                     }
                 }
                 cmd.should_announce(true);
-                cmd.run_raw().await?;
+                cmd.run_raw(cancellation).await?;
             }
         }
         PolicyDefinitionIdReference::PolicyDefinitionId(_policy_definition_id) => {
@@ -128,9 +135,11 @@ pub async fn remediate_policy_assignment(auth_context: &AzureTenantAuthContext) 
                 }
             }
             cmd.should_announce(true);
-            cmd.run_raw().await?;
+            cmd.run_raw(cancellation).await?;
         }
     }
 
     Ok(())
+
+        }).await
 }

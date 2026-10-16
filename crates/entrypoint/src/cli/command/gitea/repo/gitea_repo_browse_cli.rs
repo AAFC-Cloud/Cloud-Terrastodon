@@ -1,4 +1,5 @@
 use crate::cli::gitea::repo::gitea_repo_list_cli::GiteaRepoListArgs;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_gitea::GiteaTenantArgumentExt;
 use cloud_terrastodon_user_input::PickResultExt;
 use eyre::Result;
@@ -11,9 +12,12 @@ pub struct GiteaRepoBrowseArgs {
 }
 
 impl GiteaRepoBrowseArgs {
-    pub async fn invoke(self) -> Result<()> {
-        let tenant = self.list.tenant.resolve().await?;
-        let repositories = self.list.fetch_repositories(&tenant).await?;
+    pub async fn invoke(
+        self,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let tenant = self.list.tenant.resolve(cancellation).await?;
+        let repositories = self.list.fetch_repositories(&tenant, cancellation).await?;
         let (chosen, maybe_error) = cloud_terrastodon_user_input::PickerTui::<_>::new()
             .pick_many(repositories)
             .await

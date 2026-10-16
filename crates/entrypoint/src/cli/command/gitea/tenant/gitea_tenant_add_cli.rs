@@ -1,3 +1,4 @@
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_gitea::GiteaInstanceUrl;
 use cloud_terrastodon_gitea::add_tracked_tenant;
 use eyre::Result;
@@ -11,7 +12,10 @@ pub struct GiteaTenantAddArgs {
 }
 
 impl GiteaTenantAddArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(
+        self,
+        _cancellation: &CancellationScope,
+    ) -> Result<()> {
         let tenant = add_tracked_tenant(self.tenant).await?;
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();

@@ -4,37 +4,51 @@ Cloud Terrastodon can supply application startup without supplying your command
 tree. Define your own public CLI, reuse `GlobalArgs`, and call the shared runner.
 Cloud Terrastodon's main executable uses the same runner.
 
-## Local development
+## Start a consumer
 
-The [standalone example](../examples/standalone-cli) is a separate Cargo workspace
-with local dependencies and its own lockfile. Its
-complete CLI implementation is [one main.rs](../examples/standalone-cli/src/main.rs).
+The [standalone example](../examples/standalone-cli) is a root workspace member
+with its own manifest and the repository's shared `Cargo.lock`. It uses the local
+Cloud Terrastodon facade through `../..` and inherits the workspace's `facet`
+dependency. Its complete CLI implementation is
+[one main.rs](../examples/standalone-cli/src/main.rs).
 It does not initialize or copy the Teamy Rust CLI template.
 
-For a project beside another task's notes, begin with an ordinary Cargo package
-and this dependency shape (adjust the path):
+This guide includes workspace changes for the next Cloud Terrastodon release.
+Published 0.37.0 still requires consumers to declare `FigueBuiltins` themselves.
+For a separate project using the current checked-out runner, begin with an
+ordinary Cargo package and adjust the Cloud Terrastodon path:
 
 ```toml
 [dependencies]
 cloud_terrastodon = { path = "../cloud-terrastodon", default-features = false, features = ["app"] }
-facet = { package = "teamy-facet", version = "=0.50.0-rc.7", path = "../facet/facet" }
+facet = { package = "teamy-facet", version = "=0.50.0-rc.7" }
 ```
 
-The sibling clones `facet`, `facet-format`, and `figue` must use TeamDman's
-`teamy-main` branches for local development. The explicit `facet` dependency
-is needed because Figue's attribute expansion references `::facet` even when
-Figue is imported through our facade. Its package is `teamy-facet`, matching
-the facade's fork identity. No separate Figue dependency or root patch block
-is needed. Once the prepared Teamy versions and Cloud Terrastodon 0.37.0 are
-published, registry consumers can remove these development paths. See
-[the dependency release guide](UPDATING_FACET.md).
+The explicit `facet` dependency is needed because Figue's attribute expansion
+references `::facet` even when Figue is imported through our facade. Its package
+is `teamy-facet`, matching the facade's fork identity. No separate Figue dependency
+or root patch block is needed.
+
+The workspace and standalone example resolve the exact published Teamy Facet
+and Figue versions from crates.io. The example still uses the local Cloud
+Terrastodon facade and the root lockfile. Cancellation currently uses the sibling
+`../teamy-cancellation` development checkout with `async`, `deferral`, `facet`, and
+`arbitrary` enabled. Clone that repository alongside Cloud Terrastodon. Its new
+execution-scope API is not available in published `teamy-cancellation 0.4.0`;
+publishing this workspace requires publishing the updated cancellation crate first.
+The Facet/Figue dependencies remain exact published registry packages. See
+[the dependency release guide](UPDATING_FACET.md) for the workspace's dependency
+setup.
 
 Keep `default-features = false`: the facade's existing default is `full`, which
 includes the actual Cloud Terrastodon command tree and UIs.
 
 ## Own the root CLI
 
-The consumer supplies its entire schema and decides how to dispatch it:
+The consumer supplies its application schema and decides how to dispatch it.
+`App::parse_from` and `App::run` supply Figue's standard builtin flags through
+an internal wrapper, while parsed values and handlers use the consumer's own
+CLI type:
 
 ```rust,no_run
 use cloud_terrastodon::app::{App, ApplicationCli, GlobalArgs, Result, figue, tracing};
@@ -44,8 +58,6 @@ use facet::Facet;
 pub struct Cli {
     #[facet(flatten)]
     pub globals: GlobalArgs,
-    #[facet(flatten)]
-    pub builtins: figue::FigueBuiltins,
     #[facet(figue::subcommand)]
     pub command: Command,
 }
@@ -63,8 +75,7 @@ impl ApplicationCli for Cli {
 
 fn main() -> Result<()> {
     App::new(env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"))
-        .run(|cli: Cli, context| async move {
-            context.cancellation.bail_if_cancelled()?;
+        .run(|cli: Cli, _context| async move {
             match cli.command {
                 Command::Hello => tracing::info!("Hello!"),
             }
@@ -74,15 +85,35 @@ fn main() -> Result<()> {
 ```
 
 No `Debug`, `Arbitrary`, registry registration, extra command directories,
-`#[tokio::main]`, or application `build.rs` is required. The example adds nested
-subcommands and demonstrates shared flags after a leaf, complete multiline help,
-independent stderr/NDJSON filters, errors and cooperative cancellation.
+`#[tokio::main]`, or application `build.rs` is required. The standalone example
+has a single `audit` command, using the authenticated Azure SDK and typed reports
+with shared application startup and cooperative cancellation.
 
 For a tool with just one operation, omit the `command` field and enum entirely.
 The [resource-group listing example](../examples/resource_group_list.rs) does this:
-its root contains only globals and builtins, and its handler lists resource groups.
+its root contains globals and a typed `--tenant` selector, and its
+handler lists resource groups. `--auth-source` selects authentication;
+`--tenant` accepts a tenant ID, tracked alias, or `default`. When omitted or set
+to `default`, binding through `context.auth` retains a known authentication tenant
+and otherwise falls back to Azure CLI's active tenant.
+
+```powershell
+cargo +1.96.0 run --example resource_group_list -- --auth-source azure-cli --tenant YOUR_TENANT_ID_OR_ALIAS
+```
+
+That command reads Azure data when executed. `App` automatically wraps the
+handler in a cancellable scope. Tenant binding and the SDK fetch receive
+`&context.cancellation` directly. The printing loop awaits
+`tokio::task::yield_now()` before each `println!`, giving the handler's wrapper
+a poll boundary at which to observe cancellation. A ready no-op await and a
+zero-duration sleep do not reliably suspend, and a blocking print already in
+progress cannot be interrupted.
+Tokio can immediately poll the same task again; yielding does not promise another
+task will run first. See the pinned
+[Tokio yield documentation](https://docs.rs/tokio/1.52.3/tokio/task/fn.yield_now.html).
+
 It remains a single Cargo example source file using the repository's manifest;
-the independent consumer uses a separate manifest to test downstream integration.
+the standalone workspace package has its own manifest and command tree.
 
 If you want other Rust crates to import `your_package::Cli`, put the declarations
 and trait implementation in `src/lib.rs` and import them in `main.rs`. A `pub`
@@ -105,6 +136,15 @@ APIs. The auth feature currently brings in the registry through credentials.
 Terminal support brings in the picker/Ratatui dependencies. Features are additive:
 another dependency enabling `auth` adds its globals to the shared type too. Prefer
 `GlobalArgs::default()` over exhaustive literals when constructing it manually.
+
+The standalone audit example opts into `app-auth` and `azure`, keeping default
+features disabled. To add the audit's SDK facilities to the minimal external
+project recipe above, use `features = ["app-auth", "azure"]` on the facade.
+Its `--tenant` accepts a tenant ID or tracked alias through `AzureTenantArgument`.
+Binding that argument to `context.auth` retains a known authentication tenant
+when omitted and otherwise uses Azure CLI's default tenant. The handler calls
+`fetch_all_resource_groups` for accessible subscriptions in that tenant; existing
+SDK request caches may supply the inventory.
 
 The runner accepts one tracing directive for each `--log-filter` and
 `--log-file-filter`, including a module directive such as `field_notes=debug`.
@@ -172,57 +212,153 @@ method receives the selected `OutputFormat`. Keep JSON free
 of terminal colors and hyperlinks. Use `CliOutput::none()` for commands that
 perform their own interaction and have no final value to emit.
 
+The standalone `audit` command partitions resource groups by name: exactly five
+occurrences of ASCII `a`, `e`, `i`, `o`, or `u`, ignoring case, belong in
+`with_five_vowels`; every other name belongs in `without_five_vowels`. Repeated
+vowels count separately. Both lists contain typed `ResourceGroup` values, and
+the report is emitted through `CliOutput` using the shared `--output-format`.
+
 ## Process and ownership contract
 
 - Call `App::run` once from synchronous `main`, before another component installs
   error, tracing or signal hooks. It is not an embeddable/restartable runtime and
   rejects execution inside an existing Tokio runtime. `run_parsed` has the same
-  ownership contract and permits startup policy based on the parsed command.
+  ownership contract, accepts an already parsed consumer CLI, and permits startup
+  policy based on the parsed command.
   Even constructing an `eyre::Report` first can install its default error hook;
   let the runner own startup before creating application error reports.
   `App::run` prepares console output before parsing. Custom process entrypoints
   that parse first should call `app::prepare_process()` before printing or
   unwrapping parse outcomes, so Windows help and diagnostics render ANSI colors.
 - `App::parse_from::<Cli>(arguments)` accepts arguments without the executable
-  name and returns a non-exiting `figue::DriverOutcome<Cli>`. Use `into_result()`
-  to inspect `.value`, help, version or errors. It does not install startup hooks
-  or resolve auth. Explicit HTML-help/schema-export requests can still write files.
+  name and returns a non-exiting `figue::DriverOutcome<Cli>`. Builtin flags are
+  supplied internally, and a successful `.value` is your own `Cli`. Use
+  `into_result()` to inspect the parsed value, help, version or errors. It does not
+  install startup hooks or resolve auth. Explicit HTML-help/schema-export requests
+  can still write files.
 - The pinned Figue driver treats a missing required CLI positional as help with
   a corrected-command diagnostic and exits **0**; unknown flags/commands fail.
-  For example, `field-notes echo` (without its required `MESSAGE`) prints help
-  and a missing-argument diagnostic to stdout, does not invoke the handler, and
+  A command with an omitted required positional does not invoke its handler but
   still reports success to the shell. Automation checking only the exit status
   can therefore mistake an incomplete invocation for completed work. Explicit
   `--help` also succeeds, while malformed supplied values and handler errors fail.
   The runner deliberately retains that upstream distinction, including automatic
   help for omitted subcommands. Do not use an omitted required positional as a
-  reliable nonzero-status check. The standalone suite characterizes this behavior;
-  changing that policy is a separate Figue follow-up, not a hidden runner override.
+  reliable nonzero-status check. Changing that policy is a separate Figue follow-up,
+  not a hidden runner override.
 - The handler receives owned arguments and context. Its closure is invoked, and
   its returned future is polled, under the runtime and, when enabled, terminal task locals.
   Closure capture initializers still execute in the caller before `run`.
   Neither a `Send` nor a `'static` handler-future bound is imposed.
-- Cancellation is cooperative. Check/pass `context.cancellation` during work.
-  It is also signalled quietly when the handler finishes or unwinds; an existing
-  cancellation reason is preserved. Join your own background work before return.
-  Arbitrary blocking tasks can still delay runtime shutdown indefinitely.
+- `App::run` and `run_parsed` enable automatic cooperative cancellation by
+  default. The handler's `cancellable_scope` runner supplies
+  `context.cancellation`; pass that scope directly to SDK operations without
+  another top-level wrapper. It checks at poll boundaries, not after every
+  syntactic `.await`. Long synchronous loops need a scope checkpoint or a yield.
+  Deeply nested deferrals keep their owning wrappers polling until the protected
+  unit finishes; independent sibling scopes remain cancellable.
+  Use `App::new(name, version).automatic_cancellation(false)` when the handler
+  owns asynchronous cleanup or must drain background jobs after cancellation.
+  This selects a `with_async_scope` runner: the body observes cancellation through
+  checkpoints and cancellable children and controls its early return and cleanup.
+  Cloud Terrastodon's own CLI selects this mode so interactive UIs can restore the
+  terminal and drain pending work before the handler returns.
+  The raw signal is also requested quietly when the handler finishes or unwinds;
+  an existing cancellation reason is preserved. Join your background work before
+  return. Blocking tasks can still delay runtime shutdown indefinitely.
 - `--debug` explicitly captures panic backtraces without changing process
   environment variables. Ordinary error backtrace capture follows
   `RUST_LIB_BACKTRACE`/`RUST_BACKTRACE`. Rapid repeated Ctrl-C retains the cancellation
   library's immediate process-exit behavior, which does not run destructors.
 
+## Cancellation in SDK operations
+
+Pass `&context.cancellation` as the final argument to SDK fetch helpers and
+request constructors. This mandatory `CancellationScope` belongs to a bounded
+callback or future; requests retain a clone and pass it through serial operations,
+transport execution, and pagination. A raw `CancellationToken` holds cancellation
+intent and notifications, without an execution policy or a `bail_if_cancelled`
+method. The caller owns deciding whether to begin another operation.
+
+The `async` feature supplies runtime-independent `cancelled().await` notification
+and two execution helpers. `App` supplies the handler's cancellable root by
+default, so these helpers are for nested operations or explicit coordinators.
+`with_async_scope(|scope| async move { ... })`
+owns a scope while leaving cancellation checkpoints and cleanup to its body.
+`cancellable_scope(|scope| async move { ... })` additionally stops polling the
+body when its scope may acknowledge cancellation. Both admit their factories
+on the first poll. Use the callback's supplied scope for that operation's SDK
+requests; capturing an ancestor skips the new ownership relationship.
+
+Start independent concurrent jobs with linked `scope.cancellable_scope(...)`
+children. A deeply nested protected unit then keeps its owning wrappers polling,
+while ordinary sibling jobs remain cancellable. For a separately cancellable UI
+or invocation, `scope.with_async_child_scope(...)` or
+`scope.cancellable_child_scope(...)` also returns a raw child signal for its stop
+button. Signal inheritance remains separate from execution-scope ownership.
+
+Automatic checks occur at wrapper poll boundaries, rather than every internal
+`.await`. Already-ready awaits and synchronous loops may continue within one
+poll. A scope checkpoint or a direct yield, as in the printing loop above,
+gives cancellation an opportunity to be observed. Keep explicit checkpoints at
+meaningful synchronous transitions when needed. A completed body's original
+success or error wins over concurrent cancellation.
+
+The independent `deferral` feature provides `with_deferral(reason, |protected| { ... })`
+for synchronous units and, with `async`,
+`deferred(reason, |protected| async move { ... }).await` for protected futures.
+Enter before the irreversible step and pass the supplied protected scope through
+the mutation and its required cache or journal completion. Protection ends when
+the body completes or its owner drops; cloned handles do not extend it. With
+tracing enabled, cancellation logs the explanation and source location once per
+active protected unit. `is_cancelled()` and `cancelled().await` still expose raw
+intent throughout protection.
+
+For a single HTTP exchange, `RestRequest` supplies this policy: GET, HEAD, and
+OPTIONS are cancellable by default; other methods defer cancellation through
+response processing, decoding, and execution artifacts. Mark documented read-only
+POST operations with `.cancellation_safe()`. SDK code can rely on that protection
+for a single request. An explicit SDK deferral covers additional completion work,
+such as a mutation followed by affected-cache invalidation, a durable journal
+update, or related writes.
+
+`CommandBuilder` conservatively defers cancellation by default for the complete
+run operation, including subprocess execution, output decoding, and execution
+artifacts. Mark read-only or otherwise safely interruptible commands with
+`.cancellation_safe()`. This opt-in honors an enclosing protected scope. Keep
+explicit deferrals for a command followed by required cache invalidation, durable
+journal updates, or related writes; a single command needs no extra wrapper.
+Cancellation requested before admission prevents either policy from starting new
+work. Once admitted, the default also protects configured retries and polite
+delays; timeouts, ordinary errors, and explicit future drops still apply.
+
+New optional protected work rejects cancellation already requested before
+admission. Use `finish_required(...)` or `finish_required_sync(...)` for cleanup
+already owed after a request; these cannot reopen a closed scope. Protected bodies
+retain their own results, with cancellation observed at the next scoped checkpoint
+or child admission. Ordinary errors still follow Rust control flow: a `?` inside
+the unit can return before later cleanup statements.
+
+Keep owning and polling protected work. Explicit future drops, task aborts,
+fail-fast `select!` or `try_join!` branches, and process termination can interrupt
+it. Parallel required work needs a coordinator that retains and drains it on
+early exits. Repeated Ctrl-C retains the force-exit behavior.
+
 ## Validation and publication boundary
 
 ```powershell
-cargo +1.96.0 test --manifest-path examples/standalone-cli/Cargo.toml --offline --locked
-cargo +1.96.0 test -p cloud_terrastodon_app --offline --locked
-cargo +1.96.0 test -p cloud_terrastodon_app --features auth,terminal,arbitrary,terminal_coordinator_debug --offline --locked
+cargo +1.96.0 check -p cloud-terrastodon-standalone-cli --offline --locked
+cargo +1.96.0 test -p cloud-terrastodon-standalone-cli --bin field-notes vowels --offline --locked
 ```
 
-The example has `publish = false`: it is a neutral local acceptance fixture, not
+The filtered unit test in `main.rs` checks the vowel policy using synthetic names.
+These validation commands do not invoke the CLI, resolve tenant defaults, obtain
+credentials or read Azure resources.
+
+The example has `publish = false`: it is a neutral application example, not
 an implementation of a particular business task. No release is performed by this
-workflow. The prepared Teamy dependency graph is described in
-[Updating Facet](UPDATING_FACET.md). Before a crates.io release, verify clean
+workflow. The published Teamy dependency graph is described in
+[Updating Facet](UPDATING_FACET.md). Before future crates.io releases, verify clean
 packaged consumers and publish the exact dependency versions first.
 `publish.ps1 -DryRun` previews production dependency order and supports both
 new packages and new versions of existing packages.

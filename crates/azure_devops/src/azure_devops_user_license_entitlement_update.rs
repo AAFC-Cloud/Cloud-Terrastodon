@@ -9,6 +9,7 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsUserId;
 use cloud_terrastodon_azure_devops_types::LastAccessedDate;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
@@ -22,6 +23,9 @@ use tracing::debug;
 #[must_use = "This is an unsent request, you must .await it"]
 #[derive(Debug, Clone, facet::Facet)]
 pub struct AzureDevOpsUserLicenseEntitlementUpdateRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub user: AzureDevOpsUserArgument<'a>,
     pub license_kind: AzureDevOpsLicenseType,
@@ -31,8 +35,10 @@ pub fn update_azure_devops_user_license_entitlement<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     user: impl Into<AzureDevOpsUserArgument<'a>>,
     license_kind: AzureDevOpsLicenseType,
+    cancellation: &CancellationScope,
 ) -> AzureDevOpsUserLicenseEntitlementUpdateRequest<'a> {
     AzureDevOpsUserLicenseEntitlementUpdateRequest {
+        cancellation: cancellation.clone(),
         org_url: Cow::Borrowed(org_url),
         user: user.into(),
         license_kind,
@@ -42,6 +48,7 @@ pub fn update_azure_devops_user_license_entitlement<'a>(
 impl<'a> Arbitrary<'a> for AzureDevOpsUserLicenseEntitlementUpdateRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: CancellationScope::arbitrary(u)?,
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             user: AzureDevOpsUserArgument::arbitrary(u)?.into_owned(),
             license_kind: AzureDevOpsLicenseType::arbitrary(u)?,
@@ -95,7 +102,7 @@ impl<'a> CacheableCommand for AzureDevOpsUserLicenseEntitlementUpdateRequest<'a>
             },
         ]);
         cmd.cache(self.cache_key());
-        Ok(cmd.run().await?)
+        cmd.run(&self.cancellation).await
     }
 }
 

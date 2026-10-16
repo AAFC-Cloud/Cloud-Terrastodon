@@ -1,6 +1,7 @@
 use crate::cli::azure_devops::test::plan::list::AzureDevOpsTestPlanListArgs;
 use crate::cli::azure_devops::test::plan::show::AzureDevOpsTestPlanShowArgs;
 use crate::cli::azure_devops::test::plan::suite::AzureDevOpsTestSuiteArgs;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -25,11 +26,21 @@ pub enum AzureDevOpsTestPlanCommand {
 }
 
 impl AzureDevOpsTestPlanArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self.command {
-            AzureDevOpsTestPlanCommand::List(args) => args.invoke(auth_context).await?,
-            AzureDevOpsTestPlanCommand::Show(args) => args.invoke(auth_context).await?,
-            AzureDevOpsTestPlanCommand::Suite(args) => args.invoke(auth_context).await?,
+            AzureDevOpsTestPlanCommand::List(args) => {
+                args.invoke(auth_context, cancellation).await?
+            }
+            AzureDevOpsTestPlanCommand::Show(args) => {
+                args.invoke(auth_context, cancellation).await?
+            }
+            AzureDevOpsTestPlanCommand::Suite(args) => {
+                args.invoke(auth_context, cancellation).await?
+            }
         }
 
         Ok(())

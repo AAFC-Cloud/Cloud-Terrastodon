@@ -14,6 +14,7 @@ use crate::fetch_gitea_repositories_by_id_range;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use std::borrow::Cow;
 use std::collections::BTreeSet;
@@ -22,6 +23,8 @@ use std::path::PathBuf;
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Debug, Clone, facet::Facet)]
 pub struct GiteaRepoEnumerationAnalysisRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
     pub tenant: Cow<'a, GiteaInstanceUrl>,
     pub max_repo_id: u64,
 }
@@ -29,8 +32,10 @@ pub struct GiteaRepoEnumerationAnalysisRequest<'a> {
 pub fn analyze_gitea_repo_enumeration<'a>(
     tenant: &'a GiteaInstanceUrl,
     max_repo_id: u64,
+    cancellation: &CancellationScope,
 ) -> GiteaRepoEnumerationAnalysisRequest<'a> {
     GiteaRepoEnumerationAnalysisRequest {
+        cancellation: cancellation.clone(),
         tenant: Cow::Borrowed(tenant),
         max_repo_id,
     }
@@ -39,6 +44,7 @@ pub fn analyze_gitea_repo_enumeration<'a>(
 impl<'a> Arbitrary<'a> for GiteaRepoEnumerationAnalysisRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: CancellationScope::unbound(),
             tenant: Cow::Owned(GiteaInstanceUrl::arbitrary(u)?),
             max_repo_id: u64::arbitrary(u)?,
         })
@@ -60,30 +66,51 @@ impl<'a> CacheableCommand for GiteaRepoEnumerationAnalysisRequest<'a> {
     }
 
     async fn run(self) -> eyre::Result<Self::Output> {
-        let tenant = self.tenant;
-        let organizations = fetch_all_gitea_organizations(tenant.as_ref()).await?;
+        let organizations =
+            fetch_all_gitea_organizations(self.tenant.as_ref(), &self.cancellation).await?;
         let mut org_repositories = Vec::new();
         for organization in &organizations {
+            self.cancellation.bail_if_cancelled()?;
             org_repositories.extend(
-                fetch_all_gitea_organization_repositories(tenant.as_ref(), &organization.username)
-                    .await?,
+                fetch_all_gitea_organization_repositories(
+                    self.tenant.as_ref(),
+                    &organization.username,
+                    &self.cancellation,
+                )
+                .await?,
             );
         }
 
-        let users = fetch_all_gitea_users(tenant.as_ref()).await?;
+        let users = fetch_all_gitea_users(self.tenant.as_ref(), &self.cancellation).await?;
         let mut user_repositories = Vec::new();
         for user in &users {
-            user_repositories
-                .extend(fetch_all_gitea_user_repositories(tenant.as_ref(), &user.login).await?);
+            self.cancellation.bail_if_cancelled()?;
+            user_repositories.extend(
+                fetch_all_gitea_user_repositories(
+                    self.tenant.as_ref(),
+                    &user.login,
+                    &self.cancellation,
+                )
+                .await?,
+            );
         }
 
         let current_user_repositories =
-            fetch_current_user_gitea_repositories(tenant.as_ref()).await?;
-        let search_repositories = fetch_all_gitea_repositories_via_search(tenant.as_ref()).await?;
-        let id_range_repositories =
-            fetch_gitea_repositories_by_id_range(tenant.as_ref(), 1, self.max_repo_id).await?;
-        let combined_repositories = fetch_all_gitea_repositories(tenant.as_ref()).await?;
+            fetch_current_user_gitea_repositories(self.tenant.as_ref(), &self.cancellation).await?;
+        let search_repositories =
+            fetch_all_gitea_repositories_via_search(self.tenant.as_ref(), &self.cancellation)
+                .await?;
+        let id_range_repositories = fetch_gitea_repositories_by_id_range(
+            self.tenant.as_ref(),
+            1,
+            self.max_repo_id,
+            &self.cancellation,
+        )
+        .await?;
+        let combined_repositories =
+            fetch_all_gitea_repositories(self.tenant.as_ref(), &self.cancellation).await?;
 
+        self.cancellation.bail_if_cancelled()?;
         let organizations_report = method_report(
             GiteaRepoEnumerationMethod::Organizations,
             organizations.len() + 1,

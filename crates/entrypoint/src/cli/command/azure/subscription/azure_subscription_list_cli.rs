@@ -11,6 +11,7 @@ use cloud_terrastodon_azure::get_tracked_tenant;
 use cloud_terrastodon_azure::list_tracked_tenant_aliases_for;
 use cloud_terrastodon_azure::list_tracked_tenants;
 use cloud_terrastodon_azure::resolve_tenant_auth_context;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use color_eyre::owo_colors::OwoColorize;
 use color_eyre::owo_colors::Stream;
@@ -56,12 +57,16 @@ struct ListedSubscription {
 struct SubscriptionListOutput(Vec<TenantSubscriptions>);
 
 impl AzureSubscriptionListArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<CliOutput> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<CliOutput> {
         let tenant_ids = match self.tenant {
             Some(tenant) => {
                 let tenant_id = match (&tenant, auth_context.tenant_id()) {
                     (AzureTenantArgument::Default, Some(tenant_id)) => tenant_id,
-                    _ => tenant.resolve().await?,
+                    _ => tenant.resolve(cancellation).await?,
                 };
                 vec![tenant_id]
             }
@@ -71,11 +76,18 @@ impl AzureSubscriptionListArgs {
             count = tenant_ids.len(),
             "Fetching subscriptions across Azure tenants"
         );
-        let tenants = collect_tenants(tenant_ids, |tenant_id| {
-            let auth_context = auth_context.clone();
-            async move { fetch_tenant_subscriptions(tenant_id, &auth_context).await }
-        })
-        .await?;
+        let tenants = cancellation
+            .cancellable_scope(|cancellation| async move {
+                collect_tenants(tenant_ids, |tenant_id| {
+                    let auth_context = auth_context.clone();
+                    let cancellation = cancellation.clone();
+                    async move {
+                        fetch_tenant_subscriptions(tenant_id, &auth_context, &cancellation).await
+                    }
+                })
+                .await
+            })
+            .await?;
         Ok(SubscriptionListOutput(tenants).into_cli_output())
     }
 }
@@ -109,6 +121,7 @@ where
 async fn fetch_tenant_subscriptions(
     tenant_id: AzureTenantId,
     auth_context: &AuthContext,
+    cancellation: &CancellationScope,
 ) -> TenantSubscriptions {
     let aliases = async {
         // An explicit `--tenant default` may select an untracked Azure CLI tenant.
@@ -118,7 +131,8 @@ async fn fetch_tenant_subscriptions(
         list_tracked_tenant_aliases_for(tenant_id).await
     };
     let binding = async {
-        let auth_context = resolve_tenant_auth_context(auth_context, tenant_id).await?;
+        let auth_context =
+            resolve_tenant_auth_context(auth_context, tenant_id, cancellation).await?;
         auth_context.bind_to_azure_tenant(tenant_id)
     }
     .await;
@@ -131,11 +145,11 @@ async fn fetch_tenant_subscriptions(
     let (aliases, details, subscriptions) = tokio::join!(
         aliases,
         async {
-            fetch_azure_tenant_details(&tenant_auth_context)
+            fetch_azure_tenant_details(&tenant_auth_context, cancellation)
                 .await
                 .map(|details| Some(details.display_name))
         },
-        async { fetch_all_subscriptions(&tenant_auth_context).await },
+        async { fetch_all_subscriptions(&tenant_auth_context, cancellation).await },
     );
     tenant_output(tenant_id, aliases, details, subscriptions)
 }

@@ -2,6 +2,7 @@ use cloud_terrastodon_azure::AzureTenantAlias;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::remove_tracked_tenant_aliases;
+use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 use std::io::Write;
 
@@ -18,8 +19,11 @@ pub struct AzureTenantAliasRemoveArgs {
 }
 
 impl AzureTenantAliasRemoveArgs {
-    pub async fn invoke(self) -> Result<()> {
-        let tenant_id = self.tenant.resolve().await?;
+    pub async fn invoke(
+        self,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let tenant_id = self.tenant.resolve(cancellation).await?;
         let aliases = remove_tracked_tenant_aliases(tenant_id, &self.aliases).await?;
 
         let stdout = std::io::stdout();

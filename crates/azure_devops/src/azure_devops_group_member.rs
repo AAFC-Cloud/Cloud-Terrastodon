@@ -3,6 +3,7 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsDescriptor;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsGroupMember;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
@@ -17,6 +18,9 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone, facet::Facet)]
 pub struct AzureDevOpsGroupMembersListRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub group_id: Cow<'a, AzureDevOpsDescriptor>,
 }
@@ -24,8 +28,10 @@ pub struct AzureDevOpsGroupMembersListRequest<'a> {
 pub fn fetch_azure_devops_group_members<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     group_id: &'a AzureDevOpsDescriptor,
+    cancellation: &CancellationScope,
 ) -> AzureDevOpsGroupMembersListRequest<'a> {
     AzureDevOpsGroupMembersListRequest {
+        cancellation: cancellation.clone(),
         org_url: Cow::Borrowed(org_url),
         group_id: Cow::Borrowed(group_id),
     }
@@ -34,6 +40,7 @@ pub fn fetch_azure_devops_group_members<'a>(
 impl<'a> Arbitrary<'a> for AzureDevOpsGroupMembersListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: CancellationScope::arbitrary(u)?,
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             group_id: Cow::Owned(AzureDevOpsDescriptor::arbitrary(u)?),
         })
@@ -60,6 +67,7 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupMembers
 
     async fn run(self) -> eyre::Result<Self::Output> {
         let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
+        cmd.cancellation_safe();
         let org = self.org_url.to_string();
         let gid = self.group_id.to_string();
         cmd.args([
@@ -76,7 +84,7 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupMembers
             "json",
         ]);
         cmd.cache(self.cache_key());
-        cmd.run().await
+        cmd.run(&self.cancellation).await
     }
 }
 
@@ -102,6 +110,9 @@ impl Deref for AzureDevOpsGroupMembersV2Response {
 
 #[derive(Debug, Clone, facet::Facet)]
 pub struct AzureDevOpsGroupMembersV2Request<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub group_id: Cow<'a, AzureDevOpsDescriptor>,
     pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
@@ -111,8 +122,10 @@ pub fn fetch_azure_devops_group_members_v2<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     group_id: &'a AzureDevOpsDescriptor,
     auth_context: &'a AzureDevOpsAuthContext,
+    cancellation: &CancellationScope,
 ) -> AzureDevOpsGroupMembersV2Request<'a> {
     AzureDevOpsGroupMembersV2Request {
+        cancellation: cancellation.clone(),
         org_url: Cow::Borrowed(org_url),
         group_id: Cow::Borrowed(group_id),
         auth_context: Cow::Borrowed(auth_context),
@@ -122,6 +135,7 @@ pub fn fetch_azure_devops_group_members_v2<'a>(
 impl<'a> Arbitrary<'a> for AzureDevOpsGroupMembersV2Request<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: CancellationScope::arbitrary(u)?,
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             group_id: Cow::Owned(AzureDevOpsDescriptor::arbitrary(u)?),
             auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
@@ -152,7 +166,8 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupMembers
             organization = organization,
             subject_descriptor = subject_descriptor
         );
-        let request = RestRequest::new(Method::GET, url)?.cache(self.cache_key());
+        let request =
+            RestRequest::new(Method::GET, url, &self.cancellation)?.cache(self.cache_key());
         let response = request
             .azure_devops_auth_context(self.auth_context.as_ref())?
             .receive_raw()
@@ -190,6 +205,7 @@ mod test {
     use cloud_terrastodon_azure_devops_types::AzureDevOpsDescriptor;
     use cloud_terrastodon_azure_devops_types::AzureDevOpsGroupMember;
     use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_credentials::AuthContext;
     use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
     use eyre::bail;
@@ -229,56 +245,74 @@ mod test {
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        let org_url = get_default_organization_url().await?;
-        let auth_context = AuthContext::explicit_azure_cli();
-        let azure_devops_auth_context = AzureDevOpsAuthContext::new(&auth_context)?;
-        let projects =
-            fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context).await?;
-        for project in &projects {
-            let groups = fetch_azure_devops_groups_for_project(
-                &org_url,
-                &project.name,
-                &azure_devops_auth_context,
-            )
-            .await?;
-            for group in &groups {
-                let members = fetch_azure_devops_group_members(&org_url, &group.descriptor).await?;
-                if !members.is_empty() {
-                    assert!(
-                        members.into_iter().all(|(descriptor, member)| {
-                            descriptor == member.descriptor && !member.display_name.is_empty()
-                        }),
-                        "Expected Azure DevOps group members to include matching descriptors and display names"
-                    );
-                    return Ok(());
+        CancellationToken::new()
+            .with_async_scope(|cancellation| async move {
+                let org_url = get_default_organization_url(&cancellation).await?;
+                let auth_context = AuthContext::explicit_azure_cli();
+                let azure_devops_auth_context = AzureDevOpsAuthContext::new(&auth_context)?;
+                let projects =
+                    fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context, &cancellation)
+                        .await?;
+                for project in &projects {
+                    let groups = fetch_azure_devops_groups_for_project(
+                        &org_url,
+                        &project.name,
+                        &azure_devops_auth_context,
+                        &cancellation,
+                    )
+                    .await?;
+                    for group in &groups {
+                        let members =
+                            fetch_azure_devops_group_members(&org_url, &group.descriptor, &cancellation)
+                                .await?;
+                        if !members.is_empty() {
+                            assert!(
+                                members.into_iter().all(|(descriptor, member)| {
+                                    descriptor == member.descriptor && !member.display_name.is_empty()
+                                }),
+                                "Expected Azure DevOps group members to include matching descriptors and display names"
+                            );
+                            return Ok(());
+                        }
+                    }
                 }
-            }
-        }
-        bail!("No Azure DevOps group with members found in any project");
+                bail!("No Azure DevOps group with members found in any project");
+
+            })
+            .await
     }
 
     #[tokio::test]
     #[ignore]
     pub async fn it_works_v2() -> eyre::Result<()> {
-        #[derive(facet::Facet)]
-        struct MembershipsResponse {
-            #[facet(default)]
-            value: Option<RawJson<'static>>,
-            #[facet(default)]
-            count: Option<usize>,
-        }
+        CancellationToken::new()
+            .with_async_scope(|cancellation| async move {
+                #[derive(facet::Facet)]
+                struct MembershipsResponse {
+                    #[facet(default)]
+                    value: Option<RawJson<'static>>,
+                    #[facet(default)]
+                    count: Option<usize>,
+                }
 
-        let org = AzureDevOpsOrganizationUrl::from_str("https://dev.azure.com/aafc/")?;
-        let desc = AzureDevOpsDescriptor::AzureDevOpsGroup("vssgp.redacted".to_string());
-        let auth_context = AuthContext::explicit_azure_cli();
-        let azure_devops_auth_context = AzureDevOpsAuthContext::new(&auth_context)?;
-        let resp =
-            fetch_azure_devops_group_members_v2(&org, &desc, &azure_devops_auth_context).await?;
-        let resp: MembershipsResponse = facet_json::from_str(resp.as_str())?;
-        assert!(
-            resp.value.is_some() || resp.count.is_some(),
-            "Expected Azure DevOps group memberships V2 response payload"
-        );
-        Ok(())
+                let org = AzureDevOpsOrganizationUrl::from_str("https://dev.azure.com/aafc/")?;
+                let desc = AzureDevOpsDescriptor::AzureDevOpsGroup("vssgp.redacted".to_string());
+                let auth_context = AuthContext::explicit_azure_cli();
+                let azure_devops_auth_context = AzureDevOpsAuthContext::new(&auth_context)?;
+                let resp = fetch_azure_devops_group_members_v2(
+                    &org,
+                    &desc,
+                    &azure_devops_auth_context,
+                    &cancellation,
+                )
+                .await?;
+                let resp: MembershipsResponse = facet_json::from_str(resp.as_str())?;
+                assert!(
+                    resp.value.is_some() || resp.count.is_some(),
+                    "Expected Azure DevOps group memberships V2 response payload"
+                );
+                Ok(())
+            })
+            .await
     }
 }

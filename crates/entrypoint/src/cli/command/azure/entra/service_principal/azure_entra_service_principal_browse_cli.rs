@@ -1,6 +1,7 @@
 use crate::interactive::browse_service_principals;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -13,8 +14,15 @@ pub struct AzureEntraSpBrowseArgs {
 }
 
 impl AzureEntraSpBrowseArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        let auth_context = self.tenant.bind_auth_context(auth_context).await?;
-        browse_service_principals(&auth_context).await
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let auth_context = self
+            .tenant
+            .bind_auth_context(auth_context, cancellation)
+            .await?;
+        browse_service_principals(&auth_context, cancellation).await
     }
 }

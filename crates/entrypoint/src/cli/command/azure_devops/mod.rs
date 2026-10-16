@@ -15,6 +15,7 @@ pub mod work_item;
 
 use crate::cli::azure_devops::azure_devops_command_cli::AzureDevOpsCommand;
 use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -26,7 +27,11 @@ pub struct AzureDevOpsArgs {
 }
 
 impl AzureDevOpsArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<CliOutput> {
-        self.command.invoke(auth_context).await
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<CliOutput> {
+        self.command.invoke(auth_context, cancellation).await
     }
 }

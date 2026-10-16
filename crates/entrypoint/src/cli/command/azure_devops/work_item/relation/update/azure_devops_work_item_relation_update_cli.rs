@@ -1,4 +1,5 @@
 use crate::cli::azure_devops::work_item::relation::AzureDevOpsWorkItemRelationWriteArgs;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -9,7 +10,11 @@ pub struct AzureDevOpsWorkItemRelationUpdateArgs {
 }
 
 impl AzureDevOpsWorkItemRelationUpdateArgs {
-    pub async fn invoke(self, auth: &AuthContext) -> Result<()> {
-        self.args.invoke(auth, false).await
+    pub async fn invoke(
+        self,
+        auth: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        self.args.invoke(auth, false, cancellation).await
     }
 }

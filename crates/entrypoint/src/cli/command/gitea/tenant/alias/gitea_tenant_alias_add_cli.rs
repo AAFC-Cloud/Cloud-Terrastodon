@@ -1,3 +1,4 @@
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_gitea::GiteaTenantAlias;
 use cloud_terrastodon_gitea::GiteaTenantArgument;
 use cloud_terrastodon_gitea::GiteaTenantArgumentExt;
@@ -17,8 +18,11 @@ pub struct GiteaTenantAliasAddArgs {
 }
 
 impl GiteaTenantAliasAddArgs {
-    pub async fn invoke(self) -> Result<()> {
-        let tenant_url = self.tenant.resolve().await?;
+    pub async fn invoke(
+        self,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let tenant_url = self.tenant.resolve(cancellation).await?;
         let aliases = add_tracked_tenant_aliases(&tenant_url, &self.aliases).await?;
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();

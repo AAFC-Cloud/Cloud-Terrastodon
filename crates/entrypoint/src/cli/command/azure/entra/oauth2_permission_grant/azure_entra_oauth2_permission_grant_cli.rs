@@ -3,6 +3,7 @@ use super::AzureEntraOAuth2PermissionGrantClaimArgs;
 use super::AzureEntraOAuth2PermissionGrantCreateArgs;
 use super::AzureEntraOAuth2PermissionGrantListArgs;
 use super::AzureEntraOAuth2PermissionGrantUpdateArgs;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -23,13 +24,27 @@ pub enum AzureEntraOAuth2PermissionGrantCommand {
 }
 
 impl AzureEntraOAuth2PermissionGrantCommand {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self {
-            AzureEntraOAuth2PermissionGrantCommand::List(args) => args.invoke(auth_context).await,
-            AzureEntraOAuth2PermissionGrantCommand::Create(args) => args.invoke(auth_context).await,
-            AzureEntraOAuth2PermissionGrantCommand::Update(args) => args.invoke(auth_context).await,
-            AzureEntraOAuth2PermissionGrantCommand::Browse(args) => args.invoke(auth_context).await,
-            AzureEntraOAuth2PermissionGrantCommand::Claim(args) => args.invoke(auth_context).await,
+            AzureEntraOAuth2PermissionGrantCommand::List(args) => {
+                args.invoke(auth_context, cancellation).await
+            }
+            AzureEntraOAuth2PermissionGrantCommand::Create(args) => {
+                args.invoke(auth_context, cancellation).await
+            }
+            AzureEntraOAuth2PermissionGrantCommand::Update(args) => {
+                args.invoke(auth_context, cancellation).await
+            }
+            AzureEntraOAuth2PermissionGrantCommand::Browse(args) => {
+                args.invoke(auth_context, cancellation).await
+            }
+            AzureEntraOAuth2PermissionGrantCommand::Claim(args) => {
+                args.invoke(auth_context, cancellation).await
+            }
         }
     }
 }

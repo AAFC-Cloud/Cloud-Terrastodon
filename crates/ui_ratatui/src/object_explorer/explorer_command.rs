@@ -214,6 +214,9 @@ pub(crate) enum ArenaMutationCommand {
 }
 
 pub(crate) enum ArenaReadCommand {
+    PendingInvocations {
+        response: oneshot::Sender<ExplorerCommandResponse<usize>>,
+    },
     ResolveJson {
         address: ValueAddress,
         response: oneshot::Sender<ExplorerCommandResponse<String>>,
@@ -490,6 +493,28 @@ impl ExplorerHandle {
         ))
         .await?;
         Self::receive(receiver).await
+    }
+
+    pub(crate) async fn pending_invocations(&self) -> Result<usize, ExplorerHandleError> {
+        let (response, receiver) = oneshot::channel();
+        self.send(ExplorerCommand::Read(
+            ArenaReadCommand::PendingInvocations { response },
+        ))
+        .await?;
+        Self::receive(receiver).await
+    }
+
+    /// Settle pending invocation ownership after requesting cancellation.
+    /// The owning UI must keep the engine future polled during this wait so
+    /// deferred work can finish its query sessions and release its leases.
+    pub(crate) async fn finish_pending_invocations(&self) -> Result<(), ExplorerHandleError> {
+        loop {
+            self.poll_invocations().await?;
+            if self.pending_invocations().await? == 0 {
+                return Ok(());
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
     }
 
     pub(crate) async fn start_production(

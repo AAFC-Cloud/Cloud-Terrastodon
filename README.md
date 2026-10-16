@@ -93,13 +93,17 @@ to purge the cache.
 
 ## Development
 
-The prepared 0.37.0 release depends on TeamDman's independent Facet and Figue
+The published 0.37.0 release depends on TeamDman's independent Facet and Figue
 forks: `teamy-facet-* 0.50.0-rc.7` and `teamy-figue` /
 `teamy-figue-attrs 6.0.0-rc.1`. These are separate from the official upstream
 packages. Rust imports retain names such as `facet` and `figue` through
-dependency aliases. Local builds use sibling `facet`, `facet-format`, and
-`figue` clones on `teamy-main`; the exact Teamy versions must be published
-before installing this release from crates.io. See
+dependency aliases. Workspace builds pin Teamy Figue and its attributes to
+`6.0.0-rc.2` from crates.io, retaining the Facet versions above. The workspace
+uses the sibling `../teamy-cancellation` checkout for its new execution-scope API,
+with `async`, `deferral`, `facet`, and `arbitrary` enabled. Clone that repository
+alongside this one for development. The scoped API is not in published
+`teamy-cancellation 0.4.0`; a new cancellation release is required before publishing
+this workspace. See
 [the dependency release guide](docs/UPDATING_FACET.md).
 
 For a small CLI with your own arguments and subcommands, see

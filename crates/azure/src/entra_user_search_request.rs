@@ -4,6 +4,7 @@ use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_types::EntraUser;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Result;
@@ -18,6 +19,9 @@ const USER_SEARCH_CACHE_DURATION: Duration = Duration::from_secs(60);
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Facet)]
 pub struct EntraUserSearchRequest<'a> {
+    #[facet(skip_serializing)]
+    pub cancellation: CancellationScope,
+
     pub search_term: String,
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
@@ -25,6 +29,7 @@ pub struct EntraUserSearchRequest<'a> {
 impl<'a> Arbitrary<'a> for EntraUserSearchRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
+            cancellation: Arbitrary::arbitrary(u)?,
             search_term: Arbitrary::arbitrary(u)?,
             auth_context: Cow::Owned(Arbitrary::arbitrary(u)?),
         })
@@ -34,8 +39,10 @@ impl<'a> Arbitrary<'a> for EntraUserSearchRequest<'static> {
 pub fn search_entra_users<'a>(
     search_term: impl Into<String>,
     auth_context: &'a AzureTenantAuthContext,
+    cancellation: &CancellationScope,
 ) -> EntraUserSearchRequest<'a> {
     EntraUserSearchRequest {
+        cancellation: cancellation.clone(),
         search_term: search_term.into(),
         auth_context: Cow::Borrowed(auth_context),
     }
@@ -94,8 +101,9 @@ impl CacheableCommand for EntraUserSearchRequest<'_> {
             self.url(),
             Some(self.cache_key()),
             self.auth_context.as_ref(),
+            &self.cancellation,
         )
-        .fetch_all()
+        .fetch_all(&self.cancellation)
         .await?;
         debug!(tenant_id = %self.auth_context.tenant_id, count = users.len(), "Found Entra users");
         Ok(users)
@@ -117,6 +125,7 @@ mod tests {
     use crate::fetch_current_user;
     use crate::get_test_tenant_id;
     use cloud_terrastodon_azure_types::AzureTenantId;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_credentials::AuthContext;
 
     fn test_auth_context() -> AzureTenantAuthContext {
@@ -129,33 +138,53 @@ mod tests {
 
     #[test]
     fn url_escapes_search_terms_as_odata_query_values() {
-        let auth_context = test_auth_context();
-        let request = search_entra_users("O'Neil & Smith", &auth_context);
+        CancellationToken::new()
+            .with_scope(|cancellation| {
+                let auth_context = test_auth_context();
+                let request = search_entra_users("O'Neil & Smith", &auth_context, &cancellation);
 
-        assert!(request.url().contains("O%27%27Neil%20%26%20Smith"));
+                assert!(request.url().contains("O%27%27Neil%20%26%20Smith"));
+                Ok::<_, eyre::Error>(())
+            })
+            .expect("uncancelled test scope");
     }
 
     #[test]
     fn paginated_search_cache_expires() {
-        let auth_context = test_auth_context();
-        let request = search_entra_users("Smith", &auth_context);
+        CancellationToken::new()
+            .with_scope(|cancellation| {
+                let auth_context = test_auth_context();
+                let request = search_entra_users("Smith", &auth_context, &cancellation);
 
-        assert_eq!(request.cache_key().valid_for, Duration::from_secs(60));
+                assert_eq!(request.cache_key().valid_for, Duration::from_secs(60));
+                Ok::<_, eyre::Error>(())
+            })
+            .expect("uncancelled test scope");
     }
 
     #[tokio::test]
     async fn it_finds_the_current_user_by_user_principal_name() -> Result<()> {
-        let current_user = fetch_current_user().await?;
-        let auth_context = AuthContext::explicit_azure_cli();
-        let auth_context = auth_context.bind_to_azure_tenant(get_test_tenant_id().await?)?;
-        let users = search_entra_users(&current_user.user_principal_name, &auth_context).await?;
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let current_user = fetch_current_user(&cancellation).await?;
+                let auth_context = AuthContext::explicit_azure_cli();
+                let auth_context =
+                    auth_context.bind_to_azure_tenant(get_test_tenant_id(&cancellation).await?)?;
+                let users = search_entra_users(
+                    &current_user.user_principal_name,
+                    &auth_context,
+                    &cancellation,
+                )
+                .await?;
 
-        assert!(users.iter().any(|user| {
-            user.id == current_user.id
-                && user
-                    .user_principal_name
-                    .eq_ignore_ascii_case(&current_user.user_principal_name)
-        }));
-        Ok(())
+                assert!(users.iter().any(|user| {
+                    user.id == current_user.id
+                        && user
+                            .user_principal_name
+                            .eq_ignore_ascii_case(&current_user.user_principal_name)
+                }));
+                Ok(())
+            })
+            .await
     }
 }

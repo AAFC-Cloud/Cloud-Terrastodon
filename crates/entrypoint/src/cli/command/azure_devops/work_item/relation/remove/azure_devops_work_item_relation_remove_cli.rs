@@ -3,6 +3,7 @@ use cloud_terrastodon_azure::AzureDevOpsTenantArgumentExt;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemRelationChange;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemRelationChangeRequest;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemRelationSelector;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use std::borrow::Cow;
@@ -23,19 +24,28 @@ pub struct AzureDevOpsWorkItemRelationRemoveArgs {
 }
 
 impl AzureDevOpsWorkItemRelationRemoveArgs {
-    pub async fn invoke(self, auth: &AuthContext) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         let target = self
             .relation
             .target
             .into_relation_url(&self.relation.org)
             .into_work_item()?;
-        let auth_context = self.relation.tenant.bind_auth_context(auth).await?;
+        let auth_context = self
+            .relation
+            .tenant
+            .bind_auth_context(auth, cancellation)
+            .await?;
         let change =
             AzureDevOpsWorkItemRelationChange::Remove(AzureDevOpsWorkItemRelationSelector {
                 rel: self.relation.relation_type,
                 target,
             });
         let item = AzureDevOpsWorkItemRelationChangeRequest {
+            cancellation: cancellation.clone(),
             org_url: Cow::Owned(self.relation.org),
             project: Some(self.relation.project),
             auth_context: Cow::Owned(auth_context),

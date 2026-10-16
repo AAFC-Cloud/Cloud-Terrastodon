@@ -1,5 +1,6 @@
 use crate::cli::azure_devops::team::list::AzureDevOpsTeamListArgs;
 use crate::cli::azure_devops::team::show::AzureDevOpsTeamShowArgs;
+use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 
 /// Azure DevOps team-related commands.
@@ -19,10 +20,13 @@ pub enum AzureDevOpsTeamCommand {
 }
 
 impl AzureDevOpsTeamArgs {
-    pub async fn invoke(self) -> Result<()> {
+    pub async fn invoke(
+        self,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self.command {
-            AzureDevOpsTeamCommand::List(args) => args.invoke().await?,
-            AzureDevOpsTeamCommand::Show(args) => args.invoke().await?,
+            AzureDevOpsTeamCommand::List(args) => args.invoke(cancellation).await?,
+            AzureDevOpsTeamCommand::Show(args) => args.invoke(cancellation).await?,
         }
 
         Ok(())

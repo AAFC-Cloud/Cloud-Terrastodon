@@ -1,5 +1,6 @@
 use crate::noninteractive::dump_azure_devops;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
@@ -12,8 +13,12 @@ pub struct DumpAzureDevOpsArgs {
 }
 
 impl DumpAzureDevOpsArgs {
-    pub async fn invoke(self, auth_context: &AuthContext) -> Result<()> {
-        dump_azure_devops(self.org, auth_context).await?;
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        dump_azure_devops(self.org, auth_context, cancellation).await?;
         Ok(())
     }
 }
