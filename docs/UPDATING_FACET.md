@@ -167,12 +167,21 @@ Archive validation checks library builds and an independent consumer using
 the normalized registry graph. Do not claim registry installation works until
 the exact versions have actually been published.
 
-Cloud Terrastodon pins published `teamy-cancellation =0.4.0` from crates.io
-with `async`, `deferral`, `facet`, and `arbitrary` enabled. Its optional Facet/Figue
-features use the same exact published Teamy registry package versions as this
-workspace; check those features in its own root when changing the dependency graph.
-`teamy-mft` is no longer a dependency and
-does not require synchronization.
+Cloud Terrastodon pins `teamy-cancellation =0.5.0` from crates.io with `async`,
+`deferral`, `facet`, and `arbitrary` enabled. This breaking release separates raw
+`CancellationToken` signals from linked `CancellationScope` execution ownership.
+Use `cancellable_scope` for automatic poll-boundary checks, `with_async_scope` for
+handler-owned cleanup, and bounded `deferred` or `with_deferral` callbacks for
+protected work. No sibling cancellation checkout is required.
+
+Its optional Facet feature uses the same exact `teamy-facet 0.50.0-rc.7` identity
+as this workspace. Its optional Figue feature currently pins
+`teamy-figue 6.0.0-rc.1`, while Cloud Terrastodon pins `6.0.0-rc.2`; Cloud
+Terrastodon does not enable cancellation's optional Figue feature. Check those
+features in the cancellation crate's own root when changing the dependency graph.
+Publish the exact cancellation version before releasing packages that require it,
+and verify the registry dependency without a path or patch override. `teamy-mft` is no
+longer a dependency and does not require synchronization.
 
 ## Update procedure
 

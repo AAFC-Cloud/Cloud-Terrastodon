@@ -50,12 +50,10 @@ Ces paquets sont distincts des paquets officiels. Les noms Rust `facet` et
 `figue` sont conservés grâce aux alias de dépendances. Les compilations de
 l'espace de travail utilisent Teamy Figue et ses attributs en version exacte
 `6.0.0-rc.2` sur crates.io, avec les versions Facet indiquées ci-dessus.
-L'espace de travail utilise aussi le dépôt voisin `../teamy-cancellation` pour
-sa nouvelle API de portées d'exécution, avec `async`, `deferral`, `facet` et
-`arbitrary` activés. Clonez ce dépôt à côté de celui-ci pour le développement.
-Cette API ne fait pas partie de la version `teamy-cancellation 0.4.0` publiée :
-une nouvelle version de cette dépendance doit précéder la publication de cet
-espace de travail.
+L'espace de travail utilise la version exacte `teamy-cancellation =0.5.0` de
+crates.io, avec `async`, `deferral`, `facet` et `arbitrary` activés. Son API de
+portées d'exécution liées, `CancellationScope`, remplace le modèle de report
+lié aux jetons. Aucun dépôt voisin de cette dépendance n'est nécessaire.
 Voir le [guide des dépendances](docs/UPDATING_FACET.md) en anglais.
 
 ### Dépendances

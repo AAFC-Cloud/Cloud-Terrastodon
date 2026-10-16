@@ -21,11 +21,11 @@ cargo +1.96.0 test --offline --locked -p cloud-terrastodon-standalone-cli --bin 
 This package belongs to the Cloud Terrastodon workspace and shares its root
 `Cargo.lock`. It uses the local Cloud Terrastodon crate and the workspace's
 exact published Teamy Facet/Figue dependencies from crates.io. The workspace also
-uses the sibling `../teamy-cancellation` development checkout with `async`,
-`deferral`, `facet`, and `arbitrary` enabled. Its new execution-scope API is not in
-published `teamy-cancellation 0.4.0`. The `app-auth` and `azure` features provide shared
-startup, authentication, and Azure SDK operations. `default-features = false` opts out
-of the full Cloud Terrastodon command tree. Publication is deliberately disabled.
+pins `teamy-cancellation =0.5.0` from crates.io with `async`, `deferral`, `facet`,
+and `arbitrary` enabled for the linked `CancellationScope` API. No sibling
+cancellation checkout is required. The `app-auth` and `azure` features provide
+shared startup, authentication, and Azure SDK operations. `default-features = false`
+opts out of the full Cloud Terrastodon command tree. Publication is deliberately disabled.
 
 ## Audit resource groups
 

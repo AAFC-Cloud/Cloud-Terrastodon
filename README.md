@@ -99,11 +99,9 @@ forks: `teamy-facet-* 0.50.0-rc.7` and `teamy-figue` /
 packages. Rust imports retain names such as `facet` and `figue` through
 dependency aliases. Workspace builds pin Teamy Figue and its attributes to
 `6.0.0-rc.2` from crates.io, retaining the Facet versions above. The workspace
-uses the sibling `../teamy-cancellation` checkout for its new execution-scope API,
-with `async`, `deferral`, `facet`, and `arbitrary` enabled. Clone that repository
-alongside this one for development. The scoped API is not in published
-`teamy-cancellation 0.4.0`; a new cancellation release is required before publishing
-this workspace. See
+pins `teamy-cancellation =0.5.0` from crates.io with `async`, `deferral`, `facet`,
+and `arbitrary` enabled. Its linked `CancellationScope` API replaces the previous
+token-bound deferral model; no sibling cancellation checkout is required. See
 [the dependency release guide](docs/UPDATING_FACET.md).
 
 For a small CLI with your own arguments and subcommands, see

@@ -72,7 +72,8 @@ files even through the non-exiting parser.
 The workspace uses the independent `teamy-facet-* 0.50.0-rc.7` and
 `teamy-figue 6.0.0-rc.2` packages with canonical Rust aliases. Workspace builds
 resolve these exact versions from crates.io; consumers need no root patch
-block. Cancellation currently uses the sibling `../teamy-cancellation`
-development checkout with `async`, `deferral`, `facet`, and `arbitrary` enabled.
-Its execution-scope API is not in published `teamy-cancellation 0.4.0`. See
+block. Cancellation uses the exact registry dependency
+`teamy-cancellation =0.5.0` with `async`, `deferral`, `facet`, and `arbitrary`
+enabled, supplying the linked `CancellationScope` API. No sibling cancellation
+checkout is required. See
 [`docs/UPDATING_FACET.md`](../../docs/UPDATING_FACET.md).

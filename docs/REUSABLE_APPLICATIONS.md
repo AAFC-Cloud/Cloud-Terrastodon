@@ -31,12 +31,11 @@ or root patch block is needed.
 
 The workspace and standalone example resolve the exact published Teamy Facet
 and Figue versions from crates.io. The example still uses the local Cloud
-Terrastodon facade and the root lockfile. Cancellation currently uses the sibling
-`../teamy-cancellation` development checkout with `async`, `deferral`, `facet`, and
-`arbitrary` enabled. Clone that repository alongside Cloud Terrastodon. Its new
-execution-scope API is not available in published `teamy-cancellation 0.4.0`;
-publishing this workspace requires publishing the updated cancellation crate first.
-The Facet/Figue dependencies remain exact published registry packages. See
+Terrastodon facade and the root lockfile. Cancellation pins
+`teamy-cancellation =0.5.0` from crates.io with `async`, `deferral`, `facet`, and
+`arbitrary` enabled for the linked `CancellationScope` API. No sibling cancellation
+checkout is required. The Facet/Figue dependencies remain exact published registry
+packages. See
 [the dependency release guide](UPDATING_FACET.md) for the workspace's dependency
 setup.
 

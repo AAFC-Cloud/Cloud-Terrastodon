@@ -1,7 +1,8 @@
 # Unreleased
 
-- Require caller-supplied cancellation tokens on SDK requests and fetch helpers, including tenant resolution, pagination, and command/REST execution.
-- Add awaitable cancellation and explained `CancellationDeferral` scopes through `teamy-cancellation`; required mutation, cache-invalidation, and copy-journal completion can finish before cancellation stops subsequent work.
+- Require caller-supplied `CancellationScope` values on SDK requests and fetch helpers, including tenant resolution, pagination, and command/REST execution.
+- Adopt `teamy-cancellation =0.5.0` from crates.io with linked `cancellable_scope` and `with_async_scope` execution and bounded `deferred`/`with_deferral` protection; deeply nested mutation, cache-invalidation, and copy-journal completion retain their owning scopes while independent work remains cancellable.
+- Enable automatic cooperative cancellation by default in `App`, with `automatic_cancellation(false)` for handlers that own asynchronous cleanup; the main Cloud Terrastodon CLI selects that mode to preserve interactive UI restoration and draining.
 - Update the standalone CLI example to audit resource group names and share the parent workspace's dependencies.
 - Supply Figue's builtin flags inside `App` so consumer CLI schemas only declare their application arguments.
 

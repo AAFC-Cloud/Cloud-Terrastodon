@@ -30,15 +30,15 @@ alias, or `default`. When omitted or set to `default`, it uses the authenticatio
 context's known tenant, falling back to Azure CLI's active tenant when none is
 known. The selector binds through `context.auth` before the resource-group fetch.
 Running with no arguments also performs the list using these shared defaults.
-The handler wraps its body in
-`context.cancellation.cancellable_scope(|cancellation| async move { ... })`
-and passes the supplied child scope to tenant binding and the SDK fetch. The wrapper
-observes cancellation at poll boundaries; it does not intercept every internal
-`.await`. The SDK also uses cancellable read boundaries and page checkpoints.
+`App` automatically wraps the handler in a cancellable scope. The handler passes
+`&context.cancellation` directly to tenant binding and the SDK fetch, without an
+extra wrapper. Automatic checks occur at poll boundaries; they do not intercept
+every internal `.await`. The SDK also uses cancellable read boundaries and page
+checkpoints.
 
 Before each `println!`, the loop directly awaits `tokio::task::yield_now()`.
-That suspension gives the outer wrapper a chance to observe cancellation before
-printing the row. An already-ready no-op await, such as `async {}.await`, does
+That suspension gives the handler's wrapper a chance to observe cancellation
+before printing the row. An already-ready no-op await, such as `async {}.await`, does
 not suspend; a zero-duration sleep can also be ready immediately. Neither is a
 reliable replacement. Tokio may poll the same task again immediately, so the
 yield does not promise that another task runs first. See the pinned
@@ -73,9 +73,9 @@ native paths return a serialization error instead of being converted lossily.
 `Cargo.lock`. It uses the local Cloud Terrastodon facade through `../..` and
 inherits the matching `facet` dependency from the workspace. Facet and Figue
 resolve from crates.io as the exact published Teamy versions. The workspace also
-uses the sibling `../teamy-cancellation` development checkout with `async`,
-`deferral`, `facet`, and `arbitrary` enabled. Its new execution-scope API is not
-available in published `teamy-cancellation 0.4.0`.
+pins `teamy-cancellation =0.5.0` from crates.io with `async`, `deferral`, `facet`,
+and `arbitrary` enabled for the linked `CancellationScope` API. No sibling
+cancellation checkout is required.
 Its single `audit` command lives in `src/main.rs`.
 It enables `app-auth` and `azure` with default features disabled, reusing the
 shared runner's authentication context and the existing Azure SDK helpers.

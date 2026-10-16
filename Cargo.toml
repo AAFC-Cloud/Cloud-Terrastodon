@@ -61,7 +61,7 @@ hcl-primitives = "0.1.5"
 uuid = { version = "1.8.0", features = ["v4", "arbitrary"] }
 chrono = { version = "0.4.38", features = ["arbitrary"] }
 rand = "0.10.1"
-teamy-cancellation = { version = "=0.4.0", path = "../teamy-cancellation", features = ["async", "deferral", "facet", "arbitrary"] }
+teamy-cancellation = { version = "=0.5.0", features = ["async", "deferral", "facet", "arbitrary"] }
 test-log = { version = "0.2.16", features = ["trace"] }
 iso8601-duration = { version = "0.2.0", features = ["chrono"] }
 humantime = "2.1.0"
