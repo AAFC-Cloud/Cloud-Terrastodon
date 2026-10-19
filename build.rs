@@ -1,7 +1,3 @@
-#![allow(
-    clippy::negative_feature_names,
-    reason = "Vendored dependency feature names use the established no-backend spelling"
-)]
 use std::process::Command;
 use std::time::SystemTime;
 use std::time::UNIX_EPOCH;

@@ -388,9 +388,3 @@ unnecessary_safety_doc = "warn"
 unneeded_field_pattern = "warn"
 unused_result_ok = "warn"
 # module_inception = "allow"
-
-
-
-
-[workspace.lints.clippy]
-negative_feature_names = "allow"
