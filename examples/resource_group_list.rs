@@ -1,7 +1,3 @@
-#![allow(
-    clippy::disallowed_script_idents,
-    reason = "Facet's derive generates Unicode identifiers in sibling items, outside the struct's lint scope"
-)]
 // Prints each Azure Resource Group name using the re-exported Azure module.
 
 use cloud_terrastodon::app::App;

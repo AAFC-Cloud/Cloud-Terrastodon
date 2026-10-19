@@ -1,3 +1,7 @@
+# Facet prefixes generated helper identifiers with 𝟋 (U+1D7CB, Common script).
+# Its generated 'ʄ lifetime (U+0284) is already covered by Latin.
+allowed-scripts = ["Latin", "Common"]
+
 allowed-duplicate-crates = [
     "bitflags",
     "compact_str",
