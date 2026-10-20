@@ -18,6 +18,7 @@ use eyre::Context;
 use eyre::ContextCompat;
 use eyre::Result;
 use reqwest::Url;
+use std::io::Write;
 
 /// Arguments for issuing raw REST calls with Cloud Terrastodon's auth helpers.
 #[derive(facet::Facet, Debug, Clone)]
@@ -132,18 +133,25 @@ fn response_output(response: SerializableRestResponse) -> CliOutput {
     } else {
         Err(eyre::eyre!(
             "REST call failed with status {}: {}",
-            response.status,
+            response.status.as_u16(),
             response.reason_phrase.as_deref().unwrap_or("Unknown error")
         ))
     };
-    CliOutput::facet_with_text(response, render_response_body).with_result(status_result)
+    CliOutput::facet_with_text(response, write_response_body).with_result(status_result)
 }
 
-fn render_response_body(response: &SerializableRestResponse) -> Result<String> {
-    Ok(match &response.body {
-        RestResponseBody::Json(body) => body.as_str().to_owned(),
-        RestResponseBody::Text(body) => body.clone(),
-    })
+fn write_response_body(
+    response: &SerializableRestResponse,
+    writer: &mut dyn Write,
+    _cancellation: &CancellationScope,
+) -> Result<()> {
+    let body = match &response.body {
+        RestResponseBody::Json(body) => body.as_str(),
+        RestResponseBody::Text(body) => body.as_str(),
+    };
+    writer
+        .write_all(body.as_bytes())
+        .wrap_err("failed to write REST response body")
 }
 
 #[cfg(test)]
@@ -154,6 +162,7 @@ mod test {
     use super::response_output;
     use cloud_terrastodon_app::GlobalArgs;
     use cloud_terrastodon_app::OutputFormat;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_rest::RestResponseBody;
     use cloud_terrastodon_rest::RestResponseHeaders;
     use cloud_terrastodon_rest::parse_response_body;
@@ -174,65 +183,85 @@ mod test {
 
     #[test]
     fn facet_pretty_renders_the_full_response() {
-        let response = SerializableRestResponse::new(
-            StatusCode::OK,
-            &HeaderMap::new(),
-            "synthetic response body".to_owned(),
-        );
-        let mut output = Vec::new();
-        response_output(response)
-            .write_to(Some(OutputFormat::FacetPretty), false, &mut output)
+        CancellationToken::new()
+            .with_scope(|cancellation| {
+                let response = SerializableRestResponse::new(
+                    StatusCode::OK,
+                    &HeaderMap::new(),
+                    "synthetic response body".to_owned(),
+                );
+                let mut output = Vec::new();
+                response_output(response)
+                    .write_to(
+                        Some(OutputFormat::FacetPretty),
+                        false,
+                        &mut output,
+                        &cancellation,
+                    )
+                    .unwrap();
+                let output = String::from_utf8(output).unwrap();
+                assert!(output.contains("status"));
+                assert!(output.contains("200"));
+                assert!(output.contains("synthetic response body"));
+                assert!(output.ends_with('\n'));
+                Ok::<_, eyre::Report>(())
+            })
             .unwrap();
-        let output = String::from_utf8(output).unwrap();
-        assert!(output.contains("status"));
-        assert!(output.contains("200"));
-        assert!(output.contains("synthetic response body"));
-        assert!(output.ends_with('\n'));
     }
 
     #[test]
     fn failed_responses_are_printed_before_returning_http_error_in_all_formats() {
-        for format in [
-            OutputFormat::Text,
-            OutputFormat::Json,
-            OutputFormat::FacetPretty,
-        ] {
-            let response = SerializableRestResponse::new(
-                StatusCode::FORBIDDEN,
-                &HeaderMap::new(),
-                "synthetic access denied".to_owned(),
-            );
-            let mut output = Vec::new();
-            let error = response_output(response)
-                .write_to(Some(format), false, &mut output)
-                .expect_err("a failed REST status must remain a command failure");
-            let output = String::from_utf8(output).unwrap();
-            assert!(output.contains("synthetic access denied"));
-            assert!(error.to_string().contains("403"));
-        }
+        CancellationToken::new()
+            .with_scope(|cancellation| {
+                for format in [
+                    OutputFormat::Text,
+                    OutputFormat::Json,
+                    OutputFormat::FacetPretty,
+                ] {
+                    let response = SerializableRestResponse::new(
+                        StatusCode::FORBIDDEN,
+                        &HeaderMap::new(),
+                        "synthetic access denied".to_owned(),
+                    );
+                    let mut output = Vec::new();
+                    let error = response_output(response)
+                        .write_to(Some(format), false, &mut output, &cancellation)
+                        .expect_err("a failed REST status must remain a command failure");
+                    let output = String::from_utf8(output).unwrap();
+                    assert!(output.contains("synthetic access denied"));
+                    assert!(error.to_string().contains("403"));
+                }
+                Ok::<_, eyre::Report>(())
+            })
+            .unwrap();
     }
 
     #[test]
     fn custom_text_keeps_only_the_body_and_redirected_default_keeps_full_json() {
-        let response = SerializableRestResponse::new(
-            StatusCode::OK,
-            &HeaderMap::new(),
-            "synthetic response body".to_owned(),
-        );
-        let mut text = Vec::new();
-        response_output(response.clone())
-            .write_to(Some(OutputFormat::Text), false, &mut text)
-            .unwrap();
-        assert_eq!(text, b"synthetic response body\n");
+        CancellationToken::new()
+            .with_scope(|cancellation| {
+                let response = SerializableRestResponse::new(
+                    StatusCode::OK,
+                    &HeaderMap::new(),
+                    "synthetic response body".to_owned(),
+                );
+                let mut text = Vec::new();
+                response_output(response.clone())
+                    .write_to(Some(OutputFormat::Text), false, &mut text, &cancellation)
+                    .unwrap();
+                assert_eq!(text, b"synthetic response body\n");
 
-        let mut json = Vec::new();
-        response_output(response)
-            .write_to(None, false, &mut json)
+                let mut json = Vec::new();
+                response_output(response)
+                    .write_to(None, false, &mut json, &cancellation)
+                    .unwrap();
+                let json: serde_json::Value = serde_json::from_slice(&json).unwrap();
+                assert_eq!(json["status"], 200);
+                assert_eq!(json["ok"], true);
+                assert!(json.get("headers").is_some());
+                Ok::<_, eyre::Report>(())
+            })
             .unwrap();
-        let json: serde_json::Value = serde_json::from_slice(&json).unwrap();
-        assert_eq!(json["status"], 200);
-        assert_eq!(json["ok"], true);
-        assert!(json.get("headers").is_some());
     }
 
     #[test]

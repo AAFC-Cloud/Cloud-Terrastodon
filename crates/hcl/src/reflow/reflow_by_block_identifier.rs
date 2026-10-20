@@ -4,6 +4,7 @@ use crate::reflow::HclReflower;
 use eyre::bail;
 use hcl::edit::Decor;
 use hcl::edit::Decorate;
+use hcl::edit::RawString;
 use hcl::edit::expr::Expression;
 use hcl::edit::expr::ForExpr;
 use hcl::edit::expr::Traversal;
@@ -261,31 +262,31 @@ impl CollectedGraph {
         Ok(())
     }
 
-    fn finalize(mut self) -> HashMap<NodeKey, Node> {
-        for pending in self.pending_attachments {
+    fn finalize(mut self) -> eyre::Result<HashMap<NodeKey, Node>> {
+        for pending in mem::take(&mut self.pending_attachments) {
             let Some(target) = self.nodes.get_mut(&pending.target) else {
                 let key = NodeKey::Misc {
-                    path: pending.target.path().clone(),
+                    path: pending.block.sort_key.path.clone(),
                     ordinal: pending.block.sort_key.ordinal,
                 };
-                self.nodes.insert(
-                    key.clone(),
-                    Node {
-                        key,
-                        kind: NodeKind::Misc,
-                        source_path: pending.block.sort_key.path.clone(),
-                        source_location: fallback_location(&pending.block.sort_key.path),
-                        sort_key: pending.block.sort_key,
-                        deps: HashSet::new(),
-                        resource_parent: None,
-                        payload: NodePayload::Structure(Structure::Block(pending.block.block)),
-                    },
-                );
+                self.push_node(Node {
+                    key,
+                    kind: NodeKind::Misc,
+                    source_path: pending.block.sort_key.path.clone(),
+                    source_location: fallback_location(&pending.block.sort_key.path),
+                    sort_key: pending.block.sort_key,
+                    deps: HashSet::new(),
+                    resource_parent: None,
+                    payload: NodePayload::Structure(Structure::Block(pending.block.block)),
+                })?;
                 continue;
             };
 
             let NodePayload::Block(payload) = &mut target.payload else {
-                continue;
+                bail!(
+                    "Cannot attach a Terraform block to {:?}. Reflow aborted to avoid data loss.",
+                    target.key
+                );
             };
 
             match pending.kind {
@@ -309,7 +310,7 @@ impl CollectedGraph {
             }
         }
 
-        self.nodes
+        Ok(self.nodes)
     }
 }
 
@@ -404,12 +405,6 @@ struct Bucket {
     nodes: Vec<NodeKey>,
 }
 
-#[derive(Debug, Clone)]
-struct BucketLayout<'a> {
-    bucket: Bucket,
-    nodes: Vec<&'a Node>,
-}
-
 #[async_trait::async_trait]
 impl HclReflower for ReflowByBlockIdentifier {
     async fn reflow(&mut self, hcl: HclProject) -> eyre::Result<HclProject> {
@@ -441,52 +436,46 @@ impl HclReflower for ReflowByBlockIdentifier {
             }
         }
 
-        let body_decor_fragments = collected.body_decor_fragments.clone();
-        let nodes = collected.finalize();
+        let mut body_decor_fragments = mem::take(&mut collected.body_decor_fragments);
+        let nodes = collected.finalize()?;
         let buckets = if self.mixed {
             collapse_buckets(&nodes)
         } else {
             flat_buckets(&nodes)
         };
 
-        if let Some(single_file_path) = self.single_file_path.as_ref() {
-            let body = render_layout(
-                BucketLayout {
-                    bucket: Bucket {
-                        id: NodeKey::Misc {
-                            path: single_file_path.clone(),
-                            ordinal: 0,
-                        },
-                        nodes: nodes.keys().cloned().collect(),
-                    },
-                    nodes: nodes.values().collect(),
-                },
-                &collected_decor_for_layout(&body_decor_fragments, nodes.values()),
-            );
-            return Ok(HclProject::from([(single_file_path.clone(), body)]));
-        }
+        let layouts = match self.single_file_path.as_ref() {
+            Some(path) => HashMap::from([(path.clone(), nodes.values().collect())]),
+            None => bucket_layouts(&nodes, &buckets),
+        };
 
         let mut rendered = HclProject::new();
-        for layout in bucket_layouts(&nodes, &buckets) {
-            let output_path = bucket_output_path(&layout.nodes);
-            let body = render_layout(
-                layout.clone(),
-                &collected_decor_for_layout(&body_decor_fragments, layout.nodes.iter().copied()),
-            );
-            rendered.insert(output_path, body);
+        let mut source_destinations = HashMap::<PathBuf, PathBuf>::new();
+        for (output_path, layout_nodes) in layouts {
+            for node in &layout_nodes {
+                source_destinations
+                    .entry(node.source_path.clone())
+                    .and_modify(|destination| {
+                        if compare_paths(&output_path, destination).is_lt() {
+                            *destination = output_path.clone();
+                        }
+                    })
+                    .or_insert_with(|| output_path.clone());
+            }
+            rendered.insert(output_path, render_layout(&layout_nodes)?);
         }
 
-        let node_source_paths = nodes
-            .values()
-            .map(|node| node.source_path.clone())
-            .collect::<HashSet<_>>();
+        // Each source's trailing comments belong to exactly one destination,
+        // including comment-only files that share a generated block's filename.
+        body_decor_fragments.sort_by_key(|fragment| fragment.sort_key.clone());
         for fragment in body_decor_fragments {
-            if node_source_paths.contains(&fragment.source_path) {
-                continue;
-            }
-            let mut body = Body::new();
-            body.decorate(fragment.decor);
-            rendered.insert(fragment.source_path, body);
+            let output_path = self
+                .single_file_path
+                .as_ref()
+                .or_else(|| source_destinations.get(&fragment.source_path))
+                .unwrap_or(&fragment.source_path);
+            let body = rendered.entry(output_path.clone()).or_default();
+            append_body_decor(body, &fragment.decor);
         }
 
         Ok(rendered)
@@ -1212,19 +1201,23 @@ fn support_merge_target(
 
 fn bucket_layouts<'a>(
     nodes: &'a HashMap<NodeKey, Node>,
-    buckets: &'a [Bucket],
-) -> Vec<BucketLayout<'a>> {
-    buckets
-        .iter()
-        .map(|bucket| BucketLayout {
-            bucket: bucket.clone(),
-            nodes: bucket
-                .nodes
-                .iter()
-                .filter_map(|key| nodes.get(key))
-                .collect(),
-        })
-        .collect()
+    buckets: &[Bucket],
+) -> HashMap<PathBuf, Vec<&'a Node>> {
+    let mut layouts = HashMap::<PathBuf, Vec<&Node>>::new();
+    for bucket in buckets {
+        let bucket_nodes = bucket
+            .nodes
+            .iter()
+            .map(|key| &nodes[key])
+            .collect::<Vec<_>>();
+        // Distinct logical buckets can retain the same source filename. Combine
+        // them before rendering so no insertion can replace an earlier body.
+        layouts
+            .entry(bucket_output_path(&bucket_nodes))
+            .or_default()
+            .extend(bucket_nodes);
+    }
+    layouts
 }
 
 fn bucket_output_path(nodes: &[&Node]) -> PathBuf {
@@ -1251,40 +1244,43 @@ fn bucket_output_path(nodes: &[&Node]) -> PathBuf {
     })
 }
 
-fn collected_decor_for_layout<'a>(
-    fragments: &[BodyDecorFragment],
-    nodes: impl IntoIterator<Item = &'a Node>,
-) -> Option<Decor> {
-    let source_paths = nodes
-        .into_iter()
-        .map(|node| node.source_path.clone())
-        .collect::<HashSet<_>>();
-    fragments
-        .iter()
-        .filter(|fragment| source_paths.contains(&fragment.source_path))
-        .min_by_key(|fragment| fragment.sort_key.clone())
-        .map(|fragment| fragment.decor.clone())
+fn append_body_decor(body: &mut Body, decor: &Decor) {
+    if let Some(prefix) = decor.prefix() {
+        let combined = join_decor(body.decor().prefix(), prefix);
+        body.decor_mut().set_prefix(combined);
+    }
+    if let Some(suffix) = decor.suffix() {
+        let combined = join_decor(body.decor().suffix(), suffix);
+        body.decor_mut().set_suffix(combined);
+    }
 }
 
-fn render_layout(layout: BucketLayout<'_>, decor: &Option<Decor>) -> Body {
-    let _ = &layout.bucket;
-    let nodes_by_key = layout
-        .nodes
+fn join_decor(previous: Option<&RawString>, next: &RawString) -> String {
+    let mut combined = previous
+        .map(|previous| previous.to_string())
+        .unwrap_or_default();
+    if !combined.is_empty() && !combined.ends_with('\n') {
+        combined.push('\n');
+    }
+    combined.push_str(next);
+    combined
+}
+
+fn render_layout(nodes: &[&Node]) -> eyre::Result<Body> {
+    let nodes_by_key = nodes
         .iter()
         .map(|node| (node.key.clone(), *node))
         .collect::<HashMap<_, _>>();
-    let consumer_map = build_consumer_map(layout.nodes.iter().copied());
+    let consumer_map = build_consumer_map(nodes.iter().copied());
     let attachment_map =
-        build_support_attachment_map(layout.nodes.iter().copied(), &consumer_map, &nodes_by_key);
-    let resource_children = build_resource_children(layout.nodes.iter().copied(), &nodes_by_key);
-    let output_keys = layout
-        .nodes
+        build_support_attachment_map(nodes.iter().copied(), &consumer_map, &nodes_by_key);
+    let resource_children = build_resource_children(nodes.iter().copied(), &nodes_by_key);
+    let output_keys = nodes
         .iter()
         .filter(|node| node.kind == NodeKind::Output)
         .map(|node| node.key.clone())
         .collect::<Vec<_>>();
-    let root_resources = layout
-        .nodes
+    let root_resources = nodes
         .iter()
         .filter(|node| node.kind == NodeKind::Resource)
         .filter(|node| {
@@ -1297,8 +1293,7 @@ fn render_layout(layout: BucketLayout<'_>, decor: &Option<Decor>) -> Body {
 
     let mut body = Body::new();
 
-    let mut fixed_nodes = layout
-        .nodes
+    let mut fixed_nodes = nodes
         .iter()
         .filter(|node| {
             matches!(
@@ -1313,17 +1308,18 @@ fn render_layout(layout: BucketLayout<'_>, decor: &Option<Decor>) -> Body {
             .cmp(&right.kind.fixed_priority())
             .then(left.sort_key.cmp(&right.sort_key))
     });
+    let mut emitted_nodes = HashSet::new();
     for node in fixed_nodes {
         push_non_resource_node(&mut body, node);
+        emitted_nodes.insert(node.key.clone());
     }
 
-    let mut emitted_support = HashSet::new();
     emit_support_group(
         &mut body,
         None,
         &attachment_map,
         &nodes_by_key,
-        &mut emitted_support,
+        &mut emitted_nodes,
     );
 
     let mut root_resources = root_resources;
@@ -1335,7 +1331,7 @@ fn render_layout(layout: BucketLayout<'_>, decor: &Option<Decor>) -> Body {
             &resource_children,
             &attachment_map,
             &nodes_by_key,
-            &mut emitted_support,
+            &mut emitted_nodes,
         );
     }
 
@@ -1347,16 +1343,39 @@ fn render_layout(layout: BucketLayout<'_>, decor: &Option<Decor>) -> Body {
             Some(output.clone()),
             &attachment_map,
             &nodes_by_key,
-            &mut emitted_support,
+            &mut emitted_nodes,
         );
         push_non_resource_node(&mut body, nodes_by_key[&output]);
+        emitted_nodes.insert(output);
     }
 
-    if let Some(decor) = decor {
-        body.decorate(decor.clone());
+    if emitted_nodes.len() != nodes.len() {
+        let mut missing = nodes
+            .iter()
+            .filter(|node| !emitted_nodes.contains(&node.key))
+            .map(|node| format!("{:?} at {}", node.key, node.source_location))
+            .collect::<Vec<_>>();
+        missing.sort();
+        bail!(
+            "Terraform blocks were not emitted: {}. Reflow aborted to avoid data loss.",
+            missing.join(", ")
+        );
     }
 
-    body
+    let expected_structures = nodes
+        .iter()
+        .map(|node| match &node.payload {
+            NodePayload::Block(payload) => 1 + payload.imports.len() + payload.moved.len(),
+            NodePayload::Structure(_) => 1,
+        })
+        .sum::<usize>();
+    if body.len() != expected_structures {
+        bail!(
+            "Terraform output lost structures, possibly due to duplicate top-level attributes. Reflow aborted to avoid data loss."
+        );
+    }
+
+    Ok(body)
 }
 
 fn build_consumer_map<'a>(
@@ -1533,6 +1552,9 @@ fn resource_ancestor_chain(
     let mut chain = Vec::new();
     let mut current = Some(resource.clone());
     while let Some(node_key) = current {
+        if chain.contains(&node_key) {
+            break;
+        }
         chain.push(node_key.clone());
         current = nodes_by_key
             .get(&node_key)
@@ -1549,14 +1571,17 @@ fn emit_resource_subtree(
     children: &HashMap<NodeKey, Vec<NodeKey>>,
     attachment_map: &HashMap<Option<NodeKey>, Vec<NodeKey>>,
     nodes_by_key: &HashMap<NodeKey, &Node>,
-    emitted_support: &mut HashSet<NodeKey>,
+    emitted_nodes: &mut HashSet<NodeKey>,
 ) {
+    if !emitted_nodes.insert(resource.clone()) {
+        return;
+    }
     emit_support_group(
         body,
         Some(resource.clone()),
         attachment_map,
         nodes_by_key,
-        emitted_support,
+        emitted_nodes,
     );
 
     let resource_node = nodes_by_key[resource];
@@ -1585,7 +1610,7 @@ fn emit_resource_subtree(
             children,
             attachment_map,
             nodes_by_key,
-            emitted_support,
+            emitted_nodes,
         );
     }
 }
@@ -1595,14 +1620,14 @@ fn emit_support_group(
     anchor: Option<NodeKey>,
     attachment_map: &HashMap<Option<NodeKey>, Vec<NodeKey>>,
     nodes_by_key: &HashMap<NodeKey, &Node>,
-    emitted_support: &mut HashSet<NodeKey>,
+    emitted_nodes: &mut HashSet<NodeKey>,
 ) {
     let Some(group) = attachment_map.get(&anchor) else {
         return;
     };
 
     for key in group {
-        emit_support_node(body, key, group, nodes_by_key, emitted_support);
+        emit_support_node(body, key, group, nodes_by_key, emitted_nodes);
     }
 }
 
@@ -1611,9 +1636,9 @@ fn emit_support_node(
     key: &NodeKey,
     group: &[NodeKey],
     nodes_by_key: &HashMap<NodeKey, &Node>,
-    emitted_support: &mut HashSet<NodeKey>,
+    emitted_nodes: &mut HashSet<NodeKey>,
 ) {
-    if !emitted_support.insert(key.clone()) {
+    if !emitted_nodes.insert(key.clone()) {
         return;
     }
 
@@ -1635,7 +1660,7 @@ fn emit_support_node(
             .then(left_node.sort_key.cmp(&right_node.sort_key))
     });
     for dep in deps {
-        emit_support_node(body, &dep, group, nodes_by_key, emitted_support);
+        emit_support_node(body, &dep, group, nodes_by_key, emitted_nodes);
     }
 
     push_non_resource_node(body, node);

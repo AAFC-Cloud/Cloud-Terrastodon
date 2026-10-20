@@ -8,6 +8,7 @@ use chrono::TimeDelta;
 use cloud_terrastodon_azure_types::AzureAccessToken;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::EntraApplicationClientId;
+use cloud_terrastodon_command::CancellationReportExt;
 use cloud_terrastodon_pathing::AppDir;
 use eyre::Context;
 use eyre::Result;
@@ -761,10 +762,7 @@ fn is_token_fresh(token: &AzureAccessToken<AzureBearerToken>) -> bool {
 fn refresh_token_needs_interactive_login(error: &eyre::Report) -> bool {
     // Cancellation is a separate outcome, even when its reason contains an
     // OAuth marker. It must not delete a valid session or prompt for login.
-    if error
-        .downcast_ref::<cloud_terrastodon_command::CancellationError>()
-        .is_some()
-    {
+    if error.is_cancellation() {
         return false;
     }
     let error = error.to_string();
@@ -1006,12 +1004,20 @@ mod tests {
 
 #[cfg(test)]
 mod cancellation_tests {
+    use super::refresh_token_needs_interactive_login;
+    use cloud_terrastodon_command::CancellationError;
+    use eyre::Report;
+    use std::io;
+
     #[test]
     fn cancellation_with_oauth_marker_never_requests_reauthentication() {
-        let error = eyre::Report::from(cloud_terrastodon_command::CancellationError::new(
-            "(invalid_grant) cancelling this invocation",
-        ))
-        .wrap_err("refresh operation");
-        assert!(!super::refresh_token_needs_interactive_login(&error));
+        let reason = "(invalid_grant) cancelling this invocation";
+        for error in [
+            Report::new(CancellationError::new(reason)),
+            Report::new(io::Error::other(CancellationError::new(reason))),
+        ] {
+            let error = error.wrap_err("refresh operation failed (invalid_grant)");
+            assert!(!refresh_token_needs_interactive_login(&error));
+        }
     }
 }

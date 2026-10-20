@@ -17,6 +17,9 @@ The supported values are:
 - `auto` (the default): use workload identity when configured and otherwise use
   the Azure CLI compatibility source. It never starts a new browser login;
   use `ct az tenant login <tenant>` or select `browser` explicitly for that.
+- `none`: disable credential discovery and refuse authenticated requests that
+  use the invocation's `AuthContext`. Use it for local-only operations such as
+  group-management validation.
 - `workload-identity`: require the pipeline workload-identity inputs and use a
   short-lived Entra bearer token.
 - `browser`: use the delegated browser/PKCE flow for shared REST requests to
@@ -29,6 +32,23 @@ The supported values are:
   a workload-identity flow and is not a pipeline requirement.
 
 `--debug` controls diagnostics only; it does not select authentication.
+
+Selecting `none` creates `AuthContext::None`, an explicitly disabled policy without
+inspecting workload-identity environment variables or discovering stored browser
+sessions. AuthContext-governed Graph, ARM, and Azure DevOps operations reject it,
+including REST requests supplied an explicit bearer token. Default-tenant lookup
+and tenant login also reject it instead of consulting a signed-in Azure CLI
+account. Consumer CLIs can select this policy before `App::run_parsed` for
+local-only subcommands.
+
+`AuthContext::Unresolved` is the inert placeholder used by default and generated
+request construction. It means no invocation policy has been attached yet;
+it is distinct from explicitly disabling authentication with `AuthContext::None`.
+The explicit `None` variant carries no credential configuration or token caches.
+
+This policy governs operations using the supplied `AuthContext`; it does not
+change independent credential APIs invoked directly without that context or
+Gitea's separate authentication.
 
 ## Per-tenant authentication defaults
 

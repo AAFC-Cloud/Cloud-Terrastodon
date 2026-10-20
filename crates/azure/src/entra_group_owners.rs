@@ -1,6 +1,6 @@
 use crate::MicrosoftGraphHelper;
+use cloud_terrastodon_azure_types::EntraDirectoryObject;
 use cloud_terrastodon_azure_types::EntraGroupId;
-use cloud_terrastodon_azure_types::Principal;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CancellationScope;
@@ -10,6 +10,12 @@ use std::borrow::Cow;
 use std::path::PathBuf;
 use tracing::debug;
 
+/// List a group's direct owners as shallow Microsoft Graph directory objects.
+///
+/// Follows every `@odata.nextLink` beneath this tenant/group's invalidatable
+/// cache key. Optional names retain limited-information responses. Graph v1.0
+/// [list owners](https://learn.microsoft.com/en-us/graph/api/group-list-owners?view=graph-rest-1.0)
+/// can omit service principals, so pagination alone does not prove completeness.
 #[derive(facet::Facet)]
 pub struct EntraGroupOwnersListRequest<'a> {
     #[facet(skip_serializing)]
@@ -43,16 +49,20 @@ pub fn fetch_group_owners<'a>(
 
 #[async_trait]
 impl CacheableCommand for EntraGroupOwnersListRequest<'_> {
-    type Output = Vec<Principal>;
+    type Output = Vec<EntraDirectoryObject>;
 
     fn cache_key(&self) -> CacheKey {
         CacheKey::new(PathBuf::from_iter([
-            "ms".to_string(),
-            "graph".to_string(),
-            "GET".to_string(),
-            "group_owners".to_string(),
-            self.auth_context.tenant_id.to_string(),
-            self.group_id.as_hyphenated().to_string(),
+            "ms",
+            "graph",
+            "v1.0",
+            "GET",
+            "tenants",
+            self.auth_context.tenant_id.to_string().as_str(),
+            "groups",
+            self.group_id.to_string().as_str(),
+            "owners",
+            "directory_objects",
         ]))
     }
 
@@ -67,7 +77,9 @@ impl CacheableCommand for EntraGroupOwnersListRequest<'_> {
             self.auth_context.as_ref(),
             &self.cancellation,
         );
-        let owners = query.fetch_all::<Principal>(&self.cancellation).await?;
+        let owners = query
+            .fetch_all::<EntraDirectoryObject>(&self.cancellation)
+            .await?;
         debug!("Found {} owners for group {}", owners.len(), self.group_id);
         Ok(owners)
     }
@@ -110,4 +122,4 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(EntraGroupOwnersListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(EntraGroupOwnersListRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(EntraGroupOwnersListRequest<'static> => Vec<Principal>);
+cloud_terrastodon_registry::register_into_future!(EntraGroupOwnersListRequest<'static> => Vec<EntraDirectoryObject>, effects = [Read]);

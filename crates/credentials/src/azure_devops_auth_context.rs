@@ -43,6 +43,9 @@ impl AzureDevOpsAuthContext {
             return Self::for_tenant(auth_context, tenant_id);
         }
         match auth_context.source() {
+            Some(AuthSource::None) => bail!(
+                "authentication is disabled by auth source none; cannot make authenticated Azure DevOps requests"
+            ),
             Some(AuthSource::AzureCli) => Ok(Self::AzureCli(auth_context.clone())),
             Some(AuthSource::PersonalAccessToken) => {
                 Ok(Self::PersonalAccessToken(auth_context.clone()))
@@ -128,6 +131,19 @@ mod tests {
         let context = AzureDevOpsAuthContext::new(&auth_context)?;
 
         assert!(matches!(context, AzureDevOpsAuthContext::AzureCli(_)));
+        Ok(())
+    }
+
+    #[test]
+    fn disabled_authentication_cannot_select_bearer_or_pat_credentials() -> Result<()> {
+        let context = AuthContext::resolve(AuthSource::None)?;
+        let tenant_id = "11111111-1111-1111-1111-111111111111".parse()?;
+        let unbound = AzureDevOpsAuthContext::new(&context)
+            .expect_err("disabled authentication must not select Azure DevOps credentials");
+        let bound = AzureDevOpsAuthContext::for_tenant(&context, tenant_id)
+            .expect_err("disabled authentication must not bind Azure DevOps credentials");
+        assert!(unbound.to_string().contains("auth source none"));
+        assert!(bound.to_string().contains("auth source none"));
         Ok(())
     }
 }

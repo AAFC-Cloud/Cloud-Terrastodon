@@ -1,6 +1,5 @@
 use crate::ArtifactMetadata;
 use crate::CacheKey;
-use crate::CancellationError;
 use crate::CancellationScope;
 use crate::CommandArgument;
 use crate::CommandKind;
@@ -36,6 +35,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
 use teamy_cancellation::CancellableScopeFuture;
+use teamy_cancellation::CancellationReportExt;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
@@ -618,7 +618,7 @@ impl CommandBuilder {
             match self.get_cached_output().await {
                 Ok(Some(output)) => return Ok(output),
                 Ok(None) => {}
-                Err(error) if error.downcast_ref::<CancellationError>().is_some() => {
+                Err(error) if error.is_cancellation() => {
                     return Err(error);
                 }
                 Err(error) => debug!(?self.cache_key, %error, "Cache load failed"),
@@ -798,7 +798,7 @@ impl CommandBuilder {
         match decode_result {
             Ok(results) => Ok(results),
             Err(CommandOutputDecodeError::Deserialize(e) | CommandOutputDecodeError::Map(e))
-                if e.downcast_ref::<CancellationError>().is_some() =>
+                if e.is_cancellation() =>
             {
                 Err(e)
             }
@@ -847,7 +847,7 @@ impl CommandBuilder {
             match crate::json::from_slice(&output.stdout) {
                 Ok(results) => match validator(results) {
                     Ok(results) => Ok(results),
-                    Err(e) if e.downcast_ref::<CancellationError>().is_some() => Err(e),
+                    Err(e) if e.is_cancellation() => Err(e),
                     Err(e) => {
                         let dir = self.write_failure(&output).await?;
                         Err(e).context(format!("Encountered validation error after successful invocation of `{}`\ncalled by \"{}\"\ndumped to {:?}",
@@ -857,7 +857,7 @@ impl CommandBuilder {
                                 ))
                     }
                 },
-                Err(e) if e.downcast_ref::<CancellationError>().is_some() => Err(e),
+                Err(e) if e.is_cancellation() => Err(e),
                 Err(e) => {
                     let dir = self.write_failure(&output).await?;
                     Err(e.wrap_err(format!(

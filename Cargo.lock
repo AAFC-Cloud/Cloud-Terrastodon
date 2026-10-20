@@ -850,10 +850,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "cloud-terrastodon-group-management"
+version = "0.1.0"
+dependencies = [
+ "arbitrary",
+ "blake3",
+ "chrono",
+ "cloud_terrastodon",
+ "cloud_terrastodon_app",
+ "eyre",
+ "teamy-cancellation",
+ "teamy-facet",
+ "teamy-facet-json",
+ "tempfile",
+]
+
+[[package]]
 name = "cloud-terrastodon-standalone-cli"
 version = "0.1.0"
 dependencies = [
+ "arbitrary",
  "cloud_terrastodon",
+ "cloud_terrastodon_app",
  "teamy-facet",
 ]
 
@@ -946,6 +964,7 @@ dependencies = [
  "test-log",
  "tokio",
  "tracing",
+ "url",
 ]
 
 [[package]]
@@ -3584,7 +3603,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "07033963ba89ebaf1584d767badaa2e8fcec21aedea6b8c0346d487d49c28667"
 dependencies = [
  "cfg-if",
- "windows-targets 0.48.5",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
@@ -5976,9 +5995,9 @@ dependencies = [
 
 [[package]]
 name = "teamy-cancellation"
-version = "0.5.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "311f7fc3cf6f8809f26fd0c8b1c4c167d5792055c7c7c877105fca46a32e8a92"
+checksum = "e1bff6205b64319ec7bc805d4754aed8e3fb78e381f78129875e6445fbfcccce"
 dependencies = [
  "arbitrary",
  "ctrlc",
@@ -6040,9 +6059,9 @@ dependencies = [
 
 [[package]]
 name = "teamy-facet-format"
-version = "0.50.0-rc.7"
+version = "0.50.0-rc.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e46b878a37ddd9a2f1411ff44da5e03f15a5960226616673668ddd2b9ab0d995"
+checksum = "13f35f7c7ecbdcdd755b5a94b717413f08a9b02a3c422fc6390b1e7a580c2bff"
 dependencies = [
  "teamy-facet-core",
  "teamy-facet-dessert",
@@ -6053,9 +6072,9 @@ dependencies = [
 
 [[package]]
 name = "teamy-facet-json"
-version = "0.50.0-rc.7"
+version = "0.50.0-rc.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8459d938201fe908aeb99b13789e68cdc2806ab00fafbe2a5ec1ee73770487ce"
+checksum = "65c48c074268e3d3a9cb1036d7365462b2a68f99bd31889d288b7227ab342334"
 dependencies = [
  "teamy-facet",
  "teamy-facet-core",
@@ -6154,9 +6173,9 @@ dependencies = [
 
 [[package]]
 name = "teamy-facet-value"
-version = "0.50.0-rc.7"
+version = "0.50.0-rc.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8222f51fda7b9bf5875589ec477f984ff1e9bdc295cc13026ade2d74aa8fcd7b"
+checksum = "f891a42f433d92485fcc95bc86169b22fb63dfd049ad63450df8a36dcf6a507b"
 dependencies = [
  "indexmap",
  "teamy-facet-core",
@@ -6166,9 +6185,9 @@ dependencies = [
 
 [[package]]
 name = "teamy-figue"
-version = "6.0.0-rc.2"
+version = "6.0.0-rc.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "35f0fe928ad3dc8c4a1da495bd81e5244bcd1be6a629383a741f5de4ff57cbbe"
+checksum = "848f5cdd412c9e0d79cfb38d52eed0a253518811a6768a469299b578543617b0"
 dependencies = [
  "arbitrary",
  "ariadne",
@@ -6195,9 +6214,9 @@ dependencies = [
 
 [[package]]
 name = "teamy-figue-attrs"
-version = "6.0.0-rc.2"
+version = "6.0.0-rc.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "feaf5dce49a60ed593226dbc054c335ca58026c031437741d2db579ea772598b"
+checksum = "fe95c52ca4b344b83f7ef9a6e216a2c7f8fc12671e6037d4376fbda9352548b1"
 dependencies = [
  "teamy-facet",
 ]
@@ -6771,7 +6790,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c5f7c95348f20c1c913d72157b3c6dee6ea3e30b3d19502c5a7f6d3f160dacbf"
 dependencies = [
  "cc",
- "windows-targets 0.48.5",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
@@ -7502,7 +7521,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.48.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

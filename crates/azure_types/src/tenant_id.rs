@@ -4,7 +4,7 @@ use std::str::FromStr;
 use uuid::Uuid;
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Arbitrary, Hash, PartialOrd, Ord, facet::Facet)]
-#[facet(json::proxy = String)]
+#[facet(proxy = String)]
 pub struct AzureTenantId(Uuid);
 crate::impl_facet_string_proxy!(AzureTenantId, value => value.to_string());
 

@@ -1,10 +1,22 @@
 # Unreleased
 
+- Change `CliOutput::facet_with_text` callbacks to write directly to the supplied writer, retaining shared JSON/Facet Pretty output and cooperative cancellation without buffering the complete text.
+
+- Fix `ct tf reflow` silently discarding modules and other blocks that share an output filename; preserve unmatched imports/moves and trailing comments, and reject incomplete layouts before writing files.
+
+- Stream CLI JSON directly through the supplied cancellation-aware writer, preserving scoped deferral and cancellation reasons without buffering a complete document. Saved group plans check writes before caller-owned buffering and explicitly flush before publication.
+
+- Add explicit `AuthSource::None` / `--auth-source none` to disable credential discovery and reject authenticated requests, including local-only group-management validation. Map it to cache-free `AuthContext::None`, and rename the default placeholder to `AuthContext::Unresolved`.
+- Pass cancellation scopes through output rendering and emission, support incremental custom output writers, and check cancellation between bounded writes; text rendering loops also observe cancellation. Use Teamy Cancellation's I/O helpers and typed cancellation-error extensions.
+
+- Add the multi-file `group-management` consumer example with tenant-qualified `groupId` input, local validation, explicit exact/additive relationship policies, workload-identity preflight, and read-only saved plans with completeness blockers.
+
 - Require caller-supplied `CancellationScope` values on SDK requests and fetch helpers, including tenant resolution, pagination, and command/REST execution.
-- Adopt `teamy-cancellation =0.5.0` from crates.io with linked `cancellable_scope` and `with_async_scope` execution and bounded `deferred`/`with_deferral` protection; deeply nested mutation, cache-invalidation, and copy-journal completion retain their owning scopes while independent work remains cancellable.
+- Adopt Teamy Cancellation's execution-scope API with linked `cancellable_scope` and `with_async_scope` execution and bounded `deferred`/`with_deferral` protection; deeply nested mutation, cache-invalidation, and copy-journal completion retain their owning scopes while independent work remains cancellable.
 - Enable automatic cooperative cancellation by default in `App`, with `automatic_cancellation(false)` for handlers that own asynchronous cleanup; the main Cloud Terrastodon CLI selects that mode to preserve interactive UI restoration and draining.
 - Update the standalone CLI example to audit resource group names and share the parent workspace's dependencies.
 - Supply Figue's builtin flags inside `App` so consumer CLI schemas only declare their application arguments.
+- Reject malformed command paths followed by `--help` instead of displaying help for only the valid prefix ([TeamDman/figue#5](https://github.com/TeamDman/figue/pull/5)).
 
 # v0.37.0
 

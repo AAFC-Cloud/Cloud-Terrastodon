@@ -155,7 +155,7 @@ struct RoleAssignmentMatch {
     role_definition_id: cloud_terrastodon_azure::RoleDefinitionId,
     role_definition_name: String,
     role_definition: RoleDefinition,
-    principal_id: cloud_terrastodon_azure::PrincipalId,
+    principal_id: cloud_terrastodon_azure::EntraPrincipalId,
     scope: String,
     scope_specificity: usize,
     specificity_cost: u64,

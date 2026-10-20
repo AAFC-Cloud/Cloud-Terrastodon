@@ -1,5 +1,5 @@
 use cloud_terrastodon_azure::EntraGroupId;
-use cloud_terrastodon_azure::PrincipalId;
+use cloud_terrastodon_azure::EntraPrincipalId;
 use cloud_terrastodon_azure::remove_group_member;
 use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
@@ -14,14 +14,11 @@ pub struct AzureEntraGroupMemberRemoveArgs {
 
     /// Principal id to remove from the group (user/service-principal/group GUID).
     #[facet(figue::named, proxy = String)]
-    pub member_id: PrincipalId,
+    pub member_id: EntraPrincipalId,
 }
 
 impl AzureEntraGroupMemberRemoveArgs {
-    pub async fn invoke(
-        self,
-        cancellation: &CancellationScope,
-    ) -> Result<()> {
+    pub async fn invoke(self, cancellation: &CancellationScope) -> Result<()> {
         remove_group_member(self.group_id, self.member_id, cancellation).await?;
         info!(group_id=%self.group_id, member_id=%self.member_id, "Removed member from group");
         Ok(())

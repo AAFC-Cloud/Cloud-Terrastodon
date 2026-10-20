@@ -1,24 +1,32 @@
-use crate::PrincipalKind;
+use crate::EntraPrincipalKind;
 use arbitrary::Arbitrary;
+use eyre::Result;
+use eyre::bail;
+use std::fmt;
+use std::fmt::Display;
+use std::fmt::Formatter;
 
-/// Entra directory object types supported by the principal lookup APIs.
+/// Object types represented by the shallow Microsoft Graph v1.0
+/// [directory-object model](https://learn.microsoft.com/en-us/graph/api/resources/directoryobject?view=graph-rest-1.0).
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Arbitrary, facet::Facet)]
 #[repr(C)]
 pub enum EntraDirectoryObjectType {
     User,
     Group,
     ServicePrincipal,
+    Device,
+    OrganizationalContact,
 }
 
 impl EntraDirectoryObjectType {
-    pub const PRINCIPAL_TYPES: [Self; 3] = [Self::User, Self::Group, Self::ServicePrincipal];
-
     /// The resource type name used in the `types` field of `getByIds`.
     pub const fn graph_type(self) -> &'static str {
         match self {
             Self::User => "user",
             Self::Group => "group",
             Self::ServicePrincipal => "servicePrincipal",
+            Self::Device => "device",
+            Self::OrganizationalContact => "orgContact",
         }
     }
 
@@ -28,29 +36,38 @@ impl EntraDirectoryObjectType {
             Self::User => "#microsoft.graph.user",
             Self::Group => "#microsoft.graph.group",
             Self::ServicePrincipal => "#microsoft.graph.servicePrincipal",
+            Self::Device => "#microsoft.graph.device",
+            Self::OrganizationalContact => "#microsoft.graph.orgContact",
         }
     }
 
-    pub fn try_from_odata_type(value: &str) -> eyre::Result<Self> {
+    pub fn try_from_odata_type(value: &str) -> Result<Self> {
         match value {
             "#microsoft.graph.user" => Ok(Self::User),
             "#microsoft.graph.group" => Ok(Self::Group),
             "#microsoft.graph.servicePrincipal" => Ok(Self::ServicePrincipal),
-            other => eyre::bail!("Unsupported Entra directory object @odata.type: {other}"),
+            "#microsoft.graph.device" => Ok(Self::Device),
+            "#microsoft.graph.orgContact" => Ok(Self::OrganizationalContact),
+            other => bail!("Unsupported Entra directory object @odata.type: {other}"),
         }
     }
 
-    pub const fn principal_kind(self) -> PrincipalKind {
+    /// The corresponding full principal kind, when that model supports this type.
+    ///
+    /// A directory object need not be a security principal. In particular,
+    /// organizational contacts cannot be represented as a full principal.
+    pub const fn principal_kind(self) -> Option<EntraPrincipalKind> {
         match self {
-            Self::User => PrincipalKind::User,
-            Self::Group => PrincipalKind::Group,
-            Self::ServicePrincipal => PrincipalKind::ServicePrincipal,
+            Self::User => Some(EntraPrincipalKind::User),
+            Self::Group => Some(EntraPrincipalKind::Group),
+            Self::ServicePrincipal => Some(EntraPrincipalKind::ServicePrincipal),
+            Self::Device | Self::OrganizationalContact => None,
         }
     }
 }
 
-impl std::fmt::Display for EntraDirectoryObjectType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Display for EntraDirectoryObjectType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.write_str(self.graph_type())
     }
 }

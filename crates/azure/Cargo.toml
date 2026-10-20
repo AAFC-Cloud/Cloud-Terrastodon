@@ -36,6 +36,7 @@ humantime.workspace = true
 strum.workspace = true
 rustc-hash.workspace = true
 http.workspace = true
+url.workspace = true
 blake3.workspace = true
 bstr.workspace = true
 linkme.workspace = true

@@ -1,5 +1,5 @@
 use super::WorkHandle;
-use crate::CancellationError;
+use crate::CancellationReportExt;
 use eyre::bail;
 use eyre::eyre;
 use std::cell::RefCell;
@@ -92,7 +92,7 @@ impl<State> AppWorkTracker<State> {
                     match work.join_handle.await? {
                         Ok(()) => {}
                         Err(e) => {
-                            if e.chain().any(|cause| cause.is::<CancellationError>()) {
+                            if e.is_cancellation() {
                                 info!(description = %work.description, "Background work acknowledged cancellation");
                                 continue;
                             }

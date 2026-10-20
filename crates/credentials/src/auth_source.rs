@@ -6,13 +6,16 @@ use std::str::FromStr;
 ///
 /// `Auto` prefers a complete workload-identity environment and otherwise uses
 /// Azure CLI. Browser authentication must be selected explicitly or through a
-/// tracked tenant's authentication default.
+/// tracked tenant's authentication default. `None` disables authentication and
+/// credential discovery for local-only operations.
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, arbitrary::Arbitrary, facet::Facet)]
 #[facet(proxy = String)]
 #[repr(u8)]
 pub enum AuthSource {
     #[default]
     Auto,
+    /// Disable credential discovery and reject requests that require this context.
+    None,
     WorkloadIdentity,
     Browser,
     AzureCli,
@@ -23,6 +26,7 @@ impl Display for AuthSource {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(match self {
             Self::Auto => "auto",
+            Self::None => "none",
             Self::WorkloadIdentity => "workload-identity",
             Self::Browser => "browser",
             Self::AzureCli => "azure-cli",
@@ -51,6 +55,7 @@ impl FromStr for AuthSource {
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value.trim().to_ascii_lowercase().as_str() {
             "auto" => Ok(Self::Auto),
+            "none" => Ok(Self::None),
             "workload-identity" | "workload_identity" | "wif" => Ok(Self::WorkloadIdentity),
             "browser" | "delegated" => Ok(Self::Browser),
             "azure-cli" | "azure_cli" | "cli" => Ok(Self::AzureCli),
@@ -58,7 +63,7 @@ impl FromStr for AuthSource {
                 Ok(Self::PersonalAccessToken)
             }
             _ => bail!(
-                "unsupported authentication source {value:?}; expected auto, workload-identity, browser, azure-cli, or pat"
+                "unsupported authentication source {value:?}; expected auto, none, workload-identity, browser, azure-cli, or pat"
             ),
         }
     }
@@ -71,6 +76,7 @@ mod tests {
     #[test]
     fn parses_supported_sources_and_aliases() -> eyre::Result<()> {
         assert_eq!("auto".parse::<AuthSource>()?, AuthSource::Auto);
+        assert_eq!("none".parse::<AuthSource>()?, AuthSource::None);
         assert_eq!(
             "workload_identity".parse::<AuthSource>()?,
             AuthSource::WorkloadIdentity
@@ -88,6 +94,7 @@ mod tests {
     #[test]
     fn displays_stable_cli_values() {
         assert_eq!(AuthSource::Auto.to_string(), "auto");
+        assert_eq!(AuthSource::None.to_string(), "none");
         assert_eq!(
             AuthSource::WorkloadIdentity.to_string(),
             "workload-identity"

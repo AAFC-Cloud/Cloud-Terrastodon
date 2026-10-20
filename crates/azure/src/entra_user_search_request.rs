@@ -171,7 +171,7 @@ mod tests {
                 let auth_context =
                     auth_context.bind_to_azure_tenant(get_test_tenant_id(&cancellation).await?)?;
                 let users = search_entra_users(
-                    &current_user.user_principal_name,
+                    current_user.user_principal_name.as_str(),
                     &auth_context,
                     &cancellation,
                 )
@@ -181,7 +181,7 @@ mod tests {
                     user.id == current_user.id
                         && user
                             .user_principal_name
-                            .eq_ignore_ascii_case(&current_user.user_principal_name)
+                            .eq_ignore_ascii_case(current_user.user_principal_name.as_str())
                 }));
                 Ok(())
             })

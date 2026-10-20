@@ -1,24 +1,24 @@
 use crate::EntraGroup;
+use crate::EntraPrincipalId;
 use crate::EntraServicePrincipal;
 use crate::EntraUser;
-use crate::PrincipalId;
 use arbitrary::Arbitrary;
 use facet_json::RawJson;
 use std::collections::HashMap;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Eq, PartialEq, strum::EnumDiscriminants, facet::Facet)]
-#[strum_discriminants(name(PrincipalKind))]
+#[strum_discriminants(name(EntraPrincipalKind))]
 #[strum_discriminants(derive(strum::Display))]
 #[facet(proxy = RawJson<'static>)]
 #[repr(C)]
-pub enum Principal {
+pub enum EntraPrincipal {
     User(Box<EntraUser>),
     Group(Box<EntraGroup>),
     ServicePrincipal(Box<EntraServicePrincipal>),
 }
 
-impl<'a> Arbitrary<'a> for Principal {
+impl<'a> Arbitrary<'a> for EntraPrincipal {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(match u.int_in_range(0..=2)? {
             0 => Self::User(Box::new(EntraUser::arbitrary(u)?)),
@@ -27,7 +27,7 @@ impl<'a> Arbitrary<'a> for Principal {
         })
     }
 }
-impl TryFrom<RawJson<'static>> for Principal {
+impl TryFrom<RawJson<'static>> for EntraPrincipal {
     type Error = eyre::Error;
 
     fn try_from(value: RawJson<'static>) -> Result<Self, Self::Error> {
@@ -49,14 +49,16 @@ impl TryFrom<RawJson<'static>> for Principal {
     }
 }
 
-impl TryFrom<&Principal> for RawJson<'static> {
+impl TryFrom<&EntraPrincipal> for RawJson<'static> {
     type Error = eyre::Error;
 
-    fn try_from(value: &Principal) -> Result<Self, Self::Error> {
+    fn try_from(value: &EntraPrincipal) -> Result<Self, Self::Error> {
         let (odata_type, inner_json) = match value {
-            Principal::User(user) => ("#microsoft.graph.user", facet_json::to_string(user)?),
-            Principal::Group(group) => ("#microsoft.graph.group", facet_json::to_string(group)?),
-            Principal::ServicePrincipal(service_principal) => (
+            EntraPrincipal::User(user) => ("#microsoft.graph.user", facet_json::to_string(user)?),
+            EntraPrincipal::Group(group) => {
+                ("#microsoft.graph.group", facet_json::to_string(group)?)
+            }
+            EntraPrincipal::ServicePrincipal(service_principal) => (
                 "#microsoft.graph.servicePrincipal",
                 facet_json::to_string(service_principal)?,
             ),
@@ -70,114 +72,114 @@ impl TryFrom<&Principal> for RawJson<'static> {
     }
 }
 
-impl From<EntraUser> for Principal {
+impl From<EntraUser> for EntraPrincipal {
     fn from(value: EntraUser) -> Self {
         Self::User(Box::new(value))
     }
 }
-impl From<EntraGroup> for Principal {
+impl From<EntraGroup> for EntraPrincipal {
     fn from(value: EntraGroup) -> Self {
         Self::Group(Box::new(value))
     }
 }
-impl From<EntraServicePrincipal> for Principal {
+impl From<EntraServicePrincipal> for EntraPrincipal {
     fn from(value: EntraServicePrincipal) -> Self {
         Self::ServicePrincipal(Box::new(value))
     }
 }
-impl TryFrom<Principal> for EntraUser {
+impl TryFrom<EntraPrincipal> for EntraUser {
     type Error = eyre::Error;
 
-    fn try_from(value: Principal) -> Result<Self, Self::Error> {
+    fn try_from(value: EntraPrincipal) -> Result<Self, Self::Error> {
         match value {
-            Principal::User(user) => Ok(*user),
+            EntraPrincipal::User(user) => Ok(*user),
             other => eyre::bail!("Expected user principal, got {}", other.kind()),
         }
     }
 }
-impl TryFrom<Principal> for EntraGroup {
+impl TryFrom<EntraPrincipal> for EntraGroup {
     type Error = eyre::Error;
 
-    fn try_from(value: Principal) -> Result<Self, Self::Error> {
+    fn try_from(value: EntraPrincipal) -> Result<Self, Self::Error> {
         match value {
-            Principal::Group(group) => Ok(*group),
+            EntraPrincipal::Group(group) => Ok(*group),
             other => eyre::bail!("Expected group principal, got {}", other.kind()),
         }
     }
 }
-impl TryFrom<Principal> for EntraServicePrincipal {
+impl TryFrom<EntraPrincipal> for EntraServicePrincipal {
     type Error = eyre::Error;
 
-    fn try_from(value: Principal) -> Result<Self, Self::Error> {
+    fn try_from(value: EntraPrincipal) -> Result<Self, Self::Error> {
         match value {
-            Principal::ServicePrincipal(service_principal) => Ok(*service_principal),
+            EntraPrincipal::ServicePrincipal(service_principal) => Ok(*service_principal),
             other => eyre::bail!("Expected service principal, got {}", other.kind()),
         }
     }
 }
-impl AsRef<Uuid> for Principal {
+impl AsRef<Uuid> for EntraPrincipal {
     fn as_ref(&self) -> &Uuid {
         match self {
-            Principal::User(user) => &user.id,
-            Principal::Group(group) => &group.id,
-            Principal::ServicePrincipal(service_principal) => &service_principal.id,
+            EntraPrincipal::User(user) => &user.id,
+            EntraPrincipal::Group(group) => &group.id,
+            EntraPrincipal::ServicePrincipal(service_principal) => &service_principal.id,
         }
     }
 }
-impl Principal {
+impl EntraPrincipal {
     pub fn display_name(&self) -> &str {
         match self {
-            Principal::User(user) => &user.user_principal_name,
-            Principal::Group(group) => &group.display_name,
-            Principal::ServicePrincipal(service_principal) => &service_principal.display_name,
+            EntraPrincipal::User(user) => user.user_principal_name.as_str(),
+            EntraPrincipal::Group(group) => group.display_name.as_str(),
+            EntraPrincipal::ServicePrincipal(service_principal) => &service_principal.display_name,
         }
     }
     pub fn name(&self) -> &str {
         match self {
-            Principal::User(user) => &user.user_principal_name,
-            Principal::Group(group) => &group.display_name,
-            Principal::ServicePrincipal(service_principal) => &service_principal.display_name,
+            EntraPrincipal::User(user) => user.user_principal_name.as_str(),
+            EntraPrincipal::Group(group) => group.display_name.as_str(),
+            EntraPrincipal::ServicePrincipal(service_principal) => &service_principal.display_name,
         }
     }
-    pub fn id(&self) -> PrincipalId {
+    pub fn id(&self) -> EntraPrincipalId {
         match self {
-            Principal::User(user) => PrincipalId::UserId(user.id),
-            Principal::Group(group) => PrincipalId::GroupId(group.id),
-            Principal::ServicePrincipal(service_principal) => {
-                PrincipalId::ServicePrincipalId(service_principal.id)
+            EntraPrincipal::User(user) => EntraPrincipalId::UserId(user.id),
+            EntraPrincipal::Group(group) => EntraPrincipalId::GroupId(group.id),
+            EntraPrincipal::ServicePrincipal(service_principal) => {
+                EntraPrincipalId::ServicePrincipalId(service_principal.id)
             }
         }
     }
-    pub fn kind(&self) -> PrincipalKind {
-        PrincipalKind::from(self)
+    pub fn kind(&self) -> EntraPrincipalKind {
+        EntraPrincipalKind::from(self)
     }
     pub fn as_user(&self) -> Option<&EntraUser> {
         match self {
-            Principal::User(user) => Some(user),
+            EntraPrincipal::User(user) => Some(user),
             _ => None,
         }
     }
     pub fn as_group(&self) -> Option<&EntraGroup> {
         match self {
-            Principal::Group(group) => Some(group),
+            EntraPrincipal::Group(group) => Some(group),
             _ => None,
         }
     }
     pub fn as_service_principal(&self) -> Option<&EntraServicePrincipal> {
         match self {
-            Principal::ServicePrincipal(service_principal) => Some(service_principal),
+            EntraPrincipal::ServicePrincipal(service_principal) => Some(service_principal),
             _ => None,
         }
     }
 }
-impl std::fmt::Display for Principal {
+impl std::fmt::Display for EntraPrincipal {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
             "({}) {} ({})",
             match self {
-                Principal::Group(..) => "group",
-                Principal::ServicePrincipal(..) => "service principal",
-                Principal::User(..) => "user",
+                EntraPrincipal::Group(..) => "group",
+                EntraPrincipal::ServicePrincipal(..) => "service principal",
+                EntraPrincipal::User(..) => "user",
             },
             self.display_name(),
             self.id()
@@ -209,25 +211,25 @@ mod tests {
             office_location: None,
             preferred_language: None,
             surname: Some("Fake".to_string()),
-            user_principal_name: "fake.user@example.com".to_string(),
+            user_principal_name: "fake.user@example.com".parse().unwrap(),
         };
-        let principal = Principal::from(user);
+        let principal = EntraPrincipal::from(user);
         let encoded = facet_json::to_string_pretty(&principal)?;
         assert!(encoded.contains(r##""@odata.type""##));
         assert!(encoded.contains(r##"#microsoft.graph.user"##));
-        let decoded_principal = facet_json::from_str::<Principal>(&encoded)?;
+        let decoded_principal = facet_json::from_str::<EntraPrincipal>(&encoded)?;
         assert_eq!(principal, decoded_principal);
         Ok(())
     }
 }
 
-cloud_terrastodon_registry::register_thing!(Principal);
-cloud_terrastodon_registry::register_arbitrary!(Principal);
-cloud_terrastodon_registry::register_arbitrary!(Vec<Principal>);
+cloud_terrastodon_registry::register_thing!(EntraPrincipal);
+cloud_terrastodon_registry::register_arbitrary!(EntraPrincipal);
+cloud_terrastodon_registry::register_arbitrary!(Vec<EntraPrincipal>);
 
-cloud_terrastodon_registry::register_from!(EntraUser => Principal);
-cloud_terrastodon_registry::register_from!(EntraGroup => Principal);
-cloud_terrastodon_registry::register_from!(EntraServicePrincipal => Principal);
-cloud_terrastodon_registry::register_try_from!(Principal => EntraUser);
-cloud_terrastodon_registry::register_try_from!(Principal => EntraGroup);
-cloud_terrastodon_registry::register_try_from!(Principal => EntraServicePrincipal);
+cloud_terrastodon_registry::register_from!(EntraUser => EntraPrincipal);
+cloud_terrastodon_registry::register_from!(EntraGroup => EntraPrincipal);
+cloud_terrastodon_registry::register_from!(EntraServicePrincipal => EntraPrincipal);
+cloud_terrastodon_registry::register_try_from!(EntraPrincipal => EntraUser);
+cloud_terrastodon_registry::register_try_from!(EntraPrincipal => EntraGroup);
+cloud_terrastodon_registry::register_try_from!(EntraPrincipal => EntraServicePrincipal);

@@ -1,6 +1,6 @@
 use crate::MicrosoftGraphHelper;
+use cloud_terrastodon_azure_types::EntraPrincipalId;
 use cloud_terrastodon_azure_types::GovernanceRoleAssignment;
-use cloud_terrastodon_azure_types::PrincipalId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
@@ -8,11 +8,11 @@ use std::path::PathBuf;
 
 /// See also: https://github.com/Azure/azure-cli/issues/28854
 pub async fn fetch_governance_role_assignments_for_principal(
-    principal_id: impl Into<PrincipalId>,
+    principal_id: impl Into<EntraPrincipalId>,
     auth_context: &AzureTenantAuthContext,
     cancellation: &CancellationScope,
 ) -> eyre::Result<Vec<GovernanceRoleAssignment>> {
-    let principal_id: PrincipalId = principal_id.into();
+    let principal_id: EntraPrincipalId = principal_id.into();
     let url = format!(
         "https://graph.microsoft.com/beta/privilegedAccess/aadroles/roleAssignments?$expand=linkedEligibleRoleAssignment,subject,roleDefinition($expand=resource)&$filter=(subject/id eq '{}')",
         principal_id

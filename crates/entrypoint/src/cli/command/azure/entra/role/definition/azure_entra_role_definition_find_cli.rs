@@ -153,7 +153,7 @@ struct RoleAssignmentMatch {
     role_definition_id: cloud_terrastodon_azure::UnifiedRoleDefinitionId,
     role_definition_name: String,
     role_definition: UnifiedRoleDefinition,
-    principal_id: cloud_terrastodon_azure::PrincipalId,
+    principal_id: cloud_terrastodon_azure::EntraPrincipalId,
     directory_scope_id: String,
     directory_scope_specificity: usize,
     resource_scope: String,

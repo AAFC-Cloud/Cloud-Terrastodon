@@ -43,6 +43,10 @@ impl AzureTenantAuthContext {
             eyre::eyre!("the placeholder authentication context cannot be bound to an Azure tenant")
         })?;
         ensure!(
+            source != AuthSource::None,
+            "authentication is disabled by auth source none; cannot bind an Azure tenant"
+        );
+        ensure!(
             !matches!(source, AuthSource::Auto),
             "authentication source must be resolved before binding an Azure tenant"
         );
@@ -125,6 +129,17 @@ mod tests {
             tenant_auth_context.auth_context.source(),
             Some(AuthSource::AzureCli)
         );
+        Ok(())
+    }
+
+    #[test]
+    fn disabled_authentication_cannot_be_bound_to_a_tenant() -> Result<()> {
+        let tenant_id = "11111111-1111-1111-1111-111111111111".parse()?;
+        let context = AuthContext::resolve(AuthSource::None)?;
+        let error = context
+            .bind_to_azure_tenant(tenant_id)
+            .expect_err("disabled authentication must not bind a tenant");
+        assert!(error.to_string().contains("auth source none"));
         Ok(())
     }
 }

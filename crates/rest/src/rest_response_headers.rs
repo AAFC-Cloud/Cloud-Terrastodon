@@ -118,11 +118,12 @@ mod tests {
     use crate::SerializableRestResponse;
     use http::HeaderMap;
     use http::HeaderValue;
+    use http::StatusCode;
 
     #[test]
     fn looks_up_headers_case_insensitively() {
         let response = SerializableRestResponse {
-            status: 202,
+            status: StatusCode::ACCEPTED,
             ok: true,
             reason_phrase: Some("Accepted".to_string()),
             headers: RestResponseHeaders::from([("Location", vec!["https://example.test/poll"])]),

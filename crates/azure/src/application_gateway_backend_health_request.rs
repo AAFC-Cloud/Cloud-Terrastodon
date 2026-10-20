@@ -13,6 +13,7 @@ use eyre::OptionExt;
 use eyre::Result;
 use eyre::WrapErr;
 use eyre::bail;
+use http::StatusCode;
 use std::path::PathBuf;
 use std::time::Duration;
 use tracing::info;
@@ -97,7 +98,7 @@ impl CacheableCommand for AzureApplicationGatewayResourceBackendHealthRequest {
         if !initial_response.ok {
             bail!(
                 "Backend health request failed with status {} ({})",
-                initial_response.status,
+                initial_response.status.as_u16(),
                 initial_response
                     .reason_phrase
                     .as_deref()
@@ -106,8 +107,8 @@ impl CacheableCommand for AzureApplicationGatewayResourceBackendHealthRequest {
         }
 
         match initial_response.status {
-            200 => parse_backend_health_response(initial_response),
-            202 => {
+            StatusCode::OK => parse_backend_health_response(initial_response),
+            StatusCode::ACCEPTED => {
                 let mut next_url = initial_response
                     .header("location")
                     .map(str::to_owned)
@@ -126,14 +127,14 @@ impl CacheableCommand for AzureApplicationGatewayResourceBackendHealthRequest {
                     if !response.ok {
                         bail!(
                             "Backend health poll failed with status {} ({})",
-                            response.status,
+                            response.status.as_u16(),
                             response.reason_phrase.as_deref().unwrap_or("Unknown error")
                         );
                     }
 
                     match response.status {
-                        200 => return parse_backend_health_response(response),
-                        202 => {
+                        StatusCode::OK => return parse_backend_health_response(response),
+                        StatusCode::ACCEPTED => {
                             next_url = response
                                 .header("location")
                                 .map(str::to_owned)
@@ -146,7 +147,7 @@ impl CacheableCommand for AzureApplicationGatewayResourceBackendHealthRequest {
                         status => {
                             bail!(
                                 "Unexpected backend health poll status {} ({})",
-                                status,
+                                status.as_u16(),
                                 response.reason_phrase.as_deref().unwrap_or("Unknown error")
                             );
                         }
@@ -160,7 +161,7 @@ impl CacheableCommand for AzureApplicationGatewayResourceBackendHealthRequest {
             }
             status => bail!(
                 "Unexpected backend health response status {} ({})",
-                status,
+                status.as_u16(),
                 initial_response
                     .reason_phrase
                     .as_deref()
@@ -203,6 +204,7 @@ mod tests {
     use cloud_terrastodon_rest::RestResponseHeaders;
     use cloud_terrastodon_rest::SerializableRestResponse;
     use facet_json::RawJson;
+    use http::StatusCode;
 
     #[test]
     fn builds_backend_health_url() -> eyre::Result<()> {
@@ -222,7 +224,7 @@ mod tests {
     #[test]
     fn location_header_lookup_is_case_insensitive() {
         let response = SerializableRestResponse {
-            status: 202,
+            status: StatusCode::ACCEPTED,
             ok: true,
             reason_phrase: Some("Accepted".to_string()),
             headers: RestResponseHeaders::from([(
@@ -240,7 +242,7 @@ mod tests {
     #[test]
     fn parses_backend_health_response_into_strong_type() -> eyre::Result<()> {
         let response = SerializableRestResponse {
-            status: 200,
+            status: StatusCode::OK,
             ok: true,
             reason_phrase: Some("OK".to_string()),
             headers: RestResponseHeaders::default(),

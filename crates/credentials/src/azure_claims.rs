@@ -3,7 +3,7 @@ use chrono::Local;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::EntraApplicationClientId;
 use cloud_terrastodon_azure_types::EntraGroupId;
-use cloud_terrastodon_azure_types::PrincipalId;
+use cloud_terrastodon_azure_types::EntraPrincipalId;
 use cloud_terrastodon_azure_types::uuid::Uuid;
 
 #[derive(Debug, facet::Facet, Clone)]
@@ -48,7 +48,7 @@ pub struct AzureClaims {
     #[facet(rename = "name")]
     pub name: String,
     #[facet(rename = "oid")]
-    pub object_id: PrincipalId,
+    pub object_id: EntraPrincipalId,
     #[facet(rename = "puid")]
     pub puid: String,
     #[facet(rename = "pwd_url")]

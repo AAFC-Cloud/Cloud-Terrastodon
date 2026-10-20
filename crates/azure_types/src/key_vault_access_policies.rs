@@ -1,14 +1,14 @@
+use crate::EntraPrincipalId;
 use crate::KeyVaultAccessPolicyCertificatePrivilege;
 use crate::KeyVaultAccessPolicyKeyPrivilege;
 use crate::KeyVaultAccessPolicySecretPrivilege;
-use crate::PrincipalId;
 use crate::tenant_id::AzureTenantId;
 use arbitrary::Arbitrary;
 
 #[derive(Debug, PartialEq, facet::Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct KeyVaultAccessPolicy {
-    pub object_id: PrincipalId,
+    pub object_id: EntraPrincipalId,
     pub tenant_id: AzureTenantId,
     pub permissions: KeyVaultAccessPolicyPermissions,
 }

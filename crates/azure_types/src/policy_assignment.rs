@@ -1,10 +1,10 @@
 use crate::ArbitraryJson;
 use crate::AzureLocationName;
 use crate::AzurePolicyDefinitionParametersSupplied;
+use crate::EntraPrincipalId;
 use crate::PolicyAssignmentId;
 use crate::PolicyAssignmentName;
 use crate::PolicyDefinitionIdReference;
-use crate::PrincipalId;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
 use crate::scopes::ScopeImpl;
@@ -55,10 +55,10 @@ pub enum PolicyAssignmentEnforcementMode {
 #[facet(rename_all = "camelCase")]
 pub struct PolicyAssignmentMetadata {
     pub created_on: DateTime<Utc>,
-    pub created_by: PrincipalId,
+    pub created_by: EntraPrincipalId,
     pub assigned_by: Option<CompactString>,
     pub parameter_scopes: Option<ArbitraryJson>,
-    pub updated_by: Option<PrincipalId>,
+    pub updated_by: Option<EntraPrincipalId>,
     pub updated_on: Option<DateTime<Utc>>,
 }
 

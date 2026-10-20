@@ -3,7 +3,7 @@ use crate::GiteaRepo;
 use crate::GiteaRepoId;
 use crate::GiteaSearchResults;
 use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CancellationError;
+use cloud_terrastodon_command::CancellationReportExt;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
@@ -43,7 +43,7 @@ pub async fn gitea_api_get_best_effort<T: Facet<'static> + Send + 'static>(
     cmd.use_cache(cache_key);
     match cmd.run_raw_polite(GITEA_UNCACHED_DELAY, cancellation).await {
         Ok(output) => Ok(Some(parse_command_output::<T>(&output)?)),
-        Err(error) if error.downcast_ref::<CancellationError>().is_some() => Err(error),
+        Err(error) if error.is_cancellation() => Err(error),
         Err(error) => {
             cancellation.bail_if_cancelled()?;
             tracing::debug!(%error, endpoint, "Skipping Gitea endpoint after best-effort failure");

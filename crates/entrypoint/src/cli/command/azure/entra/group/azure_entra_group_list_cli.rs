@@ -1,6 +1,6 @@
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
-use cloud_terrastodon_azure::PrincipalId;
+use cloud_terrastodon_azure::EntraPrincipalId;
 use cloud_terrastodon_azure::fetch_all_groups;
 use cloud_terrastodon_azure::fetch_entra_groups_for_member;
 use cloud_terrastodon_command::CancellationScope;
@@ -18,7 +18,7 @@ pub struct AzureEntraGroupListArgs {
 
     /// Only list groups containing this principal, including nested group membership.
     #[facet(figue::named)]
-    pub for_member: Option<PrincipalId>,
+    pub for_member: Option<EntraPrincipalId>,
 }
 
 impl AzureEntraGroupListArgs {

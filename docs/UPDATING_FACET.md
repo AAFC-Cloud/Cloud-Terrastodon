@@ -1,22 +1,21 @@
 # Updating Facet and Figue
 
-Cloud Terrastodon uses TeamDman's independent Facet and Figue forks. The
-published registry graph uses `teamy-facet-* 0.50.0-rc.7` and
-`teamy-figue` / `teamy-figue-attrs 6.0.0-rc.2`, with canonical Rust dependency
-aliases such as `facet` and `figue`. These packages are not the official
-upstream crates. Cloud Terrastodon 0.37.0 was published with Figue 6.0.0-rc.1;
-workspace development uses the newer Figue version above.
+Cloud Terrastodon uses TeamDman's independent Facet and Figue forks, with
+canonical Rust dependency aliases such as `facet` and `figue`. These packages
+are separate from the official upstream crates. The [workspace manifest](../Cargo.toml)
+defines dependency aliases, versions, features, and any development overrides;
+[`Cargo.lock`](../Cargo.lock) records the resolved packages and sources. Workspace
+examples inherit those dependencies and the shared lockfile.
 
-Workspace development uses exact published Teamy Facet/Figue versions from
-crates.io, matching the registry dependencies in published packages.
-The standalone example is a workspace member sharing the root lockfile and
-using the local facade with the same workspace Teamy dependency pins.
-Neither the workspace nor the standalone example requires `[patch.crates-io]`
-overrides.
+Local overrides can exercise fork changes during development. Before publication,
+verify that normalized packages and their consumers resolve against the published
+registry dependencies. Both graphs must keep interacting Facet traits and shapes
+on one compatible core package identity. Run checks with `--offline --locked`
+after resolving the graph being tested.
 
-## 0.37.0 release preparation
+## Historical release preparation (0.37.0)
 
-The coordinated release contains 43 packages:
+The coordinated release contained 43 packages:
 
 | Family | Packages | Version |
 | --- | --- | --- |
@@ -66,10 +65,10 @@ named stash as well as the recovery patch. Old branches retain their history.
 | `facet-rs/facet` | Core monorepo: Facet, macros, reflection, solver, path, errors and pretty printing |
 | `bearcove/figue` | Figue and `figue-attrs`, separate from the core Facet repository |
 | `facet-rs/facet-format` | Official split-out Format, JSON, Value and Dessert repository |
-| Teamy registry packages | Publish the compatible core, Format/JSON/Value/Dessert, and Figue families together; keep their Rust aliases |
-| `TeamDman/facet` | Current upstream plus the reviewed Cow and enum-alias PRs until compatible official releases include them |
-| `TeamDman/facet-format` | Current upstream plus the reviewed scalar-enum error-span PR; Format and Dessert use the same immutable revision |
-| `TeamDman/figue` | Current upstream plus our selected CLI PRs |
+| Teamy registry packages | Independent fork package identities; keep canonical Rust aliases and compatible dependency constraints |
+| `TeamDman/facet` | TeamDman-maintained core Facet fork |
+| `TeamDman/facet-format` | TeamDman-maintained serialization fork |
+| `TeamDman/figue` | TeamDman-maintained CLI parsing fork |
 
 `teamy-main` is the primary branch in all three GitHub forks and the local
 clones. Facet and Figue's old divergent `main` histories are preserved under
@@ -150,38 +149,39 @@ core identity. Every normal/build dependency in the release graph names a
 Teamy package, including JSON and Value. Mixing official `facet-*` packages
 with `teamy-facet-*` creates distinct Rust types even when their versions match.
 
-Keep the canonical dependency keys required by generated macro paths:
+Keep the canonical dependency keys required by generated macro paths. Workspace
+members inherit the declarations from the root manifest:
 
 ```toml
-facet = { package = "teamy-facet", version = "=0.50.0-rc.7" }
-figue = { package = "teamy-figue", version = "=6.0.0-rc.2" }
+facet.workspace = true
+figue.workspace = true
 ```
 
 See [Cargo's dependency renaming reference](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#renaming-dependencies-in-cargotoml).
 Within the fork source repositories, internal normal/build dependencies have
 both a version and a development path. Fork internal dev-dependencies use paths
 only so Cargo omits them from archives, avoiding bootstrap cycles; run their
-complete test suites in the source trees. Cloud Terrastodon consumes the published
-Teamy packages from the registry.
+complete test suites in the source trees. Released Cloud Terrastodon packages
+consume Teamy packages from the registry without path or patch overrides.
 Archive validation checks library builds and an independent consumer using
 the normalized registry graph. Do not claim registry installation works until
 the exact versions have actually been published.
 
-Cloud Terrastodon pins `teamy-cancellation =0.5.0` from crates.io with `async`,
-`deferral`, `facet`, and `arbitrary` enabled. This breaking release separates raw
-`CancellationToken` signals from linked `CancellationScope` execution ownership.
-Use `cancellable_scope` for automatic poll-boundary checks, `with_async_scope` for
-handler-owned cleanup, and bounded `deferred` or `with_deferral` callbacks for
-protected work. No sibling cancellation checkout is required.
+Teamy Cancellation's `CancellableWriter` and write extension
+methods check the supplied execution scope between bounded writes, preserving
+deferral and cancellation reasons. CLI JSON and Pretty output share this writer
+policy; computation that does not write continues until its next checkpoint.
 
-Its optional Facet feature uses the same exact `teamy-facet 0.50.0-rc.7` identity
-as this workspace. Its optional Figue feature currently pins
-`teamy-figue 6.0.0-rc.1`, while Cloud Terrastodon pins `6.0.0-rc.2`; Cloud
-Terrastodon does not enable cancellation's optional Figue feature. Check those
-features in the cancellation crate's own root when changing the dependency graph.
-Publish the exact cancellation version before releasing packages that require it,
-and verify the registry dependency without a path or patch override. `teamy-mft` is no
-longer a dependency and does not require synchronization.
+The API separates raw `CancellationToken` signals from linked
+`CancellationScope` execution ownership. Use `cancellable_scope` for automatic
+poll-boundary checks, `with_async_scope` for handler-owned cleanup, and bounded
+`deferred` or `with_deferral` callbacks for protected work.
+
+When enabling Cancellation's optional Facet or Figue integrations, check that their
+dependency constraints match the application's graph. Test those optional features
+in the cancellation crate's own root when changing dependencies. Publish required
+dependency versions before releasing their consumers, and verify the registry
+graph without development overrides.
 
 ## Update procedure
 

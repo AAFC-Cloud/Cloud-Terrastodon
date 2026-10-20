@@ -1,8 +1,8 @@
 use crate::EntraGroupMembersListRequest;
 use crate::MicrosoftGraphBatchRequest;
 use crate::MicrosoftGraphResponse;
+use cloud_terrastodon_azure_types::EntraDirectoryObject;
 use cloud_terrastodon_azure_types::EntraGroupId;
-use cloud_terrastodon_azure_types::Principal;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CancellationScope;
@@ -13,6 +13,11 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+/// Fetch first-page member inventories for several groups as shallow objects.
+///
+/// Prefer [`crate::fetch_group_members`] when every page is required; this legacy
+/// batch operation does not follow continuation links from
+/// [list members](https://learn.microsoft.com/en-us/graph/api/group-list-members?view=graph-rest-1.0).
 #[derive(facet::Facet)]
 pub struct EntraGroupMembersListBatchRequest<'a> {
     #[facet(skip_serializing)]
@@ -48,15 +53,17 @@ pub fn fetch_group_members_batch<'a>(
 
 #[async_trait]
 impl CacheableCommand for EntraGroupMembersListBatchRequest<'_> {
-    type Output = HashMap<EntraGroupId, Vec<Principal>>;
+    type Output = HashMap<EntraGroupId, Vec<EntraDirectoryObject>>;
 
     fn cache_key(&self) -> CacheKey {
         CacheKey::new(PathBuf::from_iter([
             "ms".to_string(),
             "graph".to_string(),
+            "v1.0".to_string(),
             "GET".to_string(),
-            "group_members_batch".to_string(),
+            "tenants".to_string(),
             self.auth_context.tenant_id.to_string(),
+            "group_members_batch".to_string(),
             {
                 let mut hasher = blake3::Hasher::new();
                 for group_id in &self.group_ids {
@@ -65,6 +72,7 @@ impl CacheableCommand for EntraGroupMembersListBatchRequest<'_> {
                 let hash = hasher.finalize();
                 hash.to_hex().to_string()
             },
+            "directory_objects".to_string(),
         ]))
     }
 
@@ -76,7 +84,7 @@ impl CacheableCommand for EntraGroupMembersListBatchRequest<'_> {
             auth_context,
         } = self;
         // Construct the request
-        let mut batch_request: MicrosoftGraphBatchRequest<'_, Vec<Principal>> =
+        let mut batch_request: MicrosoftGraphBatchRequest<'_, Vec<EntraDirectoryObject>> =
             MicrosoftGraphBatchRequest::new(auth_context.as_ref(), &cancellation)
                 .cancellation_safe();
 
@@ -94,7 +102,7 @@ impl CacheableCommand for EntraGroupMembersListBatchRequest<'_> {
 
         // Send the request
         let batch_response = batch_request
-            .send::<MicrosoftGraphResponse<Principal>>()
+            .send::<MicrosoftGraphResponse<EntraDirectoryObject>>()
             .await?;
 
         // Extract the members from the response
@@ -118,4 +126,5 @@ cloud_terrastodon_command::impl_cacheable_into_future!(EntraGroupMembersListBatc
 
 cloud_terrastodon_registry::register_thing!(EntraGroupMembersListBatchRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(EntraGroupMembersListBatchRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(EntraGroupMembersListBatchRequest<'static> => HashMap<EntraGroupId, Vec<Principal>>);
+cloud_terrastodon_registry::register_arbitrary!(HashMap<EntraGroupId, Vec<EntraDirectoryObject>>);
+cloud_terrastodon_registry::register_into_future!(EntraGroupMembersListBatchRequest<'static> => HashMap<EntraGroupId, Vec<EntraDirectoryObject>>, effects = [Read]);

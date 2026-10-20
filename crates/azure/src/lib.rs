@@ -24,6 +24,7 @@ mod cost_management;
 mod create_role_assignment;
 mod eligible_child_resources;
 mod entra_directory_objects_by_ids_request;
+mod entra_directory_objects_by_ids_request_body;
 mod entra_group_get_request;
 mod entra_group_list_request;
 mod entra_group_member_add;

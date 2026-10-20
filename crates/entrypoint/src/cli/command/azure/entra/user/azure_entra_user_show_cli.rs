@@ -1,6 +1,6 @@
-use cloud_terrastodon_azure::AzurePrincipalArgument;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_azure::EntraUserArgument;
 use cloud_terrastodon_azure::fetch_entra_user;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
@@ -17,7 +17,7 @@ pub struct AzureEntraUserShowArgs {
 
     /// User object id or user principal name.
     #[facet(figue::positional)]
-    pub user: AzurePrincipalArgument<'static>,
+    pub user: EntraUserArgument<'static>,
 }
 
 impl AzureEntraUserShowArgs {

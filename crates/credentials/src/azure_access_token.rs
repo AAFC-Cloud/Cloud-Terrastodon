@@ -64,6 +64,9 @@ pub async fn fetch_azure_bearer_access_token(
     cancellation.cancellable_scope(|cancellation| async move {
                 let cancellation = &cancellation;
     match auth_context.source() {
+        Some(AuthSource::None) => eyre::bail!(
+            "authentication is disabled by auth source none; cannot acquire an Azure access token"
+        ),
         Some(AuthSource::WorkloadIdentity) => {
             let config = auth_context.workload_identity().ok_or_else(|| {
                 eyre::eyre!(
@@ -268,7 +271,7 @@ mod test {
         CancellationToken::new()
             .cancellable_scope(|cancellation| async move {
                 let error = super::fetch_azure_bearer_access_token(
-                    &AuthContext::None,
+                    &AuthContext::Unresolved,
                     None,
                     crate::AzureRestResource::AzureDevOps,
                     &cancellation,
@@ -276,6 +279,26 @@ mod test {
                 .await
                 .expect_err("placeholder authentication must not execute");
                 assert!(error.to_string().contains("placeholder"));
+                Ok::<_, eyre::Error>(())
+            })
+            .await
+            .expect("test execution scope remains valid");
+    }
+
+    #[tokio::test]
+    async fn disabled_authentication_fails_before_token_acquisition() {
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let context = AuthContext::resolve(AuthSource::None)?;
+                let error = super::fetch_azure_bearer_access_token(
+                    &context,
+                    None,
+                    crate::AzureRestResource::MicrosoftGraph,
+                    &cancellation,
+                )
+                .await
+                .expect_err("disabled authentication must not acquire a token");
+                assert!(error.to_string().contains("auth source none"));
                 Ok::<_, eyre::Error>(())
             })
             .await

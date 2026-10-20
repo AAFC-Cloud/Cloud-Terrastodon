@@ -1,5 +1,5 @@
 use crate::work::WorkHandle;
-use cloud_terrastodon_command::CancellationError;
+use cloud_terrastodon_command::CancellationReportExt;
 use eyre::bail;
 use std::cell::RefCell;
 use tracing::error;
@@ -39,7 +39,7 @@ impl WorkTracker {
             match work.join_handle.await? {
                 Ok(()) => {}
                 Err(e) => {
-                    if e.chain().any(|cause| cause.is::<CancellationError>()) {
+                    if e.is_cancellation() {
                         info!(description = %work.description, "Background work acknowledged cancellation");
                         continue;
                     }

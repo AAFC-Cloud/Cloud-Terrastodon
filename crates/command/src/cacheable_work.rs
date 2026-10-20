@@ -1,6 +1,5 @@
 use crate::ArtifactMetadata;
 use crate::CacheKey;
-use crate::CancellationError;
 use crate::CancellationScope;
 use crate::CommandOutput;
 use crate::artifact_cache;
@@ -12,6 +11,7 @@ use facet::Facet;
 use std::collections::BTreeMap;
 use std::future::Future;
 use std::path::PathBuf;
+use teamy_cancellation::CancellationReportExt;
 
 type RawExtraFilesFn<Raw> = fn(&Raw) -> BTreeMap<PathBuf, BString>;
 type FailureExtraFilesFn = fn(&eyre::Report) -> BTreeMap<PathBuf, BString>;
@@ -169,7 +169,7 @@ where
             )
             .await?
         }
-        Err(error) if error.downcast_ref::<CancellationError>().is_some() => return Err(error),
+        Err(error) if error.is_cancellation() => return Err(error),
         Err(error) => {
             tracing::debug!(?cache_key, %error, "Cache load failed");
             cancellation.bail_if_cancelled()?;
@@ -200,7 +200,7 @@ where
     let decode_result = tokio::task::spawn_blocking(move || decode(raw)).await?;
     match decode_result {
         Ok(result) => Ok(result),
-        Err(error) if error.downcast_ref::<CancellationError>().is_some() => Err(error),
+        Err(error) if error.is_cancellation() => Err(error),
         Err(error) => {
             let mut extra_files = extra_files;
             if let Some(failure_extra_files) = failure_extra_files {

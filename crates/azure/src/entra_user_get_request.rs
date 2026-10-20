@@ -1,65 +1,36 @@
-use crate::MicrosoftGraphHelper;
 use crate::PercentEncodeExt;
 use arbitrary::Arbitrary;
-use cloud_terrastodon_azure_types::AzurePrincipalArgument;
 use cloud_terrastodon_azure_types::EntraUser;
-use cloud_terrastodon_azure_types::EntraUserId;
+use cloud_terrastodon_azure_types::EntraUserArgument;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_credentials::AzureTenantAuthContext;
+use cloud_terrastodon_pathing::sanitize_windows_path_component;
+use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
-use eyre::bail;
 use facet::Facet;
+use http::Method;
 use std::borrow::Cow;
 use std::path::PathBuf;
 use tracing::debug;
+use url::Url;
 
-#[derive(Arbitrary, Facet)]
-#[repr(C)]
-pub enum EntraUserLookup {
-    ObjectId(EntraUserId),
-    UserPrincipalName(String),
-}
-
-impl From<EntraUserId> for EntraUserLookup {
-    fn from(value: EntraUserId) -> Self {
-        Self::ObjectId(value)
-    }
-}
-
-impl From<String> for EntraUserLookup {
-    fn from(value: String) -> Self {
-        Self::UserPrincipalName(value)
-    }
-}
-
-impl From<&str> for EntraUserLookup {
-    fn from(value: &str) -> Self {
-        Self::UserPrincipalName(value.to_owned())
-    }
-}
-
-impl From<AzurePrincipalArgument<'_>> for EntraUserLookup {
-    fn from(value: AzurePrincipalArgument<'_>) -> Self {
-        match value {
-            AzurePrincipalArgument::Id(id) => Self::ObjectId(EntraUserId::new(**id.as_ref())),
-            AzurePrincipalArgument::Name(name) => Self::UserPrincipalName(name.into_owned()),
-            AzurePrincipalArgument::Principal(principal) => {
-                Self::ObjectId(EntraUserId::new(*principal.as_ref().as_ref()))
-            }
-        }
-    }
-}
-
+/// Fetch a Microsoft Graph v1.0 [user](https://learn.microsoft.com/en-us/graph/api/user-get?view=graph-rest-1.0)
+/// by object ID or validated user principal name.
+///
+/// Guest UPNs are percent-encoded. Leading `$` names use Graph's documented
+/// parenthesized key syntax, with embedded apostrophes escaped as OData string
+/// literals. An absent user returns a typed [`cloud_terrastodon_rest::RestHttpError`]
+/// with status 404; authentication, transport, and decoding failures remain errors.
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Facet)]
 pub struct EntraUserGetRequest<'a> {
     #[facet(skip_serializing)]
     pub cancellation: CancellationScope,
 
-    pub lookup: EntraUserLookup,
+    pub lookup: EntraUserArgument<'a>,
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
 
@@ -73,13 +44,15 @@ impl<'a> Arbitrary<'a> for EntraUserGetRequest<'static> {
     }
 }
 
+/// Construct a user lookup from an `EntraUserId`, `UserPrincipalName`, or
+/// [`EntraUserArgument`]. Parse raw text as `EntraUserArgument` before calling.
 pub fn fetch_entra_user<'a, T>(
     lookup: T,
     auth_context: &'a AzureTenantAuthContext,
     cancellation: &CancellationScope,
 ) -> EntraUserGetRequest<'a>
 where
-    T: Into<EntraUserLookup>,
+    T: Into<EntraUserArgument<'a>>,
 {
     EntraUserGetRequest {
         cancellation: cancellation.clone(),
@@ -89,18 +62,31 @@ where
 }
 
 impl EntraUserGetRequest<'_> {
-    fn url(&self) -> String {
-        let lookup = match &self.lookup {
-            EntraUserLookup::ObjectId(user_id) => user_id.to_string(),
-            EntraUserLookup::UserPrincipalName(user_principal_name) => {
-                user_principal_name.trim().percent_encode()
+    fn url(&self) -> Result<Url> {
+        let path = match &self.lookup {
+            EntraUserArgument::ObjectId(user_id) => format!("users/{user_id}"),
+            EntraUserArgument::UserPrincipalName(user_principal_name)
+                if user_principal_name.as_str().starts_with('$') =>
+            {
+                // https://learn.microsoft.com/en-us/graph/api/user-get?view=graph-rest-1.0#http-request
+                // Quoted keys follow OData literal escaping before URL encoding:
+                // https://learn.microsoft.com/en-us/graph/query-parameters#escaping-single-quotes
+                format!(
+                    "users('{}')",
+                    user_principal_name
+                        .as_str()
+                        .replace('\'', "''")
+                        .percent_encode()
+                )
+            }
+            EntraUserArgument::UserPrincipalName(user_principal_name) => {
+                format!("users/{}", user_principal_name.as_str().percent_encode())
             }
         };
-
-        format!(
-            "https://graph.microsoft.com/v1.0/users/{lookup}?$select={}",
-            EntraUser::SELECT
-        )
+        let mut url = Url::parse(&format!("https://graph.microsoft.com/v1.0/{path}"))?;
+        url.query_pairs_mut()
+            .append_pair("$select", EntraUser::SELECT);
+        Ok(url)
     }
 }
 
@@ -112,7 +98,7 @@ impl CacheableCommand for EntraUserGetRequest<'_> {
         let tenant_id = self.auth_context.tenant_id.to_string();
 
         match &self.lookup {
-            EntraUserLookup::ObjectId(user_id) => {
+            EntraUserArgument::ObjectId(user_id) => {
                 let user_id = user_id.to_string();
                 CacheKey::new(PathBuf::from_iter([
                     "ms",
@@ -123,10 +109,15 @@ impl CacheableCommand for EntraUserGetRequest<'_> {
                     user_id.as_str(),
                 ]))
             }
-            EntraUserLookup::UserPrincipalName(user_principal_name) => {
-                let user_principal_name_hash = blake3::hash(user_principal_name.trim().as_bytes())
-                    .to_hex()
-                    .to_string();
+            EntraUserArgument::UserPrincipalName(user_principal_name) => {
+                let user_principal_name_component =
+                    sanitize_windows_path_component(user_principal_name.as_str());
+                // The spelling fingerprint keeps distinct requests separate even
+                // on a case-insensitive filesystem; the identity remains readable.
+                let user_principal_name_hash =
+                    blake3::hash(user_principal_name.as_str().as_bytes())
+                        .to_hex()
+                        .to_string();
                 CacheKey::new(PathBuf::from_iter([
                     "ms",
                     "graph",
@@ -134,6 +125,7 @@ impl CacheableCommand for EntraUserGetRequest<'_> {
                     "users",
                     "by_user_principal_name",
                     tenant_id.as_str(),
+                    user_principal_name_component.as_str(),
                     user_principal_name_hash.as_str(),
                 ]))
             }
@@ -142,35 +134,28 @@ impl CacheableCommand for EntraUserGetRequest<'_> {
 
     async fn run(self) -> Result<Self::Output> {
         match &self.lookup {
-            EntraUserLookup::ObjectId(user_id) => {
+            EntraUserArgument::ObjectId(user_id) => {
                 debug!(
                     tenant_id = %self.auth_context.tenant_id,
                     user_id = %user_id,
                     "Fetching user by object id"
                 );
             }
-            EntraUserLookup::UserPrincipalName(user_principal_name) => {
-                let user_principal_name = user_principal_name.trim();
-                if user_principal_name.is_empty() {
-                    bail!("User principal name cannot be empty.");
-                }
-
+            EntraUserArgument::UserPrincipalName(user_principal_name) => {
                 debug!(
                     tenant_id = %self.auth_context.tenant_id,
-                    user_principal_name,
+                    user_principal_name = %user_principal_name,
                     "Fetching Entra user by user principal name"
                 );
             }
         }
 
-        MicrosoftGraphHelper::new(
-            self.url(),
-            Some(self.cache_key()),
-            self.auth_context.as_ref(),
-            &self.cancellation,
-        )
-        .fetch_one(&self.cancellation)
-        .await
+        let mut request =
+            RestRequest::from_method_and_url(Method::GET, self.url()?, &self.cancellation)?
+                .azure_auth_context(&self.auth_context.auth_context)
+                .tenant(self.auth_context.tenant_id);
+        request.cache_key = Some(self.cache_key());
+        request.receive::<EntraUser>().await
     }
 }
 
@@ -187,38 +172,42 @@ mod tests {
     use cloud_terrastodon_credentials::AuthContext;
 
     #[test]
-    fn url_targets_the_exact_user_principal_name() {
+    fn url_keeps_special_upns_in_the_user_key() {
         CancellationToken::new()
             .with_scope(|cancellation| {
-                let request = EntraUserGetRequest {
-                    cancellation: cancellation.clone(),
-                    lookup: EntraUserLookup::UserPrincipalName("O'Neil@example.com".to_owned()),
-                    auth_context: Cow::Owned(
-                        AuthContext::explicit_azure_cli()
-                            .bind_to_azure_tenant(AzureTenantId::new(
-                                cloud_terrastodon_azure_types::uuid::Uuid::nil(),
-                            ))
-                            .expect("default auth context should bind to a tenant"),
+                let auth = AuthContext::explicit_azure_cli().bind_to_azure_tenant(
+                    AzureTenantId::new(cloud_terrastodon_azure_types::uuid::Uuid::nil()),
+                )?;
+                for (upn, expected_path) in [
+                    ("O'Neil@example.com", "/v1.0/users/O%27Neil%40example.com"),
+                    (
+                        "$O'Neil#EXT#@example.com",
+                        "/v1.0/users('%24O%27%27Neil%23EXT%23%40example.com')",
                     ),
-                };
-
-                assert!(
-                    request
-                        .url()
-                        .contains("/users/O%27Neil%40example.com?$select=")
-                );
+                    (
+                        "guest_example.com#EXT#@tenant.example",
+                        "/v1.0/users/guest_example.com%23EXT%23%40tenant.example",
+                    ),
+                    (
+                        "person+tag/alias?x&y%z@example.com",
+                        "/v1.0/users/person%2Btag%2Falias%3Fx%26y%25z%40example.com",
+                    ),
+                ] {
+                    let request = EntraUserGetRequest {
+                        cancellation: cancellation.clone(),
+                        lookup: upn.parse()?,
+                        auth_context: Cow::Borrowed(&auth),
+                    };
+                    let url = request.url()?;
+                    assert_eq!(url.path(), expected_path);
+                    assert!(url.fragment().is_none());
+                    assert_eq!(
+                        url.query_pairs().collect::<Vec<_>>(),
+                        vec![(Cow::Borrowed("$select"), Cow::Borrowed(EntraUser::SELECT))]
+                    );
+                }
                 Ok::<_, eyre::Error>(())
             })
             .expect("uncancelled test scope");
-    }
-
-    #[test]
-    fn azure_principal_argument_converts_to_user_lookup() {
-        let lookup: EntraUserLookup = AzurePrincipalArgument::from("jane.doe@example.com").into();
-
-        assert!(matches!(
-            lookup,
-            EntraUserLookup::UserPrincipalName(name) if name == "jane.doe@example.com"
-        ));
     }
 }

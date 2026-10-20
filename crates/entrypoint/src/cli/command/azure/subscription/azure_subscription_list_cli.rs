@@ -17,9 +17,9 @@ use color_eyre::owo_colors::OwoColorize;
 use color_eyre::owo_colors::Stream;
 use color_eyre::owo_colors::Style;
 use eyre::Result;
-use std::fmt::Write;
 use std::future::Future;
 use std::io::IsTerminal;
+use std::io::Write;
 use tokio::task::JoinSet;
 use tracing::debug;
 
@@ -220,18 +220,21 @@ fn tenant_output(
 
 impl SubscriptionListOutput {
     fn into_cli_output(self) -> CliOutput {
-        CliOutput::facet_with_text(self, Self::render_text)
+        CliOutput::facet_with_text(self, Self::write_text)
     }
 
-    fn render_text(&self) -> Result<String> {
-        let mut output = String::new();
+    fn write_text(&self, writer: &mut dyn Write, cancellation: &CancellationScope) -> Result<()> {
         if self.0.is_empty() {
-            output.push_str("No tracked Azure tenants. Add one with `cloud_terrastodon az tenant add <tenant-id>` or discover them with `cloud_terrastodon az tenant discover`.\n");
-            return Ok(output);
+            writeln!(
+                writer,
+                "No tracked Azure tenants. Add one with `cloud_terrastodon az tenant add <tenant-id>` or discover them with `cloud_terrastodon az tenant discover`."
+            )?;
+            return Ok(());
         }
         for (index, tenant) in self.0.iter().enumerate() {
+            cancellation.bail_if_cancelled()?;
             if index > 0 {
-                output.push('\n');
+                writeln!(writer)?;
             }
             let name = terminal_text(
                 tenant
@@ -251,7 +254,7 @@ impl SubscriptionListOutput {
                     .join(", ")
             };
             writeln!(
-                output,
+                writer,
                 "{} {}  {}  aliases: {}",
                 "Tenant".if_supports_color(Stream::Stdout, |text| text
                     .style(Style::new().cyan().bold())),
@@ -261,6 +264,7 @@ impl SubscriptionListOutput {
                 aliases.if_supports_color(Stream::Stdout, |text| text.magenta())
             )?;
             for error in &tenant.metadata_errors {
+                cancellation.bail_if_cancelled()?;
                 // The name and subscriptions may both fail on the same token.
                 // The header already identifies the missing name.
                 if error.strip_prefix("Tenant name unavailable: ") == tenant.error.as_deref()
@@ -270,7 +274,7 @@ impl SubscriptionListOutput {
                 }
                 let error = terminal_text(error);
                 writeln!(
-                    output,
+                    writer,
                     "  │  {}",
                     error.if_supports_color(Stream::Stdout, |text| text.yellow())
                 )?;
@@ -278,14 +282,15 @@ impl SubscriptionListOutput {
             if let Some(error) = &tenant.error {
                 let message = format!("Unable to list subscriptions: {}", terminal_text(error));
                 writeln!(
-                    output,
+                    writer,
                     "  └─ {}",
                     message.if_supports_color(Stream::Stdout, |text| text.yellow())
                 )?;
             } else if tenant.subscriptions.is_empty() {
-                writeln!(output, "  └─ No subscriptions found.")?;
+                writeln!(writer, "  └─ No subscriptions found.")?;
             } else {
                 for (index, listed) in tenant.subscriptions.iter().enumerate() {
+                    cancellation.bail_if_cancelled()?;
                     let branch = if index + 1 == tenant.subscriptions.len() {
                         "└─"
                     } else {
@@ -299,7 +304,7 @@ impl SubscriptionListOutput {
                         listed.portal_url.clone()
                     };
                     writeln!(
-                        output,
+                        writer,
                         "  {} {}  {}  {}",
                         branch.if_supports_color(Stream::Stdout, |text| text.dimmed()),
                         id.if_supports_color(Stream::Stdout, |text| text.green()),
@@ -310,7 +315,7 @@ impl SubscriptionListOutput {
                 }
             }
         }
-        Ok(output)
+        Ok(())
     }
 }
 
@@ -329,6 +334,15 @@ fn terminal_link(label: &str, url: &str) -> String {
 mod tests {
     use super::*;
     use cloud_terrastodon_app::OutputFormat;
+    use cloud_terrastodon_command::CancellationToken;
+
+    fn render_text(output: SubscriptionListOutput, cancellation: &CancellationScope) -> String {
+        output
+            .into_cli_output()
+            .render(Some(OutputFormat::Text), false, cancellation)
+            .unwrap()
+            .unwrap()
+    }
 
     fn subscription(tenant_id: AzureTenantId, name: &str, id: &str) -> Subscription {
         facet_json::from_str(&format!(
@@ -393,162 +407,197 @@ mod tests {
 
     #[test]
     fn text_shows_tenant_metadata_subscriptions_and_portal_destination() {
-        let output = example_output()
-            .into_cli_output()
-            .render(Some(OutputFormat::Text), true)
-            .unwrap()
-            .unwrap();
-        assert!(output.contains("Contoso"));
-        assert!(output.contains("11111111-1111-1111-1111-111111111111"));
-        assert!(output.contains("cloud, prod"));
-        assert!(output.contains("22222222-2222-2222-2222-222222222222"));
-        assert!(output.contains("Production"));
-        let destination = "https://portal.azure.com/#@11111111-1111-1111-1111-111111111111/resource/subscriptions/22222222-2222-2222-2222-222222222222/overview";
-        assert!(output.contains(destination));
+        CancellationToken::new().with_scope(|cancellation| {
+            let output = example_output()
+                .into_cli_output()
+                .render(Some(OutputFormat::Text), true, &cancellation)
+                .unwrap()
+                .unwrap();
+            assert!(output.contains("Contoso"));
+            assert!(output.contains("11111111-1111-1111-1111-111111111111"));
+            assert!(output.contains("cloud, prod"));
+            assert!(output.contains("22222222-2222-2222-2222-222222222222"));
+            assert!(output.contains("Production"));
+            let destination = "https://portal.azure.com/#@11111111-1111-1111-1111-111111111111/resource/subscriptions/22222222-2222-2222-2222-222222222222/overview";
+            assert!(output.contains(destination));
+            Ok::<_, eyre::Report>(())
+        }).unwrap();
     }
 
     #[test]
     fn piped_text_has_visible_portal_url() {
-        let output = example_output()
-            .into_cli_output()
-            .render(Some(OutputFormat::Text), false)
-            .unwrap()
+        CancellationToken::new()
+            .with_scope(|cancellation| {
+                let output = example_output()
+                    .into_cli_output()
+                    .render(Some(OutputFormat::Text), false, &cancellation)
+                    .unwrap()
+                    .unwrap();
+                assert!(output.contains("https://portal.azure.com/#@"));
+                assert!(!output.contains("\x1b]8;;"));
+                Ok::<_, eyre::Report>(())
+            })
             .unwrap();
-        assert!(output.contains("https://portal.azure.com/#@"));
-        assert!(!output.contains("\x1b]8;;"));
     }
 
     #[test]
     fn facet_pretty_shows_underlying_tenant_data_without_custom_terminal_links() {
-        for terminal in [true, false] {
-            let output = example_output()
-                .into_cli_output()
-                .render(Some(OutputFormat::FacetPretty), terminal)
-                .unwrap()
-                .unwrap();
-            assert!(output.contains("tenant_name"), "{output}");
-            assert!(output.contains("tenant_aliases"), "{output}");
-            assert!(output.contains("portal_url"), "{output}");
-            assert!(output.contains("Contoso"), "{output}");
-            assert!(output.contains("Production"), "{output}");
-            assert!(!output.contains("\x1b]8;;"), "{output}");
-        }
+        CancellationToken::new()
+            .with_scope(|cancellation| {
+                for terminal in [true, false] {
+                    let output = example_output()
+                        .into_cli_output()
+                        .render(Some(OutputFormat::FacetPretty), terminal, &cancellation)
+                        .unwrap()
+                        .unwrap();
+                    assert!(output.contains("tenant_name"), "{output}");
+                    assert!(output.contains("tenant_aliases"), "{output}");
+                    assert!(output.contains("portal_url"), "{output}");
+                    assert!(output.contains("Contoso"), "{output}");
+                    assert!(output.contains("Production"), "{output}");
+                    assert!(!output.contains("\x1b]8;;"), "{output}");
+                }
+                Ok::<_, eyre::Report>(())
+            })
+            .unwrap();
     }
 
     #[test]
     fn json_keeps_subscription_details_tenant_metadata_and_portal_url() {
-        let output = example_output()
-            .into_cli_output()
-            .render(Some(OutputFormat::Json), true)
-            .unwrap()
+        CancellationToken::new()
+            .with_scope(|cancellation| {
+                let output = example_output()
+                    .into_cli_output()
+                    .render(Some(OutputFormat::Json), true, &cancellation)
+                    .unwrap()
+                    .unwrap();
+                let output: serde_json::Value = serde_json::from_str(&output).unwrap();
+                assert_eq!(output[0]["tenant_name"], "Contoso");
+                assert_eq!(
+                    output[0]["tenant_aliases"],
+                    serde_json::json!(["cloud", "prod"])
+                );
+                assert!(output[0]["error"].is_null());
+                assert_eq!(
+                    output[0]["subscriptions"][0]["id"],
+                    "22222222-2222-2222-2222-222222222222"
+                );
+                assert_eq!(output[0]["subscriptions"][0]["tags"]["team"], "cloud");
+                assert!(
+                    output[0]["subscriptions"][0]["portal_url"]
+                        .as_str()
+                        .unwrap()
+                        .ends_with("/overview")
+                );
+                Ok::<_, eyre::Report>(())
+            })
             .unwrap();
-        let output: serde_json::Value = serde_json::from_str(&output).unwrap();
-        assert_eq!(output[0]["tenant_name"], "Contoso");
-        assert_eq!(
-            output[0]["tenant_aliases"],
-            serde_json::json!(["cloud", "prod"])
-        );
-        assert!(output[0]["error"].is_null());
-        assert_eq!(
-            output[0]["subscriptions"][0]["id"],
-            "22222222-2222-2222-2222-222222222222"
-        );
-        assert_eq!(output[0]["subscriptions"][0]["tags"]["team"], "cloud");
-        assert!(
-            output[0]["subscriptions"][0]["portal_url"]
-                .as_str()
-                .unwrap()
-                .ends_with("/overview")
-        );
     }
 
     #[test]
     fn name_or_alias_lookup_failure_does_not_hide_subscriptions() {
-        let tenant_id = "11111111-1111-1111-1111-111111111111".parse().unwrap();
-        let tenant = tenant_output(
-            tenant_id,
-            Err(eyre::eyre!("aliases file unreadable")),
-            Err(eyre::eyre!("Graph access denied")),
-            Ok(vec![subscription(
-                tenant_id,
-                "Production",
-                "22222222-2222-2222-2222-222222222222",
-            )]),
-        );
-        assert_eq!(tenant.subscriptions.len(), 1);
-        assert!(tenant.error.is_none());
-        assert!(tenant.tenant_name.is_none());
-        assert_eq!(tenant.metadata_errors.len(), 2);
-        let text = SubscriptionListOutput(vec![tenant]).render_text().unwrap();
-        assert!(text.contains("Tenant aliases unavailable: aliases file unreadable"));
-        assert!(text.contains("Tenant name unavailable: Graph access denied"));
-        assert!(text.contains("Production"));
+        CancellationToken::new()
+            .with_scope(|cancellation| {
+                let tenant_id = "11111111-1111-1111-1111-111111111111".parse().unwrap();
+                let tenant = tenant_output(
+                    tenant_id,
+                    Err(eyre::eyre!("aliases file unreadable")),
+                    Err(eyre::eyre!("Graph access denied")),
+                    Ok(vec![subscription(
+                        tenant_id,
+                        "Production",
+                        "22222222-2222-2222-2222-222222222222",
+                    )]),
+                );
+                assert_eq!(tenant.subscriptions.len(), 1);
+                assert!(tenant.error.is_none());
+                assert!(tenant.tenant_name.is_none());
+                assert_eq!(tenant.metadata_errors.len(), 2);
+                let text = render_text(SubscriptionListOutput(vec![tenant]), &cancellation);
+                assert!(text.contains("Tenant aliases unavailable: aliases file unreadable"));
+                assert!(text.contains("Tenant name unavailable: Graph access denied"));
+                assert!(text.contains("Production"));
+                Ok::<_, eyre::Report>(())
+            })
+            .unwrap();
     }
 
     #[test]
     fn repeated_cli_auth_failures_show_one_concise_message_and_keep_json_errors_usable() {
-        fn cli_error(context: &str) -> eyre::Report {
-            eyre::Report::new(cloud_terrastodon_command::CommandOutput {
-                status: 1,
-                stdout: "".into(),
-                stderr: concat!(
-                    "DEBUG: cli.knack.cli: synthetic command arguments\n",
-                    "DEBUG: cli.azure.cli.core.azclierror: Traceback (most recent call last):\n",
-                    "  File synthetic.py, line 42\n",
-                    "ERROR: cli.azure.cli.core.azclierror: No subscription found. Run 'az account set' to select a subscription.\n",
-                    "ERROR: az_command_data_logger: No subscription found. Run 'az account set' to select a subscription.\n",
-                    "INFO: cli.__main__: synthetic command finished\n",
-                ).into(),
-            }).wrap_err(context.to_owned())
-        }
+        CancellationToken::new().with_scope(|cancellation| {
+            fn cli_error(context: &str) -> eyre::Report {
+                eyre::Report::new(cloud_terrastodon_command::CommandOutput {
+                    status: 1,
+                    stdout: "".into(),
+                    stderr: concat!(
+                        "DEBUG: cli.knack.cli: synthetic command arguments\n",
+                        "DEBUG: cli.azure.cli.core.azclierror: Traceback (most recent call last):\n",
+                        "  File synthetic.py, line 42\n",
+                        "ERROR: cli.azure.cli.core.azclierror: No subscription found. Run 'az account set' to select a subscription.\n",
+                        "ERROR: az_command_data_logger: No subscription found. Run 'az account set' to select a subscription.\n",
+                        "INFO: cli.__main__: synthetic command finished\n",
+                    ).into(),
+                }).wrap_err(context.to_owned())
+            }
 
-        let tenant = tenant_output(
-            "11111111-1111-1111-1111-111111111111".parse().unwrap(),
-            Ok(vec!["example".parse().unwrap()]),
-            Err(cli_error("Fetching synthetic Graph name failed")),
-            Err(cli_error("Fetching synthetic ARM subscriptions failed")),
-        );
-        let output = SubscriptionListOutput(vec![tenant]).into_cli_output();
-        let message = "No subscription found. Run 'az account set' to select a subscription.";
-        for terminal in [true, false] {
-            let text = output
-                .render(Some(OutputFormat::Text), terminal)
+            let tenant = tenant_output(
+                "11111111-1111-1111-1111-111111111111".parse().unwrap(),
+                Ok(vec!["example".parse().unwrap()]),
+                Err(cli_error("Fetching synthetic Graph name failed")),
+                Err(cli_error("Fetching synthetic ARM subscriptions failed")),
+            );
+            let output = SubscriptionListOutput(vec![tenant]).into_cli_output();
+            let message = "No subscription found. Run 'az account set' to select a subscription.";
+            for terminal in [true, false] {
+                let text = output
+                    .render(Some(OutputFormat::Text), terminal, &cancellation)
+                    .unwrap()
+                    .unwrap();
+                assert_eq!(text.matches(message).count(), 1);
+                assert!(text.contains("Unable to list subscriptions:"));
+                assert!(!text.contains("Tenant name unavailable:"));
+                assert!(!text.contains("DEBUG:"));
+                assert!(!text.contains("Traceback"));
+                assert!(!text.contains("synthetic.py"));
+                assert_eq!(text.lines().count(), 2);
+            }
+            let json = output
+                .render(Some(OutputFormat::Json), false, &cancellation)
                 .unwrap()
                 .unwrap();
-            assert_eq!(text.matches(message).count(), 1);
-            assert!(text.contains("Unable to list subscriptions:"));
-            assert!(!text.contains("Tenant name unavailable:"));
-            assert!(!text.contains("DEBUG:"));
-            assert!(!text.contains("Traceback"));
-            assert!(!text.contains("synthetic.py"));
-            assert_eq!(text.lines().count(), 2);
-        }
-        let json = output
-            .render(Some(OutputFormat::Json), false)
-            .unwrap()
-            .unwrap();
-        let json: serde_json::Value = serde_json::from_str(&json).unwrap();
-        assert_eq!(json[0]["error"], message);
-        assert_eq!(
-            json[0]["metadata_errors"][0],
-            format!("Tenant name unavailable: {message}")
-        );
+            let json: serde_json::Value = serde_json::from_str(&json).unwrap();
+            assert_eq!(json[0]["error"], message);
+            assert_eq!(
+                json[0]["metadata_errors"][0],
+                format!("Tenant name unavailable: {message}")
+            );
+            Ok::<_, eyre::Report>(())
+        }).unwrap();
     }
 
     #[test]
     fn distinct_metadata_errors_remain_visible_beside_a_subscription_failure() {
-        let tenant = tenant_output(
-            "11111111-1111-1111-1111-111111111111".parse().unwrap(),
-            Err(eyre::eyre!("Local aliases are unavailable")),
-            Err(eyre::eyre!("Graph permission denied").wrap_err("Fetching tenant name")),
-            Err(eyre::eyre!("Subscription request was throttled").wrap_err("Querying ARM")),
-        );
-        let text = SubscriptionListOutput(vec![tenant]).render_text().unwrap();
-        assert!(text.contains("Tenant aliases unavailable: Local aliases are unavailable"));
-        assert!(text.contains("Tenant name unavailable: Graph permission denied"));
-        assert!(text.contains("Unable to list subscriptions: Subscription request was throttled"));
-        assert!(!text.contains("Fetching tenant name"));
-        assert!(!text.contains("Querying ARM"));
+        CancellationToken::new()
+            .with_scope(|cancellation| {
+                let tenant = tenant_output(
+                    "11111111-1111-1111-1111-111111111111".parse().unwrap(),
+                    Err(eyre::eyre!("Local aliases are unavailable")),
+                    Err(eyre::eyre!("Graph permission denied").wrap_err("Fetching tenant name")),
+                    Err(eyre::eyre!("Subscription request was throttled").wrap_err("Querying ARM")),
+                );
+                let text = render_text(SubscriptionListOutput(vec![tenant]), &cancellation);
+                assert!(text.contains("Tenant aliases unavailable: Local aliases are unavailable"));
+                assert!(text.contains("Tenant name unavailable: Graph permission denied"));
+                assert!(
+                    text.contains(
+                        "Unable to list subscriptions: Subscription request was throttled"
+                    )
+                );
+                assert!(!text.contains("Fetching tenant name"));
+                assert!(!text.contains("Querying ARM"));
+                Ok::<_, eyre::Report>(())
+            })
+            .unwrap();
     }
 
     #[tokio::test]
@@ -600,41 +649,51 @@ mod tests {
                 .unwrap()
                 .contains("Authentication expired")
         );
-        let output = SubscriptionListOutput(tenants).into_cli_output();
-        let json: serde_json::Value = serde_json::from_str(
-            &output
-                .render(Some(OutputFormat::Json), false)
-                .unwrap()
-                .unwrap(),
-        )
-        .unwrap();
-        assert_eq!(json[1]["subscriptions"], serde_json::json!([]));
-        assert!(json[1]["error"].is_null());
-        assert!(
-            json[2]["error"]
-                .as_str()
-                .unwrap()
-                .contains("Authentication expired")
-        );
-        let text = output
-            .render(Some(OutputFormat::Text), false)
-            .unwrap()
+        CancellationToken::new()
+            .with_scope(|cancellation| {
+                let output = SubscriptionListOutput(tenants).into_cli_output();
+                let json: serde_json::Value = serde_json::from_str(
+                    &output
+                        .render(Some(OutputFormat::Json), false, &cancellation)
+                        .unwrap()
+                        .unwrap(),
+                )
+                .unwrap();
+                assert_eq!(json[1]["subscriptions"], serde_json::json!([]));
+                assert!(json[1]["error"].is_null());
+                assert!(
+                    json[2]["error"]
+                        .as_str()
+                        .unwrap()
+                        .contains("Authentication expired")
+                );
+                let text = output
+                    .render(Some(OutputFormat::Text), false, &cancellation)
+                    .unwrap()
+                    .unwrap();
+                assert!(text.contains("Production"));
+                assert!(text.contains("No subscriptions found."));
+                assert!(text.contains("Unable to list subscriptions: Authentication expired"));
+                Ok::<_, eyre::Report>(())
+            })
             .unwrap();
-        assert!(text.contains("Production"));
-        assert!(text.contains("No subscriptions found."));
-        assert!(text.contains("Unable to list subscriptions: Authentication expired"));
     }
 
     #[test]
     fn empty_tracking_is_actionable_and_terminal_control_characters_are_neutralized() {
-        let output = SubscriptionListOutput(Vec::new()).render_text().unwrap();
-        assert!(output.contains("cloud_terrastodon az tenant discover"));
-        assert!(output.contains("cloud_terrastodon az tenant add"));
-        let mut output = example_output();
-        output.0[0].tenant_name = Some("Contoso\n\x1b]8;;bad\x07".to_owned());
-        let text = output.render_text().unwrap();
-        assert!(!text.contains("\x1b]8;;bad"));
-        assert!(!text.contains('\x07'));
-        assert_eq!(text.lines().count(), 2);
+        CancellationToken::new()
+            .with_scope(|cancellation| {
+                let output = render_text(SubscriptionListOutput(Vec::new()), &cancellation);
+                assert!(output.contains("cloud_terrastodon az tenant discover"));
+                assert!(output.contains("cloud_terrastodon az tenant add"));
+                let mut output = example_output();
+                output.0[0].tenant_name = Some("Contoso\n\x1b]8;;bad\x07".to_owned());
+                let text = render_text(output, &cancellation);
+                assert!(!text.contains("\x1b]8;;bad"));
+                assert!(!text.contains('\x07'));
+                assert_eq!(text.lines().count(), 2);
+                Ok::<_, eyre::Report>(())
+            })
+            .unwrap();
     }
 }

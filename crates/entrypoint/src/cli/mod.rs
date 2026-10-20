@@ -57,7 +57,7 @@ impl Cli {
                 output::CliOutput::none()
             }
         };
-        output.emit(requested_format)
+        output.emit(requested_format, cancellation)
     }
 }
 
@@ -119,7 +119,7 @@ mod tests {
                 };
                 // The placeholder context must fail while configuring REST auth,
                 // before credentials, cached output, or HTTP are accessed.
-                let auth_context = AuthContext::None;
+                let auth_context = AuthContext::Unresolved;
                 let cancellation_token = CancellationToken::new();
                 let runtime = tokio::runtime::Builder::new_current_thread()
                     .build()

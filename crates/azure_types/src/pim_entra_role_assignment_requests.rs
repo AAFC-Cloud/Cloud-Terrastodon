@@ -1,6 +1,6 @@
 use crate::AzureTenantId;
+use crate::EntraPrincipalId;
 use crate::GovernanceRoleAssignment;
-use crate::PrincipalId;
 use crate::iso8601_duration::IsoDuration;
 use std::time::Duration;
 use uuid::Uuid;
@@ -12,7 +12,7 @@ pub struct RoleAssignmentRequest {
     #[facet(rename = "resourceId")]
     pub resource_id: Uuid,
     #[facet(rename = "subjectId")]
-    pub subject_id: PrincipalId,
+    pub subject_id: EntraPrincipalId,
     #[facet(rename = "assignmentState")]
     pub assignment_state: RoleAssignmentRequestAssignmentState,
     #[facet(rename = "type")]
@@ -56,7 +56,7 @@ pub enum RoleAssignmentRequestScheduleKind {
 
 impl RoleAssignmentRequest {
     pub fn new_self_activation(
-        principal_id: PrincipalId,
+        principal_id: EntraPrincipalId,
         tenant_id: AzureTenantId,
         role_assignment: &GovernanceRoleAssignment,
         justification: String,

@@ -1,4 +1,4 @@
-use cloud_terrastodon_azure_types::PrincipalId;
+use cloud_terrastodon_azure_types::EntraPrincipalId;
 use cloud_terrastodon_azure_types::RoleAssignmentScheduleRequest;
 use cloud_terrastodon_azure_types::RoleDefinitionId;
 use cloud_terrastodon_azure_types::RoleEligibilityScheduleId;
@@ -13,7 +13,7 @@ use std::time::Duration;
 
 pub async fn activate_pim_role(
     scope: &impl Scope,
-    principal_id: impl Into<PrincipalId>,
+    principal_id: impl Into<EntraPrincipalId>,
     role_definition_id: RoleDefinitionId,
     role_eligibility_schedule_id: RoleEligibilityScheduleId,
     justification: String,

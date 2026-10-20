@@ -1,4 +1,4 @@
-use crate::PrincipalId;
+use crate::EntraPrincipalId;
 use crate::RoleAssignment;
 use crate::RoleDefinition;
 use crate::RoleDefinitionId;
@@ -28,7 +28,7 @@ pub async fn get_role_assignment_choices(
     let user_lookup = users
         .iter()
         .map(|u| (u.id.into(), u))
-        .collect::<HashMap<PrincipalId, _>>();
+        .collect::<HashMap<EntraPrincipalId, _>>();
 
     let mut choices: Vec<Choice<RoleAssignment>> = Vec::new();
     for ra in role_assignments {

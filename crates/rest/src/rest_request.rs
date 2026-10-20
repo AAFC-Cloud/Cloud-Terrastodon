@@ -9,6 +9,7 @@ use cloud_terrastodon_command::ArtifactMetadata;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableWorkRequest;
 use cloud_terrastodon_command::CachedWorkSpec;
+use cloud_terrastodon_command::CancellationReportExt;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandOutput;
 use cloud_terrastodon_command::async_trait;
@@ -383,6 +384,7 @@ impl RestRequest {
                     let decoded = tokio::task::spawn_blocking(move || decode(response)).await?;
                     return match decoded {
                         Ok(result) => Ok(result),
+                        Err(error) if error.is_cancellation() => Err(error),
                         Err(error) => {
                             let output = rest_response_output(&response_for_failure)?;
                             let extra_files = rest_response_extra_files(&response_for_failure);
@@ -547,26 +549,19 @@ impl RestRequest {
     {
         self.receive_raw_with_decoder_from(
             move |response| {
-                if !response.ok {
-                    bail!(
-                        "REST call failed with status {}: {}\nCalled from {}",
-                        response.status,
-                        response.reason_phrase.as_deref().unwrap_or("Unknown error"),
-                        caller
-                    );
-                }
+                response
+                    .error_for_status()
+                    .wrap_err_with(|| format!("Called from {caller}"))?;
                 let body = match &response.body {
                     RestResponseBody::Json(body) => body.as_str(),
                     RestResponseBody::Text(content) => content.as_str(),
                 };
-                let parsed = facet_json::from_str::<T>(body)
-                    .map_err(|error| eyre::eyre!("{error:?}"))
-                    .wrap_err_with(|| {
-                        format!(
-                            "Deserializing REST response into {}",
-                            std::any::type_name::<T>()
-                        )
-                    })?;
+                let parsed = facet_json::from_str::<T>(body).wrap_err_with(|| {
+                    format!(
+                        "Deserializing REST response into {}",
+                        std::any::type_name::<T>()
+                    )
+                })?;
                 mapper(parsed, &response)
             },
             caller,
@@ -605,7 +600,7 @@ fn rest_response_output(response: &SerializableRestResponse) -> Result<CommandOu
             .wrap_err("serializing failed REST response to JSON")?
             .into(),
         stderr: bstr::BString::default(),
-        status: response.status.into(),
+        status: response.status.as_u16().into(),
     })
 }
 

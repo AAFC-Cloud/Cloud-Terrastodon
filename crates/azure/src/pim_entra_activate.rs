@@ -1,6 +1,6 @@
 use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_azure_types::EntraPrincipalId;
 use cloud_terrastodon_azure_types::GovernanceRoleAssignment;
-use cloud_terrastodon_azure_types::PrincipalId;
 use cloud_terrastodon_azure_types::RoleAssignmentRequest;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CancellationScope;
@@ -12,7 +12,7 @@ use std::time::Duration;
 
 pub async fn activate_pim_entra_role(
     tenant_id: AzureTenantId,
-    principal_id: impl Into<PrincipalId>,
+    principal_id: impl Into<EntraPrincipalId>,
     role_assignment: &GovernanceRoleAssignment,
     justification: String,
     duration: Duration,
@@ -43,7 +43,7 @@ pub async fn activate_pim_entra_role(
 /// Activate an Entra role using the delegated PIM app token.
 pub async fn activate_pim_entra_role_with_graph_access_token(
     tenant_id: AzureTenantId,
-    principal_id: impl Into<PrincipalId>,
+    principal_id: impl Into<EntraPrincipalId>,
     role_assignment: &GovernanceRoleAssignment,
     justification: String,
     duration: Duration,

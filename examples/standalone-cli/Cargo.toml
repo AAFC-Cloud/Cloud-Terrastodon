@@ -13,3 +13,7 @@ cloud_terrastodon = { path = "../..", version = "=0.37.0", default-features = fa
 # Figue's attribute expansion currently requires ::facet in the extern prelude.
 # Keep the canonical Rust alias for TeamDman's distinct published package.
 facet.workspace = true
+
+[dev-dependencies]
+arbitrary.workspace = true
+cloud_terrastodon_app = { workspace = true, features = ["arbitrary"] }

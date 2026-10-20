@@ -22,6 +22,7 @@ fn cli_reauthentication_denied(value: Option<&str>) -> bool {
 
 fn tenant_login_mode(source: AuthSource) -> Result<TenantLoginMode> {
     match source {
+        AuthSource::None => bail!("tenant login is unavailable while authentication is disabled"),
         AuthSource::Auto | AuthSource::Browser => Ok(TenantLoginMode::Browser),
         AuthSource::AzureCli => Ok(TenantLoginMode::AzureCli),
         AuthSource::WorkloadIdentity => bail!(
@@ -48,6 +49,10 @@ impl AzureTenantLoginArgs {
         auth_context: &AuthContext,
         cancellation: &CancellationScope,
     ) -> Result<()> {
+        eyre::ensure!(
+            auth_context.source() != Some(AuthSource::None),
+            "authentication is disabled by auth source none; cannot resolve a tenant for login"
+        );
         let tenant_id = self.tenant.resolve(cancellation).await?;
         let auth_context =
             resolve_tenant_auth_context(auth_context, tenant_id, cancellation).await?;
@@ -102,6 +107,26 @@ mod tests {
     use super::*;
     use cloud_terrastodon_command::CancellationToken;
 
+    #[tokio::test]
+    async fn disabled_authentication_rejects_login_before_default_tenant_lookup() -> Result<()> {
+        CancellationToken::new()
+            .with_async_scope(|cancellation| async move {
+                let auth = AuthContext::resolve(AuthSource::None)?;
+                // Prevent external command admission even if the auth-policy
+                // guard regresses and reaches default-tenant lookup.
+                cancellation.request_cancel("external lookup is forbidden in this test");
+                let error = AzureTenantLoginArgs {
+                    tenant: AzureTenantArgument::Default,
+                }
+                .invoke(&auth, &cancellation)
+                .await
+                .expect_err("disabled authentication must reject tenant login locally");
+                assert!(error.to_string().contains("auth source none"));
+                Ok(())
+            })
+            .await
+    }
+
     #[test]
     fn auto_and_browser_tenant_login_use_pkce() {
         assert_eq!(
@@ -120,6 +145,7 @@ mod tests {
             tenant_login_mode(AuthSource::AzureCli).unwrap(),
             TenantLoginMode::AzureCli
         );
+        assert!(tenant_login_mode(AuthSource::None).is_err());
         assert!(tenant_login_mode(AuthSource::WorkloadIdentity).is_err());
         assert!(tenant_login_mode(AuthSource::PersonalAccessToken).is_err());
     }

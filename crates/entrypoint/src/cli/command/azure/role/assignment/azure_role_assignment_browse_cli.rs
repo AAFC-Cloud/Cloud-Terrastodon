@@ -1,6 +1,6 @@
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
-use cloud_terrastodon_azure::Principal;
+use cloud_terrastodon_azure::EntraPrincipal;
 use cloud_terrastodon_azure::RoleAssignment;
 use cloud_terrastodon_azure::RoleDefinition;
 use cloud_terrastodon_azure::Scope;
@@ -30,7 +30,7 @@ pub struct AzureRoleAssignmentBrowseArgs {
 struct RoleAssignmentBrowseOutput<'a> {
     role_assignment: &'a RoleAssignment,
     role_definition: &'a RoleDefinition,
-    principal: Option<&'a Principal>,
+    principal: Option<&'a EntraPrincipal>,
 }
 
 impl AzureRoleAssignmentBrowseArgs {

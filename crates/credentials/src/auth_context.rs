@@ -2,6 +2,7 @@ use crate::AuthSource;
 use crate::AzureBearerToken;
 use crate::AzureRestResource;
 use crate::AzureTenantAuthContext;
+use crate::WorkloadIdentityConfig;
 use crate::browser_access_token::BrowserSession;
 use crate::browser_access_token::BrowserTokenCache;
 use crate::browser_access_token::load_browser_session;
@@ -28,12 +29,14 @@ pub enum AuthContext {
     /// Synthetic request state used by registry/arbitrary construction.
     /// Production context resolution never returns this variant.
     #[default]
+    Unresolved,
+    /// Authentication is explicitly disabled, without credentials or token caches.
     None,
     Resolved {
         requested_source: AuthSource,
         source: AuthSource,
         #[facet(sensitive)]
-        workload_identity: Option<crate::WorkloadIdentityConfig>,
+        workload_identity: Option<WorkloadIdentityConfig>,
         headless: bool,
         #[facet(opaque, sensitive)]
         browser_token_cache: BrowserTokenCache,
@@ -46,7 +49,14 @@ pub enum AuthContext {
 
 impl AuthContext {
     /// Resolve a CLI preference once, at the process entrypoint.
+    ///
+    /// [`AuthSource::None`] returns [`Self::None`], disabling
+    /// authentication without consulting environment credentials or persisted
+    /// browser sessions. [`Self::Unresolved`] is reserved for synthetic requests.
     pub fn resolve(requested: AuthSource) -> eyre::Result<Self> {
+        if requested == AuthSource::None {
+            return Ok(Self::None);
+        }
         let headless = is_headless_auth_context();
         let workload_identity =
             if matches!(requested, AuthSource::Auto | AuthSource::WorkloadIdentity) {
@@ -73,6 +83,9 @@ impl AuthContext {
 
     /// Construct an explicit context for library callers and tests.
     pub fn explicit(source: AuthSource) -> Self {
+        if source == AuthSource::None {
+            return Self::None;
+        }
         Self::Resolved {
             requested_source: source,
             source,
@@ -101,25 +114,31 @@ impl AuthContext {
         context
     }
 
+    /// Return the requested policy, or `None` for [`Self::Unresolved`].
+    /// Explicitly disabled authentication returns `Some(AuthSource::None)`.
     pub fn requested_source(&self) -> Option<AuthSource> {
         match self {
-            Self::None => None,
+            Self::Unresolved => None,
+            Self::None => Some(AuthSource::None),
             Self::Resolved {
                 requested_source, ..
             } => Some(*requested_source),
         }
     }
 
+    /// Return the selected source, or `None` for [`Self::Unresolved`].
+    /// Explicitly disabled authentication returns `Some(AuthSource::None)`.
     pub fn source(&self) -> Option<AuthSource> {
         match self {
-            Self::None => None,
+            Self::Unresolved => None,
+            Self::None => Some(AuthSource::None),
             Self::Resolved { source, .. } => Some(*source),
         }
     }
 
-    pub fn workload_identity(&self) -> Option<&crate::WorkloadIdentityConfig> {
+    pub fn workload_identity(&self) -> Option<&WorkloadIdentityConfig> {
         match self {
-            Self::None => None,
+            Self::Unresolved | Self::None => None,
             Self::Resolved {
                 workload_identity, ..
             } => workload_identity.as_ref(),
@@ -127,10 +146,12 @@ impl AuthContext {
     }
 
     /// Attach explicit workload identity configuration for library callers and tests.
-    pub fn with_workload_identity(
-        mut self,
-        config: crate::WorkloadIdentityConfig,
-    ) -> eyre::Result<Self> {
+    pub fn with_workload_identity(mut self, config: WorkloadIdentityConfig) -> eyre::Result<Self> {
+        if self.source() == Some(AuthSource::None) {
+            bail!(
+                "authentication is disabled by auth source none; cannot configure workload identity credentials"
+            );
+        }
         let Self::Resolved {
             workload_identity, ..
         } = &mut self
@@ -160,7 +181,7 @@ impl AuthContext {
 
     pub(crate) fn browser_token_cache(&self) -> Option<&BrowserTokenCache> {
         match self {
-            Self::None => None,
+            Self::Unresolved | Self::None => None,
             Self::Resolved {
                 browser_token_cache,
                 ..
@@ -170,7 +191,7 @@ impl AuthContext {
 
     pub(crate) fn workload_identity_token_cache(&self) -> Option<&WorkloadIdentityTokenCache> {
         match self {
-            Self::None => None,
+            Self::Unresolved | Self::None => None,
             Self::Resolved {
                 workload_identity_token_cache,
                 ..
@@ -180,7 +201,7 @@ impl AuthContext {
 
     pub(crate) fn browser_session(&self) -> Option<&BrowserSession> {
         match self {
-            Self::None => None,
+            Self::Unresolved | Self::None => None,
             Self::Resolved {
                 browser_session, ..
             } => browser_session.as_ref(),
@@ -189,7 +210,7 @@ impl AuthContext {
 
     pub fn is_headless(&self) -> bool {
         match self {
-            Self::None => true,
+            Self::Unresolved | Self::None => true,
             Self::Resolved { headless, .. } => *headless,
         }
     }
@@ -229,9 +250,51 @@ mod tests {
     #[test]
     fn default_context_is_an_explicit_non_executable_placeholder() {
         let context = AuthContext::default();
-        assert!(matches!(context, AuthContext::None));
+        assert!(matches!(context, AuthContext::Unresolved));
         assert_eq!(context.source(), None);
+        assert_eq!(context.requested_source(), None);
+        assert!(context.browser_token_cache().is_none());
+        assert!(context.workload_identity_token_cache().is_none());
         assert!(context.is_headless());
+    }
+
+    #[test]
+    fn disabled_authentication_has_no_credentials_caches_or_fallback() -> eyre::Result<()> {
+        for context in [
+            AuthContext::resolve(AuthSource::None)?,
+            AuthContext::explicit(AuthSource::None),
+            AuthContext::None,
+        ] {
+            assert!(matches!(context, AuthContext::None));
+            assert_eq!(context.source(), Some(AuthSource::None));
+            assert_eq!(context.requested_source(), Some(AuthSource::None));
+            assert!(context.tenant_id().is_none());
+            assert!(context.workload_identity().is_none());
+            assert!(context.browser_session().is_none());
+            assert!(context.browser_token_cache().is_none());
+            assert!(context.workload_identity_token_cache().is_none());
+            assert!(!context.allows_interactive_browser_login());
+            assert!(!context.allows_interactive_reauthentication());
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn credentials_cannot_be_attached_to_disabled_or_unresolved_contexts() -> eyre::Result<()> {
+        for (context, diagnostic) in [
+            (AuthContext::None, "auth source none"),
+            (AuthContext::Unresolved, "placeholder"),
+        ] {
+            let error = context
+                .with_workload_identity(WorkloadIdentityConfig {
+                    client_id: "11111111-1111-1111-1111-111111111111".parse()?,
+                    tenant_id: "22222222-2222-2222-2222-222222222222".parse()?,
+                    federated_token: "synthetic-unused-token".to_owned(),
+                })
+                .expect_err("a non-executable context must reject credentials");
+            assert!(error.to_string().contains(diagnostic));
+        }
+        Ok(())
     }
 
     #[test]

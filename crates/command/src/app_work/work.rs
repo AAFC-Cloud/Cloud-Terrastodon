@@ -1,6 +1,6 @@
 use super::AppboundWorkFinishedMessage;
 use super::StateMutator;
-use crate::CancellationError;
+use crate::CancellationReportExt;
 use crate::app_work::AppWorkTracker;
 use cloud_terrastodon_relative_location::RelativeLocation;
 use eyre::eyre;
@@ -112,7 +112,7 @@ where
                     }
                 }
                 Err(error) => {
-                    if error.chain().any(|cause| cause.is::<CancellationError>()) {
+                    if error.is_cancellation() {
                         return Err(error);
                     }
                     let error = error

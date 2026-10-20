@@ -13,6 +13,14 @@ dependency. Its complete CLI implementation is
 [one main.rs](../examples/standalone-cli/src/main.rs).
 It does not initialize or copy the Teamy Rust CLI template.
 
+The [group-management example](../examples/group-management) demonstrates a larger
+consumer in its own workspace package. Its library owns domain validation and
+reconciliation planning, its command files follow the main CLI's structure, and
+its small `main.rs` selects startup policy and emits one output. Local validation
+uses no directory credentials; read-only planning binds explicit tenant identities
+and reports incomplete inventories as blockers. See its README for the current
+milestone and planned apply workflow.
+
 This guide includes workspace changes for the next Cloud Terrastodon release.
 Published 0.37.0 still requires consumers to declare `FigueBuiltins` themselves.
 For a separate project using the current checked-out runner, begin with an
@@ -21,23 +29,15 @@ ordinary Cargo package and adjust the Cloud Terrastodon path:
 ```toml
 [dependencies]
 cloud_terrastodon = { path = "../cloud-terrastodon", default-features = false, features = ["app"] }
-facet = { package = "teamy-facet", version = "=0.50.0-rc.7" }
 ```
 
-The explicit `facet` dependency is needed because Figue's attribute expansion
-references `::facet` even when Figue is imported through our facade. Its package
-is `teamy-facet`, matching the facade's fork identity. No separate Figue dependency
-or root patch block is needed.
-
-The workspace and standalone example resolve the exact published Teamy Facet
-and Figue versions from crates.io. The example still uses the local Cloud
-Terrastodon facade and the root lockfile. Cancellation pins
-`teamy-cancellation =0.5.0` from crates.io with `async`, `deferral`, `facet`, and
-`arbitrary` enabled for the linked `CancellationScope` API. No sibling cancellation
-checkout is required. The Facet/Figue dependencies remain exact published registry
-packages. See
-[the dependency release guide](UPDATING_FACET.md) for the workspace's dependency
-setup.
+Also add a direct dependency named `facet`, using the `teamy-facet` package and
+matching the facade's version and source in the [workspace manifest](../Cargo.toml).
+Figue's attribute expansion references `::facet` even when Figue is imported
+through our facade, so both must share the same Facet package identity. The
+workspace examples inherit this declaration with `facet.workspace = true` and
+share the root lockfile. See [the dependency release guide](UPDATING_FACET.md)
+when testing local fork changes or preparing a release.
 
 Keep `default-features = false`: the facade's existing default is `full`, which
 includes the actual Cloud Terrastodon command tree and UIs.
@@ -167,16 +167,18 @@ honoring `NO_COLOR` and `FORCE_COLOR` as well as stdout detection.
 printer, including for commands with a custom `text` presentation.
 
 Let leaf `invoke` methods return `Result<CliOutput>` and pass that value through
-parent dispatchers. The top-level handler calls `emit(globals.output_format)`
-once; the runner's handler still returns `Result<()>`.
+parent dispatchers. The top-level handler calls
+`emit(globals.output_format, &context.cancellation)` once; the runner's handler
+still returns `Result<()>`.
 
 `CliOutput::facet(value)` uses Facet's pretty printer for `text` and
 `facet-pretty`, and its serializer for JSON. For a command with its own text
 presentation, derive `Facet` on the report and supply a text renderer:
 
 ```rust,no_run
-use cloud_terrastodon::app::{CliOutput, GlobalArgs, Result};
+use cloud_terrastodon::app::{CancellationScope, CliOutput, GlobalArgs, Result};
 use facet::Facet;
+use std::io::Write;
 
 #[derive(Facet)]
 struct Report {
@@ -184,32 +186,70 @@ struct Report {
 }
 
 impl Report {
-    fn render_text(&self) -> Result<String> {
-        Ok(format!("{} items", self.count))
+    fn write_text(
+        &self,
+        writer: &mut dyn Write,
+        _cancellation: &CancellationScope,
+    ) -> Result<()> {
+        write!(writer, "{} items", self.count)?;
+        Ok(())
     }
 }
 
 async fn invoke_list() -> Result<CliOutput> {
     let report = Report { count: 3 };
-    Ok(CliOutput::facet_with_text(report, Report::render_text))
+    Ok(CliOutput::facet_with_text(report, Report::write_text))
 }
 
-async fn invoke_cli(globals: &GlobalArgs) -> Result<()> {
-    invoke_list().await?.emit(globals.output_format)
+async fn invoke_cli(globals: &GlobalArgs, cancellation: &CancellationScope) -> Result<()> {
+    invoke_list().await?.emit(globals.output_format, cancellation)
 }
 ```
 
 `facet_with_text` overrides only `text`: JSON serialization and `facet-pretty`
-rendering remain shared and use the same report. Its callback receives only the
-value. Apply text styles using `if_supports_color(Stream::Stdout, |text| ...)`
+rendering remain shared and use the same report. Its callback receives the value,
+writer, and emission's cancellation scope, and returns `Result<()>`. Use `write!`
+or `writeln!` to emit text incrementally instead of collecting a `String`.
+The writer checks cancellation between bounded writes; check the supplied scope
+during long computation that does not write. `emit` and `write_to` append a final
+newline if needed and flush after the callback succeeds, so callbacks leave that
+completion work to the output owner. Errors or cancellation can leave a partial
+text prefix. Apply text styles using `if_supports_color(Stream::Stdout, |text| ...)`
 from `color_eyre::owo_colors::OwoColorize`, and detect stdout locally when
 emitting terminal hyperlinks.
 
 For complete control over every format, implement the re-exported
-`CliOutputValue` trait and pass the value to `CliOutput::new(value)`. Its `render`
-method receives the selected `OutputFormat`. Keep JSON free
-of terminal colors and hyperlinks. Use `CliOutput::none()` for commands that
-perform their own interaction and have no final value to emit.
+`CliOutputValue` trait and pass the value to `CliOutput::new(value)`. Its
+`write_to` method receives the selected `OutputFormat`, a writer, and the
+`CancellationScope`. Write records incrementally and check the scope during
+computation that does not write; this supports large or unbounded streams without
+collecting a complete `String`. Keep JSON free of terminal colors and hyperlinks. Use
+`CliOutput::none()` for commands that perform their own interaction and have no
+final value to emit.
+
+`render(format, stdout_is_terminal, cancellation)` explicitly collects a buffered
+preview without adding a final newline or flushing.
+`write_to(format, stdout_is_terminal, writer, cancellation)` and `emit` check
+cancellation between bounded writes and honor nested deferrals. They cannot
+interrupt an operating-system write already in progress. JSON and Facet pretty
+output stream through the same cancellation-aware writer, honoring the supplied
+scope's deferrals. Computation that does not write, including allocation and
+user-defined proxy conversions or formatters, continues until its next checkpoint.
+Use `facet_json::to_writer_std_with_options(writer, value, &options)` for another
+streaming JSON artifact. Callers choose the writer's cancellation policy;
+wrap a writer with `teamy_cancellation::CancellableWriter` using the operation's
+scope (`io` feature) when needed. CLI output renderers already receive a checked
+writer. Put that adapter outside a borrowed `BufWriter` to check writes before
+the buffer accepts them. Callers own explicit flushing and discard unfinished
+buffered output after an error; a failure can retain an emitted prefix. Pass
+`&mut Vec<u8>` to collect a complete result in memory, with cancellation policy
+chosen explicitly for that writer too. Custom text callbacks stream through the same
+cancellation-aware writer; they need explicit scope checkpoints for long
+computation that does not emit output.
+Convert I/O failures into Eyre reports and use `CancellationReportExt` for
+cancellation recognition. At error boundaries, `normalize_cancellation()` exposes
+typed cancellation to native Eyre downcasts while preserving the original error
+chain; `CliOutput` already performs this normalization for its renderers.
 
 The standalone `audit` command partitions resource groups by name: exactly five
 occurrences of ASCII `a`, `e`, `i`, `o`, or `u`, ignoring case, belong in
@@ -240,7 +280,10 @@ the report is emitted through `CliOutput` using the shared `--output-format`.
   A command with an omitted required positional does not invoke its handler but
   still reports success to the shell. Automation checking only the exit status
   can therefore mistake an incomplete invocation for completed work. Explicit
-  `--help` also succeeds, while malformed supplied values and handler errors fail.
+  `--help` requests with valid command paths also succeed, while malformed supplied
+  values and handler errors fail. Teamy Figue also rejects malformed command paths
+  followed by `--help`, rather than displaying help for only the valid prefix
+  ([fix](https://github.com/TeamDman/figue/pull/5)).
   The runner deliberately retains that upstream distinction, including automatic
   help for omitted subcommands. Do not use an omitted required positional as a
   reliable nonzero-status check. Changing that policy is a separate Figue follow-up,
@@ -356,8 +399,8 @@ credentials or read Azure resources.
 
 The example has `publish = false`: it is a neutral application example, not
 an implementation of a particular business task. No release is performed by this
-workflow. The published Teamy dependency graph is described in
-[Updating Facet](UPDATING_FACET.md). Before future crates.io releases, verify clean
+workflow. See [Updating Facet](UPDATING_FACET.md) for dependency maintenance and
+release checks. Before crates.io releases, verify clean
 packaged consumers and publish the exact dependency versions first.
 `publish.ps1 -DryRun` previews production dependency order and supports both
 new packages and new versions of existing packages.

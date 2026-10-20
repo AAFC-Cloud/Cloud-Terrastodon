@@ -7,14 +7,14 @@ use cloud_terrastodon_azure_devops::AzureDevOpsBuildFolderPathArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_build_definitions;
-use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use color_eyre::owo_colors::OwoColorize;
 use color_eyre::owo_colors::Stream;
 use color_eyre::owo_colors::Style;
 use eyre::Result;
-use std::fmt::Write;
+use std::io::Write;
 
 /// List pipeline definitions matching the supplied filters.
 #[derive(Debug, Clone, facet::Facet)]
@@ -65,27 +65,35 @@ impl AzureDevOpsBuildDefinitionListArgs {
         )
         .with_invalidation(self.no_cache)
         .await?;
-        Ok(CliOutput::facet_with_text(definitions, |definitions| {
-            render_definitions(definitions)
-        }))
+        Ok(CliOutput::facet_with_text(
+            definitions,
+            |definitions, writer, cancellation| {
+                write_definitions(definitions, writer, cancellation)
+            },
+        ))
     }
 }
 
-fn render_definitions(definitions: &[AzureDevOpsBuildDefinitionReference]) -> Result<String> {
+fn write_definitions(
+    definitions: &[AzureDevOpsBuildDefinitionReference],
+    writer: &mut dyn Write,
+    cancellation: &CancellationScope,
+) -> Result<()> {
     if definitions.is_empty() {
-        return Ok("No build definitions found.\n".to_owned());
+        writeln!(writer, "No build definitions found.")?;
+        return Ok(());
     }
-    let mut rendered = String::new();
     writeln!(
-        rendered,
+        writer,
         "{} ({})",
         "Build definitions".if_supports_color(Stream::Stdout, |text| text
             .style(Style::new().cyan().bold())),
         definitions.len()
     )?;
     for definition in definitions {
+        cancellation.bail_if_cancelled()?;
         writeln!(
-            rendered,
+            writer,
             "  {}  {}  {}",
             definition
                 .id
@@ -96,5 +104,5 @@ fn render_definitions(definitions: &[AzureDevOpsBuildDefinitionReference]) -> Re
                 .if_supports_color(Stream::Stdout, |text| text.dimmed())
         )?;
     }
-    Ok(rendered)
+    Ok(())
 }

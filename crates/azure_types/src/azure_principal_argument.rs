@@ -1,7 +1,7 @@
-use crate::Principal;
-use crate::PrincipalCollection;
-use crate::PrincipalId;
-use crate::PrincipalRef;
+use crate::EntraPrincipal;
+use crate::EntraPrincipalCollection;
+use crate::EntraPrincipalId;
+use crate::EntraPrincipalRef;
 use arbitrary::Arbitrary;
 use std::borrow::Cow;
 use std::str::FromStr;
@@ -11,9 +11,9 @@ use std::str::FromStr;
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum AzurePrincipalArgument<'a> {
-    Id(Cow<'a, PrincipalId>),
+    Id(Cow<'a, EntraPrincipalId>),
     Name(Cow<'a, str>),
-    Principal(Cow<'a, Principal>),
+    Principal(Cow<'a, EntraPrincipal>),
 }
 
 impl std::fmt::Display for AzurePrincipalArgument<'_> {
@@ -26,23 +26,23 @@ impl std::fmt::Display for AzurePrincipalArgument<'_> {
     }
 }
 
-impl From<PrincipalId> for AzurePrincipalArgument<'_> {
-    fn from(value: PrincipalId) -> Self {
+impl From<EntraPrincipalId> for AzurePrincipalArgument<'_> {
+    fn from(value: EntraPrincipalId) -> Self {
         AzurePrincipalArgument::Id(Cow::Owned(value))
     }
 }
-impl<'a> From<&'a PrincipalId> for AzurePrincipalArgument<'a> {
-    fn from(value: &'a PrincipalId) -> Self {
+impl<'a> From<&'a EntraPrincipalId> for AzurePrincipalArgument<'a> {
+    fn from(value: &'a EntraPrincipalId) -> Self {
         AzurePrincipalArgument::Id(Cow::Borrowed(value))
     }
 }
-impl From<Principal> for AzurePrincipalArgument<'_> {
-    fn from(value: Principal) -> Self {
+impl From<EntraPrincipal> for AzurePrincipalArgument<'_> {
+    fn from(value: EntraPrincipal) -> Self {
         AzurePrincipalArgument::Principal(Cow::Owned(value))
     }
 }
-impl<'a> From<&'a Principal> for AzurePrincipalArgument<'a> {
-    fn from(value: &'a Principal) -> Self {
+impl<'a> From<&'a EntraPrincipal> for AzurePrincipalArgument<'a> {
+    fn from(value: &'a EntraPrincipal) -> Self {
         AzurePrincipalArgument::Principal(Cow::Borrowed(value))
     }
 }
@@ -53,7 +53,7 @@ impl<'a> From<&'a str> for AzurePrincipalArgument<'a> {
 }
 
 impl AzurePrincipalArgument<'_> {
-    pub fn as_id(&self) -> Option<&PrincipalId> {
+    pub fn as_id(&self) -> Option<&EntraPrincipalId> {
         match self {
             AzurePrincipalArgument::Id(id) => Some(id.as_ref()),
             AzurePrincipalArgument::Name(..) | AzurePrincipalArgument::Principal(..) => None,
@@ -74,13 +74,16 @@ impl AzurePrincipalArgument<'_> {
         }
     }
 
-    pub fn resolve<'a>(&self, principals: &'a PrincipalCollection) -> Option<&'a Principal> {
+    pub fn resolve<'a>(
+        &self,
+        principals: &'a EntraPrincipalCollection,
+    ) -> Option<&'a EntraPrincipal> {
         principals
             .values()
             .find(|principal| self.matches(*principal))
     }
 
-    pub fn matches<'a>(&self, principal: impl Into<PrincipalRef<'a>>) -> bool {
+    pub fn matches<'a>(&self, principal: impl Into<EntraPrincipalRef<'a>>) -> bool {
         let principal = principal.into();
         match self {
             AzurePrincipalArgument::Id(id) => principal.id() == *id.as_ref(),
@@ -97,7 +100,7 @@ impl<'a> FromStr for AzurePrincipalArgument<'a> {
     type Err = eyre::Report;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if let Ok(id) = s.parse::<PrincipalId>() {
+        if let Ok(id) = s.parse::<EntraPrincipalId>() {
             Ok(AzurePrincipalArgument::Id(Cow::Owned(id)))
         } else {
             // treat as name / userPrincipalName

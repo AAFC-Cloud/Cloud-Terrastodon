@@ -1,4 +1,4 @@
-use crate::PrincipalId;
+use crate::EntraPrincipalId;
 use crate::RoleAssignmentId;
 use crate::RoleDefinitionId;
 use crate::scopes::AsScope;
@@ -19,7 +19,7 @@ pub struct RoleAssignment {
     pub id: RoleAssignmentId,
     pub scope: ScopeImpl,
     pub role_definition_id: RoleDefinitionId,
-    pub principal_id: PrincipalId,
+    pub principal_id: EntraPrincipalId,
 }
 
 impl<'a> Arbitrary<'a> for RoleAssignment {
@@ -28,7 +28,7 @@ impl<'a> Arbitrary<'a> for RoleAssignment {
             id: RoleAssignmentId::arbitrary(u)?,
             scope: ScopeImpl::arbitrary(u)?,
             role_definition_id: RoleDefinitionId::arbitrary(u)?,
-            principal_id: PrincipalId::arbitrary(u)?,
+            principal_id: EntraPrincipalId::arbitrary(u)?,
         })
     }
 }

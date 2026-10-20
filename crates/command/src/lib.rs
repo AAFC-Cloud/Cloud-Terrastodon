@@ -50,6 +50,7 @@ pub use crate::work::*;
 // Re-export async_trait for use in command implementations
 pub use async_trait::async_trait;
 pub use teamy_cancellation::CancellationError;
+pub use teamy_cancellation::CancellationReportExt;
 pub use teamy_cancellation::CancellationScope;
 pub use teamy_cancellation::CancellationToken;
 

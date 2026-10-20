@@ -1,6 +1,8 @@
+mod http_status_code_proxy;
 mod microsoft_continuation_token;
 mod request_execution;
 mod request_headers;
+mod rest_http_error;
 mod rest_request;
 mod rest_response;
 mod rest_response_body;
@@ -11,6 +13,7 @@ mod tenant_inference;
 pub use microsoft_continuation_token::*;
 pub use request_execution::*;
 pub use request_headers::*;
+pub use rest_http_error::*;
 pub use rest_request::*;
 pub use rest_response::*;
 pub use rest_response_body::*;

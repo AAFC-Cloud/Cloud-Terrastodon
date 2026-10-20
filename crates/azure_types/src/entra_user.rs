@@ -1,4 +1,5 @@
 use crate::EntraUserExternalUserState;
+use crate::UserPrincipalName;
 use crate::user_id::EntraUserId;
 use arbitrary::Arbitrary;
 use chrono::DateTime;
@@ -9,6 +10,7 @@ use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
 
+/// A Microsoft Graph v1.0 [Entra user](https://learn.microsoft.com/en-us/graph/api/resources/user?view=graph-rest-1.0).
 #[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
 pub struct EntraUser {
     #[facet(rename = "businessPhones")]
@@ -35,8 +37,10 @@ pub struct EntraUser {
     #[facet(rename = "preferredLanguage")]
     pub preferred_language: Option<String>,
     pub surname: Option<String>,
+    /// The user's sign-in name; synchronization can make it differ from `mail`.
+    /// See Microsoft's [UPN population rules](https://learn.microsoft.com/en-us/entra/identity/hybrid/connect/plan-connect-userprincipalname).
     #[facet(rename = "userPrincipalName")]
-    pub user_principal_name: String,
+    pub user_principal_name: UserPrincipalName,
 }
 
 impl EntraUser {

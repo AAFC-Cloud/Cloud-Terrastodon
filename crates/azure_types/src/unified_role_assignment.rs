@@ -1,4 +1,4 @@
-use crate::PrincipalId;
+use crate::EntraPrincipalId;
 use crate::UnifiedRoleAssignmentId;
 use crate::UnifiedRoleDefinitionId;
 use crate::tenant_id::AzureTenantId;
@@ -12,7 +12,7 @@ use arbitrary::Arbitrary;
 pub struct UnifiedRoleAssignment {
     pub directory_scope_id: String,
     pub id: UnifiedRoleAssignmentId,
-    pub principal_id: PrincipalId,
+    pub principal_id: EntraPrincipalId,
     pub principal_organization_id: AzureTenantId,
     pub resource_scope: String,
     pub role_definition_id: UnifiedRoleDefinitionId,

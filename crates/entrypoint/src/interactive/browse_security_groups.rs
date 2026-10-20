@@ -1,6 +1,6 @@
+use cloud_terrastodon_azure::EntraDirectoryObject;
 use cloud_terrastodon_azure::EntraGroup;
-use cloud_terrastodon_azure::Principal;
-use cloud_terrastodon_azure::PrincipalId;
+use cloud_terrastodon_azure::EntraPrincipalId;
 use cloud_terrastodon_azure::RoleAssignment;
 use cloud_terrastodon_azure::RoleDefinition;
 use cloud_terrastodon_azure::RoleDefinitionId;
@@ -33,8 +33,8 @@ enum SecurityGroupAction {
 #[derive(Debug, facet::Facet)]
 struct SecurityGroupBrowseRow {
     group: EntraGroup,
-    owners: Option<Vec<Principal>>,
-    members: Option<Vec<Principal>>,
+    owners: Option<Vec<EntraDirectoryObject>>,
+    members: Option<Vec<EntraDirectoryObject>>,
     role_assignments: Option<Vec<SecurityGroupRoleAssignmentRow>>,
 }
 
@@ -120,13 +120,15 @@ pub async fn browse_security_groups(
                     fetch_all_role_assignments(auth_context, cancellation),
                     fetch_all_role_definitions(auth_context, cancellation),
                 )?;
-                let role_assignments_by_principal: HashMap<&PrincipalId, Vec<&RoleAssignment>> =
-                    role_assignments
-                        .iter()
-                        .fold(HashMap::default(), |mut map, row| {
-                            map.entry(&row.principal_id).or_default().push(row);
-                            map
-                        });
+                let role_assignments_by_principal: HashMap<
+                    &EntraPrincipalId,
+                    Vec<&RoleAssignment>,
+                > = role_assignments
+                    .iter()
+                    .fold(HashMap::default(), |mut map, row| {
+                        map.entry(&row.principal_id).or_default().push(row);
+                        map
+                    });
                 let role_definitions_by_id: HashMap<&RoleDefinitionId, &RoleDefinition> =
                     role_definitions
                         .iter()
@@ -135,7 +137,7 @@ pub async fn browse_security_groups(
                             map
                         });
                 for (group, row) in security_groups.iter().zip(rows.iter_mut()) {
-                    let principal_id: PrincipalId = group.id.into();
+                    let principal_id: EntraPrincipalId = group.id.into();
                     let group_role_assignments = role_assignments_by_principal.get(&principal_id);
                     let role_assignments_for_group = group_role_assignments
                         .map(|x| x.as_slice())

@@ -1,12 +1,20 @@
-use cloud_terrastodon::app::{App, ApplicationCli, CliOutput, GlobalArgs, Result, facet, figue};
-use cloud_terrastodon::azure::{
-    AzureTenantArgument, AzureTenantArgumentExt, ResourceGroup, ResourceGroupName,
-    fetch_all_resource_groups,
-};
+use cloud_terrastodon::app::App;
+use cloud_terrastodon::app::ApplicationCli;
+use cloud_terrastodon::app::CliOutput;
+use cloud_terrastodon::app::GlobalArgs;
+use cloud_terrastodon::app::Result;
+use cloud_terrastodon::app::facet;
+use cloud_terrastodon::app::figue;
+use cloud_terrastodon::azure::AzureTenantArgument;
+use cloud_terrastodon::azure::AzureTenantArgumentExt;
+use cloud_terrastodon::azure::ResourceGroup;
+use cloud_terrastodon::azure::ResourceGroupName;
+use cloud_terrastodon::azure::fetch_all_resource_groups;
 
 /// Audit Azure resource groups with shared application startup.
 /// The commands and their data belong to this consumer, not Cloud Terrastodon.
 #[derive(facet::Facet)]
+#[cfg_attr(test, derive(arbitrary::Arbitrary))]
 pub struct Cli {
     #[facet(flatten)]
     pub global_args: GlobalArgs,
@@ -21,6 +29,7 @@ impl ApplicationCli for Cli {
 }
 
 #[derive(facet::Facet)]
+#[cfg_attr(test, derive(arbitrary::Arbitrary))]
 #[repr(u8)]
 pub enum Command {
     /// Partition resource groups by whether their names contain exactly five vowels.
@@ -29,6 +38,7 @@ pub enum Command {
 
 /// Select the tenant whose resource groups will be audited.
 #[derive(facet::Facet)]
+#[cfg_attr(test, derive(arbitrary::Arbitrary))]
 pub struct AuditArgs {
     /// Tenant ID, tracked alias, or `default`.
     /// Defaults to the authentication source's tenant or the active Azure CLI tenant.
@@ -75,16 +85,35 @@ fn main() -> Result<()> {
                 audit.without_five_vowels.push(resource_group);
             }
         }
-        // Check before synchronous rendering, including when there were no groups.
-        context.cancellation.bail_if_cancelled()?;
-        CliOutput::facet(audit).emit(cli.global_args.output_format)
+        CliOutput::facet(audit).emit(cli.global_args.output_format, &context.cancellation)
     })
 }
 
 #[cfg(test)]
 mod tests {
+    use super::Cli;
     use super::ResourceGroupName;
     use super::has_five_vowels;
+    use cloud_terrastodon::app::Result;
+    use cloud_terrastodon::app::figue;
+
+    #[test]
+    fn to_args_consistency() -> Result<()> {
+        figue::assert_to_args_consistency::<Cli>(Default::default())?;
+        Ok(())
+    }
+
+    #[test]
+    fn to_args_roundtrip() -> Result<()> {
+        figue::assert_to_args_roundtrip::<Cli>(figue::TestToArgsRoundTrip {
+            success_count_per_leaf: 128,
+            max_attempts_per_leaf: 10_000,
+            success_count_global: 128,
+            max_attempts_global: 10_000,
+            ..Default::default()
+        })?;
+        Ok(())
+    }
 
     #[test]
     fn vowel_audit_counts_exactly_five_ascii_vowels_ignoring_case() {

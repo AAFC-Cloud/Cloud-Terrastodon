@@ -44,17 +44,14 @@ pour purger le cache.
 
 ## Développement
 
-La version 0.37.0 publiée utilise les forks indépendants de TeamDman :
-`teamy-facet-* 0.50.0-rc.7` et `teamy-figue` / `teamy-figue-attrs 6.0.0-rc.1`.
-Ces paquets sont distincts des paquets officiels. Les noms Rust `facet` et
-`figue` sont conservés grâce aux alias de dépendances. Les compilations de
-l'espace de travail utilisent Teamy Figue et ses attributs en version exacte
-`6.0.0-rc.2` sur crates.io, avec les versions Facet indiquées ci-dessus.
-L'espace de travail utilise la version exacte `teamy-cancellation =0.5.0` de
-crates.io, avec `async`, `deferral`, `facet` et `arbitrary` activés. Son API de
-portées d'exécution liées, `CancellationScope`, remplace le modèle de report
-lié aux jetons. Aucun dépôt voisin de cette dépendance n'est nécessaire.
-Voir le [guide des dépendances](docs/UPDATING_FACET.md) en anglais.
+Cloud Terrastodon utilise les forks indépendants de Facet et de Figue de TeamDman :
+`teamy-facet-*`, `teamy-figue` et `teamy-figue-attrs`. Ces paquets sont distincts
+des paquets officiels en amont. Les alias de dépendances conservent les noms
+Rust comme `facet` et `figue`.
+
+Le fichier [Cargo.toml](Cargo.toml) définit les versions et les sources de
+dépendances retenues. Le [guide des dépendances](docs/UPDATING_FACET.md) décrit
+leur mise à jour (en anglais).
 
 ### Dépendances
 

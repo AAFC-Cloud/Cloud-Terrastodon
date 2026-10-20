@@ -12,7 +12,7 @@ use color_eyre::owo_colors::OwoColorize;
 use color_eyre::owo_colors::Stream;
 use color_eyre::owo_colors::Style;
 use eyre::Result;
-use std::fmt::Write;
+use std::io::Write;
 
 /// Remove empty build definition folders after fresh checks.
 /// Azure DevOps folder deletion cascades to definitions and builds. Requires
@@ -56,19 +56,22 @@ impl AzureDevOpsBuildDefinitionFolderPruneArgs {
             cancellation,
         )
         .await?;
-        Ok(CliOutput::facet_with_text(report, render_prune_report))
+        Ok(CliOutput::facet_with_text(report, write_prune_report))
     }
 }
 
-fn render_prune_report(report: &AzureDevOpsBuildFolderPruneReport) -> Result<String> {
-    let mut rendered = String::new();
+fn write_prune_report(
+    report: &AzureDevOpsBuildFolderPruneReport,
+    writer: &mut dyn Write,
+    cancellation: &CancellationScope,
+) -> Result<()> {
     let heading = if report.dry_run {
         "Build definition folder prune (dry run)"
     } else {
         "Build definition folder prune"
     };
     writeln!(
-        rendered,
+        writer,
         "{}",
         heading.if_supports_color(Stream::Stdout, |text| text
             .style(Style::new().cyan().bold()))
@@ -79,8 +82,9 @@ fn render_prune_report(report: &AzureDevOpsBuildFolderPruneReport) -> Result<Str
         ("Deleted", Style::new().green(), &report.deleted)
     };
     for path in paths {
+        cancellation.bail_if_cancelled()?;
         writeln!(
-            rendered,
+            writer,
             "  {}  {}",
             action.if_supports_color(Stream::Stdout, |text| text.style(action_style)),
             path.as_str()
@@ -88,8 +92,9 @@ fn render_prune_report(report: &AzureDevOpsBuildFolderPruneReport) -> Result<Str
         )?;
     }
     for skipped in &report.skipped {
+        cancellation.bail_if_cancelled()?;
         writeln!(
-            rendered,
+            writer,
             "  {}  {}: {}",
             "Skipped".if_supports_color(Stream::Stdout, |text| text.yellow()),
             skipped
@@ -104,10 +109,10 @@ fn render_prune_report(report: &AzureDevOpsBuildFolderPruneReport) -> Result<Str
     }
     if paths.is_empty() && report.skipped.is_empty() {
         writeln!(
-            rendered,
+            writer,
             "  {}",
             "No empty folders found.".if_supports_color(Stream::Stdout, |text| text.dimmed())
         )?;
     }
-    Ok(rendered)
+    Ok(())
 }

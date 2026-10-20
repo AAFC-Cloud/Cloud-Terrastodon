@@ -1,8 +1,9 @@
 use crate::menu::press_enter_to_continue;
+use cloud_terrastodon_azure::EntraDirectoryObject;
 use cloud_terrastodon_azure::EntraGroup;
+use cloud_terrastodon_azure::EntraPrincipal;
+use cloud_terrastodon_azure::EntraPrincipalId;
 use cloud_terrastodon_azure::EntraServicePrincipal;
-use cloud_terrastodon_azure::Principal;
-use cloud_terrastodon_azure::PrincipalId;
 use cloud_terrastodon_azure::Resource;
 use cloud_terrastodon_azure::RoleAssignment;
 use cloud_terrastodon_azure::RoleDefinition;
@@ -51,11 +52,11 @@ enum Clue<'a> {
     RoleAssignment {
         role_assignment: &'a RoleAssignment,
         role_definition: &'a RoleDefinition,
-        principal: Option<&'a Principal>,
+        principal: Option<&'a EntraPrincipal>,
         resource: &'a Resource,
     },
     Principal {
-        principal: &'a Principal,
+        principal: &'a EntraPrincipal,
     },
     ServicePrincipalAlternativeName {
         alternative_name: &'a str,
@@ -63,11 +64,11 @@ enum Clue<'a> {
     },
     GroupMember {
         group: &'a EntraGroup,
-        principal: &'a Principal,
+        member: EntraDirectoryObject,
     },
     GroupOwner {
         group: &'a EntraGroup,
-        principal: &'a Principal,
+        owner: EntraDirectoryObject,
     },
     AzureDevOpsServiceEndpoint {
         service_principal: &'a EntraServicePrincipal,
@@ -137,16 +138,24 @@ impl<'a> std::fmt::Display for Clue<'a> {
                 service_principal.id, alternative_name
             )),
             Clue::GroupMember {
-                group, principal, ..
+                group, member, ..
             } => f.write_fmt(format_args!(
-                "Group [{} ({})] has member [{}]",
-                group.display_name, group.id, principal
+                "Group [{} ({})] has member [({}) {} ({})]",
+                group.display_name,
+                group.id,
+                member.kind(),
+                member.display_name().unwrap_or("Name unavailable"),
+                member.id(),
             )),
             Clue::GroupOwner {
-                group, principal, ..
+                group, owner, ..
             } => f.write_fmt(format_args!(
-                "Group [{} ({})] has owner [{}]",
-                group.display_name, group.id, principal
+                "Group [{} ({})] has owner [({}) {} ({})]",
+                group.display_name,
+                group.id,
+                owner.kind(),
+                owner.display_name().unwrap_or("Name unavailable"),
+                owner.id(),
             )),
         }
     }
@@ -194,7 +203,7 @@ struct TraversalContext<'a> {
     pub clues: Vec<ClueChain<'a>>,
     pub resource_map: HashMap<&'a ScopeImpl, &'a Resource>,
     pub role_definition_map: HashMap<&'a RoleDefinitionId, &'a RoleDefinition>,
-    pub principal_map: HashMap<PrincipalId, &'a Principal>,
+    pub principal_map: HashMap<EntraPrincipalId, &'a EntraPrincipal>,
     pub role_assignments_by_scope: HashMap<&'a ScopeImpl, &'a RoleAssignment>,
     pub azure_devops_service_endpoints: Vec<&'a AzureDevOpsServiceEndpoint>,
     pub azure_devops_projects_by_name: HashMap<&'a AzureDevOpsProjectName, &'a AzureDevOpsProject>,
@@ -270,45 +279,37 @@ impl Traversal {
             }
             Traversal::GroupMembers => {
                 if let Clue::Principal {
-                    principal: Principal::Group(group),
+                    principal: EntraPrincipal::Group(group),
                 } = clue.as_ref()
                 {
                     let members =
                         fetch_group_members(group.id, context.auth_context, cancellation).await?;
                     for member in members {
-                        let Some(principal) = context.principal_map.get(&member.id()) else {
-                            bail!(
-                                "Found a member {} for group {} but wasn't in the list of all principals?",
-                                member,
-                                group
-                            );
-                        };
-                        rtn.push(clue.join(Clue::GroupMember { group, principal }));
+                        rtn.push(clue.join(Clue::GroupMember {
+                            group,
+                            member,
+                        }));
                     }
                 }
             }
             Traversal::GroupOwners => {
                 if let Clue::Principal {
-                    principal: Principal::Group(group),
+                    principal: EntraPrincipal::Group(group),
                 } = clue.as_ref()
                 {
                     let owners =
                         fetch_group_owners(group.id, context.auth_context, cancellation).await?;
-                    for member in owners {
-                        let Some(principal) = context.principal_map.get(&member.id()) else {
-                            bail!(
-                                "Found a owner {} for group {} but wasn't in the list of all principals?",
-                                member,
-                                group
-                            );
-                        };
-                        rtn.push(clue.join(Clue::GroupOwner { group, principal }));
+                    for owner in owners {
+                        rtn.push(clue.join(Clue::GroupOwner {
+                            group,
+                            owner,
+                        }));
                     }
                 }
             }
             Traversal::ServicePrincipalAlternativeNames => {
                 if let Clue::Principal {
-                    principal: Principal::ServicePrincipal(service_principal),
+                    principal: EntraPrincipal::ServicePrincipal(service_principal),
                 } = clue.as_ref()
                 {
                     for alternative_name in service_principal.alternative_names.iter() {
@@ -321,7 +322,7 @@ impl Traversal {
             }
             Traversal::AzureDevOpsServiceEndpoints => {
                 if let Clue::Principal {
-                    principal: Principal::ServicePrincipal(service_principal),
+                    principal: EntraPrincipal::ServicePrincipal(service_principal),
                 } = clue.as_ref()
                 {
                     // Find service endpoints using this service principal
@@ -420,7 +421,7 @@ pub async fn find_resource_owners_menu(
         .iter()
         .map(|role_definition| (&role_definition.id, role_definition))
         .collect::<HashMap<_, _>>();
-    let principal_map: HashMap<PrincipalId, &Principal> = principals
+    let principal_map: HashMap<EntraPrincipalId, &EntraPrincipal> = principals
         .iter()
         .map(|(id, principal)| (*id, principal))
         .collect::<HashMap<_, _>>();

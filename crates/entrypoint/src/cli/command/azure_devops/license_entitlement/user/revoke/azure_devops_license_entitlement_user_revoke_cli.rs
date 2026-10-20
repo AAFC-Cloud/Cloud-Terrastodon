@@ -1,7 +1,8 @@
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::EntraGroupId;
-use cloud_terrastodon_azure::Principal;
+use cloud_terrastodon_azure::EntraUserArgument;
+use cloud_terrastodon_azure::fetch_entra_user;
 use cloud_terrastodon_azure::fetch_group_members;
 use cloud_terrastodon_azure::remove_group_member;
 use cloud_terrastodon_azure_devops::AzureDevOpsLicenseAssignmentSource;
@@ -11,9 +12,12 @@ use cloud_terrastodon_azure_devops::AzureDevOpsUserArgument;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_group_license_entitlements;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlements;
 use cloud_terrastodon_azure_devops::update_azure_devops_user_license_entitlement;
+use cloud_terrastodon_command::CacheInvalidatable;
+use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
+use eyre::Context;
 use eyre::ContextCompat;
 use eyre::Result;
 use tracing::debug;
@@ -77,6 +81,17 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
         }
 
         if user_entitlement.assignment_source == AzureDevOpsLicenseAssignmentSource::GroupRule {
+            // Membership listings can expose only object IDs. Resolve the selected
+            // user once, rather than interpreting an unavailable UPN as absence.
+            let entra_user_id = fetch_entra_user(
+                EntraUserArgument::try_from(user_principal_name.as_str())?,
+                &tenant_auth_context,
+                cancellation,
+            )
+            .with_invalidation(true)
+            .await
+            .wrap_err("Resolving the Entra user before removing license-granting memberships")?
+            .id;
             // Find the rule that is granting the license and remove the user from that group
 
             // Fetch groups that are granting licenses
@@ -103,25 +118,21 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
                     .origin_id
                     .parse::<EntraGroupId>()?;
                 let group_entra_members =
-                    fetch_group_members(group_entra_id, &tenant_auth_context, cancellation).await?;
+                    fetch_group_members(group_entra_id, &tenant_auth_context, cancellation)
+                        .with_invalidation(true)
+                        .await?;
                 let user_in_group = group_entra_members
                     .iter()
-                    .filter_map(|p: &Principal| match p.as_user() {
-                        Some(user) => {
-                            (user.user_principal_name == user_principal_name).then_some(user)
-                        }
-                        None => None,
-                    })
-                    .next();
+                    .any(|principal| principal.id() == entra_user_id);
                 debug!(
                     group_display_name = %group_license_entitlement.group.display_name,
                     group_origin_id = %group_license_entitlement.group.origin_id,
                     group_member_count = group_entra_members.len(),
-                    user_in_group = user_in_group.is_some(),
+                    user_in_group,
                     "Checked if user is in group granting license"
                 );
 
-                if let Some(entra_user) = user_in_group {
+                if user_in_group {
                     info!(
                         user_devops_id = %user_entitlement.user_id,
                         user_display_name = %user_entitlement.user.display_name,
@@ -131,7 +142,25 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
                         "User is granted license via this group - removing the user from this group to revoke the license"
                     );
 
-                    remove_group_member(group_entra_id, entra_user.id, cancellation).await?;
+                    cancellation
+                        .deferred(
+                            "finishing group-member removal and invalidating its inventory",
+                            |protected| {
+                                let tenant_auth_context = &tenant_auth_context;
+                                async move {
+                                    remove_group_member(group_entra_id, entra_user_id, &protected)
+                                        .await?;
+                                    fetch_group_members(
+                                        group_entra_id,
+                                        tenant_auth_context,
+                                        &protected,
+                                    )
+                                    .invalidate()
+                                    .await
+                                }
+                            },
+                        )
+                        .await?;
                 }
             }
         } else {

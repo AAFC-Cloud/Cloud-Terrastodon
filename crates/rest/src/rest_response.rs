@@ -1,20 +1,26 @@
+use crate::RestHttpError;
 use crate::RestOutputFormat;
 use crate::RestResponseBody;
 use crate::RestResponseBodyProxy;
 use crate::RestResponseHeaders;
+use crate::http_status_code_proxy::HttpStatusCodeProxy;
+use crate::http_status_code_proxy::arbitrary_status_code;
 use crate::parse_response_body;
 use arbitrary::Arbitrary;
 use eyre::Result;
 use eyre::WrapErr;
-use eyre::bail;
 use facet_json::RawJson;
+use http::StatusCode;
 use reqwest::Response;
 use reqwest::header::HeaderMap;
 use std::io::Write;
 
 #[derive(Arbitrary, Clone, Debug, PartialEq, facet::Facet)]
 pub struct SerializableRestResponse {
-    pub status: u16,
+    /// A validated HTTP status, serialized as its numeric code in cache artifacts.
+    #[facet(opaque, proxy = HttpStatusCodeProxy)]
+    #[arbitrary(with = arbitrary_status_code)]
+    pub status: StatusCode,
     pub ok: bool,
     pub reason_phrase: Option<String>,
     pub headers: RestResponseHeaders,
@@ -23,9 +29,9 @@ pub struct SerializableRestResponse {
 }
 
 impl SerializableRestResponse {
-    pub fn new(status: http::StatusCode, headers: &HeaderMap, content: String) -> Self {
+    pub fn new(status: StatusCode, headers: &HeaderMap, content: String) -> Self {
         Self {
-            status: status.as_u16(),
+            status,
             ok: status.is_success(),
             reason_phrase: status.canonical_reason().map(str::to_owned),
             headers: RestResponseHeaders::from(headers),
@@ -59,6 +65,22 @@ impl SerializableRestResponse {
         }
     }
 
+    /// Reject an unsuccessful status with a [`RestHttpError`].
+    ///
+    /// The numeric HTTP status is authoritative, including for cached responses;
+    /// the redundant serialized `ok` flag does not establish success or absence.
+    /// Callers can handle the concrete error or convert it into an error report.
+    pub fn error_for_status(&self) -> Result<(), RestHttpError> {
+        if self.status.is_success() {
+            Ok(())
+        } else {
+            Err(RestHttpError {
+                status: self.status,
+                reason_phrase: self.reason_phrase.clone(),
+            })
+        }
+    }
+
     pub fn write(&self, output_format: RestOutputFormat, mut writer: impl Write) -> Result<()> {
         match output_format {
             RestOutputFormat::Text => match &self.body {
@@ -74,13 +96,7 @@ impl SerializableRestResponse {
             }
         }
 
-        if !self.ok {
-            bail!(
-                "REST call failed with status {}: {}",
-                self.status,
-                self.reason_phrase.as_deref().unwrap_or("Unknown error")
-            );
-        }
+        self.error_for_status()?;
         Ok(())
     }
 }
@@ -88,9 +104,40 @@ impl SerializableRestResponse {
 #[cfg(test)]
 mod tests {
     use super::SerializableRestResponse;
+    use crate::RestHttpError;
+    use crate::RestOutputFormat;
+    use eyre::Report;
     use http::StatusCode;
     use reqwest::header::HeaderMap;
     use reqwest::header::HeaderValue;
+
+    #[test]
+    fn unsuccessful_status_remains_typed_through_context_and_output() {
+        let mut response = SerializableRestResponse::new(
+            StatusCode::NOT_FOUND,
+            &HeaderMap::new(),
+            String::from("missing"),
+        );
+        // A stale serialized success flag must not turn a real 404 into success.
+        response.ok = true;
+        let error: RestHttpError = response.error_for_status().unwrap_err();
+        assert_eq!(error.status, StatusCode::NOT_FOUND);
+        let error = Report::new(error).wrap_err("Looking up a user");
+        assert_eq!(
+            error.downcast_ref::<RestHttpError>().unwrap().status,
+            StatusCode::NOT_FOUND
+        );
+
+        let mut output = Vec::new();
+        let error = response
+            .write(RestOutputFormat::Text, &mut output)
+            .unwrap_err();
+        assert_eq!(output, b"missing\n");
+        assert_eq!(
+            error.downcast_ref::<RestHttpError>().unwrap().status,
+            StatusCode::NOT_FOUND
+        );
+    }
 
     fn pretty_json(input: &str) -> String {
         facet_json::to_string_pretty(&facet_json::from_str::<facet_value::Value>(input).unwrap())
@@ -107,7 +154,7 @@ mod tests {
             "{\"hello\":\"world\"}".to_string(),
         );
         assert!(response.ok);
-        assert_eq!(response.status, 200);
+        assert_eq!(response.status, StatusCode::OK);
         assert_eq!(response.reason_phrase.as_deref(), Some("OK"));
     }
 
@@ -122,8 +169,10 @@ mod tests {
         );
 
         let serialized = facet_json::to_string(&response)?;
+        assert!(serialized.contains(r#""status":200"#));
         assert!(serialized.contains(r#""body":["{\n  \"hello\": \"world\"\n}"]"#));
         let reparsed: SerializableRestResponse = facet_json::from_str(&serialized)?;
+        assert_eq!(reparsed.status, StatusCode::OK);
 
         assert_eq!(
             reparsed.into_json_body()?.as_str(),

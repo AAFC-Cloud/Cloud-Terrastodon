@@ -83,7 +83,7 @@ impl CacheableCommand for CognitiveServicesAccountDeploymentListRequest {
         if !response.ok {
             bail!(
                 "Cognitive Services account deployment list request failed with status {} ({})",
-                response.status,
+                response.status.as_u16(),
                 response.reason_phrase.as_deref().unwrap_or("Unknown error")
             );
         }

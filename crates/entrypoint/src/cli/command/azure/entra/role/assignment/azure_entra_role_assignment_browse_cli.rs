@@ -1,6 +1,6 @@
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
-use cloud_terrastodon_azure::Principal;
+use cloud_terrastodon_azure::EntraPrincipal;
 use cloud_terrastodon_azure::UnifiedRoleAssignment;
 use cloud_terrastodon_azure::UnifiedRoleDefinition;
 use cloud_terrastodon_azure::fetch_all_principals;
@@ -28,7 +28,7 @@ pub struct AzureEntraRoleAssignmentBrowseArgs {
 struct EntraRoleAssignmentBrowseOutput<'a> {
     role_assignment: &'a UnifiedRoleAssignment,
     role_definition: &'a UnifiedRoleDefinition,
-    principal: Option<&'a Principal>,
+    principal: Option<&'a EntraPrincipal>,
 }
 
 impl AzureEntraRoleAssignmentBrowseArgs {

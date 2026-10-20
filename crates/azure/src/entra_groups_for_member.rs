@@ -1,7 +1,7 @@
 use crate::fetch_groups_by_id;
 use cloud_terrastodon_azure_types::EntraGroup;
 use cloud_terrastodon_azure_types::EntraGroupId;
-use cloud_terrastodon_azure_types::PrincipalId;
+use cloud_terrastodon_azure_types::EntraPrincipalId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CancellationScope;
@@ -20,7 +20,7 @@ pub struct EntraGroupsForMemberRequest<'a> {
     #[facet(skip_serializing)]
     pub cancellation: CancellationScope,
 
-    pub principal_id: PrincipalId,
+    pub principal_id: EntraPrincipalId,
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
 
@@ -35,7 +35,7 @@ impl<'a> arbitrary::Arbitrary<'a> for EntraGroupsForMemberRequest<'static> {
 }
 
 pub fn fetch_entra_groups_for_member<'a>(
-    principal_id: PrincipalId,
+    principal_id: EntraPrincipalId,
     auth_context: &'a AzureTenantAuthContext,
     cancellation: &CancellationScope,
 ) -> EntraGroupsForMemberRequest<'a> {

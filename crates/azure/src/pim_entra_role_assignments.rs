@@ -1,7 +1,7 @@
 use crate::fetch_current_user;
 use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_azure_types::EntraPrincipalId;
 use cloud_terrastodon_azure_types::GovernanceRoleAssignment;
-use cloud_terrastodon_azure_types::PrincipalId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
@@ -110,11 +110,11 @@ mod tests {
 /// Fetch the current user's eligible/active Entra PIM role assignments with an explicit token.
 pub async fn fetch_my_entra_pim_role_assignments_with_graph_access_token(
     tenant_id: AzureTenantId,
-    principal_id: impl Into<PrincipalId>,
+    principal_id: impl Into<EntraPrincipalId>,
     access_token: &str,
     cancellation: &CancellationScope,
 ) -> Result<Vec<GovernanceRoleAssignment>> {
-    let principal_id: PrincipalId = principal_id.into();
+    let principal_id: EntraPrincipalId = principal_id.into();
     let url = format!(
         "https://graph.microsoft.com/beta/privilegedAccess/aadroles/roleAssignments?$filter=(subject/id eq '{principal_id}') and (assignmentState in ('Eligible', 'Active'))&$select={}",
         [

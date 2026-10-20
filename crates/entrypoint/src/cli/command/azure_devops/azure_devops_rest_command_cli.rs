@@ -47,7 +47,11 @@ mod test {
                 let response = RestRequest::new(Method::GET, url.as_str(), &cancellation)?
                     .receive_raw()
                     .await?;
-                assert!(response.ok, "Unexpected HTTP status {}", response.status);
+                assert!(
+                    response.ok,
+                    "Unexpected HTTP status {}",
+                    response.status.as_u16()
+                );
                 Ok(())
             })
             .await

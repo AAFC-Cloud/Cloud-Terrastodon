@@ -1,9 +1,9 @@
 use crate::HclProject;
 use crate::reflow::HclReflower;
 use cloud_terrastodon_azure::EntraDirectoryObject;
-use cloud_terrastodon_azure::Principal;
-use cloud_terrastodon_azure::PrincipalCollection;
-use cloud_terrastodon_azure::PrincipalId;
+use cloud_terrastodon_azure::EntraPrincipal;
+use cloud_terrastodon_azure::EntraPrincipalCollection;
+use cloud_terrastodon_azure::EntraPrincipalId;
 use hcl::edit::Decorate;
 use hcl::edit::RawString;
 use hcl::edit::expr::Expression;
@@ -16,7 +16,7 @@ use std::str::FromStr;
 /// Prefix any hardcoded principal IDs with comments indicating the principal type and name.
 /// Prefix instead of suffix to enable sorting by principal name in editors.
 pub struct ReflowPrincipalIdComments {
-    principals: HashMap<PrincipalId, PrincipalComment>,
+    principals: HashMap<EntraPrincipalId, PrincipalComment>,
 }
 
 struct PrincipalComment {
@@ -24,7 +24,7 @@ struct PrincipalComment {
     display_name: String,
 }
 impl ReflowPrincipalIdComments {
-    pub fn new(principals: PrincipalCollection) -> Self {
+    pub fn new(principals: EntraPrincipalCollection) -> Self {
         let principals = principals
             .values()
             .map(|principal| (principal.id(), PrincipalComment::from(principal)))
@@ -40,7 +40,10 @@ impl ReflowPrincipalIdComments {
                 Some((
                     object.id(),
                     PrincipalComment {
-                        kind: object.kind().to_string(),
+                        kind: object
+                            .kind()
+                            .principal_kind()
+                            .map_or_else(|| object.kind().to_string(), |kind| kind.to_string()),
                         display_name,
                     },
                 ))
@@ -50,8 +53,8 @@ impl ReflowPrincipalIdComments {
     }
 }
 
-impl From<&Principal> for PrincipalComment {
-    fn from(principal: &Principal) -> Self {
+impl From<&EntraPrincipal> for PrincipalComment {
+    fn from(principal: &EntraPrincipal) -> Self {
         Self {
             kind: principal.kind().to_string(),
             display_name: principal.display_name().to_string(),
@@ -72,7 +75,7 @@ impl HclReflower for ReflowPrincipalIdComments {
 impl VisitMut for ReflowPrincipalIdComments {
     fn visit_expr_mut(&mut self, node: &mut Expression) {
         // Must be a principal id
-        let Some(Ok(principal_id)) = node.as_str().map(PrincipalId::from_str) else {
+        let Some(Ok(principal_id)) = node.as_str().map(EntraPrincipalId::from_str) else {
             return visit_expr_mut(self, node);
         };
 
@@ -103,9 +106,9 @@ mod test {
     use arbitrary::Arbitrary;
     use arbitrary::Unstructured;
     use cloud_terrastodon_azure::EntraDirectoryObject;
+    use cloud_terrastodon_azure::EntraPrincipal;
+    use cloud_terrastodon_azure::EntraPrincipalCollection;
     use cloud_terrastodon_azure::EntraUser;
-    use cloud_terrastodon_azure::Principal;
-    use cloud_terrastodon_azure::PrincipalCollection;
     use eyre::ContextCompat;
     use hcl::edit::structure::Body;
     use indoc::formatdoc;
@@ -153,11 +156,12 @@ mod test {
         rand::rng().fill(&mut raw);
         let mut noise = Unstructured::new(&raw);
         let mut user = EntraUser::arbitrary(&mut noise)?;
-        user.user_principal_name = "first.last@agr.gc.ca".to_string();
+        user.user_principal_name = "first.last@agr.gc.ca".parse()?;
         let user_id = user.id;
 
         // Create principal collection
-        let principal_collection = PrincipalCollection::new(vec![Principal::User(Box::new(user))]);
+        let principal_collection =
+            EntraPrincipalCollection::new(vec![EntraPrincipal::User(Box::new(user))]);
 
         // Create reflower
         let mut reflower = super::ReflowPrincipalIdComments::new(principal_collection);
@@ -201,17 +205,17 @@ mod test {
         rand::rng().fill(&mut raw);
         let mut noise = Unstructured::new(&raw);
         let mut user1 = EntraUser::arbitrary(&mut noise)?;
-        user1.user_principal_name = "first.last@agr.gc.ca".to_string();
+        user1.user_principal_name = "first.last@agr.gc.ca".parse()?;
         let user_id1 = user1.id;
 
         let mut user2 = EntraUser::arbitrary(&mut noise)?;
-        user2.user_principal_name = "hot.rod@agr.gc.ca".to_string();
+        user2.user_principal_name = "hot.rod@agr.gc.ca".parse()?;
         let user_id2 = user2.id;
 
         // Create principal collection
-        let principal_collection = PrincipalCollection::new(vec![
-            Principal::User(Box::new(user1)),
-            Principal::User(Box::new(user2)),
+        let principal_collection = EntraPrincipalCollection::new(vec![
+            EntraPrincipal::User(Box::new(user1)),
+            EntraPrincipal::User(Box::new(user2)),
         ]);
 
         // Create reflower
@@ -256,17 +260,17 @@ mod test {
         rand::rng().fill(&mut raw);
         let mut noise = Unstructured::new(&raw);
         let mut user1 = EntraUser::arbitrary(&mut noise)?;
-        user1.user_principal_name = "first.last@agr.gc.ca".to_string();
+        user1.user_principal_name = "first.last@agr.gc.ca".parse()?;
         let user_id1 = user1.id;
 
         let mut user2 = EntraUser::arbitrary(&mut noise)?;
-        user2.user_principal_name = "hot.rod@agr.gc.ca".to_string();
+        user2.user_principal_name = "hot.rod@agr.gc.ca".parse()?;
         let user_id2 = user2.id;
 
         // Create principal collection
-        let principal_collection = PrincipalCollection::new(vec![
-            Principal::User(Box::new(user1)),
-            Principal::User(Box::new(user2)),
+        let principal_collection = EntraPrincipalCollection::new(vec![
+            EntraPrincipal::User(Box::new(user1)),
+            EntraPrincipal::User(Box::new(user2)),
         ]);
 
         // Create reflower
@@ -317,11 +321,12 @@ mod test {
         rand::rng().fill(&mut raw);
         let mut noise = Unstructured::new(&raw);
         let mut user = EntraUser::arbitrary(&mut noise)?;
-        user.user_principal_name = "first.last@agr.gc.ca".to_string();
+        user.user_principal_name = "first.last@agr.gc.ca".parse()?;
         let user_id = user.id;
 
         // Create principal collection
-        let principal_collection = PrincipalCollection::new(vec![Principal::User(Box::new(user))]);
+        let principal_collection =
+            EntraPrincipalCollection::new(vec![EntraPrincipal::User(Box::new(user))]);
 
         // Create reflower
         let mut reflower = super::ReflowPrincipalIdComments::new(principal_collection);
@@ -365,17 +370,17 @@ mod test {
         rand::rng().fill(&mut raw);
         let mut noise = Unstructured::new(&raw);
         let mut user1 = EntraUser::arbitrary(&mut noise)?;
-        user1.user_principal_name = "first.last@agr.gc.ca".to_string();
+        user1.user_principal_name = "first.last@agr.gc.ca".parse()?;
         let user_id1 = user1.id;
 
         let mut user2 = EntraUser::arbitrary(&mut noise)?;
-        user2.user_principal_name = "hot.rod@agr.gc.ca".to_string();
+        user2.user_principal_name = "hot.rod@agr.gc.ca".parse()?;
         let user_id2 = user2.id;
 
         // Create principal collection
-        let principal_collection = PrincipalCollection::new(vec![
-            Principal::User(Box::new(user1)),
-            Principal::User(Box::new(user2)),
+        let principal_collection = EntraPrincipalCollection::new(vec![
+            EntraPrincipal::User(Box::new(user1)),
+            EntraPrincipal::User(Box::new(user2)),
         ]);
 
         // Create reflower

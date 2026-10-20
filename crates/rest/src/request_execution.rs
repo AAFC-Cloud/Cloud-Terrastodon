@@ -107,6 +107,10 @@ pub async fn execute_azure_devops_request(
     cancellation: &CancellationScope,
 ) -> Result<Response> {
     let source = auth_context.source();
+    eyre::ensure!(
+        source != Some(AuthSource::None),
+        "authentication is disabled by auth source none; cannot execute an authenticated Azure DevOps request"
+    );
 
     if matches!(source, Some(AuthSource::PersonalAccessToken)) {
         let pat = get_azure_devops_personal_access_token_from_credential_manager()
@@ -190,6 +194,10 @@ pub async fn execute_azure_bearer_request(
     resource: AzureRestResource,
     cancellation: &CancellationScope,
 ) -> Result<Response> {
+    eyre::ensure!(
+        auth_context.source() != Some(AuthSource::None),
+        "authentication is disabled by auth source none; cannot execute an authenticated Azure request"
+    );
     let token = match bearer_token {
         Some(token) => token,
         None => match resource {
@@ -249,8 +257,55 @@ fn create_tls12_client() -> Result<Client> {
 
 #[cfg(test)]
 mod tests {
+    use super::AzureRestResource;
+    use super::execute_azure_bearer_request;
+    use super::execute_azure_devops_request;
+    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_credentials::AuthContext;
     use cloud_terrastodon_credentials::AuthSource;
+    use http::Method;
+    use reqwest::Url;
+
+    #[tokio::test]
+    async fn disabled_authentication_cannot_be_overridden_by_an_explicit_bearer_token()
+    -> eyre::Result<()> {
+        CancellationToken::new()
+            .with_async_scope(|cancellation| async move {
+                let context = AuthContext::resolve(AuthSource::None)?;
+                // The unsupported scheme prevents network access even if the
+                // policy guard regresses and reaches the HTTP client.
+                let url = Url::parse("file:///synthetic-no-request")?;
+                let azure_devops = execute_azure_devops_request(
+                    &context,
+                    Method::GET,
+                    url.clone(),
+                    None,
+                    None,
+                    None,
+                    Some("synthetic-unused-token".into()),
+                    &cancellation,
+                )
+                .await
+                .expect_err("disabled authentication must reject an explicit bearer token");
+                let azure = execute_azure_bearer_request(
+                    &context,
+                    Method::GET,
+                    url,
+                    None,
+                    None,
+                    None,
+                    Some("synthetic-unused-token".into()),
+                    AzureRestResource::MicrosoftGraph,
+                    &cancellation,
+                )
+                .await
+                .expect_err("disabled authentication must reject an explicit bearer token");
+                assert!(azure_devops.to_string().contains("auth source none"));
+                assert!(azure.to_string().contains("auth source none"));
+                Ok(())
+            })
+            .await
+    }
 
     #[test]
     fn explicit_context_preserves_source() {

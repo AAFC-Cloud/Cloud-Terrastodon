@@ -1,7 +1,7 @@
 use crate::app::MyApp;
 use crate::app_message::AppMessage;
 use crate::state_mutator::StateMutator;
-use cloud_terrastodon_command::CancellationError;
+use cloud_terrastodon_command::CancellationReportExt;
 use cloud_terrastodon_relative_location::RelativeLocation;
 use eyre::eyre;
 use std::panic::Location;
@@ -66,7 +66,7 @@ where
                     }
                 }
                 Err(error) => {
-                    if error.chain().any(|cause| cause.is::<CancellationError>()) {
+                    if error.is_cancellation() {
                         return Err(error);
                     }
                     let error = error

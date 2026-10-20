@@ -12,6 +12,7 @@ use eyre::Context;
 use eyre::Result;
 #[cfg(debug_assertions)]
 use eyre::bail;
+use http::StatusCode;
 use std::collections::BTreeMap;
 #[cfg(debug_assertions)]
 use std::collections::HashSet;
@@ -298,7 +299,7 @@ async fn wait_for_resource_graph_rate_limit_window() {
 }
 
 async fn note_resource_graph_rate_limit(response: &SerializableRestResponse) {
-    let should_block = response.status == http::StatusCode::TOO_MANY_REQUESTS.as_u16()
+    let should_block = response.status == StatusCode::TOO_MANY_REQUESTS
         || response.headers.resource_graph_quota_remaining() == Some(0);
     let Some(delay) = response.headers.retry_after() else {
         return;
@@ -319,7 +320,7 @@ async fn note_resource_graph_rate_limit(response: &SerializableRestResponse) {
         warn!(
             remaining_quota = ?response.headers.resource_graph_quota_remaining(),
             reset_in = %humantime::format_duration(delay),
-            status = response.status,
+            status = response.status.as_u16(),
             "Updated shared Resource Graph rate limit window"
         );
     }
@@ -397,7 +398,7 @@ async fn receive_resource_graph_response<T: FromCommandOutput>(
             })
             .await?;
 
-        let is_throttled = response.status == http::StatusCode::TOO_MANY_REQUESTS.as_u16()
+        let is_throttled = response.status == StatusCode::TOO_MANY_REQUESTS
             || response.headers.resource_graph_quota_remaining() == Some(0);
         if is_throttled && retries < RESOURCE_GRAPH_MAX_THROTTLE_RETRIES {
             retries += 1;
@@ -415,7 +416,7 @@ async fn receive_resource_graph_response<T: FromCommandOutput>(
 
         eyre::bail!(
             "REST call failed with status {}: {}{}",
-            response.status,
+            response.status.as_u16(),
             response.reason_phrase.as_deref().unwrap_or("Unknown error"),
             format_rest_error_body(&response.body)
         );

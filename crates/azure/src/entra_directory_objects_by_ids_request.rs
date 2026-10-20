@@ -2,7 +2,7 @@ use crate::EntraDirectoryObject;
 use crate::MicrosoftGraphBatchRequest;
 use crate::MicrosoftGraphBatchRequestEntry;
 use crate::MicrosoftGraphResponse;
-use cloud_terrastodon_azure_types::EntraDirectoryObjectType;
+use crate::entra_directory_objects_by_ids_request_body::EntraDirectoryObjectsByIdsRequestBody;
 use cloud_terrastodon_azure_types::uuid::Uuid;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
@@ -21,6 +21,13 @@ const MAX_DIRECTORY_OBJECT_IDS: usize = 1_000;
 const DIRECTORY_OBJECTS_BY_IDS_URL: &str =
     "https://graph.microsoft.com/v1.0/directoryObjects/getByIds";
 
+/// Resolve IDs through Microsoft Graph v1.0 [`directoryObjects/getByIds`](https://learn.microsoft.com/en-us/graph/api/directoryobject-getbyids?view=graph-rest-1.0).
+///
+/// Uses Graph's default `directoryObject` search in batches of at most 1,000 IDs.
+/// That default includes devices and organizational contacts, but excludes Cloud
+/// Solution Provider partner references (`directoryObjectPartnerReference`).
+/// Returned objects retain their types; any unmodeled type fails decoding
+/// explicitly instead of appearing to be a missing ID.
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Debug, Facet)]
 pub struct EntraDirectoryObjectsByIdsRequest<'a> {
@@ -53,12 +60,6 @@ pub fn fetch_entra_directory_objects_by_ids<'a>(
     }
 }
 
-#[derive(Debug, Facet)]
-struct EntraDirectoryObjectsByIdsRequestBody {
-    ids: Vec<Uuid>,
-    types: Vec<String>,
-}
-
 impl EntraDirectoryObjectsByIdsRequest<'_> {
     fn normalized_ids(&self) -> Vec<Uuid> {
         let mut ids = self.ids.clone();
@@ -81,18 +82,11 @@ impl EntraDirectoryObjectsByIdsRequest<'_> {
             "directoryObjects",
             "getByIds",
             self.auth_context.tenant_id.to_string().as_str(),
+            // The previous key cached a user/group/service-principal filter;
+            // those results cannot answer an all-types existence lookup.
+            "all-types",
             ids_hash.as_str(),
         ]))
-    }
-
-    fn request_body(ids: &[Uuid]) -> EntraDirectoryObjectsByIdsRequestBody {
-        EntraDirectoryObjectsByIdsRequestBody {
-            ids: ids.to_vec(),
-            types: EntraDirectoryObjectType::PRINCIPAL_TYPES
-                .iter()
-                .map(ToString::to_string)
-                .collect(),
-        }
     }
 }
 
@@ -134,7 +128,7 @@ impl CacheableCommand for EntraDirectoryObjectsByIdsRequest<'_> {
                     String::from("Content-Type"),
                     String::from("application/json"),
                 )]),
-                Some(Self::request_body(ids)),
+                Some(EntraDirectoryObjectsByIdsRequestBody { ids: ids.to_vec() }),
             ));
         }
 
@@ -163,6 +157,7 @@ mod tests {
     use cloud_terrastodon_azure_types::AzureTenantId;
     use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_credentials::AuthContext;
+    use facet_json::RawJson;
 
     #[test]
     fn normalizes_ids_for_stable_lookup_and_cache_keys() {
@@ -193,13 +188,15 @@ mod tests {
     }
 
     #[test]
-    fn request_body_restricts_lookup_to_supported_principal_types() -> eyre::Result<()> {
-        let body = EntraDirectoryObjectsByIdsRequest::request_body(&[Uuid::from_u128(1)]);
+    fn request_body_does_not_filter_directory_object_types() -> eyre::Result<()> {
+        let body = EntraDirectoryObjectsByIdsRequestBody {
+            ids: vec![Uuid::from_u128(1)],
+        };
         let body = facet_json::to_string(&body)?;
+        let body = facet_json::from_str::<HashMap<String, RawJson<'static>>>(&body)?;
 
-        assert!(body.contains("user"));
-        assert!(body.contains("group"));
-        assert!(body.contains("servicePrincipal"));
+        assert!(body.contains_key("ids"));
+        assert!(!body.contains_key("types"));
         Ok(())
     }
 }

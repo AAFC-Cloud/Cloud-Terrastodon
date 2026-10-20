@@ -1,5 +1,5 @@
-use cloud_terrastodon_azure::Principal;
-use cloud_terrastodon_azure::PrincipalCollection;
+use cloud_terrastodon_azure::EntraPrincipal;
+use cloud_terrastodon_azure::EntraPrincipalCollection;
 use cloud_terrastodon_azure::RoleAssignment;
 use cloud_terrastodon_azure::RoleAssignmentId;
 use cloud_terrastodon_azure::RoleDefinition;
@@ -40,7 +40,7 @@ pub enum RoleAssignmentPickerAppResult {
     Some {
         chosen_role_assignment_ids: Vec<RoleAssignmentId>,
         role_definitions_and_assignments: RoleDefinitionsAndAssignments,
-        principals: PrincipalCollection,
+        principals: EntraPrincipalCollection,
     },
 }
 
@@ -513,7 +513,7 @@ impl RoleAssignmentRow {
     fn from_assignment(
         assignment: &RoleAssignment,
         definition: &RoleDefinition,
-        principals: &PrincipalCollection,
+        principals: &EntraPrincipalCollection,
     ) -> Self {
         let principal_info = principals
             .get(&assignment.principal_id)
@@ -547,11 +547,11 @@ impl RoleAssignmentRow {
     }
 }
 
-fn principal_details(principal: &Principal) -> (String, String) {
+fn principal_details(principal: &EntraPrincipal) -> (String, String) {
     match principal {
-        Principal::User(user) => (user.user_principal_name.clone(), "User".to_string()),
-        Principal::Group(group) => (group.display_name.clone(), "Group".to_string()),
-        Principal::ServicePrincipal(sp) => {
+        EntraPrincipal::User(user) => (user.user_principal_name.to_string(), "User".to_string()),
+        EntraPrincipal::Group(group) => (group.display_name.to_string(), "Group".to_string()),
+        EntraPrincipal::ServicePrincipal(sp) => {
             (sp.display_name.clone(), "Service Principal".to_string())
         }
     }
@@ -579,16 +579,16 @@ impl std::fmt::Debug for RoleDefinitionsHolder {
     }
 }
 
-struct PrincipalCollectionHolder(PrincipalCollection);
+struct PrincipalCollectionHolder(EntraPrincipalCollection);
 
 impl PrincipalCollectionHolder {
-    fn into_inner(self) -> PrincipalCollection {
+    fn into_inner(self) -> EntraPrincipalCollection {
         self.0
     }
 }
 
 impl Deref for PrincipalCollectionHolder {
-    type Target = PrincipalCollection;
+    type Target = EntraPrincipalCollection;
 
     fn deref(&self) -> &Self::Target {
         &self.0

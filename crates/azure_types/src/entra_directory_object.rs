@@ -1,49 +1,23 @@
+use crate::EntraDirectoryObjectDevice;
+use crate::EntraDirectoryObjectGroup;
+use crate::EntraDirectoryObjectOrganizationalContact;
+use crate::EntraDirectoryObjectServicePrincipal;
 use crate::EntraDirectoryObjectType;
-use crate::EntraGroupId;
-use crate::EntraServicePrincipalObjectId;
-use crate::EntraUserId;
-use crate::PrincipalId;
-use crate::PrincipalKind;
+use crate::EntraDirectoryObjectUser;
+use crate::EntraPrincipalId;
 use arbitrary::Arbitrary;
 use arbitrary::Unstructured;
 use facet_json::RawJson;
 use std::collections::HashMap;
 
-/// The subset of an Entra user returned by `directoryObjects/getByIds` that is
-/// useful to callers resolving object IDs.
-#[derive(Debug, Clone, Eq, PartialEq, Arbitrary, facet::Facet)]
-#[facet(rename_all = "camelCase")]
-pub struct EntraDirectoryObjectUser {
-    pub display_name: Option<String>,
-    pub id: EntraUserId,
-    pub mail: Option<String>,
-    pub user_principal_name: Option<String>,
-}
-
-/// The subset of an Entra group returned by `directoryObjects/getByIds` that is
-/// useful to callers resolving object IDs.
-#[derive(Debug, Clone, Eq, PartialEq, Arbitrary, facet::Facet)]
-#[facet(rename_all = "camelCase")]
-pub struct EntraDirectoryObjectGroup {
-    pub display_name: Option<String>,
-    pub id: EntraGroupId,
-}
-
-/// The subset of an Entra service principal returned by
-/// `directoryObjects/getByIds` that is useful to callers resolving object IDs.
-#[derive(Debug, Clone, Eq, PartialEq, Arbitrary, facet::Facet)]
-#[facet(rename_all = "camelCase")]
-pub struct EntraDirectoryObjectServicePrincipal {
-    pub display_name: Option<String>,
-    pub id: EntraServicePrincipalObjectId,
-}
-
-/// A typed Entra directory object returned by Microsoft Graph.
+/// A shallow typed Microsoft Graph v1.0 [directory object](https://learn.microsoft.com/en-us/graph/api/resources/directoryobject?view=graph-rest-1.0).
 ///
 /// The `@odata.type` discriminator is consumed while deserializing the raw
-/// Graph response. The variants intentionally contain only the fields needed
-/// for object-ID resolution because `getByIds` does not return full resource
-/// representations.
+/// Graph response. Variants intentionally project only identity properties;
+/// unrestricted Graph responses can contain additional fields. Limited-information
+/// objects retain their IDs and types without manufacturing names. Other returned
+/// object types cause an explicit decoding error, rather than being discarded and
+/// mistaken for absent objects.
 #[derive(Debug, Clone, Eq, PartialEq, facet::Facet)]
 #[facet(proxy = RawJson<'static>)]
 #[repr(C)]
@@ -51,14 +25,20 @@ pub enum EntraDirectoryObject {
     User(EntraDirectoryObjectUser),
     Group(EntraDirectoryObjectGroup),
     ServicePrincipal(EntraDirectoryObjectServicePrincipal),
+    Device(EntraDirectoryObjectDevice),
+    OrganizationalContact(EntraDirectoryObjectOrganizationalContact),
 }
 
 impl<'a> Arbitrary<'a> for EntraDirectoryObject {
     fn arbitrary(u: &mut Unstructured<'a>) -> arbitrary::Result<Self> {
-        Ok(match u.int_in_range(0..=2)? {
+        Ok(match u.int_in_range(0..=4)? {
             0 => Self::User(EntraDirectoryObjectUser::arbitrary(u)?),
             1 => Self::Group(EntraDirectoryObjectGroup::arbitrary(u)?),
-            _ => Self::ServicePrincipal(EntraDirectoryObjectServicePrincipal::arbitrary(u)?),
+            2 => Self::ServicePrincipal(EntraDirectoryObjectServicePrincipal::arbitrary(u)?),
+            3 => Self::Device(EntraDirectoryObjectDevice::arbitrary(u)?),
+            _ => Self::OrganizationalContact(EntraDirectoryObjectOrganizationalContact::arbitrary(
+                u,
+            )?),
         })
     }
 }
@@ -80,6 +60,10 @@ impl TryFrom<RawJson<'static>> for EntraDirectoryObject {
             EntraDirectoryObjectType::ServicePrincipal => {
                 Self::ServicePrincipal(facet_json::from_str(value.as_str())?)
             }
+            EntraDirectoryObjectType::Device => Self::Device(facet_json::from_str(value.as_str())?),
+            EntraDirectoryObjectType::OrganizationalContact => {
+                Self::OrganizationalContact(facet_json::from_str(value.as_str())?)
+            }
         })
     }
 }
@@ -94,6 +78,8 @@ impl TryFrom<&EntraDirectoryObject> for RawJson<'static> {
             EntraDirectoryObject::ServicePrincipal(service_principal) => {
                 facet_json::to_string(service_principal)?
             }
+            EntraDirectoryObject::Device(device) => facet_json::to_string(device)?,
+            EntraDirectoryObject::OrganizationalContact(contact) => facet_json::to_string(contact)?,
         };
         let mut object = facet_json::from_str::<HashMap<String, RawJson<'static>>>(&inner_json)?;
         object.insert(
@@ -105,18 +91,26 @@ impl TryFrom<&EntraDirectoryObject> for RawJson<'static> {
 }
 
 impl EntraDirectoryObject {
-    pub fn id(&self) -> PrincipalId {
+    /// Return the directory identity through the existing UUID-based ID bridge.
+    ///
+    /// Devices and organizational contacts use `EntraPrincipalId::Unknown` because the
+    /// full [`crate::EntraPrincipal`] model represents only users, groups, and service
+    /// principals. In particular, a contact is not a security principal; carrying
+    /// its UUID here does not imply that it can be assigned roles or ownership.
+    pub fn id(&self) -> EntraPrincipalId {
         match self {
-            Self::User(user) => PrincipalId::UserId(user.id),
-            Self::Group(group) => PrincipalId::GroupId(group.id),
+            Self::User(user) => EntraPrincipalId::UserId(user.id),
+            Self::Group(group) => EntraPrincipalId::GroupId(group.id),
             Self::ServicePrincipal(service_principal) => {
-                PrincipalId::ServicePrincipalId(service_principal.id)
+                EntraPrincipalId::ServicePrincipalId(service_principal.id)
             }
+            Self::Device(device) => EntraPrincipalId::Unknown(*device.id.as_ref()),
+            Self::OrganizationalContact(contact) => EntraPrincipalId::Unknown(*contact.id.as_ref()),
         }
     }
 
-    pub fn kind(&self) -> PrincipalKind {
-        self.object_type().principal_kind()
+    pub const fn kind(&self) -> EntraDirectoryObjectType {
+        self.object_type()
     }
 
     pub const fn object_type(&self) -> EntraDirectoryObjectType {
@@ -124,6 +118,8 @@ impl EntraDirectoryObject {
             Self::User(..) => EntraDirectoryObjectType::User,
             Self::Group(..) => EntraDirectoryObjectType::Group,
             Self::ServicePrincipal(..) => EntraDirectoryObjectType::ServicePrincipal,
+            Self::Device(..) => EntraDirectoryObjectType::Device,
+            Self::OrganizationalContact(..) => EntraDirectoryObjectType::OrganizationalContact,
         }
     }
 
@@ -137,6 +133,10 @@ impl EntraDirectoryObject {
                 .or(user.display_name.as_deref()),
             Self::Group(group) => group.display_name.as_deref(),
             Self::ServicePrincipal(service_principal) => service_principal.display_name.as_deref(),
+            Self::Device(device) => device.display_name.as_deref(),
+            Self::OrganizationalContact(contact) => {
+                contact.display_name.as_deref().or(contact.mail.as_deref())
+            }
         }
     }
 }
@@ -148,6 +148,67 @@ cloud_terrastodon_registry::register_arbitrary!(Vec<EntraDirectoryObject>);
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::EntraDeviceObjectId;
+    use crate::EntraOrganizationalContactId;
+    use uuid::Uuid;
+
+    #[test]
+    fn limited_information_objects_preserve_identity_without_inventing_names() {
+        let device_id = Uuid::from_u128(1);
+        let contact_id = Uuid::from_u128(2);
+        let objects = [
+            (
+                EntraDirectoryObject::Device(EntraDirectoryObjectDevice {
+                    id: EntraDeviceObjectId::new(device_id),
+                    display_name: None,
+                }),
+                device_id,
+                EntraDirectoryObjectType::Device,
+            ),
+            (
+                EntraDirectoryObject::OrganizationalContact(
+                    EntraDirectoryObjectOrganizationalContact {
+                        id: EntraOrganizationalContactId::new(contact_id),
+                        display_name: None,
+                        mail: None,
+                    },
+                ),
+                contact_id,
+                EntraDirectoryObjectType::OrganizationalContact,
+            ),
+        ];
+
+        for (object, id, object_type) in objects {
+            assert_eq!(object.id(), id);
+            assert_eq!(object.kind(), object_type);
+            assert!(object.display_name().is_none());
+            assert!(object.kind().principal_kind().is_none());
+        }
+    }
+
+    #[test]
+    fn an_unmodeled_returned_object_is_an_error_instead_of_an_absent_result() -> eyre::Result<()> {
+        // Exercise the custom discriminator boundary, rather than manufacturing
+        // an empty lookup result for a returned but unsupported directory type.
+        let fields = HashMap::from([
+            (
+                "@odata.type",
+                RawJson::from_owned(facet_json::to_string("#microsoft.graph.directoryRole")?),
+            ),
+            (
+                "id",
+                RawJson::from_owned(facet_json::to_string(&Uuid::from_u128(3))?),
+            ),
+        ]);
+        let error =
+            EntraDirectoryObject::try_from(RawJson::from_owned(facet_json::to_string(&fields)?))
+                .expect_err("an unsupported returned object must fail the lookup");
+
+        assert!(error.to_string().contains(
+            "Unsupported Entra directory object @odata.type: #microsoft.graph.directoryRole"
+        ));
+        Ok(())
+    }
 
     #[test]
     fn deserializes_typed_objects_from_odata_type() -> eyre::Result<()> {

@@ -1,7 +1,7 @@
 use super::invocation_host::InvocationHost;
 use super::invocation_host::InvocationHostPoll;
 use super::invocation_host::InvocationId;
-use cloud_terrastodon_command::CancellationError;
+use cloud_terrastodon_command::CancellationReportExt;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CancellationToken;
 use cloud_terrastodon_registry::InvocationFuture;
@@ -133,9 +133,8 @@ impl JobState {
                 self.outcome = Some(match result {
                     Ok(output) => InvocationHostPoll::Ready(output),
                     Err(error) => {
-                        let classification = catch_unwind(AssertUnwindSafe(|| {
-                            error.chain().any(|cause| cause.is::<CancellationError>())
-                        }));
+                        let classification =
+                            catch_unwind(AssertUnwindSafe(|| error.is_cancellation()));
                         let cancelled = matches!(&classification, Ok(true));
                         let classification_panic = classification.err().map(consume_panic);
                         let message = match catch_unwind(AssertUnwindSafe(|| error.to_string())) {

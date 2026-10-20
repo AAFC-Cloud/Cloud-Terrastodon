@@ -10,14 +10,14 @@ use cloud_terrastodon_azure_devops::AzureDevOpsBuildStatus;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_builds;
-use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use color_eyre::owo_colors::OwoColorize;
 use color_eyre::owo_colors::Stream;
 use color_eyre::owo_colors::Style;
 use eyre::Result;
-use std::fmt::Write;
+use std::io::Write;
 
 /// List the latest build runs matching the supplied filters.
 #[derive(Debug, Clone, facet::Facet)]
@@ -79,25 +79,31 @@ impl AzureDevOpsBuildListArgs {
         )
         .with_invalidation(self.no_cache)
         .await?;
-        Ok(CliOutput::facet_with_text(builds, |builds| {
-            render_builds(builds)
-        }))
+        Ok(CliOutput::facet_with_text(
+            builds,
+            |builds, writer, cancellation| write_builds(builds, writer, cancellation),
+        ))
     }
 }
 
-fn render_builds(builds: &[AzureDevOpsBuild]) -> Result<String> {
+fn write_builds(
+    builds: &[AzureDevOpsBuild],
+    writer: &mut dyn Write,
+    cancellation: &CancellationScope,
+) -> Result<()> {
     if builds.is_empty() {
-        return Ok("No builds found.\n".to_owned());
+        writeln!(writer, "No builds found.")?;
+        return Ok(());
     }
-    let mut rendered = String::new();
     writeln!(
-        rendered,
+        writer,
         "{} ({})",
         "Builds".if_supports_color(Stream::Stdout, |text| text
             .style(Style::new().cyan().bold())),
         builds.len()
     )?;
     for build in builds {
+        cancellation.bail_if_cancelled()?;
         let definition = format!(
             "{} ({})",
             output::terminal_text(
@@ -131,7 +137,7 @@ fn render_builds(builds: &[AzureDevOpsBuild]) -> Result<String> {
             _ => Style::new().dimmed(),
         };
         writeln!(
-            rendered,
+            writer,
             "  {}  {}  {}  {} / {}  {}",
             build.id.if_supports_color(Stream::Stdout, |id| id.green()),
             output::terminal_text(build.build_number.as_str())
@@ -143,5 +149,5 @@ fn render_builds(builds: &[AzureDevOpsBuild]) -> Result<String> {
                 .if_supports_color(Stream::Stdout, |text| text.dimmed())
         )?;
     }
-    Ok(rendered)
+    Ok(())
 }

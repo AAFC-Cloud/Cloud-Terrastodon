@@ -13,7 +13,8 @@ use std::path::PathBuf;
 pub struct GlobalArgs {
     /// Authentication source preference. `auto` uses workload identity when
     /// configured and otherwise defaults to Azure CLI. Browser authentication
-    /// can be selected explicitly or configured per tenant.
+    /// can be selected explicitly or configured per tenant. `none` disables
+    /// credential discovery and authenticated requests for local-only commands.
     #[cfg(feature = "auth")]
     #[facet(figue::named, default = AuthSource::default(), figue::label = "SOURCE")]
     pub auth_source: AuthSource,

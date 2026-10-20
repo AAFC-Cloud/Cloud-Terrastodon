@@ -10,15 +10,15 @@ use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_build_definitions;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_build_folders;
-use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use color_eyre::owo_colors::OwoColorize;
 use color_eyre::owo_colors::Stream;
 use color_eyre::owo_colors::Style;
 use eyre::Result;
 use std::collections::BTreeMap;
-use std::fmt::Write;
+use std::io::Write;
 
 /// List build definition folders and their definitions, including empty folders.
 #[derive(Debug, Clone, facet::Facet)]
@@ -78,9 +78,10 @@ impl AzureDevOpsBuildDefinitionFolderListArgs {
         .with_invalidation(self.no_cache)
         .await?;
         let folders = group_folders(folders, definitions);
-        Ok(CliOutput::facet_with_text(folders, |folders| {
-            render_folders(folders)
-        }))
+        Ok(CliOutput::facet_with_text(
+            folders,
+            |folders, writer, cancellation| write_folders(folders, writer, cancellation),
+        ))
     }
 }
 
@@ -110,19 +111,24 @@ fn group_folders(
         .collect()
 }
 
-fn render_folders(folders: &[AzureDevOpsBuildDefinitionFolderListEntry]) -> Result<String> {
+fn write_folders(
+    folders: &[AzureDevOpsBuildDefinitionFolderListEntry],
+    writer: &mut dyn Write,
+    cancellation: &CancellationScope,
+) -> Result<()> {
     if folders.is_empty() {
-        return Ok("No build definition folders found.\n".to_owned());
+        writeln!(writer, "No build definition folders found.")?;
+        return Ok(());
     }
-    let mut rendered = String::new();
     writeln!(
-        rendered,
+        writer,
         "{} ({})",
         "Build definition folders".if_supports_color(Stream::Stdout, |text| text
             .style(Style::new().cyan().bold())),
         folders.len()
     )?;
     for folder in folders {
+        cancellation.bail_if_cancelled()?;
         let count = folder.definitions.len();
         let noun = if count == 1 {
             "definition"
@@ -130,14 +136,15 @@ fn render_folders(folders: &[AzureDevOpsBuildDefinitionFolderListEntry]) -> Resu
             "definitions"
         };
         writeln!(
-            rendered,
+            writer,
             "  {} ({count} {noun})",
             output::terminal_text(folder.folder.path.as_str())
                 .if_supports_color(Stream::Stdout, |text| text.bold()),
         )?;
         for definition in &folder.definitions {
+            cancellation.bail_if_cancelled()?;
             writeln!(
-                rendered,
+                writer,
                 "    {}  {}",
                 definition
                     .id
@@ -147,7 +154,7 @@ fn render_folders(folders: &[AzureDevOpsBuildDefinitionFolderListEntry]) -> Resu
             )?;
         }
     }
-    Ok(rendered)
+    Ok(())
 }
 
 #[cfg(test)]
@@ -155,6 +162,7 @@ mod tests {
     use super::*;
     use cloud_terrastodon_azure_devops::AzureDevOpsBuildDefinitionId;
     use cloud_terrastodon_azure_devops::AzureDevOpsBuildDefinitionUri;
+    use cloud_terrastodon_command::CancellationToken;
 
     fn folder(path: &str) -> AzureDevOpsBuildFolder {
         AzureDevOpsBuildFolder {
@@ -192,45 +200,49 @@ mod tests {
 
     #[test]
     fn folder_listing_preserves_empty_folders_and_counts_direct_definitions() -> Result<()> {
-        let folders = group_folders(
-            vec![
-                folder(r"\Team\CI"),
-                folder(r"\Empty"),
-                folder(r"\"),
-                folder(r"\Team"),
-            ],
-            vec![
-                definition(1, r"\Team"),
-                definition(2, r"\team"),
-                definition(3, r"\TEAM\CI"),
-                definition(4, r"\"),
-                definition(5, r"\TeamOther"),
-            ],
-        );
-        assert_eq!(
-            folders
-                .iter()
-                .map(|entry| entry.folder.path.as_str())
-                .collect::<Vec<_>>(),
-            [r"\Team\CI", r"\Empty", r"\", r"\Team"]
-        );
-        assert_eq!(
-            folders
-                .iter()
-                .map(|entry| entry
-                    .definitions
+        CancellationToken::new().with_scope(|cancellation| {
+            let folders = group_folders(
+                vec![
+                    folder(r"\Team\CI"),
+                    folder(r"\Empty"),
+                    folder(r"\"),
+                    folder(r"\Team"),
+                ],
+                vec![
+                    definition(1, r"\Team"),
+                    definition(2, r"\team"),
+                    definition(3, r"\TEAM\CI"),
+                    definition(4, r"\"),
+                    definition(5, r"\TeamOther"),
+                ],
+            );
+            assert_eq!(
+                folders
                     .iter()
-                    .map(|definition| definition.id.get())
-                    .collect::<Vec<_>>())
-                .collect::<Vec<_>>(),
-            [vec![3], vec![], vec![4], vec![1, 2]]
-        );
-        let rendered = render_folders(&folders)?;
-        assert!(rendered.contains("(0 definitions)"));
-        assert!(rendered.contains("(1 definition)"));
-        assert!(rendered.contains("(2 definitions)"));
-        assert!(rendered.contains("Synthetic pipeline 3"));
-        assert!(!rendered.contains("Synthetic pipeline 5"));
-        Ok(())
+                    .map(|entry| entry.folder.path.as_str())
+                    .collect::<Vec<_>>(),
+                [r"\Team\CI", r"\Empty", r"\", r"\Team"]
+            );
+            assert_eq!(
+                folders
+                    .iter()
+                    .map(|entry| entry
+                        .definitions
+                        .iter()
+                        .map(|definition| definition.id.get())
+                        .collect::<Vec<_>>())
+                    .collect::<Vec<_>>(),
+                [vec![3], vec![], vec![4], vec![1, 2]]
+            );
+            let mut rendered = Vec::new();
+            write_folders(&folders, &mut rendered, &cancellation)?;
+            let rendered = String::from_utf8(rendered)?;
+            assert!(rendered.contains("(0 definitions)"));
+            assert!(rendered.contains("(1 definition)"));
+            assert!(rendered.contains("(2 definitions)"));
+            assert!(rendered.contains("Synthetic pipeline 3"));
+            assert!(!rendered.contains("Synthetic pipeline 5"));
+            Ok(())
+        })
     }
 }

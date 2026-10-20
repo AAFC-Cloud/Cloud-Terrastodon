@@ -8,6 +8,7 @@ use cloud_terrastodon_rest::RestRequest;
 use cloud_terrastodon_rest::RestResponseBody;
 use cloud_terrastodon_rest::SerializableRestResponse;
 use eyre::Context;
+use http::StatusCode;
 use std::time::Duration;
 use tracing::warn;
 
@@ -102,7 +103,7 @@ async fn receive_cost_management_response(
 
         eyre::bail!(
             "REST call failed with status {}: {}{}",
-            response.status,
+            response.status.as_u16(),
             response.reason_phrase.as_deref().unwrap_or("Unknown error"),
             format_rest_error_body(&response.body)
         );
@@ -110,8 +111,7 @@ async fn receive_cost_management_response(
 }
 
 fn is_cost_management_throttled(response: &SerializableRestResponse) -> bool {
-    response.status == http::StatusCode::TOO_MANY_REQUESTS.as_u16()
-        || response.headers.retry_after().is_some()
+    response.status == StatusCode::TOO_MANY_REQUESTS || response.headers.retry_after().is_some()
 }
 
 fn format_rest_error_body(body: &RestResponseBody) -> String {

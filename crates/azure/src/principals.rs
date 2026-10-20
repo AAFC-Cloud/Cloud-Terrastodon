@@ -1,8 +1,8 @@
 use crate::fetch_all_entra_users;
 use crate::fetch_all_security_groups;
 use crate::fetch_all_service_principals;
-use cloud_terrastodon_azure_types::Principal;
-use cloud_terrastodon_azure_types::PrincipalCollection;
+use cloud_terrastodon_azure_types::EntraPrincipal;
+use cloud_terrastodon_azure_types::EntraPrincipalCollection;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CancellationScope;
@@ -45,7 +45,7 @@ pub fn fetch_all_principals<'a>(
 
 #[async_trait]
 impl<'a> CacheableCommand for PrincipalListRequest<'a> {
-    type Output = PrincipalCollection;
+    type Output = EntraPrincipalCollection;
 
     fn cache_key(&self) -> CacheKey {
         CacheKey::new(PathBuf::from_iter([
@@ -63,14 +63,14 @@ impl<'a> CacheableCommand for PrincipalListRequest<'a> {
             fetch_all_security_groups(auth_context.as_ref(), &self.cancellation),
             fetch_all_service_principals(auth_context.as_ref(), &self.cancellation)
         )?;
-        let principals: Vec<Principal> = users
+        let principals: Vec<EntraPrincipal> = users
             .into_iter()
             .map_into()
             .chain(security_groups.into_iter().map_into())
             .chain(service_principals.into_iter().map_into())
             .collect();
         debug!("Found {} principals", principals.len());
-        Ok(PrincipalCollection::new(principals))
+        Ok(EntraPrincipalCollection::new(principals))
     }
 }
 
@@ -100,5 +100,5 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(PrincipalListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(PrincipalListRequest<'static>);
-cloud_terrastodon_registry::register_arbitrary!(PrincipalCollection);
-cloud_terrastodon_registry::register_into_future!(PrincipalListRequest<'static> => PrincipalCollection);
+cloud_terrastodon_registry::register_arbitrary!(EntraPrincipalCollection);
+cloud_terrastodon_registry::register_into_future!(PrincipalListRequest<'static> => EntraPrincipalCollection);

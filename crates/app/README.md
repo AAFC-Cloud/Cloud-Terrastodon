@@ -24,23 +24,65 @@ should call `prepare_process()` before printing or unwrapping its parse outcome.
 Facet's pretty printer, while `text` allows commands to provide their own
 presentation. Commands can
 return `CliOutput::facet(value)` for generic Facet output, or use
-`CliOutput::facet_with_text(value, |value| { ... })` with a
-callback returning `Result<String>` for custom text. JSON and `facet-pretty`
+`CliOutput::facet_with_text(value, |value, writer, cancellation| { ... })` with a
+callback that writes custom text to the supplied `std::io::Write` and returns
+`Result<()>`. Use `write!` or `writeln!` to emit records incrementally. The writer
+checks cancellation between bounded writes; check the supplied scope during
+long computation that does not write. JSON and `facet-pretty`
 continue to render the same underlying value through the shared Facet renderer.
 Implement `CliOutputValue` and return `CliOutput::new(value)` when all formats
 need custom rendering. Call
-`output.emit(cli.global_args().output_format)` in the handler: `auto` or omitted
+`output.emit(cli.global_args().output_format, &context.cancellation)` in the handler: `auto` or omitted
 formats use text in interactive terminals and JSON in redirected stdout or
 PowerShell pipelines.
 `CliOutput::none()` represents commands with no result to emit.
 
 `output.with_result(result)` defers a command error until its output has been
 written and flushed, allowing an unsuccessful REST response to remain visible.
-The deferred result does not change serialized output. `render` previews output;
-`emit` writes to stdout, while `write_to(format, stdout_is_terminal, writer)`
-supports a caller-owned writer and returns any deferred command error.
+The deferred result does not change serialized output. All three output methods
+accept a `&CancellationScope`: `render(format, stdout_is_terminal, cancellation)`
+collects an explicit buffered preview without adding a final newline or flushing;
+`emit(format, cancellation)` writes to stdout; and
+`write_to(format, stdout_is_terminal, writer, cancellation)` writes
+to a caller-owned writer and returns any deferred command error. `emit` and
+`write_to` add a final newline if needed and flush after successful rendering;
+callbacks leave this completion work to the output owner. Output checks
+cancellation between bounded writes, honoring protected completion scopes. It
+cannot interrupt a blocking operating-system write already in progress.
 The supplied terminal status controls automatic format selection only; renderers
 detect color support themselves using the stdout stream and color preferences.
+
+`CliOutputValue::write_to` receives the selected format, writer, and scope, so a
+custom renderer can emit large or unbounded output incrementally without first
+building a `String`. The writer supplies cancellation checkpoints during output;
+check the scope during computation that does not write. The built-in JSON and
+Facet pretty renderers write incrementally through the same cancellation-aware
+writer, honoring linked deferrals. Computation that does not write, including
+allocation and user-defined proxy conversions or formatters, continues until the
+next checkpoint. An operating-system call already in progress cannot be
+interrupted. Custom text
+callbacks also write incrementally through the supplied writer. An error or
+cancellation can leave the completed prefix in the destination.
+
+For another JSON artifact, call
+`facet_json::to_writer_std_with_options(writer, value, &options)` to stream through
+a caller-owned writer. The writer owns cancellation policy: wrap it
+with `teamy_cancellation::CancellableWriter` and the supplied scope when needed.
+`CliOutput` already supplies a checked writer to its renderers. When buffering,
+put `CancellableWriter` outside a borrowed `BufWriter`, so writes are checked
+before the buffer accepts them. Facet installs no buffer and does not flush;
+callers handle flushing and discard unfinished buffered output on errors.
+Cancellation or another error can leave a partial prefix. Pass `&mut Vec<u8>`
+when a complete in-memory result is needed; a plain vector supplies no
+cancellation checkpoints itself.
+
+`CancellationReportExt`, re-exported by `app` and `command`, recognizes typed
+cancellation through Eyre contexts, exposed error sources, and I/O payloads.
+Use `is_cancellation()` for control flow or `as_cancellation()` to read the reason.
+`CliOutput` uses `normalize_cancellation()` to expose recovered cancellation to
+native Eyre downcasts while retaining the original report and its source chain.
+Other artifact writers can convert I/O errors into Eyre reports and normalize
+cancellation at their error boundary in the same way.
 
 Optional `auth` enables `--auth-source` and `AppContext::auth`. Optional `terminal`
 enables coordinated pickers/logs. Neither enables Cloud Terrastodon's full command
@@ -69,11 +111,8 @@ panic backtraces without mutating `RUST_BACKTRACE`; ordinary error backtraces st
 follow the environment. Explicit Figue HTML-help/schema-export requests can write
 files even through the non-exiting parser.
 
-The workspace uses the independent `teamy-facet-* 0.50.0-rc.7` and
-`teamy-figue 6.0.0-rc.2` packages with canonical Rust aliases. Workspace builds
-resolve these exact versions from crates.io; consumers need no root patch
-block. Cancellation uses the exact registry dependency
-`teamy-cancellation =0.5.0` with `async`, `deferral`, `facet`, and `arbitrary`
-enabled, supplying the linked `CancellationScope` API. No sibling cancellation
-checkout is required. See
+Consumers must use the same Teamy Facet package identity as the app crate.
+Figue's attribute macros also require a direct dependency with the canonical
+`facet` alias. The [root manifest](../../Cargo.toml) defines dependency versions
+and sources. See
 [`docs/UPDATING_FACET.md`](../../docs/UPDATING_FACET.md).

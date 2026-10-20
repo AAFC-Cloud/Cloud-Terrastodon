@@ -1,9 +1,11 @@
+use cloud_terrastodon_command::CancellationToken;
 use cloud_terrastodon_hcl::HclProject;
 use cloud_terrastodon_hcl::reflow::HclReflower;
 use cloud_terrastodon_hcl::reflow::ReflowAzureDevOpsGitRepositoryInitializationAttributes;
 use cloud_terrastodon_hcl::reflow::ReflowBlockDecorations;
 use cloud_terrastodon_hcl::reflow::ReflowByBlockIdentifier;
 use cloud_terrastodon_hcl::reflow::ReflowExpressionsUseImportedResourceBlocks;
+use cloud_terrastodon_hcl::reflow::ReflowHclRequest;
 use cloud_terrastodon_hcl::reflow::ReflowRemoveDefaultAttributes;
 use hcl::edit::structure::Body;
 use indoc::indoc;
@@ -50,6 +52,72 @@ async fn reflow_by_block_identifier_preserves_comment_only_body() -> eyre::Resul
         .await?;
 
     assert_eq!(reflowed.get(&path).unwrap().to_string(), expected);
+    Ok(())
+}
+
+#[tokio::test]
+async fn reflow_preserves_modules_and_moved_blocks_sharing_a_source_file() -> eyre::Result<()> {
+    let input = indoc! {r#"
+        # data "local_file" "service_principal_object_id" {
+        # }
+        module "resource_group" {
+          source                  = "../../../modules/resource_group_v3"
+          resource_group_location = "canadacentral"
+        }
+
+        moved {
+          from = azurerm_resource_group.main
+          to   = module.resource_group.azurerm_resource_group.main
+        }
+
+        # data "azurerm_resource_group" "main" {
+        #   name = module.resource_group.resource_group.name
+        # }
+    "#};
+
+    for (single_file, mixed) in [(None, false), (None, true), (Some("merged.tf"), false)] {
+        CancellationToken::new()
+            .with_async_scope(|cancellation| async move {
+                let project = HclProject::from([(PathBuf::from("main.tf"), parse_body(input)?)]);
+                let reflowed = ReflowHclRequest::new(project, None, &cancellation)
+                    .single_file_path(single_file.map(PathBuf::from))
+                    .mixed(mixed)
+                    .await?;
+                assert_eq!(reflowed.len(), 1);
+                let output = reflowed.values().next().unwrap().to_string();
+                let reparsed = parse_body(&output)?;
+                assert_eq!(reparsed.blocks().count(), 2, "{output}");
+                for statement in [
+                    "module \"resource_group\" {",
+                    "source                  = \"../../../modules/resource_group_v3\"",
+                    "resource_group_location = \"canadacentral\"",
+                    "moved {",
+                    "from = azurerm_resource_group.main",
+                    "to   = module.resource_group.azurerm_resource_group.main",
+                    "# data \"local_file\" \"service_principal_object_id\" {",
+                    "# data \"azurerm_resource_group\" \"main\" {",
+                    "#   name = module.resource_group.resource_group.name",
+                ] {
+                    assert_eq!(
+                        output.matches(statement).count(),
+                        1,
+                        "{statement}: {output}"
+                    );
+                }
+
+                let second = ReflowHclRequest::new(
+                    HclProject::from([(reflowed.keys().next().unwrap().clone(), reparsed)]),
+                    None,
+                    &cancellation,
+                )
+                .single_file_path(single_file.map(PathBuf::from))
+                .mixed(mixed)
+                .await?;
+                assert_eq!(second.values().next().unwrap().to_string(), output);
+                eyre::Ok(())
+            })
+            .await?;
+    }
     Ok(())
 }
 

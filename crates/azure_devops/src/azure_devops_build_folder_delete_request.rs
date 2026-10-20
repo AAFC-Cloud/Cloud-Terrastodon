@@ -153,7 +153,7 @@ impl<'a> IntoFuture for AzureDevOpsBuildFolderDeleteRequest<'a> {
                     response.ok,
                     "Deleting Azure DevOps build folder '{}' failed with status {}: {}",
                     self.path,
-                    response.status,
+                    response.status.as_u16(),
                     response.reason_phrase.as_deref().unwrap_or("Unknown error")
                 );
                 let folders = fetch_azure_devops_build_folders(

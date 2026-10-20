@@ -1,0 +1,31 @@
+[package]
+name = "cloud-terrastodon-group-management"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "A consumer-owned Entra group reconciliation example built with Cloud Terrastodon"
+
+[lib]
+name = "cloud_terrastodon_group_management"
+
+[[bin]]
+name = "group-management"
+path = "src/main.rs"
+
+[dependencies]
+cloud_terrastodon = { path = "../..", version = "=0.37.0", default-features = false, features = ["app-auth", "azure", "azure-types", "command", "credentials", "rest"] }
+# Figue's attribute expansion requires the same canonical Facet alias as the facade.
+facet.workspace = true
+facet-json.workspace = true
+eyre.workspace = true
+blake3.workspace = true
+chrono.workspace = true
+tempfile.workspace = true
+teamy-cancellation.workspace = true
+
+[dev-dependencies]
+arbitrary.workspace = true
+cloud_terrastodon_app = { workspace = true, features = ["arbitrary"] }
+
+[lints.rust]
+unsafe_code = "forbid"

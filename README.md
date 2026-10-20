@@ -93,16 +93,13 @@ to purge the cache.
 
 ## Development
 
-The published 0.37.0 release depends on TeamDman's independent Facet and Figue
-forks: `teamy-facet-* 0.50.0-rc.7` and `teamy-figue` /
-`teamy-figue-attrs 6.0.0-rc.1`. These are separate from the official upstream
-packages. Rust imports retain names such as `facet` and `figue` through
-dependency aliases. Workspace builds pin Teamy Figue and its attributes to
-`6.0.0-rc.2` from crates.io, retaining the Facet versions above. The workspace
-pins `teamy-cancellation =0.5.0` from crates.io with `async`, `deferral`, `facet`,
-and `arbitrary` enabled. Its linked `CancellationScope` API replaces the previous
-token-bound deferral model; no sibling cancellation checkout is required. See
-[the dependency release guide](docs/UPDATING_FACET.md).
+Cloud Terrastodon uses TeamDman's independent Facet and Figue fork packages:
+`teamy-facet-*`, `teamy-figue`, and `teamy-figue-attrs`. These are separate from
+the official upstream packages. Dependency aliases retain Rust import names
+such as `facet` and `figue`.
+
+[Cargo.toml](Cargo.toml) defines the selected dependency versions and sources.
+See [the dependency guide](docs/UPDATING_FACET.md) for the fork update workflow.
 
 For a small CLI with your own arguments and subcommands, see
 [Reusable applications](docs/REUSABLE_APPLICATIONS.md) and the independently tested

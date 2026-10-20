@@ -3,27 +3,26 @@
 `src/main.rs` owns the public `Cli`, shared global arguments, `audit` command,
 and handler. Cloud Terrastodon supplies startup, logging, cooperative
 cancellation, and Figue's standard builtin flags internally. The handler receives
-the consumer's own `Cli`. The consumer derives neither `Debug` nor `Arbitrary`
-and imports the re-exported Facet/Figue APIs. One direct dependency named `facet`, inherited
-from the workspace's exact `teamy-facet 0.50.0-rc.7` dependency, is also needed:
+the consumer's own `Cli`. Production CLI types require neither `Debug` nor
+`Arbitrary`; tests derive `Arbitrary` to exercise Figue's argument consistency
+and round-trip helpers. The example imports the re-exported Facet/Figue APIs.
+One direct dependency named `facet`, inherited from the workspace, is also needed:
 Figue's attribute expansion currently requires `::facet` in the
 consumer's extern prelude, even with a Facet crate-path annotation on the derive.
 That dependency uses the same Teamy package identity as the facade. No
-separate Figue dependency, root patch, or macro shim is needed.
+separate Figue dependency or macro shim is needed.
 
 From the repository root:
 
 ```powershell
 cargo +1.96.0 check --offline --locked -p cloud-terrastodon-standalone-cli
-cargo +1.96.0 test --offline --locked -p cloud-terrastodon-standalone-cli --bin field-notes vowel_audit_counts_exactly_five_ascii_vowels_ignoring_case
+cargo +1.96.0 test --offline --locked -p cloud-terrastodon-standalone-cli --bin field-notes
 ```
 
 This package belongs to the Cloud Terrastodon workspace and shares its root
-`Cargo.lock`. It uses the local Cloud Terrastodon crate and the workspace's
-exact published Teamy Facet/Figue dependencies from crates.io. The workspace also
-pins `teamy-cancellation =0.5.0` from crates.io with `async`, `deferral`, `facet`,
-and `arbitrary` enabled for the linked `CancellationScope` API. No sibling
-cancellation checkout is required. The `app-auth` and `azure` features provide
+`Cargo.lock`. The [root manifest](../../Cargo.toml) defines dependency versions
+and sources.
+The `app-auth` and `azure` features provide
 shared startup, authentication, and Azure SDK operations. `default-features = false`
 opts out of the full Cloud Terrastodon command tree. Publication is deliberately disabled.
 
@@ -60,8 +59,10 @@ retain the handler while required work finishes.
 
 The report retains full resource group records. Shared `--output-format` selects
 text, JSON, or Facet Pretty; the default selects text in a terminal and JSON for
-redirected stdout. The vowel-policy test above uses synthetic names and does
-not initialize authentication or execute SDK requests.
+redirected stdout. Tests check the vowel policy with synthetic names and verify
+argument consistency and round trips for `audit`, with 128 successful round trips
+per command leaf. They generate and parse arguments without initializing
+authentication or executing SDK requests.
 
 `audit` is the only command. Add `--log-file events.ndjson --log-file-filter
 debug --log-filter off` to retain detailed JSON logs without console logging.

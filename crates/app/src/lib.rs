@@ -38,6 +38,7 @@ use std::future::Future;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::OnceLock;
+pub use teamy_cancellation::CancellationReportExt;
 pub use teamy_cancellation::CancellationScope;
 use teamy_cancellation::CancellationToken;
 pub use tracing;

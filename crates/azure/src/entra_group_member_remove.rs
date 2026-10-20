@@ -1,5 +1,5 @@
 use cloud_terrastodon_azure_types::EntraGroupId;
-use cloud_terrastodon_azure_types::PrincipalId;
+use cloud_terrastodon_azure_types::EntraPrincipalId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CancellationScope;
@@ -15,12 +15,12 @@ pub struct EntraGroupMemberRemoveRequest {
     pub cancellation: CancellationScope,
 
     pub group_id: EntraGroupId,
-    pub member_id: PrincipalId,
+    pub member_id: EntraPrincipalId,
 }
 
 pub fn remove_group_member(
     group_id: impl Into<EntraGroupId>,
-    member_id: impl Into<PrincipalId>,
+    member_id: impl Into<EntraPrincipalId>,
     cancellation: &CancellationScope,
 ) -> EntraGroupMemberRemoveRequest {
     EntraGroupMemberRemoveRequest {

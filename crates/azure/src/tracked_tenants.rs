@@ -100,6 +100,9 @@ async fn resolve_tenant_auth_context_in(
     auth_context: &AuthContext,
     tenant_id: AzureTenantId,
 ) -> eyre::Result<AuthContext> {
+    if auth_context.requested_source() == Some(AuthSource::None) {
+        return Ok(auth_context.clone());
+    }
     let Some(auth_source) = read_tracked_tenant_auth_source_in(root, tenant_id).await? else {
         return Ok(auth_context.clone());
     };
@@ -201,6 +204,10 @@ impl AzureTenantArgumentExt for AzureTenantArgument<'_> {
         auth_context: &AuthContext,
         cancellation: &CancellationScope,
     ) -> eyre::Result<AzureTenantAuthContext> {
+        eyre::ensure!(
+            auth_context.source() != Some(AuthSource::None),
+            "authentication is disabled by auth source none; cannot resolve or bind an Azure tenant"
+        );
         let tenant_id = match (self, auth_context.tenant_id()) {
             (AzureTenantArgument::Default, Some(tenant_id)) => tenant_id,
             _ => self.resolve(cancellation).await?,
@@ -217,6 +224,10 @@ impl AzureDevOpsTenantArgumentExt for Option<AzureTenantArgument<'_>> {
         auth_context: &AuthContext,
         cancellation: &CancellationScope,
     ) -> eyre::Result<AzureDevOpsAuthContext> {
+        eyre::ensure!(
+            auth_context.source() != Some(AuthSource::None),
+            "authentication is disabled by auth source none; cannot resolve or bind Azure DevOps authentication"
+        );
         match self {
             Some(tenant) => {
                 let tenant_id = tenant.resolve(cancellation).await?;
@@ -692,6 +703,8 @@ fn parse_alias_lines(content: &str, file: &Path) -> Vec<AzureTenantAlias> {
 
 #[cfg(test)]
 mod tests {
+    use super::AUTH_SOURCE_FILE_NAME;
+    use super::AzureDevOpsTenantArgumentExt;
     use super::AzureTenantArgumentExt;
     use super::add_tracked_tenant_aliases_in;
     use super::add_tracked_tenant_in;
@@ -715,6 +728,50 @@ mod tests {
     use cloud_terrastodon_credentials::WorkloadIdentityConfig;
     use std::str::FromStr;
     use tempfile::tempdir;
+    use tokio::fs;
+
+    #[tokio::test]
+    async fn disabled_authentication_rejects_default_selectors_before_azure_cli_lookup()
+    -> eyre::Result<()> {
+        CancellationToken::new()
+            .with_async_scope(|cancellation| async move {
+                let auth = AuthContext::resolve(AuthSource::None)?;
+                // A regression may reach lookup code; keep its execution scope
+                // cancelled so it cannot admit an external Azure CLI command.
+                cancellation.request_cancel("external lookup is forbidden in this test");
+                let azure = AzureTenantArgument::Default
+                    .bind_auth_context(&auth, &cancellation)
+                    .await
+                    .expect_err("disabled authentication must reject the default selector");
+                let azure_devops = Some(AzureTenantArgument::Default)
+                    .bind_auth_context(&auth, &cancellation)
+                    .await
+                    .expect_err("disabled authentication must reject the default selector");
+                assert!(azure.to_string().contains("auth source none"));
+                assert!(azure_devops.to_string().contains("auth source none"));
+                Ok(())
+            })
+            .await
+    }
+
+    #[tokio::test]
+    async fn disabled_authentication_ignores_malformed_tracked_tenant_preferences()
+    -> eyre::Result<()> {
+        let temp = tempdir()?;
+        let tenant_id = AzureTenantId::from_str("11111111-1111-1111-1111-111111111111")?;
+        let directory = temp.path().join(tenant_id.to_string());
+        fs::create_dir_all(&directory).await?;
+        fs::write(
+            directory.join(AUTH_SOURCE_FILE_NAME),
+            "synthetic-invalid-auth-source",
+        )
+        .await?;
+        let context = AuthContext::resolve(AuthSource::None)?;
+        let resolved = resolve_tenant_auth_context_in(temp.path(), &context, tenant_id).await?;
+        assert_eq!(resolved.source(), Some(AuthSource::None));
+        assert_eq!(resolved.requested_source(), Some(AuthSource::None));
+        Ok(())
+    }
 
     #[tokio::test]
     async fn default_argument_binds_to_the_context_tenant_without_a_lookup() -> eyre::Result<()> {

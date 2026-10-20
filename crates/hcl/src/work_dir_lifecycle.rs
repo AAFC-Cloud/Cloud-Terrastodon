@@ -1,6 +1,7 @@
 use crate::ProviderManager;
 use crate::discovery::DiscoveryDepth;
 use crate::discovery::discover_hcl;
+use cloud_terrastodon_command::CancellationReportExt;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
@@ -248,9 +249,7 @@ pub async fn generate_config_out(
     let Err(e) = plan_result else {
         return Ok(());
     };
-    if e.downcast_ref::<cloud_terrastodon_command::CancellationError>()
-        .is_some()
-    {
+    if e.is_cancellation() {
         return Err(e);
     }
     let output = e

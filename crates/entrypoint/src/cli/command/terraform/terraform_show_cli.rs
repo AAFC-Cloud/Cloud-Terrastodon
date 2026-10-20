@@ -1,7 +1,7 @@
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
-use cloud_terrastodon_azure::PrincipalCollection;
-use cloud_terrastodon_azure::PrincipalId;
+use cloud_terrastodon_azure::EntraPrincipalCollection;
+use cloud_terrastodon_azure::EntraPrincipalId;
 use cloud_terrastodon_azure::fetch_all_principals;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandBuilder;
@@ -63,7 +63,8 @@ impl TerraformShowArgs {
         // Async lazy loader for principals scoped to this function.
         // On first call it fetches and caches the value; subsequent calls return the cached Arc.
         let principals = {
-            let cache: Rc<RefCell<Option<Arc<PrincipalCollection>>>> = Rc::new(RefCell::new(None));
+            let cache: Rc<RefCell<Option<Arc<EntraPrincipalCollection>>>> =
+                Rc::new(RefCell::new(None));
 
             move || {
                 let cache = cache.clone();
@@ -182,11 +183,11 @@ impl TerraformShowArgs {
 
 fn extract_members_and_owners(
     azuread_group_data: Option<&RawJson<'static>>,
-) -> Result<(HashSet<PrincipalId>, HashSet<PrincipalId>), eyre::Error> {
+) -> Result<(HashSet<EntraPrincipalId>, HashSet<EntraPrincipalId>), eyre::Error> {
     #[derive(facet::Facet)]
     struct AzureAdGroupMembersAndOwners {
-        members: Vec<PrincipalId>,
-        owners: Vec<PrincipalId>,
+        members: Vec<EntraPrincipalId>,
+        owners: Vec<EntraPrincipalId>,
     }
 
     Ok(match azuread_group_data {

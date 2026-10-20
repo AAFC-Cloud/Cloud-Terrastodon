@@ -1,5 +1,28 @@
 # Cloud Terrastodon Examples
 
+## Group management application
+
+[group-management](group-management) is a larger consumer-owned CLI with a small
+entrypoint, separate command files, validated domain types, and a pure planner.
+Each desired group has an explicit `tenantId`, `groupId`, and expected display
+name, with independent exact/additive policies for members and owners.
+
+Its first milestone provides local `validate` and read-only `plan` commands.
+Tenant preflight rejects missing workload-identity coverage before directory
+reads. Plans preserve resolved identities, observations, warnings, and blockers;
+Graph v1.0's incomplete service-principal inventories prevent exact live
+comparisons from being treated as actionable. There is no apply command yet.
+
+Validate the synthetic example without directory access:
+
+```powershell
+cargo +1.96.0 run --offline --locked -p cloud-terrastodon-group-management -- validate --desired examples/group-management/desired.example.json
+cargo +1.96.0 test --offline --locked -p cloud-terrastodon-group-management
+```
+
+See its [README](group-management/README.md) for the input contract, source layout,
+planning commands, and subsequent apply/pipeline milestones.
+
 ## Single-file resource group listing
 
 [resource_group_list.rs](resource_group_list.rs) uses the shared application runner
@@ -70,12 +93,10 @@ native paths return a serialization error instead of being converted lossily.
 
 [standalone-cli](standalone-cli) is the root workspace member
 `cloud-terrastodon-standalone-cli`. It has its own `Cargo.toml` and shares the root
-`Cargo.lock`. It uses the local Cloud Terrastodon facade through `../..` and
-inherits the matching `facet` dependency from the workspace. Facet and Figue
-resolve from crates.io as the exact published Teamy versions. The workspace also
-pins `teamy-cancellation =0.5.0` from crates.io with `async`, `deferral`, `facet`,
-and `arbitrary` enabled for the linked `CancellationScope` API. No sibling
-cancellation checkout is required.
+`Cargo.lock`. It inherits the workspace dependencies defined in the
+[root manifest](../Cargo.toml). Its direct `facet` dependency has the same Teamy
+package identity as the facade and supplies the canonical alias required by
+Figue's attribute macros.
 Its single `audit` command lives in `src/main.rs`.
 It enables `app-auth` and `azure` with default features disabled, reusing the
 shared runner's authentication context and the existing Azure SDK helpers.

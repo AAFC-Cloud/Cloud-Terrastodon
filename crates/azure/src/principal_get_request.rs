@@ -4,10 +4,10 @@ use crate::fetch_entra_user;
 use crate::fetch_group;
 use crate::fetch_service_principal;
 use cloud_terrastodon_azure_types::EntraGroup;
+use cloud_terrastodon_azure_types::EntraPrincipal;
+use cloud_terrastodon_azure_types::EntraPrincipalId;
 use cloud_terrastodon_azure_types::EntraServicePrincipal;
 use cloud_terrastodon_azure_types::EntraUser;
-use cloud_terrastodon_azure_types::Principal;
-use cloud_terrastodon_azure_types::PrincipalId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CancellationScope;
@@ -24,7 +24,7 @@ pub struct PrincipalRequest<'a> {
     #[facet(skip_serializing)]
     pub cancellation: CancellationScope,
 
-    pub principal_id: PrincipalId,
+    pub principal_id: EntraPrincipalId,
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
 
@@ -39,7 +39,7 @@ impl<'a> arbitrary::Arbitrary<'a> for PrincipalRequest<'static> {
 }
 
 pub fn fetch_principal<'a>(
-    principal_id: PrincipalId,
+    principal_id: EntraPrincipalId,
     auth_context: &'a AzureTenantAuthContext,
     cancellation: &CancellationScope,
 ) -> PrincipalRequest<'a> {
@@ -52,7 +52,7 @@ pub fn fetch_principal<'a>(
 
 #[async_trait]
 impl CacheableCommand for PrincipalRequest<'_> {
-    type Output = Principal;
+    type Output = EntraPrincipal;
 
     fn cache_key(&self) -> CacheKey {
         CacheKey::new(PathBuf::from_iter([
@@ -69,28 +69,30 @@ impl CacheableCommand for PrincipalRequest<'_> {
         let cache_key = self.cache_key();
         let auth_context = self.auth_context;
         match self.principal_id {
-            PrincipalId::UserId(user_id) => {
+            EntraPrincipalId::UserId(user_id) => {
                 Ok(
                     fetch_entra_user(user_id, auth_context.as_ref(), &self.cancellation)
                         .await?
                         .into(),
                 )
             }
-            PrincipalId::GroupId(group_id) => {
+            EntraPrincipalId::GroupId(group_id) => {
                 Ok(
                     fetch_group(group_id, auth_context.as_ref(), &self.cancellation)
                         .await?
                         .into(),
                 )
             }
-            PrincipalId::ServicePrincipalId(service_principal_id) => Ok(fetch_service_principal(
-                service_principal_id,
-                auth_context.as_ref(),
-                &self.cancellation,
-            )
-            .await?
-            .into()),
-            PrincipalId::Unknown(object_id) => {
+            EntraPrincipalId::ServicePrincipalId(service_principal_id) => {
+                Ok(fetch_service_principal(
+                    service_principal_id,
+                    auth_context.as_ref(),
+                    &self.cancellation,
+                )
+                .await?
+                .into())
+            }
+            EntraPrincipalId::Unknown(object_id) => {
                 let mut batch = MicrosoftGraphBatchRequest::<RawJson<'static>>::new(
                     auth_context.as_ref(),
                     &self.cancellation,
@@ -115,17 +117,23 @@ impl CacheableCommand for PrincipalRequest<'_> {
                     match response.body {
                         MicrosoftGraphBatchResponseEntryBody::Success(body) => {
                             return match response.id.as_str() {
-                                "user" => Ok(Principal::from(facet_json::from_str::<EntraUser>(
-                                    body.as_str(),
-                                )?)),
-                                "group" => Ok(Principal::from(facet_json::from_str::<EntraGroup>(
-                                    body.as_str(),
-                                )?)),
-                                "service-principal" => Ok(Principal::from(facet_json::from_str::<
-                                    EntraServicePrincipal,
-                                >(
-                                    body.as_str()
-                                )?)),
+                                "user" => {
+                                    Ok(EntraPrincipal::from(facet_json::from_str::<EntraUser>(
+                                        body.as_str(),
+                                    )?))
+                                }
+                                "group" => {
+                                    Ok(EntraPrincipal::from(facet_json::from_str::<EntraGroup>(
+                                        body.as_str(),
+                                    )?))
+                                }
+                                "service-principal" => {
+                                    Ok(EntraPrincipal::from(facet_json::from_str::<
+                                        EntraServicePrincipal,
+                                    >(
+                                        body.as_str()
+                                    )?))
+                                }
                                 other => eyre::bail!(
                                     "Unexpected Microsoft Graph principal request id '{other}'"
                                 ),
@@ -150,4 +158,4 @@ impl CacheableCommand for PrincipalRequest<'_> {
 cloud_terrastodon_command::impl_cacheable_into_future!(PrincipalRequest<'a>, 'a);
 cloud_terrastodon_registry::register_thing!(PrincipalRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(PrincipalRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(PrincipalRequest<'static> => Principal);
+cloud_terrastodon_registry::register_into_future!(PrincipalRequest<'static> => EntraPrincipal);

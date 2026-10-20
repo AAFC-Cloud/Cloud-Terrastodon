@@ -1,4 +1,4 @@
-use crate::PrincipalId;
+use crate::EntraPrincipalId;
 use crate::RoleDefinitionId;
 use crate::RoleEligibilityScheduleId;
 use crate::iso8601_duration::IsoDuration;
@@ -13,7 +13,7 @@ pub struct RoleAssignmentScheduleRequest {
 }
 impl RoleAssignmentScheduleRequest {
     pub fn new_self_activation(
-        principal_id: PrincipalId,
+        principal_id: EntraPrincipalId,
         role_definition_id: RoleDefinitionId,
         role_eligibility_schedule_id: RoleEligibilityScheduleId,
         justification: String,
@@ -44,7 +44,7 @@ impl RoleAssignmentScheduleRequest {
 #[derive(Debug, Clone, PartialEq, facet::Facet)]
 pub struct RoleAssignmentScheduleRequestProperties {
     #[facet(rename = "PrincipalId")]
-    pub principal_id: PrincipalId,
+    pub principal_id: EntraPrincipalId,
     #[facet(rename = "RoleDefinitionId")]
     pub role_definition_id: RoleDefinitionId,
     #[facet(rename = "RequestType")]

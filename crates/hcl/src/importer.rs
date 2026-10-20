@@ -1,4 +1,5 @@
 use crate::ProviderManager;
+use cloud_terrastodon_command::CancellationReportExt;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
@@ -111,7 +112,7 @@ impl GenerateConfigOutHelper {
                     info!("Import success!");
                 }
                 Err(mut e) => {
-                    if e.downcast_ref::<cloud_terrastodon_command::CancellationError>().is_some() {
+                    if e.is_cancellation() {
                         return Err(e);
                     }
                     let output = e

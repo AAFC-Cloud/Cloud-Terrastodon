@@ -8,101 +8,101 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Copy, Arbitrary, facet::Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
-pub enum PrincipalId {
+pub enum EntraPrincipalId {
     UserId(EntraUserId),
     GroupId(EntraGroupId),
     ServicePrincipalId(EntraServicePrincipalObjectId),
     Unknown(Uuid),
 }
-crate::impl_facet_string_proxy!(PrincipalId, value => value.to_string());
+crate::impl_facet_string_proxy!(EntraPrincipalId, value => value.to_string());
 
-impl PrincipalId {
+impl EntraPrincipalId {
     pub fn new(uuid: impl Into<Uuid>) -> Self {
         Self::Unknown(uuid.into())
     }
 }
-impl AsRef<Uuid> for PrincipalId {
+impl AsRef<Uuid> for EntraPrincipalId {
     fn as_ref(&self) -> &Uuid {
         match self {
-            PrincipalId::UserId(inner) => inner.as_ref(),
-            PrincipalId::GroupId(inner) => inner.as_ref(),
-            PrincipalId::ServicePrincipalId(inner) => inner.as_ref(),
-            PrincipalId::Unknown(inner) => inner,
+            EntraPrincipalId::UserId(inner) => inner.as_ref(),
+            EntraPrincipalId::GroupId(inner) => inner.as_ref(),
+            EntraPrincipalId::ServicePrincipalId(inner) => inner.as_ref(),
+            EntraPrincipalId::Unknown(inner) => inner,
         }
     }
 }
 
-impl std::fmt::Display for PrincipalId {
+impl std::fmt::Display for EntraPrincipalId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(self.as_ref().to_string().as_str())
     }
 }
 
-impl std::str::FromStr for PrincipalId {
+impl std::str::FromStr for EntraPrincipalId {
     type Err = uuid::Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(Self::new(Uuid::parse_str(s)?))
     }
 }
 
-impl std::ops::Deref for PrincipalId {
+impl std::ops::Deref for EntraPrincipalId {
     type Target = Uuid;
     fn deref(&self) -> &Self::Target {
         self.as_ref()
     }
 }
 
-impl Hash for PrincipalId {
-    fn hash<H: std::hash::Hasher>(self: &PrincipalId, state: &mut H) {
+impl Hash for EntraPrincipalId {
+    fn hash<H: std::hash::Hasher>(self: &EntraPrincipalId, state: &mut H) {
         let id: &Uuid = self;
         id.hash(state);
     }
 }
 
-impl From<Uuid> for PrincipalId {
+impl From<Uuid> for EntraPrincipalId {
     fn from(value: Uuid) -> Self {
         Self::Unknown(value)
     }
 }
-impl From<EntraUserId> for PrincipalId {
+impl From<EntraUserId> for EntraPrincipalId {
     fn from(value: EntraUserId) -> Self {
         Self::UserId(value)
     }
 }
-impl From<EntraGroupId> for PrincipalId {
+impl From<EntraGroupId> for EntraPrincipalId {
     fn from(value: EntraGroupId) -> Self {
         Self::GroupId(value)
     }
 }
-impl From<EntraServicePrincipalObjectId> for PrincipalId {
+impl From<EntraServicePrincipalObjectId> for EntraPrincipalId {
     fn from(value: EntraServicePrincipalObjectId) -> Self {
         Self::ServicePrincipalId(value)
     }
 }
-impl From<&Uuid> for PrincipalId {
+impl From<&Uuid> for EntraPrincipalId {
     fn from(value: &Uuid) -> Self {
         Self::Unknown(*value)
     }
 }
-impl From<&EntraUserId> for PrincipalId {
+impl From<&EntraUserId> for EntraPrincipalId {
     fn from(value: &EntraUserId) -> Self {
         Self::UserId(*value)
     }
 }
-impl From<&EntraGroupId> for PrincipalId {
+impl From<&EntraGroupId> for EntraPrincipalId {
     fn from(value: &EntraGroupId) -> Self {
         Self::GroupId(*value)
     }
 }
-impl From<&EntraServicePrincipalObjectId> for PrincipalId {
+impl From<&EntraServicePrincipalObjectId> for EntraPrincipalId {
     fn from(value: &EntraServicePrincipalObjectId) -> Self {
         Self::ServicePrincipalId(*value)
     }
 }
 
 // Because the internal uuids should be unique between categories, it's fine to compare between unknown/group/user/etc
-impl Eq for PrincipalId {}
-impl<T: AsRef<Uuid>> PartialEq<T> for PrincipalId {
+impl Eq for EntraPrincipalId {}
+impl<T: AsRef<Uuid>> PartialEq<T> for EntraPrincipalId {
     fn eq(&self, other: &T) -> bool {
         let left: &Uuid = self;
         let right: &Uuid = other.as_ref();
@@ -110,8 +110,8 @@ impl<T: AsRef<Uuid>> PartialEq<T> for PrincipalId {
     }
 }
 
-cloud_terrastodon_registry::register_thing!(PrincipalId);
-cloud_terrastodon_registry::register_arbitrary!(PrincipalId);
+cloud_terrastodon_registry::register_thing!(EntraPrincipalId);
+cloud_terrastodon_registry::register_arbitrary!(EntraPrincipalId);
 
 #[cfg(test)]
 mod tests {
@@ -119,9 +119,10 @@ mod tests {
 
     #[test]
     fn json_round_trips_through_facet() -> eyre::Result<()> {
-        let id = facet_json::from_str::<PrincipalId>("\"00000000-0000-0000-0000-000000000000\"")?;
+        let id =
+            facet_json::from_str::<EntraPrincipalId>("\"00000000-0000-0000-0000-000000000000\"")?;
         assert_eq!(id, Uuid::nil());
-        let reparsed = facet_json::from_str::<PrincipalId>(&facet_json::to_string(&id)?)?;
+        let reparsed = facet_json::from_str::<EntraPrincipalId>(&facet_json::to_string(&id)?)?;
         assert_eq!(id, reparsed);
         Ok(())
     }

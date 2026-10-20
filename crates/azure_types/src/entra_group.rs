@@ -1,3 +1,4 @@
+use crate::EntraGroupDisplayName;
 use crate::EntraGroupId;
 use arbitrary::Arbitrary;
 use chrono::DateTime;
@@ -9,6 +10,8 @@ use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
 use facet_json::RawJson;
 
+/// An Entra [group](https://learn.microsoft.com/en-us/graph/api/resources/group?view=graph-rest-1.0)
+/// returned by Microsoft Graph v1.0.
 #[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct EntraGroup {
@@ -17,7 +20,7 @@ pub struct EntraGroup {
     pub creation_options: Vec<String>,
     pub deleted_date_time: Option<DateTime<Utc>>,
     pub description: Option<String>,
-    pub display_name: String,
+    pub display_name: EntraGroupDisplayName,
     pub expiration_date_time: Option<DateTime<Utc>>,
     pub group_types: Vec<String>,
     pub id: EntraGroupId,
@@ -55,7 +58,7 @@ impl<'a> Arbitrary<'a> for EntraGroup {
             creation_options: Vec::<String>::arbitrary(u)?,
             deleted_date_time: Option::<DateTime<Utc>>::arbitrary(u)?,
             description: Option::<String>::arbitrary(u)?,
-            display_name: String::arbitrary(u)?,
+            display_name: EntraGroupDisplayName::arbitrary(u)?,
             expiration_date_time: Option::<DateTime<Utc>>::arbitrary(u)?,
             group_types: Vec::<String>::arbitrary(u)?,
             id: EntraGroupId::arbitrary(u)?,
