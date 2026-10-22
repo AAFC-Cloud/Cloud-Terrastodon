@@ -67,6 +67,7 @@ iso8601-duration = { version = "0.2.0", features = ["chrono"] }
 humantime = "2.1.0"
 directories-next = "2.0.0"
 ratatui = "0.30.1"
+gix = { version = "0.84.0", default-features = false, features = ["sha1", "sha256"] }
 opener = "0.8.3"
 webbrowser = "1.2.1"
 emath = "0.33.0"
@@ -122,6 +123,14 @@ linkme = { version = "0.3.36" }
 [workspace.dependencies.cloud_terrastodon_pathing]
 version = "0.37.0"        # CT_VERSION
 path = "./crates/pathing"
+
+[workspace.dependencies.cloud_terrastodon_source]
+version = "0.37.0"        # CT_VERSION
+path = "./crates/source"
+
+[workspace.dependencies.cloud_terrastodon_source_types]
+version = "0.37.0"        # CT_VERSION
+path = "./crates/source_types"
 
 [workspace.dependencies.cloud_terrastodon_config]
 version = "0.37.0"       # CT_VERSION
@@ -236,6 +245,8 @@ tracy-client = { workspace = true, optional = true }
 
 # Optional re-exported crates (enable via features below)
 cloud_terrastodon_pathing = { workspace = true, optional = true }
+cloud_terrastodon_source = { workspace = true, optional = true }
+cloud_terrastodon_source_types = { workspace = true, optional = true }
 cloud_terrastodon_config = { workspace = true, optional = true }
 cloud_terrastodon_azure = { workspace = true, optional = true }
 cloud_terrastodon_azure_types = { workspace = true, optional = true }
@@ -288,6 +299,8 @@ tracy = [
 tracy-alloc = ["tracy", "dep:tracy-client"]
 # One feature per optional subcrate. Each maps to its dependency via the `dep:` syntax.
 pathing = ["dep:cloud_terrastodon_pathing"]
+source = ["dep:cloud_terrastodon_source"]
+source-types = ["dep:cloud_terrastodon_source_types"]
 config = ["dep:cloud_terrastodon_config"]
 azure = ["dep:cloud_terrastodon_azure"]
 azure-types = ["dep:cloud_terrastodon_azure_types"]
@@ -310,6 +323,8 @@ rest = ["dep:cloud_terrastodon_rest"]
 full = [
     "app-auth",
     "pathing",
+    "source",
+    "source-types",
     "config",
     "azure",
     "azure-types",

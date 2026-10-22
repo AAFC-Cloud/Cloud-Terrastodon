@@ -79,6 +79,13 @@ ct az vnet subnet list --vnet example-vnet
 ct az vnet subnet show example-subnet --vnet example-vnet --output-format json
 ```
 
+Use [source hunt](docs/SOURCE_HUNT.md) to count file extensions by local Git
+repository, inspect remotes, and sort the JSON report in PowerShell:
+
+```pwsh
+ct source hunt 'C:\Users\phillipsdo\source\repos' --extension php --extension js --extension ts
+```
+
 ## Caching
 
 Note that Cloud Terrastodon uses a caching strategy to avoid refetching information, reducing the time it takes for consecutive actions. However, this cache can sometimes get out of date before the automatic expiry window.

@@ -1,0 +1,27 @@
+[package]
+name = "cloud_terrastodon_source"
+description = "Local source repository discovery and file inventories for Cloud Terrastodon"
+version = "0.37.0" # CT_VERSION
+readme.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+arbitrary.workspace = true
+chrono.workspace = true
+cloud_terrastodon_registry.workspace = true
+cloud_terrastodon_source_types.workspace = true
+eyre.workspace = true
+facet.workspace = true
+futures.workspace = true
+gix.workspace = true
+linkme.workspace = true
+teamy-cancellation.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

@@ -23,6 +23,7 @@ cloud_terrastodon_command.workspace = true
 cloud_terrastodon_credentials.workspace = true
 cloud_terrastodon_rest.workspace = true
 cloud_terrastodon_pathing.workspace = true
+cloud_terrastodon_source.workspace = true
 cloud_terrastodon_config.workspace = true
 cloud_terrastodon_zombies.workspace = true
 cloud_terrastodon_ui_egui.workspace = true
@@ -67,6 +68,8 @@ nucleo.workspace = true
 linkme.workspace = true
 base64.workspace = true
 teamy-cancellation.workspace = true
+ratatui.workspace = true
+crossterm.workspace = true
 arbitrary.workspace = true
 
 [dev-dependencies]

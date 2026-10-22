@@ -8,6 +8,7 @@ use crate::git_revision::set_git_revision;
 use crate::version::full_version;
 use crate::version::set_version;
 use cloud_terrastodon_app::App;
+use cloud_terrastodon_credentials::AuthSource;
 use eyre::Result;
 
 pub fn entrypoint(
@@ -35,7 +36,11 @@ pub fn entrypoint(
     let app = App::new(executable_name, full_version().to_string())
         .automatic_cancellation(false)
         .implementation_github("AAFC-Cloud/Cloud-Terrastodon", implementation_revision);
-    let cli: Cli = app.parse_from(std::env::args_os().skip(1)).unwrap();
+    let mut cli: Cli = app.parse_from(std::env::args_os().skip(1)).unwrap();
+    if matches!(cli.command.as_ref(), Some(CloudTerrastodonCommand::Source(_))) {
+        // Local repository inventory does not need cloud credential discovery.
+        cli.global_args.auth_source = AuthSource::None;
+    }
     let enable_egui = matches!(cli.command.as_ref(), Some(CloudTerrastodonCommand::Egui(_)));
     app.egui_collector(enable_egui)
         .run_parsed(cli, |cli, context| async move {

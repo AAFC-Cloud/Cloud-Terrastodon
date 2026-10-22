@@ -11,7 +11,7 @@
 //! - `pathing`, `config`, `azure`, `azure-types`, `azure-resource-types`,
 //!   `azure-devops`, `azure-devops-types`, `hcl`, `hcl-types`, `user-input`,
 //!   `command`, `software`, `zombies`, `relative-location`, `ui-ratatui`, `ui-egui`,
-//!   `azure-locations`, `credentials`, `rest`.
+//!   `azure-locations`, `credentials`, `rest`, `source`, `source-types`.
 
 // One pub use per optional subcrate, behind its feature flag.
 #[cfg(feature = "app")]
@@ -42,6 +42,10 @@ pub use cloud_terrastodon_pathing as pathing;
 pub use cloud_terrastodon_relative_location as relative_location;
 #[cfg(feature = "rest")]
 pub use cloud_terrastodon_rest as rest;
+#[cfg(feature = "source")]
+pub use cloud_terrastodon_source as source;
+#[cfg(feature = "source-types")]
+pub use cloud_terrastodon_source_types as source_types;
 #[cfg(feature = "ui-egui")]
 pub use cloud_terrastodon_ui_egui as ui_egui;
 #[cfg(feature = "ui-ratatui")]

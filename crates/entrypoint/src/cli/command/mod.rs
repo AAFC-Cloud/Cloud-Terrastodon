@@ -19,6 +19,7 @@ pub mod perform_code_generation_from_imports;
 pub mod pick;
 pub mod ratatui;
 pub mod rest;
+pub mod source;
 pub mod terraform;
 pub mod write_all_imports;
 
@@ -42,6 +43,7 @@ use crate::cli::perform_code_generation_from_imports::PerformCodeGenerationFromI
 use crate::cli::pick::PickArgs;
 use crate::cli::ratatui::RatatuiArgs;
 use crate::cli::rest::RestArgs;
+use crate::cli::source::SourceArgs;
 use crate::cli::terraform::TerraformArgs;
 use crate::cli::write_all_imports::WriteAllImportsArgs;
 use cloud_terrastodon_app::CliOutput;
@@ -101,6 +103,8 @@ pub enum CloudTerrastodonCommand {
     Pick(PickArgs),
     /// Inspect and manage the command cache
     Cache(CacheArgs),
+    /// Discover local source repositories and summarize their file extensions.
+    Source(SourceArgs),
 }
 
 impl<'a> Arbitrary<'a> for CloudTerrastodonCommand {
@@ -160,6 +164,9 @@ impl CloudTerrastodonCommand {
             CloudTerrastodonCommand::ExtractUuid(args) => Box::pin(args.invoke(cancellation)).await,
             CloudTerrastodonCommand::Pick(args) => Box::pin(args.invoke(cancellation)).await,
             CloudTerrastodonCommand::Cache(args) => Box::pin(args.invoke(cancellation)).await,
+            CloudTerrastodonCommand::Source(args) => {
+                return Box::pin(args.invoke(cancellation)).await;
+            }
         }?;
         Ok(CliOutput::none())
     }
