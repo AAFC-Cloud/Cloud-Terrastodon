@@ -108,6 +108,23 @@ The existing `DiscoverySimulation` complements this structural view by exercisin
 registered Arbitrary response constructors and conversions offline. Simulation
 samples values; planning inspects shapes. Neither is a live inventory dump.
 
+## Diagram layout
+
+The Excalidraw export follows a top-to-bottom layout adapted from Ben Visness's
+[iongraph layout algorithm](https://spidermonkey.dev/blog/2025/10/28/iongraph-web.html).
+Dependencies determine layers, with a stable node order and a bounded number of
+alignment passes. Long downward edges use lanes to the left of nodes; returning
+edges use lanes to the right. Edges sharing a destination can share a lane.
+Horizontal segments occupy separate tracks between layers, with space for labels.
+Node heights and track space determine the final vertical positions.
+
+Discovery graphs have no source-code order or compiler loop hierarchy, so the
+exporter handles cycles deterministically rather than applying iongraph's loop
+nesting rules. Layout changes presentation only: arrow directions, dependency
+labels, and reachability retain their meaning. The same plan produces the same
+layout; this does not promise unchanged positions when the graph changes or the
+performance gains reported for SpiderMonkey's compiler graphs.
+
 ## Current coverage gaps
 
 The registered project inventory unlocks project arguments, service endpoints,

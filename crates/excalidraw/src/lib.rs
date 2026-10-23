@@ -5,6 +5,14 @@
 //! It is an exporter, not a lossless reader for arbitrary editor documents.
 
 mod discovery_plan_diagram;
+mod discovery_plan_layout;
+mod discovery_plan_layout_edge;
+mod discovery_plan_layout_graph;
+mod discovery_plan_layout_node;
+mod discovery_plan_layout_segment;
+#[cfg(test)]
+mod discovery_plan_layout_tests;
+mod discovery_plan_text;
 mod excalidraw_app_state;
 mod excalidraw_arrow_binding;
 mod excalidraw_arrowhead;

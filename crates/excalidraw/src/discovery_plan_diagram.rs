@@ -7,14 +7,19 @@ use crate::ExcalidrawElementId;
 use crate::ExcalidrawStrokeStyle;
 use crate::ExcalidrawTextAlignment;
 use crate::ExcalidrawVerticalAlignment;
+use crate::discovery_plan_layout::DiscoveryPlanLayout;
+use crate::discovery_plan_text::EDGE_FONT_SIZE;
+use crate::discovery_plan_text::LINE_HEIGHT;
+use crate::discovery_plan_text::edge_label_size;
+use crate::discovery_plan_text::wrap;
 use cloud_terrastodon_registry::DiscoveryPlan;
+use cloud_terrastodon_registry::DiscoveryPlanNode;
 use cloud_terrastodon_registry::DiscoveryPlanNodeKind;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 
 const NODE_WIDTH: f64 = 460.0;
 const FONT_SIZE: f64 = 16.0;
-const LINE_HEIGHT: f64 = 1.25;
 const PADDING: f64 = 16.0;
 const BINDING_GAP: f64 = 8.0;
 
@@ -53,43 +58,34 @@ pub(crate) fn elements(plan: &DiscoveryPlan) -> Vec<ExcalidrawElement> {
             }
         }
     }
-    let mut columns = BTreeMap::<usize, f64>::new();
+    let labels: BTreeMap<_, _> = plan
+        .nodes
+        .iter()
+        .map(|node| (node.id, node_label(node)))
+        .collect();
+    let sizes = labels
+        .iter()
+        .map(|(&id, label)| {
+            (
+                id,
+                (
+                    NODE_WIDTH,
+                    label.lines().count() as f64 * FONT_SIZE * LINE_HEIGHT + 2.0 * PADDING,
+                ),
+            )
+        })
+        .collect();
+    let layout = DiscoveryPlanLayout::new(plan, &sizes);
     let mut boxes = BTreeMap::<usize, ExcalidrawElementBase>::new();
     for node in &plan.nodes {
-        let kind = match node.kind {
-            DiscoveryPlanNodeKind::Shape => "shape",
-            DiscoveryPlanNodeKind::Request => "request",
-            DiscoveryPlanNodeKind::Conversion => "conversion",
-            DiscoveryPlanNodeKind::Projection => "projection",
-        };
-        let mut label = format!("[{kind}] {}", node.label);
-        if !node.effects.is_empty() {
-            label.push_str(&format!("\nEffects: {:?}", node.effects));
-        }
-        if node.seed {
-            label.push_str("\nSUPPLIED INPUT");
-        }
-        if node.target {
-            label.push_str("\nTARGET");
-        }
-        if !node.reachable {
-            label.push_str("\nBLOCKED");
-        }
-        if !node.missing_inputs.is_empty() {
-            label.push_str("\nMissing: ");
-            label.push_str(&node.missing_inputs.join(", "));
-        }
-        let label = wrap(&label, 44);
-        let height = label.lines().count() as f64 * FONT_SIZE * LINE_HEIGHT + 2.0 * PADDING;
-        let y = columns.entry(node.level).or_insert(190.0);
+        let placement = &layout.nodes[&node.id];
         let mut base = ExcalidrawElementBase::new(
             node_id(node.id),
-            80.0 + node.level as f64 * (NODE_WIDTH + 160.0),
-            *y,
-            NODE_WIDTH,
-            height,
+            80.0 + placement.x,
+            190.0 + placement.y,
+            placement.width,
+            placement.height,
         );
-        *y += height + 70.0;
         base.background_color = if !node.reachable {
             "#ffe3e3"
         } else if node.seed {
@@ -121,40 +117,31 @@ pub(crate) fn elements(plan: &DiscoveryPlan) -> Vec<ExcalidrawElement> {
                 base.width - 2.0 * PADDING,
                 base.height - 2.0 * PADDING,
             ),
-            label,
+            labels[&node.id].clone(),
             FONT_SIZE,
             Some(base.id.clone()),
         ));
         boxes.insert(node.id, base);
     }
 
-    let bottom = columns.values().copied().fold(190.0, f64::max);
     for (index, edge) in plan.edges.iter().enumerate() {
-        let (Some(source), Some(target)) = (boxes.get(&edge.source), boxes.get(&edge.target))
-        else {
+        let (Some(source), Some(target), Some(route)) = (
+            boxes.get(&edge.source),
+            boxes.get(&edge.target),
+            layout.edges.get(&index),
+        ) else {
             // DiscoveryPlan owns endpoint validity. A caller-edited plan with a
             // missing node cannot produce a dangling editor binding.
             continue;
         };
-        let x = source.x + source.width + BINDING_GAP;
-        let y = source.y + source.height / 2.0;
-        let dx = target.x - BINDING_GAP - x;
-        let dy = target.y + target.height / 2.0 - y;
-        let points = if dx > 0.0 {
-            vec![[0.0, 0.0], [dx / 2.0, 0.0], [dx / 2.0, dy], [dx, dy]]
-        } else {
-            // Backward edges and cycles run below the nodes. Finite routing
-            // does not assume that every dependency graph is a DAG.
-            let detour = bottom + 50.0 + index as f64 * 30.0 - y;
-            vec![
-                [0.0, 0.0],
-                [40.0, 0.0],
-                [40.0, detour],
-                [dx - 40.0, detour],
-                [dx - 40.0, dy],
-                [dx, dy],
-            ]
+        let Some(&[start_x, start_y]) = route.points.first() else {
+            continue;
         };
+        let points: Vec<_> = route
+            .points
+            .iter()
+            .map(|point| [point[0] - start_x, point[1] - start_y])
+            .collect();
         let (min_x, max_x, min_y, max_y) = points.iter().fold(
             (0.0_f64, 0.0_f64, 0.0_f64, 0.0_f64),
             |(min_x, max_x, min_y, max_y), point| {
@@ -167,7 +154,13 @@ pub(crate) fn elements(plan: &DiscoveryPlan) -> Vec<ExcalidrawElement> {
             },
         );
         result.push(ExcalidrawElement::Arrow {
-            base: ExcalidrawElementBase::new(edge_id(index), x, y, max_x - min_x, max_y - min_y),
+            base: ExcalidrawElementBase::new(
+                edge_id(index),
+                80.0 + start_x,
+                190.0 + start_y,
+                max_x - min_x,
+                max_y - min_y,
+            ),
             points,
             last_committed_point: None,
             start_binding: Some(ExcalidrawArrowBinding {
@@ -186,17 +179,17 @@ pub(crate) fn elements(plan: &DiscoveryPlan) -> Vec<ExcalidrawElement> {
         });
         if !edge.label.is_empty() {
             let label = wrap(&edge.label, 30);
-            let height = label.lines().count() as f64 * 14.0 * LINE_HEIGHT;
+            let (width, height) = edge_label_size(&edge.label);
             result.push(text(
                 ExcalidrawElementBase::new(
                     ExcalidrawElementId(format!("edge-label-{index}")),
-                    x + dx / 2.0 + 6.0,
-                    y + dy / 2.0 - height - 4.0,
-                    260.0,
+                    80.0 + route.label_x,
+                    190.0 + route.label_y,
+                    width,
                     height,
                 ),
                 label,
-                14.0,
+                EDGE_FONT_SIZE,
                 None,
             ));
         }
@@ -208,7 +201,7 @@ pub(crate) fn elements(plan: &DiscoveryPlan) -> Vec<ExcalidrawElement> {
             ExcalidrawElementBase::new(
                 ExcalidrawElementId("plan-diagnostics".into()),
                 80.0,
-                bottom + 100.0 + plan.edges.len() as f64 * 30.0,
+                190.0 + layout.height + 80.0,
                 900.0,
                 height,
             ),
@@ -218,6 +211,33 @@ pub(crate) fn elements(plan: &DiscoveryPlan) -> Vec<ExcalidrawElement> {
         ));
     }
     result
+}
+
+fn node_label(node: &DiscoveryPlanNode) -> String {
+    let kind = match node.kind {
+        DiscoveryPlanNodeKind::Shape => "shape",
+        DiscoveryPlanNodeKind::Request => "request",
+        DiscoveryPlanNodeKind::Conversion => "conversion",
+        DiscoveryPlanNodeKind::Projection => "projection",
+    };
+    let mut label = format!("[{kind}] {}", node.label);
+    if !node.effects.is_empty() {
+        label.push_str(&format!("\nEffects: {:?}", node.effects));
+    }
+    if node.seed {
+        label.push_str("\nSUPPLIED INPUT");
+    }
+    if node.target {
+        label.push_str("\nTARGET");
+    }
+    if !node.reachable {
+        label.push_str("\nBLOCKED");
+    }
+    if !node.missing_inputs.is_empty() {
+        label.push_str("\nMissing: ");
+        label.push_str(&node.missing_inputs.join(", "));
+    }
+    wrap(&label, 44)
 }
 
 fn node_id(id: usize) -> ExcalidrawElementId {
@@ -250,20 +270,6 @@ fn text(
         auto_resize: false,
         line_height: LINE_HEIGHT,
     }
-}
-
-fn wrap(text: &str, columns: usize) -> String {
-    text.lines()
-        .map(|line| {
-            line.chars()
-                .collect::<Vec<_>>()
-                .chunks(columns)
-                .map(|chunk| chunk.iter().collect::<String>())
-                .collect::<Vec<_>>()
-                .join("\n")
-        })
-        .collect::<Vec<_>>()
-        .join("\n")
 }
 
 #[cfg(test)]
@@ -393,8 +399,11 @@ mod tests {
         for element in &scene.elements {
             let base = element.base();
             assert!(base.x.is_finite() && base.y.is_finite());
-            assert!(base.width.is_finite() && base.width > 0.0);
+            assert!(base.width.is_finite() && base.width >= 0.0);
             assert!(base.height.is_finite() && base.height >= 0.0);
+            if !matches!(element, ExcalidrawElement::Arrow { .. }) {
+                assert!(base.width > 0.0 && base.height > 0.0);
+            }
             if let ExcalidrawElement::Text {
                 text,
                 container_id: Some(_),
