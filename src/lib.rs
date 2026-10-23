@@ -12,20 +12,28 @@
 //!   `azure-devops`, `azure-devops-types`, `hcl`, `hcl-types`, `user-input`,
 //!   `command`, `software`, `zombies`, `relative-location`, `ui-ratatui`, `ui-egui`,
 //!   `azure-locations`, `credentials`, `rest`, `source`, `source-types`.
+//! - `azure-cli`, `azure-devops-cli`, `source-cli`, `cli-types`: Reusable command
+//!   groups and shared command-line input contracts.
 
 // One pub use per optional subcrate, behind its feature flag.
 #[cfg(feature = "app")]
 pub use cloud_terrastodon_app as app;
 #[cfg(feature = "azure")]
 pub use cloud_terrastodon_azure as azure;
+#[cfg(feature = "azure-cli")]
+pub use cloud_terrastodon_azure_cli as azure_cli;
 #[cfg(feature = "azure-devops")]
 pub use cloud_terrastodon_azure_devops as azure_devops;
+#[cfg(feature = "azure-devops-cli")]
+pub use cloud_terrastodon_azure_devops_cli as azure_devops_cli;
 #[cfg(feature = "azure-devops-types")]
 pub use cloud_terrastodon_azure_devops_types as azure_devops_types;
 #[cfg(feature = "azure-resource-types")]
 pub use cloud_terrastodon_azure_resource_types as azure_resource_types;
 #[cfg(feature = "azure-types")]
 pub use cloud_terrastodon_azure_types as azure_types;
+#[cfg(feature = "cli-types")]
+pub use cloud_terrastodon_cli_types as cli_types;
 #[cfg(feature = "command")]
 pub use cloud_terrastodon_command as command;
 #[cfg(feature = "config")]
@@ -44,6 +52,8 @@ pub use cloud_terrastodon_relative_location as relative_location;
 pub use cloud_terrastodon_rest as rest;
 #[cfg(feature = "source")]
 pub use cloud_terrastodon_source as source;
+#[cfg(feature = "source-cli")]
+pub use cloud_terrastodon_source_cli as source_cli;
 #[cfg(feature = "source-types")]
 pub use cloud_terrastodon_source_types as source_types;
 #[cfg(feature = "ui-egui")]

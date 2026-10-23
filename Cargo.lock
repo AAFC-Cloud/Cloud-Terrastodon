@@ -906,10 +906,13 @@ dependencies = [
  "arbitrary",
  "cloud_terrastodon_app",
  "cloud_terrastodon_azure",
+ "cloud_terrastodon_azure_cli",
  "cloud_terrastodon_azure_devops",
+ "cloud_terrastodon_azure_devops_cli",
  "cloud_terrastodon_azure_devops_types",
  "cloud_terrastodon_azure_resource_types",
  "cloud_terrastodon_azure_types",
+ "cloud_terrastodon_cli_types",
  "cloud_terrastodon_command",
  "cloud_terrastodon_config",
  "cloud_terrastodon_credentials",
@@ -921,6 +924,7 @@ dependencies = [
  "cloud_terrastodon_relative_location",
  "cloud_terrastodon_rest",
  "cloud_terrastodon_source",
+ "cloud_terrastodon_source_cli",
  "cloud_terrastodon_source_types",
  "cloud_terrastodon_ui_egui",
  "cloud_terrastodon_ui_ratatui",
@@ -994,6 +998,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "cloud_terrastodon_azure_cli"
+version = "0.37.0"
+dependencies = [
+ "arbitrary",
+ "chrono",
+ "cloud_terrastodon_app",
+ "cloud_terrastodon_azure",
+ "cloud_terrastodon_azure_devops_cli",
+ "cloud_terrastodon_command",
+ "cloud_terrastodon_config",
+ "cloud_terrastodon_credentials",
+ "cloud_terrastodon_user_input",
+ "color-eyre",
+ "eyre",
+ "humantime",
+ "indexmap",
+ "indoc",
+ "itertools",
+ "nucleo",
+ "serde_json",
+ "strum 0.27.2",
+ "teamy-facet",
+ "teamy-facet-json",
+ "teamy-figue",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "cloud_terrastodon_azure_devops"
 version = "0.37.0"
 dependencies = [
@@ -1025,6 +1059,32 @@ dependencies = [
  "test-log",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "cloud_terrastodon_azure_devops_cli"
+version = "0.37.0"
+dependencies = [
+ "chrono",
+ "cloud_terrastodon_app",
+ "cloud_terrastodon_azure",
+ "cloud_terrastodon_azure_devops",
+ "cloud_terrastodon_cli_types",
+ "cloud_terrastodon_command",
+ "cloud_terrastodon_credentials",
+ "cloud_terrastodon_rest",
+ "cloud_terrastodon_user_input",
+ "color-eyre",
+ "eyre",
+ "http",
+ "humantime",
+ "itertools",
+ "teamy-facet",
+ "teamy-facet-json",
+ "teamy-figue",
+ "tokio",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]
@@ -1100,6 +1160,19 @@ dependencies = [
  "tracing",
  "unicode_categories",
  "uuid",
+]
+
+[[package]]
+name = "cloud_terrastodon_cli_types"
+version = "0.37.0"
+dependencies = [
+ "arbitrary",
+ "cloud_terrastodon_registry",
+ "eyre",
+ "http",
+ "humantime",
+ "linkme",
+ "teamy-facet",
 ]
 
 [[package]]
@@ -1188,7 +1261,10 @@ dependencies = [
  "chrono",
  "cloud_terrastodon_app",
  "cloud_terrastodon_azure",
+ "cloud_terrastodon_azure_cli",
  "cloud_terrastodon_azure_devops",
+ "cloud_terrastodon_azure_devops_cli",
+ "cloud_terrastodon_cli_types",
  "cloud_terrastodon_command",
  "cloud_terrastodon_config",
  "cloud_terrastodon_credentials",
@@ -1197,7 +1273,7 @@ dependencies = [
  "cloud_terrastodon_pathing",
  "cloud_terrastodon_registry",
  "cloud_terrastodon_rest",
- "cloud_terrastodon_source",
+ "cloud_terrastodon_source_cli",
  "cloud_terrastodon_tracing",
  "cloud_terrastodon_ui_egui",
  "cloud_terrastodon_ui_ratatui",
@@ -1205,7 +1281,6 @@ dependencies = [
  "cloud_terrastodon_zombies",
  "color-eyre",
  "compact_str",
- "crossterm",
  "eyre",
  "hickory-resolver",
  "http",
@@ -1218,12 +1293,10 @@ dependencies = [
  "jsonpath-rust",
  "linkme",
  "liquid",
- "nucleo",
  "opener",
  "prettyplease",
  "proc-macro2",
  "quote",
- "ratatui",
  "reqwest",
  "serde",
  "serde_json",
@@ -1385,6 +1458,26 @@ dependencies = [
  "teamy-facet",
  "tempfile",
  "tokio",
+]
+
+[[package]]
+name = "cloud_terrastodon_source_cli"
+version = "0.37.0"
+dependencies = [
+ "cloud_terrastodon_app",
+ "cloud_terrastodon_command",
+ "cloud_terrastodon_registry",
+ "cloud_terrastodon_source",
+ "cloud_terrastodon_user_input",
+ "color-eyre",
+ "crossterm",
+ "eyre",
+ "linkme",
+ "ratatui",
+ "teamy-facet",
+ "teamy-figue",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

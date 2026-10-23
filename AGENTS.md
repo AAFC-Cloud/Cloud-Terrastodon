@@ -309,8 +309,13 @@ Standalone examples may remain self-contained, as described in
   after concrete implementations reveal repeated behavior and a clear pattern
   for ownership and error handling. Do not prescribe a generic paginator or
   framework in advance just because several endpoints return pages.
-- Keep CLI parsing, default/scope selection, dispatch, and text presentation in
-  `entrypoint`. Put reusable application startup/output facilities in `app`.
+- Keep domain CLI parsing, default/scope selection, dispatch, and text
+  presentation in the corresponding `azure_cli`, `azure_devops_cli`, or
+  `source_cli` crate. Keep top-level command composition, global arguments,
+  menus, and remaining command groups in `entrypoint`. Shared validated scalar
+  CLI input contracts belong in `cli_types`. CLI crates depend on SDK crates;
+  SDK and domain-type crates must not depend on CLI crates. Put reusable
+  application startup/output facilities in `app`.
 - Preserve source errors when adding context: prefer `wrap_err` or
   `wrap_err_with` over replacing an error with a new message. When an API returns
   an error without diagnostic information, such as `Err(())`, explain its actual
@@ -332,7 +337,10 @@ Standalone examples may remain self-contained, as described in
 
 ## CLI naming and output
 
-- Put command implementations under `crates/entrypoint/src/cli/command/`.
+- Put Azure, Azure DevOps, and source command implementations under
+  `crates/azure_cli/src/`, `crates/azure_devops_cli/src/`, and
+  `crates/source_cli/src/`, respectively. Keep top-level composition and
+  remaining commands under `crates/entrypoint/src/cli/command/`.
   Follow neighboring command-group directories and their module/re-export
   layout. Leaves may live directly in a group directory or in an operation
   subdirectory; do not impose a new directory layout on an existing group.

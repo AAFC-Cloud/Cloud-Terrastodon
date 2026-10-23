@@ -1,7 +1,7 @@
 use arbitrary::Arbitrary;
 pub mod add_work_dir;
-pub mod azure;
-pub mod azure_devops;
+pub use cloud_terrastodon_azure_cli as azure;
+pub use cloud_terrastodon_azure_devops_cli as azure_devops;
 pub mod cache;
 pub mod clean;
 pub mod copy_results;
@@ -19,7 +19,7 @@ pub mod perform_code_generation_from_imports;
 pub mod pick;
 pub mod ratatui;
 pub mod rest;
-pub mod source;
+pub use cloud_terrastodon_source_cli as source;
 pub mod terraform;
 pub mod write_all_imports;
 
@@ -47,9 +47,9 @@ use crate::cli::source::SourceArgs;
 use crate::cli::terraform::TerraformArgs;
 use crate::cli::write_all_imports::WriteAllImportsArgs;
 use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
-use cloud_terrastodon_command::CancellationScope;
 
 /// All top-level commands for the cloud-terrastodon CLI.
 #[derive(facet::Facet, Debug)]

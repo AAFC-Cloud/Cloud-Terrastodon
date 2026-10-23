@@ -1,0 +1,59 @@
+use cloud_terrastodon_azure::AzureTenantArgument;
+use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_azure::fetch_all_resource_groups;
+use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
+use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AzureTenantAuthContext;
+use cloud_terrastodon_user_input::PickResultExt;
+use cloud_terrastodon_user_input::PickerTui;
+use eyre::Result;
+use std::io::Write;
+use tracing::info;
+
+/// Arguments for browsing Azure resource groups.
+#[derive(facet::Facet, Debug, Clone)]
+pub struct AzureResourceGroupBrowseArgs {
+    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
+    #[facet(figue::named, default)]
+    pub tenant: AzureTenantArgument<'static>,
+}
+
+impl AzureResourceGroupBrowseArgs {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let auth_context = self
+            .tenant
+            .bind_auth_context(auth_context, cancellation)
+            .await?;
+        browse_resource_groups(&auth_context, cancellation).await
+    }
+}
+
+pub async fn browse_resource_groups(
+    auth_context: &AzureTenantAuthContext,
+    cancellation: &CancellationScope,
+) -> Result<()> {
+    let (chosen, maybe_error) = PickerTui::<_>::new()
+        .pick_many_reloadable(|invalidate| {
+            let auth_context = auth_context.clone();
+            async move {
+                info!(tenant_id = %auth_context.tenant_id, "Fetching all Azure resource groups");
+
+                fetch_all_resource_groups(&auth_context, cancellation)
+                    .with_invalidation(invalidate)
+                    .await
+            }
+        })
+        .await
+        .into_chosen_and_maybe_error()?;
+
+    let stdout = std::io::stdout();
+    let mut handle = stdout.lock();
+    cloud_terrastodon_command::to_writer_pretty(&mut handle, &chosen)?;
+    handle.write_all(b"\n")?;
+    maybe_error
+}

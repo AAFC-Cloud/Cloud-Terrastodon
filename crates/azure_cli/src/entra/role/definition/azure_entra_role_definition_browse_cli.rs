@@ -1,0 +1,74 @@
+use cloud_terrastodon_azure::AzureTenantArgument;
+use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_azure::fetch_all_entra_role_definitions;
+use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
+use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_user_input::Choice;
+use cloud_terrastodon_user_input::PickResultExt;
+use cloud_terrastodon_user_input::PickerTui;
+use eyre::Result;
+use std::io::Write;
+use tracing::info;
+
+/// Arguments for browsing Entra role definitions.
+#[derive(facet::Facet, Debug, Clone)]
+pub struct AzureEntraRoleDefinitionBrowseArgs {
+    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
+    #[facet(figue::named, default)]
+    pub tenant: AzureTenantArgument<'static>,
+}
+
+impl AzureEntraRoleDefinitionBrowseArgs {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let auth_context = self
+            .tenant
+            .bind_auth_context(auth_context, cancellation)
+            .await?;
+        let (chosen, maybe_error) = PickerTui::<_>::new()
+            .set_header("Entra role definitions")
+            .pick_many_reloadable(move |invalidate| {
+                let auth_context = auth_context.clone();
+                async move {
+                    info!(tenant_id = %auth_context.tenant_id, "Fetching Entra role definitions");
+                    let mut role_definitions =
+                        fetch_all_entra_role_definitions(&auth_context, cancellation)
+                            .with_invalidation(invalidate)
+                            .await?
+                            .into_iter()
+                            .collect::<Vec<_>>();
+                    role_definitions.sort_unstable_by(|left, right| {
+                        left.display_name.cmp(&right.display_name).then_with(|| {
+                            left.template_id
+                                .to_string()
+                                .cmp(&right.template_id.to_string())
+                        })
+                    });
+                    let choices = role_definitions.into_iter().map(|definition| Choice {
+                        key: format!(
+                            "{}\nrole definition id: {}\nbuilt in: {}\nprivileged: {}\nenabled: {}",
+                            definition.display_name,
+                            definition.template_id,
+                            definition.is_built_in,
+                            definition.is_privileged,
+                            definition.is_enabled
+                        ),
+                        value: definition,
+                    });
+                    Ok(choices)
+                }
+            })
+            .await
+            .into_chosen_and_maybe_error()?;
+
+        let stdout = std::io::stdout();
+        let mut handle = stdout.lock();
+        cloud_terrastodon_command::to_writer_pretty(&mut handle, &chosen)?;
+        handle.write_all(b"\n")?;
+        maybe_error
+    }
+}

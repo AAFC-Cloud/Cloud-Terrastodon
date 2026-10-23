@@ -132,6 +132,14 @@ path = "./crates/source"
 version = "0.37.0"        # CT_VERSION
 path = "./crates/source_types"
 
+[workspace.dependencies.cloud_terrastodon_source_cli]
+version = "0.37.0"        # CT_VERSION
+path = "./crates/source_cli"
+
+[workspace.dependencies.cloud_terrastodon_cli_types]
+version = "0.37.0"        # CT_VERSION
+path = "./crates/cli_types"
+
 [workspace.dependencies.cloud_terrastodon_config]
 version = "0.37.0"       # CT_VERSION
 path = "./crates/config"
@@ -139,6 +147,10 @@ path = "./crates/config"
 [workspace.dependencies.cloud_terrastodon_azure]
 version = "0.37.0"      # CT_VERSION
 path = "./crates/azure"
+
+[workspace.dependencies.cloud_terrastodon_azure_cli]
+version = "0.37.0"      # CT_VERSION
+path = "./crates/azure_cli"
 
 [workspace.dependencies.cloud_terrastodon_registry]
 version = "0.37.0"         # CT_VERSION
@@ -155,6 +167,10 @@ path = "./crates/azure_resource_types"
 [workspace.dependencies.cloud_terrastodon_azure_devops]
 version = "0.37.0"             # CT_VERSION
 path = "./crates/azure_devops"
+
+[workspace.dependencies.cloud_terrastodon_azure_devops_cli]
+version = "0.37.0"             # CT_VERSION
+path = "./crates/azure_devops_cli"
 
 [workspace.dependencies.cloud_terrastodon_azure_devops_types]
 version = "0.37.0"                   # CT_VERSION
@@ -247,11 +263,15 @@ tracy-client = { workspace = true, optional = true }
 cloud_terrastodon_pathing = { workspace = true, optional = true }
 cloud_terrastodon_source = { workspace = true, optional = true }
 cloud_terrastodon_source_types = { workspace = true, optional = true }
+cloud_terrastodon_source_cli = { workspace = true, optional = true }
+cloud_terrastodon_cli_types = { workspace = true, optional = true }
 cloud_terrastodon_config = { workspace = true, optional = true }
 cloud_terrastodon_azure = { workspace = true, optional = true }
+cloud_terrastodon_azure_cli = { workspace = true, optional = true }
 cloud_terrastodon_azure_types = { workspace = true, optional = true }
 cloud_terrastodon_azure_resource_types = { workspace = true, optional = true }
 cloud_terrastodon_azure_devops = { workspace = true, optional = true }
+cloud_terrastodon_azure_devops_cli = { workspace = true, optional = true }
 cloud_terrastodon_azure_devops_types = { workspace = true, optional = true }
 cloud_terrastodon_gitea = { workspace = true, optional = true }
 cloud_terrastodon_hcl = { workspace = true, optional = true }
@@ -301,11 +321,15 @@ tracy-alloc = ["tracy", "dep:tracy-client"]
 pathing = ["dep:cloud_terrastodon_pathing"]
 source = ["dep:cloud_terrastodon_source"]
 source-types = ["dep:cloud_terrastodon_source_types"]
+source-cli = ["dep:cloud_terrastodon_source_cli"]
+cli-types = ["dep:cloud_terrastodon_cli_types"]
 config = ["dep:cloud_terrastodon_config"]
 azure = ["dep:cloud_terrastodon_azure"]
+azure-cli = ["dep:cloud_terrastodon_azure_cli"]
 azure-types = ["dep:cloud_terrastodon_azure_types"]
 azure-resource-types = ["dep:cloud_terrastodon_azure_resource_types"]
 azure-devops = ["dep:cloud_terrastodon_azure_devops"]
+azure-devops-cli = ["dep:cloud_terrastodon_azure_devops_cli"]
 azure-devops-types = ["dep:cloud_terrastodon_azure_devops_types"]
 gitea = ["dep:cloud_terrastodon_gitea"]
 hcl = ["dep:cloud_terrastodon_hcl"]
@@ -325,11 +349,15 @@ full = [
     "pathing",
     "source",
     "source-types",
+    "source-cli",
+    "cli-types",
     "config",
     "azure",
+    "azure-cli",
     "azure-types",
     "azure-resource-types",
     "azure-devops",
+    "azure-devops-cli",
     "azure-devops-types",
     "gitea",
     "entrypoint",

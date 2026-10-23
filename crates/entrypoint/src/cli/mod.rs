@@ -6,7 +6,6 @@ pub mod output {
     pub use cloud_terrastodon_app::CliOutputValue;
     pub use cloud_terrastodon_app::OutputFormat;
 }
-pub(crate) mod scalar_args;
 
 use crate::menu::menu_loop;
 use cloud_terrastodon_command::CancellationScope;
@@ -82,6 +81,44 @@ mod tests {
     use cloud_terrastodon_app::OutputFormat;
     use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_credentials::AuthSource;
+
+    #[test]
+    fn nested_devops_work_item_preserves_global_auth_and_tenant_context() {
+        let cli: Cli = figue::from_slice(&[
+            "--auth-source",
+            "browser",
+            "az",
+            "devops",
+            "work-item",
+            "show",
+            "1",
+            "--tenant",
+            "synthetic-tenant",
+            "--org",
+            "synthetic",
+            "--project",
+            "Synthetic project",
+        ])
+        .into_result()
+        .expect("synthetic CLI arguments should parse")
+        .get();
+        assert_eq!(cli.global_args.auth_source, AuthSource::Browser);
+        let Some(CloudTerrastodonCommand::Azure(AzureArgs {
+            command:
+                AzureCommand::DevOps(AzureDevOpsArgs {
+                    command: AzureDevOpsCommand::WorkItem(args),
+                }),
+        })) = cli.command
+        else {
+            panic!("expected nested Azure DevOps work item command");
+        };
+        let azure_devops::work_item::AzureDevOpsWorkItemCommand::Show(args) = args.command else {
+            panic!("expected work item show");
+        };
+        assert_eq!(args.tenant.unwrap().to_string(), "synthetic-tenant");
+        assert_eq!(args.org.name(), "synthetic");
+        assert_eq!(args.project.to_string(), "Synthetic project");
+    }
 
     #[test]
     fn build_folder_dispatch_reports_auth_error_on_a_small_stack() -> eyre::Result<()> {

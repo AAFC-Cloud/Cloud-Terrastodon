@@ -1,0 +1,249 @@
+use crate::policy_compliance_row::PolicyComplianceRow;
+use crate::policy_compliance_row::fetch_all_policy_compliance;
+use cloud_terrastodon_azure::PolicyAssignmentId;
+use cloud_terrastodon_azure::PolicyDefinitionIdReference;
+use cloud_terrastodon_azure::Scope;
+use cloud_terrastodon_azure::fetch_all_policy_assignments;
+use cloud_terrastodon_azure::fetch_all_policy_definitions;
+use cloud_terrastodon_azure::fetch_all_policy_set_definitions;
+use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_credentials::AzureTenantAuthContext;
+use cloud_terrastodon_user_input::PickResultExt;
+use cloud_terrastodon_user_input::PickerTui;
+use eyre::Context;
+use indexmap::IndexMap;
+use itertools::Itertools;
+use std::collections::HashMap;
+use std::collections::HashSet;
+use tokio::try_join;
+use tracing::info;
+use tracing::trace;
+use tracing::warn;
+
+/// This is a new function that merges “search assigned policies” with a compliance query.
+pub async fn browse_policy_assignments(
+    auth_context: &AzureTenantAuthContext,
+    cancellation: &CancellationScope,
+) -> eyre::Result<()> {
+    info!("Fetching a bunch of data...");
+    let (policy_assignments, policy_definitions, mut policy_set_definitions, mut policy_compliance) =
+        match try_join!(
+            fetch_all_policy_assignments(auth_context, cancellation),
+            fetch_all_policy_definitions(auth_context, cancellation),
+            fetch_all_policy_set_definitions(auth_context, cancellation),
+            fetch_all_policy_compliance(auth_context, cancellation),
+        ) {
+            Ok(x) => x,
+            Err(e) => return Err(e).context("failed to fetch policy data"),
+        };
+
+    // make the policy definition reference IDs lowercase for equality sanity
+    for ele in policy_set_definitions
+        .iter_mut()
+        .flat_map(|policy_set_definition| &mut policy_set_definition.policy_definitions)
+        .flatten()
+    {
+        ele.policy_definition_reference_id.make_ascii_lowercase();
+    }
+    for ele in policy_compliance
+        .iter_mut()
+        .filter_map(|x| x.policy_definition_reference_id.as_mut())
+    {
+        ele.make_ascii_lowercase();
+    }
+
+    let policy_definition_map = policy_definitions
+        .iter()
+        .map(|v| (&v.id, v))
+        .collect::<HashMap<_, _>>();
+    let policy_set_definition_map = policy_set_definitions
+        .iter()
+        .map(|v| (&v.id, v))
+        .collect::<HashMap<_, _>>();
+    let policy_compliance_map: HashMap<
+        &PolicyAssignmentId,
+        HashMap<Option<&str>, &PolicyComplianceRow>,
+    > = policy_compliance
+        .iter()
+        .fold(HashMap::new(), |mut acc, elem| {
+            acc.entry(&elem.policy_assignment_id)
+                .or_default()
+                .entry(elem.policy_definition_reference_id.as_deref())
+                .or_insert(elem);
+            acc
+        });
+
+    info!("Found {} policy assignments", policy_assignments.len());
+    info!("Found {} policy definitions", policy_definitions.len());
+    info!(
+        "Found {} policy set definitions",
+        policy_set_definitions.len()
+    );
+
+    let mut choices = HashSet::new();
+    for ass in policy_assignments {
+        let mut row = IndexMap::<&str, String>::new();
+        row.insert("ass id", ass.id.expanded_form().to_owned());
+        if let Some(description) = ass
+            .properties
+            .description
+            .as_deref()
+            .filter(|v| !v.is_empty())
+        {
+            row.insert("ass desc", description.to_string());
+        }
+        row.insert(
+            "ass dispaly name",
+            ass.properties
+                .display_name
+                .as_deref()
+                .unwrap_or(ass.name.as_str())
+                .to_owned(),
+        );
+        row.insert("ass scope", ass.properties.scope.expanded_form());
+        match &ass.properties.policy_definition_id {
+            PolicyDefinitionIdReference::PolicyDefinitionId(policy_definition_id) => {
+                let Some(policy_definition) = policy_definition_map.get(&policy_definition_id)
+                else {
+                    warn!(
+                        "Couldn't find definition for policy {}",
+                        policy_definition_id.expanded_form()
+                    );
+                    continue;
+                };
+                row.insert(
+                    "pol name",
+                    policy_definition
+                        .display_name
+                        .as_deref()
+                        .unwrap_or(policy_definition.name.as_str())
+                        .to_owned(),
+                );
+                match &policy_definition.description {
+                    Some(desc) if !desc.is_empty() => {
+                        row.insert("pol desc", desc.to_owned());
+                    }
+                    _ => {}
+                }
+                if let Some(compliance) = policy_compliance_map.get(&ass.id) {
+                    if let Some(compliance) = compliance.get(&None) {
+                        row.insert(
+                            "pol compliance",
+                            format!(
+                                "good={}\tbad={}",
+                                compliance.compliant_count, compliance.noncompliant_count
+                            ),
+                        );
+                    } else {
+                        trace!(
+                            "Failed to find compliance inside {}",
+                            ass.id.expanded_form()
+                        );
+                    }
+                } else {
+                    trace!("Failed to find compliance for {}", ass.id.expanded_form());
+                }
+
+                choices.insert(
+                    row.iter()
+                        .map(|(label, value)| format!("({label}) {value}"))
+                        .join("\n"),
+                );
+            }
+            PolicyDefinitionIdReference::PolicySetDefinitionId(policy_set_definition_id) => {
+                let Some(policy_set_definition) =
+                    policy_set_definition_map.get(&policy_set_definition_id)
+                else {
+                    warn!(
+                        "Couldn't find policy set definition for policy {}",
+                        policy_set_definition_id.expanded_form()
+                    );
+                    continue;
+                };
+                let Some(inner_definitions) = &policy_set_definition.policy_definitions else {
+                    continue;
+                };
+                for inner_definition in inner_definitions {
+                    let inner_definition_id = &inner_definition.policy_definition_id;
+                    let Some(policy_definition) = policy_definition_map.get(&inner_definition_id)
+                    else {
+                        warn!(
+                            "Couldn't find policy definition for policy {} inside policy set {}",
+                            inner_definition_id.expanded_form(),
+                            policy_set_definition_id.expanded_form()
+                        );
+                        continue;
+                    };
+                    row.insert(
+                        "pol set name",
+                        policy_set_definition
+                            .display_name
+                            .as_deref()
+                            .unwrap_or(policy_set_definition.name.as_str())
+                            .to_owned(),
+                    );
+
+                    match &policy_set_definition.description {
+                        Some(desc) if !desc.is_empty() => {
+                            row.insert("pol set desc", desc.to_owned());
+                        }
+                        _ => {}
+                    }
+                    row.insert(
+                        "pol name",
+                        policy_definition
+                            .display_name
+                            .as_deref()
+                            .unwrap_or(policy_definition.name.as_str())
+                            .to_owned(),
+                    );
+                    match &policy_definition.description {
+                        Some(desc) if !desc.is_empty() => {
+                            row.insert("pol desc", desc.to_owned());
+                        }
+                        _ => {}
+                    }
+                    row.insert(
+                        "pol reference id",
+                        inner_definition.policy_definition_reference_id.to_owned(),
+                    );
+                    if let Some(compliance) = policy_compliance_map.get(&ass.id) {
+                        if let Some(compliance) = compliance.get(&Some(
+                            inner_definition.policy_definition_reference_id.as_str(),
+                        )) {
+                            row.insert(
+                                "pol compliance",
+                                format!(
+                                    "good={}\tbad={}",
+                                    compliance.compliant_count, compliance.noncompliant_count
+                                ),
+                            );
+                        } else {
+                            trace!(
+                                "Failed to find policy compliance for {} inside {}",
+                                &inner_definition.policy_definition_reference_id,
+                                ass.id.expanded_form()
+                            );
+                        }
+                    } else {
+                        trace!(
+                            "Failed to find policy compliance for {}",
+                            ass.id.expanded_form()
+                        );
+                    }
+                    choices.insert(
+                        row.iter()
+                            .map(|(label, value)| format!("({label}) {value}"))
+                            .join("\n"),
+                    );
+                }
+            }
+        }
+    }
+    let (chosen, maybe_error) = PickerTui::<_>::new()
+        .pick_many(choices)
+        .await
+        .into_chosen_and_maybe_error()?;
+    info!("You chose:\n{}", chosen.iter().join("\n=====\n"));
+    maybe_error
+}

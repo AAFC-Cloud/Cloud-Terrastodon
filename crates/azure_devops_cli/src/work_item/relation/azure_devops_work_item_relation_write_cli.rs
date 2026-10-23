@@ -1,0 +1,95 @@
+use crate::work_item::relation::show::AzureDevOpsWorkItemRelationShowArgs;
+use cloud_terrastodon_azure::AzureDevOpsTenantArgumentExt;
+use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemRelationChange;
+use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemRelationChangeRequest;
+use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemRelationInput;
+use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemRelationInputAttributes;
+use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemRelationSelector;
+use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_credentials::AuthContext;
+use eyre::Result;
+use eyre::ensure;
+use std::borrow::Cow;
+
+#[derive(Debug, Clone, facet::Facet)]
+pub struct AzureDevOpsWorkItemRelationWriteArgs {
+    #[facet(flatten)]
+    pub relation: AzureDevOpsWorkItemRelationShowArgs,
+    /// JSON object containing comment and/or isLocked, or @file.
+    #[facet(figue::named)]
+    pub attributes: Option<String>,
+    /// Comment to associate with this link.
+    #[facet(figue::named)]
+    pub comment: Option<String>,
+    /// Ask the server to validate without saving changes.
+    #[facet(figue::named, default)]
+    pub validate_only: bool,
+    /// Do not fire any notifications for this change.
+    #[facet(figue::named, default)]
+    pub suppress_notifications: bool,
+    /// Require this revision before changing the work item.
+    #[facet(figue::named)]
+    pub if_rev: Option<i32>,
+}
+
+impl AzureDevOpsWorkItemRelationWriteArgs {
+    pub(crate) async fn invoke(
+        self,
+        auth: &AuthContext,
+        create: bool,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let mut attributes: AzureDevOpsWorkItemRelationInputAttributes = match self.attributes {
+            Some(input) => {
+                let body = cloud_terrastodon_rest::read_optional_body(Some(input))
+                    .await?
+                    .ok_or_else(|| eyre::eyre!("Missing JSON input"))?;
+                facet_json::from_str(&body)
+                    .map_err(|error| eyre::eyre!("Invalid JSON input: {error}"))?
+            }
+            None => Default::default(),
+        };
+        if let Some(comment) = self.comment {
+            ensure!(
+                attributes.comment.is_none(),
+                "Supply a relation comment only once"
+            );
+            attributes.comment = Some(comment);
+        }
+        let target = self.relation.target.into_relation_url(&self.relation.org);
+        let auth_context = self
+            .relation
+            .tenant
+            .bind_auth_context(auth, cancellation)
+            .await?;
+        let change = if create {
+            AzureDevOpsWorkItemRelationChange::Create(AzureDevOpsWorkItemRelationInput {
+                rel: self.relation.relation_type,
+                url: target,
+                attributes,
+            })
+        } else {
+            AzureDevOpsWorkItemRelationChange::Update {
+                selector: AzureDevOpsWorkItemRelationSelector {
+                    rel: self.relation.relation_type,
+                    target: target.into_work_item()?,
+                },
+                attributes,
+            }
+        };
+        let item = AzureDevOpsWorkItemRelationChangeRequest {
+            cancellation: cancellation.clone(),
+            org_url: Cow::Owned(self.relation.org),
+            project: Some(self.relation.project),
+            auth_context: Cow::Owned(auth_context),
+            id: self.relation.id,
+            change,
+            validate_only: self.validate_only,
+            suppress_notifications: self.suppress_notifications,
+            if_rev: self.if_rev,
+        }
+        .await?;
+        cloud_terrastodon_command::to_writer_pretty(std::io::stdout(), &item)?;
+        Ok(())
+    }
+}

@@ -20,7 +20,7 @@ This workflow captures the repo pattern used for resources like:
 - Typed `Id` and `Name` newtypes with Azure naming validation
 - `Scope` integration when the resource has a first-class ARM resource id
 - A typed request in `crates/azure` for listing or fetching the resource
-- `ct az ... list` and `ct az ... show` CLI plumbing in `crates/entrypoint`
+- `ct az ... list` and `ct az ... show` CLI plumbing in `crates/azure_cli`
 - Matching logic for resource id, name, and useful secondary identifiers like IP or FQDN
 - Tests and repo validation via `./check-all.ps1`
 
@@ -40,7 +40,7 @@ Good reference points:
 - `crates/azure_types/src/azure_public_ip_resource_id.rs`
 - `crates/azure_types/src/azure_public_ip_resource_name.rs`
 - `crates/azure/src/public_ip_list_request.rs`
-- `crates/entrypoint/src/cli/command/azure/public_ip/`
+- `crates/azure_cli/src/public_ip/`
 - `crates/azure_types/src/azure_application_gateway_resource.rs`
 - `crates/azure/src/application_gateway_backend_health_request.rs`
 
@@ -141,18 +141,18 @@ Required changes:
 - Add the new `mod`
 - Re-export it with `pub use`
 
-### 9. Add CLI Module Plumbing In `entrypoint`
-Create a folder under `crates/entrypoint/src/cli/command/azure/` when the resource deserves its own command group.
+### 9. Add CLI Module Plumbing In `azure_cli`
+Create a folder under `crates/azure_cli/src/` when the resource deserves its own command group.
 
 Typical files:
 - `mod.rs`
-- `azure_<resource>.rs`
-- `azure_<resource>_list.rs`
-- `azure_<resource>_show.rs`
+- `azure_<resource>_cli.rs`
+- `azure_<resource>_list_cli.rs`
+- `azure_<resource>_show_cli.rs`
 
 Then wire them into:
-- `crates/entrypoint/src/cli/command/azure/mod.rs`
-- `crates/entrypoint/src/cli/command/azure/azure_command.rs`
+- `crates/azure_cli/src/lib.rs`
+- `crates/azure_cli/src/azure_command_cli.rs`
 
 Alias guidance:
 - Add a short alias only when it is obvious and consistent, like `agw` or `nic`

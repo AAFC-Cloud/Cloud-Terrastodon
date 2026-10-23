@@ -1,9 +1,9 @@
-use crate::cli::scalar_args::HttpMethodCli;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::SubscriptionIdExt;
+use cloud_terrastodon_cli_types::HttpMethodCli;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_rest::RequestHeaders;

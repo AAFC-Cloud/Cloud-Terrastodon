@@ -1,0 +1,20 @@
+[package]
+name = "cloud_terrastodon_cli_types"
+description = "Shared validated command-line inputs for Cloud Terrastodon"
+version = "0.37.0" # CT_VERSION
+readme.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+arbitrary.workspace = true
+cloud_terrastodon_registry.workspace = true
+eyre.workspace = true
+facet.workspace = true
+http.workspace = true
+humantime.workspace = true
+linkme.workspace = true

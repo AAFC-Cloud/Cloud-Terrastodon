@@ -4,6 +4,29 @@ Cloud Terrastodon can supply application startup without supplying your command
 tree. Define your own public CLI, reuse `GlobalArgs`, and call the shared runner.
 Cloud Terrastodon's main executable uses the same runner.
 
+## Command crate boundaries
+
+The main command tree composes `cloud_terrastodon_azure_cli`,
+`cloud_terrastodon_azure_devops_cli`, and `cloud_terrastodon_source_cli` from
+`cloud_terrastodon_entrypoint`. Each CLI crate owns its command schemas, dispatch,
+and presentation and depends on its corresponding SDK crate. SDK and domain
+types crates do not depend on the CLI crates. `cloud_terrastodon_cli_types` holds
+shared validated CLI inputs; `cloud_terrastodon_app` supplies reusable startup
+and output facilities.
+
+These boundaries give Cargo separate compilation units for the command groups.
+An entrypoint-only edit can reuse unchanged CLI crates, while SDK edits still
+rebuild their affected dependents. Build-time improvements depend on the change
+and have not been benchmarked.
+
+Check a command group without checking the full entrypoint:
+
+```powershell
+cargo check --offline -p cloud_terrastodon_azure_cli
+cargo check --offline -p cloud_terrastodon_azure_devops_cli
+cargo check --offline -p cloud_terrastodon_source_cli
+```
+
 ## Start a consumer
 
 The [standalone example](../examples/standalone-cli) is a root workspace member

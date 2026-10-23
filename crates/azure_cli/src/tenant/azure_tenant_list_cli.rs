@@ -1,0 +1,20 @@
+use cloud_terrastodon_azure::list_tracked_tenants;
+use cloud_terrastodon_command::CancellationScope;
+use eyre::Result;
+use std::io::Write;
+
+/// Arguments for listing tracked Azure tenants.
+#[derive(facet::Facet, Debug, Clone)]
+pub struct AzureTenantListArgs {}
+
+impl AzureTenantListArgs {
+    pub async fn invoke(self, _cancellation: &CancellationScope) -> Result<()> {
+        let tenants = list_tracked_tenants().await?;
+
+        let stdout = std::io::stdout();
+        let mut handle = stdout.lock();
+        cloud_terrastodon_command::to_writer_pretty(&mut handle, &tenants)?;
+        handle.write_all(b"\n")?;
+        Ok(())
+    }
+}

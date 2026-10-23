@@ -259,11 +259,11 @@ copying a pattern:
   proxies, flattened properties, and round-trip tests.
 - `crates/azure_types/src/address_prefix.rs`: constrained values with a
   custom `Arbitrary` implementation and a string Facet proxy.
-- `crates/entrypoint/src/cli/command/azure/entra/application_registration/azure_entra_application_registration_show_cli.rs`:
+- `crates/azure_cli/src/entra/application_registration/azure_entra_application_registration_show_cli.rs`:
   arbitrary sample plus explicit identifier-URI mutation.
-- `crates/entrypoint/src/cli/command/azure/entra/service_principal/azure_entra_service_principal_show.rs`:
+- `crates/azure_cli/src/entra/service_principal/azure_entra_service_principal_show_cli.rs`:
   arbitrary sample plus explicit service-principal-name mutation.
-- `crates/entrypoint/src/cli/command/azure/app_service/azure_app_service_show.rs`:
+- `crates/azure_cli/src/app_service/azure_app_service_show_cli.rs`:
   arbitrary sample plus explicit hostname/private-endpoint mutation.
 - `crates/credentials/src/pim_graph_access_token.rs`: Facet-only OAuth
   response structs parsed with `facet_json`.

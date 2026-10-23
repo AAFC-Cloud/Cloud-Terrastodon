@@ -1,0 +1,39 @@
+[package]
+name = "cloud_terrastodon_azure_cli"
+description = "Azure command schemas and presentation for Cloud Terrastodon"
+version = "0.37.0" # CT_VERSION
+readme.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+arbitrary.workspace = true
+chrono.workspace = true
+cloud_terrastodon_app.workspace = true
+cloud_terrastodon_azure.workspace = true
+cloud_terrastodon_azure_devops_cli.workspace = true
+cloud_terrastodon_command.workspace = true
+cloud_terrastodon_config.workspace = true
+cloud_terrastodon_credentials.workspace = true
+cloud_terrastodon_user_input.workspace = true
+color-eyre.workspace = true
+eyre.workspace = true
+facet.workspace = true
+facet-json.workspace = true
+figue.workspace = true
+humantime.workspace = true
+indexmap.workspace = true
+indoc.workspace = true
+itertools.workspace = true
+nucleo.workspace = true
+strum.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

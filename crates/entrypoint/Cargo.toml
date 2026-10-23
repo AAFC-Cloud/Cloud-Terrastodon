@@ -17,13 +17,16 @@ cloud_terrastodon_app = { workspace = true, features = ["auth", "terminal", "arb
 cloud_terrastodon_user_input.workspace = true
 cloud_terrastodon_hcl.workspace = true
 cloud_terrastodon_azure.workspace = true
+cloud_terrastodon_azure_cli.workspace = true
 cloud_terrastodon_azure_devops.workspace = true
+cloud_terrastodon_azure_devops_cli.workspace = true
+cloud_terrastodon_cli_types.workspace = true
 cloud_terrastodon_gitea.workspace = true
 cloud_terrastodon_command.workspace = true
 cloud_terrastodon_credentials.workspace = true
 cloud_terrastodon_rest.workspace = true
 cloud_terrastodon_pathing.workspace = true
-cloud_terrastodon_source.workspace = true
+cloud_terrastodon_source_cli.workspace = true
 cloud_terrastodon_config.workspace = true
 cloud_terrastodon_zombies.workspace = true
 cloud_terrastodon_ui_egui.workspace = true
@@ -64,12 +67,9 @@ http.workspace = true
 reqwest.workspace = true
 liquid.workspace = true
 hickory-resolver.workspace = true
-nucleo.workspace = true
 linkme.workspace = true
 base64.workspace = true
 teamy-cancellation.workspace = true
-ratatui.workspace = true
-crossterm.workspace = true
 arbitrary.workspace = true
 
 [dev-dependencies]

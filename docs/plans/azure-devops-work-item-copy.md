@@ -93,9 +93,9 @@ operation and corrects the journal. There is no automatic rollback.
 - [Query invoke request](../../crates/azure_devops/src/azure_devops_work_item_query_invoke_request.rs)
 - [Query create request](../../crates/azure_devops/src/azure_devops_work_item_query_create_request.rs)
 - [Copy planner and executor](../../crates/azure_devops/src/work_item_copy.rs)
-- [CLI](../../crates/entrypoint/src/cli/command/azure_devops/work_item/azure_devops_work_item_cli.rs)
+- [CLI](../../crates/azure_devops_cli/src/work_item/azure_devops_work_item_cli.rs)
 - [SDK tests](../../crates/azure_devops/src/work_item_tests.rs)
-- [CLI tests](../../crates/entrypoint/src/cli/command/azure_devops/work_item/azure_devops_work_item_cli_tests.rs)
+- [CLI tests](../../crates/azure_devops_cli/src/work_item/azure_devops_work_item_cli_tests.rs)
 
 Offline tests generate identifiers and scope names. They build requests without
 sending writes and execute copies with an in-memory writer and temporary local

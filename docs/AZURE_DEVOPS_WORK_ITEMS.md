@@ -102,7 +102,7 @@ is reconciled. Completed operations are not automatically rolled back.
 
 ```powershell
 cargo test -p cloud_terrastodon_azure_devops work_item_tests --lib --offline
-cargo test -p cloud_terrastodon_entrypoint azure_devops_work_item_cli_tests --lib --offline
+cargo test -p cloud_terrastodon_azure_devops_cli azure_devops_work_item_cli_tests --lib --offline
 ```
 
 These focused tests never mutate service data. An ignored read-only smoke test

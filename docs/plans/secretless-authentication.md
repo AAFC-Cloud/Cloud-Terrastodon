@@ -150,8 +150,8 @@ These facts were verified in the baseline checkout before this implementation pa
 - crates/entrypoint/src/cli/command/rest/rest_cli.rs:37-113 infers Graph, ARM, and Azure DevOps services and delegates to RestRequest.
 - crates/command/src/command.rs:418-504 retries some failures by invoking az account list and az login. That behavior must be gated by authentication source and disabled for headless WIF.
 - Inventory found 40 Rust files and 58 CommandKind::AzureCLI references. Excluding tests/examples leaves 37 files and 46 references; 13 are in crates/azure/src and 18 in crates/azure_devops/src. These are syntactic references, not unique public commands.
-- crates/entrypoint/src/noninteractive/audit_azure.rs calls typed ARM/Graph request helpers and contains no direct CLI-backed domain request; its remaining CLI dependency is centralized token acquisition.
-- crates/entrypoint/src/noninteractive/audit_azure_devops.rs uses five direct CLI-backed request families: user license entitlements, projects, test plans, test suites, and project groups. Its member-group request already uses RestRequest but currently inherits the PAT authentication path.
+- crates/azure_cli/src/audit_azure.rs calls typed ARM/Graph request helpers and contains no direct CLI-backed domain request; its remaining CLI dependency is centralized token acquisition.
+- crates/azure_devops_cli/src/audit_azure_devops.rs uses five direct CLI-backed request families: user license entitlements, projects, test plans, test suites, and project groups. Its member-group request already uses RestRequest but currently inherits the PAT authentication path.
 - check-all.ps1 is the repository validation script. It runs cargo check --all --tests --examples --workspace, nightly cargo fmt --all, and cargo clippy --all-targets --all-features -- -D warnings; its test section is currently commented out.
 
 Implementation evidence from this pass:
@@ -202,8 +202,8 @@ Implementation evidence from this pass:
 - crates/entrypoint/src/cli/global_args.rs and crates/entrypoint/src/entrypoint.rs — global CLI options and initialization boundary.
 - docs/authentication.md — implemented source-selection, WIF environment, pipeline identity, and PIM support policy.
 - crates/command/src/command.rs and crates/command/src/command_kind.rs — command execution, CLI retry/login behavior, and configured executables.
-- crates/entrypoint/src/noninteractive/audit_azure.rs — ARM/Graph audit target.
-- crates/entrypoint/src/noninteractive/audit_azure_devops.rs — Azure DevOps audit target.
+- crates/azure_cli/src/audit_azure.rs — ARM/Graph audit target.
+- crates/azure_devops_cli/src/audit_azure_devops.rs — Azure DevOps audit target.
 - crates/azure_devops/src/azure_devops_rest.rs — shared encoded Azure DevOps REST URL construction, pagination-header parsing, per-page cache keys, and offline response fixture boundary.
 - crates/azure_devops/src/azure_devops_user_license_entitlements.rs — typed REST entitlement request.
 - crates/azure_devops/src/azure_devops_projects.rs — typed REST project request.
@@ -270,8 +270,8 @@ Implementation evidence from this pass:
 
 **Validation:**
 
-    sed -n '1,240p' crates/entrypoint/src/noninteractive/audit_azure.rs
-    sed -n '1,260p' crates/entrypoint/src/noninteractive/audit_azure_devops.rs
+    sed -n '1,240p' crates/azure_cli/src/audit_azure.rs
+    sed -n '1,260p' crates/azure_devops_cli/src/audit_azure_devops.rs
 
 **Completion criteria:** Audit surfaces, PIM exclusion, no-issue direction, and no-commit constraint are recorded in the ledger, scope, and acceptance criteria.
 
@@ -571,7 +571,7 @@ follow-on work belongs in the first milestone.
 | Status | Remaining production uses | Boundary |
 | --- | --- | --- |
 | Shared compatibility plumbing | `crates/credentials/src/azure_access_token.rs`; `crates/command/src/command.rs`; `crates/command/src/command_kind.rs` | Explicit Azure CLI token acquisition, executable configuration, debug argument handling, and local interactive reauthentication. WIF paths do not use this provider. |
-| Explicit local/interactive compatibility | `crates/azure/src/auth.rs`; `crates/azure/src/accounts.rs`; `crates/azure/src/subscriptions.rs`; `crates/azure_devops/src/default_organization.rs`; `crates/azure_devops/src/azure_devops_configure.rs`; `crates/entrypoint/src/cli/command/azure/tenant/azure_tenant_login.rs`; `crates/entrypoint/src/interactive/copy_azurerm_backend_menu.rs` | User login, account/subscription discovery, CLI configuration, tenant login, and interactive backend convenience. Not pipeline-safe without an explicit local CLI source. |
+| Explicit local/interactive compatibility | `crates/azure/src/auth.rs`; `crates/azure/src/accounts.rs`; `crates/azure/src/subscriptions.rs`; `crates/azure_devops/src/default_organization.rs`; `crates/azure_devops/src/azure_devops_configure.rs`; `crates/azure_cli/src/tenant/azure_tenant_login_cli.rs`; `crates/entrypoint/src/interactive/copy_azurerm_backend_menu.rs` | User login, account/subscription discovery, CLI configuration, tenant login, and interactive backend convenience. Not pipeline-safe without an explicit local CLI source. |
 | REST migration candidates, follow-on | `crates/azure/src/compute_sku_prices.rs`; `crates/azure/src/container_registry.rs`; `crates/azure/src/create_role_assignment.rs`; `crates/azure/src/entra_group_member_add.rs`; `crates/azure/src/entra_group_member_remove.rs`; `crates/azure/src/key_vault_secrets.rs`; `crates/azure/src/key_vaults.rs`; `crates/azure/src/remediate_policy_assignment.rs`; `crates/azure/src/storage_account_blob_container_names.rs`; `crates/azure/src/storage_account_name_availability.rs`; `crates/azure_devops/src/azure_devops_agent_packages.rs`; `crates/azure_devops/src/azure_devops_agent_pool_entitlements_for_project.rs`; `crates/azure_devops/src/azure_devops_agent_pools.rs`; `crates/azure_devops/src/azure_devops_group_license_entitlements.rs`; `crates/azure_devops/src/azure_devops_group_member.rs`; `crates/azure_devops/src/azure_devops_repos.rs`; `crates/azure_devops/src/azure_devops_service_endpoint.rs`; `crates/azure_devops/src/azure_devops_team.rs`; `crates/azure_devops/src/azure_devops_team_member.rs`; `crates/azure_devops/src/azure_devops_user_license_entitlement_update.rs`; `crates/azure_devops/src/azure_devops_work_item_queries.rs` | API-backed resource, membership, mutation, dump, and discovery operations. They remain outside the audit slice until typed REST routes and response fixtures are added. |
 | Development-only tooling | `crates/azure_resource_types/src/resource_types_generator.rs` | Build-time resource metadata generation; not a runtime pipeline command. |
 

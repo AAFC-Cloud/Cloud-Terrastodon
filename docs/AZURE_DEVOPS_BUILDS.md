@@ -194,8 +194,8 @@ inventories before using them.
 
 Production types have their own files, except each CLI group's paired argument
 struct and command enum share its `_cli.rs` file. CLI argument schemas, command
-enums, and explicit scope selection stay in `entrypoint`. Each listing command
-declares its required organization/project and optional tenant flags directly.
+enums, and explicit scope selection stay in `azure_devops_cli`. Each listing
+command declares its required organization/project and optional tenant flags directly.
 Organization shorthand is normalized by `AzureDevOpsOrganizationUrl` without
 configured defaults. Project selectors contain an explicit ID or name. Each SDK
 request constructs its URL and

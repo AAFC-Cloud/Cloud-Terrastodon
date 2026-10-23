@@ -1,0 +1,30 @@
+use cloud_terrastodon_azure::AzureTenantArgument;
+use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_azure::forget_tracked_tenant;
+use cloud_terrastodon_command::CancellationScope;
+use eyre::Result;
+use eyre::bail;
+use std::io::Write;
+
+/// Arguments for forgetting a tracked Azure tenant.
+#[derive(facet::Facet, Debug, Clone)]
+pub struct AzureTenantForgetArgs {
+    /// Tenant id (GUID) or alias to forget.
+    #[facet(figue::positional)]
+    pub tenant: AzureTenantArgument<'static>,
+}
+
+impl AzureTenantForgetArgs {
+    pub async fn invoke(self, cancellation: &CancellationScope) -> Result<()> {
+        let tenant_id = self.tenant.resolve(cancellation).await?;
+        let Some(tenant_id) = forget_tracked_tenant(tenant_id).await? else {
+            bail!("Tracked tenant '{}' was not found.", tenant_id);
+        };
+
+        let stdout = std::io::stdout();
+        let mut handle = stdout.lock();
+        cloud_terrastodon_command::to_writer_pretty(&mut handle, &tenant_id)?;
+        handle.write_all(b"\n")?;
+        Ok(())
+    }
+}
