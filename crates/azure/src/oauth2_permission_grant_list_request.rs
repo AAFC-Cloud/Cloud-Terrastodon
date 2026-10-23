@@ -47,4 +47,4 @@ cloud_terrastodon_command::impl_cacheable_into_future!(OAuth2PermissionGrantList
 
 cloud_terrastodon_registry::register_thing!(OAuth2PermissionGrantListRequest);
 cloud_terrastodon_registry::register_arbitrary!(OAuth2PermissionGrantListRequest);
-cloud_terrastodon_registry::register_into_future!(OAuth2PermissionGrantListRequest => Vec<OAuth2PermissionGrant>);
+cloud_terrastodon_registry::register_into_future!(OAuth2PermissionGrantListRequest => Vec<OAuth2PermissionGrant>, effects = [Read]);

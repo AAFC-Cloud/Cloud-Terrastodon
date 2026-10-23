@@ -87,4 +87,4 @@ impl CacheableCommand for ServicePrincipalRequest<'_> {
 cloud_terrastodon_command::impl_cacheable_into_future!(ServicePrincipalRequest<'a>, 'a);
 cloud_terrastodon_registry::register_thing!(ServicePrincipalRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(ServicePrincipalRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(ServicePrincipalRequest<'static> => EntraServicePrincipal);
+cloud_terrastodon_registry::register_into_future!(ServicePrincipalRequest<'static> => EntraServicePrincipal, effects = [Read]);

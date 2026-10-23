@@ -101,4 +101,4 @@ mod test {
 
 cloud_terrastodon_registry::register_thing!(ComputePublishersListRequest);
 cloud_terrastodon_registry::register_arbitrary!(ComputePublishersListRequest);
-cloud_terrastodon_registry::register_into_future!(ComputePublishersListRequest => Vec<ComputePublisherId>);
+cloud_terrastodon_registry::register_into_future!(ComputePublishersListRequest => Vec<ComputePublisherId>, effects = [Read]);

@@ -88,4 +88,4 @@ impl CacheableCommand for ApplicationRegistrationGetRequest<'_> {
 cloud_terrastodon_command::impl_cacheable_into_future!(ApplicationRegistrationGetRequest<'a>, 'a);
 cloud_terrastodon_registry::register_thing!(ApplicationRegistrationGetRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(ApplicationRegistrationGetRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(ApplicationRegistrationGetRequest<'static> => EntraApplicationRegistration);
+cloud_terrastodon_registry::register_into_future!(ApplicationRegistrationGetRequest<'static> => EntraApplicationRegistration, effects = [Read]);

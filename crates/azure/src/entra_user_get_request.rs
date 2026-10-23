@@ -162,7 +162,7 @@ impl CacheableCommand for EntraUserGetRequest<'_> {
 cloud_terrastodon_command::impl_cacheable_into_future!(EntraUserGetRequest<'a>, 'a);
 cloud_terrastodon_registry::register_thing!(EntraUserGetRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(EntraUserGetRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(EntraUserGetRequest<'static> => EntraUser);
+cloud_terrastodon_registry::register_into_future!(EntraUserGetRequest<'static> => EntraUser, effects = [Read]);
 
 #[cfg(test)]
 mod tests {

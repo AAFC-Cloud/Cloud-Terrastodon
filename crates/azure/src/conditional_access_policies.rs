@@ -200,4 +200,4 @@ mod test {
 
 cloud_terrastodon_registry::register_thing!(ConditionalAccessPolicyListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(ConditionalAccessPolicyListRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(ConditionalAccessPolicyListRequest<'static> => Vec<ConditionalAccessPolicy>);
+cloud_terrastodon_registry::register_into_future!(ConditionalAccessPolicyListRequest<'static> => Vec<ConditionalAccessPolicy>, effects = [Read]);

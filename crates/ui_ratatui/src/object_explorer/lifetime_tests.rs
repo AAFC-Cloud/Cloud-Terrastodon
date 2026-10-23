@@ -14,8 +14,10 @@ use crate::object_explorer::invocation_mode::InvocationMode;
 use crate::object_explorer::slot_id::SlotId;
 use crate::object_explorer::value_address::ValueAddress;
 use crate::object_explorer::value_builder::BuilderTransition;
+use cloud_terrastodon_registry::Effect;
 use cloud_terrastodon_registry::Function;
 use cloud_terrastodon_registry::FunctionKind;
+use cloud_terrastodon_registry::FunctionTraitContract;
 use cloud_terrastodon_registry::InvocationFuture;
 use cloud_terrastodon_registry::RegistrationSite;
 use cloud_terrastodon_registry::Thing;
@@ -190,8 +192,8 @@ static HOLD_REQUEST: Function = Function::async_value(
     BorrowRecord::SHAPE,
     FunctionKind::AsyncInvoke,
     "hold",
-    "lifetime regression",
-    &[],
+    FunctionTraitContract::Other("lifetime regression"),
+    &[Effect::Read],
     hold_request,
     runtime_from_boxed::<BorrowRecord>,
     RegistrationSite::new(file!(), line!()),
@@ -202,8 +204,8 @@ static RETURN_REQUEST: Function = Function::async_value(
     BorrowRecord::SHAPE,
     FunctionKind::AsyncInvoke,
     "return",
-    "lifetime regression",
-    &[],
+    FunctionTraitContract::Other("lifetime regression"),
+    &[Effect::Read],
     return_request,
     runtime_from_boxed::<BorrowRecord>,
     RegistrationSite::new(file!(), line!()),

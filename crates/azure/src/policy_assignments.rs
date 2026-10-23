@@ -98,4 +98,4 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(PolicyAssignmentListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(PolicyAssignmentListRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(PolicyAssignmentListRequest<'static> => Vec<PolicyAssignment>);
+cloud_terrastodon_registry::register_into_future!(PolicyAssignmentListRequest<'static> => Vec<PolicyAssignment>, effects = [Read]);

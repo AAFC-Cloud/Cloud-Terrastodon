@@ -116,4 +116,4 @@ mod test {
 
 cloud_terrastodon_registry::register_thing!(KeyVaultListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(KeyVaultListRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(KeyVaultListRequest<'static> => Vec<KeyVault>);
+cloud_terrastodon_registry::register_into_future!(KeyVaultListRequest<'static> => Vec<KeyVault>, effects = [Read]);

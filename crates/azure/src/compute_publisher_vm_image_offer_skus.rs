@@ -119,4 +119,4 @@ mod test {
 
 cloud_terrastodon_registry::register_thing!(ComputePublisherImageOfferSkuListRequest);
 cloud_terrastodon_registry::register_arbitrary!(ComputePublisherImageOfferSkuListRequest);
-cloud_terrastodon_registry::register_into_future!(ComputePublisherImageOfferSkuListRequest => Vec<ComputePublisherVmImageOfferSkuId>);
+cloud_terrastodon_registry::register_into_future!(ComputePublisherImageOfferSkuListRequest => Vec<ComputePublisherVmImageOfferSkuId>, effects = [Read]);

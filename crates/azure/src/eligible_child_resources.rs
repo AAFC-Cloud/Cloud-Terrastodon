@@ -313,4 +313,4 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(EligibleChildResourceListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(EligibleChildResourceListRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(EligibleChildResourceListRequest<'static> => Vec<EligibleChildResource>);
+cloud_terrastodon_registry::register_into_future!(EligibleChildResourceListRequest<'static> => Vec<EligibleChildResource>, effects = [Read]);

@@ -131,4 +131,4 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(RoleDefinitionListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(RoleDefinitionListRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(RoleDefinitionListRequest<'static> => Vec<RoleDefinition>);
+cloud_terrastodon_registry::register_into_future!(RoleDefinitionListRequest<'static> => Vec<RoleDefinition>, effects = [Read]);

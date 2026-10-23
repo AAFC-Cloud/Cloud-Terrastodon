@@ -201,4 +201,4 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(SubscriptionListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(SubscriptionListRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(SubscriptionListRequest<'static> => Vec<Subscription>);
+cloud_terrastodon_registry::register_into_future!(SubscriptionListRequest<'static> => Vec<Subscription>, effects = [Read]);

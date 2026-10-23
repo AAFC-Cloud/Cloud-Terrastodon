@@ -71,4 +71,4 @@ cloud_terrastodon_command::impl_cacheable_into_future!(EntraGroupMemberAddReques
 
 cloud_terrastodon_registry::register_thing!(EntraGroupMemberAddRequest);
 cloud_terrastodon_registry::register_arbitrary!(EntraGroupMemberAddRequest);
-cloud_terrastodon_registry::register_into_future!(EntraGroupMemberAddRequest => ());
+cloud_terrastodon_registry::register_into_future!(EntraGroupMemberAddRequest => (), effects = [Write]);

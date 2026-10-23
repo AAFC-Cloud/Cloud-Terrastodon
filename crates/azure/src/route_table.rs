@@ -112,4 +112,4 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(RouteTableListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(RouteTableListRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(RouteTableListRequest<'static> => Vec<RouteTable>);
+cloud_terrastodon_registry::register_into_future!(RouteTableListRequest<'static> => Vec<RouteTable>, effects = [Read]);

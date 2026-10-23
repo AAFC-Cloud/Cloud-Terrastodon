@@ -165,4 +165,4 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(ResourceGroupListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(ResourceGroupListRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(ResourceGroupListRequest<'static> => Vec<ResourceGroup>);
+cloud_terrastodon_registry::register_into_future!(ResourceGroupListRequest<'static> => Vec<ResourceGroup>, effects = [Read]);

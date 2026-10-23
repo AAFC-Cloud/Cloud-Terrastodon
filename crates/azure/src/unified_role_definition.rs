@@ -159,4 +159,4 @@ mod test {
 
 cloud_terrastodon_registry::register_thing!(UnifiedRoleDefinitionRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(UnifiedRoleDefinitionRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(UnifiedRoleDefinitionRequest<'static> => UnifiedRoleDefinition);
+cloud_terrastodon_registry::register_into_future!(UnifiedRoleDefinitionRequest<'static> => UnifiedRoleDefinition, effects = [Read]);

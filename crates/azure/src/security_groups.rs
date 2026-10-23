@@ -93,4 +93,4 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(SecurityGroupListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(SecurityGroupListRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(SecurityGroupListRequest<'static> => Vec<EntraGroup>);
+cloud_terrastodon_registry::register_into_future!(SecurityGroupListRequest<'static> => Vec<EntraGroup>, effects = [Read]);

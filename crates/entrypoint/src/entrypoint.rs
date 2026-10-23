@@ -37,8 +37,11 @@ pub fn entrypoint(
         .automatic_cancellation(false)
         .implementation_github("AAFC-Cloud/Cloud-Terrastodon", implementation_revision);
     let mut cli: Cli = app.parse_from(std::env::args_os().skip(1)).unwrap();
-    if matches!(cli.command.as_ref(), Some(CloudTerrastodonCommand::Source(_))) {
-        // Local repository inventory does not need cloud credential discovery.
+    if matches!(
+        cli.command.as_ref(),
+        Some(CloudTerrastodonCommand::Source(_) | CloudTerrastodonCommand::Registry(_))
+    ) {
+        // Local source and registry inventories do not need cloud credential discovery.
         cli.global_args.auth_source = AuthSource::None;
     }
     let enable_egui = matches!(cli.command.as_ref(), Some(CloudTerrastodonCommand::Egui(_)));
@@ -199,7 +202,7 @@ mod tests {
     #[test]
     fn entra_user_pick_request_is_registered_with_typed_many_output() {
         let registrations = known_functions()
-            .into_iter()
+            .iter()
             .filter(|function| {
                 function.input_shape.is_shape(EntraUserPickRequest::SHAPE)
                     && function.output_shape.is_shape(Vec::<EntraUser>::SHAPE)
@@ -216,13 +219,35 @@ mod tests {
     }
 
     #[test]
+    fn async_requests_declare_effects() {
+        let mut missing = known_functions()
+            .iter()
+            .filter(|function| function.kind == FunctionKind::AsyncInvoke)
+            .filter(|function| function.effects.is_empty())
+            .map(|function| {
+                format!(
+                    "{} at {}",
+                    function_signature(function),
+                    function.registration_site,
+                )
+            })
+            .collect::<Vec<_>>();
+        missing.sort();
+        assert!(
+            missing.is_empty(),
+            "async requests must explicitly declare at least one effect:\n{}",
+            missing.join("\n"),
+        );
+    }
+
+    #[test]
     fn async_request_outputs_have_fake_response_generators() {
         let mut missing = known_functions()
-            .into_iter()
+            .iter()
             .filter(|function| function.kind == FunctionKind::AsyncInvoke)
             .filter(|function| {
                 !known_functions()
-                    .into_iter()
+                    .iter()
                     .filter(|candidate| candidate.kind == FunctionKind::Constructor)
                     .any(|candidate| {
                         describe_shape(candidate.input_shape) == describe_shape(ArbitraryBytes::SHAPE)
@@ -311,7 +336,7 @@ mod tests {
             describe_shape(function.output_shape),
             function.receiver_mode,
             function.kind,
-            function.origin,
+            function.trait_contract,
         )
     }
 

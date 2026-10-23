@@ -410,7 +410,7 @@ mod tests {
 
     cloud_terrastodon_registry::register_thing!(ProducerRequest);
     cloud_terrastodon_registry::register_thing!(ProducedValue);
-    cloud_terrastodon_registry::register_into_future!(ProducerRequest => ProducedValue);
+    cloud_terrastodon_registry::register_into_future!(ProducerRequest => ProducedValue, effects = [Read]);
     cloud_terrastodon_registry::register_arbitrary!(ProducerRequest);
 
     fn producer() -> &'static Function {

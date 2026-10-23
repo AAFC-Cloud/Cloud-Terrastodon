@@ -117,7 +117,7 @@ fn escape_odata_string(value: &str) -> String {
 cloud_terrastodon_command::impl_cacheable_into_future!(EntraUserSearchRequest<'a>, 'a);
 cloud_terrastodon_registry::register_thing!(EntraUserSearchRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(EntraUserSearchRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(EntraUserSearchRequest<'static> => Vec<EntraUser>);
+cloud_terrastodon_registry::register_into_future!(EntraUserSearchRequest<'static> => Vec<EntraUser>, effects = [Read]);
 
 #[cfg(test)]
 mod tests {

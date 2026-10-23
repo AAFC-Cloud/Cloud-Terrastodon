@@ -129,5 +129,5 @@ cloud_terrastodon_registry::register_thing!(AzureDevOpsWorkItemRelationChangeReq
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsWorkItemRelationChangeRequest<'static>);
 cloud_terrastodon_registry::register_into_future!(
     AzureDevOpsWorkItemRelationChangeRequest<'static> => ArbitraryJson,
-    effects = [Write]
+    effects = [Read, Write]
 );

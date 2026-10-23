@@ -20,16 +20,19 @@ impl RootActionSnapshot {
     pub(crate) fn id(self) -> String {
         match self {
             Self::Invoke { function, mode } => {
-                format!("invoke:{mode:?}:{}:{}", function.origin, function.label)
+                format!(
+                    "invoke:{mode:?}:{}:{}",
+                    function.trait_contract, function.label
+                )
             }
             Self::InvokeArbitrary {
                 request_function,
                 constructor,
             } => format!(
                 "invoke-arbitrary:{}:{}:{}:{}",
-                request_function.origin,
+                request_function.trait_contract,
                 request_function.label,
-                constructor.origin,
+                constructor.trait_contract,
                 constructor.label
             ),
         }

@@ -792,7 +792,9 @@ mod tests {
     use crate::object_explorer::tokio_invocation_host::TokioInvocationHost;
     use crate::object_explorer::value_address::ValueAddress;
     use crate::object_explorer::value_builder::ValueBuilder;
+    use cloud_terrastodon_registry::Effect;
     use cloud_terrastodon_registry::FunctionKind;
+    use cloud_terrastodon_registry::FunctionTraitContract;
     use cloud_terrastodon_registry::InvocationFuture;
     use cloud_terrastodon_registry::RegistrationSite;
     use cloud_terrastodon_registry::RuntimeValue;
@@ -861,8 +863,8 @@ mod tests {
         String::SHAPE,
         FunctionKind::AsyncInvoke,
         "invoke",
-        "test",
-        &[],
+        FunctionTraitContract::Other("test"),
+        &[Effect::Read],
         invoke_test_request,
         runtime_from_boxed::<String>,
         RegistrationSite::new(file!(), line!()),
@@ -880,8 +882,8 @@ mod tests {
         String::SHAPE,
         FunctionKind::AsyncInvoke,
         "invoke",
-        "test",
-        &[],
+        FunctionTraitContract::Other("test"),
+        &[Effect::Read],
         invoke_borrow_request,
         runtime_from_boxed::<String>,
         RegistrationSite::new(file!(), line!()),
@@ -892,8 +894,8 @@ mod tests {
         String::SHAPE,
         FunctionKind::AsyncInvoke,
         "invoke",
-        "held borrow",
-        &[],
+        FunctionTraitContract::Other("held borrow"),
+        &[Effect::Read],
         hold_borrow_request,
         runtime_from_boxed::<String>,
         RegistrationSite::new(file!(), line!()),
@@ -1365,7 +1367,7 @@ mod tests {
         <Cow<'static, BorrowSource>>::SHAPE,
         FunctionKind::Conversion,
         "return source",
-        "test",
+        FunctionTraitContract::Other("test"),
         &[],
         return_borrowed_source,
         runtime_from_boxed::<Cow<'static, BorrowSource>>,
@@ -1377,8 +1379,8 @@ mod tests {
         <Cow<'static, BorrowSource>>::SHAPE,
         FunctionKind::AsyncInvoke,
         "return source asynchronously",
-        "test",
-        &[],
+        FunctionTraitContract::Other("test"),
+        &[Effect::Read],
         return_borrowed_source_async,
         runtime_from_boxed::<Cow<'static, BorrowSource>>,
         RegistrationSite::new(file!(), line!()),
@@ -1570,7 +1572,7 @@ mod tests {
         GuardRequest::SHAPE,
         FunctionKind::Conversion,
         "panic with borrowed input",
-        "test",
+        FunctionTraitContract::Other("test"),
         &[],
         guarded_panic,
         runtime_from_boxed::<GuardRequest>,
@@ -1581,7 +1583,7 @@ mod tests {
         GuardRequest::SHAPE,
         FunctionKind::Conversion,
         "error retaining borrowed input",
-        "test",
+        FunctionTraitContract::Other("test"),
         &[],
         guarded_error,
         runtime_from_boxed::<GuardRequest>,
@@ -1592,7 +1594,7 @@ mod tests {
         GuardRequest::SHAPE,
         FunctionKind::Conversion,
         "converter panic with borrowed output",
-        "test",
+        FunctionTraitContract::Other("test"),
         &[],
         guarded_return,
         guarded_converter_panic,
@@ -1603,7 +1605,7 @@ mod tests {
         GuardRequest::SHAPE,
         FunctionKind::Conversion,
         "converter error retaining borrowed output",
-        "test",
+        FunctionTraitContract::Other("test"),
         &[],
         guarded_return,
         guarded_converter_error,
@@ -1615,8 +1617,8 @@ mod tests {
         GuardRequest::SHAPE,
         FunctionKind::AsyncInvoke,
         "async converter panic",
-        "test",
-        &[],
+        FunctionTraitContract::Other("test"),
+        &[Effect::Read],
         guarded_return_async,
         guarded_converter_panic,
         RegistrationSite::new(file!(), line!()),
@@ -1626,8 +1628,8 @@ mod tests {
         GuardRequest::SHAPE,
         FunctionKind::AsyncInvoke,
         "async converter error",
-        "test",
-        &[],
+        FunctionTraitContract::Other("test"),
+        &[Effect::Read],
         guarded_return_async,
         guarded_converter_error,
         RegistrationSite::new(file!(), line!()),
@@ -1637,7 +1639,7 @@ mod tests {
         GuardRequest::SHAPE,
         FunctionKind::Conversion,
         "ByRef error",
-        "test",
+        FunctionTraitContract::Other("test"),
         &[],
         guarded_ref_error,
         runtime_from_boxed::<GuardRequest>,
@@ -1648,7 +1650,7 @@ mod tests {
         GuardRequest::SHAPE,
         FunctionKind::Conversion,
         "ByMut error",
-        "test",
+        FunctionTraitContract::Other("test"),
         &[],
         guarded_mut_error,
         runtime_from_boxed::<GuardRequest>,
@@ -1659,7 +1661,7 @@ mod tests {
         GuardRequest::SHAPE,
         FunctionKind::Conversion,
         "ByMut conversion error discards successful output",
-        "test",
+        FunctionTraitContract::Other("test"),
         &[],
         guarded_mut_return,
         runtime_from_boxed::<GuardRequest>,
@@ -1669,7 +1671,8 @@ mod tests {
     #[tokio::test]
     async fn sync_panics_and_conversion_errors_dispose_borrowed_payloads_before_releasing_leases() {
         use std::sync::Arc;
-        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::atomic::AtomicUsize;
+        use std::sync::atomic::Ordering;
 
         for (thing, function, mode, expected_drops) in [
             (&GUARD_THING, &GUARD_SYNC_PANIC, InvocationMode::Consume, 1),

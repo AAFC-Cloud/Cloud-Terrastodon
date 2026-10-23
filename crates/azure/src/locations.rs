@@ -94,4 +94,4 @@ mod test {
 
 cloud_terrastodon_registry::register_thing!(LocationListRequest);
 cloud_terrastodon_registry::register_arbitrary!(LocationListRequest);
-cloud_terrastodon_registry::register_into_future!(LocationListRequest => Vec<AzureLocation>);
+cloud_terrastodon_registry::register_into_future!(LocationListRequest => Vec<AzureLocation>, effects = [Read]);

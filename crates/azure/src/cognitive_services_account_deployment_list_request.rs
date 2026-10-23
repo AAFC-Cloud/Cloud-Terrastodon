@@ -138,4 +138,4 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(CognitiveServicesAccountDeploymentListRequest);
 cloud_terrastodon_registry::register_arbitrary!(CognitiveServicesAccountDeploymentListRequest);
-cloud_terrastodon_registry::register_into_future!(CognitiveServicesAccountDeploymentListRequest => Vec<AzureCognitiveServicesAccountDeployment>);
+cloud_terrastodon_registry::register_into_future!(CognitiveServicesAccountDeploymentListRequest => Vec<AzureCognitiveServicesAccountDeployment>, effects = [Read]);

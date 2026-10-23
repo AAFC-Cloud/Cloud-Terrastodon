@@ -81,4 +81,4 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(MyEntraRoleEligibilityScheduleListRequest);
 cloud_terrastodon_registry::register_arbitrary!(MyEntraRoleEligibilityScheduleListRequest);
-cloud_terrastodon_registry::register_into_future!(MyEntraRoleEligibilityScheduleListRequest => Vec<RoleEligibilitySchedule>);
+cloud_terrastodon_registry::register_into_future!(MyEntraRoleEligibilityScheduleListRequest => Vec<RoleEligibilitySchedule>, effects = [Read]);

@@ -89,4 +89,4 @@ cloud_terrastodon_command::impl_cacheable_into_future!(OAuth2PermissionGrantRemo
 
 cloud_terrastodon_registry::register_thing!(OAuth2PermissionGrantRemoveRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(OAuth2PermissionGrantRemoveRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(OAuth2PermissionGrantRemoveRequest<'static> => ());
+cloud_terrastodon_registry::register_into_future!(OAuth2PermissionGrantRemoveRequest<'static> => (), effects = [Write]);

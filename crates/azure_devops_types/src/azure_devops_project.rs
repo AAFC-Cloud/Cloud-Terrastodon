@@ -1,3 +1,4 @@
+use crate::AzureDevOpsProjectArgument;
 use crate::AzureDevOpsProjectId;
 use crate::AzureDevOpsProjectName;
 use arbitrary::Arbitrary;
@@ -60,3 +61,7 @@ cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsProjectVisibility);
 cloud_terrastodon_registry::register_thing!(AzureDevOpsProject);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsProject);
 cloud_terrastodon_registry::register_arbitrary!(Vec<AzureDevOpsProject>);
+cloud_terrastodon_registry::register_from!(
+    AzureDevOpsProject => AzureDevOpsProjectArgument<'static>,
+    associated = REGISTERED_INTO_PROJECT_ARGUMENT
+);

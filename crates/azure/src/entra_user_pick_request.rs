@@ -172,4 +172,4 @@ fn user_choice(user: EntraUser) -> Choice<EntraUser> {
 
 cloud_terrastodon_registry::register_thing!(EntraUserPickRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(EntraUserPickRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(EntraUserPickRequest<'static> => Vec<EntraUser>);
+cloud_terrastodon_registry::register_into_future!(EntraUserPickRequest<'static> => Vec<EntraUser>, effects = [Read, Solicit]);

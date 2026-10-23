@@ -183,7 +183,10 @@ impl<'a> Arbitrary<'a> for AzureDevOpsLicenseEntitlementUpdateResponse {
     }
 }
 
-cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsLicenseEntitlementUpdateResponse);
+cloud_terrastodon_registry::register_arbitrary!(
+    AzureDevOpsLicenseEntitlementUpdateResponse,
+    associated = REGISTERED_ARBITRARY
+);
 
 #[cfg(test)]
 mod tests {
@@ -191,35 +194,12 @@ mod tests {
     use chrono::DateTime;
     use cloud_terrastodon_azure_devops_types::LastAccessedDate;
     use cloud_terrastodon_registry::ArbitraryBytes;
-    use cloud_terrastodon_registry::Function;
-    use cloud_terrastodon_registry::FunctionKind;
-    use cloud_terrastodon_registry::ProductionKind;
-    use cloud_terrastodon_registry::functions_from;
-    use facet::Facet;
     use facet_json::RawJson;
     use std::collections::BTreeMap;
 
-    fn registered_constructor() -> &'static Function {
-        functions_from(ArbitraryBytes::SHAPE)
-            .into_iter()
-            .find(|function| {
-                function.kind == FunctionKind::Constructor
-                    && function.production_kind(AzureDevOpsLicenseEntitlementUpdateResponse::SHAPE)
-                        == Some(ProductionKind::Exact)
-            })
-            .expect("license entitlement update response needs an exact arbitrary constructor")
-    }
-
-    #[test]
-    fn license_entitlement_update_has_an_arbitrary_response_constructor() {
-        let constructor = registered_constructor();
-        assert!(constructor.effects.is_empty());
-        assert_eq!(constructor.origin, "Arbitrary");
-    }
-
     #[test]
     fn registered_response_constructor_generates_round_trippable_json() -> eyre::Result<()> {
-        let constructor = registered_constructor();
+        let constructor = AzureDevOpsLicenseEntitlementUpdateResponse::REGISTERED_ARBITRARY;
         let mut saw_empty = [false; 3];
         let mut saw_populated = [false; 3];
         let mut saw_never_accessed = false;

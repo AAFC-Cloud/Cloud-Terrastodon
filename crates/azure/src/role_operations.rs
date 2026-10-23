@@ -125,4 +125,4 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(RoleOperationListRequest);
 cloud_terrastodon_registry::register_arbitrary!(RoleOperationListRequest);
-cloud_terrastodon_registry::register_into_future!(RoleOperationListRequest => Vec<AzureProviderOperationsMetadata>);
+cloud_terrastodon_registry::register_into_future!(RoleOperationListRequest => Vec<AzureProviderOperationsMetadata>, effects = [Read]);

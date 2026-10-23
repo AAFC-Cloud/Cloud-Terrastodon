@@ -1498,8 +1498,10 @@ mod tests {
     use crate::object_explorer::value_candidate_window::ValueCandidateWindowBudget;
     use crate::object_explorer::value_path::ValuePathSegment;
     use cloud_terrastodon_command::CancellationToken;
+    use cloud_terrastodon_registry::Effect;
     use cloud_terrastodon_registry::Function;
     use cloud_terrastodon_registry::FunctionKind;
+    use cloud_terrastodon_registry::FunctionTraitContract;
     use cloud_terrastodon_registry::InvocationFuture;
     use cloud_terrastodon_registry::ProductionKind;
     use cloud_terrastodon_registry::RegistrationSite;
@@ -1608,7 +1610,8 @@ mod tests {
     cloud_terrastodon_registry::register_thing!(EngineDefaultProducerRequest);
     cloud_terrastodon_registry::register_thing!(EngineProducedValue);
     cloud_terrastodon_registry::register_into_future!(
-        EngineDefaultProducerRequest => EngineProducedValue
+        EngineDefaultProducerRequest => EngineProducedValue,
+        effects = [Read]
     );
 
     fn invoke_engine_request(input: Box<dyn Any + Send>) -> InvocationFuture {
@@ -1642,8 +1645,8 @@ mod tests {
         String::SHAPE,
         FunctionKind::AsyncInvoke,
         "invoke",
-        "engine test",
-        &[],
+        FunctionTraitContract::Other("engine test"),
+        &[Effect::Read],
         invoke_engine_request,
         runtime_from_boxed::<String>,
         RegistrationSite::new(file!(), line!()),
@@ -1654,8 +1657,8 @@ mod tests {
         String::SHAPE,
         FunctionKind::AsyncInvoke,
         "invoke",
-        "held engine operation",
-        &[],
+        FunctionTraitContract::Other("held engine operation"),
+        &[Effect::Read],
         hold_engine_request,
         runtime_from_boxed::<String>,
         RegistrationSite::new(file!(), line!()),

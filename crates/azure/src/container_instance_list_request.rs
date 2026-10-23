@@ -88,7 +88,8 @@ cloud_terrastodon_command::impl_cacheable_into_future!(ContainerInstanceListRequ
 cloud_terrastodon_registry::register_thing!(ContainerInstanceListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(ContainerInstanceListRequest<'static>);
 cloud_terrastodon_registry::register_into_future!(
-    ContainerInstanceListRequest<'static> => Vec<AzureContainerInstanceResource>
+    ContainerInstanceListRequest<'static> => Vec<AzureContainerInstanceResource>,
+    effects = [Read]
 );
 
 #[cfg(test)]

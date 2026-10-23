@@ -131,4 +131,4 @@ cloud_terrastodon_registry::register_thing!(StorageAccountBlobContainerNamesList
 cloud_terrastodon_registry::register_arbitrary!(
     StorageAccountBlobContainerNamesListRequest<'static>
 );
-cloud_terrastodon_registry::register_into_future!(StorageAccountBlobContainerNamesListRequest<'static> => HashSet<StorageAccountBlobContainerName>);
+cloud_terrastodon_registry::register_into_future!(StorageAccountBlobContainerNamesListRequest<'static> => HashSet<StorageAccountBlobContainerName>, effects = [Read]);

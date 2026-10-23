@@ -136,4 +136,4 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(ManagementGroupListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(ManagementGroupListRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(ManagementGroupListRequest<'static> => Vec<ManagementGroup>);
+cloud_terrastodon_registry::register_into_future!(ManagementGroupListRequest<'static> => Vec<ManagementGroup>, effects = [Read]);

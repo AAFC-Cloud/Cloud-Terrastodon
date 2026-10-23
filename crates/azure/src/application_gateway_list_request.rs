@@ -114,4 +114,4 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(ApplicationGatewayListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(ApplicationGatewayListRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(ApplicationGatewayListRequest<'static> => Vec<AzureApplicationGatewayResource>);
+cloud_terrastodon_registry::register_into_future!(ApplicationGatewayListRequest<'static> => Vec<AzureApplicationGatewayResource>, effects = [Read]);

@@ -385,5 +385,5 @@ cloud_terrastodon_registry::register_thing!(AzureDevOpsWorkItemCopyRequest<'stat
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsWorkItemCopyRequest<'static>);
 cloud_terrastodon_registry::register_into_future!(
     AzureDevOpsWorkItemCopyRequest<'static> => AzureDevOpsWorkItemCopyJournal,
-    effects = [Write]
+    effects = [Read, Write]
 );

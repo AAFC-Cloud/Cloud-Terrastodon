@@ -1978,7 +1978,8 @@ mod tests {
     cloud_terrastodon_registry::register_thing!(BrowserProducedValue);
     cloud_terrastodon_registry::register_arbitrary!(BrowserProducedValue);
     cloud_terrastodon_registry::register_into_future!(
-        BrowserProducerRequest => BrowserProducedValue
+        BrowserProducerRequest => BrowserProducedValue,
+        effects = [Read]
     );
 
     fn browser_producer() -> &'static cloud_terrastodon_registry::Function {

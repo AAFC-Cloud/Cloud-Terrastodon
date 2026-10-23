@@ -153,4 +153,4 @@ pub async fn fetch_entra_pim_role_settings_with_graph_access_token(
     }
     Ok(response.value.pop().unwrap())
 }
-cloud_terrastodon_registry::register_into_future!(EntraPimRoleSettingsRequest => PimEntraRoleSettings);
+cloud_terrastodon_registry::register_into_future!(EntraPimRoleSettingsRequest => PimEntraRoleSettings, effects = [Read]);

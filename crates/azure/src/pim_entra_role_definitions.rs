@@ -120,4 +120,4 @@ pub async fn fetch_all_entra_pim_role_definitions_with_graph_access_token(
     }
     Ok(result?.value)
 }
-cloud_terrastodon_registry::register_into_future!(PimEntraRoleDefinitionListRequest => Vec<PimEntraRoleDefinition>);
+cloud_terrastodon_registry::register_into_future!(PimEntraRoleDefinitionListRequest => Vec<PimEntraRoleDefinition>, effects = [Read]);

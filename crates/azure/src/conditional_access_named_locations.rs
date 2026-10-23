@@ -91,4 +91,4 @@ mod test {
 
 cloud_terrastodon_registry::register_thing!(ConditionalAccessNamedLocationListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(ConditionalAccessNamedLocationListRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(ConditionalAccessNamedLocationListRequest<'static> => Vec<ConditionalAccessNamedLocation>);
+cloud_terrastodon_registry::register_into_future!(ConditionalAccessNamedLocationListRequest<'static> => Vec<ConditionalAccessNamedLocation>, effects = [Read]);

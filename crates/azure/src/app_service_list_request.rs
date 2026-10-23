@@ -111,4 +111,4 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(AppServiceListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AppServiceListRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(AppServiceListRequest<'static> => Vec<AzureAppServiceResource>);
+cloud_terrastodon_registry::register_into_future!(AppServiceListRequest<'static> => Vec<AzureAppServiceResource>, effects = [Read]);

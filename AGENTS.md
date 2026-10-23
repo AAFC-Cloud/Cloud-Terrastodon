@@ -333,7 +333,13 @@ Standalone examples may remain self-contained, as described in
   blocking decoding, so diagnostics identify the owning request.
 - Keep registrations beside the owning type. Register reusable values, request
   operations, arbitrary generators, and collection outputs as required by the
-  registry's consumers. Declare accurate read/write effects for operations.
+  registry's consumers. Every executable request must explicitly declare
+  nonempty effects. Include `Read` for observation, `Write` for mutations, and
+  `Solicit` for user input, selections, or confirmations. Workflows may declare
+  several effects. Empty effects are reserved for pure operations such as
+  conversions, projections, and offline arbitrary constructors. Read-only
+  operations may still solicit a user; unattended discovery must exclude
+  `Solicit` and apply its authentication and scope admission policy.
 
 ## CLI naming and output
 

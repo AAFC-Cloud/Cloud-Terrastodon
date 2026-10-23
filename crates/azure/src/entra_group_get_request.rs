@@ -169,5 +169,5 @@ cloud_terrastodon_registry::register_thing!(EntraGroupGetRequest<'static>);
 cloud_terrastodon_registry::register_thing!(GroupByIdRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(EntraGroupGetRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(GroupByIdRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(EntraGroupGetRequest<'static> => EntraGroup);
-cloud_terrastodon_registry::register_into_future!(GroupByIdRequest<'static> => Vec<EntraGroup>);
+cloud_terrastodon_registry::register_into_future!(EntraGroupGetRequest<'static> => EntraGroup, effects = [Read]);
+cloud_terrastodon_registry::register_into_future!(GroupByIdRequest<'static> => Vec<EntraGroup>, effects = [Read]);

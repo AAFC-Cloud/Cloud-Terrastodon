@@ -108,4 +108,4 @@ mod test {
 
 cloud_terrastodon_registry::register_thing!(ComputeSkuListRequest);
 cloud_terrastodon_registry::register_arbitrary!(ComputeSkuListRequest);
-cloud_terrastodon_registry::register_into_future!(ComputeSkuListRequest => Vec<ComputeSku>);
+cloud_terrastodon_registry::register_into_future!(ComputeSkuListRequest => Vec<ComputeSku>, effects = [Read]);

@@ -93,4 +93,4 @@ cloud_terrastodon_command::impl_cacheable_into_future!(OAuth2PermissionGrantUpda
 
 cloud_terrastodon_registry::register_thing!(OAuth2PermissionGrantUpdateRequest);
 cloud_terrastodon_registry::register_arbitrary!(OAuth2PermissionGrantUpdateRequest);
-cloud_terrastodon_registry::register_into_future!(OAuth2PermissionGrantUpdateRequest => ());
+cloud_terrastodon_registry::register_into_future!(OAuth2PermissionGrantUpdateRequest => (), effects = [Write]);

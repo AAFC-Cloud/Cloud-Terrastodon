@@ -271,10 +271,7 @@ mod tests {
 }
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsOrganizationName);
-cloud_terrastodon_registry::register_fn_mut!(
-    cloud_terrastodon_registry::ArbitraryBytes => AzureDevOpsOrganizationName,
-    kind = cloud_terrastodon_registry::FunctionKind::Constructor,
-    label = "arbitrary",
-    origin = "Arbitrary",
-    invoke = cloud_terrastodon_registry::arbitrary_from_bytes::<AzureDevOpsOrganizationName>
+cloud_terrastodon_registry::register_arbitrary!(
+    AzureDevOpsOrganizationName,
+    associated = REGISTERED_ARBITRARY
 );

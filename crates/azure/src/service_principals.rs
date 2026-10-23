@@ -94,4 +94,4 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(ServicePrincipalListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(ServicePrincipalListRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(ServicePrincipalListRequest<'static> => Vec<EntraServicePrincipal>);
+cloud_terrastodon_registry::register_into_future!(ServicePrincipalListRequest<'static> => Vec<EntraServicePrincipal>, effects = [Read]);

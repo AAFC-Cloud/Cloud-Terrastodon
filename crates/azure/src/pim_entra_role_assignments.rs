@@ -147,4 +147,4 @@ pub async fn fetch_my_entra_pim_role_assignments_with_graph_access_token(
 }
 cloud_terrastodon_registry::register_thing!(MyEntraPimRoleAssignmentsListRequest);
 cloud_terrastodon_registry::register_arbitrary!(MyEntraPimRoleAssignmentsListRequest);
-cloud_terrastodon_registry::register_into_future!(MyEntraPimRoleAssignmentsListRequest => Vec<GovernanceRoleAssignment>);
+cloud_terrastodon_registry::register_into_future!(MyEntraPimRoleAssignmentsListRequest => Vec<GovernanceRoleAssignment>, effects = [Read]);

@@ -21,6 +21,16 @@ use std::ptr::NonNull;
 
 mod bind_request_cancellation;
 mod default_production;
+mod discovery_arbitrary;
+mod discovery_input;
+mod discovery_reflection;
+mod discovery_simulation;
+mod discovery_value;
+mod function_trait_contract;
+mod registry_function_entry;
+
+#[cfg(test)]
+mod discovery_simulation_tests;
 
 #[doc(hidden)]
 pub use bind_request_cancellation::bind_request_cancellation;
@@ -30,6 +40,10 @@ pub use default_production::DefaultProductionPlanKind;
 pub use default_production::default_production_plan;
 pub use default_production::invoke_with_default_input;
 pub use default_production::shape_can_be_produced_from_defaults;
+pub use discovery_simulation::DiscoverySimulation;
+pub use discovery_value::DiscoveryValue;
+pub use function_trait_contract::FunctionTraitContract;
+pub use registry_function_entry::RegistryFunctionEntry;
 
 pub type InvocationFuture = Pin<Box<dyn Future<Output = eyre::Result<Box<dyn Any + Send>>> + Send>>;
 pub type AsyncValueFn = fn(Box<dyn Any + Send>) -> InvocationFuture;
@@ -721,20 +735,35 @@ impl core::fmt::Display for Thing {
     }
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+/// Observable effects declared by a registered operation.
+///
+/// These describe service, filesystem, and application state, plus interaction
+/// with people. Ordinary query caching and diagnostic artifacts do not make a
+/// read a domain mutation.
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Facet, Arbitrary)]
+#[facet(rename_all = "kebab-case")]
+#[repr(u8)]
 pub enum Effect {
+    /// Observe state without mutating its domain data.
     Read,
+    /// Mutate domain state, configuration, or an explicitly requested output.
+    /// Workflows that also query state can declare both effects.
     Write,
+    /// Ask a person for input, selection, confirmation, or another response.
+    /// Unattended discovery must exclude operations declaring this effect.
+    Solicit,
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Facet)]
+#[repr(u8)]
 pub enum ReceiverMode {
     ByValue,
     ByRef,
     ByMut,
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Facet)]
+#[repr(u8)]
 pub enum FunctionKind {
     AsyncInvoke,
     Conversion,
@@ -767,8 +796,10 @@ pub struct Function {
     pub output_shape: &'static Shape,
     pub receiver_mode: ReceiverMode,
     pub kind: FunctionKind,
+    /// Human-facing operation text; this is not a discovery classification.
     pub label: &'static str,
-    pub origin: &'static str,
+    /// The registration contract used to classify the operation.
+    pub trait_contract: FunctionTraitContract,
     pub effects: &'static [Effect],
     pub executor: FunctionExecutor,
     pub output_to_runtime: RuntimeFromBoxedFn,
@@ -778,6 +809,13 @@ pub struct Function {
 }
 
 impl Function {
+    const fn assert_request_effects(kind: FunctionKind, effects: &[Effect]) {
+        assert!(
+            !matches!(kind, FunctionKind::AsyncInvoke) || !effects.is_empty(),
+            "executable requests must explicitly declare nonempty effects"
+        );
+    }
+
     #[expect(
         clippy::too_many_arguments,
         reason = "Registry functions are assembled from static macro metadata"
@@ -787,19 +825,20 @@ impl Function {
         output_shape: &'static Shape,
         kind: FunctionKind,
         label: &'static str,
-        origin: &'static str,
+        trait_contract: FunctionTraitContract,
         effects: &'static [Effect],
         invoke: AsyncValueFn,
         output_to_runtime: RuntimeFromBoxedFn,
         registration_site: RegistrationSite,
     ) -> Self {
+        Self::assert_request_effects(kind, effects);
         Self {
             input_shape,
             output_shape,
             receiver_mode: ReceiverMode::ByValue,
             kind,
             label,
-            origin,
+            trait_contract,
             effects,
             executor: FunctionExecutor::AsyncValue(invoke),
             output_to_runtime,
@@ -817,19 +856,20 @@ impl Function {
         output_shape: &'static Shape,
         kind: FunctionKind,
         label: &'static str,
-        origin: &'static str,
+        trait_contract: FunctionTraitContract,
         effects: &'static [Effect],
         invoke: SyncValueFn,
         output_to_runtime: RuntimeFromBoxedFn,
         registration_site: RegistrationSite,
     ) -> Self {
+        Self::assert_request_effects(kind, effects);
         Self {
             input_shape,
             output_shape,
             receiver_mode: ReceiverMode::ByValue,
             kind,
             label,
-            origin,
+            trait_contract,
             effects,
             executor: FunctionExecutor::SyncValue(invoke),
             output_to_runtime,
@@ -847,19 +887,20 @@ impl Function {
         output_shape: &'static Shape,
         kind: FunctionKind,
         label: &'static str,
-        origin: &'static str,
+        trait_contract: FunctionTraitContract,
         effects: &'static [Effect],
         invoke: SyncRefFn,
         output_to_runtime: RuntimeFromBoxedFn,
         registration_site: RegistrationSite,
     ) -> Self {
+        Self::assert_request_effects(kind, effects);
         Self {
             input_shape,
             output_shape,
             receiver_mode: ReceiverMode::ByRef,
             kind,
             label,
-            origin,
+            trait_contract,
             effects,
             executor: FunctionExecutor::SyncRef(invoke),
             output_to_runtime,
@@ -877,19 +918,20 @@ impl Function {
         output_shape: &'static Shape,
         kind: FunctionKind,
         label: &'static str,
-        origin: &'static str,
+        trait_contract: FunctionTraitContract,
         effects: &'static [Effect],
         invoke: SyncMutFn,
         output_to_runtime: RuntimeFromBoxedFn,
         registration_site: RegistrationSite,
     ) -> Self {
+        Self::assert_request_effects(kind, effects);
         Self {
             input_shape,
             output_shape,
             receiver_mode: ReceiverMode::ByMut,
             kind,
             label,
-            origin,
+            trait_contract,
             effects,
             executor: FunctionExecutor::SyncMut(invoke),
             output_to_runtime,
@@ -918,6 +960,21 @@ impl Function {
 
     pub fn is_async(&self) -> bool {
         matches!(self.executor, FunctionExecutor::AsyncValue(_))
+    }
+
+    /// Whether this operation declares a read and no writes.
+    ///
+    /// An empty effect list does not establish that an executable request is a
+    /// read. A read may also solicit input; unattended callers must exclude
+    /// operations for which [`Self::requires_user_input`] returns true. Scope
+    /// and authentication admission remain the caller's responsibility.
+    pub fn is_read_only(&self) -> bool {
+        self.effects.contains(&Effect::Read) && !self.effects.contains(&Effect::Write)
+    }
+
+    /// Whether this operation declares that it solicits a person's response.
+    pub fn requires_user_input(&self) -> bool {
+        self.effects.contains(&Effect::Solicit)
     }
 
     pub fn invoke_value_boxed(
@@ -1048,15 +1105,43 @@ macro_rules! register_thing {
         };
     };
 }
+/// Register an offline `Arbitrary` constructor.
+///
+/// Use `register_arbitrary!(Type, associated = REGISTERED_ARBITRARY)` for a
+/// locally defined type to expose a direct reference to its linked constructor.
+/// Use `register_arbitrary!(pub static NAME: Type)` for collection or externally
+/// owned types. The anonymous form remains available; none of these handles
+/// duplicates the registration or searches the distributed slice.
 #[macro_export]
 macro_rules! register_arbitrary {
     ($thing_ty:ty) => {
-        $crate::register_fn_mut!(
-            $crate::ArbitraryBytes => $thing_ty,
-            kind = $crate::FunctionKind::Constructor,
-            label = "arbitrary",
-            origin = "Arbitrary",
-            invoke = $crate::arbitrary_from_bytes::<$thing_ty>
+        const _: () = {
+            $crate::register_arbitrary!(static REGISTERED_FUNCTION: $thing_ty);
+        };
+    };
+    ($thing_ty:ty, associated = $name:ident $(,)?) => {
+        const _: () = {
+            $crate::register_arbitrary!(static REGISTERED_FUNCTION: $thing_ty);
+
+            impl $thing_ty {
+                /// The exact registered `Arbitrary` constructor for this type.
+                #[allow(dead_code, reason = "Registrations may be consumed solely through the distributed slice")]
+                pub const $name: &'static $crate::Function = &REGISTERED_FUNCTION;
+            }
+        };
+    };
+    ($visibility:vis static $name:ident: $thing_ty:ty $(,)?) => {
+        #[$crate::distributed_slice($crate::KNOWN_FUNCTIONS)]
+        $visibility static $name: $crate::Function = $crate::Function::sync_mut(
+            <$crate::ArbitraryBytes as facet::Facet<'static>>::SHAPE,
+            <$thing_ty as facet::Facet<'static>>::SHAPE,
+            $crate::FunctionKind::Constructor,
+            "arbitrary",
+            $crate::FunctionTraitContract::Arbitrary,
+            &[],
+            $crate::invoke_arbitrary_mut::<$thing_ty>,
+            $crate::runtime_from_boxed::<$thing_ty>,
+            $crate::RegistrationSite::new(file!(), line!()),
         );
     };
 }
@@ -1066,12 +1151,25 @@ macro_rules! register_arbitrary {
 /// A single direct cancellation-token field is replaced before invocation,
 /// including opaque fields. Tokenless inputs are unchanged; multiple matching
 /// fields produce an error rather than selecting an arbitrary token.
+///
+/// Executable requests must explicitly declare at least one effect. Declare
+/// `Write` for mutations, including workflows which also read or verify data.
+/// Declare `Solicit` when the operation asks a person for input or confirmation.
+/// Pure conversions and arbitrary generators use their separate registrations.
+///
+/// The input must be a locally defined request type. The macro also exposes
+/// `Request::REGISTERED_INTO_FUTURE`, a reference to this exact distributed-slice
+/// entry. It does not copy the metadata or search the registry. Lifetime-bearing
+/// requests expose the constant on their registered `'static` specialization.
 #[macro_export]
 macro_rules! register_into_future {
     ($thing_ty:ty => $output_ty:ty) => {
-        $crate::register_into_future!($thing_ty => $output_ty, effects = []);
+        compile_error!("register_into_future! requires explicit, nonempty effects containing Read, Write, Solicit, or a combination");
     };
-    ($thing_ty:ty => $output_ty:ty, effects = [$($effect:ident),* $(,)?]) => {
+    ($thing_ty:ty => $output_ty:ty, effects = []) => {
+        compile_error!("executable requests cannot have empty effects; declare Read, Write, Solicit, or a combination");
+    };
+    ($thing_ty:ty => $output_ty:ty, effects = [$($effect:ident),+ $(,)?]) => {
         const _: () = {
             #[$crate::distributed_slice($crate::KNOWN_FUNCTIONS)]
             static REGISTERED_FUNCTION: $crate::Function = $crate::Function::async_value(
@@ -1079,16 +1177,30 @@ macro_rules! register_into_future {
                 <$output_ty as facet::Facet<'static>>::SHAPE,
                 $crate::FunctionKind::AsyncInvoke,
                 "invoke",
-                "IntoFuture",
+                $crate::FunctionTraitContract::IntoFuture,
                 &[$($crate::Effect::$effect),*],
                 $crate::invoke_result_future::<$thing_ty, $output_ty, _>,
                 $crate::runtime_from_boxed::<$output_ty>,
                 $crate::RegistrationSite::new(file!(), line!()),
             ).with_cancellation_binding($crate::bind_request_cancellation::<$thing_ty>);
+
+            impl $thing_ty {
+                /// The exact registered `IntoFuture` operation for this request.
+                #[allow(dead_code, reason = "Registrations may be consumed solely through the distributed slice")]
+                pub const REGISTERED_INTO_FUTURE: &'static $crate::Function = &REGISTERED_FUNCTION;
+            }
         };
     };
 }
 
+/// Register a `From` conversion, optionally exposing its distributed-slice entry
+/// through `register_from!(Input => Output, associated = REGISTERED_INTO_OUTPUT)`.
+/// This adds an inherent constant to the locally defined input type. Give each
+/// conversion a distinct constant name when an input has multiple conversions.
+///
+/// For externally owned input types, use the free-static form:
+/// `register_from!(pub static NAME: Input => Output)`. Both handles reference the
+/// exact linked entry without searching the registry or duplicating metadata.
 #[macro_export]
 macro_rules! register_from {
     ($input_ty:ty => $output_ty:ty) => {
@@ -1096,6 +1208,29 @@ macro_rules! register_from {
     };
     ($input_ty:ty => $output_ty:ty, effects = [$($effect:ident),* $(,)?]) => {
         const _: () = {
+            $crate::register_from!(static REGISTERED_FUNCTION: $input_ty => $output_ty, effects = [$($effect),*]);
+        };
+    };
+    ($input_ty:ty => $output_ty:ty, associated = $name:ident $(,)?) => {
+        $crate::register_from!($input_ty => $output_ty, associated = $name, effects = []);
+    };
+    ($input_ty:ty => $output_ty:ty, associated = $name:ident, effects = [$($effect:ident),* $(,)?] $(,)?) => {
+        const _: () = {
+            $crate::register_from!(static REGISTERED_FUNCTION: $input_ty => $output_ty, effects = [$($effect),*]);
+
+            impl $input_ty {
+                /// The exact registered `From` conversion for this input type.
+                #[allow(dead_code, reason = "Registrations may be consumed solely through the distributed slice")]
+                pub const $name: &'static $crate::Function = &REGISTERED_FUNCTION;
+            }
+        };
+    };
+    ($visibility:vis static $name:ident: $input_ty:ty => $output_ty:ty) => {
+        $crate::register_from!($visibility static $name: $input_ty => $output_ty, effects = []);
+    };
+    ($visibility:vis static $name:ident: $input_ty:ty => $output_ty:ty, effects = [$($effect:ident),* $(,)?]) => {
+        #[$crate::distributed_slice($crate::KNOWN_FUNCTIONS)]
+        $visibility static $name: $crate::Function = {
             fn invoke(input: Box<dyn std::any::Any + Send>) -> eyre::Result<Box<dyn std::any::Any + Send>> {
                 let input = input.downcast::<$input_ty>().map_err(|_| {
                     eyre::eyre!("conversion expected input type {}", std::any::type_name::<$input_ty>())
@@ -1104,18 +1239,17 @@ macro_rules! register_from {
                 Ok(Box::new(output) as Box<dyn std::any::Any + Send>)
             }
 
-            #[$crate::distributed_slice($crate::KNOWN_FUNCTIONS)]
-            static REGISTERED_FUNCTION: $crate::Function = $crate::Function::sync_value(
+            $crate::Function::sync_value(
                 <$input_ty as facet::Facet<'static>>::SHAPE,
                 <$output_ty as facet::Facet<'static>>::SHAPE,
                 $crate::FunctionKind::Conversion,
                 "from",
-                "From",
+                $crate::FunctionTraitContract::From,
                 &[$($crate::Effect::$effect),*],
                 invoke,
                 $crate::runtime_from_boxed::<$output_ty>,
                 $crate::RegistrationSite::new(file!(), line!()),
-            );
+            )
         };
     };
 }
@@ -1141,7 +1275,7 @@ macro_rules! register_try_from {
                 <$output_ty as facet::Facet<'static>>::SHAPE,
                 $crate::FunctionKind::Conversion,
                 "try_from",
-                "TryFrom",
+                $crate::FunctionTraitContract::TryFrom,
                 &[$($crate::Effect::$effect),*],
                 invoke,
                 $crate::runtime_from_boxed::<$output_ty>,
@@ -1152,10 +1286,10 @@ macro_rules! register_try_from {
 }
 #[macro_export]
 macro_rules! register_fn_ref {
-    ($input_ty:ty => $output_ty:ty, kind = $kind:expr, label = $label:expr, origin = $origin:expr, invoke = $invoke:path $(,)?) => {
-        $crate::register_fn_ref!($input_ty => $output_ty, kind = $kind, label = $label, origin = $origin, invoke = $invoke, effects = []);
+    ($input_ty:ty => $output_ty:ty, kind = $kind:expr, label = $label:expr, trait_contract = $trait_contract:expr, invoke = $invoke:path $(,)?) => {
+        $crate::register_fn_ref!($input_ty => $output_ty, kind = $kind, label = $label, trait_contract = $trait_contract, invoke = $invoke, effects = []);
     };
-    ($input_ty:ty => $output_ty:ty, kind = $kind:expr, label = $label:expr, origin = $origin:expr, invoke = $invoke:path, effects = [$($effect:ident),* $(,)?]) => {
+    ($input_ty:ty => $output_ty:ty, kind = $kind:expr, label = $label:expr, trait_contract = $trait_contract:expr, invoke = $invoke:path, effects = [$($effect:ident),* $(,)?]) => {
         const _: () = {
             fn invoke(input: &(dyn std::any::Any + Send)) -> eyre::Result<Box<dyn std::any::Any + Send>> {
                 let input = input.downcast_ref::<$input_ty>().ok_or_else(|| {
@@ -1171,7 +1305,7 @@ macro_rules! register_fn_ref {
                 <$output_ty as facet::Facet<'static>>::SHAPE,
                 $kind,
                 $label,
-                $origin,
+                $trait_contract,
                 &[$($crate::Effect::$effect),*],
                 invoke,
                 $crate::runtime_from_boxed::<$output_ty>,
@@ -1183,10 +1317,10 @@ macro_rules! register_fn_ref {
 
 #[macro_export]
 macro_rules! register_fn_mut {
-    ($input_ty:ty => $output_ty:ty, kind = $kind:expr, label = $label:expr, origin = $origin:expr, invoke = $invoke:path $(,)?) => {
-        $crate::register_fn_mut!($input_ty => $output_ty, kind = $kind, label = $label, origin = $origin, invoke = $invoke, effects = []);
+    ($input_ty:ty => $output_ty:ty, kind = $kind:expr, label = $label:expr, trait_contract = $trait_contract:expr, invoke = $invoke:path $(,)?) => {
+        $crate::register_fn_mut!($input_ty => $output_ty, kind = $kind, label = $label, trait_contract = $trait_contract, invoke = $invoke, effects = []);
     };
-    ($input_ty:ty => $output_ty:ty, kind = $kind:expr, label = $label:expr, origin = $origin:expr, invoke = $invoke:path, effects = [$($effect:ident),* $(,)?]) => {
+    ($input_ty:ty => $output_ty:ty, kind = $kind:expr, label = $label:expr, trait_contract = $trait_contract:expr, invoke = $invoke:path, effects = [$($effect:ident),* $(,)?]) => {
         const _: () = {
             fn invoke(input: &mut (dyn std::any::Any + Send)) -> eyre::Result<Box<dyn std::any::Any + Send>> {
                 let input = input.downcast_mut::<$input_ty>().ok_or_else(|| {
@@ -1202,7 +1336,7 @@ macro_rules! register_fn_mut {
                 <$output_ty as facet::Facet<'static>>::SHAPE,
                 $kind,
                 $label,
-                $origin,
+                $trait_contract,
                 &[$($crate::Effect::$effect),*],
                 invoke,
                 $crate::runtime_from_boxed::<$output_ty>,
@@ -1282,8 +1416,9 @@ pub fn known_shapes() -> Vec<KnownShapeInfo> {
         .collect()
 }
 
-pub fn known_functions() -> Vec<&'static Function> {
-    KNOWN_FUNCTIONS.iter().collect()
+/// Borrow all linked operations without allocating or copying registry entries.
+pub fn known_functions() -> &'static [Function] {
+    &KNOWN_FUNCTIONS
 }
 
 pub fn functions_from(shape: &'static Shape) -> Vec<&'static Function> {
@@ -1404,7 +1539,7 @@ pub fn describe_function(function: &Function) -> String {
         function.label,
         describe_shape(function.input_shape),
         describe_shape(function.output_shape),
-        function.origin,
+        function.trait_contract,
     )
 }
 fn shape_fields(shape: &'static Shape) -> Vec<ShapeFieldInfo> {
@@ -1570,13 +1705,10 @@ mod test {
     crate::register_thing!(DummyRenamedDefault);
     crate::register_thing!(DummyManualDefault);
     crate::register_into_future!(DummyListRequest => Vec<DummyOutput>, effects = [Read]);
-    crate::register_from!(DummyOutput => DummyConverted);
-    crate::register_fn_mut!(ArbitraryBytes => DummyOutput,
-        kind = FunctionKind::Constructor,
-        label = "arbitrary",
-        origin = "Arbitrary",
-        invoke = arbitrary_from_bytes::<DummyOutput>
-    );
+    crate::register_from!(DummyOutput => DummyConverted, associated = REGISTERED_INTO_CONVERTED, effects = []);
+    crate::register_from!(static U8_TO_U16: u8 => u16);
+    crate::register_arbitrary!(DummyOutput, associated = REGISTERED_ARBITRARY);
+    crate::register_arbitrary!(static DUMMY_OUTPUTS_ARBITRARY: Vec<DummyOutput>);
 
     #[test]
     fn known_shapes_deduplicates() {
@@ -1675,7 +1807,8 @@ mod test {
 
     #[test]
     fn cow_promotion_preserves_allocation_and_borrowed_clone_lifetimes() {
-        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::atomic::AtomicUsize;
+        use std::sync::atomic::Ordering;
 
         static CLONES: AtomicUsize = AtomicUsize::new(0);
         static DROPS: AtomicUsize = AtomicUsize::new(0);
@@ -1831,6 +1964,35 @@ mod test {
     }
 
     #[test]
+    fn direct_registration_handles_alias_the_linked_entries() {
+        for handle in [
+            DummyListRequest::REGISTERED_INTO_FUTURE,
+            DummyOutput::REGISTERED_INTO_CONVERTED,
+            &U8_TO_U16,
+            DummyOutput::REGISTERED_ARBITRARY,
+            &DUMMY_OUTPUTS_ARBITRARY,
+        ] {
+            let registrations = known_functions()
+                .iter()
+                .filter(|function| {
+                    function.input_shape.is_shape(handle.input_shape)
+                        && function.output_shape.is_shape(handle.output_shape)
+                        && function.kind == handle.kind
+                })
+                .collect::<Vec<_>>();
+            assert_eq!(
+                registrations.len(),
+                1,
+                "a handle must not add a second entry"
+            );
+            assert!(
+                std::ptr::eq(registrations[0], handle),
+                "a handle must reference the linked static, not copied metadata",
+            );
+        }
+    }
+
+    #[test]
     fn function_lookup_tracks_receivers() {
         let async_functions = functions_from_to(DummyListRequest::SHAPE, DummyOutput::SHAPE);
         assert_eq!(async_functions[0].receiver_mode, ReceiverMode::ByValue);
@@ -1891,7 +2053,7 @@ mod test {
 
     #[test]
     fn by_mut_arbitrary_functions_consume_bytes() -> eyre::Result<()> {
-        let function = functions_from(ArbitraryBytes::SHAPE)
+        let function = functions_from_to(ArbitraryBytes::SHAPE, DummyOutput::SHAPE)
             .into_iter()
             .find(|f| f.receiver_mode == ReceiverMode::ByMut)
             .unwrap();
@@ -1917,7 +2079,7 @@ mod test {
         }
     }
     register_thing!(CancellationProbeRequest);
-    register_into_future!(CancellationProbeRequest => bool);
+    register_into_future!(CancellationProbeRequest => bool, effects = [Read]);
 
     #[tokio::test]
     async fn invocation_binds_the_callers_token_instead_of_reflected_input_state()

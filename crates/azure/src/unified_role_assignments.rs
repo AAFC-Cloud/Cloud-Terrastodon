@@ -93,4 +93,4 @@ mod test {
 
 cloud_terrastodon_registry::register_thing!(UnifiedRoleAssignmentListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(UnifiedRoleAssignmentListRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(UnifiedRoleAssignmentListRequest<'static> => Vec<UnifiedRoleAssignment>);
+cloud_terrastodon_registry::register_into_future!(UnifiedRoleAssignmentListRequest<'static> => Vec<UnifiedRoleAssignment>, effects = [Read]);

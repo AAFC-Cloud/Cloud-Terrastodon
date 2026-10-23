@@ -149,7 +149,7 @@ impl CacheableCommand for EntraDirectoryObjectsByIdsRequest<'_> {
 cloud_terrastodon_command::impl_cacheable_into_future!(EntraDirectoryObjectsByIdsRequest<'a>, 'a);
 cloud_terrastodon_registry::register_thing!(EntraDirectoryObjectsByIdsRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(EntraDirectoryObjectsByIdsRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(EntraDirectoryObjectsByIdsRequest<'static> => Vec<EntraDirectoryObject>);
+cloud_terrastodon_registry::register_into_future!(EntraDirectoryObjectsByIdsRequest<'static> => Vec<EntraDirectoryObject>, effects = [Read]);
 
 #[cfg(test)]
 mod tests {

@@ -98,4 +98,4 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(ApplicationRegistrationListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(ApplicationRegistrationListRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(ApplicationRegistrationListRequest<'static> => Vec<EntraApplicationRegistration>);
+cloud_terrastodon_registry::register_into_future!(ApplicationRegistrationListRequest<'static> => Vec<EntraApplicationRegistration>, effects = [Read]);

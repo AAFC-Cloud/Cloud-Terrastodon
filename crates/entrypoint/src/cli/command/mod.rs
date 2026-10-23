@@ -18,6 +18,7 @@ pub mod outage;
 pub mod perform_code_generation_from_imports;
 pub mod pick;
 pub mod ratatui;
+pub mod registry;
 pub mod rest;
 pub use cloud_terrastodon_source_cli as source;
 pub mod terraform;
@@ -42,6 +43,7 @@ use crate::cli::outage::OutageArgs;
 use crate::cli::perform_code_generation_from_imports::PerformCodeGenerationFromImportsArgs;
 use crate::cli::pick::PickArgs;
 use crate::cli::ratatui::RatatuiArgs;
+use crate::cli::registry::RegistryArgs;
 use crate::cli::rest::RestArgs;
 use crate::cli::source::SourceArgs;
 use crate::cli::terraform::TerraformArgs;
@@ -105,6 +107,8 @@ pub enum CloudTerrastodonCommand {
     Cache(CacheArgs),
     /// Discover local source repositories and summarize their file extensions.
     Source(SourceArgs),
+    /// Inspect registered operations and their declared effects.
+    Registry(RegistryArgs),
 }
 
 impl<'a> Arbitrary<'a> for CloudTerrastodonCommand {
@@ -165,6 +169,9 @@ impl CloudTerrastodonCommand {
             CloudTerrastodonCommand::Pick(args) => Box::pin(args.invoke(cancellation)).await,
             CloudTerrastodonCommand::Cache(args) => Box::pin(args.invoke(cancellation)).await,
             CloudTerrastodonCommand::Source(args) => {
+                return Box::pin(args.invoke(cancellation)).await;
+            }
+            CloudTerrastodonCommand::Registry(args) => {
                 return Box::pin(args.invoke(cancellation)).await;
             }
         }?;

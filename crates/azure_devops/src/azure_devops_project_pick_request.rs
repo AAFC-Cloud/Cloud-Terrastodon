@@ -130,7 +130,7 @@ cloud_terrastodon_registry::register_thing!(AzureDevOpsProjectPickRequest<'stati
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsProjectPickRequest<'static>);
 cloud_terrastodon_registry::register_into_future!(
     AzureDevOpsProjectPickRequest<'static> => AzureDevOpsProjectArgument<'static>,
-    effects = [Read]
+    effects = [Read, Solicit]
 );
 
 #[cfg(test)]

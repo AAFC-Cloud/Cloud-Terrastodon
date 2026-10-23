@@ -118,4 +118,4 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(OAuth2PermissionScopesListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(OAuth2PermissionScopesListRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(OAuth2PermissionScopesListRequest<'static> => Vec<OAuth2PermissionScope>);
+cloud_terrastodon_registry::register_into_future!(OAuth2PermissionScopesListRequest<'static> => Vec<OAuth2PermissionScope>, effects = [Read]);

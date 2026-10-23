@@ -80,14 +80,14 @@ cloud_terrastodon_registry::register_thing!(
 cloud_terrastodon_registry::register_arbitrary!(
     RoleManagementPolicyAssignmentsForRoleRequest<cloud_terrastodon_azure_types::ResourceId>
 );
-cloud_terrastodon_registry::register_into_future!(RoleManagementPolicyAssignmentsForRoleRequest<cloud_terrastodon_azure_types::ResourceId> => Vec<RoleManagementPolicyAssignment>);
+cloud_terrastodon_registry::register_into_future!(RoleManagementPolicyAssignmentsForRoleRequest<cloud_terrastodon_azure_types::ResourceId> => Vec<RoleManagementPolicyAssignment>, effects = [Read]);
 cloud_terrastodon_registry::register_thing!(
     RoleManagementPolicyAssignmentsForRoleRequest<cloud_terrastodon_azure_types::ScopeImpl>
 );
 cloud_terrastodon_registry::register_arbitrary!(
     RoleManagementPolicyAssignmentsForRoleRequest<cloud_terrastodon_azure_types::ScopeImpl>
 );
-cloud_terrastodon_registry::register_into_future!(RoleManagementPolicyAssignmentsForRoleRequest<cloud_terrastodon_azure_types::ScopeImpl> => Vec<RoleManagementPolicyAssignment>);
+cloud_terrastodon_registry::register_into_future!(RoleManagementPolicyAssignmentsForRoleRequest<cloud_terrastodon_azure_types::ScopeImpl> => Vec<RoleManagementPolicyAssignment>, effects = [Read]);
 
 #[cfg(test)]
 mod tests {

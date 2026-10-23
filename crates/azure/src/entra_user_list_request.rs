@@ -100,7 +100,7 @@ cloud_terrastodon_command::impl_cacheable_into_future!(EntraUserListRequest<'a>,
 cloud_terrastodon_registry::register_thing!(EntraUserListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(EntraUserListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(Vec<EntraUser>);
-cloud_terrastodon_registry::register_into_future!(EntraUserListRequest<'static> => Vec<EntraUser>);
+cloud_terrastodon_registry::register_into_future!(EntraUserListRequest<'static> => Vec<EntraUser>, effects = [Read]);
 
 #[cfg(test)]
 mod tests {
