@@ -156,6 +156,10 @@ path = "./crates/azure_cli"
 version = "0.37.0"         # CT_VERSION
 path = "./crates/registry"
 
+[workspace.dependencies.cloud_terrastodon_excalidraw]
+version = "0.37.0" # CT_VERSION
+path = "./crates/excalidraw"
+
 [workspace.dependencies.cloud_terrastodon_azure_types]
 version = "0.37.0"            # CT_VERSION
 path = "./crates/azure_types"

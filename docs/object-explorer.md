@@ -210,6 +210,13 @@ capped. Reaching the pool limit stops exploration without
 claiming convergence. Convergence describes that sampled type pool, rather than
 exhaustive payload or live resource coverage. It does not establish
 organization/tenant correlations for a production dump scheduler.
+
+For a target-directed view without generating values or executing conversions,
+[`ct dump plan`](dump-planning.md) computes structural reachability from explicit
+seed shapes and exports the request dependencies as JSON or an editable
+Excalidraw diagram. The planner and simulator share the linked registry but
+answer different questions: possible type coverage versus sampled value flow.
+
 `Function::is_read_only()` classifies data mutation; unattended
 admission additionally excludes `Function::requires_user_input()`. Authentication
 context still controls whether credential acquisition can interact with a user.

@@ -37,16 +37,26 @@ pub fn entrypoint(
         .automatic_cancellation(false)
         .implementation_github("AAFC-Cloud/Cloud-Terrastodon", implementation_revision);
     let mut cli: Cli = app.parse_from(std::env::args_os().skip(1)).unwrap();
+    let requested_auth_source = cli.global_args.auth_source;
     if matches!(
         cli.command.as_ref(),
-        Some(CloudTerrastodonCommand::Source(_) | CloudTerrastodonCommand::Registry(_))
+        Some(
+            CloudTerrastodonCommand::Source(_)
+                | CloudTerrastodonCommand::Registry(_)
+                | CloudTerrastodonCommand::Dump(_)
+        )
     ) {
-        // Local source and registry inventories do not need cloud credential discovery.
+        // Local inventories and offline plans do not need cloud credential discovery.
         cli.global_args.auth_source = AuthSource::None;
     }
     let enable_egui = matches!(cli.command.as_ref(), Some(CloudTerrastodonCommand::Egui(_)));
     app.egui_collector(enable_egui)
-        .run_parsed(cli, |cli, context| async move {
+        .run_parsed(cli, |mut cli, context| async move {
+            // Preserve the requested policy for plan metadata. App has already
+            // created the disabled execution context for this offline command.
+            if matches!(cli.command, Some(CloudTerrastodonCommand::Dump(_))) {
+                cli.global_args.auth_source = requested_auth_source;
+            }
             cli.invoke(&context.cancellation, &context.auth).await
         })
 }

@@ -5,6 +5,7 @@ pub use cloud_terrastodon_azure_devops_cli as azure_devops;
 pub mod cache;
 pub mod clean;
 pub mod copy_results;
+pub mod dump;
 pub mod dump_azure_devops;
 pub mod dump_everything;
 pub mod echo;
@@ -30,6 +31,7 @@ use crate::cli::azure_devops::AzureDevOpsArgs;
 use crate::cli::cache::CacheArgs;
 use crate::cli::clean::CleanArgs;
 use crate::cli::copy_results::CopyResultsArgs;
+use crate::cli::dump::DumpArgs;
 use crate::cli::dump_azure_devops::DumpAzureDevOpsArgs;
 use crate::cli::dump_everything::DumpEverythingArgs;
 use crate::cli::echo::EchoArgs;
@@ -51,6 +53,7 @@ use crate::cli::write_all_imports::WriteAllImportsArgs;
 use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
+use cloud_terrastodon_credentials::AuthSource;
 use eyre::Result;
 
 /// All top-level commands for the cloud-terrastodon CLI.
@@ -109,6 +112,8 @@ pub enum CloudTerrastodonCommand {
     Source(SourceArgs),
     /// Inspect registered operations and their declared effects.
     Registry(RegistryArgs),
+    /// Plan cloud inventories from read-only registry operations.
+    Dump(DumpArgs),
 }
 
 impl<'a> Arbitrary<'a> for CloudTerrastodonCommand {
@@ -123,6 +128,7 @@ impl CloudTerrastodonCommand {
         self,
         cancellation: &CancellationScope,
         auth_context: &AuthContext,
+        requested_auth_source: AuthSource,
     ) -> Result<CliOutput> {
         // Box child futures so large commands do not enlarge every dispatcher stack frame.
         match self {
@@ -173,6 +179,9 @@ impl CloudTerrastodonCommand {
             }
             CloudTerrastodonCommand::Registry(args) => {
                 return Box::pin(args.invoke(cancellation)).await;
+            }
+            CloudTerrastodonCommand::Dump(args) => {
+                return Box::pin(args.invoke(requested_auth_source, cancellation)).await;
             }
         }?;
         Ok(CliOutput::none())

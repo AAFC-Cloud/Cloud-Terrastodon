@@ -50,7 +50,10 @@ impl Cli {
         // Keep command and interactive-menu futures out of this outer future's
         // inline state; nested debug poll frames otherwise exhaust small stacks.
         let output = match self.command {
-            Some(cmd) => Box::pin(cmd.invoke(cancellation, auth_context)).await?,
+            Some(cmd) => {
+                Box::pin(cmd.invoke(cancellation, auth_context, self.global_args.auth_source))
+                    .await?
+            }
             None => {
                 Box::pin(menu_loop(auth_context, cancellation)).await?;
                 output::CliOutput::none()

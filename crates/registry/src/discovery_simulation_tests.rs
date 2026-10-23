@@ -151,7 +151,7 @@ crate::register_into_future!(CatalogRequestEnvelopeRequest => CatalogRequestEnve
 crate::register_from!(CatalogItem => ItemArgument, associated = REGISTERED_INTO_ITEM_ARGUMENT);
 crate::register_from!(ItemArgument => CatalogItem, associated = REGISTERED_INTO_CATALOG_ITEM);
 
-const GRAPH: [&'static Function; 6] = [
+const GRAPH: [&Function; 6] = [
     CatalogRequest::REGISTERED_INTO_FUTURE,
     ItemDetailsRequest::REGISTERED_INTO_FUTURE,
     CatalogItem::REGISTERED_INTO_ITEM_ARGUMENT,

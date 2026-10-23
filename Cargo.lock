@@ -1268,6 +1268,7 @@ dependencies = [
  "cloud_terrastodon_command",
  "cloud_terrastodon_config",
  "cloud_terrastodon_credentials",
+ "cloud_terrastodon_excalidraw",
  "cloud_terrastodon_gitea",
  "cloud_terrastodon_hcl",
  "cloud_terrastodon_pathing",
@@ -1314,6 +1315,16 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "uuid",
+]
+
+[[package]]
+name = "cloud_terrastodon_excalidraw"
+version = "0.37.0"
+dependencies = [
+ "cloud_terrastodon_registry",
+ "eyre",
+ "teamy-facet",
+ "teamy-facet-json",
 ]
 
 [[package]]

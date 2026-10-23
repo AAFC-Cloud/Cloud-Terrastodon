@@ -23,12 +23,19 @@ mod bind_request_cancellation;
 mod default_production;
 mod discovery_arbitrary;
 mod discovery_input;
+mod discovery_plan;
+mod discovery_plan_edge;
+mod discovery_plan_graph;
+mod discovery_plan_node;
+mod discovery_plan_node_kind;
 mod discovery_reflection;
 mod discovery_simulation;
 mod discovery_value;
 mod function_trait_contract;
 mod registry_function_entry;
 
+#[cfg(test)]
+mod discovery_plan_tests;
 #[cfg(test)]
 mod discovery_simulation_tests;
 
@@ -40,6 +47,10 @@ pub use default_production::DefaultProductionPlanKind;
 pub use default_production::default_production_plan;
 pub use default_production::invoke_with_default_input;
 pub use default_production::shape_can_be_produced_from_defaults;
+pub use discovery_plan::DiscoveryPlan;
+pub use discovery_plan_edge::DiscoveryPlanEdge;
+pub use discovery_plan_node::DiscoveryPlanNode;
+pub use discovery_plan_node_kind::DiscoveryPlanNodeKind;
 pub use discovery_simulation::DiscoverySimulation;
 pub use discovery_value::DiscoveryValue;
 pub use function_trait_contract::FunctionTraitContract;
