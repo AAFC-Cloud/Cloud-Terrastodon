@@ -19,19 +19,13 @@ pub enum JwtCommand {
 }
 
 impl JwtArgs {
-    pub async fn invoke(
-        self,
-        cancellation: &CancellationScope,
-    ) -> Result<()> {
+    pub async fn invoke(self, cancellation: &CancellationScope) -> Result<()> {
         self.command.invoke(cancellation).await
     }
 }
 
 impl JwtCommand {
-    pub async fn invoke(
-        self,
-        cancellation: &CancellationScope,
-    ) -> Result<()> {
+    pub async fn invoke(self, cancellation: &CancellationScope) -> Result<()> {
         match self {
             JwtCommand::Decode(args) => args.invoke(cancellation).await,
         }

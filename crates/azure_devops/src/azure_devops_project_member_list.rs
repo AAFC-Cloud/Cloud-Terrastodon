@@ -268,7 +268,7 @@ async fn collect_transitive_user_members(
             continue;
         }
 
-        let members = fetch_azure_devops_group_members(org_url, &descriptor, &cancellation)
+        let members = fetch_azure_devops_group_members(org_url, &descriptor, cancellation)
             .await
             .wrap_err_with(|| {
                 format!("Failed to list members for permission object {descriptor}")

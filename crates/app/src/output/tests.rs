@@ -304,7 +304,7 @@ impl CliOutputValue for IncrementalOutput {
             self.attempts.set(self.attempts.get() + 1);
             writer.write_all(b"entry\n")?;
         }
-        eyre::bail!("incremental output failed to observe cancellation")
+        eyre::bail!("incremental output failed to observe cancellation");
     }
 }
 
@@ -341,7 +341,7 @@ impl CliOutputValue for EmptyWriteOutput {
             }
             writer.write_all(b"")?;
         }
-        eyre::bail!("empty writes failed to observe cancellation")
+        eyre::bail!("empty writes failed to observe cancellation");
     }
 }
 
@@ -556,7 +556,7 @@ fn custom_text_callbacks_stop_producing_when_the_destination_requests_cancellati
                 callback_attempts.set(callback_attempts.get() + 1);
                 writer.write_all(b"entry\n")?;
             }
-            eyre::bail!("custom text output failed to observe cancellation")
+            eyre::bail!("custom text output failed to observe cancellation");
         });
         let mut writer = CancelAfterPrefixWriter {
             token: token.clone(),

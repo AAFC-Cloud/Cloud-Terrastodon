@@ -46,11 +46,9 @@ impl FromStr for AzureDevOpsProjectReferenceVisibility {
     }
 }
 
-impl TryFrom<String> for AzureDevOpsProjectReferenceVisibility {
-    type Error = std::convert::Infallible;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        value.parse()
+impl From<String> for AzureDevOpsProjectReferenceVisibility {
+    fn from(value: String) -> Self {
+        value.parse().unwrap_or_else(|never| match never {})
     }
 }
 

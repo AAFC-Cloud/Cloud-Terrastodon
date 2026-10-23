@@ -6,9 +6,7 @@ use eyre::Result;
 use std::path::PathBuf;
 use tracing::info;
 
-pub async fn perform_import(
-    cancellation: &CancellationScope,
-) -> Result<()> {
+pub async fn perform_import(cancellation: &CancellationScope) -> Result<()> {
     info!("Beginning tf import...");
     let imports_dir: PathBuf = AppDir::Imports.into();
     ProviderManager::try_new()?

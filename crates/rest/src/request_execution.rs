@@ -96,6 +96,10 @@ pub async fn execute_rest_request(
     }
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "request execution keeps the authentication context explicit"
+)]
 pub async fn execute_azure_devops_request(
     auth_context: &AuthContext,
     method: Method,
@@ -174,9 +178,9 @@ async fn execute_authenticated_azure_devops_request(
     if let Some(headers) = headers {
         request_builder = request_builder.headers(headers.to_header_map()?);
     }
-    Ok(cancellation
+    cancellation
         .cancellable_scope(|_| async { Ok::<_, eyre::Report>(request_builder.send().await?) })
-        .await?)
+        .await
 }
 
 #[expect(
@@ -244,9 +248,9 @@ pub async fn execute_azure_bearer_request(
     if let Some(headers) = headers {
         request_builder = request_builder.headers(headers.to_header_map()?);
     }
-    Ok(cancellation
+    cancellation
         .cancellable_scope(|_| async { Ok::<_, eyre::Report>(request_builder.send().await?) })
-        .await?)
+        .await
 }
 
 fn create_tls12_client() -> Result<Client> {

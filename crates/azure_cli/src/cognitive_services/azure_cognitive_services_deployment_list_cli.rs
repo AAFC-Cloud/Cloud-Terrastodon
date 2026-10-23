@@ -49,10 +49,12 @@ impl AzureCognitiveServicesDeploymentListArgs {
                 .collect::<Vec<_>>();
 
             match matches.len() {
-                0 => bail!(
-                    "No Cognitive Services account found matching '{}'.",
-                    account_argument
-                ),
+                0 => {
+                    bail!(
+                        "No Cognitive Services account found matching '{}'.",
+                        account_argument
+                    );
+                }
                 1 => {
                     let account = matches.remove(0);
                     let deployments = fetch_cognitive_services_account_deployments(
@@ -80,7 +82,7 @@ impl AzureCognitiveServicesDeploymentListArgs {
                         "Multiple Cognitive Services accounts matched '{}'. Use a full resource id.\n  {}",
                         account_argument,
                         ids
-                    )
+                    );
                 }
             }
         } else {

@@ -82,7 +82,9 @@ impl std::str::FromStr for KeyVaultAccessPolicyCertificatePrivilege {
                 KeyVaultAccessPolicyPrivilegedCertificateOperation::Purge,
             ),
             "all" => Self::All(KeyVaultAccessPolicyAllPrivilege::All),
-            _ => eyre::bail!("unknown key vault certificate privilege {value:?}"),
+            _ => {
+                eyre::bail!("unknown key vault certificate privilege {value:?}");
+            }
         })
     }
 }

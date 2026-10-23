@@ -22,15 +22,21 @@ fn cli_reauthentication_denied(value: Option<&str>) -> bool {
 
 fn tenant_login_mode(source: AuthSource) -> Result<TenantLoginMode> {
     match source {
-        AuthSource::None => bail!("tenant login is unavailable while authentication is disabled"),
+        AuthSource::None => {
+            bail!("tenant login is unavailable while authentication is disabled");
+        }
         AuthSource::Auto | AuthSource::Browser => Ok(TenantLoginMode::Browser),
         AuthSource::AzureCli => Ok(TenantLoginMode::AzureCli),
-        AuthSource::WorkloadIdentity => bail!(
-            "tenant login is not applicable to workload identity; use the pipeline service connection directly"
-        ),
-        AuthSource::PersonalAccessToken => bail!(
-            "tenant login is not applicable to an Azure DevOps personal access token; choose browser or azure-cli authentication"
-        ),
+        AuthSource::WorkloadIdentity => {
+            bail!(
+                "tenant login is not applicable to workload identity; use the pipeline service connection directly"
+            );
+        }
+        AuthSource::PersonalAccessToken => {
+            bail!(
+                "tenant login is not applicable to an Azure DevOps personal access token; choose browser or azure-cli authentication"
+            );
+        }
     }
 }
 
@@ -91,7 +97,7 @@ async fn login_resolved_tenant(
             ) {
                 bail!(
                     "Reauthentication is disabled by the CLOUD_TERRASTODON_REAUTH environment variable. Please refresh your credentials and try again."
-                )
+                );
             }
             let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
             cmd.args(["login", "--tenant", &tenant_id.to_string()]);

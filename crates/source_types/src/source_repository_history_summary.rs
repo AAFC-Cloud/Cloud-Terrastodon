@@ -52,7 +52,7 @@ mod tests {
                     .authors
                     .iter()
                     .map(|author| author.commit_count)
-                    .sum()
+                    .sum::<u64>()
             );
             let identities: BTreeSet<_> = history
                 .authors

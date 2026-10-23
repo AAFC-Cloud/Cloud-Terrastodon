@@ -134,9 +134,11 @@ impl CacheableCommand for PrincipalRequest<'_> {
                                         body.as_str()
                                     )?))
                                 }
-                                other => eyre::bail!(
-                                    "Unexpected Microsoft Graph principal request id '{other}'"
-                                ),
+                                other => {
+                                    eyre::bail!(
+                                        "Unexpected Microsoft Graph principal request id '{other}'"
+                                    );
+                                }
                             };
                         }
                         MicrosoftGraphBatchResponseEntryBody::Error(error) => {

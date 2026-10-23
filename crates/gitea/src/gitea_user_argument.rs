@@ -78,7 +78,7 @@ impl FromStr for GiteaUserArgument<'static> {
         } else if let Ok(username) = s.parse::<GiteaUsername>() {
             Ok(Self::Username(Cow::Owned(username)))
         } else {
-            bail!("'{s}' is not a valid Gitea user id or username")
+            bail!("'{s}' is not a valid Gitea user id or username");
         }
     }
 }

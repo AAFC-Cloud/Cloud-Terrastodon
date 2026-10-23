@@ -138,7 +138,7 @@ mod tests {
                         return Ok(());
                     }
                 }
-                bail!("Failed to ensure group member fetching worked after {tries} tries")
+                bail!("Failed to ensure group member fetching worked after {tries} tries");
             })
             .await
     }

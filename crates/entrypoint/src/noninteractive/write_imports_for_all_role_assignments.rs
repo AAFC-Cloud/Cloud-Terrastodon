@@ -48,7 +48,7 @@ pub async fn write_imports_for_all_role_assignments(
 
         if let Some(subscription_id) = subscription_id {
             let Some(sub) = subscriptions.get(&subscription_id) else {
-                bail!("could not find subscription for role assignment {ra:?}")
+                bail!("could not find subscription for role assignment {ra:?}");
             };
             let sanitized_name = sub.name.sanitize();
             let mut import_block: HclImportBlock = ra.into();

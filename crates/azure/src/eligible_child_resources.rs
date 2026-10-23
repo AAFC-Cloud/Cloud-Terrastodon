@@ -210,9 +210,11 @@ mod tests {
             )
             .await;
             match result {
-                Ok(_) => eyre::bail!(
-                    "Expected error, but got success; GetAllChildren is only supported for management groups?"
-                ),
+                Ok(_) => {
+                    eyre::bail!(
+                        "Expected error, but got success; GetAllChildren is only supported for management groups?"
+                    );
+                }
                 Err(_) => return Ok(()),
             }
             })
@@ -239,9 +241,11 @@ mod tests {
             )
             .await;
             match result {
-                Ok(_) => eyre::bail!(
-                    "Expected error, but got success; GetAllChildren is only supported for management groups?"
-                ),
+                Ok(_) => {
+                    eyre::bail!(
+                        "Expected error, but got success; GetAllChildren is only supported for management groups?"
+                    );
+                }
                 Err(_) => return Ok(()),
             }
             })

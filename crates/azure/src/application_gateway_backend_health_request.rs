@@ -157,16 +157,18 @@ impl CacheableCommand for AzureApplicationGatewayResourceBackendHealthRequest {
                 bail!(
                     "Backend health polling did not complete after {} attempts",
                     MAX_POLL_ATTEMPTS
-                )
+                );
             }
-            status => bail!(
-                "Unexpected backend health response status {} ({})",
-                status.as_u16(),
-                initial_response
-                    .reason_phrase
-                    .as_deref()
-                    .unwrap_or("Unknown error")
-            ),
+            status => {
+                bail!(
+                    "Unexpected backend health response status {} ({})",
+                    status.as_u16(),
+                    initial_response
+                        .reason_phrase
+                        .as_deref()
+                        .unwrap_or("Unknown error")
+                );
+            }
         }
     }
 }

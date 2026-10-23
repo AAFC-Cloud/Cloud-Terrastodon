@@ -189,11 +189,11 @@ pub(crate) fn load_browser_session() -> Result<Option<BrowserSession>> {
         if refresh_token.trim().is_empty() {
             return Ok(None);
         }
-        return Ok(Some(BrowserSession {
+        Ok(Some(BrowserSession {
             tenant_id: metadata.tenant_id,
             client_id: metadata.client_id,
             refresh_token,
-        }));
+        }))
     }
     #[cfg(not(windows))]
     facet_json::from_str::<BrowserSession>(&content)
@@ -263,12 +263,11 @@ pub(crate) fn delete_browser_session(
         return;
     }
     #[cfg(windows)]
-    if let Ok(Some(_session)) = load_browser_session() {
-        if let Ok(target) = browser_session_target(&tenant_id, &client_id)
-            && let Err(error) = crate::delete_credential_from_manager(&target)
-        {
-            debug!(?error, "Could not delete the Windows browser refresh token");
-        }
+    if let Ok(Some(_session)) = load_browser_session()
+        && let Ok(target) = browser_session_target(&tenant_id, &client_id)
+        && let Err(error) = crate::delete_credential_from_manager(&target)
+    {
+        debug!(?error, "Could not delete the Windows browser refresh token");
     }
     if let Err(error) = std::fs::remove_file(path)
         && error.kind() != std::io::ErrorKind::NotFound

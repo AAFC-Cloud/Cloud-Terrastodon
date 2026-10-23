@@ -100,7 +100,7 @@ impl FromStr for GiteaRepoArgument<'static> {
         } else if let Ok(name) = s.parse::<GiteaRepoName>() {
             Ok(Self::Name(Cow::Owned(name)))
         } else {
-            bail!("'{s}' is not a valid Gitea repository id, full name, or name")
+            bail!("'{s}' is not a valid Gitea repository id, full name, or name");
         }
     }
 }

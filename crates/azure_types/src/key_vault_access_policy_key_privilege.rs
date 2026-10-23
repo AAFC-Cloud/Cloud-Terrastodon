@@ -97,7 +97,9 @@ impl std::str::FromStr for KeyVaultAccessPolicyKeyPrivilege {
                 KeyVaultAccessPolicyRotationPolicyOperation::SetRotationPolicy,
             ),
             "all" => Self::All(KeyVaultAccessPolicyAllPrivilege::All),
-            _ => eyre::bail!("unknown key vault key privilege {value:?}"),
+            _ => {
+                eyre::bail!("unknown key vault key privilege {value:?}");
+            }
         })
     }
 }

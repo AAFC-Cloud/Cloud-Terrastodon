@@ -16,10 +16,7 @@ pub struct TerraformAuditArgs {
 }
 
 impl TerraformAuditArgs {
-    pub async fn invoke(
-        self,
-        cancellation: &CancellationScope,
-    ) -> Result<()> {
+    pub async fn invoke(self, cancellation: &CancellationScope) -> Result<()> {
         if self.recursive {
             let source_dirs = discover_terraform_source_dirs(self.source_dir).await?;
             for dir in source_dirs {

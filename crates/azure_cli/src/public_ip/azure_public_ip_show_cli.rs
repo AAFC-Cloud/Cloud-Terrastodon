@@ -60,7 +60,9 @@ impl AzurePublicIpShowArgs {
             .collect::<Vec<_>>();
 
         match matches.len() {
-            0 => bail!("No public IP found matching '{}'.", needle),
+            0 => {
+                bail!("No public IP found matching '{}'.", needle);
+            }
             1 => {
                 let stdout = std::io::stdout();
                 let mut handle = stdout.lock();
@@ -79,7 +81,7 @@ impl AzurePublicIpShowArgs {
                     "Multiple public IPs matched '{}'. Use a full resource id.\n  {}",
                     needle,
                     ids
-                )
+                );
             }
         }
     }

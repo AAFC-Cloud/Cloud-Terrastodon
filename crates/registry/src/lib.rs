@@ -989,10 +989,10 @@ impl Function {
             FunctionExecutor::AsyncValue(invoke) => Ok(FunctionInvocation::Pending(invoke(input))),
             FunctionExecutor::SyncValue(invoke) => Ok(FunctionInvocation::Ready(invoke(input)?)),
             FunctionExecutor::SyncRef(_) => {
-                eyre::bail!("{} requires ByRef", describe_function(self))
+                eyre::bail!("{} requires ByRef", describe_function(self));
             }
             FunctionExecutor::SyncMut(_) => {
-                eyre::bail!("{} requires ByMut", describe_function(self))
+                eyre::bail!("{} requires ByMut", describe_function(self));
             }
         }
     }
@@ -1000,7 +1000,9 @@ impl Function {
     pub fn invoke_ref_boxed(&self, input: &(dyn Any + Send)) -> eyre::Result<Box<dyn Any + Send>> {
         match self.executor {
             FunctionExecutor::SyncRef(invoke) => invoke(input),
-            _ => eyre::bail!("{} does not support ByRef", describe_function(self)),
+            _ => {
+                eyre::bail!("{} does not support ByRef", describe_function(self));
+            }
         }
     }
 
@@ -1010,7 +1012,9 @@ impl Function {
     ) -> eyre::Result<Box<dyn Any + Send>> {
         match self.executor {
             FunctionExecutor::SyncMut(invoke) => invoke(input),
-            _ => eyre::bail!("{} does not support ByMut", describe_function(self)),
+            _ => {
+                eyre::bail!("{} does not support ByMut", describe_function(self));
+            }
         }
     }
 }

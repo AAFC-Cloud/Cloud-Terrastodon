@@ -15,10 +15,7 @@ pub struct AddWorkDirArgs {
 }
 
 impl AddWorkDirArgs {
-    pub async fn invoke(
-        self,
-        _cancellation: &CancellationScope,
-    ) -> Result<()> {
+    pub async fn invoke(self, _cancellation: &CancellationScope) -> Result<()> {
         let mut dir = self.dir;
         if !dir.is_absolute() {
             dir = canonicalize(&dir)

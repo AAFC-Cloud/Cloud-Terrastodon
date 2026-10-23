@@ -47,7 +47,9 @@ impl AzureApplicationGatewayShowBackendHealthArgs {
             .collect::<Vec<_>>();
 
         match matches.len() {
-            0 => bail!("No application gateway found matching '{}'.", needle),
+            0 => {
+                bail!("No application gateway found matching '{}'.", needle);
+            }
             1 => {
                 let application_gateway = matches.remove(0);
                 let backend_health = fetch_application_gateway_backend_health(
@@ -73,7 +75,7 @@ impl AzureApplicationGatewayShowBackendHealthArgs {
                     "Multiple application gateways matched '{}'. Use a full resource id.\n  {}",
                     needle,
                     ids
-                )
+                );
             }
         }
     }

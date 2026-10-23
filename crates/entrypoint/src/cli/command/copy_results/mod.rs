@@ -13,11 +13,12 @@ pub struct CopyResultsArgs {
 }
 
 impl CopyResultsArgs {
-    pub async fn invoke(
-        self,
-        _cancellation: &CancellationScope,
-    ) -> Result<()> {
+    pub async fn invoke(self, _cancellation: &CancellationScope) -> Result<()> {
         // from https://stackoverflow.com/a/78769977/11141271
+        #[expect(
+            clippy::double_must_use,
+            reason = "async-recursion adds #[must_use] to an already must-use future"
+        )]
         #[async_recursion::async_recursion]
         async fn copy_dir_all<S, D>(src: S, dst: D) -> Result<(), std::io::Error>
         where

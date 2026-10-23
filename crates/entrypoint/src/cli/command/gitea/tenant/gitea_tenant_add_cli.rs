@@ -12,10 +12,7 @@ pub struct GiteaTenantAddArgs {
 }
 
 impl GiteaTenantAddArgs {
-    pub async fn invoke(
-        self,
-        _cancellation: &CancellationScope,
-    ) -> Result<()> {
+    pub async fn invoke(self, _cancellation: &CancellationScope) -> Result<()> {
         let tenant = add_tracked_tenant(self.tenant).await?;
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();

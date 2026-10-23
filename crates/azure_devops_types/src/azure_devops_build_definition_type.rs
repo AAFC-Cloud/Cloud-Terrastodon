@@ -44,11 +44,9 @@ impl FromStr for AzureDevOpsBuildDefinitionType {
     }
 }
 
-impl TryFrom<String> for AzureDevOpsBuildDefinitionType {
-    type Error = std::convert::Infallible;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        value.parse()
+impl From<String> for AzureDevOpsBuildDefinitionType {
+    fn from(value: String) -> Self {
+        value.parse().unwrap_or_else(|never| match never {})
     }
 }
 

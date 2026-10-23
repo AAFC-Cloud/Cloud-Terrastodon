@@ -21,10 +21,7 @@ pub struct GiteaRepoShowArgs {
 }
 
 impl GiteaRepoShowArgs {
-    pub async fn invoke(
-        self,
-        cancellation: &CancellationScope,
-    ) -> Result<()> {
+    pub async fn invoke(self, cancellation: &CancellationScope) -> Result<()> {
         let tenant = self.tenant.resolve(cancellation).await?;
         let repository = match &self.repo {
             GiteaRepoArgument::Id(repo_id) => {
@@ -41,11 +38,15 @@ impl GiteaRepoShowArgs {
                     .collect::<Vec<_>>();
                 match matches.as_slice() {
                     [repo] => repo.clone(),
-                    [] => bail!("No Gitea repository found matching '{}'.", self.repo),
-                    _ => bail!(
-                        "Multiple Gitea repositories matched '{}'. Please specify the numeric id or owner/repo.",
-                        self.repo
-                    ),
+                    [] => {
+                        bail!("No Gitea repository found matching '{}'.", self.repo);
+                    }
+                    _ => {
+                        bail!(
+                            "Multiple Gitea repositories matched '{}'. Please specify the numeric id or owner/repo.",
+                            self.repo
+                        );
+                    }
                 }
             }
         };

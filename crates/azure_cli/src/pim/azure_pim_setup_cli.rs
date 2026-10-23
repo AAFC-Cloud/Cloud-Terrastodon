@@ -215,14 +215,18 @@ async fn find_pim_application(
         .collect::<Vec<_>>();
 
     match matches.len() {
-        0 => bail!(
-            "Could not find an application registration named {PIM_APPLICATION_DISPLAY_NAME:?}"
-        ),
+        0 => {
+            bail!(
+                "Could not find an application registration named {PIM_APPLICATION_DISPLAY_NAME:?}"
+            );
+        }
         1 => Ok(matches.into_iter().next().expect("one match exists")),
-        _ => bail!(
-            "Found {} application registrations named {PIM_APPLICATION_DISPLAY_NAME:?}; use `ct az ad app search {PIM_APPLICATION_DISPLAY_NAME:?}` to inspect them",
-            matches.len()
-        ),
+        _ => {
+            bail!(
+                "Found {} application registrations named {PIM_APPLICATION_DISPLAY_NAME:?}; use `ct az ad app search {PIM_APPLICATION_DISPLAY_NAME:?}` to inspect them",
+                matches.len()
+            );
+        }
     }
 }
 

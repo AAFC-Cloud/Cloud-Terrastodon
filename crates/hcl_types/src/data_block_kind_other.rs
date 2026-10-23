@@ -16,7 +16,7 @@ impl FromStr for OtherDataBlockKind {
             bail!(
                 "Expected at least one underscore in {s:?} to parse as a {:?}",
                 type_name::<OtherDataBlockKind>()
-            )
+            );
         };
         Ok(OtherDataBlockKind {
             provider: provider.parse()?,

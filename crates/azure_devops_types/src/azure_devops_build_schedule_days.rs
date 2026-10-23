@@ -65,11 +65,9 @@ impl FromStr for AzureDevOpsBuildScheduleDays {
     }
 }
 
-impl TryFrom<String> for AzureDevOpsBuildScheduleDays {
-    type Error = std::convert::Infallible;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        value.parse()
+impl From<String> for AzureDevOpsBuildScheduleDays {
+    fn from(value: String) -> Self {
+        value.parse().unwrap_or_else(|never| match never {})
     }
 }
 

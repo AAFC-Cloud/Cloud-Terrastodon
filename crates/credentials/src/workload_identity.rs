@@ -72,7 +72,9 @@ fn read_env(name: &str) -> Result<Option<String>> {
         Ok(value) if !value.trim().is_empty() => Ok(Some(value)),
         Ok(_) => Ok(None),
         Err(std::env::VarError::NotPresent) => Ok(None),
-        Err(std::env::VarError::NotUnicode(_)) => bail!("{name} must be valid UTF-8"),
+        Err(std::env::VarError::NotUnicode(_)) => {
+            bail!("{name} must be valid UTF-8");
+        }
     }
 }
 
@@ -84,9 +86,11 @@ fn resolve_alias(
     second: Option<String>,
 ) -> Result<Option<String>> {
     match (first, second) {
-        (Some(first), Some(second)) if first != second => bail!(
-            "conflicting workload identity values for {label}; {first_name} and {second_name} must match"
-        ),
+        (Some(first), Some(second)) if first != second => {
+            bail!(
+                "conflicting workload identity values for {label}; {first_name} and {second_name} must match"
+            );
+        }
         (Some(value), _) | (_, Some(value)) => Ok(Some(value)),
         (None, None) => Ok(None),
     }

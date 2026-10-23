@@ -14,10 +14,7 @@ pub struct GiteaUserListArgs {
 }
 
 impl GiteaUserListArgs {
-    pub async fn invoke(
-        self,
-        cancellation: &CancellationScope,
-    ) -> Result<()> {
+    pub async fn invoke(self, cancellation: &CancellationScope) -> Result<()> {
         let tenant = self.tenant.resolve(cancellation).await?;
         info!(%tenant, "Fetching Gitea users");
         let users = fetch_all_gitea_users(&tenant, cancellation).await?;

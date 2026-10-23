@@ -16,6 +16,10 @@ use teamy_cancellation::CancellationReportExt;
 type RawExtraFilesFn<Raw> = fn(&Raw) -> BTreeMap<PathBuf, BString>;
 type FailureExtraFilesFn = fn(&eyre::Report) -> BTreeMap<PathBuf, BString>;
 
+#[expect(
+    clippy::double_must_use,
+    reason = "async-trait adds #[must_use] to an already must-use future"
+)]
 #[async_trait]
 pub trait CacheableWorkRequest: Sized + Send {
     type Raw: Facet<'static> + Send + 'static;

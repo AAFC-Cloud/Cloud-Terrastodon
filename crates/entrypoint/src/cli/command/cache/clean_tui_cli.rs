@@ -1,5 +1,5 @@
-use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::discover_caches;
 use cloud_terrastodon_pathing::AppDir;
 use cloud_terrastodon_user_input::Choice;
@@ -10,10 +10,7 @@ use eyre::Result;
 pub struct CacheCleanTuiArgs {}
 
 impl CacheCleanTuiArgs {
-    pub async fn invoke(
-        self,
-        _cancellation: &CancellationScope,
-    ) -> Result<()> {
+    pub async fn invoke(self, _cancellation: &CancellationScope) -> Result<()> {
         // Discover caches under AppDir::Commands
         let root = AppDir::Commands.as_path_buf();
         let caches = discover_caches(&root).await?;

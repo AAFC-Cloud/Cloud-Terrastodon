@@ -644,7 +644,7 @@ async fn cancellation_stops_a_scan_with_queued_descendants() -> Result<()> {
             .into_future();
             tokio::pin!(hunt);
             tokio::select! {
-                report = &mut hunt => eyre::bail!("Scan completed before a cancellation checkpoint: {report:?}"),
+                report = &mut hunt => { eyre::bail!("Scan completed before a cancellation checkpoint: {report:?}"); },
                 changed = receiver.changed() => changed?,
             }
             cancellation.request_cancel("fixture cancellation");

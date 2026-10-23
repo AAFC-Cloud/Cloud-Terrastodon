@@ -68,7 +68,7 @@ impl TryFrom<Block> for HclImportBlock {
     fn try_from(mut block: Block) -> Result<Self, Self::Error> {
         let ident = block.ident.as_str();
         if ident != "import" {
-            bail!("Block isn't an import block: {block:?}")
+            bail!("Block isn't an import block: {block:?}");
         }
         let provider = match block.body.get_attribute("provider") {
             Some(attrib) => {

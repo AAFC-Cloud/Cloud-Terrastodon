@@ -20,10 +20,7 @@ struct DecodedJwtOutput {
 }
 
 impl JwtDecodeArgs {
-    pub async fn invoke(
-        self,
-        _cancellation: &CancellationScope,
-    ) -> Result<()> {
+    pub async fn invoke(self, _cancellation: &CancellationScope) -> Result<()> {
         let token = read_token(&self.input)?;
         let decoded = decode_token_to_output(&token)?;
         cloud_terrastodon_command::to_writer_pretty(std::io::stdout(), &decoded)?;

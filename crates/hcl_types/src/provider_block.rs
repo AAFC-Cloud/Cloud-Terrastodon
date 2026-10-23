@@ -111,10 +111,10 @@ impl TryFrom<Block> for HclProviderBlock {
             bail!("Block must use 'provider' ident");
         }
         if block.labels.len() != 1 {
-            bail!("Block must use exactly one label")
+            bail!("Block must use exactly one label");
         }
         let Some(BlockLabel::String(label)) = block.labels.first() else {
-            bail!("Block label was invalid")
+            bail!("Block label was invalid");
         };
 
         // Get alias if present

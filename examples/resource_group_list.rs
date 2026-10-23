@@ -53,10 +53,11 @@ fn main() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use figue::TestToArgsConsistencyConfig;
 
     #[test]
     fn to_args_consistency() -> Result<()> {
-        figue::assert_to_args_consistency::<Cli>(Default::default())?;
+        figue::assert_to_args_consistency::<Cli>(TestToArgsConsistencyConfig::default())?;
         Ok(())
     }
 

@@ -75,7 +75,7 @@ impl<'a> FromStr for GiteaTenantArgument<'a> {
         } else {
             bail!(
                 "'{s}' is not a valid default selector, tracked Gitea instance URL, or Cloud Terrastodon tenant alias"
-            )
+            );
         }
     }
 }

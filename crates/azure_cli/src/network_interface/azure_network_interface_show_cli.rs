@@ -64,7 +64,9 @@ impl AzureNetworkInterfaceShowArgs {
             .collect::<Vec<_>>();
 
         match matches.len() {
-            0 => bail!("No network interface found matching '{}'.", needle),
+            0 => {
+                bail!("No network interface found matching '{}'.", needle);
+            }
             1 => {
                 let stdout = std::io::stdout();
                 let mut handle = stdout.lock();
@@ -83,7 +85,7 @@ impl AzureNetworkInterfaceShowArgs {
                     "Multiple network interfaces matched '{}'. Use a full resource id.\n  {}",
                     needle,
                     ids
-                )
+                );
             }
         }
     }

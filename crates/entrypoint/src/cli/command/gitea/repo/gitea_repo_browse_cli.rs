@@ -12,10 +12,7 @@ pub struct GiteaRepoBrowseArgs {
 }
 
 impl GiteaRepoBrowseArgs {
-    pub async fn invoke(
-        self,
-        cancellation: &CancellationScope,
-    ) -> Result<()> {
+    pub async fn invoke(self, cancellation: &CancellationScope) -> Result<()> {
         let tenant = self.list.tenant.resolve(cancellation).await?;
         let repositories = self.list.fetch_repositories(&tenant, cancellation).await?;
         let (chosen, maybe_error) = cloud_terrastodon_user_input::PickerTui::<_>::new()

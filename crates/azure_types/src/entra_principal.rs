@@ -44,7 +44,9 @@ impl TryFrom<RawJson<'static>> for EntraPrincipal {
             "#microsoft.graph.servicePrincipal" => {
                 Self::ServicePrincipal(Box::new(facet_json::from_str(value.as_str())?))
             }
-            other => eyre::bail!("Unsupported principal @odata.type: {other}"),
+            other => {
+                eyre::bail!("Unsupported principal @odata.type: {other}");
+            }
         })
     }
 }
@@ -93,7 +95,9 @@ impl TryFrom<EntraPrincipal> for EntraUser {
     fn try_from(value: EntraPrincipal) -> Result<Self, Self::Error> {
         match value {
             EntraPrincipal::User(user) => Ok(*user),
-            other => eyre::bail!("Expected user principal, got {}", other.kind()),
+            other => {
+                eyre::bail!("Expected user principal, got {}", other.kind());
+            }
         }
     }
 }
@@ -103,7 +107,9 @@ impl TryFrom<EntraPrincipal> for EntraGroup {
     fn try_from(value: EntraPrincipal) -> Result<Self, Self::Error> {
         match value {
             EntraPrincipal::Group(group) => Ok(*group),
-            other => eyre::bail!("Expected group principal, got {}", other.kind()),
+            other => {
+                eyre::bail!("Expected group principal, got {}", other.kind());
+            }
         }
     }
 }
@@ -113,7 +119,9 @@ impl TryFrom<EntraPrincipal> for EntraServicePrincipal {
     fn try_from(value: EntraPrincipal) -> Result<Self, Self::Error> {
         match value {
             EntraPrincipal::ServicePrincipal(service_principal) => Ok(*service_principal),
-            other => eyre::bail!("Expected service principal, got {}", other.kind()),
+            other => {
+                eyre::bail!("Expected service principal, got {}", other.kind());
+            }
         }
     }
 }

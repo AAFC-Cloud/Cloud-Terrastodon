@@ -24,10 +24,12 @@ impl FromStr for AzureDevOpsServiceEndpointOperationStatusSeverity {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "Warning" => Ok(Self::Warning),
-            value => eyre::bail!(
-                "Failed to parse AzureDevOpsServiceEndpointOperationStatusSeverity: {}",
-                value
-            ),
+            value => {
+                eyre::bail!(
+                    "Failed to parse AzureDevOpsServiceEndpointOperationStatusSeverity: {}",
+                    value
+                );
+            }
         }
     }
 }

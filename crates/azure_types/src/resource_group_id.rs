@@ -126,7 +126,7 @@ impl FromStr for ResourceGroupId {
             bail!(
                 "Tried to parse {:?} as resource group id, but the stuff after the subscription id was missing",
                 expanded_form
-            )
+            );
         };
 
         // "My-Resource-Group", "optional/other/stuff"

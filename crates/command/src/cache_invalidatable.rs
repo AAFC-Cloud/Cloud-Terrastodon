@@ -3,6 +3,10 @@ use crate::HasCacheKey;
 use async_trait::async_trait;
 
 /// For that which is immediately invalidatable
+#[expect(
+    clippy::double_must_use,
+    reason = "async-trait adds #[must_use] to an already must-use future"
+)]
 #[async_trait]
 pub trait CacheInvalidatable {
     async fn invalidate(&self) -> eyre::Result<()>;

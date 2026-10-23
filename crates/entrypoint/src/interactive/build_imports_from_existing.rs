@@ -6,9 +6,7 @@ use cloud_terrastodon_user_input::prompt_line;
 use eyre::Result;
 use eyre::eyre;
 
-pub async fn build_imports_from_existing(
-    cancellation: &CancellationScope,
-) -> Result<()> {
+pub async fn build_imports_from_existing(cancellation: &CancellationScope) -> Result<()> {
     let tf_dir = prompt_line("Enter the path to the existing workspace: ").await?;
 
     // println!("Enter the name for the output file [existing.tf]:");

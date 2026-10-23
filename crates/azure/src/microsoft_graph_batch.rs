@@ -262,13 +262,15 @@ impl<T: FromCommandOutput> MicrosoftGraphBatchResponseEntry<T> {
     pub fn into_body(self) -> eyre::Result<T> {
         match self.body {
             MicrosoftGraphBatchResponseEntryBody::Success(t) => Ok(t),
-            MicrosoftGraphBatchResponseEntryBody::Error(e) => bail!(
-                "Microsoft Graph API error for request {} (status {}): {} - {}",
-                self.id,
-                self.status,
-                e.code,
-                e.message
-            ),
+            MicrosoftGraphBatchResponseEntryBody::Error(e) => {
+                bail!(
+                    "Microsoft Graph API error for request {} (status {}): {} - {}",
+                    self.id,
+                    self.status,
+                    e.code,
+                    e.message
+                );
+            }
         }
     }
 }

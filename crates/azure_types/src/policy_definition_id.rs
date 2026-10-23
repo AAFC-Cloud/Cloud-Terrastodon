@@ -215,7 +215,9 @@ mod tests {
         assert_eq!(id.expanded_form(), expanded);
         match &id {
             PolicyDefinitionId::Unscoped(_) => {}
-            x => bail!("bad: {x:?}"),
+            x => {
+                bail!("bad: {x:?}");
+            }
         }
         assert_eq!(id.short_form(), "55555555-5555-5555-5555-555555555555");
         Ok(())
@@ -228,7 +230,9 @@ mod tests {
         assert_eq!(id.expanded_form(), expanded);
         match &id {
             PolicyDefinitionId::ManagementGroupScoped(_) => {}
-            x => bail!("bad: {x:?}"),
+            x => {
+                bail!("bad: {x:?}");
+            }
         }
         assert_eq!(id.short_form(), "55555555-5555-5555-5555-555555555555");
         Ok(())
@@ -241,7 +245,9 @@ mod tests {
         assert_eq!(id.expanded_form(), expanded);
         match &id {
             PolicyDefinitionId::SubscriptionScoped(_) => {}
-            x => bail!("bad: {x:?}"),
+            x => {
+                bail!("bad: {x:?}");
+            }
         }
         assert_eq!(id.short_form(), "55555555-5555-5555-5555-555555555555");
         Ok(())

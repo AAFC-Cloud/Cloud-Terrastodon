@@ -78,7 +78,7 @@ impl<'a> FromStr for AzureDevOpsUserArgument<'a> {
         } else if s.contains('@') {
             Ok(AzureDevOpsUserArgument::Email(Cow::Owned(s.to_string())))
         } else {
-            bail!("'{s}' is not a valid Azure DevOps user id or email")
+            bail!("'{s}' is not a valid Azure DevOps user id or email");
         }
     }
 }

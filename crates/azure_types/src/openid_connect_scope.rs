@@ -39,7 +39,9 @@ impl FromStr for OpenIdConnectScopeClaim {
             "address" => Ok(Self::Address),
             "phone" => Ok(Self::Phone),
             "offline_access" => Ok(Self::OfflineAccess),
-            _ => bail!("unknown OpenID Connect scope claim: {value}"),
+            _ => {
+                bail!("unknown OpenID Connect scope claim: {value}");
+            }
         }
     }
 }

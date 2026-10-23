@@ -234,7 +234,7 @@ pub(crate) fn parse_url(
             tail,
         )
     } else {
-        bail!("Azure DevOps work item URL has no host")
+        bail!("Azure DevOps work item URL has no host");
     };
     ensure!(
         tail.len() == WORK_ITEM_ROUTE.len() + 1 || tail.len() == WORK_ITEM_ROUTE.len() + 2,

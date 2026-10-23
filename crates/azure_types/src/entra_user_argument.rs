@@ -106,13 +106,17 @@ impl<'a> TryFrom<AzurePrincipalArgument<'a>> for EntraUserArgument<'a> {
                     Ok(Self::from(EntraUserId::new(*id)))
                 }
                 Cow::Owned(EntraPrincipalId::Unknown(id)) => Ok(Self::from(EntraUserId::new(id))),
-                _ => bail!("Known group and service-principal IDs cannot identify a user"),
+                _ => {
+                    bail!("Known group and service-principal IDs cannot identify a user");
+                }
             },
             AzurePrincipalArgument::Name(name) => name.parse(),
             AzurePrincipalArgument::Principal(principal) => match principal {
                 Cow::Borrowed(EntraPrincipal::User(user)) => Ok(Self::from(&user.id)),
                 Cow::Owned(EntraPrincipal::User(user)) => Ok(Self::from(user.id)),
-                _ => bail!("A user argument requires a user principal"),
+                _ => {
+                    bail!("A user argument requires a user principal");
+                }
             },
         }
     }

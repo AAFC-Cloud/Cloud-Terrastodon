@@ -4,6 +4,10 @@ use async_trait::async_trait;
 
 /// Convenience trait for implementing commands that can be cached.
 /// This command gives [`HasCacheKey`] and [`InvalidatableCommand`] implementations.
+#[expect(
+    clippy::double_must_use,
+    reason = "async-trait adds #[must_use] to an already must-use future"
+)]
 #[async_trait]
 pub trait CacheableCommand: Sized + Send {
     type Output;

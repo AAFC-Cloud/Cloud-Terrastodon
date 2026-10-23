@@ -137,7 +137,7 @@ async fn default_command_finishes_process_mapping_and_artifacts_after_cancellati
             }));
 
             tokio::select! {
-                result = &mut running => bail!("command finished before fixture release: {result:?}"),
+                result = &mut running => { bail!("command finished before fixture release: {result:?}"); },
                 result = wait_for_file(&started) => result?,
             }
             requester.request_cancel("cancel while the submitted command is running");
@@ -149,7 +149,7 @@ async fn default_command_finishes_process_mapping_and_artifacts_after_cancellati
             fs::write(&release.0, b"release").await?;
 
             tokio::select! {
-                result = &mut running => bail!("command finished before mapping was released: {result:?}"),
+                result = &mut running => { bail!("command finished before mapping was released: {result:?}"); },
                 result = timeout(LIMIT, decode_started) => result??,
             }
             poll_fn(|context| match Future::poll(running.as_mut(), context) {
@@ -181,7 +181,7 @@ async fn cancellation_safe_command_stops_waiting_for_a_pending_child() -> Result
             let mut running = Box::pin(command.run_raw(&cancellation));
 
             tokio::select! {
-                result = &mut running => bail!("command finished before fixture release: {result:?}"),
+                result = &mut running => { bail!("command finished before fixture release: {result:?}"); },
                 result = wait_for_file(&started) => result?,
             }
             requester.request_cancel("cancel an explicitly safe pending command");
@@ -247,7 +247,7 @@ async fn cancellation_safe_command_respects_a_protected_caller() -> Result<()> {
                     }));
 
                     tokio::select! {
-                        result = &mut running => bail!("command finished before fixture release: {result:?}"),
+                        result = &mut running => { bail!("command finished before fixture release: {result:?}"); },
                         result = wait_for_file(&started) => result?,
                     }
                     requester.request_cancel("cancel while the caller owns required completion");

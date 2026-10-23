@@ -76,11 +76,13 @@ impl<'a> IntoFuture for AzureDevOpsUserLicenseEntitlementShowRequest<'a> {
                 .find(|license_entitlement| self.user.matches(&license_entitlement.user))
             {
                 Some(found) => Ok(found),
-                None => bail!(
-                    "No license entitlement found for user {:?} in organization {:?}",
-                    self.user,
-                    self.org_url
-                ),
+                None => {
+                    bail!(
+                        "No license entitlement found for user {:?} in organization {:?}",
+                        self.user,
+                        self.org_url
+                    );
+                }
             }
         })
     }

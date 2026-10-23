@@ -390,7 +390,7 @@ impl TerminalGuard {
             Ok(control) => Ok(Some(control)),
             Err(mpsc::error::TryRecvError::Empty) => Ok(None),
             Err(mpsc::error::TryRecvError::Disconnected) => {
-                eyre::bail!("terminal owner control channel closed")
+                eyre::bail!("terminal owner control channel closed");
             }
         }
     }

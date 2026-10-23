@@ -28,6 +28,10 @@ impl HclAuditProblem {
     }
 }
 
+#[expect(
+    clippy::double_must_use,
+    reason = "async-trait adds #[must_use] to an already must-use future"
+)]
 #[async_trait::async_trait]
 pub trait HclAuditor: Send {
     async fn audit(&mut self, hcl: HclProject) -> eyre::Result<(HclProject, Vec<HclAuditProblem>)>;

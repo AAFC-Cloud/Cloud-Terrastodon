@@ -14,10 +14,7 @@ pub struct GiteaTenantShowArgs {
 }
 
 impl GiteaTenantShowArgs {
-    pub async fn invoke(
-        self,
-        cancellation: &CancellationScope,
-    ) -> Result<()> {
+    pub async fn invoke(self, cancellation: &CancellationScope) -> Result<()> {
         let tenant_url = self.tenant.resolve(cancellation).await?;
         let Some(tenant) = get_tracked_tenant(&tenant_url).await? else {
             bail!("Tracked Gitea tenant '{}' was not found.", tenant_url);

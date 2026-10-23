@@ -421,7 +421,7 @@ async fn ensure_tracked_tenant_exists(tenant_id: AzureTenantId) -> eyre::Result<
     } else {
         bail!(
             "Tracked tenant '{tenant_id}' was not found. Use `cloud_terrastodon az tenant add {tenant_id}` to allow Cloud Terrastodon to interact with this tenant."
-        )
+        );
     }
 }
 
@@ -473,7 +473,9 @@ async fn resolve_tracked_tenant_alias_in(
 
     match tenant_id_matches.len() {
         1 => Ok(*tenant_id_matches[0]),
-        0 => bail!("Tracked tenant alias '{}' was not found.", alias),
+        0 => {
+            bail!("Tracked tenant alias '{}' was not found.", alias);
+        }
         _ => {
             let tenant_ids = tenant_id_matches
                 .iter()

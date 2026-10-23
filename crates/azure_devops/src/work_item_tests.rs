@@ -788,9 +788,11 @@ async fn live_work_item_deserialization() -> Result<()> {
             .await
             {
                 Ok(Ok(())) => Ok(()),
-                _ => eyre::bail!(
-                    "Read-only smoke test failed during {stage}; response details suppressed"
-                ),
+                _ => {
+                    eyre::bail!(
+                        "Read-only smoke test failed during {stage}; response details suppressed"
+                    );
+                }
             }
         })
         .await

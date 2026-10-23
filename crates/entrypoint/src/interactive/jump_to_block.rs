@@ -9,10 +9,7 @@ use eyre::Result;
 use std::path::PathBuf;
 use tracing::info;
 
-pub async fn jump_to_block(
-    dir: PathBuf,
-    cancellation: &CancellationScope,
-) -> Result<()> {
+pub async fn jump_to_block(dir: PathBuf, cancellation: &CancellationScope) -> Result<()> {
     // We don't use `as_single_body` because we need to track the files that each block comes from
     let choices = list_blocks_for_dir(dir).await?;
     info!("Found {} blocks", choices.len());

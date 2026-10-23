@@ -88,7 +88,7 @@ impl<'a> FromStr for AzureDevOpsProjectArgument<'a> {
         } else if let Ok(name) = AzureDevOpsProjectName::try_new(s) {
             Ok(Self::Name(Cow::Owned(name)))
         } else {
-            bail!("'{s}' is not a valid Azure DevOps project id or name")
+            bail!("'{s}' is not a valid Azure DevOps project id or name");
         }
     }
 }

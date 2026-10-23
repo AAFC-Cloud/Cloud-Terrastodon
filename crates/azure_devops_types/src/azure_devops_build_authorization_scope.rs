@@ -43,11 +43,9 @@ impl FromStr for AzureDevOpsBuildAuthorizationScope {
     }
 }
 
-impl TryFrom<String> for AzureDevOpsBuildAuthorizationScope {
-    type Error = std::convert::Infallible;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        value.parse()
+impl From<String> for AzureDevOpsBuildAuthorizationScope {
+    fn from(value: String) -> Self {
+        value.parse().unwrap_or_else(|never| match never {})
     }
 }
 

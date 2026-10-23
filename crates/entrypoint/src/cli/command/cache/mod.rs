@@ -23,19 +23,13 @@ pub enum CacheCommand {
 }
 
 impl CacheArgs {
-    pub async fn invoke(
-        self,
-        cancellation: &CancellationScope,
-    ) -> Result<()> {
+    pub async fn invoke(self, cancellation: &CancellationScope) -> Result<()> {
         self.command.invoke(cancellation).await
     }
 }
 
 impl CacheCommand {
-    pub async fn invoke(
-        self,
-        cancellation: &CancellationScope,
-    ) -> Result<()> {
+    pub async fn invoke(self, cancellation: &CancellationScope) -> Result<()> {
         match self {
             CacheCommand::List(args) => args.invoke(cancellation).await,
             CacheCommand::CleanTui(args) => args.invoke(cancellation).await,

@@ -13,10 +13,7 @@ pub struct ExtractUuidArgs {
 }
 
 impl ExtractUuidArgs {
-    pub async fn invoke(
-        self,
-        _cancellation: &CancellationScope,
-    ) -> Result<()> {
+    pub async fn invoke(self, _cancellation: &CancellationScope) -> Result<()> {
         // read input
         let data = if self.input == "-" {
             let mut s = String::new();

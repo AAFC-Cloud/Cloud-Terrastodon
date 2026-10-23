@@ -15,10 +15,7 @@ pub struct GiteaArgs {
 }
 
 impl GiteaArgs {
-    pub async fn invoke(
-        self,
-        cancellation: &CancellationScope,
-    ) -> Result<()> {
+    pub async fn invoke(self, cancellation: &CancellationScope) -> Result<()> {
         self.command.invoke(cancellation).await
     }
 }

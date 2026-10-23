@@ -49,7 +49,7 @@ pub async fn login(cancellation: &CancellationScope) -> Result<()> {
     {
         bail!(
             "Reauthentication is disabled by the CLOUD_TERRASTODON_REAUTH environment variable. Please refresh your credentials and try again."
-        )
+        );
     }
     warn!("Refreshing credential, user action required in a moment...");
     CommandBuilder::new(CommandKind::AzureCLI)

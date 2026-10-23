@@ -67,7 +67,9 @@ impl AzureEntraApplicationRegistrationShowArgs {
             .collect::<Vec<_>>();
 
         match matches.len() {
-            0 => bail!("No application registration found matching '{}'.", needle),
+            0 => {
+                bail!("No application registration found matching '{}'.", needle);
+            }
             1 => {
                 let stdout = std::io::stdout();
                 let mut handle = stdout.lock();
@@ -86,7 +88,7 @@ impl AzureEntraApplicationRegistrationShowArgs {
                     "Multiple application registrations matched '{}'. Use a full object id.\n  {}",
                     needle,
                     ids
-                )
+                );
             }
         }
     }

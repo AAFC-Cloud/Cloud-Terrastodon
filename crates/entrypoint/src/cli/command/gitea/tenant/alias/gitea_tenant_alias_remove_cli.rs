@@ -18,10 +18,7 @@ pub struct GiteaTenantAliasRemoveArgs {
 }
 
 impl GiteaTenantAliasRemoveArgs {
-    pub async fn invoke(
-        self,
-        cancellation: &CancellationScope,
-    ) -> Result<()> {
+    pub async fn invoke(self, cancellation: &CancellationScope) -> Result<()> {
         let tenant_url = self.tenant.resolve(cancellation).await?;
         let aliases = remove_tracked_tenant_aliases(&tenant_url, &self.aliases).await?;
         let stdout = std::io::stdout();

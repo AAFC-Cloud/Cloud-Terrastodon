@@ -216,7 +216,9 @@ mod tests {
         assert_eq!(id.expanded_form(), expanded);
         match &id {
             PolicyAssignmentId::Unscoped(_) => {}
-            x => bail!("bad: {x:?}"),
+            x => {
+                bail!("bad: {x:?}");
+            }
         }
         assert_eq!(id.short_form(), "abc123");
         Ok(())
@@ -230,7 +232,9 @@ mod tests {
         assert_eq!(id.expanded_form(), expanded);
         match &id {
             PolicyAssignmentId::ManagementGroupScoped(_) => {}
-            x => bail!("bad: {x:?}"),
+            x => {
+                bail!("bad: {x:?}");
+            }
         }
         assert_eq!(id.short_form(), "abc123");
         Ok(())
@@ -244,7 +248,9 @@ mod tests {
         assert_eq!(id.expanded_form(), expanded);
         match &id {
             PolicyAssignmentId::SubscriptionScoped(_) => {}
-            x => bail!("bad: {x:?}"),
+            x => {
+                bail!("bad: {x:?}");
+            }
         }
         assert_eq!(id.short_form(), "GC Audit ISO 27001:20133");
         Ok(())

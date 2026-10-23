@@ -189,7 +189,7 @@ impl AzureDevOpsOrganizationUrl {
                 Ok(organization_name)
             }
             AzureDevOpsOrganizationUrlName::ServerCollection(_) => {
-                bail!("Server collections do not have a cloud organization name")
+                bail!("Server collections do not have a cloud organization name");
             }
         }
     }

@@ -48,10 +48,12 @@ impl AzureVirtualNetworkShowArgs {
             .filter(|network| self.virtual_network.matches_id(&network.id))
             .collect::<Vec<_>>();
         match networks.len() {
-            0 => bail!(
-                "No virtual network found matching '{}'.",
-                self.virtual_network
-            ),
+            0 => {
+                bail!(
+                    "No virtual network found matching '{}'.",
+                    self.virtual_network
+                );
+            }
             1 => Ok(CliOutput::facet(networks.remove(0))),
             count => {
                 networks.sort_by_cached_key(|network| {
@@ -66,7 +68,7 @@ impl AzureVirtualNetworkShowArgs {
                 bail!(
                     "{count} virtual networks matched '{}'. Use a full resource ID.\n  {ids}",
                     self.virtual_network
-                )
+                );
             }
         }
     }

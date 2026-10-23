@@ -74,7 +74,9 @@ impl AzurePolicySetDefinitionShowArgs {
         }
 
         match name_matches.len() {
-            0 => bail!("No policy set definition found matching '{}'.", needle),
+            0 => {
+                bail!("No policy set definition found matching '{}'.", needle);
+            }
             1 => {
                 let stdout = std::io::stdout();
                 let mut handle = stdout.lock();
@@ -94,7 +96,7 @@ impl AzurePolicySetDefinitionShowArgs {
                     "Multiple policy set definitions matched '{}'. Use a full resource id.\n  {}",
                     needle,
                     ids
-                )
+                );
             }
         }
     }

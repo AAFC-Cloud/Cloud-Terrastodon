@@ -69,7 +69,9 @@ impl AzureEntraSpShowArgs {
             .collect::<Vec<_>>();
 
         match matches.len() {
-            0 => bail!("No service principal found matching '{}'.", needle),
+            0 => {
+                bail!("No service principal found matching '{}'.", needle);
+            }
             1 => {
                 let stdout = std::io::stdout();
                 let mut handle = stdout.lock();
@@ -88,7 +90,7 @@ impl AzureEntraSpShowArgs {
                     "Multiple service principals matched '{}'. Use a full object id.\n  {}",
                     needle,
                     ids
-                )
+                );
             }
         }
     }

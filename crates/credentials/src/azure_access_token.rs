@@ -64,9 +64,9 @@ pub async fn fetch_azure_bearer_access_token(
     cancellation.cancellable_scope(|cancellation| async move {
                 let cancellation = &cancellation;
     match auth_context.source() {
-        Some(AuthSource::None) => eyre::bail!(
+        Some(AuthSource::None) => { eyre::bail!(
             "authentication is disabled by auth source none; cannot acquire an Azure access token"
-        ),
+        ); },
         Some(AuthSource::WorkloadIdentity) => {
             let config = auth_context.workload_identity().ok_or_else(|| {
                 eyre::eyre!(
@@ -143,15 +143,15 @@ pub async fn fetch_azure_bearer_access_token(
              cancellation)
             .await
         }
-        Some(AuthSource::PersonalAccessToken) => eyre::bail!(
+        Some(AuthSource::PersonalAccessToken) => { eyre::bail!(
             "personal access tokens are only valid for Azure DevOps compatibility requests"
-        ),
-        Some(AuthSource::Auto) => eyre::bail!(
+        ); },
+        Some(AuthSource::Auto) => { eyre::bail!(
             "authentication source was not resolved; construct an AuthContext at the CLI entrypoint"
-        ),
-        None => eyre::bail!(
+        ); },
+        None => { eyre::bail!(
             "the placeholder authentication context cannot acquire access tokens; attach an invocation-resolved AuthContext before executing this request"
-        ),
+        ); },
     }
 
     }).await

@@ -43,21 +43,27 @@ impl AzureDevOpsAuthContext {
             return Self::for_tenant(auth_context, tenant_id);
         }
         match auth_context.source() {
-            Some(AuthSource::None) => bail!(
-                "authentication is disabled by auth source none; cannot make authenticated Azure DevOps requests"
-            ),
+            Some(AuthSource::None) => {
+                bail!(
+                    "authentication is disabled by auth source none; cannot make authenticated Azure DevOps requests"
+                );
+            }
             Some(AuthSource::AzureCli) => Ok(Self::AzureCli(auth_context.clone())),
             Some(AuthSource::PersonalAccessToken) => {
                 Ok(Self::PersonalAccessToken(auth_context.clone()))
             }
-            Some(AuthSource::WorkloadIdentity) => bail!(
-                "workload identity authentication requires a configured tenant before making Azure DevOps requests"
-            ),
-            Some(AuthSource::Browser) => bail!(
-                "browser authentication requires an explicit tenant before making Azure DevOps requests"
-            ),
+            Some(AuthSource::WorkloadIdentity) => {
+                bail!(
+                    "workload identity authentication requires a configured tenant before making Azure DevOps requests"
+                );
+            }
+            Some(AuthSource::Browser) => {
+                bail!(
+                    "browser authentication requires an explicit tenant before making Azure DevOps requests"
+                );
+            }
             Some(AuthSource::Auto) => {
-                bail!("authentication source must be resolved before making Azure DevOps requests")
+                bail!("authentication source must be resolved before making Azure DevOps requests");
             }
             None => Ok(Self::None),
         }

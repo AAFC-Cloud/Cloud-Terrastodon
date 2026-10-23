@@ -121,7 +121,7 @@ mod test {
                         return Ok(());
                     }
                 }
-                bail!("Failed to get any blob containers D:")
+                bail!("Failed to get any blob containers D:");
             })
             .await
     }

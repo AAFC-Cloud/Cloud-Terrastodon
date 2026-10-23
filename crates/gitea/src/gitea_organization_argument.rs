@@ -76,7 +76,7 @@ impl FromStr for GiteaOrganizationArgument<'static> {
         } else if let Ok(name) = s.parse::<GiteaOrganizationName>() {
             Ok(Self::Name(Cow::Owned(name)))
         } else {
-            bail!("'{s}' is not a valid Gitea organization id or name")
+            bail!("'{s}' is not a valid Gitea organization id or name");
         }
     }
 }

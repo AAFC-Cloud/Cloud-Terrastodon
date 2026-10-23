@@ -50,7 +50,7 @@ fn validate_compute_publisher_vm_image_offer_sku_name(value: &str) -> eyre::Resu
         bail!(
             "Compute Publisher VM Image Offer SKU Name '{}' must be between 1 and 256 characters long",
             value
-        )
+        );
     }
     Ok(())
 }

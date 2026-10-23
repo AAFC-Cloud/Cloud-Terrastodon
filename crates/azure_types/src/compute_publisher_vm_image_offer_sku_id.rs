@@ -114,71 +114,73 @@ impl FromStr for ComputePublisherVmImageOfferSkuId {
         let us = type_name::<ComputePublisherVmImageOfferSkuId>();
         let mut parts = s.split('/');
         if !matches!(parts.next(), Some("")) {
-            bail!("Expected {us} to start with '/'",)
+            bail!("Expected {us} to start with '/'",);
         }
         if !matches!(parts.next(), Some(x) if x.eq_ignore_ascii_case("subscriptions")) {
-            bail!("Expected {us} to start with /Subscriptions/",)
+            bail!("Expected {us} to start with /Subscriptions/",);
         }
         let subscription_id = match parts.next() {
             Some(s) => s
                 .parse::<SubscriptionId>()
                 .wrap_err_with(|| format!("Failed to parse subscription_id part '{s}' of {us}",))?,
-            None => bail!("Expected {us} to have a subscription_id part after /Subscriptions/",),
+            None => {
+                bail!("Expected {us} to have a subscription_id part after /Subscriptions/",);
+            }
         };
         if !matches!(parts.next(), Some(x) if x.eq_ignore_ascii_case("providers")) {
-            bail!("Expected {us} to have /Providers/ after subscription_id,",)
+            bail!("Expected {us} to have /Providers/ after subscription_id,",);
         }
         if !matches!(parts.next(), Some(x) if x.eq_ignore_ascii_case("microsoft.compute")) {
-            bail!("Expected {us} to have /Providers/Microsoft.Compute/ after subscription_id,",)
+            bail!("Expected {us} to have /Providers/Microsoft.Compute/ after subscription_id,",);
         }
         if !matches!(parts.next(), Some(x) if x.eq_ignore_ascii_case("locations")) {
-            bail!("Expected {us} to have /Locations/ after /Providers/Microsoft.Compute/,",)
+            bail!("Expected {us} to have /Locations/ after /Providers/Microsoft.Compute/,",);
         }
         let location_name = match parts.next() {
             Some(s) => s
                 .parse::<AzureLocationName>()
                 .wrap_err_with(|| format!("Failed to parse location_name part '{s}' of {us}",))?,
             None => {
-                bail!("Expected {us} to have a location_name part after /Locations/")
+                bail!("Expected {us} to have a location_name part after /Locations/");
             }
         };
         if !matches!(parts.next(), Some(x) if x.eq_ignore_ascii_case("publishers")) {
-            bail!("Expected {us} to have /Publishers/ after /Locations/{location_name}/")
+            bail!("Expected {us} to have /Publishers/ after /Locations/{location_name}/");
         }
         let publisher_name = match parts.next() {
             Some(s) => s
                 .parse::<ComputePublisherName>()
                 .wrap_err_with(|| format!("Failed to parse publisher_name part '{s}' of {us}",))?,
             None => {
-                bail!("Expected {us} to have a publisher_name part after /Publishers/,",)
+                bail!("Expected {us} to have a publisher_name part after /Publishers/,",);
             }
         };
         if !matches!(parts.next(), Some(x) if x.eq_ignore_ascii_case("artifacttypes")) {
-            bail!("Expected {us} to have /ArtifactTypes/ after /Publishers/{publisher_name}/")
+            bail!("Expected {us} to have /ArtifactTypes/ after /Publishers/{publisher_name}/");
         }
         if !matches!(parts.next(), Some(x) if x.eq_ignore_ascii_case("vmimage")) {
-            bail!("Expected {us} to have /VMImage/ after /ArtifactTypes/")
+            bail!("Expected {us} to have /VMImage/ after /ArtifactTypes/");
         }
         if !matches!(parts.next(), Some(x) if x.eq_ignore_ascii_case("offers")) {
-            bail!("Expected {us} to have /Offers/ after /ArtifactTypes/VMImage/,")
+            bail!("Expected {us} to have /Offers/ after /ArtifactTypes/VMImage/,");
         }
         let offer_name = match parts.next() {
             Some(s) => s
                 .parse::<ComputePublisherVmImageOfferName>()
                 .wrap_err_with(|| format!("Failed to parse offer_name part '{s}' of {us}",))?,
             None => {
-                bail!("Expected {us} to have an offer_name part after /Offers/,",)
+                bail!("Expected {us} to have an offer_name part after /Offers/,",);
             }
         };
         if !matches!(parts.next(), Some(x) if x.eq_ignore_ascii_case("skus")) {
-            bail!("Expected {us} to have /Skus/ after /Offers/{offer_name}/,")
+            bail!("Expected {us} to have /Skus/ after /Offers/{offer_name}/,");
         }
         let sku_name = match parts.next() {
             Some(s) => s
                 .parse::<ComputePublisherVmImageOfferSkuName>()
                 .wrap_err_with(|| format!("Failed to parse sku_name part '{s}' of {us}",))?,
             None => {
-                bail!("Expected {us} to have a sku_name part after /Skus/,",)
+                bail!("Expected {us} to have a sku_name part after /Skus/,",);
             }
         };
 

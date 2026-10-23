@@ -48,7 +48,9 @@ impl EntraDirectoryObjectType {
             "#microsoft.graph.servicePrincipal" => Ok(Self::ServicePrincipal),
             "#microsoft.graph.device" => Ok(Self::Device),
             "#microsoft.graph.orgContact" => Ok(Self::OrganizationalContact),
-            other => bail!("Unsupported Entra directory object @odata.type: {other}"),
+            other => {
+                bail!("Unsupported Entra directory object @odata.type: {other}");
+            }
         }
     }
 

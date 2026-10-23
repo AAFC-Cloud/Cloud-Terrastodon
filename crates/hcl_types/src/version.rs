@@ -64,7 +64,7 @@ impl FromStr for ProviderSource {
                 kind: ProviderKind::from_str(c)?,
             },
             x => {
-                bail!("Invalid TF provider source format: {x:?}, expected 1-3 slashes.")
+                bail!("Invalid TF provider source format: {x:?}, expected 1-3 slashes.");
             }
         })
     }
@@ -185,7 +185,7 @@ impl FromStr for SemVer {
             [major, minor] => (major.parse()?, Some(minor.parse()?), None),
             [major] => (major.parse()?, None, None),
             x => {
-                bail!("Expected major.minor.patch, got {x:?}")
+                bail!("Expected major.minor.patch, got {x:?}");
             }
         };
         Ok(Self {
@@ -267,7 +267,7 @@ impl FromStr for ProviderVersionConstraintClause {
             "<=" => ProviderVersionConstraintClause::LesserOrEqual(sem_ver),
             "~>" => ProviderVersionConstraintClause::PatchIncrement(sem_ver),
             x => {
-                bail!("Unable to interpret {x:?} as TFProviderVersionConstraintClause")
+                bail!("Unable to interpret {x:?} as TFProviderVersionConstraintClause");
             }
         })
     }
@@ -329,7 +329,7 @@ impl TryFrom<&Object> for ProviderVersionObject {
                     }
                 },
                 None => {
-                    bail!("Unexpected entry format, key is none\nkey={key:?}\nvalue={value:?}")
+                    bail!("Unexpected entry format, key is none\nkey={key:?}\nvalue={value:?}");
                 }
             }
         }
@@ -375,7 +375,7 @@ impl TerraformRequiredProvidersBlock {
             if existing.source != value.source {
                 bail!(
                     "Tried to merge two required_providers entries for key {key:?} with conflicting sources.\nExisting: {existing:#?}\nMerging: {value:#?}"
-                )
+                );
             }
             let should_merge = *existing != value && !value.version.clauses.is_empty();
             if should_merge {

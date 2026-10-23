@@ -72,10 +72,10 @@ impl SourceHuntArgs {
                         .draw(&updates.borrow());
                     if let Err(error) = drawing {
                         // A failed progress display must not abandon directory workers.
-                        if let Some(terminal) = terminal.take() {
-                            if let Err(restore_error) = terminal.finish().await {
-                                tracing::warn!(%restore_error, "Restoring source hunt progress failed");
-                            }
+                        if let Some(terminal) = terminal.take()
+                            && let Err(restore_error) = terminal.finish().await
+                        {
+                            tracing::warn!(%restore_error, "Restoring source hunt progress failed");
                         }
                         tracing::warn!(%error, "Source hunt progress disabled; inventory continues");
                     }

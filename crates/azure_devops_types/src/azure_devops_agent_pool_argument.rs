@@ -102,7 +102,7 @@ impl<'a> FromStr for AzureDevOpsAgentPoolArgument<'a> {
         } else if let Ok(name) = AzureDevOpsAgentPoolName::try_new(s) {
             Ok(AzureDevOpsAgentPoolArgument::Name(Cow::Owned(name)))
         } else {
-            bail!("'{s}' is not a valid Azure DevOps agent pool id or name")
+            bail!("'{s}' is not a valid Azure DevOps agent pool id or name");
         }
     }
 }

@@ -78,7 +78,7 @@ impl SubscriptionIdExt for SubscriptionId {
             "Failed to resolve tracked tenant for subscription '{}' across {} tracked tenants.",
             self,
             tracked_tenants.len()
-        )
+        );
     }
 }
 

@@ -232,7 +232,7 @@ async fn ensure_tracked_tenant_exists(url: &GiteaInstanceUrl) -> eyre::Result<()
         bail!(
             "Tracked Gitea tenant '{}' was not found. Use `cloud_terrastodon tea tenant add {url}` to allow Cloud Terrastodon to interact with this instance.",
             url
-        )
+        );
     }
 }
 
@@ -281,7 +281,9 @@ async fn resolve_tracked_tenant_alias_in(
         .collect::<Vec<_>>();
     match substring_matches.len() {
         1 => Ok(substring_matches[0].clone()),
-        0 => bail!("Tracked Gitea tenant alias '{}' was not found.", alias),
+        0 => {
+            bail!("Tracked Gitea tenant alias '{}' was not found.", alias);
+        }
         _ => {
             let urls = substring_matches
                 .iter()

@@ -37,7 +37,7 @@ pub async fn fetch_all_azure_devops_repos_for_project(
         "list",
         project_id.to_string().as_ref(),
     ])));
-    let repos: Vec<AzureDevOpsRepo> = cmd.run(&cancellation).await?;
+    let repos: Vec<AzureDevOpsRepo> = cmd.run(cancellation).await?;
     debug!("Found {} repos for {project_id:?}", repos.len());
     Ok(repos)
 }

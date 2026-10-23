@@ -50,7 +50,7 @@ fn validate_compute_publisher_vm_image_offer_sku_version_name(value: &str) -> ey
         bail!(
             "Compute Publisher VM Image Offer SKU Version Name '{}' must be between 1 and 256 characters long",
             value
-        )
+        );
     }
     Ok(())
 }

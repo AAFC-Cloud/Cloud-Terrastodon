@@ -14,10 +14,7 @@ struct CacheListEntry {
 }
 
 impl CacheListArgs {
-    pub async fn invoke(
-        self,
-        _cancellation: &CancellationScope,
-    ) -> Result<()> {
+    pub async fn invoke(self, _cancellation: &CancellationScope) -> Result<()> {
         // Discover caches under AppDir::Commands
         let root = AppDir::Commands.as_path_buf();
         let caches = discover_caches(&root).await?;

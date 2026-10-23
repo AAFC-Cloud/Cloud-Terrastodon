@@ -55,7 +55,9 @@ impl std::str::FromStr for KeyVaultAccessPolicySecretPrivilege {
                 KeyVaultAccessPolicyPrivilegedSecretOperation::Purge,
             ),
             "all" => Self::All(KeyVaultAccessPolicyAllPrivilege::All),
-            _ => eyre::bail!("unknown key vault secret privilege {value:?}"),
+            _ => {
+                eyre::bail!("unknown key vault secret privilege {value:?}");
+            }
         })
     }
 }

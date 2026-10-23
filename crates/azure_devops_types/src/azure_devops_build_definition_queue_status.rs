@@ -47,11 +47,9 @@ impl FromStr for AzureDevOpsBuildDefinitionQueueStatus {
     }
 }
 
-impl TryFrom<String> for AzureDevOpsBuildDefinitionQueueStatus {
-    type Error = std::convert::Infallible;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        value.parse()
+impl From<String> for AzureDevOpsBuildDefinitionQueueStatus {
+    fn from(value: String) -> Self {
+        value.parse().unwrap_or_else(|never| match never {})
     }
 }
 

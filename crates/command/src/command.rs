@@ -457,7 +457,7 @@ impl CommandBuilder {
                         );
                     }
                     if std::env::var("CLOUD_TERRASTODON_REAUTH").unwrap_or_default().to_uppercase() == "DENY" {
-                        bail!("Command failed due to bad auth, and automatic reauthentication is disabled by the CLOUD_TERRASTODON_REAUTH environment variable. Please refresh your credentials and try again.")
+                        bail!("Command failed due to bad auth, and automatic reauthentication is disabled by the CLOUD_TERRASTODON_REAUTH environment variable. Please refresh your credentials and try again.");
                     }
                     match LOGIN_LOCK.try_lock() {
                         Ok(login_guard) => {
@@ -604,6 +604,10 @@ impl CommandBuilder {
     }
 
     /// Runs within an already-admitted policy; retries reuse that same owner.
+    #[expect(
+        clippy::double_must_use,
+        reason = "async-recursion adds #[must_use] to an already must-use future"
+    )]
     #[async_recursion]
     async fn run_raw_from(
         &self,

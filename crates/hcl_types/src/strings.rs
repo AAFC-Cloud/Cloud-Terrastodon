@@ -7,6 +7,10 @@ use hcl::edit::structure::Body;
 use hcl::edit::structure::IntoBlocks;
 use std::collections::HashSet;
 
+#[expect(
+    clippy::double_must_use,
+    reason = "async-trait adds #[must_use] to an already must-use future"
+)]
 #[async_trait::async_trait]
 pub trait AsHclString {
     fn as_hcl_string(&self) -> String;

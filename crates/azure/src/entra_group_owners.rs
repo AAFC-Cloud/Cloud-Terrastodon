@@ -114,7 +114,7 @@ mod tests {
                         return Ok(());
                     }
                 }
-                bail!("Failed to ensure group owner fetching worked after {tries} tries")
+                bail!("Failed to ensure group owner fetching worked after {tries} tries");
             })
             .await
     }

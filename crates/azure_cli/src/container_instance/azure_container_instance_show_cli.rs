@@ -67,7 +67,9 @@ impl AzureContainerInstanceShowArgs {
             .collect::<Vec<_>>();
 
         match matches.len() {
-            0 => bail!("No container instance found matching '{}'.", needle),
+            0 => {
+                bail!("No container instance found matching '{}'.", needle);
+            }
             1 => {
                 let stdout = std::io::stdout();
                 let mut handle = stdout.lock();
@@ -86,7 +88,7 @@ impl AzureContainerInstanceShowArgs {
                     "Multiple container instances matched '{}'. Use a full resource id.\n  {}",
                     needle,
                     ids
-                )
+                );
             }
         }
     }

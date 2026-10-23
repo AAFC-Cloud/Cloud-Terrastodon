@@ -16,7 +16,7 @@ pub async fn get_azure_devops_user_onboarding_statuses<T: AsRef<str>>(
     cancellation: &CancellationScope,
 ) -> eyre::Result<Vec<(T, UserOnboardingStatus)>> {
     let existing_users =
-        fetch_azure_devops_user_license_entitlements(org_url, auth_context, &cancellation)
+        fetch_azure_devops_user_license_entitlements(org_url, auth_context, cancellation)
             .await?
             .into_iter()
             .map(|user| user.user.unique_name)

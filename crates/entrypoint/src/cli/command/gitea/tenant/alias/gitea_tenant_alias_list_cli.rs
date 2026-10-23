@@ -14,10 +14,7 @@ pub struct GiteaTenantAliasListArgs {
 }
 
 impl GiteaTenantAliasListArgs {
-    pub async fn invoke(
-        self,
-        cancellation: &CancellationScope,
-    ) -> Result<()> {
+    pub async fn invoke(self, cancellation: &CancellationScope) -> Result<()> {
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();
 

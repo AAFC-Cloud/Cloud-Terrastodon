@@ -3,10 +3,12 @@ use crate::AzureDevOpsWorkItemId;
 use crate::AzureDevOpsWorkItemIdentity;
 use crate::AzureDevOpsWorkItemPatchFields;
 use crate::AzureDevOpsWorkItemType;
-use chrono::{DateTime, Utc};
+use chrono::DateTime;
+use chrono::Utc;
 use cloud_terrastodon_azure_types::ArbitraryJson;
 use eyre::Result;
-use facet_reflect::{HasFields, Peek};
+use facet_reflect::HasFields;
+use facet_reflect::Peek;
 use std::collections::BTreeMap;
 
 /// The fields returned in an Azure DevOps work item response.

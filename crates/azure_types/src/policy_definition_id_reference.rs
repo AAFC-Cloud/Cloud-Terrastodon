@@ -74,7 +74,7 @@ impl FromStr for PolicyDefinitionIdReference {
             (Err(a), Err(b)) => {
                 bail!(
                     "Failed to determine policy definition id kind. PolicySetDefinitionIdError={a}, PolicyDefinitionIdError={b}"
-                )
+                );
             }
         }
     }

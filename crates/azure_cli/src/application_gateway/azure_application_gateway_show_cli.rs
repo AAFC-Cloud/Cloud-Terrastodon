@@ -49,7 +49,9 @@ impl AzureApplicationGatewayShowArgs {
             .collect::<Vec<_>>();
 
         match matches.len() {
-            0 => bail!("No application gateway found matching '{}'.", needle),
+            0 => {
+                bail!("No application gateway found matching '{}'.", needle);
+            }
             1 => {
                 let stdout = std::io::stdout();
                 let mut handle = stdout.lock();
@@ -68,7 +70,7 @@ impl AzureApplicationGatewayShowArgs {
                     "Multiple application gateways matched '{}'. Use a full resource id.\n  {}",
                     needle,
                     ids
-                )
+                );
             }
         }
     }

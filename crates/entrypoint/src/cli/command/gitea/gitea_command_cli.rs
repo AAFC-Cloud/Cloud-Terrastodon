@@ -22,10 +22,7 @@ pub enum GiteaCommand {
 }
 
 impl GiteaCommand {
-    pub async fn invoke(
-        self,
-        cancellation: &CancellationScope,
-    ) -> Result<()> {
+    pub async fn invoke(self, cancellation: &CancellationScope) -> Result<()> {
         match self {
             GiteaCommand::Tenant(args) => args.invoke(cancellation).await?,
             GiteaCommand::Org(args) => args.invoke(cancellation).await?,

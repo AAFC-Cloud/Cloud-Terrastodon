@@ -20,10 +20,7 @@ pub struct GiteaUserShowArgs {
 }
 
 impl GiteaUserShowArgs {
-    pub async fn invoke(
-        self,
-        cancellation: &CancellationScope,
-    ) -> Result<()> {
+    pub async fn invoke(self, cancellation: &CancellationScope) -> Result<()> {
         let tenant = self.tenant.resolve(cancellation).await?;
         let user = match &self.user {
             GiteaUserArgument::Username(username) => {
@@ -37,11 +34,15 @@ impl GiteaUserShowArgs {
                     .collect::<Vec<_>>();
                 match matches.as_slice() {
                     [user] => user.clone(),
-                    [] => bail!("No Gitea user found matching '{}'.", self.user),
-                    _ => bail!(
-                        "Multiple Gitea users matched '{}'. Please specify the numeric id.",
-                        self.user
-                    ),
+                    [] => {
+                        bail!("No Gitea user found matching '{}'.", self.user);
+                    }
+                    _ => {
+                        bail!(
+                            "Multiple Gitea users matched '{}'. Please specify the numeric id.",
+                            self.user
+                        );
+                    }
                 }
             }
         };

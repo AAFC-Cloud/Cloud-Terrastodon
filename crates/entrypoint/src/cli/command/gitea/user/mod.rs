@@ -26,10 +26,7 @@ pub enum GiteaUserCommand {
 }
 
 impl GiteaUserArgs {
-    pub async fn invoke(
-        self,
-        cancellation: &CancellationScope,
-    ) -> Result<()> {
+    pub async fn invoke(self, cancellation: &CancellationScope) -> Result<()> {
         match self.command {
             GiteaUserCommand::List(args) => args.invoke(cancellation).await?,
             GiteaUserCommand::Browse(args) => args.invoke(cancellation).await?,

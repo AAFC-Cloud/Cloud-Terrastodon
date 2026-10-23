@@ -47,10 +47,12 @@ impl AzureCognitiveServicesDeploymentShowArgs {
             .collect::<Vec<_>>();
 
         let account = match account_matches.len() {
-            0 => bail!(
-                "No Cognitive Services account found matching '{}'.",
-                account
-            ),
+            0 => {
+                bail!(
+                    "No Cognitive Services account found matching '{}'.",
+                    account
+                );
+            }
             1 => account_matches.remove(0),
             _ => {
                 account_matches.sort_by_key(|item| item.id.expanded_form());
@@ -63,7 +65,7 @@ impl AzureCognitiveServicesDeploymentShowArgs {
                     "Multiple Cognitive Services accounts matched '{}'. Use a full resource id.\n  {}",
                     account,
                     ids
-                )
+                );
             }
         };
 
@@ -79,7 +81,9 @@ impl AzureCognitiveServicesDeploymentShowArgs {
                 .collect::<Vec<_>>();
 
         match matches.len() {
-            0 => bail!("No deployment found matching '{}'.", deployment_needle),
+            0 => {
+                bail!("No deployment found matching '{}'.", deployment_needle);
+            }
             1 => {
                 let stdout = std::io::stdout();
                 let mut handle = stdout.lock();
@@ -98,7 +102,7 @@ impl AzureCognitiveServicesDeploymentShowArgs {
                     "Multiple deployments matched '{}'. Use a full resource id.\n  {}",
                     deployment_needle,
                     ids
-                )
+                );
             }
         }
     }

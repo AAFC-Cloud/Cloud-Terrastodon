@@ -109,7 +109,7 @@ impl<'a> FromStr for CognitiveServicesAccountArgument<'a> {
         } else {
             bail!(
                 "'{value}' is not a valid Cognitive Services account id, name, or wildcard pattern"
-            )
+            );
         }
     }
 }

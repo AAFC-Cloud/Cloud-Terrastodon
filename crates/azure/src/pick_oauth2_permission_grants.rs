@@ -121,10 +121,12 @@ pub async fn pick_oauth2_permission_grants(
                                 target: Target::User(Box::new((*user).clone())),
                             }
                         }
-                        _ => bail!(
-                            "Invalid state: consent type inconsistent with principal id for {:?}",
-                            grant
-                        ),
+                        _ => {
+                            bail!(
+                                "Invalid state: consent type inconsistent with principal id for {:?}",
+                                grant
+                            );
+                        }
                     })
                 })
                 .collect::<eyre::Result<Vec<Grant>>>()?;

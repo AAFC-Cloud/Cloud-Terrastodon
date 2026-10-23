@@ -14,10 +14,10 @@ pub async fn get_personal_access_token(
             std::env::VarError::NotPresent => {
                 bail!(
                     "AZDO_PERSONAL_ACCESS_TOKEN environment variable not set!\n```pwsh\n$env:AZDO_PERSONAL_ACCESS_TOKEN=Read-Host -MaskInput \"Enter PAT\"\n```\n"
-                )
+                );
             }
             std::env::VarError::NotUnicode(_) => {
-                bail!("AZDO_PERSONAL_ACCESS_TOKEN contains invalid unicode",)
+                bail!("AZDO_PERSONAL_ACCESS_TOKEN contains invalid unicode",);
             }
         },
     }

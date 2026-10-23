@@ -16,7 +16,7 @@ impl FromStr for OtherResourceBlockKind {
             bail!(
                 "Expected at least one underscore in {s:?} to parse as a {:?}",
                 type_name::<OtherResourceBlockKind>()
-            )
+            );
         };
         Ok(OtherResourceBlockKind {
             provider: provider.parse()?,

@@ -71,7 +71,9 @@ impl AzurePolicyAssignmentShowArgs {
         }
 
         match name_matches.len() {
-            0 => bail!("No policy assignment found matching '{}'.", needle),
+            0 => {
+                bail!("No policy assignment found matching '{}'.", needle);
+            }
             1 => {
                 let stdout = std::io::stdout();
                 let mut handle = stdout.lock();
@@ -90,7 +92,7 @@ impl AzurePolicyAssignmentShowArgs {
                     "Multiple policy assignments matched '{}'. Use a full resource id.\n  {}",
                     needle,
                     ids
-                )
+                );
             }
         }
     }

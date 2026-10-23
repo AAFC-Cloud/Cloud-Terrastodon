@@ -51,7 +51,7 @@ fn validate_compute_publisher_name(value: &str) -> eyre::Result<()> {
         bail!(
             "Compute Publisher Name '{}' must be between 1 and 256 characters long",
             value
-        )
+        );
     }
     Ok(())
 }

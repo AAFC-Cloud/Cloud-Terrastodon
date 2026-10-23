@@ -51,7 +51,7 @@ fn validate_compute_publisher_vm_image_offer_name(value: &str) -> eyre::Result<(
         bail!(
             "Compute Publisher VM Image Offer Name '{}' must be between 1 and 256 characters long",
             value
-        )
+        );
     }
     Ok(())
 }

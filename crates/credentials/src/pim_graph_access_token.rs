@@ -236,18 +236,18 @@ pub async fn fetch_pim_graph_access_token_device_code(
             Some("slow_down") => {
                 poll_interval += Duration::from_secs(5);
             }
-            Some(error) => bail!(
+            Some(error) => { bail!(
                 "Microsoft Graph device-code authentication failed ({error}): {}",
                 token
                     .error_description
                     .as_deref()
                     .unwrap_or("no description")
-            ),
-            None if !token_status.is_success() => bail!(
+            ); },
+            None if !token_status.is_success() => { bail!(
                 "Microsoft Graph token request failed with {token_status}: {}",
                 oauth_error_description(&token_body)
-            ),
-            None => bail!("Microsoft Graph token response did not contain an access token"),
+            ); },
+            None => { bail!("Microsoft Graph token response did not contain an access token"); },
         }
     }
 

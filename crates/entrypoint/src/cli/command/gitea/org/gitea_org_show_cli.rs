@@ -19,10 +19,7 @@ pub struct GiteaOrgShowArgs {
 }
 
 impl GiteaOrgShowArgs {
-    pub async fn invoke(
-        self,
-        cancellation: &CancellationScope,
-    ) -> Result<()> {
+    pub async fn invoke(self, cancellation: &CancellationScope) -> Result<()> {
         let tenant = self.tenant.resolve(cancellation).await?;
         let organizations = fetch_all_gitea_organizations(&tenant, cancellation).await?;
         let matches = organizations
@@ -37,14 +34,18 @@ impl GiteaOrgShowArgs {
                 handle.write_all(b"\n")?;
                 Ok(())
             }
-            [] => bail!(
-                "No Gitea organization found matching '{}'.",
-                self.organization
-            ),
-            _ => bail!(
-                "Multiple Gitea organizations matched '{}'. Please specify the numeric id.",
-                self.organization
-            ),
+            [] => {
+                bail!(
+                    "No Gitea organization found matching '{}'.",
+                    self.organization
+                );
+            }
+            _ => {
+                bail!(
+                    "Multiple Gitea organizations matched '{}'. Please specify the numeric id.",
+                    self.organization
+                );
+            }
         }
     }
 }

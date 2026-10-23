@@ -51,7 +51,9 @@ impl AzureEntraPrincipalShowArgs {
             .collect::<Vec<_>>();
 
         match matches.len() {
-            0 => bail!("No principal found matching '{}'.", self.principal),
+            0 => {
+                bail!("No principal found matching '{}'.", self.principal);
+            }
             1 => {
                 let stdout = std::io::stdout();
                 let mut handle = stdout.lock();
@@ -70,7 +72,7 @@ impl AzureEntraPrincipalShowArgs {
                     "Multiple principals matched '{}'. Use a full object id.\n  {}",
                     self.principal,
                     ids
-                )
+                );
             }
         }
     }

@@ -13,10 +13,7 @@ pub struct GiteaTenantForgetArgs {
 }
 
 impl GiteaTenantForgetArgs {
-    pub async fn invoke(
-        self,
-        cancellation: &CancellationScope,
-    ) -> Result<()> {
+    pub async fn invoke(self, cancellation: &CancellationScope) -> Result<()> {
         let tenant_url = self.tenant.resolve(cancellation).await?;
         let forgotten = forget_tracked_tenant(&tenant_url).await?;
         let stdout = std::io::stdout();

@@ -28,7 +28,9 @@ impl AzureDevOpsWorkItemRelationUrl {
     pub fn into_work_item(self) -> Result<AzureDevOpsWorkItemUrl<'static>> {
         match self {
             Self::WorkItem(url) => Ok(url),
-            Self::Other(_) => eyre::bail!("Relation URL does not target a work item"),
+            Self::Other(_) => {
+                eyre::bail!("Relation URL does not target a work item");
+            }
         }
     }
 

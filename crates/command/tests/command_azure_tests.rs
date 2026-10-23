@@ -185,7 +185,7 @@ async fn login() -> Result<()> {
     {
         bail!(
             "Reauthentication is disabled by the CLOUD_TERRASTODON_REAUTH environment variable. Please refresh your credentials and try again."
-        )
+        );
     }
     let result = CommandBuilder::new(CommandKind::AzureCLI)
         .args(["login"])

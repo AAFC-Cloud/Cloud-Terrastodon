@@ -165,7 +165,9 @@ async fn cached_work_writes_failure_extra_files() -> eyre::Result<()> {
                             message: "hello-failure-extra".to_string(),
                         })
                     },
-                    decode: |_| eyre::bail!("decode failed"),
+                    decode: |_| {
+                        eyre::bail!("decode failed");
+                    },
                 },
                 &cancellation,
             )

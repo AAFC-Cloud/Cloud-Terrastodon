@@ -137,9 +137,7 @@ impl<'a> std::fmt::Display for Clue<'a> {
                 "Service Principal alternative names for [{}] contains [{}]",
                 service_principal.id, alternative_name
             )),
-            Clue::GroupMember {
-                group, member, ..
-            } => f.write_fmt(format_args!(
+            Clue::GroupMember { group, member, .. } => f.write_fmt(format_args!(
                 "Group [{} ({})] has member [({}) {} ({})]",
                 group.display_name,
                 group.id,
@@ -147,9 +145,7 @@ impl<'a> std::fmt::Display for Clue<'a> {
                 member.display_name().unwrap_or("Name unavailable"),
                 member.id(),
             )),
-            Clue::GroupOwner {
-                group, owner, ..
-            } => f.write_fmt(format_args!(
+            Clue::GroupOwner { group, owner, .. } => f.write_fmt(format_args!(
                 "Group [{} ({})] has owner [({}) {} ({})]",
                 group.display_name,
                 group.id,
@@ -285,10 +281,7 @@ impl Traversal {
                     let members =
                         fetch_group_members(group.id, context.auth_context, cancellation).await?;
                     for member in members {
-                        rtn.push(clue.join(Clue::GroupMember {
-                            group,
-                            member,
-                        }));
+                        rtn.push(clue.join(Clue::GroupMember { group, member }));
                     }
                 }
             }
@@ -300,10 +293,7 @@ impl Traversal {
                     let owners =
                         fetch_group_owners(group.id, context.auth_context, cancellation).await?;
                     for owner in owners {
-                        rtn.push(clue.join(Clue::GroupOwner {
-                            group,
-                            owner,
-                        }));
+                        rtn.push(clue.join(Clue::GroupOwner { group, owner }));
                     }
                 }
             }

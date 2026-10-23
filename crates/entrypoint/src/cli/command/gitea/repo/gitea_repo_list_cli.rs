@@ -41,10 +41,7 @@ pub struct GiteaRepoListArgs {
 }
 
 impl GiteaRepoListArgs {
-    pub async fn invoke(
-        self,
-        cancellation: &CancellationScope,
-    ) -> Result<()> {
+    pub async fn invoke(self, cancellation: &CancellationScope) -> Result<()> {
         let tenant = self.tenant.resolve(cancellation).await?;
         let repositories = self.fetch_repositories(&tenant, cancellation).await?;
         info!(count = repositories.len(), ?self.method, "Fetched Gitea repositories");

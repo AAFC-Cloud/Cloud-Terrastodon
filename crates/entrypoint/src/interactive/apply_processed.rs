@@ -6,9 +6,7 @@ use cloud_terrastodon_pathing::AppDir;
 use eyre::Result;
 use std::path::PathBuf;
 use tracing::warn;
-pub async fn apply_processed(
-    cancellation: &CancellationScope,
-) -> Result<()> {
+pub async fn apply_processed(cancellation: &CancellationScope) -> Result<()> {
     let processed_dir: PathBuf = AppDir::Processed.into();
     let result = CommandBuilder::new(CommandKind::Terraform)
         .arg("apply")

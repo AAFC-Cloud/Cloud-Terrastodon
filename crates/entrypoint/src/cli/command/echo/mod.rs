@@ -10,10 +10,7 @@ pub struct EchoArgs {
 }
 
 impl EchoArgs {
-    pub async fn invoke(
-        self,
-        _cancellation: &CancellationScope,
-    ) -> eyre::Result<()> {
+    pub async fn invoke(self, _cancellation: &CancellationScope) -> eyre::Result<()> {
         info!("{}", self.message.join(" "));
         Ok(())
     }

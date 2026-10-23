@@ -47,7 +47,9 @@ impl AzurePrivateEndpointShowArgs {
             .collect::<Vec<_>>();
 
         match matches.len() {
-            0 => bail!("No private endpoint found matching '{}'.", needle),
+            0 => {
+                bail!("No private endpoint found matching '{}'.", needle);
+            }
             1 => {
                 let stdout = std::io::stdout();
                 let mut handle = stdout.lock();
@@ -66,7 +68,7 @@ impl AzurePrivateEndpointShowArgs {
                     "Multiple private endpoints matched '{}'. Use a full resource id.\n  {}",
                     needle,
                     ids
-                )
+                );
             }
         }
     }

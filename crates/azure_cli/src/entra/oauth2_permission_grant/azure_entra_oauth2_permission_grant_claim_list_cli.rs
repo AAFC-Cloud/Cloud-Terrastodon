@@ -87,7 +87,9 @@ async fn resolve_service_principal_id(
         .collect::<Vec<_>>();
 
     match matches.len() {
-        0 => bail!("No service principal found matching '{}'.", needle),
+        0 => {
+            bail!("No service principal found matching '{}'.", needle);
+        }
         1 => Ok(matches.remove(0).id),
         _ => {
             matches.sort_by_key(|service_principal| service_principal.id.to_string());
@@ -100,7 +102,7 @@ async fn resolve_service_principal_id(
                 "Multiple service principals matched '{}'. Use a full object id.\n  {}",
                 needle,
                 ids
-            )
+            );
         }
     }
 }

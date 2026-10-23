@@ -83,7 +83,7 @@ impl TryFrom<Block> for TerraformBlock {
                 Ok(block) => {
                     if block.has_ident("backend") {
                         if backend.is_some() {
-                            bail!("Expected at most one backend block")
+                            bail!("Expected at most one backend block");
                         }
                         backend = Some(block.try_into()?);
                     } else if block.has_ident("required_providers") {

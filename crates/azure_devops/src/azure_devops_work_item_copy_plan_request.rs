@@ -53,7 +53,7 @@ impl<'a> IntoFuture for AzureDevOpsWorkItemCopyPlanRequest<'a> {
 
     fn into_future(self) -> Self::IntoFuture {
         Box::pin(async move {
-            let as_of = self.options.as_of.clone().unwrap_or_else(chrono::Utc::now);
+            let as_of = self.options.as_of.unwrap_or_else(chrono::Utc::now);
             let allowed: BTreeSet<_> = self.options.allowed_ids.iter().copied().collect();
             let mut frontier = vec![self.root];
             let mut items = BTreeMap::new();
@@ -72,7 +72,7 @@ impl<'a> IntoFuture for AzureDevOpsWorkItemCopyPlanRequest<'a> {
                     ids: frontier,
                     expand: Default::default(),
                     fields: Vec::new(),
-                    as_of: Some(as_of.clone()),
+                    as_of: Some(as_of),
                 }
                 .await?;
                 let mut next = BTreeSet::new();

@@ -42,10 +42,10 @@ pub(super) fn write_hunt_report(
                 terminal_text(&remote.name),
                 terminal_text(remote.fetch_url.as_deref().unwrap_or("(no fetch URL)")),
             )?;
-            if let Some(push_url) = &remote.push_url {
-                if Some(push_url) != remote.fetch_url.as_ref() {
-                    writeln!(writer, "    push: {}", terminal_text(push_url))?;
-                }
+            if let Some(push_url) = &remote.push_url
+                && Some(push_url) != remote.fetch_url.as_ref()
+            {
+                writeln!(writer, "    push: {}", terminal_text(push_url))?;
             }
         }
         if let Some(history) = &repo.history {

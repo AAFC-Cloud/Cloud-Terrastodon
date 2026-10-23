@@ -7,10 +7,7 @@ use eyre::Result;
 pub struct CleanArgs;
 
 impl CleanArgs {
-    pub async fn invoke(
-        self,
-        _cancellation: &CancellationScope,
-    ) -> Result<()> {
+    pub async fn invoke(self, _cancellation: &CancellationScope) -> Result<()> {
         clean().await?;
         Ok(())
     }

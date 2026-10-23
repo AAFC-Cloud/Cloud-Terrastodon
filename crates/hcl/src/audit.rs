@@ -326,10 +326,7 @@ async fn audit_latest_provider_versions(
     Ok(problems)
 }
 
-pub async fn audit(
-    source_dir: &Path,
-    cancellation: &CancellationScope,
-) -> eyre::Result<()> {
+pub async fn audit(source_dir: &Path, cancellation: &CancellationScope) -> eyre::Result<()> {
     audit_with_fix(source_dir, false, cancellation).await
 }
 

@@ -164,7 +164,7 @@ impl RestRequest {
     pub fn azure_devops_auth_context(self, auth_context: &AzureDevOpsAuthContext) -> Result<Self> {
         Ok(match auth_context {
             AzureDevOpsAuthContext::None => {
-                bail!("Azure DevOps authentication is not configured for this request")
+                bail!("Azure DevOps authentication is not configured for this request");
             }
             AzureDevOpsAuthContext::Bearer(context) => self
                 .azure_auth_context(&context.auth_context)

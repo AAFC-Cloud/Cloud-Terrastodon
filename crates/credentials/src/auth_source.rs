@@ -62,9 +62,11 @@ impl FromStr for AuthSource {
             "pat" | "personal-access-token" | "personal_access_token" => {
                 Ok(Self::PersonalAccessToken)
             }
-            _ => bail!(
-                "unsupported authentication source {value:?}; expected auto, none, workload-identity, browser, azure-cli, or pat"
-            ),
+            _ => {
+                bail!(
+                    "unsupported authentication source {value:?}; expected auto, none, workload-identity, browser, azure-cli, or pat"
+                );
+            }
         }
     }
 }

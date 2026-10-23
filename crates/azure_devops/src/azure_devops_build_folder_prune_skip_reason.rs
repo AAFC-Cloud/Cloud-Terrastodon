@@ -45,7 +45,9 @@ impl TryFrom<String> for AzureDevOpsBuildFolderPruneSkipReason {
             "Folder path changed since planning" => Ok(Self::PathChanged),
             "Folder now contains build definitions" => Ok(Self::ContainsDefinitions),
             "Folder still has child folders" => Ok(Self::HasChildFolders),
-            _ => eyre::bail!("Unknown build folder pruning skip reason"),
+            _ => {
+                eyre::bail!("Unknown build folder pruning skip reason");
+            }
         }
     }
 }

@@ -7,10 +7,7 @@ use std::io::Write;
 pub struct GiteaTenantListArgs {}
 
 impl GiteaTenantListArgs {
-    pub async fn invoke(
-        self,
-        _cancellation: &CancellationScope,
-    ) -> Result<()> {
+    pub async fn invoke(self, _cancellation: &CancellationScope) -> Result<()> {
         let tenants = list_tracked_tenants().await?;
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();

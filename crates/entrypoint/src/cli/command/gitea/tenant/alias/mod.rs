@@ -26,10 +26,7 @@ pub enum GiteaTenantAliasCommand {
 }
 
 impl GiteaTenantAliasArgs {
-    pub async fn invoke(
-        self,
-        cancellation: &CancellationScope,
-    ) -> Result<()> {
+    pub async fn invoke(self, cancellation: &CancellationScope) -> Result<()> {
         match self.command {
             GiteaTenantAliasCommand::Add(args) => args.invoke(cancellation).await?,
             GiteaTenantAliasCommand::List(args) => args.invoke(cancellation).await?,

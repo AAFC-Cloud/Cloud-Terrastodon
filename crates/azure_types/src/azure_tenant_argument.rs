@@ -76,7 +76,7 @@ impl<'a> FromStr for AzureTenantArgument<'a> {
         } else {
             bail!(
                 "'{s}' is not a valid default tenant selector, Azure tenant id, or Cloud Terrastodon tenant alias"
-            )
+            );
         }
     }
 }

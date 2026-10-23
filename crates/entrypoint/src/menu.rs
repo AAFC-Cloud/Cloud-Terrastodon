@@ -90,10 +90,7 @@ pub async fn press_enter_to_continue() -> Result<()> {
     Ok(())
 }
 
-pub async fn menu_loop(
-    auth_context: &AuthContext,
-    cancellation: &CancellationScope,
-) -> Result<()> {
+pub async fn menu_loop(auth_context: &AuthContext, cancellation: &CancellationScope) -> Result<()> {
     loop {
         cancellation.bail_if_cancelled()?;
         if menu(auth_context, cancellation).await? == MenuActionResult::QuitApplication {

@@ -61,7 +61,7 @@ mod tests {
         let url = Url::parse("https://graph.microsoft.com/v1.0/organization").unwrap();
         let tenant =
             infer_tenant_id_for_request(RestService::MicrosoftGraph, &url, |_| async move {
-                eyre::bail!("resolver should not be called")
+                eyre::bail!("resolver should not be called");
             })
             .await?;
         assert_eq!(tenant, None);

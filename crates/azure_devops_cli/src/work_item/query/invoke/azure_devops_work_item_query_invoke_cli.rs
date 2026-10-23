@@ -36,7 +36,9 @@ impl AzureDevOpsWorkItemQueryInvokeArgs {
                     .await?
                     .ok_or_else(|| eyre::eyre!("Missing text input"))?,
             ),
-            _ => bail!("Specify exactly one saved query ID or --wiql"),
+            _ => {
+                bail!("Specify exactly one saved query ID or --wiql");
+            }
         };
         let auth_context = self.tenant.bind_auth_context(auth, cancellation).await?;
         let result = AzureDevOpsWorkItemQueryInvokeRequest {

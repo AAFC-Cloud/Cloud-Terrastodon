@@ -58,10 +58,12 @@ impl AzureVirtualNetworkSubnetShowArgs {
             .filter(|subnet| self.subnet.matches_id(&subnet.id))
             .collect::<Vec<_>>();
         match subnets.len() {
-            0 => bail!(
-                "No subnet found matching '{}' in the selected virtual networks.",
-                self.subnet
-            ),
+            0 => {
+                bail!(
+                    "No subnet found matching '{}' in the selected virtual networks.",
+                    self.subnet
+                );
+            }
             1 => Ok(CliOutput::facet(subnets.remove(0))),
             count => {
                 subnets.sort_by_key(|subnet| subnet.id.expanded_form());
@@ -73,7 +75,7 @@ impl AzureVirtualNetworkSubnetShowArgs {
                 bail!(
                     "{count} subnets matched '{}'. Use --vnet or a full subnet resource ID.\n  {ids}",
                     self.subnet
-                )
+                );
             }
         }
     }

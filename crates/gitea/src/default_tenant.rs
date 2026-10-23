@@ -55,7 +55,7 @@ impl IntoFuture for DefaultGiteaInstanceUrlRequest {
 
             bail!(
                 "No default Gitea login was found. Set a default with `tea login default <name>` or specify `--tenant`."
-            )
+            );
         })
     }
 }
