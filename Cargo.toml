@@ -84,6 +84,7 @@ syn = { version = "2.0.106", default-features = false, features = [
 ] }
 eyre = "0.6.12"
 color-eyre = "0.6.3"
+owo-colors = { version = "4.3.0", features = ["supports-colors"] }
 bstr = "1.11.3"
 reqwest = { version = "0.12.22", features = ["json"] }
 url = "2.5.8"

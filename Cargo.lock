@@ -1282,6 +1282,7 @@ dependencies = [
  "cloud_terrastodon_zombies",
  "color-eyre",
  "compact_str",
+ "crossterm",
  "eyre",
  "hickory-resolver",
  "http",
@@ -1298,6 +1299,7 @@ dependencies = [
  "prettyplease",
  "proc-macro2",
  "quote",
+ "ratatui",
  "reqwest",
  "serde",
  "serde_json",
@@ -1323,8 +1325,13 @@ version = "0.37.0"
 dependencies = [
  "cloud_terrastodon_registry",
  "eyre",
+ "linkme",
+ "nucleo",
+ "teamy-cancellation",
  "teamy-facet",
  "teamy-facet-json",
+ "tempfile",
+ "tokio",
 ]
 
 [[package]]
@@ -1508,7 +1515,9 @@ name = "cloud_terrastodon_tracing"
 version = "0.37.0"
 dependencies = [
  "chrono",
+ "color-eyre",
  "eyre",
+ "owo-colors",
  "tokio",
  "tracing",
  "tracing-error",
@@ -1554,6 +1563,7 @@ dependencies = [
  "cloud_terrastodon_azure_devops",
  "cloud_terrastodon_command",
  "cloud_terrastodon_credentials",
+ "cloud_terrastodon_excalidraw",
  "cloud_terrastodon_registry",
  "cloud_terrastodon_user_input",
  "color-eyre",
@@ -1571,6 +1581,7 @@ dependencies = [
  "teamy-facet",
  "teamy-facet-json",
  "teamy-facet-reflect",
+ "tempfile",
  "tokio",
  "tracing",
 ]

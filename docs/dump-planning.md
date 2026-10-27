@@ -146,3 +146,53 @@ relationships remain work for the live dump and analysis features.
 
 The existing Terraform-oriented `dump-everything` command remains separate from
 `dump plan`.
+
+For a local file-based interaction playground with question readouts and a live
+Logs frame, see [`ct excalidraw interactive`](excalidraw-interactive.md).
+
+## Interactive target selection
+
+Add `--interactive` to keep a planning diagram connected to the offline planner:
+
+```powershell
+cargo run -- dump plan --org aafc --auth-source browser `
+    --target AzureDevOpsServiceEndpoint --target AzureDevOpsBuildDefinition `
+    --diagram target/plan-live.excalidraw --interactive `
+    --output-format json > target/plan-live.json
+```
+
+The canvas displays **Generated plan** only. Target selection belongs to the
+terminal; moving or editing diagram nodes does not change the requested targets.
+Individual nodes and labels are selectable, without a group around the entire
+plan. Existing annotations are retained. The next semantic plan change redraws
+CT's generated graph.
+
+Press **A** to open the fuzzy target picker. Current targets start checked.
+Typing a search and pressing **Enter** includes the focused result and applies
+the selection, so an AppServiceSiteConfig result is added directly. **Tab**
+toggles a result; **Ctrl-Enter** applies only the checked set. To remove every
+target, press **Ctrl-D**, then **Ctrl-Enter**. **Esc** or **Ctrl-C** dismisses the
+picker without changes. The inline terminal suspends while the picker owns the
+screen and resumes afterwards.
+
+`--target` supplies the session's starting targets and may be omitted in
+interactive mode. Reopening a drawing uses the command's targets; a drawing is
+presentation, not persisted plan configuration. Organization, tenant and
+authentication source come from the command. `browser` remains a planning
+assumption and does not open a login.
+
+Older planning boards retire their generated Target search, Target pool and
+Selected targets controls. Unrelated annotations remain and are detached from
+retired frames. The generated diagram continues using the existing plan frame.
+
+The command uses the same atomic shared-file protocol as the interactive
+playground and the VS Code fork. Busy file locks retain pending target edits and
+retry publication. Logs and the inline status panel use stderr. Press **Q** or
+**Esc** to finish and emit the latest accepted plan report to stdout (the
+redirected JSON file above). **Ctrl-C** cancels; the latest published drawing
+remains on disk, but cancelled stdout rendering may not produce a report. No
+registry operations or cloud requests execute in this mode.
+
+The object explorer is the control surface for the next planning iteration;
+Excalidraw remains its diagram renderer. Input values in this command still come
+from the organization, tenant and authentication flags.

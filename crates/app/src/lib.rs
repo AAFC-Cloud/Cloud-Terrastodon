@@ -74,6 +74,8 @@ pub struct App {
     implementation_source_file: bool,
     egui_collector: bool,
     automatic_cancellation: bool,
+    #[cfg(feature = "terminal")]
+    terminal_debug_capture: bool,
 }
 
 impl App {
@@ -86,6 +88,8 @@ impl App {
             implementation_source_file: false,
             egui_collector: false,
             automatic_cancellation: true,
+            #[cfg(feature = "terminal")]
+            terminal_debug_capture: false,
         }
     }
 
@@ -124,6 +128,17 @@ impl App {
     /// supplied scope can still start explicitly cancellable child operations.
     pub fn automatic_cancellation(mut self, enable: bool) -> Self {
         self.automatic_cancellation = enable;
+        self
+    }
+
+    /// Capture a bounded Debug-through-Error stream for an interactive log surface.
+    ///
+    /// Independent from the user's stderr/file filters. Enable only for commands
+    /// that consume `PickerLogBuffer::captured_records_since`; retained events are
+    /// limited to the latest 2,048 records and never replayed to stderr on exit.
+    #[cfg(feature = "terminal")]
+    pub fn terminal_debug_capture(mut self, enable: bool) -> Self {
+        self.terminal_debug_capture = enable;
         self
     }
 
@@ -208,7 +223,7 @@ impl App {
         let auth = AuthContext::resolve(globals.auth_source)?;
 
         #[cfg(feature = "terminal")]
-        let terminal = terminal::TerminalSession::new();
+        let terminal = terminal::TerminalSession::new().debug_capture(self.terminal_debug_capture);
         #[cfg(feature = "terminal")]
         let (terminal_buffer, terminal_activity) =
             (Some(terminal.log_buffer()), Some(terminal.activity_probe()));

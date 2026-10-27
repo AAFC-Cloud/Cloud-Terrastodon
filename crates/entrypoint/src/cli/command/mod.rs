@@ -10,6 +10,7 @@ pub mod dump_azure_devops;
 pub mod dump_everything;
 pub mod echo;
 pub mod egui;
+pub mod excalidraw;
 pub mod extract_uuid;
 pub mod get_path;
 pub mod gitea;
@@ -36,6 +37,7 @@ use crate::cli::dump_azure_devops::DumpAzureDevOpsArgs;
 use crate::cli::dump_everything::DumpEverythingArgs;
 use crate::cli::echo::EchoArgs;
 use crate::cli::egui::EguiArgs;
+use crate::cli::excalidraw::ExcalidrawArgs;
 use crate::cli::extract_uuid::ExtractUuidArgs;
 use crate::cli::get_path::GetPathArgs;
 use crate::cli::gitea::GiteaArgs;
@@ -64,6 +66,8 @@ pub enum CloudTerrastodonCommand {
     Ratatui(RatatuiArgs),
     /// Launch the egui-based interface.
     Egui(EguiArgs),
+    /// Interact with local Excalidraw documents through the filesystem.
+    Excalidraw(ExcalidrawArgs),
     /// Emit a message through the configured logging pipeline.
     Echo(EchoArgs),
     /// Remove generated artifacts.
@@ -135,6 +139,9 @@ impl CloudTerrastodonCommand {
             CloudTerrastodonCommand::Ratatui(args) => Box::pin(args.invoke(cancellation)).await,
             CloudTerrastodonCommand::Egui(args) => {
                 Box::pin(args.invoke(auth_context, cancellation)).await
+            }
+            CloudTerrastodonCommand::Excalidraw(args) => {
+                return Box::pin(args.invoke(cancellation)).await;
             }
             CloudTerrastodonCommand::Echo(args) => Box::pin(args.invoke(cancellation)).await,
             CloudTerrastodonCommand::Clean(args) => Box::pin(args.invoke(cancellation)).await,

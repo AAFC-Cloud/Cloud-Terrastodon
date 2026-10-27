@@ -20,6 +20,7 @@ fn graph(ids: &[usize], edges: &[(usize, usize)]) -> DiscoveryPlan {
                 target: false,
                 level: 0,
                 effects: Vec::new(),
+                fields: Vec::new(),
                 missing_inputs: Vec::new(),
             })
             .collect(),

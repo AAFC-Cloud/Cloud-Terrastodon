@@ -1,4 +1,5 @@
 use cloud_terrastodon_tracing::StructuredLogLevel;
+use cloud_terrastodon_tracing::StructuredLogRecord;
 use cloud_terrastodon_tracing::TerminalActivityProbe;
 use cloud_terrastodon_tracing::TerminalLogBuffer;
 use cloud_terrastodon_user_input::PickerLogBuffer;
@@ -33,6 +34,13 @@ impl TerminalSession {
 
     pub(crate) fn log_buffer(&self) -> TerminalLogBuffer {
         self.log_buffer.clone()
+    }
+
+    pub(crate) fn debug_capture(mut self, enable: bool) -> Self {
+        if enable {
+            self.log_buffer = self.log_buffer.with_debug_capture(2_048);
+        }
+        self
     }
 
     pub(crate) fn activity_probe(&self) -> TerminalActivityProbe {
@@ -87,40 +95,59 @@ impl PickerLogBuffer for TracingPickerLogBuffer {
         self.buffer
             .records_since(cursor)
             .into_iter()
-            .map(|record| PickerLogRecord {
-                level: match record.level {
-                    StructuredLogLevel::Debug | StructuredLogLevel::Trace => PickerLogLevel::Debug,
-                    StructuredLogLevel::Info => PickerLogLevel::Info,
-                    StructuredLogLevel::Warn => PickerLogLevel::Warn,
-                    StructuredLogLevel::Error => PickerLogLevel::Error,
-                },
-                message: record.message,
-                target: record.target,
-                timestamp: record.timestamp,
-                fields: record
-                    .fields
-                    .into_iter()
-                    .map(|(name, value)| (name.into(), value.into()))
-                    .collect(),
-                spans: record
-                    .spans
-                    .into_iter()
-                    .map(|span| PickerLogSpan {
-                        name: span.name,
-                        fields: span
-                            .fields
-                            .into_iter()
-                            .map(|(name, value)| (name.into(), value.into()))
-                            .collect(),
-                    })
-                    .collect(),
-                file: record.file,
-                line: record.line,
-            })
+            .map(picker_log_record)
+            .collect()
+    }
+
+    fn formatted_records_since(&self, cursor: &mut usize) -> Vec<String> {
+        self.buffer.formatted_records_since(cursor)
+    }
+
+    fn acknowledge_through(&self, cursor: usize) {
+        self.buffer.acknowledge_through(cursor);
+    }
+
+    fn captured_records_since(&self, cursor: &mut usize) -> Vec<PickerLogRecord> {
+        self.buffer
+            .captured_records_since(cursor)
+            .into_iter()
+            .map(picker_log_record)
             .collect()
     }
 }
 
+fn picker_log_record(record: StructuredLogRecord) -> PickerLogRecord {
+    PickerLogRecord {
+        level: match record.level {
+            StructuredLogLevel::Debug | StructuredLogLevel::Trace => PickerLogLevel::Debug,
+            StructuredLogLevel::Info => PickerLogLevel::Info,
+            StructuredLogLevel::Warn => PickerLogLevel::Warn,
+            StructuredLogLevel::Error => PickerLogLevel::Error,
+        },
+        message: record.message,
+        target: record.target,
+        timestamp: record.timestamp,
+        fields: record
+            .fields
+            .into_iter()
+            .map(|(name, value)| (name.into(), value.into()))
+            .collect(),
+        spans: record
+            .spans
+            .into_iter()
+            .map(|span| PickerLogSpan {
+                name: span.name,
+                fields: span
+                    .fields
+                    .into_iter()
+                    .map(|(name, value)| (name.into(), value.into()))
+                    .collect(),
+            })
+            .collect(),
+        file: record.file,
+        line: record.line,
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -1,10 +1,11 @@
+use crate::TerminalLogBuffer;
+use color_eyre::owo_colors::OwoColorize;
+use color_eyre::owo_colors::Stream;
+use color_eyre::owo_colors::Style;
+use std::borrow::Cow;
 use std::fmt::Write as _;
-use std::io::IsTerminal;
-use std::io::Write;
 use std::sync::Arc;
-use std::sync::Mutex;
 use std::time::SystemTime;
-use tokio::sync::mpsc;
 use tracing::Subscriber;
 use tracing::field::Field;
 use tracing::field::Visit;
@@ -46,85 +47,6 @@ pub struct StructuredLogRecord {
     pub spans: Vec<StructuredSpan>,
     pub file: Option<Arc<str>>,
     pub line: Option<u32>,
-}
-
-#[derive(Clone)]
-pub struct TerminalLogBuffer {
-    inner: Arc<TerminalLogBufferInner>,
-}
-
-struct TerminalLogBufferInner {
-    sender: mpsc::UnboundedSender<StructuredLogRecord>,
-    receiver: Mutex<mpsc::UnboundedReceiver<StructuredLogRecord>>,
-    records: Mutex<Vec<StructuredLogRecord>>,
-}
-
-impl TerminalLogBuffer {
-    pub fn new() -> Self {
-        let (sender, receiver) = mpsc::unbounded_channel();
-        Self {
-            inner: Arc::new(TerminalLogBufferInner {
-                sender,
-                receiver: Mutex::new(receiver),
-                records: Mutex::new(Vec::new()),
-            }),
-        }
-    }
-
-    pub fn records_since(&self, cursor: &mut usize) -> Vec<StructuredLogRecord> {
-        self.synchronize();
-        let records = self
-            .inner
-            .records
-            .lock()
-            .expect("terminal log buffer poisoned");
-        let start = (*cursor).min(records.len());
-        *cursor = records.len();
-        records[start..].to_vec()
-    }
-
-    pub fn replay_to<W: Write>(&self, mut writer: W) -> std::io::Result<()> {
-        self.synchronize();
-        let records = self
-            .inner
-            .records
-            .lock()
-            .expect("terminal log buffer poisoned");
-        for record in records.iter() {
-            writeln!(writer, "{}", format_record(record))?;
-        }
-        Ok(())
-    }
-
-    pub fn replay_to_stderr(&self) {
-        let _ = self.replay_to(std::io::stderr());
-    }
-
-    fn push(&self, record: StructuredLogRecord) {
-        let _ = self.inner.sender.send(record);
-    }
-
-    fn synchronize(&self) {
-        let mut receiver = self
-            .inner
-            .receiver
-            .lock()
-            .expect("terminal log buffer receiver poisoned");
-        let mut records = self
-            .inner
-            .records
-            .lock()
-            .expect("terminal log buffer poisoned");
-        while let Ok(record) = receiver.try_recv() {
-            records.push(record);
-        }
-    }
-}
-
-impl Default for TerminalLogBuffer {
-    fn default() -> Self {
-        Self::new()
-    }
 }
 
 pub type TerminalActivityProbe = Arc<dyn Fn() -> bool + Send + Sync>;
@@ -240,7 +162,12 @@ where
         };
         let mut fields = CapturedFields::default();
         attrs.record(&mut fields);
-        span.extensions_mut().insert(fields);
+        // The independent canvas capture and human-output layers can share a
+        // registry. Both observe the same span fields; do not insert twice.
+        let mut extensions = span.extensions_mut();
+        if extensions.get_mut::<CapturedFields>().is_none() {
+            extensions.insert(fields);
+        }
     }
 
     fn on_record(&self, id: &Id, values: &Record<'_>, ctx: Context<'_, S>) {
@@ -313,18 +240,45 @@ fn level(level: &tracing::Level) -> StructuredLogLevel {
 }
 
 pub fn format_record(record: &StructuredLogRecord) -> String {
-    format_record_with_terminal(record, std::io::stderr().is_terminal())
+    format_record_with_style(record, |text, style| {
+        text.if_supports_color(Stream::Stderr, |text| text.style(style))
+            .to_string()
+    })
 }
 
-fn format_record_with_terminal(record: &StructuredLogRecord, terminal: bool) -> String {
-    let mut event = format!("  {} {}", format_level(record.level), record.message);
+fn format_record_with_style(
+    record: &StructuredLogRecord,
+    styled: impl Fn(&str, Style) -> String,
+) -> String {
+    let mut event = format!(
+        "  {} {}",
+        format_level(record.level),
+        escape_terminal_controls(&record.message)
+    );
     for (name, value) in &record.fields {
-        let _ = write!(event, ", {name}: {value}");
+        let _ = write!(
+            event,
+            ", {}: {}",
+            escape_terminal_controls(name),
+            escape_terminal_controls(value)
+        );
     }
 
-    let mut output = colorize_event(event, record.level, terminal);
+    let level_style = match record.level {
+        StructuredLogLevel::Trace => Style::new().purple(),
+        StructuredLogLevel::Debug => Style::new().blue(),
+        StructuredLogLevel::Info => Style::new().green(),
+        StructuredLogLevel::Warn => Style::new().yellow(),
+        StructuredLogLevel::Error => Style::new().red(),
+    };
+    let mut output = styled(&event, level_style);
     if let Some(file) = &record.file {
-        let _ = write!(output, "\n    {} {file}", dim_italic("at", terminal));
+        let _ = write!(
+            output,
+            "\n    {} {}",
+            styled("at", Style::new().dimmed().italic()),
+            escape_terminal_controls(file)
+        );
         if let Some(line) = record.line {
             let _ = write!(output, ":{line}");
         }
@@ -334,18 +288,23 @@ fn format_record_with_terminal(record: &StructuredLogRecord, terminal: bool) -> 
         let _ = write!(
             output,
             "\n    {} {}",
-            dim_italic("in", terminal),
-            bold(&span.name, terminal)
+            styled("in", Style::new().dimmed().italic()),
+            styled(&escape_terminal_controls(&span.name), Style::new().bold())
         );
         if !span.fields.is_empty() {
             output.push(' ');
-            output.push_str(&dim_italic("with", terminal));
+            output.push_str(&styled("with", Style::new().dimmed().italic()));
             output.push(' ');
             for (index, (name, value)) in span.fields.iter().enumerate() {
                 if index != 0 {
                     output.push_str(", ");
                 }
-                let _ = write!(output, "{name}: {value}");
+                let _ = write!(
+                    output,
+                    "{}: {}",
+                    escape_terminal_controls(name),
+                    escape_terminal_controls(value)
+                );
             }
         }
     }
@@ -362,40 +321,31 @@ fn format_level(level: StructuredLogLevel) -> &'static str {
     }
 }
 
-fn colorize_event(event: String, level: StructuredLogLevel, terminal: bool) -> String {
-    if !terminal {
-        return event;
+// The formatter is the trust boundary for terminal output. Preserve multiline
+// messages, but escape content-provided ANSI/control sequences before applying
+// our own styles. This applies equally to live stderr, inline output and replay.
+fn escape_terminal_controls(value: &str) -> Cow<'_, str> {
+    if !value
+        .chars()
+        .any(|character| character.is_control() && character != '\n')
+    {
+        return Cow::Borrowed(value);
     }
-
-    let color = match level {
-        StructuredLogLevel::Trace => 35,
-        StructuredLogLevel::Debug => 34,
-        StructuredLogLevel::Info => 32,
-        StructuredLogLevel::Warn => 33,
-        StructuredLogLevel::Error => 31,
-    };
-    format!("\x1b[{color}m{event}\x1b[0m")
-}
-
-fn dim_italic(value: &str, terminal: bool) -> String {
-    if terminal {
-        format!("\x1b[2;3m{value}\x1b[0m")
-    } else {
-        value.to_string()
+    let mut escaped = String::with_capacity(value.len());
+    for character in value.chars() {
+        if character.is_control() && character != '\n' {
+            escaped.extend(character.escape_default());
+        } else {
+            escaped.push(character);
+        }
     }
-}
-
-fn bold(value: &str, terminal: bool) -> String {
-    if terminal {
-        format!("\x1b[1m{value}\x1b[0m")
-    } else {
-        value.to_string()
-    }
+    Cow::Owned(escaped)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
     use std::sync::atomic::AtomicBool;
     use std::sync::atomic::Ordering;
     use std::thread;
@@ -534,7 +484,7 @@ mod tests {
         };
 
         assert_eq!(
-            format_record_with_terminal(&record, false),
+            format_record_with_style(&record, |text, _| text.to_owned()),
             "   INFO hello world, answer: 42\n    at crates/entrypoint/src/echo.rs:12"
         );
     }
@@ -556,7 +506,7 @@ mod tests {
         };
 
         assert_eq!(
-            format_record_with_terminal(&record, false),
+            format_record_with_style(&record, |text, _| text.to_owned()),
             "   INFO hello world\n    in cli_invocation"
         );
     }
@@ -574,10 +524,66 @@ mod tests {
             line: Some(12),
         };
 
-        let output = format_record_with_terminal(&record, true);
+        let output = format_record_with_style(&record, |text, style| text.style(style).to_string());
 
         assert!(output.starts_with("\x1b[32m   INFO hello world\x1b[0m"));
         assert!(output.contains("\n    \x1b[2;3mat\x1b[0m crates/entrypoint/src/echo.rs:12"));
         assert!(!output.contains("\x1b]8;;"));
+    }
+
+    #[test]
+    fn buffered_terminal_output_uses_the_same_formatter_as_immediate_output() {
+        let active = Arc::new(AtomicBool::new(false));
+        let buffer = TerminalLogBuffer::new();
+        let immediate = Arc::new(Mutex::new(Vec::new()));
+        let subscriber = tracing_subscriber::registry().with(
+            TerminalEventLayer::new(buffer.clone(), active_probe(&active)).with_inactive_writer({
+                let immediate = Arc::clone(&immediate);
+                move |record| immediate.lock().unwrap().push(format_record(record))
+            }),
+        );
+        tracing::subscriber::with_default(subscriber, || {
+            let span = tracing::info_span!("drawing_update", path = "demo.excalidraw");
+            let _entered = span.enter();
+            for guarded in [false, true] {
+                active.store(guarded, Ordering::Release);
+                tracing::warn!(attempt = 3, "could not save drawing");
+            }
+        });
+        let buffered = buffer.formatted_records_since(&mut 0);
+        assert_eq!(buffered, *immediate.lock().unwrap());
+        assert_eq!(buffered.len(), 1);
+        assert!(buffered[0].contains("attempt: 3"));
+        assert!(buffered[0].contains("drawing_update"));
+        assert!(buffered[0].contains("demo.excalidraw"));
+        assert!(buffered[0].contains("structured_log.rs:"));
+    }
+
+    #[test]
+    fn terminal_controls_in_record_content_are_escaped_before_styling() {
+        let record = StructuredLogRecord {
+            timestamp: SystemTime::UNIX_EPOCH,
+            level: StructuredLogLevel::Warn,
+            target: Arc::from("test"),
+            message: Arc::from("unsafe\x1b[2J\nsecond line"),
+            fields: vec![("key\r".to_owned(), "value\x07".to_owned())],
+            spans: vec![StructuredSpan {
+                name: Arc::from("span\x1b[2J"),
+                fields: vec![("scope".to_owned(), "value\x08".to_owned())],
+            }],
+            file: Some(Arc::from("file\x1b[2J.rs")),
+            line: Some(42),
+        };
+        let plain = format_record_with_style(&record, |text, _| text.to_owned());
+        assert!(
+            !plain
+                .chars()
+                .any(|character| character.is_control() && character != '\n')
+        );
+        assert!(plain.contains("unsafe\\u{1b}[2J\nsecond line"));
+        assert!(plain.contains("file\\u{1b}[2J.rs:42"));
+        let styled = format_record_with_style(&record, |text, style| text.style(style).to_string());
+        assert!(styled.contains("\x1b[33m"));
+        assert!(!styled.contains("\x1b[2J"));
     }
 }

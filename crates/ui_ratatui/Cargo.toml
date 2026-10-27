@@ -30,11 +30,13 @@ ratatui-textarea = { workspace = true }
 cloud_terrastodon_azure = { workspace = true }
 cloud_terrastodon_command = { workspace = true }
 cloud_terrastodon_credentials = { workspace = true }
+cloud_terrastodon_excalidraw = { workspace = true }
 cloud_terrastodon_registry = { workspace = true }
 cloud_terrastodon_user_input = { workspace = true }
 linkme = { workspace = true }
 
 [dev-dependencies]
+tempfile.workspace = true
 cloud_terrastodon_azure_devops = { workspace = true }
 color-eyre = { workspace = true }
 

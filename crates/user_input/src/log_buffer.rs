@@ -30,6 +30,23 @@ pub struct PickerLogRecord {
 
 pub trait PickerLogBuffer: Send + Sync {
     fn records_since(&self, cursor: &mut usize) -> Vec<PickerLogRecord>;
+
+    /// The tracing subscriber's normal terminal presentation, including styling,
+    /// source locations and span context. Shares the structured record cursor.
+    ///
+    /// Producers must escape untrusted terminal controls before applying their
+    /// own formatting. Inline consumers write this output without reformatting it.
+    fn formatted_records_since(&self, cursor: &mut usize) -> Vec<String>;
+
+    /// Mark successfully printed records so application shutdown does not replay them.
+    fn acknowledge_through(&self, _cursor: usize) {}
+
+    /// Records for a separate visual log surface, independent of stderr's filter.
+    ///
+    /// Empty unless the application enabled bounded Debug capture at startup.
+    fn captured_records_since(&self, _cursor: &mut usize) -> Vec<PickerLogRecord> {
+        Vec::new()
+    }
 }
 
 pub type PickerLogBufferHandle = Arc<dyn PickerLogBuffer>;
@@ -79,6 +96,10 @@ mod tests {
 
     impl PickerLogBuffer for EmptyBuffer {
         fn records_since(&self, _cursor: &mut usize) -> Vec<PickerLogRecord> {
+            Vec::new()
+        }
+
+        fn formatted_records_since(&self, _cursor: &mut usize) -> Vec<String> {
             Vec::new()
         }
     }

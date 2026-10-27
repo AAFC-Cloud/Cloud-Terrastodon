@@ -5,6 +5,82 @@ The Ratatui object browser is a thin presentation layer over the
 crate-private while its API settles; it has no Ratatui or Crossterm dependency
 and can be exercised headlessly.
 
+## Excalidraw rendering and discovery planning
+
+```powershell
+cargo run -- ratatui --excalidraw target/objects.excalidraw
+```
+
+The terminal owns selection, object construction, and invocation. Excalidraw is
+a disposable diagram of those objects. **Ctrl-O** replaces the drawing with the
+focused slot, including an incomplete builder. **Ctrl-U** replaces it with every
+object matching the current tab's breadcrumbs, including objects outside the
+terminal viewport. Fields are shown as individual text elements; diagrams are
+not grouped into one canvas object.
+
+Omit `--excalidraw` to create a uniquely named `object-explorer-….excalidraw` file
+in the working directory on the first export. The status line reports its path;
+subsequent exports reuse it. No file is created just by opening the explorer.
+The parent directory of an explicit path must exist. Each export replaces the
+previous drawing, including canvas edits. Save or revert pending editor edits
+before rendering again; the VS Code fork reports conflicting unsaved edits.
+Atomic replacement uses the existing cooperative `.sync-lock` protocol and
+waits for an active writer. Ctrl-C closes the explorer and drains publication
+already in progress. While an export collects its consistent snapshot, browser
+commands wait; Esc or Ctrl-C can close the session.
+
+To inspect a discovery plan without invoking cloud APIs:
+
+1. Create a **DiscoveryPlanRequest** slot using the normal shape picker.
+2. On `targets`, choose **create new owned List<RegisteredShape>** (the reflected
+   `Vec<RegisteredShape>`). Search for
+   target types such as `AzureAppServiceSiteConfig` or
+   `AzureDevOpsBuildDefinition`. Enter includes the highlighted result and
+   checked results; Tab toggles checks, and Ctrl-Enter applies only the checks.
+3. Leave `inputs` at its default to consider all ready objects in the pool, or
+   supply a tab's projected `breadcrumbs` value to restrict it. These objects supply the
+   input shapes; registered types and incomplete builders do not.
+4. Invoke the completed request to produce a **DiscoveryPlan**. This operation
+   only inspects the pool and registry. It does not execute the proposed requests,
+   resolve credentials, or call services.
+5. Focus the resulting plan slot and press **Ctrl-O**. Its graph includes type
+   fields and shows missing inputs. Add the needed objects using the explorer's
+   normal construction tools, then construct/invoke an updated planning request.
+
+To export just the discovery graph through the normal registry workflow, create
+a **ProduceDumpPlanExcalidrawRequest** slot. It has two user-supplied fields:
+
+```text
+plan: DiscoveryPlan
+filename: PathBuf
+```
+
+On `plan`, select an existing plan and choose **Clone** to retain it or **Move**
+to transfer it into the request. The normal producer choices can also construct
+the plan through a `DiscoveryPlanRequest`. On `filename`, create an owned
+`PathBuf` and enter a path such as `target/plan.excalidraw` in the scalar editor.
+Invoke the completed request to write the drawing and receive its output path
+as a `PathBuf` slot. The caller supplies the cancellation scope automatically.
+
+This export uses the same request graph as `dump plan --diagram`, including
+required inputs, missing inputs and schema fields. It atomically replaces the
+destination through the cooperative `.sync-lock` protocol; the parent directory
+must exist. The operation writes a local diagram without executing the plan or
+calling cloud APIs. **Ctrl-O** and **Ctrl-U** remain the shortcuts for rendering
+object slots and tab contents to the explorer's diagram destination.
+
+The plan describes possible type coverage; it does not yet retain executable
+value bindings or run the discovery. Existing **ProduceJsonRequest** exports
+objects selected by a `Breadcrumbs` query for subsequent Power BI ingestion.
+The Ctrl-O/Ctrl-U object snapshots observe at most 256 fields per object and
+explicitly mark any omission; this display bound does not change JSON export or
+truncate tab membership.
+
+The earlier `dump plan --interactive` command also uses terminal-owned target
+selection now. Its canvas contains the generated graph, with the former search
+and selected-target controls retired. The `ct excalidraw interactive` control
+playground remains available separately.
+
 ## Auditing registry operations
 
 `ct registry entry list` lists registered operations, including request
@@ -106,6 +182,17 @@ The engine derives legal operations from ownership:
 - a projected field/element may be cloned but is not independently movable;
 - a compatible Cow field may borrow, move, or clone a pointee when validation
   permits it.
+
+Clone choices require reflected clone support, including recursive list cloning
+for projected fields such as `Tab.breadcrumbs.operations`. Previewing a choice
+does not execute `Clone`. Lifetime-generic request types must explicitly expose
+their existing Rust implementation with `#[facet(traits(Clone))]`: the pinned
+Facet derive does not infer it for those types. Cloning preserves borrowed
+`Cow` inputs and their leases; it does not promote them to owned values.
+
+Rejected actions appear in the terminal status bar and leave the explorer open.
+The engine retains ownership of failed-slot and rollback behavior; lost engine
+connections and terminal failures still end the session.
 
 `BorrowGraph` and transferable `BorrowLease` values protect the complete
 source root while a reflected borrow exists. Builders, pending invocations,

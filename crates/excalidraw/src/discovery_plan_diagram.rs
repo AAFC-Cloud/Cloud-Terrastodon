@@ -221,6 +221,9 @@ fn node_label(node: &DiscoveryPlanNode) -> String {
         DiscoveryPlanNodeKind::Projection => "projection",
     };
     let mut label = format!("[{kind}] {}", node.label);
+    for field in &node.fields {
+        label.push_str(&format!("\n{}: {}", field.name, field.type_name));
+    }
     if !node.effects.is_empty() {
         label.push_str(&format!("\nEffects: {:?}", node.effects));
     }
@@ -292,6 +295,7 @@ mod tests {
                     target: false,
                     missing_inputs: Vec::new(),
                     effects: Vec::new(),
+                    fields: Vec::new(),
                     level: 0,
                 },
                 DiscoveryPlanNode {
@@ -303,6 +307,7 @@ mod tests {
                     target: true,
                     missing_inputs: Vec::new(),
                     effects: Vec::new(),
+                    fields: Vec::new(),
                     level: 1,
                 },
             ],

@@ -13,6 +13,9 @@ categories.workspace = true
 
 [dependencies]
 chrono.workspace = true
+color-eyre.workspace = true
+# Enable the re-exported color helpers even when this crate builds on its own.
+owo-colors.workspace = true
 # egui_tracing.workspace = true # TODO(EGUI-TRACING)
 eyre.workspace = true
 tracing-error.workspace = true

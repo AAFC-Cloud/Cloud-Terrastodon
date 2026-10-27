@@ -1,6 +1,7 @@
 use crate::ExcalidrawAppState;
 use crate::ExcalidrawBinaryFile;
 use crate::ExcalidrawElement;
+use crate::ExcalidrawObjectSnapshot;
 use crate::ExcalidrawSceneType;
 use cloud_terrastodon_registry::DiscoveryPlan;
 use eyre::Context;
@@ -21,6 +22,22 @@ pub struct ExcalidrawScene {
 }
 
 impl ExcalidrawScene {
+    /// Draw a disposable view of observed objects. Fields, labels, and rectangles
+    /// remain separately selectable; no canvas control protocol is introduced.
+    pub fn from_objects(title: &str, objects: &[ExcalidrawObjectSnapshot]) -> Self {
+        Self {
+            kind: ExcalidrawSceneType::Excalidraw,
+            version: 2,
+            source: "https://github.com/AAFC-Cloud/Cloud-Terrastodon".into(),
+            elements: crate::excalidraw_object_diagram::elements(title, objects),
+            app_state: ExcalidrawAppState {
+                grid_size: None,
+                view_background_color: "#ffffff".into(),
+            },
+            files: BTreeMap::new(),
+        }
+    }
+
     /// Lay out the plan's request/type dependencies without invoking operations
     /// or inspecting seed values. IDs, positions, and serialized bytes are stable
     /// for the same ordered plan; blocked nodes are shown in red.

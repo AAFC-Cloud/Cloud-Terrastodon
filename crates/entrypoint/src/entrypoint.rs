@@ -44,13 +44,19 @@ pub fn entrypoint(
             CloudTerrastodonCommand::Source(_)
                 | CloudTerrastodonCommand::Registry(_)
                 | CloudTerrastodonCommand::Dump(_)
+                | CloudTerrastodonCommand::Excalidraw(_)
         )
     ) {
         // Local inventories and offline plans do not need cloud credential discovery.
         cli.global_args.auth_source = AuthSource::None;
     }
     let enable_egui = matches!(cli.command.as_ref(), Some(CloudTerrastodonCommand::Egui(_)));
+    let capture_canvas_logs = matches!(
+        cli.command.as_ref(),
+        Some(CloudTerrastodonCommand::Excalidraw(_))
+    );
     app.egui_collector(enable_egui)
+        .terminal_debug_capture(capture_canvas_logs)
         .run_parsed(cli, |mut cli, context| async move {
             // Preserve the requested policy for plan metadata. App has already
             // created the disabled execution context for this offline command.

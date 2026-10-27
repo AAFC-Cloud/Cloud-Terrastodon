@@ -20,8 +20,11 @@ use tracing_subscriber::prelude::*;
 use tracing_subscriber::util::SubscriberInitExt;
 
 mod structured_log;
+mod terminal_log_buffer;
+mod terminal_log_buffer_state;
 
 pub use structured_log::*;
+pub use terminal_log_buffer::TerminalLogBuffer;
 
 type InactiveWriter = Arc<dyn Fn(&StructuredLogRecord) + Send + Sync>;
 
@@ -118,6 +121,15 @@ fn build_subscriber(
         })
         .unwrap_or_else(|| stderr_filter.clone());
 
+    let debug_capture_layer = terminal_log_buffer
+        .as_ref()
+        .and_then(TerminalLogBuffer::debug_capture)
+        .map(|buffer| {
+            TerminalEventLayer::new(buffer, Arc::new(|| true)).with_filter(
+                tracing_subscriber::filter::LevelFilter::DEBUG
+                    .and(filter_fn(exclude_tracy_frame_mark)),
+            )
+        });
     let human_layer = if let (Some(buffer), Some(active)) = (terminal_log_buffer, terminal_active) {
         let layer = TerminalEventLayer::new(buffer, active);
         let layer = if let Some(inactive_writer) = inactive_writer {
@@ -151,6 +163,7 @@ fn build_subscriber(
     };
 
     let subscriber = tracing_subscriber::registry()
+        .with(debug_capture_layer)
         .with(human_layer)
         // TODO(EGUI-TRACING)
         // .with({
@@ -225,6 +238,60 @@ mod tests {
     use std::sync::Arc;
     use tracing_subscriber::Layer;
     use tracing_subscriber::layer::SubscriberExt;
+
+    #[test]
+    fn debug_capture_is_independent_bounded_and_never_replayed() {
+        let buffer = TerminalLogBuffer::new().with_debug_capture(3);
+        // Pin both layer filters explicitly: the process's RUST_LOG may be
+        // anything, and changing that environment variable races other tests.
+        let subscriber = tracing_subscriber::registry()
+            .with(
+                TerminalEventLayer::new(buffer.debug_capture().unwrap(), Arc::new(|| true))
+                    .with_filter(tracing_subscriber::filter::LevelFilter::DEBUG),
+            )
+            .with(
+                TerminalEventLayer::new(buffer.clone(), Arc::new(|| true))
+                    .with_filter(tracing_subscriber::filter::LevelFilter::INFO),
+            );
+
+        tracing::subscriber::with_default(subscriber, || {
+            let span = tracing::info_span!("capture_test", phase = tracing::field::Empty);
+            let _entered = span.enter();
+            span.record("phase", "running");
+            tracing::debug!("expired");
+            tracing::info!("visible");
+            tracing::debug!("canvas only");
+            tracing::warn!("latest");
+        });
+
+        let mut capture_cursor = 0;
+        let captured = buffer.captured_records_since(&mut capture_cursor);
+        assert_eq!(capture_cursor, 4);
+        assert_eq!(
+            captured
+                .iter()
+                .map(|record| record.message.as_ref())
+                .collect::<Vec<_>>(),
+            ["visible", "canvas only", "latest"]
+        );
+        assert_eq!(captured[1].level, StructuredLogLevel::Debug);
+        assert_eq!(
+            captured[1].spans[0].fields,
+            [("phase".to_owned(), "running".to_owned())]
+        );
+        assert!(
+            buffer
+                .captured_records_since(&mut capture_cursor)
+                .is_empty()
+        );
+
+        let mut replay = Vec::new();
+        buffer.replay_to(&mut replay).unwrap();
+        let replay = String::from_utf8(replay).unwrap();
+        assert!(replay.contains("visible"));
+        assert!(!replay.contains("canvas only"));
+        assert!(!replay.contains("expired"));
+    }
 
     #[test]
     fn built_subscriber_supports_span_traces_for_both_terminal_modes() {
