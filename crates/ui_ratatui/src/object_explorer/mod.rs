@@ -128,6 +128,7 @@ pub(crate) use field_candidate_action::FieldCandidateActions;
 pub(crate) use field_candidate_action::FieldCandidateConsequence;
 pub(crate) use invocation_controller::ArbitraryInvocationStart;
 pub(crate) use invocation_controller::InvocationEvent;
+pub(crate) use invocation_controller::InvocationEventState;
 pub(crate) use invocation_controller::InvocationStart;
 pub(crate) use invocation_mode::InvocationMode;
 pub(crate) use open_tabs::OpenTabs;

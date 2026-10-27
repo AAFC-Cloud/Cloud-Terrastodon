@@ -20,6 +20,7 @@ use crate::object_explorer::ArenaQueryContext;
 use crate::object_explorer::BuilderKindSnapshot;
 use crate::object_explorer::CardAddress;
 use crate::object_explorer::CardSnapshot;
+use crate::object_explorer::InvocationEventState;
 use crate::object_explorer::ProductionBatch;
 use crate::object_explorer::ProductionJobState;
 use crate::object_explorer::QueryProgressState;
@@ -162,7 +163,10 @@ impl ObjectBrowserApp {
                         "Rendered Excalidraw: \"{}\" (Ctrl-O: slot, Ctrl-U: tab)",
                         path.display()
                     ),
-                    Err(error) => format!("Excalidraw export failed: {error:#}"),
+                    Err(error) => {
+                        tracing::error!(error = %format_args!("{error:#}"), "Excalidraw export failed");
+                        "Excalidraw export failed; scroll up for full error.".to_owned()
+                    }
                 };
             }
             if renderer.is_rendering() {
@@ -195,11 +199,28 @@ impl ObjectBrowserApp {
             return Ok(());
         }
         let events = self.controller.poll_invocations().await?;
-        if let Some(event) = events.last() {
-            self.status = format!(
-                "Invocation output slot {} is {:?}.",
-                event.output, event.state
-            );
+        let mut latest_failure = None;
+        // Polling drains completed events. Log every failure once, even when a
+        // later success is the most recent event in this batch.
+        for event in &events {
+            if let InvocationEventState::Failed(message) = &event.state {
+                tracing::error!(
+                    input_slot = %event.input,
+                    output_slot = %event.output,
+                    error = %message,
+                    "Object invocation failed"
+                );
+                latest_failure = Some(event);
+            }
+        }
+        if let Some(event) = latest_failure.or_else(|| events.last()) {
+            self.status = match &event.state {
+                InvocationEventState::Failed(_) => format!(
+                    "Invocation slot {} failed; scroll up for full error.",
+                    event.output
+                ),
+                state => format!("Invocation output slot {} is {state:?}.", event.output),
+            };
         }
         if self.production_jobs_active {
             let batch = self
@@ -324,7 +345,22 @@ impl ObjectBrowserApp {
 
     pub(super) fn apply_production_batch(&mut self, batch: &ProductionBatch) {
         self.production_jobs_active = batch.active_jobs() != 0;
-        let Some(update) = batch.updates().last() else {
+        let mut latest_failure = None;
+        // Terminal producer updates are removed from the active jobs, so their
+        // full diagnostics are emitted once rather than on every redraw.
+        for update in batch.updates() {
+            if let ProductionJobState::Failed { message } = update.state() {
+                tracing::error!(
+                    job = %update.job(),
+                    destination_slot = %update.destination(),
+                    field = update.field(),
+                    error = %message,
+                    "Object producer failed"
+                );
+                latest_failure = Some(update);
+            }
+        }
+        let Some(update) = latest_failure.or_else(|| batch.updates().last()) else {
             return;
         };
         self.status = match update.state() {
@@ -347,8 +383,11 @@ impl ObjectBrowserApp {
                 update.destination(),
                 update.field()
             ),
-            ProductionJobState::Failed { message } => {
-                format!("Producer job {} failed: {message}", update.job())
+            ProductionJobState::Failed { .. } => {
+                format!(
+                    "Producer job {} failed; scroll up for full error.",
+                    update.job()
+                )
             }
         };
     }

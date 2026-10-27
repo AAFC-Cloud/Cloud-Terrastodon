@@ -435,7 +435,9 @@ fn split_explicit_lines(line: Line<'static>) -> Vec<Line<'static>> {
             } else {
                 part
             };
-            current.spans.push(Span::styled(part.to_owned(), span.style));
+            current
+                .spans
+                .push(Span::styled(part.to_owned(), span.style));
             if has_break {
                 result.push(current);
                 current = Line::default().style(line.style);
@@ -1017,6 +1019,149 @@ mod tests {
             .find(|span| span.content == "unset")
             .unwrap();
         assert_eq!(unset.style.fg, Some(Color::Red));
+    }
+
+    #[test]
+    fn failure_details_wrap_and_keep_explicit_breaks_and_styles() {
+        let card = CardSnapshot::owned(
+            SlotId::new(0),
+            "Failed",
+            RootRevision::default(),
+            vec![
+                CardRowSnapshot::new(
+                    CardRowKey::Status,
+                    "status",
+                    CardRowContent::Text("Failed".into()),
+                ),
+                CardRowSnapshot::new(
+                    CardRowKey::Value,
+                    "detail",
+                    CardRowContent::Text(
+                        "The required organization URL could not be constructed.\r\nCause: équipe 🦀 needs an input value.\n\nRetry after supplying the missing organization."
+                            .into(),
+                    ),
+                ),
+            ],
+            true,
+        );
+        let selected = card.address().clone();
+        let window = CardWindow::single(card);
+        for width in [24, 40] {
+            let mut terminal = Terminal::new(TestBackend::new(width, 24)).unwrap();
+            terminal
+                .draw(|frame| {
+                    CardWindowRenderer::new(
+                        &window,
+                        &selected,
+                        Some(&CardRowKey::Value),
+                        CardLayoutAxis::Horizontal,
+                        true,
+                        width,
+                    )
+                    .draw(frame, frame.area());
+                })
+                .unwrap();
+            let buffer = terminal.backend().buffer();
+            let content = (2..22)
+                .map(|y| {
+                    (1..width - 1)
+                        .map(|x| buffer.cell((x, y)).unwrap().symbol())
+                        .collect::<String>()
+                })
+                .collect::<Vec<_>>();
+            let words = content
+                .iter()
+                .flat_map(|line| line.split_whitespace())
+                .collect::<Vec<_>>()
+                .join(" ");
+            assert_eq!(
+                words,
+                "status: Failed detail: The required organization URL could not be constructed. Cause: équipe 🦀 needs an input value. Retry after supplying the missing organization."
+            );
+            let cause_y = content
+                .iter()
+                .position(|line| line.starts_with("Cause:"))
+                .unwrap() as u16
+                + 2;
+            let cause = buffer.cell((1, cause_y)).unwrap();
+            assert_eq!(cause.fg, Color::Green);
+            assert_eq!(cause.bg, Color::Blue);
+            assert!(cause.modifier.contains(Modifier::BOLD));
+            let retry = content
+                .iter()
+                .position(|line| line.starts_with("Retry"))
+                .unwrap();
+            assert!(
+                content[retry - 1].trim().is_empty(),
+                "the empty error-detail line is retained"
+            );
+            assert_eq!(buffer.cell((0, 3)).unwrap().symbol(), ">");
+        }
+    }
+
+    #[test]
+    fn selection_and_scrollbar_follow_visual_lines_after_wrapped_content() {
+        let selected_row = CardRowKey::Field("next".into());
+        let card = CardSnapshot::owned(
+            SlotId::new(0),
+            "Request",
+            RootRevision::default(),
+            vec![
+                CardRowSnapshot::new(
+                    CardRowKey::Shape,
+                    "shape",
+                    CardRowContent::Text("Request".into()),
+                ),
+                CardRowSnapshot::new(
+                    CardRowKey::Value,
+                    "detail",
+                    CardRowContent::Text(
+                        "A long explanation with many words before the selected field.\nAnother line with a wide character 🦀 and more explanation."
+                            .into(),
+                    ),
+                ),
+                CardRowSnapshot::new(
+                    selected_row.clone(),
+                    "next",
+                    CardRowContent::Binding(FieldBindingSnapshot::Unset),
+                )
+                .with_type_name("String"),
+            ],
+            true,
+        );
+        let selected = card.address().clone();
+        let window = CardWindow::single(card);
+        for width in [18, 30] {
+            let mut terminal = Terminal::new(TestBackend::new(width, 10)).unwrap();
+            terminal
+                .draw(|frame| {
+                    CardWindowRenderer::new(
+                        &window,
+                        &selected,
+                        Some(&selected_row),
+                        CardLayoutAxis::Horizontal,
+                        true,
+                        width,
+                    )
+                    .draw(frame, frame.area());
+                })
+                .unwrap();
+            let rendered = terminal.backend().to_string();
+            assert!(rendered.contains(">field \"next\""));
+            assert!(rendered.contains("type String"));
+            assert!(rendered.contains("value unset"));
+            let buffer = terminal.backend().buffer();
+            let marker_y = (2..8)
+                .find(|y| buffer.cell((0, *y)).unwrap().symbol() == ">")
+                .unwrap();
+            assert_eq!(buffer.cell((1, marker_y)).unwrap().symbol(), "f");
+            assert_eq!(buffer.cell((1, marker_y)).unwrap().bg, Color::Blue);
+            assert_eq!(
+                buffer.cell((width - 1, 7)).unwrap().symbol(),
+                "█",
+                "the viewport ends on the final wrapped line, so the thumb reaches the bottom"
+            );
+        }
     }
 
     #[test]

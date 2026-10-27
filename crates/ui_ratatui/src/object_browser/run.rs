@@ -1,7 +1,7 @@
+use super::app::BrowserMode;
 use super::app::ObjectBrowserApp;
 use super::excalidraw_render_session::ExcalidrawRenderSession;
-use super::terminal::RatatuiTerminalBackend;
-use super::terminal::restore_terminal;
+use super::object_browser_terminal::ObjectBrowserTerminal;
 use crate::object_explorer::ArenaQueryContext;
 use crate::object_explorer::ArenaQueryContextFutureExt;
 use crate::object_explorer::ExplorerEngine;
@@ -14,12 +14,9 @@ use cloud_terrastodon_user_input::TerminalCoordinator;
 use cloud_terrastodon_user_input::TerminalCoordinatorFutureExt;
 use cloud_terrastodon_user_input::TerminalGuard;
 use cloud_terrastodon_user_input::TerminalLogBufferFutureExt;
-use cloud_terrastodon_user_input::apply_terminal_control;
 use cloud_terrastodon_user_input::try_current_picker_log_buffer;
-use crossterm::event::EventStream;
+use crossterm::event;
 use eyre::Result;
-use futures::StreamExt;
-use ratatui::DefaultTerminal;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -43,22 +40,22 @@ async fn run_with_terminal(
     cancellation: &CancellationScope,
 ) -> Result<()> {
     tracing::info!("Starting arena-backed object browser");
+    let logs = try_current_picker_log_buffer()
+        .ok_or_else(|| eyre::eyre!("the object browser requires application log capture"))?;
     let mut guard = coordinator.acquire().await?;
-    let mut terminal = None;
-    if let Err(error) = (RatatuiTerminalBackend {
-        terminal: &mut terminal,
-        coordinator: &coordinator,
-    })
-    .resume()
-    {
-        let release_result = guard.release().await;
-        return match release_result {
-            Ok(()) => Err(error),
-            Err(release_error) => Err(eyre::eyre!(
-                "Ratatui terminal setup failed: {error}; guard release also failed: {release_error}"
-            )),
-        };
-    }
+    let mut terminal = match ObjectBrowserTerminal::new(logs) {
+        Ok(terminal) => terminal,
+        Err(error) => {
+            coordinator.poison(format!("Ratatui terminal setup failed: {error}"));
+            let release_result = guard.release().await;
+            return match release_result {
+                Ok(()) => Err(error),
+                Err(release_error) => Err(eyre::eyre!(
+                    "Ratatui terminal setup failed: {error}; guard release also failed: {release_error}"
+                )),
+            };
+        }
+    };
 
     let app_result = run_engine_and_ui(
         &mut terminal,
@@ -68,22 +65,23 @@ async fn run_with_terminal(
         cancellation,
     )
     .await;
-    let restore_result = if terminal.take().is_some() {
-        restore_terminal(&coordinator)
+    let restore_result = terminal.close().inspect_err(|error| {
+        coordinator.poison(format!("Ratatui terminal restoration failed: {error}"));
+    });
+    let logs_result = if restore_result.is_ok() {
+        terminal.flush_after_close()
     } else {
         Ok(())
     };
     let release_result = guard.release().await;
-    match (app_result, restore_result, release_result) {
-        (Ok(()), Ok(()), Ok(())) => Ok(()),
-        (Err(error), _, _) => Err(error),
-        (Ok(()), Err(error), _) => Err(error),
-        (Ok(()), Ok(()), Err(error)) => Err(error),
-    }
+    app_result
+        .and(restore_result)
+        .and(release_result)
+        .and(logs_result)
 }
 
 async fn run_engine_and_ui(
-    terminal: &mut Option<DefaultTerminal>,
+    terminal: &mut ObjectBrowserTerminal,
     guard: &mut TerminalGuard,
     coordinator: &TerminalCoordinator,
     excalidraw: Option<PathBuf>,
@@ -119,11 +117,9 @@ async fn run_engine_and_ui(
         cancellation.request_cancel("object browser closed");
         // Restore normal console input/output before waiting so cancellation
         // acknowledgments remain visible and Ctrl-C can still force an exit.
-        let restore_result = if terminal.take().is_some() {
-            restore_terminal(coordinator)
-        } else {
-            Ok(())
-        };
+        let restore_result = terminal.close().inspect_err(|error| {
+            coordinator.poison(format!("Ratatui terminal restoration failed: {error}"));
+        });
         let draining = async {
             shutdown_handle
                 .finish_pending_invocations()
@@ -131,31 +127,50 @@ async fn run_engine_and_ui(
                 .map_err(eyre::Report::from)
         };
         tokio::pin!(draining);
+        let mut log_ticks = tokio::time::interval(Duration::from_millis(100));
+        log_ticks.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        let mut cleanup_logs = Ok(());
+        let mut cleanup_controls = Ok(());
         // Export writers may need engine-side query/session completion while
         // cancellation is postponed. Continue polling the engine until they end.
-        let drained = tokio::select! {
-            drained = &mut draining => drained,
-            _engine = &mut engine_future => Err(eyre::eyre!("explorer engine stopped before pending operations finished")),
+        let drained = loop {
+            tokio::select! {
+                drained = &mut draining => break drained,
+                _engine = &mut engine_future => break Err(eyre::eyre!("explorer engine stopped before pending operations finished")),
+                control = guard.next_control(), if cleanup_controls.is_ok() => {
+                    // Invoked requests can own their own pickers. Their exit
+                    // needs our resume acknowledgement even after the UI closes.
+                    cleanup_controls = match control {
+                        Some(control) => terminal.apply_control(control, guard)
+                            .and_then(|()| terminal.close()),
+                        None => Err(eyre::eyre!("terminal owner channel closed during invocation cleanup")),
+                    }.inspect_err(|error| {
+                        coordinator.poison(format!("terminal handoff during invocation cleanup failed: {error}"));
+                    });
+                }
+                _ = log_ticks.tick(), if restore_result.is_ok() && cleanup_logs.is_ok() && cleanup_controls.is_ok() => {
+                    // The browser still owns the guard, so cleanup events are
+                    // captured even though normal console mode is restored.
+                    // An output failure must not abandon required cleanup.
+                    cleanup_logs = terminal.flush_after_close();
+                }
+            }
         };
-        match (result, restore_result, drained) {
-            (Err(error), _, _) => Err(error),
-            (Ok(()), Err(error), _) => Err(error),
-            (Ok(()), Ok(()), drained) => drained,
-        }
+        result.and(restore_result).and(drained).and(cleanup_logs).and(cleanup_controls)
     });
     run.await
 }
 
 async fn run_event_loop(
     mut app: ObjectBrowserApp,
-    terminal: &mut Option<DefaultTerminal>,
+    terminal: &mut ObjectBrowserTerminal,
     guard: &mut TerminalGuard,
     coordinator: &TerminalCoordinator,
     cancellation: &CancellationScope,
 ) -> Result<()> {
     let period = Duration::from_secs_f32(1.0 / FRAMES_PER_SECOND);
     let mut interval = tokio::time::interval(period);
-    let mut events = EventStream::new();
+    interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
     let result = async {
         while !app.should_quit {
@@ -167,25 +182,31 @@ async fn run_event_loop(
                     let Some(control) = control else {
                         return Err(eyre::eyre!("terminal coordinator owner channel closed"));
                     };
-                    let mut backend = RatatuiTerminalBackend { terminal, coordinator };
-                    apply_terminal_control(control, guard, &mut backend)?;
+                    terminal.apply_control(control, guard)?;
                 }
                 _ = interval.tick() => {
                     if let Err(error) = app.tick().await {
                         app.recover_action_error(error)?;
                     }
-                    if let Some(terminal) = terminal.as_mut() {
-                        terminal.draw(|frame| app.draw(frame)).map_err(|error| {
+                    if terminal.is_active() {
+                        // Inline rendering queries the cursor position. Do not
+                        // leave an EventStream worker holding Crossterm's input
+                        // reader, or competing with a nested picker's input.
+                        for _ in 0..32 {
+                            if app.mode == BrowserMode::NestedPicker || app.should_quit
+                                || !event::poll(Duration::ZERO)?
+                            {
+                                break;
+                            }
+                            if let Err(error) = app.handle_event(&event::read()?).await {
+                                app.recover_action_error(error)?;
+                            }
+                        }
+                        terminal.draw(|frame| app.draw(frame)).inspect_err(|error| {
                             coordinator.poison(format!("Ratatui frame draw failed: {error}"));
-                            error
                         })?;
                         #[cfg(feature = "extended_observability")]
                         tracing::info!(message = "finished Ratatui frame", tracy.frame_mark = true);
-                    }
-                }
-                Some(Ok(event)) = events.next(), if terminal.is_some() => {
-                    if let Err(error) = app.handle_event(&event).await {
-                        app.recover_action_error(error)?;
                     }
                 }
             }
@@ -206,7 +227,7 @@ async fn run_event_loop(
             }
             control = guard.next_control() => {
                 let control = control.ok_or_else(|| eyre::eyre!("terminal coordinator owner channel closed during shutdown"))?;
-                apply_terminal_control(control, guard, &mut RatatuiTerminalBackend { terminal, coordinator })?;
+                terminal.apply_control(control, guard)?;
             }
         }
     }

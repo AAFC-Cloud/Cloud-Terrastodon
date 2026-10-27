@@ -838,8 +838,9 @@ impl ObjectBrowserApp {
                 self.status = "Variant selection cancelled.".to_owned();
             }
             VariantPickerOutcome::Failed(message) => {
+                tracing::error!(error = %message, "Variant picker failed");
                 self.mode = BrowserMode::Pool;
-                self.status = format!("Variant PickerTui failed: {message}");
+                self.status = "Variant picker failed; scroll up for full error.".to_owned();
             }
         }
         Ok(())
@@ -881,10 +882,11 @@ impl ObjectBrowserApp {
                 self.status = "Object selection cancelled.".to_owned();
             }
             ValuePickerOutcome::Failed(message) => {
+                tracing::error!(error = %message, "Object picker failed");
                 self.controller.end_value_candidates().await?;
                 self.value_picker = None;
                 self.mode = BrowserMode::Pool;
-                self.status = format!("Object PickerTui failed: {message}");
+                self.status = "Object picker failed; scroll up for full error.".to_owned();
             }
         }
         Ok(())
@@ -919,10 +921,11 @@ impl ObjectBrowserApp {
                 self.status = "Transfer action selection cancelled.".to_owned();
             }
             LinkActionPickerOutcome::Failed(message) => {
+                tracing::error!(error = %message, "Link action picker failed");
                 self.pending_link = None;
                 self.link_action_picker = None;
                 self.mode = BrowserMode::Pool;
-                self.status = format!("Link action PickerTui failed: {message}");
+                self.status = "Link action picker failed; scroll up for full error.".to_owned();
             }
         }
         Ok(())
@@ -936,8 +939,9 @@ impl ObjectBrowserApp {
                 self.status = "Pick a reflected shape; type to fuzzy-search.".to_owned();
             }
             Err(message) => {
+                tracing::error!(error = %message, "Could not open shape picker");
                 self.mode = BrowserMode::Pool;
-                self.status = format!("Could not open shape picker: {message}");
+                self.status = "Could not open shape picker; scroll up for full error.".to_owned();
             }
         }
         Ok(())
@@ -996,8 +1000,9 @@ impl ObjectBrowserApp {
                 self.status = "Shape selection cancelled.".to_owned();
             }
             ShapePickerOutcome::Failed(message) => {
+                tracing::error!(error = %message, "Shape picker failed");
                 self.mode = BrowserMode::Pool;
-                self.status = format!("Shape PickerTui failed: {message}");
+                self.status = "Shape picker failed; scroll up for full error.".to_owned();
             }
         }
         Ok(())
@@ -1351,8 +1356,10 @@ impl ObjectBrowserApp {
                 self.status = "PickerTui is choosing a breadcrumb operation.".to_owned();
             }
             Err(message) => {
+                tracing::error!(error = %message, "Could not open breadcrumb picker");
                 self.mode = BrowserMode::Pool;
-                self.status = format!("Could not open breadcrumb PickerTui: {message}");
+                self.status =
+                    "Could not open breadcrumb picker; scroll up for full error.".to_owned();
             }
         }
         Ok(())
@@ -1444,6 +1451,7 @@ impl ObjectBrowserApp {
                 );
             }
             Err(message) => {
+                tracing::error!(error = %message, "Could not open breadcrumb value picker");
                 self.breadcrumb_value_editor = Some(BreadcrumbValueEditorState {
                     edit_index,
                     field_shape,
@@ -1453,7 +1461,8 @@ impl ObjectBrowserApp {
                 });
                 self.mode = BrowserMode::BreadcrumbValue;
                 self.status =
-                    format!("No reflected values available; enter a value manually: {message}");
+                    "Value picker unavailable; enter manually or scroll up for full error."
+                        .to_owned();
             }
         }
         Ok(())
@@ -1507,8 +1516,10 @@ impl ObjectBrowserApp {
                 self.status = "Value filter selection cancelled.".to_owned();
             }
             BreadcrumbValuePickerOutcome::Failed(message) => {
+                tracing::error!(error = %message, "Breadcrumb value picker failed");
                 self.mode = BrowserMode::Pool;
-                self.status = format!("Breadcrumb value PickerTui failed: {message}");
+                self.status =
+                    "Breadcrumb value picker failed; scroll up for full error.".to_owned();
             }
         }
         Ok(())
@@ -1541,8 +1552,9 @@ impl ObjectBrowserApp {
                 self.status = "Breadcrumb selection cancelled.".to_owned();
             }
             BreadcrumbMenuOutcome::Failed(message) => {
+                tracing::error!(error = %message, "Breadcrumb picker failed");
                 self.mode = BrowserMode::Pool;
-                self.status = format!("Breadcrumb PickerTui failed: {message}");
+                self.status = "Breadcrumb picker failed; scroll up for full error.".to_owned();
             }
         }
         Ok(())
@@ -1569,8 +1581,9 @@ impl ObjectBrowserApp {
                 );
             }
             Err(message) => {
+                tracing::error!(error = %message, "Could not open shape picker");
                 self.mode = BrowserMode::Pool;
-                self.status = format!("Could not open shape picker: {message}");
+                self.status = "Could not open shape picker; scroll up for full error.".to_owned();
             }
         }
         Ok(())
@@ -1594,8 +1607,10 @@ impl ObjectBrowserApp {
                 );
             }
             Err(message) => {
+                tracing::error!(error = %message, "Could not open filter field picker");
                 self.mode = BrowserMode::Pool;
-                self.status = format!("Could not open filter field picker: {message}");
+                self.status =
+                    "Could not open filter field picker; scroll up for full error.".to_owned();
             }
         }
         Ok(())
@@ -1623,8 +1638,9 @@ impl ObjectBrowserApp {
                 );
             }
             Err(message) => {
+                tracing::error!(error = %message, "Could not open field picker");
                 self.mode = BrowserMode::Pool;
-                self.status = format!("Could not open field picker: {message}");
+                self.status = "Could not open field picker; scroll up for full error.".to_owned();
             }
         }
         Ok(())
@@ -1662,8 +1678,9 @@ impl ObjectBrowserApp {
                 self.status = "Filter field selection cancelled.".to_owned();
             }
             BreadcrumbFilterFieldPickerOutcome::Failed(message) => {
+                tracing::error!(error = %message, "Filter field picker failed");
                 self.mode = BrowserMode::Pool;
-                self.status = format!("Filter field PickerTui failed: {message}");
+                self.status = "Filter field picker failed; scroll up for full error.".to_owned();
             }
         }
         Ok(())
@@ -1694,8 +1711,9 @@ impl ObjectBrowserApp {
                 self.status = "Breadcrumb selection cancelled.".to_owned();
             }
             BreadcrumbPickerOutcome::Failed(message) => {
+                tracing::error!(error = %message, "Breadcrumb picker failed");
                 self.mode = BrowserMode::Pool;
-                self.status = format!("Breadcrumb PickerTui failed: {message}");
+                self.status = "Breadcrumb picker failed; scroll up for full error.".to_owned();
             }
             BreadcrumbPickerOutcome::Selected(selected) => {
                 let breadcrumb = match target {

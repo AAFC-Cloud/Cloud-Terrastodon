@@ -416,7 +416,50 @@ mod tests {
     use crossterm::event::KeyEvent;
     use crossterm::event::KeyModifiers;
     use ratatui::Terminal;
+    use ratatui::TerminalOptions;
+    use ratatui::Viewport;
     use ratatui::backend::TestBackend;
+
+    #[tokio::test]
+    async fn browser_draws_below_log_history_with_footer_in_the_viewport() {
+        let engine = ExplorerEngine::empty();
+        let (context, inbox) = ArenaQueryContext::channel(16);
+        let client = async move {
+            let mut app = ObjectBrowserApp::bootstrap(context).await.unwrap();
+            app.tick().await.unwrap();
+            let mut lines = vec![" ".repeat(120); 30];
+            lines[0] = format!("{:<120}", " INFO Previous request completed");
+            lines[1] = format!("{:<120}", "    at request.rs:42");
+            lines[2] = format!("{:<120}", " WARN Earlier diagnostic remains in history");
+            let backend = TestBackend::with_lines(lines);
+            let history = backend.buffer().content()[..4 * 120].to_vec();
+            let mut terminal = Terminal::with_options(
+                backend,
+                TerminalOptions {
+                    viewport: Viewport::Fixed(Rect::new(0, 4, 120, 26)),
+                },
+            )
+            .unwrap();
+
+            terminal.draw(|frame| app.draw(frame)).unwrap();
+            assert_eq!(&terminal.backend().buffer().content()[..4 * 120], history);
+            let footer = (0..120)
+                .map(|x| terminal.backend().buffer()[(x, 29)].symbol())
+                .collect::<String>();
+            assert!(footer.contains("Left/Right: cards"));
+            assert!(footer.contains("Ctrl-O: draw slot"));
+
+            app.status = "Invocation failed; scroll up for full error.".to_owned();
+            terminal.draw(|frame| app.draw(frame)).unwrap();
+            assert_eq!(&terminal.backend().buffer().content()[..4 * 120], history);
+            let footer = (0..120)
+                .map(|x| terminal.backend().buffer()[(x, 29)].symbol())
+                .collect::<String>();
+            assert!(footer.contains("Invocation failed; scroll up for full error."));
+            app.close().await.unwrap();
+        };
+        tokio::join!(engine.run(inbox), client);
+    }
 
     #[tokio::test]
     async fn missing_projection_shows_empty_results_and_keeps_creation_available() {

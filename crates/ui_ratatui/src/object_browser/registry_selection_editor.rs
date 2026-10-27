@@ -30,8 +30,9 @@ impl ObjectBrowserApp {
                 self.status = "Choose the registry identities for this field.".into();
             }
             Err(message) => {
+                tracing::error!(error = %message, "Could not open registry selection picker");
                 self.mode = BrowserMode::Pool;
-                self.status = message;
+                self.status = "Could not open registry picker; scroll up for full error.".into();
             }
         }
         Ok(true)
@@ -81,7 +82,10 @@ impl ObjectBrowserApp {
                 self.status = format!("Set {count} {description} on slot {destination}.");
             }
             Ok(None) => self.status = "Registry selection cancelled.".into(),
-            Err(error) => self.status = error,
+            Err(error) => {
+                tracing::error!(error = %error, "Registry selection picker failed");
+                self.status = "Registry picker failed; scroll up for full error.".into();
+            }
         }
         Ok(())
     }

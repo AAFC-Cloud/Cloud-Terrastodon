@@ -220,7 +220,16 @@ their existing Rust implementation with `#[facet(traits(Clone))]`: the pinned
 Facet derive does not infer it for those types. Cloning preserves borrowed
 `Cow` inputs and their leases; it does not promote them to owned values.
 
-Rejected actions appear in the terminal status bar and leave the explorer open.
+The browser uses an inline viewport on stderr, with tracing output retained in
+normal terminal scrollback above it. Scroll up in the terminal to read full
+errors, including their fields, source locations, and span context. Logs keep
+the tracing subscriber's styling and filters; `--debug` is not needed to see
+errors. Nested pickers temporarily take the terminal, then buffered logs are
+printed when the browser resumes. Closing also flushes cleanup diagnostics.
+
+Card text wraps at the available width; selection markers and scrollbars account
+for the wrapped lines. The status bar keeps short feedback and directs failed
+actions to the full log above. Rejected actions leave the explorer open.
 The engine retains ownership of failed-slot and rollback behavior; lost engine
 connections and terminal failures still end the session.
 

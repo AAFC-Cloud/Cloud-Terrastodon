@@ -56,10 +56,76 @@ mod tests {
     use ratatui::crossterm::event::KeyCode;
     use ratatui::crossterm::event::KeyEvent;
     use ratatui::crossterm::event::KeyModifiers;
+    use std::sync::Arc;
+    use std::sync::Mutex;
+    use tracing::instrument::WithSubscriber;
+
+    #[derive(Clone, Default)]
+    struct CapturedErrors(Arc<Mutex<Vec<String>>>);
+
+    impl tracing::field::Visit for CapturedErrors {
+        fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
+            if field.name() == "error" {
+                self.0.lock().unwrap().push(format!("{value:?}"));
+            }
+        }
+    }
+
+    impl tracing::Subscriber for CapturedErrors {
+        fn enabled(&self, metadata: &tracing::Metadata<'_>) -> bool {
+            metadata.is_event() && *metadata.level() == tracing::Level::ERROR
+        }
+
+        fn new_span(&self, _: &tracing::span::Attributes<'_>) -> tracing::span::Id {
+            tracing::span::Id::from_u64(1)
+        }
+
+        fn record(&self, _: &tracing::span::Id, _: &tracing::span::Record<'_>) {}
+
+        fn record_follows_from(&self, _: &tracing::span::Id, _: &tracing::span::Id) {}
+
+        fn event(&self, event: &tracing::Event<'_>) {
+            event.record(&mut self.clone());
+        }
+
+        fn enter(&self, _: &tracing::span::Id) {}
+
+        fn exit(&self, _: &tracing::span::Id) {}
+    }
 
     #[derive(Facet)]
     struct Destination {
         value: String,
+    }
+
+    #[tokio::test]
+    async fn rejected_action_traces_the_full_diagnostic_once_and_keeps_status_readable() {
+        let captured = CapturedErrors::default();
+        let diagnostic = format!(
+            "Could not construct request\nCaused by:\n{}\nFinal cause: required input missing",
+            "nested diagnostic details ".repeat(100)
+        );
+        let engine = ExplorerEngine::empty();
+        let (context, inbox) = ArenaQueryContext::channel(8);
+        let client = async {
+            let mut app = ObjectBrowserApp::bootstrap(context).await.unwrap();
+            app.recover_action_error(ObjectBrowserControllerError::Request(
+                ExplorerHandleError::Rejected(diagnostic.clone()),
+            ))
+            .unwrap();
+            assert!(app.status.contains("scroll up for full error"));
+            assert!(app.status.len() < 80);
+            assert!(!app.status.contains("nested diagnostic"));
+            app.tick().await.unwrap();
+            app.tick().await.unwrap();
+            app.close().await.unwrap();
+        };
+        async {
+            tokio::join!(engine.run(inbox), client);
+        }
+        .with_subscriber(captured.clone())
+        .await;
+        assert_eq!(*captured.0.lock().unwrap(), vec![diagnostic]);
     }
 
     #[tokio::test]

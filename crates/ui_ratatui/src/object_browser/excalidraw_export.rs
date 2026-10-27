@@ -31,7 +31,10 @@ impl ObjectBrowserApp {
                 "Rendering slot to \"{}\"; waiting if the file is locked…",
                 path.display()
             ),
-            Err(error) => format!("Could not render slot: {error:#}"),
+            Err(error) => {
+                tracing::error!(error = %format_args!("{error:#}"), "Could not render slot");
+                "Could not render slot; scroll up for full error.".into()
+            }
         };
     }
 
@@ -67,7 +70,10 @@ impl ObjectBrowserApp {
                 "Rendering tab to \"{}\"; waiting if the file is locked…",
                 path.display()
             ),
-            Err(error) => format!("Could not render tab: {error:#}"),
+            Err(error) => {
+                tracing::error!(error = %format_args!("{error:#}"), "Could not render tab");
+                "Could not render tab; scroll up for full error.".into()
+            }
         };
         Ok(())
     }

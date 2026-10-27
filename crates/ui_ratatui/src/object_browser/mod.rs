@@ -12,6 +12,7 @@ mod excalidraw_export;
 mod excalidraw_render_session;
 mod link_action_picker_task;
 mod object_browser_controller_error;
+mod object_browser_terminal;
 mod pickers;
 mod registry_selection;
 mod registry_selection_editor;
@@ -20,7 +21,6 @@ mod render;
 mod row_search;
 mod run;
 mod shape_picker_task;
-mod terminal;
 mod value_picker_task;
 mod variant_picker_task;
 
