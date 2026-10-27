@@ -34,6 +34,7 @@ use crate::object_explorer::ValueCandidateWindowBudget;
 use cloud_terrastodon_registry::Function;
 use facet::Facet;
 use facet::Shape;
+use std::collections::BTreeMap;
 use std::num::NonZeroUsize;
 
 pub(crate) use super::object_browser_controller_error::ObjectBrowserControllerError;
@@ -48,6 +49,9 @@ pub(crate) struct ObjectBrowserController {
     browse: ArenaBrowseSession,
     open_tabs: OpenTabs,
     tab_states: TabUiStates,
+    /// Presentation before each breadcrumb, indexed by its position in the
+    /// tab's query. Editing a prefix discards return positions beneath it.
+    breadcrumb_return_states: BTreeMap<SlotId, BTreeMap<usize, TabUiState>>,
     active_tab_header: TabHeaderSnapshot,
     window: Option<CardWindow>,
     scanning: bool,
@@ -83,6 +87,7 @@ impl ObjectBrowserController {
             browse,
             open_tabs,
             tab_states,
+            breadcrumb_return_states: BTreeMap::new(),
             active_tab_header: TabHeaderSnapshot::observe(tab, &initial_tab, 12),
             window: None,
             scanning: false,
@@ -543,16 +548,46 @@ impl ObjectBrowserController {
             .active_tab()
             .ok_or(ObjectBrowserControllerError::NoActiveTab)?;
         let query_changed = !matches!(&update, TabUpdate::Rename(_));
+        let previous_count = self.active_tab_header.breadcrumb_count();
+        let previous_state = self.active_state().cloned();
+        let navigation_update = update.clone();
         let tab = self.handle.update_tab(tab_slot, update).await?;
         if query_changed {
             self.browse.set_query(tab.breadcrumbs().clone()).await?;
+            let history = self.breadcrumb_return_states.entry(tab_slot).or_default();
+            let restored = match navigation_update {
+                TabUpdate::PushBreadcrumb(_) => {
+                    if let Some(state) = previous_state {
+                        history.insert(previous_count, state);
+                    }
+                    None
+                }
+                TabUpdate::RemoveBreadcrumb(index) => {
+                    let state = history.remove(&index);
+                    history.retain(|depth, _| *depth < index);
+                    (index + 1 == previous_count).then_some(state).flatten()
+                }
+                TabUpdate::ReplaceBreadcrumb { index, .. } => {
+                    history.retain(|depth, _| *depth <= index);
+                    None
+                }
+                TabUpdate::ReplaceBreadcrumbs(_) => {
+                    history.clear();
+                    None
+                }
+                TabUpdate::Rename(_) => unreachable!("renaming does not change the query"),
+            };
             self.window = None;
             self.scanning = false;
-            self.reanchor_on_next_window = true;
+            self.reanchor_on_next_window = restored.is_none();
             if let Some(state) = self.active_state_mut() {
-                state.select(CardAddress::NewSlot);
-                state.set_viewport_anchor(CardAddress::NewSlot);
-                state.focus_row(None);
+                if let Some(restored) = restored {
+                    *state = restored;
+                } else {
+                    state.select(CardAddress::NewSlot);
+                    state.set_viewport_anchor(CardAddress::NewSlot);
+                    state.focus_row(None);
+                }
             }
         }
         self.active_tab_header = TabHeaderSnapshot::observe(tab_slot, &tab, 12);
@@ -649,12 +684,21 @@ impl ObjectBrowserController {
         name: impl Into<String>,
         address: ValueAddress,
     ) -> Result<SlotId, ObjectBrowserControllerError> {
+        let origin = self.active_state().cloned();
         let breadcrumbs = Breadcrumbs::new(vec![Breadcrumb::projection(
             address.root_id().get(),
             address.path().segments().to_vec(),
         )]);
-        self.create_tab_with_query(name, breadcrumbs, Some(CardAddress::Value(address)))
-            .await
+        let tab = self
+            .create_tab_with_query(name, breadcrumbs, Some(CardAddress::Value(address)))
+            .await?;
+        if let Some(origin) = origin {
+            self.breadcrumb_return_states
+                .entry(tab)
+                .or_default()
+                .insert(0, origin);
+        }
+        Ok(tab)
     }
 
     async fn create_tab_with_query(
@@ -712,6 +756,7 @@ impl ObjectBrowserController {
         self.handle.delete(closing).await?;
         self.open_tabs.close(closing);
         self.tab_states.discard(closing);
+        self.breadcrumb_return_states.remove(&closing);
         if let Some(tab) = self.open_tabs.active() {
             self.activate_tab(tab).await?;
             Ok(tab)
@@ -770,6 +815,74 @@ mod tests {
                 < std::mem::size_of::<RuntimeValue>() + 512,
             "the controller stores handles and bounded UI state, not an object pool"
         );
+    }
+
+    #[tokio::test]
+    async fn popping_nested_breadcrumbs_restores_each_viewport_after_tab_switching() {
+        let engine = ExplorerEngine::empty();
+        let (context, inbox) = ArenaQueryContext::channel(8);
+        let client = async move {
+            let mut controller = ObjectBrowserController::bootstrap(context).await.unwrap();
+            let mut cards = Vec::new();
+            for value in 0_usize..10 {
+                let slot = controller.insert_owned(value).await.unwrap();
+                cards.push(CardAddress::Value(ValueAddress::root(slot)));
+            }
+            let capacity = NonZeroUsize::new(3).unwrap();
+            controller.focus(cards[3].clone()).unwrap();
+            controller.select(cards[4].clone()).unwrap();
+            controller
+                .focus_row(Some(crate::object_explorer::CardRowKey::Value))
+                .unwrap();
+            controller.refresh_window(128, capacity, 8).await.unwrap();
+            let origin = controller.active_state().unwrap().clone();
+            controller
+                .update_active_tab(TabUpdate::PushBreadcrumb(Breadcrumb::ShapeFilter {
+                    included_shapes: vec![
+                        cloud_terrastodon_registry::describe_shape(usize::SHAPE).to_owned(),
+                    ],
+                }))
+                .await
+                .unwrap();
+            controller.refresh_window(128, capacity, 8).await.unwrap();
+            controller.focus(cards[6].clone()).unwrap();
+            controller.select(cards[7].clone()).unwrap();
+            controller
+                .focus_row(Some(crate::object_explorer::CardRowKey::Value))
+                .unwrap();
+            controller.refresh_window(128, capacity, 8).await.unwrap();
+            let middle = controller.active_state().unwrap().clone();
+            controller
+                .update_active_tab(TabUpdate::PushBreadcrumb(Breadcrumb::ShapeFilter {
+                    included_shapes: vec![
+                        cloud_terrastodon_registry::describe_shape(usize::SHAPE).to_owned(),
+                    ],
+                }))
+                .await
+                .unwrap();
+            controller
+                .update_active_tab(TabUpdate::Rename("nested".to_owned()))
+                .await
+                .unwrap();
+            controller.create_tab("other").await.unwrap();
+            assert!(controller.switch_tab_previous().await.unwrap());
+            for (index, expected) in [(1, middle), (0, origin)] {
+                controller
+                    .update_active_tab(TabUpdate::RemoveBreadcrumb(index))
+                    .await
+                    .unwrap();
+                controller.refresh_window(128, capacity, 8).await.unwrap();
+                let state = controller.active_state().unwrap();
+                assert_eq!(state.selection(), expected.selection());
+                assert_eq!(state.focused_row(), expected.focused_row());
+                assert_eq!(state.viewport_anchor(), expected.viewport_anchor());
+                let visible = controller.window().unwrap().cards();
+                assert_eq!(visible[0].address(), expected.viewport_anchor());
+                assert_eq!(visible[1].address(), expected.selection());
+            }
+            controller.close().await.unwrap();
+        };
+        let (_engine, ()) = tokio::join!(engine.run(inbox), client);
     }
 
     #[tokio::test]

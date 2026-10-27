@@ -2281,6 +2281,7 @@ mod tests {
                 .focus_row(Some(CardRowKey::Field("value".to_owned())))
                 .unwrap();
 
+            let origin = app.controller.active_state().unwrap().clone();
             app.handle_event(&key(KeyCode::Enter)).await.unwrap();
 
             let target = root_address.child(crate::object_explorer::ValuePathSegment::Field(
@@ -2300,6 +2301,25 @@ mod tests {
                 )
             }));
             assert!(app.status.contains("source tab"));
+
+            app.handle_event(&key(KeyCode::Esc)).await.unwrap();
+            assert_eq!(app.controller.active_tab(), Some(projection_tab));
+            assert_eq!(app.controller.active_tab_header().breadcrumb_count(), 0);
+            for _ in 0..2 {
+                app.tick().await.unwrap();
+                let restored = app.controller.active_state().unwrap();
+                assert_eq!(restored.selection(), origin.selection());
+                assert_eq!(restored.focused_row(), origin.focused_row());
+                assert_eq!(restored.viewport_anchor(), origin.viewport_anchor());
+                assert!(
+                    app.controller
+                        .window()
+                        .unwrap()
+                        .cards()
+                        .iter()
+                        .any(|card| { card.address() == origin.selection() })
+                );
+            }
 
             assert!(app.controller.switch_tab_previous().await.unwrap());
             assert_eq!(app.controller.active_tab(), Some(source_tab));
