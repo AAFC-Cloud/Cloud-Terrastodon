@@ -224,6 +224,7 @@ impl<'window> CardWindowRenderer<'window> {
             let mut lines = Vec::new();
             let mut focused_line = None;
             let mut selected_line = None;
+            let mut section = None;
             for row in card.rows() {
                 if selected
                     && self
@@ -242,24 +243,31 @@ impl<'window> CardWindowRenderer<'window> {
                     color
                 });
                 let row_selected = selected && self.selected_row == Some(row.key());
-                if let (Some(type_name), Some(value)) = (row.type_name(), row.value_display()) {
-                    if row_selected {
-                        selected_line = Some(lines.len());
+                let row_section = match row.key() {
+                    CardRowKey::Field(_) => Some("fields"),
+                    CardRowKey::Element(_) => Some("elements"),
+                    CardRowKey::MapValue(_) => Some("entries"),
+                    CardRowKey::Action(_) => Some("actions"),
+                    _ => None,
+                };
+                if let Some(title) = row_section {
+                    if section != row_section {
+                        lines.push(section_line(title, block.inner(card_area).width));
+                    } else if accent.is_some() {
+                        lines.push(Line::default());
                     }
-                    lines.push(typed_row_line(row, type_name, row_selected, accent));
-                    lines.push(value_display_line(value, row_selected, accent));
-                    if row_selected {
-                        focused_line = Some(lines.len().saturating_sub(1));
-                    }
+                }
+                section = row_section;
+                if row_selected {
+                    selected_line = Some(lines.len());
+                }
+                if let Some(accent) = accent {
+                    lines.extend(field_lines(row, row_selected, accent));
                 } else {
-                    if let Some(type_name) = row.type_name() {
-                        lines.push(type_line(type_name, accent.unwrap_or(Color::White)));
-                    }
-                    if row_selected {
-                        selected_line = Some(lines.len());
-                        focused_line = Some(lines.len());
-                    }
-                    lines.push(self.render_row(row, selected, accent));
+                    lines.push(self.render_row(row, selected));
+                }
+                if row_selected {
+                    focused_line = Some(lines.len().saturating_sub(1));
                 }
             }
             if lines.is_empty() && self.visible_rows.is_some() {
@@ -286,7 +294,10 @@ impl<'window> CardWindowRenderer<'window> {
         let scroll_offset = focused_line
             .map(|line| line.saturating_sub(viewport_height.saturating_sub(1)))
             .unwrap_or_default()
-            .min(max_offset);
+            .min(max_offset)
+            // When the field block exceeds the viewport, keep its heading and
+            // selection marker visible rather than scrolling to only its value.
+            .min(selected_line.unwrap_or(usize::MAX));
         frame.render_widget(
             Paragraph::new(lines)
                 .scroll((scroll_offset.min(u16::MAX as usize) as u16, 0))
@@ -333,20 +344,17 @@ impl<'window> CardWindowRenderer<'window> {
         }
     }
 
-    fn render_row(
-        &self,
-        row: &CardRowSnapshot,
-        card_selected: bool,
-        accent: Option<Color>,
-    ) -> Line<'static> {
+    fn render_row(&self, row: &CardRowSnapshot, card_selected: bool) -> Line<'static> {
         let row_selected = card_selected && self.selected_row == Some(row.key());
-        let accent = accent.unwrap_or(Color::White);
+        let accent = Color::White;
         let mut spans = Vec::new();
-        spans.push(Span::styled(
-            row.label().to_owned(),
-            row_label_style(row.key(), accent),
-        ));
-        spans.push(Span::styled(": ", Style::default().fg(Color::DarkGray)));
+        if !matches!(row.key(), CardRowKey::Shape | CardRowKey::Action(_)) {
+            spans.push(Span::styled(
+                row.label().to_owned(),
+                row_label_style(row.key(), accent),
+            ));
+            spans.push(Span::styled(": ", Style::default().fg(Color::DarkGray)));
+        }
         spans.extend(content_spans(row, accent));
         Line::from(spans).style(if row_selected {
             Style::default().bg(Color::Blue)
@@ -358,7 +366,6 @@ impl<'window> CardWindowRenderer<'window> {
 
 fn type_line(type_name: &str, accent: Color) -> Line<'static> {
     Line::from(vec![
-        Span::raw("  "),
         Span::styled(
             "type ",
             Style::default()
@@ -372,37 +379,51 @@ fn type_line(type_name: &str, accent: Color) -> Line<'static> {
     ])
 }
 
-fn typed_row_line(
-    row: &CardRowSnapshot,
-    type_name: &str,
-    row_selected: bool,
-    accent: Option<Color>,
-) -> Line<'static> {
-    let accent = accent.unwrap_or(Color::White);
-    Line::from(vec![
-        Span::styled(row.label().to_owned(), row_label_style(row.key(), accent)),
-        Span::styled(": ", Style::default().fg(Color::DarkGray)),
-        Span::styled(type_name.to_owned(), Style::default().fg(accent)),
-    ])
-    .style(if row_selected {
-        Style::default().bg(Color::Blue)
-    } else {
-        Style::default()
-    })
+fn section_line(title: &str, width: u16) -> Line<'static> {
+    let padding = (width as usize).saturating_sub(title.len() + 2);
+    Line::from(Span::styled(
+        format!(
+            "{} {title} {}",
+            "─".repeat(padding / 2),
+            "─".repeat(padding - padding / 2),
+        ),
+        Style::default().fg(Color::DarkGray),
+    ))
 }
 
-fn value_display_line(value: &str, row_selected: bool, accent: Option<Color>) -> Line<'static> {
-    Line::from(vec![Span::styled(
-        value.to_owned(),
-        Style::default()
-            .fg(accent.unwrap_or(Color::Green))
-            .add_modifier(Modifier::BOLD),
-    )])
-    .style(if row_selected {
+/// Expand one selectable relationship into a name/type/value block. The value
+/// preview takes precedence over its address, while bindings retain their state
+/// colors (for example red for unset inputs).
+fn field_lines(row: &CardRowSnapshot, row_selected: bool, accent: Color) -> Vec<Line<'static>> {
+    let (kind, name) = match row.key() {
+        CardRowKey::Field(_) => ("field ", format!("{:?}", row.label())),
+        CardRowKey::Element(_) => ("element ", row.label().to_owned()),
+        CardRowKey::MapValue(_) => ("entry ", row.label().to_owned()),
+        _ => unreachable!("only relationship rows have field blocks"),
+    };
+    let mut lines = vec![Line::from(vec![
+        Span::styled(kind, Style::default().fg(Color::DarkGray)),
+        Span::styled(name, row_label_style(row.key(), accent)),
+    ])];
+    if let Some(type_name) = row.type_name() {
+        lines.push(type_line(type_name, accent));
+    }
+    let mut value = vec![Span::styled("value ", Style::default().fg(Color::DarkGray))];
+    if let Some(preview) = row.value_display() {
+        value.push(Span::styled(
+            preview.to_owned(),
+            Style::default().fg(accent).add_modifier(Modifier::BOLD),
+        ));
+    } else {
+        value.extend(content_spans(row, accent));
+    }
+    lines.push(Line::from(value));
+    let style = if row_selected {
         Style::default().bg(Color::Blue)
     } else {
         Style::default()
-    })
+    };
+    lines.into_iter().map(|line| line.style(style)).collect()
 }
 
 fn row_marker_style() -> Style {
@@ -515,7 +536,8 @@ fn content_spans(row: &CardRowSnapshot, accent: Color) -> Vec<Span<'static>> {
 
 fn field_group_color(index: usize) -> Color {
     match index % 4 {
-        0 => Color::Blue,
+        // Blue is reserved for selection backgrounds.
+        0 => Color::Cyan,
         1 => Color::Green,
         2 => Color::Yellow,
         _ => Color::Magenta,
@@ -552,12 +574,18 @@ mod tests {
     use crate::object_explorer::Arena;
     use crate::object_explorer::ArenaAddressSource;
     use crate::object_explorer::CardRowKey;
+    use crate::object_explorer::RootRevision;
+    use crate::object_explorer::SlotId;
     use crate::object_explorer::ValueAddress;
     use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
+    use cloud_terrastodon_azure_devops::AzureDevOpsProjectsListRequest;
+    use cloud_terrastodon_command::CancellationToken;
+    use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
     use cloud_terrastodon_registry::RuntimeValue;
     use facet::Facet;
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
+    use std::borrow::Cow;
     use std::num::NonZeroUsize;
 
     #[derive(Clone, Debug, Facet)]
@@ -587,7 +615,7 @@ mod tests {
         let window = CardWindow::first(&source, NonZeroUsize::new(3).unwrap(), 2).unwrap();
         let selected = CardAddress::Value(ValueAddress::root(root));
         let selected_row = CardRowKey::Field("name".to_owned());
-        let backend = TestBackend::new(90, 12);
+        let backend = TestBackend::new(90, 16);
         let mut terminal = Terminal::new(backend).unwrap();
 
         terminal
@@ -606,13 +634,15 @@ mod tests {
 
         let rendered = terminal.backend().to_string();
         assert!(rendered.contains("slot 0 [owned]"));
-        assert!(rendered.contains("shape: RenderThing"));
-        assert!(rendered.contains("age: usize"));
-        assert!(rendered.contains("42"));
-        assert!(rendered.contains("name: String"));
-        assert!(rendered.contains(">name: String"));
-        assert!(rendered.contains("Ada"));
-        assert!(!rendered.contains("age (usize)"));
+        assert!(rendered.contains("RenderThing"));
+        assert!(!rendered.contains("shape:"));
+        assert!(rendered.contains("─ fields ─"));
+        assert!(rendered.contains("field \"age\""));
+        assert!(rendered.contains("type usize"));
+        assert!(rendered.contains("value 42"));
+        assert!(rendered.contains(">field \"name\""));
+        assert!(rendered.contains("type String"));
+        assert!(rendered.contains("value Ada"));
         assert!(rendered.contains("vvvvv"));
         assert!(rendered.contains("^^^^^"));
         assert!(rendered.contains("slot 0.age [projection]"));
@@ -624,30 +654,149 @@ mod tests {
             .iter()
             .find(|row| row.key() == &CardRowKey::Field("age".to_owned()))
             .unwrap();
-        let renderer = CardWindowRenderer::new(
-            &window,
-            &selected,
-            Some(&selected_row),
-            CardLayoutAxis::Horizontal,
-            false,
-            30,
-        );
-        let type_line = type_line(age_row.type_name().unwrap(), Color::Blue);
+        let accent = field_group_color(0);
+        let type_line = type_line(age_row.type_name().unwrap(), accent);
         let type_span = type_line
             .spans
             .iter()
             .find(|span| span.content == "usize")
             .expect("ready field type has its own semantic span");
-        assert_eq!(type_span.style.fg, Some(Color::Blue));
+        assert_eq!(type_span.style.fg, Some(accent));
         assert!(type_span.style.add_modifier.contains(Modifier::DIM));
-        let line = renderer.render_row(age_row, true, Some(Color::Blue));
-        let value_span = line
+        let lines = field_lines(age_row, true, accent);
+        let value_span = lines[2]
             .spans
             .iter()
-            .find(|span| span.content == "slot 0.age")
+            .find(|span| span.content == "42")
             .expect("field value has its own semantic span");
-        assert_eq!(value_span.style.fg, Some(Color::Blue));
+        assert_eq!(value_span.style.fg, Some(accent));
+        assert_ne!(value_span.style.fg, lines[2].style.bg);
         assert!(value_span.style.add_modifier.contains(Modifier::BOLD));
+    }
+
+    #[test]
+    fn request_card_separates_fields_and_actions_and_filters_whole_sections() -> eyre::Result<()> {
+        CancellationToken::new().with_scope(|cancellation| {
+            let mut arena = Arena::default();
+            let root = arena
+                .insert_ready(runtime(AzureDevOpsProjectsListRequest {
+                    cancellation: cancellation.clone(),
+                    org_url: Cow::Owned("example-org".parse().unwrap()),
+                    auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
+                }))
+                .unwrap();
+            let source = ArenaAddressSource::new(&arena);
+            let window = CardWindow::first(&source, NonZeroUsize::new(1).unwrap(), 8).unwrap();
+            let selected = CardAddress::Value(ValueAddress::root(root));
+            let action_keys = window.cards()[0]
+                .rows()
+                .iter()
+                .filter(|row| matches!(row.key(), CardRowKey::Action(_)))
+                .map(|row| row.key().clone())
+                .collect::<Vec<_>>();
+
+            for visible in [None, Some(action_keys.as_slice()), Some(&[][..])] {
+                let mut terminal = Terminal::new(TestBackend::new(85, 24)).unwrap();
+                terminal
+                    .draw(|frame| {
+                        CardWindowRenderer::new(
+                            &window,
+                            &selected,
+                            action_keys.last(),
+                            CardLayoutAxis::Horizontal,
+                            true,
+                            85,
+                        )
+                        .with_visible_rows(visible)
+                        .draw(frame, frame.area());
+                    })
+                    .unwrap();
+                let rendered = terminal.backend().to_string();
+                if visible.is_some_and(|keys| keys.is_empty()) {
+                    assert!(rendered.contains("No matching rows"));
+                    assert!(!rendered.contains("─ actions ─"));
+                } else {
+                    assert!(rendered.contains("─ actions ─"));
+                    assert!(rendered.contains("Self(Clone) -> List<AzureDevOpsProject>"));
+                    assert!(rendered.contains("Self(Drop) -> List<AzureDevOpsProject>"));
+                    assert!(rendered.contains("Self -> List<AzureDevOpsProject>(Arbitrary)"));
+                    assert!(!rendered.contains("action:"));
+                }
+                if visible.is_none() {
+                    assert!(rendered.contains("─ fields ─"));
+                    assert!(rendered.contains("field \"cancellation\""));
+                    assert!(rendered.contains("value slot 0.cancellation"));
+                    assert!(rendered.contains("field \"org_url\""));
+                    assert!(rendered.contains("type Cow<AzureDevOpsOrganizationUrl>"));
+                    assert!(rendered.contains("value https://dev.azure.com/example-org"));
+                    assert!(rendered.contains("field \"auth_context\""));
+                } else {
+                    assert!(!rendered.contains("─ fields ─"));
+                }
+            }
+            Ok(())
+        })
+    }
+
+    #[test]
+    fn short_cards_keep_the_selected_field_heading_and_unset_binding_visible() {
+        let field = CardRowSnapshot::new(
+            CardRowKey::Field("name".into()),
+            "name",
+            CardRowContent::Binding(FieldBindingSnapshot::Unset),
+        )
+        .with_type_name("String");
+        let card = CardSnapshot::owned(
+            SlotId::new(0),
+            "Request",
+            RootRevision::default(),
+            vec![
+                CardRowSnapshot::new(
+                    CardRowKey::Shape,
+                    "shape",
+                    CardRowContent::Text("Request".into()),
+                ),
+                field.clone(),
+                CardRowSnapshot::new(
+                    CardRowKey::Status,
+                    "status",
+                    CardRowContent::Text("Building".into()),
+                ),
+            ],
+            true,
+        );
+        let selected = card.address().clone();
+        let window = CardWindow::single(card);
+
+        for height in 5..=7 {
+            let mut terminal = Terminal::new(TestBackend::new(48, height)).unwrap();
+            terminal
+                .draw(|frame| {
+                    CardWindowRenderer::new(
+                        &window,
+                        &selected,
+                        Some(field.key()),
+                        CardLayoutAxis::Horizontal,
+                        true,
+                        48,
+                    )
+                    .draw(frame, frame.area());
+                })
+                .unwrap();
+            let rendered = terminal.backend().to_string();
+            assert!(rendered.contains(">field \"name\""));
+            if height == 7 {
+                assert!(rendered.contains("type String"));
+                assert!(rendered.contains("value unset"));
+            }
+        }
+        let lines = field_lines(&field, true, field_group_color(0));
+        let unset = lines[2]
+            .spans
+            .iter()
+            .find(|span| span.content == "unset")
+            .unwrap();
+        assert_eq!(unset.style.fg, Some(Color::Red));
     }
 
     #[test]
@@ -679,7 +828,7 @@ mod tests {
 
         let rendered = terminal.backend().to_string();
         assert!(rendered.contains("slot 0 [owned]"));
-        assert!(rendered.contains("shape: AzureDevOpsOrganizationUrl"));
+        assert!(rendered.contains("AzureDevOpsOrganizationUrl"));
         assert!(rendered.contains("value: https://dev.azure.com/example-org"));
     }
 
@@ -919,9 +1068,9 @@ mod tests {
             .unwrap();
 
         let rendered = terminal.backend().to_string();
-        assert!(rendered.contains(">[8]: usize"));
-        assert!(rendered.contains("8"));
-        assert!(!rendered.contains("[0]: usize"));
+        assert!(rendered.contains(">element [8]"));
+        assert!(rendered.contains("value 8"));
+        assert!(!rendered.contains("element [0]"));
         assert!(
             rendered.lines().last().unwrap_or_default().contains('◄')
                 && rendered.lines().last().unwrap_or_default().contains('►'),
