@@ -10,6 +10,7 @@ use crate::object_explorer::TokioInvocationHost;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_registry::InvocationFuture;
 use cloud_terrastodon_user_input::TerminalBackend;
+use cloud_terrastodon_user_input::TerminalControl;
 use cloud_terrastodon_user_input::TerminalCoordinator;
 use cloud_terrastodon_user_input::TerminalCoordinatorFutureExt;
 use cloud_terrastodon_user_input::TerminalGuard;
@@ -215,19 +216,39 @@ async fn run_event_loop(
     }
     .await;
 
-    // A nested picker must return terminal ownership while closing. Continue
-    // servicing its handoff even after cancellation or an event-loop error.
-    let closing = app.close();
+    finish_ui_cleanup(
+        async { app.close().await.map_err(eyre::Report::from) },
+        guard,
+        |control, guard| terminal.apply_control(control, guard),
+    )
+    .await?;
+    result
+}
+
+/// Finish owned cleanup while nested pickers return terminal ownership. A
+/// failed handoff must wake their waiters without dropping the cleanup future.
+async fn finish_ui_cleanup(
+    closing: impl Future<Output = Result<()>>,
+    guard: &mut TerminalGuard,
+    mut apply_control: impl FnMut(TerminalControl, &mut TerminalGuard) -> Result<()>,
+) -> Result<()> {
     tokio::pin!(closing);
+    let mut cleanup_controls = Ok(());
     loop {
         tokio::select! {
             closed = &mut closing => {
-                closed?;
-                return result;
+                return cleanup_controls.and(closed);
             }
-            control = guard.next_control() => {
-                let control = control.ok_or_else(|| eyre::eyre!("terminal coordinator owner channel closed during shutdown"))?;
-                terminal.apply_control(control, guard)?;
+            control = guard.next_control(), if cleanup_controls.is_ok() => {
+                cleanup_controls = match control {
+                    Some(control) => apply_control(control, guard),
+                    None => Err(eyre::eyre!("terminal coordinator owner channel closed during shutdown")),
+                }.inspect_err(|error| {
+                    // Deferrals do not protect against explicitly dropping
+                    // `closing`. Keep it alive, and let waiting pickers fail
+                    // their handoff so their cleanup can also finish.
+                    guard.poison(format!("terminal handoff during UI cleanup failed: {error}"));
+                });
             }
         }
     }
@@ -251,10 +272,80 @@ fn attach_invocation_contexts(future: InvocationFuture) -> InvocationFuture {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cloud_terrastodon_command::CancellationToken;
+    use std::cell::Cell;
+    use std::future::poll_fn;
+    use std::io;
+    use std::task::Poll;
+    use tokio::sync::oneshot;
 
     #[test]
     fn production_invocation_host_is_context_attaching_tokio_host() {
         let host = TokioInvocationHost::new(attach_invocation_contexts);
         assert_eq!(host.pending_count(), 0);
+    }
+
+    #[tokio::test]
+    async fn failed_terminal_handoff_waits_for_required_ui_cleanup() {
+        let cancellation = CancellationToken::new();
+        let requester = cancellation.clone();
+        tokio::time::timeout(
+            Duration::from_secs(2),
+            cancellation.with_async_scope(|scope| async move {
+                let coordinator = TerminalCoordinator::new();
+                let mut guard = coordinator.acquire().await?;
+                let (finish, finished) = oneshot::channel();
+                let cleanup_entered = Cell::new(false);
+                let cleanup_completed = Cell::new(false);
+                let handoffs = Cell::new(0);
+                let closing = scope.finish_required("finish owned UI cleanup", |_| async {
+                    cleanup_entered.set(true);
+                    finished.await?;
+                    cleanup_completed.set(true);
+                    Ok(())
+                });
+                let mut cleanup = Box::pin(finish_ui_cleanup(closing, &mut guard, |control, _| {
+                    assert!(matches!(control, TerminalControl::Suspend { .. }));
+                    handoffs.set(handoffs.get() + 1);
+                    Err(io::Error::new(io::ErrorKind::BrokenPipe, "terminal suspension failed").into())
+                }));
+                poll_fn(|context| {
+                    assert!(cleanup.as_mut().poll(context).is_pending());
+                    Poll::Ready(())
+                })
+                .await;
+                assert!(cleanup_entered.get());
+                requester.request_cancel("UI closed");
+
+                // A real nested acquisition requests Suspend. Poisoning on
+                // failure must release its waiter while cleanup stays owned.
+                tokio::select! {
+                    result = &mut cleanup => panic!("cleanup returned before it finished: {result:?}"),
+                    acquired = coordinator.acquire() => {
+                        let error = acquired.err().expect("the failed handoff rejects acquisition");
+                        assert!(error.to_string().contains("terminal suspension failed"));
+                    }
+                }
+                assert_eq!(handoffs.get(), 1);
+                assert!(!cleanup_completed.get());
+                poll_fn(|context| {
+                    assert!(cleanup.as_mut().poll(context).is_pending());
+                    Poll::Ready(())
+                })
+                .await;
+                assert_eq!(handoffs.get(), 1, "the failed control channel is no longer polled");
+
+                finish.send(()).unwrap();
+                let error = cleanup.await.unwrap_err();
+                assert!(cleanup_completed.get());
+                assert_eq!(error.downcast_ref::<io::Error>().unwrap().kind(), io::ErrorKind::BrokenPipe);
+                assert_eq!(error.to_string(), "terminal suspension failed");
+                guard.release().await?;
+                Ok::<_, eyre::Report>(())
+            }),
+        )
+        .await
+        .expect("terminal failure must not leave cleanup or picker waiters stuck")
+        .unwrap();
     }
 }
