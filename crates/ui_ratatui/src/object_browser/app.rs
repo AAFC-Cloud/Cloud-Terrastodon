@@ -5,10 +5,12 @@ use super::breadcrumb_picker_task::BreadcrumbPickerTask;
 use super::breadcrumb_value_picker_task::BreadcrumbValuePickerTask;
 use super::controller::ObjectBrowserController;
 use super::controller::ObjectBrowserControllerError;
+use super::excalidraw_render_session::ExcalidrawRenderSession;
 use super::link_action_picker_task::LinkActionPickerTask;
 use super::pickers::FieldValuePicker;
 use super::pickers::LinkActionPicker;
 use super::pickers::VariantPicker;
+use super::registered_shape_picker_task::RegisteredShapePickerTask;
 use super::render::CardLayoutAxis;
 use super::row_search::RowSearchState;
 use super::shape_picker_task::ShapePickerTask;
@@ -25,6 +27,7 @@ use crate::object_explorer::RootLifecycleSnapshot;
 use crate::object_explorer::RootSnapshot;
 use crate::object_explorer::SlotId;
 use crate::object_explorer::ValueAddress;
+use cloud_terrastodon_command::CancellationScope;
 use std::num::NonZeroUsize;
 use std::time::Instant;
 
@@ -98,6 +101,9 @@ pub(crate) struct ObjectBrowserApp {
     pub(super) tab_name_editor: Option<String>,
     pub(super) production_jobs_active: bool,
     pub(super) status: String,
+    pub(super) excalidraw: Option<ExcalidrawRenderSession>,
+    pub(super) registered_shape_picker: Option<RegisteredShapePickerTask>,
+    pub(super) cancellation: Option<CancellationScope>,
 }
 
 impl ObjectBrowserApp {
@@ -141,13 +147,35 @@ impl ObjectBrowserApp {
             row_search: None,
             tab_name_editor: None,
             production_jobs_active: false,
-            status: "Left/Right: cards | Up/Down: rows/breadcrumbs | Shift+;: fuzzy breadcrumb picker | Alt++/Alt+-: resize | Shift+Home: first card | Shift+End: new object | Ctrl+T: transpose | Esc: back / triple-Esc: exit".to_owned(),
+            status: "Left/Right: cards | Up/Down: rows | Ctrl-O: draw slot | Ctrl-U: draw tab | Shift+End: new object | Esc: back / triple-Esc: exit".to_owned(),
+            excalidraw: None,
+            registered_shape_picker: None,
+            cancellation: None,
         })
     }
 
     pub(super) async fn tick(&mut self) -> Result<(), ObjectBrowserControllerError> {
+        if let Some(renderer) = &mut self.excalidraw {
+            if let Some(result) = renderer.take_result().await {
+                self.status = match result {
+                    Ok(path) => format!(
+                        "Rendered Excalidraw: \"{}\" (Ctrl-O: slot, Ctrl-U: tab)",
+                        path.display()
+                    ),
+                    Err(error) => format!("Excalidraw export failed: {error:#}"),
+                };
+            }
+            if renderer.is_rendering() {
+                return Ok(());
+            }
+        }
+        if self.controller.query_context().is_export_active() {
+            return Ok(());
+        }
         if self.mode == BrowserMode::NestedPicker {
-            if self.breadcrumb_menu_task.is_some() {
+            if self.registered_shape_picker.is_some() {
+                self.finish_registered_shape_picker().await?;
+            } else if self.breadcrumb_menu_task.is_some() {
                 self.finish_breadcrumb_menu_task().await?;
             } else if self.breadcrumb_filter_field_picker_task.is_some() {
                 self.finish_breadcrumb_filter_field_picker_task().await?;
@@ -325,7 +353,13 @@ impl ObjectBrowserApp {
         };
     }
 
-    pub(crate) async fn close(self) -> Result<(), ObjectBrowserControllerError> {
+    pub(crate) async fn close(mut self) -> Result<(), ObjectBrowserControllerError> {
+        if let Some(picker) = self.registered_shape_picker.take() {
+            picker.close().await;
+        }
+        if let Some(renderer) = self.excalidraw.take() {
+            renderer.close().await;
+        }
         self.controller.close().await
     }
 }

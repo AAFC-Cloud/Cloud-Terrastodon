@@ -1,4 +1,5 @@
 use super::app::ObjectBrowserApp;
+use super::excalidraw_render_session::ExcalidrawRenderSession;
 use super::terminal::RatatuiTerminalBackend;
 use super::terminal::restore_terminal;
 use crate::object_explorer::ArenaQueryContext;
@@ -19,21 +20,26 @@ use crossterm::event::EventStream;
 use eyre::Result;
 use futures::StreamExt;
 use ratatui::DefaultTerminal;
+use std::path::PathBuf;
 use std::time::Duration;
 
 const FRAMES_PER_SECOND: f32 = 60.0;
 const COMMAND_CAPACITY: usize = 256;
 
-pub(crate) async fn run_object_browser(cancellation: &CancellationScope) -> Result<()> {
+pub(crate) async fn run_object_browser(
+    excalidraw: Option<PathBuf>,
+    cancellation: &CancellationScope,
+) -> Result<()> {
     let coordinator = TerminalCoordinator::try_current().unwrap_or_default();
     let scoped_coordinator = coordinator.clone();
     coordinator
-        .scope(async move { run_with_terminal(scoped_coordinator, cancellation).await })
+        .scope(async move { run_with_terminal(scoped_coordinator, excalidraw, cancellation).await })
         .await
 }
 
 async fn run_with_terminal(
     coordinator: TerminalCoordinator,
+    excalidraw: Option<PathBuf>,
     cancellation: &CancellationScope,
 ) -> Result<()> {
     tracing::info!("Starting arena-backed object browser");
@@ -54,7 +60,14 @@ async fn run_with_terminal(
         };
     }
 
-    let app_result = run_engine_and_ui(&mut terminal, &mut guard, &coordinator, cancellation).await;
+    let app_result = run_engine_and_ui(
+        &mut terminal,
+        &mut guard,
+        &coordinator,
+        excalidraw,
+        cancellation,
+    )
+    .await;
     let restore_result = if terminal.take().is_some() {
         restore_terminal(&coordinator)
     } else {
@@ -73,6 +86,7 @@ async fn run_engine_and_ui(
     terminal: &mut Option<DefaultTerminal>,
     guard: &mut TerminalGuard,
     coordinator: &TerminalCoordinator,
+    excalidraw: Option<PathBuf>,
     cancellation: &CancellationScope,
 ) -> Result<()> {
     let (_shutdown, run) = cancellation.with_async_child_scope(move |cancellation| async move {
@@ -88,7 +102,9 @@ async fn run_engine_and_ui(
             ExplorerEngine::empty_with_tokio_invocation_host(attach_invocation_contexts, &cancellation);
         let engine_future = engine.run(inbox).with_arena_query_context(engine_context);
         let app_future = async {
-            let app = ObjectBrowserApp::bootstrap(app_context.clone()).await?;
+            let mut app = ObjectBrowserApp::bootstrap(app_context.clone()).await?;
+            app.cancellation = Some(app_cancellation.clone());
+            app.excalidraw = Some(ExcalidrawRenderSession::new(excalidraw, &app_cancellation));
             run_event_loop(app, terminal, guard, coordinator, &app_cancellation).await
         }
         .with_arena_query_context(app_scope_context);
@@ -141,37 +157,59 @@ async fn run_event_loop(
     let mut interval = tokio::time::interval(period);
     let mut events = EventStream::new();
 
-    while !app.should_quit {
-        tokio::select! {
-            () = cancellation.cancelled() => {
-                break;
-            }
-            control = guard.next_control() => {
-                let Some(control) = control else {
-                    return Err(eyre::eyre!("terminal coordinator owner channel closed"));
-                };
-                let mut backend = RatatuiTerminalBackend { terminal, coordinator };
-                apply_terminal_control(control, guard, &mut backend)?;
-            }
-            _ = interval.tick() => {
-                app.tick().await?;
-                if let Some(terminal) = terminal.as_mut() {
-                    terminal.draw(|frame| app.draw(frame)).map_err(|error| {
-                        coordinator.poison(format!("Ratatui frame draw failed: {error}"));
-                        error
-                    })?;
-                    #[cfg(feature = "extended_observability")]
-                    tracing::info!(message = "finished Ratatui frame", tracy.frame_mark = true);
+    let result = async {
+        while !app.should_quit {
+            tokio::select! {
+                () = cancellation.cancelled() => {
+                    break;
+                }
+                control = guard.next_control() => {
+                    let Some(control) = control else {
+                        return Err(eyre::eyre!("terminal coordinator owner channel closed"));
+                    };
+                    let mut backend = RatatuiTerminalBackend { terminal, coordinator };
+                    apply_terminal_control(control, guard, &mut backend)?;
+                }
+                _ = interval.tick() => {
+                    if let Err(error) = app.tick().await {
+                        app.recover_action_error(error)?;
+                    }
+                    if let Some(terminal) = terminal.as_mut() {
+                        terminal.draw(|frame| app.draw(frame)).map_err(|error| {
+                            coordinator.poison(format!("Ratatui frame draw failed: {error}"));
+                            error
+                        })?;
+                        #[cfg(feature = "extended_observability")]
+                        tracing::info!(message = "finished Ratatui frame", tracy.frame_mark = true);
+                    }
+                }
+                Some(Ok(event)) = events.next(), if terminal.is_some() => {
+                    if let Err(error) = app.handle_event(&event).await {
+                        app.recover_action_error(error)?;
+                    }
                 }
             }
-            Some(Ok(event)) = events.next(), if terminal.is_some() => {
-                app.handle_event(&event).await?;
+        }
+        Ok::<_, eyre::Report>(())
+    }
+    .await;
+
+    // A nested picker must return terminal ownership while closing. Continue
+    // servicing its handoff even after cancellation or an event-loop error.
+    let closing = app.close();
+    tokio::pin!(closing);
+    loop {
+        tokio::select! {
+            closed = &mut closing => {
+                closed?;
+                return result;
+            }
+            control = guard.next_control() => {
+                let control = control.ok_or_else(|| eyre::eyre!("terminal coordinator owner channel closed during shutdown"))?;
+                apply_terminal_control(control, guard, &mut RatatuiTerminalBackend { terminal, coordinator })?;
             }
         }
     }
-
-    app.close().await?;
-    Ok(())
 }
 
 fn attach_invocation_contexts(future: InvocationFuture) -> InvocationFuture {

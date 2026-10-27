@@ -20,6 +20,7 @@ use super::invocation_controller::InvocationController;
 use super::invocation_host::InvocationHost;
 use super::json_encoder::JsonEncoder;
 use super::json_export_job::JsonExportJob;
+use super::observation_export_job::ObservationExportJob;
 #[cfg(test)]
 use super::preorder_cursor::PreorderCursor;
 use super::production_controller::ProductionController;
@@ -374,6 +375,10 @@ async fn serve_export(
 ) -> bool {
     let arena_revision = arena.arena_revision();
     let source = ArenaAddressSource::new(arena);
+    let object_source = ArenaAddressSource::object_pool(arena);
+    let mut diagrams =
+        ObservationExportJob::new(&object_source, query_plan.clone(), arena_revision);
+    let mut shapes = ObservationExportJob::new(&source, query_plan.clone(), arena_revision);
     let mut export = JsonExportJob::for_arena(&source, query_plan, arena_revision);
 
     let exit = loop {
@@ -385,6 +390,12 @@ async fn serve_export(
                     break ExportExit::InboxClosed;
                 };
                 match command {
+                    ExplorerCommand::Mutation(ArenaMutationCommand::PollInvocations { response }) => {
+                        // Completion ingestion can mutate roots, so leave it for
+                        // after the barrier. UI polling itself must not wait for
+                        // an export that the same UI is responsible for driving.
+                        let _ = response.send(Ok(Vec::new()));
+                    }
                     ExplorerCommand::Mutation(command) => {
                         // Queuing must happen in release builds too.
                         let submission = barrier.submit(command);
@@ -410,6 +421,16 @@ async fn serve_export(
                         let result = export.next_batch(json_encoder, max_work, max_bytes);
                         let _ = response.send(result);
                     }
+                    ExplorerCommand::Query(ArenaQueryCommand::NextDiagramBatch {
+                        session: requested, max_work, max_objects, max_rows, response,
+                    }) if requested == session => {
+                        let _ = response.send(diagrams.next_diagram_batch(arena, builders, max_work, max_objects, max_rows));
+                    }
+                    ExplorerCommand::Query(ArenaQueryCommand::NextShapeBatch {
+                        session: requested, max_work, response,
+                    }) if requested == session => {
+                        let _ = response.send(shapes.next_shape_batch(max_work));
+                    }
                     ExplorerCommand::Query(ArenaQueryCommand::EndExport {
                         session: requested,
                         end,
@@ -427,7 +448,7 @@ async fn serve_export(
                         )));
                     }
                     ExplorerCommand::Query(command) => reject_wrong_session(command, session),
-                    ExplorerCommand::Browse(command) => reject_browse_during_export(command),
+                    ExplorerCommand::Browse(command) => defer_browse_during_export(command),
                 }
             }
         }
@@ -435,6 +456,8 @@ async fn serve_export(
 
     // All Facet Peeks/iterators are gone before deferred mutation resumes.
     drop(export);
+    drop(diagrams);
+    drop(shapes);
 
     let deferred = match &exit {
         ExportExit::End {
@@ -1220,6 +1243,15 @@ fn apply_read_with_source(
     pending_invocations: usize,
 ) {
     match command {
+        ArenaReadCommand::InspectDiagram {
+            address,
+            max_rows,
+            response,
+        } => {
+            let _ = response.send(super::diagram_observation::observe(
+                arena, builders, source, address, max_rows,
+            ));
+        }
         ArenaReadCommand::PendingInvocations { response } => {
             let _ = response.send(Ok(pending_invocations));
         }
@@ -1331,6 +1363,12 @@ fn reject_inactive_query(command: ArenaQueryCommand) {
         ArenaQueryCommand::NextJsonBatch { response, .. } => {
             let _ = response.send(Err("no export session is active".to_owned()));
         }
+        ArenaQueryCommand::NextDiagramBatch { response, .. } => {
+            let _ = response.send(Err("no export session is active".to_owned()));
+        }
+        ArenaQueryCommand::NextShapeBatch { response, .. } => {
+            let _ = response.send(Err("no export session is active".to_owned()));
+        }
         ArenaQueryCommand::EndExport { response, .. } => {
             let _ = response.send(Err("no export session is active".to_owned()));
         }
@@ -1346,6 +1384,24 @@ fn reject_wrong_session(command: ArenaQueryCommand, active: QuerySessionId) {
             )));
         }
         ArenaQueryCommand::NextJsonBatch {
+            session, response, ..
+        } => {
+            let _ = response.send(Err(format!(
+                "export session {} is active, not {}",
+                active.get(),
+                session.get()
+            )));
+        }
+        ArenaQueryCommand::NextDiagramBatch {
+            session, response, ..
+        } => {
+            let _ = response.send(Err(format!(
+                "export session {} is active, not {}",
+                active.get(),
+                session.get()
+            )));
+        }
+        ArenaQueryCommand::NextShapeBatch {
             session, response, ..
         } => {
             let _ = response.send(Err(format!(
@@ -1441,7 +1497,7 @@ fn reject_wrong_browse_session(command: BrowseCommand, active: BrowseSessionId) 
     }
 }
 
-fn reject_browse_during_export(command: BrowseCommand) {
+fn defer_browse_during_export(command: BrowseCommand) {
     const MESSAGE: &str = "a coherent export is active; browse work is temporarily unavailable";
     match command {
         BrowseCommand::Begin { response, .. } => {
@@ -1454,13 +1510,28 @@ fn reject_browse_during_export(command: BrowseCommand) {
             let _ = response.send(Err(MESSAGE.to_owned()));
         }
         BrowseCommand::FillCardWindow { response, .. } => {
-            let _ = response.send(Err(MESSAGE.to_owned()));
+            let _ = response.send(Ok(QueryProgress::new(
+                QueryProgressState::Pending,
+                0,
+                Default::default(),
+                Default::default(),
+            )));
         }
         BrowseCommand::Navigate { response, .. } => {
-            let _ = response.send(Err(MESSAGE.to_owned()));
+            let _ = response.send(Ok(QueryProgress::new(
+                QueryProgressState::Pending,
+                0,
+                Default::default(),
+                Default::default(),
+            )));
         }
         BrowseCommand::FillValueCandidates { response, .. } => {
-            let _ = response.send(Err(MESSAGE.to_owned()));
+            let _ = response.send(Ok(QueryProgress::new(
+                QueryProgressState::Pending,
+                0,
+                Default::default(),
+                Default::default(),
+            )));
         }
     }
 }
@@ -2149,6 +2220,76 @@ mod tests {
         );
         assert!(engine.arena().ready_value(large).is_some());
         assert_eq!(engine.json_serialization_count(), 0);
+    }
+
+    #[tokio::test]
+    async fn browse_refresh_waits_without_blocking_or_losing_its_session_during_export() {
+        use crate::object_explorer::browse_session::CardWindowBudget;
+        use crate::object_explorer::card_navigation::CardNavigation;
+
+        let mut arena = Arena::default();
+        let value = arena
+            .insert_ready(runtime(String::from("visible")))
+            .unwrap();
+        let engine = ExplorerEngine::new(arena);
+        let (context, inbox) = ArenaQueryContext::channel(4);
+        let client = async move {
+            let handle = context.engine_handle();
+            let observer = context.clone();
+            let browse = context.open_browse(Breadcrumbs::default()).await.unwrap();
+            browse.set_candidate_shape(String::SHAPE).await.unwrap();
+            let budget = CardWindowBudget::new(8, NonZeroUsize::new(2).unwrap(), 8);
+
+            for end in 0..3 {
+                assert!(!observer.is_export_active());
+                let export = context.open_export(Breadcrumbs::default()).await.unwrap();
+                assert!(observer.is_export_active());
+                // A rejected second opener must not clear the first one's activity.
+                assert!(context.open_export(Breadcrumbs::default()).await.is_err());
+                assert!(observer.is_export_active());
+                let progress = browse.fill_card_window(None, budget).await.unwrap();
+                assert_eq!(progress.work_spent(), 0);
+                assert!(matches!(progress.state(), QueryProgressState::Pending));
+                assert!(matches!(
+                    browse
+                        .navigate(ValueAddress::root(value), CardNavigation::Next, 8)
+                        .await
+                        .unwrap()
+                        .state(),
+                    QueryProgressState::Pending
+                ));
+                assert!(matches!(
+                    browse
+                        .fill_value_candidates(
+                            None,
+                            ValueCandidateWindowBudget::new(8, NonZeroUsize::new(2).unwrap())
+                        )
+                        .await
+                        .unwrap()
+                        .state(),
+                    QueryProgressState::Pending
+                ));
+                assert!(handle.poll_invocations().await.unwrap().is_empty());
+
+                match end {
+                    0 => export.complete().await.unwrap(),
+                    1 => export.cancel().await.unwrap(),
+                    _ => drop(export),
+                }
+                assert!(!observer.is_export_active());
+                let progress = browse.fill_card_window(None, budget).await.unwrap();
+                assert!(matches!(progress.state(), QueryProgressState::Ready(_)));
+            }
+            browse.close().await.unwrap();
+            drop(handle);
+            drop(observer);
+            drop(context);
+        };
+        tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            tokio::join!(engine.run(inbox), client)
+        })
+        .await
+        .expect("export and browse must continue without a deadlock");
     }
 
     #[tokio::test]

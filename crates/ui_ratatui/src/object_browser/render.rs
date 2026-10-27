@@ -553,6 +553,7 @@ mod tests {
     use crate::object_explorer::ArenaAddressSource;
     use crate::object_explorer::CardRowKey;
     use crate::object_explorer::ValueAddress;
+    use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
     use cloud_terrastodon_registry::RuntimeValue;
     use facet::Facet;
     use ratatui::Terminal;
@@ -647,6 +648,39 @@ mod tests {
             .expect("field value has its own semantic span");
         assert_eq!(value_span.style.fg, Some(Color::Blue));
         assert!(value_span.style.add_modifier.contains(Modifier::BOLD));
+    }
+
+    #[test]
+    fn owned_organization_url_slot_renders_its_value() {
+        let mut arena = Arena::default();
+        let root = arena
+            .insert_ready(runtime(
+                "example-org".parse::<AzureDevOpsOrganizationUrl>().unwrap(),
+            ))
+            .unwrap();
+        let source = ArenaAddressSource::new(&arena);
+        let window = CardWindow::first(&source, NonZeroUsize::new(1).unwrap(), 8).unwrap();
+        let selected = CardAddress::Value(ValueAddress::root(root));
+        let mut terminal = Terminal::new(TestBackend::new(60, 10)).unwrap();
+
+        terminal
+            .draw(|frame| {
+                CardWindowRenderer::new(
+                    &window,
+                    &selected,
+                    Some(&CardRowKey::Shape),
+                    CardLayoutAxis::Horizontal,
+                    true,
+                    60,
+                )
+                .draw(frame, frame.area());
+            })
+            .unwrap();
+
+        let rendered = terminal.backend().to_string();
+        assert!(rendered.contains("slot 0 [owned]"));
+        assert!(rendered.contains("shape: AzureDevOpsOrganizationUrl"));
+        assert!(rendered.contains("value: https://dev.azure.com/example-org"));
     }
 
     #[test]

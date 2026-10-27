@@ -19,6 +19,7 @@ use super::tab::Tab;
 use super::tab_update::TabUpdate;
 use super::value_address::ValueAddress;
 use super::value_builder::BuilderTransition;
+use cloud_terrastodon_excalidraw::ExcalidrawObjectSnapshot;
 use cloud_terrastodon_registry::Function;
 use cloud_terrastodon_registry::RuntimeFromBoxedFn;
 use cloud_terrastodon_registry::RuntimeValue;
@@ -214,6 +215,11 @@ pub(crate) enum ArenaMutationCommand {
 }
 
 pub(crate) enum ArenaReadCommand {
+    InspectDiagram {
+        address: ValueAddress,
+        max_rows: usize,
+        response: oneshot::Sender<ExplorerCommandResponse<ExcalidrawObjectSnapshot>>,
+    },
     PendingInvocations {
         response: oneshot::Sender<ExplorerCommandResponse<usize>>,
     },
@@ -300,6 +306,21 @@ pub(crate) fn explorer_channel(capacity: usize) -> (mpsc::Sender<ExplorerCommand
 }
 
 impl ExplorerHandle {
+    pub(crate) async fn inspect_diagram(
+        &self,
+        address: ValueAddress,
+        max_rows: usize,
+    ) -> Result<ExcalidrawObjectSnapshot, ExplorerHandleError> {
+        let (response, receiver) = oneshot::channel();
+        self.send(ExplorerCommand::Read(ArenaReadCommand::InspectDiagram {
+            address,
+            max_rows,
+            response,
+        }))
+        .await?;
+        Self::receive(receiver).await
+    }
+
     pub(crate) async fn reserve_builder(&self) -> Result<SlotId, ExplorerHandleError> {
         let (response, receiver) = oneshot::channel();
         self.send(ExplorerCommand::Mutation(

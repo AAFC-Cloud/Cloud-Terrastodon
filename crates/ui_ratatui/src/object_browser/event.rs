@@ -72,6 +72,17 @@ impl ObjectBrowserApp {
             self.should_quit = true;
             return Ok(());
         }
+        if self
+            .excalidraw
+            .as_ref()
+            .is_some_and(|renderer| renderer.is_rendering())
+            || self.controller.query_context().is_export_active()
+        {
+            if key.code == KeyCode::Esc {
+                self.should_quit = true;
+            }
+            return Ok(());
+        }
         match self.mode {
             BrowserMode::Pool => self.handle_pool_key(*key).await,
             BrowserMode::RowSearch => self.handle_row_search_key(*key).await,
@@ -86,6 +97,19 @@ impl ObjectBrowserApp {
     }
 
     async fn handle_pool_key(&mut self, key: KeyEvent) -> Result<(), ObjectBrowserControllerError> {
+        if key.modifiers.contains(KeyModifiers::CONTROL) {
+            match key.code {
+                KeyCode::Char('o' | 'O') => {
+                    self.render_focused_slot();
+                    return Ok(());
+                }
+                KeyCode::Char('u' | 'U') => {
+                    self.render_current_tab().await?;
+                    return Ok(());
+                }
+                _ => {}
+            }
+        }
         if key.modifiers.contains(KeyModifiers::SHIFT)
             && matches!(key.code, KeyCode::Char('[') | KeyCode::Char('{'))
         {
@@ -1079,6 +1103,9 @@ impl ObjectBrowserApp {
                 self.open_pending_link_actions().await?;
             }
             ValuePickerChoice::CreateNewOwned { shape } => {
+                if self.start_registered_shape_picker(destination, field, shape)? {
+                    return Ok(());
+                }
                 let (source, transition) = self.controller.create_builder(shape).await?;
                 self.pending_link = Some(PendingFieldLink {
                     destination,
@@ -1881,7 +1908,7 @@ impl ObjectBrowserApp {
         self.controller.focus_row(key)
     }
 
-    fn focus_after_builder_transition(
+    pub(super) fn focus_after_builder_transition(
         &mut self,
         _slot: SlotId,
         transition: BuilderTransition,

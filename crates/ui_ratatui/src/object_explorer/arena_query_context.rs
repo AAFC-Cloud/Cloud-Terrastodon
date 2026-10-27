@@ -10,11 +10,14 @@ use super::browse_session::BrowseSessionId;
 use super::browse_session::CardWindowBudget;
 use super::card_navigation::CardNavigation;
 use super::card_window::CardWindow;
+use super::diagram_batch::DiagramBatch;
 use super::explorer_command::ExplorerCommand;
 use super::explorer_command::ExplorerHandle;
 use super::explorer_command::ExplorerInbox;
 use super::explorer_command::explorer_channel;
+use super::export_activity::ExportActivity;
 use super::query_progress::QueryProgress;
+use super::shape_batch::ShapeBatch;
 use super::value_address::ValueAddress;
 use super::value_candidate_window::ValueCandidateWindow;
 use super::value_candidate_window::ValueCandidateWindowBudget;
@@ -23,6 +26,8 @@ use std::error::Error;
 use std::fmt;
 use std::future::Future;
 use std::sync::Arc;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
 
@@ -34,6 +39,7 @@ tokio::task_local! {
 pub(crate) struct ArenaQueryContext {
     commands: mpsc::Sender<ExplorerCommand>,
     identity: Arc<()>,
+    active_exports: Arc<AtomicUsize>,
 }
 
 /// Cancellation-safe client ownership of one engine-side export session.
@@ -46,6 +52,7 @@ pub(crate) struct ArenaQuerySession {
     context: ArenaQueryContext,
     id: QuerySessionId,
     cancellation: Option<oneshot::Sender<()>>,
+    _activity: ExportActivity,
 }
 
 /// Cancellation-safe ownership of the UI's active lazy browse cursor.
@@ -89,6 +96,7 @@ impl ArenaQueryContext {
             Self {
                 commands,
                 identity: Arc::new(()),
+                active_exports: Arc::new(AtomicUsize::new(0)),
             },
             inbox,
         )
@@ -96,6 +104,12 @@ impl ArenaQueryContext {
 
     pub(crate) fn engine_handle(&self) -> ExplorerHandle {
         ExplorerHandle::from_sender(self.commands.clone())
+    }
+
+    /// Includes export admission waiting on the command queue. The UI can avoid
+    /// starting mutable browsing work while a coherent observation owns the arena.
+    pub(crate) fn is_export_active(&self) -> bool {
+        self.active_exports.load(Ordering::Acquire) != 0
     }
 
     pub(crate) fn try_current() -> Option<Self> {
@@ -117,6 +131,7 @@ impl ArenaQueryContext {
         &self,
         breadcrumbs: Breadcrumbs,
     ) -> Result<ArenaQuerySession, ArenaQueryContextError> {
+        let activity = ExportActivity::begin(self.active_exports.clone());
         let (cancellation, cancelled) = oneshot::channel();
         let (response, receiver) = oneshot::channel();
         self.send(ArenaQueryCommand::BeginExport {
@@ -130,6 +145,7 @@ impl ArenaQueryContext {
             context: self.clone(),
             id,
             cancellation: Some(cancellation),
+            _activity: activity,
         })
     }
 
@@ -340,6 +356,40 @@ impl Drop for ArenaBrowseSession {
 }
 
 impl ArenaQuerySession {
+    pub(crate) async fn next_diagram_batch(
+        &self,
+        max_work: usize,
+        max_objects: usize,
+        max_rows: usize,
+    ) -> Result<DiagramBatch, ArenaQueryContextError> {
+        let (response, receiver) = oneshot::channel();
+        self.context
+            .send(ArenaQueryCommand::NextDiagramBatch {
+                session: self.id,
+                max_work,
+                max_objects,
+                max_rows,
+                response,
+            })
+            .await?;
+        ArenaQueryContext::receive(receiver).await
+    }
+
+    pub(crate) async fn next_shape_batch(
+        &self,
+        max_work: usize,
+    ) -> Result<ShapeBatch, ArenaQueryContextError> {
+        let (response, receiver) = oneshot::channel();
+        self.context
+            .send(ArenaQueryCommand::NextShapeBatch {
+                session: self.id,
+                max_work,
+                response,
+            })
+            .await?;
+        ArenaQueryContext::receive(receiver).await
+    }
+
     pub(crate) const fn id(&self) -> QuerySessionId {
         self.id
     }
@@ -544,6 +594,23 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn export_activity_covers_admission_and_releases_when_opener_is_aborted() {
+        let (context, mut inbox) = ArenaQueryContext::channel(1);
+        let opener = context.clone();
+        let task = tokio::spawn(async move { opener.open_export(Breadcrumbs::default()).await });
+        let command = inbox.recv().await.expect("opener queued admission");
+        assert!(matches!(
+            command,
+            ExplorerCommand::Query(ArenaQueryCommand::BeginExport { .. })
+        ));
+        assert!(context.is_export_active());
+        task.abort();
+        assert!(task.await.unwrap_err().is_cancelled());
+        assert!(!context.is_export_active());
+        drop(command);
+    }
+
+    #[tokio::test]
     async fn arena_query_context_reports_engine_shutdown() {
         let (context, inbox) = ArenaQueryContext::channel(1);
         drop(inbox);
@@ -554,6 +621,7 @@ mod tests {
             .expect_err("closed engine must be reported");
 
         assert_eq!(error, ArenaQueryContextError::EngineStopped);
+        assert!(!context.is_export_active());
     }
 
     #[tokio::test]

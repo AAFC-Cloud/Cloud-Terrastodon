@@ -10,6 +10,10 @@ use super::slot_id::SlotId;
 use super::value_address::ValueAddress;
 use super::value_path::ValuePathSegment;
 use super::value_resolution_error::ValueResolutionError;
+use cloud_terrastodon_registry::RegisteredShape;
+use cloud_terrastodon_registry::RuntimeValue;
+use cloud_terrastodon_registry::describe_shape;
+use facet::Facet;
 use facet::Type;
 
 const MAX_SCALAR_SUMMARY_CHARS: usize = 256;
@@ -60,6 +64,24 @@ impl CardSnapshot {
         address: ValueAddress,
         max_relationship_rows: usize,
     ) -> Result<Self, ValueResolutionError> {
+        Self::observe_rows(source, address, max_relationship_rows, true)
+    }
+
+    /// Observe data fields without spending the row budget on terminal actions.
+    pub(crate) fn observe_fields(
+        source: &ArenaAddressSource<'_>,
+        address: ValueAddress,
+        max_relationship_rows: usize,
+    ) -> Result<Self, ValueResolutionError> {
+        Self::observe_rows(source, address, max_relationship_rows, false)
+    }
+
+    fn observe_rows(
+        source: &ArenaAddressSource<'_>,
+        address: ValueAddress,
+        max_relationship_rows: usize,
+        include_actions: bool,
+    ) -> Result<Self, ValueResolutionError> {
         let resolved = source.resolve(&address)?;
         let shape = cloud_terrastodon_registry::describe_shape(resolved.shape()).to_owned();
         let mut rows = vec![CardRowSnapshot::new(
@@ -70,21 +92,31 @@ impl CardSnapshot {
 
         let mut relationships_complete = true;
         let mut admitted_relationships = 0;
-        match source.reflected_children(&address)? {
-            Some(mut children) => {
-                for child in children.by_ref().take(max_relationship_rows) {
-                    rows.push(relationship_row(source, child)?);
-                    admitted_relationships += 1;
+        // RegisteredShape's opaque metadata pointer is an implementation detail.
+        // Its selected type identity is the scalar value users need to inspect.
+        if resolved.shape().is_shape(RegisteredShape::SHAPE) {
+            rows.push(CardRowSnapshot::new(
+                CardRowKey::Value,
+                "value",
+                CardRowContent::Text(scalar_summary(resolved).expect("registered shape display")),
+            ));
+        } else {
+            match source.reflected_children(&address)? {
+                Some(mut children) => {
+                    for child in children.by_ref().take(max_relationship_rows) {
+                        rows.push(relationship_row(source, child)?);
+                        admitted_relationships += 1;
+                    }
+                    relationships_complete = children.next().is_none();
                 }
-                relationships_complete = children.next().is_none();
-            }
-            None => {
-                if let Some(summary) = scalar_summary(resolved) {
-                    rows.push(CardRowSnapshot::new(
-                        CardRowKey::Value,
-                        "value",
-                        CardRowContent::Text(summary),
-                    ));
+                None => {
+                    if let Some(summary) = scalar_summary(resolved) {
+                        rows.push(CardRowSnapshot::new(
+                            CardRowKey::Value,
+                            "value",
+                            CardRowContent::Text(summary),
+                        ));
+                    }
                 }
             }
         }
@@ -94,7 +126,8 @@ impl CardSnapshot {
             .segments()
             .is_empty()
             .then_some(address.root_id());
-        if owned_slot.is_some() {
+        if include_actions && owned_slot.is_some() {
+            let can_clone = RuntimeValue::can_clone_shape(resolved.shape());
             let actions = cloud_terrastodon_registry::functions_from(resolved.shape())
                 .into_iter()
                 .flat_map(|function| {
@@ -103,7 +136,7 @@ impl CardSnapshot {
                             function,
                             mode: super::invocation_mode::InvocationMode::Consume,
                         }),
-                        Some(RootActionSnapshot::Invoke {
+                        can_clone.then_some(RootActionSnapshot::Invoke {
                             function,
                             mode: super::invocation_mode::InvocationMode::Retain,
                         }),
@@ -193,11 +226,19 @@ fn relationship_row(
 }
 
 fn scalar_summary(value: ResolvedValue<'_>) -> Option<String> {
+    if let Ok(shape) = value.peek().get::<RegisteredShape>() {
+        return Some(truncate(
+            &format!("{} · {shape}", describe_shape(shape.shape())),
+            MAX_SCALAR_SUMMARY_CHARS,
+        ));
+    }
     let value = value.peek().innermost_peek();
     if let Some(text) = value.as_str() {
         return Some(truncate(text, MAX_SCALAR_SUMMARY_CHARS));
     }
-    if matches!(value.shape().ty, Type::Primitive(_)) {
+    // Domain scalars such as validated URLs may be reflected as structs while
+    // their proxy hides the fields. Use their public Display representation.
+    if matches!(value.shape().ty, Type::Primitive(_)) || value.shape().vtable.has_display() {
         return Some(truncate(&value.to_string(), MAX_SCALAR_SUMMARY_CHARS));
     }
     None
@@ -217,6 +258,7 @@ mod tests {
     use super::*;
     use crate::object_explorer::arena::Arena;
     use crate::object_explorer::card_window::CardWindow;
+    use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
     use cloud_terrastodon_registry::RuntimeValue;
     use facet::Facet;
     use std::num::NonZeroUsize;
@@ -306,5 +348,70 @@ mod tests {
                 .skip(1)
                 .all(|card| card.owned_slot().is_none())
         );
+    }
+
+    #[test]
+    fn selected_target_types_display_their_identity_in_list_rows_and_value_cards() {
+        let selected = RegisteredShape::from_shape(MyThing::SHAPE);
+        let display = format!("MyThing · {selected}");
+        let mut arena = Arena::default();
+        let root = arena.insert_ready(runtime(vec![selected])).unwrap();
+        let source = ArenaAddressSource::new(&arena);
+        let list = CardSnapshot::observe_fields(&source, ValueAddress::root(root), 8).unwrap();
+        assert_eq!(list.rows()[1].value_display(), Some(display.as_str()));
+        let value = CardSnapshot::observe_fields(
+            &source,
+            ValueAddress::root(root).child(ValuePathSegment::Index(0)),
+            8,
+        )
+        .unwrap();
+        assert!(
+            value
+                .rows()
+                .iter()
+                .any(|row| row.content() == &CardRowContent::Text(display.clone()))
+        );
+        assert_eq!(
+            value.rows().len(),
+            2,
+            "type metadata pointers are not object fields"
+        );
+    }
+
+    #[test]
+    fn organization_url_fields_and_projected_cards_show_the_expanded_url() {
+        #[derive(Facet)]
+        struct Scope {
+            org_url: AzureDevOpsOrganizationUrl,
+        }
+
+        for url in [
+            "https://dev.azure.com/example-org",
+            "https://example-org.visualstudio.com/DefaultCollection",
+            "http://server.example.invalid:8080/tfs/My%20Collection",
+        ] {
+            let mut arena = Arena::default();
+            arena
+                .insert_ready(runtime(Scope {
+                    org_url: url.parse().unwrap(),
+                }))
+                .unwrap();
+            let source = ArenaAddressSource::new(&arena);
+            let window = CardWindow::first(&source, NonZeroUsize::new(3).unwrap(), 8).unwrap();
+
+            assert_eq!(window.cards().len(), 2, "URL internals remain opaque");
+            let field = window.cards()[0]
+                .rows()
+                .iter()
+                .find(|row| row.key() == &CardRowKey::Field("org_url".to_owned()))
+                .unwrap();
+            assert_eq!(field.value_display(), Some(url));
+            let projected = &window.cards()[1];
+            assert_eq!(projected.owned_slot(), None);
+            assert!(projected.rows().iter().any(|row| {
+                row.key() == &CardRowKey::Value
+                    && row.content() == &CardRowContent::Text(url.to_owned())
+            }));
+        }
     }
 }

@@ -6,6 +6,7 @@ use super::slot_id::SlotId;
 use super::value_address::ValueAddress;
 use super::value_builder::BuilderStore;
 use super::value_candidate::ValueCandidate;
+use cloud_terrastodon_registry::RuntimeValue;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum FieldCandidateAction {
@@ -95,15 +96,18 @@ impl FieldCandidateActions {
             });
         }
 
-        if builders
-            .validate_field_binding(
-                arena,
-                borrow_graph,
-                destination,
-                field,
-                &FieldBinding::CloneFrom(source),
-            )
-            .is_ok()
+        if address_source
+            .resolve(&source)
+            .is_ok_and(|value| RuntimeValue::can_clone_shape(value.shape()))
+            && builders
+                .validate_field_binding(
+                    arena,
+                    borrow_graph,
+                    destination,
+                    field,
+                    &FieldBinding::CloneFrom(source),
+                )
+                .is_ok()
         {
             consequences.push(FieldCandidateConsequence {
                 action: FieldCandidateAction::Clone,

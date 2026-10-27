@@ -35,6 +35,7 @@ mod discovery_simulation;
 mod discovery_value;
 mod function_trait_contract;
 mod registered_shape;
+mod registered_shape_index;
 mod registry_function_entry;
 
 #[cfg(test)]
@@ -59,6 +60,7 @@ pub use discovery_simulation::DiscoverySimulation;
 pub use discovery_value::DiscoveryValue;
 pub use function_trait_contract::FunctionTraitContract;
 pub use registered_shape::RegisteredShape;
+pub use registered_shape_index::RegisteredShapeIndex;
 pub use registry_function_entry::RegistryFunctionEntry;
 
 pub type InvocationFuture = Pin<Box<dyn Future<Output = eyre::Result<Box<dyn Any + Send>>> + Send>>;

@@ -1,7 +1,6 @@
 use crate::object_explorer::ArbitraryInvocationStart;
 use crate::object_explorer::ArenaBrowseSession;
 use crate::object_explorer::ArenaQueryContext;
-use crate::object_explorer::ArenaQueryContextError;
 use crate::object_explorer::Breadcrumb;
 use crate::object_explorer::BreadcrumbContextSnapshot;
 use crate::object_explorer::Breadcrumbs;
@@ -11,7 +10,6 @@ use crate::object_explorer::CardNavigation;
 use crate::object_explorer::CardWindow;
 use crate::object_explorer::CardWindowBudget;
 use crate::object_explorer::ExplorerHandle;
-use crate::object_explorer::ExplorerHandleError;
 use crate::object_explorer::FieldBindingPacket;
 use crate::object_explorer::FieldCandidateAction;
 use crate::object_explorer::FieldCandidateActions;
@@ -36,38 +34,9 @@ use crate::object_explorer::ValueCandidateWindowBudget;
 use cloud_terrastodon_registry::Function;
 use facet::Facet;
 use facet::Shape;
-use std::error::Error;
-use std::fmt;
 use std::num::NonZeroUsize;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) enum ObjectBrowserControllerError {
-    Engine(String),
-    NoActiveTab,
-}
-
-impl fmt::Display for ObjectBrowserControllerError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Engine(message) => formatter.write_str(message),
-            Self::NoActiveTab => formatter.write_str("the object browser has no active tab"),
-        }
-    }
-}
-
-impl Error for ObjectBrowserControllerError {}
-
-impl From<ArenaQueryContextError> for ObjectBrowserControllerError {
-    fn from(value: ArenaQueryContextError) -> Self {
-        Self::Engine(value.to_string())
-    }
-}
-
-impl From<ExplorerHandleError> for ObjectBrowserControllerError {
-    fn from(value: ExplorerHandleError) -> Self {
-        Self::Engine(value.to_string())
-    }
-}
+pub(crate) use super::object_browser_controller_error::ObjectBrowserControllerError;
 
 /// Ratatui-facing state over the single-owner ExplorerEngine.
 ///
@@ -86,6 +55,10 @@ pub(crate) struct ObjectBrowserController {
 }
 
 impl ObjectBrowserController {
+    pub(super) fn query_context(&self) -> ArenaQueryContext {
+        self.context.clone()
+    }
+
     pub(crate) async fn bootstrap(
         context: ArenaQueryContext,
     ) -> Result<Self, ObjectBrowserControllerError> {

@@ -2,6 +2,8 @@ use super::arena_query_session::JsonBatch;
 use super::arena_query_session::QuerySessionEnd;
 use super::arena_query_session::QuerySessionId;
 use super::breadcrumbs::Breadcrumbs;
+use super::diagram_batch::DiagramBatch;
+use super::shape_batch::ShapeBatch;
 use tokio::sync::oneshot;
 
 pub(crate) type CommandResponse<T> = Result<T, String>;
@@ -23,6 +25,18 @@ pub(crate) enum ArenaQueryCommand {
         max_work: usize,
         max_bytes: usize,
         response: oneshot::Sender<CommandResponse<JsonBatch>>,
+    },
+    NextDiagramBatch {
+        session: QuerySessionId,
+        max_work: usize,
+        max_objects: usize,
+        max_rows: usize,
+        response: oneshot::Sender<CommandResponse<DiagramBatch>>,
+    },
+    NextShapeBatch {
+        session: QuerySessionId,
+        max_work: usize,
+        response: oneshot::Sender<CommandResponse<ShapeBatch>>,
     },
     EndExport {
         session: QuerySessionId,

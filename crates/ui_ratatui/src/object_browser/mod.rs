@@ -1,3 +1,4 @@
+mod action_recovery;
 mod app;
 mod app_render;
 mod breadcrumb_bar_focus;
@@ -7,7 +8,12 @@ mod breadcrumb_picker_task;
 mod breadcrumb_value_picker_task;
 mod controller;
 mod event;
+mod excalidraw_export;
+mod excalidraw_render_session;
+mod registered_shape_picker_task;
+mod registered_shape_selection;
 mod link_action_picker_task;
+mod object_browser_controller_error;
 mod pickers;
 mod render;
 mod row_search;
