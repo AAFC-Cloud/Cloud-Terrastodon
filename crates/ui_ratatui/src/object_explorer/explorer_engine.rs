@@ -1307,7 +1307,7 @@ fn apply_read_with_source(
         } => {
             let _ = response.send(
                 super::breadcrumb_context_snapshot::BreadcrumbContextSnapshot::inspect(
-                    source,
+                    &ArenaAddressSource::object_pool(arena),
                     breadcrumbs,
                     max_work,
                     max_choices,

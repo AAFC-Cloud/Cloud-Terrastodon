@@ -17,6 +17,7 @@ impl ObjectBrowserApp {
         else {
             return Err(error);
         };
+        tracing::error!(error = %message, "Object browser action rejected");
 
         if let Some(link) = self.pending_link.take() {
             self.controller
@@ -33,7 +34,7 @@ impl ObjectBrowserApp {
         self.breadcrumb_value_editor = None;
         self.tab_name_editor = None;
         self.mode = BrowserMode::Pool;
-        self.status = format!("Action rejected: {message}");
+        self.status = "Action rejected: scroll up for full error.".to_owned();
         Ok(())
     }
 }

@@ -7,6 +7,7 @@ use super::slot_id::SlotId;
 use super::value_address::ValueAddress;
 use super::value_path::ValuePathSegment;
 use super::value_resolution_error::ValueResolutionError;
+use facet::Shape;
 use facet_reflect::HasFields;
 use facet_reflect::Peek;
 
@@ -51,6 +52,26 @@ impl<'arena> ArenaAddressSource<'arena> {
             });
         }
         self.resolve(address).is_ok()
+    }
+
+    /// Obtain a visible object's type without requiring its value to be Ready.
+    /// Lifecycle roots retain their declared shape so a request being built,
+    /// invoked, or consumed can still be found by a shape breadcrumb.
+    pub(crate) fn shape_at(&self, address: &ValueAddress) -> Option<&'static Shape> {
+        if address.path().segments().is_empty() {
+            if !self.contains_address(address) {
+                return None;
+            }
+            return self.arena.slot(address.root_id())?.shape();
+        }
+        self.resolve(address).ok().map(|value| value.shape())
+    }
+
+    /// Whether the address belongs to an object whose ownership was transferred.
+    pub(crate) fn is_consumed(&self, address: &ValueAddress) -> bool {
+        self.arena
+            .slot(address.root_id())
+            .is_some_and(|slot| matches!(slot.state(), ArenaSlotState::Consumed))
     }
 
     pub(crate) fn resolve(

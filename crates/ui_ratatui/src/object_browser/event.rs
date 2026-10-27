@@ -339,6 +339,7 @@ impl ObjectBrowserApp {
             }
             Breadcrumb::Projection { .. }
             | Breadcrumb::AddressKindFilter { .. }
+            | Breadcrumb::HideConsumed
             | Breadcrumb::Pop => {
                 self.status =
                     "This breadcrumb has no editable values; press Delete to remove it.".to_owned();
@@ -2001,12 +2002,14 @@ mod tests {
     use cloud_terrastodon_registry::ProductionKind;
     use cloud_terrastodon_registry::RegisteredFunction;
     use cloud_terrastodon_registry::RegisteredShape;
+    use cloud_terrastodon_registry::RuntimeValue;
     use cloud_terrastodon_registry::functions_from;
     use facet::Facet;
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
     use std::future::Future;
     use std::future::IntoFuture;
+    use std::num::NonZeroUsize;
     use std::pin::Pin;
 
     #[derive(Clone, Debug, Facet)]
@@ -2921,6 +2924,109 @@ mod tests {
         let (engine, ()) = tokio::join!(engine.run(inbox), client);
         assert_eq!(engine.arena().allocated_slot_count(), 3);
         assert_eq!(engine.json_serialization_count(), 0);
+    }
+
+    #[tokio::test]
+    async fn shape_breadcrumbs_offer_and_retain_unfinished_export_requests() {
+        let engine = ExplorerEngine::empty();
+        let (context, inbox) = ArenaQueryContext::channel(16);
+        let client = async move {
+            let mut app = ObjectBrowserApp::bootstrap(context).await.unwrap();
+            let (request, transition) = app
+                .controller
+                .create_builder(ProduceExcalidrawDumpPlanRequest::SHAPE)
+                .await
+                .unwrap();
+            assert_eq!(transition, BuilderTransition::Building);
+            let shape =
+                cloud_terrastodon_registry::describe_shape(ProduceExcalidrawDumpPlanRequest::SHAPE);
+            let context = app
+                .controller
+                .inspect_breadcrumb_context(0, 512, 256)
+                .await
+                .unwrap();
+            assert!(context.shapes().contains(&shape));
+
+            app.accept_breadcrumb_choice(BreadcrumbPickerChoice::Add(Breadcrumb::ShapeFilter {
+                included_shapes: vec![shape.clone()],
+            }))
+            .await
+            .unwrap();
+            app.tick().await.unwrap();
+            assert!(app.controller.window().unwrap().cards().iter().any(|card| {
+                card.address() == &CardAddress::Value(ValueAddress::root(request))
+                    && card.shape() == shape
+            }));
+            let filtered = app
+                .controller
+                .inspect_breadcrumb_context(1, 512, 256)
+                .await
+                .unwrap();
+            assert_eq!(filtered.shapes(), [shape]);
+            app.close().await.unwrap();
+        };
+        let (_engine, ()) = tokio::join!(engine.run(inbox), client);
+    }
+
+    #[tokio::test]
+    async fn hide_consumed_breadcrumb_filters_cards_without_deleting_slots() {
+        use crate::object_explorer::Arena;
+
+        let mut arena = Arena::default();
+        let consumed = arena
+            .insert_ready(RuntimeValue::from_box(Box::new(7_usize)).unwrap())
+            .unwrap();
+        drop(arena.consume(consumed).unwrap());
+        let ready = arena
+            .insert_ready(RuntimeValue::from_box(Box::new("retained".to_owned())).unwrap())
+            .unwrap();
+        let pending = arena.insert_pending().unwrap();
+        let engine = ExplorerEngine::new(arena);
+        let (context, inbox) = ArenaQueryContext::channel(16);
+        let client = async move {
+            let mut app = ObjectBrowserApp::bootstrap(context).await.unwrap();
+            let (building, _) = app
+                .controller
+                .create_builder(ProduceExcalidrawDumpPlanRequest::SHAPE)
+                .await
+                .unwrap();
+            let choice = BreadcrumbPicker::new(None, &[], None)
+                .rows()
+                .iter()
+                .find(|row| row.label() == "hide consumed slots")
+                .unwrap()
+                .choice()
+                .clone();
+            app.accept_breadcrumb_choice(choice).await.unwrap();
+            app.controller
+                .refresh_window(512, NonZeroUsize::new(32).unwrap(), 16)
+                .await
+                .unwrap();
+            let cards = app.controller.window().unwrap().cards();
+            assert!(!cards.iter().any(|card| {
+                card.address() == &CardAddress::Value(ValueAddress::root(consumed))
+            }));
+            for slot in [ready, pending, building] {
+                assert!(cards.iter().any(|card| {
+                    card.address() == &CardAddress::Value(ValueAddress::root(slot))
+                }));
+            }
+
+            app.remove_breadcrumb(0).await.unwrap();
+            app.controller
+                .refresh_window(512, NonZeroUsize::new(32).unwrap(), 16)
+                .await
+                .unwrap();
+            assert!(app.controller.window().unwrap().cards().iter().any(|card| {
+                card.address() == &CardAddress::Value(ValueAddress::root(consumed))
+            }));
+            app.close().await.unwrap();
+        };
+        let (engine, ()) = tokio::join!(engine.run(inbox), client);
+        assert_eq!(
+            engine.arena().slot(consumed).unwrap().state().label(),
+            "Consumed"
+        );
     }
 
     #[tokio::test]

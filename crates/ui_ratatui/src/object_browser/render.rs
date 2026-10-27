@@ -23,6 +23,7 @@ use ratatui::widgets::Paragraph;
 use ratatui::widgets::Scrollbar;
 use ratatui::widgets::ScrollbarOrientation;
 use ratatui::widgets::ScrollbarState;
+use ratatui::widgets::Wrap;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum CardLayoutAxis {
@@ -316,24 +317,47 @@ impl<'window> CardWindowRenderer<'window> {
             }
             (lines, focused_line, selected_line)
         };
-        let line_count = lines.len();
-        let viewport_height = block.inner(card_area).height as usize;
+        let content_area = block.inner(card_area);
+        // Selection refers to semantic rows, while Paragraph scrolling refers
+        // to wrapped terminal lines. Measure with the same wrapper used below
+        // so wide graphemes, word boundaries, and explicit line breaks agree.
+        let mut wrapped_lines = Vec::new();
+        let mut line_count = 0;
+        let mut wrapped_selected_line = None;
+        let mut wrapped_focused_line = None;
+        for (index, line) in lines.into_iter().enumerate() {
+            if selected_line == Some(index) {
+                wrapped_selected_line = Some(line_count);
+            }
+            for line in split_explicit_lines(line) {
+                line_count += Paragraph::new(line.clone())
+                    .wrap(Wrap { trim: false })
+                    .line_count(content_area.width);
+                wrapped_lines.push(line);
+            }
+            if focused_line == Some(index) {
+                wrapped_focused_line = Some(line_count.saturating_sub(1));
+            }
+        }
+        let viewport_height = content_area.height as usize;
         let max_offset = line_count.saturating_sub(viewport_height);
-        let scroll_offset = focused_line
+        let scroll_offset = wrapped_focused_line
             .map(|line| line.saturating_sub(viewport_height.saturating_sub(1)))
             .unwrap_or_default()
             .min(max_offset)
             // When the field block exceeds the viewport, keep its heading and
             // selection marker visible rather than scrolling to only its value.
-            .min(selected_line.unwrap_or(usize::MAX));
+            .min(wrapped_selected_line.unwrap_or(usize::MAX))
+            .min(u16::MAX as usize);
         frame.render_widget(
-            Paragraph::new(lines)
-                .scroll((scroll_offset.min(u16::MAX as usize) as u16, 0))
+            Paragraph::new(wrapped_lines)
+                .wrap(Wrap { trim: false })
+                .scroll((scroll_offset as u16, 0))
                 .block(block),
             card_area,
         );
         if selected
-            && let Some(line) = selected_line
+            && let Some(line) = wrapped_selected_line
             && line >= scroll_offset
             && line.saturating_sub(scroll_offset) < viewport_height
         {
@@ -390,6 +414,37 @@ impl<'window> CardWindowRenderer<'window> {
             Style::default()
         })
     }
+}
+
+/// Ratatui wraps Lines, but a Span containing a newline does not create a new
+/// Line. Split only explicit breaks here, retaining each span and row's style;
+/// Paragraph remains responsible for word and grapheme-aware wrapping.
+fn split_explicit_lines(line: Line<'static>) -> Vec<Line<'static>> {
+    if !line.spans.iter().any(|span| span.content.contains('\n')) {
+        return vec![line];
+    }
+    let mut result = Vec::new();
+    let mut current = Line::default().style(line.style);
+    current.alignment = line.alignment;
+    for span in line.spans {
+        let mut parts = span.content.split('\n').peekable();
+        while let Some(part) = parts.next() {
+            let has_break = parts.peek().is_some();
+            let part = if has_break {
+                part.strip_suffix('\r').unwrap_or(part)
+            } else {
+                part
+            };
+            current.spans.push(Span::styled(part.to_owned(), span.style));
+            if has_break {
+                result.push(current);
+                current = Line::default().style(line.style);
+                current.alignment = line.alignment;
+            }
+        }
+    }
+    result.push(current);
+    result
 }
 
 fn type_line(type_name: &str, accent: Color) -> Line<'static> {

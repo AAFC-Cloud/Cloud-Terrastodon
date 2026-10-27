@@ -12,7 +12,7 @@ categories.workspace = true
 
 [dependencies]
 arbitrary = { workspace = true }
-ratatui = { workspace = true }
+ratatui = { workspace = true, features = ["unstable-rendered-line-info"] }
 eyre = { workspace = true }
 itertools = { workspace = true }
 strum = { workspace = true }

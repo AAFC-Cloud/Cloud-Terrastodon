@@ -601,7 +601,7 @@ impl InvocationController {
             guarded_user_operation("could not reserve invocation output", || {
                 // On an allocation/state error the captured input is destroyed
                 // inside the guard, while its original source leases are live.
-                let output = arena.insert_pending()?;
+                let output = arena.insert_pending_with_shape(function.output_shape)?;
                 Ok((runtime_input, output))
             })
             .map_err(InvocationControllerError::new)?;
@@ -1038,6 +1038,8 @@ mod tests {
         else {
             panic!("registered async Function must return Pending")
         };
+        assert_eq!(arena.slot(output).unwrap().shape(), Some(String::SHAPE));
+        assert!(arena.ready_value(output).is_none());
 
         let events = loop {
             let events = controller.poll(&mut arena, &mut builders, &mut borrows, &mut host);

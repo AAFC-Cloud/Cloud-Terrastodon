@@ -158,6 +158,14 @@ address-kind, value-filter, field-projection, and Pop operations preserve
 encounter order. Pop coalesces only adjacent duplicate parents, so retained
 state remains bounded.
 
+Object-pool browsing also includes lifecycle cards for incomplete, pending, and
+consumed roots. Shape choices and filters use their known types even when they
+have no completed value; field-value filters and exports still require Ready
+values. Add **hide consumed slots** from **+Add Breadcrumb** to omit
+consumed roots in that tab while keeping incomplete builders and pending work
+visible. This filters the view without deleting slots; remove the breadcrumb
+with Delete to show consumed slots again.
+
 `QueryCursor` evaluates that program cooperatively. Each call receives a
 `WorkBudget`; a long or no-match scan returns Pending when the budget is
 spent. Its address cache is fixed-capacity. The Ratatui controller requests a

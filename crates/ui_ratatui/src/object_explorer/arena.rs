@@ -6,6 +6,7 @@ use super::revision::RevisionError;
 use super::revision::RootRevision;
 use super::slot_id::SlotId;
 use cloud_terrastodon_registry::RuntimeValue;
+use facet::Shape;
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::fmt;
@@ -76,6 +77,45 @@ impl Arena {
 
     pub(crate) fn insert_pending(&mut self) -> Result<SlotId, ArenaError> {
         self.insert_state(ArenaSlotState::Pending)
+    }
+
+    /// Reserve an invocation's output before it has a value to inspect.
+    pub(crate) fn insert_pending_with_shape(
+        &mut self,
+        shape: &'static Shape,
+    ) -> Result<SlotId, ArenaError> {
+        let slot = self.insert_pending()?;
+        self.slots
+            .get_mut(&slot)
+            .expect("the pending slot was just inserted")
+            .set_unmaterialized_shape(shape);
+        Ok(slot)
+    }
+
+    /// Publish the shape selected by BuilderStore without fabricating a value.
+    /// Shape-filtered browse sessions must observe this metadata change even
+    /// while the builder still needs fields.
+    pub(crate) fn set_building_shape(
+        &mut self,
+        slot_id: SlotId,
+        shape: &'static Shape,
+    ) -> Result<(), ArenaError> {
+        let slot = self
+            .slots
+            .get_mut(&slot_id)
+            .ok_or(ArenaError::UnknownSlot(slot_id))?;
+        if !matches!(slot.state(), ArenaSlotState::Building) {
+            return Err(ArenaError::InvalidTransition {
+                slot: slot_id,
+                from: slot.state().label(),
+                to: "Building",
+            });
+        }
+        if slot.shape().is_none_or(|current| !current.is_shape(shape)) {
+            slot.set_unmaterialized_shape(shape);
+            self.revisions.ingest_root_change(slot_id)?;
+        }
+        Ok(())
     }
 
     pub(crate) fn insert_ready(&mut self, value: RuntimeValue) -> Result<SlotId, ArenaError> {
@@ -389,6 +429,33 @@ mod tests {
 
         assert_eq!(arena.ready_slot_ids().collect::<Vec<_>>(), [first, last]);
         assert!(arena.ready_value(building).is_none());
+    }
+
+    #[test]
+    fn shape_metadata_survives_rebuilding_and_consumption_without_exposing_values() {
+        let mut arena = Arena::default();
+        let slot = arena.reserve_builder().unwrap();
+        assert_eq!(arena.slot(slot).unwrap().shape(), None);
+        let revision = arena.root_revision(slot).unwrap();
+
+        arena.set_building_shape(slot, String::SHAPE).unwrap();
+        assert_eq!(arena.slot(slot).unwrap().shape(), Some(String::SHAPE));
+        assert!(arena.root_revision(slot).unwrap() > revision);
+        assert!(arena.ready_value(slot).is_none());
+
+        arena.set_ready(slot, runtime("first".to_owned())).unwrap();
+        drop(arena.begin_rebuild(slot).unwrap());
+        assert_eq!(arena.slot(slot).unwrap().shape(), Some(String::SHAPE));
+        assert!(arena.ready_value(slot).is_none());
+
+        arena
+            .set_ready(slot, runtime("rebuilt".to_owned()))
+            .unwrap();
+        drop(arena.replace_ready(slot, runtime(42_u64)).unwrap());
+        assert_eq!(arena.slot(slot).unwrap().shape(), Some(u64::SHAPE));
+        drop(arena.consume(slot).unwrap());
+        assert_eq!(arena.slot(slot).unwrap().shape(), Some(u64::SHAPE));
+        assert!(arena.ready_value(slot).is_none());
     }
 
     #[test]

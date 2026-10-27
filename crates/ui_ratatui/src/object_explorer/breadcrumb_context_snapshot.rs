@@ -88,17 +88,22 @@ impl BreadcrumbContextSnapshot {
             }
             match query.poll_next(&mut work) {
                 QueryPlanPoll::Item(address) => {
-                    let Ok(value) = source.resolve(&address) else {
+                    let Some(shape) = source.shape_at(&address) else {
                         continue;
                     };
-                    let owner_shape =
-                        cloud_terrastodon_registry::describe_shape(value.shape()).to_owned();
+                    let owner_shape = cloud_terrastodon_registry::describe_shape(shape);
                     insert_bounded(
                         &mut shapes,
                         owner_shape.clone(),
                         max_choices,
                         &mut choices_truncated,
                     );
+                    // An unfinished or consumed root still has a type. Include
+                    // it in shape choices without pretending it has fields or
+                    // values that can currently be read.
+                    let Ok(value) = source.resolve(&address) else {
+                        continue;
+                    };
                     let metadata_key = if observed_metadata.contains(&owner_shape) {
                         owner_shape.clone()
                     } else {

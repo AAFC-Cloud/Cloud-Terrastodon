@@ -98,6 +98,7 @@ fn breadcrumb_label(breadcrumb: &Breadcrumb) -> String {
             (false, true) => "descendants only".to_owned(),
             (false, false) => "no addresses".to_owned(),
         },
+        Breadcrumb::HideConsumed => "hide consumed slots".to_owned(),
         Breadcrumb::ValueFilter {
             field_name,
             operator,

@@ -506,6 +506,7 @@ impl BuilderStore {
         if matches!(entry, BuilderEntry::Defined(_)) {
             return Err(ValueBuilderError::BuilderShapeAlreadySet(slot));
         }
+        arena.set_building_shape(slot, shape)?;
         *entry = BuilderEntry::Defined(ValueBuilder::new_with_cancellation(
             shape,
             &self.cancellation,
@@ -535,6 +536,7 @@ impl BuilderStore {
         if self.builders.contains_key(&slot) {
             return Err(ValueBuilderError::DuplicateBuilder(slot));
         }
+        arena.set_building_shape(slot, builder.shape())?;
         self.builders.insert(slot, BuilderEntry::Defined(builder));
         self.finalize_if_complete(arena, borrow_graph, slot)
     }
@@ -1600,6 +1602,11 @@ mod tests {
             let (choice, _) = builders
                 .create_and_finalize(&mut arena, &mut borrows, TestBorrowChoice::SHAPE)
                 .unwrap();
+            assert_eq!(
+                arena.slot(choice).unwrap().shape(),
+                Some(TestBorrowChoice::SHAPE)
+            );
+            assert!(arena.ready_value(choice).is_none());
             builders
                 .select_variant_and_finalize(&mut arena, &mut borrows, choice, 1)
                 .unwrap();
@@ -1659,6 +1666,11 @@ mod tests {
                 }
             );
             assert!(arena.root_revision(choice) > revision);
+            assert_eq!(
+                arena.slot(choice).unwrap().shape(),
+                Some(TestBorrowChoice::SHAPE),
+                "reopening an enum preserves the root's known shape"
+            );
             assert_eq!(
                 borrows.edge_count(),
                 0,

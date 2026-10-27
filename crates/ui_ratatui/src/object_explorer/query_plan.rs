@@ -23,6 +23,7 @@ struct SelectionStage {
     projections: Vec<ValueAddress>,
     shape_filters: Vec<BTreeSet<String>>,
     address_kind: Option<(bool, bool)>,
+    hide_consumed: bool,
     value_filters: Vec<ValueFilter>,
     project_fields: Option<ProjectFieldsSelection>,
 }
@@ -61,6 +62,7 @@ impl SelectionStage {
             } => {
                 self.address_kind = Some((include_roots, include_descendants));
             }
+            Breadcrumb::HideConsumed => self.hide_consumed = true,
             Breadcrumb::ValueFilter {
                 field_shape,
                 field_name,
@@ -89,6 +91,7 @@ impl SelectionStage {
         self.projections.is_empty()
             && self.shape_filters.is_empty()
             && self.address_kind.is_none()
+            && !self.hide_consumed
             && self.value_filters.is_empty()
             && self.project_fields.is_none()
     }
@@ -112,23 +115,28 @@ impl SelectionStage {
                 return false;
             }
         }
-        // Projection and root/descendant selection depend on identity, so a
-        // Building or Pending card remains visible in its own object-pool tab.
-        // Shape/value predicates below still require an actual Ready value.
-        if self.shape_filters.is_empty() && self.value_filters.is_empty() {
-            return source.contains_address(address);
+        if self.hide_consumed && source.is_consumed(address) {
+            return false;
         }
-        stats.record_reflection();
-        let Ok(value) = source.resolve(address) else {
-            return false;
-        };
-        let shape = cloud_terrastodon_registry::describe_shape(value.shape());
-        if !self
-            .shape_filters
-            .iter()
-            .all(|included| included.contains(&shape))
-        {
-            return false;
+        // Identity and shape remain meaningful before construction and after
+        // ownership transfer. Only value predicates require Ready data.
+        if self.shape_filters.is_empty() {
+            if !source.contains_address(address) {
+                return false;
+            }
+        } else {
+            stats.record_reflection();
+            let Some(shape) = source.shape_at(address) else {
+                return false;
+            };
+            let shape = cloud_terrastodon_registry::describe_shape(shape);
+            if !self
+                .shape_filters
+                .iter()
+                .all(|included| included.contains(&shape))
+            {
+                return false;
+            }
         }
         self.value_filters
             .iter()
@@ -488,14 +496,14 @@ impl BasePruner {
             return false;
         }
         stats.record_reflection();
-        let Ok(value) = source.resolve(address) else {
+        let Some(shape) = source.shape_at(address) else {
             return false;
         };
-        let shape_name = cloud_terrastodon_registry::describe_shape(value.shape());
+        let shape_name = cloud_terrastodon_registry::describe_shape(shape);
         if let Some(reachable) = self.shape_cache.borrow().get(&shape_name) {
             return *reachable;
         }
-        let reachable = crate::projection_shapes::projection_shape_names(value.shape())
+        let reachable = crate::projection_shapes::projection_shape_names(shape)
             .iter()
             .any(|shape| allowed.contains(shape));
         self.shape_cache.borrow_mut().insert(shape_name, reachable);
@@ -666,6 +674,8 @@ fn is_object(value: Peek<'_, 'static>) -> bool {
 mod tests {
     use super::*;
     use crate::object_explorer::arena::Arena;
+    use crate::object_explorer::borrow_graph::BorrowGraph;
+    use crate::object_explorer::value_builder::BuilderStore;
     use cloud_terrastodon_registry::RuntimeValue;
     use facet::Facet;
 
@@ -767,13 +777,16 @@ mod tests {
             );
             let filtered = QueryPlan::new(Breadcrumbs::new(vec![
                 projection,
-                Breadcrumb::ShapeFilter {
-                    included_shapes: vec!["String".to_owned()],
+                Breadcrumb::ValueFilter {
+                    field_shape: "String".to_owned(),
+                    field_name: "displayName".to_owned(),
+                    operator: ValueFilterOperator::Equals,
+                    value: "old value".to_owned(),
                 },
             ]));
             assert!(
                 filtered.evaluate(&pool).next().is_none(),
-                "shape and value predicates still require ready data"
+                "value predicates still require ready data"
             );
         }
         for (slot, path) in [
@@ -793,6 +806,73 @@ mod tests {
                 "projection must not invent an address"
             );
         }
+    }
+
+    #[test]
+    fn request_shape_filters_keep_lifecycle_cards_without_exporting_them() {
+        let mut arena = Arena::default();
+        let mut builders = BuilderStore::default();
+        let (building, _) = builders
+            .create_and_finalize(&mut arena, &mut BorrowGraph::default(), Member::SHAPE)
+            .unwrap();
+        let pending = arena.insert_pending_with_shape(Member::SHAPE).unwrap();
+        let consumed = arena.insert_ready(runtime(member("Ada", &[]))).unwrap();
+        drop(arena.consume(consumed).unwrap());
+        let ready = arena.insert_ready(runtime(member("Ada", &[]))).unwrap();
+        let shape_filter = Breadcrumb::ShapeFilter {
+            included_shapes: vec![cloud_terrastodon_registry::describe_shape(Member::SHAPE)],
+        };
+        let plan = QueryPlan::new(Breadcrumbs::new(vec![shape_filter.clone()]));
+        let pool = ArenaAddressSource::object_pool(&arena);
+        let export = ArenaAddressSource::new(&arena);
+
+        assert_eq!(
+            plan.evaluate(&pool).collect::<Vec<_>>(),
+            [building, pending, consumed, ready].map(ValueAddress::root),
+            "an unfinished request remains selectable by its declared shape"
+        );
+        assert_eq!(
+            plan.evaluate(&export).collect::<Vec<_>>(),
+            [ValueAddress::root(ready)],
+            "shape metadata cannot turn lifecycle cards into exportable values"
+        );
+        let values = QueryPlan::new(Breadcrumbs::new(vec![
+            shape_filter.clone(),
+            Breadcrumb::ValueFilter {
+                field_shape: cloud_terrastodon_registry::describe_shape(String::SHAPE),
+                field_name: "displayName".to_owned(),
+                operator: ValueFilterOperator::Equals,
+                value: "Ada".to_owned(),
+            },
+        ]));
+        assert_eq!(
+            values.evaluate(&pool).collect::<Vec<_>>(),
+            [ValueAddress::root(ready)],
+            "a consumed object's old contents are not retained as searchable values"
+        );
+
+        let without_consumed = QueryPlan::new(Breadcrumbs::new(vec![
+            shape_filter,
+            Breadcrumb::HideConsumed,
+        ]));
+        assert_eq!(
+            without_consumed.evaluate(&pool).collect::<Vec<_>>(),
+            [building, pending, ready].map(ValueAddress::root),
+            "hiding consumed objects must retain incomplete requests"
+        );
+        let consumed_projection = QueryPlan::new(Breadcrumbs::new(vec![
+            Breadcrumb::projection(consumed.get(), Vec::new()),
+            Breadcrumb::HideConsumed,
+        ]));
+        assert!(consumed_projection.evaluate(&pool).next().is_none());
+        let hide_only = QueryPlan::new(Breadcrumbs::new(vec![Breadcrumb::HideConsumed]));
+        let visible = hide_only.evaluate(&pool).collect::<Vec<_>>();
+        assert!(!visible.contains(&ValueAddress::root(consumed)));
+        assert!(visible.contains(&ValueAddress::root(building)));
+        assert!(visible.contains(&ValueAddress::root(pending)));
+        assert!(visible.contains(
+            &ValueAddress::root(ready).child(ValuePathSegment::Field("displayName".to_owned()))
+        ));
     }
 
     #[test]

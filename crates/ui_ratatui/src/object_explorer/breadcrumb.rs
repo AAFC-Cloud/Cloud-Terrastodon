@@ -45,6 +45,9 @@ pub(crate) enum Breadcrumb {
         include_roots: bool,
         include_descendants: bool,
     },
+    /// Exclude addresses whose owning root has been consumed, retaining other
+    /// lifecycle states such as incomplete builders and pending invocations.
+    HideConsumed,
     ValueFilter {
         field_shape: String,
         field_name: String,

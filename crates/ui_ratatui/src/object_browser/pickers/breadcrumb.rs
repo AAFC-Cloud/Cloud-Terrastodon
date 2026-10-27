@@ -169,6 +169,10 @@ impl BreadcrumbPicker {
                     include_descendants: true,
                 }),
             },
+            BreadcrumbPickerRow {
+                label: "hide consumed slots".to_owned(),
+                choice: BreadcrumbPickerChoice::Add(Breadcrumb::HideConsumed),
+            },
         ]);
         Self { rows, selected: 0 }
     }
