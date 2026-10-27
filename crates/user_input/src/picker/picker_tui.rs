@@ -61,10 +61,12 @@ use ratatui_textarea::TextArea;
 use rustc_hash::FxHashSet;
 use std::collections::VecDeque;
 use std::future::Future;
+use std::future::pending;
 use std::io::BufWriter;
 use std::io::Stderr;
 use std::io::stderr;
 use std::panic::AssertUnwindSafe;
+use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -92,7 +94,10 @@ pub struct PickerTui<'a, T> {
     pub default_query: String,
     pub header: Option<String>,
     pub auto_accept: bool,
+    allow_empty_selection: bool,
+    include_focused_on_enter: bool,
     initial_marked: FxHashSet<CompactString>,
+    cancellation: Option<Pin<Box<dyn Future<Output = ()> + Send + 'a>>>,
     terminal_coordinator: Option<TerminalCoordinator>,
     log_buffer: Option<PickerLogBufferHandle>,
     handlers: Vec<EventHandler<'a, T>>,
@@ -104,7 +109,10 @@ impl<'a, T> Default for PickerTui<'a, T> {
             default_query: Default::default(),
             header: Default::default(),
             auto_accept: true,
+            allow_empty_selection: false,
+            include_focused_on_enter: false,
             initial_marked: FxHashSet::default(),
+            cancellation: None,
             terminal_coordinator: None,
             log_buffer: None,
             handlers: Vec::new(),
@@ -131,6 +139,38 @@ impl<'a, T> PickerTui<'a, T> {
 
     pub fn set_auto_accept(mut self, auto_accept: bool) -> Self {
         self.auto_accept = auto_accept;
+        self
+    }
+
+    /// Let Enter accept an empty marked set in a multi-select picker.
+    ///
+    /// This supports editing an existing selection, including removing its last
+    /// item. The default still accepts the highlighted row when none are marked;
+    /// single-select pickers always retain that behavior. Disable automatic
+    /// acceptance separately when the user must review a one-item choice list.
+    pub fn set_allow_empty_selection(mut self, allow_empty_selection: bool) -> Self {
+        self.allow_empty_selection = allow_empty_selection;
+        self
+    }
+
+    /// Let plain Enter include the focused row in a multi-selection before
+    /// accepting it. Ctrl-Enter applies only the marked set, including an empty
+    /// set when allowed. This makes typing a target and pressing Enter an add
+    /// operation while retaining an explicit way to apply removals.
+    pub fn set_include_focused_on_enter(mut self, include: bool) -> Self {
+        self.include_focused_on_enter = include;
+        self
+    }
+
+    /// Cancel when the supplied notification completes, returning through the
+    /// normal terminal restoration and guard-release path.
+    ///
+    /// The caller must continue polling this picker until completion. A nested
+    /// terminal owner is allowed to finish before cancellation releases this
+    /// picker's frame; cancellation of that owner's work remains its caller's
+    /// responsibility.
+    pub fn cancel_on(mut self, notification: impl Future<Output = ()> + Send + 'a) -> Self {
+        self.cancellation = Some(Box::pin(notification));
         self
     }
 
@@ -423,7 +463,7 @@ impl<'a, T> PickerTui<'a, T> {
     }
 
     async fn run_loop(
-        self,
+        mut self,
         guard: &mut TerminalGuard,
         coordinator: &TerminalCoordinator,
         terminal: &mut Option<PickerTerminal>,
@@ -434,6 +474,10 @@ impl<'a, T> PickerTui<'a, T> {
     where
         T: Send + 'a,
     {
+        let mut cancellation = self
+            .cancellation
+            .take()
+            .unwrap_or_else(|| Box::pin(pending()));
         let (candidate_sender, mut candidate_receiver) =
             tokio::sync::mpsc::unbounded_channel::<CandidateMessage<T>>();
         let mut handler_tasks = FuturesUnordered::<HandlerTask<'a>>::new();
@@ -497,6 +541,11 @@ impl<'a, T> PickerTui<'a, T> {
                     apply_terminal_control(control, guard, terminal)?;
                     render_dirty = true;
                 }
+                () = &mut cancellation, if terminal.is_some() => {
+                    // Wait for any nested owner to restore this frame before
+                    // dropping handlers or releasing the parent terminal guard.
+                    return_reason = Some(Err(PickError::Cancelled));
+                }
                 input = event_stream.next(), if terminal.is_some() => {
                     keyboard_event_ready = true;
                     match input {
@@ -506,6 +555,8 @@ impl<'a, T> PickerTui<'a, T> {
                                     handle_key(
                                         key,
                                         many,
+                                        self.allow_empty_selection,
+                                        self.include_focused_on_enter,
                                         &mut list_state,
                                         &search_results_keys,
                                         &mut picker_state.marked,
@@ -538,6 +589,8 @@ impl<'a, T> PickerTui<'a, T> {
                                             handle_key(
                                                 key,
                                                 many,
+                                                self.allow_empty_selection,
+                                                self.include_focused_on_enter,
                                                 &mut list_state,
                                                 &search_results_keys,
                                                 &mut picker_state.marked,
@@ -1151,6 +1204,8 @@ pub(super) fn render_toasts(buf: &mut Buffer, area: Rect, toasts: &[PickerToast]
 pub(super) fn handle_key<T>(
     key: KeyEvent,
     many: bool,
+    allow_empty_selection: bool,
+    include_focused_on_enter: bool,
     list_state: &mut ListState,
     search_results_keys: &[Arc<CompactString>],
     marked_for_return: &mut FxHashSet<CompactString>,
@@ -1193,7 +1248,9 @@ pub(super) fn handle_key<T>(
             }
         }
         KeyCode::Enter => {
-            if (!many || marked_for_return.is_empty())
+            if (!many
+                || (!allow_empty_selection && marked_for_return.is_empty())
+                || (include_focused_on_enter && !key.modifiers.contains(KeyModifiers::CONTROL)))
                 && let Some(selected_index) = list_state.selected()
                 && let Some(selected_key) = search_results_keys.get(selected_index)
             {

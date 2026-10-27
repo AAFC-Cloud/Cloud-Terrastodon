@@ -339,6 +339,8 @@ fn typing_a_query_reanchors_the_picker_at_the_first_result() {
     let _effects = handle_key(
         KeyEvent::new(KeyCode::Char('p'), KeyModifiers::NONE),
         false,
+        false,
+        false,
         &mut list_state,
         &[],
         &mut marked_for_return,
@@ -356,6 +358,50 @@ fn typing_a_query_reanchors_the_picker_at_the_first_result() {
 }
 
 #[test]
+fn editing_multi_selection_can_accept_clearing_every_marked_item() {
+    for (many, allow_empty_selection, expected) in [
+        (true, true, Vec::<CompactString>::new()),
+        (true, false, vec![CompactString::from("first")]),
+        (false, true, vec![CompactString::from("first")]),
+    ] {
+        let mut list_state = ratatui::widgets::ListState::default();
+        list_state.select(Some(0));
+        let keys = vec![
+            Arc::new(CompactString::from("first")),
+            Arc::new(CompactString::from("second")),
+        ];
+        let mut marked =
+            FxHashSet::from_iter([CompactString::from("first"), CompactString::from("second")]);
+        let mut query = TextArea::default();
+        let mut query_changed = false;
+        let mut selection_needs_reset = false;
+        let mut debouncer = QueryDebouncer::default();
+        let mut result = None::<Result<(), PickError<()>>>;
+        for key in [
+            KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL),
+            KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE),
+        ] {
+            handle_key(
+                key,
+                many,
+                allow_empty_selection,
+                false,
+                &mut list_state,
+                &keys,
+                &mut marked,
+                &mut query,
+                &mut query_changed,
+                &mut selection_needs_reset,
+                &mut debouncer,
+                &mut result,
+            );
+        }
+        assert_eq!(result, Some(Ok(())));
+        assert_eq!(marked, FxHashSet::from_iter(expected));
+    }
+}
+
+#[test]
 fn startup_events_load_before_a_nonempty_default_query() {
     assert_eq!(
         startup_events("smith"),
@@ -368,6 +414,57 @@ fn startup_events_load_before_a_nonempty_default_query() {
         startup_events(""),
         vec![super::picker_event::PickerEvent::InitialLoad]
     );
+}
+
+#[test]
+fn planning_picker_enter_includes_the_search_result_and_control_enter_applies_removals() {
+    let keys = vec![Arc::new(CompactString::from("AppServiceSiteConfig"))];
+    let mut marked = FxHashSet::from_iter([CompactString::from("AzureDevOpsBuildDefinition")]);
+    let mut list = ratatui::widgets::ListState::default();
+    list.select(Some(0));
+    let mut query = TextArea::from(["AppServiceSiteConfig"]);
+    let mut query_changed = false;
+    let mut selection_needs_reset = false;
+    let mut debouncer = QueryDebouncer::default();
+    let mut result = None::<Result<(), PickError<()>>>;
+    handle_key(
+        KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE),
+        true,
+        true,
+        true,
+        &mut list,
+        &keys,
+        &mut marked,
+        &mut query,
+        &mut query_changed,
+        &mut selection_needs_reset,
+        &mut debouncer,
+        &mut result,
+    );
+    assert_eq!(result, Some(Ok(())));
+    assert_eq!(marked.len(), 2);
+    assert!(marked.contains("AppServiceSiteConfig"));
+    for key in [
+        KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL),
+        KeyEvent::new(KeyCode::Enter, KeyModifiers::CONTROL),
+    ] {
+        handle_key(
+            key,
+            true,
+            true,
+            true,
+            &mut list,
+            &keys,
+            &mut marked,
+            &mut query,
+            &mut query_changed,
+            &mut selection_needs_reset,
+            &mut debouncer,
+            &mut result,
+        );
+    }
+    assert_eq!(result, Some(Ok(())));
+    assert!(marked.is_empty());
 }
 
 #[test]
