@@ -591,7 +591,14 @@ fn content_spans(row: &CardRowSnapshot, accent: Color) -> Vec<Span<'static>> {
                 },
                 _ => Style::default().fg(Color::White),
             };
-            (text.clone(), style)
+            // Full error reports can contain color-eyre's terminal escapes.
+            // Cards use Ratatui styles; retain the original report for logging.
+            let text = if text.contains('\u{1b}') {
+                strip_ansi_escapes::strip_str(text)
+            } else {
+                text.clone()
+            };
+            (text, style)
         }
         CardRowContent::Address(address) => (
             address.to_string(),
@@ -1037,7 +1044,7 @@ mod tests {
                     CardRowKey::Value,
                     "detail",
                     CardRowContent::Text(
-                        "The required organization URL could not be constructed.\r\nCause: équipe 🦀 needs an input value.\n\nRetry after supplying the missing organization."
+                        "\u{1b}[91mThe required organization URL could not be constructed.\u{1b}[0m\r\nCause: \u{1b}[1méquipe 🦀\u{1b}[0m needs an input value.\n\nRetry after supplying the missing organization."
                             .into(),
                     ),
                 ),

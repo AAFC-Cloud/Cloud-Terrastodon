@@ -313,7 +313,9 @@ where
                     return self.progress(QueryProgressState::Pending, before, budget);
                 }
                 ScannerPoll::Complete => {
-                    self.active = None;
+                    // The exhausted scanner proves this target is absent for
+                    // this revision. Keep the operation so an identical retry
+                    // does not discard that proof and restart the whole scan.
                     return self.progress(QueryProgressState::Complete, before, budget);
                 }
             }
@@ -394,7 +396,9 @@ where
                         return Ok(self.progress(QueryProgressState::Pending, before, budget));
                     }
                     ScannerPoll::Complete => {
-                        self.active = None;
+                        // Keep the exhausted fill for repeated refreshes of
+                        // the same missing anchor. A different operation or
+                        // revision still starts its own scan as usual.
                         return Ok(self.progress(QueryProgressState::Complete, before, budget));
                     }
                 }
@@ -805,6 +809,108 @@ mod tests {
         assert_eq!(second.work_spent(), 11);
         assert_eq!(second.instrumentation().addressed, 18);
         assert_eq!(second.instrumentation().matched, 0);
+    }
+
+    #[test]
+    fn missing_anchor_retries_remain_complete_until_navigation_changes() {
+        let mut arena = Arena::default();
+        let root = arena
+            .insert_ready(runtime((0_usize..16).collect::<Vec<_>>()))
+            .unwrap();
+        let excluded = arena
+            .insert_ready(runtime(String::from("new request")))
+            .unwrap();
+        let stamp = stamp(&arena);
+        let source = ArenaAddressSource::object_pool(&arena);
+        let mut cursor = QueryCursor::new(
+            &source,
+            QueryPlan::new(Breadcrumbs::new(vec![Breadcrumb::projection(
+                root.get(),
+                vec![],
+            )])),
+            stamp,
+            NonZeroUsize::new(4).unwrap(),
+        );
+        let missing = ValueAddress::root(excluded);
+
+        // A newly created root lies outside the tab's existing projection.
+        // More matches than cache entries force its absence to be established
+        // by completing the bounded scan, not by inspecting the current page.
+        let mut completed = false;
+        for _ in 0..10 {
+            let progress = cursor
+                .fill_window(
+                    Some(&missing),
+                    NonZeroUsize::new(2).unwrap(),
+                    stamp,
+                    &mut WorkBudget::new(3),
+                )
+                .unwrap();
+            if matches!(progress.state(), QueryProgressState::Complete) {
+                completed = true;
+                break;
+            }
+            assert_eq!(progress.state(), &QueryProgressState::Pending);
+        }
+        assert!(completed);
+        let instrumentation = cursor.instrumentation();
+        assert_eq!(instrumentation.matched, 17);
+        assert!(instrumentation.cached <= 4);
+        for _ in 0..3 {
+            let progress = cursor
+                .fill_window(
+                    Some(&missing),
+                    NonZeroUsize::new(2).unwrap(),
+                    stamp,
+                    &mut WorkBudget::new(3),
+                )
+                .unwrap();
+            assert_eq!(progress.state(), &QueryProgressState::Complete);
+            assert_eq!(progress.work_spent(), 0);
+            assert_eq!(progress.instrumentation(), instrumentation);
+        }
+
+        let window = ready(
+            cursor
+                .fill_window(
+                    None,
+                    NonZeroUsize::new(2).unwrap(),
+                    stamp,
+                    &mut WorkBudget::new(3),
+                )
+                .unwrap(),
+        );
+        assert_eq!(window.addresses()[0], ValueAddress::root(root));
+        assert!(window.has_after());
+
+        assert_eq!(
+            cursor
+                .seek(&missing, stamp, &mut WorkBudget::new(3))
+                .state(),
+            &QueryProgressState::Pending,
+        );
+        assert_eq!(
+            cursor
+                .seek(&missing, stamp, &mut WorkBudget::new(32))
+                .state(),
+            &QueryProgressState::Complete,
+        );
+        let instrumentation = cursor.instrumentation();
+        for _ in 0..3 {
+            let progress = cursor.seek(&missing, stamp, &mut WorkBudget::new(3));
+            assert_eq!(progress.state(), &QueryProgressState::Complete);
+            assert_eq!(progress.work_spent(), 0);
+            assert_eq!(progress.instrumentation(), instrumentation);
+        }
+
+        assert_eq!(
+            ready(cursor.seek(&ValueAddress::root(root), stamp, &mut WorkBudget::new(3))),
+            ValueAddress::root(root),
+        );
+        assert_eq!(
+            ready(cursor.next(stamp, &mut WorkBudget::new(3))),
+            ValueAddress::root(root).child(ValuePathSegment::Index(0)),
+        );
     }
 
     #[test]

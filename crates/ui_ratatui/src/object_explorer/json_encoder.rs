@@ -1,3 +1,4 @@
+use eyre::WrapErr;
 use facet_reflect::Peek;
 
 /// The only boundary in object_explorer allowed to turn reflected values into
@@ -9,16 +10,18 @@ pub(crate) struct JsonEncoder {
 }
 
 impl JsonEncoder {
-    pub(crate) fn encode(&mut self, value: Peek<'_, 'static>) -> Result<String, String> {
+    // Capture the caller while the typed serialization error is still available.
+    // Engine message boundaries preserve this report before converting it to text.
+    #[track_caller]
+    pub(crate) fn encode(&mut self, value: Peek<'_, 'static>) -> eyre::Result<String> {
         self.record_encoded();
-        facet_json::peek_to_string(value)
-            .map_err(|error| format!("could not serialize reflected value: {error:?}"))
+        facet_json::peek_to_string(value).wrap_err("could not serialize reflected value")
     }
 
-    pub(crate) fn encode_pretty(&mut self, value: Peek<'_, 'static>) -> Result<String, String> {
+    #[track_caller]
+    pub(crate) fn encode_pretty(&mut self, value: Peek<'_, 'static>) -> eyre::Result<String> {
         self.record_encoded();
-        facet_json::peek_to_string_pretty(value)
-            .map_err(|error| format!("could not serialize reflected value: {error:?}"))
+        facet_json::peek_to_string_pretty(value).wrap_err("could not serialize reflected value")
     }
 
     fn record_encoded(&mut self) {

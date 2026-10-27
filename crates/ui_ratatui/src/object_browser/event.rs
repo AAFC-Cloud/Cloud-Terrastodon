@@ -727,8 +727,17 @@ impl ObjectBrowserApp {
 
     async fn create_shape_unset_root(&mut self) -> Result<(), ObjectBrowserControllerError> {
         let slot = self.controller.reserve_builder().await?;
-        self.controller
-            .focus(CardAddress::Value(ValueAddress::root(slot)))?;
+        if self.controller.active_tab_header().breadcrumb_count() > 0 {
+            // A new root is independent of the current projection or filters.
+            // Keep that query intact and give construction a view that includes
+            // the root even before its shape has been chosen.
+            self.controller
+                .create_projection_tab(format!("slot {slot}"), ValueAddress::root(slot))
+                .await?;
+        } else {
+            self.controller
+                .focus(CardAddress::Value(ValueAddress::root(slot)))?;
+        }
         self.controller.focus_row(Some(CardRowKey::Shape))?;
         self.active_root = Some(
             self.controller
@@ -2819,6 +2828,62 @@ mod tests {
         assert_eq!(engine.active_production_count(), 0);
         assert_eq!(engine.arena().allocated_slot_count(), 5);
         assert_eq!(engine.json_serialization_count(), 0);
+    }
+
+    #[tokio::test]
+    async fn creating_an_object_from_a_projection_keeps_the_new_builder_visible() {
+        let engine = ExplorerEngine::empty();
+        let (context, inbox) = ArenaQueryContext::channel(16);
+        let client = async move {
+            let mut app = ObjectBrowserApp::bootstrap(context).await.unwrap();
+            let list = app
+                .controller
+                .insert_owned((0_u64..600).collect::<Vec<_>>())
+                .await
+                .unwrap();
+            let source_tab = app
+                .controller
+                .create_output_tab("list", list)
+                .await
+                .unwrap();
+            let source_query = app.controller.active_breadcrumbs().await.unwrap();
+            app.tick().await.unwrap();
+            app.handle_event(&modified(KeyCode::End, KeyModifiers::SHIFT))
+                .await
+                .unwrap();
+            app.handle_event(&key(KeyCode::Enter)).await.unwrap();
+            let request_slot = app.active_root.as_ref().unwrap().slot();
+            assert_ne!(app.controller.active_tab(), Some(source_tab));
+            app.controller
+                .set_builder_shape(request_slot, ProduceJsonRequest::SHAPE)
+                .await
+                .unwrap();
+
+            for _ in 0..8 {
+                app.tick().await.unwrap();
+                assert!(!app.controller.is_scanning());
+                assert_eq!(
+                    app.selected_address(),
+                    CardAddress::Value(ValueAddress::root(request_slot))
+                );
+                let card = app.controller.window().unwrap().cards().first().unwrap();
+                assert_eq!(card.address(), &app.selected_address());
+                assert_eq!(card.shape(), "ProduceJsonRequest");
+            }
+            app.controller.switch_tab_previous().await.unwrap();
+            assert_eq!(app.controller.active_tab(), Some(source_tab));
+            assert_eq!(
+                app.controller.active_breadcrumbs().await.unwrap(),
+                source_query
+            );
+            app.tick().await.unwrap();
+            assert_eq!(
+                app.controller.window().unwrap().cards()[0].address(),
+                &CardAddress::Value(ValueAddress::root(list))
+            );
+            app.close().await.unwrap();
+        };
+        tokio::join!(engine.run(inbox), client);
     }
 
     #[tokio::test]

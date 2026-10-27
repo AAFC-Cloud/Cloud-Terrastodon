@@ -1577,6 +1577,7 @@ dependencies = [
  "ratatui",
  "ratatui-textarea",
  "rustc-hash 2.1.1",
+ "strip-ansi-escapes",
  "strum 0.27.2",
  "teamy-facet",
  "teamy-facet-json",

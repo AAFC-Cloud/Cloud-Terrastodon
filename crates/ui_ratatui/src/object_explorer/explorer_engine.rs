@@ -1262,7 +1262,7 @@ fn apply_read_with_source(
                 .and_then(|value| {
                     json_encoder
                         .encode(value.peek())
-                        .map_err(|error| format!("could not serialize {address:?}: {error}"))
+                        .map_err(|error| format!("could not serialize {address:?}: {error:?}"))
                 });
             let _ = response.send(result);
         }

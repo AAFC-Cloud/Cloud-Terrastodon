@@ -97,7 +97,7 @@ where
                     })?;
                     let json = json_encoder
                         .encode_pretty(value.peek())
-                        .map_err(|error| format!("could not serialize {address:?}: {error}"))?;
+                        .map_err(|error| format!("could not serialize {address:?}: {error:?}"))?;
                     let json = indent_array_item(&json);
                     self.cursor.record_serialized(1);
                     let separator_bytes = self.separator().len();

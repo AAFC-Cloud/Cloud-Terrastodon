@@ -21,6 +21,7 @@ use crate::object_explorer::OwnedValuePacket;
 use crate::object_explorer::ProductionBatch;
 use crate::object_explorer::ProductionStrategy;
 use crate::object_explorer::QueryProgressState;
+use crate::object_explorer::QueryTotal;
 use crate::object_explorer::RootSnapshot;
 use crate::object_explorer::SlotId;
 use crate::object_explorer::Tab;
@@ -265,8 +266,9 @@ impl ObjectBrowserController {
                 CardWindowBudget::new(max_work, max_cards, max_relationship_rows),
             )
             .await?;
+        let total = progress.total();
         if let Some(state) = self.active_state_mut() {
-            state.set_query_total(progress.total());
+            state.set_query_total(total);
         }
         match progress.into_state() {
             QueryProgressState::Ready(window) => {
@@ -285,6 +287,18 @@ impl ObjectBrowserController {
                 self.scanning = false;
             }
             QueryProgressState::Pending => self.scanning = true,
+            QueryProgressState::Complete if matches!(total, QueryTotal::Exact(count) if count > 0) =>
+            {
+                // The scan found results but not the old viewport anchor (for
+                // example a removed list element). Restart at the first match
+                // instead of reporting an empty query or seeking it every frame.
+                self.window = None;
+                self.scanning = true;
+                self.reanchor_on_next_window = true;
+                if let Some(state) = self.active_state_mut() {
+                    state.set_viewport_anchor(CardAddress::NewSlot);
+                }
+            }
             QueryProgressState::Complete => {
                 self.window = None;
                 self.scanning = false;
@@ -931,6 +945,48 @@ mod tests {
         };
 
         let (_engine, ()) = tokio::join!(engine.run(inbox), client);
+    }
+
+    #[tokio::test]
+    async fn missing_viewport_anchor_recovers_existing_projection_results() {
+        let engine = ExplorerEngine::empty();
+        let (context, inbox) = ArenaQueryContext::channel(8);
+        let client = async move {
+            let mut controller = ObjectBrowserController::bootstrap(context).await.unwrap();
+            let list = controller
+                .insert_owned((0_u64..600).collect::<Vec<_>>())
+                .await
+                .unwrap();
+            controller.create_output_tab("list", list).await.unwrap();
+            let query = controller.active_breadcrumbs().await.unwrap();
+            controller
+                .focus(CardAddress::Value(
+                    ValueAddress::root(list).child(ValuePathSegment::Index(600)),
+                ))
+                .unwrap();
+            let capacity = NonZeroUsize::new(3).unwrap();
+            for _ in 0..100 {
+                controller.refresh_window(16, capacity, 3).await.unwrap();
+                if controller.window().is_some() {
+                    break;
+                }
+                assert!(
+                    controller.is_scanning(),
+                    "a missing anchor does not mean the query is empty"
+                );
+            }
+            let expected = CardAddress::Value(ValueAddress::root(list));
+            assert_eq!(controller.window().unwrap().cards()[0].address(), &expected);
+            assert_eq!(controller.active_state().unwrap().selection(), &expected);
+            for _ in 0..8 {
+                controller.refresh_window(16, capacity, 3).await.unwrap();
+                assert!(!controller.is_scanning());
+                assert_eq!(controller.window().unwrap().cards()[0].address(), &expected);
+            }
+            assert_eq!(controller.active_breadcrumbs().await.unwrap(), query);
+            controller.close().await.unwrap();
+        };
+        tokio::join!(engine.run(inbox), client);
     }
 
     #[tokio::test]

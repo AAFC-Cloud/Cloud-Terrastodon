@@ -193,6 +193,12 @@ projection tab and leaves the source tab unchanged. Exact projections seed
 the query cursor at their ValueAddress; they do not linearly scan unrelated
 earlier roots.
 
+Creating an object from a projected or filtered tab opens a separate projection
+tab for the new root, including while its shape is unset. The source query stays
+unchanged. If an existing viewport anchor disappears, the browser returns to the
+first remaining match. Completed missing-address scans stay complete until the
+operation or revision changes, rather than restarting on every refresh.
+
 ## Construction, movement, and borrowing
 
 `ValueBuilder` owns incomplete construction state for one reserved root. A
@@ -226,6 +232,10 @@ errors, including their fields, source locations, and span context. Logs keep
 the tracing subscriber's styling and filters; `--debug` is not needed to see
 errors. Nested pickers temporarily take the terminal, then buffered logs are
 printed when the browser resumes. Closing also flushes cleanup diagnostics.
+Invocation failures preserve the full error report, including its original
+capture location and causes. JSON serialization also records its caller before
+crossing the engine's message channel, so the log includes the failing export
+or read location alongside the UI's `error!` emission location.
 
 Card text wraps at the available width; selection markers and scrollbars account
 for the wrapped lines. The status bar keeps short feedback and directs failed

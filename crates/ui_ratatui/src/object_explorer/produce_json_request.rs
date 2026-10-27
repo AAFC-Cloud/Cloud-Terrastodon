@@ -254,6 +254,7 @@ mod tests {
     use crate::object_explorer::explorer_engine::ExplorerEngine;
     use crate::object_explorer::tab::Tab;
     use crate::object_explorer::value_address::ValueAddress;
+    use crate::object_explorer::value_path::ValuePathSegment;
     use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_registry::RuntimeValue;
     use facet::Facet;
@@ -328,6 +329,71 @@ mod tests {
                     error.downcast_ref::<ProduceJsonError>(),
                     Some(ProduceJsonError::Query(ArenaQueryContextError::Missing))
                 ));
+                Ok::<_, eyre::Report>(())
+            })
+            .await
+            .expect("test execution scope remains valid");
+    }
+
+    #[tokio::test]
+    async fn serialization_failures_preserve_origin_across_engine_messages() {
+        #[derive(Facet)]
+        struct RequestWithScope {
+            cancellation: CancellationScope,
+        }
+
+        CancellationToken::new()
+            .with_async_scope(|cancellation| async move {
+                let mut arena = Arena::default();
+                let slot = arena
+                    .insert_ready(runtime(RequestWithScope {
+                        cancellation: CancellationScope::unbound(),
+                    }))
+                    .unwrap();
+                let address = ValueAddress::root(slot)
+                    .child(ValuePathSegment::Field("cancellation".to_owned()));
+                let request = ProduceJsonRequest::new(
+                    Breadcrumbs::new(vec![Breadcrumb::projection(
+                        slot.get(),
+                        address.path().segments().to_vec(),
+                    )]),
+                    "in-memory-serialization-failure.json",
+                    &cancellation,
+                );
+                let engine = ExplorerEngine::new(arena);
+                let (context, inbox) = ArenaQueryContext::channel(2);
+                let handle = context.engine_handle();
+
+                let client = async move {
+                    let read_error = handle
+                        .resolve_json(address)
+                        .await
+                        .expect_err("a runtime cancellation scope cannot be serialized");
+                    let export_error = request
+                        .write_to_sink(context.clone(), &mut Vec::new())
+                        .await
+                        .expect_err("exporting the same projection must report the failure");
+                    (read_error.to_string(), export_error.to_string())
+                };
+
+                let (_, (read_error, export_error)) = timeout(Duration::from_secs(5), async {
+                    tokio::join!(engine.run(inbox), client)
+                })
+                .await
+                .expect("failed export releases its engine session");
+
+                for (diagnostic, source) in [
+                    (read_error, "explorer_engine.rs:"),
+                    (export_error, "json_export_job.rs:"),
+                ] {
+                    assert!(diagnostic.contains("could not serialize reflected value"));
+                    assert!(diagnostic.contains("CancellationScope"));
+                    assert!(diagnostic.contains("Field(\"cancellation\")"));
+                    assert!(
+                        diagnostic.contains(source),
+                        "serialization caller must survive the engine channel: {diagnostic}"
+                    );
+                }
                 Ok::<_, eyre::Report>(())
             })
             .await

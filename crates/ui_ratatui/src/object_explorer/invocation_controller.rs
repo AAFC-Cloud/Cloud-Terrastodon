@@ -47,7 +47,7 @@ fn consume_invocation_panic(mut payload: Box<dyn Any + Send>) -> String {
 }
 
 /// Run user conversion/invocation/drop code while the caller still protects its
-/// sources. Errors can themselves contain borrowed values, and their Display
+/// sources. Errors can themselves contain borrowed values, and their formatting
 /// and Drop implementations can panic, so normalize and dispose those here too.
 fn guarded_user_operation<T>(
     context: &str,
@@ -56,7 +56,9 @@ fn guarded_user_operation<T>(
     match catch_unwind(AssertUnwindSafe(operation)) {
         Ok(Ok(value)) => Ok(value),
         Ok(Err(error)) => {
-            let message = match catch_unwind(AssertUnwindSafe(|| error.to_string())) {
+            // Capture the full report while its borrowed sources are still
+            // protected; Display would discard its causes and origin location.
+            let message = match catch_unwind(AssertUnwindSafe(|| format!("{error:?}"))) {
                 Ok(message) => format!("{context}: {message}"),
                 Err(payload) => format!(
                     "{context}: error formatting panicked: {}",
@@ -803,6 +805,21 @@ mod tests {
     use facet::Facet;
     use std::any::Any;
     use std::borrow::Cow;
+
+    #[test]
+    fn guarded_user_operation_preserves_report_diagnostics() {
+        let origin_line = line!() + 1;
+        let error = eyre::eyre!("invalid reflected fixture value");
+        let error = error.wrap_err("serializing the test invocation response");
+
+        let message = guarded_user_operation::<()>("invocation dispatch", || Err(error))
+            .expect_err("the invocation error becomes an owned diagnostic");
+
+        assert!(message.starts_with("invocation dispatch:"));
+        assert!(message.contains("serializing the test invocation response"));
+        assert!(message.contains("invalid reflected fixture value"));
+        assert!(message.contains(&format!("{}:{origin_line}", file!())));
+    }
 
     #[derive(Clone, Debug, Facet)]
     #[repr(C)]
@@ -1715,7 +1732,10 @@ mod tests {
                 &GUARD_MUTATED_INPUT_ERROR_THING,
                 &GUARD_MUT_RETURN,
                 InvocationMode::Retain,
-                2,
+                // The full report formats the wrapped BorrowingError cause,
+                // which creates another borrowed panic payload to dispose in
+                // addition to the successful output and failed input conversion.
+                3,
             ),
         ] {
             let drops = Arc::new(AtomicUsize::new(0));

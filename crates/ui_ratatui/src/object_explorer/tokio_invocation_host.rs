@@ -137,7 +137,11 @@ impl JobState {
                             catch_unwind(AssertUnwindSafe(|| error.is_cancellation()));
                         let cancelled = matches!(&classification, Ok(true));
                         let classification_panic = classification.err().map(consume_panic);
-                        let message = match catch_unwind(AssertUnwindSafe(|| error.to_string())) {
+                        // Preserve the report's source chain, capture location,
+                        // and any tracing context before disposing user-owned
+                        // error state. Display would retain only its outer message.
+                        let message = match catch_unwind(AssertUnwindSafe(|| format!("{error:?}")))
+                        {
                             Ok(message) => message,
                             Err(payload) => format!(
                                 "invocation error formatting panicked: {}",
@@ -661,14 +665,16 @@ mod tests {
     async fn failure_owns_only_a_message_after_disposing_the_error() {
         let mut host = TokioInvocationHost::new(attach_nothing);
         let error_dropped = Arc::new(AtomicBool::new(false));
-        let error = TrackedError(error_dropped.clone());
+        let origin_line = line!() + 1;
+        let error = eyre::Report::new(TrackedError(error_dropped.clone()));
+        let error = error.wrap_err("reading the test invocation response");
         let (completed, observed) = tokio::sync::oneshot::channel();
         let id = InvocationId::new(1);
         host.start(
             id,
             Box::pin(async move {
                 completed.send(()).unwrap();
-                Err(eyre::Report::new(error))
+                Err(error)
             }),
         );
         observed.await.unwrap();
@@ -678,6 +684,8 @@ mod tests {
             panic!("expected owned failure message");
         };
         assert!(message.contains("tracked invocation failure"));
+        assert!(message.contains("reading the test invocation response"));
+        assert!(message.contains(&format!("{}:{origin_line}", file!())));
     }
 
     #[tokio::test(flavor = "current_thread")]
