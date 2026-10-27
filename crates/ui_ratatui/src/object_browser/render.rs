@@ -608,6 +608,7 @@ mod tests {
     use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
     use cloud_terrastodon_azure_devops::AzureDevOpsProjectsListRequest;
     use cloud_terrastodon_command::CancellationToken;
+    use cloud_terrastodon_credentials::AuthContext;
     use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
     use cloud_terrastodon_registry::RuntimeValue;
     use facet::Facet;
@@ -628,6 +629,39 @@ mod tests {
         T: Facet<'static> + Send + 'static,
     {
         RuntimeValue::from_box(Box::new(value)).expect("test value is representable")
+    }
+
+    #[test]
+    fn auth_cards_render_the_active_variant_and_nested_policy_preview() {
+        let mut arena = Arena::default();
+        let root = arena
+            .insert_ready(runtime(AzureDevOpsAuthContext::AzureCli(
+                AuthContext::Unresolved,
+            )))
+            .unwrap();
+        arena.insert_ready(runtime(AuthContext::None)).unwrap();
+        let source = ArenaAddressSource::new(&arena);
+        let window = CardWindow::first(&source, NonZeroUsize::new(3).unwrap(), 8).unwrap();
+        let selected = CardAddress::Value(ValueAddress::root(root));
+        let mut terminal = Terminal::new(TestBackend::new(120, 14)).unwrap();
+        terminal
+            .draw(|frame| {
+                CardWindowRenderer::new(
+                    &window,
+                    &selected,
+                    None,
+                    CardLayoutAxis::Horizontal,
+                    false,
+                    40,
+                )
+                .draw(frame, frame.area());
+            })
+            .unwrap();
+        let rendered = terminal.backend().to_string();
+        assert!(rendered.contains("variant: AzureCli"));
+        assert!(rendered.contains("variant: Unresolved"));
+        assert!(rendered.contains("variant: None"));
+        assert!(rendered.contains("value Unresolved"));
     }
 
     #[test]

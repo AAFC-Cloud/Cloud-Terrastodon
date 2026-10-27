@@ -89,6 +89,22 @@ impl CardSnapshot {
             "shape",
             CardRowContent::Text(shape.clone()),
         )];
+        let variant = resolved
+            .peek()
+            .innermost_peek()
+            .into_enum()
+            .ok()
+            .and_then(|object| object.active_variant().ok())
+            .map(|variant| variant.effective_name());
+        if let Some(variant) = variant {
+            // A unit variant has no child fields. Its discriminant still tells
+            // users whether a value is unresolved, disabled, or another state.
+            rows.push(CardRowSnapshot::new(
+                CardRowKey::Variant,
+                "variant",
+                CardRowContent::Text(variant.to_owned()),
+            ));
+        }
 
         let mut relationships_complete = true;
         let mut admitted_relationships = 0;
@@ -110,7 +126,9 @@ impl CardSnapshot {
                     relationships_complete = children.next().is_none();
                 }
                 None => {
-                    if let Some(summary) = scalar_summary(resolved) {
+                    if let Some(summary) = scalar_summary(resolved)
+                        && Some(summary.as_str()) != variant
+                    {
                         rows.push(CardRowSnapshot::new(
                             CardRowKey::Value,
                             "value",
@@ -241,6 +259,13 @@ fn scalar_summary(value: ResolvedValue<'_>) -> Option<String> {
     if matches!(value.shape().ty, Type::Primitive(_)) || value.shape().vtable.has_display() {
         return Some(truncate(&value.to_string(), MAX_SCALAR_SUMMARY_CHARS));
     }
+    if let Ok(object) = value.into_enum()
+        && let Ok(variant) = object.active_variant()
+    {
+        // Summarize only the discriminant, never Debug-format enum payloads:
+        // authentication states can contain sensitive credentials and caches.
+        return Some(truncate(variant.effective_name(), MAX_SCALAR_SUMMARY_CHARS));
+    }
     None
 }
 
@@ -259,6 +284,10 @@ mod tests {
     use crate::object_explorer::arena::Arena;
     use crate::object_explorer::card_window::CardWindow;
     use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
+    use cloud_terrastodon_credentials::AuthContext;
+    use cloud_terrastodon_credentials::AuthSource;
+    use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
+    use cloud_terrastodon_credentials::WorkloadIdentityConfig;
     use cloud_terrastodon_registry::RuntimeValue;
     use facet::Facet;
     use std::num::NonZeroUsize;
@@ -275,6 +304,99 @@ mod tests {
         T: Facet<'static> + Send + 'static,
     {
         RuntimeValue::from_box(Box::new(value)).expect("test value is representable")
+    }
+
+    #[test]
+    fn auth_context_variants_are_visible_in_owned_cards_projections_and_field_previews() {
+        for (context, expected_variant) in [
+            (AuthContext::Unresolved, "Unresolved"),
+            (AuthContext::None, "None"),
+            (AuthContext::explicit(AuthSource::AzureCli), "Resolved"),
+        ] {
+            let mut arena = Arena::default();
+            let owned = arena.insert_ready(runtime(context.clone())).unwrap();
+            let wrapper = arena
+                .insert_ready(runtime(AzureDevOpsAuthContext::AzureCli(context)))
+                .unwrap();
+            let source = ArenaAddressSource::new(&arena);
+            let projected =
+                ValueAddress::root(wrapper).child(ValuePathSegment::Field("0".to_owned()));
+            for address in [ValueAddress::root(owned), projected] {
+                // Variant metadata remains visible even with no field budget.
+                let card = CardSnapshot::observe_fields(&source, address, 0).unwrap();
+                assert!(card.rows().iter().any(|row| {
+                    row.key() == &CardRowKey::Variant
+                        && row.content() == &CardRowContent::Text(expected_variant.to_owned())
+                }));
+                assert!(
+                    card.rows()
+                        .iter()
+                        .all(|row| row.key() != &CardRowKey::Value)
+                );
+            }
+            let card =
+                CardSnapshot::observe_fields(&source, ValueAddress::root(wrapper), 1).unwrap();
+            assert!(card.rows().iter().any(|row| {
+                row.key() == &CardRowKey::Variant
+                    && row.content() == &CardRowContent::Text("AzureCli".to_owned())
+            }));
+            let field = card
+                .rows()
+                .iter()
+                .find(|row| row.key() == &CardRowKey::Field("0".to_owned()))
+                .unwrap();
+            assert_eq!(field.value_display(), Some(expected_variant));
+        }
+    }
+
+    #[test]
+    fn resolved_auth_cards_show_public_policy_and_tenant_without_credential_fields() {
+        let tenant_id = "11111111-1111-1111-1111-111111111111".parse().unwrap();
+        let context = AuthContext::explicit(AuthSource::WorkloadIdentity)
+            .with_workload_identity(WorkloadIdentityConfig {
+                tenant_id,
+                client_id: "22222222-2222-2222-2222-222222222222".parse().unwrap(),
+                federated_token: "synthetic-hidden-credential".to_owned(),
+            })
+            .unwrap();
+        let mut arena = Arena::default();
+        let root = arena
+            .insert_ready(runtime(
+                AzureDevOpsAuthContext::for_tenant(&context, tenant_id).unwrap(),
+            ))
+            .unwrap();
+        let source = ArenaAddressSource::new(&arena);
+        let tenant_context =
+            ValueAddress::root(root).child(ValuePathSegment::Field("0".to_owned()));
+        let policy = tenant_context.child(ValuePathSegment::Field("auth_context".to_owned()));
+        let card = CardSnapshot::observe_fields(&source, policy, 8).unwrap();
+        let fields = card
+            .rows()
+            .iter()
+            .filter_map(|row| match row.key() {
+                CardRowKey::Field(name) => Some((name.as_str(), row.value_display())),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            fields,
+            [
+                ("requested_source", Some("workload-identity")),
+                ("source", Some("workload-identity")),
+                ("headless", Some("false")),
+            ]
+        );
+        assert!(card.relationships_complete());
+        let card = CardSnapshot::observe_fields(&source, tenant_context, 8).unwrap();
+        let tenant = card
+            .rows()
+            .iter()
+            .find(|row| row.key() == &CardRowKey::Field("tenant_id".to_owned()))
+            .unwrap();
+        assert_eq!(
+            tenant.value_display(),
+            Some("11111111-1111-1111-1111-111111111111")
+        );
     }
 
     #[test]

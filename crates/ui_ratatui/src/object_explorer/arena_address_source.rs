@@ -139,18 +139,32 @@ fn child_addresses<'mem>(
         if object.field_count() == 0 {
             return None;
         }
-        return Some(Box::new(object.fields().map(move |(field, _)| {
-            parent.child(ValuePathSegment::Field(field.effective_name().to_owned()))
-        })));
+        // Browsing fields must respect Facet's presentation redaction, before
+        // the caller applies its relationship or navigation budget.
+        return Some(Box::new(
+            object
+                .fields()
+                .filter(|(field, _)| !field.is_sensitive())
+                .map(move |(field, _)| {
+                    parent.child(ValuePathSegment::Field(field.effective_name().to_owned()))
+                }),
+        ));
     }
     if let Ok(object) = value.into_enum() {
         let variant = object.active_variant().ok()?;
         if variant.data.fields.is_empty() {
             return None;
         }
-        return Some(Box::new(variant.data.fields.iter().map(move |field| {
-            parent.child(ValuePathSegment::Field(field.effective_name().to_owned()))
-        })));
+        return Some(Box::new(
+            variant
+                .data
+                .fields
+                .iter()
+                .filter(|field| !field.is_sensitive())
+                .map(move |field| {
+                    parent.child(ValuePathSegment::Field(field.effective_name().to_owned()))
+                }),
+        ));
     }
     if let Ok(tuple) = value.into_tuple() {
         if tuple.is_empty() {
@@ -626,6 +640,57 @@ mod tests {
             )
         );
         assert!(addresses.contains(&ValueAddress::root(string)));
+    }
+
+    #[test]
+    fn sensitive_fields_are_skipped_before_bounded_struct_and_enum_traversal() {
+        #[derive(Facet)]
+        struct Session {
+            #[facet(sensitive)]
+            token: String,
+            source: String,
+        }
+
+        #[derive(Facet)]
+        #[repr(u8)]
+        enum SessionState {
+            Resolved {
+                #[facet(sensitive)]
+                token: String,
+                source: String,
+            },
+        }
+
+        let mut arena = Arena::default();
+        let roots = [
+            arena
+                .insert_ready(runtime(Session {
+                    token: "synthetic-hidden-token".to_owned(),
+                    source: "browser".to_owned(),
+                }))
+                .unwrap(),
+            arena
+                .insert_ready(runtime(SessionState::Resolved {
+                    token: "synthetic-hidden-token".to_owned(),
+                    source: "browser".to_owned(),
+                }))
+                .unwrap(),
+        ];
+        let source = ArenaAddressSource::new(&arena);
+        let mut expected = Vec::new();
+        for root in roots {
+            let address = ValueAddress::root(root);
+            let visible = address.child(ValuePathSegment::Field("source".to_owned()));
+            let first_child = source
+                .reflected_children(&address)
+                .unwrap()
+                .unwrap()
+                .take(1)
+                .collect::<Vec<_>>();
+            assert_eq!(first_child, [visible.clone()]);
+            expected.extend([address, visible]);
+        }
+        assert_eq!(PreorderCursor::new(&source).collect::<Vec<_>>(), expected);
     }
 
     #[test]
