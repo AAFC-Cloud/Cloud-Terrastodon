@@ -135,7 +135,14 @@ fn plan(
     targets: &[&'static Shape],
 ) -> DiscoveryPlan {
     CancellationToken::new()
-        .with_scope(|scope| DiscoveryPlan::build(catalog, seeds, targets, &scope))
+        .with_scope(|scope| {
+            DiscoveryPlan::build(
+                catalog,
+                seeds.iter().copied(),
+                targets.iter().copied(),
+                &scope,
+            )
+        })
         .expect("planning succeeds without running any operation")
 }
 

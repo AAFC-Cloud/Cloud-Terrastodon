@@ -24,7 +24,6 @@ impl fmt::Display for ProductionJobId {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum ProductionStrategy {
     Default,
-    Manual,
     Arbitrary { bytes: Vec<u8> },
 }
 

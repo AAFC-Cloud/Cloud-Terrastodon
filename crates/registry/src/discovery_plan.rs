@@ -39,8 +39,8 @@ impl DiscoveryPlan {
     /// global registry is consulted, including for Arbitrary generators.
     pub fn build(
         functions: impl IntoIterator<Item = &'static Function>,
-        seeds: &[&'static Shape],
-        targets: &[&'static Shape],
+        seeds: impl IntoIterator<Item = &'static Shape>,
+        targets: impl IntoIterator<Item = &'static Shape>,
         cancellation: &CancellationScope,
     ) -> eyre::Result<Self> {
         DiscoveryPlanGraph::new(functions, seeds, targets, cancellation)?.finish(cancellation)

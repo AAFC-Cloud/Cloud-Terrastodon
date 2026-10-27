@@ -129,7 +129,22 @@ impl ObjectBrowserApp {
             .with_query_total(query_total)
             .with_visible_rows(visible_rows)
             .draw(frame, area);
-        } else if selected == &CardAddress::NewSlot {
+        } else if self.controller.is_scanning() && selected != &CardAddress::NewSlot {
+            frame.render_widget(Paragraph::new("Scanning object addresses…"), area);
+        } else {
+            // A completed query can exclude the current selection. Keep the
+            // create-object card available without changing focus while drawing.
+            let card_area = if selected == &CardAddress::NewSlot {
+                area
+            } else {
+                let sections =
+                    Layout::vertical([Constraint::Length(1), Constraint::Min(0)]).split(area);
+                frame.render_widget(
+                    Paragraph::new("No matching objects. Shift+End: create an object."),
+                    sections[0],
+                );
+                sections[1]
+            };
             let window = CardWindow::single(crate::object_explorer::CardSnapshot::new_slot());
             CardWindowRenderer::new(
                 &window,
@@ -141,9 +156,7 @@ impl ObjectBrowserApp {
             )
             .with_query_total(query_total)
             .with_visible_rows(visible_rows)
-            .draw(frame, area);
-        } else {
-            frame.render_widget(Paragraph::new("Scanning object addresses…"), area);
+            .draw(frame, card_area);
         }
     }
 
@@ -388,5 +401,60 @@ fn display_card_address(address: &CardAddress) -> String {
     match address {
         CardAddress::Value(address) => address.to_string(),
         CardAddress::NewSlot => "new slot".to_owned(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::object_explorer::ArenaQueryContext;
+    use crate::object_explorer::ExplorerEngine;
+    use crate::object_explorer::SlotId;
+    use crate::object_explorer::ValueAddress;
+    use crossterm::event::Event;
+    use crossterm::event::KeyCode;
+    use crossterm::event::KeyEvent;
+    use crossterm::event::KeyModifiers;
+    use ratatui::Terminal;
+    use ratatui::backend::TestBackend;
+
+    #[tokio::test]
+    async fn missing_projection_shows_empty_results_and_keeps_creation_available() {
+        let engine = ExplorerEngine::empty();
+        let (context, inbox) = ArenaQueryContext::channel(16);
+        let client = async move {
+            let mut app = ObjectBrowserApp::bootstrap(context).await.unwrap();
+            let missing = ValueAddress::root(SlotId::new(1_000));
+            app.controller
+                .create_projection_tab("missing object", missing.clone())
+                .await
+                .unwrap();
+            app.controller
+                .refresh_window(16, NonZeroUsize::new(3).unwrap(), 3)
+                .await
+                .unwrap();
+            assert!(!app.controller.is_scanning());
+            assert!(app.controller.window().is_none());
+
+            let mut terminal = Terminal::new(TestBackend::new(100, 16)).unwrap();
+            terminal.draw(|frame| app.draw(frame)).unwrap();
+            let rendered = terminal.backend().to_string();
+            assert!(rendered.contains("No matching objects."));
+            assert!(rendered.contains("new object"));
+            assert!(!rendered.contains("Scanning object addresses"));
+            assert_eq!(app.selected_address(), CardAddress::Value(missing));
+
+            app.handle_event(&Event::Key(KeyEvent::new(
+                KeyCode::End,
+                KeyModifiers::SHIFT,
+            )))
+            .await
+            .unwrap();
+            assert_eq!(app.selected_address(), CardAddress::NewSlot);
+            terminal.draw(|frame| app.draw(frame)).unwrap();
+            assert!(terminal.backend().to_string().contains("new object"));
+            app.close().await.unwrap();
+        };
+        tokio::join!(engine.run(inbox), client);
     }
 }

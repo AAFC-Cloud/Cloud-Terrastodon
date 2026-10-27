@@ -145,8 +145,8 @@ impl DumpPlanner {
         }
         let mut plan = DiscoveryPlan::build(
             self.functions.iter().copied(),
-            &self.seeds,
-            &targets,
+            self.seeds.iter().copied(),
+            targets,
             cancellation,
         )?;
         for name in unknown {

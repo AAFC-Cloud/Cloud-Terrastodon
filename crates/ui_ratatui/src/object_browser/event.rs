@@ -609,9 +609,26 @@ impl ObjectBrowserApp {
                 .controller
                 .inspect_root(address.root_id(), self.max_relationship_rows)
                 .await?;
-            if snapshot.builder().is_some() {
-                self.active_root = Some(snapshot);
+            self.active_root = Some(snapshot);
+        }
+
+        if address.path().segments().is_empty()
+            && focused == Some(CardRowKey::Variant)
+            && let Some(shape) = self.active_root.as_ref().and_then(|root| root.enum_shape())
+        {
+            self.variant_picker = VariantPicker::new(address.root_id(), shape);
+            if let Some(variant) = self
+                .active_root
+                .as_ref()
+                .and_then(|root| root.selected_variant())
+                && let Some(picker) = self.variant_picker.as_mut()
+            {
+                picker.select_variant(variant);
             }
+            if !self.start_variant_picker_task() {
+                self.mode = BrowserMode::Variant;
+            }
+            return Ok(());
         }
 
         if address.path().segments().is_empty()
@@ -620,15 +637,6 @@ impl ObjectBrowserApp {
             match focused.as_ref() {
                 Some(CardRowKey::Shape) => {
                     self.start_shape_picker()?;
-                    return Ok(());
-                }
-                Some(CardRowKey::Variant) => {
-                    if let Some(shape) = builder.shape() {
-                        self.variant_picker = VariantPicker::new(address.root_id(), shape);
-                        if !self.start_variant_picker_task() {
-                            self.mode = BrowserMode::Variant;
-                        }
-                    }
                     return Ok(());
                 }
                 Some(CardRowKey::Value) => {
@@ -1025,7 +1033,7 @@ impl ObjectBrowserApp {
                         .map(|variant| (picker.slot(), variant))
                 });
                 if let Some((slot, variant)) = choice {
-                    self.controller.select_variant(slot, variant).await?;
+                    let transition = self.controller.select_variant(slot, variant).await?;
                     self.active_root = Some(
                         self.controller
                             .inspect_root(slot, self.max_relationship_rows)
@@ -1033,7 +1041,14 @@ impl ObjectBrowserApp {
                     );
                     self.variant_picker = None;
                     self.mode = BrowserMode::Pool;
-                    self.focus_next_builder_input()?;
+                    self.focus_after_builder_transition(slot, transition)?;
+                    self.controller
+                        .refresh_window(
+                            Self::FRAME_WORK,
+                            self.max_cards,
+                            self.max_relationship_rows,
+                        )
+                        .await?;
                 }
             }
             KeyCode::Char(character)
@@ -1120,7 +1135,7 @@ impl ObjectBrowserApp {
                 self.open_pending_link_actions().await?;
             }
             ValuePickerChoice::CreateNewOwned { shape } => {
-                if self.start_registered_shape_picker(destination, field, shape)? {
+                if self.start_registry_selection_picker(destination, field, shape)? {
                     return Ok(());
                 }
                 let (source, transition) = self.controller.create_builder(shape).await?;
@@ -1160,33 +1175,35 @@ impl ObjectBrowserApp {
                     .await?;
             }
             ValuePickerChoice::CreateProducer { function } => {
-                let batch = self
-                    .controller
-                    .start_production(
-                        destination,
-                        field,
-                        function,
-                        ProductionStrategy::Manual,
-                        Self::FRAME_WORK,
+                // Creating a producer is an editing step, not permission to
+                // invoke it when its last field is filled. Leave the destination
+                // unset; the user can invoke and link the result explicitly.
+                let (input, transition) =
+                    self.controller.create_builder(function.input_shape).await?;
+                if let Err(error) = self.controller.unset_field(destination, field).await {
+                    self.controller.delete(input).await?;
+                    return Err(error);
+                }
+                self.pending_link = None;
+                // The source tab may be filtered to the destination type or
+                // projected to one field. Give the new request its own view.
+                self.controller
+                    .create_projection_tab(
+                        cloud_terrastodon_registry::describe_shape(function.input_shape),
+                        ValueAddress::root(input),
                     )
                     .await?;
-                let input = batch.updates().first().and_then(|update| update.input());
-                self.apply_production_batch(&batch);
-                if let Some(input) = input {
+                self.active_root = Some(
                     self.controller
-                        .focus(CardAddress::Value(ValueAddress::root(input)))?;
-                    self.active_root = Some(
-                        self.controller
-                            .inspect_root(input, self.max_relationship_rows)
-                            .await?,
-                    );
-                    self.mode = BrowserMode::Pool;
-                    self.focus_next_builder_input()?;
-                    self.scalar_editor_for_root(input);
-                } else {
-                    self.focus_destination_after_producer_start(destination)
-                        .await?;
-                }
+                        .inspect_root(input, self.max_relationship_rows)
+                        .await?,
+                );
+                self.mode = BrowserMode::Pool;
+                self.focus_after_builder_transition(input, transition)?;
+                self.scalar_editor_for_root(input);
+                self.status = format!(
+                    "Edit request slot {input}, then invoke it and select its output for slot {destination} field {field}."
+                );
             }
             ValuePickerChoice::InvokeArbitraryProducer { function } => {
                 let mut bytes = vec![0_u8; 4096];
@@ -1973,12 +1990,17 @@ mod tests {
     use crate::object_explorer::ArenaQueryContext;
     use crate::object_explorer::ExplorerEngine;
     use crate::object_explorer::FieldCandidateAction;
+    use crate::object_explorer::InvocationMode;
     use crate::object_explorer::ProduceJsonRequest;
     use crate::object_explorer::RootLifecycleSnapshot;
     use crate::object_explorer::Tab;
     use arbitrary::Arbitrary;
+    use cloud_terrastodon_excalidraw::ProduceExcalidrawDumpPlanRequest;
     use cloud_terrastodon_registry::ArbitraryBytes;
+    use cloud_terrastodon_registry::DiscoveryPlanBuildRequest;
     use cloud_terrastodon_registry::ProductionKind;
+    use cloud_terrastodon_registry::RegisteredFunction;
+    use cloud_terrastodon_registry::RegisteredShape;
     use cloud_terrastodon_registry::functions_from;
     use facet::Facet;
     use ratatui::Terminal;
@@ -2003,6 +2025,13 @@ mod tests {
     #[repr(C)]
     struct BrowserProductionDestination {
         value: BrowserProducedValue,
+    }
+
+    #[derive(Clone, Debug, Eq, Facet, PartialEq)]
+    #[repr(u8)]
+    enum BrowserEditableEnum {
+        Unresolved,
+        None,
     }
 
     impl IntoFuture for BrowserProducerRequest {
@@ -2371,6 +2400,328 @@ mod tests {
         };
 
         let (_engine, ()) = tokio::join!(engine.run(inbox), client);
+    }
+
+    #[tokio::test]
+    async fn completed_enum_variant_can_be_cancelled_and_changed_from_its_card() {
+        let engine = ExplorerEngine::empty();
+        let (context, inbox) = ArenaQueryContext::channel(16);
+        let client = async move {
+            let mut app = ObjectBrowserApp::bootstrap(context).await.unwrap();
+            let (slot, _) = app
+                .controller
+                .create_builder(BrowserEditableEnum::SHAPE)
+                .await
+                .unwrap();
+            app.controller.select_variant(slot, 1).await.unwrap();
+            app.controller
+                .focus(CardAddress::Value(ValueAddress::root(slot)))
+                .unwrap();
+            app.controller.focus_row(Some(CardRowKey::Variant)).unwrap();
+            app.active_root = None;
+            app.controller
+                .refresh_window(
+                    ObjectBrowserApp::FRAME_WORK,
+                    app.max_cards,
+                    app.max_relationship_rows,
+                )
+                .await
+                .unwrap();
+
+            app.handle_event(&key(KeyCode::Enter)).await.unwrap();
+            assert_eq!(app.mode, BrowserMode::Variant);
+            assert_eq!(
+                app.variant_picker.as_ref().unwrap().selected_variant(),
+                Some(1)
+            );
+            app.handle_event(&key(KeyCode::Esc)).await.unwrap();
+            assert_eq!(
+                app.controller
+                    .inspect_root(slot, 8)
+                    .await
+                    .unwrap()
+                    .selected_variant(),
+                Some(1)
+            );
+
+            app.handle_event(&key(KeyCode::Enter)).await.unwrap();
+            app.handle_event(&key(KeyCode::Up)).await.unwrap();
+            app.handle_event(&key(KeyCode::Enter)).await.unwrap();
+            assert_eq!(app.mode, BrowserMode::Pool);
+            assert_eq!(
+                app.active_root.as_ref().unwrap().lifecycle(),
+                &RootLifecycleSnapshot::Ready
+            );
+            assert_eq!(
+                app.active_root.as_ref().unwrap().selected_variant(),
+                Some(0)
+            );
+            assert_eq!(
+                app.selected_address(),
+                CardAddress::Value(ValueAddress::root(slot))
+            );
+            app.close().await.unwrap();
+            slot
+        };
+        let (engine, slot) = tokio::join!(engine.run(inbox), client);
+        assert_eq!(
+            engine
+                .arena()
+                .ready_value(slot)
+                .unwrap()
+                .peek()
+                .get::<BrowserEditableEnum>()
+                .unwrap(),
+            &BrowserEditableEnum::Unresolved
+        );
+    }
+
+    #[tokio::test]
+    async fn creating_a_producer_leaves_the_field_unset_after_the_request_becomes_ready() {
+        let engine = ExplorerEngine::empty();
+        let (context, inbox) = ArenaQueryContext::channel(16);
+        let client =
+            async move {
+                let mut app = ObjectBrowserApp::bootstrap(context).await.unwrap();
+                let (destination, _) = app
+                    .controller
+                    .create_builder(BrowserProductionDestination::SHAPE)
+                    .await
+                    .unwrap();
+                let source_tab = app.controller.active_tab();
+                app.controller
+                    .update_active_tab(TabUpdate::PushBreadcrumb(Breadcrumb::ShapeFilter {
+                        included_shapes: vec!["BrowserProductionDestination".to_owned()],
+                    }))
+                    .await
+                    .unwrap();
+                app.accept_value_picker_choice_data(
+                    destination,
+                    0,
+                    ValuePickerChoice::CreateProducer {
+                        function: browser_producer(),
+                    },
+                )
+                .await
+                .unwrap();
+                let input = app.active_root.as_ref().unwrap().slot();
+                assert_ne!(input, destination);
+                assert_ne!(app.controller.active_tab(), source_tab);
+                assert_eq!(
+                    app.selected_address(),
+                    CardAddress::Value(ValueAddress::root(input))
+                );
+                assert_eq!(
+                    app.controller.active_state().unwrap().focused_row(),
+                    Some(&CardRowKey::Field("marker".to_owned()))
+                );
+                assert!(app.pending_link.is_none());
+                assert!(!app.production_jobs_active);
+
+                // Inspect the actual query window while the request is incomplete;
+                // inspecting active_root alone misses a projection that filters it out.
+                app.tick().await.unwrap();
+                assert!(!app.controller.is_scanning());
+                assert!(app.controller.window().unwrap().cards().iter().any(|card| {
+                    card.address() == &CardAddress::Value(ValueAddress::root(input))
+                }));
+
+                assert_eq!(
+                    app.controller
+                        .set_field_inline(input, 0, 42_u8)
+                        .await
+                        .unwrap(),
+                    BuilderTransition::Ready
+                );
+                for _ in 0..3 {
+                    app.tick().await.unwrap();
+                }
+                let snapshot = app.controller.inspect_root(destination, 8).await.unwrap();
+                assert_eq!(
+                    snapshot.builder().unwrap().fields()[0].binding(),
+                    &FieldBindingSnapshot::Unset
+                );
+                assert_eq!(
+                    app.controller
+                        .inspect_root(input, 8)
+                        .await
+                        .unwrap()
+                        .lifecycle(),
+                    &RootLifecycleSnapshot::Ready
+                );
+                app.close().await.unwrap();
+                input
+            };
+        let (engine, input) = tokio::join!(engine.run(inbox), client);
+        assert_eq!(engine.active_production_count(), 0);
+        assert!(engine.arena().ready_value(input).is_some());
+        assert_eq!(
+            engine.arena().allocated_slot_count(),
+            4,
+            "source tab, destination, uninvoked request, and its editing tab"
+        );
+    }
+
+    #[tokio::test]
+    async fn export_plan_field_can_use_an_explicitly_configured_plan_builder() {
+        let engine = ExplorerEngine::empty();
+        let (context, inbox) = ArenaQueryContext::channel(16);
+        let client = async move {
+            let mut app = ObjectBrowserApp::bootstrap(context).await.unwrap();
+            let (export, _) = app
+                .controller
+                .create_builder(ProduceExcalidrawDumpPlanRequest::SHAPE)
+                .await
+                .unwrap();
+            let picker = FieldValuePicker::new(
+                export,
+                0,
+                "plan",
+                cloud_terrastodon_registry::DiscoveryPlan::SHAPE,
+            );
+            let choice = picker.rows().iter().find(|row| matches!(row.choice(), ValuePickerChoice::CreateProducer { function } if std::ptr::eq(*function, DiscoveryPlanBuildRequest::REGISTERED_INTO_FUTURE))).unwrap().choice().clone();
+            app.accept_value_picker_choice_data(export, 0, choice)
+                .await
+                .unwrap();
+            let input = app.active_root.as_ref().unwrap().slot();
+            let fields = app
+                .active_root
+                .as_ref()
+                .unwrap()
+                .builder()
+                .unwrap()
+                .fields();
+            assert_eq!(fields[0].binding(), &FieldBindingSnapshot::Default);
+            assert_eq!(fields[1].binding(), &FieldBindingSnapshot::Unset);
+            assert_eq!(fields[2].binding(), &FieldBindingSnapshot::Unset);
+            app.controller
+                .set_field_inline(
+                    input,
+                    0,
+                    vec![RegisteredFunction::from_function(browser_producer())],
+                )
+                .await
+                .unwrap();
+            app.controller
+                .set_field_inline(input, 1, vec![RegisteredShape::from_shape(u8::SHAPE)])
+                .await
+                .unwrap();
+            assert_eq!(
+                app.controller
+                    .set_field_inline(
+                        input,
+                        2,
+                        vec![RegisteredShape::from_shape(BrowserProducedValue::SHAPE)]
+                    )
+                    .await
+                    .unwrap(),
+                BuilderTransition::Ready
+            );
+            let output = app
+                .controller
+                .invoke(
+                    input,
+                    DiscoveryPlanBuildRequest::REGISTERED_INTO_FUTURE,
+                    InvocationMode::Consume,
+                )
+                .await
+                .unwrap()
+                .output();
+            for _ in 0..64 {
+                app.controller.poll_invocations().await.unwrap();
+                if app
+                    .controller
+                    .inspect_root(output, 8)
+                    .await
+                    .unwrap()
+                    .lifecycle()
+                    == &RootLifecycleSnapshot::Ready
+                {
+                    break;
+                }
+                tokio::task::yield_now().await;
+            }
+            app.controller
+                .set_field_candidate(
+                    export,
+                    0,
+                    ValueAddress::root(output),
+                    FieldCandidateAction::Move,
+                )
+                .await
+                .unwrap();
+            let snapshot = app.controller.inspect_root(export, 8).await.unwrap();
+            assert_eq!(
+                snapshot.builder().unwrap().fields()[0].binding(),
+                &FieldBindingSnapshot::MoveFrom(output)
+            );
+            // Replacing an already bound plan must open a visible, editable
+            // request and clear the old binding without consuming its source.
+            for _ in 0..2 {
+                app.accept_value_picker_choice_data(
+                    export,
+                    0,
+                    ValuePickerChoice::CreateProducer {
+                        function: DiscoveryPlanBuildRequest::REGISTERED_INTO_FUTURE,
+                    },
+                )
+                .await
+                .unwrap();
+                let replacement = app.active_root.as_ref().unwrap().slot();
+                for _ in 0..3 {
+                    app.tick().await.unwrap();
+                }
+                assert!(!app.controller.is_scanning());
+                assert!(app.controller.window().unwrap().cards().iter().any(|card| {
+                    card.address() == &CardAddress::Value(ValueAddress::root(replacement))
+                }));
+                assert_eq!(
+                    app.controller.active_state().unwrap().focused_row(),
+                    Some(&CardRowKey::Field("seeds".to_owned()))
+                );
+                let mut terminal = Terminal::new(TestBackend::new(140, 40)).unwrap();
+                terminal.draw(|frame| app.draw(frame)).unwrap();
+                let drawing = terminal.backend().to_string();
+                assert!(drawing.contains("field \"seeds\""));
+                assert!(drawing.contains("field \"targets\""));
+                assert!(!drawing.contains("Scanning object addresses"));
+                let export_snapshot = app.controller.inspect_root(export, 8).await.unwrap();
+                assert_eq!(
+                    export_snapshot.builder().unwrap().fields()[0].binding(),
+                    &FieldBindingSnapshot::Unset
+                );
+                app.controller
+                    .set_field_candidate(
+                        export,
+                        0,
+                        ValueAddress::root(output),
+                        FieldCandidateAction::Move,
+                    )
+                    .await
+                    .unwrap();
+            }
+            // Complete the export request for inspection, without invoking the file write.
+            app.controller
+                .set_field_inline(export, 1, std::path::PathBuf::from("unused.excalidraw"))
+                .await
+                .unwrap();
+            app.close().await.unwrap();
+            export
+        };
+        let (engine, export) = tokio::join!(engine.run(inbox), client);
+        let value = engine.arena().ready_value(export).unwrap();
+        let export = value
+            .peek()
+            .get::<ProduceExcalidrawDumpPlanRequest>()
+            .unwrap();
+        assert!(
+            export
+                .plan
+                .nodes
+                .iter()
+                .any(|node| node.target && node.reachable)
+        );
+        assert_eq!(engine.active_production_count(), 0);
     }
 
     #[tokio::test]

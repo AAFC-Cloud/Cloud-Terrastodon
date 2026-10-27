@@ -10,11 +10,15 @@ use super::slot_id::SlotId;
 use super::value_address::ValueAddress;
 use super::value_path::ValuePathSegment;
 use super::value_resolution_error::ValueResolutionError;
+use cloud_terrastodon_registry::RegisteredFunction;
 use cloud_terrastodon_registry::RegisteredShape;
 use cloud_terrastodon_registry::RuntimeValue;
+use cloud_terrastodon_registry::describe_function;
 use cloud_terrastodon_registry::describe_shape;
 use facet::Facet;
 use facet::Type;
+use std::path::Path;
+use std::path::PathBuf;
 
 const MAX_SCALAR_SUMMARY_CHARS: usize = 256;
 
@@ -108,13 +112,15 @@ impl CardSnapshot {
 
         let mut relationships_complete = true;
         let mut admitted_relationships = 0;
-        // RegisteredShape's opaque metadata pointer is an implementation detail.
-        // Its selected type identity is the scalar value users need to inspect.
-        if resolved.shape().is_shape(RegisteredShape::SHAPE) {
+        // Registry handles' opaque metadata pointers are implementation details.
+        // Their selected identities are the scalar values users need to inspect.
+        if resolved.shape().is_shape(RegisteredShape::SHAPE)
+            || resolved.shape().is_shape(RegisteredFunction::SHAPE)
+        {
             rows.push(CardRowSnapshot::new(
                 CardRowKey::Value,
                 "value",
-                CardRowContent::Text(scalar_summary(resolved).expect("registered shape display")),
+                CardRowContent::Text(scalar_summary(resolved).expect("registry handle display")),
             ));
         } else {
             match source.reflected_children(&address)? {
@@ -244,6 +250,16 @@ fn relationship_row(
 }
 
 fn scalar_summary(value: ResolvedValue<'_>) -> Option<String> {
+    if let Ok(function) = value.peek().get::<RegisteredFunction>() {
+        return Some(truncate(
+            &format!(
+                "{} · {}",
+                describe_function(function.function()),
+                function.function().registration_site,
+            ),
+            MAX_SCALAR_SUMMARY_CHARS,
+        ));
+    }
     if let Ok(shape) = value.peek().get::<RegisteredShape>() {
         return Some(truncate(
             &format!("{} · {shape}", describe_shape(shape.shape())),
@@ -253,6 +269,19 @@ fn scalar_summary(value: ResolvedValue<'_>) -> Option<String> {
     let value = value.peek().innermost_peek();
     if let Some(text) = value.as_str() {
         return Some(truncate(text, MAX_SCALAR_SUMMARY_CHARS));
+    }
+    // Standard paths deliberately expose Display through display(), rather
+    // than implementing it themselves. Their reflected opaque shape has no
+    // fields to fall back on, so use that same presentation for both forms.
+    if let Ok(path) = value
+        .get::<PathBuf>()
+        .map(PathBuf::as_path)
+        .or_else(|_| value.get::<Path>())
+    {
+        return Some(truncate(
+            &path.display().to_string(),
+            MAX_SCALAR_SUMMARY_CHARS,
+        ));
     }
     // Domain scalars such as validated URLs may be reflected as structs while
     // their proxy hides the fields. Use their public Display representation.
@@ -288,6 +317,7 @@ mod tests {
     use cloud_terrastodon_credentials::AuthSource;
     use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
     use cloud_terrastodon_credentials::WorkloadIdentityConfig;
+    use cloud_terrastodon_registry::DiscoveryPlanBuildRequest;
     use cloud_terrastodon_registry::RuntimeValue;
     use facet::Facet;
     use std::num::NonZeroUsize;
@@ -498,6 +528,80 @@ mod tests {
             2,
             "type metadata pointers are not object fields"
         );
+    }
+
+    #[test]
+    fn selected_catalog_functions_display_signatures_without_exposing_metadata_pointers() {
+        let selected =
+            RegisteredFunction::from_function(DiscoveryPlanBuildRequest::REGISTERED_INTO_FUTURE);
+        let signature = describe_function(selected.function());
+        let mut arena = Arena::default();
+        let root = arena.insert_ready(runtime(vec![selected])).unwrap();
+        let source = ArenaAddressSource::new(&arena);
+        let list = CardSnapshot::observe_fields(&source, ValueAddress::root(root), 8).unwrap();
+        let summary = list.rows()[1].value_display().unwrap();
+        assert!(summary.starts_with(&signature));
+        let value = CardSnapshot::observe_fields(
+            &source,
+            ValueAddress::root(root).child(ValuePathSegment::Index(0)),
+            8,
+        )
+        .unwrap();
+        assert_eq!(
+            value.rows().len(),
+            2,
+            "executor metadata is not a user-editable field"
+        );
+        assert_eq!(
+            value.rows()[1].content(),
+            &CardRowContent::Text(summary.to_owned())
+        );
+    }
+
+    #[test]
+    fn paths_are_visible_in_owned_cards_projections_and_field_previews() {
+        #[derive(Facet)]
+        struct OutputPaths {
+            filename: PathBuf,
+            directory: &'static Path,
+        }
+
+        let filename = PathBuf::from(r"C:\plans\équipe\dump plan.excalidraw");
+        let directory = Path::new("target/plans");
+        let mut arena = Arena::default();
+        let owned = arena.insert_ready(runtime(filename.clone())).unwrap();
+        let borrowed = arena.insert_ready(runtime(directory)).unwrap();
+        let output = arena
+            .insert_ready(runtime(OutputPaths {
+                filename: filename.clone(),
+                directory,
+            }))
+            .unwrap();
+        let source = ArenaAddressSource::new(&arena);
+        for (slot, field, path) in [
+            (owned, "filename", filename.as_path()),
+            (borrowed, "directory", directory),
+        ] {
+            let expected = path.display().to_string();
+            for address in [
+                ValueAddress::root(slot),
+                ValueAddress::root(output).child(ValuePathSegment::Field(field.to_owned())),
+            ] {
+                let card = CardSnapshot::observe_fields(&source, address, 0).unwrap();
+                assert!(card.rows().iter().any(|row| {
+                    row.key() == &CardRowKey::Value
+                        && row.content() == &CardRowContent::Text(expected.clone())
+                }));
+            }
+            let card =
+                CardSnapshot::observe_fields(&source, ValueAddress::root(output), 8).unwrap();
+            let row = card
+                .rows()
+                .iter()
+                .find(|row| row.key() == &CardRowKey::Field(field.to_owned()))
+                .unwrap();
+            assert_eq!(row.value_display(), Some(expected.as_str()));
+        }
     }
 
     #[test]

@@ -97,6 +97,7 @@ pub struct PickerTui<'a, T> {
     allow_empty_selection: bool,
     include_focused_on_enter: bool,
     initial_marked: FxHashSet<CompactString>,
+    initial_focused: Option<CompactString>,
     cancellation: Option<Pin<Box<dyn Future<Output = ()> + Send + 'a>>>,
     terminal_coordinator: Option<TerminalCoordinator>,
     log_buffer: Option<PickerLogBufferHandle>,
@@ -112,6 +113,7 @@ impl<'a, T> Default for PickerTui<'a, T> {
             allow_empty_selection: false,
             include_focused_on_enter: false,
             initial_marked: FxHashSet::default(),
+            initial_focused: None,
             cancellation: None,
             terminal_coordinator: None,
             log_buffer: None,
@@ -194,6 +196,36 @@ impl<'a, T> PickerTui<'a, T> {
             .map(|key| CompactString::from(key.as_ref()))
             .collect();
         self
+    }
+
+    /// Focus one choice when its key first appears in the matched results.
+    ///
+    /// Unlike marked multi-selection, this controls the highlighted row. The
+    /// preference waits for asynchronously loaded choices, then applies once.
+    /// Keyboard input cancels an unapplied preference so late results never
+    /// override the user's navigation or search.
+    pub fn set_initial_focused(mut self, key: impl AsRef<str>) -> Self {
+        self.initial_focused = Some(CompactString::from(key.as_ref()));
+        self
+    }
+
+    pub(super) fn apply_initial_focus(
+        &mut self,
+        list_state: &mut ListState,
+        search_results_keys: &[Arc<CompactString>],
+    ) {
+        if let Some(key) = &self.initial_focused
+            && let Some(index) = search_results_keys
+                .iter()
+                .position(|candidate| **candidate == *key)
+        {
+            list_state.select(Some(index));
+            self.initial_focused = None;
+        }
+    }
+
+    pub(super) fn cancel_initial_focus(&mut self) {
+        self.initial_focused = None;
     }
 
     #[cfg(test)]
@@ -550,6 +582,7 @@ impl<'a, T> PickerTui<'a, T> {
                     keyboard_event_ready = true;
                     match input {
                         Some(Ok(Event::Key(key))) if key.kind == KeyEventKind::Press => {
+                            self.cancel_initial_focus();
                             let effects =
                                 extended_trace_span!("picker_handle_key").in_scope(|| {
                                     handle_key(
@@ -584,6 +617,7 @@ impl<'a, T> PickerTui<'a, T> {
                             };
                             match next_input {
                                 Ok(Event::Key(key)) if key.kind == KeyEventKind::Press => {
+                                    self.cancel_initial_focus();
                                     let effects =
                                         extended_trace_span!("picker_handle_key").in_scope(|| {
                                             handle_key(
@@ -866,6 +900,7 @@ impl<'a, T> PickerTui<'a, T> {
                     )
                 });
                 selection_needs_reset = false;
+                self.apply_initial_focus(&mut list_state, &search_results_keys);
             }
 
             if self.auto_accept

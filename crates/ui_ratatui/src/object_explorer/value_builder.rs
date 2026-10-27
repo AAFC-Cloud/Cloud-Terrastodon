@@ -593,6 +593,43 @@ impl BuilderStore {
         slot: SlotId,
         variant: usize,
     ) -> Result<BuilderTransition, ValueBuilderError> {
+        if let Some(current) = arena.ready_value(slot) {
+            let mut builder =
+                ValueBuilder::new_with_cancellation(current.shape(), &self.cancellation);
+            // Reject invalid choices without dropping or modifying the current value.
+            builder.select_variant(variant)?;
+            let selected = current
+                .peek()
+                .into_enum()
+                .map_err(|error| ValueBuilderError::Reflection(error.to_string()))?
+                .variant_index()
+                .map_err(|error| ValueBuilderError::Reflection(error.to_string()))?;
+            if selected == variant {
+                return Ok(BuilderTransition::Ready);
+            }
+            borrow_graph.ensure_root_unprotected(slot)?;
+
+            let transition = if builder.is_complete() {
+                // Unit variants and variants with defaults can be materialized
+                // before replacing the value, preserving it if reflection fails.
+                // A fresh builder has no references to other arena values.
+                let replacement =
+                    builder.materialize(arena, borrow_graph, slot, BTreeMap::new(), Vec::new())?;
+                debug_assert!(replacement.leases.is_empty());
+                debug_assert!(replacement.moved_sources.is_empty());
+                drop(arena.replace_ready(slot, replacement.value)?);
+                BuilderTransition::Ready
+            } else {
+                let previous = arena.begin_rebuild(slot)?;
+                self.builders.insert(slot, BuilderEntry::Defined(builder));
+                drop(previous);
+                BuilderTransition::Building
+            };
+            // The old value may itself contain borrows. Its sources must remain
+            // protected until its destructor has finished.
+            release_leases(borrow_graph, self.take_leases(slot));
+            return Ok(transition);
+        }
         self.assert_building(arena, slot)?;
         self.defined_builder_mut(slot)?.select_variant(variant)?;
         self.release_builder_leases(borrow_graph, slot);
@@ -1526,6 +1563,14 @@ mod tests {
         label: String,
     }
 
+    #[derive(Clone, Debug, Facet)]
+    #[repr(u8)]
+    enum TestBorrowChoice<'a> {
+        Empty,
+        Borrowed { source: Cow<'a, TestBorrowSource> },
+        Named { label: String },
+    }
+
     #[derive(Clone, Debug, Eq, Facet, PartialEq)]
     #[repr(C)]
     struct BindingFixture {
@@ -1539,6 +1584,88 @@ mod tests {
         T: Facet<'static> + Send + 'static,
     {
         RuntimeValue::from_box(Box::new(value)).expect("test value is representable")
+    }
+
+    #[test]
+    fn changing_ready_enum_variant_respects_incoming_borrows_and_releases_outgoing_borrows() {
+        for target_variant in [0, 2] {
+            let mut arena = Arena::default();
+            let mut builders = BuilderStore::default();
+            let mut borrows = BorrowGraph::default();
+            let source = arena
+                .insert_ready(runtime(TestBorrowSource {
+                    value: "source".to_owned(),
+                }))
+                .unwrap();
+            let (choice, _) = builders
+                .create_and_finalize(&mut arena, &mut borrows, TestBorrowChoice::SHAPE)
+                .unwrap();
+            builders
+                .select_variant_and_finalize(&mut arena, &mut borrows, choice, 1)
+                .unwrap();
+            assert_eq!(
+                builders
+                    .set_field_and_finalize(
+                        &mut arena,
+                        &mut borrows,
+                        choice,
+                        0,
+                        FieldBinding::BorrowFrom(ValueAddress::root(source)),
+                    )
+                    .unwrap(),
+                BuilderTransition::Ready
+            );
+            assert!(borrows.protects_root(source));
+            let borrower = arena.reserve_builder().unwrap();
+            let lease = borrows
+                .borrow(&arena, ValueAddress::root(choice), borrower, "choice")
+                .unwrap();
+            let revision = arena.root_revision(choice);
+            assert_eq!(
+                builders
+                    .select_variant_and_finalize(&mut arena, &mut borrows, choice, 1)
+                    .unwrap(),
+                BuilderTransition::Ready
+            );
+            assert_eq!(
+                arena.root_revision(choice),
+                revision,
+                "reselecting the current variant preserves its data and leases"
+            );
+            assert!(matches!(
+                builders.select_variant_and_finalize(
+                    &mut arena,
+                    &mut borrows,
+                    choice,
+                    target_variant
+                ),
+                Err(ValueBuilderError::Borrow(
+                    BorrowError::SourceProtected { .. }
+                ))
+            ));
+            assert_eq!(arena.root_revision(choice), revision);
+            assert_eq!(borrows.edge_count(), 2);
+            borrows.release(lease).unwrap();
+
+            let transition = builders
+                .select_variant_and_finalize(&mut arena, &mut borrows, choice, target_variant)
+                .unwrap();
+            assert_eq!(
+                transition,
+                if target_variant == 0 {
+                    BuilderTransition::Ready
+                } else {
+                    BuilderTransition::Building
+                }
+            );
+            assert!(arena.root_revision(choice) > revision);
+            assert_eq!(
+                borrows.edge_count(),
+                0,
+                "replaced variant no longer holds its source alive"
+            );
+            builders.delete(&mut arena, &mut borrows, source).unwrap();
+        }
     }
 
     #[test]

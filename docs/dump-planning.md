@@ -196,3 +196,24 @@ registry operations or cloud requests execute in this mode.
 The object explorer is the control surface for the next planning iteration;
 Excalidraw remains its diagram renderer. Input values in this command still come
 from the organization, tenant and authentication flags.
+
+## Building a plan in the object explorer
+
+`DiscoveryPlanBuildRequest` separates the editable planning inputs from the
+resulting `DiscoveryPlan` graph. Its `seeds` and `targets` fields are lists of
+`RegisteredShape`; choose them through the explorer's shape picker. Seeds declare
+the input types assumed available, such as `AzureDevOpsOrganizationUrl` and
+`AzureDevOpsAuthContext`. They do not create input values or resolve credentials.
+An explicit empty seed list is valid and exposes blocked dependencies.
+
+The `functions` field defaults to the linked registry's operation catalog. It is
+a list of `RegisteredFunction` handles, so it can be replaced with a constrained
+catalog. Planning only considers that supplied catalog and still excludes writes,
+solicitations, and arbitrary constructors. Cancellation comes from the host.
+Invoke the configured request to create a `DiscoveryPlan`, then supply that
+result to `ProduceExcalidrawDumpPlanRequest.plan` and choose the output filename.
+
+`DiscoveryPlanRequest` remains available for a different input contract: it
+derives seed shapes from ready objects selected by an object-pool query. Use
+`DiscoveryPlanBuildRequest` when choosing seed shapes explicitly, and the
+pool-query request when the plan should reflect values already acquired.

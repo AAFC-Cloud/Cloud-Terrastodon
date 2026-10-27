@@ -29,26 +29,36 @@ waits for an active writer. Ctrl-C closes the explorer and drains publication
 already in progress. While an export collects its consistent snapshot, browser
 commands wait; Esc or Ctrl-C can close the session.
 
-To inspect a discovery plan without invoking cloud APIs:
+To configure a discovery plan without invoking cloud APIs:
 
-1. Create a **DiscoveryPlanRequest** slot using the normal shape picker.
-2. On `targets`, choose **create new owned List<RegisteredShape>** (the reflected
+1. Create a **DiscoveryPlanBuildRequest** slot using the normal shape picker.
+   `DiscoveryPlan` is the generated graph; its nodes and edges are output,
+   rather than the place to configure targets.
+2. Leave `functions` at its default to use the linked registry, or choose
+   **create new owned List<RegisteredFunction>** to select a smaller catalog.
+3. On `seeds`, choose **create new owned List<RegisteredShape>** and select the
+   input shapes to assume available, for example `AzureDevOpsOrganizationUrl`
+   and `AzureDevOpsAuthContext`. This supplies type assumptions, not credentials
+   or actual objects. Ctrl-Enter with nothing checked supplies an empty list.
+4. On `targets`, choose **create new owned List<RegisteredShape>** (the reflected
    `Vec<RegisteredShape>`). Search for
    target types such as `AzureAppServiceSiteConfig` or
    `AzureDevOpsBuildDefinition`. Enter includes the highlighted result and
    checked results; Tab toggles checks, and Ctrl-Enter applies only the checks.
-3. Leave `inputs` at its default to consider all ready objects in the pool, or
-   supply a tab's projected `breadcrumbs` value to restrict it. These objects supply the
-   input shapes; registered types and incomplete builders do not.
-4. Invoke the completed request to produce a **DiscoveryPlan**. This operation
-   only inspects the pool and registry. It does not execute the proposed requests,
+5. Invoke the completed request to produce a **DiscoveryPlan**. This operation
+   only inspects the supplied shapes and functions. It does not execute the proposed requests,
    resolve credentials, or call services.
-5. Focus the resulting plan slot and press **Ctrl-O**. Its graph includes type
-   fields and shows missing inputs. Add the needed objects using the explorer's
-   normal construction tools, then construct/invoke an updated planning request.
+6. Focus the resulting plan slot and press **Ctrl-O**. Its graph includes type
+   fields and shows missing inputs.
+
+The separate **DiscoveryPlanRequest** infers seed shapes from actual ready
+objects in the explorer. Its `inputs` field defaults to the unfiltered pool;
+supply a tab's projected `breadcrumbs` value to restrict it. Registered types
+and incomplete builders do not count as ready inputs. Use this request when
+planning from objects already acquired, rather than explicit shape assumptions.
 
 To export just the discovery graph through the normal registry workflow, create
-a **ProduceDumpPlanExcalidrawRequest** slot. It has two user-supplied fields:
+a **ProduceExcalidrawDumpPlanRequest** slot. It has two user-supplied fields:
 
 ```text
 plan: DiscoveryPlan
@@ -56,8 +66,14 @@ filename: PathBuf
 ```
 
 On `plan`, select an existing plan and choose **Clone** to retain it or **Move**
-to transfer it into the request. The normal producer choices can also construct
-the plan through a `DiscoveryPlanRequest`. On `filename`, create an owned
+to transfer it into the request. Alternatively choose **create DiscoveryPlanBuildRequest
+for DiscoveryPlan (edit, then ...)** to open a request slot in its own tab for configuration.
+The export's `plan` field remains unset. Configure seeds and targets, explicitly
+invoke the builder request, then return to the export and select the resulting
+plan. **Invoke default** is a separate action that immediately runs a producer
+with default inputs; it does not pause for editing.
+
+On `filename`, create an owned
 `PathBuf` and enter a path such as `target/plan.excalidraw` in the scalar editor.
 Invoke the completed request to write the drawing and receive its output path
 as a `PathBuf` slot. The caller supplies the cancellation scope automatically.
@@ -75,6 +91,12 @@ objects selected by a `Breadcrumbs` query for subsequent Power BI ingestion.
 The Ctrl-O/Ctrl-U object snapshots observe at most 256 fields per object and
 explicitly mark any omission; this display bound does not change JSON export or
 truncate tab membership.
+
+On a completed owned enum slot, focus `variant` and press Enter to change it.
+Cancelling or selecting the current variant preserves the value. Selecting a
+different variant replaces the previous payload; if it needs fields, the same
+slot returns to Building. A value borrowed by another object cannot be changed
+until those borrows are released. Projected fields remain read-only views.
 
 The earlier `dump plan --interactive` command also uses terminal-owned target
 selection now. Its canvas contains the generated graph, with the former search

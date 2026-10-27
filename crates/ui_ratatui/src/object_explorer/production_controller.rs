@@ -90,7 +90,7 @@ impl ProductionController {
             ));
         }
 
-        let (root, manual_input) = match strategy {
+        let root = match strategy {
             ProductionStrategy::Default => {
                 let plan = default_production_plan(function.input_shape).ok_or_else(|| {
                     format!(
@@ -98,24 +98,7 @@ impl ProductionController {
                         describe_shape(function.input_shape)
                     )
                 })?;
-                (
-                    ProductionNode::invoke(function, ProductionNode::from_default_plan(&plan)),
-                    None,
-                )
-            }
-            ProductionStrategy::Manual => {
-                let (input, _) = builders
-                    .create_and_finalize(arena, borrow_graph, function.input_shape)
-                    .map_err(|error| {
-                        format!(
-                            "could not create {} producer request: {error}",
-                            describe_shape(function.input_shape)
-                        )
-                    })?;
-                (
-                    ProductionNode::invoke(function, ProductionNode::existing(input)),
-                    Some(input),
-                )
+                ProductionNode::invoke(function, ProductionNode::from_default_plan(&plan))
             }
             ProductionStrategy::Arbitrary { bytes } => {
                 let constructor =
@@ -127,24 +110,23 @@ impl ProductionController {
                     })?;
                 let input =
                     ProductionNode::invoke(constructor, ProductionNode::arbitrary_bytes(bytes));
-                (ProductionNode::invoke(function, input), None)
+                ProductionNode::invoke(function, input)
             }
         };
 
-        if let Err(error) = builders.set_field_and_finalize(
-            arena,
-            borrow_graph,
-            destination,
-            field,
-            FieldBinding::PendingProducer,
-        ) {
-            if let Some(input) = manual_input {
-                let _ = builders.delete(arena, borrow_graph, input);
-            }
-            return Err(format!(
-                "could not reserve slot {destination} field {field} for a producer: {error}"
-            ));
-        }
+        builders
+            .set_field_and_finalize(
+                arena,
+                borrow_graph,
+                destination,
+                field,
+                FieldBinding::PendingProducer,
+            )
+            .map_err(|error| {
+                format!(
+                    "could not reserve slot {destination} field {field} for a producer: {error}"
+                )
+            })?;
 
         let id = ProductionJobId::new(self.next_job);
         self.next_job = self
@@ -158,7 +140,7 @@ impl ProductionController {
                 destination,
                 field,
                 root,
-                latest_root: manual_input,
+                latest_root: None,
             },
         );
         debug_assert!(replaced.is_none(), "production job ids are monotonic");
@@ -370,7 +352,6 @@ mod tests {
     use crate::object_explorer::tokio_invocation_host::TokioInvocationHost;
     use crate::object_explorer::value_builder::BuilderTransition;
     use arbitrary::Arbitrary;
-    use cloud_terrastodon_registry::RuntimeValue;
     use cloud_terrastodon_registry::functions_from;
     use facet::Facet;
     use std::future::Future;
@@ -523,74 +504,6 @@ mod tests {
             .downcast::<ProductionDestination>()
             .unwrap();
         assert_eq!(value.value.marker, 0);
-    }
-
-    #[tokio::test]
-    async fn manual_production_waits_for_its_visible_request_builder_then_auto_invokes() {
-        let mut arena = Arena::default();
-        let mut builders = BuilderStore::default();
-        let mut borrows = BorrowGraph::default();
-        let mut invocations = InvocationController::default();
-        let mut host = TokioInvocationHost::new(attach_nothing);
-        let mut production = ProductionController::default();
-        let (destination, _) = builders
-            .create_and_finalize(&mut arena, &mut borrows, ProductionDestination::SHAPE)
-            .unwrap();
-
-        let start = production
-            .start(
-                &mut arena,
-                &mut builders,
-                &mut borrows,
-                &mut invocations,
-                &mut host,
-                destination,
-                0,
-                producer(),
-                ProductionStrategy::Manual,
-                1,
-            )
-            .unwrap();
-        let request = start.updates()[0]
-            .input()
-            .expect("manual strategy returns its ordinary builder root");
-        assert!(builders.builder(request).is_some());
-        assert_eq!(production.active_count(), 1);
-        builders
-            .set_field_and_finalize(
-                &mut arena,
-                &mut borrows,
-                request,
-                0,
-                FieldBinding::InlineOwned(
-                    RuntimeValue::from_box(Box::new(37_u8)).expect("u8 runtime value"),
-                ),
-            )
-            .unwrap();
-
-        let complete = finish(
-            &mut production,
-            &mut arena,
-            &mut builders,
-            &mut borrows,
-            &mut invocations,
-            &mut host,
-        )
-        .await;
-        assert!(matches!(
-            complete.state(),
-            ProductionJobState::Complete { .. }
-        ));
-        let value = arena
-            .ready_value(destination)
-            .unwrap()
-            .try_clone()
-            .unwrap()
-            .into_box::<ProductionDestination>()
-            .unwrap()
-            .downcast::<ProductionDestination>()
-            .unwrap();
-        assert_eq!(value.value.marker, 37);
     }
 
     #[tokio::test]

@@ -135,6 +135,31 @@ impl Arena {
         Ok(previous)
     }
 
+    /// Reopen an owned value for construction without changing its slot identity.
+    ///
+    /// BuilderStore must validate the replacement and prove through BorrowGraph
+    /// that no external borrow points into this value before calling this method.
+    /// Return the old value so its owner can drop it before releasing its leases.
+    pub(crate) fn begin_rebuild(&mut self, slot_id: SlotId) -> Result<RuntimeValue, ArenaError> {
+        let slot = self
+            .slots
+            .get_mut(&slot_id)
+            .ok_or(ArenaError::UnknownSlot(slot_id))?;
+        if !matches!(slot.state(), ArenaSlotState::Ready(_)) {
+            return Err(ArenaError::InvalidTransition {
+                slot: slot_id,
+                from: slot.state().label(),
+                to: "Building",
+            });
+        }
+        let previous = slot.replace_state(ArenaSlotState::Building);
+        let ArenaSlotState::Ready(previous) = previous else {
+            unreachable!("Ready transition checked immediately above")
+        };
+        self.revisions.ingest_root_change(slot_id)?;
+        Ok(previous)
+    }
+
     pub(crate) fn delete(&mut self, slot_id: SlotId) -> Result<(), ArenaError> {
         let slot = self
             .slots

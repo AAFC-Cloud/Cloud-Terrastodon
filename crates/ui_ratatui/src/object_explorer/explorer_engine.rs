@@ -2865,6 +2865,77 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn ready_enum_can_reopen_and_complete_in_the_same_slot() {
+        let engine = ExplorerEngine::new(Arena::default());
+        let (context, inbox) = ArenaQueryContext::channel(4);
+        let handle = context.engine_handle();
+        let client = async move {
+            let choice = handle
+                .insert_ready(OwnedValuePacket::new(EngineChoice::Empty))
+                .await
+                .unwrap();
+            let before = handle.inspect_root(choice, 8).await.unwrap();
+            assert!(before.enum_shape().unwrap().is_shape(EngineChoice::SHAPE));
+            assert_eq!(before.selected_variant(), Some(0));
+            assert!(handle.select_builder_variant(choice, 42).await.is_err());
+            assert_eq!(
+                handle.inspect_root(choice, 8).await.unwrap().revision(),
+                before.revision()
+            );
+
+            assert_eq!(
+                handle.select_builder_variant(choice, 1).await.unwrap(),
+                BuilderTransition::Building
+            );
+            let building = handle.inspect_root(choice, 8).await.unwrap();
+            assert_eq!(building.selected_variant(), Some(1));
+            assert!(building.enum_shape().unwrap().is_shape(EngineChoice::SHAPE));
+            assert_eq!(building.builder().unwrap().fields()[0].name(), "label");
+            assert_eq!(
+                handle
+                    .set_builder_field(
+                        choice,
+                        0,
+                        FieldBindingPacket::InlineOwned(OwnedValuePacket::new(String::from(
+                            "chosen"
+                        )))
+                    )
+                    .await
+                    .unwrap(),
+                BuilderTransition::Ready
+            );
+            let completed = handle.inspect_root(choice, 8).await.unwrap();
+            assert_eq!(
+                handle.select_builder_variant(choice, 1).await.unwrap(),
+                BuilderTransition::Ready
+            );
+            assert_eq!(
+                handle.inspect_root(choice, 8).await.unwrap().revision(),
+                completed.revision()
+            );
+            assert_eq!(
+                handle.select_builder_variant(choice, 0).await.unwrap(),
+                BuilderTransition::Ready
+            );
+            assert_eq!(
+                handle
+                    .inspect_root(choice, 8)
+                    .await
+                    .unwrap()
+                    .selected_variant(),
+                Some(0)
+            );
+            drop(handle);
+            drop(context);
+            choice
+        };
+        let (engine, choice) = tokio::join!(engine.run(inbox), client);
+        assert!(engine.arena().ready_value(choice).is_some());
+        assert_eq!(engine.arena().allocated_slot_count(), 1);
+        assert!(engine.builders().builder(choice).is_none());
+    }
+
+    #[tokio::test]
     async fn engine_builder_commands_finalize_only_the_addressed_builder_before_reply() {
         let engine = ExplorerEngine::new(Arena::default());
         let (context, inbox) = ArenaQueryContext::channel(8);

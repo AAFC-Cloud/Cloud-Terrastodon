@@ -25,9 +25,6 @@ pub(super) enum ProductionNodeAdvance {
 }
 
 pub(super) enum ProductionNode {
-    Existing {
-        output: SlotId,
-    },
     Default {
         shape: &'static Shape,
         output: Option<SlotId>,
@@ -87,10 +84,6 @@ impl ProductionNode {
         }
     }
 
-    pub(super) fn existing(output: SlotId) -> Self {
-        Self::Existing { output }
-    }
-
     pub(super) fn arbitrary_bytes(bytes: Vec<u8>) -> Self {
         Self::ArbitraryBytes {
             bytes: Some(bytes),
@@ -108,7 +101,6 @@ impl ProductionNode {
 
     pub(super) fn output_if_allocated(&self) -> Option<SlotId> {
         match self {
-            Self::Existing { output } => Some(*output),
             Self::Default { output, .. } | Self::ArbitraryBytes { output, .. } => *output,
             Self::Struct(node) => node.output,
             Self::Invoke(node) => node.output,
@@ -132,7 +124,6 @@ impl ProductionNode {
         invocation_host: &mut dyn InvocationHost,
     ) -> ProductionNodeAdvance {
         match self {
-            Self::Existing { output } => root_state(arena, *output),
             Self::Default { shape, output } => {
                 if let Some(output) = *output {
                     return root_state(arena, output);
@@ -352,12 +343,5 @@ mod tests {
     fn arbitrary_node_has_no_root_until_the_engine_advances_it() {
         let node = ProductionNode::arbitrary_bytes(vec![1, 2, 3]);
         assert_eq!(node.output_if_allocated(), None);
-    }
-
-    #[test]
-    fn existing_node_preserves_the_supplied_arena_identity() {
-        let slot = SlotId::new(7);
-        let node = ProductionNode::existing(slot);
-        assert_eq!(node.output_if_allocated(), Some(slot));
     }
 }

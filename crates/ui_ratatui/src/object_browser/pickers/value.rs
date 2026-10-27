@@ -275,7 +275,7 @@ impl FieldValuePicker {
             }
             let row = ValuePickerRow {
                 label: format!(
-                    "+ create {input} for {target} via {}",
+                    "+ create {input} for {target} (edit, then {})",
                     describe_function(producer.function)
                 ),
                 choice: ValuePickerChoice::CreateProducer {

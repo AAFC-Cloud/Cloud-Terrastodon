@@ -31,7 +31,14 @@ fn plan(
     targets: &[&'static Shape],
 ) -> DiscoveryPlan {
     CancellationToken::new()
-        .with_scope(|cancellation| DiscoveryPlan::build(catalog, seeds, targets, &cancellation))
+        .with_scope(|cancellation| {
+            DiscoveryPlan::build(
+                catalog,
+                seeds.iter().copied(),
+                targets.iter().copied(),
+                &cancellation,
+            )
+        })
         .expect("planning inspects metadata without resolving credentials or invoking requests")
 }
 

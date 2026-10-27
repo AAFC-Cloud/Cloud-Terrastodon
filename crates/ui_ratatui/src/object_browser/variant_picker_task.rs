@@ -29,18 +29,22 @@ impl VariantPickerTask {
         if choices.is_empty() {
             return Err("the enum has no variants".to_owned());
         }
+        let initial_focused = choices
+            .get(picker.selected_index())
+            .map(|choice| choice.key.clone());
         let slot = picker.slot();
         let coordinator = TerminalCoordinator::try_current().ok_or_else(|| {
             "a nested PickerTui needs the object browser's TerminalCoordinator".to_owned()
         })?;
         let handle = tokio::spawn(async move {
-            match PickerTui::new()
+            let mut picker = PickerTui::new()
                 .set_header("Pick Variant")
                 .set_auto_accept(false)
-                .terminal_coordinator(coordinator)
-                .pick_one(choices)
-                .await
-            {
+                .terminal_coordinator(coordinator);
+            if let Some(key) = initial_focused {
+                picker = picker.set_initial_focused(key);
+            }
+            match picker.pick_one(choices).await {
                 Ok(variant) => VariantPickerOutcome::Selected { slot, variant },
                 Err(PickError::Cancelled) => VariantPickerOutcome::Cancelled,
                 Err(error) => VariantPickerOutcome::Failed(error.to_string()),

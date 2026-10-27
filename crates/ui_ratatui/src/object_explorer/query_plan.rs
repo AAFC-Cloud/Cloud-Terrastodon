@@ -112,6 +112,12 @@ impl SelectionStage {
                 return false;
             }
         }
+        // Projection and root/descendant selection depend on identity, so a
+        // Building or Pending card remains visible in its own object-pool tab.
+        // Shape/value predicates below still require an actual Ready value.
+        if self.shape_filters.is_empty() && self.value_filters.is_empty() {
+            return source.contains_address(address);
+        }
         stats.record_reflection();
         let Ok(value) = source.resolve(address) else {
             return false;
@@ -732,6 +738,61 @@ mod tests {
             ]
         );
         assert!(result.inspected() < 32);
+    }
+
+    #[test]
+    fn lifecycle_projections_are_browsable_without_becoming_queryable_values() {
+        let mut arena = Arena::default();
+        let building = arena.reserve_builder().unwrap();
+        let pending = arena.insert_pending().unwrap();
+        let consumed = arena
+            .insert_ready(runtime(String::from("old value")))
+            .unwrap();
+        drop(arena.consume(consumed).unwrap());
+        let deleted = arena.reserve_builder().unwrap();
+        arena.abandon_builder(deleted).unwrap();
+        let pool = ArenaAddressSource::object_pool(&arena);
+        let values = ArenaAddressSource::new(&arena);
+
+        for slot in [building, pending, consumed] {
+            let projection = Breadcrumb::projection(slot.get(), Vec::new());
+            let plan = QueryPlan::new(Breadcrumbs::new(vec![projection.clone()]));
+            assert_eq!(
+                plan.evaluate(&pool).collect::<Vec<_>>(),
+                [ValueAddress::root(slot)]
+            );
+            assert!(
+                plan.evaluate(&values).next().is_none(),
+                "exports require a ready value"
+            );
+            let filtered = QueryPlan::new(Breadcrumbs::new(vec![
+                projection,
+                Breadcrumb::ShapeFilter {
+                    included_shapes: vec!["String".to_owned()],
+                },
+            ]));
+            assert!(
+                filtered.evaluate(&pool).next().is_none(),
+                "shape and value predicates still require ready data"
+            );
+        }
+        for (slot, path) in [
+            (
+                building,
+                vec![ValuePathSegment::Field("not_built".to_owned())],
+            ),
+            (deleted, vec![]),
+            (SlotId::new(999), vec![]),
+        ] {
+            let plan = QueryPlan::new(Breadcrumbs::new(vec![Breadcrumb::projection(
+                slot.get(),
+                path,
+            )]));
+            assert!(
+                plan.evaluate(&pool).next().is_none(),
+                "projection must not invent an address"
+            );
+        }
     }
 
     #[test]

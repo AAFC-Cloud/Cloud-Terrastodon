@@ -13,6 +13,9 @@ use super::slot_id::SlotId;
 use super::value_address::ValueAddress;
 use super::value_builder::BuilderStore;
 use super::value_resolution_error::ValueResolutionError;
+use facet::Shape;
+use facet::Type;
+use facet::UserType;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum RootLifecycleSnapshot {
@@ -36,6 +39,8 @@ pub(crate) struct RootSnapshot {
     revision: RootRevision,
     lifecycle: RootLifecycleSnapshot,
     builder: Option<BuilderSnapshot>,
+    enum_shape: Option<&'static Shape>,
+    selected_variant: Option<usize>,
     card: CardSnapshot,
 }
 
@@ -51,6 +56,28 @@ impl RootSnapshot {
             .root_revision(slot)
             .ok_or(ArenaError::UnknownSlot(slot))?;
         let address = ValueAddress::root(slot);
+        let (enum_shape, selected_variant) = match arena_slot.state() {
+            ArenaSlotState::Ready(value)
+                if matches!(value.shape().ty, Type::User(UserType::Enum(_))) =>
+            {
+                (
+                    Some(value.shape()),
+                    value
+                        .peek()
+                        .into_enum()
+                        .ok()
+                        .and_then(|value| value.variant_index().ok()),
+                )
+            }
+            ArenaSlotState::Building => builders.builder(slot).map_or((None, None), |builder| {
+                (
+                    matches!(builder.shape().ty, Type::User(UserType::Enum(_)))
+                        .then_some(builder.shape()),
+                    builder.selected_variant(),
+                )
+            }),
+            _ => (None, None),
+        };
         let (lifecycle, builder, card) = match arena_slot.state() {
             ArenaSlotState::Ready(_) => (
                 RootLifecycleSnapshot::Ready,
@@ -161,6 +188,8 @@ impl RootSnapshot {
             revision,
             lifecycle,
             builder,
+            enum_shape,
+            selected_variant,
             card,
         })
     }
@@ -179,6 +208,14 @@ impl RootSnapshot {
 
     pub(crate) const fn builder(&self) -> Option<&BuilderSnapshot> {
         self.builder.as_ref()
+    }
+
+    pub(crate) const fn enum_shape(&self) -> Option<&'static Shape> {
+        self.enum_shape
+    }
+
+    pub(crate) const fn selected_variant(&self) -> Option<usize> {
+        self.selected_variant
     }
 
     pub(crate) const fn card(&self) -> &CardSnapshot {

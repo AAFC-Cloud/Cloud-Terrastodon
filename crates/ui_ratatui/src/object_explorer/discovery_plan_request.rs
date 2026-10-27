@@ -50,12 +50,8 @@ impl DiscoveryPlanRequest {
         self.cancellation.bail_if_cancelled()?;
         DiscoveryPlan::build(
             functions,
-            &seeds.into_iter().collect::<Vec<_>>(),
-            &self
-                .targets
-                .iter()
-                .map(|target| target.shape())
-                .collect::<Vec<_>>(),
+            seeds,
+            self.targets.iter().map(|target| target.shape()),
             &self.cancellation,
         )
     }

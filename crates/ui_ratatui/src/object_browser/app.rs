@@ -10,7 +10,7 @@ use super::link_action_picker_task::LinkActionPickerTask;
 use super::pickers::FieldValuePicker;
 use super::pickers::LinkActionPicker;
 use super::pickers::VariantPicker;
-use super::registered_shape_picker_task::RegisteredShapePickerTask;
+use super::registry_selection_picker_task::RegistrySelectionPickerTask;
 use super::render::CardLayoutAxis;
 use super::row_search::RowSearchState;
 use super::shape_picker_task::ShapePickerTask;
@@ -102,7 +102,7 @@ pub(crate) struct ObjectBrowserApp {
     pub(super) production_jobs_active: bool,
     pub(super) status: String,
     pub(super) excalidraw: Option<ExcalidrawRenderSession>,
-    pub(super) registered_shape_picker: Option<RegisteredShapePickerTask>,
+    pub(super) registry_selection_picker: Option<RegistrySelectionPickerTask>,
     pub(super) cancellation: Option<CancellationScope>,
 }
 
@@ -149,7 +149,7 @@ impl ObjectBrowserApp {
             production_jobs_active: false,
             status: "Left/Right: cards | Up/Down: rows | Ctrl-O: draw slot | Ctrl-U: draw tab | Shift+End: new object | Esc: back / triple-Esc: exit".to_owned(),
             excalidraw: None,
-            registered_shape_picker: None,
+            registry_selection_picker: None,
             cancellation: None,
         })
     }
@@ -173,8 +173,8 @@ impl ObjectBrowserApp {
             return Ok(());
         }
         if self.mode == BrowserMode::NestedPicker {
-            if self.registered_shape_picker.is_some() {
-                self.finish_registered_shape_picker().await?;
+            if self.registry_selection_picker.is_some() {
+                self.finish_registry_selection_picker().await?;
             } else if self.breadcrumb_menu_task.is_some() {
                 self.finish_breadcrumb_menu_task().await?;
             } else if self.breadcrumb_filter_field_picker_task.is_some() {
@@ -354,7 +354,7 @@ impl ObjectBrowserApp {
     }
 
     pub(crate) async fn close(mut self) -> Result<(), ObjectBrowserControllerError> {
-        if let Some(picker) = self.registered_shape_picker.take() {
+        if let Some(picker) = self.registry_selection_picker.take() {
             picker.close().await;
         }
         if let Some(renderer) = self.excalidraw.take() {

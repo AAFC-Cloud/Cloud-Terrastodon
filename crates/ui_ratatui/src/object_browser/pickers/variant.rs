@@ -57,6 +57,12 @@ impl VariantPicker {
         self.selected
     }
 
+    pub(crate) fn select_variant(&mut self, variant: usize) {
+        if let Some(index) = self.matches.iter().position(|index| *index == variant) {
+            self.selected = index;
+        }
+    }
+
     pub(crate) fn push(&mut self, character: char) {
         self.query.push(character);
         self.rebuild();

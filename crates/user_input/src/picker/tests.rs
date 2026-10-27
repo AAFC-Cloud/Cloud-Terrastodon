@@ -293,6 +293,50 @@ fn picker_accepts_initial_multi_selection_keys() {
 }
 
 #[test]
+fn initial_focus_waits_for_its_candidate_then_leaves_later_navigation_alone() {
+    let mut picker = PickerTui::<()>::new().set_initial_focused("None");
+    let mut list_state = ratatui::widgets::ListState::default();
+    picker.apply_initial_focus(&mut list_state, &[]);
+    assert_eq!(list_state.selected(), None);
+    let partial = vec![Arc::new(CompactString::from("Unresolved"))];
+    list_state.select(Some(0));
+    picker.apply_initial_focus(&mut list_state, &partial);
+    assert_eq!(list_state.selected(), Some(0));
+
+    let choices = vec![
+        Arc::new(CompactString::from("Unresolved")),
+        Arc::new(CompactString::from("None")),
+        Arc::new(CompactString::from("Resolved")),
+    ];
+    picker.apply_initial_focus(&mut list_state, &choices);
+    assert_eq!(list_state.selected(), Some(1));
+    list_state.select(Some(2));
+    picker.apply_initial_focus(&mut list_state, &choices);
+    assert_eq!(
+        list_state.selected(),
+        Some(2),
+        "a later result update must not restore initial focus"
+    );
+}
+
+#[test]
+fn user_input_cancels_initial_focus_before_delayed_results_arrive() {
+    let mut picker = PickerTui::<()>::new().set_initial_focused("None");
+    let mut list_state = ratatui::widgets::ListState::default();
+    picker.apply_initial_focus(&mut list_state, &[]);
+    picker.cancel_initial_focus();
+    list_state.select(Some(0));
+    picker.apply_initial_focus(
+        &mut list_state,
+        &[
+            Arc::new(CompactString::from("Unresolved")),
+            Arc::new(CompactString::from("None")),
+        ],
+    );
+    assert_eq!(list_state.selected(), Some(0));
+}
+
+#[test]
 fn preserves_selection_when_result_order_changes() {
     let selected = CompactString::from("two");
     let keys = vec![CompactString::from("one"), CompactString::from("two")];

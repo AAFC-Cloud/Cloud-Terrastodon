@@ -33,8 +33,8 @@ pub(crate) struct DiscoveryPlanGraph {
 impl DiscoveryPlanGraph {
     pub(crate) fn new(
         functions: impl IntoIterator<Item = &'static Function>,
-        seeds: &[&'static Shape],
-        targets: &[&'static Shape],
+        seeds: impl IntoIterator<Item = &'static Shape>,
+        targets: impl IntoIterator<Item = &'static Shape>,
         cancellation: &CancellationScope,
     ) -> eyre::Result<Self> {
         let mut seen = HashSet::new();
@@ -58,7 +58,7 @@ impl DiscoveryPlanGraph {
             functions: Vec::new(),
             witnesses: HashMap::new(),
         };
-        let mut seeds = seeds.to_vec();
+        let mut seeds: Vec<_> = seeds.into_iter().collect();
         seeds.sort_by_cached_key(|shape| describe_shape(shape));
         for shape in seeds {
             cancellation.bail_if_cancelled()?;
@@ -66,7 +66,7 @@ impl DiscoveryPlanGraph {
             graph.nodes[id].seed = true;
             graph.nodes[id].reachable = true;
         }
-        let mut targets = targets.to_vec();
+        let mut targets: Vec<_> = targets.into_iter().collect();
         targets.sort_by_cached_key(|shape| describe_shape(shape));
         for shape in targets {
             let id = graph.shape_node(shape);

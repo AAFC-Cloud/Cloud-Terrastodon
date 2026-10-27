@@ -74,8 +74,8 @@ async fn export_plan_through_explorer(cancellation: CancellationScope) -> eyre::
     let filename = directory.path().join("chosen plan drawing.excalidraw");
     let plan = DiscoveryPlan::build(
         [DiagramInventoryRequest::REGISTERED_INTO_FUTURE],
-        &[DiagramInput::SHAPE],
-        &[DiagramInventory::SHAPE],
+        [DiagramInput::SHAPE],
+        [DiagramInventory::SHAPE],
         &cancellation,
     )?;
     assert!(

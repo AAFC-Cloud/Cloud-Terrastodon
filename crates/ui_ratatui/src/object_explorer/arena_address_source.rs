@@ -1,4 +1,5 @@
 use super::arena::Arena;
+use super::arena_slot_state::ArenaSlotState;
 use super::preorder_cursor::AddressSource;
 use super::resolved_value::ResolvedValue;
 use super::revision::RootRevision;
@@ -32,6 +33,24 @@ impl<'arena> ArenaAddressSource<'arena> {
             arena,
             include_lifecycle_roots: true,
         }
+    }
+
+    /// Test membership without requiring a reflected value for lifecycle roots.
+    /// Direct projections must obey the same visibility policy as root traversal:
+    /// exports see Ready values; the object pool also sees unfinished/consumed
+    /// slots. Missing roots, tombstones, and unresolved descendants never exist
+    /// in either source's address stream.
+    pub(crate) fn contains_address(&self, address: &ValueAddress) -> bool {
+        if address.path().segments().is_empty() {
+            return self.arena.slot(address.root_id()).is_some_and(|slot| {
+                if self.include_lifecycle_roots {
+                    !matches!(slot.state(), ArenaSlotState::Tombstone { .. })
+                } else {
+                    slot.state().ready_value().is_some()
+                }
+            });
+        }
+        self.resolve(address).is_ok()
     }
 
     pub(crate) fn resolve(
