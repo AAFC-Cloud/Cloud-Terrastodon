@@ -77,54 +77,6 @@ fn work_fingerprint(
     Ok(blake3::hash(&bytes).to_hex().to_string())
 }
 
-async fn execute_and_cache_output<Exec, ExecFuture, Raw>(
-    cache_key: &CacheKey,
-    context: &str,
-    debug_inputs: &BTreeMap<PathBuf, BString>,
-    metadata: &ArtifactMetadata,
-    extra_files: Option<RawExtraFilesFn<Raw>>,
-    execute_raw: Exec,
-    cancellation: &CancellationScope,
-) -> Result<CommandOutput>
-where
-    Exec: FnOnce() -> ExecFuture + Send,
-    ExecFuture: Future<Output = Result<Raw>> + Send,
-    Raw: Facet<'static> + Send + 'static,
-{
-    let raw = execute_raw().await?;
-    cancellation
-        .finish_required("persisting request output and cache artifacts", |_| async {
-            let (output, extra_files) = tokio::task::spawn_blocking(move || -> Result<_> {
-                let extra_files = extra_files.map(|f| f(&raw)).unwrap_or_default();
-                let stdout = crate::json::to_vec_pretty(&raw)
-                    .context("serializing cached work raw output to JSON")?;
-                let output = CommandOutput {
-                    stdout: BString::from(stdout),
-                    stderr: BString::default(),
-                    status: 0,
-                };
-                Ok((output, extra_files))
-            })
-            .await??;
-            if let Err(error) = artifact_cache::write_output_with_extra_files(
-                &cache_key.path_on_disk(),
-                context,
-                debug_inputs,
-                &output,
-                metadata,
-                &extra_files,
-            )
-            .await
-            {
-                artifact_cache::note_cache_write_failure(&error);
-            } else {
-                artifact_cache::put_memory_cache_entry(cache_key, &metadata.fingerprint, &output);
-            }
-            Ok(output)
-        })
-        .await
-}
-
 pub async fn run_cached_work<Exec, ExecFuture, Decode, Raw, Output>(
     spec: CachedWorkSpec<Exec, ExecFuture, Decode, Raw, Output>,
     cancellation: &CancellationScope,
@@ -150,83 +102,143 @@ where
     let fingerprint = work_fingerprint(&cache_key, &context, &debug_inputs)?;
     let metadata = ArtifactMetadata::new(&fingerprint, executor_kind, output_type);
 
-    let output = match cancellation
+    let cached_output = match cancellation
         .cancellable_scope(|_| {
             artifact_cache::get_cached_output(&cache_key, &context, &debug_inputs, &fingerprint)
         })
         .await
     {
-        Ok(Some(output)) => {
-            cancellation.bail_if_cancelled()?;
-            output
-        }
-        Ok(None) => {
-            cancellation.bail_if_cancelled()?;
-            execute_and_cache_output(
-                &cache_key,
-                &context,
-                &debug_inputs,
-                &metadata,
-                extra_files,
-                execute_raw,
-                cancellation,
-            )
-            .await?
-        }
+        Ok(output) => output,
         Err(error) if error.is_cancellation() => return Err(error),
         Err(error) => {
             tracing::debug!(?cache_key, %error, "Cache load failed");
-            cancellation.bail_if_cancelled()?;
-            execute_and_cache_output(
-                &cache_key,
-                &context,
-                &debug_inputs,
-                &metadata,
-                extra_files,
-                execute_raw,
-                cancellation,
-            )
-            .await?
+            None
         }
     };
+    cancellation.bail_if_cancelled()?;
+    let from_cache = cached_output.is_some();
+    let fresh_raw = if from_cache {
+        None
+    } else {
+        Some(execute_raw().await?)
+    };
 
-    let raw_result = tokio::task::spawn_blocking(move || -> Result<_> {
-        let raw = crate::json::from_slice::<Raw>(&output.stdout)?;
-        let extra_files = extra_files.map(|f| f(&raw)).unwrap_or_default();
-        Ok((output, raw, extra_files))
-    })
-    .await?
-    .wrap_err(format!(
-        "Deserializing cached work output{}",
-        artifact_cache::cache_clean_recommendation(Some(&cache_key))
-    ))?;
-    let (output, raw, extra_files) = raw_result;
-    let decode_result = tokio::task::spawn_blocking(move || decode(raw)).await?;
-    match decode_result {
-        Ok(result) => Ok(result),
-        Err(error) if error.is_cancellation() => Err(error),
-        Err(error) => {
-            let mut extra_files = extra_files;
-            if let Some(failure_extra_files) = failure_extra_files {
-                extra_files.extend(failure_extra_files(&error));
-            }
-            let dump_dir = artifact_cache::write_failure_with_extra_files(
-                Some(&cache_key),
-                &context,
-                &debug_inputs,
-                &output,
-                &metadata,
-                Some(&format!("{error:?}")),
-                &extra_files,
-            )
-            .await?;
-            Err(error).wrap_err(format!(
-                "Decoded cached work failed, dumped to {:?}{}",
-                dump_dir,
-                artifact_cache::cache_clean_recommendation(Some(&cache_key))
-            ))
-        }
-    }
+    // Once execution has produced an outcome, retain it even if cancellation
+    // arrives while decoding. Only a successfully decoded result is reusable;
+    // rejected outcomes belong in failure artifacts, including mutation results.
+    cancellation
+        .finish_required(
+            "decoding request output and retaining its artifacts",
+            |_| async {
+                let (output, mut extra_files, decoded) =
+                    tokio::task::spawn_blocking(move || -> Result<_> {
+                        if let Some(raw) = fresh_raw {
+                            let extra_files = extra_files.map(|f| f(&raw)).unwrap_or_default();
+                            let output = CommandOutput {
+                                stdout: crate::json::to_vec_pretty(&raw)
+                                    .context("serializing cached work raw output to JSON")?
+                                    .into(),
+                                stderr: BString::default(),
+                                status: 0,
+                            };
+                            // Decode the actual response, not a serialized roundtrip
+                            // whose cache representation may differ from its payload.
+                            let decoded = decode(raw);
+                            Ok((output, extra_files, decoded))
+                        } else {
+                            let output =
+                                cached_output.expect("cached output exists without fresh work");
+                            let raw = crate::json::from_slice::<Raw>(&output.stdout)
+                                .context("Deserializing cached work output");
+                            let extra_files = raw
+                                .as_ref()
+                                .ok()
+                                .and_then(|raw| extra_files.map(|f| f(raw)))
+                                .unwrap_or_default();
+                            let decoded = raw.and_then(decode);
+                            Ok((output, extra_files, decoded))
+                        }
+                    })
+                    .await??;
+                match decoded {
+                    Ok(result) => {
+                        if !from_cache {
+                            if let Err(error) = artifact_cache::write_output_with_extra_files(
+                                &cache_key.path_on_disk(),
+                                &context,
+                                &debug_inputs,
+                                &output,
+                                &metadata,
+                                &extra_files,
+                            )
+                            .await
+                            {
+                                artifact_cache::note_cache_write_failure(&error);
+                            } else {
+                                artifact_cache::put_memory_cache_entry(
+                                    &cache_key,
+                                    &metadata.fingerprint,
+                                    &output,
+                                );
+                            }
+                        }
+                        Ok(result)
+                    }
+                    // A cancelled decoder has not rejected the cached payload, and
+                    // its outcome is already retained in the existing cache entry.
+                    Err(error) if from_cache && error.is_cancellation() => Err(error),
+                    Err(error) => {
+                        let invalidation_error = if from_cache {
+                            artifact_cache::invalidate_cache_entry(&cache_key)
+                                .await
+                                .err()
+                        } else {
+                            None
+                        };
+                        let error = match invalidation_error {
+                            Some(ref invalidation_error) => error.wrap_err(format!(
+                                "Could not invalidate rejected cache entry: {invalidation_error:#}"
+                            )),
+                            None => error,
+                        };
+                        if let Some(failure_extra_files) = failure_extra_files {
+                            extra_files.extend(failure_extra_files(&error));
+                        }
+                        let dump_result = artifact_cache::write_failure_with_extra_files(
+                            Some(&cache_key),
+                            &context,
+                            &debug_inputs,
+                            &output,
+                            &metadata,
+                            Some(&format!("{error:?}")),
+                            &extra_files,
+                        )
+                        .await;
+                        let dump_dir = match dump_result {
+                            Ok(dump_dir) => dump_dir,
+                            Err(dump_error) => {
+                                return Err(error).wrap_err(format!(
+                                    "Could not retain rejected response artifacts: {dump_error:#}"
+                                ));
+                            }
+                        };
+                        // Never replay a rejected cached operation automatically:
+                        // the executor may mutate state and both closures are FnOnce.
+                        let disposition = if invalidation_error.is_some() {
+                            "rejected entry may remain reusable"
+                        } else if from_cache {
+                            "rejected cache entry was invalidated"
+                        } else {
+                            "response was not cached"
+                        };
+                        Err(error).wrap_err(format!(
+                            "Decoded cached work failed; {disposition}, dumped to {dump_dir:?}"
+                        ))
+                    }
+                }
+            },
+        )
+        .await
 }
 
 #[doc(hidden)]

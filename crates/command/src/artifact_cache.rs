@@ -86,6 +86,26 @@ pub(crate) fn invalidate_memory_cache(cache_key: &CacheKey) {
     });
 }
 
+/// Reject only this entry after decoding fails, retaining its diagnostics and
+/// leaving independently cached children (such as later pages) alone.
+pub(crate) async fn invalidate_cache_entry(cache_key: &CacheKey) -> Result<()> {
+    let cache_dir = cache_key.path_on_disk();
+    memory_cache()
+        .lock()
+        .expect("memory cache poisoned")
+        .retain(|memory_key, _| {
+            memory_key
+                .split_once("::")
+                .is_none_or(|(path, _)| Path::new(path) != cache_dir)
+        });
+    cache_dir.ensure_dir_exists().await?;
+    write_file(
+        &cache_dir.join(BUSTED_FILE),
+        Local::now().to_rfc2822().as_bytes(),
+    )
+    .await
+}
+
 async fn load_file(cache_dir: &Path, path: impl AsRef<Path>) -> Result<BString> {
     let path = cache_dir.join(path.as_ref());
     let mut file = OpenOptions::new()
