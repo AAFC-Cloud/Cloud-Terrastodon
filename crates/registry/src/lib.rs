@@ -14,6 +14,7 @@ use std::alloc::Layout;
 use std::any::Any;
 use std::any::type_name;
 use std::collections::BTreeMap;
+use std::collections::HashSet;
 use std::future::Future;
 use std::future::IntoFuture;
 use std::pin::Pin;
@@ -25,6 +26,7 @@ mod discovery_arbitrary;
 mod discovery_input;
 mod discovery_plan;
 mod discovery_plan_edge;
+mod discovery_plan_field;
 mod discovery_plan_graph;
 mod discovery_plan_node;
 mod discovery_plan_node_kind;
@@ -32,6 +34,7 @@ mod discovery_reflection;
 mod discovery_simulation;
 mod discovery_value;
 mod function_trait_contract;
+mod registered_shape;
 mod registry_function_entry;
 
 #[cfg(test)]
@@ -49,11 +52,13 @@ pub use default_production::invoke_with_default_input;
 pub use default_production::shape_can_be_produced_from_defaults;
 pub use discovery_plan::DiscoveryPlan;
 pub use discovery_plan_edge::DiscoveryPlanEdge;
+pub use discovery_plan_field::DiscoveryPlanField;
 pub use discovery_plan_node::DiscoveryPlanNode;
 pub use discovery_plan_node_kind::DiscoveryPlanNodeKind;
 pub use discovery_simulation::DiscoverySimulation;
 pub use discovery_value::DiscoveryValue;
 pub use function_trait_contract::FunctionTraitContract;
+pub use registered_shape::RegisteredShape;
 pub use registry_function_entry::RegistryFunctionEntry;
 
 pub type InvocationFuture = Pin<Box<dyn Future<Output = eyre::Result<Box<dyn Any + Send>>> + Send>>;
@@ -411,45 +416,42 @@ impl RuntimeValue {
     /// borrowed, so callers tracking external leases must retain or duplicate
     /// those leases for the clone as well as the original.
     pub fn try_clone(&self) -> eyre::Result<Self> {
-        if self
-            .shape
-            .type_ops
-            .as_ref()
-            .is_some_and(|ops| ops.has_clone_into())
-        {
-            let (dst, layout) = Self::allocate(self.shape)?;
-            let cloned = unsafe {
-                self.shape
-                    .call_clone_into(PtrConst::new(self.ptr.as_ptr()), dst.assume_init())
-                    .is_some()
-            };
-            if !cloned {
-                unsafe { facet::dealloc_for_layout(dst.assume_init(), layout) };
-                eyre::bail!(
-                    "{} does not expose a usable Facet clone operation",
-                    describe_shape(self.shape)
-                );
-            }
-            return Ok(unsafe {
-                Self::from_initialized_ptr(self.shape, dst.assume_init(), layout)
-            });
-        }
-
-        if let facet::Def::List(list_def) = self.shape.def {
-            return self.try_clone_list(list_def);
-        }
-
-        eyre::bail!(
-            "{} does not expose a Facet clone operation",
-            describe_shape(self.shape)
-        );
+        Self::clone_from_peek(self.peek())
     }
 
-    fn try_clone_list(&self, list_def: facet::ListDef) -> eyre::Result<Self> {
-        let source = unsafe { facet_reflect::PeekList::new(self.peek(), list_def) };
+    /// Whether clone actions can be offered without executing user clone code.
+    /// Lists use the same element-wise fallback as [`Self::clone_from_peek`].
+    /// This describes the type contract, not whether a particular clone can fail
+    /// or panic; callers must still handle invocation errors. An empty list of a
+    /// non-cloneable element type does not advertise a general Clone capability.
+    pub fn can_clone_shape(mut shape: &'static Shape) -> bool {
+        let mut visited = HashSet::new();
+        loop {
+            if shape
+                .type_ops
+                .as_ref()
+                .is_some_and(|ops| ops.has_clone_into())
+            {
+                return true;
+            }
+            let Def::List(list) = shape.def else {
+                return false;
+            };
+            if !visited.insert(shape) {
+                return false;
+            }
+            shape = list.t;
+        }
+    }
+
+    fn clone_list_from_peek(
+        peek: Peek<'_, 'static>,
+        list_def: facet::ListDef,
+    ) -> eyre::Result<Self> {
+        let source = unsafe { facet_reflect::PeekList::new(peek, list_def) };
         let length = source.len();
 
-        Self::build_with(self.shape, |partial| {
+        Self::build_with(peek.shape(), |partial| {
             let mut partial = partial
                 .init_list_with_capacity(length)
                 .map_err(|error| eyre::eyre!("could not initialize list clone: {error}"))?;
@@ -477,6 +479,7 @@ impl RuntimeValue {
     /// unsafe RuntimeValue bridge's external lifetime contract). Cloning does
     /// not turn borrowed fields into owned fields or detach external leases.
     /// The inspected allocation itself needs to stay alive only for this call.
+    /// Projected lists and owned roots share the same recursive cloning path.
     ///
     /// ```compile_fail
     /// use cloud_terrastodon_registry::RuntimeValue;
@@ -493,6 +496,9 @@ impl RuntimeValue {
             .as_ref()
             .is_some_and(|ops| ops.has_clone_into())
         {
+            if let Def::List(list_def) = shape.def {
+                return Self::clone_list_from_peek(peek, list_def);
+            }
             eyre::bail!(
                 "{} does not expose a Facet clone operation",
                 describe_shape(shape)
@@ -1974,6 +1980,42 @@ mod test {
                     value: "second".to_string(),
                 },
             ]
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn runtime_value_clones_nested_lists_from_roots_and_projections() -> eyre::Result<()> {
+        let expected = vec![
+            vec![DummyOutput {
+                value: "nested".into(),
+            }],
+            vec![],
+            vec![DummyOutput {
+                value: "independent".into(),
+            }],
+        ];
+        let source = RuntimeValue::from_box(Box::new(expected.clone()))?;
+        assert!(RuntimeValue::can_clone_shape(source.shape()));
+        let owned = source.try_clone()?;
+        let projected = RuntimeValue::clone_from_peek(source.peek())?;
+        drop(source);
+        assert_eq!(owned.peek().get::<Vec<Vec<DummyOutput>>>()?, &expected);
+        assert_eq!(projected.peek().get::<Vec<Vec<DummyOutput>>>()?, &expected);
+        Ok(())
+    }
+
+    #[test]
+    fn runtime_value_rejects_lists_without_element_clone_support() -> eyre::Result<()> {
+        let source = RuntimeValue::from_box(Box::new(vec![vec![DummyNotCloneable {
+            value: "source remains intact".into(),
+        }]]))?;
+        assert!(!RuntimeValue::can_clone_shape(source.shape()));
+        assert!(source.try_clone().is_err());
+        assert!(RuntimeValue::clone_from_peek(source.peek()).is_err());
+        assert_eq!(
+            source.peek().get::<Vec<Vec<DummyNotCloneable>>>()?[0][0].value,
+            "source remains intact"
         );
         Ok(())
     }
