@@ -38,6 +38,7 @@ pub(crate) enum CardLayoutAxis {
 pub(crate) struct CardWindowRenderer<'window> {
     window: &'window CardWindow,
     selected_card: &'window CardAddress,
+    viewport_anchor: Option<&'window CardAddress>,
     selected_row: Option<&'window CardRowKey>,
     axis: CardLayoutAxis,
     focused_card_fill: bool,
@@ -58,6 +59,7 @@ impl<'window> CardWindowRenderer<'window> {
         Self {
             window,
             selected_card,
+            viewport_anchor: None,
             selected_row,
             axis,
             focused_card_fill,
@@ -69,6 +71,14 @@ impl<'window> CardWindowRenderer<'window> {
 
     pub(crate) const fn with_query_total(mut self, query_total: QueryTotal) -> Self {
         self.query_total = query_total;
+        self
+    }
+
+    pub(crate) const fn with_viewport_anchor(
+        mut self,
+        viewport_anchor: Option<&'window CardAddress>,
+    ) -> Self {
+        self.viewport_anchor = viewport_anchor;
         self
     }
 
@@ -84,9 +94,15 @@ impl<'window> CardWindowRenderer<'window> {
         if area.is_empty() || self.window.cards().is_empty() {
             return;
         }
+        let (cards, visible_start) = self.visible_cards(area);
+        if cards.is_empty() {
+            return;
+        }
         let show_card_scrollbar = self.axis == CardLayoutAxis::Horizontal
             && !self.focused_card_fill
-            && (self.window.has_before() || self.window.has_after())
+            && (self.window.has_before()
+                || self.window.has_after()
+                || cards.len() < self.window.cards().len())
             && area.height >= 2;
         let (cards_area, card_scrollbar_area) = if show_card_scrollbar {
             let sections =
@@ -95,10 +111,6 @@ impl<'window> CardWindowRenderer<'window> {
         } else {
             (area, None)
         };
-        let (cards, visible_start) = self.visible_cards(cards_area);
-        if cards.is_empty() {
-            return;
-        }
         let constraints = vec![Constraint::Fill(1); cards.len()];
         let areas = match self.axis {
             CardLayoutAxis::Horizontal => Layout::horizontal(constraints).split(cards_area),
@@ -109,12 +121,17 @@ impl<'window> CardWindowRenderer<'window> {
         }
         if let Some(scrollbar_area) = card_scrollbar_area {
             let position = self.window.start_ordinal().saturating_add(visible_start);
-            let has_new_slot = cards
+            let has_new_slot = self
+                .window
+                .cards()
                 .iter()
                 .any(|card| card.address() == &CardAddress::NewSlot);
             let minimum_total = position
                 .saturating_add(cards.len())
-                .saturating_add(usize::from(self.window.has_after()));
+                .saturating_add(usize::from(
+                    self.window.has_after()
+                        || visible_start + cards.len() < self.window.cards().len(),
+                ));
             let total_items = match self.query_total {
                 QueryTotal::Exact(total) => total.saturating_add(usize::from(has_new_slot)),
                 QueryTotal::Scanning(progress) => progress.matched,
@@ -160,10 +177,21 @@ impl<'window> CardWindowRenderer<'window> {
         let selected = cards
             .iter()
             .position(|card| card.address() == self.selected_card);
-        let start = selected
-            .map(|index| index.saturating_sub(capacity - 1))
+        let mut start = self
+            .viewport_anchor
+            .and_then(|anchor| cards.iter().position(|card| card.address() == anchor))
             .unwrap_or_default()
             .min(cards.len() - capacity);
+        // Query windows can backfill at the end of the pool. Keep the logical
+        // viewport anchored inside those snapshots, shifting only to reveal a
+        // selection that is outside it (including the appended new-slot card).
+        if let Some(selected) = selected {
+            if selected < start {
+                start = selected;
+            } else if selected >= start + capacity {
+                start = selected + 1 - capacity;
+            }
+        }
         (cards[start..start + capacity].iter().collect(), start)
     }
 
@@ -600,6 +628,109 @@ mod tests {
         T: Facet<'static> + Send + 'static,
     {
         RuntimeValue::from_box(Box::new(value)).expect("test value is representable")
+    }
+
+    #[test]
+    fn tail_viewport_reveals_new_slot_without_evicting_visible_real_cards_early() {
+        let mut arena = Arena::default();
+        for value in 0_usize..3 {
+            arena.insert_ready(runtime(value)).unwrap();
+        }
+        let source = ArenaAddressSource::new(&arena);
+        let window = CardWindow::first(&source, NonZeroUsize::new(3).unwrap(), 1)
+            .unwrap()
+            .including_new_slot();
+        assert!(!window.has_before());
+        assert!(!window.has_after());
+
+        for (selected, anchor, expected_start) in [
+            (0, 0, 0), // First real card must not be evicted to reserve NewSlot.
+            (2, 0, 0), // Last real card remains at the right edge.
+            (3, 0, 1), // Revealing NewSlot moves just one card.
+            (2, 1, 1), // Moving left within the tail keeps the viewport stable.
+            (1, 1, 1),
+            (0, 1, 0), // Crossing the left edge reveals only the previous card.
+        ] {
+            let renderer = CardWindowRenderer::new(
+                &window,
+                window.cards()[selected].address(),
+                None,
+                CardLayoutAxis::Horizontal,
+                false,
+                30,
+            )
+            .with_viewport_anchor(Some(window.cards()[anchor].address()));
+            let (visible, start) = renderer.visible_cards(Rect::new(0, 0, 90, 12));
+            assert_eq!(
+                start, expected_start,
+                "selected {selected}, anchor {anchor}"
+            );
+            assert_eq!(
+                visible
+                    .iter()
+                    .map(|card| card.address())
+                    .collect::<Vec<_>>(),
+                window.cards()[expected_start..expected_start + 3]
+                    .iter()
+                    .map(CardSnapshot::address)
+                    .collect::<Vec<_>>(),
+            );
+        }
+
+        let renderer = CardWindowRenderer::new(
+            &window,
+            &CardAddress::NewSlot,
+            None,
+            CardLayoutAxis::Horizontal,
+            false,
+            30,
+        )
+        .with_viewport_anchor(Some(window.cards()[2].address()));
+        let (single, start) = renderer.visible_cards(Rect::new(0, 0, 30, 12));
+        assert_eq!(start, 3, "a one-card viewport reveals NewSlot");
+        assert_eq!(single[0].address(), &CardAddress::NewSlot);
+        let (spare_capacity, start) = renderer.visible_cards(Rect::new(0, 0, 150, 12));
+        assert_eq!(start, 0);
+        assert_eq!(spare_capacity.len(), 4, "spare capacity retains every card");
+
+        let mut scrollbar_lines = Vec::new();
+        for (selected, anchor) in [(0, 0), (3, 1)] {
+            let mut terminal = Terminal::new(TestBackend::new(90, 12)).unwrap();
+            terminal
+                .draw(|frame| {
+                    CardWindowRenderer::new(
+                        &window,
+                        window.cards()[selected].address(),
+                        None,
+                        CardLayoutAxis::Horizontal,
+                        false,
+                        30,
+                    )
+                    .with_viewport_anchor(Some(window.cards()[anchor].address()))
+                    .with_query_total(QueryTotal::Exact(3))
+                    .draw(frame, frame.area());
+                })
+                .unwrap();
+            scrollbar_lines.push(
+                terminal
+                    .backend()
+                    .to_string()
+                    .lines()
+                    .last()
+                    .unwrap()
+                    .to_owned(),
+            );
+        }
+        assert!(
+            scrollbar_lines
+                .iter()
+                .all(|line| line.contains('◄') && line.contains('►'))
+        );
+        assert_eq!(
+            scrollbar_lines[0].matches('█').count(),
+            scrollbar_lines[1].matches('█').count(),
+            "NewSlot counts toward the scrollbar even before it is visible",
+        );
     }
 
     #[test]

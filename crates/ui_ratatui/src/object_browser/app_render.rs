@@ -108,7 +108,7 @@ impl ObjectBrowserApp {
                     crate::object_explorer::CardSnapshot::new_slot(),
                 ))
             } else {
-                (!window.has_after()).then(|| window.including_new_slot(self.max_cards))
+                (!window.has_after()).then(|| window.including_new_slot())
             };
             let window = display_window.as_ref().unwrap_or(window);
             CardWindowRenderer::new(
@@ -120,6 +120,11 @@ impl ObjectBrowserApp {
                 self.axis,
                 self.focused_card_fill,
                 self.card_breadth(),
+            )
+            .with_viewport_anchor(
+                self.controller
+                    .active_state()
+                    .map(|state| state.viewport_anchor()),
             )
             .with_query_total(query_total)
             .with_visible_rows(visible_rows)

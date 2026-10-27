@@ -487,7 +487,7 @@ impl ObjectBrowserApp {
                     .window()
                     .and_then(|window| window.cards().last())
             {
-                self.controller.focus(card.address().clone())?;
+                self.controller.select(card.address().clone())?;
             }
             return Ok(());
         }
@@ -499,6 +499,23 @@ impl ObjectBrowserApp {
         {
             QueryProgressState::Pending => self.status = "Scanning…".to_owned(),
             QueryProgressState::Complete if direction == CardNavigation::Next => {
+                // The create-object card is the next logical card after the
+                // query tail. Reserve its column only when moving onto it, and
+                // retain that viewport anchor when moving back to a real card.
+                let anchor = self
+                    .controller
+                    .window()
+                    .filter(|window| {
+                        !window.has_after() && window.cards().len() >= self.max_cards.get()
+                    })
+                    .and_then(|window| window.cards().get(1))
+                    .map(|card| card.address().clone());
+                if let Some(anchor) = anchor {
+                    self.controller
+                        .active_state_mut()
+                        .ok_or(ObjectBrowserControllerError::NoActiveTab)?
+                        .set_viewport_anchor(anchor);
+                }
                 self.controller.select(CardAddress::NewSlot)?;
             }
             _ => {}
@@ -2024,6 +2041,62 @@ mod tests {
 
     fn modified(code: KeyCode, modifiers: KeyModifiers) -> Event {
         Event::Key(KeyEvent::new(code, modifiers))
+    }
+
+    #[tokio::test]
+    async fn arrow_navigation_keeps_card_columns_stable_through_the_create_object_tail() {
+        let engine = ExplorerEngine::empty();
+        let (context, inbox) = ArenaQueryContext::channel(8);
+        let client = async move {
+            let mut app = ObjectBrowserApp::bootstrap(context).await.unwrap();
+            let mut cards = Vec::new();
+            let mut titles = Vec::new();
+            for value in 0_usize..8 {
+                let slot = app.controller.insert_owned(value).await.unwrap();
+                cards.push(CardAddress::Value(ValueAddress::root(slot)));
+                titles.push(format!("slot {slot} [owned]"));
+            }
+            cards.push(CardAddress::NewSlot);
+            titles.push("new slot".into());
+            let mut terminal = Terminal::new(TestBackend::new(116, 20)).unwrap();
+            // A 114-column pool holds exactly three 38-column cards.
+            terminal.draw(|frame| app.draw(frame)).unwrap();
+            app.controller.focus(cards[0].clone()).unwrap();
+            app.tick().await.unwrap();
+
+            let mut start = 0;
+            let forward = (1..cards.len()).map(|selected| (KeyCode::Right, selected));
+            let backward = (0..cards.len() - 1)
+                .rev()
+                .map(|selected| (KeyCode::Left, selected));
+            for (direction, selected) in forward.chain(backward) {
+                app.handle_event(&key(direction)).await.unwrap();
+                assert_eq!(app.selected_address(), cards[selected]);
+                if selected >= start + 3 {
+                    start += 1;
+                } else if selected < start {
+                    start -= 1;
+                }
+                // Repeated refresh/draw cycles must keep the same columns,
+                // including when the engine backfills the final real window.
+                for _ in 0..2 {
+                    app.tick().await.unwrap();
+                    terminal.draw(|frame| app.draw(frame)).unwrap();
+                    for column in 0..3 {
+                        let title = (1 + column * 38..1 + (column + 1) * 38)
+                            .map(|x| terminal.backend().buffer().cell((x, 4)).unwrap().symbol())
+                            .collect::<String>();
+                        assert!(
+                            title.contains(&titles[start + column as usize]),
+                            "{direction:?} to {selected}: column {column} should show {}, got {title}",
+                            titles[start + column as usize],
+                        );
+                    }
+                }
+            }
+            app.close().await.unwrap();
+        };
+        let (_engine, ()) = tokio::join!(engine.run(inbox), client);
     }
 
     #[tokio::test]

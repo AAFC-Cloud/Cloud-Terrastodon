@@ -72,17 +72,16 @@ impl CardWindow {
         self.start_ordinal
     }
 
-    /// Add the logical create-object card at the end without exceeding the
-    /// current viewport capacity.
-    pub(crate) fn including_new_slot(&self, max_cards: NonZeroUsize) -> Self {
-        let retained = max_cards.get().saturating_sub(1);
-        let start = self.cards.len().saturating_sub(retained);
-        let mut cards = self.cards[start..].to_vec();
+    /// Append the logical create-object card to this bounded snapshot window.
+    /// The renderer clips the extra card to the viewport, preserving real cards
+    /// until navigation actually needs to reveal the create-object card.
+    pub(crate) fn including_new_slot(&self) -> Self {
+        let mut cards = self.cards.clone();
         cards.push(CardSnapshot::new_slot());
         Self {
             cards,
-            start_ordinal: self.start_ordinal.saturating_add(start),
-            has_before: self.has_before || start > 0,
+            start_ordinal: self.start_ordinal,
+            has_before: self.has_before,
             has_after: false,
         }
     }
@@ -131,7 +130,7 @@ mod tests {
     }
 
     #[test]
-    fn new_slot_uses_one_cell_and_keeps_the_tail_window_full() {
+    fn new_slot_appends_without_discarding_tail_snapshots() {
         let mut arena = Arena::default();
         for value in 0_usize..5 {
             arena.insert_ready(runtime(value)).unwrap();
@@ -140,14 +139,16 @@ mod tests {
         let window = CardWindow::first(&source, NonZeroUsize::new(5).unwrap(), 1).unwrap();
         assert!(!window.has_after());
 
-        let with_new = window.including_new_slot(NonZeroUsize::new(5).unwrap());
+        let with_new = window.including_new_slot();
 
-        assert_eq!(with_new.cards().len(), 5);
+        assert_eq!(with_new.cards().len(), 6);
+        assert_eq!(&with_new.cards()[..5], window.cards());
+        assert_eq!(with_new.start_ordinal(), window.start_ordinal());
         assert_eq!(
             with_new.cards().last().map(CardSnapshot::address),
             Some(&CardAddress::NewSlot)
         );
-        assert!(with_new.has_before());
+        assert!(!with_new.has_before());
         assert!(!with_new.has_after());
     }
 }

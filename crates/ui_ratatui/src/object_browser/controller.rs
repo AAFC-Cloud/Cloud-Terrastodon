@@ -194,20 +194,47 @@ impl ObjectBrowserController {
         if let QueryProgressState::Ready(target) = &result {
             let target_card = CardAddress::Value(target.clone());
             let target_is_visible = self.window.as_ref().is_some_and(|window| {
+                let start = self
+                    .active_state()
+                    .and_then(|state| {
+                        window
+                            .cards()
+                            .iter()
+                            .position(|card| card.address() == state.viewport_anchor())
+                    })
+                    .unwrap_or_default();
+                // Tail queries may backfill cards before the visual anchor to
+                // keep their bounded result full. Those cards are not visible
+                // when the create-object card occupies the rightmost column.
                 window
                     .cards()
                     .iter()
+                    .skip(start)
                     .any(|card| card.address() == &target_card)
+            });
+            let anchor = (!target_is_visible).then(|| match direction {
+                CardNavigation::Next => self
+                    .window
+                    .as_ref()
+                    .filter(|window| {
+                        window.cards().last().is_some_and(|card| {
+                            matches!(card.address(), CardAddress::Value(address) if address == &from)
+                        })
+                    })
+                    // Reveal one new card at the right edge by discarding only
+                    // the leftmost card. Anchoring at `from` jumps a whole page
+                    // minus one and leaves the selection in the second column.
+                    .and_then(|window| window.cards().get(1))
+                    .map(|card| card.address().clone())
+                    // A single-card viewport must start at the new selection.
+                    .unwrap_or_else(|| target_card.clone()),
+                CardNavigation::Previous => target_card.clone(),
             });
             let state = self
                 .active_state_mut()
                 .ok_or(ObjectBrowserControllerError::NoActiveTab)?;
-            state.select(target_card.clone());
-            if !target_is_visible {
-                let anchor = match direction {
-                    CardNavigation::Next => CardAddress::Value(from),
-                    CardNavigation::Previous => target_card,
-                };
+            state.select(target_card);
+            if let Some(anchor) = anchor {
                 state.set_viewport_anchor(anchor);
             }
         }
@@ -886,7 +913,7 @@ mod tests {
             };
             assert_eq!(
                 controller.active_state().unwrap().viewport_anchor(),
-                &CardAddress::Value(breadcrumbs.clone()),
+                &CardAddress::Value(name.clone()),
                 "crossing the edge advances the logical viewport anchor once"
             );
             controller
@@ -909,6 +936,75 @@ mod tests {
 
         let (engine, ()) = tokio::join!(engine.run(inbox), client);
         assert_eq!(engine.json_serialization_count(), 0);
+    }
+
+    #[tokio::test]
+    async fn controller_edge_navigation_reveals_only_one_new_card_at_any_capacity() {
+        for capacity in [1, 2, 3, 5] {
+            let engine = ExplorerEngine::empty();
+            let (context, inbox) = ArenaQueryContext::channel(8);
+            let client = async move {
+                let mut controller = ObjectBrowserController::bootstrap(context).await.unwrap();
+                let mut cards = Vec::new();
+                for value in 0_usize..20 {
+                    let slot = controller.insert_owned(value).await.unwrap();
+                    cards.push(CardAddress::Value(ValueAddress::root(slot)));
+                }
+                controller.focus(cards[0].clone()).unwrap();
+                let budget = NonZeroUsize::new(capacity).unwrap();
+                controller.refresh_window(128, budget, 1).await.unwrap();
+
+                let mut start = 0;
+                for selected in 1..=capacity + 3 {
+                    controller
+                        .navigate_card(CardNavigation::Next, 128)
+                        .await
+                        .unwrap();
+                    controller.refresh_window(128, budget, 1).await.unwrap();
+                    start = selected.saturating_sub(capacity - 1);
+                    assert_eq!(
+                        controller.active_state().unwrap().selection(),
+                        &cards[selected]
+                    );
+                    assert_eq!(
+                        controller
+                            .window()
+                            .unwrap()
+                            .cards()
+                            .iter()
+                            .map(|card| card.address())
+                            .collect::<Vec<_>>(),
+                        cards[start..start + capacity].iter().collect::<Vec<_>>(),
+                        "capacity {capacity}: right movement reveals only the next card"
+                    );
+                }
+                for selected in (0..capacity + 3).rev() {
+                    controller
+                        .navigate_card(CardNavigation::Previous, 128)
+                        .await
+                        .unwrap();
+                    controller.refresh_window(128, budget, 1).await.unwrap();
+                    start = start.min(selected);
+                    assert_eq!(
+                        controller.active_state().unwrap().selection(),
+                        &cards[selected]
+                    );
+                    assert_eq!(
+                        controller
+                            .window()
+                            .unwrap()
+                            .cards()
+                            .iter()
+                            .map(|card| card.address())
+                            .collect::<Vec<_>>(),
+                        cards[start..start + capacity].iter().collect::<Vec<_>>(),
+                        "capacity {capacity}: left movement keeps the window until its edge"
+                    );
+                }
+                controller.close().await.unwrap();
+            };
+            let (_engine, ()) = tokio::join!(engine.run(inbox), client);
+        }
     }
 
     #[tokio::test]
