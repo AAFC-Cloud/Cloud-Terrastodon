@@ -46,3 +46,5 @@ impl DiscoveryPlan {
         DiscoveryPlanGraph::new(functions, seeds, targets, cancellation)?.finish(cancellation)
     }
 }
+
+crate::register_thing!(DiscoveryPlan);

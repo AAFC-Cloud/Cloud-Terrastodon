@@ -1,6 +1,7 @@
 use crate::CancellationScope;
 use crate::DiscoveryPlan;
 use crate::DiscoveryPlanEdge;
+use crate::DiscoveryPlanField;
 use crate::DiscoveryPlanNode;
 use crate::DiscoveryPlanNodeKind;
 use crate::Function;
@@ -105,6 +106,7 @@ impl DiscoveryPlanGraph {
                 target: false,
                 level: 0,
                 effects: function.effects.to_vec(),
+                fields: DiscoveryPlanField::for_shape(function.input_shape),
                 missing_inputs: Vec::new(),
             });
             graph.functions.push((function, id));
@@ -154,6 +156,7 @@ impl DiscoveryPlanGraph {
             target: false,
             level: 0,
             effects: Vec::new(),
+            fields: DiscoveryPlanField::for_shape(shape),
             missing_inputs: Vec::new(),
         });
         id

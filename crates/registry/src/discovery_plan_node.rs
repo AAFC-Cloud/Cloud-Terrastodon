@@ -1,3 +1,4 @@
+use crate::DiscoveryPlanField;
 use crate::DiscoveryPlanNodeKind;
 use crate::Effect;
 use facet::Facet;
@@ -16,6 +17,9 @@ pub struct DiscoveryPlanNode {
     /// Depth of the selected structural derivation; zero for blocked nodes.
     pub level: usize,
     pub effects: Vec<Effect>,
+    /// Direct fields of a shape or executable request, with declared types.
+    #[facet(default)]
+    pub fields: Vec<DiscoveryPlanField>,
     /// Required inputs that cannot be obtained from the supplied seeds/catalog.
     pub missing_inputs: Vec<String>,
 }
