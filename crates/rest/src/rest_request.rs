@@ -552,16 +552,7 @@ impl RestRequest {
                 response
                     .error_for_status()
                     .wrap_err_with(|| format!("Called from {caller}"))?;
-                let body = match &response.body {
-                    RestResponseBody::Json(body) => body.as_str(),
-                    RestResponseBody::Text(content) => content.as_str(),
-                };
-                let parsed = facet_json::from_str::<T>(body).wrap_err_with(|| {
-                    format!(
-                        "Deserializing REST response into {}",
-                        std::any::type_name::<T>()
-                    )
-                })?;
+                let parsed = response.decode_json_body::<T>()?;
                 mapper(parsed, &response)
             },
             caller,

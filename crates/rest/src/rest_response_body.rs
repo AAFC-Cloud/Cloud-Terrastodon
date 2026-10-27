@@ -42,74 +42,13 @@ pub fn parse_response_body(content: String) -> RestResponseBody {
     }
 }
 
-fn pretty_json_body(content: String) -> RawJson<'static> {
+pub(crate) fn pretty_json_body(content: String) -> RawJson<'static> {
     let Ok(value) = facet_json::from_str::<facet_value::Value>(&content) else {
         return RawJson::from_owned(content);
     };
     match facet_json::to_string_pretty(&value) {
         Ok(pretty) => RawJson::from_owned(pretty),
         Err(_) => RawJson::from_owned(content),
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, facet::Facet)]
-#[facet(transparent)]
-pub struct RestResponseBodyProxy(RawJson<'static>);
-
-impl TryFrom<RestResponseBodyProxy> for RestResponseBody {
-    type Error = eyre::Report;
-
-    fn try_from(value: RestResponseBodyProxy) -> Result<Self, Self::Error> {
-        let body = value.0;
-        if body.as_str().trim_start().starts_with('"') {
-            let text = facet_json::from_str::<String>(body.as_str())
-                .map_err(|error| eyre::eyre!("{error:?}"))?;
-            Ok(RestResponseBody::Text(text))
-        } else if let Some(body) = try_decode_serialized_json_body(body.as_str())? {
-            Ok(RestResponseBody::Json(body))
-        } else {
-            Ok(RestResponseBody::Json(body))
-        }
-    }
-}
-
-fn try_decode_serialized_json_body(body: &str) -> Result<Option<RawJson<'static>>, eyre::Report> {
-    if !body.trim_start().starts_with('[') {
-        return Ok(None);
-    }
-
-    // Cached RawJson bodies are serialized by facet as a single-element string
-    // array containing the original JSON document.
-    let Ok(mut chunks) = facet_json::from_str::<Vec<String>>(body) else {
-        return Ok(None);
-    };
-    if chunks.len() != 1 {
-        return Ok(None);
-    }
-
-    let content = chunks.remove(0);
-    let trimmed = content.trim_start();
-    if !trimmed.starts_with('{') && !trimmed.starts_with('[') {
-        return Ok(None);
-    }
-
-    facet_json::from_str::<RawJson<'static>>(&content)
-        .map(|_| Some(pretty_json_body(content)))
-        .or(Ok(None))
-}
-
-impl TryFrom<&RestResponseBody> for RestResponseBodyProxy {
-    type Error = eyre::Report;
-
-    fn try_from(value: &RestResponseBody) -> Result<Self, Self::Error> {
-        match value {
-            RestResponseBody::Json(value) => Ok(Self(value.clone())),
-            RestResponseBody::Text(value) => {
-                let json =
-                    facet_json::to_string(value).map_err(|error| eyre::eyre!("{error:?}"))?;
-                Ok(Self(RawJson::from_owned(json)))
-            }
-        }
     }
 }
 
