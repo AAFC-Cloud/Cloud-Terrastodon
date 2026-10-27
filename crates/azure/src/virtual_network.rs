@@ -11,6 +11,7 @@ use std::path::PathBuf;
 use tracing::info;
 
 #[derive(Debug, Clone, facet::Facet)]
+#[facet(traits(Clone))]
 pub struct VirtualNetworkListRequest<'a> {
     #[facet(skip_serializing)]
     pub cancellation: CancellationScope,

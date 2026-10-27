@@ -35,6 +35,7 @@ use std::pin::Pin;
 /// See Microsoft's [Definitions List API](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/definitions/list?view=azure-devops-rest-7.1).
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Debug, Clone, Facet)]
+#[facet(traits(Clone))]
 pub struct AzureDevOpsBuildDefinitionListRequest<'a> {
     #[facet(skip_serializing)]
     pub cancellation: CancellationScope,

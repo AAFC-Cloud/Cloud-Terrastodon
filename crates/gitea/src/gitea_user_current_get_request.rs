@@ -11,6 +11,7 @@ use std::borrow::Cow;
 
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Debug, Clone, facet::Facet)]
+#[facet(traits(Clone))]
 pub struct GiteaUserCurrentGetRequest<'a> {
     #[facet(skip_serializing)]
     pub cancellation: CancellationScope,
@@ -67,3 +68,29 @@ cloud_terrastodon_registry::register_into_future!(
     GiteaUserCurrentGetRequest<'static> => GiteaUser,
     effects = [Read]
 );
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use cloud_terrastodon_registry::RuntimeValue;
+
+    #[test]
+    fn reflected_current_user_clone_retains_its_owned_instance() -> eyre::Result<()> {
+        let original = RuntimeValue::from_box(Box::new(GiteaUserCurrentGetRequest {
+            cancellation: CancellationScope::unbound(),
+            tenant: Cow::Owned("https://offline-clone.example.invalid".parse()?),
+        }))?;
+        let cloned = original
+            .try_clone()?
+            .into_box::<GiteaUserCurrentGetRequest<'static>>()?
+            .downcast::<GiteaUserCurrentGetRequest<'static>>()
+            .expect("reflected cloning preserves the request type");
+        drop(original);
+        assert_eq!(
+            cloned.tenant.as_ref().as_ref(),
+            "https://offline-clone.example.invalid"
+        );
+        assert!(matches!(cloned.tenant, Cow::Owned(_)));
+        Ok(())
+    }
+}

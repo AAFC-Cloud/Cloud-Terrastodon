@@ -22,6 +22,7 @@ use tracing::debug;
 /// <https://learn.microsoft.com/en-us/rest/api/azure/devops/memberentitlementmanagement/user-entitlements/update-user-entitlement?view=azure-devops-rest-7.1>
 #[must_use = "This is an unsent request, you must .await it"]
 #[derive(Debug, Clone, facet::Facet)]
+#[facet(traits(Clone))]
 pub struct AzureDevOpsUserLicenseEntitlementUpdateRequest<'a> {
     #[facet(skip_serializing)]
     pub cancellation: CancellationScope,

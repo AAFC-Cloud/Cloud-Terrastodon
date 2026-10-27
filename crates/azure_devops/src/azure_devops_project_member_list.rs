@@ -30,6 +30,7 @@ use tracing::info;
 
 /// Lists users that are transitively members of an Azure DevOps project.
 #[derive(Debug, Clone, facet::Facet)]
+#[facet(traits(Clone))]
 pub struct AzureDevOpsProjectMemberListRequest<'a> {
     #[facet(skip_serializing)]
     pub cancellation: CancellationScope,

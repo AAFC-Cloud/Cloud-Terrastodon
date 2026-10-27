@@ -15,6 +15,7 @@ use std::future::IntoFuture;
 use std::pin::Pin;
 
 #[derive(Debug, Clone, Facet)]
+#[facet(traits(Clone))]
 pub struct AzureDevOpsWorkItemRelationTypeGetRequest<'a> {
     #[facet(skip_serializing)]
     pub cancellation: CancellationScope,

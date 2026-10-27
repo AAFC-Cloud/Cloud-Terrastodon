@@ -14,6 +14,8 @@ use std::path::PathBuf;
 use tracing::debug;
 
 #[derive(Debug, Clone, facet::Facet)]
+// Facet's pinned derive cannot autodetect Clone on lifetime-generic types.
+#[facet(traits(Clone))]
 pub struct AzureDevOpsProjectsListRequest<'a> {
     #[facet(skip_serializing)]
     pub cancellation: CancellationScope,
@@ -123,6 +125,54 @@ mod tests {
     use crate::get_default_organization_url;
     use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_credentials::AuthContext;
+    use cloud_terrastodon_registry::RuntimeValue;
+    use std::sync::LazyLock;
+
+    #[test]
+    fn reflected_project_list_clone_preserves_owned_and_borrowed_inputs() -> Result<()> {
+        static ORG: LazyLock<AzureDevOpsOrganizationUrl> = LazyLock::new(|| {
+            "offline-clone-example"
+                .parse()
+                .expect("valid synthetic organization")
+        });
+        static AUTH: AzureDevOpsAuthContext = AzureDevOpsAuthContext::None;
+
+        for borrowed in [false, true] {
+            CancellationToken::new().with_scope(|scope| {
+                let original = RuntimeValue::from_box(Box::new(AzureDevOpsProjectsListRequest {
+                    cancellation: scope.clone(),
+                    org_url: if borrowed {
+                        Cow::Borrowed(&*ORG)
+                    } else {
+                        Cow::Owned((*ORG).clone())
+                    },
+                    auth_context: if borrowed {
+                        Cow::Borrowed(&AUTH)
+                    } else {
+                        Cow::Owned(AUTH.clone())
+                    },
+                }))?;
+                // This is the same reflected clone used before a clone-mode
+                // invocation. Do not invoke the request or resolve credentials.
+                let cloned = original
+                    .try_clone()?
+                    .into_box::<AzureDevOpsProjectsListRequest<'static>>()?
+                    .downcast::<AzureDevOpsProjectsListRequest<'static>>()
+                    .expect("runtime cloning preserves the request type");
+                assert_eq!(cloned.org_url.as_ref(), &*ORG);
+                assert!(matches!(
+                    cloned.auth_context.as_ref(),
+                    AzureDevOpsAuthContext::None
+                ));
+                assert_eq!(matches!(cloned.org_url, Cow::Borrowed(_)), borrowed);
+                assert_eq!(matches!(cloned.auth_context, Cow::Borrowed(_)), borrowed);
+                scope.request_cancel("verify reflected clones share cancellation intent");
+                assert!(cloned.cancellation.is_cancelled());
+                Ok::<_, eyre::Report>(())
+            })?;
+        }
+        Ok(())
+    }
 
     #[tokio::test]
     async fn test_fetch_all_azure_devops_projects() -> Result<()> {

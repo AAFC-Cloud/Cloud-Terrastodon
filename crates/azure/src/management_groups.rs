@@ -37,6 +37,7 @@ pub async fn fetch_root_management_group(
 
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Debug, Clone, facet::Facet)]
+#[facet(traits(Clone))]
 pub struct ManagementGroupListRequest<'a> {
     #[facet(skip_serializing)]
     pub cancellation: CancellationScope,

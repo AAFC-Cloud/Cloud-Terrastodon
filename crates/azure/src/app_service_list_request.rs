@@ -13,6 +13,7 @@ use tracing::info;
 
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Debug, Clone, facet::Facet)]
+#[facet(traits(Clone))]
 pub struct AppServiceListRequest<'a> {
     #[facet(skip_serializing)]
     pub cancellation: CancellationScope,
@@ -89,6 +90,32 @@ mod tests {
     use crate::get_test_tenant_id;
     use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_credentials::AuthContext;
+    use cloud_terrastodon_registry::RuntimeValue;
+
+    #[test]
+    fn reflected_app_service_list_clone_retains_its_owned_tenant() -> Result<()> {
+        let tenant_id = "11111111-1111-1111-1111-111111111111".parse()?;
+        let original = RuntimeValue::from_box(Box::new(AppServiceListRequest {
+            cancellation: CancellationScope::unbound(),
+            auth_context: Cow::Owned(AzureTenantAuthContext {
+                auth_context: AuthContext::Unresolved,
+                tenant_id,
+            }),
+        }))?;
+        let cloned = original
+            .try_clone()?
+            .into_box::<AppServiceListRequest<'static>>()?
+            .downcast::<AppServiceListRequest<'static>>()
+            .expect("reflected cloning preserves the request type");
+        drop(original);
+        assert_eq!(cloned.auth_context.tenant_id, tenant_id);
+        assert!(matches!(
+            cloned.auth_context.as_ref().auth_context,
+            AuthContext::Unresolved
+        ));
+        assert!(matches!(cloned.auth_context, Cow::Owned(_)));
+        Ok(())
+    }
 
     #[test_log::test(tokio::test)]
     async fn it_works() -> eyre::Result<()> {

@@ -14,6 +14,7 @@ use std::path::PathBuf;
 use tracing::debug;
 
 #[derive(Debug, Clone, facet::Facet)]
+#[facet(traits(Clone))]
 pub struct AzureDevOpsTestSuiteCasesListRequest<'a> {
     #[facet(skip_serializing)]
     pub cancellation: CancellationScope,

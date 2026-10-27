@@ -13,6 +13,7 @@ use std::path::PathBuf;
 
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Debug, Clone, facet::Facet)]
+#[facet(traits(Clone))]
 pub struct GiteaRepoScanByIdRequest<'a> {
     #[facet(skip_serializing)]
     pub cancellation: CancellationScope,

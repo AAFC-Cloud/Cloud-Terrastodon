@@ -12,6 +12,7 @@ use std::path::PathBuf;
 use tracing::debug;
 
 #[derive(Debug, Clone, facet::Facet)]
+#[facet(traits(Clone))]
 pub struct AzureDevOpsGroupLicenseEntitlementsRequest<'a> {
     #[facet(skip_serializing)]
     pub cancellation: CancellationScope,

@@ -26,6 +26,7 @@ pub fn fetch_azure_devops_groups_for_member<'a>(
 }
 
 #[derive(Debug, Clone, facet::Facet)]
+#[facet(traits(Clone))]
 pub struct AzureDevOpsGroupsForMemberRequest<'a> {
     #[facet(skip_serializing)]
     pub cancellation: CancellationScope,

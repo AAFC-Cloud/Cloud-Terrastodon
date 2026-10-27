@@ -12,6 +12,7 @@ use std::borrow::Cow;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, facet::Facet)]
+#[facet(traits(Clone))]
 pub struct AzureDevOpsServiceEndpointsListRequest<'a> {
     #[facet(skip_serializing)]
     pub cancellation: CancellationScope,

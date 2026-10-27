@@ -17,6 +17,7 @@ use std::ops::Deref;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, facet::Facet)]
+#[facet(traits(Clone))]
 pub struct AzureDevOpsGroupMembersListRequest<'a> {
     #[facet(skip_serializing)]
     pub cancellation: CancellationScope,
@@ -109,6 +110,7 @@ impl Deref for AzureDevOpsGroupMembersV2Response {
 }
 
 #[derive(Debug, Clone, facet::Facet)]
+#[facet(traits(Clone))]
 pub struct AzureDevOpsGroupMembersV2Request<'a> {
     #[facet(skip_serializing)]
     pub cancellation: CancellationScope,

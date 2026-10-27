@@ -28,6 +28,7 @@ use std::future::IntoFuture;
 use std::path::PathBuf;
 use std::pin::Pin;
 #[derive(Debug, Clone, Facet)]
+#[facet(traits(Clone))]
 pub struct AzureDevOpsWorkItemCopyRequest<'a> {
     /// Caller-owned cancellation scope, excluded from serialized request input.
     #[facet(skip_serializing)]

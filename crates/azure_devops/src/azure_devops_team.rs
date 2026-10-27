@@ -13,6 +13,7 @@ use std::path::PathBuf;
 use tracing::debug;
 
 #[derive(Debug, Clone, facet::Facet)]
+#[facet(traits(Clone))]
 pub struct AzureDevOpsTeamsForProjectRequest<'a> {
     #[facet(skip_serializing)]
     pub cancellation: CancellationScope,
