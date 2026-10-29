@@ -402,6 +402,69 @@ fn typing_a_query_reanchors_the_picker_at_the_first_result() {
 }
 
 #[test]
+fn page_navigation_reaches_short_lists_and_partial_last_pages() {
+    for (count, navigation) in [
+        (
+            4,
+            vec![
+                (KeyCode::PageDown, Some(3)),
+                (KeyCode::PageDown, Some(3)),
+                (KeyCode::PageUp, Some(0)),
+                (KeyCode::PageUp, Some(0)),
+            ],
+        ),
+        (
+            23,
+            vec![
+                (KeyCode::PageDown, Some(10)),
+                (KeyCode::PageDown, Some(20)),
+                (KeyCode::PageDown, Some(22)),
+                (KeyCode::PageDown, Some(22)),
+                (KeyCode::PageUp, Some(12)),
+                (KeyCode::PageUp, Some(2)),
+                (KeyCode::PageUp, Some(0)),
+            ],
+        ),
+        (0, vec![(KeyCode::PageDown, None), (KeyCode::PageUp, None)]),
+    ] {
+        let keys = (0..count)
+            .map(|index| Arc::new(CompactString::from(format!("request {index}"))))
+            .collect::<Vec<_>>();
+        let mut list = ratatui::widgets::ListState::default();
+        list.select((count > 0).then_some(0));
+        let mut marked = FxHashSet::default();
+        let mut query = TextArea::from(["request"]);
+        let mut query_changed = false;
+        let mut selection_needs_reset = false;
+        let mut debouncer = QueryDebouncer::default();
+        let mut result = None::<Result<(), PickError<()>>>;
+
+        for (key, expected) in navigation {
+            handle_key(
+                KeyEvent::new(key, KeyModifiers::NONE),
+                false,
+                false,
+                false,
+                &mut list,
+                &keys,
+                &mut marked,
+                &mut query,
+                &mut query_changed,
+                &mut selection_needs_reset,
+                &mut debouncer,
+                &mut result,
+            );
+            assert_eq!(list.selected(), expected, "{key:?} with {count} choices");
+        }
+        assert_eq!(query.lines(), &["request"]);
+        assert!(!query_changed);
+        assert!(!selection_needs_reset);
+        assert!(marked.is_empty());
+        assert!(result.is_none());
+    }
+}
+
+#[test]
 fn editing_multi_selection_can_accept_clearing_every_marked_item() {
     for (many, allow_empty_selection, expected) in [
         (true, true, Vec::<CompactString>::new()),

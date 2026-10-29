@@ -216,14 +216,11 @@ impl FieldValuePicker {
         self.rebuild(None);
     }
 
-    pub(crate) fn move_next(&mut self) {
-        if !self.rows.is_empty() {
-            self.selected = (self.selected + 1).min(self.rows.len() - 1);
-        }
-    }
-
-    pub(crate) fn move_previous(&mut self) {
-        self.selected = self.selected.saturating_sub(1);
+    pub(crate) fn move_selection(&mut self, delta: isize) {
+        self.selected = self
+            .selected
+            .saturating_add_signed(delta)
+            .min(self.rows.len().saturating_sub(1));
     }
 
     fn rebuild(&mut self, preserve: Option<&ValuePickerChoice>) {

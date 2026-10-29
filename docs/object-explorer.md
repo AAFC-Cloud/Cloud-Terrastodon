@@ -183,6 +183,9 @@ Moving Up past the first semantic card row focuses the breadcrumb bar.
 Left/Right selects an existing operation or +Add Breadcrumb; Enter edits the
 selected operation and Delete removes it. Down returns to card rows.
 
+Object pickers support Page Up/Page Down in ten-choice steps, stopping at the
+first or last choice when fewer than ten remain.
+
 Shift+; and +Add Breadcrumb open the same fuzzy PickerTui, with filter shapes
 first. A new shape filter starts with no marked choices. Editing an existing
 shape or field-projection breadcrumb reopens its contextual picker with

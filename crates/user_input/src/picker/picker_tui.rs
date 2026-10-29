@@ -1317,11 +1317,11 @@ pub(super) fn handle_key<T>(
         }
         KeyCode::PageDown => {
             if let Some(selected) = list_state.selected() {
-                let next = selected.saturating_add(10);
-                if next < search_results_keys.len() {
-                    list_state.select(Some(next));
-                    effects.render_requested = Some(selected) != list_state.selected();
-                }
+                let next = selected
+                    .saturating_add(10)
+                    .min(search_results_keys.len().saturating_sub(1));
+                list_state.select(Some(next));
+                effects.render_requested = Some(selected) != list_state.selected();
             }
         }
         KeyCode::Home => {

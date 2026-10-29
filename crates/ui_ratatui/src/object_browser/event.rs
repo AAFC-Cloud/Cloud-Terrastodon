@@ -1090,14 +1090,16 @@ impl ObjectBrowserApp {
                 self.value_picker = None;
                 self.mode = BrowserMode::Pool;
             }
-            KeyCode::Up => {
+            KeyCode::Up | KeyCode::Down | KeyCode::PageUp | KeyCode::PageDown => {
                 if let Some(picker) = self.value_picker.as_mut() {
-                    picker.move_previous();
-                }
-            }
-            KeyCode::Down => {
-                if let Some(picker) = self.value_picker.as_mut() {
-                    picker.move_next();
+                    let delta = match key.code {
+                        KeyCode::Up => -1,
+                        KeyCode::Down => 1,
+                        KeyCode::PageUp => -10,
+                        KeyCode::PageDown => 10,
+                        _ => unreachable!(),
+                    };
+                    picker.move_selection(delta);
                 }
             }
             KeyCode::Backspace => {
@@ -2938,6 +2940,16 @@ mod tests {
             assert!(rendered.contains("Pick Object for breadcrumbs"));
             assert!(rendered.contains("field breadcrumbs of slot"));
             assert!(rendered.contains("(Tab)"));
+
+            let last_choice = app.value_picker.as_ref().unwrap().rows().len() - 1;
+            assert!(last_choice > 0);
+            app.handle_event(&key(KeyCode::PageDown)).await.unwrap();
+            assert_eq!(
+                app.value_picker.as_ref().unwrap().selected_index(),
+                10.min(last_choice)
+            );
+            app.handle_event(&key(KeyCode::PageUp)).await.unwrap();
+            assert_eq!(app.value_picker.as_ref().unwrap().selected_index(), 0);
 
             app.handle_event(&key(KeyCode::Enter)).await.unwrap();
             assert_eq!(app.mode, BrowserMode::LinkAction);
