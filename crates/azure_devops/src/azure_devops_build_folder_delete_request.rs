@@ -59,7 +59,8 @@ impl<'a> Arbitrary<'a> for AzureDevOpsBuildFolderDeleteRequest<'static> {
             project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
             auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
             path: if path.is_root() {
-                AzureDevOpsBuildFolderPath::try_new(r"\Synthetic").unwrap()
+                AzureDevOpsBuildFolderPath::try_new(r"\Synthetic")
+                    .map_err(|_| arbitrary::Error::IncorrectFormat)?
             } else {
                 path
             },
@@ -71,14 +72,9 @@ impl HasCacheKey for AzureDevOpsBuildFolderDeleteRequest<'_> {
     fn cache_key(&self) -> CacheKey {
         let mut path = PathBuf::from("az/devops");
         if self.org_url.collection_name().is_some() {
-            let (scheme, instance) = self
-                .org_url
-                .base_url()
-                .split_once("://")
-                .expect("validated organization URLs contain a scheme and instance");
             path.push("server");
-            path.push(scheme);
-            for component in instance.split('/') {
+            path.push(self.org_url.instance_scheme());
+            for component in self.org_url.instance_authority_and_path().split('/') {
                 path.push(sanitize_windows_path_component(component));
             }
             path.push("org");

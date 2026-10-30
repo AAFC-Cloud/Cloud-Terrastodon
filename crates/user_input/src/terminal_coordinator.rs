@@ -14,6 +14,7 @@ use std::sync::Arc;
 use std::sync::Mutex;
 #[cfg(feature = "terminal_coordinator_debug")]
 use std::sync::OnceLock;
+use std::sync::PoisonError;
 use std::sync::Weak;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicU64;
@@ -71,12 +72,13 @@ struct CommandBus {
 
 impl TerminalCoordinator {
     /// Start a coordinator on the currently running Tokio runtime.
+    /// Returns an error when there is no current runtime.
     #[track_caller]
-    pub fn new() -> Self {
-        Self::try_new().expect("TerminalCoordinator::new requires a Tokio runtime")
+    pub fn new() -> Result<Self> {
+        Self::try_new()
     }
 
-    /// Fallible version for library and test callers.
+    /// Compatibility alias for the fallible [`Self::new`] constructor.
     #[track_caller]
     pub fn try_new() -> Result<Self> {
         Self::try_new_with_activity(TerminalActivity::new())
@@ -109,7 +111,9 @@ impl TerminalCoordinator {
                 *actor_state
                     .actor_panic
                     .lock()
-                    .expect("terminal coordinator actor panic slot poisoned") = Some(payload);
+                    // This slot has no multi-field invariant: replacing its optional
+                    // payload remains valid even if an earlier payload's Drop panicked.
+                    .unwrap_or_else(PoisonError::into_inner) = Some(payload);
             }
         });
 
@@ -126,7 +130,9 @@ impl TerminalCoordinator {
         self.state
             .actor_panic
             .lock()
-            .expect("terminal coordinator actor panic slot poisoned")
+            // Taking the optional payload is safe after poisoning too; preserving
+            // it lets the supervisor report the original actor failure.
+            .unwrap_or_else(PoisonError::into_inner)
             .take()
     }
 
@@ -135,7 +141,7 @@ impl TerminalCoordinator {
         let registry = DEBUG_APPLICATION_ROOT.get_or_init(|| Mutex::new(None));
         let mut registered = registry
             .lock()
-            .expect("terminal coordinator debug registry poisoned");
+            .map_err(|_| eyre::eyre!("terminal coordinator debug registry poisoned"))?;
         if registered.is_some() {
             eyre::bail!("a terminal coordinator application root is already registered");
         }
@@ -160,7 +166,7 @@ impl TerminalCoordinator {
         let registry = DEBUG_APPLICATION_ROOT.get_or_init(|| Mutex::new(None));
         let registered = registry
             .lock()
-            .expect("terminal coordinator debug registry poisoned");
+            .map_err(|_| eyre::eyre!("terminal coordinator debug registry poisoned"))?;
         if let Some(identity) = *registered
             && identity != Arc::as_ptr(&self.state) as usize
         {
@@ -266,12 +272,6 @@ impl TerminalCoordinator {
     }
 }
 
-impl Default for TerminalCoordinator {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[cfg(feature = "terminal_coordinator_debug")]
 pub struct DebugApplicationRoot {
     coordinator: TerminalCoordinator,
@@ -281,12 +281,18 @@ pub struct DebugApplicationRoot {
 #[cfg(feature = "terminal_coordinator_debug")]
 impl Drop for DebugApplicationRoot {
     fn drop(&mut self) {
-        let registry = DEBUG_APPLICATION_ROOT
-            .get()
-            .expect("terminal coordinator debug registry was not initialized");
-        let mut registered = registry
-            .lock()
-            .expect("terminal coordinator debug registry poisoned");
+        let Some(registry) = DEBUG_APPLICATION_ROOT.get() else {
+            self.coordinator
+                .poison("terminal coordinator debug registry was not initialized");
+            tracing::error!("terminal coordinator debug registry was not initialized");
+            return;
+        };
+        let Ok(mut registered) = registry.lock() else {
+            self.coordinator
+                .poison("terminal coordinator debug registry poisoned");
+            tracing::error!("terminal coordinator debug registry poisoned");
+            return;
+        };
         assert_eq!(
             *registered,
             Some(self.identity),
@@ -950,8 +956,13 @@ impl Drop for Actor {
 mod tests {
     use super::*;
 
+    #[test]
+    fn construction_without_a_runtime_returns_an_error() {
+        assert!(TerminalCoordinator::new().is_err());
+    }
+
     #[cfg(feature = "terminal_coordinator_debug")]
-    static DEBUG_TEST_LOCK: Mutex<()> = Mutex::new(());
+    static DEBUG_TEST_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
     struct MockTerminalBackend {
         active: bool,
@@ -1547,7 +1558,7 @@ mod tests {
     #[cfg(feature = "terminal_coordinator_debug")]
     #[tokio::test]
     async fn debug_root_registry_rejects_duplicates_and_mismatches() -> Result<()> {
-        let _lock = DEBUG_TEST_LOCK.lock().expect("debug test lock poisoned");
+        let _lock = DEBUG_TEST_LOCK.lock().await;
         let coordinator = TerminalCoordinator::try_new()?;
         let other = TerminalCoordinator::try_new()?;
         let registration = coordinator.debug_register_as_application_root()?;
@@ -1576,7 +1587,7 @@ mod tests {
     #[cfg(feature = "terminal_coordinator_debug")]
     #[tokio::test]
     async fn debug_root_drop_with_active_frame_panics_and_clears_registration() -> Result<()> {
-        let _lock = DEBUG_TEST_LOCK.lock().expect("debug test lock poisoned");
+        let _lock = DEBUG_TEST_LOCK.lock().await;
         let coordinator = TerminalCoordinator::try_new()?;
         let registration = coordinator.debug_register_as_application_root()?;
         let guard = coordinator.acquire().await?;

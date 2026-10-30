@@ -54,7 +54,9 @@ impl ExcalidrawFileLock {
         // Only generated numeric values are interpolated; this matches the
         // extension's version-1 shared-file protocol, not scene metadata.
         writeln!(
-            lock.file.as_mut().unwrap(),
+            lock.file
+                .as_mut()
+                .ok_or_else(|| io::Error::other("new drawing lock has no file handle"))?,
             "{{\"version\":1,\"owner\":\"ct:{pid}:{nonce}\",\"pid\":{pid}}}"
         )?;
         Ok(lock)

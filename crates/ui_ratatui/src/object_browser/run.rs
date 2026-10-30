@@ -28,7 +28,10 @@ pub(crate) async fn run_object_browser(
     excalidraw: Option<PathBuf>,
     cancellation: &CancellationScope,
 ) -> Result<()> {
-    let coordinator = TerminalCoordinator::try_current().unwrap_or_default();
+    let coordinator = match TerminalCoordinator::try_current() {
+        Some(coordinator) => coordinator,
+        None => TerminalCoordinator::new()?,
+    };
     let scoped_coordinator = coordinator.clone();
     coordinator
         .scope(async move { run_with_terminal(scoped_coordinator, excalidraw, cancellation).await })
@@ -110,9 +113,23 @@ async fn run_engine_and_ui(
         tokio::pin!(engine_future);
         let mut app_future = Box::pin(app_future);
 
-        let result = tokio::select! {
-            result = &mut app_future => result,
-            _engine = &mut engine_future => return Err(eyre::eyre!("explorer engine stopped while the UI was active")),
+        let (result, engine_stopped) = tokio::select! {
+            result = &mut app_future => (result, false),
+            engine_result = &mut engine_future => {
+                let error = match engine_result {
+                    Ok(_) => eyre::eyre!("explorer engine stopped while the UI was active"),
+                    Err(error) => eyre::eyre!("explorer engine failed: {error}"),
+                };
+                // Let the UI close its render jobs and nested pickers even when
+                // the engine has failed. Dropping this future would skip that
+                // owned shutdown and could strand terminal ownership.
+                cancellation.request_cancel("explorer engine stopped");
+                let cleanup = app_future.as_mut().await;
+                if let Err(cleanup_error) = cleanup {
+                    tracing::warn!(%cleanup_error, "Object browser cleanup after engine failure failed");
+                }
+                (Err(error), true)
+            },
         };
         drop(app_future);
         cancellation.request_cancel("object browser closed");
@@ -121,6 +138,9 @@ async fn run_engine_and_ui(
         let restore_result = terminal.close().inspect_err(|error| {
             coordinator.poison(format!("Ratatui terminal restoration failed: {error}"));
         });
+        if engine_stopped {
+            return result.and(restore_result);
+        }
         let draining = async {
             shutdown_handle
                 .finish_pending_invocations()
@@ -137,7 +157,10 @@ async fn run_engine_and_ui(
         let drained = loop {
             tokio::select! {
                 drained = &mut draining => break drained,
-                _engine = &mut engine_future => break Err(eyre::eyre!("explorer engine stopped before pending operations finished")),
+                engine_result = &mut engine_future => break Err(match engine_result {
+                    Ok(_) => eyre::eyre!("explorer engine stopped before pending operations finished"),
+                    Err(error) => eyre::eyre!("explorer engine failed during invocation cleanup: {error}"),
+                }),
                 control = guard.next_control(), if cleanup_controls.is_ok() => {
                     // Invoked requests can own their own pickers. Their exit
                     // needs our resume acknowledgement even after the UI closes.
@@ -292,7 +315,7 @@ mod tests {
         tokio::time::timeout(
             Duration::from_secs(2),
             cancellation.with_async_scope(|scope| async move {
-                let coordinator = TerminalCoordinator::new();
+                let coordinator = TerminalCoordinator::new().unwrap();
                 let mut guard = coordinator.acquire().await?;
                 let (finish, finished) = oneshot::channel();
                 let cleanup_entered = Cell::new(false);

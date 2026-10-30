@@ -64,7 +64,7 @@ mod tests {
     }
 
     #[test]
-    fn registered_query_generators_create_round_trippable_values_without_execution()
+    fn registered_query_generators_create_queries_and_export_parameters_without_execution()
     -> eyre::Result<()> {
         for first in [0, 1] {
             let mut bytes = vec![0; 4096];
@@ -118,10 +118,8 @@ mod tests {
                 Some("json")
             );
             assert!(request.filename().starts_with("object-explorer-"));
-            let decoded =
-                facet_json::from_str::<ProduceJsonRequest>(&facet_json::to_string(&request)?)?;
-            assert_eq!(decoded.filename(), request.filename());
-            assert_eq!(decoded.breadcrumbs(), request.breadcrumbs());
+            // Query values round-trip above. The executable request also holds
+            // runtime cancellation, which is intentionally not serializable.
         }
         Ok(())
     }

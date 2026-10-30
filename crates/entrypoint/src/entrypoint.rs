@@ -10,6 +10,8 @@ use crate::version::set_version;
 use cloud_terrastodon_app::App;
 use cloud_terrastodon_credentials::AuthSource;
 use eyre::Result;
+use std::process::ExitCode;
+use std::process::Termination;
 
 pub fn entrypoint(
     version: Version,
@@ -19,9 +21,9 @@ pub fn entrypoint(
     cloud_terrastodon_app::prepare_process()?;
 
     let implementation_revision = git_rev.to_string();
-    set_git_revision(git_rev);
-    set_build_timestamp(build_timestamp);
-    set_version(version);
+    set_git_revision(git_rev)?;
+    set_build_timestamp(build_timestamp)?;
+    set_version(version)?;
 
     let executable_name = std::env::args_os()
         .next()
@@ -33,10 +35,16 @@ pub fn entrypoint(
         .unwrap_or_else(|| "cloud_terrastodon".into());
     // Interactive commands await terminal restoration and background-job shutdown.
     // Keep this owner cooperative; requests and scoped jobs cancel independently.
-    let app = App::new(executable_name, full_version().to_string())
+    let app = App::new(executable_name, full_version()?.to_string())
         .automatic_cancellation(false)
         .implementation_github("AAFC-Cloud/Cloud-Terrastodon", implementation_revision);
-    let mut cli: Cli = app.parse_from(std::env::args_os().skip(1)).unwrap();
+    let mut cli: Cli = match app.parse_from(std::env::args_os().skip(1)).into_result() {
+        Ok(output) => output.get(),
+        Err(outcome) => {
+            let status = outcome.report();
+            std::process::exit(if status == ExitCode::SUCCESS { 0 } else { 1 });
+        }
+    };
     let requested_auth_source = cli.global_args.auth_source;
     if matches!(
         cli.command.as_ref(),
@@ -88,7 +96,7 @@ mod tests {
         let _ = figue::builder::<Cli>()
             .expect("CLI schema should be valid")
             .help(|help| {
-                help.version(full_version().to_string())
+                help.version(full_version().unwrap().to_string())
                     .include_implementation_source_file(true)
                     .include_implementation_github_url("AAFC-Cloud/Cloud-Terrastodon", "unknown")
             })

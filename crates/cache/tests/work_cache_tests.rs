@@ -1,3 +1,5 @@
+#![cfg(test)]
+
 use cloud_terrastodon_cache::ArtifactObservation;
 use cloud_terrastodon_cache::AuthPartition;
 use cloud_terrastodon_cache::CacheEntryIdentity;
@@ -8,6 +10,7 @@ use cloud_terrastodon_cache::NonEmptyString;
 use cloud_terrastodon_cache::WorkAttempt;
 use cloud_terrastodon_cache::WorkCache;
 use cloud_terrastodon_cache::WorkOutput;
+use cloud_terrastodon_cache::WorkReuse;
 use std::future::Future;
 use std::future::IntoFuture;
 use std::future::poll_fn;
@@ -39,10 +42,7 @@ fn identity(name: &str) -> CacheEntryIdentity {
 }
 
 fn output<T>(value: T) -> WorkOutput<T> {
-    WorkOutput {
-        value,
-        observation: ArtifactObservation::now(),
-    }
+    WorkOutput::new(value, ArtifactObservation::now())
 }
 
 async fn read(
@@ -55,6 +55,7 @@ async fn read(
         .cached_work(
             identity(name),
             CacheOperationOwner::of::<SyntheticRead>(),
+            WorkReuse::ReusableRead,
             VALID_FOR,
             None,
             scope,
@@ -93,6 +94,7 @@ async fn concurrent_and_warm_reads_reuse_one_execution_decode_and_arc() -> eyre:
                             .cached_work(
                                 identity("shared"),
                                 CacheOperationOwner::of::<SyntheticRead>(),
+                                WorkReuse::ReusableRead,
                                 VALID_FOR,
                                 None,
                                 &child,
@@ -103,10 +105,7 @@ async fn concurrent_and_warm_reads_reuse_one_execution_decode_and_arc() -> eyre:
                                     released.await?;
                                     let observation = ArtifactObservation::now();
                                     decodes.fetch_add(1, Ordering::SeqCst);
-                                    Ok(WorkOutput {
-                                        value: 42_u64,
-                                        observation,
-                                    })
+                                    Ok(WorkOutput::new(42_u64, observation))
                                 },
                             )?
                             .await
@@ -142,6 +141,7 @@ async fn barrier_read(
                 .cached_work(
                     key,
                     CacheOperationOwner::of::<SyntheticRead>(),
+                    WorkReuse::ReusableRead,
                     VALID_FOR,
                     None,
                     &scope,
@@ -199,6 +199,7 @@ fn assert_conflicts(cache: &WorkCache, scope: &CancellationScope) {
             .cached_work(
                 changed_fingerprint.clone(),
                 CacheOperationOwner::of::<ConflictingRead>(),
+                WorkReuse::ReusableRead,
                 VALID_FOR,
                 None,
                 scope,
@@ -211,6 +212,7 @@ fn assert_conflicts(cache: &WorkCache, scope: &CancellationScope) {
             .cached_work(
                 changed_fingerprint,
                 CacheOperationOwner::of::<SyntheticRead>(),
+                WorkReuse::ReusableRead,
                 VALID_FOR,
                 None,
                 scope,
@@ -232,6 +234,7 @@ async fn owner_and_output_conflicts_fail_during_initialization_and_after_reuse()
                 .cached_work(
                     identity("claimed"),
                     CacheOperationOwner::of::<SyntheticRead>(),
+                    WorkReuse::ReusableRead,
                     VALID_FOR,
                     None,
                     &scope,
@@ -276,6 +279,7 @@ async fn retry_after_failed_leader(exit: LeaderExit) -> eyre::Result<()> {
                         .cached_work::<u64, _, _>(
                             identity("retry"),
                             CacheOperationOwner::of::<SyntheticRead>(),
+                            WorkReuse::ReusableRead,
                             VALID_FOR,
                             None,
                             &child,
@@ -348,6 +352,7 @@ async fn cancelling_a_waiter_leaves_the_active_initializer_running() -> eyre::Re
                 .cached_work(
                     identity("waiter-cancel"),
                     CacheOperationOwner::of::<SyntheticRead>(),
+                    WorkReuse::ReusableRead,
                     VALID_FOR,
                     None,
                     &scope,
@@ -395,6 +400,7 @@ async fn common_root_cancellation_stops_the_initializer_and_waiter() -> eyre::Re
                 .cached_work::<u64, _, _>(
                     identity("root-cancel"),
                     CacheOperationOwner::of::<SyntheticRead>(),
+                    WorkReuse::ReusableRead,
                     VALID_FOR,
                     None,
                     &scope,
@@ -426,6 +432,7 @@ async fn direct_recursion_returns_an_error_instead_of_waiting_for_itself() -> ey
                 .cached_work::<u64, _, _>(
                     identity("recursive"),
                     CacheOperationOwner::of::<SyntheticRead>(),
+                    WorkReuse::ReusableRead,
                     VALID_FOR,
                     None,
                     &scope,
@@ -436,6 +443,7 @@ async fn direct_recursion_returns_an_error_instead_of_waiting_for_itself() -> ey
                                 .cached_work(
                                     identity("recursive"),
                                     CacheOperationOwner::of::<SyntheticRead>(),
+                                    WorkReuse::ReusableRead,
                                     VALID_FOR,
                                     parent.as_ref(),
                                     &child,
@@ -466,6 +474,7 @@ async fn cyclic_read(
                 .cached_work(
                     identity(own_key),
                     CacheOperationOwner::of::<SyntheticRead>(),
+                    WorkReuse::ReusableRead,
                     VALID_FOR,
                     None,
                     &scope,
@@ -475,6 +484,7 @@ async fn cyclic_read(
                             .cached_work(
                                 identity(other_key),
                                 CacheOperationOwner::of::<SyntheticRead>(),
+                                WorkReuse::ReusableRead,
                                 VALID_FOR,
                                 parent.as_ref(),
                                 &child,
@@ -530,6 +540,7 @@ async fn zero_validity_executes_each_call_without_replacing_a_reusable_result() 
                     .cached_work(
                         identity("zero-validity"),
                         CacheOperationOwner::of::<SyntheticRead>(),
+                        WorkReuse::ReusableRead,
                         Duration::ZERO,
                         None,
                         &scope,
@@ -557,7 +568,8 @@ async fn zero_validity_executes_each_call_without_replacing_a_reusable_result() 
 }
 
 #[tokio::test]
-async fn an_uncached_intermediary_preserves_parent_cycle_detection() -> eyre::Result<()> {
+async fn zero_validity_child_is_rejected_before_execution_and_prevents_parent_reuse()
+-> eyre::Result<()> {
     CancellationToken::new()
         .with_async_scope(|scope| async move {
             let temporary = tempfile::tempdir()?;
@@ -566,41 +578,30 @@ async fn an_uncached_intermediary_preserves_parent_cycle_detection() -> eyre::Re
                 .cached_work::<u64, _, _>(
                     identity("ancestor"),
                     CacheOperationOwner::of::<SyntheticRead>(),
+                    WorkReuse::ReusableRead,
                     VALID_FOR,
                     None,
                     &scope,
                     |parent, child| {
                         let cache = &cache;
                         async move {
-                            let intermediary = cache
-                                .cached_work(
-                                    identity("uncached-intermediary"),
-                                    CacheOperationOwner::of::<SyntheticRead>(),
-                                    Duration::ZERO,
-                                    parent.as_ref(),
-                                    &child,
-                                    |inherited_parent, grandchild| async move {
-                                        assert!(inherited_parent.is_some());
-                                        let ancestor = cache
-                                            .cached_work(
-                                                identity("ancestor"),
-                                                CacheOperationOwner::of::<SyntheticRead>(),
-                                                VALID_FOR,
-                                                inherited_parent.as_ref(),
-                                                &grandchild,
-                                                |_, _| async { Ok(output(1_u64)) },
-                                            )?
-                                            .await?;
-                                        Ok(output(*ancestor))
-                                    },
-                                )?
-                                .await?;
-                            Ok(output(*intermediary))
+                            let intermediary = cache.cached_work::<u64, _, _>(
+                                identity("uncached-intermediary"),
+                                CacheOperationOwner::of::<SyntheticRead>(),
+                                WorkReuse::ReusableRead,
+                                Duration::ZERO,
+                                parent.as_ref(),
+                                &child,
+                                |_, _| async { panic!("an incompatible child must not execute") },
+                            );
+                            assert!(intermediary.is_err());
+                            Ok(output(1_u64))
                         }
                     },
                 )?
                 .into_future();
-            assert!(timeout(DEADLOCK_GUARD, result).await?.is_err());
+            assert_eq!(*timeout(DEADLOCK_GUARD, result).await??, 1);
+            assert_eq!(*read(&cache, "ancestor", &scope, 2).await?, 2);
             Ok(())
         })
         .await
@@ -617,6 +618,7 @@ async fn releasing_memory_during_a_fill_preserves_the_live_gate() -> eyre::Resul
                 .cached_work(
                     identity("eviction"),
                     CacheOperationOwner::of::<SyntheticRead>(),
+                    WorkReuse::ReusableRead,
                     VALID_FOR,
                     None,
                     &scope,
@@ -663,6 +665,7 @@ async fn finished_attempt_handles_cannot_be_reused_as_active_parents() -> eyre::
                 .cached_work(
                     identity("finished-parent"),
                     CacheOperationOwner::of::<SyntheticRead>(),
+                    WorkReuse::ReusableRead,
                     VALID_FOR,
                     None,
                     &scope,
@@ -676,6 +679,7 @@ async fn finished_attempt_handles_cannot_be_reused_as_active_parents() -> eyre::
             let result = cache.cached_work(
                 identity("new-child"),
                 CacheOperationOwner::of::<SyntheticRead>(),
+                WorkReuse::ReusableRead,
                 VALID_FOR,
                 Some(&stale),
                 &scope,
@@ -700,6 +704,7 @@ async fn an_active_parent_cannot_be_transferred_to_an_isolated_cache_handle() ->
                 .cached_work(
                     identity("parent-owner"),
                     CacheOperationOwner::of::<SyntheticRead>(),
+                    WorkReuse::ReusableRead,
                     VALID_FOR,
                     None,
                     &scope,
@@ -707,6 +712,7 @@ async fn an_active_parent_cannot_be_transferred_to_an_isolated_cache_handle() ->
                         let result = isolated.cached_work(
                             identity("foreign-child"),
                             CacheOperationOwner::of::<SyntheticRead>(),
+                            WorkReuse::ReusableRead,
                             VALID_FOR,
                             parent.as_ref(),
                             &child,
@@ -719,6 +725,7 @@ async fn an_active_parent_cannot_be_transferred_to_an_isolated_cache_handle() ->
                     },
                 )?
                 .await?;
+            assert_eq!(*read(&cache, "parent-owner", &scope, 3).await?, 3);
             Ok(())
         })
         .await
@@ -735,6 +742,7 @@ async fn wrapper_and_transport_can_nest_under_the_same_scope_in_separate_namespa
                 .cached_work(
                     identity("wrapper-transport"),
                     CacheOperationOwner::of::<SyntheticRead>(),
+                    WorkReuse::ReusableRead,
                     VALID_FOR,
                     None,
                     &scope,
@@ -748,6 +756,7 @@ async fn wrapper_and_transport_can_nest_under_the_same_scope_in_separate_namespa
                                         ..identity("wrapper-transport")
                                     },
                                     CacheOperationOwner::of::<ConflictingRead>(),
+                                    WorkReuse::ReusableRead,
                                     VALID_FOR,
                                     parent.as_ref(),
                                     &child,
@@ -764,6 +773,7 @@ async fn wrapper_and_transport_can_nest_under_the_same_scope_in_separate_namespa
                 .cached_work(
                     identity("wrapper-transport"),
                     CacheOperationOwner::of::<SyntheticRead>(),
+                    WorkReuse::ReusableRead,
                     VALID_FOR,
                     None,
                     &scope,
@@ -795,6 +805,7 @@ async fn cancellation_waits_for_required_completion_before_a_waiter_retries() ->
                             .cached_work(
                                 identity("required-completion"),
                                 CacheOperationOwner::of::<SyntheticRead>(),
+                                WorkReuse::ReusableRead,
                                 VALID_FOR,
                                 None,
                                 &child,

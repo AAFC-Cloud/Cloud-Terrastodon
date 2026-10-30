@@ -83,9 +83,9 @@ impl std::fmt::Display for AzureDevOpsBuildDefinitionName {
 
 impl<'a> Arbitrary<'a> for AzureDevOpsBuildDefinitionName {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        Ok(Self::try_new(String::arbitrary(u)?).unwrap_or_else(|_| {
-            Self::try_new("Synthetic pipeline").expect("valid synthetic value")
-        }))
+        Self::try_new(String::arbitrary(u)?)
+            .or_else(|_| Self::try_new("Synthetic pipeline"))
+            .map_err(|_| arbitrary::Error::IncorrectFormat)
     }
 }
 

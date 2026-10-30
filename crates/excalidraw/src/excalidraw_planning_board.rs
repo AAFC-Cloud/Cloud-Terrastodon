@@ -70,7 +70,7 @@ impl ExcalidrawPlanningBoard {
                     nodes: Vec::new(),
                     edges: Vec::new(),
                     diagnostics: Vec::new(),
-                });
+                })?;
                 scene.elements.clear();
                 Self::from_json(&scene.to_json()?)?
             }
@@ -134,7 +134,7 @@ impl ExcalidrawPlanningBoard {
                 .map(|element| element.x + element.width)
                 .reduce(f64::max)
                 .map_or(40.0, |right| right + 160.0);
-            let id = board.fresh_id("ct-planning-frame");
+            let id = board.fresh_id("ct-planning-frame")?;
             let mut frame = rectangle(&id, x, 40.0, 1100.0, 350.0)?;
             set(&mut frame, "type", &"frame")?;
             set(&mut frame, "name", &GENERATED)?;
@@ -161,7 +161,7 @@ impl ExcalidrawPlanningBoard {
                     nodes: Vec::new(),
                     edges: Vec::new(),
                     diagnostics: Vec::new(),
-                });
+                })?;
                 scene.elements.clear();
                 Self::from_json(&scene.to_json()?)?
             }
@@ -489,7 +489,7 @@ impl ExcalidrawPlanningBoard {
         }) {
             return Ok(ungrouped);
         }
-        let mut output: Vec<SceneFields> = crate::discovery_plan_diagram::elements(plan)
+        let mut output: Vec<SceneFields> = crate::discovery_plan_diagram::elements(plan)?
             .iter()
             .map(|element| Ok(facet_json::from_str(&facet_json::to_string(element)?)?))
             .collect::<Result<_>>()?;
@@ -631,7 +631,7 @@ impl ExcalidrawPlanningBoard {
             .reduce(f64::max)
             .map_or(40.0, |right| right + 160.0);
         for (offset, name) in [POOL, SELECTED, GENERATED].into_iter().enumerate() {
-            let id = self.fresh_id("ct-planning-frame");
+            let id = self.fresh_id("ct-planning-frame")?;
             let mut element =
                 rectangle(&id, x + offset as f64 * 950.0, 40.0, 850.0, SEARCH_HEIGHT)?;
             set(&mut element, "type", &"frame")?;
@@ -649,7 +649,7 @@ impl ExcalidrawPlanningBoard {
             ),
         ] {
             let geometry = bounds(&self.document.elements()[frame])?;
-            let id = self.fresh_id("ct-planning-instructions");
+            let id = self.fresh_id("ct-planning-instructions")?;
             let mut label = crate::interactive_demo::text(
                 &id,
                 &content,
@@ -693,7 +693,7 @@ impl ExcalidrawPlanningBoard {
 
     fn add_search_instructions(&mut self, pool: usize) -> Result<()> {
         let geometry = bounds(&self.document.elements()[pool])?;
-        let id = self.fresh_id("ct-search-instructions");
+        let id = self.fresh_id("ct-search-instructions")?;
         let mut label = crate::interactive_demo::text(
             &id,
             "Edit the hand-drawn #target query.\nDrag a result into Selected targets.\nDrag the purple thumb to scroll.\nGreen means selected; save to update.",
@@ -803,7 +803,7 @@ impl ExcalidrawPlanningBoard {
                 })?;
             }
         }
-        let id = self.fresh_id("ct-target-query");
+        let id = self.fresh_id("ct-target-query")?;
         let mut query = crate::interactive_demo::text(
             &id,
             "#target\n",
@@ -955,7 +955,7 @@ impl ExcalidrawPlanningBoard {
     }
 
     fn add_card(&mut self, name: &str, frame: usize, x: f64, y: f64) -> Result<(usize, usize)> {
-        let id = self.fresh_id("ct-target");
+        let id = self.fresh_id("ct-target")?;
         let label_id = format!("{id}-label");
         let frame_id = required_id(&self.document.elements()[frame])?;
         let mut rectangle = rectangle(&id, x, y, CARD_WIDTH, CARD_HEIGHT)?;
@@ -997,14 +997,14 @@ impl ExcalidrawPlanningBoard {
         Ok((rectangle_index + 1, rectangle_index))
     }
 
-    fn fresh_id(&self, prefix: &str) -> String {
+    fn fresh_id(&self, prefix: &str) -> Result<String> {
         let existing: BTreeSet<_> = self
             .document
             .elements()
             .iter()
             .filter_map(|element| string(element, "id"))
             .collect();
-        (0..)
+        (0..=existing.len())
             .map(|index| format!("{prefix}-{index}"))
             .find(|id| {
                 !existing.contains(id)
@@ -1013,7 +1013,7 @@ impl ExcalidrawPlanningBoard {
                         .iter()
                         .any(|existing| existing.starts_with(&format!("{id}-plan-")))
             })
-            .unwrap()
+            .ok_or_else(|| eyre::eyre!("could not allocate an unused planning element identifier"))
     }
 }
 

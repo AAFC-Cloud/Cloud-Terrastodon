@@ -12,6 +12,7 @@ use super::revision::RootRevision;
 use super::slot_id::SlotId;
 use super::value_address::ValueAddress;
 use super::value_builder::BuilderStore;
+use super::value_builder::ValueBuilderError;
 use super::value_resolution_error::ValueResolutionError;
 use facet::Shape;
 use facet::Type;
@@ -89,11 +90,11 @@ impl RootSnapshot {
                 )?,
             ),
             ArenaSlotState::Building => {
-                let builder = builders
-                    .builder(slot)
-                    .map_or_else(BuilderSnapshot::shape_unset, |builder| {
-                        BuilderSnapshot::observe(builder, max_relationship_rows)
-                    });
+                let builder = match builders.builder(slot) {
+                    Some(builder) => BuilderSnapshot::observe(builder, max_relationship_rows)
+                        .map_err(RootSnapshotError::Builder)?,
+                    None => BuilderSnapshot::shape_unset(),
+                };
                 let mut rows = vec![CardRowSnapshot::new(
                     CardRowKey::Shape,
                     "shape",
@@ -251,6 +252,7 @@ fn lifecycle_card(
 
 #[derive(Debug)]
 pub(crate) enum RootSnapshotError {
+    Builder(ValueBuilderError),
     Arena(ArenaError),
     Resolve(ValueResolutionError),
 }
@@ -258,6 +260,7 @@ pub(crate) enum RootSnapshotError {
 impl std::fmt::Display for RootSnapshotError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::Builder(error) => error.fmt(formatter),
             Self::Arena(error) => error.fmt(formatter),
             Self::Resolve(error) => error.fmt(formatter),
         }

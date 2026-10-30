@@ -11,6 +11,15 @@ impl ArbitraryJson {
         Self(RawJson::from_owned("{}".to_string()))
     }
 
+    /// Encode a string scalar without reflective serialization. The formatter's
+    /// string representation is a quoted, escaped JSON string; other dynamic
+    /// value kinds are deliberately not accepted at this boundary.
+    pub fn from_text(value: &str) -> Self {
+        Self(RawJson::from_owned(facet_value::format_value(
+            &facet_value::Value::from(value),
+        )))
+    }
+
     /// Serializes a Facet value into the raw JSON representation used by
     /// Azure API payloads.
     pub fn try_from_facet<T: facet::Facet<'static>>(value: &T) -> eyre::Result<Self> {
@@ -66,3 +75,24 @@ impl std::ops::Deref for ArbitraryJson {
 
 cloud_terrastodon_registry::register_thing!(ArbitraryJson);
 cloud_terrastodon_registry::register_arbitrary!(ArbitraryJson);
+
+#[cfg(test)]
+mod tests {
+    use super::ArbitraryJson;
+
+    #[test]
+    fn text_scalars_preserve_escaping_and_unicode() -> eyre::Result<()> {
+        for text in [
+            "",
+            "null",
+            "a\"b\\c",
+            "\0\u{0008}\u{001f}\n\r\t",
+            "Équipe 😀",
+        ] {
+            let encoded = ArbitraryJson::from_text(text);
+            let decoded: String = facet_json::from_str(encoded.as_ref())?;
+            assert_eq!(decoded, text);
+        }
+        Ok(())
+    }
+}

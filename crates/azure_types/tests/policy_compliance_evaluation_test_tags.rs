@@ -1,3 +1,5 @@
+#![cfg(test)]
+
 use arbitrary::Arbitrary;
 use arbitrary::Unstructured;
 use cloud_terrastodon_azure_types::AzurePolicyDefinitionParametersSupplied;

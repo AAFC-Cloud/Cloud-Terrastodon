@@ -114,6 +114,10 @@ impl ProductionController {
             }
         };
 
+        let next_job = self
+            .next_job
+            .checked_add(1)
+            .ok_or_else(|| "production job identity space exhausted".to_owned())?;
         builders
             .set_field_and_finalize(
                 arena,
@@ -129,10 +133,7 @@ impl ProductionController {
             })?;
 
         let id = ProductionJobId::new(self.next_job);
-        self.next_job = self
-            .next_job
-            .checked_add(1)
-            .expect("production job identity space exhausted");
+        self.next_job = next_job;
         let replaced = self.jobs.insert(
             id,
             ProductionJob {
@@ -152,7 +153,7 @@ impl ProductionController {
         let mut latest = self
             .jobs
             .get(&id)
-            .expect("new production job is indexed")
+            .ok_or_else(|| "new production job is missing from the index".to_owned())?
             .running_update();
         while work.try_consume() {
             let Some(update) = self.advance_job(

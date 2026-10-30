@@ -284,7 +284,7 @@ impl InvocationController {
                 cloud_terrastodon_registry::describe_shape(request_function.output_shape)
             ),
             [operation],
-        );
+        )?;
         let start = match self.invoke_linked(
             arena,
             builders,
@@ -297,7 +297,11 @@ impl InvocationController {
             Err(error) => {
                 self.plans
                     .get_mut(&plan)
-                    .expect("new arbitrary plan remains indexed")
+                    .ok_or_else(|| {
+                        InvocationControllerError::new(
+                            "new arbitrary plan is missing from the index",
+                        )
+                    })?
                     .mark_failed(0, error.to_string());
                 return Err(error);
             }
@@ -306,17 +310,23 @@ impl InvocationController {
             InvocationStart::Pending { invocation, output } => self
                 .plans
                 .get_mut(&plan)
-                .expect("new arbitrary plan remains indexed")
+                .ok_or_else(|| {
+                    InvocationControllerError::new("new arbitrary plan is missing from the index")
+                })?
                 .mark_waiting(0, *invocation, *output),
             InvocationStart::Ready { output } => self
                 .plans
                 .get_mut(&plan)
-                .expect("new arbitrary plan remains indexed")
+                .ok_or_else(|| {
+                    InvocationControllerError::new("new arbitrary plan is missing from the index")
+                })?
                 .mark_complete(0, *output),
             InvocationStart::Failed { message, .. } => self
                 .plans
                 .get_mut(&plan)
-                .expect("new arbitrary plan remains indexed")
+                .ok_or_else(|| {
+                    InvocationControllerError::new("new arbitrary plan is missing from the index")
+                })?
                 .mark_failed(0, message.clone()),
         }
 
@@ -423,10 +433,9 @@ impl InvocationController {
                 state: InvocationEventState::CancellationRequested,
             });
         }
-        let pending = self
-            .pending
-            .remove(&invocation)
-            .expect("pending invocation was checked above");
+        let pending = self.pending.remove(&invocation).ok_or_else(|| {
+            InvocationControllerError::new("pending invocation is missing from the index")
+        })?;
         builders
             .cancel_pending(arena, borrow_graph, pending.output)
             .map_err(|error| InvocationControllerError::new(error.to_string()))?;
@@ -455,15 +464,14 @@ impl InvocationController {
         &mut self,
         title: impl Into<String>,
         operations: impl IntoIterator<Item = PlannedInvocation>,
-    ) -> InvocationPlanId {
+    ) -> Result<InvocationPlanId, InvocationControllerError> {
         let id = InvocationPlanId::new(self.next_plan);
-        self.next_plan = self
-            .next_plan
-            .checked_add(1)
-            .expect("invocation plan identity space exhausted");
+        self.next_plan = self.next_plan.checked_add(1).ok_or_else(|| {
+            InvocationControllerError::new("invocation plan identity space exhausted")
+        })?;
         self.plans
             .insert(id, InvocationPlan::new(id, title, operations));
-        id
+        Ok(id)
     }
 
     pub(crate) fn plan(&self, id: InvocationPlanId) -> Option<&InvocationPlan> {
@@ -502,21 +510,33 @@ impl InvocationController {
                 Ok(InvocationStart::Pending { invocation, output }) => {
                     self.plans
                         .get_mut(&plan)
-                        .expect("plan remains indexed")
+                        .ok_or_else(|| {
+                            InvocationControllerError::new(
+                                "invocation plan is missing from the index",
+                            )
+                        })?
                         .mark_waiting(step, invocation, output);
                     return Ok(());
                 }
                 Ok(InvocationStart::Ready { output }) => {
                     self.plans
                         .get_mut(&plan)
-                        .expect("plan remains indexed")
+                        .ok_or_else(|| {
+                            InvocationControllerError::new(
+                                "invocation plan is missing from the index",
+                            )
+                        })?
                         .mark_complete(step, output);
                 }
                 Ok(InvocationStart::Failed { message, .. })
                 | Err(InvocationControllerError { message }) => {
                     self.plans
                         .get_mut(&plan)
-                        .expect("plan remains indexed")
+                        .ok_or_else(|| {
+                            InvocationControllerError::new(
+                                "invocation plan is missing from the index",
+                            )
+                        })?
                         .mark_failed(step, message);
                     return Ok(());
                 }
@@ -550,7 +570,9 @@ impl InvocationController {
         }
         self.plans
             .get_mut(&plan)
-            .expect("plan remains indexed")
+            .ok_or_else(|| {
+                InvocationControllerError::new("invocation plan is missing from the index")
+            })?
             .cancel();
         Ok(())
     }
@@ -588,6 +610,9 @@ impl InvocationController {
                 .ensure_root_unprotected(input)
                 .map_err(|error| InvocationControllerError::new(error.to_string()))?;
         }
+        // Reserve before moving inputs or acquiring output leases, so exhaustion
+        // cannot strand an invocation after ownership has changed.
+        let invocation_id = self.allocate_invocation()?;
         let runtime_input = match mode {
             InvocationMode::Retain => {
                 guarded_user_operation("could not clone invocation input", || ready.try_clone())
@@ -647,7 +672,7 @@ impl InvocationController {
                         ));
                     }
                 };
-            let invocation = self.allocate_invocation();
+            let invocation = invocation_id;
             host.start_scoped(
                 invocation,
                 Box::new(move |cancellation| {
@@ -725,7 +750,7 @@ impl InvocationController {
                 }
             }
             FunctionInvocation::Pending(future) => {
-                let invocation = self.allocate_invocation();
+                let invocation = invocation_id;
                 host.start(invocation, future);
                 self.pending.insert(
                     invocation,
@@ -753,13 +778,13 @@ impl InvocationController {
         InvocationStart::Failed { output, message }
     }
 
-    fn allocate_invocation(&mut self) -> InvocationId {
+    fn allocate_invocation(&mut self) -> Result<InvocationId, InvocationControllerError> {
         let id = InvocationId::new(self.next_invocation);
         self.next_invocation = self
             .next_invocation
             .checked_add(1)
-            .expect("invocation identity space exhausted");
-        id
+            .ok_or_else(|| InvocationControllerError::new("invocation identity space exhausted"))?;
+        Ok(id)
     }
 
     fn settle_plan_step(
@@ -931,6 +956,41 @@ mod tests {
 
     fn attach_nothing(future: InvocationFuture) -> InvocationFuture {
         future
+    }
+
+    #[test]
+    fn exhausted_identity_does_not_consume_input_or_reserve_output() {
+        let mut arena = Arena::default();
+        let input = arena
+            .insert_ready(runtime(TestRequest {
+                value: "retained".into(),
+            }))
+            .unwrap();
+        let mut builders = BuilderStore::default();
+        let mut borrows = BorrowGraph::default();
+        let mut host = FakeInvocationHost::default();
+        let mut controller = InvocationController {
+            next_invocation: u64::MAX,
+            ..InvocationController::default()
+        };
+        let before = arena.arena_revision();
+
+        let result = controller.invoke(
+            &mut arena,
+            &mut builders,
+            &mut borrows,
+            &mut host,
+            input,
+            &TEST_REQUEST_THING,
+            &TEST_FUNCTION,
+            InvocationMode::Consume,
+        );
+
+        assert!(result.is_err());
+        assert!(arena.ready_value(input).is_some());
+        assert_eq!(arena.arena_revision(), before);
+        assert_eq!(arena.allocated_slot_count(), 1);
+        assert_eq!(controller.pending_count(), 0);
     }
 
     #[tokio::test(flavor = "current_thread")]
@@ -1318,15 +1378,17 @@ mod tests {
         let mut borrows = BorrowGraph::default();
         let mut host = FakeInvocationHost::default();
         let mut controller = InvocationController::default();
-        let plan = controller.create_plan(
-            "two ordinary invocations",
-            [first, second].map(|input| PlannedInvocation {
-                input,
-                input_thing: &TEST_REQUEST_THING,
-                function: &TEST_FUNCTION,
-                mode: InvocationMode::Retain,
-            }),
-        );
+        let plan = controller
+            .create_plan(
+                "two ordinary invocations",
+                [first, second].map(|input| PlannedInvocation {
+                    input,
+                    input_thing: &TEST_REQUEST_THING,
+                    function: &TEST_FUNCTION,
+                    mode: InvocationMode::Retain,
+                }),
+            )
+            .unwrap();
         assert_eq!(arena.allocated_slot_count(), roots_before_plan);
         assert_eq!(controller.plan_count(), 1);
         assert_eq!(

@@ -14,7 +14,7 @@ const FONT: f64 = 16.0;
 pub(crate) fn elements(
     title: &str,
     objects: &[ExcalidrawObjectSnapshot],
-) -> Vec<ExcalidrawElement> {
+) -> eyre::Result<Vec<ExcalidrawElement>> {
     let mut result = vec![text(
         "objects-title",
         title,
@@ -34,7 +34,7 @@ pub(crate) fn elements(
             24.0,
             "#868e96",
         ));
-        return result;
+        return Ok(result);
     }
     let mut y = 120.0;
     for (row, objects_row) in objects.chunks(3).enumerate() {
@@ -123,7 +123,7 @@ pub(crate) fn elements(
     }
     for (index, object) in objects.iter().enumerate() {
         if let Some(plan) = &object.plan {
-            let mut diagram = crate::discovery_plan_diagram::elements(plan);
+            let mut diagram = crate::discovery_plan_diagram::elements(plan)?;
             let height = diagram
                 .iter()
                 .map(|element| element.base().y + element.base().height)
@@ -135,7 +135,7 @@ pub(crate) fn elements(
             y += height + GAP;
         }
     }
-    result
+    Ok(result)
 }
 
 fn estimated_height(value: &str, width: f64) -> f64 {
@@ -150,10 +150,6 @@ fn estimated_height(value: &str, width: f64) -> f64 {
         * 1.25
 }
 
-#[expect(
-    clippy::too_many_arguments,
-    reason = "text geometry and styling are explicit rendering inputs"
-)]
 fn text(
     id: &str,
     content: &str,
@@ -237,7 +233,8 @@ mod tests {
                 diagnostics: vec![],
             }),
         };
-        let scene = ExcalidrawScene::from_objects("Current tab", &[object.clone(), object]);
+        let scene =
+            ExcalidrawScene::from_objects("Current tab", &[object.clone(), object]).unwrap();
         let ids = scene
             .elements
             .iter()

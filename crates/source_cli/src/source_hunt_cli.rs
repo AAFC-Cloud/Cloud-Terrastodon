@@ -66,10 +66,10 @@ impl SourceHuntArgs {
             tokio::select! {
                 result = &mut hunt => break result,
                 _ = ticks.tick(), if terminal.is_some() => {
-                    let drawing = terminal
-                        .as_mut()
-                        .expect("progress tick requires an active terminal")
-                        .draw(&updates.borrow());
+                    let drawing = match terminal.as_mut() {
+                        Some(terminal) => terminal.draw(&updates.borrow()),
+                        None => Err(eyre::eyre!("progress tick requires an active terminal")),
+                    };
                     if let Err(error) = drawing {
                         // A failed progress display must not abandon directory workers.
                         if let Some(terminal) = terminal.take()

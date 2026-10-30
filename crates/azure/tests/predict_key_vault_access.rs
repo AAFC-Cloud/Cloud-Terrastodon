@@ -1,3 +1,5 @@
+#![cfg(test)]
+
 use cloud_terrastodon_azure::fetch_all_key_vaults;
 use cloud_terrastodon_azure::fetch_all_role_definitions_and_assignments;
 use cloud_terrastodon_azure::fetch_current_user;

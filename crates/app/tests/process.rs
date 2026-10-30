@@ -1,3 +1,5 @@
+#![cfg(test)]
+
 //! Exercise process-global startup in isolated test processes, never this parent.
 
 use cloud_terrastodon_app::App;

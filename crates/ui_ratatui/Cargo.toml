@@ -44,3 +44,6 @@ color-eyre = { workspace = true }
 [features]
 default = []
 extended_observability = []
+
+[lints]
+workspace = true

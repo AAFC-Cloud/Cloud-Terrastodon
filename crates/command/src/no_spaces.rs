@@ -1,6 +1,5 @@
 use bstr::ByteSlice;
 use compact_str::CompactString;
-use std::collections::VecDeque;
 use std::ffi::OsString;
 use std::path::PathBuf;
 
@@ -30,21 +29,21 @@ impl NoSpaces for CompactString {
     type Output = CompactString;
 
     fn no_spaces(&self) -> Self::Output {
-        CompactString::from_utf8(self.as_bytes().no_spaces().into_iter()).unwrap()
+        self.as_str().no_spaces().into()
     }
 }
 impl NoSpaces for &CompactString {
     type Output = CompactString;
 
     fn no_spaces(&self) -> Self::Output {
-        CompactString::from_utf8(self.as_bytes().no_spaces().into_iter()).unwrap()
+        self.as_str().no_spaces().into()
     }
 }
 impl NoSpaces for String {
     type Output = String;
 
     fn no_spaces(&self) -> Self::Output {
-        String::from_utf8(self.as_bytes().no_spaces()).unwrap()
+        self.as_str().no_spaces()
     }
 }
 impl NoSpaces for &String {
@@ -58,7 +57,12 @@ impl NoSpaces for &str {
     type Output = String;
 
     fn no_spaces(&self) -> Self::Output {
-        String::from_utf8(self.as_bytes().no_spaces()).unwrap()
+        let trimmed = self.trim_ascii();
+        if trimmed.is_empty() {
+            "(blankstring)".to_owned()
+        } else {
+            trimmed.replace(' ', "_")
+        }
     }
 }
 impl NoSpaces for &PathBuf {
@@ -78,8 +82,7 @@ impl NoSpaces for &mut PathBuf {
 impl NoSpaces for PathBuf {
     type Output = PathBuf;
     fn no_spaces(&self) -> Self::Output {
-        let mut data = VecDeque::new();
-        let mut components = Vec::new();
+        let mut path_buf = PathBuf::new();
         for component in self.components() {
             match component {
                 std::path::Component::Normal(os_str) => {
@@ -88,21 +91,9 @@ impl NoSpaces for PathBuf {
                         bytes = "(blankstring)".as_bytes().to_owned();
                     }
                     let os_string = unsafe { OsString::from_encoded_bytes_unchecked(bytes) };
-                    data.push_back(os_string);
-                    components.push(None);
+                    path_buf.push(os_string);
                 }
-                x => components.push(Some(x)),
-            }
-        }
-        let mut path_buf = PathBuf::new();
-        for component in components {
-            match component {
-                Some(x) => path_buf.push(x),
-                None => {
-                    let last = data.pop_front().unwrap();
-                    let component = std::path::Component::Normal(last.as_os_str());
-                    path_buf.push(component);
-                }
+                x => path_buf.push(x),
             }
         }
         path_buf

@@ -377,7 +377,15 @@ mod tests {
                 };
 
                 let (_, (read_error, export_error)) = timeout(Duration::from_secs(5), async {
-                    tokio::join!(engine.run(inbox), client)
+                    tokio::join!(
+                        async {
+                            engine
+                                .run(inbox)
+                                .await
+                                .expect("synthetic engine should finish")
+                        },
+                        client
+                    )
                 })
                 .await
                 .expect("failed export releases its engine session");
@@ -441,7 +449,15 @@ mod tests {
                     document
                 };
 
-                let (_engine, document) = tokio::join!(engine.run(inbox), client);
+                let (_engine, document) = tokio::join!(
+                    async {
+                        engine
+                            .run(inbox)
+                            .await
+                            .expect("synthetic engine should finish")
+                    },
+                    client
+                );
                 assert!(document.starts_with('['));
                 assert!(document.trim_end().ends_with(']'));
                 assert!(document.contains("streamed-value"));
@@ -484,7 +500,15 @@ mod tests {
                     document
                 };
 
-                let (_engine, document) = tokio::join!(engine.run(inbox), client);
+                let (_engine, document) = tokio::join!(
+                    async {
+                        engine
+                            .run(inbox)
+                            .await
+                            .expect("synthetic engine should finish")
+                    },
+                    client
+                );
                 assert!(document.contains("explicit-run"));
                 Ok::<_, eyre::Report>(())
             })
@@ -534,7 +558,15 @@ mod tests {
                     String::from_utf8(sink).expect("JSON is UTF-8")
                 };
 
-                let (engine, document) = tokio::join!(engine.run(inbox), client);
+                let (engine, document) = tokio::join!(
+                    async {
+                        engine
+                            .run(inbox)
+                            .await
+                            .expect("synthetic engine should finish")
+                    },
+                    client
+                );
                 assert_eq!(document, "[\n  \"selected\"\n]\n");
                 assert_eq!(
                     engine.json_serialization_count(),
@@ -585,7 +617,15 @@ mod tests {
                     String::from_utf8(sink).unwrap()
                 };
 
-                let (engine, document) = tokio::join!(engine.run(inbox), client);
+                let (engine, document) = tokio::join!(
+                    async {
+                        engine
+                            .run(inbox)
+                            .await
+                            .expect("synthetic engine should finish")
+                    },
+                    client
+                );
                 assert_eq!(
                     document,
                     "[\n  {\n    \"name\": \"Ada\",\n    \"enabled\": true\n  }\n]\n"
@@ -666,7 +706,15 @@ mod tests {
                     drop(context);
                     pending
                 };
-                let (engine, pending) = tokio::join!(engine.run(inbox), client);
+                let (engine, pending) = tokio::join!(
+                    async {
+                        engine
+                            .run(inbox)
+                            .await
+                            .expect("synthetic engine should finish")
+                    },
+                    client
+                );
                 assert_eq!(
                     engine
                         .arena()
@@ -754,7 +802,15 @@ mod tests {
                         pending
                     };
 
-                    let (engine, pending) = tokio::join!(engine.run(inbox), client);
+                    let (engine, pending) = tokio::join!(
+                        async {
+                            engine
+                                .run(inbox)
+                                .await
+                                .expect("synthetic engine should finish")
+                        },
+                        client
+                    );
                     assert_eq!(
                         engine
                             .arena()
@@ -831,7 +887,15 @@ mod tests {
                         pending
                     };
 
-                    let (engine, pending) = tokio::join!(engine.run(inbox), client);
+                    let (engine, pending) = tokio::join!(
+                        async {
+                            engine
+                                .run(inbox)
+                                .await
+                                .expect("synthetic engine should finish")
+                        },
+                        client
+                    );
                     assert_eq!(
                         engine
                             .arena()

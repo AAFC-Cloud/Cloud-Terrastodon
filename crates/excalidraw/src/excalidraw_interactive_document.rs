@@ -117,7 +117,8 @@ impl ExcalidrawInteractiveDocument {
         let Ok((frame, output, level)) = self.inspect_logs() else {
             return Ok(false);
         };
-        let frame_bounds = ExcalidrawControlBounds::read(&self.elements[frame]).unwrap();
+        let frame_bounds = ExcalidrawControlBounds::read(&self.elements[frame])
+            .ok_or_else(|| eyre::eyre!("Logs frame has invalid geometry"))?;
         let labels: Vec<_> = self
             .elements
             .iter()
@@ -311,7 +312,12 @@ impl ExcalidrawInteractiveDocument {
                     continue;
                 }
             };
-            let bounds = ExcalidrawControlBounds::read(&self.elements[container]).unwrap();
+            let Some(bounds) = ExcalidrawControlBounds::read(&self.elements[container]) else {
+                diagnostics.push(format!(
+                    "{label}: containing rectangle has invalid geometry"
+                ));
+                continue;
+            };
             if self.elements.iter().enumerate().any(|(index, element)| {
                 index != indices[0]
                     && !deleted(element)
@@ -390,7 +396,8 @@ impl ExcalidrawInteractiveDocument {
         if !inside(selector) {
             return Err("Log Level selector must stay inside Logs".into());
         }
-        let selector_bounds = ExcalidrawControlBounds::read(&self.elements[selector]).unwrap();
+        let selector_bounds = ExcalidrawControlBounds::read(&self.elements[selector])
+            .ok_or("Log Level selector has invalid geometry")?;
         let mut matches = Vec::new();
         for (index, element) in
             self.elements.iter().enumerate().filter(|(index, element)| {
@@ -406,7 +413,7 @@ impl ExcalidrawInteractiveDocument {
             let target = self.containing_rectangle(index, Some(selector))?;
             if inside(target)
                 && ExcalidrawControlBounds::read(&self.elements[target])
-                    .unwrap()
+                    .ok_or("Log Level target has invalid geometry")?
                     .contains_center(selector_bounds)
             {
                 matches.push(level);

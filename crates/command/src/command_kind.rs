@@ -35,14 +35,8 @@ pub enum CommandKind {
     Other(String),
 }
 
-async fn get_config(cache: &OnceCell<CommandsConfig>) -> &CommandsConfig {
-    let config: &CommandsConfig = cache
-        .get_or_init(|| async {
-            let config: CommandsConfig = CommandsConfig::load().await.unwrap();
-            config
-        })
-        .await;
-    config
+async fn get_config(cache: &OnceCell<CommandsConfig>) -> Result<&CommandsConfig> {
+    cache.get_or_try_init(CommandsConfig::load).await
 }
 
 pub const USE_TOFU_FLAG_KEY: &str = "CLOUD_TERRASTODON_USE_TOFU";
@@ -50,20 +44,20 @@ pub const USE_TOFU_FLAG_KEY: &str = "CLOUD_TERRASTODON_USE_TOFU";
 static CONFIG: OnceCell<CommandsConfig> = OnceCell::const_new();
 
 impl CommandKind {
-    pub async fn program(&self) -> String {
-        match self {
-            CommandKind::AzureCLI => get_config(&CONFIG).await.azure_cli.to_owned(),
+    pub async fn program(&self) -> Result<String> {
+        Ok(match self {
+            CommandKind::AzureCLI => get_config(&CONFIG).await?.azure_cli.to_owned(),
             CommandKind::Terraform => match env::var(USE_TOFU_FLAG_KEY) {
-                Err(_) => get_config(&CONFIG).await.terraform.to_owned(),
-                Ok(_) => get_config(&CONFIG).await.tofu.to_owned(),
+                Err(_) => get_config(&CONFIG).await?.terraform.to_owned(),
+                Ok(_) => get_config(&CONFIG).await?.tofu.to_owned(),
             },
-            CommandKind::VSCode => get_config(&CONFIG).await.vscode.to_owned(),
+            CommandKind::VSCode => get_config(&CONFIG).await?.vscode.to_owned(),
             CommandKind::Echo => "pwsh".to_string(),
             CommandKind::Pwsh => "pwsh".to_string(),
             CommandKind::Git => "git".to_string(),
             CommandKind::Gitea => "tea".to_string(),
             CommandKind::Other(x) => x.to_owned(),
-        }
+        })
     }
     pub async fn apply_args_and_envs(
         &self,

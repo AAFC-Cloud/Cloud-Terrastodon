@@ -73,7 +73,7 @@ impl SourceHuntProgressTerminal {
         while let Some(control) = self
             .guard
             .as_mut()
-            .expect("progress terminal owns its guard until finish")
+            .ok_or_else(|| eyre::eyre!("progress terminal has already released its guard"))?
             .try_next_control()?
         {
             match &control {
@@ -85,7 +85,7 @@ impl SourceHuntProgressTerminal {
             }
             self.guard
                 .as_ref()
-                .expect("progress terminal owns its guard until finish")
+                .ok_or_else(|| eyre::eyre!("progress terminal has already released its guard"))?
                 .acknowledge(&control)
                 .inspect_err(|error| {
                     self.poison(format!("progress terminal handoff failed: {error}"))
@@ -104,7 +104,7 @@ impl SourceHuntProgressTerminal {
         let release = self
             .guard
             .take()
-            .expect("progress terminal owns its guard until finish")
+            .ok_or_else(|| eyre::eyre!("progress terminal has already released its guard"))?
             .release()
             .await;
         restore?;

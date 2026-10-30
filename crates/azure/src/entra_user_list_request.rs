@@ -87,7 +87,7 @@ impl<'a> CacheableCommand for EntraUserListRequest<'a> {
             self.auth_context.as_ref(),
             &self.cancellation,
         )
-        .with_consistency_level_eventual();
+        .with_consistency_level_eventual()?;
         helper.progress_hook = self.progress_hook;
         let users: Vec<EntraUser> = helper.fetch_all(&self.cancellation).await?;
         debug!("Found {} users", users.len());

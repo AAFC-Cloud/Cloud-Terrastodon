@@ -45,3 +45,6 @@ arbitrary.workspace = true
 
 [dev-dependencies]
 test-log.workspace = true
+
+[lints]
+workspace = true

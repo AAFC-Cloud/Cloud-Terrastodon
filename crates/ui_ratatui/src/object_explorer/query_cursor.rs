@@ -28,6 +28,10 @@ pub(crate) enum QueryCursorError {
         capacity: usize,
     },
     OrdinalOverflow,
+    MissingWindow {
+        start: usize,
+        max_cards: usize,
+    },
 }
 
 impl fmt::Display for QueryCursorError {
@@ -42,6 +46,10 @@ impl fmt::Display for QueryCursorError {
                 "a {requested}-card window needs {required} cache entries including lookahead, but capacity is {capacity}"
             ),
             Self::OrdinalOverflow => write!(formatter, "query result ordinal space exhausted"),
+            Self::MissingWindow { start, max_cards } => write!(
+                formatter,
+                "query cache cannot provide {max_cards} cards starting at ordinal {start}"
+            ),
         }
     }
 }
@@ -142,6 +150,7 @@ pub(crate) struct QueryCursor<'source, 'arena> {
     total_matched: usize,
     scanner_next_ordinal: usize,
     scanner_complete: bool,
+    scanner_error: Option<QueryCursorError>,
     retired: QueryPlanInstrumentation,
     cache: AddressCache,
     selection: CardAddress,
@@ -173,6 +182,7 @@ where
             total_matched: 0,
             scanner_next_ordinal: 0,
             scanner_complete: false,
+            scanner_error: None,
             retired: QueryPlanInstrumentation::default(),
             cache: AddressCache::new(cache_capacity),
             selection: CardAddress::NewSlot,
@@ -209,50 +219,52 @@ where
         &mut self,
         current_stamp: ScanRevisionStamp,
         budget: &mut WorkBudget,
-    ) -> QueryProgress<ValueAddress> {
+    ) -> Result<QueryProgress<ValueAddress>, QueryCursorError> {
         let before = budget.spent();
         if self.reject_stale(current_stamp) {
-            return self.progress(QueryProgressState::Stale, before, budget);
+            return Ok(self.progress(QueryProgressState::Stale, before, budget));
         }
         self.cancel_active_for_navigation();
-        let target = self
-            .selection_ordinal
-            .and_then(|ordinal| ordinal.checked_add(1))
-            .unwrap_or(0);
-        match self.ensure_ordinal(target, budget) {
+        let target = match self.selection_ordinal {
+            Some(ordinal) => ordinal
+                .checked_add(1)
+                .ok_or(QueryCursorError::OrdinalOverflow)?,
+            None => 0,
+        };
+        Ok(match self.ensure_ordinal(target, budget)? {
             ScannerPoll::Item { ordinal, address } => {
                 self.select(ordinal, address.clone());
                 self.progress(QueryProgressState::Ready(address), before, budget)
             }
             ScannerPoll::Pending => self.progress(QueryProgressState::Pending, before, budget),
             ScannerPoll::Complete => self.progress(QueryProgressState::Complete, before, budget),
-        }
+        })
     }
 
     pub(crate) fn previous(
         &mut self,
         current_stamp: ScanRevisionStamp,
         budget: &mut WorkBudget,
-    ) -> QueryProgress<ValueAddress> {
+    ) -> Result<QueryProgress<ValueAddress>, QueryCursorError> {
         let before = budget.spent();
         if self.reject_stale(current_stamp) {
-            return self.progress(QueryProgressState::Stale, before, budget);
+            return Ok(self.progress(QueryProgressState::Stale, before, budget));
         }
         self.cancel_active_for_navigation();
         let Some(target) = self
             .selection_ordinal
             .and_then(|ordinal| ordinal.checked_sub(1))
         else {
-            return self.progress(QueryProgressState::Complete, before, budget);
+            return Ok(self.progress(QueryProgressState::Complete, before, budget));
         };
-        match self.ensure_ordinal(target, budget) {
+        Ok(match self.ensure_ordinal(target, budget)? {
             ScannerPoll::Item { ordinal, address } => {
                 self.select(ordinal, address.clone());
                 self.progress(QueryProgressState::Ready(address), before, budget)
             }
             ScannerPoll::Pending => self.progress(QueryProgressState::Pending, before, budget),
             ScannerPoll::Complete => self.progress(QueryProgressState::Complete, before, budget),
-        }
+        })
     }
 
     /// Find one adjacent result from a logical address without exposing or
@@ -263,19 +275,19 @@ where
         direction: CardNavigation,
         current_stamp: ScanRevisionStamp,
         budget: &mut WorkBudget,
-    ) -> QueryProgress<ValueAddress> {
+    ) -> Result<QueryProgress<ValueAddress>, QueryCursorError> {
         let before = budget.spent();
         if self.selection != CardAddress::Value(from.clone()) {
-            match self.seek(from, current_stamp, budget).into_state() {
+            match self.seek(from, current_stamp, budget)?.into_state() {
                 QueryProgressState::Ready(_) => {}
-                state => return self.progress(state, before, budget),
+                state => return Ok(self.progress(state, before, budget)),
             }
         }
         let state = match direction {
-            CardNavigation::Next => self.next(current_stamp, budget).into_state(),
-            CardNavigation::Previous => self.previous(current_stamp, budget).into_state(),
+            CardNavigation::Next => self.next(current_stamp, budget)?.into_state(),
+            CardNavigation::Previous => self.previous(current_stamp, budget)?.into_state(),
         };
-        self.progress(state, before, budget)
+        Ok(self.progress(state, before, budget))
     }
 
     pub(crate) fn seek(
@@ -283,18 +295,18 @@ where
         target: &ValueAddress,
         current_stamp: ScanRevisionStamp,
         budget: &mut WorkBudget,
-    ) -> QueryProgress<ValueAddress> {
+    ) -> Result<QueryProgress<ValueAddress>, QueryCursorError> {
         let before = budget.spent();
         if self.reject_stale(current_stamp) {
-            return self.progress(QueryProgressState::Stale, before, budget);
+            return Ok(self.progress(QueryProgressState::Stale, before, budget));
         }
         if self.selection == CardAddress::Value(target.clone()) {
-            return self.progress(QueryProgressState::Ready(target.clone()), before, budget);
+            return Ok(self.progress(QueryProgressState::Ready(target.clone()), before, budget));
         }
         if let Some(ordinal) = self.cache.ordinal_of(target) {
             self.active = None;
             self.select(ordinal, target.clone());
-            return self.progress(QueryProgressState::Ready(target.clone()), before, budget);
+            return Ok(self.progress(QueryProgressState::Ready(target.clone()), before, budget));
         }
         if !matches!(&self.active, Some(ActiveOperation::Seek(active)) if active == target) {
             self.cancel_active_for_navigation();
@@ -302,21 +314,21 @@ where
             self.active = Some(ActiveOperation::Seek(target.clone()));
         }
         loop {
-            match self.poll_scanner(budget) {
+            match self.poll_scanner(budget)? {
                 ScannerPoll::Item { ordinal, address } if &address == target => {
                     self.active = None;
                     self.select(ordinal, address.clone());
-                    return self.progress(QueryProgressState::Ready(address), before, budget);
+                    return Ok(self.progress(QueryProgressState::Ready(address), before, budget));
                 }
                 ScannerPoll::Item { .. } => {}
                 ScannerPoll::Pending => {
-                    return self.progress(QueryProgressState::Pending, before, budget);
+                    return Ok(self.progress(QueryProgressState::Pending, before, budget));
                 }
                 ScannerPoll::Complete => {
                     // The exhausted scanner proves this target is absent for
                     // this revision. Keep the operation so an identical retry
                     // does not discard that proof and restart the whole scan.
-                    return self.progress(QueryProgressState::Complete, before, budget);
+                    return Ok(self.progress(QueryProgressState::Complete, before, budget));
                 }
             }
         }
@@ -384,7 +396,7 @@ where
             };
 
             let Some(start) = start_ordinal else {
-                match self.poll_scanner(budget) {
+                match self.poll_scanner(budget)? {
                     ScannerPoll::Item { ordinal, address } if anchor.as_ref() == Some(&address) => {
                         if let Some(ActiveOperation::Fill { start_ordinal, .. }) = &mut self.active
                         {
@@ -409,9 +421,7 @@ where
                 .checked_add(max_cards)
                 .ok_or(QueryCursorError::OrdinalOverflow)?;
             if self.cache.contains_range(start, lookahead) {
-                let window = self
-                    .window_from_cache(start, max_cards, true)
-                    .expect("validated active-window cache range");
+                let window = self.window_from_cache(start, max_cards, true)?;
                 self.poll_total();
                 return Ok(self.progress(QueryProgressState::Ready(window), before, budget));
             }
@@ -421,9 +431,7 @@ where
                     return Ok(self.progress(QueryProgressState::Complete, before, budget));
                 }
                 let start = start.min(self.scanner_next_ordinal.saturating_sub(max_cards));
-                let window = self
-                    .window_from_cache(start, max_cards, false)
-                    .expect("completed scan retains its bounded active window");
+                let window = self.window_from_cache(start, max_cards, false)?;
                 self.poll_total();
                 return Ok(self.progress(QueryProgressState::Ready(window), before, budget));
             }
@@ -439,7 +447,7 @@ where
                 }
                 continue;
             }
-            match self.poll_scanner(budget) {
+            match self.poll_scanner(budget)? {
                 ScannerPoll::Item { .. } => {}
                 ScannerPoll::Pending => {
                     return Ok(self.progress(QueryProgressState::Pending, before, budget));
@@ -453,10 +461,10 @@ where
         &mut self,
         current_stamp: ScanRevisionStamp,
         budget: &mut WorkBudget,
-    ) -> QueryProgress<CardAddress> {
+    ) -> Result<QueryProgress<CardAddress>, QueryCursorError> {
         let before = budget.spent();
         if self.reject_stale(current_stamp) {
-            return self.progress(QueryProgressState::Stale, before, budget);
+            return Ok(self.progress(QueryProgressState::Stale, before, budget));
         }
         if !matches!(self.active, Some(ActiveOperation::End { .. })) {
             self.cancel_active_for_navigation();
@@ -468,7 +476,7 @@ where
             });
         }
         loop {
-            match self.poll_scanner(budget) {
+            match self.poll_scanner(budget)? {
                 ScannerPoll::Item { address, .. } => {
                     if let Some(ActiveOperation::End {
                         last_match,
@@ -482,7 +490,7 @@ where
                 ScannerPoll::Pending => {
                     let progress = self.end_scan_progress();
                     self.total = QueryTotal::Scanning(progress);
-                    return self.progress(QueryProgressState::Pending, before, budget);
+                    return Ok(self.progress(QueryProgressState::Pending, before, budget));
                 }
                 ScannerPoll::Complete => {
                     let Some(ActiveOperation::End {
@@ -497,11 +505,11 @@ where
                         .unwrap_or(CardAddress::NewSlot);
                     self.selection_ordinal = matched.checked_sub(1);
                     self.total = QueryTotal::Exact(matched);
-                    return self.progress(
+                    return Ok(self.progress(
                         QueryProgressState::Ready(self.selection.clone()),
                         before,
                         budget,
-                    );
+                    ));
                 }
             }
         }
@@ -529,36 +537,47 @@ where
         }
     }
 
-    fn ensure_ordinal(&mut self, target: usize, budget: &mut WorkBudget) -> ScannerPoll {
+    fn ensure_ordinal(
+        &mut self,
+        target: usize,
+        budget: &mut WorkBudget,
+    ) -> Result<ScannerPoll, QueryCursorError> {
         if let Some(address) = self.cache.get(target).cloned() {
-            return ScannerPoll::Item {
+            return Ok(ScannerPoll::Item {
                 ordinal: target,
                 address,
-            };
+            });
         }
         if target < self.scanner_next_ordinal {
             self.reset_scan();
         }
         loop {
-            match self.poll_scanner(budget) {
-                item @ ScannerPoll::Item { ordinal, .. } if ordinal == target => return item,
+            match self.poll_scanner(budget)? {
+                item @ ScannerPoll::Item { ordinal, .. } if ordinal == target => return Ok(item),
                 ScannerPoll::Item { .. } => {}
-                other @ (ScannerPoll::Pending | ScannerPoll::Complete) => return other,
+                other @ (ScannerPoll::Pending | ScannerPoll::Complete) => return Ok(other),
             }
         }
     }
 
-    fn poll_scanner(&mut self, budget: &mut WorkBudget) -> ScannerPoll {
-        if self.scanner_complete {
-            return ScannerPoll::Complete;
+    fn poll_scanner(&mut self, budget: &mut WorkBudget) -> Result<ScannerPoll, QueryCursorError> {
+        if let Some(error) = self.scanner_error {
+            return Err(error);
         }
-        match self.scanner.poll_next(budget) {
+        if self.scanner_complete {
+            return Ok(ScannerPoll::Complete);
+        }
+        Ok(match self.scanner.poll_next(budget) {
             QueryPlanPoll::Item(address) => {
                 let ordinal = self.scanner_next_ordinal;
-                self.scanner_next_ordinal = self
-                    .scanner_next_ordinal
-                    .checked_add(1)
-                    .expect("query result ordinal space exhausted");
+                let Some(next_ordinal) = self.scanner_next_ordinal.checked_add(1) else {
+                    // The scanner consumed a result whose ordinal cannot be
+                    // represented. Keep the failure sticky until an explicit
+                    // reset, so retrying cannot misreport exhausted data as complete.
+                    self.scanner_error = Some(QueryCursorError::OrdinalOverflow);
+                    return Err(QueryCursorError::OrdinalOverflow);
+                };
+                self.scanner_next_ordinal = next_ordinal;
                 self.cache.insert(ordinal, address.clone());
                 ScannerPoll::Item { ordinal, address }
             }
@@ -568,7 +587,7 @@ where
                 self.total = QueryTotal::Exact(self.scanner_next_ordinal);
                 ScannerPoll::Complete
             }
-        }
+        })
     }
 
     fn window_from_cache(
@@ -576,14 +595,20 @@ where
         start: usize,
         max_cards: usize,
         has_after: bool,
-    ) -> Option<QueryWindow> {
+    ) -> Result<QueryWindow, QueryCursorError> {
+        let limit = start
+            .checked_add(max_cards)
+            .ok_or(QueryCursorError::OrdinalOverflow)?;
         let end = if has_after {
-            start.checked_add(max_cards)?
+            limit
         } else {
-            start.checked_add(max_cards)?.min(self.scanner_next_ordinal)
+            limit.min(self.scanner_next_ordinal)
         };
-        let addresses = self.cache.collect_range(start, end)?;
-        Some(QueryWindow::new(addresses, start, start > 0, has_after))
+        let addresses = self
+            .cache
+            .collect_range(start, end)
+            .ok_or(QueryCursorError::MissingWindow { start, max_cards })?;
+        Ok(QueryWindow::new(addresses, start, start > 0, has_after))
     }
 
     fn select(&mut self, ordinal: usize, address: ValueAddress) {
@@ -639,6 +664,7 @@ where
         self.scanner = self.plan.evaluate(self.source);
         self.scanner_next_ordinal = 0;
         self.scanner_complete = false;
+        self.scanner_error = None;
         self.cache.clear();
     }
 
@@ -700,6 +726,39 @@ mod tests {
             QueryProgressState::Ready(value) => value,
             state => panic!("expected Ready, got {state:?}"),
         }
+    }
+
+    #[test]
+    fn ordinal_exhaustion_remains_an_error_when_navigation_is_retried() {
+        let mut arena = Arena::default();
+        let root = arena.insert_ready(runtime(1_usize)).unwrap();
+        let stamp = stamp(&arena);
+        let source = ArenaAddressSource::new(&arena);
+        let mut cursor = QueryCursor::new(
+            &source,
+            QueryPlan::new(Breadcrumbs::default()),
+            stamp,
+            NonZeroUsize::MIN,
+        );
+        cursor.select(usize::MAX - 1, ValueAddress::root(root));
+        cursor.scanner_next_ordinal = usize::MAX;
+        for _ in 0..2 {
+            assert!(matches!(
+                cursor.next(stamp, &mut WorkBudget::new(1)),
+                Err(QueryCursorError::OrdinalOverflow)
+            ));
+            assert_eq!(
+                cursor.selection(),
+                &CardAddress::Value(ValueAddress::root(root))
+            );
+            assert_eq!(cursor.total(), QueryTotal::Unknown);
+        }
+        // A cached selection at the limit must fail before wrapping to zero.
+        cursor.selection_ordinal = Some(usize::MAX);
+        assert!(matches!(
+            cursor.next(stamp, &mut WorkBudget::new(1)),
+            Err(QueryCursorError::OrdinalOverflow)
+        ));
     }
 
     #[test]
@@ -795,7 +854,7 @@ mod tests {
         );
 
         let mut first_budget = WorkBudget::new(7);
-        let first = cursor.next(stamp, &mut first_budget);
+        let first = cursor.next(stamp, &mut first_budget).unwrap();
         assert_eq!(first.state(), &QueryProgressState::Pending);
         assert_eq!(first.work_spent(), 7);
         assert_eq!(first.instrumentation().addressed, 7);
@@ -804,7 +863,7 @@ mod tests {
         assert_eq!(cursor.total(), QueryTotal::Unknown);
 
         let mut second_budget = WorkBudget::new(11);
-        let second = cursor.next(stamp, &mut second_budget);
+        let second = cursor.next(stamp, &mut second_budget).unwrap();
         assert_eq!(second.state(), &QueryProgressState::Pending);
         assert_eq!(second.work_spent(), 11);
         assert_eq!(second.instrumentation().addressed, 18);
@@ -886,29 +945,37 @@ mod tests {
         assert_eq!(
             cursor
                 .seek(&missing, stamp, &mut WorkBudget::new(3))
+                .unwrap()
                 .state(),
             &QueryProgressState::Pending,
         );
         assert_eq!(
             cursor
                 .seek(&missing, stamp, &mut WorkBudget::new(32))
+                .unwrap()
                 .state(),
             &QueryProgressState::Complete,
         );
         let instrumentation = cursor.instrumentation();
         for _ in 0..3 {
-            let progress = cursor.seek(&missing, stamp, &mut WorkBudget::new(3));
+            let progress = cursor
+                .seek(&missing, stamp, &mut WorkBudget::new(3))
+                .unwrap();
             assert_eq!(progress.state(), &QueryProgressState::Complete);
             assert_eq!(progress.work_spent(), 0);
             assert_eq!(progress.instrumentation(), instrumentation);
         }
 
         assert_eq!(
-            ready(cursor.seek(&ValueAddress::root(root), stamp, &mut WorkBudget::new(3))),
+            ready(
+                cursor
+                    .seek(&ValueAddress::root(root), stamp, &mut WorkBudget::new(3))
+                    .unwrap()
+            ),
             ValueAddress::root(root),
         );
         assert_eq!(
-            ready(cursor.next(stamp, &mut WorkBudget::new(3))),
+            ready(cursor.next(stamp, &mut WorkBudget::new(3)).unwrap()),
             ValueAddress::root(root).child(ValuePathSegment::Index(0)),
         );
     }
@@ -930,16 +997,16 @@ mod tests {
 
         let mut one = WorkBudget::new(1);
         assert_eq!(
-            ready(cursor.next(stamp, &mut one)),
+            ready(cursor.next(stamp, &mut one).unwrap()),
             ValueAddress::root(root)
         );
         let first_child = ValueAddress::root(root).child(ValuePathSegment::Index(0));
         let mut one = WorkBudget::new(1);
-        assert_eq!(ready(cursor.next(stamp, &mut one)), first_child);
+        assert_eq!(ready(cursor.next(stamp, &mut one).unwrap()), first_child);
 
         let mut no_work = WorkBudget::new(0);
         assert_eq!(
-            ready(cursor.previous(stamp, &mut no_work)),
+            ready(cursor.previous(stamp, &mut no_work).unwrap()),
             ValueAddress::root(root),
             "previous uses the bounded cache without scanning"
         );
@@ -947,7 +1014,7 @@ mod tests {
         let target = ValueAddress::root(root).child(ValuePathSegment::Index(4));
         let mut partial = WorkBudget::new(3);
         assert_eq!(
-            cursor.seek(&target, stamp, &mut partial).state(),
+            cursor.seek(&target, stamp, &mut partial).unwrap().state(),
             &QueryProgressState::Pending
         );
         assert_eq!(
@@ -955,7 +1022,10 @@ mod tests {
             &CardAddress::Value(ValueAddress::root(root))
         );
         let mut rest = WorkBudget::new(3);
-        assert_eq!(ready(cursor.seek(&target, stamp, &mut rest)), target);
+        assert_eq!(
+            ready(cursor.seek(&target, stamp, &mut rest).unwrap()),
+            target
+        );
         assert!(cursor.instrumentation().cached <= 4);
     }
 
@@ -972,15 +1042,19 @@ mod tests {
             NonZeroUsize::new(3).unwrap(),
         );
         let mut select_budget = WorkBudget::new(2);
-        let selected = ready(cursor.seek(
-            &ValueAddress::root(root).child(ValuePathSegment::Index(0)),
-            stamp,
-            &mut select_budget,
-        ));
+        let selected = ready(
+            cursor
+                .seek(
+                    &ValueAddress::root(root).child(ValuePathSegment::Index(0)),
+                    stamp,
+                    &mut select_budget,
+                )
+                .unwrap(),
+        );
 
         let mut partial = WorkBudget::new(2);
         assert_eq!(
-            cursor.end(stamp, &mut partial).state(),
+            cursor.end(stamp, &mut partial).unwrap().state(),
             &QueryProgressState::Pending
         );
         assert_eq!(cursor.selection(), &CardAddress::Value(selected.clone()));
@@ -991,16 +1065,16 @@ mod tests {
 
         let mut first = WorkBudget::new(2);
         assert_eq!(
-            cursor.end(stamp, &mut first).state(),
+            cursor.end(stamp, &mut first).unwrap().state(),
             &QueryProgressState::Pending
         );
         let stale_stamp = ScanRevisionStamp {
             arena: stamp.arena,
-            query: stamp.query.next(),
+            query: stamp.query.next().unwrap(),
         };
         let mut stale_budget = WorkBudget::new(10);
         assert_eq!(
-            cursor.end(stale_stamp, &mut stale_budget).state(),
+            cursor.end(stale_stamp, &mut stale_budget).unwrap().state(),
             &QueryProgressState::Stale
         );
         assert_eq!(cursor.selection(), &CardAddress::Value(selected));
@@ -1014,7 +1088,7 @@ mod tests {
             NonZeroUsize::new(3).unwrap(),
         );
         let mut enough = WorkBudget::new(6);
-        let result = ready(complete_cursor.end(stamp, &mut enough));
+        let result = ready(complete_cursor.end(stamp, &mut enough).unwrap());
         assert_eq!(
             result,
             CardAddress::Value(ValueAddress::root(root).child(ValuePathSegment::Index(3)))
@@ -1035,7 +1109,7 @@ mod tests {
             NonZeroUsize::new(2).unwrap(),
         );
         let mut budget = WorkBudget::new(1);
-        let _ = ready(cursor.next(stamp, &mut budget));
+        let _ = ready(cursor.next(stamp, &mut budget).unwrap());
         cursor.record_serialized(1);
 
         let instrumentation = cursor.instrumentation();

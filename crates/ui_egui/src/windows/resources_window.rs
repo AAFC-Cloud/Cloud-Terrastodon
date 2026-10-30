@@ -27,10 +27,17 @@ pub fn resources_ui(app: &mut MyApp, ui: &mut Ui) {
                             ))
                         }),
                 )
-                .build()
-                .expect("building work");
-            work.enqueue(app);
-            ui.label("Loading resources...");
+                .build();
+            match work {
+                Ok(work) => {
+                    work.enqueue(app);
+                    ui.label("Loading resources...");
+                }
+                Err(error) => {
+                    ui.label(format!("Failed to prepare resource loading: {error:#}"));
+                    app.resources = Loadable::Failed(error);
+                }
+            }
         }
         Loadable::Loading => {
             ui.label("Loading resources...");

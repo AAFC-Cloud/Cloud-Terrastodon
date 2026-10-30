@@ -1,3 +1,5 @@
+#![cfg(test)]
+
 use bstr::ByteSlice;
 use cloud_terrastodon_command::CancellationToken;
 use cloud_terrastodon_command::CommandBuilder;

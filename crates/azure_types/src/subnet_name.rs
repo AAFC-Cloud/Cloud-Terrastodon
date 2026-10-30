@@ -50,21 +50,17 @@ fn validate_subnet_name_inner(value: &str) -> eyre::Result<()> {
     let chars: Vec<char> = value.chars().collect();
 
     // Must start with alphanumeric
-    let first_char = chars.first();
-    if first_char.is_none() {
+    let Some(first_char) = chars.first() else {
         bail!("Subnet name cannot be empty");
-    }
-    let first_char = first_char.unwrap();
+    };
     if !first_char.is_alphanumeric() {
         bail!("Subnet name must start with alphanumeric character");
     }
 
     // Must end with alphanumeric or underscore
-    let last_char = chars.last();
-    if last_char.is_none() {
+    let Some(last_char) = chars.last() else {
         bail!("Subnet name cannot be empty");
-    }
-    let last_char = last_char.unwrap();
+    };
     if !(last_char.is_alphanumeric() || *last_char == '_') {
         bail!("Subnet name must end with alphanumeric character or underscore");
     }

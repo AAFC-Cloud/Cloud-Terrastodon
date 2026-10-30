@@ -22,51 +22,6 @@ pub(super) struct ExcalidrawRenderSession {
     task: Option<(CancellationToken, JoinHandle<Result<PathBuf>>)>,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::sync::Arc;
-    use std::sync::atomic::AtomicBool;
-    use std::sync::atomic::Ordering;
-
-    #[tokio::test]
-    async fn closing_a_render_waiting_on_another_writer_preserves_its_file_and_lock() -> Result<()>
-    {
-        let directory = tempfile::tempdir()?;
-        let path = directory.path().join("render.excalidraw");
-        let original = ExcalidrawScene::from_objects("original view", &[]).to_json()?;
-        std::fs::write(&path, &original)?;
-        let lock = directory.path().join("render.excalidraw.sync-lock");
-        std::fs::write(&lock, "another writer owns this")?;
-        CancellationToken::new()
-            .with_async_scope(|scope| async move {
-                let mut renderer = ExcalidrawRenderSession::new(Some(path.clone()), &scope);
-                let started = Arc::new(AtomicBool::new(false));
-                let observed = started.clone();
-                renderer.start(move |_| async move {
-                    observed.store(true, Ordering::SeqCst);
-                    Ok(ExcalidrawScene::from_objects("replacement view", &[]))
-                })?;
-                tokio::time::timeout(Duration::from_secs(2), async {
-                    while !started.load(Ordering::SeqCst) {
-                        tokio::task::yield_now().await;
-                    }
-                })
-                .await?;
-                tokio::time::sleep(Duration::from_millis(50)).await;
-                assert!(
-                    renderer.take_result().await.is_none(),
-                    "the other writer still holds the file"
-                );
-                tokio::time::timeout(Duration::from_secs(2), renderer.close()).await?;
-                assert_eq!(std::fs::read_to_string(path)?, original);
-                assert_eq!(std::fs::read_to_string(lock)?, "another writer owns this");
-                Ok(())
-            })
-            .await
-    }
-}
-
 impl ExcalidrawRenderSession {
     pub(super) fn is_rendering(&self) -> bool {
         self.task.is_some()
@@ -90,14 +45,18 @@ impl ExcalidrawRenderSession {
             self.task.is_none(),
             "An Excalidraw render is already in progress"
         );
-        if self.path.is_none() {
-            let timestamp = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
-            self.path = Some(std::env::current_dir()?.join(format!(
-                "object-explorer-{}-{timestamp:x}.excalidraw",
-                std::process::id()
-            )));
-        }
-        let path = self.path.as_ref().expect("destination initialized").clone();
+        let path = match &self.path {
+            Some(path) => path.clone(),
+            None => {
+                let timestamp = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
+                let path = std::env::current_dir()?.join(format!(
+                    "object-explorer-{}-{timestamp:x}.excalidraw",
+                    std::process::id()
+                ));
+                self.path = Some(path.clone());
+                path
+            }
+        };
         let destination = path.clone();
         let (token, future) = self
             .cancellation
@@ -143,14 +102,7 @@ impl ExcalidrawRenderSession {
     }
 
     pub(super) async fn take_result(&mut self) -> Option<Result<PathBuf>> {
-        if !self
-            .task
-            .as_ref()
-            .is_some_and(|(_, task)| task.is_finished())
-        {
-            return None;
-        }
-        let (_, task) = self.task.take().expect("finished task");
+        let (_, task) = self.task.take_if(|(_, task)| task.is_finished())?;
         Some(
             task.await
                 .wrap_err("Excalidraw render task failed")
@@ -174,5 +126,50 @@ impl ExcalidrawRenderSession {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Arc;
+    use std::sync::atomic::AtomicBool;
+    use std::sync::atomic::Ordering;
+
+    #[tokio::test]
+    async fn closing_a_render_waiting_on_another_writer_preserves_its_file_and_lock() -> Result<()>
+    {
+        let directory = tempfile::tempdir()?;
+        let path = directory.path().join("render.excalidraw");
+        let original = ExcalidrawScene::from_objects("original view", &[])?.to_json()?;
+        std::fs::write(&path, &original)?;
+        let lock = directory.path().join("render.excalidraw.sync-lock");
+        std::fs::write(&lock, "another writer owns this")?;
+        CancellationToken::new()
+            .with_async_scope(|scope| async move {
+                let mut renderer = ExcalidrawRenderSession::new(Some(path.clone()), &scope);
+                let started = Arc::new(AtomicBool::new(false));
+                let observed = started.clone();
+                renderer.start(move |_| async move {
+                    observed.store(true, Ordering::SeqCst);
+                    ExcalidrawScene::from_objects("replacement view", &[])
+                })?;
+                tokio::time::timeout(Duration::from_secs(2), async {
+                    while !started.load(Ordering::SeqCst) {
+                        tokio::task::yield_now().await;
+                    }
+                })
+                .await?;
+                tokio::time::sleep(Duration::from_millis(50)).await;
+                assert!(
+                    renderer.take_result().await.is_none(),
+                    "the other writer still holds the file"
+                );
+                tokio::time::timeout(Duration::from_secs(2), renderer.close()).await?;
+                assert_eq!(std::fs::read_to_string(path)?, original);
+                assert_eq!(std::fs::read_to_string(lock)?, "another writer owns this");
+                Ok(())
+            })
+            .await
     }
 }

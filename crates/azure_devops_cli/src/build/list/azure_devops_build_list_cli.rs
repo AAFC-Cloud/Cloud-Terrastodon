@@ -52,7 +52,7 @@ pub struct AzureDevOpsBuildListArgs {
     #[facet(figue::named)]
     pub branch: Option<String>,
     /// Positive maximum number of recent builds to return. Defaults to 100.
-    #[facet(figue::named, figue::alias = "top", default = AzureDevOpsBuildListLimit::new(100).expect("100 is a positive build limit"))]
+    #[facet(figue::named, figue::alias = "top", default = AzureDevOpsBuildListLimit::DEFAULT)]
     pub limit: AzureDevOpsBuildListLimit,
 }
 

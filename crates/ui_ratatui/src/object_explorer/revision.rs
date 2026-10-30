@@ -13,12 +13,10 @@ pub(crate) struct RootRevision(u64);
 pub(crate) struct QueryRevision(u64);
 
 impl QueryRevision {
-    pub(crate) fn next(self) -> Self {
-        Self(
-            self.0
-                .checked_add(1)
-                .expect("query revision space exhausted"),
-        )
+    pub(crate) fn next(self) -> Result<Self, RevisionError> {
+        Ok(Self(
+            self.0.checked_add(1).ok_or(RevisionError::QueryExhausted)?,
+        ))
     }
 }
 
@@ -32,6 +30,9 @@ pub(crate) struct ScanRevisionStamp {
 pub(crate) enum RevisionError {
     DuplicateRoot(SlotId),
     UnknownRoot(SlotId),
+    ArenaExhausted,
+    RootExhausted(SlotId),
+    QueryExhausted,
 }
 
 impl fmt::Display for RevisionError {
@@ -39,6 +40,11 @@ impl fmt::Display for RevisionError {
         match self {
             Self::DuplicateRoot(slot_id) => write!(formatter, "slot {slot_id} already exists"),
             Self::UnknownRoot(slot_id) => write!(formatter, "slot {slot_id} does not exist"),
+            Self::ArenaExhausted => formatter.write_str("arena revision space exhausted"),
+            Self::RootExhausted(slot_id) => {
+                write!(formatter, "slot {slot_id} revision space exhausted")
+            }
+            Self::QueryExhausted => formatter.write_str("query revision space exhausted"),
         }
     }
 }
@@ -72,7 +78,7 @@ impl ArenaRevisions {
         if self.roots.contains_key(&slot_id) {
             return Err(RevisionError::DuplicateRoot(slot_id));
         }
-        self.advance_arena();
+        self.advance_arena()?;
         let revision = RootRevision(1);
         self.roots.insert(slot_id, revision);
         Ok(revision)
@@ -86,12 +92,18 @@ impl ArenaRevisions {
             .roots
             .get_mut(&slot_id)
             .ok_or(RevisionError::UnknownRoot(slot_id))?;
-        revision.0 = revision
+        let next_root = revision
             .0
             .checked_add(1)
-            .expect("root revision space exhausted");
+            .ok_or(RevisionError::RootExhausted(slot_id))?;
+        let next_arena = self
+            .arena
+            .0
+            .checked_add(1)
+            .ok_or(RevisionError::ArenaExhausted)?;
+        revision.0 = next_root;
         let result = *revision;
-        self.advance_arena();
+        self.arena.0 = next_arena;
         Ok(result)
     }
 
@@ -106,12 +118,13 @@ impl ArenaRevisions {
         }
     }
 
-    fn advance_arena(&mut self) {
+    fn advance_arena(&mut self) -> Result<(), RevisionError> {
         self.arena.0 = self
             .arena
             .0
             .checked_add(1)
-            .expect("arena revision space exhausted");
+            .ok_or(RevisionError::ArenaExhausted)?;
+        Ok(())
     }
 }
 
@@ -120,6 +133,50 @@ mod tests {
     use super::*;
     use crate::object_explorer::value_address::ValueAddress;
     use crate::object_explorer::value_path::ValuePathSegment;
+
+    #[test]
+    fn exhausted_arena_does_not_publish_an_inserted_root() {
+        let root = SlotId::new(3);
+        let mut revisions = ArenaRevisions {
+            arena: ArenaRevision(u64::MAX),
+            roots: BTreeMap::new(),
+        };
+
+        assert_eq!(
+            revisions.ingest_root_insert(root),
+            Err(RevisionError::ArenaExhausted)
+        );
+        assert_eq!(revisions.arena_revision(), ArenaRevision(u64::MAX));
+        assert_eq!(revisions.root_revision(root), None);
+    }
+
+    #[test]
+    fn exhausted_change_preserves_both_revision_counters() {
+        let root = SlotId::new(3);
+        for (arena, root_revision, error) in [
+            (u64::MAX, 7, RevisionError::ArenaExhausted),
+            (7, u64::MAX, RevisionError::RootExhausted(root)),
+        ] {
+            let mut revisions = ArenaRevisions {
+                arena: ArenaRevision(arena),
+                roots: BTreeMap::from([(root, RootRevision(root_revision))]),
+            };
+
+            assert_eq!(revisions.ingest_root_change(root), Err(error));
+            assert_eq!(revisions.arena_revision(), ArenaRevision(arena));
+            assert_eq!(
+                revisions.root_revision(root),
+                Some(RootRevision(root_revision))
+            );
+        }
+    }
+
+    #[test]
+    fn exhausted_query_revision_cannot_alias_an_earlier_stamp() {
+        let current = QueryRevision(u64::MAX);
+        assert_eq!(current.next(), Err(RevisionError::QueryExhausted));
+        assert_eq!(current, QueryRevision(u64::MAX));
+    }
 
     #[test]
     fn unrelated_root_change_preserves_selection_and_root_cache() {
@@ -160,7 +217,7 @@ mod tests {
         let stamp = revisions.scan_stamp(query_revision);
 
         assert_eq!(stamp, revisions.scan_stamp(query_revision));
-        assert_ne!(stamp, revisions.scan_stamp(query_revision.next()));
+        assert_ne!(stamp, revisions.scan_stamp(query_revision.next().unwrap()));
 
         revisions.ingest_root_change(root).unwrap();
         assert_ne!(stamp, revisions.scan_stamp(query_revision));

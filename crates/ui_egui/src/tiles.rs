@@ -70,14 +70,6 @@ impl TreeBehavior {
         self.app_ptr = None;
     }
 
-    fn app(&mut self) -> &mut MyApp {
-        unsafe {
-            &mut *self
-                .app_ptr
-                .expect("TreeBehavior: app not set before UI render")
-        }
-    }
-
     // Accessors used by outer UI to take/clear the pending flags in a single
     // non-borrowing operation.
     pub fn take_pending_new_home_tabs(&mut self) -> usize {
@@ -101,6 +93,11 @@ impl TreeBehavior {
 
 impl Behavior<Pane> for TreeBehavior {
     fn pane_ui(&mut self, ui: &mut Ui, _tile_id: TileId, view: &mut Pane) -> UiResponse {
+        let Some(app) = (unsafe { self.app_ptr.and_then(|pointer| pointer.as_mut()) }) else {
+            ui.label("Application state is unavailable for this pane.");
+            tracing::error!("TreeBehavior application was not set before UI rendering");
+            return UiResponse::None;
+        };
         match view {
             Pane::Home => {
                 ui.vertical(|ui| {
@@ -126,7 +123,7 @@ impl Behavior<Pane> for TreeBehavior {
                 UiResponse::None
             }
             Pane::Resources => {
-                crate::windows::resources_window::resources_ui(self.app(), ui);
+                crate::windows::resources_window::resources_ui(app, ui);
                 UiResponse::None
             }
             Pane::Subscriptions | Pane::ResourceGroups | Pane::Pim => {
@@ -134,36 +131,37 @@ impl Behavior<Pane> for TreeBehavior {
                 UiResponse::None
             }
             Pane::StartingPoints => {
-                crate::windows::starting_points_window::starting_points_ui(self.app(), ui);
+                crate::windows::starting_points_window::starting_points_ui(app, ui);
                 UiResponse::None
             }
             Pane::SelectedItems => {
-                crate::windows::selected_items_window::selected_items_ui(self.app(), ui);
+                crate::windows::selected_items_window::selected_items_ui(app, ui);
                 UiResponse::None
             }
             Pane::WorkDirs => {
                 let mut dnd_resp = None;
-                crate::windows::work_dirs_window::work_dirs_ui(self.app(), ui, &mut dnd_resp);
+                crate::windows::work_dirs_window::work_dirs_ui(app, ui, &mut dnd_resp);
                 if let Some(crate::windows::work_dirs_window::DNDResponse {
                     source_index,
                     destination_index,
                 }) = dnd_resp
                 {
-                    let item = self
-                        .app()
-                        .work_dirs_config
-                        .work_dirs
-                        .remove_index(source_index)
-                        .unwrap();
-                    self.app()
-                        .work_dirs_config
+                    let Some(item) = app.work_dirs_config.work_dirs.remove_index(source_index)
+                    else {
+                        ui.label("The dragged work directory no longer exists.");
+                        return UiResponse::None;
+                    };
+                    let destination_index = destination_index
+                        .saturating_sub(usize::from(source_index < destination_index))
+                        .min(app.work_dirs_config.work_dirs.len());
+                    app.work_dirs_config
                         .work_dirs
                         .shift_insert(destination_index, item);
                 }
                 UiResponse::None
             }
             Pane::FileDrag => {
-                crate::file_drag_and_drop::file_drag_ui(self.app(), ui);
+                crate::file_drag_and_drop::file_drag_ui(app, ui);
                 UiResponse::None
             }
         }

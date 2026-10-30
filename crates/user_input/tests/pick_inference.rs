@@ -1,3 +1,5 @@
+#![cfg(test)]
+
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 

@@ -136,17 +136,12 @@ impl TryFrom<AzureDevOpsJsonPatchOperationObject> for AzureDevOpsJsonPatchOperat
 
 impl From<&AzureDevOpsJsonPatchOperation> for AzureDevOpsJsonPatchOperationObject {
     fn from(operation: &AzureDevOpsJsonPatchOperation) -> Self {
-        fn json<T: facet::Facet<'static>>(value: &T) -> ArbitraryJson {
-            // Serializing these fixed enum/string shapes is infallible.
-            facet_json::RawJson::from_owned(
-                facet_json::to_string(value).expect("serializing a patch scalar"),
-            )
-            .into()
-        }
-
         let mut wire = BTreeMap::from([
-            ("op".to_owned(), json(&operation.name().to_owned())),
-            ("path".to_owned(), json(&operation.path().to_owned())),
+            ("op".to_owned(), ArbitraryJson::from_text(operation.name())),
+            (
+                "path".to_owned(),
+                ArbitraryJson::from_text(operation.path()),
+            ),
         ]);
         match operation {
             AzureDevOpsJsonPatchOperation::Add { value, .. }
@@ -156,7 +151,7 @@ impl From<&AzureDevOpsJsonPatchOperation> for AzureDevOpsJsonPatchOperationObjec
             }
             AzureDevOpsJsonPatchOperation::Move { from, .. }
             | AzureDevOpsJsonPatchOperation::Copy { from, .. } => {
-                wire.insert("from".to_owned(), json(from));
+                wire.insert("from".to_owned(), ArbitraryJson::from_text(from));
             }
             AzureDevOpsJsonPatchOperation::Remove { .. } => {}
         }

@@ -11,6 +11,7 @@ use cloud_terrastodon_pathing::Existy;
 use eyre::Context;
 use eyre::ContextCompat;
 use eyre::Result;
+use eyre::eyre;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::path::Path;
@@ -75,15 +76,18 @@ fn cache_memory_key(cache_key: &CacheKey, fingerprint: &str) -> String {
     format!("{}::{fingerprint}", cache_key.path_on_disk().display())
 }
 
-pub(crate) fn invalidate_memory_cache(cache_key: &CacheKey) {
+pub(crate) fn invalidate_memory_cache(cache_key: &CacheKey) -> Result<()> {
     let cache_dir = cache_key.path_on_disk();
-    let mut entries = memory_cache().lock().expect("memory cache poisoned");
+    let mut entries = memory_cache()
+        .lock()
+        .map_err(|_| eyre!("memory cache poisoned during invalidation"))?;
     entries.retain(|memory_key, _| {
         let Some((path, _)) = memory_key.split_once("::") else {
             return true;
         };
         !Path::new(path).starts_with(&cache_dir)
     });
+    Ok(())
 }
 
 /// Reject only this entry after decoding fails, retaining its diagnostics and
@@ -92,7 +96,7 @@ pub(crate) async fn invalidate_cache_entry(cache_key: &CacheKey) -> Result<()> {
     let cache_dir = cache_key.path_on_disk();
     memory_cache()
         .lock()
-        .expect("memory cache poisoned")
+        .map_err(|_| eyre!("memory cache poisoned during entry invalidation"))?
         .retain(|memory_key, _| {
             memory_key
                 .split_once("::")
@@ -181,7 +185,7 @@ pub async fn get_cached_output(
     let memory_key = cache_memory_key(cache_key, fingerprint);
     if let Some(output) = memory_cache()
         .lock()
-        .expect("memory cache poisoned")
+        .map_err(|_| eyre!("memory cache poisoned during cache lookup"))?
         .get(&memory_key)
         .cloned()
     {
@@ -285,7 +289,7 @@ pub async fn get_cached_output(
 
     memory_cache()
         .lock()
-        .expect("memory cache poisoned")
+        .map_err(|_| eyre!("memory cache poisoned while retaining loaded output"))?
         .insert(memory_key, output.clone());
 
     Ok(Some(output))
@@ -413,11 +417,16 @@ pub async fn write_failure_with_extra_files(
     Ok(dir)
 }
 
-pub fn put_memory_cache_entry(cache_key: &CacheKey, fingerprint: &str, output: &CommandOutput) {
+pub fn put_memory_cache_entry(
+    cache_key: &CacheKey,
+    fingerprint: &str,
+    output: &CommandOutput,
+) -> Result<()> {
     memory_cache()
         .lock()
-        .expect("memory cache poisoned")
+        .map_err(|_| eyre!("memory cache poisoned while retaining executed output"))?
         .insert(cache_memory_key(cache_key, fingerprint), output.clone());
+    Ok(())
 }
 
 pub fn note_cache_write_failure(error: &eyre::Error) {

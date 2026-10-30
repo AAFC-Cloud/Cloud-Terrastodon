@@ -24,20 +24,29 @@ static VERSION: LazyLock<Mutex<Version>> =
     LazyLock::new(|| Mutex::new(Version::new("unknown".to_string())));
 
 /// Set the global version used by the application (used by UI About dialogs)
-pub fn set_version(ver: impl Into<Version>) {
-    *VERSION.lock().unwrap() = ver.into();
+pub fn set_version(ver: impl Into<Version>) -> Result<()> {
+    let ver = ver.into();
+    *VERSION
+        .lock()
+        .map_err(|_| eyre!("application version lock is poisoned"))? = ver;
+    Ok(())
 }
 
 /// Get a clone of the configured version
-pub fn version() -> Version {
-    VERSION.lock().unwrap().clone()
+pub fn version() -> Result<Version> {
+    Ok(VERSION
+        .lock()
+        .map_err(|_| eyre!("application version lock is poisoned"))?
+        .clone())
 }
 
-pub fn full_version() -> Version {
-    Version::new(format!(
+pub fn full_version() -> Result<Version> {
+    Ok(Version::new(format!(
         "{} (rev {}, built {})",
-        version(),
-        crate::git_revision::git_revision(),
-        crate::build_timestamp::build_timestamp()
-    ))
+        version()?,
+        crate::git_revision::git_revision()?,
+        crate::build_timestamp::build_timestamp()?
+    )))
 }
+use eyre::Result;
+use eyre::eyre;

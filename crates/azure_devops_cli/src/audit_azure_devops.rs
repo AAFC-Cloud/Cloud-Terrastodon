@@ -348,11 +348,11 @@ pub async fn audit_azure_devops(
                     .as_deref()
                     .unwrap_or("never"),
                 last_used_ago = last_used
-                    .map(|date| format_duration_human(Utc::now() - date).unwrap())
+                    .map(|date| format_duration_human(Utc::now() - date)).transpose()?
                     .as_deref()
                     .unwrap_or("N/A"),
                 last_used_ago_fr = last_used
-                    .map(|date| format_duration_human_fr(Utc::now() - date).unwrap())
+                    .map(|date| format_duration_human_fr(Utc::now() - date)).transpose()?
                     .as_deref()
                     .unwrap_or("N/A"),
                 last_used_ago_days = last_used.map(|date| (Utc::now() - date).num_days()),

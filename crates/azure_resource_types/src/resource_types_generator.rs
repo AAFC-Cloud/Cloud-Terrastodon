@@ -50,7 +50,7 @@ mod tests {
                 let resp = cmd.run::<Resp>(&cancellation).await?;
                 for prov in resp.value {
                     for rt in prov.resource_types {
-                        resource_types.push(format!("{}/{}", &prov.namespace, rt.resource_type));
+                        resource_types.push(format!("{}/{}", prov.namespace, rt.resource_type));
                     }
                 }
 

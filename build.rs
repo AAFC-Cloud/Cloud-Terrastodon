@@ -2,18 +2,19 @@ use std::process::Command;
 use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
 
-fn main() {
+fn main() -> Result<(), Box<dyn Error>> {
     // A library consumer owns its executable metadata and Windows resources.
     if std::env::var_os("CARGO_FEATURE_ENTRYPOINT").is_none() {
-        return;
+        return Ok(());
     }
     add_build_script_inputs();
     add_git_revision();
-    add_build_timestamp();
-    let target = std::env::var("TARGET").unwrap();
+    add_build_timestamp()?;
+    let target = std::env::var("TARGET")?;
     if target.contains("windows") {
-        add_exe_resources();
+        add_exe_resources()?;
     }
+    Ok(())
 }
 
 /// Re-run the build script when normal binary inputs change so embedded build metadata stays fresh.
@@ -25,12 +26,11 @@ fn add_build_script_inputs() {
 }
 
 /// Embeds Windows resources (like application icon) into the executable.
-fn add_exe_resources() {
+fn add_exe_resources() -> Result<(), Box<dyn Error>> {
     println!("cargo:rerun-if-changed=resources");
 
-    embed_resource::compile("resources/app.rc", embed_resource::NONE)
-        .manifest_required()
-        .expect("failed to embed resources");
+    embed_resource::compile("resources/app.rc", embed_resource::NONE).manifest_required()?;
+    Ok(())
 }
 
 /// In your code you can now access git revision using
@@ -72,11 +72,10 @@ fn git_output(args: &[&str]) -> Option<String> {
 }
 
 /// Capture build time as a UTC instant so the runtime can render it in the user's local timezone.
-fn add_build_timestamp() {
-    let timestamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("system clock should be after Unix epoch")
-        .as_secs();
+fn add_build_timestamp() -> Result<(), std::time::SystemTimeError> {
+    let timestamp = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
 
     println!("cargo:rustc-env=BUILD_TIMESTAMP_UNIX={timestamp}");
+    Ok(())
 }
+use std::error::Error;

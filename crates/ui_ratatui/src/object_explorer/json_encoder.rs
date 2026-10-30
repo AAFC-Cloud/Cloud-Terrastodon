@@ -14,21 +14,22 @@ impl JsonEncoder {
     // Engine message boundaries preserve this report before converting it to text.
     #[track_caller]
     pub(crate) fn encode(&mut self, value: Peek<'_, 'static>) -> eyre::Result<String> {
-        self.record_encoded();
+        self.record_encoded()?;
         facet_json::peek_to_string(value).wrap_err("could not serialize reflected value")
     }
 
     #[track_caller]
     pub(crate) fn encode_pretty(&mut self, value: Peek<'_, 'static>) -> eyre::Result<String> {
-        self.record_encoded();
+        self.record_encoded()?;
         facet_json::peek_to_string_pretty(value).wrap_err("could not serialize reflected value")
     }
 
-    fn record_encoded(&mut self) {
+    fn record_encoded(&mut self) -> eyre::Result<()> {
         self.encoded_values = self
             .encoded_values
             .checked_add(1)
-            .expect("JSON serialization counter overflowed");
+            .ok_or_else(|| eyre::eyre!("JSON serialization counter overflowed"))?;
+        Ok(())
     }
 
     pub(crate) const fn encoded_values(&self) -> usize {

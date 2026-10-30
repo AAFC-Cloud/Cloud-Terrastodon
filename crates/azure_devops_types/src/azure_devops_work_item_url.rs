@@ -1,5 +1,3 @@
-#![cfg_attr(not(test), deny(clippy::expect_used))]
-
 use crate::AzureDevOpsOrganizationName;
 use crate::AzureDevOpsOrganizationUrl;
 use crate::AzureDevOpsProjectArgument;
@@ -215,7 +213,7 @@ pub(crate) fn parse_url(
             .ok_or_else(|| eyre::eyre!("Organization is missing from work item URL"))?
             .parse()?;
         (
-            AzureDevOpsOrganizationUrl::new_dev_azure_com(organization),
+            AzureDevOpsOrganizationUrl::new_dev_azure_com(organization)?,
             &segments[1..],
         )
     } else if let Some(host) = url.host_str() {
@@ -230,7 +228,7 @@ pub(crate) fn parse_url(
             &segments[..]
         };
         (
-            AzureDevOpsOrganizationUrl::new_visual_studio_com(organization_name),
+            AzureDevOpsOrganizationUrl::new_visual_studio_com(organization_name)?,
             tail,
         )
     } else {

@@ -1,12 +1,11 @@
-use crate::ArtifactFreshness;
 use crate::CacheEntryIdentity;
 use crate::WorkAttempt;
 use crate::WorkCache;
 use crate::WorkOutput;
-use crate::artifact_age::ArtifactAge;
 use crate::artifact_io_guard::ArtifactIoGuard;
 use crate::cached_work_value::CachedWorkValue;
 use crate::work_attempt_guard::WorkAttemptGuard;
+use crate::work_child_guard::WorkChildGuard;
 use crate::work_coordination::WorkCoordination;
 use crate::work_wait_guard::WorkWaitGuard;
 use eyre::Result;
@@ -24,16 +23,17 @@ use teamy_cancellation::CancellationScope;
 /// Construct with `WorkCache::cached_work` to claim the operation/output contract
 /// before any lookup. Only successful fresh values are shared. The callback owns
 /// execution and canonical decoding; caller projections belong after this await.
-/// This layer currently coordinates memory results, not generation/dependency
-/// validity or the transport/artifact lifecycle. Production adapter cutover waits
-/// for those subsequent migration tasks.
+/// Reuse checks original generations and every semantic child's freshness.
+/// Production transport adapters remain a subsequent migration layer.
 #[must_use = "Cached work does nothing until awaited"]
 pub struct CachedWorkSpec<'a, T, F> {
     // Bound fields cannot be changed after the canonical ownership claim.
     pub(crate) cache: WorkCache,
     pub(crate) identity: CacheEntryIdentity,
     pub(crate) validity: Duration,
+    pub(crate) reusable: bool,
     pub(crate) parent: Option<&'a WorkAttempt>,
+    pub(crate) child: Option<WorkChildGuard>,
     pub(crate) cancellation: &'a CancellationScope,
     pub(crate) initialize: F,
     pub(crate) output: PhantomData<fn() -> T>,
@@ -62,7 +62,7 @@ where
     F: FnOnce(Option<WorkAttempt>, CancellationScope) -> Fut,
     Fut: Future<Output = Result<WorkOutput<T>>>,
 {
-    async fn run(self, scope: CancellationScope) -> Result<Arc<T>> {
+    async fn run(mut self, scope: CancellationScope) -> Result<Arc<T>> {
         let mut retired = None;
         let (coordination, _waiting) = {
             let mut state = self.cache.lock_state()?;
@@ -70,7 +70,7 @@ where
                 .parent
                 .map(|parent| parent.entry(&self.cache, &state).cloned())
                 .transpose()?;
-            if self.validity.is_zero() {
+            if !self.reusable {
                 // No lock or artificial ancestry vertex for nonreusable work.
                 (None, None)
             } else {
@@ -82,13 +82,16 @@ where
                 if state
                     .values
                     .get(&self.identity)
-                    .is_some_and(|value| !value.is_reusable(Duration::MAX))
+                    .is_some_and(|value| !value.is_reusable(&state))
                 {
                     retired = state.values.remove(&self.identity);
                 }
                 if let Some(value) = state.values.get(&self.identity)
-                    && let Some(value) = value.load::<T>(self.validity)?
+                    && let Some((value, certificate)) = value.load::<T>(&state, self.validity)?
                 {
+                    if let Some(child) = &mut self.child {
+                        child.complete(&mut state, &certificate)?;
+                    }
                     return Ok(value);
                 }
                 let waiting = parent
@@ -132,30 +135,30 @@ where
             if state
                 .values
                 .get(&self.identity)
-                .is_some_and(|value| !value.is_reusable(Duration::MAX))
+                .is_some_and(|value| !value.is_reusable(&state))
             {
                 retired = state.values.remove(&self.identity);
             }
             if let Some(value) = state.values.get(&self.identity)
-                && let Some(value) = value.load::<T>(self.validity)?
+                && let Some((value, certificate)) = value.load::<T>(&state, self.validity)?
             {
+                if let Some(child) = &mut self.child {
+                    child.complete(&mut state, &certificate)?;
+                }
                 return Ok(value);
             }
         }
         drop(retired);
-        let attempt = WorkAttemptGuard::new(&self.cache, self.identity.clone())?;
+        let attempt = WorkAttemptGuard::new(&self.cache, self.identity.clone(), self.parent)?;
         let output = (self.initialize)(Some(attempt.attempt()), scope.clone()).await?;
         scope.bail_if_cancelled()?;
         let value = Arc::new(output.value);
-        let age = ArtifactAge {
-            freshness: ArtifactFreshness::new(output.observation.wall, self.validity)?,
-            initial_age: Duration::ZERO,
-            anchored_at: output.observation.monotonic,
-        };
-        let retained = CachedWorkValue {
-            value: value.clone(),
-            age,
-        };
+        let (age, loaded_generation) = output.freshness.into_age(
+            &self.cache,
+            &self.identity,
+            &attempt.attempt(),
+            self.validity,
+        )?;
         let gate = ArtifactIoGuard::acquire(&self.cache.state.artifact_gate).await;
         scope.bail_if_cancelled()?;
         let retired = {
@@ -163,7 +166,18 @@ where
             if let Some(parent) = self.parent {
                 parent.entry(&self.cache, &state)?;
             }
-            if retained.is_reusable(self.validity) {
+            let certificate =
+                attempt
+                    .attempt()
+                    .finish(&mut state, age, self.validity, loaded_generation)?;
+            if let Some(child) = &mut self.child {
+                child.complete(&mut state, &certificate)?;
+            }
+            let retained = CachedWorkValue {
+                value: value.clone(),
+                certificate,
+            };
+            if retained.is_reusable(&state) {
                 state.values.insert(self.identity, retained)
             } else {
                 // An outcome that expired during decoding still belongs to its
@@ -187,6 +201,7 @@ mod tests {
     use crate::CacheScope;
     use crate::ExecutorKind;
     use crate::NonEmptyString;
+    use crate::WorkReuse;
     use chrono::TimeDelta;
     use chrono::Utc;
     use std::future::poll_fn;
@@ -237,16 +252,14 @@ mod tests {
                     .cached_work(
                         identity(),
                         CacheOperationOwner::of::<SyntheticRead>(),
+                        WorkReuse::ReusableRead,
                         Duration::from_secs(30),
                         None,
                         &scope,
                         |_, _| async {
                             let observation = observed_before(Duration::from_secs(60));
                             executions.fetch_add(1, Ordering::SeqCst);
-                            Ok(WorkOutput {
-                                value: 1_u64,
-                                observation,
-                            })
+                            Ok(WorkOutput::new(1_u64, observation))
                         },
                     )?
                     .await?;
@@ -257,16 +270,14 @@ mod tests {
                     .cached_work(
                         identity(),
                         CacheOperationOwner::of::<SyntheticRead>(),
+                        WorkReuse::ReusableRead,
                         Duration::from_secs(30),
                         None,
                         &scope,
                         |_, _| async {
                             let observation = ArtifactObservation::now();
                             executions.fetch_add(1, Ordering::SeqCst);
-                            Ok(WorkOutput {
-                                value: 2_u64,
-                                observation,
-                            })
+                            Ok(WorkOutput::new(2_u64, observation))
                         },
                     )?
                     .await?;
@@ -293,6 +304,7 @@ mod tests {
                     .cached_work(
                         identity(),
                         CacheOperationOwner::of::<SyntheticRead>(),
+                        WorkReuse::ReusableRead,
                         stored_validity,
                         None,
                         &scope,
@@ -301,10 +313,7 @@ mod tests {
                             async move {
                                 executions.fetch_add(1, Ordering::SeqCst);
                                 released.await?;
-                                Ok(WorkOutput {
-                                    value: 1_u64,
-                                    observation,
-                                })
+                                Ok(WorkOutput::new(1_u64, observation))
                             }
                         },
                     )?
@@ -316,16 +325,14 @@ mod tests {
                     .cached_work(
                         identity(),
                         CacheOperationOwner::of::<SyntheticRead>(),
+                        WorkReuse::ReusableRead,
                         Duration::from_secs(300),
                         None,
                         &scope,
                         |_, _| async {
                             let observation = ArtifactObservation::now();
                             executions.fetch_add(1, Ordering::SeqCst);
-                            Ok(WorkOutput {
-                                value: 2_u64,
-                                observation,
-                            })
+                            Ok(WorkOutput::new(2_u64, observation))
                         },
                     )?
                     .into_future();
@@ -341,15 +348,13 @@ mod tests {
                     .cached_work(
                         identity(),
                         CacheOperationOwner::of::<SyntheticRead>(),
+                        WorkReuse::ReusableRead,
                         longer_validity,
                         None,
                         &scope,
                         |_, _| async {
                             executions.fetch_add(1, Ordering::SeqCst);
-                            Ok(WorkOutput {
-                                value: 3_u64,
-                                observation: ArtifactObservation::now(),
-                            })
+                            Ok(WorkOutput::new(3_u64, ArtifactObservation::now()))
                         },
                     )?
                     .await?;
@@ -357,13 +362,16 @@ mod tests {
                 {
                     let state = cache.lock_state()?;
                     let retained = &state.values[&identity()];
-                    assert_eq!(retained.age.freshness.observed_at, observation.wall);
                     assert_eq!(
-                        retained.age.freshness.expires_at,
+                        retained.certificate.own.age.freshness.observed_at,
+                        observation.wall
+                    );
+                    assert_eq!(
+                        retained.certificate.own.age.freshness.expires_at,
                         Some(observation.wall + TimeDelta::seconds(3600)),
                     );
-                    assert!(!retained.age.reusable(
-                        &retained.age.freshness,
+                    assert!(!retained.certificate.own.age.reusable(
+                        &retained.certificate.own.age.freshness,
                         longer_validity,
                         observation.wall + TimeDelta::seconds(3601),
                         observation.monotonic + Duration::from_secs(3601),
@@ -391,15 +399,11 @@ mod tests {
                     .cached_work(
                         identity(),
                         CacheOperationOwner::of::<SyntheticRead>(),
+                        WorkReuse::ReusableRead,
                         Duration::from_secs(3600),
                         None,
                         &scope,
-                        |_, _| async {
-                            Ok(WorkOutput {
-                                value: 7_u64,
-                                observation: ArtifactObservation::now(),
-                            })
-                        },
+                        |_, _| async { Ok(WorkOutput::new(7_u64, ArtifactObservation::now())) },
                     )?
                     .await?;
                 {
@@ -423,15 +427,11 @@ mod tests {
                                 ..identity()
                             },
                             CacheOperationOwner::of::<ConflictingRead>(),
+                            WorkReuse::ReusableRead,
                             Duration::from_secs(3600),
                             None,
                             &scope,
-                            |_, _| async {
-                                Ok(WorkOutput {
-                                    value: 8_u64,
-                                    observation: ArtifactObservation::now(),
-                                })
-                            },
+                            |_, _| async { Ok(WorkOutput::new(8_u64, ArtifactObservation::now())) },
                         )
                         .is_err()
                 );

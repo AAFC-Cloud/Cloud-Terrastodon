@@ -31,7 +31,7 @@ impl<'a> Arbitrary<'a> for AzureDevOpsWorkItem {
             id: AzureDevOpsWorkItemId::arbitrary(u)?,
             rev: i32::arbitrary(u)?,
             url: Url::parse("https://dev.azure.com/example/_apis/wit/workitems/1")
-                .expect("static URL is valid"),
+                .map_err(|_| arbitrary::Error::IncorrectFormat)?,
             fields: AzureDevOpsWorkItemFields::arbitrary(u)?,
             relations: Option::<Vec<AzureDevOpsWorkItemRelation>>::arbitrary(u)?,
             links: Option::<ArbitraryJson>::arbitrary(u)?,

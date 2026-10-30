@@ -62,8 +62,9 @@ impl VisitMut for ReflowRemoveDefaultAttributes {
                 remove_second_if_both_present(body, "security_enabled", "mail_enabled");
 
                 // Remove members (empty and comment) when dynamic_membership specified
-                if body.has_attribute("members") && body.has_blocks("dynamic_membership") {
-                    let mut members = body.get_attribute_mut("members").unwrap();
+                if body.has_blocks("dynamic_membership")
+                    && let Some(mut members) = body.get_attribute_mut("members")
+                {
                     let mut array = Array::new();
                     array.set_trailing("");
                     members.decor_mut().set_prefix("#");
@@ -96,7 +97,7 @@ impl VisitMut for ReflowRemoveDefaultAttributes {
                     && let Some(nick) = attrib.value.as_str()
                     && is_default_nick(nick)
                 {
-                    body.remove_attribute("mail_nickname").unwrap();
+                    body.remove_attribute("mail_nickname");
                 }
             }
             ResourceBlockResourceKind::AzureRM(AzureRmResourceBlockKind::ResourceGroup) => {
@@ -115,17 +116,20 @@ impl VisitMut for ReflowRemoveDefaultAttributes {
                 }
             }
             ResourceBlockResourceKind::AzureRM(AzureRmResourceBlockKind::PolicyDefinition)
-            | ResourceBlockResourceKind::AzureRM(AzureRmResourceBlockKind::PolicySetDefinition) => {
-                replace_if_null_or_empty(
-                    body,
-                    "display_name",
-                    body.get_attribute("name")
-                        .unwrap()
-                        .value
-                        .as_str()
-                        .unwrap()
-                        .to_owned(),
-                );
+            | ResourceBlockResourceKind::AzureRM(AzureRmResourceBlockKind::PolicySetDefinition)
+                if body
+                    .get_attribute("display_name")
+                    .is_some_and(is_null_or_empty) =>
+            {
+                if let Some(name) = body
+                    .get_attribute("name")
+                    .and_then(|attribute| attribute.value.as_str())
+                    .map(str::to_owned)
+                {
+                    replace_if_null_or_empty(body, "display_name", name);
+                } else {
+                    warn!("Cannot default policy display_name without a literal name attribute");
+                }
             }
             _ => {}
         }
@@ -140,7 +144,7 @@ fn remove_if_null_or_empty(body: &mut Body, key: &str) {
     if let Some(attrib) = body.get_attribute(key)
         && is_null_or_empty(attrib)
     {
-        body.remove_attribute(key).unwrap();
+        body.remove_attribute(key);
     }
 }
 fn replace_if_null_or_empty(body: &mut Body, key: &str, default: impl Into<String>) {
@@ -154,7 +158,7 @@ fn remove_if_false(body: &mut Body, key: &str) {
     if let Some(attrib) = body.get_attribute(key)
         && let Some(false) = attrib.value.as_bool()
     {
-        body.remove_attribute(key).unwrap();
+        body.remove_attribute(key);
     }
 }
 
@@ -163,12 +167,12 @@ fn remove_if_empty_array(body: &mut Body, key: &str) {
         && let Some(x) = attrib.value.as_array()
         && x.is_empty()
     {
-        body.remove_attribute(key).unwrap();
+        body.remove_attribute(key);
     }
 }
 
 fn remove_second_if_both_present(body: &mut Body, keep: &str, remove: &str) {
-    if body.has_attribute(keep) && body.has_attribute(remove) {
-        body.remove_attribute(remove).unwrap();
+    if body.has_attribute(keep) {
+        body.remove_attribute(remove);
     }
 }

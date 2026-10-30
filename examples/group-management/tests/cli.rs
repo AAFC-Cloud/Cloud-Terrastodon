@@ -1,3 +1,5 @@
+#![cfg(test)]
+
 use cloud_terrastodon_group_management::ValidationReport;
 use std::path::Path;
 use std::process::Command;

@@ -1,7 +1,12 @@
 use crate::ArtifactFilePath;
+use crate::CacheEntryIdentity;
+use crate::ExecutorKind;
 use crate::artifact_file::ArtifactFile;
 use crate::artifact_file_digest::ArtifactFileDigest;
+use crate::cache_invalidation_target::CacheInvalidationTarget;
+use crate::cache_path_component::CachePathComponent;
 use eyre::Context;
+use eyre::OptionExt;
 use eyre::Result;
 use eyre::ensure;
 use std::collections::BTreeMap;
@@ -25,6 +30,100 @@ pub(crate) struct ArtifactDirectory {
 }
 
 impl ArtifactDirectory {
+    /// Address the isolated physical entry while retaining its original owner root.
+    pub fn for_entry(root: &Path, identity: &CacheEntryIdentity) -> Result<Self> {
+        let mut directory = root.join("artifacts-v2").join("entries");
+        match &identity.kind {
+            ExecutorKind::Command => directory.push("command"),
+            ExecutorKind::Rest => directory.push("rest"),
+            ExecutorKind::InProcess => directory.push("in-process"),
+            ExecutorKind::Other(name) => {
+                directory.push("other");
+                directory.push(CachePathComponent::from_identity(name));
+            }
+        }
+        directory.push("scope");
+        for component in identity.scope.components() {
+            directory.push(CachePathComponent::from_identity(component));
+        }
+        directory.push("variants");
+        directory.push(CachePathComponent::from_identity(
+            identity.auth_partition.as_str(),
+        ));
+        directory.push(CachePathComponent::from_identity(
+            identity.fingerprint.as_str(),
+        ));
+        Self::new(root, directory)
+    }
+
+    /// Remove only reusable selectors, retaining all immutable attempts.
+    /// The caller owns the artifact I/O gate and installed invalidation quarantine.
+    pub fn invalidate_selections(root: &Path, target: &CacheInvalidationTarget) -> Result<()> {
+        if let CacheInvalidationTarget::Entry(identity) = target {
+            let directory = Self::for_entry(root, identity)?;
+            if !directory.exists_checked()? {
+                return Ok(());
+            }
+            directory.verify_entry(identity)?;
+            return directory
+                .file(&ArtifactFilePath::new("selection.json")?)?
+                .remove();
+        }
+        let mut pending = vec![Self::new(root, root.join("artifacts-v2/entries"))?];
+        while let Some(directory) = pending.pop() {
+            if !directory.exists_checked()? {
+                continue;
+            }
+            if let Some(bytes) = directory
+                .file(&ArtifactFilePath::new("entry.json")?)?
+                .read()?
+            {
+                let identity: CacheEntryIdentity = facet_json::from_slice(&bytes).wrap_err(
+                    "cannot determine invalidation coverage of malformed artifact identity",
+                )?;
+                ensure!(
+                    Self::for_entry(root, &identity)?.path == directory.path,
+                    "artifact identity is stored outside its canonical entry directory"
+                );
+                if target.covers(&identity) {
+                    directory
+                        .file(&ArtifactFilePath::new("selection.json")?)?
+                        .remove()?;
+                }
+                // Attempt files are never reusable selectors and need no scanning.
+                continue;
+            }
+            for child in fs::read_dir(directory.path()).wrap_err("enumerating artifact entries")? {
+                let child = child.wrap_err("reading artifact directory child")?;
+                let kind = child
+                    .file_type()
+                    .wrap_err("inspecting artifact directory child")?;
+                ensure!(
+                    !kind.is_symlink(),
+                    "artifact invalidation cannot traverse a link"
+                );
+                if kind.is_dir() {
+                    pending.push(directory.child(child.file_name())?);
+                } else {
+                    ensure!(kind.is_file(), "artifact tree contains a nonregular entry");
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn verify_entry(&self, expected: &CacheEntryIdentity) -> Result<()> {
+        if let Some(bytes) = self.file(&ArtifactFilePath::new("entry.json")?)?.read()? {
+            let actual: CacheEntryIdentity = facet_json::from_slice(&bytes)
+                .wrap_err("invalid artifact entry identity during invalidation")?;
+            ensure!(
+                actual == *expected,
+                "artifact path collision during invalidation"
+            );
+        }
+        Ok(())
+    }
+
     pub fn new(root: &Path, path: impl Into<PathBuf>) -> Result<Self> {
         ensure!(root.is_absolute(), "artifact root must be absolute");
         ensure!(
@@ -74,7 +173,13 @@ impl ArtifactDirectory {
     /// An existing directory, file, or link at the final address is an error.
     pub fn create_new_child(&self, relative: impl AsRef<Path>) -> Result<Self> {
         let child = self.child(relative)?;
-        let parent = Self::new(&self.root, child.path.parent().unwrap())?;
+        let parent = Self::new(
+            &self.root,
+            child
+                .path
+                .parent()
+                .ok_or_eyre("artifact child directory has no parent")?,
+        )?;
         parent.ensure_exists()?;
         fs::create_dir(&child.path).wrap_err("creating unique artifact directory")?;
         Ok(child)

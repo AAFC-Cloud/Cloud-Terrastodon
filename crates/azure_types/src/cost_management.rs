@@ -2,6 +2,8 @@ use chrono::DateTime;
 use chrono::Datelike;
 use chrono::Local;
 use chrono::Utc;
+use eyre::ContextCompat;
+use eyre::Result;
 use facet_json::RawJson;
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -9,8 +11,8 @@ use uuid::Uuid;
 // https://learn.microsoft.com/en-us/rest/api/cost-management/query/usage?view=rest-cost-management-2024-08-01&tabs=HTTP#querydataset
 
 impl CostManagementQueryDefinition {
-    pub fn new_cost_total_this_month() -> Self {
-        CostManagementQueryDefinition {
+    pub fn new_cost_total_this_month() -> Result<Self> {
+        Ok(CostManagementQueryDefinition {
             kind: CostManagementExportType::ActualCost,
             dataset: CostManagementQueryDataset {
                 granularity: CostManagementQueryDatasetGranularityType::None,
@@ -32,11 +34,11 @@ impl CostManagementQueryDefinition {
                 grouping: None,
             },
             timeframe: CostManagementTimeframeType::Custom,
-            time_period: CostManagementQueryTimePeriod::get_month_start_and_today_end(),
-        }
+            time_period: CostManagementQueryTimePeriod::get_month_start_and_today_end()?,
+        })
     }
-    pub fn new_cost_by_day_this_month() -> Self {
-        CostManagementQueryDefinition {
+    pub fn new_cost_by_day_this_month() -> Result<Self> {
+        Ok(CostManagementQueryDefinition {
             kind: CostManagementExportType::ActualCost,
             dataset: CostManagementQueryDataset {
                 granularity: CostManagementQueryDatasetGranularityType::Daily,
@@ -58,11 +60,11 @@ impl CostManagementQueryDefinition {
                 grouping: None,
             },
             timeframe: CostManagementTimeframeType::Custom,
-            time_period: CostManagementQueryTimePeriod::get_month_start_and_today_end(),
-        }
+            time_period: CostManagementQueryTimePeriod::get_month_start_and_today_end()?,
+        })
     }
-    pub fn new_cost_by_resource_group_this_month() -> Self {
-        CostManagementQueryDefinition {
+    pub fn new_cost_by_resource_group_this_month() -> Result<Self> {
+        Ok(CostManagementQueryDefinition {
             kind: CostManagementExportType::ActualCost,
             dataset: CostManagementQueryDataset {
                 granularity: CostManagementQueryDatasetGranularityType::None,
@@ -93,21 +95,27 @@ impl CostManagementQueryDefinition {
                 ]),
             },
             timeframe: CostManagementTimeframeType::Custom,
-            time_period: CostManagementQueryTimePeriod::get_month_start_and_today_end(),
-        }
+            time_period: CostManagementQueryTimePeriod::get_month_start_and_today_end()?,
+        })
     }
 }
 
 impl CostManagementQueryTimePeriod {
-    pub fn get_month_start_and_today_end() -> Self {
+    pub fn get_month_start_and_today_end() -> Result<Self> {
         let today = Local::now().date_naive();
-        let start_of_month = today.with_day(1).unwrap().and_hms_opt(0, 0, 0).unwrap();
-        let end_of_today = today.and_hms_opt(23, 59, 59).unwrap();
+        let start_of_month = today
+            .with_day(1)
+            .wrap_err("Current month has no first day")?
+            .and_hms_opt(0, 0, 0)
+            .wrap_err("Invalid start-of-month time")?;
+        let end_of_today = today
+            .and_hms_opt(23, 59, 59)
+            .wrap_err("Invalid end-of-day time")?;
 
-        CostManagementQueryTimePeriod {
+        Ok(CostManagementQueryTimePeriod {
             from: start_of_month.and_utc(),
             to: end_of_today.and_utc(),
-        }
+        })
     }
 }
 

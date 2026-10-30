@@ -13,13 +13,13 @@ mod discovery_plan_layout_segment;
 #[cfg(test)]
 mod discovery_plan_layout_tests;
 mod discovery_plan_text;
-mod excalidraw_app_state;
 mod excalidraw_action_control;
-mod excalidraw_canvas_action;
+mod excalidraw_app_state;
 mod excalidraw_arrow_binding;
 mod excalidraw_arrowhead;
 mod excalidraw_binary_file;
 mod excalidraw_bound_element;
+mod excalidraw_canvas_action;
 mod excalidraw_control_bounds;
 mod excalidraw_element;
 mod excalidraw_element_base;
@@ -49,11 +49,11 @@ mod interactive_scene_fields;
 mod produce_excalidraw_dump_plan_request;
 
 pub use excalidraw_app_state::*;
-pub use excalidraw_canvas_action::*;
 pub use excalidraw_arrow_binding::*;
 pub use excalidraw_arrowhead::*;
 pub use excalidraw_binary_file::*;
 pub use excalidraw_bound_element::*;
+pub use excalidraw_canvas_action::*;
 pub use excalidraw_element::*;
 pub use excalidraw_element_base::*;
 pub use excalidraw_element_id::*;

@@ -7,7 +7,7 @@ rustup run nightly -- cargo fmt --all
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host -ForegroundColor Yellow "Running clippy lint check..."
-cargo clippy --all-targets --all-features -- -D warnings
+cargo clippy --workspace --all-targets --all-features -- -D warnings
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 # Write-Host -ForegroundColor Yellow "Running build..."

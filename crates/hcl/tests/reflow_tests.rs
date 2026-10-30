@@ -1,3 +1,5 @@
+#![cfg(test)]
+
 use cloud_terrastodon_command::CancellationToken;
 use cloud_terrastodon_hcl::HclProject;
 use cloud_terrastodon_hcl::reflow::HclReflower;

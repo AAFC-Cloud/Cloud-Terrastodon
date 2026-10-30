@@ -15,6 +15,7 @@ use cloud_terrastodon_excalidraw::ExcalidrawScene;
 use cloud_terrastodon_registry::known_functions;
 use cloud_terrastodon_registry::known_things;
 use eyre::Context;
+use eyre::OptionExt;
 use eyre::Result;
 use eyre::ensure;
 use facet::Facet;
@@ -90,19 +91,24 @@ impl DumpPlanArgs {
         };
         report.explain_assumptions();
         if self.interactive {
-            let path = report.diagram.clone().expect("validated diagram path");
+            let path = report
+                .diagram
+                .clone()
+                .ok_or_eyre("interactive planning requires a diagram path")?;
             let planning = DumpPlanSession::new(planner, report, self.target);
             let mut session =
                 ExcalidrawInteractiveSession::open_plan(path, planning, cancellation).await?;
             session.run(cancellation).await?;
             return Ok(CliOutput::facet_with_text(
-                session.into_plan_report().expect("planning session"),
+                session
+                    .into_plan_report()
+                    .ok_or_eyre("interactive session did not retain its planning report")?,
                 write_dump_plan,
             ));
         }
         if let Some(path) = &report.diagram {
             cancellation.bail_if_cancelled()?;
-            let scene = ExcalidrawScene::from_discovery_plan(&report.plan);
+            let scene = ExcalidrawScene::from_discovery_plan(&report.plan)?;
             let json = scene.to_json()?;
             // Publish a complete file; cancellation before this short completion
             // unit leaves an existing destination intact.

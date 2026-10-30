@@ -19,7 +19,7 @@ pub fn ui_dir_windows(app: &mut MyApp, ctx: &Context) {
                 ui_dir_window_body(app, ctx, ui, &dir);
             });
         if !open {
-            app.egui_config.open_dirs.remove(&dir).unwrap();
+            app.egui_config.open_dirs.remove(&dir);
         } else if let Some(window_area) = ctx.memory(|mem| mem.area_rect(window_id)) {
             app.egui_config.open_dirs.insert(dir, window_area);
         }

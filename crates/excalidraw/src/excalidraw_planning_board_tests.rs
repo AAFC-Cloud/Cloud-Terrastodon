@@ -223,7 +223,7 @@ fn initialization_preserves_existing_drawing_and_empty_selection_on_restart() ->
 
 #[test]
 fn generated_graph_remaps_bindings_preserves_opaque_fields_and_reuses_tombstones() -> Result<()> {
-    let original = ExcalidrawScene::from_discovery_plan(&plan(true)).to_json()?;
+    let original = ExcalidrawScene::from_discovery_plan(&plan(true))?.to_json()?;
     let mut board = ExcalidrawPlanningBoard::initialize(Some(&original), &names(), &[], "example")?;
     board.set_plan(&plan(true))?;
     let generated = board.frames()?[2];
@@ -691,7 +691,7 @@ fn legacy_inventory_migrates_once_without_deleting_moved_cards_or_annotations() 
     // no search ownership groups and the frame is the former large palette.
     for element in board.document.elements_mut() {
         if original_text(element).is_some_and(|text| text.lines().next() == Some("#target"))
-            || owns_search_result(element, &format!("ct-planning-frame-0-target-results"))
+            || owns_search_result(element, "ct-planning-frame-0-target-results")
         {
             set(element, "isDeleted", &true)?;
         }

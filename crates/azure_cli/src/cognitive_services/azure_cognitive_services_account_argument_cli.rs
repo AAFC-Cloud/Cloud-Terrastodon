@@ -156,6 +156,20 @@ fn wildcard_matches(pattern: &str, candidate: &str) -> bool {
     !ends_anchored || last_match_end == normalized_candidate.len()
 }
 
+impl<'a> TryFrom<String> for CognitiveServicesAccountArgument<'a> {
+    type Error = eyre::Report;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        value.parse()
+    }
+}
+
+impl From<&CognitiveServicesAccountArgument<'_>> for String {
+    fn from(value: &CognitiveServicesAccountArgument<'_>) -> Self {
+        value.to_string()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::CognitiveServicesAccountArgument;
@@ -217,19 +231,5 @@ mod tests {
                 .matches(&account)
         );
         Ok(())
-    }
-}
-
-impl<'a> TryFrom<String> for CognitiveServicesAccountArgument<'a> {
-    type Error = eyre::Report;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        value.parse()
-    }
-}
-
-impl From<&CognitiveServicesAccountArgument<'_>> for String {
-    fn from(value: &CognitiveServicesAccountArgument<'_>) -> Self {
-        value.to_string()
     }
 }

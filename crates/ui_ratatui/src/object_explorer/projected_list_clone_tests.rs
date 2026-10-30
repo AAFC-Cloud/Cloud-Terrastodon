@@ -100,7 +100,15 @@ async fn cloning_a_tabs_projected_operations_builds_an_independent_populated_que
         Ok::<_, eyre::Report>((source, destination))
     };
     let (engine, result) = tokio::time::timeout(Duration::from_secs(5), async {
-        tokio::join!(engine.run(inbox), client)
+        tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        )
     })
     .await
     .expect("cloning a local projected list must finish");

@@ -1,3 +1,5 @@
+#![cfg(test)]
+
 use cloud_terrastodon_config::Config;
 
 #[derive(Debug, facet::Facet, Clone, PartialEq)]

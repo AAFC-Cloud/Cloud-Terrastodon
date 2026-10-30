@@ -6,6 +6,7 @@ use cloud_terrastodon_cli_types::HumantimeDurationCli;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
+use std::time::Duration;
 
 /// Arguments for auditing Azure DevOps resources.
 #[derive(facet::Facet, Debug, Clone)]
@@ -20,11 +21,12 @@ pub struct AzureDevOpsAuditArgs {
     pub tenant: AzureTenantArgument<'static>,
 
     /// The amount of time until an Azure DevOps paid license is considered unused.
-    #[facet(figue::named, default = HumantimeDurationCli("2months".parse().unwrap()))]
+    /// Defaults to two humantime months (30.44 days each).
+    #[facet(figue::named, default = HumantimeDurationCli(Duration::from_secs(2 * 2_630_016).into()))]
     paid_license_inactivity_threshold: HumantimeDurationCli,
     /// The amount of time until an Azure DevOps "Test Plan" license is considered unused.
     /// This is more aggressive than the paid license threshold because test plan licenses are expensive.
-    #[facet(figue::named, default = HumantimeDurationCli("60days".parse().unwrap()))]
+    #[facet(figue::named, default = HumantimeDurationCli(Duration::from_secs(60 * 24 * 60 * 60).into()))]
     test_license_inactivity_threshold: HumantimeDurationCli,
 }
 

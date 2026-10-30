@@ -21,7 +21,7 @@ impl ArtifactSelection {
     /// Read this entry's selection under its owner's I/O gate. Missing or
     /// malformed records are misses; a conflicting exact entry identity errors.
     pub fn read(entry: &ArtifactEntry) -> Result<Option<Self>> {
-        let directory = ArtifactDirectory::new(entry.cache.root(), entry.directory())?;
+        let directory = ArtifactDirectory::new(entry.cache.root(), entry.directory()?)?;
         if !directory.exists_checked()? {
             return Ok(None);
         }
@@ -63,7 +63,7 @@ impl ArtifactSelection {
             self.identity == entry.identity,
             "artifact selection identity does not match the requested entry"
         );
-        let directory = ArtifactDirectory::new(entry.cache.root(), entry.directory())?
+        let directory = ArtifactDirectory::new(entry.cache.root(), entry.directory()?)?
             .child("attempts")?
             .child(self.attempt.to_string())?;
         if !directory.exists_checked()? {
@@ -119,7 +119,7 @@ impl ArtifactSelection {
     /// Replace the visible selection. The caller must hold the owner's I/O gate
     /// and install publication quarantine before this first visible mutation.
     pub fn write(&self, entry: &ArtifactEntry) -> Result<()> {
-        ArtifactDirectory::new(entry.cache.root(), entry.directory())?
+        ArtifactDirectory::new(entry.cache.root(), entry.directory()?)?
             .file(&ArtifactFilePath::new("selection.json")?)?
             .replace_json(self)
     }

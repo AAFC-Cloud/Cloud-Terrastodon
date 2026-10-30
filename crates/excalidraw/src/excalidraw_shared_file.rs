@@ -97,8 +97,12 @@ impl ExcalidrawSharedFile {
         if before.as_deref() == Some(after.as_str()) {
             return Ok(false);
         }
-        let mut temporary = NamedTempFile::new_in(self.path.parent().unwrap())
-            .wrap_err("creating drawing's sibling temporary file")?;
+        let mut temporary = NamedTempFile::new_in(
+            self.path
+                .parent()
+                .ok_or_else(|| eyre::eyre!("drawing path has no parent directory"))?,
+        )
+        .wrap_err("creating drawing's sibling temporary file")?;
         temporary
             .write_all(after.as_bytes())
             .wrap_err("writing complete drawing snapshot")?;

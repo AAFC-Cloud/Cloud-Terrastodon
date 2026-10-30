@@ -25,11 +25,7 @@ pub struct AzurePolicyDefinitionParametersSuppliedValue {
 impl From<&str> for AzurePolicyDefinitionParametersSuppliedValue {
     fn from(value: &str) -> Self {
         AzurePolicyDefinitionParametersSuppliedValue {
-            value: facet_json::RawJson::from_owned(
-                facet_json::to_string(value)
-                    .expect("serializing a string policy parameter should not fail"),
-            )
-            .into(),
+            value: ArbitraryJson::from_text(value),
         }
     }
 }

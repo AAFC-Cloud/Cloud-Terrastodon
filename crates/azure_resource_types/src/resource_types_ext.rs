@@ -27,6 +27,9 @@ impl From<&ResourceType> for String {
 
 impl From<String> for ResourceType {
     fn from(value: String) -> Self {
-        value.parse().expect("ResourceType::from_str is infallible")
+        match value.parse() {
+            Ok(resource_type) => resource_type,
+            Err(infallible) => match infallible {},
+        }
     }
 }

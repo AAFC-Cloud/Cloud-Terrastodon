@@ -28,3 +28,6 @@ arbitrary.workspace = true
 [dev-dependencies]
 test-log.workspace = true
 tempfile.workspace = true
+
+[lints]
+workspace = true

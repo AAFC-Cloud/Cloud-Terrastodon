@@ -107,20 +107,9 @@ impl HasCacheKey for AzureDevOpsBuildListRequest<'_> {
         let mut path = PathBuf::from("az/devops");
         if self.org_url.collection_name().is_some() {
             // Server scopes preserve their instance authority and path prefix.
-            let (scheme, location) = self
-                .org_url
-                .base_url()
-                .split_once("://")
-                .expect("validated Server URLs have a scheme and authority");
-            let mut segments = location.split('/');
             path.push("server");
-            path.push(scheme);
-            path.push(sanitize_windows_path_component(
-                segments
-                    .next()
-                    .expect("validated Server URLs have an authority"),
-            ));
-            for segment in segments {
+            path.push(self.org_url.instance_scheme());
+            for segment in self.org_url.instance_authority_and_path().split('/') {
                 path.push(sanitize_windows_path_component(segment));
             }
             path.push("org");

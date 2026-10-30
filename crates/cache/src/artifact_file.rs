@@ -1,6 +1,7 @@
 use crate::ArtifactFilePath;
 use crate::artifact_directory::ArtifactDirectory;
 use eyre::Context;
+use eyre::OptionExt;
 use eyre::Result;
 use eyre::ensure;
 use facet::Facet;
@@ -25,7 +26,11 @@ pub(crate) struct ArtifactFile {
 impl ArtifactFile {
     pub fn new(directory: &ArtifactDirectory, path: &ArtifactFilePath) -> Result<Self> {
         let path = path.join_to(directory.path());
-        let parent = ArtifactDirectory::new(directory.root(), path.parent().unwrap())?;
+        let parent = ArtifactDirectory::new(
+            directory.root(),
+            path.parent()
+                .ok_or_eyre("artifact file has no parent directory")?,
+        )?;
         Ok(Self { parent, path })
     }
 
@@ -36,6 +41,15 @@ impl ArtifactFile {
         fs::read(&self.path)
             .map(Some)
             .wrap_err("reading artifact file")
+    }
+
+    /// Remove a mutable selector only after checking its owner-relative address.
+    /// Missing records are already invalidated; directories and links are errors.
+    pub fn remove(&self) -> Result<()> {
+        if !self.parent.exists_checked()? || !self.is_regular_file()? {
+            return Ok(());
+        }
+        fs::remove_file(&self.path).wrap_err("removing reusable artifact selection")
     }
 
     /// Create a new immutable file, rejecting existing paths and physical aliases.

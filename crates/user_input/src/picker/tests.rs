@@ -51,39 +51,33 @@ fn log_record(level: PickerLogLevel, message: &str) -> PickerLogRecord {
 #[test]
 fn unions_candidates_and_latest_value_wins() {
     let mut pool = ChoicePool::default();
-    assert_eq!(
-        pool.inject(
-            [
-                Choice {
-                    key: "one".into(),
-                    value: 1,
-                },
-                Choice {
-                    key: "two".into(),
-                    value: 2,
-                },
-            ],
-            |_| {},
-        ),
-        true
-    );
+    assert!(pool.inject(
+        [
+            Choice {
+                key: "one".into(),
+                value: 1,
+            },
+            Choice {
+                key: "two".into(),
+                value: 2,
+            },
+        ],
+        |_| {},
+    ));
 
-    assert_eq!(
-        pool.inject(
-            [
-                Choice {
-                    key: "one".into(),
-                    value: 10,
-                },
-                Choice {
-                    key: "three".into(),
-                    value: 3,
-                },
-            ],
-            |_| {},
-        ),
-        true
-    );
+    assert!(pool.inject(
+        [
+            Choice {
+                key: "one".into(),
+                value: 10,
+            },
+            Choice {
+                key: "three".into(),
+                value: 3,
+            },
+        ],
+        |_| {},
+    ));
     assert_eq!(pool.len(), 3);
     assert_eq!(pool.get("one"), Some(&10));
     let mut keys = pool.keys().map(CompactString::as_str).collect::<Vec<_>>();

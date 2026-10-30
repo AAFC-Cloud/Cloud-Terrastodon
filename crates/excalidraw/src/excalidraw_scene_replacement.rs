@@ -77,13 +77,13 @@ mod tests {
                 plan: None,
             })
             .collect();
-        let first = ExcalidrawScene::from_objects("First view", &objects);
+        let first = ExcalidrawScene::from_objects("First view", &objects)?;
         let mut previous = ExcalidrawInteractiveDocument::from_json(&first.to_json()?)?;
         let changed_id = string(&previous.elements()[0], "id").unwrap();
         set(&mut previous.elements_mut()[0], "version", &42)?;
         set(&mut previous.elements_mut()[0], "x", &9000.0)?;
 
-        let scene = ExcalidrawScene::from_objects("Second view", &objects[..1]);
+        let scene = ExcalidrawScene::from_objects("Second view", &objects[..1])?;
         let expected = ExcalidrawInteractiveDocument::from_json(&scene.to_json()?)?;
         let replacement = ExcalidrawInteractiveDocument::from_json(
             &scene.replacement_json(Some(&previous.to_json()?))?,

@@ -463,9 +463,9 @@ impl RoleAssignmentPickerApp {
         }
 
         let role_holder = take_loadable_value(&mut self.data.role_definitions_and_assignments)
-            .expect("checked for loaded data above");
-        let principal_holder =
-            take_loadable_value(&mut self.data.principals).expect("checked for loaded data above");
+            .ok_or_else(|| eyre::eyre!("loaded picker data became unavailable"))?;
+        let principal_holder = take_loadable_value(&mut self.data.principals)
+            .ok_or_else(|| eyre::eyre!("loaded picker data became unavailable"))?;
 
         Ok(Some(RoleAssignmentPickerAppResult::Some {
             chosen_role_assignment_ids: chosen_ids,

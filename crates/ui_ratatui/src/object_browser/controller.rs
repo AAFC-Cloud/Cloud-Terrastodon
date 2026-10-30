@@ -1,3 +1,4 @@
+pub(crate) use super::object_browser_controller_error::ObjectBrowserControllerError;
 use crate::object_explorer::ArbitraryInvocationStart;
 use crate::object_explorer::ArenaBrowseSession;
 use crate::object_explorer::ArenaQueryContext;
@@ -37,8 +38,6 @@ use facet::Facet;
 use facet::Shape;
 use std::collections::BTreeMap;
 use std::num::NonZeroUsize;
-
-pub(crate) use super::object_browser_controller_error::ObjectBrowserControllerError;
 
 /// Ratatui-facing state over the single-owner ExplorerEngine.
 ///
@@ -896,7 +895,15 @@ mod tests {
             }
             controller.close().await.unwrap();
         };
-        let (_engine, ()) = tokio::join!(engine.run(inbox), client);
+        let (_engine, ()) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
     }
 
     #[tokio::test]
@@ -944,7 +951,15 @@ mod tests {
             controller.close().await.unwrap();
         };
 
-        let (_engine, ()) = tokio::join!(engine.run(inbox), client);
+        let (_engine, ()) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
     }
 
     #[tokio::test]
@@ -986,7 +1001,15 @@ mod tests {
             assert_eq!(controller.active_breadcrumbs().await.unwrap(), query);
             controller.close().await.unwrap();
         };
-        tokio::join!(engine.run(inbox), client);
+        tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
     }
 
     #[tokio::test]
@@ -1019,7 +1042,15 @@ mod tests {
             tab
         };
 
-        let (engine, tab) = tokio::join!(engine.run(inbox), client);
+        let (engine, tab) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
         assert_eq!(engine.arena().allocated_slot_count(), 1);
         assert!(engine.arena().ready_value(tab).is_some());
         assert_eq!(engine.json_serialization_count(), 0);
@@ -1103,7 +1134,15 @@ mod tests {
             controller.close().await.unwrap();
         };
 
-        let (engine, ()) = tokio::join!(engine.run(inbox), client);
+        let (engine, ()) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
         assert_eq!(engine.json_serialization_count(), 0);
     }
 
@@ -1172,7 +1211,15 @@ mod tests {
                 }
                 controller.close().await.unwrap();
             };
-            let (_engine, ()) = tokio::join!(engine.run(inbox), client);
+            let (_engine, ()) = tokio::join!(
+                async {
+                    engine
+                        .run(inbox)
+                        .await
+                        .expect("synthetic engine should finish")
+                },
+                client
+            );
         }
     }
 
@@ -1212,7 +1259,15 @@ mod tests {
             list
         };
 
-        let (engine, list) = tokio::join!(engine.run(inbox), client);
+        let (engine, list) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
         assert!(engine.arena().ready_value(list).is_some());
         assert_eq!(engine.arena().allocated_slot_count(), 2);
     }
@@ -1243,7 +1298,15 @@ mod tests {
             slot
         };
 
-        let (engine, slot) = tokio::join!(engine.run(inbox), client);
+        let (engine, slot) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
         assert!(engine.builders().builder(slot).is_some());
         assert!(engine.arena().ready_value(slot).is_none());
         assert_eq!(engine.json_serialization_count(), 0);
@@ -1288,7 +1351,15 @@ mod tests {
             controller.close().await.unwrap();
         };
 
-        let (engine, ()) = tokio::join!(engine.run(inbox), client);
+        let (engine, ()) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
         assert_eq!(engine.json_serialization_count(), 0);
     }
 
@@ -1366,7 +1437,15 @@ mod tests {
             request
         };
 
-        let (engine, request) = tokio::join!(engine.run(inbox), client);
+        let (engine, request) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
         assert!(engine.arena().ready_value(request).is_some());
         assert_eq!(engine.arena().allocated_slot_count(), 2);
         assert_eq!(engine.json_serialization_count(), 0);

@@ -29,8 +29,10 @@ impl std::fmt::Display for AzureDevOpsPersonalAccessToken {
         write!(f, "{}", self.0)
     }
 }
-impl From<AzureDevOpsPersonalAccessToken> for HeaderValue {
-    fn from(value: AzureDevOpsPersonalAccessToken) -> Self {
+impl TryFrom<AzureDevOpsPersonalAccessToken> for HeaderValue {
+    type Error = eyre::Report;
+
+    fn try_from(value: AzureDevOpsPersonalAccessToken) -> Result<Self, Self::Error> {
         value.as_authorization_header_value()
     }
 }

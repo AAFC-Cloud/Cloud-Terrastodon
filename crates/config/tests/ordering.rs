@@ -1,3 +1,5 @@
+#![cfg(test)]
+
 use ordermap::OrderSet;
 
 /// Indexmap does not check ordering for comparison, so we use ordermap instead.

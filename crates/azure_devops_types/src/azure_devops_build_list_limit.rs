@@ -13,6 +13,9 @@ use std::str::FromStr;
 pub struct AzureDevOpsBuildListLimit(u32);
 
 impl AzureDevOpsBuildListLimit {
+    /// Default bound used by the build-list CLI.
+    pub const DEFAULT: Self = Self(100);
+
     pub fn new(value: u32) -> Result<Self> {
         ensure!(
             value > 0 && value <= i32::MAX as u32,

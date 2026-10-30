@@ -10,7 +10,6 @@ pub fn ui_file_drag_and_drop(app: &mut MyApp, ctx: &Context) {
     use egui::LayerId;
     use egui::Order;
     use egui::TextStyle;
-    use std::fmt::Write as _;
 
     // Preview hovering files:
     if !ctx.input(|i| i.raw.hovered_files.is_empty()) {
@@ -18,9 +17,10 @@ pub fn ui_file_drag_and_drop(app: &mut MyApp, ctx: &Context) {
             let mut text = "Dropping files:\n".to_owned();
             for file in &i.raw.hovered_files {
                 if let Some(path) = &file.path {
-                    write!(text, "\n{}", path.display()).unwrap();
+                    text.push_str(&format!("\n{}", path.display()));
                 } else if !file.mime.is_empty() {
-                    write!(text, "\n{}", file.mime).unwrap();
+                    text.push('\n');
+                    text.push_str(&file.mime);
                 } else {
                     text += "\n???";
                 }
@@ -62,7 +62,6 @@ pub fn file_drag_ui(app: &mut MyApp, ui: &mut eframe::egui::Ui) {
     use egui::LayerId;
     use egui::Order;
     use egui::TextStyle;
-    use std::fmt::Write as _;
 
     let ctx = ui.ctx();
 
@@ -72,9 +71,10 @@ pub fn file_drag_ui(app: &mut MyApp, ui: &mut eframe::egui::Ui) {
             let mut text = "Dropping files:\n".to_owned();
             for file in &i.raw.hovered_files {
                 if let Some(path) = &file.path {
-                    write!(text, "\n{}", path.display()).unwrap();
+                    text.push_str(&format!("\n{}", path.display()));
                 } else if !file.mime.is_empty() {
-                    write!(text, "\n{}", file.mime).unwrap();
+                    text.push('\n');
+                    text.push_str(&file.mime);
                 } else {
                     text += "\n???";
                 }

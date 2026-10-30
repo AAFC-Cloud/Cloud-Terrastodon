@@ -16,7 +16,7 @@ impl EguiArgs {
     ) -> eyre::Result<()> {
         let tenant_id = get_default_tenant_id(cancellation).await?;
         egui_main(
-            full_version().to_string(),
+            full_version()?.to_string(),
             tenant_id,
             auth_context.clone(),
             cancellation,

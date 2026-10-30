@@ -47,7 +47,9 @@ fn validate_vm_name(value: &str) -> eyre::Result<()> {
     }
 
     // Must end with alphanumeric or underscore
-    let last_char = chars.last().unwrap();
+    let last_char = chars
+        .last()
+        .wrap_err("Virtual machine name cannot be empty")?;
     if !(last_char.is_alphanumeric() || *last_char == '_' || *last_char == '-') {
         bail!("Virtual machine name must end with alphanumeric character, underscore or hyphen");
     }
@@ -156,7 +158,7 @@ mod tests {
     fn valid_names() -> eyre::Result<()> {
         assert!(VirtualMachineName::try_new("my-vm").is_ok());
         assert!(VirtualMachineName::try_new("a").is_ok());
-        assert!(VirtualMachineName::try_new(&"a".repeat(64)).is_ok());
+        assert!(VirtualMachineName::try_new("a".repeat(64)).is_ok());
         Ok(())
     }
 

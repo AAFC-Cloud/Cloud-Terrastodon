@@ -17,3 +17,6 @@ facet.workspace = true
 [dev-dependencies]
 arbitrary.workspace = true
 cloud_terrastodon_app = { workspace = true, features = ["arbitrary"] }
+
+[lints]
+workspace = true

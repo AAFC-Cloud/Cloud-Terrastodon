@@ -26,19 +26,30 @@ pub fn draw_work_dirs_window(app: &mut MyApp, ctx: &Context) {
     }) = dnd_response
     {
         destination_index -= (source_index < destination_index) as usize;
-        let item = app
-            .work_dirs_config
-            .work_dirs
-            .remove_index(source_index)
-            .unwrap();
+        let Some(item) = app.work_dirs_config.work_dirs.remove_index(source_index) else {
+            tracing::warn!(source_index, "Dragged work directory no longer exists");
+            return;
+        };
+        destination_index = destination_index.min(app.work_dirs_config.work_dirs.len());
         app.work_dirs_config
             .work_dirs
             .shift_insert(destination_index, item);
     } else if DragAndDrop::has_payload_of_type::<usize>(ctx)
         && ctx.input(|input_state| input_state.pointer.any_released())
+        && let Some(source_index) = DragAndDrop::take_payload::<usize>(ctx)
     {
-        let source_index = DragAndDrop::take_payload::<usize>(ctx).unwrap();
-        let work_dir = app.work_dirs_config.work_dirs[*source_index].clone();
+        let Some(work_dir) = app
+            .work_dirs_config
+            .work_dirs
+            .get_index(*source_index)
+            .cloned()
+        else {
+            tracing::warn!(
+                source_index = *source_index,
+                "Dragged work directory no longer exists"
+            );
+            return;
+        };
         let pointer_pos = ctx.pointer_interact_pos();
         let new_window_pos = pointer_pos.unwrap_or_default();
         let new_window_size = Vec2::new(500., 500.);

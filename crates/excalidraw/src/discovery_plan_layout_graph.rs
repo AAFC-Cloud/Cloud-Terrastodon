@@ -1,4 +1,5 @@
 use cloud_terrastodon_registry::DiscoveryPlan;
+use eyre::Result;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 
@@ -7,9 +8,13 @@ use std::collections::BTreeSet;
 /// Stable iterative DFS identifies only the edges needed to break cycles; it does
 /// not infer nesting. Its preorder keeps a branch's descendants together even
 /// when target IDs were allocated before their dependencies.
+#[expect(
+    clippy::type_complexity,
+    reason = "layout returns its layer map, feedback-edge set, and structural node order together"
+)]
 pub(crate) fn layers(
     plan: &DiscoveryPlan,
-) -> (BTreeMap<usize, usize>, BTreeSet<usize>, Vec<usize>) {
+) -> Result<(BTreeMap<usize, usize>, BTreeSet<usize>, Vec<usize>)> {
     let mut successors = plan
         .nodes
         .iter()
@@ -59,9 +64,10 @@ pub(crate) fn layers(
         colors.insert(root.id, 1);
         preorder.push(root.id);
         let mut stack = vec![(root.id, 0)];
-        while let Some(&(node, next)) = stack.last() {
-            if let Some(&(target, edge)) = successors[&node].get(next) {
-                stack.last_mut().unwrap().1 += 1;
+        while let Some((node, next)) = stack.last_mut() {
+            let node = *node;
+            if let Some(&(target, edge)) = successors[&node].get(*next) {
+                *next += 1;
                 match colors[&target] {
                     0 => {
                         colors.insert(target, 1);
@@ -87,7 +93,9 @@ pub(crate) fn layers(
     for outgoing in successors.values() {
         for &(target, edge) in outgoing {
             if !feedback.contains(&edge) {
-                *indegrees.get_mut(&target).unwrap() += 1;
+                *indegrees.get_mut(&target).ok_or_else(|| {
+                    eyre::eyre!("missing incoming-edge count for node {target}")
+                })? += 1;
             }
         }
     }
@@ -105,14 +113,18 @@ pub(crate) fn layers(
                 continue;
             }
             let layer = layers[&node] + 1;
-            let target_layer = layers.get_mut(&target).unwrap();
+            let target_layer = layers
+                .get_mut(&target)
+                .ok_or_else(|| eyre::eyre!("missing layout layer for node {target}"))?;
             *target_layer = (*target_layer).max(layer);
-            let count = indegrees.get_mut(&target).unwrap();
+            let count = indegrees
+                .get_mut(&target)
+                .ok_or_else(|| eyre::eyre!("missing incoming-edge count for node {target}"))?;
             *count -= 1;
             if *count == 0 {
                 ready.insert(target);
             }
         }
     }
-    (layers, feedback, preorder)
+    Ok((layers, feedback, preorder))
 }

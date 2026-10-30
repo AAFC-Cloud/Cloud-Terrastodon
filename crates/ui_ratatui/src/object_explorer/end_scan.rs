@@ -233,7 +233,7 @@ mod tests {
         let mut scan = EndScan::new(candidates, initial_stamp, original_selection.clone());
         let stale_stamp = ScanRevisionStamp {
             arena: initial_stamp.arena,
-            query: initial_stamp.query.next(),
+            query: initial_stamp.query.next().unwrap(),
         };
         let mut budget = WorkBudget::new(10);
 

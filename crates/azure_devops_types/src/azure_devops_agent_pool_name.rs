@@ -17,10 +17,14 @@ impl AzureDevOpsAgentPoolName {
         let invalid_chars = [
             ',', '"', '/', '\\', '[', ']', ':', '|', '<', '>', '+', '=', ';', '?', '*',
         ];
-        if let Some(pos) = name.chars().position(|c| invalid_chars.contains(&c)) {
+        if let Some((pos, character)) = name
+            .chars()
+            .enumerate()
+            .find(|(_, c)| invalid_chars.contains(c))
+        {
             bail!(
                 "Agent pool name contains invalid character '{}' at position {}",
-                name.chars().nth(pos).unwrap(),
+                character,
                 pos
             );
         }

@@ -56,11 +56,9 @@ impl<'a> MicrosoftGraphHelper<'a> {
         self
     }
 
-    pub fn with_consistency_level_eventual(self) -> Self {
-        let consistency_level = RequestHeaders::from_header_lines(["ConsistencyLevel: eventual"])
-            .expect("the ConsistencyLevel header is valid")
-            .expect("the ConsistencyLevel header is always present");
-        self.add_headers(consistency_level)
+    pub fn with_consistency_level_eventual(self) -> Result<Self> {
+        let consistency_level = RequestHeaders::from_header("ConsistencyLevel", "eventual")?;
+        Ok(self.add_headers(consistency_level))
     }
 
     fn get_request(&self, url: &str) -> Result<RestRequest> {
@@ -206,7 +204,8 @@ mod tests {
                     .expect("the test header is valid")
                     .expect("the test header is always present"),
             )
-            .with_consistency_level_eventual();
+            .with_consistency_level_eventual()
+            .expect("valid consistency header");
 
             let headers = helper
                 .headers

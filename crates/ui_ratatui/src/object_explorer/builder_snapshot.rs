@@ -1,5 +1,6 @@
 use super::builder_field_snapshot::BuilderFieldSnapshot;
 use super::value_builder::ValueBuilder;
+use super::value_builder::ValueBuilderError;
 use facet::Shape;
 use facet::Type;
 use facet::UserType;
@@ -38,7 +39,10 @@ impl BuilderSnapshot {
         }
     }
 
-    pub(crate) fn observe(builder: &ValueBuilder, max_fields: usize) -> Self {
+    pub(crate) fn observe(
+        builder: &ValueBuilder,
+        max_fields: usize,
+    ) -> Result<Self, ValueBuilderError> {
         let shape = builder.shape();
         let field_count = builder.field_count();
         // Keep real Facet indexes: runtime fields are initialized by the caller
@@ -49,23 +53,23 @@ impl BuilderSnapshot {
             .by_ref()
             .take(max_fields)
             .map(|index| {
-                BuilderFieldSnapshot::new(
+                Ok(BuilderFieldSnapshot::new(
                     index,
                     builder
                         .field_name(index)
-                        .expect("field count came from this builder"),
+                        .ok_or(ValueBuilderError::UnknownField(index))?,
                     builder
                         .field_shape(index)
-                        .expect("field count came from this builder"),
+                        .ok_or(ValueBuilderError::UnknownField(index))?,
                     builder
                         .field_has_default(index)
-                        .expect("field count came from this builder"),
+                        .ok_or(ValueBuilderError::UnknownField(index))?,
                     builder
                         .field_binding(index)
-                        .expect("field count came from this builder"),
-                )
+                        .ok_or(ValueBuilderError::UnknownField(index))?,
+                ))
             })
-            .collect();
+            .collect::<Result<_, ValueBuilderError>>()?;
         let fields_complete = visible_indexes.next().is_none();
         let kind = match shape.ty {
             Type::User(UserType::Struct(_)) => BuilderKindSnapshot::Struct,
@@ -86,13 +90,13 @@ impl BuilderSnapshot {
                 value_is_set: builder.scalar_is_set(),
             },
         };
-        Self {
+        Ok(Self {
             shape: Some(shape),
             shape_name: Some(cloud_terrastodon_registry::describe_shape(shape).to_owned()),
             kind,
             fields,
             fields_complete,
-        }
+        })
     }
 
     pub(crate) const fn shape(&self) -> Option<&'static Shape> {

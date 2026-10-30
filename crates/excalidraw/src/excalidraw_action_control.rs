@@ -40,7 +40,7 @@ impl ExcalidrawInteractiveDocument {
             .filter(|child| frame_bounds.contains_center(*child))
             .map(|child| child.y + child.height)
             .fold(frame_bounds.y + 20.0, f64::max);
-        let gate_id = fresh_id(self.elements(), &format!("ct-action-{frame_id}"));
+        let gate_id = fresh_id(self.elements(), &format!("ct-action-{frame_id}"))?;
         let gate = ExcalidrawControlBounds {
             x: frame_bounds.x + 70.0,
             y: bottom + 24.0,
@@ -113,7 +113,7 @@ impl ExcalidrawInteractiveDocument {
                 }
                 [] => {
                     let label = caption(
-                        &fresh_id(self.elements(), &format!("{gate_id}-label")),
+                        &fresh_id(self.elements(), &format!("{gate_id}-label"))?,
                         &frame_id,
                         "Unknown Action",
                         gate.x + gate.width + GAP,
@@ -263,15 +263,15 @@ fn belongs_to_frame(element: &SceneFields, frame_id: &str, frame: ExcalidrawCont
     }
 }
 
-fn fresh_id(elements: &[SceneFields], prefix: &str) -> String {
-    (0..)
+fn fresh_id(elements: &[SceneFields], prefix: &str) -> Result<String> {
+    (0..=elements.len())
         .map(|index| format!("{prefix}-{index}"))
         .find(|id| {
             !elements
                 .iter()
                 .any(|element| string(element, "id").as_deref() == Some(id))
         })
-        .unwrap()
+        .ok_or_else(|| eyre::eyre!("could not allocate an unused action element identifier"))
 }
 
 fn rectangle(id: &str, frame: &str, bounds: ExcalidrawControlBounds) -> Result<SceneFields> {

@@ -1,4 +1,5 @@
 use crate::app::MyApp;
+use crate::loadable::Loadable;
 use crate::loadable_work::LoadableWorkBuilder;
 use cloud_terrastodon_azure::Subscription;
 use cloud_terrastodon_azure::fetch_all_subscriptions;
@@ -9,7 +10,7 @@ pub fn load_subscriptions(app: &mut MyApp) {
     let tenant_id = app.tenant_id;
     let auth_context = app.auth_context.clone();
     info!("Queueing work to fetch subscriptions");
-    LoadableWorkBuilder::<Vec<Subscription>>::new()
+    let work = LoadableWorkBuilder::<Vec<Subscription>>::new()
         .description("Loading Subscriptions")
         .setter(|app, data| app.subscriptions = data.map(Rc::new))
         .work(
@@ -20,7 +21,9 @@ pub fn load_subscriptions(app: &mut MyApp) {
                     Ok(subs)
                 }),
         )
-        .build()
-        .unwrap()
-        .enqueue(app);
+        .build();
+    match work {
+        Ok(work) => work.enqueue(app),
+        Err(error) => app.subscriptions = Loadable::Failed(error),
+    }
 }

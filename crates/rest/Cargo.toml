@@ -28,3 +28,6 @@ arbitrary.workspace = true
 facet.workspace = true
 facet-json.workspace = true
 facet-value.workspace = true
+
+[lints]
+workspace = true

@@ -1,3 +1,5 @@
+#![cfg(test)]
+
 use hcl::edit::Decor;
 use hcl::edit::Decorate;
 use hcl::edit::structure::Body;

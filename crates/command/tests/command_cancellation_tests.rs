@@ -1,3 +1,5 @@
+#![cfg(test)]
+
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CancellationError;
 use cloud_terrastodon_command::CancellationToken;

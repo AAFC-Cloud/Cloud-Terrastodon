@@ -331,7 +331,10 @@ impl<'a, T> PickerTui<'a, T> {
             let choices = choices.clone();
             async move {
                 if matches!(event.as_ref(), PickerEvent::InitialLoad)
-                    && let Some(choices) = choices.lock().expect("choices mutex poisoned").take()
+                    && let Some(choices) = choices
+                        .lock()
+                        .map_err(|_| eyre::eyre!("choices mutex poisoned"))?
+                        .take()
                 {
                     sink.push(choices)?;
                 }
@@ -359,7 +362,7 @@ impl<'a, T> PickerTui<'a, T> {
                     let future = {
                         let choice_supplier = choice_supplier
                             .lock()
-                            .expect("choice supplier mutex poisoned");
+                            .map_err(|_| eyre::eyre!("choice supplier mutex poisoned"))?;
                         (choice_supplier)(invalidate)
                     };
                     let choices = future.await?;
@@ -392,9 +395,10 @@ impl<'a, T> PickerTui<'a, T> {
         if let (Some(explicit), Some(current)) = (&explicit_coordinator, &current_coordinator) {
             explicit.debug_assert_matches_current(current)?;
         }
-        let coordinator = explicit_coordinator
-            .or(current_coordinator)
-            .unwrap_or_default();
+        let coordinator = match explicit_coordinator.or(current_coordinator) {
+            Some(coordinator) => coordinator,
+            None => TerminalCoordinator::new()?,
+        };
         #[cfg(feature = "terminal_coordinator_debug")]
         coordinator.debug_assert_matches_registered_application_root()?;
         let log_buffer = self

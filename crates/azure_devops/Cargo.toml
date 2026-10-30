@@ -47,3 +47,6 @@ test-log.workspace = true
 # Enables text user interface support
 tui = ["ratatui", "ratatui-textarea"]
 default = ["tui"]
+
+[lints]
+workspace = true

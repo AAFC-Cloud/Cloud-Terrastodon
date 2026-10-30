@@ -451,6 +451,14 @@ mod tests {
             controller.end_value_candidates().await.unwrap();
             controller.close().await.unwrap();
         };
-        let (_engine, ()) = tokio::join!(engine.run(inbox), client);
+        let (_engine, ()) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
     }
 }

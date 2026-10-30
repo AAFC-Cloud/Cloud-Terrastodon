@@ -4,6 +4,7 @@ use crate::terminal_log_buffer_state::TerminalLogBufferState;
 use std::io::Write;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::MutexGuard;
 
 /// Structured terminal output retained while a terminal owner suppresses stderr.
 #[derive(Clone)]
@@ -29,18 +30,20 @@ impl TerminalLogBuffer {
     /// Configure this before installing tracing. The capture is for a separate
     /// presentation surface; it never changes stderr's filter or exit replay.
     pub fn with_debug_capture(mut self, capacity: usize) -> Self {
-        let capture = Self::new();
-        capture
-            .inner
-            .lock()
-            .expect("terminal log buffer poisoned")
-            .capacity = Some(capacity.max(1));
+        let capture = Self {
+            inner: Arc::new(Mutex::new(TerminalLogBufferState {
+                records: Default::default(),
+                first_index: 0,
+                capacity: Some(capacity.max(1)),
+            })),
+            debug_capture: None,
+        };
         self.debug_capture = Some(Arc::new(capture));
         self
     }
 
     pub fn records_since(&self, cursor: &mut usize) -> Vec<StructuredLogRecord> {
-        let state = self.inner.lock().expect("terminal log buffer poisoned");
+        let state = self.lock_state();
         let start = cursor
             .saturating_sub(state.first_index)
             .min(state.records.len());
@@ -71,7 +74,7 @@ impl TerminalLogBuffer {
     /// Call only after successful output using the cursor returned by
     /// `records_since`. Events received after that read remain available.
     pub fn acknowledge_through(&self, cursor: usize) {
-        let mut state = self.inner.lock().expect("terminal log buffer poisoned");
+        let mut state = self.lock_state();
         let count = cursor
             .saturating_sub(state.first_index)
             .min(state.records.len());
@@ -80,7 +83,7 @@ impl TerminalLogBuffer {
     }
 
     pub fn replay_to<W: Write>(&self, mut writer: W) -> std::io::Result<()> {
-        let state = self.inner.lock().expect("terminal log buffer poisoned");
+        let state = self.lock_state();
         for record in &state.records {
             writeln!(writer, "{}", format_record(record))?;
         }
@@ -96,7 +99,7 @@ impl TerminalLogBuffer {
     }
 
     pub(crate) fn push(&self, record: StructuredLogRecord) {
-        let mut state = self.inner.lock().expect("terminal log buffer poisoned");
+        let mut state = self.lock_state();
         state.records.push_back(record);
         if let Some(capacity) = state.capacity {
             while state.records.len() > capacity {
@@ -104,6 +107,17 @@ impl TerminalLogBuffer {
                 state.first_index += 1;
             }
         }
+    }
+}
+
+impl TerminalLogBuffer {
+    fn lock_state(&self) -> MutexGuard<'_, TerminalLogBufferState> {
+        // The buffer owns all mutations and invokes no user code while changing
+        // its records or cursor. A replay writer can panic while this lock is
+        // held, but replay only reads the state, so retained logs remain usable.
+        self.inner
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 }
 
@@ -118,6 +132,43 @@ mod tests {
     use super::*;
     use crate::TerminalEventLayer;
     use tracing_subscriber::layer::SubscriberExt;
+
+    #[test]
+    fn a_panicking_replay_writer_does_not_discard_or_break_buffered_logs() {
+        struct PanickingWriter;
+
+        impl Write for PanickingWriter {
+            fn write(&mut self, _: &[u8]) -> std::io::Result<usize> {
+                panic!("synthetic replay writer panic");
+            }
+
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+
+        let buffer = TerminalLogBuffer::new();
+        let subscriber = tracing_subscriber::registry()
+            .with(TerminalEventLayer::new(buffer.clone(), Arc::new(|| true)));
+        tracing::subscriber::with_default(subscriber, || {
+            tracing::info!("retained before replay");
+            assert!(std::panic::catch_unwind(|| buffer.replay_to(PanickingWriter)).is_err());
+            tracing::info!("retained after replay");
+
+            let mut cursor = 0;
+            let records = buffer.records_since(&mut cursor);
+            let messages: Vec<_> = records
+                .iter()
+                .map(|record| record.message.as_ref())
+                .collect();
+            assert_eq!(
+                messages,
+                ["retained before replay", "retained after replay"]
+            );
+            buffer.acknowledge_through(cursor);
+            assert!(buffer.records_since(&mut cursor).is_empty());
+        });
+    }
 
     #[test]
     fn acknowledging_printed_logs_keeps_events_arriving_during_output() {

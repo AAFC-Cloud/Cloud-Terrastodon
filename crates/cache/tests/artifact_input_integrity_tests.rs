@@ -1,3 +1,5 @@
+#![cfg(test)]
+
 use cloud_terrastodon_cache::ArtifactEntry;
 use cloud_terrastodon_cache::ArtifactFilePath;
 use cloud_terrastodon_cache::ArtifactObservation;

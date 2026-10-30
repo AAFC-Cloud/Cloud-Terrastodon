@@ -8,6 +8,7 @@ use eyre::Result;
 use eyre::bail;
 use eyre::ensure;
 use std::str::FromStr;
+use url::Position;
 use url::Url;
 
 /// An Azure DevOps Services organization or Server collection URL.
@@ -32,9 +33,40 @@ pub struct AzureDevOpsOrganizationUrl {
     base_url: Url,
     // Changing the scope alone could contradict the cloud host or legacy name.
     name: AzureDevOpsOrganizationUrlName,
+    // Construct the encoded wire form with the validated parts so Display and
+    // serialization never need fallible URL mutation.
+    expanded: String,
 }
 
 impl AzureDevOpsOrganizationUrl {
+    fn from_parts(base_url: Url, name: AzureDevOpsOrganizationUrlName) -> Result<Self> {
+        let legacy = matches!(name, AzureDevOpsOrganizationUrlName::Organization(_))
+            && base_url
+                .host_str()
+                .is_some_and(|host| host.ends_with(".visualstudio.com"));
+        let expanded = if legacy {
+            base_url.as_str().trim_end_matches('/').to_owned()
+        } else {
+            let mut expanded = base_url.clone();
+            expanded
+                .path_segments_mut()
+                .map_err(|()| {
+                    eyre::eyre!("Organization instance URL must have a hierarchical path")
+                })?
+                .pop_if_empty()
+                .push(match &name {
+                    AzureDevOpsOrganizationUrlName::Organization(name) => name.as_ref(),
+                    AzureDevOpsOrganizationUrlName::ServerCollection(name) => name.as_str(),
+                });
+            expanded.into()
+        };
+        Ok(Self {
+            base_url,
+            name,
+            expanded,
+        })
+    }
+
     /// Construct a validated instance prefix and organization/collection name.
     ///
     /// Prefer [`Self::try_new_server_collection`] when the name follows Server
@@ -78,7 +110,9 @@ impl AzureDevOpsOrganizationUrl {
                 let host_name = url
                     .host_str()
                     .and_then(|host| host.strip_suffix(".visualstudio.com"))
-                    .expect("validated legacy cloud host");
+                    .ok_or_else(|| {
+                        eyre::eyre!("Legacy organization URL has no organization host")
+                    })?;
                 AzureDevOpsOrganizationName::try_new(host_name)?;
                 ensure!(
                     host_name.eq_ignore_ascii_case(organization_name.as_ref()),
@@ -86,34 +120,37 @@ impl AzureDevOpsOrganizationUrl {
                 );
                 ensure!(
                     url.path_segments()
-                        .expect("HTTP(S) URLs have hierarchical paths")
+                        .ok_or_else(|| eyre::eyre!(
+                            "Organization URL must have a hierarchical path"
+                        ))?
                         .filter(|segment| !segment.is_empty())
                         .count()
                         <= 1,
                     "Legacy organization bases may contain only a collection prefix"
                 );
             }
-            Ok(Self {
-                base_url: url,
-                name: AzureDevOpsOrganizationUrlName::Organization(organization_name),
-            })
+            Self::from_parts(
+                url,
+                AzureDevOpsOrganizationUrlName::Organization(organization_name),
+            )
         } else {
-            Ok(Self {
-                base_url: url,
-                name: AzureDevOpsOrganizationUrlName::ServerCollection(
+            Self::from_parts(
+                url,
+                AzureDevOpsOrganizationUrlName::ServerCollection(
                     AzureDevOpsProjectCollectionName::try_new(organization_name.to_string())?,
                 ),
-            })
+            )
         }
     }
 
     /// Creates a new Azure DevOps organization URL with the standard dev.azure.com base
-    pub fn new_dev_azure_com(organization_name: impl Into<AzureDevOpsOrganizationName>) -> Self {
-        Self {
-            base_url: Url::parse("https://dev.azure.com")
-                .expect("the standard organization base is a valid URL"),
-            name: AzureDevOpsOrganizationUrlName::Organization(organization_name.into()),
-        }
+    pub fn new_dev_azure_com(
+        organization_name: impl Into<AzureDevOpsOrganizationName>,
+    ) -> Result<Self> {
+        Self::from_parts(
+            Url::parse("https://dev.azure.com")?,
+            AzureDevOpsOrganizationUrlName::Organization(organization_name.into()),
+        )
     }
 
     pub fn try_new_dev_azure_com<N>(organization_name: N) -> Result<Self>
@@ -125,21 +162,20 @@ impl AzureDevOpsOrganizationUrl {
             .try_into()
             .map_err(Into::into)
             .wrap_err("Failed to convert organization_name")?;
-        Ok(Self::new_dev_azure_com(organization_name))
+        Self::new_dev_azure_com(organization_name)
     }
 
     /// Creates a legacy visualstudio.com URL with a canonical host spelling.
     /// The typed organization name retains its supplied spelling.
     pub fn new_visual_studio_com(
         organization_name: impl Into<AzureDevOpsOrganizationName>,
-    ) -> Self {
+    ) -> Result<Self> {
         let org_name = organization_name.into();
         let base_url = format!("https://{}.visualstudio.com", org_name.as_ref());
-        Self {
-            base_url: Url::parse(&base_url)
-                .expect("a validated organization name forms a valid legacy URL"),
-            name: AzureDevOpsOrganizationUrlName::Organization(org_name),
-        }
+        Self::from_parts(
+            Url::parse(&base_url)?,
+            AzureDevOpsOrganizationUrlName::Organization(org_name),
+        )
     }
 
     pub fn try_new_visual_studio_com<N>(organization_name: N) -> Result<Self>
@@ -151,7 +187,7 @@ impl AzureDevOpsOrganizationUrl {
             .try_into()
             .map_err(Into::into)
             .wrap_err("Failed to convert organization_name")?;
-        Ok(Self::new_visual_studio_com(organization_name))
+        Self::new_visual_studio_com(organization_name)
     }
 
     /// Construct a Server collection URL from its instance prefix and exact name.
@@ -171,15 +207,25 @@ impl AzureDevOpsOrganizationUrl {
         );
         let path = url.path().trim_end_matches('/').to_owned();
         url.set_path(&path);
-        Ok(Self {
-            base_url: url,
-            name: AzureDevOpsOrganizationUrlName::ServerCollection(collection_name),
-        })
+        Self::from_parts(
+            url,
+            AzureDevOpsOrganizationUrlName::ServerCollection(collection_name),
+        )
     }
 
     /// Return the instance prefix without appending the organization/collection.
     pub fn base_url(&self) -> &str {
         self.base_url.as_str().trim_end_matches('/')
+    }
+
+    /// Scheme of the validated instance URL.
+    pub fn instance_scheme(&self) -> &str {
+        self.base_url.scheme()
+    }
+
+    /// Instance authority (including any port) and path before the collection.
+    pub fn instance_authority_and_path(&self) -> &str {
+        self.base_url[Position::BeforeHost..Position::AfterPath].trim_end_matches('/')
     }
 
     /// Return a cloud organization name, rejecting Server collection scopes.
@@ -216,30 +262,7 @@ impl AzureDevOpsOrganizationUrl {
     }
 
     pub fn expanded_form(&self) -> String {
-        match &self.name {
-            AzureDevOpsOrganizationUrlName::Organization(organization_name) => {
-                if self.is_visual_studio_com_format() {
-                    // The legacy host identifies the organization; preserve its
-                    // collection prefix instead of appending the name again.
-                    self.base_url().to_owned()
-                } else {
-                    let mut url = self.base_url.clone();
-                    url.path_segments_mut()
-                        .expect("organization bases have hierarchical HTTP(S) paths")
-                        .pop_if_empty()
-                        .push(organization_name.as_ref());
-                    url.into()
-                }
-            }
-            AzureDevOpsOrganizationUrlName::ServerCollection(collection_name) => {
-                let mut url = self.base_url.clone();
-                url.path_segments_mut()
-                    .expect("Server instance has hierarchical HTTP(S) paths")
-                    .pop_if_empty()
-                    .push(collection_name.as_str());
-                url.into()
-            }
-        }
+        self.expanded.clone()
     }
 
     /// Build a REST endpoint for a cloud API area's service host, encoding query
@@ -286,7 +309,7 @@ impl AzureDevOpsOrganizationUrl {
 
 impl std::fmt::Display for AzureDevOpsOrganizationUrl {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.expanded_form())
+        f.write_str(&self.expanded)
     }
 }
 
@@ -303,7 +326,10 @@ impl FromStr for AzureDevOpsOrganizationUrl {
 
         let mut url = Url::parse(value).wrap_err("Invalid Azure DevOps organization URL")?;
         validate_base_url(&url)?;
-        let host = url.host_str().expect("validated URL host").to_owned();
+        let host = url
+            .host_str()
+            .ok_or_else(|| eyre::eyre!("Organization URL has no host"))?
+            .to_owned();
         let path = url.path().trim_end_matches('/').to_owned();
         url.set_path(&path);
         ensure!(
@@ -312,7 +338,7 @@ impl FromStr for AzureDevOpsOrganizationUrl {
         );
         let segments: Vec<_> = url
             .path_segments()
-            .expect("HTTP(S) URLs have hierarchical paths")
+            .ok_or_else(|| eyre::eyre!("Organization URL must have a hierarchical path"))?
             .filter(|segment| !segment.is_empty())
             .collect();
 
@@ -323,10 +349,10 @@ impl FromStr for AzureDevOpsOrganizationUrl {
             );
             let organization_name = AzureDevOpsOrganizationName::try_new(organization)
                 .wrap_err("Invalid organization name in legacy URL")?;
-            return Ok(Self {
-                base_url: url,
-                name: AzureDevOpsOrganizationUrlName::Organization(organization_name),
-            });
+            return Self::from_parts(
+                url,
+                AzureDevOpsOrganizationUrlName::Organization(organization_name),
+            );
         }
 
         if host == "dev.azure.com" {
@@ -340,26 +366,26 @@ impl FromStr for AzureDevOpsOrganizationUrl {
         };
         let name = decode_name_segment(name)?;
         url.path_segments_mut()
-            .expect("HTTP(S) URLs have hierarchical paths")
+            .map_err(|()| eyre::eyre!("Organization URL must have a hierarchical path"))?
             .pop();
         let path = url.path().trim_end_matches('/').to_owned();
         url.set_path(&path);
         if host == "dev.azure.com" {
-            Ok(Self {
-                base_url: url,
-                name: AzureDevOpsOrganizationUrlName::Organization(
+            Self::from_parts(
+                url,
+                AzureDevOpsOrganizationUrlName::Organization(
                     AzureDevOpsOrganizationName::try_new(name)
                         .wrap_err("Invalid cloud organization name")?,
                 ),
-            })
+            )
         } else {
-            Ok(Self {
-                base_url: url,
-                name: AzureDevOpsOrganizationUrlName::ServerCollection(
+            Self::from_parts(
+                url,
+                AzureDevOpsOrganizationUrlName::ServerCollection(
                     AzureDevOpsProjectCollectionName::try_new(name)
                         .wrap_err("Invalid Server project collection name")?,
                 ),
-            })
+            )
         }
     }
 }
@@ -406,7 +432,7 @@ impl<'a> Arbitrary<'a> for AzureDevOpsOrganizationUrl {
     fn arbitrary(unstructured: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         let legacy = bool::arbitrary(unstructured)?;
         let organization_name = AzureDevOpsOrganizationName::arbitrary(unstructured)?;
-        Ok(if legacy {
+        (if legacy {
             // URL parsers normalize DNS host case. Generate the canonical host
             // spelling so nested URL values retain the same typed identity.
             let organization_name =
@@ -416,6 +442,7 @@ impl<'a> Arbitrary<'a> for AzureDevOpsOrganizationUrl {
         } else {
             Self::new_dev_azure_com(organization_name)
         })
+        .map_err(|_| arbitrary::Error::IncorrectFormat)
     }
 }
 

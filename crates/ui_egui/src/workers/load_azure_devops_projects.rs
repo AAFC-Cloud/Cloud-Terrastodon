@@ -1,4 +1,5 @@
 use crate::app::MyApp;
+use crate::loadable::Loadable;
 use crate::loadable_work::LoadableWorkBuilder;
 use cloud_terrastodon_azure_devops::AzureDevOpsProject;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
@@ -10,7 +11,7 @@ use tracing::info;
 pub fn load_azure_devops_projects(app: &mut MyApp) {
     info!("Queueing work to fetch Azure DevOps projects...");
     let auth_context = app.auth_context.clone();
-    LoadableWorkBuilder::<Vec<AzureDevOpsProject>>::new()
+    let work = LoadableWorkBuilder::<Vec<AzureDevOpsProject>>::new()
         .description("loading Azure DevOps projects")
         .setter(|app, data| app.azure_devops_projects = data.map(Rc::new))
         .work(
@@ -27,7 +28,9 @@ pub fn load_azure_devops_projects(app: &mut MyApp) {
                     Ok(projects)
                 }),
         )
-        .build()
-        .unwrap()
-        .enqueue(app);
+        .build();
+    match work {
+        Ok(work) => work.enqueue(app),
+        Err(error) => app.azure_devops_projects = Loadable::Failed(error),
+    }
 }

@@ -21,10 +21,10 @@ impl ObjectBrowserApp {
                 .inspect_diagram(ValueAddress::root(address.root_id()), 256)
                 .await?;
             scope.bail_if_cancelled()?;
-            Ok(ExcalidrawScene::from_objects(
+            ExcalidrawScene::from_objects(
                 &format!("Object explorer · slot {}", address.root_id()),
                 &[object],
-            ))
+            )
         });
         self.status = match result {
             Ok(path) => format!(
@@ -63,7 +63,7 @@ impl ObjectBrowserApp {
             }
             session.complete().await?;
             scope.bail_if_cancelled()?;
-            Ok(ExcalidrawScene::from_objects(&title, &objects))
+            ExcalidrawScene::from_objects(&title, &objects)
         });
         self.status = match result {
             Ok(path) => format!(

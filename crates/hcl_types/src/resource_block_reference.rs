@@ -174,7 +174,10 @@ impl TryFrom<Box<Traversal>> for ResourceBlockReference {
                 traversal
             );
         }
-        let name = traversal.operators.pop().unwrap();
+        let name = traversal
+            .operators
+            .pop()
+            .ok_or_else(|| eyre::eyre!("resource traversal is missing its name operator"))?;
         let name = name.into_value();
         let TraversalOperator::GetAttr(name) = name else {
             bail!("Expected traversal operator to be GetAttr, was {name:?} from {traversal:?}");

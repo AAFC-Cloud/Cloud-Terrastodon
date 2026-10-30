@@ -61,7 +61,7 @@ impl ExcalidrawScrollbar {
         let status = if let Some(status) = status {
             status
         } else {
-            let id = fresh_id(elements, "ct-scroll-status");
+            let id = fresh_id(elements, "ct-scroll-status")?;
             let mut label = crate::interactive_demo::text(
                 &id,
                 "#Scroll 0–0 of 0 (0 slots)\nQuery: ",
@@ -436,7 +436,7 @@ fn component(
     role: &str,
 ) -> Result<SceneFields> {
     let base = ExcalidrawElementBase::new(
-        ExcalidrawElementId(fresh_id(elements, &format!("ct-scroll-{role}"))),
+        ExcalidrawElementId(fresh_id(elements, &format!("ct-scroll-{role}"))?),
         0.0,
         0.0,
         0.0,
@@ -472,15 +472,15 @@ fn original_text(element: &SceneFields) -> Option<String> {
         .flatten()
 }
 
-fn fresh_id(elements: &[SceneFields], prefix: &str) -> String {
-    (0usize..)
+fn fresh_id(elements: &[SceneFields], prefix: &str) -> Result<String> {
+    (0..=elements.len())
         .map(|index| format!("{prefix}-{index}"))
         .find(|id| {
             elements
                 .iter()
                 .all(|element| string(element, "id").as_deref() != Some(id))
         })
-        .expect("finite scene has an unused element identifier")
+        .ok_or_else(|| eyre::eyre!("could not allocate an unused scrollbar element identifier"))
 }
 
 fn set_number(element: &mut SceneFields, name: &str, value: f64) -> Result<()> {

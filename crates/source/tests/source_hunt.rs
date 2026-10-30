@@ -1,3 +1,5 @@
+#![cfg(test)]
+
 use chrono::DateTime;
 use chrono::Utc;
 use cloud_terrastodon_source::SourceFileExtension;

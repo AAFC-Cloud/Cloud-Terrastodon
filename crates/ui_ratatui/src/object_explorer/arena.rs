@@ -13,6 +13,7 @@ use std::fmt;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum ArenaError {
+    IdentityExhausted,
     UnknownSlot(SlotId),
     RootNotReady {
         slot: SlotId,
@@ -33,6 +34,7 @@ pub(crate) enum ArenaError {
 impl fmt::Display for ArenaError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::IdentityExhausted => formatter.write_str("arena SlotId space exhausted"),
             Self::UnknownSlot(slot) => write!(formatter, "slot {slot} does not exist"),
             Self::RootNotReady { slot, state } => {
                 write!(formatter, "slot {slot} is {state}, not Ready")
@@ -87,7 +89,7 @@ impl Arena {
         let slot = self.insert_pending()?;
         self.slots
             .get_mut(&slot)
-            .expect("the pending slot was just inserted")
+            .ok_or(ArenaError::UnknownSlot(slot))?
             .set_unmaterialized_shape(shape);
         Ok(slot)
     }
@@ -112,8 +114,8 @@ impl Arena {
             });
         }
         if slot.shape().is_none_or(|current| !current.is_shape(shape)) {
-            slot.set_unmaterialized_shape(shape);
             self.revisions.ingest_root_change(slot_id)?;
+            slot.set_unmaterialized_shape(shape);
         }
         Ok(())
     }
@@ -141,8 +143,8 @@ impl Arena {
                 to: "Ready",
             });
         }
-        slot.replace_state(ArenaSlotState::Ready(value));
         self.revisions.ingest_root_change(slot_id)?;
+        slot.replace_state(ArenaSlotState::Ready(value));
         Ok(())
     }
 
@@ -167,11 +169,11 @@ impl Arena {
                 to: "Ready",
             });
         }
+        self.revisions.ingest_root_change(slot_id)?;
         let previous = slot.replace_state(ArenaSlotState::Ready(value));
         let ArenaSlotState::Ready(previous) = previous else {
             unreachable!("Ready transition checked immediately above")
         };
-        self.revisions.ingest_root_change(slot_id)?;
         Ok(previous)
     }
 
@@ -192,11 +194,11 @@ impl Arena {
                 to: "Building",
             });
         }
+        self.revisions.ingest_root_change(slot_id)?;
         let previous = slot.replace_state(ArenaSlotState::Building);
         let ArenaSlotState::Ready(previous) = previous else {
             unreachable!("Ready transition checked immediately above")
         };
-        self.revisions.ingest_root_change(slot_id)?;
         Ok(previous)
     }
 
@@ -216,8 +218,8 @@ impl Arena {
             });
         }
         let previous = slot.state().label();
-        slot.replace_state(ArenaSlotState::Tombstone { previous });
         self.revisions.ingest_root_change(slot_id)?;
+        slot.replace_state(ArenaSlotState::Tombstone { previous });
         Ok(())
     }
 
@@ -238,10 +240,10 @@ impl Arena {
                 to: "Tombstone",
             });
         }
+        self.revisions.ingest_root_change(slot_id)?;
         slot.replace_state(ArenaSlotState::Tombstone {
             previous: "Building",
         });
-        self.revisions.ingest_root_change(slot_id)?;
         Ok(())
     }
 
@@ -264,8 +266,8 @@ impl Arena {
                 to: "Failed",
             });
         }
-        slot.replace_state(ArenaSlotState::Failed(message.into()));
         self.revisions.ingest_root_change(slot_id)?;
+        slot.replace_state(ArenaSlotState::Failed(message.into()));
         Ok(())
     }
 
@@ -281,8 +283,8 @@ impl Arena {
                 to: "Cancelled",
             });
         }
-        slot.replace_state(ArenaSlotState::Cancelled);
         self.revisions.ingest_root_change(slot_id)?;
+        slot.replace_state(ArenaSlotState::Cancelled);
         Ok(())
     }
 
@@ -298,11 +300,11 @@ impl Arena {
                 to: "Consumed",
             });
         }
+        self.revisions.ingest_root_change(slot_id)?;
         let previous = slot.replace_state(ArenaSlotState::Consumed);
         let ArenaSlotState::Ready(value) = previous else {
             unreachable!("Ready transition checked immediately above")
         };
-        self.revisions.ingest_root_change(slot_id)?;
         Ok(value)
     }
 
@@ -362,11 +364,12 @@ impl Arena {
 
     fn insert_state(&mut self, state: ArenaSlotState) -> Result<SlotId, ArenaError> {
         let slot_id = SlotId::new(self.next_slot_id);
-        self.next_slot_id = self
+        let next_slot_id = self
             .next_slot_id
             .checked_add(1)
-            .expect("arena SlotId space exhausted");
+            .ok_or(ArenaError::IdentityExhausted)?;
         self.revisions.ingest_root_insert(slot_id)?;
+        self.next_slot_id = next_slot_id;
         self.slots.insert(slot_id, ArenaSlot::new(slot_id, state));
         Ok(slot_id)
     }
@@ -396,6 +399,19 @@ mod tests {
         T: facet::Facet<'static> + Send + 'static,
     {
         RuntimeValue::from_box(Box::new(value)).expect("test value is representable")
+    }
+
+    #[test]
+    fn exhausted_identity_does_not_insert_or_revise_the_arena() {
+        let mut arena = Arena {
+            next_slot_id: u64::MAX,
+            ..Arena::default()
+        };
+        let before = arena.arena_revision();
+
+        assert_eq!(arena.reserve_builder(), Err(ArenaError::IdentityExhausted));
+        assert_eq!(arena.arena_revision(), before);
+        assert_eq!(arena.allocated_slot_count(), 0);
     }
 
     #[test]

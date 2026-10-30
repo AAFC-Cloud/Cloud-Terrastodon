@@ -1,3 +1,5 @@
+#![cfg(test)]
+
 use cloud_terrastodon_azure_devops::AzureDevOpsBuildDefinitionGetRequest;
 use cloud_terrastodon_azure_devops::AzureDevOpsBuildDefinitionListRequest;
 use cloud_terrastodon_azure_devops::AzureDevOpsBuildFolderListRequest;

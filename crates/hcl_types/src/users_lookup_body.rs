@@ -16,8 +16,10 @@ impl UsersLookupBody {
         self.user_principal_names.is_empty()
     }
 }
-impl From<UsersLookupBody> for Body {
-    fn from(value: UsersLookupBody) -> Self {
+impl TryFrom<UsersLookupBody> for Body {
+    type Error = eyre::Error;
+
+    fn try_from(value: UsersLookupBody) -> Result<Self, Self::Error> {
         let mut body = Body::with_capacity(2);
 
         let data_block = HclDataBlock::AzureAD {
@@ -42,12 +44,11 @@ impl From<UsersLookupBody> for Body {
             }
         "#
         .try_as_hcl_blocks()
-        .wrap_err("Failed to parse body as HCL, this shouldn't happen".to_string())
-        .unwrap();
+        .wrap_err("Failed to parse the users lookup body as HCL")?;
         for block in local_block {
             body.push(block);
         }
 
-        body
+        Ok(body)
     }
 }

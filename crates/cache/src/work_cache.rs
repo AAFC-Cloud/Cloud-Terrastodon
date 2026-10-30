@@ -10,9 +10,11 @@ use crate::ExecutorKind;
 use crate::NonEmptyString;
 use crate::WorkAttempt;
 use crate::WorkOutput;
+use crate::WorkReuse;
 use crate::cache_ownership_claim::CacheOwnershipClaim;
 use crate::cache_state::CacheState;
 use crate::work_cache_state::WorkCacheState;
+use crate::work_child_guard::WorkChildGuard;
 use eyre::Result;
 use eyre::ensure;
 use eyre::eyre;
@@ -36,8 +38,8 @@ use teamy_cancellation::CancellationScope;
 /// even when given the same root. Construction and claiming perform no I/O,
 /// resolve no defaults, and never consult the legacy command cache.
 ///
-/// Raw artifacts and shared decoded results use this owner. Generation-based
-/// invalidation and dependency freshness are subsequent migration layers.
+/// Raw artifacts and shared decoded results use this owner, including scoped
+/// generation invalidation and transitive semantic dependency freshness.
 #[derive(Clone, Debug)]
 pub struct WorkCache {
     // One shared owner keeps the root and all accepted claims together.
@@ -47,15 +49,21 @@ pub struct WorkCache {
 impl WorkCache {
     /// Bind canonical work after checking its operation/output ownership.
     ///
-    /// Pass the callback's attempt token to nested work, including through
-    /// nonreusable intermediaries. Zero validity executes independently on every
+    /// Declare reuse eligibility before lookup and pass the callback's attempt
+    /// token to all semantic child work. A reusable initializer cannot call a
+    /// nonreusable child. Zero validity executes independently on every
     /// await and never joins or publishes a shared result. Initializers may borrow
     /// caller data; only retained outputs require `Send + Sync + 'static`.
     #[track_caller]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "explicit identity, reuse policy, ancestry, and cancellation are independent contracts"
+    )]
     pub fn cached_work<'a, T, F, Fut>(
         &self,
         identity: CacheEntryIdentity,
         operation_owner: CacheOperationOwner,
+        reuse: WorkReuse,
         valid_for: Duration,
         parent: Option<&'a WorkAttempt>,
         cancellation: &'a CancellationScope,
@@ -66,6 +74,10 @@ impl WorkCache {
         F: FnOnce(Option<WorkAttempt>, CancellationScope) -> Fut + Send + 'a,
         Fut: Future<Output = Result<WorkOutput<T>>> + Send + 'a,
     {
+        let reusable = reuse == WorkReuse::ReusableRead && !valid_for.is_zero();
+        let child = parent
+            .map(|parent| WorkChildGuard::admit(self, parent, reusable))
+            .transpose()?;
         self.claim::<T>(
             identity.kind.clone(),
             &CacheKey {
@@ -78,7 +90,9 @@ impl WorkCache {
             cache: self.clone(),
             identity,
             validity: valid_for,
+            reusable,
             parent,
+            child,
             cancellation,
             initialize,
             output: PhantomData,
@@ -132,6 +146,7 @@ impl WorkCache {
             metadata: ArtifactMetadata::new::<T>(operation_owner),
             validity: key.valid_for,
             retention,
+            work: None,
         })
     }
 

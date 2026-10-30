@@ -20,3 +20,6 @@ nucleo.workspace = true
 teamy-cancellation.workspace = true
 tempfile.workspace = true
 tokio.workspace = true
+
+[lints]
+workspace = true

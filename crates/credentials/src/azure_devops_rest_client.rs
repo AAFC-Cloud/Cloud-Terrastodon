@@ -9,7 +9,7 @@ pub async fn create_azure_devops_rest_client(token: &impl AuthBearerExt) -> eyre
     let client: Client = ClientBuilder::new()
         .default_headers({
             let mut headers = HeaderMap::new();
-            headers.insert(AUTHORIZATION, token.as_authorization_header_value());
+            headers.insert(AUTHORIZATION, token.as_authorization_header_value()?);
             headers
         })
         .min_tls_version(Version::TLS_1_2)

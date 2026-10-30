@@ -167,7 +167,7 @@ fn chain_nodes_align_without_using_planner_reachability_levels() {
     let mut dimensions = sizes(&plan);
     dimensions.insert(7, (240.0, 210.0));
     dimensions.insert(12, (320.0, 120.0));
-    let layout = DiscoveryPlanLayout::new(&plan, &dimensions);
+    let layout = DiscoveryPlanLayout::new(&plan, &dimensions).unwrap();
 
     assert_clear_geometry(&plan, &layout);
     let center = layout.nodes[&3].x + layout.nodes[&3].width / 2.0;
@@ -196,7 +196,7 @@ fn variable_size_diamond_and_skip_edges_avoid_boxes() {
     dimensions.insert(1, (310.0, 420.0));
     dimensions.insert(2, (220.0, 90.0));
     dimensions.insert(3, (400.0, 150.0));
-    let layout = DiscoveryPlanLayout::new(&plan, &dimensions);
+    let layout = DiscoveryPlanLayout::new(&plan, &dimensions).unwrap();
 
     assert_clear_geometry(&plan, &layout);
     assert_readable_labels(&plan, &layout);
@@ -218,7 +218,7 @@ fn long_edges_to_the_same_target_share_a_vertical_trunk() {
         &[0, 1, 2, 3, 4],
         &[(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 4)],
     );
-    let layout = DiscoveryPlanLayout::new(&plan, &sizes(&plan));
+    let layout = DiscoveryPlanLayout::new(&plan, &sizes(&plan)).unwrap();
     assert_clear_geometry(&plan, &layout);
     assert_readable_labels(&plan, &layout);
 
@@ -267,7 +267,7 @@ fn labels_for_distinct_skip_edge_trunks_remain_clear_of_every_route() {
         .iter()
         .map(|node| (node.id, (460.0, 80.0)))
         .collect();
-    let layout = DiscoveryPlanLayout::new(&plan, &dimensions);
+    let layout = DiscoveryPlanLayout::new(&plan, &dimensions).unwrap();
 
     assert_clear_geometry(&plan, &layout);
     assert_readable_labels(&plan, &layout);
@@ -282,7 +282,7 @@ fn cycles_and_self_loops_are_routed_outside_all_nodes() {
     let mut dimensions = sizes(&plan);
     dimensions.insert(11, (310.0, 300.0));
     dimensions.insert(23, (250.0, 170.0));
-    let layout = DiscoveryPlanLayout::new(&plan, &dimensions);
+    let layout = DiscoveryPlanLayout::new(&plan, &dimensions).unwrap();
 
     assert_clear_geometry(&plan, &layout);
     assert!(layout.edges[&3].points.len() > 2);
@@ -300,7 +300,7 @@ fn blocked_and_disconnected_components_retain_their_dependency_layers() {
         node.missing_inputs
             .push("Unavailable authentication".into());
     }
-    let layout = DiscoveryPlanLayout::new(&plan, &sizes(&plan));
+    let layout = DiscoveryPlanLayout::new(&plan, &sizes(&plan)).unwrap();
 
     assert_clear_geometry(&plan, &layout);
     for edge in &plan.edges {
@@ -323,7 +323,7 @@ fn sibling_branches_keep_their_order_when_target_ids_were_allocated_first() {
         .find(|node| node.id == 10)
         .unwrap()
         .seed = true;
-    let layout = DiscoveryPlanLayout::new(&plan, &sizes(&plan));
+    let layout = DiscoveryPlanLayout::new(&plan, &sizes(&plan)).unwrap();
 
     assert_clear_geometry(&plan, &layout);
     for (left, right) in [(20, 30), (40, 1), (50, 2)] {
@@ -343,12 +343,12 @@ fn layout_is_deterministic_independent_of_input_container_order() {
         &[(0, 1), (0, 2), (1, 3), (2, 3), (3, 4), (0, 4), (4, 1)],
     );
     let dimensions = sizes(&plan);
-    let original = DiscoveryPlanLayout::new(&plan, &dimensions);
-    let repeated = DiscoveryPlanLayout::new(&plan, &dimensions);
+    let original = DiscoveryPlanLayout::new(&plan, &dimensions).unwrap();
+    let repeated = DiscoveryPlanLayout::new(&plan, &dimensions).unwrap();
     let mut shuffled = plan.clone();
     shuffled.nodes.reverse();
     shuffled.edges.rotate_left(3);
-    let reordered = DiscoveryPlanLayout::new(&shuffled, &dimensions);
+    let reordered = DiscoveryPlanLayout::new(&shuffled, &dimensions).unwrap();
 
     for layout in [&repeated, &reordered] {
         assert_eq!(

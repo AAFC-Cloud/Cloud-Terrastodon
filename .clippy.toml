@@ -2,6 +2,12 @@
 # Its generated 'ʄ lifetime (U+0284) is already covered by Latin.
 allowed-scripts = ["Latin", "Common"]
 
+# Production code propagates failures; test assertions may panic.
+allow-expect-in-tests = true
+allow-unwrap-in-tests = true
+allow-expect-in-consts = false
+allow-unwrap-in-consts = false
+
 allowed-duplicate-crates = [
     "bitflags",
     "compact_str",

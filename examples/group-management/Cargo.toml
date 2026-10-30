@@ -29,3 +29,8 @@ cloud_terrastodon_app = { workspace = true, features = ["arbitrary"] }
 
 [lints.rust]
 unsafe_code = "forbid"
+
+# Retain this example's own Rust policy alongside the workspace Clippy policy.
+[lints.clippy]
+expect_used = "deny"
+unwrap_used = "deny"

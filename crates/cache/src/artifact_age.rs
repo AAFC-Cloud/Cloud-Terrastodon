@@ -5,7 +5,7 @@ use std::time::Duration;
 use std::time::Instant;
 
 /// One immutable attempt's first monotonic correlation; disk hits never reset it.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct ArtifactAge {
     pub freshness: ArtifactFreshness,
     pub initial_age: Duration,

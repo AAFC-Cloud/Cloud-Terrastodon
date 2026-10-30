@@ -28,3 +28,6 @@ tracing-tracy = { workspace = true, optional = true }
 default = []
 extended_observability = []
 tracy = ["dep:tracing-tracy", "extended_observability"]
+
+[lints]
+workspace = true

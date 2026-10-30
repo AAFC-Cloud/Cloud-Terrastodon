@@ -703,6 +703,15 @@ fn parse_alias_lines(content: &str, file: &Path) -> Vec<AzureTenantAlias> {
     aliases
 }
 
+impl std::future::IntoFuture for AzureTenantIdResolveRequest {
+    type Output = eyre::Result<AzureTenantId>;
+    type IntoFuture = std::pin::Pin<Box<dyn std::future::Future<Output = Self::Output> + Send>>;
+
+    fn into_future(self) -> Self::IntoFuture {
+        Box::pin(self.run())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::AUTH_SOURCE_FILE_NAME;
@@ -981,14 +990,5 @@ mod tests {
         assert!(temp.path().join(tenant_a.to_string()).exists());
         assert!(temp.path().join(tenant_b.to_string()).exists());
         Ok(())
-    }
-}
-
-impl std::future::IntoFuture for AzureTenantIdResolveRequest {
-    type Output = eyre::Result<AzureTenantId>;
-    type IntoFuture = std::pin::Pin<Box<dyn std::future::Future<Output = Self::Output> + Send>>;
-
-    fn into_future(self) -> Self::IntoFuture {
-        Box::pin(self.run())
     }
 }

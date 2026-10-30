@@ -39,13 +39,12 @@ pub async fn copy_azurerm_backend_menu(
                     .map(|sub| (sub.id.to_owned(), sub))
                     .collect::<HashMap<_, _>>();
 
+                let unknown_subscription = SubscriptionName::try_new("Unknown Subscription")?;
                 Ok(storage_accounts.into_iter().map(move |sa| {
                     let sub_name = subscriptions
                         .get(&sa.id.resource_group_id.subscription_id)
                         .map(|sub| sub.name.to_owned())
-                        .unwrap_or_else(|| {
-                            SubscriptionName::try_new("Unknown Subscription").unwrap()
-                        });
+                        .unwrap_or_else(|| unknown_subscription.clone());
                     Choice {
                         key: format!(
                             "{:<32} {:<64} {}",

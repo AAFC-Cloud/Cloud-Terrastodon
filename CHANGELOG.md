@@ -1,6 +1,10 @@
 # Unreleased
 
-- Add per-entry initialization and decoded `Arc` reuse to the explicit cache owner, with caller-owned cancellation, retry, and wait-cycle detection. Generation/dependency invalidation and transport cutover remain pending.
+- Prohibit production `unwrap` and `expect` with workspace Clippy checks, retaining test exemptions. Fallible initialization, conversions, and execution helpers return errors through their callers. Callers must now handle `Result` from command program/summary resolution, authorization-header conversion, Graph consistency-header setup, organization URL and cost-query constructors, terminal startup, and diagram generation.
+
+- Add hierarchical generation invalidation and transitive dependency tracking to the explicit cache owner, including disk quarantine after failed invalidation and original-freshness proofs for decoded artifacts. Production adapter cutover remains pending.
+
+- Add per-entry initialization and decoded `Arc` reuse to the explicit cache owner, with caller-owned cancellation, retry, and wait-cycle detection. Production adapter cutover remains pending.
 
 - Add isolated raw artifact storage to the explicit cache owner: unique input workspaces, verified immutable payloads, guarded publication, sensitive-output exclusion, and freshness preserved through disk reloads. Command and REST cutover remains pending.
 

@@ -49,7 +49,7 @@ impl CommandOutput {
                     .wrap_err(format!("Called from {}", RelativeLocation::from(caller)))
                     .wrap_err(format!(
                         "deserializing `{}` failed, dumped to {:?}{}",
-                        command.summarize().await,
+                        command.summarize().await?,
                         dir,
                         crate::artifact_cache::cache_clean_recommendation(
                             command.cache_key.as_ref()

@@ -36,6 +36,7 @@ use cloud_terrastodon_azure_devops::AzureDevOpsDescriptor;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectMember;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectMemberListRequest;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectPermissionObject;
+use cloud_terrastodon_command::CancellationToken;
 use cloud_terrastodon_registry::ArbitraryBytes;
 use cloud_terrastodon_registry::RuntimeValue;
 use cloud_terrastodon_registry::functions_from;
@@ -186,7 +187,6 @@ async fn project_admin_query_composes_and_exports_without_azure() {
         "the cursor retains and emits addresses instead of cloning members"
     );
     drop(evaluated);
-    drop(source);
 
     let tab_slot = arena
         .insert_ready(runtime(Tab::new("project admins", breadcrumbs)))
@@ -224,107 +224,124 @@ async fn project_admin_query_composes_and_exports_without_azure() {
         "projected picker candidates never allocate view slots"
     );
 
-    let export_slot = arena.reserve_builder().unwrap();
-    assert_eq!(
-        builders
-            .insert_and_finalize(
-                &mut arena,
-                &mut borrows,
-                export_slot,
-                ValueBuilder::new(ProduceJsonRequest::SHAPE),
-            )
-            .unwrap(),
-        BuilderTransition::Building
-    );
-    let actions = FieldCandidateActions::inspect(
-        &arena,
-        &builders,
-        &borrows,
-        export_slot,
-        0,
-        candidate.address().clone(),
-    )
-    .unwrap();
-    assert_eq!(actions.candidate().address(), &tab_breadcrumbs);
-    assert_eq!(
-        actions
-            .consequences()
-            .iter()
-            .map(|consequence| consequence.action())
-            .collect::<Vec<_>>(),
-        [FieldCandidateAction::Clone]
-    );
-    assert_eq!(
-        builders
-            .set_field_and_finalize(
-                &mut arena,
-                &mut borrows,
+    CancellationToken::new()
+        .with_async_scope(|cancellation| async move {
+            let export_slot = arena.reserve_builder().unwrap();
+            assert_eq!(
+                builders
+                    .insert_and_finalize(
+                        &mut arena,
+                        &mut borrows,
+                        export_slot,
+                        ValueBuilder::new_with_cancellation(
+                            ProduceJsonRequest::SHAPE,
+                            &cancellation
+                        )?,
+                    )
+                    .unwrap(),
+                BuilderTransition::Building
+            );
+            let actions = FieldCandidateActions::inspect(
+                &arena,
+                &builders,
+                &borrows,
                 export_slot,
                 0,
-                FieldBinding::CloneFrom(tab_breadcrumbs),
+                candidate.address().clone(),
             )
-            .unwrap(),
-        BuilderTransition::Building
-    );
-    assert_eq!(
-        builders
-            .set_field_and_finalize(
-                &mut arena,
-                &mut borrows,
-                export_slot,
-                1,
-                FieldBinding::InlineOwned(runtime(String::from("project-admins.json"))),
-            )
-            .unwrap(),
-        BuilderTransition::Ready
-    );
-    let export = arena
-        .ready_value(export_slot)
-        .unwrap()
-        .try_clone()
-        .unwrap()
-        .into_box::<ProduceJsonRequest>()
-        .unwrap()
-        .downcast::<ProduceJsonRequest>()
-        .unwrap();
+            .unwrap();
+            assert_eq!(actions.candidate().address(), &tab_breadcrumbs);
+            assert_eq!(
+                actions
+                    .consequences()
+                    .iter()
+                    .map(|consequence| consequence.action())
+                    .collect::<Vec<_>>(),
+                [FieldCandidateAction::Clone]
+            );
+            assert_eq!(
+                builders
+                    .set_field_and_finalize(
+                        &mut arena,
+                        &mut borrows,
+                        export_slot,
+                        0,
+                        FieldBinding::CloneFrom(tab_breadcrumbs),
+                    )
+                    .unwrap(),
+                BuilderTransition::Building
+            );
+            assert_eq!(
+                builders
+                    .set_field_and_finalize(
+                        &mut arena,
+                        &mut borrows,
+                        export_slot,
+                        1,
+                        FieldBinding::InlineOwned(runtime(String::from("project-admins.json"))),
+                    )
+                    .unwrap(),
+                BuilderTransition::Ready
+            );
+            let export = arena
+                .ready_value(export_slot)
+                .unwrap()
+                .try_clone()
+                .unwrap()
+                .into_box::<ProduceJsonRequest>()
+                .unwrap()
+                .downcast::<ProduceJsonRequest>()
+                .unwrap();
 
-    let engine = ExplorerEngine::new(arena);
-    let (context, inbox) = ArenaQueryContext::channel(8);
-    let client = async move {
-        let (mut writer, mut reader) = duplex(64 * 1024);
-        let write = async move {
-            let path = export
-                .write_to_sink(context, &mut writer)
-                .await
-                .expect("coherent in-memory export succeeds");
-            drop(writer);
-            path
-        };
-        let read = async move {
-            let mut bytes = Vec::new();
-            reader.read_to_end(&mut bytes).await.unwrap();
-            String::from_utf8(bytes).unwrap()
-        };
-        let (path, json) = tokio::join!(write, read);
-        assert_eq!(path, "project-admins.json");
-        let decoded: Vec<AzureDevOpsProjectMember> =
-            facet_json::from_str(&json).expect("export is one valid JSON array");
-        assert_eq!(
-            decoded
-                .iter()
-                .map(|member| member.display_name.as_str())
-                .collect::<Vec<_>>(),
-            ["Ada", "Cy"]
-        );
-        json
-    };
-    let (engine, json) = tokio::join!(engine.run(inbox), client);
+            let engine = ExplorerEngine::new(arena);
+            let (context, inbox) = ArenaQueryContext::channel(8);
+            let client = async move {
+                let (mut writer, mut reader) = duplex(64 * 1024);
+                let write = async move {
+                    let path = export
+                        .write_to_sink(context, &mut writer)
+                        .await
+                        .expect("coherent in-memory export succeeds");
+                    drop(writer);
+                    path
+                };
+                let read = async move {
+                    let mut bytes = Vec::new();
+                    reader.read_to_end(&mut bytes).await.unwrap();
+                    String::from_utf8(bytes).unwrap()
+                };
+                let (path, json) = tokio::join!(write, read);
+                assert_eq!(path, "project-admins.json");
+                let decoded: Vec<AzureDevOpsProjectMember> =
+                    facet_json::from_str(&json).expect("export is one valid JSON array");
+                assert_eq!(
+                    decoded
+                        .iter()
+                        .map(|member| member.display_name.as_str())
+                        .collect::<Vec<_>>(),
+                    ["Ada", "Cy"]
+                );
+                json
+            };
+            let (engine, json) = tokio::join!(
+                async {
+                    engine
+                        .run(inbox)
+                        .await
+                        .expect("synthetic engine should finish")
+                },
+                client
+            );
 
-    assert!(json.contains("\"Ada\""));
-    assert!(json.contains("\"Cy\""));
-    assert!(!json.contains("\"Ben\""));
-    assert_eq!(engine.json_serialization_count(), 2);
-    assert_eq!(engine.arena().allocated_slot_count(), 5);
+            assert!(json.contains("\"Ada\""));
+            assert!(json.contains("\"Cy\""));
+            assert!(!json.contains("\"Ben\""));
+            assert_eq!(engine.json_serialization_count(), 2);
+            assert_eq!(engine.arena().allocated_slot_count(), 5);
+            Ok::<_, eyre::Report>(())
+        })
+        .await
+        .expect("export completes inside its execution scope");
 }
 
 #[test]
@@ -379,11 +396,11 @@ fn million_value_navigation_filter_and_selection_are_counter_bounded() {
         NonZeroUsize::new(16).unwrap(),
     );
     let mut seven = WorkBudget::new(7);
-    let first_scan = filtered.next(stamp, &mut seven);
+    let first_scan = filtered.next(stamp, &mut seven).unwrap();
     assert_eq!(first_scan.state(), &QueryProgressState::Pending);
     assert_eq!(first_scan.work_spent(), 7);
     let mut eleven = WorkBudget::new(11);
-    let second_scan = filtered.next(stamp, &mut eleven);
+    let second_scan = filtered.next(stamp, &mut eleven).unwrap();
     assert_eq!(second_scan.state(), &QueryProgressState::Pending);
     assert_eq!(second_scan.work_spent(), 11);
     assert_eq!(second_scan.instrumentation().addressed, 18);
@@ -397,7 +414,6 @@ fn million_value_navigation_filter_and_selection_are_counter_bounded() {
     );
     drop(filtered);
     drop(first_window);
-    drop(source);
 
     // Grow the complete projection set before the selected root. The logical
     // address remains stable even though any flattened card ordinal would

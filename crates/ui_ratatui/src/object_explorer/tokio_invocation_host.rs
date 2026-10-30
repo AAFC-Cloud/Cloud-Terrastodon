@@ -111,7 +111,10 @@ fn dispose<T>(value: T) -> Option<String> {
 
 impl JobState {
     fn attach(&mut self, attach: fn(InvocationFuture) -> InvocationFuture) {
-        let future = self.future.take().expect("new job has its future");
+        let Some(future) = self.future.take() else {
+            self.fail("invocation context attachment has no future".to_owned());
+            return;
+        };
         match catch_unwind(AssertUnwindSafe(|| attach(future))) {
             Ok(future) => self.future = Some(future),
             Err(payload) => {

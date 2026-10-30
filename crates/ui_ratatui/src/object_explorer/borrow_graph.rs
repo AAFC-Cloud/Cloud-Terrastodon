@@ -11,6 +11,7 @@ use std::fmt;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum BorrowError {
+    IdentityExhausted,
     SourceNotReady(ValueAddress),
     SourceProtected { root: SlotId, leases: usize },
     UnknownLease(BorrowId),
@@ -19,6 +20,7 @@ pub(crate) enum BorrowError {
 impl fmt::Display for BorrowError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::IdentityExhausted => formatter.write_str("borrow identity space exhausted"),
             Self::SourceNotReady(source) => {
                 write!(
                     formatter,
@@ -65,7 +67,7 @@ impl BorrowGraph {
         self.next_id = self
             .next_id
             .checked_add(1)
-            .expect("borrow identity space exhausted");
+            .ok_or(BorrowError::IdentityExhausted)?;
         let holder = BorrowHolder::Builder(borrower);
         let field = field.into();
         self.edges.insert(
@@ -207,6 +209,24 @@ mod tests {
         T: facet::Facet<'static> + Send + 'static,
     {
         RuntimeValue::from_box(Box::new(value)).expect("test value is representable")
+    }
+
+    #[test]
+    fn exhausted_identity_does_not_protect_the_source() {
+        let mut arena = Arena::default();
+        let source = arena.insert_ready(runtime("source".to_owned())).unwrap();
+        let borrower = arena.reserve_builder().unwrap();
+        let mut graph = BorrowGraph {
+            next_id: u64::MAX,
+            ..BorrowGraph::default()
+        };
+
+        assert!(matches!(
+            graph.borrow(&arena, ValueAddress::root(source), borrower, "value"),
+            Err(BorrowError::IdentityExhausted)
+        ));
+        assert!(!graph.protects_root(source));
+        assert_eq!(graph.edge_count(), 0);
     }
 
     #[test]

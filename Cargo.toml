@@ -1,6 +1,12 @@
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [workspace]
 members = ["crates/*", "examples/standalone-cli", "examples/group-management"]
+
+[workspace.lints.clippy]
+# `deny` permits test macros to apply their own test-only lint allowances.
+expect_used = "deny"
+unwrap_used = "deny"
+
 [workspace.package]
 edition = "2024"
 authors = ["TeamDman"]
@@ -410,6 +416,9 @@ unsafe_op_in_unsafe_fn = "warn"
 unused_lifetimes = "warn"
 
 [lints.clippy]
+# Packages with their own lint tables cannot also inherit workspace lints.
+expect_used = "deny"
+unwrap_used = "deny"
 cargo = { level = "warn", priority = -1 }
 complexity = { level = "warn", priority = -1 }
 correctness = { level = "warn", priority = -1 }

@@ -49,6 +49,7 @@ pub(crate) trait InvocationHost {
 }
 
 #[cfg(test)]
+#[derive(Default)]
 pub(crate) struct FakeInvocationHost {
     jobs: std::collections::BTreeMap<InvocationId, FakeJob>,
 }
@@ -59,15 +60,6 @@ enum FakeJob {
     Ready(Box<dyn Any + Send>),
     Failed(String),
     Cancelled,
-}
-
-#[cfg(test)]
-impl Default for FakeInvocationHost {
-    fn default() -> Self {
-        Self {
-            jobs: std::collections::BTreeMap::new(),
-        }
-    }
 }
 
 #[cfg(test)]

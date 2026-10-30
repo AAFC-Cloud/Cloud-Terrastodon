@@ -6,7 +6,12 @@ use std::str::FromStr;
 
 /// A validated target name used to address a generic Windows Credential Manager entry.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct WindowsCredentialManagerTargetName(CString);
+pub struct WindowsCredentialManagerTargetName {
+    // Keep both representations private so UTF-8 text and the ANSI API target
+    // always describe the same validated name without a fallible conversion.
+    text: String,
+    ansi: CString,
+}
 
 impl WindowsCredentialManagerTargetName {
     /// Construct a target name suitable for the ANSI Windows Credential Manager APIs.
@@ -16,19 +21,20 @@ impl WindowsCredentialManagerTargetName {
             bail!("Windows Credential Manager target name cannot be empty");
         }
 
-        let target_name = CString::new(target_name)
+        let ansi = CString::new(target_name.as_str())
             .wrap_err("Windows Credential Manager target name cannot contain NUL bytes")?;
-        Ok(Self(target_name))
+        Ok(Self {
+            text: target_name,
+            ansi,
+        })
     }
 
     pub fn as_c_str(&self) -> &CStr {
-        &self.0
+        &self.ansi
     }
 
     pub fn as_str(&self) -> &str {
-        self.0
-            .to_str()
-            .expect("Windows Credential Manager target names are constructed from UTF-8 strings")
+        &self.text
     }
 }
 

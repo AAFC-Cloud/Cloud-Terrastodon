@@ -1,9 +1,9 @@
 //! Explicit ownership and logical identity for shared work caches.
 //!
 //! An explicit owner reserves operation/output contracts and coordinates raw
-//! artifact storage and shared decoded results with per-entry initialization.
-//! Generation/dependency invalidation is a subsequent layer. No implicit
-//! legacy-cache bridge exists.
+//! artifact storage and shared decoded results with per-entry initialization,
+//! hierarchical invalidation, and transitive semantic dependencies. No implicit
+//! legacy-cache bridge exists; production adapters migrate separately.
 
 mod artifact_age;
 mod artifact_attempt;
@@ -26,6 +26,9 @@ mod artifact_set;
 mod artifact_timestamp_proxy;
 mod auth_partition;
 mod cache_entry_identity;
+mod cache_generation_stamp;
+mod cache_generations;
+mod cache_invalidation_target;
 mod cache_state;
 mod cached_work_spec;
 mod cached_work_value;
@@ -41,10 +44,17 @@ mod cache_scope;
 mod executor_kind;
 mod work_attempt;
 mod work_attempt_guard;
+mod work_attempt_state;
 mod work_cache;
+mod work_cache_invalidation;
 mod work_cache_state;
+mod work_certificate;
+mod work_child_guard;
 mod work_coordination;
+mod work_dependency;
+mod work_freshness;
 mod work_output;
+mod work_reuse;
 mod work_wait_graph;
 mod work_wait_guard;
 
@@ -69,3 +79,4 @@ pub use stored_artifact::StoredArtifact;
 pub use work_attempt::WorkAttempt;
 pub use work_cache::WorkCache;
 pub use work_output::WorkOutput;
+pub use work_reuse::WorkReuse;

@@ -263,7 +263,7 @@ mod tests {
                 assert!(
                     validate_azure_devops_organization_name_contents(&org.0).is_ok(),
                     "Arbitrary produced invalid: {:?}",
-                    &org.0
+                    org.0
                 );
             }
         }

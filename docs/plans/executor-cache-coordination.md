@@ -2,9 +2,10 @@
 
 **Status:** Selected G5/G6 contract for the
 [executor/cache migration plan](executor-cache-migration.md). Raw artifact storage
-and memory initialization/reuse have local validation in tasks 2.2–2.3. Generation,
-dependency, and transport integration remain pending. The owning plan records the
-implemented boundaries and test evidence; scenarios below are not all proven.
+and typed initialization, generations, and dependencies have local validation in
+tasks 2.2–2.4. Production transport and credential-provider integration remain
+pending. The owning plan records implemented boundaries and test evidence;
+cache-only tests do not establish those later integrations or cross-process safety.
 
 **Decision date:** 2026-10-30.
 
@@ -223,6 +224,13 @@ that role; arbitrary request code cannot label semantic work as infrastructure
 to evade dependency or effect admission. Infrastructure still participates in
 execution/cancellation ownership and applicable wait-cycle checks.
 
+The cache core implements admission with explicit `WorkReuse::ReusableRead` or
+`ExecuteEveryTime` before lookup. A reusable parent's nonreusable semantic child
+is rejected before execution, including zero validity. There is no generic
+infrastructure escape hatch: credential acquisition remains outside this semantic
+work-cache API. Task 3 owns connecting provider capabilities and their cancellation
+ancestry; credential refresh is not a data-generation transition.
+
 Mutation, zero-duration, and deliberately uncached operations execute for every
 invocation. They retain required artifacts under unique attempts, never share a
 successful execution result to replace a second execution, and perform affected
@@ -356,6 +364,15 @@ that acquires semantic dependencies cannot publish a reusable durable aggregate
 through this leaf contract. Persisted aggregate reuse is a later explicit design
 change, independent of the decision to keep disk Rust type metadata diagnostic.
 
+Canonical work binds its raw leaf entry with `ArtifactEntry::for_work` before
+loading or staging. `LoadedArtifact::decoded` transfers the original age,
+generations, and initializer identity to the typed result; a later initializer
+cannot import a proof retained from an earlier completed or failed attempt.
+Unbound loads expose raw inspection only. Bound leaf publication freezes semantic
+child admission and refuses aggregate dependencies. A later callback failure or
+rejected child leaves any started publication quarantined; successful finalization
+closes the token before its guard is reclaimed.
+
 ## Invalidation, rejection, and quarantine
 
 Logical invalidation and canonical decode rejection have different scopes:
@@ -453,7 +470,9 @@ deferred with the other independent-owner guarantees.
 ## Validation scenarios for implementation
 
 Use synthetic operations, isolated temporary storage, explicit barriers/counters,
-and controlled clocks. These scenarios are planned tests, not completed checks.
+and controlled observations. Task 2.4 records completed cache-core scenarios and
+exact test commands. Credential-provider and production adapter scenarios remain
+acceptance requirements for their owning later slices.
 
 | Scenario | Required observable result |
 | --- | --- |
@@ -502,5 +521,6 @@ and controlled clocks. These scenarios are planned tests, not completed checks.
 
 Only repository source and planning documents were inspected to make these
 decisions. No service calls, credentials, production cache contents, or production
-data are inputs to this document. Implementation and the scenarios above remain
-pending.
+data are inputs to this document. Completed core implementation and local evidence
+are recorded in tasks 2.2–2.4; production integrations and cross-process guarantees
+remain pending.

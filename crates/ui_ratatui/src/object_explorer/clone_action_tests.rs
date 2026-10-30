@@ -83,7 +83,15 @@ async fn preview_actions<T: Facet<'static> + Send + 'static>(
         Ok::<_, eyre::Report>((source, destination, actions, modes))
     };
     let (engine, result) = tokio::time::timeout(Duration::from_secs(5), async {
-        tokio::join!(engine.run(inbox), client)
+        tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        )
     })
     .await
     .expect("local action previews must finish without invoking user operations");

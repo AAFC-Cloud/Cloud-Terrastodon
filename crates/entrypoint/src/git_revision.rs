@@ -28,11 +28,20 @@ static GIT_REVISION: LazyLock<Mutex<GitRevision>> =
     LazyLock::new(|| Mutex::new(GitRevision::new("unknown")));
 
 /// Set the global git revision used by the application (used by UI About dialogs)
-pub fn set_git_revision(rev: impl Into<GitRevision>) {
-    *GIT_REVISION.lock().unwrap() = rev.into();
+pub fn set_git_revision(rev: impl Into<GitRevision>) -> Result<()> {
+    let rev = rev.into();
+    *GIT_REVISION
+        .lock()
+        .map_err(|_| eyre!("application git revision lock is poisoned"))? = rev;
+    Ok(())
 }
 
 /// Get a clone of the configured git revision
-pub fn git_revision() -> GitRevision {
-    GIT_REVISION.lock().unwrap().clone()
+pub fn git_revision() -> Result<GitRevision> {
+    Ok(GIT_REVISION
+        .lock()
+        .map_err(|_| eyre!("application git revision lock is poisoned"))?
+        .clone())
 }
+use eyre::Result;
+use eyre::eyre;

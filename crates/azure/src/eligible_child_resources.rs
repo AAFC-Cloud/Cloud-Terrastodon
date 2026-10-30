@@ -216,7 +216,7 @@ mod tests {
                         "Expected error, but got success; GetAllChildren is only supported for management groups?"
                     );
                 }
-                Err(_) => return Ok(()),
+                Err(_) => Ok(()),
             }
             })
             .await
@@ -247,7 +247,7 @@ mod tests {
                         "Expected error, but got success; GetAllChildren is only supported for management groups?"
                     );
                 }
-                Err(_) => return Ok(()),
+                Err(_) => Ok(()),
             }
             })
             .await

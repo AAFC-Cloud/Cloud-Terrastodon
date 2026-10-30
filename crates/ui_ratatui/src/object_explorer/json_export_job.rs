@@ -40,7 +40,7 @@ where
                 source,
                 query_plan,
                 stamp,
-                NonZeroUsize::new(2).expect("export cache capacity is nonzero"),
+                NonZeroUsize::MIN.saturating_add(1),
             ),
             stamp,
             emitted_any: false,
@@ -89,7 +89,10 @@ where
         }
 
         while fragment.len() < max_bytes {
-            let progress = self.cursor.next(self.stamp, &mut work);
+            let progress = self
+                .cursor
+                .next(self.stamp, &mut work)
+                .map_err(|error| error.to_string())?;
             match progress.into_state() {
                 QueryProgressState::Ready(address) => {
                     let value = self.source.resolve(&address).map_err(|error| {

@@ -43,7 +43,7 @@ impl IntoFuture for ProduceExcalidrawDumpPlanRequest {
                 let file = ExcalidrawSharedFile::new(&self.filename).wrap_err_with(|| {
                     format!("Opening Excalidraw destination {}", self.filename.display())
                 })?;
-                let scene = ExcalidrawScene::from_discovery_plan(&self.plan);
+                let scene = ExcalidrawScene::from_discovery_plan(&self.plan)?;
                 Ok((file, Arc::new(scene)))
             })
             .await
@@ -171,7 +171,7 @@ mod tests {
     async fn cancelling_a_waiting_export_preserves_the_editor_lock_and_drawing() -> Result<()> {
         let directory = tempfile::tempdir()?;
         let filename = directory.path().join("plan.excalidraw");
-        let before = ExcalidrawScene::from_objects("original view", &[]).to_json()?;
+        let before = ExcalidrawScene::from_objects("original view", &[])?.to_json()?;
         fs::write(&filename, &before)?;
         let lock_path = directory.path().join("plan.excalidraw.sync-lock");
         let _editor_lock = ExcalidrawFileLock::acquire(lock_path.clone())?;

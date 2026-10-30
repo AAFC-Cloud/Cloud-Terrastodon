@@ -681,7 +681,7 @@ async fn live_work_item_deserialization() -> Result<()> {
                     ids: ids.clone(),
                     expand: Default::default(),
                     fields: Vec::new(),
-                    as_of: Some(as_of.clone()),
+                    as_of: Some(as_of),
                 }
                 .await?;
                 eyre::ensure!(

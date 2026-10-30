@@ -1,3 +1,5 @@
+#![cfg(test)]
+
 use hcl::edit::structure::Body;
 
 #[test]

@@ -200,7 +200,7 @@ mod tests {
             Ok(())
         })
         .unwrap();
-        assert_eq!(printed, [first.clone()]);
+        assert_eq!(printed, std::slice::from_ref(&first));
         assert_eq!(cursor, 1);
 
         publish_logs(&logs, &mut cursor, |records| {

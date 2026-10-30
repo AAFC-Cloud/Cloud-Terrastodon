@@ -84,8 +84,9 @@ impl std::fmt::Display for AzureDevOpsBuildRepositoryType {
 
 impl<'a> Arbitrary<'a> for AzureDevOpsBuildRepositoryType {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        Ok(Self::try_new(String::arbitrary(u)?)
-            .unwrap_or_else(|_| Self::try_new("SyntheticProvider").expect("valid synthetic value")))
+        Self::try_new(String::arbitrary(u)?)
+            .or_else(|_| Self::try_new("SyntheticProvider"))
+            .map_err(|_| arbitrary::Error::IncorrectFormat)
     }
 }
 

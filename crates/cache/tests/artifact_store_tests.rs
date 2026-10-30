@@ -1,3 +1,5 @@
+#![cfg(test)]
+
 use cloud_terrastodon_cache::ArtifactEntry;
 use cloud_terrastodon_cache::ArtifactFilePath;
 use cloud_terrastodon_cache::ArtifactObservation;
@@ -155,7 +157,7 @@ async fn exact_variants_namespaces_and_scope_components_keep_distinct_artifacts(
                     fingerprint,
                     ArtifactRetention::Full,
                 )?;
-                assert!(directories.insert(entry.directory()));
+                assert!(directories.insert(entry.directory()?));
                 let payload = format!("synthetic variant {index}").into_bytes();
                 let stored = finish(&entry, &payload, &scope).await?;
                 assert!(entry.publish(&stored, &scope).await?);
@@ -209,7 +211,7 @@ fn conflicting_contracts_fail_before_creating_an_artifact_directory() -> eyre::R
             .is_err()
     );
     assert!(!missing.exists());
-    assert!(!first.directory().exists());
+    assert!(!first.directory()?.exists());
     Ok(())
 }
 
@@ -592,7 +594,7 @@ async fn disabled_retention_bypasses_existing_artifacts_without_deleting_them() 
                 "policy-change",
                 ArtifactRetention::Disabled,
             )?;
-            assert_eq!(regular.directory(), disabled.directory());
+            assert_eq!(regular.directory()?, disabled.directory()?);
             assert!(disabled.load(&scope).await?.is_none());
             assert!(!disabled.publish(&stored, &scope).await?);
             assert!(
@@ -650,7 +652,7 @@ async fn failed_publication_quarantines_even_a_restored_old_selection_until_reco
             let entry = read_entry(&cache, "publication-failure")?;
             let original = finish(&entry, b"original selection", &scope).await?;
             assert!(entry.publish(&original, &scope).await?);
-            let selection = entry.directory().join("selection.json");
+            let selection = entry.directory()?.join("selection.json");
             let original_selection = fs::read(&selection)?;
             fs::remove_file(&selection)?;
             fs::create_dir(&selection)?;

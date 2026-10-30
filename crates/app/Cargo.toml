@@ -40,3 +40,6 @@ extended_observability = [
 ]
 terminal_coordinator_debug = ["terminal", "cloud_terrastodon_user_input/terminal_coordinator_debug"]
 tracy = ["cloud_terrastodon_tracing/tracy", "extended_observability"]
+
+[lints]
+workspace = true

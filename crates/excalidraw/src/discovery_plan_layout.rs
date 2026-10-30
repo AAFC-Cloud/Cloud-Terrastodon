@@ -4,6 +4,7 @@ use crate::discovery_plan_layout_node::DiscoveryPlanLayoutNode;
 use crate::discovery_plan_layout_segment::DiscoveryPlanLayoutSegment;
 use crate::discovery_plan_layout_segment::assign_tracks;
 use cloud_terrastodon_registry::DiscoveryPlan;
+use eyre::Result;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 
@@ -32,8 +33,8 @@ pub(crate) struct DiscoveryPlanLayout {
 }
 
 impl DiscoveryPlanLayout {
-    pub fn new(plan: &DiscoveryPlan, sizes: &BTreeMap<usize, (f64, f64)>) -> Self {
-        let (levels, feedback, preorder) = layers(plan);
+    pub fn new(plan: &DiscoveryPlan, sizes: &BTreeMap<usize, (f64, f64)>) -> Result<Self> {
+        let (levels, feedback, preorder) = layers(plan)?;
         let mut rows = vec![Vec::new(); levels.values().max().map_or(0, |level| level + 1)];
         for id in preorder {
             rows[levels[&id]].push(id);
@@ -83,8 +84,8 @@ impl DiscoveryPlanLayout {
         // Fixed passes are deliberate: repeated unconstrained nudges can drift
         // forever. Node ordering is never permuted by this alignment process.
         for _ in 0..ALIGNMENT_PASSES {
-            align_downward(&rows, &parents, &mut nodes);
-            align_upward(&rows, &children, &mut nodes);
+            align_downward(&rows, &parents, &mut nodes)?;
+            align_upward(&rows, &children, &mut nodes)?;
         }
 
         let right = nodes
@@ -194,7 +195,9 @@ impl DiscoveryPlanLayout {
             if let Some(row) = rows.get(index) {
                 let mut row_height = 0.0_f64;
                 for id in row {
-                    let node = nodes.get_mut(id).unwrap();
+                    let node = nodes
+                        .get_mut(id)
+                        .ok_or_else(|| eyre::eyre!("missing layout node {id}"))?;
                     node.y = y;
                     row_height = row_height.max(node.height);
                 }
@@ -257,12 +260,12 @@ impl DiscoveryPlanLayout {
             }
             edge.label_x -= left;
         }
-        Self {
+        Ok(Self {
             nodes,
             edges,
             width: right - left,
             height: y,
-        }
+        })
     }
 }
 
@@ -270,24 +273,27 @@ fn align_downward(
     rows: &[Vec<usize>],
     parents: &BTreeMap<usize, Vec<usize>>,
     nodes: &mut BTreeMap<usize, DiscoveryPlanLayoutNode>,
-) {
+) -> Result<()> {
     for row in rows {
         let mut minimum = 0.0_f64;
         for id in row {
             let desired = neighboring_center(parents.get(id), nodes)
                 .map_or(nodes[id].x, |center| center - nodes[id].width / 2.0);
-            let node = nodes.get_mut(id).unwrap();
+            let node = nodes
+                .get_mut(id)
+                .ok_or_else(|| eyre::eyre!("missing layout node {id}"))?;
             node.x = desired.max(minimum);
             minimum = node.x + node.width + NODE_SPACING;
         }
     }
+    Ok(())
 }
 
 fn align_upward(
     rows: &[Vec<usize>],
     children: &BTreeMap<usize, Vec<usize>>,
     nodes: &mut BTreeMap<usize, DiscoveryPlanLayoutNode>,
-) {
+) -> Result<()> {
     for row in rows.iter().rev() {
         for (index, id) in row.iter().enumerate().rev() {
             let Some(center) = neighboring_center(children.get(id), nodes) else {
@@ -300,10 +306,13 @@ fn align_upward(
             let maximum = row.get(index + 1).map_or(f64::INFINITY, |next| {
                 nodes[next].x - NODE_SPACING - nodes[id].width
             });
-            let node = nodes.get_mut(id).unwrap();
+            let node = nodes
+                .get_mut(id)
+                .ok_or_else(|| eyre::eyre!("missing layout node {id}"))?;
             node.x = (center - node.width / 2.0).max(minimum).min(maximum);
         }
     }
+    Ok(())
 }
 
 fn neighboring_center(

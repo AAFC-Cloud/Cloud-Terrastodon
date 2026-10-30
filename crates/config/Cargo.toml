@@ -25,3 +25,6 @@ facet-json = { workspace = true }
 facet-value = { workspace = true }
 arbitrary.workspace = true
 linkme = { workspace = true }
+
+[lints]
+workspace = true

@@ -16,3 +16,6 @@ arbitrary.workspace = true
 facet.workspace = true
 facet-reflect.workspace = true
 linkme.workspace = true
+
+[lints]
+workspace = true

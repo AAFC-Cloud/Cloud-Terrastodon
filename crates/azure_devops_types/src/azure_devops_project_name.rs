@@ -375,7 +375,7 @@ mod tests {
                 assert!(
                     validation.is_ok(),
                     "Arbitrary produced invalid: {:?} - {:?}",
-                    &proj.0,
+                    proj.0,
                     validation
                 );
             }

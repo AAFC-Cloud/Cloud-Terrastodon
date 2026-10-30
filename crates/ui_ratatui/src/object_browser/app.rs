@@ -127,7 +127,7 @@ impl ObjectBrowserApp {
             card_width: 38,
             card_height: 10,
             last_card_main_axis: 0,
-            max_cards: NonZeroUsize::new(5).unwrap(),
+            max_cards: NonZeroUsize::MIN.saturating_add(4),
             max_relationship_rows: 12,
             active_root: None,
             shape_picker_task: None,
@@ -264,7 +264,7 @@ impl ObjectBrowserApp {
     ) -> Result<(), ObjectBrowserControllerError> {
         let progress = self
             .controller
-            .fill_value_candidates(None, Self::FRAME_WORK, NonZeroUsize::new(8).unwrap())
+            .fill_value_candidates(None, Self::FRAME_WORK, NonZeroUsize::MIN.saturating_add(7))
             .await?;
         match progress.into_state() {
             QueryProgressState::Ready(window) => {
@@ -436,7 +436,15 @@ mod tests {
             assert!(rendered.contains("^^^^^"));
             app.controller.close().await.unwrap();
         };
-        let (engine, ()) = tokio::join!(engine.run(inbox), client);
+        let (engine, ()) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
         assert_eq!(engine.arena().allocated_slot_count(), 1);
         assert_eq!(engine.json_serialization_count(), 0);
     }
@@ -489,7 +497,8 @@ mod tests {
                 let rendered = terminal.backend().to_string();
                 assert!(rendered.contains(&format!("slot {slot} [owned]")));
                 assert!(rendered.contains("type String"));
-                assert!(rendered.contains("name: unset"));
+                assert!(rendered.contains("field \"name\""));
+                assert!(rendered.contains("value unset"));
                 assert!(rendered.contains("vvvvv"));
                 assert!(rendered.contains("^^^^^"));
                 let CardAddress::Value(companion) = companion else {
@@ -499,6 +508,14 @@ mod tests {
                 app.controller.close().await.unwrap();
             };
 
-        let (_engine, ()) = tokio::join!(engine.run(inbox), client);
+        let (_engine, ()) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
     }
 }

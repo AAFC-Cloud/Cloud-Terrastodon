@@ -67,7 +67,9 @@ impl CacheableCommand for AzureTenantDetailsRequest<'_> {
             "Expected exactly one organization in response, got {}",
             resp.len()
         );
-        Ok(resp.into_iter().next().unwrap())
+        resp.into_iter()
+            .next()
+            .ok_or_else(|| eyre::eyre!("Organization response is empty"))
     }
 }
 
@@ -94,7 +96,7 @@ mod test {
                     let tenant_auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
                     let details =
                         fetch_azure_tenant_details(&tenant_auth_context, &cancellation).await?;
-                    let unique = seen.insert(details.entity.id.clone());
+                    let unique = seen.insert(details.entity.id);
                     ensure!(unique, "Duplicate tenant ID found: {}", details.entity.id);
                 }
                 Ok(())

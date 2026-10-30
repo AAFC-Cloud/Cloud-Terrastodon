@@ -727,7 +727,7 @@ mod tests {
                 .unwrap()
                 .take(1)
                 .collect::<Vec<_>>();
-            assert_eq!(first_child, [visible.clone()]);
+            assert_eq!(first_child, std::slice::from_ref(&visible));
             expected.extend([address, visible]);
         }
         assert_eq!(PreorderCursor::new(&source).collect::<Vec<_>>(), expected);

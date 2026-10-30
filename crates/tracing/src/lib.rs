@@ -7,7 +7,6 @@ use std::io::IsTerminal;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::sync::Mutex;
 use tracing::Metadata;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
@@ -193,16 +192,9 @@ fn build_subscriber(
                     .create(true)
                     .append(true)
                     .open(&json_log_path)?;
-                let file = Arc::new(Mutex::new(file));
-                let json_writer = {
-                    let file = Arc::clone(&file);
-                    BoxMakeWriter::new(move || {
-                        file.lock()
-                            .expect("failed to lock json log file")
-                            .try_clone()
-                            .expect("failed to clone json log file handle")
-                    })
-                };
+                // File implements MakeWriter by borrowing its existing handle.
+                // Event emission does not need to clone the OS handle or lock it.
+                let json_writer = BoxMakeWriter::new(file);
 
                 let json_layer = tracing_subscriber::fmt::layer()
                     // Use the JSON layer constructor so span fields use JsonFields as well as
@@ -236,6 +228,7 @@ fn build_subscriber(
 mod tests {
     use super::*;
     use std::sync::Arc;
+    use std::sync::Mutex;
     use tracing_subscriber::Layer;
     use tracing_subscriber::layer::SubscriberExt;
 

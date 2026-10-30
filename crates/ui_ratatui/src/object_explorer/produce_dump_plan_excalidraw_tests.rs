@@ -209,7 +209,15 @@ async fn export_plan_through_explorer(cancellation: CancellationScope) -> eyre::
         Ok::<_, eyre::Report>((source_plan, path_slot, request, output))
     };
     let (engine, result) = tokio::time::timeout(Duration::from_secs(10), async {
-        tokio::join!(engine.run(inbox), client)
+        tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        )
     })
     .await
     .expect("the local export invocation must complete");

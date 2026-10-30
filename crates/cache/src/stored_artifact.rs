@@ -1,6 +1,7 @@
 use crate::ArtifactEntry;
 use crate::ArtifactFreshness;
 use crate::artifact_directory::ArtifactDirectory;
+use crate::cache_generation_stamp::CacheGenerationStamp;
 use std::path::Path;
 use uuid::Uuid;
 
@@ -12,6 +13,7 @@ pub struct StoredArtifact {
     pub(crate) attempt: Uuid,
     pub(crate) directory: ArtifactDirectory,
     pub(crate) freshness: ArtifactFreshness,
+    pub(crate) generation: CacheGenerationStamp,
 }
 
 impl StoredArtifact {

@@ -1,3 +1,5 @@
+#![cfg(test)]
+
 #[test]
 fn bruh() -> eyre::Result<()> {
     let json = r#"{"id":1,"name":"Test"}"#;

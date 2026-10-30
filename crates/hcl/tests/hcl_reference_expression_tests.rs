@@ -1,3 +1,5 @@
+#![cfg(test)]
+
 use eyre::bail;
 use hcl::edit::expr::Expression;
 use hcl::edit::expr::TraversalOperator;
@@ -22,8 +24,7 @@ fn hcl_import() -> eyre::Result<()> {
         .unwrap()
         .body
         .attributes()
-        .skip(1)
-        .next()
+        .nth(1)
         .unwrap();
     assert_eq!(to_attr.key.as_str(), "to");
     let to_value = to_attr.value.as_traversal().unwrap();
@@ -58,8 +59,7 @@ fn hcl_import_for_each() -> eyre::Result<()> {
         .unwrap()
         .body
         .attributes()
-        .skip(1)
-        .next()
+        .nth(1)
         .unwrap();
     assert_eq!(to_attr.key.as_str(), "to");
     let to_value = to_attr.value.as_traversal().unwrap();

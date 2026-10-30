@@ -27,3 +27,6 @@ itertools.workspace = true
 strum.workspace = true
 tokio.workspace = true
 tracing.workspace = true
+
+[lints]
+workspace = true

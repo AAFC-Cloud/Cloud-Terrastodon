@@ -9,6 +9,7 @@ use crate::artifact_digest::ArtifactDigest;
 use crate::artifact_directory::ArtifactDirectory;
 use crate::artifact_file_digest::ArtifactFileDigest;
 use crate::artifact_manifest::ArtifactManifest;
+use crate::cache_generation_stamp::CacheGenerationStamp;
 use eyre::Context;
 use eyre::Result;
 use eyre::ensure;
@@ -27,16 +28,18 @@ pub struct ArtifactAttempt {
     directory: ArtifactDirectory,
     inputs_directory: ArtifactDirectory,
     inputs: Vec<ArtifactFileDigest>,
+    generation: CacheGenerationStamp,
 }
 
 impl ArtifactAttempt {
     /// Allocate an exclusive attempt directory and stage all declared inputs.
     pub(crate) fn stage_inputs(
         entry: ArtifactEntry,
+        generation: CacheGenerationStamp,
         inputs: BTreeMap<ArtifactFilePath, Vec<u8>>,
     ) -> Result<Self> {
         let attempt = Uuid::new_v4();
-        let directory = ArtifactDirectory::new(entry.cache.root(), entry.directory())?
+        let directory = ArtifactDirectory::new(entry.cache.root(), entry.directory()?)?
             .child("attempts")?
             .create_new_child(attempt.to_string())?;
         let inputs_directory = directory.child("inputs")?;
@@ -48,6 +51,7 @@ impl ArtifactAttempt {
             directory,
             inputs_directory,
             inputs,
+            generation,
         })
     }
 
@@ -108,6 +112,7 @@ impl ArtifactAttempt {
                             attempt: self.attempt,
                             directory: self.directory,
                             freshness,
+                            generation: self.generation,
                         })
                     })
                     .await

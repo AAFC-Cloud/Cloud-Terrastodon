@@ -158,12 +158,14 @@ impl<'a> std::fmt::Display for Clue<'a> {
 }
 #[derive(Debug, Clone)]
 struct ClueChain<'a> {
-    pub discovery_chain: Vec<Arc<Clue<'a>>>,
+    discovery_chain: Vec<Arc<Clue<'a>>>,
+    current: Arc<Clue<'a>>,
 }
 impl<'a> ClueChain<'a> {
     pub fn new(clue: Clue<'a>) -> Self {
         ClueChain {
-            discovery_chain: vec![Arc::new(clue)],
+            discovery_chain: Vec::new(),
+            current: Arc::new(clue),
         }
     }
     pub fn join(&self, clue: Clue<'a>) -> Self {
@@ -172,12 +174,13 @@ impl<'a> ClueChain<'a> {
                 .discovery_chain
                 .iter()
                 .cloned()
-                .chain(std::iter::once(Arc::new(clue)))
+                .chain(std::iter::once(Arc::clone(&self.current)))
                 .collect(),
+            current: Arc::new(clue),
         }
     }
     pub fn clue(&self) -> &Clue<'a> {
-        self.discovery_chain.last().unwrap().as_ref()
+        &self.current
     }
 }
 impl<'a> Deref for ClueChain<'a> {

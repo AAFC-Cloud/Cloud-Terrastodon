@@ -42,7 +42,8 @@ async fn mutate_file<T>(path: &str, mut mutator: T) -> eyre::Result<()>
 where
     T: FnMut(&mut syn::File) -> eyre::Result<()>,
 {
-    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR")
+        .wrap_err("CARGO_MANIFEST_DIR is required to locate the source files to edit")?;
     #[cfg(not(test))]
     let manifest_dir = PathBuf::from(&manifest_dir);
     #[cfg(test)]

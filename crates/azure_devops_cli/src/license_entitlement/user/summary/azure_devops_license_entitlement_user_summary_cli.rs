@@ -242,7 +242,7 @@ mod tests {
 
     #[test]
     fn it_groups_and_sorts_license_rows_by_monthly_cost() {
-        let licenses = vec![
+        let licenses = [
             AzureDevOpsLicenseType::AccountStakeholder,
             AzureDevOpsLicenseType::AccountAdvanced,
             AzureDevOpsLicenseType::AccountExpress,

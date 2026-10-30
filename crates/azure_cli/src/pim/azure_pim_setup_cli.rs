@@ -220,7 +220,10 @@ async fn find_pim_application(
                 "Could not find an application registration named {PIM_APPLICATION_DISPLAY_NAME:?}"
             );
         }
-        1 => Ok(matches.into_iter().next().expect("one match exists")),
+        1 => matches
+            .into_iter()
+            .next()
+            .ok_or_else(|| eyre::eyre!("Matching application registration is missing")),
         _ => {
             bail!(
                 "Found {} application registrations named {PIM_APPLICATION_DISPLAY_NAME:?}; use `ct az ad app search {PIM_APPLICATION_DISPLAY_NAME:?}` to inspect them",

@@ -175,7 +175,7 @@ impl ExplorerEngine {
     /// This future deliberately need not be spawned: the Ratatui adapter can
     /// poll it as part of its owning event loop, while Send producer futures
     /// communicate through ArenaQueryContext.
-    pub(crate) async fn run(mut self, mut inbox: ExplorerInbox) -> Self {
+    pub(crate) async fn run(mut self, mut inbox: ExplorerInbox) -> CommandResponse<Self> {
         while let Some(command) = inbox.recv().await {
             match command {
                 ExplorerCommand::Mutation(command) => {
@@ -219,7 +219,7 @@ impl ExplorerEngine {
                         cancelled,
                         response,
                     )
-                    .await;
+                    .await?;
                     if inbox_closed {
                         break;
                     }
@@ -232,7 +232,13 @@ impl ExplorerEngine {
                     cancelled,
                     response,
                 }) => {
-                    let session = self.allocate_browse_session();
+                    let session = match self.allocate_browse_session() {
+                        Ok(session) => session,
+                        Err(error) => {
+                            let _ = response.send(Err(error));
+                            continue;
+                        }
+                    };
                     if response.send(Ok(session)).is_err() {
                         continue;
                     }
@@ -251,7 +257,7 @@ impl ExplorerEngine {
                         session,
                         cancelled,
                     )
-                    .await;
+                    .await?;
                     if inbox_closed {
                         break;
                     }
@@ -259,20 +265,20 @@ impl ExplorerEngine {
                 ExplorerCommand::Browse(command) => reject_inactive_browse(command),
             }
         }
-        self
+        Ok(self)
     }
 
-    fn allocate_query_session(&mut self) -> QuerySessionId {
+    fn allocate_query_session(&mut self) -> CommandResponse<QuerySessionId> {
         allocate_query_session(&mut self.next_query_session)
     }
 
-    fn allocate_browse_session(&mut self) -> BrowseSessionId {
+    fn allocate_browse_session(&mut self) -> CommandResponse<BrowseSessionId> {
         let session = BrowseSessionId::new(self.next_browse_session);
         self.next_browse_session = self
             .next_browse_session
             .checked_add(1)
-            .expect("browse session id space exhausted");
-        session
+            .ok_or_else(|| "browse session id space exhausted".to_owned())?;
+        Ok(session)
     }
 }
 
@@ -282,12 +288,12 @@ fn identity_invocation_future(
     future
 }
 
-fn allocate_query_session(next_query_session: &mut u64) -> QuerySessionId {
+fn allocate_query_session(next_query_session: &mut u64) -> CommandResponse<QuerySessionId> {
     let session = QuerySessionId::new(*next_query_session);
     *next_query_session = next_query_session
         .checked_add(1)
-        .expect("query session id space exhausted");
-    session
+        .ok_or_else(|| "query session id space exhausted".to_owned())?;
+    Ok(session)
 }
 
 #[expect(
@@ -308,15 +314,28 @@ async fn begin_and_serve_export(
     breadcrumbs: Breadcrumbs,
     cancelled: oneshot::Receiver<()>,
     response: oneshot::Sender<CommandResponse<QuerySessionId>>,
-) -> bool {
-    let session = allocate_query_session(next_query_session);
-    barrier
-        .begin(session)
-        .expect("the single-owner engine starts only one export at a time");
+) -> CommandResponse<bool> {
+    let session = match allocate_query_session(next_query_session) {
+        Ok(session) => session,
+        Err(error) => {
+            let _ = response.send(Err(error));
+            return Ok(false);
+        }
+    };
+    if let Err(error) = barrier.begin(session) {
+        let error = error.to_string();
+        let _ = response.send(Err(error.clone()));
+        // The engine cannot safely resume mutations with an unexpected barrier.
+        return Err(error);
+    }
     if response.send(Ok(session)).is_err() {
-        let deferred = barrier
-            .cancel(session)
-            .expect("the abandoned opener still owns the export barrier");
+        let deferred = match barrier.cancel(session) {
+            Ok(deferred) => deferred,
+            Err(error) => {
+                tracing::error!(%error, "could not release abandoned export barrier");
+                return Err(error.to_string());
+            }
+        };
         apply_deferred(
             arena,
             builders,
@@ -326,7 +345,7 @@ async fn begin_and_serve_export(
             invocation_host,
             deferred,
         );
-        return false;
+        return Ok(false);
     }
 
     serve_export(
@@ -372,7 +391,7 @@ async fn serve_export(
     query_plan: QueryPlan,
     session: QuerySessionId,
     mut cancelled: oneshot::Receiver<()>,
-) -> bool {
+) -> CommandResponse<bool> {
     let arena_revision = arena.arena_revision();
     let source = ArenaAddressSource::new(arena);
     let object_source = ArenaAddressSource::object_pool(arena);
@@ -470,8 +489,17 @@ async fn serve_export(
         }
         | ExportExit::LeaseDropped
         | ExportExit::InboxClosed => barrier.cancel(session),
-    }
-    .expect("active export owns its barrier");
+    };
+    let deferred = match deferred {
+        Ok(deferred) => deferred,
+        Err(error) => {
+            tracing::error!(%error, "could not release export barrier");
+            if let ExportExit::End { response, .. } = exit {
+                let _ = response.send(Err(error.to_string()));
+            }
+            return Err(error.to_string());
+        }
+    };
     apply_deferred(
         arena,
         builders,
@@ -487,7 +515,7 @@ async fn serve_export(
         let _ = response.send(Ok(()));
     }
 
-    inbox_closed
+    Ok(inbox_closed)
 }
 
 enum BrowseExit {
@@ -533,8 +561,8 @@ async fn serve_browse(
     mut breadcrumbs: Breadcrumbs,
     session: BrowseSessionId,
     mut cancelled: oneshot::Receiver<()>,
-) -> bool {
-    const BROWSE_CACHE_CAPACITY: usize = 129;
+) -> CommandResponse<bool> {
+    const BROWSE_CACHE_CAPACITY: NonZeroUsize = NonZeroUsize::MIN.saturating_add(128);
 
     let mut query_revision = QueryRevision::default();
     let mut candidate_revision = QueryRevision::default();
@@ -549,7 +577,7 @@ async fn serve_browse(
             &source,
             QueryPlan::new(breadcrumbs.clone()),
             stamp,
-            NonZeroUsize::new(BROWSE_CACHE_CAPACITY).expect("non-zero browse cache capacity"),
+            BROWSE_CACHE_CAPACITY,
         );
         let mut candidate_cursor = candidate_shape.map(|target_shape| {
             QueryCursor::new(
@@ -559,8 +587,7 @@ async fn serve_browse(
                     arena: arena.arena_revision(),
                     query: candidate_revision,
                 },
-                NonZeroUsize::new(BROWSE_CACHE_CAPACITY)
-                    .expect("non-zero candidate cache capacity"),
+                BROWSE_CACHE_CAPACITY,
             )
         });
 
@@ -655,12 +682,12 @@ async fn serve_browse(
                                 Err("navigation must allow at least one unit of work".to_owned())
                             } else {
                                 let mut work = WorkBudget::new(max_work);
-                                Ok(cursor.adjacent_from(
+                                cursor.adjacent_from(
                                     &from,
                                     direction,
                                     stamp,
                                     &mut work,
-                                ))
+                                ).map_err(|error| error.to_string())
                             };
                             let _ = response.send(result);
                         }
@@ -780,9 +807,9 @@ async fn serve_browse(
                     export_cancelled,
                     response,
                 )
-                .await
+                .await?
                 {
-                    return true;
+                    return Ok(true);
                 }
                 continue 'rebuild;
             }
@@ -790,32 +817,47 @@ async fn serve_browse(
                 breadcrumbs: replacement,
                 response,
             } => {
-                breadcrumbs = replacement;
-                query_revision = query_revision.next();
-                let _ = response.send(Ok(()));
+                let result = query_revision
+                    .next()
+                    .map(|next| {
+                        breadcrumbs = replacement;
+                        query_revision = next;
+                    })
+                    .map_err(|error| error.to_string());
+                let _ = response.send(result);
                 continue 'rebuild;
             }
             BrowseExit::SetCandidateShape {
                 target_shape,
                 response,
             } => {
-                candidate_shape = Some(target_shape);
-                candidate_revision = candidate_revision.next();
-                let _ = response.send(Ok(()));
+                let result = candidate_revision
+                    .next()
+                    .map(|next| {
+                        candidate_shape = Some(target_shape);
+                        candidate_revision = next;
+                    })
+                    .map_err(|error| error.to_string());
+                let _ = response.send(result);
                 continue 'rebuild;
             }
             BrowseExit::ClearValueCandidates { response } => {
-                candidate_shape = None;
-                candidate_revision = candidate_revision.next();
-                let _ = response.send(Ok(()));
+                let result = candidate_revision
+                    .next()
+                    .map(|next| {
+                        candidate_shape = None;
+                        candidate_revision = next;
+                    })
+                    .map_err(|error| error.to_string());
+                let _ = response.send(result);
                 continue 'rebuild;
             }
             BrowseExit::End { response } => {
                 let _ = response.send(Ok(()));
-                return false;
+                return Ok(false);
             }
-            BrowseExit::LeaseDropped => return false,
-            BrowseExit::InboxClosed => return true,
+            BrowseExit::LeaseDropped => return Ok(false),
+            BrowseExit::InboxClosed => return Ok(true),
         }
     }
 }
@@ -1800,7 +1842,7 @@ mod tests {
             assert_eq!(handle.pending_invocations().await.unwrap(), 0);
             drop(handle);
         };
-        let (engine, ()) = tokio::join!(engine.run(inbox), client);
+        let (engine, ()) = tokio::join!(async { engine.run(inbox).await.expect("synthetic engine should finish") }, client);
         assert_eq!(engine.pending_invocation_count(), 0);
         Ok::<_, eyre::Report>(())
         }).await.unwrap();
@@ -1820,6 +1862,41 @@ mod tests {
         T: Facet<'static> + Send + 'static,
     {
         RuntimeValue::from_box(Box::new(value)).expect("test value is representable")
+    }
+
+    #[tokio::test]
+    async fn fatal_export_barrier_failure_closes_deferred_mutation_waiters() {
+        let mut engine = ExplorerEngine::empty();
+        engine
+            .export_barrier
+            .begin(QuerySessionId::new(99))
+            .unwrap();
+        let (response, deferred) = oneshot::channel();
+        assert!(matches!(
+            engine
+                .export_barrier
+                .submit(ArenaMutationCommand::ReserveBuilder { response }),
+            MutationSubmission::Deferred
+        ));
+        let (context, inbox) = ArenaQueryContext::channel(1);
+        let client = async move {
+            let error = context
+                .open_export(Breadcrumbs::default())
+                .await
+                .unwrap_err();
+            assert!(
+                matches!(error, ArenaQueryContextError::Rejected(message) if message.contains("already active"))
+            );
+            // The engine must release this sender before returning. Retaining
+            // an errored engine inside join would leave its waiter pending.
+            assert!(deferred.await.is_err());
+        };
+        let (result, ()) = tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            tokio::join!(engine.run(inbox), client)
+        })
+        .await
+        .expect("fatal shutdown must release deferred response channels");
+        assert!(matches!(result, Err(message) if message.contains("already active")));
     }
 
     async fn append_until_complete(
@@ -1893,7 +1970,15 @@ mod tests {
             (input, output)
         };
 
-        let (engine, (input, output)) = tokio::join!(engine.run(inbox), client);
+        let (engine, (input, output)) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
         assert!(engine.arena().ready_value(input).is_some());
         let output = engine
             .arena()
@@ -1966,7 +2051,15 @@ mod tests {
             (destination, input)
         };
 
-        let (engine, (destination, input)) = tokio::join!(engine.run(inbox), client);
+        let (engine, (destination, input)) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
         assert_eq!(engine.active_production_count(), 0);
         assert!(engine.arena().ready_value(destination).is_some());
         assert!(matches!(
@@ -2058,7 +2151,15 @@ mod tests {
             (first_document, second_document)
         };
 
-        let (engine, (first_document, second_document)) = tokio::join!(engine.run(inbox), client);
+        let (engine, (first_document, second_document)) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
 
         assert!(!first_document.contains("during-export"));
         assert!(second_document.contains("during-export"));
@@ -2124,7 +2225,15 @@ mod tests {
             drop(context);
         };
 
-        let (engine, ()) = tokio::join!(engine.run(inbox), client);
+        let (engine, ()) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
         assert_eq!(
             engine.json_serialization_count(),
             0,
@@ -2205,7 +2314,15 @@ mod tests {
             inserted
         };
 
-        let (engine, inserted) = tokio::join!(engine.run(inbox), client);
+        let (engine, inserted) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
         assert_eq!(
             engine
                 .arena()
@@ -2286,7 +2403,15 @@ mod tests {
             drop(context);
         };
         tokio::time::timeout(std::time::Duration::from_secs(5), async {
-            tokio::join!(engine.run(inbox), client)
+            tokio::join!(
+                async {
+                    engine
+                        .run(inbox)
+                        .await
+                        .expect("synthetic engine should finish")
+                },
+                client
+            )
         })
         .await
         .expect("export and browse must continue without a deadlock");
@@ -2339,7 +2464,15 @@ mod tests {
             drop(context);
         };
 
-        let (engine, ()) = tokio::join!(engine.run(inbox), client);
+        let (engine, ()) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
         assert_eq!(engine.json_serialization_count(), 0);
     }
 
@@ -2391,7 +2524,15 @@ mod tests {
             drop(context);
         };
 
-        let (engine, ()) = tokio::join!(engine.run(inbox), client);
+        let (engine, ()) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
         assert!(engine.arena().ready_value(text).is_some());
         assert!(engine.arena().ready_value(number).is_some());
     }
@@ -2471,7 +2612,15 @@ mod tests {
             drop(context);
         };
 
-        let (engine, ()) = tokio::join!(engine.run(inbox), client);
+        let (engine, ()) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
         assert_eq!(engine.arena().allocated_slot_count(), allocated_roots);
         assert_eq!(engine.json_serialization_count(), 0);
     }
@@ -2522,7 +2671,15 @@ mod tests {
             drop(context);
         };
 
-        let (engine, ()) = tokio::join!(engine.run(inbox), client);
+        let (engine, ()) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
         assert_eq!(engine.arena().allocated_slot_count(), 1);
         assert_eq!(engine.json_serialization_count(), 0);
     }
@@ -2603,7 +2760,15 @@ mod tests {
             (source, request)
         };
 
-        let (engine, (source, request)) = tokio::join!(engine.run(inbox), client);
+        let (engine, (source, request)) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
         assert!(engine.arena().ready_value(source).is_some());
         assert!(engine.builders().builder(request).is_some());
         assert_eq!(engine.borrow_graph().edge_count(), 0);
@@ -2658,7 +2823,15 @@ mod tests {
             (tab, request)
         };
 
-        let (engine, (tab, request)) = tokio::join!(engine.run(inbox), client);
+        let (engine, (tab, request)) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
         assert!(engine.arena().ready_value(tab).is_some());
         assert!(engine.builders().builder(request).is_some());
         assert_eq!(engine.arena().allocated_slot_count(), 2);
@@ -2686,7 +2859,15 @@ mod tests {
             inserted
         };
 
-        let (engine, inserted) = tokio::join!(engine.run(inbox), client);
+        let (engine, inserted) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
         assert_eq!(
             engine
                 .arena()
@@ -2750,7 +2931,15 @@ mod tests {
             inserted
         };
 
-        let (engine, inserted) = tokio::join!(engine.run(inbox), client);
+        let (engine, inserted) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
         assert_eq!(
             engine
                 .arena()
@@ -2854,7 +3043,15 @@ mod tests {
             inserted
         };
 
-        let (engine, inserted) = tokio::join!(engine.run(inbox), client);
+        let (engine, inserted) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
         assert!(engine.arena().ready_value(request).is_some());
         assert!(engine.arena().ready_value(inserted).is_some());
         assert_eq!(
@@ -2929,7 +3126,15 @@ mod tests {
             drop(context);
             choice
         };
-        let (engine, choice) = tokio::join!(engine.run(inbox), client);
+        let (engine, choice) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
         assert!(engine.arena().ready_value(choice).is_some());
         assert_eq!(engine.arena().allocated_slot_count(), 1);
         assert!(engine.builders().builder(choice).is_none());
@@ -3090,8 +3295,15 @@ mod tests {
             (pair, scalar, choice, defaults, abandoned)
         };
 
-        let (engine, (pair, scalar, choice, defaults, abandoned)) =
-            tokio::join!(engine.run(inbox), client);
+        let (engine, (pair, scalar, choice, defaults, abandoned)) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
         for slot in [pair, scalar, choice, defaults] {
             assert!(engine.arena().ready_value(slot).is_some());
             assert!(engine.builders().builder(slot).is_none());
@@ -3167,7 +3379,15 @@ mod tests {
             (source, borrower)
         };
 
-        let (engine, (source, borrower)) = tokio::join!(engine.run(inbox), client);
+        let (engine, (source, borrower)) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
         assert!(engine.arena().ready_value(source).is_some());
         assert!(engine.arena().ready_value(borrower).is_some());
         assert_eq!(engine.borrow_graph().edge_count(), 1);
@@ -3212,7 +3432,15 @@ mod tests {
             target
         };
 
-        let (engine, target) = tokio::join!(engine.run(inbox), client);
+        let (engine, target) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
         assert!(matches!(
             engine.arena().slot(source).map(|slot| slot.state()),
             Some(ArenaSlotState::Consumed)
@@ -3277,7 +3505,15 @@ mod tests {
             (source, borrower)
         };
 
-        let (engine, (source, borrower)) = tokio::join!(engine.run(inbox), client);
+        let (engine, (source, borrower)) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
         assert_eq!(engine.borrow_graph().edge_count(), 0);
         for slot in [source, borrower] {
             assert!(matches!(
@@ -3388,7 +3624,15 @@ mod tests {
             (tab, borrower, export)
         };
 
-        let (engine, slots) = tokio::join!(engine.run(inbox), client);
+        let (engine, slots) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
         assert_eq!(engine.borrow_graph().edge_count(), 0);
         for slot in [slots.0, slots.1, slots.2] {
             assert!(matches!(

@@ -104,7 +104,15 @@ async fn hotkeys_render_slot_and_whole_tab_with_fields_and_retry_a_busy_file() -
                 assert!(!all.contains("Target search"));
                 app.close().await.unwrap();
             };
-            let (_, ()) = tokio::join!(engine.run(inbox), client);
+            let (_, ()) = tokio::join!(
+                async {
+                    engine
+                        .run(inbox)
+                        .await
+                        .expect("synthetic engine should finish")
+                },
+                client
+            );
             Ok(())
         })
         .await

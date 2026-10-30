@@ -48,10 +48,9 @@ impl ObjectBrowserApp {
         {
             return Ok(());
         }
-        let task = self
-            .registry_selection_picker
-            .take()
-            .expect("finished picker");
+        let task = self.registry_selection_picker.take().ok_or_else(|| {
+            ObjectBrowserControllerError::Engine("finished registry picker is missing".to_owned())
+        })?;
         let destination = task.destination;
         let field = task.field;
         self.mode = BrowserMode::Pool;

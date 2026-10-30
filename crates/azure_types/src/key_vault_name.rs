@@ -92,7 +92,9 @@ fn validate_key_vault_name_inner(value: &CompactString) -> eyre::Result<()> {
         bail!("keyvaultname_empty");
     }
     // Start with a letter
-    let first = s.chars().next().unwrap();
+    let Some(first) = s.chars().next() else {
+        bail!("Key vault name cannot be empty");
+    };
     if !first.is_ascii_alphabetic() {
         bail!("Key Vault name must start with a letter: {:?}", s);
     }
@@ -112,7 +114,9 @@ fn validate_key_vault_name_inner(value: &CompactString) -> eyre::Result<()> {
         }
     }
     // End with letter or digit (not hyphen already covered) but also must not end with hyphen
-    let last = s.chars().last().unwrap();
+    let Some(last) = s.chars().last() else {
+        bail!("Key vault name cannot be empty");
+    };
     if !(last.is_ascii_alphanumeric()) {
         bail!("Key Vault name must end with a letter or digit: {:?}", s);
     }

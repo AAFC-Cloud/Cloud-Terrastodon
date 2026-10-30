@@ -9,11 +9,11 @@ use ratatui::Terminal;
 use ratatui::TerminalOptions;
 use ratatui::Viewport;
 use ratatui::backend::CrosstermBackend;
-use tracing::error;
 use std::io::BufWriter;
 use std::io::IsTerminal;
 use std::io::Stderr;
 use std::io::Write;
+use tracing::error;
 
 /// An inline stderr viewport with log output inserted into scrollback above it.
 ///

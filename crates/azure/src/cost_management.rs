@@ -164,7 +164,7 @@ mod tests {
     async fn it_works1() -> eyre::Result<()> {
         CancellationToken::new()
             .cancellable_scope(|cancellation| async move {
-                let query = CostManagementQueryDefinition::new_cost_total_this_month();
+                let query = CostManagementQueryDefinition::new_cost_total_this_month()?;
                 let resp = fetch_cost_query_results(
                     get_test_tenant_id(&cancellation).await?,
                     &query,
@@ -182,7 +182,7 @@ mod tests {
     async fn it_works2() -> eyre::Result<()> {
         CancellationToken::new()
             .cancellable_scope(|cancellation| async move {
-                let query = CostManagementQueryDefinition::new_cost_by_day_this_month();
+                let query = CostManagementQueryDefinition::new_cost_by_day_this_month()?;
                 let resp = fetch_cost_query_results(
                     get_test_tenant_id(&cancellation).await?,
                     &query,
@@ -200,7 +200,7 @@ mod tests {
     async fn it_works3() -> eyre::Result<()> {
         CancellationToken::new()
             .cancellable_scope(|cancellation| async move {
-                let query = CostManagementQueryDefinition::new_cost_by_resource_group_this_month();
+                let query = CostManagementQueryDefinition::new_cost_by_resource_group_this_month()?;
                 let resp = fetch_cost_query_results(
                     get_test_tenant_id(&cancellation).await?,
                     &query,

@@ -121,7 +121,15 @@ mod tests {
             app.close().await.unwrap();
         };
         async {
-            tokio::join!(engine.run(inbox), client);
+            tokio::join!(
+                async {
+                    engine
+                        .run(inbox)
+                        .await
+                        .expect("synthetic engine should finish")
+                },
+                client
+            );
         }
         .with_subscriber(captured.clone())
         .await;
@@ -225,7 +233,15 @@ mod tests {
             drop(handle);
             destination
         };
-        let (engine, destination) = tokio::join!(engine.run(inbox), client);
+        let (engine, destination) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
         assert_eq!(
             engine
                 .arena()
@@ -244,7 +260,12 @@ mod tests {
         tokio::task::LocalSet::new()
             .run_until(async {
                 let (context, inbox) = ArenaQueryContext::channel(8);
-                let task = tokio::task::spawn_local(ExplorerEngine::empty().run(inbox));
+                let task = tokio::task::spawn_local(async move {
+                    ExplorerEngine::empty()
+                        .run(inbox)
+                        .await
+                        .expect("synthetic engine should finish")
+                });
                 let mut app = ObjectBrowserApp::bootstrap(context).await.unwrap();
                 task.abort();
                 assert!(

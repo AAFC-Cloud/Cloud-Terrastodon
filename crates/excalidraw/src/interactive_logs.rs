@@ -23,8 +23,10 @@ pub(crate) fn update(
     level: ExcalidrawLogLevel,
     records: &[ExcalidrawLogRecord],
 ) -> Result<bool> {
-    let frame_bounds = ExcalidrawControlBounds::read(&elements[frame]).unwrap();
-    let bounds = ExcalidrawControlBounds::read(&elements[output]).unwrap();
+    let frame_bounds = ExcalidrawControlBounds::read(&elements[frame])
+        .ok_or_else(|| eyre::eyre!("Logs frame has invalid geometry"))?;
+    let bounds = ExcalidrawControlBounds::read(&elements[output])
+        .ok_or_else(|| eyre::eyre!("Logs output has invalid geometry"))?;
     let frame_id = string(&elements[frame], "id")
         .ok_or_else(|| eyre::eyre!("Logs frame has no element ID"))?;
     let output_id = string(&elements[output], "id")

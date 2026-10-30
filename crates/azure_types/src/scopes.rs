@@ -133,13 +133,12 @@ pub fn strip_prefix_get_slug_and_leading_slashed_remains<'a>(
     // abc/resourceGroups/def
     // abc
     // Capture slug and remains
-    if !remaining.contains('/') {
+    let Some((slug, remaining)) = remaining.split_once('/') else {
         // abc, None
         return Ok((remaining, None));
-    }
+    };
 
     // abc, resourceGroups/def
-    let (slug, remaining) = remaining.split_once('/').unwrap();
     // Unstrip leading slash
     let remaining = &expanded[expanded.len() - remaining.len() - 1..];
 

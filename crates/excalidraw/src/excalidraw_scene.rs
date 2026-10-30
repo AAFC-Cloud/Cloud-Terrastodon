@@ -24,35 +24,35 @@ pub struct ExcalidrawScene {
 impl ExcalidrawScene {
     /// Draw a disposable view of observed objects. Fields, labels, and rectangles
     /// remain separately selectable; no canvas control protocol is introduced.
-    pub fn from_objects(title: &str, objects: &[ExcalidrawObjectSnapshot]) -> Self {
-        Self {
+    pub fn from_objects(title: &str, objects: &[ExcalidrawObjectSnapshot]) -> eyre::Result<Self> {
+        Ok(Self {
             kind: ExcalidrawSceneType::Excalidraw,
             version: 2,
             source: "https://github.com/AAFC-Cloud/Cloud-Terrastodon".into(),
-            elements: crate::excalidraw_object_diagram::elements(title, objects),
+            elements: crate::excalidraw_object_diagram::elements(title, objects)?,
             app_state: ExcalidrawAppState {
                 grid_size: None,
                 view_background_color: "#ffffff".into(),
             },
             files: BTreeMap::new(),
-        }
+        })
     }
 
     /// Lay out the plan's request/type dependencies without invoking operations
     /// or inspecting seed values. IDs, positions, and serialized bytes are stable
     /// for the same ordered plan; blocked nodes are shown in red.
-    pub fn from_discovery_plan(plan: &DiscoveryPlan) -> Self {
-        Self {
+    pub fn from_discovery_plan(plan: &DiscoveryPlan) -> eyre::Result<Self> {
+        Ok(Self {
             kind: ExcalidrawSceneType::Excalidraw,
             version: 2,
             source: "https://github.com/AAFC-Cloud/Cloud-Terrastodon".into(),
-            elements: crate::discovery_plan_diagram::elements(plan),
+            elements: crate::discovery_plan_diagram::elements(plan)?,
             app_state: ExcalidrawAppState {
                 grid_size: None,
                 view_background_color: "#ffffff".into(),
             },
             files: BTreeMap::new(),
-        }
+        })
     }
 
     pub fn to_json(&self) -> eyre::Result<String> {

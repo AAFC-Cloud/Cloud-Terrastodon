@@ -73,7 +73,9 @@ impl cloud_terrastodon_command::CacheableCommand for EntraPimRoleSettingsRequest
         if resp.value.len() != 1 {
             bail!("Expected a single result, got {}", resp.value.len());
         }
-        Ok(resp.value.pop().unwrap())
+        resp.value
+            .pop()
+            .ok_or_else(|| eyre::eyre!("PIM role settings response is empty"))
     }
 }
 
@@ -151,6 +153,9 @@ pub async fn fetch_entra_pim_role_settings_with_graph_access_token(
     if response.value.len() != 1 {
         bail!("Expected a single result, got {}", response.value.len());
     }
-    Ok(response.value.pop().unwrap())
+    response
+        .value
+        .pop()
+        .ok_or_else(|| eyre::eyre!("PIM role settings response is empty"))
 }
 cloud_terrastodon_registry::register_into_future!(EntraPimRoleSettingsRequest => PimEntraRoleSettings, effects = [Read]);

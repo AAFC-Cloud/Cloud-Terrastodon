@@ -128,7 +128,15 @@ mod tests {
                     };
                     let client =
                         request.run(context, vec![InventoryRequest::REGISTERED_INTO_FUTURE]);
-                    let (_, plan) = tokio::join!(engine.run(inbox), client);
+                    let (_, plan) = tokio::join!(
+                        async {
+                            engine
+                                .run(inbox)
+                                .await
+                                .expect("synthetic engine should finish")
+                        },
+                        client
+                    );
                     let plan = plan?;
                     assert_eq!(
                         plan.nodes

@@ -100,7 +100,7 @@ impl CacheKey {
                 }
             }
         }
-        crate::artifact_cache::invalidate_memory_cache(self);
+        crate::artifact_cache::invalidate_memory_cache(self)?;
         Ok(())
     }
 }

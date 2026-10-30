@@ -146,8 +146,11 @@ where
                             let decoded = decode(raw);
                             Ok((output, extra_files, decoded))
                         } else {
-                            let output =
-                                cached_output.expect("cached output exists without fresh work");
+                            let output = cached_output.ok_or_else(|| {
+                                eyre::eyre!(
+                                    "cached work has neither a cached output nor a fresh response"
+                                )
+                            })?;
                             let raw = crate::json::from_slice::<Raw>(&output.stdout)
                                 .context("Deserializing cached work output");
                             let extra_files = raw
@@ -175,11 +178,13 @@ where
                             {
                                 artifact_cache::note_cache_write_failure(&error);
                             } else {
-                                artifact_cache::put_memory_cache_entry(
+                                if let Err(error) = artifact_cache::put_memory_cache_entry(
                                     &cache_key,
                                     &metadata.fingerprint,
                                     &output,
-                                );
+                                ) {
+                                    artifact_cache::note_cache_write_failure(&error);
+                                }
                             }
                         }
                         Ok(result)

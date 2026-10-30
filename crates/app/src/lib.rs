@@ -35,6 +35,8 @@ pub use output::CliOutputValue;
 pub use output::OutputFormat;
 use std::ffi::OsString;
 use std::future::Future;
+use std::process::ExitCode;
+use std::process::Termination;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::OnceLock;
@@ -190,7 +192,15 @@ impl App {
         Fut: Future<Output = Result<()>>,
     {
         prepare_process()?;
-        let cli = self.parse_from(std::env::args_os().skip(1)).unwrap();
+        let cli = match self.parse_from(std::env::args_os().skip(1)).into_result() {
+            Ok(output) => output.get(),
+            Err(outcome) => {
+                // Figue reports help/version successfully and diagnostics as an
+                // error exit, including failures while opening HTML help.
+                let status = outcome.report();
+                std::process::exit(if status == ExitCode::SUCCESS { 0 } else { 1 });
+            }
+        };
         self.run_parsed(cli, invoke)
     }
 

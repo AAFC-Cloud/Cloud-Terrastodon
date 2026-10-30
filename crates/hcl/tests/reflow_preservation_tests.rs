@@ -1,3 +1,5 @@
+#![cfg(test)]
+
 use cloud_terrastodon_hcl::HclProject;
 use cloud_terrastodon_hcl::reflow::HclReflower;
 use cloud_terrastodon_hcl::reflow::ReflowByBlockIdentifier;

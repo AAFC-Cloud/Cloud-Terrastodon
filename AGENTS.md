@@ -412,6 +412,12 @@ Standalone examples may remain self-contained, as described in
 
 ## Tests and verification
 
+- Do not use `unwrap()` or `expect()` outside tests, including production
+  constants and examples. Propagate failures with useful context, make the
+  containing operation fallible when necessary, or use control flow that
+  preserves its contract. Do not substitute another panic or silently discard
+  errors to satisfy the lint. Workspace Clippy lints forbid both methods;
+  `.clippy.toml` permits them in test functions and `#[cfg(test)]` code.
 - Focus tests on behavior this code owns: domain invariants, conversions, policy
   decisions, and meaningful failure handling. Prefer small typed fixtures for
   pure policy tests.

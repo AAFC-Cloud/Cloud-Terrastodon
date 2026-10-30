@@ -33,7 +33,7 @@ impl ObjectBrowserApp {
             CardLayoutAxis::Vertical => (pool_height / breadth.max(1) as usize).max(1),
         }
         .min(128);
-        self.max_cards = NonZeroUsize::new(cards).unwrap();
+        self.max_cards = NonZeroUsize::MIN.saturating_add(cards - 1);
         let card_height = match self.axis {
             CardLayoutAxis::Horizontal => pool_height,
             CardLayoutAxis::Vertical => pool_height / cards,
@@ -458,7 +458,15 @@ mod tests {
             assert!(footer.contains("Invocation failed; scroll up for full error."));
             app.close().await.unwrap();
         };
-        tokio::join!(engine.run(inbox), client);
+        tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
     }
 
     #[tokio::test]
@@ -498,6 +506,14 @@ mod tests {
             assert!(terminal.backend().to_string().contains("new object"));
             app.close().await.unwrap();
         };
-        tokio::join!(engine.run(inbox), client);
+        tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
     }
 }

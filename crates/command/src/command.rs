@@ -222,7 +222,7 @@ impl CommandBuilder {
         self
     }
 
-    pub async fn summarize(&self) -> String {
+    pub async fn summarize(&self) -> Result<String> {
         let mut args = self.args.clone();
         if self.kind == CommandKind::AzureCLI {
             let has_debug = args
@@ -233,11 +233,11 @@ impl CommandBuilder {
             }
         }
         let args = args.into_iter().map(OsString::from).collect::<Vec<_>>();
-        format!(
+        Ok(format!(
             "{} {}",
-            self.kind.program().await,
+            self.kind.program().await?,
             args.join(&OsString::from(" ")).to_string_lossy()
-        )
+        ))
     }
 
     fn cache_debug_inputs(&self) -> BTreeMap<PathBuf, BString> {
@@ -262,7 +262,7 @@ impl CommandBuilder {
             }
         }
         let fingerprint = ProcessFingerprint {
-            program: self.kind.program().await,
+            program: self.kind.program().await?,
             args: args
                 .into_iter()
                 .map(OsString::from)
@@ -292,7 +292,7 @@ impl CommandBuilder {
             debug!("Cache behaviour is None, not using cache");
             return Ok(None);
         };
-        let context = self.summarize().await;
+        let context = self.summarize().await?;
         let debug_inputs = self.cache_debug_inputs();
         let fingerprint = self.cache_fingerprint(&debug_inputs).await?;
         crate::artifact_cache::get_cached_output(cache_key, &context, &debug_inputs, &fingerprint)
@@ -301,7 +301,7 @@ impl CommandBuilder {
 
     pub async fn write_output(&self, output: &CommandOutput, parent_dir: &Path) -> Result<()> {
         debug!(path = %parent_dir.display(), "Writing command results");
-        let context = self.summarize().await;
+        let context = self.summarize().await?;
         let debug_inputs = self.cache_debug_inputs();
         let fingerprint = self.cache_fingerprint(&debug_inputs).await?;
         let metadata = Self::cache_metadata(&fingerprint);
@@ -320,7 +320,7 @@ impl CommandBuilder {
         caller: &'static Location<'static>,
         cancellation: &CancellationScope,
     ) -> Result<CommandOutput> {
-        let mut command = Command::new(self.kind.program().await);
+        let mut command = Command::new(self.kind.program().await?);
         match self.output_behaviour {
             OutputBehaviour::Capture => {
                 command.stdin(Stdio::piped()); // Set stdin to piped for capture mode
@@ -427,7 +427,7 @@ impl CommandBuilder {
                     sleep(sleep_duration).await;
                     cancellation.bail_if_cancelled()?;
 
-                    info!("It's been {sleep_duration:?}, retrying command `{}`", self.summarize().await);
+                    info!("It's been {sleep_duration:?}, retrying command `{}`", self.summarize().await?);
                     let mut retry = self.clone();
                     retry.use_retry_behaviour(RetryBehaviour::Fail);
                     let output = retry.run_raw_from(Duration::ZERO, caller, cancellation).await;
@@ -615,7 +615,7 @@ impl CommandBuilder {
         caller: &'static Location<'static>,
         cancellation: &CancellationScope,
     ) -> Result<CommandOutput> {
-        let summary = self.summarize().await;
+        let summary = self.summarize().await?;
         let span = info_span!("command_run_raw", summary, ?self.run_dir, ?self.cache_key, location=%RelativeLocation::from(caller)).or_current();
 
         async {
@@ -683,7 +683,7 @@ impl CommandBuilder {
         cancellation: &'a CancellationScope,
     ) -> impl Future<Output = Result<T>> + Send + 'a {
         self.with_cancellation_policy(cancellation, move |scope| async move {
-            let summary = self.summarize().await;
+            let summary = self.summarize().await?;
             let (operation, span) = if uncached_delay.is_some() {
                 ("Command::run_polite", info_span!("command_run_polite", summary, ?self.run_dir, ?self.cache_key, location=%RelativeLocation::from(caller)).or_current())
             } else {
@@ -743,7 +743,7 @@ impl CommandBuilder {
         F: FnOnce(Raw) -> Result<Output> + Send + 'static,
     {
         self.with_cancellation_policy(cancellation, move |scope| async move {
-            let summary = self.summarize().await;
+            let summary = self.summarize().await?;
             let span = info_span!("command_run_with_mapper", summary, ?self.run_dir, ?self.cache_key, location=%RelativeLocation::from(caller)).or_current();
             async {
                 let output = self.run_raw_from(Duration::ZERO, caller, &scope).await
@@ -855,7 +855,7 @@ impl CommandBuilder {
                     Err(e) => {
                         let dir = self.write_failure(&output).await?;
                         Err(e).context(format!("Encountered validation error after successful invocation of `{}`\ncalled by \"{}\"\ndumped to {:?}",
-                                    self.summarize().await,
+                                    self.summarize().await?,
                                     RelativeLocation::from(caller),
                                     dir
                                 ))
@@ -866,7 +866,7 @@ impl CommandBuilder {
                     let dir = self.write_failure(&output).await?;
                     Err(e.wrap_err(format!(
                         "deserializing `{}` failed\ncalled by \"{}\"\ndumped to {:?}{}",
-                        self.summarize().await,
+                        self.summarize().await?,
                         RelativeLocation::from(caller),
                         dir,
                         crate::artifact_cache::cache_clean_recommendation(self.cache_key.as_ref())
@@ -878,7 +878,7 @@ impl CommandBuilder {
     }
 
     pub async fn write_failure(&self, output: &CommandOutput) -> Result<PathBuf> {
-        let context = self.summarize().await;
+        let context = self.summarize().await?;
         let debug_inputs = self.cache_debug_inputs();
         let fingerprint = self.cache_fingerprint(&debug_inputs).await?;
         let metadata = Self::cache_metadata(&fingerprint);

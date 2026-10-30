@@ -33,7 +33,7 @@ impl<'source, 'arena: 'source> ObservationExportJob<'source, 'arena> {
         };
         Self {
             source,
-            cursor: QueryCursor::new(source, plan, stamp, NonZeroUsize::new(2).unwrap()),
+            cursor: QueryCursor::new(source, plan, stamp, NonZeroUsize::MIN.saturating_add(1)),
             stamp,
         }
     }
@@ -54,7 +54,12 @@ impl<'source, 'arena: 'source> ObservationExportJob<'source, 'arena> {
         let mut objects = Vec::new();
         let mut complete = false;
         while objects.len() < max_objects {
-            match self.cursor.next(self.stamp, &mut budget).into_state() {
+            match self
+                .cursor
+                .next(self.stamp, &mut budget)
+                .map_err(|error| error.to_string())?
+                .into_state()
+            {
                 QueryProgressState::Ready(address) => objects.push(diagram_observation::observe(
                     arena,
                     builders,
@@ -92,7 +97,12 @@ impl<'source, 'arena: 'source> ObservationExportJob<'source, 'arena> {
         let mut shapes = Vec::new();
         let mut complete = false;
         while shapes.len() < max_work {
-            match self.cursor.next(self.stamp, &mut budget).into_state() {
+            match self
+                .cursor
+                .next(self.stamp, &mut budget)
+                .map_err(|error| error.to_string())?
+                .into_state()
+            {
                 QueryProgressState::Ready(address) => shapes.push(
                     self.source
                         .resolve(&address)

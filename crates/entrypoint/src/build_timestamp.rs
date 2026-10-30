@@ -36,11 +36,20 @@ static BUILD_TIMESTAMP: LazyLock<Mutex<BuildTimestamp>> =
     LazyLock::new(|| Mutex::new(BuildTimestamp(None)));
 
 /// Set the global build timestamp used by the application (used by UI About dialogs)
-pub fn set_build_timestamp(timestamp: impl Into<BuildTimestamp>) {
-    *BUILD_TIMESTAMP.lock().unwrap() = timestamp.into();
+pub fn set_build_timestamp(timestamp: impl Into<BuildTimestamp>) -> Result<()> {
+    let timestamp = timestamp.into();
+    *BUILD_TIMESTAMP
+        .lock()
+        .map_err(|_| eyre!("application build timestamp lock is poisoned"))? = timestamp;
+    Ok(())
 }
 
 /// Get a clone of the configured build timestamp
-pub fn build_timestamp() -> BuildTimestamp {
-    BUILD_TIMESTAMP.lock().unwrap().clone()
+pub fn build_timestamp() -> Result<BuildTimestamp> {
+    Ok(BUILD_TIMESTAMP
+        .lock()
+        .map_err(|_| eyre!("application build timestamp lock is poisoned"))?
+        .clone())
 }
+use eyre::Result;
+use eyre::eyre;

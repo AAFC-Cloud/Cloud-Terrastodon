@@ -26,7 +26,9 @@ impl From<IsoDuration> for iso8601_duration::Duration {
 }
 impl Default for IsoDuration {
     fn default() -> Self {
-        Self(iso8601_duration::Duration::parse("PT0S").unwrap())
+        Self(iso8601_duration::Duration::new(
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        ))
     }
 }
 impl Arbitrary<'_> for IsoDuration {
@@ -34,13 +36,9 @@ impl Arbitrary<'_> for IsoDuration {
         // Generate a simple ISO8601 duration string like "PT{n}S" where n is a non-negative integer
         let secs: u64 = u.arbitrary()?;
         let s = format!("PT{}S", secs % 1_000_000);
-        // Parse; fall back to zero seconds on any parse error
-        match iso8601_duration::Duration::parse(&s) {
-            Ok(d) => Ok(IsoDuration(d)),
-            Err(_) => Ok(IsoDuration(
-                iso8601_duration::Duration::parse("PT0S").unwrap(),
-            )),
-        }
+        iso8601_duration::Duration::parse(&s)
+            .map(Self)
+            .map_err(|_| arbitrary::Error::IncorrectFormat)
     }
 }
 impl From<std::time::Duration> for IsoDuration {

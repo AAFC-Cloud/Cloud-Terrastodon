@@ -1,3 +1,5 @@
+#![cfg(test)]
+
 use bstr::BString;
 use cloud_terrastodon_command::CommandOutput;
 

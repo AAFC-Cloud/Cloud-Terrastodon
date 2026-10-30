@@ -23,7 +23,7 @@ const FONT_SIZE: f64 = 16.0;
 const PADDING: f64 = 16.0;
 const BINDING_GAP: f64 = 8.0;
 
-pub(crate) fn elements(plan: &DiscoveryPlan) -> Vec<ExcalidrawElement> {
+pub(crate) fn elements(plan: &DiscoveryPlan) -> eyre::Result<Vec<ExcalidrawElement>> {
     let mut result = Vec::new();
     result.push(text(
         ExcalidrawElementBase::new(
@@ -75,7 +75,7 @@ pub(crate) fn elements(plan: &DiscoveryPlan) -> Vec<ExcalidrawElement> {
             )
         })
         .collect();
-    let layout = DiscoveryPlanLayout::new(plan, &sizes);
+    let layout = DiscoveryPlanLayout::new(plan, &sizes)?;
     let mut boxes = BTreeMap::<usize, ExcalidrawElementBase>::new();
     for node in &plan.nodes {
         let placement = &layout.nodes[&node.id];
@@ -210,7 +210,7 @@ pub(crate) fn elements(plan: &DiscoveryPlan) -> Vec<ExcalidrawElement> {
             None,
         ));
     }
-    result
+    Ok(result)
 }
 
 fn node_label(node: &DiscoveryPlanNode) -> String {
@@ -322,7 +322,7 @@ mod tests {
 
     #[test]
     fn graph_bindings_are_reciprocal_and_ids_unique() {
-        let scene = ExcalidrawScene::from_discovery_plan(&graph());
+        let scene = ExcalidrawScene::from_discovery_plan(&graph()).unwrap();
         let ids = scene
             .elements
             .iter()
@@ -378,9 +378,12 @@ mod tests {
     #[test]
     fn output_is_reproducible_and_survives_wire_roundtrip() -> eyre::Result<()> {
         let plan = graph();
-        let scene = ExcalidrawScene::from_discovery_plan(&plan);
+        let scene = ExcalidrawScene::from_discovery_plan(&plan).unwrap();
         let json = scene.to_json()?;
-        assert_eq!(json, ExcalidrawScene::from_discovery_plan(&plan).to_json()?);
+        assert_eq!(
+            json,
+            ExcalidrawScene::from_discovery_plan(&plan)?.to_json()?
+        );
         let restored: ExcalidrawScene = facet_json::from_str(&json)?;
         assert_eq!(restored, scene);
         // Tagging/flattening must produce actual scene elements, not nested Rust
@@ -400,7 +403,7 @@ mod tests {
             target: 2,
             label: "back".into(),
         });
-        let scene = ExcalidrawScene::from_discovery_plan(&plan);
+        let scene = ExcalidrawScene::from_discovery_plan(&plan).unwrap();
         for element in &scene.elements {
             let base = element.base();
             assert!(base.x.is_finite() && base.y.is_finite());

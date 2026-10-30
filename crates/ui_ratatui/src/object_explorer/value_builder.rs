@@ -32,9 +32,12 @@ struct BuilderField {
 }
 
 impl BuilderField {
-    fn from_facet(field: &'static facet::Field, cancellation: &CancellationScope) -> Self {
+    fn from_facet(
+        field: &'static facet::Field,
+        cancellation: &CancellationScope,
+    ) -> Result<Self, ValueBuilderError> {
         let has_default = field.has_default();
-        Self {
+        Ok(Self {
             name: field.effective_name().to_owned(),
             shape: field.shape(),
             has_default,
@@ -43,7 +46,7 @@ impl BuilderField {
             binding: if field.shape().is_shape(CancellationScope::SHAPE) {
                 FieldBinding::InlineOwned(
                     RuntimeValue::from_box(Box::new(cancellation.clone()))
-                        .expect("CancellationScope has a sized owned runtime layout"),
+                        .map_err(|error| ValueBuilderError::Reflection(error.to_string()))?,
                 )
             } else if field
                 .shape()
@@ -55,14 +58,14 @@ impl BuilderField {
                     RuntimeValue::from_box(Box::new(OpaqueBorrow::<'static, _>::new(
                         cancellation.clone(),
                     )))
-                    .expect("Opaque cancellation has a sized owned runtime layout"),
+                    .map_err(|error| ValueBuilderError::Reflection(error.to_string()))?,
                 )
             } else if has_default {
                 FieldBinding::Default
             } else {
                 FieldBinding::Unset
             },
-        }
+        })
     }
 }
 
@@ -225,17 +228,17 @@ impl From<BorrowError> for ValueBuilderError {
 impl ValueBuilder {
     #[cfg(test)]
     pub(crate) fn new(shape: &'static Shape) -> Self {
-        Self::new_with_cancellation(shape, &CancellationScope::unbound())
+        Self::new_with_cancellation(shape, &CancellationScope::unbound()).unwrap()
     }
 
     pub(crate) fn new_with_cancellation(
         shape: &'static Shape,
         cancellation: &CancellationScope,
-    ) -> Self {
+    ) -> Result<Self, ValueBuilderError> {
         let kind = if shape.is_shape(CancellationScope::SHAPE) {
             BuilderKind::Scalar(Some(
                 RuntimeValue::from_box(Box::new(cancellation.clone()))
-                    .expect("CancellationScope has a sized owned runtime layout"),
+                    .map_err(|error| ValueBuilderError::Reflection(error.to_string()))?,
             ))
         } else {
             match shape.ty {
@@ -244,7 +247,7 @@ impl ValueBuilder {
                         .fields
                         .iter()
                         .map(|field| BuilderField::from_facet(field, cancellation))
-                        .collect(),
+                        .collect::<Result<_, _>>()?,
                 ),
                 Type::User(UserType::Enum(_)) => BuilderKind::Enum {
                     variant: None,
@@ -253,11 +256,11 @@ impl ValueBuilder {
                 _ => BuilderKind::Scalar(None),
             }
         };
-        Self {
+        Ok(Self {
             cancellation: cancellation.clone(),
             shape,
             kind,
-        }
+        })
     }
 
     pub(crate) const fn shape(&self) -> &'static Shape {
@@ -354,13 +357,14 @@ impl ValueBuilder {
         let BuilderKind::Enum { variant, fields } = &mut self.kind else {
             return Err(ValueBuilderError::NotEnum);
         };
-        *variant = Some(index);
-        *fields = selected
+        let selected_fields = selected
             .data
             .fields
             .iter()
             .map(|field| BuilderField::from_facet(field, &self.cancellation))
-            .collect();
+            .collect::<Result<_, _>>()?;
+        *variant = Some(index);
+        *fields = selected_fields;
         Ok(())
     }
 
@@ -506,11 +510,9 @@ impl BuilderStore {
         if matches!(entry, BuilderEntry::Defined(_)) {
             return Err(ValueBuilderError::BuilderShapeAlreadySet(slot));
         }
+        let builder = ValueBuilder::new_with_cancellation(shape, &self.cancellation)?;
         arena.set_building_shape(slot, shape)?;
-        *entry = BuilderEntry::Defined(ValueBuilder::new_with_cancellation(
-            shape,
-            &self.cancellation,
-        ));
+        *entry = BuilderEntry::Defined(builder);
         self.finalize_if_complete(arena, borrow_graph, slot)
     }
 
@@ -597,7 +599,7 @@ impl BuilderStore {
     ) -> Result<BuilderTransition, ValueBuilderError> {
         if let Some(current) = arena.ready_value(slot) {
             let mut builder =
-                ValueBuilder::new_with_cancellation(current.shape(), &self.cancellation);
+                ValueBuilder::new_with_cancellation(current.shape(), &self.cancellation)?;
             // Reject invalid choices without dropping or modifying the current value.
             builder.select_variant(variant)?;
             let selected = current
@@ -1073,7 +1075,7 @@ impl BuilderStore {
         let entry = self
             .builders
             .remove(&slot)
-            .expect("builder existence checked above");
+            .ok_or(ValueBuilderError::UnknownBuilder(slot))?;
         let BuilderEntry::Defined(builder) = entry else {
             unreachable!("only a complete defined builder reaches materialization")
         };
@@ -2756,8 +2758,8 @@ mod tests {
     fn runtime_cancellation_is_supplied_outside_user_fields_and_keeps_real_indexes() {
         let cancellation = CancellationScope::unbound();
         let builder =
-            ValueBuilder::new_with_cancellation(CancellationFixture::SHAPE, &cancellation);
-        let snapshot = BuilderSnapshot::observe(&builder, 1);
+            ValueBuilder::new_with_cancellation(CancellationFixture::SHAPE, &cancellation).unwrap();
+        let snapshot = BuilderSnapshot::observe(&builder, 1).unwrap();
         assert_eq!(snapshot.fields().len(), 1);
         assert_eq!(snapshot.fields()[0].name(), "label");
         assert_eq!(snapshot.fields()[0].index(), 1);

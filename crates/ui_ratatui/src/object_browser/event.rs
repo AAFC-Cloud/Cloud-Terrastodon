@@ -819,10 +819,11 @@ impl ObjectBrowserApp {
         {
             return Ok(());
         }
-        let task = self
-            .variant_picker_task
-            .take()
-            .expect("a finished variant picker task is present");
+        let task = self.variant_picker_task.take().ok_or_else(|| {
+            ObjectBrowserControllerError::Engine(
+                "finished variant picker task is missing".to_owned(),
+            )
+        })?;
         match task
             .finish()
             .await
@@ -865,10 +866,9 @@ impl ObjectBrowserApp {
         {
             return Ok(());
         }
-        let task = self
-            .value_picker_task
-            .take()
-            .expect("a finished value picker task is present");
+        let task = self.value_picker_task.take().ok_or_else(|| {
+            ObjectBrowserControllerError::Engine("finished value picker task is missing".to_owned())
+        })?;
         match task
             .finish()
             .await
@@ -911,10 +911,11 @@ impl ObjectBrowserApp {
         {
             return Ok(());
         }
-        let task = self
-            .link_action_picker_task
-            .take()
-            .expect("a finished link action picker task is present");
+        let task = self.link_action_picker_task.take().ok_or_else(|| {
+            ObjectBrowserControllerError::Engine(
+                "finished link action picker task is missing".to_owned(),
+            )
+        })?;
         match task
             .finish()
             .await
@@ -966,10 +967,9 @@ impl ObjectBrowserApp {
         {
             return Ok(());
         }
-        let task = self
-            .shape_picker_task
-            .take()
-            .expect("a finished shape picker task is present");
+        let task = self.shape_picker_task.take().ok_or_else(|| {
+            ObjectBrowserControllerError::Engine("finished shape picker task is missing".to_owned())
+        })?;
         match task
             .finish()
             .await
@@ -1489,10 +1489,11 @@ impl ObjectBrowserApp {
         {
             return Ok(());
         }
-        let task = self
-            .breadcrumb_value_picker_task
-            .take()
-            .expect("a finished breadcrumb value picker task is present");
+        let task = self.breadcrumb_value_picker_task.take().ok_or_else(|| {
+            ObjectBrowserControllerError::Engine(
+                "finished breadcrumb value picker task is missing".to_owned(),
+            )
+        })?;
         let edit_index = task.edit_index;
         let field_shape = task.field_shape.clone();
         let field_name = task.field_name.clone();
@@ -1546,10 +1547,11 @@ impl ObjectBrowserApp {
         {
             return Ok(());
         }
-        let task = self
-            .breadcrumb_menu_task
-            .take()
-            .expect("a finished breadcrumb menu task is present");
+        let task = self.breadcrumb_menu_task.take().ok_or_else(|| {
+            ObjectBrowserControllerError::Engine(
+                "finished breadcrumb menu task is missing".to_owned(),
+            )
+        })?;
         match task
             .finish()
             .await
@@ -1670,7 +1672,11 @@ impl ObjectBrowserApp {
         let task = self
             .breadcrumb_filter_field_picker_task
             .take()
-            .expect("a finished breadcrumb filter field picker task is present");
+            .ok_or_else(|| {
+                ObjectBrowserControllerError::Engine(
+                    "finished breadcrumb filter field picker task is missing".to_owned(),
+                )
+            })?;
         match task
             .finish()
             .await
@@ -1706,10 +1712,11 @@ impl ObjectBrowserApp {
         {
             return Ok(());
         }
-        let task = self
-            .breadcrumb_picker_task
-            .take()
-            .expect("a finished breadcrumb picker task is present");
+        let task = self.breadcrumb_picker_task.take().ok_or_else(|| {
+            ObjectBrowserControllerError::Engine(
+                "finished breadcrumb picker task is missing".to_owned(),
+            )
+        })?;
         let target = task.target().clone();
         let context_complete = task.context_complete();
         match task
@@ -2157,7 +2164,15 @@ mod tests {
             }
             app.close().await.unwrap();
         };
-        let (_engine, ()) = tokio::join!(engine.run(inbox), client);
+        let (_engine, ()) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
     }
 
     #[tokio::test]
@@ -2206,7 +2221,15 @@ mod tests {
             app.close().await.unwrap();
         };
 
-        let (_engine, ()) = tokio::join!(engine.run(inbox), client);
+        let (_engine, ()) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
     }
 
     #[tokio::test]
@@ -2235,7 +2258,15 @@ mod tests {
             app.close().await.unwrap();
         };
 
-        let (_engine, ()) = tokio::join!(engine.run(inbox), client);
+        let (_engine, ()) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
     }
 
     #[tokio::test]
@@ -2265,7 +2296,15 @@ mod tests {
             app.close().await.unwrap();
         };
 
-        let (_engine, ()) = tokio::join!(engine.run(inbox), client);
+        let (_engine, ()) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
     }
 
     #[tokio::test]
@@ -2307,7 +2346,15 @@ mod tests {
             app.close().await.unwrap();
         };
 
-        let (_engine, ()) = tokio::join!(engine.run(inbox), client);
+        let (_engine, ()) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
     }
 
     #[tokio::test]
@@ -2391,7 +2438,15 @@ mod tests {
             app.close().await.unwrap();
         };
 
-        let (_engine, ()) = tokio::join!(engine.run(inbox), client);
+        let (_engine, ()) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
     }
 
     #[tokio::test]
@@ -2431,7 +2486,15 @@ mod tests {
             app.close().await.unwrap();
         };
 
-        let (_engine, ()) = tokio::join!(engine.run(inbox), client);
+        let (_engine, ()) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
     }
 
     #[tokio::test]
@@ -2495,7 +2558,15 @@ mod tests {
             app.close().await.unwrap();
             slot
         };
-        let (engine, slot) = tokio::join!(engine.run(inbox), client);
+        let (engine, slot) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
         assert_eq!(
             engine
                 .arena()
@@ -2584,7 +2655,15 @@ mod tests {
                 app.close().await.unwrap();
                 input
             };
-        let (engine, input) = tokio::join!(engine.run(inbox), client);
+        let (engine, input) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
         assert_eq!(engine.active_production_count(), 0);
         assert!(engine.arena().ready_value(input).is_some());
         assert_eq!(
@@ -2740,7 +2819,15 @@ mod tests {
             app.close().await.unwrap();
             export
         };
-        let (engine, export) = tokio::join!(engine.run(inbox), client);
+        let (engine, export) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
         let value = engine.arena().ready_value(export).unwrap();
         let export = value
             .peek()
@@ -2825,7 +2912,15 @@ mod tests {
             destination
         };
 
-        let (engine, destination) = tokio::join!(engine.run(inbox), client);
+        let (engine, destination) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
         assert!(engine.arena().ready_value(destination).is_some());
         assert_eq!(engine.active_production_count(), 0);
         assert_eq!(engine.arena().allocated_slot_count(), 5);
@@ -2885,7 +2980,15 @@ mod tests {
             );
             app.close().await.unwrap();
         };
-        tokio::join!(engine.run(inbox), client);
+        tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
     }
 
     #[tokio::test]
@@ -3016,7 +3119,15 @@ mod tests {
             app.close().await.unwrap();
         };
 
-        let (engine, ()) = tokio::join!(engine.run(inbox), client);
+        let (engine, ()) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
         assert_eq!(engine.arena().allocated_slot_count(), 3);
         assert_eq!(engine.json_serialization_count(), 0);
     }
@@ -3060,7 +3171,15 @@ mod tests {
             assert_eq!(filtered.shapes(), [shape]);
             app.close().await.unwrap();
         };
-        let (_engine, ()) = tokio::join!(engine.run(inbox), client);
+        let (_engine, ()) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
     }
 
     #[tokio::test]
@@ -3117,7 +3236,15 @@ mod tests {
             }));
             app.close().await.unwrap();
         };
-        let (engine, ()) = tokio::join!(engine.run(inbox), client);
+        let (engine, ()) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
         assert_eq!(
             engine.arena().slot(consumed).unwrap().state().label(),
             "Consumed"
@@ -3224,7 +3351,15 @@ mod tests {
             (first, second)
         };
 
-        let (engine, (first, second)) = tokio::join!(engine.run(inbox), client);
+        let (engine, (first, second)) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
         let clone_tab = |slot| {
             engine
                 .arena()
@@ -3310,7 +3445,15 @@ mod tests {
             (request, output)
         };
 
-        let (engine, (request, output)) = tokio::join!(engine.run(inbox), client);
+        let (engine, (request, output)) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
         assert_eq!(engine.invocation_plan_count(), 1);
         assert!(engine.arena().ready_value(request).is_some());
         assert!(engine.arena().ready_value(output).is_some());
@@ -3360,6 +3503,14 @@ mod tests {
             app.close().await.unwrap();
         };
 
-        let (_engine, ()) = tokio::join!(engine.run(inbox), client);
+        let (_engine, ()) = tokio::join!(
+            async {
+                engine
+                    .run(inbox)
+                    .await
+                    .expect("synthetic engine should finish")
+            },
+            client
+        );
     }
 }
