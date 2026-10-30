@@ -1,6 +1,7 @@
 use crate::AuthPartition;
 use crate::CacheScope;
 use crate::ExecutorKind;
+use crate::NonEmptyString;
 use facet::Facet;
 
 /// A concrete artifact entry within an already claimed operation namespace.
@@ -16,9 +17,10 @@ pub struct CacheEntryIdentity {
     pub auth_partition: AuthPartition,
     /// Nonempty, non-secret fingerprint of all semantic execution inputs.
     ///
-    /// Credential bytes must never participate. The store checks nonemptiness
-    /// when admitting an entry; a transport owns its fingerprint construction.
-    pub fingerprint: String,
+    /// Credential bytes must never participate. Construction and decoding enforce
+    /// nonemptiness before ownership can be claimed; a transport owns the format
+    /// and coverage of its fingerprint.
+    pub fingerprint: NonEmptyString,
 }
 
 cloud_terrastodon_registry_values::register_thing!(CacheEntryIdentity);

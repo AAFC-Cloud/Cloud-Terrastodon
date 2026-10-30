@@ -1,6 +1,6 @@
 # Explicit execution and shared typed cache migration
 
-**Plan status:** Active migration; phase 1 and tasks 2.0–2.2 complete. Next: task 2.3.
+**Plan status:** Active migration; phase 1 and tasks 2.0–2.3 complete. Next: task 2.4.
 
 **Primary implementation root:** Repository root (`.`); no branch change prescribed.
 
@@ -18,9 +18,11 @@ and authorization to proceed with implementation.
 
 **Current authorization:** The user authorized proceeding with the migration on
 2026-10-30 and subsequently requested committing the completed foundation and
-proceeding. The reviewed foundation was committed as `3ebfe69b`. The latest request
-is to commit the completed artifact-storage slice and describe the next phase;
-the next implementation task remains 2.3 in the dependency order below.
+proceeding. The reviewed foundation was committed as `3ebfe69b`, and the completed
+artifact-storage slice as `821acce9`. After that checkpoint and the next-phase
+description, the user authorized proceeding with task 2.3. The latest request
+authorizes committing that slice and its fingerprint refinement, then describing
+task 2.4; it does not start the next implementation slice.
 Publication and production-data access remain outside authorization.
 
 ## How to update this plan
@@ -52,14 +54,16 @@ changes since the recorded baseline before starting.
   proceed and commit the completed foundation, the artifact timestamp type
   correction, the retention/metadata/digest clarity corrections, and the helper
   ownership, storage-type, and cache-path boundary reviews, followed by the
-  request to commit this slice and describe the next phase. U01–U41 preserve
+  request to commit this slice, describe the next phase, and proceed, then the
+  fingerprint validation-order and newtype correction, and the request to commit
+  the coordinated-cache slice and describe the next phase. U01–U44 preserve
   the distinct instructions; optional source-location ownership, optional
   Vec<Arc<T>>, and a possible cache
   crate remain optional. The explicit-tenant correction supersedes the earlier
   assistant compatibility suggestion. U29 preserves the prohibition on production
   data access or ingestion into agent context; U30 adds workspace Clippy; U31
   requires collision prevention/detection while keeping a REST prefix a candidate.
-- **Pass 2 — traceability:** Verified all 41 ledger IDs have matching traceability
+- **Pass 2 — traceability:** Verified all 44 ledger IDs have matching traceability
   rows and concrete task/gate/acceptance coverage. Reviewed the inverse mapping:
   crate names, aggregate persistence, output bounds, and locking details are
   implementation decisions rather than attributed user decisions. Source review
@@ -116,6 +120,28 @@ changes since the recorded baseline before starting.
   retain cache-specific encoding in pathing. The implementation retains general
   sanitization there and unchanged physical names. All 40 ledger/traceability
   pairs and 129 relative links pass; fences, whitespace, and privacy checks pass.
+- **Typed-coordination checkpoint audit:** U41's storage commit is `821acce9`;
+  U42 authorizes task 2.3. The implemented memory-coordination layer retains the
+  user-selected ownership, cancellation/retry, and shared-handle boundaries.
+  All 42 ledger/traceability pairs and 134 relative links pass, as do fences,
+  whitespace, and identifying-path/name checks. Task 2.3 records 71 executed local
+  cache tests, the existing symlink privilege skip, Clippy, formatting, and
+  independent review. Generation/dependency freshness and production adapter
+  cutover remain pending; user notes and staging were preserved.
+- **Fingerprint invariant audit:** U43 records the validation-order correction
+  and requested `NonEmptyString` type. Extraction, traceability, and adversarial
+  checks preserve both typed-work and artifact admission, exact string wire
+  compatibility, and transport ownership of fingerprint semantics. All 43
+  ledger/traceability pairs and 135 relative links pass, as do fences, whitespace,
+  and privacy checks. Constructor and proxy validation tests, the cache suite,
+  cache Clippy with warnings denied, and nightly formatting pass. Independent
+  review found no invariant bypass; user notes and staging remain untouched.
+- **Coordinated-cache commit review:** U44 authorizes a local commit of task 2.3
+  and its fingerprint refinement. Extraction maps the request to the checkpoint;
+  traceability maps its next-phase description to task 2.4; adversarial review
+  retains unrelated notes and keeps next-phase implementation and publication
+  outside this checkpoint. Existing focused validation remains applicable because
+  this checkpoint adds only plan bookkeeping after the tested source revision.
 - **Known source limitation:** None. The design discussion, corrections, repository
   instructions, plan request, and planning replies are available in this session.
 
@@ -168,6 +194,9 @@ do not silently rewrite earlier guidance.
 | U39 | Review whether remaining free functions reveal missing domain types and names, with associated functions on newtypes as a possible solution. | Introduce types where they own path confinement, file persistence, or lock lifetime; avoid empty utility namespaces or a blanket ban on free functions. | — |
 | U40 | Review why the cache path encoder lives in pathing; prefer a cache-local `CachePathComponent` owning its guarantees unless planned dependencies require otherwise. | Verify callers and dependency direction; keep general sanitization in pathing and cache-specific physical encoding with the cache storage types. | — |
 | U41 | Commit the current changes and describe the next phase. | Commit the completed artifact-storage slice and its refinements, preserve unrelated notes, and explain task 2.3 with task 2.4 as the following dependency. | — |
+| U42 | Proceed after the artifact-storage commit and description of coordinated initialization. | Implement task 2.3 and its local concurrency/cancellation proofs; keep generation/dependency invalidation and adapter migration in their subsequent tasks. | — |
+| U43 | Validate the fingerprint before claiming cache ownership; use a `NonEmptyString` newtype to enforce the nonempty invariant. | Require validated fingerprints for both typed work and raw artifacts, including deserialization, so invalid input cannot reserve an operation/output claim. | — |
+| U44 | Commit the coordinated-cache changes and describe the next phase. | Commit task 2.3 with its fingerprint refinement and local validation, preserve unrelated notes, and explain task 2.4's generations and composed dependencies. | — |
 
 U18 supersedes the earlier assistant suggestion to preserve an Azure CLI
 active-tenant selection. That suggestion was not user approval. U13 rejects the
@@ -218,7 +247,10 @@ cache reuse. U14 and U16 deliberately retain their original optional qualifiers.
 | U38 | 2.2 | Entry/path/selection behavior beside its owning types; shared filesystem and gate contracts preserved and verified |
 | U39 | 2.2 | Root-bound directory/file handles and worker-owned I/O guard; per-operation ancestor checks and dropped-awaiter lock regression |
 | U40 | G1, 2.2 | Cache-local validated encoding with unchanged physical names; existing cache-to-pathing edge retained for general sanitization |
-| U41 | Current handoff; 2.2, 2.3, 2.4 | Reviewed artifact-storage commit and next-step description; typed reuse and generation invalidation remain pending |
+| U41 | Artifact checkpoint; 2.2, 2.3, 2.4 | Artifact-storage commit `821acce9` and next-step description; later progress is tracked under U42 |
+| U42 | 2.3 | Stable initializer ownership, shared decoded values, explicit ancestry, cancellation/retry and cycle tests |
+| U43 | 2.2, 2.3 | Both entry points require `NonEmptyString`; constructor/proxy rejection and exact string preservation tests |
+| U44 | Coordinated-cache checkpoint; 2.3, 2.4 | Local commit containing this checkpoint and the description of generation/dependency invalidation |
 
 ## Purpose and scope
 
@@ -666,7 +698,8 @@ runtime defaults. Kind does not decide effects, authentication, or cancellation.
 ### [x] 2.2 Isolate disk variants and make publication coherent
 
 **Completion notes:** Tasks 2.0–2.1 and the phase 1 contracts are committed as
-`3ebfe69b`. This completed slice adds [ArtifactEntry](../../crates/cache/src/artifact_entry.rs),
+`3ebfe69b`; the artifact-storage slice and its refinements are committed as
+`821acce9`. This completed slice adds [ArtifactEntry](../../crates/cache/src/artifact_entry.rs),
 [ArtifactAttempt](../../crates/cache/src/artifact_attempt.rs), transport-neutral raw
 sets, and required identity/freshness records. `WorkCache::artifacts<T>` checks
 operation/output ownership before admitting a variant. Physical entries live
@@ -829,7 +862,82 @@ rustup run nightly -- cargo fmt -p cloud_terrastodon_cache -p cloud_terrastodon_
 variant inputs cannot clobber each other. Disk type diagnostics never substitute
 for current decoding. No cross-process guarantee is inferred from these tests.
 
-### [ ] 2.3 Coordinate initialization and reuse canonical decoded values
+### [x] 2.3 Coordinate initialization and reuse canonical decoded values
+
+**Completion notes:** The implementation and focused validation are complete.
+`WorkCache::cached_work` checks the canonical operation/output claim synchronously
+before creating an awaitable [CachedWorkSpec](../../crates/cache/src/cached_work_spec.rs).
+The bound specification owns the cache handle and concrete identity, borrows the
+caller scope and optional parent attempt, and accepts a caller-owned initializer
+future without a `'static` requirement. Awaiting returns `Arc<T>`; only this shared
+output boundary requires `Send + Sync + 'static`.
+
+U43 moves fingerprint validation into
+[NonEmptyString](../../crates/cache/src/non_empty_string.rs), with private storage
+and a validating Facet string proxy. Both `CacheEntryIdentity::fingerprint` and
+`WorkCache::artifacts` require this type before `claim` can run. No failed empty
+fingerprint admission can leave behind an ownership reservation. The scalar wire
+representation and exact nonempty contents remain unchanged; transport-specific
+fingerprint format and semantic input coverage remain the transport's responsibility.
+
+The registry holds weak references to per-entry initializer locks. Every waiting
+and running invocation retains a strong reference, so memory eviction cannot
+replace a live lock. Memory is checked both before waiting and after ownership is
+acquired. Successful fresh values retain their original observation and monotonic
+age. Shorter caller validity narrows reuse; an expired outcome still returns to
+its original caller but is not published. Rejected or failed work is not cached.
+`release_memory` reclaims decoded values and dead coordination records without
+changing claims, live locks, disk artifacts, or the meaning of already-returned
+snapshots. User value destructors run outside the state and artifact locks.
+
+[WorkAttempt](../../crates/cache/src/work_attempt.rs) identifies one bounded
+initializer, independently of its reusable entry address. An explicit guard
+closes that identity on return, error, cancellation, or drop; cloned tokens cannot
+prolong ownership or attach children after completion. The
+[wait graph](../../crates/cache/src/work_wait_graph.rs) counts parent-to-child
+edges until whole child invocations finish. It rejects direct recursion and
+cross-task cycles, including recursion through a zero-validity intermediary.
+Zero-validity operations execute independently and preserve their nearest active
+initializer ancestry without acquiring a new entry lock or reusing a value.
+
+The bound spec uses the supplied scope's `cancellable_scope` and passes the
+factory's child to the initializer. Cancellation stops a pending initializer or
+waiter while respecting linked required completion. An independently owned waiter
+can retry; root cancellation stops all affected callers. No background fill task,
+global cache, task-local ancestry, or credential access was added.
+
+[WorkOutput](../../crates/cache/src/work_output.rs) currently represents a fresh
+execution observation. It is not an import path for decoded disk hits: the later
+transport lifecycle must carry the complete admitted artifact freshness and
+monotonic correlation, preserving any shorter existing deadline. Task 2.4 still
+owns generation/dependency certificates, warm transitive dependency-cycle checks,
+and effect admission. This slice therefore does not authorize production adapter
+cutover or claim safe composed-result invalidation.
+
+All 40 cache unit tests, 17
+[coordination integration tests](../../crates/cache/tests/work_cache_tests.rs),
+13 artifact-store tests, and three executed input-integrity tests passed. The
+additional Windows symlink test still skips for unavailable privilege. The new
+proofs cover one execution/decode with pointer-identical concurrent and warm
+results; independent identities; pending/warm owner and output conflicts;
+initializer error, cancellation, and drop recovery; waiter and root cancellation;
+required-completion draining; recursive and cross-task cycles; uncached ancestry;
+namespace-separated wrapper/transport nesting; and eviction while a fill is live.
+Unit tests additionally prove parallel wait-edge reference counts, stale versus
+stricter-caller freshness, original-observation expiry after decoding, and reclaiming
+dead coordination without releasing claims. U43's two new scalar tests reject
+empty construction and decoding while preserving whitespace, Unicode, and the
+existing string wire representation. Tests use explicit polling, barriers,
+and channels with deadlock timeouts; no timing sleeps or production inputs are used.
+Cache Clippy with warnings denied and nightly formatting pass. Independent review
+found no remaining blocker for this slice. No manifest or dependency pin changed.
+
+**Commit checkpoint (U44):** This checkpoint includes coordinated typed reuse,
+bounded attempts and wait edges, cancellation/retry, memory eviction, and the
+validated fingerprint refinement. Its subject is `Coordinate typed cache work and
+enforce fingerprint invariants`. Task 2.4 remains the next slice: coordinate
+hierarchical invalidation with memory/disk publication and record composed child
+dependencies, using deterministic local race tests before any transport cutover.
 
 **Work:** Implement short entry-map locking, stable per-key async ownership,
 post-lock recheck, operation/output ownership verification, and shared typed
@@ -847,18 +955,22 @@ each other's keys: record wait edges before awaiting ownership and clean them up
 on completion/cancellation. Keep zero-duration/noncacheable operations executing.
 Define bounded/reclaimable idle coordination entries without removing live locks.
 
-**Validation:** Proposed `work_cache_tests` target; counters prove one execution
+**Validation:** The local `work_cache_tests` target uses counters to prove one execution
 and canonical decode for concurrent successful callers, warm pointer reuse,
 different-key concurrency, owner mismatch, failed/cancelled initializer recovery,
 cancelled waiter isolation, root cancellation, cross-task wait cycles, and
 zero-duration non-reuse. Add synthetic wrapper/transport nesting under the same
 logical key, same-namespace mismatches on both pending and warm entries, matching
 types with different owners/fingerprints, and recursive same-entry rejection.
-Use local typed work and the existing local REST boundary; do not run the live
+This task uses local typed work, including synthetic Rest/InProcess namespace
+nesting. Actual HTTP adapter validation uses the existing local REST boundary in
+task 4.2; these cache tests do not claim HTTP integration. Do not run the live
 locations test:
 
 ```powershell
-cargo test --offline --locked -p cloud_terrastodon_cache --test work_cache_tests
+cargo test --offline --locked -p cloud_terrastodon_cache --lib --tests
+cargo clippy --offline --locked -p cloud_terrastodon_cache --all-targets -- -D warnings
+rustup run nightly -- cargo fmt -p cloud_terrastodon_cache --check
 ```
 
 **Completion criteria:** A hit does not deserialize or deep-copy its result; failed
@@ -1261,7 +1373,7 @@ evidence and documentation. This item remains deferred when phases 1–7 complet
 
 | Surface/target | Initial support contract | Required proof | Evidence |
 | --- | --- | --- | --- |
-| Shared cache handle and executor clones | Coordinated within one owner | Concurrent typed sharing, per-key ownership, generation/dependency races | Pending |
+| Shared cache handle and executor clones | Coordinated within one owner | Concurrent typed sharing, per-key ownership, generation/dependency races | Task 2.3 cache coordination passed; executor integration and generation/dependency races pending |
 | Independent handles/processes sharing disk | No single-flight/coherent invalidation guarantee yet | Document limits; phase 8 supplies stronger proof later | Deferred |
 | Command, REST, in-process reads | One lifecycle, canonical memoization | Local adapter + cache tests; different validators still run | Pending |
 | Raw artifact storage | Isolated complete attempts and guarded selection within one handle | Local storage/integrity, freshness, and worker-drop tests | Task 2.2 passed; adapters and generation checks remain pending |
@@ -1278,7 +1390,7 @@ evidence and documentation. This item remains deferred when phases 1–7 complet
 
 ## Overall initial-migration completion criteria
 
-- [ ] Every active U01–U41 requirement has task evidence; G1–G6 are closed and
+- [ ] Every active U01–U44 requirement has task evidence; G1–G6 are closed and
   phases 1–7 complete. Phase 8 remains explicitly deferred.
 - [ ] Requests contain explicit operation/auth selection data and no execution
   resources; both execute spellings and registry invocation share one contract.

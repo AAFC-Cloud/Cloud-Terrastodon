@@ -8,6 +8,7 @@ use cloud_terrastodon_cache::CacheKey;
 use cloud_terrastodon_cache::CacheOperationOwner;
 use cloud_terrastodon_cache::CacheScope;
 use cloud_terrastodon_cache::ExecutorKind;
+use cloud_terrastodon_cache::NonEmptyString;
 use cloud_terrastodon_cache::StoredArtifact;
 use cloud_terrastodon_cache::WorkCache;
 use std::collections::BTreeMap;
@@ -36,7 +37,7 @@ fn entry(
         },
         CacheOperationOwner::of::<SyntheticRead>(),
         AuthPartition::new(partition)?,
-        fingerprint,
+        NonEmptyString::new(fingerprint)?,
         retention,
     )
 }
@@ -190,7 +191,7 @@ fn conflicting_contracts_fail_before_creating_an_artifact_directory() -> eyre::R
                 key.clone(),
                 CacheOperationOwner::of::<OtherSyntheticRead>(),
                 AuthPartition::new("another-session")?,
-                "another-fingerprint",
+                NonEmptyString::new("another-fingerprint")?,
                 ArtifactRetention::Full,
             )
             .is_err()
@@ -202,7 +203,7 @@ fn conflicting_contracts_fail_before_creating_an_artifact_directory() -> eyre::R
                 key,
                 CacheOperationOwner::of::<SyntheticRead>(),
                 AuthPartition::new("another-session")?,
-                "another-fingerprint",
+                NonEmptyString::new("another-fingerprint")?,
                 ArtifactRetention::Full,
             )
             .is_err()
@@ -338,7 +339,7 @@ async fn caller_lifetime_narrows_loaded_freshness_without_reanchoring_observatio
                     },
                     CacheOperationOwner::of::<SyntheticRead>(),
                     AuthPartition::new("synthetic-session")?,
-                    "caller-lifetime",
+                    NonEmptyString::new("caller-lifetime")?,
                     ArtifactRetention::Full,
                 )?;
                 let loaded = reader.load(&scope).await?.unwrap();
@@ -623,7 +624,7 @@ async fn zero_validity_retains_inspectable_artifacts_without_reuse() -> eyre::Re
                 },
                 CacheOperationOwner::of::<SyntheticRead>(),
                 AuthPartition::new("synthetic-session")?,
-                "mutation",
+                NonEmptyString::new("mutation")?,
                 ArtifactRetention::Full,
             )?;
             let stored = finish(&entry, b"synthetic mutation response", &scope).await?;

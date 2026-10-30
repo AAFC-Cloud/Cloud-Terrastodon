@@ -5,7 +5,7 @@ use std::sync::Mutex;
 
 /// Shared backing ownership retained for the lifetime of all cloned handles.
 /// The registry mutex protects short bookkeeping changes. The asynchronous gate
-/// coordinates artifact I/O; neither mutex coalesces execution yet.
+/// coordinates artifact I/O; per-entry initializer mutexes coalesce execution.
 #[derive(Debug)]
 pub(crate) struct WorkCacheState {
     pub root: PathBuf,

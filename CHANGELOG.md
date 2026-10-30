@@ -1,5 +1,7 @@
 # Unreleased
 
+- Add per-entry initialization and decoded `Arc` reuse to the explicit cache owner, with caller-owned cancellation, retry, and wait-cycle detection. Generation/dependency invalidation and transport cutover remain pending.
+
 - Add isolated raw artifact storage to the explicit cache owner: unique input workspaces, verified immutable payloads, guarded publication, sensitive-output exclusion, and freshness preserved through disk reloads. Command and REST cutover remains pending.
 
 - Add `cloud_terrastodon_cache` foundations with explicit roots, validated logical scopes, and operation/output ownership checks. Command and REST continue using their existing caches until the coordinated lifecycle migration.

@@ -1,9 +1,10 @@
 # Cache publication and dependency coordination
 
-**Status:** Phase 1 decision document. The algorithm below is selected for G5 and
-G6 of the [executor/cache migration plan](executor-cache-migration.md). It is not
-implemented or runtime-validated. The validation scenarios describe future proof
-obligations; they are not test results.
+**Status:** Selected G5/G6 contract for the
+[executor/cache migration plan](executor-cache-migration.md). Raw artifact storage
+and memory initialization/reuse have local validation in tasks 2.2–2.3. Generation,
+dependency, and transport integration remain pending. The owning plan records the
+implemented boundaries and test evidence; scenarios below are not all proven.
 
 **Decision date:** 2026-10-30.
 

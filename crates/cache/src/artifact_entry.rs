@@ -60,7 +60,7 @@ impl ArtifactEntry {
             self.identity.auth_partition.as_str(),
         ));
         directory.push(CachePathComponent::from_identity(
-            &self.identity.fingerprint,
+            self.identity.fingerprint.as_str(),
         ));
         directory
     }

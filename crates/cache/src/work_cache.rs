@@ -5,7 +5,11 @@ use crate::AuthPartition;
 use crate::CacheEntryIdentity;
 use crate::CacheKey;
 use crate::CacheOperationOwner;
+use crate::CachedWorkSpec;
 use crate::ExecutorKind;
+use crate::NonEmptyString;
+use crate::WorkAttempt;
+use crate::WorkOutput;
 use crate::cache_ownership_claim::CacheOwnershipClaim;
 use crate::cache_state::CacheState;
 use crate::work_cache_state::WorkCacheState;
@@ -14,12 +18,17 @@ use eyre::ensure;
 use eyre::eyre;
 use std::any::TypeId;
 use std::any::type_name;
+use std::future::Future;
+use std::marker::PhantomData;
 use std::panic::Location;
 use std::path::Component;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::MutexGuard;
+use std::time::Duration;
+use teamy_cancellation::CancellationScope;
 
 /// An explicitly owned cache root and its in-process logical operation claims.
 ///
@@ -27,8 +36,8 @@ use std::sync::Mutex;
 /// even when given the same root. Construction and claiming perform no I/O,
 /// resolve no defaults, and never consult the legacy command cache.
 ///
-/// Raw artifact access shares this owner. Typed results and single-in-flight
-/// execution are not yet implemented.
+/// Raw artifacts and shared decoded results use this owner. Generation-based
+/// invalidation and dependency freshness are subsequent migration layers.
 #[derive(Clone, Debug)]
 pub struct WorkCache {
     // One shared owner keeps the root and all accepted claims together.
@@ -36,6 +45,68 @@ pub struct WorkCache {
 }
 
 impl WorkCache {
+    /// Bind canonical work after checking its operation/output ownership.
+    ///
+    /// Pass the callback's attempt token to nested work, including through
+    /// nonreusable intermediaries. Zero validity executes independently on every
+    /// await and never joins or publishes a shared result. Initializers may borrow
+    /// caller data; only retained outputs require `Send + Sync + 'static`.
+    #[track_caller]
+    pub fn cached_work<'a, T, F, Fut>(
+        &self,
+        identity: CacheEntryIdentity,
+        operation_owner: CacheOperationOwner,
+        valid_for: Duration,
+        parent: Option<&'a WorkAttempt>,
+        cancellation: &'a CancellationScope,
+        initialize: F,
+    ) -> Result<CachedWorkSpec<'a, T, F>>
+    where
+        T: Send + Sync + 'static,
+        F: FnOnce(Option<WorkAttempt>, CancellationScope) -> Fut + Send + 'a,
+        Fut: Future<Output = Result<WorkOutput<T>>> + Send + 'a,
+    {
+        self.claim::<T>(
+            identity.kind.clone(),
+            &CacheKey {
+                scope: identity.scope.clone(),
+                valid_for,
+            },
+            operation_owner,
+        )?;
+        Ok(CachedWorkSpec {
+            cache: self.clone(),
+            identity,
+            validity: valid_for,
+            parent,
+            cancellation,
+            initialize,
+            output: PhantomData,
+        })
+    }
+
+    /// Reclaim decoded values and dead coordination entries. Existing snapshots
+    /// and live initializer locks survive. This is memory eviction, not disk or
+    /// generation invalidation; already-running work may publish afterward.
+    pub fn release_memory(&self) -> Result<()> {
+        let values = {
+            let mut state = self.lock_state()?;
+            state
+                .coordination
+                .retain(|_, entry| entry.strong_count() > 0);
+            std::mem::take(&mut state.values)
+        };
+        drop(values);
+        Ok(())
+    }
+
+    pub(crate) fn lock_state(&self) -> Result<MutexGuard<'_, CacheState>> {
+        self.state
+            .registry
+            .lock()
+            .map_err(|_| eyre!("cache state was poisoned while coordinating work"))
+    }
+
     /// Claim a concrete raw-artifact identity before any disk access. The
     /// partition must be admitted by authentication policy and contain no secret;
     /// fingerprints must cover all semantic inputs without exposing credentials.
@@ -46,15 +117,10 @@ impl WorkCache {
         key: CacheKey,
         operation_owner: CacheOperationOwner,
         auth_partition: AuthPartition,
-        fingerprint: impl Into<String>,
+        fingerprint: NonEmptyString,
         retention: ArtifactRetention,
     ) -> Result<ArtifactEntry> {
         self.claim::<T>(kind.clone(), &key, operation_owner)?;
-        let fingerprint = fingerprint.into();
-        ensure!(
-            !fingerprint.is_empty(),
-            "artifact fingerprint must not be empty"
-        );
         Ok(ArtifactEntry {
             cache: self.clone(),
             identity: CacheEntryIdentity {

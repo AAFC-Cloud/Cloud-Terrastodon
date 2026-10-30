@@ -1,8 +1,9 @@
 //! Explicit ownership and logical identity for shared work caches.
 //!
 //! An explicit owner reserves operation/output contracts and coordinates raw
-//! artifact storage. Typed result reuse, initializer coordination, and generation
-//! invalidation are subsequent layers. No implicit legacy-cache bridge exists.
+//! artifact storage and shared decoded results with per-entry initialization.
+//! Generation/dependency invalidation is a subsequent layer. No implicit
+//! legacy-cache bridge exists.
 
 mod artifact_age;
 mod artifact_attempt;
@@ -26,7 +27,10 @@ mod artifact_timestamp_proxy;
 mod auth_partition;
 mod cache_entry_identity;
 mod cache_state;
+mod cached_work_spec;
+mod cached_work_value;
 mod loaded_artifact;
+mod non_empty_string;
 mod stored_artifact;
 
 mod cache_key;
@@ -35,8 +39,14 @@ mod cache_ownership_claim;
 mod cache_path_component;
 mod cache_scope;
 mod executor_kind;
+mod work_attempt;
+mod work_attempt_guard;
 mod work_cache;
 mod work_cache_state;
+mod work_coordination;
+mod work_output;
+mod work_wait_graph;
+mod work_wait_guard;
 
 pub use artifact_attempt::ArtifactAttempt;
 pub use artifact_entry::ArtifactEntry;
@@ -51,7 +61,11 @@ pub use cache_entry_identity::CacheEntryIdentity;
 pub use cache_key::CacheKey;
 pub use cache_operation_owner::CacheOperationOwner;
 pub use cache_scope::CacheScope;
+pub use cached_work_spec::CachedWorkSpec;
 pub use executor_kind::ExecutorKind;
 pub use loaded_artifact::LoadedArtifact;
+pub use non_empty_string::NonEmptyString;
 pub use stored_artifact::StoredArtifact;
+pub use work_attempt::WorkAttempt;
 pub use work_cache::WorkCache;
+pub use work_output::WorkOutput;

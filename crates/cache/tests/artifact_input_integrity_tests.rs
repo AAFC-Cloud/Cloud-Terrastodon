@@ -8,6 +8,7 @@ use cloud_terrastodon_cache::CacheKey;
 use cloud_terrastodon_cache::CacheOperationOwner;
 use cloud_terrastodon_cache::CacheScope;
 use cloud_terrastodon_cache::ExecutorKind;
+use cloud_terrastodon_cache::NonEmptyString;
 use cloud_terrastodon_cache::WorkCache;
 use std::collections::BTreeMap;
 use std::fs;
@@ -26,7 +27,7 @@ fn entry(cache: &WorkCache) -> eyre::Result<ArtifactEntry> {
         },
         CacheOperationOwner::of::<SyntheticRead>(),
         AuthPartition::new("synthetic-session")?,
-        "synthetic-query",
+        NonEmptyString::new("synthetic-query")?,
         ArtifactRetention::Full,
     )
 }
