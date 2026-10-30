@@ -1,5 +1,7 @@
 # Unreleased
 
+- Add isolated raw artifact storage to the explicit cache owner: unique input workspaces, verified immutable payloads, guarded publication, sensitive-output exclusion, and freshness preserved through disk reloads. Command and REST cutover remains pending.
+
 - Add `cloud_terrastodon_cache` foundations with explicit roots, validated logical scopes, and operation/output ownership checks. Command and REST continue using their existing caches until the coordinated lifecycle migration.
 
 - Extract pure value reflection and offline constructors into `cloud_terrastodon_registry_values`, retaining existing value imports through `cloud_terrastodon_registry`. `known_functions()` now returns an iterable `KnownFunctions` view instead of a slice so it includes lower-level constructors while preserving existing registration-handle identity; consumers requiring a slice must adapt to catalog iteration.

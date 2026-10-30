@@ -321,6 +321,12 @@ guard in place, preventing a later reader from selecting an ambiguous record.
 Required completion covers cooperative cancellation, not arbitrary future drop;
 quarantine must not depend on an error handler getting another poll.
 
+Filesystem work can outlive its awaiting future. Move the owned I/O gate into
+the complete blocking filesystem operation and return it with the outcome.
+Only the awaited success path, still owning that returned gate, may clear
+publication quarantine. Dropping the awaiter leaves the worker holding the gate
+until its writes finish; another publication cannot overtake those writes.
+
 The commit record may carry format metadata needed to read the artifact store,
 but persisted operation/output type names remain diagnostic. No persisted
 `TypeId`, Rust schema token, or caller location controls payload acceptance.

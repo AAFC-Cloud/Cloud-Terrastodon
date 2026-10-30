@@ -1,6 +1,6 @@
 # Explicit execution and shared typed cache migration
 
-**Plan status:** Active migration; phase 1 and tasks 2.0–2.1 complete. Next: task 2.2.
+**Plan status:** Active migration; phase 1 and tasks 2.0–2.2 complete. Next: task 2.3.
 
 **Primary implementation root:** Repository root (`.`); no branch change prescribed.
 
@@ -18,7 +18,9 @@ and authorization to proceed with implementation.
 
 **Current authorization:** The user authorized proceeding with the migration on
 2026-10-30 and subsequently requested committing the completed foundation and
-proceeding. Commit that reviewed slice, then follow the dependency order below.
+proceeding. The reviewed foundation was committed as `3ebfe69b`. The latest request
+is to commit the completed artifact-storage slice and describe the next phase;
+the next implementation task remains 2.3 in the dependency order below.
 Publication and production-data access remain outside authorization.
 
 ## How to update this plan
@@ -47,14 +49,17 @@ changes since the recorded baseline before starting.
   audit/cache-race discussion through executor/request shaping, disk typing,
   authentication corrections, Arc collections, invalidation, the plan request,
   all three planning replies, the latest review corrections, and authorization to
-  proceed and commit the completed foundation. U01–U33 preserve
+  proceed and commit the completed foundation, the artifact timestamp type
+  correction, the retention/metadata/digest clarity corrections, and the helper
+  ownership, storage-type, and cache-path boundary reviews, followed by the
+  request to commit this slice and describe the next phase. U01–U41 preserve
   the distinct instructions; optional source-location ownership, optional
   Vec<Arc<T>>, and a possible cache
   crate remain optional. The explicit-tenant correction supersedes the earlier
   assistant compatibility suggestion. U29 preserves the prohibition on production
   data access or ingestion into agent context; U30 adds workspace Clippy; U31
   requires collision prevention/detection while keeping a REST prefix a candidate.
-- **Pass 2 — traceability:** Verified all 33 ledger IDs have matching traceability
+- **Pass 2 — traceability:** Verified all 41 ledger IDs have matching traceability
   rows and concrete task/gate/acceptance coverage. Reviewed the inverse mapping:
   crate names, aggregate persistence, output bounds, and locking details are
   implementation decisions rather than attributed user decisions. Source review
@@ -85,6 +90,32 @@ changes since the recorded baseline before starting.
   migration documents resolve; fences and whitespace checks pass. Privacy checks
   cover those documents and both sketch files. No identifying local paths or
   personal-information patterns were found. Existing user notes remain untouched.
+- **Artifact-store checkpoint audit:** After task 2.2, all 33 ledger/traceability
+  pairs and 122 relative links across the four migration documents pass checks.
+  Fences, tracked/new-source whitespace, and identifying-path/name checks pass.
+  The storage slice retains U13's diagnostic-only disk types, U22's explicit
+  ownership, U27's shared-handle boundary, U29's production-data prohibition, and
+  U31's checked identity ownership. Typed reuse, hierarchical invalidation, and adapter
+  migration remain explicitly pending; no storage-only evidence claims them.
+- **Timestamp type correction:** U34 adds the request for strongly typed expiry.
+  Task 2.2 now retains `DateTime<Utc>` in both wire-record timestamp fields;
+  a field proxy owns lossless string conversion and rejects malformed persisted
+  timestamps. The existing precision and freshness rules remain in force.
+  All seven focused freshness tests and 13 artifact-store tests passed after
+  this correction, along with cache Clippy and formatting checks; independent
+  source review found no remaining issue in the change. User staging is preserved.
+- **Storage-type checkpoint audit:** U39 is covered by root-bound directory/file
+  handles and the worker-owned I/O guard. All 39 ledger/traceability pairs and
+  129 relative links across the four migration documents pass checks. Fences,
+  whitespace, and identifying-path/name checks pass. The refinement passed 47
+  executed cache tests, cache Clippy with warnings denied, and nightly formatting;
+  the symlink test reports a Windows privilege skip. Independent review found no
+  remaining invariant regression. User notes and staging remain untouched.
+- **Cache-path boundary audit:** U40 preserves the dependency question and the
+  preference for a cache-local type. Caller and G1 review found no requirement to
+  retain cache-specific encoding in pathing. The implementation retains general
+  sanitization there and unchanged physical names. All 40 ledger/traceability
+  pairs and 129 relative links pass; fences, whitespace, and privacy checks pass.
 - **Known source limitation:** None. The design discussion, corrections, repository
   instructions, plan request, and planning replies are available in this session.
 
@@ -129,6 +160,14 @@ do not silently rewrite earlier guidance.
 | U31 | Prevent cache-key collisions or detect and bail; do not rely on callers never reusing a key. A REST prefix may be the simplest approach. | Enforce namespace/owner contracts centrally, test collisions, and preserve logical-scope invalidation across namespaces; prefix spelling remains a design choice. | — |
 | U32 | Proceed after confirming readiness to begin with phase 1. | Execute the migration in dependency order, starting with concrete contract closure and caller inventory; retain the production-data prohibition. | — |
 | U33 | Commit the completed work and proceed. | Commit the reviewed foundation slice without unrelated user notes, then implement task 2.2 with local synthetic validation. | — |
+| U34 | Use a strong type for artifact expiry instead of an interchangeable string. | Keep timestamps typed and isolate exact wire formatting and validation at the serialization boundary. | — |
+| U35 | Clarify the behavior represented by `ArtifactRetention::Sensitive`. | Name and document the actual storage policy, including its scope and effects on existing artifacts. | — |
+| U36 | Make operation/owner naming consistent and construct type-name metadata through `new<T>`. | Identify the canonical operation owner explicitly and centralize diagnostic type-name capture in the metadata type. | — |
+| U37 | Give `ArtifactFileDigest` a constructor that owns its digest definition and include a `blake3:` prefix. | Centralize digest construction and verification; persist an explicit algorithm tag. | — |
+| U38 | Inline `entry_directory` into its owning entry method and review whether other free functions should move. | Keep type-specific behavior with its existing owner; retain shared functions when they centralize meaningful common behavior. | — |
+| U39 | Review whether remaining free functions reveal missing domain types and names, with associated functions on newtypes as a possible solution. | Introduce types where they own path confinement, file persistence, or lock lifetime; avoid empty utility namespaces or a blanket ban on free functions. | — |
+| U40 | Review why the cache path encoder lives in pathing; prefer a cache-local `CachePathComponent` owning its guarantees unless planned dependencies require otherwise. | Verify callers and dependency direction; keep general sanitization in pathing and cache-specific physical encoding with the cache storage types. | — |
+| U41 | Commit the current changes and describe the next phase. | Commit the completed artifact-storage slice and its refinements, preserve unrelated notes, and explain task 2.3 with task 2.4 as the following dependency. | — |
 
 U18 supersedes the earlier assistant suggestion to preserve an Azure CLI
 active-tenant selection. That suggestion was not user approval. U13 rejects the
@@ -172,6 +211,14 @@ cache reuse. U14 and U16 deliberately retain their original optional qualifiers.
 | U31 | G3, 1.2, 2.2–2.4, 4.2 | Wrapper/transport separation, same-namespace owner/type rejection, and cross-namespace invalidation |
 | U32 | Current authorization; 1.1, 1.2; execution order | Concrete contracts, caller batches, and local verification evidence before downstream migration |
 | U33 | Current authorization; 2.0–2.2 | Reviewed foundation commit, preserved user notes, and artifact-store implementation evidence |
+| U34 | 2.2 | Typed timestamp fields, exact nanosecond roundtrips, and malformed timestamp rejection before record construction |
+| U35 | 2.2 | Explicit disabled-storage policy; synthetic tests for no staging/reuse/publication and preservation of existing artifacts |
+| U36 | 2.2 | Metadata constructor and consistent operation-owner names; both persisted type names remain diagnostic-only |
+| U37 | 2.2 | Digest constructors and tagged wire validation; altered bytes and missing/unknown algorithms rejected |
+| U38 | 2.2 | Entry/path/selection behavior beside its owning types; shared filesystem and gate contracts preserved and verified |
+| U39 | 2.2 | Root-bound directory/file handles and worker-owned I/O guard; per-operation ancestor checks and dropped-awaiter lock regression |
+| U40 | G1, 2.2 | Cache-local validated encoding with unchanged physical names; existing cache-to-pathing edge retained for general sanitization |
+| U41 | Current handoff; 2.2, 2.3, 2.4 | Reviewed artifact-storage commit and next-step description; typed reuse and generation invalidation remain pending |
 
 ## Purpose and scope
 
@@ -616,7 +663,136 @@ matching output types with different owners. Distinct executor namespaces remain
 independent. Construction requires an explicit root and creates no files or
 runtime defaults. Kind does not decide effects, authentication, or cancellation.
 
-### [ ] 2.2 Isolate disk variants and make publication coherent
+### [x] 2.2 Isolate disk variants and make publication coherent
+
+**Completion notes:** Tasks 2.0–2.1 and the phase 1 contracts are committed as
+`3ebfe69b`. This completed slice adds [ArtifactEntry](../../crates/cache/src/artifact_entry.rs),
+[ArtifactAttempt](../../crates/cache/src/artifact_attempt.rs), transport-neutral raw
+sets, and required identity/freshness records. `WorkCache::artifacts<T>` checks
+operation/output ownership before admitting a variant. Physical entries live
+beneath `artifacts-v2/entries`, separated by executor namespace, exact scope
+components, authentication partition, and fingerprint. The
+[CachePathComponent](../../crates/cache/src/cache_path_component.rs) retains a bounded
+readable prefix and digest of the original component; persisted original identity
+is verified as well, so hashing does not substitute for collision detection.
+
+The cache-path boundary review found `ArtifactEntry` is the encoder's only
+production caller. No planned dependency requires this cache-specific policy in
+`pathing`: G1 already permits `cache -> pathing` for general filename sanitization.
+`CachePathComponent` now owns the encoded string privately and exposes
+`from_identity`, read-only string inspection, and `AsRef<Path>`. Construction
+encodes arbitrary original text, including empty input, rather than accepting
+unchecked encoded text. The physical format remains byte-for-byte unchanged:
+sanitize, retain at most 160 UTF-16 units, then append the full lowercase BLAKE3
+digest of the original UTF-8 bytes. The three encoder tests moved with the type;
+length assertions now enforce the documented 225-unit bound. No dependency edge,
+manifest, or lockfile change is required; pathing keeps its general sanitizer.
+Verification passed 34 cache unit tests, 13 artifact-store tests, three executed
+input-integrity tests, and two general sanitizer tests. The Windows symlink test
+retains its privilege limitation. Cache/pathing Clippy with warnings denied and
+nightly formatting pass. Independent source review confirmed unchanged encoding
+and dependency direction.
+
+Each invocation has a unique input workspace and immutable completed attempt.
+Input, payload, and diagnostic checksums are verified before selection/reuse;
+missing or corrupt sets are misses. A failed attempt cannot overwrite a selected
+one. Canonical decoding remains the caller's responsibility before publication;
+stored output type names are diagnostic. Legacy directories are ignored and
+preserved. Zero validity retains inspectable attempts without reuse.
+`ArtifactRetention::Disabled` replaces the ambiguous `Sensitive` name: it bypasses
+artifact reads, staging, retention, and publication. It does not redact content,
+delete existing artifacts, or skip the underlying operation. The caller selects
+it before staging; provider-specific redacted diagnostics remain provider work.
+
+[ArtifactMetadata](../../crates/cache/src/artifact_metadata.rs) owns diagnostic
+type-name capture through `new<T>(operation_owner)`. Its `output_type_name` and
+`operation_owner_type_name` fields identify the output and canonical operation,
+respectively; the latter owns the logical cache address, not the cache resources.
+Both persisted names remain nonauthoritative. `ArtifactFileDigest::new(path, bytes)`
+binds a file to a typed [ArtifactDigest](../../crates/cache/src/artifact_digest.rs),
+which owns BLAKE3 hashing, verification, and validated `blake3:<hex>` serialization.
+Payload digests use the same type. Missing/unknown algorithm tags and malformed
+hashes fail decoding; old unprefixed manifests are cache misses, with no guessed
+algorithm fallback. These are refinements to the uncutover store.
+
+The helper ownership review removed the forwarding `entry_directory` function:
+`ArtifactEntry::directory` owns layout directly, and `ensure_directory` owns entry
+identity initialization. `ArtifactFilePath::join_to` owns validated component
+joining. [ArtifactSelection](../../crates/cache/src/artifact_selection.rs) owns
+reading the selection, verifying/loading its referenced attempt, and writing the
+selection. The subsequent storage-type review replaces the remaining `artifact_io`
+functions with three resource-owning types:
+
+- [ArtifactDirectory](../../crates/cache/src/artifact_directory.rs) retains the
+  original explicit root, validates descendant addresses, and owns checked
+  directory creation and file-inventory I/O.
+- [ArtifactFile](../../crates/cache/src/artifact_file.rs) retains its root-bound
+  parent and validated file address. It owns regular-file checks, exclusive
+  immutable writes, and JSON persistence, including serialization before replacement.
+- [ArtifactIoGuard](../../crates/cache/src/artifact_io_guard.rs) retains the
+  asynchronous mutex through blocking work and returns it for state finalization,
+  including ordinary errors. Dropping it never clears publication quarantine.
+
+Directory/file construction performs lexical validation only; every I/O operation
+rechecks the original root and ancestors. This does not add coordination with
+unrelated filesystem writers or protection from concurrent path substitution.
+`ArtifactAttempt::stage_inputs` owns allocation of the unique input workspace;
+`ArtifactEntry::begin_attempt` owns admission and cancellation boundaries in the
+entry's file. Public inspection methods still return paths without performing I/O.
+These types centralize invariants and resource lifetimes rather than grouping
+unrelated static helpers. Existing selection, identity, and completeness rules
+remain in force.
+
+An owned I/O gate stays inside each complete blocking filesystem transaction,
+even if the awaiting future is explicitly dropped. Publication quarantine is
+installed before selection mutation and clears only on awaited success with the
+returned gate. The drop regression proves an older worker cannot release its
+gate early and overwrite a newer write; the storage failure/recovery regression
+proves ambiguous publication remains quarantined. These exercise the worker and
+quarantine boundaries separately, not a forced drop at every publication poll.
+Required outcome retention uses the supplied scope's required-completion helper.
+
+[Freshness](../../crates/cache/src/artifact_freshness.rs) preserves one observation,
+explicit bounded/unbounded expiry, and one monotonic age anchor per attempt.
+Reads and decoding cannot renew age; shorter callers receive shorter deadlines.
+Runtime verification exposed whole-second serialization in the pinned Chrono
+Facet implementation. `ArtifactExpiry::At` and the wire record's `observed_at`
+both use `DateTime<Utc>`; a private
+[timestamp proxy](../../crates/cache/src/artifact_timestamp_proxy.rs) preserves
+nanoseconds and rejects malformed strings at the serialization boundary.
+Absent/null expiry and reversed timestamps are also rejected.
+The actual manifest reader also rejects omitted input/diagnostic inventories.
+
+All 29 cache unit tests, 13 artifact-store tests, three input-integrity tests, and
+three focused path-encoding tests passed with synthetic temporary storage. The
+additional symlink regression returned early because Windows symlink privilege
+is unavailable; its redirect protection is source-reviewed but unverified here.
+The suites cover concurrent input staging, variant/namespace isolation, incomplete
+sets, input mutation, partial staging failure, publication failure/recovery,
+diagnostic-only type text, legacy isolation, caller expiry, and disabled retention.
+The retention/constructor refinement reran all cache unit and integration targets;
+digest validation and changed-byte checks pass, as do both diagnostic-name changes
+and disabled publication without deleting prior artifacts. Cache Clippy and
+formatting checks pass; independent source review found no remaining issue.
+The helper ownership refactor also passed the same cache tests, Clippy, formatting,
+and an independent review of I/O ordering; no new tests were needed for the moves.
+The subsequent storage-type refactor passed 31 cache unit tests, 13 artifact-store
+tests, and three executed input-integrity tests. The additional symlink test still
+requires unavailable Windows privilege. Two new directory tests cover lexical
+confinement without I/O and rejecting an ancestor replaced after handle construction;
+the dropped-worker regression now belongs to `ArtifactIoGuard`. Independent review
+confirmed root preservation, immutable staging, selection/quarantine ordering, and
+unchanged miss-versus-identity-error behavior.
+Independent review findings about returned deadlines and required timestamp fields
+were repaired and verified. Focused Clippy with warnings denied, nightly formatting,
+cache/command/REST compilation, and whitespace checks passed. Dependency changes
+reuse pinned workspace packages; no external version changed.
+
+The new store has no Command/REST consumers yet. Initializer coordination and
+decoded sharing are task 2.3; generation/dependency admission and durable
+invalidation are task 2.4. Production adapters must not cut over before those
+guarantees exist. No independent-handle/process coherence, crash atomicity, or
+protection against concurrent external filesystem substitution is claimed.
 
 **Work:** Implement G5. Preserve complete process fingerprints and REST identity.
 Add immutable transport-neutral artifact sets containing raw payload bytes,
@@ -638,13 +814,15 @@ Install publication quarantine before changing the visible commit; clear it only
 after a complete commit, so explicitly dropped futures cannot expose ambiguous
 artifacts. Apply sensitive-output retention policy before any artifact staging.
 
-**Validation:** Add a proposed local `artifact_store_tests` target covering partial
-write failure, two variants, distinct namespace artifacts for one logical key,
-input-file isolation, refill expiry, legacy reads, interrupted publication, and
-sensitive-output exclusion:
+**Validation:** Source-reviewed local tests and compilation only; no production
+services, credentials, existing caches, or production fixtures were used:
 
 ```powershell
-cargo test --offline --locked -p cloud_terrastodon_cache --test artifact_store_tests
+cargo test --offline --locked -p cloud_terrastodon_cache --lib --tests
+cargo test --offline --locked -p cloud_terrastodon_pathing --lib sanitize_windows_path_component
+cargo clippy --offline --locked -p cloud_terrastodon_cache -p cloud_terrastodon_pathing --all-targets -- -D warnings
+cargo check --offline --locked -p cloud_terrastodon_cache -p cloud_terrastodon_command -p cloud_terrastodon_rest
+rustup run nightly -- cargo fmt -p cloud_terrastodon_cache -p cloud_terrastodon_pathing --check
 ```
 
 **Completion criteria:** Within one handle, a reader observes complete artifacts;
@@ -1086,6 +1264,7 @@ evidence and documentation. This item remains deferred when phases 1–7 complet
 | Shared cache handle and executor clones | Coordinated within one owner | Concurrent typed sharing, per-key ownership, generation/dependency races | Pending |
 | Independent handles/processes sharing disk | No single-flight/coherent invalidation guarantee yet | Document limits; phase 8 supplies stronger proof later | Deferred |
 | Command, REST, in-process reads | One lifecycle, canonical memoization | Local adapter + cache tests; different validators still run | Pending |
+| Raw artifact storage | Isolated complete attempts and guarded selection within one handle | Local storage/integrity, freshness, and worker-drop tests | Task 2.2 passed; adapters and generation checks remain pending |
 | SDK/transport namespaces and ownership | Separate concrete entries; shared logical invalidation scope | Synthetic wrapper succeeds; same-namespace owner/type collisions bail before execution/reuse; invalidation covers all kinds | Pending |
 | Mutations, zero-duration and uncached work | Execute each invocation; retain required artifacts | Cancellation and artifact/invalidation tests | Pending |
 | Graph principals, ARM RBAC, Azure DevOps projects | Explicit auth/scope; shared assembled results | Typed local composition/discovery tests and compile checks | Pending |
@@ -1099,7 +1278,7 @@ evidence and documentation. This item remains deferred when phases 1–7 complet
 
 ## Overall initial-migration completion criteria
 
-- [ ] Every active U01–U33 requirement has task evidence; G1–G6 are closed and
+- [ ] Every active U01–U41 requirement has task evidence; G1–G6 are closed and
   phases 1–7 complete. Phase 8 remains explicitly deferred.
 - [ ] Requests contain explicit operation/auth selection data and no execution
   resources; both execute spellings and registry invocation share one contract.

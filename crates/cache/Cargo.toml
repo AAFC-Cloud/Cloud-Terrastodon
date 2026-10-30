@@ -12,11 +12,17 @@ categories.workspace = true
 
 [dependencies]
 cloud_terrastodon_registry_values.workspace = true
+cloud_terrastodon_pathing.workspace = true
 arbitrary.workspace = true
 eyre.workspace = true
 facet.workspace = true
+facet-json.workspace = true
 linkme.workspace = true
+blake3.workspace = true
+chrono.workspace = true
+tokio.workspace = true
+uuid.workspace = true
+teamy-cancellation.workspace = true
 
 [dev-dependencies]
-facet-json.workspace = true
 tempfile.workspace = true

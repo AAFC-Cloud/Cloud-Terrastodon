@@ -1,14 +1,19 @@
+use crate::ArtifactEntry;
+use crate::ArtifactMetadata;
+use crate::ArtifactRetention;
+use crate::AuthPartition;
+use crate::CacheEntryIdentity;
 use crate::CacheKey;
 use crate::CacheOperationOwner;
 use crate::ExecutorKind;
 use crate::cache_ownership_claim::CacheOwnershipClaim;
+use crate::cache_state::CacheState;
 use crate::work_cache_state::WorkCacheState;
 use eyre::Result;
 use eyre::ensure;
 use eyre::eyre;
 use std::any::TypeId;
 use std::any::type_name;
-use std::collections::HashMap;
 use std::panic::Location;
 use std::path::Component;
 use std::path::Path;
@@ -22,20 +27,54 @@ use std::sync::Mutex;
 /// even when given the same root. Construction and claiming perform no I/O,
 /// resolve no defaults, and never consult the legacy command cache.
 ///
-/// This foundation does not yet store results or coordinate in-flight work.
+/// Raw artifact access shares this owner. Typed results and single-in-flight
+/// execution are not yet implemented.
 #[derive(Clone, Debug)]
 pub struct WorkCache {
     // One shared owner keeps the root and all accepted claims together.
-    state: Arc<WorkCacheState>,
+    pub(crate) state: Arc<WorkCacheState>,
 }
 
 impl WorkCache {
+    /// Claim a concrete raw-artifact identity before any disk access. The
+    /// partition must be admitted by authentication policy and contain no secret;
+    /// fingerprints must cover all semantic inputs without exposing credentials.
+    #[track_caller]
+    pub fn artifacts<T: 'static>(
+        &self,
+        kind: ExecutorKind,
+        key: CacheKey,
+        operation_owner: CacheOperationOwner,
+        auth_partition: AuthPartition,
+        fingerprint: impl Into<String>,
+        retention: ArtifactRetention,
+    ) -> Result<ArtifactEntry> {
+        self.claim::<T>(kind.clone(), &key, operation_owner)?;
+        let fingerprint = fingerprint.into();
+        ensure!(
+            !fingerprint.is_empty(),
+            "artifact fingerprint must not be empty"
+        );
+        Ok(ArtifactEntry {
+            cache: self.clone(),
+            identity: CacheEntryIdentity {
+                kind,
+                scope: key.scope,
+                auth_partition,
+                fingerprint,
+            },
+            metadata: ArtifactMetadata::new::<T>(operation_owner),
+            validity: key.valid_for,
+            retention,
+        })
+    }
+
     /// Establish an explicit root without creating, inspecting, or reading it.
     ///
     /// Roots must be absolute on the current platform. Unresolved `..`
     /// components are rejected as a library identity constraint, not a platform
     /// restriction. Symlinks are not resolved, and even the filesystem root is
-    /// accepted. Storage will validate its own requirements when introduced.
+    /// accepted. Storage validates its requirements when performing I/O.
     pub fn new(root: impl Into<PathBuf>) -> Result<Self> {
         let root = root.into();
         ensure!(root.is_absolute(), "cache root must be absolute: {root:?}");
@@ -48,7 +87,8 @@ impl WorkCache {
         Ok(Self {
             state: Arc::new(WorkCacheState {
                 root,
-                claims: Mutex::new(HashMap::new()),
+                registry: Mutex::new(CacheState::default()),
+                artifact_gate: Arc::new(tokio::sync::Mutex::new(())),
             }),
         })
     }
@@ -77,11 +117,11 @@ impl WorkCache {
         owner: CacheOperationOwner,
     ) -> Result<()> {
         let caller = Location::caller();
-        let mut claims = self.state.claims.lock().map_err(|_| {
+        let mut state = self.state.registry.lock().map_err(|_| {
             eyre!("cache ownership registry was poisoned by a panic while holding its lock")
         })?;
         let address = (kind, key.scope.clone());
-        if let Some(existing) = claims.get(&address) {
+        if let Some(existing) = state.claims.get(&address) {
             ensure!(
                 existing.owner == owner,
                 "cache operation owner conflict for {:?} scope {:?}: {} first claimed at {}; {} attempted at {}",
@@ -104,7 +144,7 @@ impl WorkCache {
                 caller,
             );
         } else {
-            claims.insert(
+            state.claims.insert(
                 address,
                 CacheOwnershipClaim {
                     owner,

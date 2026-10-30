@@ -1,14 +1,14 @@
-use crate::CacheScope;
-use crate::ExecutorKind;
-use crate::cache_ownership_claim::CacheOwnershipClaim;
-use std::collections::HashMap;
+use crate::cache_state::CacheState;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::sync::Mutex;
 
 /// Shared backing ownership retained for the lifetime of all cloned handles.
-/// The mutex atomically reserves logical contracts; it does not lock execution.
+/// The registry mutex protects short bookkeeping changes. The asynchronous gate
+/// coordinates artifact I/O; neither mutex coalesces execution yet.
 #[derive(Debug)]
 pub(crate) struct WorkCacheState {
     pub root: PathBuf,
-    pub claims: Mutex<HashMap<(ExecutorKind, CacheScope), CacheOwnershipClaim>>,
+    pub registry: Mutex<CacheState>,
+    pub artifact_gate: Arc<tokio::sync::Mutex<()>>,
 }
