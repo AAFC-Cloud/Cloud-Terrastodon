@@ -1,0 +1,22 @@
+[package]
+name = "cloud_terrastodon_cache"
+description = "Explicit cache ownership and logical identity for Cloud Terrastodon"
+version = "0.37.0" # CT_VERSION
+readme.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+cloud_terrastodon_registry_values.workspace = true
+arbitrary.workspace = true
+eyre.workspace = true
+facet.workspace = true
+linkme.workspace = true
+
+[dev-dependencies]
+facet-json.workspace = true
+tempfile.workspace = true

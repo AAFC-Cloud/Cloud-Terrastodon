@@ -1,5 +1,9 @@
 # Unreleased
 
+- Add `cloud_terrastodon_cache` foundations with explicit roots, validated logical scopes, and operation/output ownership checks. Command and REST continue using their existing caches until the coordinated lifecycle migration.
+
+- Extract pure value reflection and offline constructors into `cloud_terrastodon_registry_values`, retaining existing value imports through `cloud_terrastodon_registry`. `known_functions()` now returns an iterable `KnownFunctions` view instead of a slice so it includes lower-level constructors while preserving existing registration-handle identity; consumers requiring a slice must adapt to catalog iteration.
+
 - Change `CliOutput::facet_with_text` callbacks to write directly to the supplied writer, retaining shared JSON/Facet Pretty output and cooperative cancellation without buffering the complete text.
 
 - Fix `ct tf reflow` silently discarding modules and other blocks that share an output filename; preserve unmatched imports/moves and trailing comments, and reject incomplete layouts before writing files.

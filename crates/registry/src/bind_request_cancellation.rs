@@ -9,6 +9,13 @@ use facet_reflect::Poke;
 use std::any::Any;
 use std::any::type_name;
 
+/// Attach caller-owned cancellation to a reflected executable request.
+pub type CancellationBindingFn = fn(&mut (dyn Any + Send), &CancellationScope) -> eyre::Result<()>;
+
+// Runtime cancellation handles are supplied by invocation hosts rather than
+// deserialized from user input. Register their reflection interoperability here.
+crate::register_thing!(CancellationScope);
+
 /// Bind an executable request's single direct scope field to its caller's token.
 ///
 /// Both ordinary and `#[facet(opaque)]` scope fields are recognized by shape,

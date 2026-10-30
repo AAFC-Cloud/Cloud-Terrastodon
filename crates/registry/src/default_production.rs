@@ -4,12 +4,12 @@ use crate::FunctionInvocation;
 use crate::InvocationFuture;
 use crate::ProductionKind;
 use crate::RuntimeValue;
-use crate::Type;
-use crate::UserType;
 use crate::describe_shape;
 use crate::functions_to;
 use crate::known_thing_for_shape;
 use facet::Shape;
+use facet::Type;
+use facet::UserType;
 use std::future::Future;
 use std::pin::Pin;
 

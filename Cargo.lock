@@ -1163,6 +1163,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "cloud_terrastodon_cache"
+version = "0.37.0"
+dependencies = [
+ "arbitrary",
+ "cloud_terrastodon_registry_values",
+ "eyre",
+ "linkme",
+ "teamy-facet",
+ "teamy-facet-json",
+ "tempfile",
+]
+
+[[package]]
 name = "cloud_terrastodon_cli_types"
 version = "0.37.0"
 dependencies = [
@@ -1421,6 +1434,7 @@ name = "cloud_terrastodon_registry"
 version = "0.37.0"
 dependencies = [
  "arbitrary",
+ "cloud_terrastodon_registry_values",
  "eyre",
  "linkme",
  "rand 0.10.2",
@@ -1428,6 +1442,17 @@ dependencies = [
  "teamy-facet",
  "teamy-facet-reflect",
  "tokio",
+]
+
+[[package]]
+name = "cloud_terrastodon_registry_values"
+version = "0.37.0"
+dependencies = [
+ "arbitrary",
+ "eyre",
+ "linkme",
+ "teamy-facet",
+ "teamy-facet-reflect",
 ]
 
 [[package]]

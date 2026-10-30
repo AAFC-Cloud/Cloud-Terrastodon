@@ -1,0 +1,53 @@
+//! Pure value reflection and offline constructors for Cloud Terrastodon.
+//! This crate has no executable-request or credential dependency.
+
+mod arbitrary_bytes;
+mod arbitrary_registration;
+mod borrowed_pointer_kind;
+mod input_dependency;
+mod known_shape_info;
+mod registration_site;
+mod runtime_display_value;
+mod runtime_value;
+mod shape_field_info;
+mod shape_reflection;
+mod shape_variant_info;
+mod thing;
+
+pub use arbitrary_bytes::ArbitraryBytes;
+pub use arbitrary_bytes::arbitrary_from_bytes;
+pub use arbitrary_bytes::invoke_arbitrary_mut;
+pub use arbitrary_registration::ArbitraryInvocationFn;
+pub use arbitrary_registration::ArbitraryRegistration;
+pub use arbitrary_registration::KNOWN_ARBITRARY_VALUES;
+pub use borrowed_pointer_kind::BorrowPointerFn;
+pub use borrowed_pointer_kind::BorrowedPointerKind;
+pub use borrowed_pointer_kind::KNOWN_BORROWED_POINTER_KINDS;
+pub use borrowed_pointer_kind::PromotePointerFn;
+pub use borrowed_pointer_kind::borrowed_pointer_kind_for_shape;
+pub use input_dependency::InputDependency;
+pub use known_shape_info::KnownShapeInfo;
+pub use linkme::distributed_slice;
+pub use registration_site::RegistrationSite;
+pub use runtime_value::RuntimeFromBoxedFn;
+pub use runtime_value::RuntimeToBoxedFn;
+pub use runtime_value::RuntimeValue;
+pub use runtime_value::borrow_pointer_runtime;
+pub use runtime_value::promote_pointer_runtime;
+pub use runtime_value::runtime_from_boxed;
+pub use runtime_value::runtime_into_boxed;
+pub use shape_field_info::ShapeFieldInfo;
+pub use shape_reflection::describe_shape;
+pub use shape_reflection::input_dependencies;
+pub use shape_reflection::list_element_shape;
+pub use shape_reflection::map_value_shape;
+pub use shape_reflection::sequence_element_shape;
+pub use shape_reflection::shape_field_shape;
+pub use shape_reflection::shape_fields_for_thing;
+pub use shape_reflection::shape_variants_for_thing;
+pub use shape_variant_info::ShapeVariantInfo;
+pub use thing::KNOWN_THINGS;
+pub use thing::Thing;
+pub use thing::known_shapes;
+pub use thing::known_thing_for_shape;
+pub use thing::known_things;

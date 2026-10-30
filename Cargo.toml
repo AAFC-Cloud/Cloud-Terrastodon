@@ -126,6 +126,10 @@ linkme = { version = "0.3.36" }
 version = "0.37.0"        # CT_VERSION
 path = "./crates/pathing"
 
+[workspace.dependencies.cloud_terrastodon_cache]
+version = "0.37.0" # CT_VERSION
+path = "./crates/cache"
+
 [workspace.dependencies.cloud_terrastodon_source]
 version = "0.37.0"        # CT_VERSION
 path = "./crates/source"
@@ -157,6 +161,10 @@ path = "./crates/azure_cli"
 [workspace.dependencies.cloud_terrastodon_registry]
 version = "0.37.0"         # CT_VERSION
 path = "./crates/registry"
+
+[workspace.dependencies.cloud_terrastodon_registry_values]
+version = "0.37.0" # CT_VERSION
+path = "./crates/registry_values"
 
 [workspace.dependencies.cloud_terrastodon_excalidraw]
 version = "0.37.0" # CT_VERSION

@@ -11,6 +11,7 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
+cloud_terrastodon_registry_values.workspace = true
 eyre.workspace = true
 arbitrary.workspace = true
 facet.workspace = true
