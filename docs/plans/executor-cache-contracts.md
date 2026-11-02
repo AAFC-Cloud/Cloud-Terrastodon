@@ -61,8 +61,11 @@ site. It has no executor, cancellation scope, authentication, or async invocatio
 Executable `Function`, executable callback variants, effects admission, and
 discovery stay in `registry`.
 
-The high-level registry exposes the low value types by re-export and adapts low
-arbitrary descriptors into its constructor catalog. An adapted entry retains
+Task 2.0 introduced high-level registry re-exports under the earlier policy.
+U49 supersedes that policy: consumers must import low value types and macros
+from `registry_values`, and task 7.1 removes those compatibility exports.
+The high-level registry still adapts low arbitrary descriptors into its constructor
+catalog as an execution responsibility. An adapted entry retains
 provenance to its authoritative descriptor. It is not a second distributed
 registration. The current high-level `register_arbitrary!` and its existing
 associated `&Function` handles remain available during migration. New low-level
@@ -92,11 +95,13 @@ Each production type gets its own file. The initial homes are:
 | `crates/credentials/src/` | `credential_authentication_provider.rs`; existing credential/session/token implementations |
 | `crates/registry/src/` | Executable function metadata, lifetime-aware invocation, and executable registration adapters |
 
-Move the existing `AzureTenantId` definition to its lower home and re-export it
-from `azure_types`. Likewise move/re-export the pure `AuthSource` definition from
-credentials. Do not introduce a second tenant-ID type with conversions between
-otherwise identical values. Keep parsing, Facet representation, arbitrary
-generation, and registrations beside the owning low-level definitions.
+Move the existing `AzureTenantId` and pure `AuthSource` definitions to `auth_types`.
+Update every consumer's imports and dependencies, including registrations, tests,
+examples, and documentation, and remove their old exports from `azure_types` and
+`credentials` in the same slice. No compatibility re-exports or aliases remain.
+Do not introduce a second tenant-ID type with conversions between otherwise
+identical values. Keep parsing, Facet representation, arbitrary generation, and
+registrations beside the owning low-level definitions.
 
 ## G2 — request execution, scopes, and lifetime bounds
 
@@ -422,12 +427,16 @@ refresh is explicitly infrastructure and does not make token expiry the semantic
 expiry of an inventory; its authentication admission still precedes reuse.
 The full generation/dependency policy is in G6.
 
-## Compatibility and verification obligations
+## Full cutover and verification obligations
 
 Introduce low contracts and explicitly bound adapters before moving caller
-families. Preserve old import paths with re-exports where they retain the same
-type. Preserve legacy registry registration/associated handles until their
-consumers migrate. Temporary execution adapters require an explicit executor;
+families. Every type move updates all consumer imports and dependencies and
+removes old-path exports in the same slice; no compatibility exports or aliases
+may bridge phases. Ordinary module re-exports within the owning crate remain valid.
+Remove the compatibility exports from the earlier registry extraction in task
+7.1 while migrating their consumers. Preserve legacy registry registration/associated
+handles until their consumers migrate. Temporary execution adapters require an
+explicit executor;
 none may select a global cache, manufacture a scope, invent a tenant, or resolve
 an implicit authentication provider.
 

@@ -5,15 +5,15 @@ refinement U47 complete. Next migration task: 3.1.
 
 **Primary implementation root:** Repository root (`.`); no branch change prescribed.
 
-**Last updated:** 2026-10-30
+**Last updated:** 2026-11-02
 
 **Source baseline:** `26e14bcc`; tracked files were initially clean. Pre-existing
 untracked notes are preserved.
 
-**Intent audit:** Passed 2026-10-30 against the original design discussion,
+**Intent audit:** Passed 2026-11-02 against the original design discussion,
 subsequent corrections, plan request, three planning-question replies, and the
 latest review corrections about production data, validation, and key collisions,
-and authorization to proceed with implementation.
+authorization to proceed with implementation, and the full-cutover correction.
 
 **Planning method:** User-invoked `resumable-implementation-plans` skill.
 
@@ -30,7 +30,9 @@ selected cleanup of existing violations across the entire workspace now. U48
 authorizes committing the completed changes and pushing the current `main`
 branch to `origin`, including its preceding local checkpoints. Package releases,
 production-data access, and implementation of the next phase remain outside this
-checkpoint's authorization.
+checkpoint's authorization. That checkpoint was committed and pushed as
+`fd989bd3`. U49 now requires a full cutover with no compatibility re-exports;
+this update records the requirement without starting phase 3.
 
 ## How to update this plan
 
@@ -66,14 +68,15 @@ changes since the recorded baseline before starting.
   the coordinated-cache slice, describe the next phase, proceed, and propagate
   directory-construction errors instead of panicking, then the workspace-wide
   prohibition and cleanup of production `unwrap`/`expect`, and committing and
-  pushing the completed changes. U01–U48 preserve
+  pushing the completed changes, and the full-cutover correction prohibiting
+  compatibility re-exports. U01–U49 preserve
   the distinct instructions; optional source-location ownership, optional
   Vec<Arc<T>>, and a possible cache
   crate remain optional. The explicit-tenant correction supersedes the earlier
   assistant compatibility suggestion. U29 preserves the prohibition on production
   data access or ingestion into agent context; U30 adds workspace Clippy; U31
   requires collision prevention/detection while keeping a REST prefix a candidate.
-- **Pass 2 — traceability:** Verified all 47 ledger IDs have matching traceability
+- **Pass 2 — traceability:** Verified all 49 ledger IDs have matching traceability
   rows and concrete task/gate/acceptance coverage. Reviewed the inverse mapping:
   crate names, aggregate persistence, output bounds, and locking details are
   implementation decisions rather than attributed user decisions. Source review
@@ -178,6 +181,17 @@ changes since the recorded baseline before starting.
   dependency pins are unchanged. Existing validation applies to the unchanged
   source revision; this checkpoint updates plan bookkeeping only. Whitespace
   checking permits existing CRLF endings without normalizing staged files.
+- **Full-cutover correction audit:** Extraction records U49 without narrowing it
+  to a recommendation. Traceability replaces the auth-type re-export policy in
+  G1/G2, task 3.1, and the public contracts; tasks 7.1/7.2 and the caller inventory
+  cover remaining imports and documentation. Adversarial review preserves the
+  completed registry extraction as historical evidence while requiring removal
+  of its compatibility exports at cutover. Moving a type includes its consumers
+  and removal of the old export in the same slice; no new compatibility exports
+  may bridge phases. Pure registry adaptation remains a distinct responsibility.
+  All 49 ledger/traceability pairs and 135 relative links across the three updated
+  documents pass, along with privacy, code-fence, and whitespace checks. This is a
+  documentation correction; no production code or test execution changed.
 - **Known source limitation:** None. The design discussion, corrections, repository
   instructions, plan request, and planning replies are available in this session.
 
@@ -237,6 +251,7 @@ do not silently rewrite earlier guidance.
 | U46 | Remove the `expect` in `ArtifactEntry::directory`; return `eyre::Result` if necessary. | Return directory-construction failures and propagate them through callers without a panic. | — |
 | U47 | Forbid `expect` and `unwrap` outside tests; clean up existing violations across the entire workspace now. | Add workspace Clippy enforcement with test-only exemptions, propagate genuine failures, and remove production violations without substituting panics or silently discarding errors. | — |
 | U48 | Commit changes and push. | Commit the completed task 2.4 and workspace error-handling refinement, then push the current branch and its preceding local checkpoints to the existing remote; preserve unrelated notes. | — |
+| U49 | Full cutover, no compatibility exports. | Move every consumer to the owning crate/API when moving a type, remove old-path exports in the same slice, and remove existing migration compatibility exports before completion. | — |
 
 U18 supersedes the earlier assistant suggestion to preserve an Azure CLI
 active-tenant selection. That suggestion was not user approval. U13 rejects the
@@ -295,6 +310,7 @@ cache reuse. U14 and U16 deliberately retain their original optional qualifiers.
 | U46 | 2.4 | Fallible directory API and error propagation through staging, selection, and existing tests |
 | U47 | 2.4 refinement; 7.2 | Repository rule, all member lint configurations, workspace Clippy, and focused offline regression checks |
 | U48 | Current authorization; task 2.4 checkpoint | Reviewed staged scope, local commit, and confirmed remote branch update |
+| U49 | G1/G2; 3.1; 7.1; 7.2; caller inventory | Owning-crate imports across consumers, no compatibility re-exports, workspace compile checks, and updated public migration documentation |
 
 ## Purpose and scope
 
@@ -357,6 +373,10 @@ normal/build dependency order and rejects cycles; `set_version.ps1`,
 
 ## Confirmed design and constraints
 
+- Type moves are full cutovers: update consumers, dependencies, registrations,
+  tests, examples, and documentation together. Import moved types from their
+  owning crate; do not retain or add old-path compatibility re-exports.
+  Ordinary module re-exports within the owning crate remain valid.
 - Serializable requests carry domain scope, resolved authentication selection,
   filters, and limits. They carry no token cache, execution scope, or callback.
   Ordinary headers/body may still require redaction; serializable does not mean
@@ -420,7 +440,7 @@ requirements for reversible research or preparation.
 | Gate | Decision to close | Recommended starting point; acceptance consequence |
 | --- | --- | --- |
 | G1 | Exact acyclic crate/trait boundary for command, credentials, registry, and the concrete executor. | A low-level cache/execution contract without credential implementations; concrete auth coordinator above it. Both command→executor→credentials→command and registry→executor→credentials→registry cycles must be absent. Cache extraction alone does not prove this. |
-| G2 | Public method/trait names, lifetimes, cacheable versus noncacheable output bounds, and temporary API compatibility. | Data requests bind to an awaitable execution. Sharing Arc<T> across tasks adds Sync to today's Send + 'static output contract; decide affected bounds without imposing them on unrelated noncacheable outputs or borrowed callbacks. Explicit adapters may ease rollout; no default executor or indefinitely retained runtime-bearing request path. Record breaking Rust API changes and removal milestones. |
+| G2 | Public method/trait names, lifetimes, cacheable versus noncacheable output bounds, and full API cutover. | Data requests bind to an awaitable execution. Sharing Arc<T> across tasks adds Sync to today's Send + 'static output contract; decide affected bounds without imposing them on unrelated noncacheable outputs or borrowed callbacks. Move each caller family to its new contract; no compatibility re-exports, default executor, or indefinitely retained runtime-bearing request path. Record breaking Rust API changes and removal milestones. |
 | G3 | Concrete entry namespace, logical operation owner, typed result contract, auth partition, and physical artifact identity. | Enforce U31 centrally: recommend ExecutorKind namespaces plus logical keys, with checked operation/output ownership before request/auth variant lookup. Separate SDK results from transport envelopes even when their request keys match; retain logical-scope invalidation across namespaces. Choose the exact address/layout and test the LocationListRequest case. Partition credentials/accounts without tokens in keys or live token acquisition solely for a cache hit. Reject unsafe legacy reuse if an auth partition cannot be established. TypeId is memory-only; source locations and disk type names are diagnostic. |
 | G4 | Shared-record boundary and observer behavior. | Evaluate Vec<Arc<T>> plus an outer Arc for reusable aggregates; preserve Facet/Arbitrary/registry/CLI representations. Decide consuming conversions, mutable access, and progress reporting to hits/joiners without silently skipping caller behavior. |
 | G5 | Disk migration/publication strategy within the shared-handle guarantee. | Isolate fingerprint variants and command input staging; publish complete artifacts under cache coordination. Decide legacy entry read/miss behavior, write-failure memory policy, retention, expiry, and entry reclamation. Document independent-handle/process limitations. |
@@ -470,9 +490,11 @@ Do not expose a partially initialized global runtime to bridge stages.
 Keep each slice compilable: introduce the new contracts alongside explicitly
 bound adapters before switching an existing caller family. Tasks 3.1–3.3 add the
 new auth/registry surfaces first; tasks 4–6 move consumers in compile-checked
-batches. Retire old signatures and fields only after their callers move, with
-final removal in 7.1. Compatibility must not invent missing tenants, resurrect
-global caches, or mix two memory-cache owners in a single migrated request tree.
+batches. Each type move updates all of its consumers and removes its old-path
+exports in that same slice; compatibility re-exports must not bridge phases.
+Retire old signatures and fields with their callers, with the final sweep in
+7.1. Transitional execution must not invent missing tenants, resurrect global
+caches, or mix two memory-cache owners in a single migrated request tree.
 Introduce the minimal application executor plumbing needed for the first SDK
 slice in 3.2; task 6.2 completes the wider application/consumer rollout.
 
@@ -543,7 +565,9 @@ the first implementation gate, and distinguish inspected facts from unrun checks
 registry_values/auth_types/cache/execution boundaries, an injected typed auth
 provider, bound request/registry lifetimes, central namespace/owner checks,
 memory-only aggregates, and a mutex-gated publication/invalidation algorithm.
-AzureTenantId moves to the lower auth vocabulary with old import paths re-exported.
+AzureTenantId moves to the lower auth vocabulary. U49 supersedes the original
+re-export decision: all consumers move to the owning crate and old exports are
+removed in the same slice.
 CLI/browser/PAT use session partitions until identity can be established safely;
 authenticated CLI subprocesses must use that same provider-bound session.
 
@@ -625,9 +649,12 @@ baseline failures are recorded separately from changes introduced by migration.
 ### [x] 2.0 Extract the pure registry value boundary
 
 **Completion notes:** Added `crates/registry_values` with pure reflection, owning
-values, pointer registration, and arbitrary constructor descriptors. The high-level
-registry re-exports existing value imports and adapts pure constructors once while
-retaining descriptor provenance. Production types have individual owning files.
+values, pointer registration, and arbitrary constructor descriptors. Under the
+earlier policy, the high-level registry introduced value compatibility re-exports
+and adapted pure constructors once while retaining descriptor provenance. U49
+supersedes that export policy: task 7.1 removes those exports and migrates their
+consumers. Pure constructor adaptation remains an execution responsibility.
+Production types have individual owning files.
 An independent source review confirmed the extracted RuntimeValue implementation
 is equivalent and that workspace catalog traversal includes both sources.
 
@@ -658,8 +685,10 @@ to catalog iteration. This change is recorded in the Unreleased changelog.
 
 **Work:** Implement G1's `crates/registry_values` extraction before types in lower
 crates register themselves. Move value reflection, owning RuntimeValue helpers,
-Thing/RegistrationSite, and value registration macros/slices; preserve high-level
-re-exports. Add the pure arbitrary descriptor without moving executable Function
+Thing/RegistrationSite, and value registration macros/slices. The original
+high-level re-export requirement was completed under the earlier policy and is
+superseded by U49, with removal tracked in 7.1. Add the pure arbitrary descriptor
+without moving executable Function
 metadata below execution. Preserve existing associated Function handles while
 adapting low descriptors into registry catalog traversal exactly once. Keep each
 production type in its own file and preserve the existing unsafe pointer contract.
@@ -1203,8 +1232,11 @@ headless/fail-fast behavior, and disabled authentication. Update token command
 construction and tracked-tenant binding to reject missing bearer tenants; remove
 Azure CLI active-tenant request compatibility. Executor selects compatible runtime
 credentials, with no silent source substitution. Keep org/project separate.
-Move the existing tenant ID and auth-source definitions to `auth_types`, retaining
-compatibility re-exports and owning registrations through `registry_values`.
+Move the existing tenant ID and auth-source definitions to `auth_types`, owning
+registrations through `registry_values`. Update every consumer's dependencies and
+imports, including SDKs, CLI/UI crates, registry code, tests, examples, and docs,
+in this slice. Remove the old exports from `azure_types` and `credentials`;
+do not add compatibility re-exports, aliases, or duplicate type definitions.
 Implement G3's provider-bound identity partitions, including a fresh provider
 session partition when source/tenant alone cannot establish the principal.
 Verify isolated Azure CLI session provisioning against official documentation
@@ -1219,6 +1251,7 @@ cargo test --offline --locked -p cloud_terrastodon_credentials --lib auth_contex
 cargo test --offline --locked -p cloud_terrastodon_credentials --lib azure_tenant_auth_context::tests
 cargo test --offline --locked -p cloud_terrastodon_credentials --lib azure_devops_auth_context::tests
 cargo check --offline --locked -p cloud_terrastodon_credentials -p cloud_terrastodon_azure
+cargo check --offline --locked --workspace --all-targets
 ```
 
 **Validation:** Replace the old active-tenant compatibility assertion with owned
@@ -1227,10 +1260,17 @@ missing tenant, source mismatch, PAT handling, disabled auth, and workload tenan
 mismatch. Inspect/filter token tests individually; do not run live token tests.
 Use synthetic identity/session boundaries to test switching and refresh rejection,
 independent-provider partitioning, and credential retention on success and failure.
+Inspect imports and public exports for both moved types, including grouped and
+glob imports, and verify every consumer uses the owning crate. Review documentation
+and examples alongside the workspace compile check; do not add compile-fail tests
+solely to prove that removed exports are absent.
 
 **Completion criteria:** Executable bearer requests always carry a tenant and
 source, including Azure CLI. Serializable selection contains no runtime cache,
-token, session, or cancellation scope. PAT needs no fabricated tenant.
+token, session, or cancellation scope. PAT needs no fabricated tenant. All tenant
+ID and auth-source consumers use `auth_types`; old crate paths no longer export
+those types, and the full workspace compiles without compatibility exports for
+the moved auth types.
 
 ### [ ] 3.2 Bind requests to a scoped executor through both execute spellings
 
@@ -1479,8 +1519,11 @@ HCL transformations and UI behavior are unchanged.
 **Work:** Complete each remaining request-family batch from 1.2. Remove legacy
 global memory cache, request-owned auth/scope, implicit REST auth resolution,
 active-tenant CLI execution, duplicate lifecycle, and reflective scope injection
-where replaced. Keep legitimate AppContext/auth runtime fields and unrelated
-pure operations; search findings require classification rather than blind edits.
+where replaced. Remove remaining migration compatibility re-exports, including
+those already introduced by the registry-values extraction, and update every
+consumer to the owning crate in the same change. Keep legitimate AppContext/auth
+runtime fields and unrelated pure operations; search findings require classification
+rather than blind edits.
 Preserve output formats, operation effects, mandatory cancellation via executor,
 explicit affected-read invalidation, and required-completion units in mutations.
 
@@ -1490,17 +1533,20 @@ cargo check --offline --locked --workspace --all-targets
 ```
 
 **Completion criteria:** No production caller relies on hidden execution state or
-the old cache lifecycle. Each search finding is removed or justified by its actual
-remaining responsibility. The full workspace compiles against the new contract.
+the old cache lifecycle, and no migration compatibility re-exports remain. Each
+search finding is removed or justified by its actual remaining responsibility.
+The full workspace compiles against the new contract.
 
 ### [ ] 7.2 Verify acceptance and document public migration/release impact
 
 **Work:** Run the reviewed local test matrix and cross-platform checks. Update
-REUSABLE_APPLICATIONS.md, affected request docs/examples, facade re-exports, and
+REUSABLE_APPLICATIONS.md, affected request docs/examples, public import paths, and
 the Unreleased changelog with concrete API/behavior changes. Reconcile references
 in the earlier auth plan without importing its stale statements. Review new
 package publication order and exact pinned dependency resolution; do not publish
-or bump unrelated versions. Update this plan's evidence and privacy audit.
+or bump unrelated versions. Document direct owning-crate imports and breaking API
+changes without compatibility re-exports. Update this plan's evidence and privacy
+audit.
 
 ```powershell
 rustup run nightly -- cargo fmt --all -- --check
@@ -1557,10 +1603,12 @@ evidence and documentation. This item remains deferred when phases 1–7 complet
 
 ## Overall initial-migration completion criteria
 
-- [ ] Every active U01–U48 requirement has task evidence; G1–G6 are closed and
+- [ ] Every active U01–U49 requirement has task evidence; G1–G6 are closed and
   phases 1–7 complete. Phase 8 remains explicitly deferred.
 - [ ] Requests contain explicit operation/auth selection data and no execution
   resources; both execute spellings and registry invocation share one contract.
+- [ ] All moved-type consumers use the owning crate/API; no migration compatibility
+  re-exports remain, and examples and public documentation show the new imports.
 - [ ] Command/REST/in-process execution use one cache lifecycle with no hidden
   global work cache or implicit authenticated-request fallback.
 - [ ] Concurrent successful reads share canonical decoded results; warm hits do
