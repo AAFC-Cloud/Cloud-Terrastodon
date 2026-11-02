@@ -1,7 +1,7 @@
 # Explicit execution and shared typed cache migration
 
-**Plan status:** Active migration; phases 1–2 and workspace error-handling
-refinement U47 complete. Next migration task: 3.1.
+**Plan status:** Active migration; phases 1–2, including workspace error-handling
+refinement U47 and response dependency cleanup U50, complete. Next task: 3.1.
 
 **Primary implementation root:** Repository root (`.`); no branch change prescribed.
 
@@ -13,7 +13,8 @@ untracked notes are preserved.
 **Intent audit:** Passed 2026-11-02 against the original design discussion,
 subsequent corrections, plan request, three planning-question replies, and the
 latest review corrections about production data, validation, and key collisions,
-authorization to proceed with implementation, and the full-cutover correction.
+authorization to proceed with implementation, the full-cutover correction, and
+the response-type dependency review.
 
 **Planning method:** User-invoked `resumable-implementation-plans` skill.
 
@@ -32,7 +33,9 @@ branch to `origin`, including its preceding local checkpoints. Package releases,
 production-data access, and implementation of the next phase remain outside this
 checkpoint's authorization. That checkpoint was committed and pushed as
 `fd989bd3`. U49 now requires a full cutover with no compatibility re-exports;
-this update records the requirement without starting phase 3.
+that correction was committed as `f9329427`. U50 now targets the narrow
+`azure_types` dependency on `command` through Resource Graph response decoding.
+This cleanup does not start the auth/executor implementation in phase 3.
 
 ## How to update this plan
 
@@ -69,14 +72,14 @@ changes since the recorded baseline before starting.
   directory-construction errors instead of panicking, then the workspace-wide
   prohibition and cleanup of production `unwrap`/`expect`, and committing and
   pushing the completed changes, and the full-cutover correction prohibiting
-  compatibility re-exports. U01–U49 preserve
+  compatibility re-exports, then the response-type dependency review. U01–U50 preserve
   the distinct instructions; optional source-location ownership, optional
   Vec<Arc<T>>, and a possible cache
   crate remain optional. The explicit-tenant correction supersedes the earlier
   assistant compatibility suggestion. U29 preserves the prohibition on production
   data access or ingestion into agent context; U30 adds workspace Clippy; U31
   requires collision prevention/detection while keeping a REST prefix a candidate.
-- **Pass 2 — traceability:** Verified all 49 ledger IDs have matching traceability
+- **Pass 2 — traceability:** Verified all 50 ledger IDs have matching traceability
   rows and concrete task/gate/acceptance coverage. Reviewed the inverse mapping:
   crate names, aggregate persistence, output bounds, and locking details are
   implementation decisions rather than attributed user decisions. Source review
@@ -192,6 +195,16 @@ changes since the recorded baseline before starting.
   All 49 ledger/traceability pairs and 135 relative links across the three updated
   documents pass, along with privacy, code-fence, and whitespace checks. This is a
   documentation correction; no production code or test execution changed.
+- **Response dependency audit:** Extraction records U50's direct-dependency
+  concern and SDK relocation as a proposed solution, not a required destination.
+  Traceability assigns task 2.5: the decoder only needs `Facet`, so reusable API
+  records and pure conversion remain in `azure_types` while the command marker
+  and direct dependency are removed. Adversarial review distinguishes that edge
+  from the remaining normal dependency paths through `hcl_types` and
+  `azure_resource_types`; it does not claim the whole crate is execution-free or
+  supersede the lower auth vocabulary contract. Task 2.5 records the five passing
+  offline tests, focused Clippy, formatting, and dependency evidence. All 50
+  guidance/traceability pairs, relative links, fences, and privacy checks pass.
 - **Known source limitation:** None. The design discussion, corrections, repository
   instructions, plan request, and planning replies are available in this session.
 
@@ -252,6 +265,7 @@ do not silently rewrite earlier guidance.
 | U47 | Forbid `expect` and `unwrap` outside tests; clean up existing violations across the entire workspace now. | Add workspace Clippy enforcement with test-only exemptions, propagate genuine failures, and remove production violations without substituting panics or silently discarding errors. | — |
 | U48 | Commit changes and push. | Commit the completed task 2.4 and workspace error-handling refinement, then push the current branch and its preceding local checkpoints to the existing remote; preserve unrelated notes. | — |
 | U49 | Full cutover, no compatibility exports. | Move every consumer to the owning crate/API when moving a type, remove old-path exports in the same slice, and remove existing migration compatibility exports before completion. | — |
+| U50 | The only apparent `azure_types` command dependency is in `query_response.rs`; moving it to the Azure SDK may remove that dependency more easily. | Verify actual use and remove the unnecessary direct dependency while retaining reusable API records in their owning types crate; distinguish remaining transitive coupling when assessing the auth crate boundary. | — |
 
 U18 supersedes the earlier assistant suggestion to preserve an Azure CLI
 active-tenant selection. That suggestion was not user approval. U13 rejects the
@@ -311,6 +325,7 @@ cache reuse. U14 and U16 deliberately retain their original optional qualifiers.
 | U47 | 2.4 refinement; 7.2 | Repository rule, all member lint configurations, workspace Clippy, and focused offline regression checks |
 | U48 | Current authorization; task 2.4 checkpoint | Reviewed staged scope, local commit, and confirmed remote branch update |
 | U49 | G1/G2; 3.1; 7.1; 7.2; caller inventory | Owning-crate imports across consumers, no compatibility re-exports, workspace compile checks, and updated public migration documentation |
+| U50 | 2.5; G1; 3.1 dependency rationale | Pure Facet decoding, direct dependency removed, checked remaining dependency paths, and focused offline conversion/consumer checks |
 
 ## Purpose and scope
 
@@ -1222,6 +1237,59 @@ invalidation I/O failure followed by memory eviction and attempted disk reload.
 After invalidation completes, newly admitted calls cannot reuse obsolete results.
 Already returned Arcs remain readable. No hierarchy guard spans child execution.
 
+### [x] 2.5 Remove unnecessary command coupling from response types
+
+**Completion notes:** Source review confirmed that `query_response.rs` is the
+only direct command import in `azure_types`. `FromCommandOutput` is a marker for
+`Facet<'static> + Send + 'static`; row decoding itself only needs `Facet<'static>`.
+The response records and pure conversion can stay in their domain crate. Offline
+Cargo metadata still finds normal paths to `command` through `hcl_types` and
+`azure_resource_types`, so this change does not make `azure_types` suitable as
+the low execution layer's dependency. The planned registry-to-execution edge is
+another reason to retain G1's separate auth vocabulary.
+
+The five response/data/error types now each have an owning file in `azure_types`.
+`ResourceGraphQueryResponse<T>` has no declaration bound;
+`ResourceGraphData::into_records` and the raw-to-typed conversion require only
+`Facet<'static>`. Crate-root imports, wire fields, response tolerance, row-width
+validation, and failed-row diagnostics are retained. The manifest and lockfile
+remove only the direct command dependency edge; dependency versions are unchanged.
+
+Validation passed: three synthetic table reconstruction/diagnostic tests, one
+string-backed domain-field conversion test, and the SDK's failed-entry artifact
+regression. The existing timing-based fixture was excluded. Clippy for both
+types and SDK crates with all targets and warnings denied, nightly workspace
+formatting, and whitespace checks pass. Offline Cargo metadata confirms the two
+remaining normal paths to `command`. No production services, credentials, data,
+or existing caches were accessed; user notes and staging are untouched.
+
+**Work:** Remove the command bound from the response container and use Facet
+only at decoding boundaries. Split the five production types into their owning
+files within `azure_types`, retaining public type names, wire representations,
+row validation, and error diagnostics. Remove the direct manifest dependency
+and only its corresponding lockfile edge. No SDK relocation or compatibility
+exports are required; existing consumers keep the same owning-crate imports.
+
+**Validation:** Inspect and run only the synthetic response conversion tests,
+excluding the existing timing-based benchmark test. Check the types crate and
+Azure SDK with the pinned offline dependencies, run focused Clippy and formatting,
+and use offline Cargo metadata to verify the direct and remaining indirect edges.
+No cloud requests, credential discovery, or production cache reads are involved.
+
+```powershell
+cargo test --offline --locked -p cloud_terrastodon_azure_types --lib resource_graph_data::tests -- --skip it_slow
+cargo test --offline --locked -p cloud_terrastodon_azure_types --lib resource_graph_query_response::tests
+cargo test --offline --locked -p cloud_terrastodon_azure --lib resource_graph::tests::writes_only_failed_resource_graph_entry_extra_file -- --exact
+cargo clippy --offline --locked -p cloud_terrastodon_azure_types -p cloud_terrastodon_azure --all-targets -- -D warnings
+rustup run nightly -- cargo fmt --all -- --check
+cargo metadata --offline --locked --no-deps --format-version 1
+```
+
+**Completion criteria:** No command imports or direct command dependency remain
+in `azure_types`; decoded response behavior and SDK callers still pass focused
+checks. Remaining transitive dependencies are recorded rather than silently
+expanded into unrelated cleanup.
+
 ## Phase 3 — serializable selection and bound execution
 
 ### [ ] 3.1 Separate auth selection from credential runtime state
@@ -1603,7 +1671,7 @@ evidence and documentation. This item remains deferred when phases 1–7 complet
 
 ## Overall initial-migration completion criteria
 
-- [ ] Every active U01–U49 requirement has task evidence; G1–G6 are closed and
+- [ ] Every active U01–U50 requirement has task evidence; G1–G6 are closed and
   phases 1–7 complete. Phase 8 remains explicitly deferred.
 - [ ] Requests contain explicit operation/auth selection data and no execution
   resources; both execute spellings and registry invocation share one contract.

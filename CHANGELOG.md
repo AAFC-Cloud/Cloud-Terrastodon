@@ -1,5 +1,7 @@
 # Unreleased
 
+- Remove the direct command dependency from Azure response types; Resource Graph row decoding requires only Facet and keeps the same public response types and diagnostics.
+
 - Prohibit production `unwrap` and `expect` with workspace Clippy checks, retaining test exemptions. Fallible initialization, conversions, and execution helpers return errors through their callers. Callers must now handle `Result` from command program/summary resolution, authorization-header conversion, Graph consistency-header setup, organization URL and cost-query constructors, terminal startup, and diagram generation.
 
 - Add hierarchical generation invalidation and transitive dependency tracking to the explicit cache owner, including disk quarantine after failed invalidation and original-freshness proofs for decoded artifacts. Production adapter cutover remains pending.

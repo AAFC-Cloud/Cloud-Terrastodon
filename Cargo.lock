@@ -1137,7 +1137,6 @@ dependencies = [
  "arbitrary",
  "chrono",
  "cloud_terrastodon_azure_resource_types",
- "cloud_terrastodon_command",
  "cloud_terrastodon_hcl_types",
  "cloud_terrastodon_registry",
  "cloud_terrastodon_user_input",
