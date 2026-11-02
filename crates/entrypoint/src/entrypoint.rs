@@ -8,6 +8,8 @@ use crate::git_revision::set_git_revision;
 use crate::version::full_version;
 use crate::version::set_version;
 use cloud_terrastodon_app::App;
+use cloud_terrastodon_azure_cli::AzureCommand;
+use cloud_terrastodon_azure_cli::tenant::AzureTenantCommand;
 use cloud_terrastodon_credentials::AuthSource;
 use eyre::Result;
 use std::process::ExitCode;
@@ -46,18 +48,7 @@ pub fn entrypoint(
         }
     };
     let requested_auth_source = cli.global_args.auth_source;
-    if matches!(
-        cli.command.as_ref(),
-        Some(
-            CloudTerrastodonCommand::Source(_)
-                | CloudTerrastodonCommand::Registry(_)
-                | CloudTerrastodonCommand::Dump(_)
-                | CloudTerrastodonCommand::Excalidraw(_)
-        )
-    ) {
-        // Local inventories and offline plans do not need cloud credential discovery.
-        cli.global_args.auth_source = AuthSource::None;
-    }
+    cli.global_args.auth_source = startup_auth_source(cli.command.as_ref(), requested_auth_source);
     let enable_egui = matches!(cli.command.as_ref(), Some(CloudTerrastodonCommand::Egui(_)));
     let capture_canvas_logs = matches!(
         cli.command.as_ref(),
@@ -75,6 +66,32 @@ pub fn entrypoint(
         })
 }
 
+fn startup_auth_source(
+    command: Option<&CloudTerrastodonCommand>,
+    requested: AuthSource,
+) -> AuthSource {
+    if matches!(
+        command,
+        Some(
+            CloudTerrastodonCommand::Source(_)
+                | CloudTerrastodonCommand::Registry(_)
+                | CloudTerrastodonCommand::Dump(_)
+                | CloudTerrastodonCommand::Excalidraw(_)
+        )
+    ) || matches!(
+        command,
+        Some(CloudTerrastodonCommand::Azure(args))
+            if matches!(&args.command, AzureCommand::Tenant(tenant)
+                if matches!(tenant.command, AzureTenantCommand::Logout(_)))
+    ) {
+        // Local inventories, offline plans, and logout do not need credential
+        // discovery. Broken credentials must not prevent their own removal.
+        AuthSource::None
+    } else {
+        requested
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -90,6 +107,42 @@ mod tests {
     use cloud_terrastodon_registry::known_things;
     use facet::Facet;
     use std::collections::BTreeMap;
+
+    #[test]
+    fn logout_skips_credential_discovery_for_every_requested_source() {
+        use cloud_terrastodon_azure::AzureTenantArgument;
+        use cloud_terrastodon_azure_cli::AzureArgs;
+        use cloud_terrastodon_azure_cli::tenant::AzureTenantArgs;
+        use cloud_terrastodon_azure_cli::tenant::AzureTenantLoginArgs;
+        use cloud_terrastodon_azure_cli::tenant::AzureTenantLogoutArgs;
+
+        let logout = CloudTerrastodonCommand::Azure(AzureArgs {
+            command: AzureCommand::Tenant(AzureTenantArgs {
+                command: AzureTenantCommand::Logout(AzureTenantLogoutArgs),
+            }),
+        });
+        let login = CloudTerrastodonCommand::Azure(AzureArgs {
+            command: AzureCommand::Tenant(AzureTenantArgs {
+                command: AzureTenantCommand::Login(AzureTenantLoginArgs {
+                    tenant: AzureTenantArgument::Default,
+                }),
+            }),
+        });
+        for requested in [
+            AuthSource::Auto,
+            AuthSource::None,
+            AuthSource::Browser,
+            AuthSource::AzureCli,
+            AuthSource::PersonalAccessToken,
+            AuthSource::WorkloadIdentity,
+        ] {
+            assert_eq!(
+                startup_auth_source(Some(&logout), requested),
+                AuthSource::None
+            );
+            assert_eq!(startup_auth_source(Some(&login), requested), requested);
+        }
+    }
 
     #[test]
     fn cli_schema_builds() {

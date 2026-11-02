@@ -166,7 +166,10 @@ impl std::fmt::Debug for BrowserSession {
     }
 }
 
-const BROWSER_SESSION_FILE: &str = "browser_session.json";
+pub(crate) const BROWSER_SESSION_FILE: &str = "browser_session.json";
+#[cfg(windows)]
+pub(crate) const BROWSER_REFRESH_TOKEN_TARGET_PREFIX: &str =
+    "cloud-terrastodon:browser:refresh-token";
 
 pub(crate) fn load_browser_session() -> Result<Option<BrowserSession>> {
     let path = AppDir::Config.join(BROWSER_SESSION_FILE);
@@ -285,7 +288,7 @@ fn browser_session_target(
     client_id: &EntraApplicationClientId,
 ) -> Result<crate::WindowsCredentialManagerTargetName> {
     crate::WindowsCredentialManagerTargetName::try_new(format!(
-        "cloud-terrastodon:browser:refresh-token:{tenant_id}:{client_id}"
+        "{BROWSER_REFRESH_TOKEN_TARGET_PREFIX}:{tenant_id}:{client_id}"
     ))
 }
 

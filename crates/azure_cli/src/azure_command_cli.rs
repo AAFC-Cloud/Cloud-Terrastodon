@@ -111,7 +111,9 @@ impl AzureCommand {
             AzureCommand::DevOps(args) => {
                 return Box::pin(args.invoke(auth_context, cancellation)).await;
             }
-            AzureCommand::Tenant(args) => Box::pin(args.invoke(auth_context, cancellation)).await?,
+            AzureCommand::Tenant(args) => {
+                return Box::pin(args.invoke(auth_context, cancellation)).await;
+            }
             AzureCommand::AppService(args) => {
                 Box::pin(args.invoke(auth_context, cancellation)).await?
             }

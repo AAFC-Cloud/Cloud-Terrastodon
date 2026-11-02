@@ -32,7 +32,7 @@ pub const DEFAULT_PIM_GRAPH_SCOPES: &[&str] = &[
 ];
 
 #[cfg(windows)]
-const PIM_REFRESH_TOKEN_TARGET_PREFIX: &str = "cloud-terrastodon:pim:refresh-token";
+pub(crate) const PIM_REFRESH_TOKEN_TARGET_PREFIX: &str = "cloud-terrastodon:pim:refresh-token";
 
 #[derive(Clone)]
 pub struct MicrosoftGraphAccessToken(String);

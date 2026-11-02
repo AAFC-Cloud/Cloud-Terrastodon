@@ -1,11 +1,15 @@
 use crate::AzureDevOpsPersonalAccessToken;
 use crate::WindowsCredentialManagerTargetName;
+use crate::auth_logout_error::AuthLogoutError;
+use eyre::Context;
 use eyre::bail;
+use windows::Win32::Foundation::ERROR_NOT_FOUND;
 use windows::Win32::Security::Credentials::CRED_MAX_CREDENTIAL_BLOB_SIZE;
 use windows::Win32::Security::Credentials::CRED_PERSIST_LOCAL_MACHINE;
 use windows::Win32::Security::Credentials::CRED_TYPE_GENERIC;
 use windows::Win32::Security::Credentials::CREDENTIALA;
 use windows::Win32::Security::Credentials::CredDeleteA;
+use windows::Win32::Security::Credentials::CredEnumerateA;
 use windows::Win32::Security::Credentials::CredFree;
 use windows::Win32::Security::Credentials::CredReadA;
 use windows::Win32::Security::Credentials::CredWriteA;
@@ -86,15 +90,73 @@ pub fn write_credential_to_manager(
 pub fn delete_credential_from_manager(
     target_name: &WindowsCredentialManagerTargetName,
 ) -> eyre::Result<()> {
-    unsafe {
+    let result = unsafe {
         CredDeleteA(
             windows::core::PCSTR(target_name.as_c_str().as_ptr() as *const u8),
             CRED_TYPE_GENERIC,
             None,
         )
+    };
+    match result {
+        Ok(()) => Ok(()),
+        Err(error) if error.code() == ERROR_NOT_FOUND.to_hresult() => Ok(()),
+        Err(error) => Err(error).wrap_err_with(|| format!("deleting credential {target_name:?}")),
     }
-    .map_err(|error| eyre::eyre!("deleting credential {target_name:?}: {error}"))?;
-    Ok(())
+}
+
+/// Delete all generic credentials with an application-owned prefix, including
+/// tokens left behind when the persisted session switched tenants or clients.
+/// Uses the prefix filter from
+/// https://learn.microsoft.com/en-us/windows/win32/api/wincred/nf-wincred-credenumeratea.
+pub(crate) fn delete_credentials_with_prefix(prefix: &str) -> eyre::Result<()> {
+    let filter = WindowsCredentialManagerTargetName::try_new(format!("{prefix}*"))?;
+    let mut count = 0;
+    let mut credentials: *mut *mut CREDENTIALA = std::ptr::null_mut();
+    // SAFETY: The filter is NUL-terminated and both output pointers are valid.
+    let result = unsafe {
+        CredEnumerateA(
+            windows::core::PCSTR(filter.as_c_str().as_ptr().cast()),
+            None,
+            &mut count,
+            &mut credentials,
+        )
+    };
+    if let Err(error) = result {
+        if error.code() == ERROR_NOT_FOUND.to_hresult() {
+            return Ok(());
+        }
+        return Err(error).wrap_err("enumerating stored Cloud Terrastodon refresh tokens");
+    }
+    // SAFETY: Successful enumeration provides count records in a single Windows
+    // allocation. Copy target names before releasing that allocation with CredFree.
+    // No credential blobs are read. Collection retains errors until after freeing.
+    let targets = unsafe {
+        std::slice::from_raw_parts(credentials, count as usize)
+            .iter()
+            .filter(|&&credential| (*credential).Type == CRED_TYPE_GENERIC)
+            .map(|credential| {
+                (**credential)
+                    .TargetName
+                    .to_string()
+                    .wrap_err("reading a stored refresh-token target name")
+                    .and_then(WindowsCredentialManagerTargetName::try_new)
+            })
+            .collect::<Vec<_>>()
+    };
+    // SAFETY: credentials is the allocation returned by successful enumeration;
+    // all references to its records have ended and it is freed exactly once.
+    unsafe { CredFree(credentials.cast()) };
+    let mut errors = Vec::new();
+    for target in targets {
+        if let Err(error) = target.and_then(|target| delete_credential_from_manager(&target)) {
+            errors.push(error);
+        }
+    }
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(AuthLogoutError { errors }.into())
+    }
 }
 
 /// Read credentials from Windows Credential Manager

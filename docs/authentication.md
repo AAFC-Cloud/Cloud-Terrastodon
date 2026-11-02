@@ -134,6 +134,31 @@ Supplying `--client-id` only persists the tenant-to-client-ID mapping; it does
 not verify the registration or its delegated permissions. Omitting it preserves
 the authenticated discovery and permission-validation setup path.
 
+## Logging out
+
+```text
+cloud_terrastodon.exe az tenant logout
+```
+
+This logs out across all tenants and organizations, regardless of `--auth-source`.
+It removes the stored browser session and, on Windows, all Cloud Terrastodon
+browser and legacy PIM refresh tokens from Credential Manager. It also runs
+[`az logout`](https://learn.microsoft.com/en-us/cli/azure/reference-index#az-logout)
+for the active account,
+[`az account clear`](https://learn.microsoft.com/en-us/cli/azure/account#az-account-clear)
+to log out the remaining cached users and service principals, and
+[`az devops logout`](https://learn.microsoft.com/en-us/cli/azure/devops#az-devops-logout)
+without an organization filter. Every source is attempted even if
+another fails; any failure is reported after cleanup. Azure CLI and its Azure
+DevOps extension must be installed for those logout steps to succeed.
+
+Logout preserves tracked tenants, aliases, and PIM client registrations. It does
+not revoke tokens remotely or clear browser cookies. Credentials supplied through
+environment variables, including PATs and workload identity assertions or token
+files, remain available to future processes until removed from the calling shell
+or pipeline. Logout bypasses credential discovery so a broken authentication
+configuration does not prevent cleanup.
+
 ## Azure CLI and PAT compatibility
 
 Azure CLI and PAT-backed paths remain for local compatibility and follow-on
