@@ -1119,15 +1119,8 @@ name = "cloud_terrastodon_azure_resource_types"
 version = "0.37.0"
 dependencies = [
  "arbitrary",
- "cloud_terrastodon_command",
- "eyre",
- "prettyplease",
- "proc-macro2",
- "quote",
- "syn 2.0.118",
  "teamy-facet",
  "teamy-facet-json",
- "tokio",
 ]
 
 [[package]]
@@ -1158,6 +1151,7 @@ dependencies = [
  "tokio",
  "tracing",
  "unicode_categories",
+ "url",
  "uuid",
 ]
 
@@ -1406,8 +1400,6 @@ dependencies = [
 name = "cloud_terrastodon_hcl_types"
 version = "0.37.0"
 dependencies = [
- "async-trait",
- "cloud_terrastodon_command",
  "cloud_terrastodon_user_input",
  "eyre",
  "hcl-primitives",
@@ -1465,6 +1457,25 @@ name = "cloud_terrastodon_relative_location"
 version = "0.37.0"
 dependencies = [
  "eyre",
+]
+
+[[package]]
+name = "cloud_terrastodon_resource_types_cli"
+version = "0.37.0"
+dependencies = [
+ "cloud_terrastodon_app",
+ "cloud_terrastodon_azure",
+ "cloud_terrastodon_azure_types",
+ "cloud_terrastodon_command",
+ "cloud_terrastodon_credentials",
+ "eyre",
+ "prettyplease",
+ "quote",
+ "syn 2.0.118",
+ "teamy-cancellation",
+ "teamy-facet",
+ "teamy-facet-json",
+ "tempfile",
 ]
 
 [[package]]

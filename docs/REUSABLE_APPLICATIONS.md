@@ -4,6 +4,12 @@ Cloud Terrastodon can supply application startup without supplying your command
 tree. Define your own public CLI, reuse `GlobalArgs`, and call the shared runner.
 Cloud Terrastodon's main executable uses the same runner.
 
+Local tools can call `App::without_authentication()` to bypass credential
+discovery during startup, even when another workspace member enables the app's
+`auth` feature. The handler receives `AuthContext::None` in that configuration.
+Explicit global credential sources are rejected; applications that have service
+commands can resolve those commands' own explicit selections when invoked.
+
 ## Command crate boundaries
 
 The main command tree composes `cloud_terrastodon_azure_cli`,

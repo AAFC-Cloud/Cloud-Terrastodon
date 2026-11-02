@@ -43,10 +43,14 @@ not authorize dependency upgrades.
 
 The direct `azure_types` dependency on `command` came only from an unnecessarily
 broad Resource Graph decoding bound. Task 2.5 replaces it with `Facet` and removes
-that edge while keeping response records in `azure_types`. Normal dependency
-paths through `hcl_types` and `azure_resource_types` still reach `command`;
-the planned high-level registry dependency on `execution` also remains relevant.
-Removing the direct edge therefore does not replace the separate `auth_types`
+that edge while keeping response records in `azure_types`. Tasks 2.6–2.7 remove
+the remaining command paths: Terraform formatting moves from `hcl_types` into
+`hcl`, and resource-type generation moves into unpublished `tools/` maintenance
+tooling. Task 2.8 places provider API records in `azure_types` and their cached
+tenant-scoped list request in `azure`; the tool owns catalogue generation and
+file publication. This adds no execution dependency to the types crates.
+The planned high-level registry dependency on `execution` remains
+relevant. Removing the command paths does not replace the separate `auth_types`
 boundary or move authentication vocabulary back into `azure_types`.
 
 ### Pure registry extraction
@@ -307,6 +311,14 @@ Principal and ARM requests keep explicit `auth_source` and `tenant_id` fields.
 `PersonalAccessToken` case. There is no active-CLI-tenant case. PAT is explicitly
 tenant-independent. Every Azure CLI bearer token subprocess receives the
 request's tenant; account defaults never complete missing request data.
+
+U56 permits the unpublished resource-type maintenance tool to resolve its shared
+CLI tenant selector before constructing SDK request data. Omitted or `default`
+selection uses the Azure CLI default account's tenant; UUIDs and aliases use the
+shared tracked-tenant resolver. The tool then binds that concrete UUID to its
+explicitly selected credential source. This CLI selection exception neither
+adds an active-tenant variant to executable request data nor permits the
+authentication provider to fill a missing request tenant from account defaults.
 
 The provider interface uses `AuthenticationSelection` to represent anonymous
 work, explicit tenant-bound bearer selection, or Azure DevOps PAT selection,

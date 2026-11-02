@@ -1,3 +1,4 @@
+mod as_formatted_hcl_string;
 mod audit;
 mod audit_trait;
 mod block_lister;
@@ -16,6 +17,7 @@ mod sorting;
 mod terraform_block_extracter_patcher;
 mod work_dir_lifecycle;
 mod writer;
+pub use crate::as_formatted_hcl_string::*;
 pub use crate::audit::*;
 pub use crate::audit_trait::*;
 pub use crate::block_lister::*;

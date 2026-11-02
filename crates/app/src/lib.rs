@@ -76,6 +76,8 @@ pub struct App {
     implementation_source_file: bool,
     egui_collector: bool,
     automatic_cancellation: bool,
+    #[cfg(feature = "auth")]
+    authentication: bool,
     #[cfg(feature = "terminal")]
     terminal_debug_capture: bool,
 }
@@ -90,6 +92,8 @@ impl App {
             implementation_source_file: false,
             egui_collector: false,
             automatic_cancellation: true,
+            #[cfg(feature = "auth")]
+            authentication: true,
             #[cfg(feature = "terminal")]
             terminal_debug_capture: false,
         }
@@ -131,6 +135,28 @@ impl App {
     pub fn automatic_cancellation(mut self, enable: bool) -> Self {
         self.automatic_cancellation = enable;
         self
+    }
+
+    /// Disable authentication discovery during application startup.
+    ///
+    /// Use this for local tools or applications whose service commands own
+    /// credential selection. It remains effective if Cargo feature unification
+    /// enables `auth` through another workspace member. With that feature enabled,
+    /// the handler receives `AuthContext::None`; global `auto`/`none` selections
+    /// perform no discovery, and explicit global credential sources are rejected.
+    /// Command-specific authentication remains the consumer's responsibility.
+    pub fn without_authentication(self) -> Self {
+        #[cfg(feature = "auth")]
+        {
+            Self {
+                authentication: false,
+                ..self
+            }
+        }
+        #[cfg(not(feature = "auth"))]
+        {
+            self
+        }
     }
 
     /// Capture a bounded Debug-through-Error stream for an interactive log surface.
@@ -230,7 +256,15 @@ impl App {
         let (log_filter, file_filter) = logging_filters(globals)?;
 
         #[cfg(feature = "auth")]
-        let auth = AuthContext::resolve(globals.auth_source)?;
+        let auth = if self.authentication {
+            AuthContext::resolve(globals.auth_source)?
+        } else {
+            eyre::ensure!(
+                matches!(globals.auth_source, AuthSource::Auto | AuthSource::None),
+                "this application disables startup authentication; select credentials on the service command instead of the global --auth-source"
+            );
+            AuthContext::None
+        };
 
         #[cfg(feature = "terminal")]
         let terminal = terminal::TerminalSession::new().debug_capture(self.terminal_debug_capture);

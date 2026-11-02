@@ -13,3 +13,4 @@ explore/
 /.codex-target/
 /target-codex*/
 /.codex-*/
+tools/resource-types-cli/catalogue.json

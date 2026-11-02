@@ -1,4 +1,4 @@
-use crate::strings::AsHclString;
+use crate::AsHclString;
 use crate::version::TerraformRequiredProvidersBlock;
 use eyre::OptionExt;
 use eyre::bail;

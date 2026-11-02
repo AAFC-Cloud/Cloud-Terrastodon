@@ -90,8 +90,10 @@ names in this table are not necessarily Cargo package names.
 
 The standalone example has no match in these particular patterns because it uses
 `AppContext` and fetch helpers directly; it is nevertheless explicitly in B19.
-The single `azure_resource_types` adapter hit is an ignored, test-only source
-generator, classified below. Zeros do not establish absence of consumers.
+At this inventory's baseline, the single `azure_resource_types` adapter hit was
+an ignored, test-only source generator. Task 2.7 extracts it into standalone
+tooling; these baseline counts are not current dependency guarantees. Zeros do
+not establish absence of consumers.
 
 To enumerate a metric's files rather than its counts, use the same glob policy:
 
@@ -155,7 +157,7 @@ patch. No batch authorizes a new endpoint, live inventory, or unrelated policy.
 | B08 Azure DevOps project vertical slice | 5.3 | [azure_devops_projects.rs](../../crates/azure_devops/src/azure_devops_projects.rs), project-list CLI, project picker and direct project-list consumers | Preserve explicit organization, explicit bearer tenant, PAT selection, continuation metadata, cache-hit behavior, and chosen shared-record output shape. Picker interaction itself is not memoized. |
 | B09 Remaining Graph identity reads | 6.3, 7.1 | `entra_user_get/search`, `entra_group_get/list/members/members_batch/owners`, `entra_groups_for_member`, `entra_directory_objects_by_ids`, `principal_get`, `service_principal_get`, and `microsoft_graph_batch` under [Azure SDK](../../crates/azure/src) | Move runtime construction/fetching; preserve mixed known/unknown principal resolution, batching, absence semantics, and pagination. Revisit owned conversions only where the selected shared-record boundary requires it. |
 | B10 Graph application/tenant/security reads | 6.3, 7.1 | Azure `application_registration_*`, `application_role_list`, `oauth2_permission_grant_list`, `oauth2_permission_scopes`, `conditional_access_*`, `tenant_details/licenses`, `service_groups`, `unified_role_*`, and `pim_entra_role_*` | Migrate each subfamily independently; preserve bearer audience/tenant, child dependencies, and protected policy boundaries. Unified role aggregates require the same cross-branch invalidation treatment as RBAC. |
-| B11 ARM inventories | 6.3, 7.1 | Azure `subscriptions`, `resource_group_list`, `resources`, `management_groups`, `policy_*`, network/VM/storage/compute families, app-service/application-gateway/container/cognitive-services/key-vault inventories | Migrate one resource family at a time through its current Resource Graph, REST, or command boundary. Preserve its identity filters/limits and output. Protocol replacement is not part of this migration. |
+| B11 ARM inventories | 6.3, 7.1 | Azure `subscriptions`, `resource_group_list`, `resources`, `management_groups`, [resource_provider_list_request](../../crates/azure/src/resource_provider_list_request.rs), `policy_*`, network/VM/storage/compute families, app-service/application-gateway/container/cognitive-services/key-vault inventories | Migrate one resource family at a time through its current Resource Graph, REST, or command boundary. Preserve its identity filters/limits and output. Protocol replacement is not part of this migration. |
 | B12 Azure direct helpers and mutations | 6.3, 7.1 | Azure `batch_api`, `cost_management`, `metrics`, `tags`, `storage_account_name_availability`, `virtual_machine_prices/sizes`, `create_role_assignment`, `governance_role_assignments`, `eligible_child_resources`, `role_eligibility_schedules`, `role_management_policy_assignments`, `evaluate_policy_assignment_compliance`, `remediate_policy_assignment`, `entra_group_member_add/remove`, OAuth grant create/update/remove, and PIM activation | Inventory plain functions and `.invoke()` helpers as well as request macros. Read-only batches opt in explicitly; writes execute every time and preserve required response/artifact/invalidation work. |
 | B13 Azure DevOps builds and folders | 6.3, 7.1 | `azure_devops_build_*_request.rs` and corresponding [build CLI](../../crates/azure_devops_cli/src/build) | Preserve list/get filters and revision identity, preflight freshness, folder prune/delete deferrals, and visible affected-read invalidation. |
 | B14 Azure DevOps work items | 6.3, 7.1 | `azure_devops_work_item*`, `work_item_copy*`, `rest_work_item_copy_writer.rs`, and corresponding work-item CLI | Migrate schema/query reads, mutations, copy planner, writer, and durable journal workflows in separate slices. Preserve effect declarations, journaling/required completion, and existing copy-plan decisions. |
@@ -227,7 +229,7 @@ them the inventory's memoized owner merely because they invalidate it.
 | B19 Reusable app and examples | 3.1, 3.2, 6.2, 7.1 | [App](../../crates/app/src/lib.rs), [standalone example](../../examples/standalone-cli/src/main.rs), [group-management example](../../examples/group-management/src/main.rs), its `desire_document/try_plan.rs`, public facade exports | Construct shared resources inside the bounded invocation scope; keep auth optional, local-only execution credential-free, and child-scope binding explicit. Update both examples and public docs to owning-crate imports; remove obsolete compatibility exports. Do not rely on counts to discover AppContext users. |
 | B20 Ratatui and discovery consumers | 3.3, 6.3 | [invocation_controller.rs](../../crates/ui_ratatui/src/object_explorer/invocation_controller.rs), `production_controller.rs`, `explorer_engine.rs`, `value_builder.rs`, browser event/snapshot code, [dump_plan_cli.rs](../../crates/entrypoint/src/cli/command/dump/dump_plan_cli.rs) | Pass explicit resources to registry invocation; seed selection data rather than runtime auth objects; preserve ownership/lease behavior, offline simulation, effects, and terminal coordination. |
 | B21 egui workers | 6.3 | [app.rs](../../crates/ui_egui/src/app.rs), [run_app.rs](../../crates/ui_egui/src/run_app.rs), [workers](../../crates/ui_egui/src/workers), [resources_window.rs](../../crates/ui_egui/src/windows/resources_window.rs) | Cloned workers share cache/auth resources but receive their own linked child scope. Migrate subscription/resource-group/resource loads and launch callers together. |
-| B22 HCL and raw process consumers | 6.3 | [reflow_new.rs](../../crates/hcl/src/reflow/reflow_new.rs), HCL writer/importer/import-builder/provider/work-directory lifecycle, [strings.rs](../../crates/hcl_types/src/strings.rs), entrypoint Terraform/process-generated helpers | Separate reflow request data from optional auth/scope; pass explicit process executor to raw command helpers while preserving cleanup and subprocess side effects. HCL transformations themselves are not redesigned. |
+| B22 HCL and raw process consumers | 2.6, 6.3 | [reflow_new.rs](../../crates/hcl/src/reflow/reflow_new.rs), HCL writer/importer/import-builder/provider/work-directory lifecycle, [as_formatted_hcl_string.rs](../../crates/hcl/src/as_formatted_hcl_string.rs), entrypoint Terraform/process-generated helpers | Task 2.6 moves formatting from `hcl_types` to `hcl`; later separate reflow request data from optional auth/scope and pass explicit process executor to raw command helpers while preserving cleanup and subprocess side effects. HCL transformations themselves are not redesigned. |
 | B23 Source scanning and local exports | 3.3, 6.3 | [SourceHuntRequest](../../crates/source/src/source_hunt_request.rs), source CLI, [DiscoveryPlanBuildRequest](../../crates/registry/src/discovery_plan_build_request.rs), [ProduceJsonRequest](../../crates/ui_ratatui/src/object_explorer/produce_json_request.rs), [ProduceExcalidrawDumpPlanRequest](../../crates/excalidraw/src/produce_excalidraw_dump_plan_request.rs) | Move request-owned cancellation/progress handles to bound execution/observation without artificial auth. Preserve blocking-worker checkpoints and required filesystem publication. These execute through the contract but do not become reusable cloud reads. |
 | B24 Cache inspection and refresh UX | 2.1, 6.2 | [cache list](../../crates/entrypoint/src/cli/command/cache/list/cache_list_cli.rs), [cache clean](../../crates/entrypoint/src/cli/command/cache/clean_tui_cli.rs), `with_invalidation` callers from snapshot | Preserve readable discovered scopes and use the owning cache handle for memory/disk invalidation. Test against isolated synthetic storage only. |
 
@@ -260,11 +262,16 @@ These are responsibility exclusions, not permanent old execution paths:
   management operations where applicable. They cannot silently supply missing
   org/project/tenant to ordinary migrated service requests. Preserve intentional
   management actions without resurrecting authenticated-request defaults.
-- The `azure_resource_types/src/resource_types_generator.rs` hit is entirely
-  under `#[cfg(test)]`; its generator is ignored and contacts a service. Adapt its
-  compile-time API calls if required, keep it ignored, and do not execute it for
-  this migration. Other inline/live tests likewise need compile adaptation, not
-  authorization to run against real systems.
+- Task 2.7 replaces the ignored resource-type generator with
+  [standalone tooling](../../tools/resource-types-cli/README.md). Offline catalogue
+  generation/checking is separate from live refresh with an explicit credential
+  source and resolved tenant. U56 allows this tool to use the shared default,
+  UUID, or alias selector before constructing its explicitly tenant-bound SDK
+  request; it does not add implicit tenant selection to service request data. Task
+  2.8 moves provider records into `azure_types` and the cached tenant list request
+  into `azure`; this SDK request joins the remaining request migration in 6.3.
+  Only synthetic offline operations run during this migration; compile adaptation of
+  refresh and other inline/live tests does not authorize real-system execution.
 - A mutable application workflow, user selection, filesystem export, or
   zero-duration mutation is not automatically memoized merely because it adopts
   the execution trait. Preserve its effects and completion contract.

@@ -1,7 +1,8 @@
 # Explicit execution and shared typed cache migration
 
-**Plan status:** Active migration; phases 1–2, including workspace error-handling
-refinement U47 and response dependency cleanup U50, complete. Next task: 3.1.
+**Plan status:** Active migration; tasks 2.6–2.8 and their tooling refinements are
+complete and included in the U58 commit checkpoint. Next task: 3.1; implementation
+is not part of this checkpoint.
 
 **Primary implementation root:** Repository root (`.`); no branch change prescribed.
 
@@ -14,7 +15,10 @@ untracked notes are preserved.
 subsequent corrections, plan request, three planning-question replies, and the
 latest review corrections about production data, validation, and key collisions,
 authorization to proceed with implementation, the full-cutover correction, and
-the response-type dependency review.
+the response-type dependency review, types-crate execution extraction, and
+resource-provider API ownership correction, default-catalogue refinement, and
+shared tenant-selection correction, default-output refinement for the
+maintenance tool, and the request to commit this work and describe the next part.
 
 **Planning method:** User-invoked `resumable-implementation-plans` skill.
 
@@ -22,7 +26,7 @@ the response-type dependency review.
 2026-10-30 and subsequently requested committing the completed foundation and
 proceeding. The reviewed foundation was committed as `3ebfe69b`, and the completed
 artifact-storage slice as `821acce9`. After that checkpoint and the next-phase
-description, the user authorized proceeding with task 2.3. The latest request
+description, the user authorized proceeding with task 2.3. The following request
 authorizes committing that slice and its fingerprint refinement, then describing
 task 2.4. The coordinated-cache checkpoint is `49352932`; the subsequent request
 to proceed authorizes task 2.4. The subsequent review requires fallible directory
@@ -36,6 +40,46 @@ checkpoint's authorization. That checkpoint was committed and pushed as
 that correction was committed as `f9329427`. U50 now targets the narrow
 `azure_types` dependency on `command` through Resource Graph response decoding.
 This cleanup does not start the auth/executor implementation in phase 3.
+U51 authorizes moving HCL formatting to `hcl` and extracting resource-type
+generation into a standalone `tools/` package. U52 selects offline generation
+plus explicit live refresh; the initial tool required a tenant and authentication
+source. U56 later changes only its tenant-selection policy. Only synthetic/offline
+validation is authorized. No commit or live run
+is implied by this extraction.
+U53 adds existing Cloud Terrastodon tenant-alias support to refresh. Resolve the
+explicit alias to a tenant ID before credential acquisition, retaining required
+selection and rejecting the default selector at that checkpoint. U56 supersedes
+that tool-specific restriction and the direct-UUID bypass of shared resolution.
+U54 moves resource-provider API records into `azure_types` and execution into
+`azure`, leaving the maintenance tool to consume the API and write its catalogue.
+Future registration tooling motivates the reusable boundary; subscription
+registration operations are not part of this extraction. The existing generated
+enum and its unknown fallback remain the bootstrap vocabulary.
+U55 makes `--catalogue` optional for refresh, generate, and check, using the
+maintenance tool's `catalogue.json` by default. Anchor that default to the build
+checkout's tool manifest directory and retain explicit path overrides. Output
+selection remained required at this checkpoint; U57 supersedes that requirement.
+This refinement does not create a catalogue or authorize a live refresh.
+U56 allows the maintenance tool to use the existing default tenant selection and
+removes its duplicate tenant argument/resolver. Use the shared
+`AzureTenantArgument` and `AzureTenantArgumentExt::resolve`: omitted or `default`
+selection resolves the Azure CLI default account's tenant; explicit UUIDs and
+aliases follow the shared tracked-tenant checks. The credential source remains
+required and the resolved UUID is explicitly bound before the SDK request.
+This is a tool-selection exception, not permission for SDK requests to contain
+an implicit tenant, substitute credential sources, or run against live data during
+development validation.
+U57 gives generation a default output destination at the existing generated enum
+source. Use a shared manifest-directory default for generate and check targeting
+`crates/azure_resource_types/src/resource_types.rs`, while retaining explicit
+path overrides. Validation must preserve the checked-in source and default
+catalogue; this change does not authorize a live refresh or inventory regeneration.
+U58 authorizes committing the completed type-boundary, maintenance-tool, and
+provider-API refinements, then describing task 3.1. Preserve the user's staged
+generation of `resource_types.rs` and the ignore rule for the local catalogue.
+The generated inventory is user-supplied work, not evidence of agent-run refresh
+or live compatibility testing. Do not read the local catalogue for validation.
+This checkpoint does not authorize pushing or implementing phase 3.
 
 ## How to update this plan
 
@@ -72,14 +116,18 @@ changes since the recorded baseline before starting.
   directory-construction errors instead of panicking, then the workspace-wide
   prohibition and cleanup of production `unwrap`/`expect`, and committing and
   pushing the completed changes, and the full-cutover correction prohibiting
-  compatibility re-exports, then the response-type dependency review. U01–U50 preserve
-  the distinct instructions; optional source-location ownership, optional
+  compatibility re-exports, then the response-type dependency review and tooling
+  extraction with explicit live-refresh selection, tenant-alias support, and
+  reusable provider API ownership, default-catalogue refinement, and the tool's
+  shared tenant-selection correction and default-output refinement, followed by
+  the request to commit the completed changes and describe the next part.
+  U01–U58 preserve the distinct instructions; optional source-location ownership, optional
   Vec<Arc<T>>, and a possible cache
   crate remain optional. The explicit-tenant correction supersedes the earlier
   assistant compatibility suggestion. U29 preserves the prohibition on production
   data access or ingestion into agent context; U30 adds workspace Clippy; U31
   requires collision prevention/detection while keeping a REST prefix a candidate.
-- **Pass 2 — traceability:** Verified all 50 ledger IDs have matching traceability
+- **Pass 2 — traceability:** Verified all 58 ledger IDs have matching traceability
   rows and concrete task/gate/acceptance coverage. Reviewed the inverse mapping:
   crate names, aggregate persistence, output bounds, and locking details are
   implementation decisions rather than attributed user decisions. Source review
@@ -205,6 +253,58 @@ changes since the recorded baseline before starting.
   supersede the lower auth vocabulary contract. Task 2.5 records the five passing
   offline tests, focused Clippy, formatting, and dependency evidence. All 50
   guidance/traceability pairs, relative links, fences, and privacy checks pass.
+- **Types-crate extraction audit:** U51 requests moving thin execution concerns
+  into their owning runtime/tool packages; U52 retains explicit live acquisition
+  alongside offline generation. Tasks 2.6 and 2.7 have independent implementation
+  owners for HCL and maintenance tooling, with integration and validation owned
+  by the primary agent. The iconography checkout is a read-only pattern reference.
+  No compatibility exports, generated inventory refresh, production access, or
+  phase-3 auth implementation is part of this slice.
+  Offline metadata verifies all three affected types crates have no normal/build
+  path to `command`; the maintenance tool is unpublished and has no consumers.
+  Source review and synthetic process checks cover feature-unified startup,
+  while catalogue tests and CLI smoke checks cover rendering, publication, JSON
+  output, formatter stability, and pre-authentication refresh rejection. All 52
+  guidance/traceability pairs, 136 relative links, fences, and privacy checks pass.
+- **Tenant-alias correction audit:** U53 broadens refresh input to the existing
+  tracked-alias vocabulary. A validating argument excludes `default`; direct IDs
+  retain their previous behavior, while aliases reuse the shared resolver and its
+  ambiguity errors. No alias matching, credential-source preference, or implicit
+  tenant selection is reimplemented in the tool. Task 2.7 owns the correction.
+- **Provider API ownership audit:** U54 identifies service metadata and fetching
+  as reusable SDK responsibilities. Task 2.8 assigns independent type extraction
+  and SDK request owners, with tool integration and verification owned by the
+  primary agent. Future registration support is motivation, not authorization to
+  register providers now. Relative resource-type names remain distinct from the
+  full generated vocabulary; unknown names and current service spelling must
+  survive catalogue generation. A feature replacing public types with strings is
+  an optional fallback proposal, not a required implementation.
+- **Default-catalogue refinement audit:** U55 makes the catalogue argument optional
+  across the three maintenance commands. Task 2.7 owns the shared default and
+  declarative argument defaults. The selected implementation anchors the default
+  to the compile-time tool manifest directory; explicit relative overrides retain
+  working-directory semantics. Output selection, authentication requirements,
+  and offline-validation limits remain unchanged. No catalogue content is created.
+- **Shared tenant-selection correction audit:** U56 authorizes the maintenance
+  tool's default tenant selection and removal of duplicate selection code. Task
+  2.7 uses the existing shared argument/resolver, including tracked explicit UUIDs,
+  aliases, and the Azure CLI default-account tenant. This supersedes the tool's
+  earlier default rejection and direct-UUID bypass, while preserving required
+  credential-source selection and the SDK's explicit resolved tenant contract.
+  Validation stops at synthetic output preflight before tenant discovery.
+- **Default-output refinement audit:** U57 adds the existing generated enum as
+  generation's default destination. Task 2.7 applies one shared default to
+  generate and check, anchored to the tool manifest directory just like the
+  catalogue. Explicit relative overrides keep working-directory semantics.
+  This supersedes U55's retained required-output behavior without changing
+  catalogue content, authentication, or the prohibition on live validation.
+- **Tooling commit checkpoint audit:** U58 authorizes a local commit of the
+  completed type-boundary/tooling/provider API work and a description of task
+  3.1. The staged generated inventory and local-catalogue ignore rule are user
+  changes to preserve; earlier inventory-unchanged evidence predates that
+  generation. Final checks use offline compilation and inspected synthetic tests,
+  without opening the catalogue or claiming live refresh evidence. Pushing and
+  phase-3 implementation remain outside this checkpoint.
 - **Known source limitation:** None. The design discussion, corrections, repository
   instructions, plan request, and planning replies are available in this session.
 
@@ -233,7 +333,7 @@ do not silently rewrite earlier guidance.
 | U15 | Share decoded results with Arc to avoid repeated owned copies and cache-bound borrow lifetimes. | Shared owned snapshots with no deserialization on warm memory hits. | — |
 | U16 | `Vec<Arc<T>>` can make sense for Azure DevOps collections and page assembly. | Evaluate shared-record boundaries; do not mandate blanket Arc replacement in every model. | — |
 | U17 | Azure DevOps auth selection should be separate from runtime context; bearer selection carries source/tenant, PAT resolves through executor. | Typed serializable selection distinct from credential/session/token ownership. | — |
-| U18 | Azure CLI credentials must have an explicit tenant in the request; do not depend on CLI default auth/tenant/DevOps setup. | Remove active-tenant compatibility from executable paths; preserve explicit organization/project scope. | — |
+| U18 | Azure CLI credentials must have an explicit tenant in the request; do not depend on CLI default auth/tenant/DevOps setup. | Remove active-tenant compatibility from executable paths; preserve explicit organization/project scope. | U56 permits default selection in the maintenance tool before constructing an explicitly tenant-bound SDK request; request contract unchanged |
 | U19 | Invalidation must affect memory and disk, including descendants of hierarchical keys and work in flight. | Prefix-aware freshness and coordinated publication/invalidation. | — |
 | U20 | A generation or similar mechanism should allow invalidation without deadlocking active work. | Older fills cannot republish reusable results after invalidation. | — |
 | U21 | A cache crate may be introduced if necessary to avoid dependency cycles. | Evaluate a cohesive low-level cache boundary; verify the full dependency graph. | — |
@@ -266,11 +366,24 @@ do not silently rewrite earlier guidance.
 | U48 | Commit changes and push. | Commit the completed task 2.4 and workspace error-handling refinement, then push the current branch and its preceding local checkpoints to the existing remote; preserve unrelated notes. | — |
 | U49 | Full cutover, no compatibility exports. | Move every consumer to the owning crate/API when moving a type, remove old-path exports in the same slice, and remove existing migration compatibility exports before completion. | — |
 | U50 | The only apparent `azure_types` command dependency is in `query_response.rs`; moving it to the Azure SDK may remove that dependency more easily. | Verify actual use and remove the unnecessary direct dependency while retaining reusable API records in their owning types crate; distinguish remaining transitive coupling when assessing the auth crate boundary. | — |
+| U51 | HCL formatting and resource-type generation are thin command dependencies; move formatting into `hcl` and generation into standalone `tools/` tooling following the iconography pattern. | Keep pure HCL conversions and generated resource types in their existing crates; extract execution and maintenance responsibilities and verify normal dependency paths. | — |
+| U52 | Keep offline generation plus an explicit live refresh command. | Require explicit tenant and authentication source for refresh, save a reusable catalogue, and validate only with synthetic/offline inputs. | U56 allows the tool's shared default tenant selection; explicit source and offline-validation rules remain |
+| U53 | Refresh should support existing Cloud Terrastodon tenant aliases as well as UUIDs. | Reuse shared alias parsing/resolution before credential acquisition; retain explicit tenant/source selection and existing direct-UUID behavior. | U56 uses the shared default/UUID/alias resolver, including its tracked-ID check; alias support remains |
+| U54 | Provider API response types and operations should live in `azure_types`/`azure`, with a thinner maintenance tool; future tools may inspect registration or register providers. The existing generated enum and `Other(String)` allow bootstrapping. | Extract public reusable records and tenant-scoped listing, leave catalogue/file concerns in the tool, preserve unknown names and wire spelling, and keep future registration mutations separate. No string-backed feature is required if the existing fallback suffices. | — |
+| U55 | Make the catalogue argument optional, defaulting to the maintenance tool's `catalogue.json`. | Use one manifest-directory default for refresh/generate/check, retain explicit path overrides and required output selection, and do not create a catalogue as part of the implementation. | U57 replaces required output selection with a shared generated-source default; catalogue behavior remains |
+| U56 | Allow the maintenance tool to use default tenant selection and remove duplicate tenant-selection code. | Use the existing shared tenant argument and resolver for omitted/default, UUID, and alias selection; retain explicit auth source and bind the resolved UUID before SDK execution. | — |
+| U57 | Give generation a default output path targeting the existing resource-type enum source. | Default generate/check output to the generated source relative to the tool's build manifest directory, preserve explicit overrides, and validate without replacing the checked-in inventory. | — |
+| U58 | Commit the completed changes and indicate the next part of the plan. | Commit the completed tooling/type-boundary/provider API refinements while preserving user changes, then describe task 3.1; do not push or begin its implementation. | — |
 
 U18 supersedes the earlier assistant suggestion to preserve an Azure CLI
 active-tenant selection. That suggestion was not user approval. U13 rejects the
 earlier recommendation to require a persisted type/schema identity as part of
 cache reuse. U14 and U16 deliberately retain their original optional qualifiers.
+U56 subsequently permits default tenant selection only at the maintenance tool's
+CLI boundary. It supersedes U52/U53's tool-specific default rejection and direct
+UUID bypass; U18's explicit tenant requirement for SDK request data remains.
+U57 subsequently supersedes U55's retained required-output behavior for the
+maintenance tool; its catalogue default and explicit overrides remain intact.
 
 ## Guidance traceability
 
@@ -326,6 +439,14 @@ cache reuse. U14 and U16 deliberately retain their original optional qualifiers.
 | U48 | Current authorization; task 2.4 checkpoint | Reviewed staged scope, local commit, and confirmed remote branch update |
 | U49 | G1/G2; 3.1; 7.1; 7.2; caller inventory | Owning-crate imports across consumers, no compatibility re-exports, workspace compile checks, and updated public migration documentation |
 | U50 | 2.5; G1; 3.1 dependency rationale | Pure Facet decoding, direct dependency removed, checked remaining dependency paths, and focused offline conversion/consumer checks |
+| U51 | 2.6, 2.7; G1; caller inventory | Owning-crate formatter trait, unpublished maintenance tool, no normal dependency path from types crates to command |
+| U52 | 2.7 | Separate offline generate/check and live refresh with explicit source and resolved tenant; tool selection follows U56; synthetic tests and no live execution |
+| U53 | 2.7 | Shared alias parsing/resolution and synthetic resolver tests; U56 replaces default rejection/direct-UUID bypass with the shared resolver; pre-authentication preflight remains |
+| U54 | 2.8; caller inventory | Public provider models, SDK pagination/cache/invalidation request, thin refresh command, unknown-type bootstrap tests, and offline dependency proof |
+| U55 | 2.7 refinement | Shared manifest-directory catalogue default, optional CLI argument with explicit overrides, output selection subsequently governed by U57, and offline validation without writing the default catalogue |
+| U56 | 2.7 refinement; G3 selection boundary; caller inventory | Removed duplicate tenant type/resolver, shared default/UUID/alias selection, unchanged explicit source and bound SDK tenant, synthetic preflight before tenant discovery, focused offline checks |
+| U57 | 2.7 refinement | Shared manifest-directory generated-source default, optional output argument for generate/check, working-directory-independent default selection, explicit override smoke checks, unchanged checked-in source and default catalogue |
+| U58 | Current authorization; tasks 2.6–2.8 checkpoint; 3.1 next-step description | Reviewed commit scope and preserved user generation/staging, final offline checks, local commit identity, and description of authentication-selection/runtime separation; no push or phase-3 implementation |
 
 ## Purpose and scope
 
@@ -1242,8 +1363,8 @@ Already returned Arcs remain readable. No hierarchy guard spans child execution.
 **Completion notes:** Source review confirmed that `query_response.rs` is the
 only direct command import in `azure_types`. `FromCommandOutput` is a marker for
 `Facet<'static> + Send + 'static`; row decoding itself only needs `Facet<'static>`.
-The response records and pure conversion can stay in their domain crate. Offline
-Cargo metadata still finds normal paths to `command` through `hcl_types` and
+The response records and pure conversion can stay in their domain crate. At this
+checkpoint, Cargo metadata found normal paths to `command` through `hcl_types` and
 `azure_resource_types`, so this change does not make `azure_types` suitable as
 the low execution layer's dependency. The planned registry-to-execution edge is
 another reason to retain G1's separate auth vocabulary.
@@ -1289,6 +1410,295 @@ cargo metadata --offline --locked --no-deps --format-version 1
 in `azure_types`; decoded response behavior and SDK callers still pass focused
 checks. Remaining transitive dependencies are recorded rather than silently
 expanded into unrelated cleanup.
+
+### [x] 2.6 Move Terraform formatting out of HCL types
+
+**Completion notes:** The runtime extension trait and both formatting callers
+now live in `hcl`; the two pure traits remain in separate `hcl_types` files. The
+five import conversion tests and four provider conversion tests pass. All-target
+Clippy for `hcl`, `hcl_types`, and `azure_resource_types` passes with warnings
+denied, compiling the moved formatter test without executing it. Offline Cargo
+metadata confirms no normal/build path from either HCL types or Azure types to
+`command`. No executable configuration or existing cache was read.
+
+**Work:** Keep pure `AsHclString` and `TryAsHclBlocks` in `hcl_types`, each in its
+own file. Move process-backed formatting into `hcl::AsFormattedHclString`, update
+its consumers, and remove `command` and `async-trait` from `hcl_types`. Preserve
+the supplied cancellation scope, interruptible stdin formatting, and returned
+text. Do not add compatibility exports or change HCL transformations.
+
+**Validation:** Run reviewed pure import/provider conversion tests; compile the
+moved formatter test and its consumers. The formatter test resolves executable
+configuration through Windows known folders, which have no isolated override in
+the current API; do not run it against the user's configuration. Check the normal
+dependency graph, scoped Clippy, and formatting.
+
+```powershell
+cargo test --offline --locked -p cloud_terrastodon_hcl_types --lib import_block::tests
+cargo test --offline --locked -p cloud_terrastodon_hcl_types --lib provider_block::tests
+cargo clippy --offline --locked -p cloud_terrastodon_hcl -p cloud_terrastodon_hcl_types --all-targets -- -D warnings
+```
+
+**Completion criteria:** Types retain their pure APIs, formatting callers import
+the runtime trait, and no normal dependency path from `hcl_types` reaches
+`command`. Validation does not load existing command configuration or caches.
+
+### [x] 2.7 Extract resource-type maintenance into standalone tooling
+
+**Completion notes:** The unpublished `resource-types` CLI now provides offline
+`generate`/`check` and explicit tenant/source `refresh` into a saved catalogue.
+The ignored live generator and its dependencies are removed from the reusable
+crate. At the initial extraction checkpoint, its checked-in inventory and wire
+behavior were unchanged; only the source banner named the new tool. The user's
+later staged generation is included in the U58 commit scope and does not alter
+that historical validation evidence. Newly generated fallback variants skip
+arbitrary fuzz generation, preserving their existing unknown-value parsing behavior.
+
+Eight synthetic tool tests and the three existing resource-type tests pass. The
+new startup process tests pass without app auth (one) and with app auth (two),
+using invalid synthetic workload inputs to detect accidental discovery. An
+auth-enabled tool binary generated and checked a three-name synthetic catalogue;
+nightly rustfmt left its bytes unchanged. Refresh with a synthetic tenant and a
+missing output parent reached the destination error before credential resolution,
+verifying leaf/global flag routing without network activity. No valid live refresh
+or existing credential/config/cache inspection occurred.
+
+Workspace all-target compilation, scoped Clippy with warnings denied, nightly
+workspace formatting, and whitespace checks pass. Offline metadata confirms no
+normal/build dependency path from `azure_types`, `hcl_types`, or
+`azure_resource_types` to `command`, and no package depends on the unpublished
+tool. The lockfile changes only local package edges and the new workspace member;
+external versions are unchanged. Live API and Linux support evidence remain
+unestablished. User notes and staging were preserved; the changes remained
+uncommitted at that checkpoint. U58 records the later commit authorization.
+
+**Tenant-alias refinement (U53, historical behavior before U56):** Refresh
+accepted an explicit UUID or tracked Cloud Terrastodon alias. The tool's CLI
+argument delegates parsing to the existing
+tenant vocabulary and excludes the default selector. Aliases resolve through
+`AzureTenantAliasExt` before authentication; UUIDs retain direct use without
+requiring a tracked entry. The resolved ID is bound to the explicitly chosen auth
+source without loading tracked auth preferences. Only the tool gains an Azure SDK
+dependency; the types crates remain independent of command execution.
+
+Refinement validation passed: nine tool tests, the three shared resolver tests
+listed below (temporary directories and synthetic IDs), auth-enabled tool build
+and all-target Clippy, nightly formatting, whitespace, and offline dependency
+checks. CLI preflight accepts both a synthetic alias and UUID, then stops at a
+missing destination parent before tenant/config lookup. `default` fails parsing;
+omitting `--tenant` shows the missing-required-argument diagnostic without invoking
+refresh. The pinned CLI framework renders the rejected proxy as a generic
+uninitialized-value error and exits successfully after missing-argument help;
+those diagnostic/exit-status limitations are not changed by this correction.
+No real tenant records, credentials, or services were accessed. All 53 ledger and
+traceability pairs pass the privacy/fence audit.
+
+```powershell
+cargo test --offline --locked -p cloud_terrastodon_resource_types_cli --lib
+cargo test --offline --locked -p cloud_terrastodon_azure --lib tracked_tenants::tests::it_adds_lists_resolves_and_removes_aliases -- --exact
+cargo test --offline --locked -p cloud_terrastodon_azure --lib tracked_tenants::tests::it_rejects_alias_conflicts_across_tenants -- --exact
+cargo test --offline --locked -p cloud_terrastodon_azure --lib tracked_tenants::tests::it_rejects_ambiguous_tenant_id_substring_resolution -- --exact
+cargo clippy --offline --locked -p cloud_terrastodon_resource_types_cli --all-targets --features cloud_terrastodon_app/auth -- -D warnings
+```
+
+**Work:** Replace the ignored generator test with an unpublished workspace member
+at `tools/resource-types-cli`. `generate` and `check` use a selected saved JSON
+catalogue without credentials. `refresh` resolves the shared tenant selector and
+explicitly selected credential source,
+fetches provider metadata through the reusable SDK request extracted in task 2.8,
+and saves the catalogue separately. Validate collisions and deterministic rendering;
+publish output atomically and make drift checks read-only. Keep the generated
+enum's existing behavior and inventory, changing only its generator provenance.
+
+**Default-catalogue refinement (U55, complete):** Added
+`ResourceTypeCatalogue::default_path()` for the unpublished tool's
+`catalogue.json`, anchored to `env!("CARGO_MANIFEST_DIR")`. That default is applied
+declaratively to the existing `PathBuf` catalogue fields on refresh, generate,
+and check. Omitting `--catalogue` selects the build checkout's
+`tools/resource-types-cli/catalogue.json`, independently of the process working
+directory; explicit relative overrides remain working-directory relative.
+At this checkpoint `--output` stayed required for generate/check; U57 supersedes
+that output policy below. Resolving the catalogue default performs no I/O,
+creates no file, and did not change the then-current tenant/source rules.
+The README shows the shorter default workflow and explains the build-checkout
+relationship. Validation passed: auth-enabled tool build, scoped all-target
+Clippy with warnings denied, focused nightly formatting, and whitespace checks.
+From a different working directory, `generate` and `check` without `--catalogue`
+both reported the expected missing default file; its absence was confirmed before
+execution. Explicit relative overrides generated and checked a synthetic
+catalogue under `target/`. These offline probes used `--auth-source none`.
+Refresh help describes the default. No default catalogue was created or read,
+and no live refresh or credential/configuration discovery occurred.
+
+**Shared tenant-selection refinement (U56, complete):** Removed
+`ResourceTypesRefreshTenantArgument`, its file, module, and export. Refresh uses
+`AzureTenantArgument<'static>` directly with its declarative default and calls
+`AzureTenantArgumentExt::resolve` before binding authentication. Omitted
+`--tenant` and `--tenant default` select the Azure CLI default account's tenant;
+explicit UUIDs now use the shared tracked-ID check, and aliases use the shared
+resolver's matching and ambiguity handling. `--auth-source` remains required.
+Bind the resulting UUID to that selected source without importing tracked auth
+preferences. The reusable SDK request still receives a concrete tenant ID and
+does not resolve an ambient tenant itself.
+
+This supersedes the earlier tool-only default prohibition and UUID bypass. It
+does not broaden default selection for other SDK operations or authorize reading
+real tenant/configuration/cache data during development. Validation passed: nine
+offline tool tests, an auth-enabled tool build, and scoped all-target Clippy with
+warnings denied. CLI preflight accepted omitted tenant, `default`, a synthetic
+alias, and a synthetic UUID; each stopped at a deliberately absent destination
+parent before tenant resolution, configuration/credential discovery, cache
+access, or a service call. No output was created. Focused nightly formatting and
+whitespace checks passed. Documentation audit verified all 56 guidance pairs,
+137 relative links, balanced fences, and absence of personal or local-machine paths.
+
+**Default-output refinement (U57, complete):** Added
+`ResourceTypeCatalogue::default_output_path()` using the tool's compile-time
+manifest directory and `../../crates/azure_resource_types/src/resource_types.rs`.
+The resulting `PathBuf` is the declarative default for generate/check output arguments.
+Both commands can use the default catalogue and generated source without
+path flags. Defaults remain tied to the build checkout independently of the
+process working directory; explicit relative overrides remain working-directory
+relative. Catalogue selection and authentication behavior are unchanged.
+
+Validation passed: auth-enabled tool build, scoped all-target Clippy with warnings
+denied, focused nightly formatting, and whitespace checks. From another working
+directory, read-only `check` with a synthetic catalogue reported drift against
+the intended crate source. `generate` accepted omitted output and rejected an
+empty synthetic catalogue before publication. Explicit relative overrides
+successfully generated and checked synthetic source under `target/`. All probes
+used `--auth-source none`; no live access occurred. A before/after hash confirmed
+the checked-in source was unchanged; the default catalogue was not read or written.
+
+Cargo feature unification can enable `app/auth` even when this tool disables
+default features. Add `App::without_authentication()` as an explicit startup
+policy: bypass credential discovery, return `AuthContext::None` with auth enabled,
+and reject explicit global credential sources instead of silently ignoring them.
+The refresh leaf alone resolves its validated source. This small host policy is
+required for the offline contract; it does not begin executor implementation.
+
+**Validation:** Use synthetic names and temporary files for catalogue validation,
+determinism, file replacement, and drift checks. Compile refresh without executing
+it; synthetic tests cannot establish live compatibility. Verify package graph and
+`publish = false`; the produced types crate must not depend on the tool. Update
+only local dependency edges in the lockfile, preserving external pins.
+
+```powershell
+cargo test --offline --locked -p cloud_terrastodon_resource_types_cli
+cargo test --offline --locked -p cloud_terrastodon_azure_resource_types --lib
+cargo test --offline --locked -p cloud_terrastodon_app --no-default-features --test process disabled_startup_authentication
+cargo test --offline --locked -p cloud_terrastodon_app --features auth --test process disabled_startup_authentication
+cargo clippy --offline --locked -p cloud_terrastodon_resource_types_cli -p cloud_terrastodon_azure_resource_types --all-targets -- -D warnings
+cargo clippy --offline --locked -p cloud_terrastodon_resource_types_cli -p cloud_terrastodon_app --all-targets --features cloud_terrastodon_app/auth -- -D warnings
+cargo check --offline --locked --workspace --all-targets
+rustup run nightly -- cargo fmt --all -- --check
+```
+
+CLI smoke evidence used a synthetic JSON array under `target/`, with no source
+inventory or existing cache as input:
+
+```powershell
+cargo run --offline --locked -p cloud_terrastodon_resource_types_cli --features cloud_terrastodon_app/auth -- generate --catalogue target/resource-types-tool-smoke/catalogue.json --output target/resource-types-tool-smoke/resource_types.rs
+rustup run nightly -- rustfmt --edition 2024 target/resource-types-tool-smoke/resource_types.rs
+target/debug/resource-types.exe check --catalogue target/resource-types-tool-smoke/catalogue.json --output target/resource-types-tool-smoke/resource_types.rs
+```
+
+The smoke check compares hashes before/after formatting. Generated blocks use
+`#[rustfmt::skip]` so pinned `prettyplease` owns their deterministic layout.
+
+**Completion criteria:** Offline catalogue workflows are usable and tested, live
+refresh requires an explicit source and a resolved tenant UUID, live acquisition
+remains unrun, generation no longer lives
+in the reusable crate, and neither `azure_resource_types` nor `azure_types` has a
+normal dependency path to `command`. G1's planned registry/execution boundary
+still requires the separate auth vocabulary in task 3.1.
+
+### [x] 2.8 Extract the reusable resource-provider API from maintenance tooling
+
+**Completion notes:** Public provider records, nested metadata, registration
+states, and validated identities now live in `azure_types`.
+`azure::fetch_all_resource_providers` owns tenant-scoped pagination, typed REST
+decoding, tenant/source page-cache isolation, invalidation, and a registered
+`Read` effect. The tool's copied response models and transport procedure are
+removed. Refresh resolves its tenant selection and explicit source, invalidates the SDK
+request, converts its result to a complete validated catalogue, and publishes it.
+Provider-relative names qualify into the existing generated vocabulary, including
+`Other(String)`; catalogue generation preserves the returned spelling directly.
+
+Validation passed: four domain-invariant tests, two request-policy tests, and ten
+tool tests, all synthetic and offline; scoped all-target Clippy with app auth
+enabled and warnings denied; workspace all-target compilation; nightly workspace
+formatting; and whitespace checks. Offline metadata confirms no normal/build path
+from `azure_types`, `hcl_types`, or `azure_resource_types` to `command`. The tool
+remains unpublished with no dependents; lockfile changes only local dependency
+edges, without external version changes. No live request, credential/config
+discovery, or real cache invalidation was executed. Subscription registration
+queries and mutations remain future work.
+
+The first tool-test build exhausted disk space. Removing only the confined,
+regenerable `target/debug/incremental` compiler artifacts allowed the checks to
+complete. Documentation review verified all 54 guidance/traceability pairs,
+relative links, balanced fences, and absence of personal/local-machine paths.
+No staging or commit operation was performed.
+
+**Commit checkpoint (U58):** This checkpoint includes completed tasks 2.6–2.8 and
+their refinements, with the subject `Separate type crates from execution and
+maintenance tooling`. It includes the user's staged generated resource-type
+source and the `.gitignore` rule excluding the local tool catalogue, preserving
+unrelated user work. Earlier statements that the checked-in inventory was unchanged describe
+the agent's extraction/default-path validation before the user generated it.
+No agent-run refresh or live compatibility validation is claimed, and the local
+catalogue remains unread. Final workspace all-target compilation, three generated
+resource-type tests, nine offline tool tests, nightly workspace formatting, and
+whitespace checks passed. Independent review found no blocker in the HCL
+extraction or credential-free app startup. After this checkpoint, describe task
+3.1's authentication-selection/runtime separation with
+the owning-crate cutover and explicit SDK tenant contract. Do not push or begin
+that implementation as part of this request.
+
+**Work:** Move provider response records, nested shapes, and meaningful identities
+into `azure_types`, with official schema links, strict debug response decoding,
+typed registration state, and value registrations. Add
+`azure::fetch_all_resource_providers` / `ResourceProviderListRequest` with explicit
+tenant-bound authentication, cancellation, visible pagination, scoped page cache,
+invalidation, and registry `Read` effects. The maintenance tool resolves selection,
+invalidates this request for a fresh inventory, and turns its typed result into a
+validated catalogue before atomically saving the file.
+
+Namespace-relative type names in provider metadata cannot directly use the full
+`ResourceType` enum. Model those identities explicitly and offer qualification
+into the existing vocabulary, retaining `Other(String)` for new full names.
+Generation must use the returned component spelling rather than round-trip known
+names through the older enum. No bootstrap feature or copied schema remains in
+the tool. Keep the produced enum crate independent of SDK/tool execution.
+
+The current endpoint lists at tenant scope. Subscription registration-state
+queries and registration mutations remain future SDK operations; tenant metadata
+does not establish readiness for a selected subscription. No live operations are
+authorized for validation, and no registration operation is added here.
+
+**Validation:** Review official API/source schema, then use synthetic domain
+values for namespace/type composition, unknown vocabulary preservation, provider
+ID invariants, catalogue completeness and service spelling. Test request-owned
+continuation confinement and tenant/source cache isolation without executing the
+request or invalidating a real cache. Compile all consumers, run focused Clippy
+and formatting, and inspect the normal dependency graph and local lockfile edges.
+Preserve the user's existing staged changes; leave this refinement unstaged.
+
+```powershell
+cargo test --offline --locked -p cloud_terrastodon_azure_types --lib azure_resource_provider
+cargo test --offline --locked -p cloud_terrastodon_azure --lib resource_provider_list_request::tests
+cargo test --offline --locked -p cloud_terrastodon_resource_types_cli --lib
+cargo clippy --offline --locked -p cloud_terrastodon_azure_types -p cloud_terrastodon_azure -p cloud_terrastodon_resource_types_cli --all-targets --features cloud_terrastodon_app/auth -- -D warnings
+cargo check --offline --locked --workspace --all-targets
+rustup run nightly -- cargo fmt --all -- --check
+```
+
+**Completion criteria:** Provider metadata has one public owning API, the tool
+contains no transport procedure or duplicate response models, and catalogue
+generation discovers unknown resource types without losing service spelling.
+Existing alias/source behavior and production-data restrictions remain intact;
+types crates still have no dependency path to command execution.
 
 ## Phase 3 — serializable selection and bound execution
 
@@ -1671,7 +2081,7 @@ evidence and documentation. This item remains deferred when phases 1–7 complet
 
 ## Overall initial-migration completion criteria
 
-- [ ] Every active U01–U50 requirement has task evidence; G1–G6 are closed and
+- [ ] Every active U01–U58 requirement has task evidence; G1–G6 are closed and
   phases 1–7 complete. Phase 8 remains explicitly deferred.
 - [ ] Requests contain explicit operation/auth selection data and no execution
   resources; both execute spellings and registry invocation share one contract.

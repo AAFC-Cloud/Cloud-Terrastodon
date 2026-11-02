@@ -21,6 +21,7 @@ eyre.workspace = true
 tokio.workspace = true
 tempfile.workspace = true
 uuid.workspace = true
+url.workspace = true
 chrono.workspace = true 
 iso8601-duration.workspace = true
 itertools.workspace = true

@@ -1,6 +1,6 @@
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [workspace]
-members = ["crates/*", "examples/standalone-cli", "examples/group-management"]
+members = ["crates/*", "examples/standalone-cli", "examples/group-management", "tools/resource-types-cli"]
 
 [workspace.lints.clippy]
 # `deny` permits test macros to apply their own test-only lint allowances.

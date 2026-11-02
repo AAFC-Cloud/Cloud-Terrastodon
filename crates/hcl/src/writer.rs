@@ -1,3 +1,4 @@
+use crate::AsFormattedHclString;
 use crate::HclBlock;
 use crate::sorting::HclBlockSortable;
 use cloud_terrastodon_command::CancellationScope;

@@ -1,5 +1,11 @@
 # Unreleased
 
+- Expose resource-provider metadata through `azure_types` and `azure::fetch_all_resource_providers`, including tenant-scoped pagination, cached pages, and invalidation. The maintenance tool consumes this SDK surface; provider-relative names preserve unknown types and service spelling for enum generation.
+
+- Move Terraform formatting to `hcl::AsFormattedHclString`, keeping pure HCL conversions in `hcl_types`. Extract resource-type maintenance into the unpublished `tools/resource-types-cli` with offline generation/checking and explicit tenant ID-or-alias/source refresh. The types crates no longer depend transitively on command execution.
+
+- Add `App::without_authentication()` for credential-free startup regardless of Cargo feature unification; service commands can own their explicit credential selection.
+
 - Remove the direct command dependency from Azure response types; Resource Graph row decoding requires only Facet and keeps the same public response types and diagnostics.
 
 - Prohibit production `unwrap` and `expect` with workspace Clippy checks, retaining test exemptions. Fallible initialization, conversions, and execution helpers return errors through their callers. Callers must now handle `Result` from command program/summary resolution, authorization-header conversion, Graph consistency-header setup, organization URL and cost-query constructors, terminal startup, and diagram generation.

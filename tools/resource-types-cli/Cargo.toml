@@ -1,0 +1,34 @@
+[package]
+name = "cloud_terrastodon_resource_types_cli"
+description = "Maintenance CLI for Cloud Terrastodon Azure resource types"
+version = "0.37.0" # CT_VERSION
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+publish = false
+readme = "README.md"
+
+[[bin]]
+name = "resource-types"
+path = "src/main.rs"
+
+[dependencies]
+cloud_terrastodon_app.workspace = true
+cloud_terrastodon_azure.workspace = true
+cloud_terrastodon_azure_types.workspace = true
+cloud_terrastodon_command.workspace = true
+cloud_terrastodon_credentials.workspace = true
+facet.workspace = true
+facet-json.workspace = true
+eyre.workspace = true
+quote.workspace = true
+syn.workspace = true
+prettyplease.workspace = true
+tempfile.workspace = true
+
+[dev-dependencies]
+teamy-cancellation.workspace = true
+
+[lints]
+workspace = true
