@@ -300,4 +300,4 @@ cloud_terrastodon_registry::register_thing!(AzureApplicationGatewayResourceBacke
 cloud_terrastodon_registry::register_arbitrary!(
     AzureApplicationGatewayResourceBackendHealthRequest
 );
-cloud_terrastodon_registry::register_into_future!(AzureApplicationGatewayResourceBackendHealthRequest => AzureApplicationGatewayResourceBackendHealthResponse, effects = [Read]);
+cloud_terrastodon_registry_execution::register_into_future!(AzureApplicationGatewayResourceBackendHealthRequest => AzureApplicationGatewayResourceBackendHealthResponse, effects = [Read]);

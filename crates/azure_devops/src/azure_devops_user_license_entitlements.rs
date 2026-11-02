@@ -109,7 +109,7 @@ cloud_terrastodon_registry::register_thing!(AzureDevOpsUserLicenseEntitlementLis
 cloud_terrastodon_registry::register_arbitrary!(
     AzureDevOpsUserLicenseEntitlementListRequest<'static>
 );
-cloud_terrastodon_registry::register_into_future!(AzureDevOpsUserLicenseEntitlementListRequest<'static> => Vec<AzureDevOpsUserLicenseEntitlement>, effects = [Read]);
+cloud_terrastodon_registry_execution::register_into_future!(AzureDevOpsUserLicenseEntitlementListRequest<'static> => Vec<AzureDevOpsUserLicenseEntitlement>, effects = [Read]);
 
 #[cfg(test)]
 mod test {

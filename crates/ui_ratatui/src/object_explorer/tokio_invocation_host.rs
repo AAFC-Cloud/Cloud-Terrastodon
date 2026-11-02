@@ -4,7 +4,7 @@ use super::invocation_host::InvocationId;
 use cloud_terrastodon_command::CancellationReportExt;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CancellationToken;
-use cloud_terrastodon_registry::InvocationFuture;
+use cloud_terrastodon_registry_execution::InvocationFuture;
 use std::any::Any;
 use std::collections::BTreeMap;
 use std::future::poll_fn;

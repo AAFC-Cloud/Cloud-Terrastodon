@@ -14,7 +14,6 @@ categories.workspace = true
 
 [dependencies]
 cloud_terrastodon_user_input = { workspace = true }
-cloud_terrastodon_command = { workspace = true }
 cloud_terrastodon_azure_types = { workspace = true }
 cloud_terrastodon_hcl_types = { workspace = true }
 cloud_terrastodon_registry = { workspace = true }

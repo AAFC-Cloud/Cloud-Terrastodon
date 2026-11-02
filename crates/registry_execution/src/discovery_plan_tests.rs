@@ -1,8 +1,8 @@
-use crate::DiscoveryPlan;
-use crate::DiscoveryPlanNodeKind;
-use crate::Function;
-use crate::describe_shape;
 use arbitrary::Arbitrary;
+use cloud_terrastodon_registry::DiscoveryPlan;
+use cloud_terrastodon_registry::DiscoveryPlanNodeKind;
+use cloud_terrastodon_registry::FunctionDescriptor;
+use cloud_terrastodon_registry::describe_shape;
 use facet::Facet;
 use facet::OpaqueBorrow;
 use facet::Shape;
@@ -114,23 +114,23 @@ crate::register_into_future!(UnrelatedRequest => Unrelated, effects = [Read]);
 crate::register_into_future!(MutationRequest => ServiceConnection, effects = [Write]);
 crate::register_into_future!(SolicitingRequest => ServiceConnection, effects = [Read, Solicit]);
 crate::register_into_future!(AmbientProjectRequest => Project, effects = [Read]);
-crate::register_from!(Project => ProjectArgument, associated = REGISTERED_ARGUMENT);
-crate::register_from!(ProjectArgument => Project, associated = REGISTERED_PROJECT);
-crate::register_arbitrary!(Project, associated = REGISTERED_ARBITRARY);
+cloud_terrastodon_registry::register_from!(Project => ProjectArgument, associated = REGISTERED_ARGUMENT);
+cloud_terrastodon_registry::register_from!(ProjectArgument => Project, associated = REGISTERED_PROJECT);
+cloud_terrastodon_registry::register_arbitrary!(Project, associated = REGISTERED_ARBITRARY);
 
-const CATALOG: [&Function; 8] = [
-    ConnectionsRequest::REGISTERED_INTO_FUTURE,
-    ProjectsRequest::REGISTERED_INTO_FUTURE,
-    UnrelatedRequest::REGISTERED_INTO_FUTURE,
-    MutationRequest::REGISTERED_INTO_FUTURE,
-    SolicitingRequest::REGISTERED_INTO_FUTURE,
-    Project::REGISTERED_ARGUMENT,
-    ProjectArgument::REGISTERED_PROJECT,
-    Project::REGISTERED_ARBITRARY,
+const CATALOG: [&FunctionDescriptor; 8] = [
+    ConnectionsRequest::REGISTERED_INTO_FUTURE.descriptor(),
+    ProjectsRequest::REGISTERED_INTO_FUTURE.descriptor(),
+    UnrelatedRequest::REGISTERED_INTO_FUTURE.descriptor(),
+    MutationRequest::REGISTERED_INTO_FUTURE.descriptor(),
+    SolicitingRequest::REGISTERED_INTO_FUTURE.descriptor(),
+    Project::REGISTERED_ARGUMENT.descriptor(),
+    ProjectArgument::REGISTERED_PROJECT.descriptor(),
+    Project::REGISTERED_ARBITRARY.descriptor(),
 ];
 
 fn plan(
-    catalog: impl IntoIterator<Item = &'static Function>,
+    catalog: impl IntoIterator<Item = &'static FunctionDescriptor>,
     seeds: &[&'static Shape],
     targets: &[&'static Shape],
 ) -> DiscoveryPlan {
@@ -216,9 +216,9 @@ fn missing_auth_blocks_the_chain_and_is_explained() {
 fn writes_solicitation_and_arbitrary_cannot_supply_a_missing_target() {
     let plan = plan(
         [
-            MutationRequest::REGISTERED_INTO_FUTURE,
-            SolicitingRequest::REGISTERED_INTO_FUTURE,
-            Project::REGISTERED_ARBITRARY,
+            MutationRequest::REGISTERED_INTO_FUTURE.descriptor(),
+            SolicitingRequest::REGISTERED_INTO_FUTURE.descriptor(),
+            Project::REGISTERED_ARBITRARY.descriptor(),
         ],
         &[Organization::SHAPE],
         &[ServiceConnection::SHAPE, Project::SHAPE],
@@ -231,8 +231,8 @@ fn writes_solicitation_and_arbitrary_cannot_supply_a_missing_target() {
 #[test]
 fn unseeded_conversion_cycle_cannot_invent_values() {
     let catalog = [
-        Project::REGISTERED_ARGUMENT,
-        ProjectArgument::REGISTERED_PROJECT,
+        Project::REGISTERED_ARGUMENT.descriptor(),
+        ProjectArgument::REGISTERED_PROJECT.descriptor(),
     ];
     let blocked = plan(catalog, &[], &[ProjectArgument::SHAPE]);
     assert!(blocked.nodes.iter().all(|node| !node.reachable));
@@ -245,7 +245,7 @@ fn unseeded_conversion_cycle_cannot_invent_values() {
 #[test]
 fn a_supplied_catalog_is_the_only_source_of_operations() {
     let plan = plan(
-        [ConnectionsRequest::REGISTERED_INTO_FUTURE],
+        [ConnectionsRequest::REGISTERED_INTO_FUTURE.descriptor()],
         &[Organization::SHAPE, Auth::SHAPE],
         &[ServiceConnection::SHAPE],
     );
@@ -283,7 +283,7 @@ fn seed_enum_variants_do_not_authorize_additional_auth_contexts() {
 #[test]
 fn collection_elements_are_planned_without_fabricating_or_executing() {
     let plan = plan(
-        [ProjectsRequest::REGISTERED_INTO_FUTURE],
+        [ProjectsRequest::REGISTERED_INTO_FUTURE.descriptor()],
         &[Organization::SHAPE, Auth::SHAPE],
         &[Project::SHAPE],
     );
@@ -306,7 +306,7 @@ fn collection_elements_are_planned_without_fabricating_or_executing() {
 #[test]
 fn explicit_request_seed_is_an_alternative_to_assembling_its_fields() {
     let plan = plan(
-        [ProjectsRequest::REGISTERED_INTO_FUTURE],
+        [ProjectsRequest::REGISTERED_INTO_FUTURE.descriptor()],
         &[ProjectsRequest::SHAPE],
         &[Project::SHAPE],
     );
@@ -336,7 +336,7 @@ fn input_order_and_duplicate_catalog_handles_do_not_change_the_plan() {
 
 #[test]
 fn requests_without_required_domain_inputs_cannot_bootstrap_ambient_defaults() {
-    let catalog = [AmbientProjectRequest::REGISTERED_INTO_FUTURE];
+    let catalog = [AmbientProjectRequest::REGISTERED_INTO_FUTURE.descriptor()];
     let blocked = plan(catalog, &[Organization::SHAPE], &[Project::SHAPE]);
     assert!(blocked.nodes.iter().all(|node| !node.reachable));
     assert!(blocked.nodes.iter().any(|node| {

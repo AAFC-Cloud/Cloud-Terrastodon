@@ -106,7 +106,7 @@ impl CacheableCommand for OAuth2PermissionGrantCreateRequest {
 cloud_terrastodon_command::impl_cacheable_into_future!(OAuth2PermissionGrantCreateRequest);
 cloud_terrastodon_registry::register_thing!(OAuth2PermissionGrantCreateRequest);
 cloud_terrastodon_registry::register_arbitrary!(OAuth2PermissionGrantCreateRequest);
-cloud_terrastodon_registry::register_into_future!(
+cloud_terrastodon_registry_execution::register_into_future!(
     OAuth2PermissionGrantCreateRequest => OAuth2PermissionGrant,
     effects = [Write]
 );

@@ -114,7 +114,7 @@ cloud_terrastodon_registry::register_thing!(
 cloud_terrastodon_registry::register_arbitrary!(
     AzureDevOpsUserLicenseEntitlementUpdateRequest<'static>
 );
-cloud_terrastodon_registry::register_into_future!(AzureDevOpsUserLicenseEntitlementUpdateRequest<'static> => AzureDevOpsLicenseEntitlementUpdateResponse, effects = [Write]);
+cloud_terrastodon_registry_execution::register_into_future!(AzureDevOpsUserLicenseEntitlementUpdateRequest<'static> => AzureDevOpsLicenseEntitlementUpdateResponse, effects = [Write]);
 
 #[derive(facet::Facet, Debug)]
 #[facet(rename_all = "camelCase")]
@@ -212,7 +212,7 @@ mod tests {
             let mut bytes = vec![0; 256];
             bytes[..128].fill(seed);
             let mut input = ArbitraryBytes::new(bytes);
-            let output = constructor.invoke_mut_boxed(&mut input)?;
+            let output = constructor.generate(&mut input)?;
             assert!(input.as_slice().len() < 256);
             let response = output
                 .downcast::<AzureDevOpsLicenseEntitlementUpdateResponse>()

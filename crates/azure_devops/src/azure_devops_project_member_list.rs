@@ -342,7 +342,7 @@ impl From<AzureDevOpsProjectMemberAccumulator> for AzureDevOpsProjectMember {
 cloud_terrastodon_registry::register_thing!(AzureDevOpsProjectMemberListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsProjectMemberListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(Vec<AzureDevOpsProjectMember>);
-cloud_terrastodon_registry::register_into_future!(
+cloud_terrastodon_registry_execution::register_into_future!(
     AzureDevOpsProjectMemberListRequest<'static> => Vec<AzureDevOpsProjectMember>,
     effects = [Read]
 );
@@ -352,7 +352,7 @@ mod tests {
     use super::AzureDevOpsProjectMember;
     use cloud_terrastodon_registry::ArbitraryBytes;
     use cloud_terrastodon_registry::ProductionKind;
-    use cloud_terrastodon_registry::functions_from;
+    use cloud_terrastodon_registry_execution::functions_from;
     use facet::Facet;
 
     #[test]

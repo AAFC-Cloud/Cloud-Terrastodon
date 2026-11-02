@@ -122,4 +122,4 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(EntraGroupOwnersListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(EntraGroupOwnersListRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(EntraGroupOwnersListRequest<'static> => Vec<EntraDirectoryObject>, effects = [Read]);
+cloud_terrastodon_registry_execution::register_into_future!(EntraGroupOwnersListRequest<'static> => Vec<EntraDirectoryObject>, effects = [Read]);

@@ -18,7 +18,7 @@
 
 - Add `cloud_terrastodon_cache` foundations with explicit roots, validated logical scopes, and operation/output ownership checks. Command and REST continue using their existing caches until the coordinated lifecycle migration.
 
-- Extract pure value reflection and offline constructors into `cloud_terrastodon_registry_values`, retaining existing value imports through `cloud_terrastodon_registry`. `known_functions()` now returns an iterable `KnownFunctions` view instead of a slice so it includes lower-level constructors while preserving existing registration-handle identity; consumers requiring a slice must adapt to catalog iteration.
+- Make `cloud_terrastodon_registry` the pure reflection, constructor, conversion, and planning foundation; move request registration and invocation to `cloud_terrastodon_registry_execution`. Remove `cloud_terrastodon_registry_values` and compatibility re-exports. Copyable `Function` enum handles reference runtime, pure, or arbitrary registrations directly, preserving identity without adapter allocation or lookup.
 
 - Change `CliOutput::facet_with_text` callbacks to write directly to the supplied writer, retaining shared JSON/Facet Pretty output and cooperative cancellation without buffering the complete text.
 

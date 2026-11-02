@@ -95,7 +95,7 @@ impl<'a> IntoFuture for AzureDevOpsWorkItemCreateRequest<'a> {
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsWorkItemCreateRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsWorkItemCreateRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(
+cloud_terrastodon_registry_execution::register_into_future!(
     AzureDevOpsWorkItemCreateRequest<'static> => cloud_terrastodon_azure_types::ArbitraryJson,
     effects = [Write]
 );

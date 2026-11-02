@@ -120,7 +120,7 @@ cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsGroupsListRequ
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsGroupsListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsGroupsListRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(
+cloud_terrastodon_registry_execution::register_into_future!(
     AzureDevOpsGroupsListRequest<'static> => Vec<AzureDevOpsGroup>,
     effects = [Read]
 );

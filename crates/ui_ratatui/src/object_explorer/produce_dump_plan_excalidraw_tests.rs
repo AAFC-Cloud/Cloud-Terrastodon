@@ -42,7 +42,7 @@ impl IntoFuture for DiagramInventoryRequest {
     }
 }
 
-cloud_terrastodon_registry::register_into_future!(DiagramInventoryRequest => DiagramInventory, effects = [Read]);
+cloud_terrastodon_registry_execution::register_into_future!(DiagramInventoryRequest => DiagramInventory, effects = [Read]);
 
 // Observe only the native scene fields this integration produces. The typed
 // writer's tagged/flattened element enum is not a general-purpose scene decoder.
@@ -73,7 +73,7 @@ async fn export_plan_through_explorer(cancellation: CancellationScope) -> eyre::
     let directory = tempfile::tempdir()?;
     let filename = directory.path().join("chosen plan drawing.excalidraw");
     let plan = DiscoveryPlan::build(
-        [DiagramInventoryRequest::REGISTERED_INTO_FUTURE],
+        [DiagramInventoryRequest::REGISTERED_INTO_FUTURE.descriptor()],
         [DiagramInput::SHAPE],
         [DiagramInventory::SHAPE],
         &cancellation,

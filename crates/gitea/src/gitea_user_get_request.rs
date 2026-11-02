@@ -70,7 +70,7 @@ cloud_terrastodon_command::impl_cacheable_into_future!(GiteaUserGetRequest<'a>, 
 
 cloud_terrastodon_registry::register_thing!(GiteaUserGetRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(GiteaUserGetRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(
+cloud_terrastodon_registry_execution::register_into_future!(
     GiteaUserGetRequest<'static> => GiteaUser,
     effects = [Read]
 );

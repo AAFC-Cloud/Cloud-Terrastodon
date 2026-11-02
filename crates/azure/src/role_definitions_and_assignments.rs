@@ -81,7 +81,7 @@ impl<'a> RoleDefinitionsAndAssignmentsListRequest<'a> {
 }
 cloud_terrastodon_registry::register_thing!(RoleDefinitionsAndAssignmentsListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(RoleDefinitionsAndAssignmentsListRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(
+cloud_terrastodon_registry_execution::register_into_future!(
     RoleDefinitionsAndAssignmentsListRequest<'static> => RoleDefinitionsAndAssignments,
     effects = [Read]
 );

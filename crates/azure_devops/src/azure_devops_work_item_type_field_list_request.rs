@@ -70,7 +70,7 @@ impl<'a> IntoFuture for AzureDevOpsWorkItemTypeFieldListRequest<'a> {
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsWorkItemTypeFieldListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsWorkItemTypeFieldListRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(
+cloud_terrastodon_registry_execution::register_into_future!(
     AzureDevOpsWorkItemTypeFieldListRequest<'static> => Vec<AzureDevOpsWorkItemTypeField>,
     effects = [Read]
 );

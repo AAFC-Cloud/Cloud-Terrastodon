@@ -62,7 +62,7 @@ impl IntoFuture for DefaultGiteaInstanceUrlRequest {
 
 cloud_terrastodon_registry::register_thing!(DefaultGiteaInstanceUrlRequest);
 cloud_terrastodon_registry::register_arbitrary!(DefaultGiteaInstanceUrlRequest);
-cloud_terrastodon_registry::register_into_future!(
+cloud_terrastodon_registry_execution::register_into_future!(
     DefaultGiteaInstanceUrlRequest => GiteaInstanceUrl,
     effects = [Read]
 );

@@ -170,7 +170,7 @@ impl ResourceProviderListRequest<'_> {
 
 cloud_terrastodon_registry::register_thing!(ResourceProviderListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(ResourceProviderListRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(
+cloud_terrastodon_registry_execution::register_into_future!(
     ResourceProviderListRequest<'static> => Vec<AzureResourceProvider>,
     effects = [Read]
 );

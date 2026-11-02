@@ -272,7 +272,7 @@ impl<'a> IntoFuture for AzureDevOpsBuildListRequest<'a> {
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsBuildListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsBuildListRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(
+cloud_terrastodon_registry_execution::register_into_future!(
     AzureDevOpsBuildListRequest<'static> => Vec<AzureDevOpsBuild>,
     effects = [Read]
 );

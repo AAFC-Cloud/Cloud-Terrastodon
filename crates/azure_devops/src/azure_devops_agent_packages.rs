@@ -91,7 +91,7 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsAgentPackage
 cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsAgentPackagesRequest<'a>, 'a);
 cloud_terrastodon_registry::register_thing!(AzureDevOpsAgentPackagesRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsAgentPackagesRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(AzureDevOpsAgentPackagesRequest<'static> => Vec<AzureDevOpsAgentPackage>, effects = [Read]);
+cloud_terrastodon_registry_execution::register_into_future!(AzureDevOpsAgentPackagesRequest<'static> => Vec<AzureDevOpsAgentPackage>, effects = [Read]);
 
 #[cfg(test)]
 mod test {

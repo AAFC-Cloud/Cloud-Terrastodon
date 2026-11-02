@@ -2,20 +2,19 @@ use crate::CancellationScope;
 use crate::DiscoveryValue;
 use crate::Function;
 use crate::FunctionExecutor;
-use crate::FunctionKind;
-use crate::RuntimeValue;
-use crate::describe_function;
-use crate::describe_shape;
 use crate::discovery_arbitrary::fabricate_response;
 use crate::discovery_input::assemble_request;
 use crate::discovery_reflection::reflected_descendants;
-use crate::known_thing_for_shape;
+use cloud_terrastodon_registry::FunctionKind;
+use cloud_terrastodon_registry::RuntimeValue;
+use cloud_terrastodon_registry::describe_function;
+use cloud_terrastodon_registry::describe_shape;
+use cloud_terrastodon_registry::known_thing_for_shape;
 use facet::Shape;
 use rand::SeedableRng;
 use rand::rngs::StdRng;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::ptr;
 
 /// Offline exploration of registered type coverage from explicit seed values.
 ///
@@ -38,7 +37,7 @@ pub struct DiscoverySimulation {
     pub values: HashMap<&'static Shape, Vec<DiscoveryValue>>,
     /// Admitted request edges, including those whose response generation failed.
     /// Inspect diagnostics and retained values when assessing actual coverage.
-    pub simulated_requests: Vec<&'static Function>,
+    pub simulated_requests: Vec<Function>,
     pub rounds: usize,
     pub converged: bool,
     pub diagnostics: Vec<String>,
@@ -48,7 +47,7 @@ impl DiscoverySimulation {
     /// Explore until the representative type pool stops growing or a caller
     /// budget is exhausted. Missing request inputs are never fabricated or
     /// defaulted into domain identities; optional request fields may be None.
-    /// Pass a borrowed registry slice or an iterable of static function handles.
+    /// Pass an iterable of copyable registration handles.
     /// Its iterator must support cloning to replay traversal in each round.
     ///
     /// `max_values` caps entries in the representative pool, including seeds,
@@ -63,7 +62,7 @@ impl DiscoverySimulation {
         cancellation: &CancellationScope,
     ) -> eyre::Result<Self>
     where
-        I: IntoIterator<Item = &'static Function>,
+        I: IntoIterator<Item = Function>,
         I::IntoIter: Clone,
     {
         let functions = functions.into_iter();
@@ -90,12 +89,12 @@ impl DiscoverySimulation {
         }
         let mut random = StdRng::seed_from_u64(seed);
         // Attempt each traversal registration once after its input is available,
-        // even if the attempt fails. Metadata addresses identify registrations:
+        // even if the attempt fails. Handles identify their authoritative registrations:
         // separate entries may share a signature or executor. Missing-input
         // operations remain outside this set so later rounds can reconsider them.
         // Traversal follows catalog order rather than set iteration.
-        let mut completed = HashSet::<*const Function>::new();
-        let mut blocked = Vec::<(&'static Function, String)>::new();
+        let mut completed = HashSet::<Function>::new();
+        let mut blocked = Vec::<(Function, String)>::new();
         for round in 0..max_rounds {
             cancellation.bail_if_cancelled()?;
             simulation.rounds = round + 1;
@@ -104,8 +103,7 @@ impl DiscoverySimulation {
             blocked.clear();
             for function in functions.clone() {
                 cancellation.bail_if_cancelled()?;
-                let registration = ptr::from_ref(function);
-                if completed.contains(&registration) || !eligible(function) {
+                if completed.contains(&function) || !eligible(function) {
                     continue;
                 }
                 if function.kind == FunctionKind::AsyncInvoke {
@@ -148,7 +146,7 @@ impl DiscoverySimulation {
                     // Merely inspecting the request is enough: its executor and
                     // cancellation-binding callback remain unreachable here.
                     simulation.simulated_requests.push(function);
-                    completed.insert(registration);
+                    completed.insert(function);
                     if simulation.values.contains_key(function.output_shape) {
                         continue;
                     }
@@ -165,7 +163,7 @@ impl DiscoverySimulation {
                         Err(error) => {
                             simulation.diagnostics.push(format!(
                                 "Cannot simulate {}: {error:#}",
-                                describe_function(function)
+                                describe_function(function.descriptor())
                             ));
                             continue;
                         }
@@ -199,7 +197,7 @@ impl DiscoverySimulation {
                     let depth = input.depth.saturating_add(1);
                     let output = invoke_pure(function, &input.value);
                     cancellation.bail_if_cancelled()?;
-                    completed.insert(registration);
+                    completed.insert(function);
                     match output {
                         Ok(value) => {
                             if !simulation.retain_value(
@@ -216,7 +214,7 @@ impl DiscoverySimulation {
                         }
                         Err(error) => simulation.diagnostics.push(format!(
                             "Cannot apply {}: {error:#}",
-                            describe_function(function)
+                            describe_function(function.descriptor())
                         )),
                     }
                 }
@@ -229,9 +227,10 @@ impl DiscoverySimulation {
             }
         }
         for (function, reason) in blocked {
-            simulation
-                .diagnostics
-                .push(format!("Blocked {}: {reason}", describe_function(function)));
+            simulation.diagnostics.push(format!(
+                "Blocked {}: {reason}",
+                describe_function(function.descriptor())
+            ));
         }
         if !simulation.converged {
             simulation.diagnostics.push(format!(
@@ -301,7 +300,7 @@ impl DiscoverySimulation {
     }
 }
 
-fn eligible(function: &Function) -> bool {
+fn eligible(function: Function) -> bool {
     match function.kind {
         FunctionKind::AsyncInvoke => function.is_read_only() && !function.requires_user_input(),
         FunctionKind::Conversion | FunctionKind::Projection => {
@@ -311,7 +310,7 @@ fn eligible(function: &Function) -> bool {
     }
 }
 
-fn invoke_pure(function: &Function, input: &RuntimeValue) -> eyre::Result<RuntimeValue> {
+fn invoke_pure(function: Function, input: &RuntimeValue) -> eyre::Result<RuntimeValue> {
     let thing = known_thing_for_shape(function.input_shape).ok_or_else(|| {
         eyre::eyre!(
             "{} is not a registered input thing",
@@ -321,7 +320,7 @@ fn invoke_pure(function: &Function, input: &RuntimeValue) -> eyre::Result<Runtim
     let mut input = thing.runtime_into_boxed(input.try_clone()?)?;
     // Calling these synchronous function pointers directly structurally excludes
     // async invocation and any executable-request cancellation binding callback.
-    let output = match function.executor {
+    let output = match function.executor() {
         FunctionExecutor::SyncValue(invoke) => invoke(input),
         FunctionExecutor::SyncRef(invoke) => invoke(input.as_ref()),
         FunctionExecutor::SyncMut(invoke) => invoke(input.as_mut()),

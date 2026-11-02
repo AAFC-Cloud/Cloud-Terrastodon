@@ -1,8 +1,13 @@
 # Explicit execution and shared typed cache migration
 
-**Plan status:** Active migration; tasks 2.6–2.8 and their tooling refinements are
-complete and included in the U58 commit checkpoint. Next task: 3.1; implementation
-is not part of this checkpoint.
+**Plan status:** Active migration; tasks 2.6–2.8 and their tooling refinements were
+committed as `aa02c23c`. U59–U61 revise the next boundary: option B with pure
+`registry`, executor-aware `registry_execution`, runtime `auth`, and vocabulary
+`auth_types`; `AzureTenantId` stays in `azure_types`. Task 3.0's package cutover and
+U63–U65's direct enum-handle refinement are complete. U66 records their local
+commit checkpoint, titled `Separate pure registry from execution with direct function handles`.
+Task 3.1 is next: rename credential runtime to `auth` and extract `AuthSource`
+and resolved selections into `auth_types`.
 
 **Primary implementation root:** Repository root (`.`); no branch change prescribed.
 
@@ -18,7 +23,12 @@ authorization to proceed with implementation, the full-cutover correction, and
 the response-type dependency review, types-crate execution extraction, and
 resource-provider API ownership correction, default-catalogue refinement, and
 shared tenant-selection correction, default-output refinement for the
-maintenance tool, and the request to commit this work and describe the next part.
+maintenance tool, the request to commit this work and describe the next part,
+and the dependency review, diagram/candidate request, and selection of option B
+with the `auth`/`auth_types` naming correction and U62's authorization to implement
+the next planned slice, task 3.0. U63–U65 subsequently authorize replacing the
+registry's adapter lookups and optional provenance fields with direct enum handles.
+U66 authorizes committing that completed work and identifying the next task.
 
 **Planning method:** User-invoked `resumable-implementation-plans` skill.
 
@@ -80,6 +90,23 @@ generation of `resource_types.rs` and the ignore rule for the local catalogue.
 The generated inventory is user-supplied work, not evidence of agent-run refresh
 or live compatibility testing. Do not read the local catalogue for validation.
 This checkpoint does not authorize pushing or implementing phase 3.
+That work was committed as `aa02c23c`. U59–U61 now authorize refining the living
+proposal: keep `AzureTenantId` in `azure_types`, select option B's registry
+boundary, rename runtime `credentials` to `auth`, and move `AuthSource` to
+`auth_types`. Record the changes in the plan/contracts/inventory now; no package
+rename, implementation, commit, push, or live validation is implied by this
+design-selection checkpoint.
+U62 then authorizes proceeding with task 3.0: complete the registry ownership
+cutover and all consumers, preserving offline validation and full-cutover rules.
+No commit, push, or production-data access is implied. Auth renaming/extraction
+remains the following task 3.1.
+U63–U65 authorize the enum-handle refinement within task 3.0. Replace the newly
+introduced registration scans and copied adapter records, migrate every consumer,
+and record offline evidence. This does not authorize committing, pushing,
+starting auth migration, or reading production data.
+U66 subsequently authorizes a local commit of the completed registry package
+cutover and enum refinement, then a description of task 3.1. The reviewed staged
+changes belong to that slice. No push or implementation of task 3.1 is requested.
 
 ## How to update this plan
 
@@ -127,7 +154,7 @@ changes since the recorded baseline before starting.
   assistant compatibility suggestion. U29 preserves the prohibition on production
   data access or ingestion into agent context; U30 adds workspace Clippy; U31
   requires collision prevention/detection while keeping a REST prefix a candidate.
-- **Pass 2 — traceability:** Verified all 58 ledger IDs have matching traceability
+- **Pass 2 — traceability (U58 checkpoint):** Verified all 58 ledger IDs have matching traceability
   rows and concrete task/gate/acceptance coverage. Reviewed the inverse mapping:
   crate names, aggregate persistence, output bounds, and locking details are
   implementation decisions rather than attributed user decisions. Source review
@@ -305,8 +332,89 @@ changes since the recorded baseline before starting.
   generation. Final checks use offline compilation and inspected synthetic tests,
   without opening the catalogue or claiming live refresh evidence. Pushing and
   phase-3 implementation remain outside this checkpoint.
-- **Known source limitation:** None. The design discussion, corrections, repository
-  instructions, plan request, and planning replies are available in this session.
+- **Boundary revision, pass 1 — extraction:** Reread the available user messages
+  asking whether the dependency cleanup removes the need to move tenant/source
+  types, accepting `AzureTenantId` in `azure_types`, questioning registry and auth
+  naming, requesting diagrams and refined candidates, and choosing B with
+  `credentials` renamed to `auth` and `AuthSource` moved to `auth_types`.
+  Added U59–U61 without changing the earlier guidance or completed evidence.
+- **Boundary revision, pass 2 — traceability:** All 61 ledger IDs have matching
+  traceability entries. U59–U61 map to revised G1, new task 3.0, tasks 3.1/3.3,
+  the caller inventory, and final cutover criteria. Current manifests establish
+  the source names; the new DAG is a target, not a claim of implemented packages.
+  Task 3.0 owns pure conversion registrations as well as value constructors.
+- **Boundary revision, pass 3 — adversarial omission:** Rechecked source versus
+  runtime separation, explicit tenant binding, disabled auth, one authoritative
+  registration, no compatibility exports, no production reads, and PII-free
+  documentation. B changes ownership/names while retaining A's dependency
+  boundary; C's larger execution crate remains unselected. No implementation or
+  release is inferred from approval of the design. Existing request/cache
+  lifecycle, cancellation, and invalidation decisions are unchanged.
+- **Boundary revision validation:** Checked all 61 ledger/traceability pairs,
+  150 relative links across the four migration documents, code-fence balance,
+  whitespace, and identifying-path/account patterns. The proposed Mermaid
+  dependency diagram has 10 nodes and no cycles. This checks the documented
+  graph only; it does not replace 3.0/3.1's actual Cargo dependency validation.
+  No Rust code, manifests, or lockfile changed, and no application/test or
+  credential/service operation ran for this documentation update.
+- **Known source limitation:** The user requests and durable U01–U58 ledger are
+  available; earlier assistant/tool transcripts were compacted. Prior validation
+  statements above are retained historical evidence, not newly repeated checks.
+- **Registry implementation, pass 1 — extraction:** Reread the available user
+  instructions through U62, including the full-cutover correction, accepted
+  option B, auth naming, tenant ownership, and instruction to proceed. Added U62
+  to the ledger and traceability; it authorizes task 3.0 without a commit, push,
+  live validation, or unrelated changes.
+- **Registry implementation, pass 2 — traceability:** Checked U01–U62 against
+  their task coverage. Task 3.0 records the completed owning-crate cutover,
+  authoritative metadata and invocation identity, package graph, and offline
+  evidence. Tasks 3.1–3.3 retain the pending auth rename, executor/provider, and
+  invocation ABI changes; implementation of those contracts is not claimed.
+- **Registry implementation, pass 3 — adversarial omission:** Rechecked pure
+  conversions as well as constructors, explicit associated-handle migration,
+  metadata-only discovery, no compatibility exports or aliases, unchanged
+  dependency pins, and preserved tenant/auth behavior. Validation used only
+  inspected synthetic tests and compilation; production data and the local
+  generated catalogue were not read. The completed slice remains uncommitted.
+- **Registry implementation documentation validation:** All 62 ledger IDs match
+  their 62 traceability rows. The four migration documents have 150 valid relative
+  links, balanced code fences, and no identifying-path/account patterns. Task 3.0
+  is complete; 3.1 is pending. Final source review found no blocking issue, and
+  formatting plus whitespace checks passed after the cutover.
+- **Enum refinement, pass 1 — extraction:** Reread the registration lookup
+  question, the invalid-state/enum proposal, and the instruction to perform the
+  proposed changes. U63–U65 capture constant-time access, exclusive variants,
+  and implementation authorization without weakening U49's full-cutover rule.
+- **Enum refinement, pass 2 — traceability:** U63–U65 map to G1 and task 3.0's
+  refinement. The implementation must retain the lower registration boundary,
+  direct descriptor access, original identity across copied handles, and runtime
+  cancellation behavior. The previously recorded adapter implementation is
+  historical; task evidence describes its replacement explicitly.
+- **Enum refinement, pass 3 — adversarial omission:** Rechecked that wrapping a
+  known registration introduces no lookup, allocation, or linked-membership
+  requirement. Pure and arbitrary variants cannot carry runtime cancellation or
+  ambiguous provenance. Existing custom-catalog admission, source errors,
+  lifetime guarantees, metadata wire spelling, dependency pins, and user staging
+  remain in scope for preservation. Auth migration remains task 3.1; no commit,
+  push, or production-data validation is inferred from this refinement.
+- **Enum-refinement documentation validation:** All 65 guidance IDs have matching
+  traceability rows. The four migration documents retain 150 valid relative links,
+  balanced code fences, and no identifying-path/account patterns. Task 3.0's
+  implementation evidence includes the corrected test-module selections;
+  task 3.1 remains pending. Formatting and whitespace checks passed.
+- **Registry commit checkpoint, pass 1 — extraction:** U66 records the explicit
+  request to commit completed changes and identify what comes next. The existing
+  auth naming, tenant ownership, full cutover, and offline-validation decisions
+  remain unchanged.
+- **Registry commit checkpoint, pass 2 — traceability:** U66 maps to task 3.0's
+  completed checkpoint and task 3.1's next-step description. The reviewed staged
+  package moves, imports, handles, manifests, and docs form one implementation
+  slice; the 96 selected offline tests, workspace check, and strict scoped Clippy
+  from U65 remain its functional evidence.
+- **Registry commit checkpoint, pass 3 — adversarial omission:** Preserve user
+  staging in the authorized commit, exclude unrelated notes/generated data, and
+  retain no compatibility exports. Do not interpret committing as permission to
+  push, release packages, start auth migration, or access production data.
 
 ## Authoritative user guidance ledger
 
@@ -374,6 +482,14 @@ do not silently rewrite earlier guidance.
 | U56 | Allow the maintenance tool to use default tenant selection and remove duplicate tenant-selection code. | Use the existing shared tenant argument and resolver for omitted/default, UUID, and alias selection; retain explicit auth source and bind the resolved UUID before SDK execution. | — |
 | U57 | Give generation a default output path targeting the existing resource-type enum source. | Default generate/check output to the generated source relative to the tool's build manifest directory, preserve explicit overrides, and validate without replacing the checked-in inventory. | — |
 | U58 | Commit the completed changes and indicate the next part of the plan. | Commit the completed tooling/type-boundary/provider API refinements while preserving user changes, then describe task 3.1; do not push or begin its implementation. | — |
+| U59 | Reassess moving tenant/source types after removing command dependencies; keeping AzureTenantId in azure_types makes sense. | Keep the tenant ID in its domain crate and remove its dependency on executor-aware registrations instead of relocating it to auth vocabulary. | — |
+| U60 | Explain the registry split and auth naming, include diagrams, and refine the proposal with different candidates together. | Record the current-versus-target graph, responsibility boundaries, and A/B/C tradeoffs in G1; distinguish runtime calls from package dependencies. | — |
+| U61 | Select option B with AuthSource in the types crate; rename credentials to auth and credentials_types to auth_types. | Pure registry absorbs registry_values, registry_execution owns executor-dependent invocation, auth owns credential runtime, and auth_types owns AuthSource and resolved selections. Perform full owning-crate cutovers without compatibility exports. | — |
+| U62 | Proceed after recording option B and the auth/auth_types naming decision. | Implement next task 3.0, including all registry consumers and offline validation, then report the following slice; no commit or live data access is implied. | — |
+| U63 | Explain why a previously direct registration handle now requires a linear scan over the function registry. | Preserve direct access to known registrations; eliminate adapter lookup from handle conversion rather than accepting the introduced complexity and failure path. | — |
+| U64 | Optional registration provenance fields allow invalid combinations; would Function be better represented as an enum? | Model runtime, pure, and arbitrary registrations as exclusive variants; reference original records without copying metadata or maintaining nullable provenance. | — |
+| U65 | Perform the proposed enum-handle changes. | Refine task 3.0: pass copyable handles by value, remove adapter allocation/scans, preserve variant/source identity and runtime cancellation, migrate consumers, and validate offline. | — |
+| U66 | Commit the completed changes and identify what comes next. | Commit the reviewed registry cutover and enum refinement locally; describe task 3.1 without starting it or pushing. | — |
 
 U18 supersedes the earlier assistant suggestion to preserve an Azure CLI
 active-tenant selection. That suggestion was not user approval. U13 rejects the
@@ -384,6 +500,11 @@ CLI boundary. It supersedes U52/U53's tool-specific default rejection and direct
 UUID bypass; U18's explicit tenant requirement for SDK request data remains.
 U57 subsequently supersedes U55's retained required-output behavior for the
 maintenance tool; its catalogue default and explicit overrides remain intact.
+U59/U61 supersede G1's earlier agent-selected relocation of `AzureTenantId` and
+the proposed registry package names. They preserve the runtime-independent
+boundary; the earlier `registry_values` extraction remains completed foundation,
+and its package is retired by task 3.0. `credentials_types` was a candidate name,
+not an implemented package; U61 selects `auth_types` paired with runtime `auth`.
 
 ## Guidance traceability
 
@@ -447,6 +568,14 @@ maintenance tool; its catalogue default and explicit overrides remain intact.
 | U56 | 2.7 refinement; G3 selection boundary; caller inventory | Removed duplicate tenant type/resolver, shared default/UUID/alias selection, unchanged explicit source and bound SDK tenant, synthetic preflight before tenant discovery, focused offline checks |
 | U57 | 2.7 refinement | Shared manifest-directory generated-source default, optional output argument for generate/check, working-directory-independent default selection, explicit override smoke checks, unchanged checked-in source and default catalogue |
 | U58 | Current authorization; tasks 2.6–2.8 checkpoint; 3.1 next-step description | Reviewed commit scope and preserved user generation/staging, final offline checks, local commit identity, and description of authentication-selection/runtime separation; no push or phase-3 implementation |
+| U59 | G1; 3.0; 3.1 | AzureTenantId remains in azure_types; all its registrations use the pure foundation; proposed normal/build graph is acyclic |
+| U60 | G1 diagrams and candidate record; 1.1 revision | Current source versus target dependencies and runtime-provider dispatch explained; A/C retained as unselected alternatives |
+| U61 | G1/G2; 3.0; 3.1; 3.3; 7.1/7.2; inventory | Full registry/auth package and import cutovers, no legacy package aliases/re-exports, one catalogue, workspace compilation and package-graph checks |
+| U62 | Current authorization; 3.0 | Complete registry cutover, preserve pure metadata/conversion behavior, record offline checks and next task |
+| U63 | G1; 3.0 refinement | Constant-time direct handle construction; no for-registration lookup or adapter table |
+| U64 | G1; 3.0 refinement | Exclusive Function variants and original static metadata/callback ownership |
+| U65 | Current authorization; 3.0 refinement | Workspace consumer cutover, identity/deduplication and invocation tests, inspected offline checks; no commit or live access |
+| U66 | Current authorization; 3.0 checkpoint; 3.1 next-step description | Reviewed staged scope, local commit identity, clean post-commit status, and description of auth runtime/selection separation |
 
 ## Purpose and scope
 
@@ -575,7 +704,7 @@ requirements for reversible research or preparation.
 
 | Gate | Decision to close | Recommended starting point; acceptance consequence |
 | --- | --- | --- |
-| G1 | Exact acyclic crate/trait boundary for command, credentials, registry, and the concrete executor. | A low-level cache/execution contract without credential implementations; concrete auth coordinator above it. Both command→executor→credentials→command and registry→executor→credentials→registry cycles must be absent. Cache extraction alone does not prove this. |
+| G1 | Exact acyclic crate/trait boundary for command, auth, registry, registry_execution, and the concrete executor. | U59/U61 select B: pure registry; executor-dependent registry_execution; runtime auth; AuthSource/resolved vocabulary in auth_types; AzureTenantId stays in azure_types. execution depends on auth_types/cache, not auth/command/registry_execution. Check normal/build dependencies including pure conversions; cache extraction alone does not prove acyclicity. |
 | G2 | Public method/trait names, lifetimes, cacheable versus noncacheable output bounds, and full API cutover. | Data requests bind to an awaitable execution. Sharing Arc<T> across tasks adds Sync to today's Send + 'static output contract; decide affected bounds without imposing them on unrelated noncacheable outputs or borrowed callbacks. Move each caller family to its new contract; no compatibility re-exports, default executor, or indefinitely retained runtime-bearing request path. Record breaking Rust API changes and removal milestones. |
 | G3 | Concrete entry namespace, logical operation owner, typed result contract, auth partition, and physical artifact identity. | Enforce U31 centrally: recommend ExecutorKind namespaces plus logical keys, with checked operation/output ownership before request/auth variant lookup. Separate SDK results from transport envelopes even when their request keys match; retain logical-scope invalidation across namespaces. Choose the exact address/layout and test the LocationListRequest case. Partition credentials/accounts without tokens in keys or live token acquisition solely for a cache hit. Reject unsafe legacy reuse if an auth partition cannot be established. TypeId is memory-only; source locations and disk type names are diagnostic. |
 | G4 | Shared-record boundary and observer behavior. | Evaluate Vec<Arc<T>> plus an outer Arc for reusable aggregates; preserve Facet/Arbitrary/registry/CLI representations. Decide consuming conversions, mutable access, and progress reporting to hits/joiners without silently skipping caller behavior. |
@@ -618,14 +747,17 @@ describe diagnostics, not type identity.
 
 ## Execution order and validation policy
 
-`1 contracts/inventory → 2 value registry/cache core → 3 auth/executor/registry → 4 adapters →
+`1 contracts/inventory → 2 value registry/cache core → 3 registry cutover/auth/executor → 4 adapters →
 5 SDK slices → 6 audit/app/consumers → 7 cutover/acceptance`; phase 8 is deferred.
 Phase 2 can use synthetic in-process work until the public executor exists.
 Do not expose a partially initialized global runtime to bridge stages.
 
 Keep each slice compilable: introduce the new contracts alongside explicitly
-bound adapters before switching an existing caller family. Tasks 3.1–3.3 add the
-new auth/registry surfaces first; tasks 4–6 move consumers in compile-checked
+bound adapters before switching an existing caller family. Task 3.0 completes
+the pure `registry`/`registry_execution` package cutover before task 3.1 renames
+`credentials` to `auth` and extracts `AuthSource`/resolved selections into
+`auth_types`. Tasks 3.2–3.3 integrate the executor and invocation ABI; tasks 4–6
+move consumers in compile-checked
 batches. Each type move updates all of its consumers and removes its old-path
 exports in that same slice; compatibility re-exports must not bridge phases.
 Retire old signatures and fields with their callers, with the final sweep in
@@ -695,17 +827,31 @@ the first implementation gate, and distinguish inspected facts from unrun checks
 
 ### [x] 1.1 Close the public contracts and dependency graph
 
-**Completion notes:** Closed G1–G4 in
+**Completion notes:** Initially closed G1–G4 in
 [executor-cache-contracts.md](executor-cache-contracts.md) and G5/G6 in
 [executor-cache-coordination.md](executor-cache-coordination.md). Selected low
 registry_values/auth_types/cache/execution boundaries, an injected typed auth
 provider, bound request/registry lifetimes, central namespace/owner checks,
 memory-only aggregates, and a mutex-gated publication/invalidation algorithm.
-AzureTenantId moves to the lower auth vocabulary. U49 supersedes the original
+That original decision moved AzureTenantId to the lower auth vocabulary. U49 supersedes the original
 re-export decision: all consumers move to the owning crate and old exports are
 removed in the same slice.
 CLI/browser/PAT use session partitions until identity can be established safely;
 authenticated CLI subprocesses must use that same provider-bound session.
+
+**U59–U61 revision:** G1 now selects option B. Keep `AzureTenantId` in
+`azure_types`; absorb `registry_values` into pure `registry`, move
+executor-dependent registrations/invocation to `registry_execution`, rename
+runtime `credentials` to `auth`, and move `AuthSource` plus resolved selections
+to `auth_types`. Complete the registry/import cutover in 3.0 before 3.1's auth
+cutover; integrate the executor ABI in 3.3. Pure constructors/conversions and
+context-free metadata/planning remain below execution. One authoritative
+registration feeds the integrated catalogue. A has the same dependency boundary
+with the earlier names; C folds invocation into execution and was not selected.
+The updated G1 diagrams distinguish planned package dependencies from runtime
+provider calls. Earlier graph/sketch evidence below applies to the earlier
+contract and does not prove this revised workspace compiles; task 3.0 must
+validate the revised normal/build graph and task 3.1 its auth additions.
 
 The proposed normal/build graph was checked against offline Cargo metadata with
 the selected new edges: 36 packages, no cycles. This is architectural validation,
@@ -788,7 +934,7 @@ baseline failures are recorded separately from changes introduced by migration.
 values, pointer registration, and arbitrary constructor descriptors. Under the
 earlier policy, the high-level registry introduced value compatibility re-exports
 and adapted pure constructors once while retaining descriptor provenance. U49
-supersedes that export policy: task 7.1 removes those exports and migrates their
+supersedes that export policy: task 3.0 removes those exports and migrates their
 consumers. Pure constructor adaptation remains an execution responsibility.
 Production types have individual owning files.
 An independent source review confirmed the extracted RuntimeValue implementation
@@ -819,11 +965,16 @@ one persistent adapter each. Workspace `.iter()` and `IntoIterator` consumers
 remain compatible. External callers with explicit slice requirements must adapt
 to catalog iteration. This change is recorded in the Unreleased changelog.
 
-**Work:** Implement G1's `crates/registry_values` extraction before types in lower
+**Historical task contract:** This work implemented the original G1 boundary.
+U61 now retires the package name in task 3.0 while preserving its pure facilities;
+the commands below record the original extraction and are not current targets
+after that cutover.
+
+**Work:** Implement the original G1's `crates/registry_values` extraction before types in lower
 crates register themselves. Move value reflection, owning RuntimeValue helpers,
 Thing/RegistrationSite, and value registration macros/slices. The original
 high-level re-export requirement was completed under the earlier policy and is
-superseded by U49, with removal tracked in 7.1. Add the pure arbitrary descriptor
+superseded by U49/U61, with removal tracked in 3.0 and audited in 7.1. Add the pure arbitrary descriptor
 without moving executable Function
 metadata below execution. Preserve existing associated Function handles while
 adapting low descriptors into registry catalog traversal exactly once. Keep each
@@ -1366,8 +1517,10 @@ only direct command import in `azure_types`. `FromCommandOutput` is a marker for
 The response records and pure conversion can stay in their domain crate. At this
 checkpoint, Cargo metadata found normal paths to `command` through `hcl_types` and
 `azure_resource_types`, so this change does not make `azure_types` suitable as
-the low execution layer's dependency. The planned registry-to-execution edge is
-another reason to retain G1's separate auth vocabulary.
+the low execution layer's dependency at that checkpoint. The then-planned
+registry-to-execution edge was another concern. U59/U61 now address it by
+making `registry` the pure foundation in task 3.0; the tenant ID remains in
+`azure_types`, and the separate auth vocabulary uses that domain identity.
 
 The five response/data/error types now each have an owning file in `azure_types`.
 `ResourceGraphQueryResponse<T>` has no declaration bound;
@@ -1610,8 +1763,9 @@ The smoke check compares hashes before/after formatting. Generated blocks use
 refresh requires an explicit source and a resolved tenant UUID, live acquisition
 remains unrun, generation no longer lives
 in the reusable crate, and neither `azure_resource_types` nor `azure_types` has a
-normal dependency path to `command`. G1's planned registry/execution boundary
-still requires the separate auth vocabulary in task 3.1.
+normal dependency path to `command`. Tasks 3.0/3.1 still separate registration
+from execution and credential selection from runtime acquisition, while keeping
+the tenant ID in `azure_types` under U59/U61.
 
 ### [x] 2.8 Extract the reusable resource-provider API from maintenance tooling
 
@@ -1702,7 +1856,148 @@ types crates still have no dependency path to command execution.
 
 ## Phase 3 — serializable selection and bound execution
 
-### [ ] 3.1 Separate auth selection from credential runtime state
+### [x] 3.0 Cut over to pure registry and registry_execution
+
+**Completion notes:** Package cutover and U63–U65's enum-handle refinement
+completed 2026-11-02. U66 includes this work in the local checkpoint titled
+`Separate pure registry from execution with direct function handles`.
+Pure `registry` now owns
+reflection, erased values, arbitrary constructors, `PureFunction` conversions,
+`FunctionDescriptor`, shape discovery, and descriptor-only planning.
+`registry_execution` owns the `Function` enum, `RuntimeFunction` records,
+invocation, cancellation binding, simulation, and the merged executable catalogue.
+The existing request ABI remains
+until 3.3. `registry_values` and its compatibility exports/package are removed;
+workspace, SDK, CLI, UI, cache, examples, tooling, tests, and documentation use
+the owning package. `AzureTenantId` stays in `azure_types`.
+
+Lower registrations expose immutable callback/metadata relationships. Common
+`Function` values reference exactly one runtime, pure, or arbitrary registration;
+`descriptor(self)` returns its original static descriptor. `known_functions()`
+wraps those references while traversing the original slices. The pure
+`KNOWN_FUNCTION_DESCRIPTORS` slice references the same descriptors, including
+runtime metadata, so shape discovery needs no upward dependency. Runtime macros
+publish original records through `KNOWN_RUNTIME_FUNCTIONS` and associated enum
+handles. Pure handles wrap directly, with no lookup, allocation, or new error path.
+The initial adapter table and optional provenance fields were removed under
+U63–U65; no compatibility lookup API remains.
+
+Function equality and hashing use variant plus source registration address.
+Simulation deduplication, reflected handles, and UI selections use this identity
+while passing handles by value. Metadata-only consumers borrow descriptors
+directly. Pure/arbitrary variants have no runtime cancellation storage; runtime
+invocation retains its existing callback, input ownership, and cancellation
+semantics. Independent core/consumer reviews found no blocking issue.
+
+At the original package-cutover checkpoint, the registry packages passed 7 pure unit,
+48 invocation unit, and 2 compile-fail documentation tests. Inspected consumer
+tests passed 6 discovery-plan, 4 discovery-simulation, 3 Azure registered-value,
+3 project-argument, and 1 SDK response-constructor tests (74 total). Workspace
+compilation covered every target; strict Clippy covered both registry packages.
+No service, real credential, local configuration, production cache, or generated
+catalogue was accessed. Broad workspace tests were deliberately not run because
+some existing tests use live services.
+
+**Enum-refinement validation:** The registry suites now pass 7 pure unit,
+49 invocation unit, and 2 compile-fail documentation tests. The new regression
+invokes an explicit pure registration absent from every linked catalogue.
+Existing identity tests preserve copied-handle deduplication, separate same-shape
+registrations, and shared source descriptors. Workspace all-target compilation
+and strict Clippy for both registry packages, `ui_ratatui`, and `entrypoint` pass.
+The inspected consumer tests passed 10 SDK discovery, 23 UI action/invocation/
+production/lifetime/export, and 5 CLI planner cases: 96 tests total with the
+registry suites. Lifetime tests ran directly from the newly built UI test
+executable with `object_explorer::explorer_engine::lifetime_tests`; the Cargo
+command below reproduces that selection. Initial filename-based lifetime/planner
+filters selected zero tests and are not counted as evidence; the corrected module
+filters ran all 8 lifetime and 5 planner cases. Test code used synthetic values
+and a temporary export directory only. Formatting, whitespace, and final
+source scans passed: no adapter table/lookups, optional registration provenance,
+or `&'static Function` storage remains. This refinement changes no manifests or
+dependency pins. Existing staging was preserved during implementation; U66 now
+includes the completed cutover and refinement in the authorized local commit.
+The commit review corrected CRLF-only whitespace warnings in the new invocation
+crate's manifest without changing its TOML values.
+
+The normal/build Cargo graph contains 35 workspace packages and no cycles.
+Neither `azure_types`, `azure_devops_types`, nor `cache` reaches `command`,
+credential runtime, REST, or `registry_execution`. The obsolete test-only use of
+`command` no longer requires an `azure_devops_types` normal dependency. Applying
+G1's pending auth/execution edges to that graph yields 37 packages with no cycle;
+3.1–3.3 must recheck the actual graph as those packages land. All 820 external
+lockfile package/version/source/checksum records match the preceding commit.
+Source/manifests contain no `registry_values` import or package alias; historical
+plan evidence remains labeled. Nightly formatting and `git diff --check` passed.
+
+**Work:** Implement U61's option B without changing request execution semantics
+yet. Absorb `crates/registry_values` into `crates/registry`; move the higher
+registration/invocation responsibilities from today's `registry` into
+`crates/registry_execution`. The latter can initially retain the current request
+ABI until 3.3 binds it to `execution`. Keep the foundation independent of
+`execution`, `registry_execution`, `auth`, `command`, and service SDKs.
+
+Keep value reflection, owning erased values, offline constructors, pure
+`From`/`TryFrom` conversions, and context-free operation metadata/planning below
+execution. Review today's `Function` metadata/callback/cancellation coupling
+explicitly: an operation descriptor and its executor-bound invocation have
+different responsibilities. Do not relocate every function or planning type to
+the upper crate merely because it is callable. Preserve authoritative registration
+identity/provenance and explicitly migrate each associated registration handle
+and its consumers; preserving the old handle's Rust type is not required.
+The upper catalogue wraps original registrations in `Function` enum values
+without registering or invoking them again. U63–U65 require direct constant-time
+construction, static descriptor access, and variant/source-address identity.
+Remove adapter storage and lookup methods; pass handles by value throughout
+registry, UI, and SDK test consumers. Preserve custom-catalog boundaries,
+distinct same-signature registrations, pure invocation, and cancellation policy.
+
+Complete the package and consumer cutover in this slice: workspace membership,
+package/dependency names, registry macros and owning imports, cache registrations,
+SDK/type/CLI/UI consumers, examples, tools, tests, CI/release scripts, and public
+documentation. Remove the old `registry_values` package and compatibility exports;
+do not leave Cargo dependency aliases or forwarding crates. `azure_types` must
+depend only on the pure registry, including its six principal conversion
+registrations. Keep `AzureTenantId` in `crates/azure_types/src/tenant_id.rs`.
+Preserve unrelated dependency/toolchain pins and the earlier extraction's
+historical evidence.
+
+**Validation:** The selected tests were inspected for local-only behavior before
+execution. These commands validate the implemented package names.
+
+```powershell
+cargo test --offline --locked -p cloud_terrastodon_registry -p cloud_terrastodon_registry_execution
+cargo clippy --offline --locked -p cloud_terrastodon_registry -p cloud_terrastodon_registry_execution -p cloud_terrastodon_ui_ratatui -p cloud_terrastodon_entrypoint --all-targets -- -D warnings
+cargo test --offline --locked -p cloud_terrastodon_azure_devops --test discovery_plan --test discovery_simulation
+cargo test --offline --locked -p cloud_terrastodon_ui_ratatui --lib object_explorer::root_action_snapshot::tests
+cargo test --offline --locked -p cloud_terrastodon_ui_ratatui --lib object_explorer::invocation_controller::tests
+cargo test --offline --locked -p cloud_terrastodon_ui_ratatui --lib object_explorer::production_controller::tests
+cargo test --offline --locked -p cloud_terrastodon_ui_ratatui --lib object_explorer::explorer_engine::lifetime_tests
+cargo test --offline --locked -p cloud_terrastodon_ui_ratatui --lib object_explorer::produce_dump_plan_excalidraw_tests
+cargo test --offline --locked -p cloud_terrastodon_entrypoint --lib cli::command::dump::dump_planner::tests
+cargo test --offline --locked -p cloud_terrastodon_azure_types --lib registered_
+cargo test --offline --locked -p cloud_terrastodon_azure_devops_types --lib azure_devops_project_argument::tests
+cargo test --offline --locked -p cloud_terrastodon_azure_devops --lib registered_response_constructor_generates_round_trippable_json
+cargo check --offline --locked --workspace --all-targets
+cargo metadata --offline --locked --no-deps --format-version 1
+rustup run nightly -- cargo fmt --all -- --check
+git diff --check
+```
+
+Inspect the normal/build package graph and model G1's pending auth/execution
+edges; do not infer acyclicity from direct manifests alone. Verify constructor
+and conversion discovery still presents each registration once and catalogue
+traversal executes no constructors. Use focused existing pointer/handle tests
+and meaningful conversion/catalogue coverage where the boundary changes it.
+Audit old owning imports, package aliases, and re-exports, including grouped/glob
+uses; historical migration documentation may retain explicitly labeled names.
+
+**Completion criteria:** The full workspace compiles against pure `registry`
+and upper `registry_execution`; `registry_values` no longer exists as a package
+or compatibility import. `azure_types` and cache cannot reach executor-aware
+registration through normal/build dependencies. The proposed auth/execution
+graph is acyclic, and offline constructors/conversions retain their contracts.
+
+### [ ] 3.1 Rename credential runtime to auth and extract auth_types
 
 **Work:** Implement resolved Azure bearer selection with explicit source/tenant
 and Azure DevOps bearer/PAT selection. Preserve tenant validation, source policy,
@@ -1710,11 +2005,22 @@ headless/fail-fast behavior, and disabled authentication. Update token command
 construction and tracked-tenant binding to reject missing bearer tenants; remove
 Azure CLI active-tenant request compatibility. Executor selects compatible runtime
 credentials, with no silent source substitution. Keep org/project separate.
-Move the existing tenant ID and auth-source definitions to `auth_types`, owning
-registrations through `registry_values`. Update every consumer's dependencies and
-imports, including SDKs, CLI/UI crates, registry code, tests, examples, and docs,
-in this slice. Remove the old exports from `azure_types` and `credentials`;
-do not add compatibility re-exports, aliases, or duplicate type definitions.
+After 3.0, rename runtime `crates/credentials` and its package to `crates/auth`
+and `cloud_terrastodon_auth`. Move `AuthSource` into `crates/auth_types` alongside
+resolved authentication selections; pure registrations use `registry`.
+`AuthSource::Auto` remains application preference vocabulary, resolved before
+building explicitly tenant/source-bound requests. Keep acquisition, configuration
+discovery, token caches, browser/OS integration, and source resolution in `auth`.
+`AzureTenantId` stays in `azure_types`; `auth_types` may depend on `azure_types`
+and pure `registry`, with no reverse dependency from `azure_types` to `auth_types`.
+Do not duplicate or re-export the tenant ID from `auth_types`.
+
+Update every consumer's manifest and owning imports, including workspace package
+declarations, SDKs, CLI/UI crates, registry code, tests, examples, tools, feature
+references, build/release automation, and public docs in this slice. Remove the
+old `credentials` package/export paths; `auth` must not re-export `AuthSource`
+from `auth_types`. Do not add forwarding crates, compatibility re-exports, Cargo
+dependency aliases preserving old names, or duplicate type definitions.
 Implement G3's provider-bound identity partitions, including a fresh provider
 session partition when source/tenant alone cannot establish the principal.
 Verify isolated Azure CLI session provisioning against official documentation
@@ -1723,12 +2029,17 @@ use the same bound identity, or fail before execution. Copying ambient CLI
 configuration is not evidence of that binding. Credential results remain in the
 provider's sensitive runtime cache; raw tokens, credential command output, and
 secret-bearing errors must never enter general work-cache artifacts or diagnostics.
+Keep this slice compilable using the existing runtime execution boundary;
+task 3.2 introduces the provider trait and executor wiring, including the target
+`auth -> execution` edge. Do not make the rename/extraction depend on an
+unimplemented executor crate.
 
 ```powershell
-cargo test --offline --locked -p cloud_terrastodon_credentials --lib auth_context::tests
-cargo test --offline --locked -p cloud_terrastodon_credentials --lib azure_tenant_auth_context::tests
-cargo test --offline --locked -p cloud_terrastodon_credentials --lib azure_devops_auth_context::tests
-cargo check --offline --locked -p cloud_terrastodon_credentials -p cloud_terrastodon_azure
+cargo test --offline --locked -p cloud_terrastodon_auth_types --lib
+cargo test --offline --locked -p cloud_terrastodon_auth --lib auth_context::tests
+cargo test --offline --locked -p cloud_terrastodon_auth --lib azure_tenant_auth_context::tests
+cargo test --offline --locked -p cloud_terrastodon_auth --lib azure_devops_auth_context::tests
+cargo check --offline --locked -p cloud_terrastodon_auth -p cloud_terrastodon_azure
 cargo check --offline --locked --workspace --all-targets
 ```
 
@@ -1738,17 +2049,21 @@ missing tenant, source mismatch, PAT handling, disabled auth, and workload tenan
 mismatch. Inspect/filter token tests individually; do not run live token tests.
 Use synthetic identity/session boundaries to test switching and refresh rejection,
 independent-provider partitioning, and credential retention on success and failure.
-Inspect imports and public exports for both moved types, including grouped and
-glob imports, and verify every consumer uses the owning crate. Review documentation
+Inspect imports and public exports for the runtime rename and moved AuthSource,
+including grouped/glob imports, and verify every consumer uses the owning crate.
+Recheck the normal/build dependency graph after the auth additions, including
+configuration and registry dependencies. The target package names above are
+proposed until this task implements them. Review documentation
 and examples alongside the workspace compile check; do not add compile-fail tests
 solely to prove that removed exports are absent.
 
 **Completion criteria:** Executable bearer requests always carry a tenant and
 source, including Azure CLI. Serializable selection contains no runtime cache,
-token, session, or cancellation scope. PAT needs no fabricated tenant. All tenant
-ID and auth-source consumers use `auth_types`; old crate paths no longer export
-those types, and the full workspace compiles without compatibility exports for
-the moved auth types.
+token, session, or cancellation scope. PAT needs no fabricated tenant.
+`AzureTenantId` consumers retain `azure_types` imports; `AuthSource` and resolved
+selection consumers import `auth_types`; runtime consumers import `auth`.
+The old `credentials` package and exports are absent, and the full workspace
+compiles without compatibility exports or aliases for the moved auth types.
 
 ### [ ] 3.2 Bind requests to a scoped executor through both execute spellings
 
@@ -1761,6 +2076,10 @@ Retain operation effects and protected completion policy; do not detach fetches.
 Establish the minimal application binding required for SDK migration. Enforce
 G2's shared-result bounds only where memoization requires them; keep noncacheable
 and borrowed callback contracts separately testable.
+Define `AuthenticationProvider` in `execution`, implement it in `auth`, and wire
+the runtime provider at application startup. The lower executor must not import
+`auth`; its injected provider may use the executor for credential infrastructure
+without recursive authentication or general-cache retention of credential output.
 
 **Validation:** Proposed package/target after G1 confirms placement:
 
@@ -1776,9 +2095,13 @@ Request inspection/offline construction does not initialize runtime services.
 
 ### [ ] 3.3 Add executor-aware registry invocation and discovery
 
-**Work:** Migrate registry invocation metadata/macros, default production,
-discovery inputs/admission, and cancellation binding to G1's low-level contract.
-Do not make registry depend on the concrete auth-owning executor. Preserve
+**Work:** Bind `registry_execution` invocation metadata/macros, default production,
+discovery inputs/admission, and cancellation to G1's `execution` contract.
+Store the new callback in `RuntimeFunction` and delegate through the existing
+`Function::Runtime` handle without reintroducing adapter records or lookup.
+`registry_execution` may depend on `execution`; pure `registry` must not depend
+on either. Runtime `auth` implements the injected provider interface; neither
+`execution` nor its lower vocabulary depends on the implementation. Preserve
 conversion/arbitrary pure operations, nonempty executable effects, Solicit
 exclusion for unattended discovery, and explicit auth/scope admission. Replace
 synthetic AuthContext request inputs with serializable selection data. Register
@@ -1786,6 +2109,7 @@ shared output shapes and verify pointer/list traversal without live execution.
 
 ```powershell
 cargo test --offline --locked -p cloud_terrastodon_registry --lib
+cargo test --offline --locked -p cloud_terrastodon_registry_execution --lib
 cargo test --offline --locked -p cloud_terrastodon_azure_devops --test discovery_plan
 cargo test --offline --locked -p cloud_terrastodon_azure_devops --test discovery_simulation
 ```
@@ -1983,6 +2307,7 @@ request families in bounded batches and record exclusions/removal dates here.
 ```powershell
 cargo check --offline --locked -p cloud_terrastodon_ui_ratatui -p cloud_terrastodon_ui_egui -p cloud_terrastodon_entrypoint -p cloud_terrastodon_source_cli -p cloud_terrastodon_hcl
 cargo test --offline --locked -p cloud_terrastodon_registry --lib
+cargo test --offline --locked -p cloud_terrastodon_registry_execution --lib
 ```
 
 **Completion criteria:** Every inventoried invocation uses the new runtime
@@ -1997,9 +2322,10 @@ HCL transformations and UI behavior are unchanged.
 **Work:** Complete each remaining request-family batch from 1.2. Remove legacy
 global memory cache, request-owned auth/scope, implicit REST auth resolution,
 active-tenant CLI execution, duplicate lifecycle, and reflective scope injection
-where replaced. Remove remaining migration compatibility re-exports, including
-those already introduced by the registry-values extraction, and update every
-consumer to the owning crate in the same change. Keep legitimate AppContext/auth
+where replaced. Audit that 3.0/3.1 already removed the registry-values compatibility
+exports, retired `registry_values`/`credentials` packages, and updated all owning
+imports without dependency aliases. Remove any other remaining migration
+compatibility exports and update their consumers in the same change. Keep legitimate AppContext/auth
 runtime fields and unrelated pure operations; search findings require classification
 rather than blind edits.
 Preserve output formats, operation effects, mandatory cancellation via executor,
@@ -2081,12 +2407,17 @@ evidence and documentation. This item remains deferred when phases 1–7 complet
 
 ## Overall initial-migration completion criteria
 
-- [ ] Every active U01–U58 requirement has task evidence; G1–G6 are closed and
+- [ ] Every active U01–U66 requirement has task evidence; G1–G6 are closed and
   phases 1–7 complete. Phase 8 remains explicitly deferred.
 - [ ] Requests contain explicit operation/auth selection data and no execution
   resources; both execute spellings and registry invocation share one contract.
 - [ ] All moved-type consumers use the owning crate/API; no migration compatibility
   re-exports remain, and examples and public documentation show the new imports.
+- [ ] Pure `registry` and executor-aware `registry_execution` own their respective
+  registrations; runtime `auth` and vocabulary `auth_types` replace `credentials`.
+  `AuthSource` belongs to `auth_types`, `AzureTenantId` remains in `azure_types`,
+  and `registry_values`/old package aliases are absent. The normal/build graph
+  remains acyclic and the integrated catalogue has no duplicate registrations.
 - [ ] Command/REST/in-process execution use one cache lifecycle with no hidden
   global work cache or implicit authenticated-request fallback.
 - [ ] Concurrent successful reads share canonical decoded results; warm hits do
@@ -2125,7 +2456,7 @@ evidence and documentation. This item remains deferred when phases 1–7 complet
 | Mutation coalescing or retry repeats side effects | Zero-duration non-reuse; uncached retry boundary; no replay after rejected decode |
 | Arc migration breaks consuming conversions, output bounds, discovery, or output | G2 shared Send/Sync/static bounds; G4; 3.3/5.x typed integration and compile checks |
 | Runtime observer closures silently skipped or captured in cached policy | G4; 3.2 observer semantics and per-caller validation tests |
-| New executor creates command/credentials or registry cycles | G1 manifest DAG; staged checks and release-order review |
+| New executor creates command/auth or registry cycles | G1; 3.0/3.1 normal/build DAG checks including pure conversions and metadata; staged checks and release-order review |
 | Legacy timestamps, metadata, or cache paths misrepresent freshness | G5; 2.2 legacy/expiry policy; preserve diagnostic inspection |
 | Claimed thread safety mistaken for cross-process guarantees | U27; acceptance matrix and separate phase 8 |
 | Tests or cache inspection expose production data to tools/agent context | U29; reviewed local targets, auth-feature startup with none, isolated synthetic storage, no test.ps1/workspace suite/ignored tests |

@@ -97,7 +97,7 @@ impl IntoFuture for ProduceExcalidrawDumpPlanRequest {
 }
 
 cloud_terrastodon_registry::register_thing!(ProduceExcalidrawDumpPlanRequest);
-cloud_terrastodon_registry::register_into_future!(ProduceExcalidrawDumpPlanRequest => PathBuf, effects = [Write]);
+cloud_terrastodon_registry_execution::register_into_future!(ProduceExcalidrawDumpPlanRequest => PathBuf, effects = [Write]);
 
 #[cfg(test)]
 mod tests {

@@ -202,24 +202,21 @@ mod tests {
 
     #[test]
     fn registered_assignment_generator_can_produce_nonempty_coherent_json() -> Result<()> {
-        let constructor = cloud_terrastodon_registry::functions_from_to(
-            cloud_terrastodon_registry::ArbitraryBytes::SHAPE,
-            Vec::<RoleManagementPolicyAssignment>::SHAPE,
-        )
-        .into_iter()
-        .find(|function| {
-            function
-                .output_shape
-                .is_shape(Vec::<RoleManagementPolicyAssignment>::SHAPE)
-        })
-        .expect("an exact vector generator must be registered");
+        let constructor = cloud_terrastodon_registry::KNOWN_ARBITRARY_VALUES
+            .iter()
+            .find(|function| {
+                function
+                    .output_shape
+                    .is_shape(Vec::<RoleManagementPolicyAssignment>::SHAPE)
+            })
+            .expect("an exact vector generator must be registered");
         // Arbitrary's vector iterator consumes a leading continuation bool;
         // the remaining zeros generate one valid UUID-based assignment.
         let mut bytes = vec![0; 1024];
         bytes[0] = 1;
         let mut input = cloud_terrastodon_registry::ArbitraryBytes::new(bytes);
         let assignments = constructor
-            .invoke_mut_boxed(&mut input)?
+            .generate(&mut input)?
             .downcast::<Vec<RoleManagementPolicyAssignment>>()
             .expect("constructor output has the registered vector type");
         assert_eq!(

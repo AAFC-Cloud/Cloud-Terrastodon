@@ -107,4 +107,4 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(ServiceGroupListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(ServiceGroupListRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(ServiceGroupListRequest<'static> => Vec<ServiceGroup>, effects = [Read]);
+cloud_terrastodon_registry_execution::register_into_future!(ServiceGroupListRequest<'static> => Vec<ServiceGroup>, effects = [Read]);

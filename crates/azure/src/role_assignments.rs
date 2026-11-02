@@ -113,4 +113,4 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(RoleAssignmentListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(RoleAssignmentListRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(RoleAssignmentListRequest<'static> => Vec<RoleAssignment>, effects = [Read]);
+cloud_terrastodon_registry_execution::register_into_future!(RoleAssignmentListRequest<'static> => Vec<RoleAssignment>, effects = [Read]);

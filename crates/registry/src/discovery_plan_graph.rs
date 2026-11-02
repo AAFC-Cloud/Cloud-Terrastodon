@@ -1,10 +1,9 @@
-use crate::CancellationScope;
 use crate::DiscoveryPlan;
 use crate::DiscoveryPlanEdge;
 use crate::DiscoveryPlanField;
 use crate::DiscoveryPlanNode;
 use crate::DiscoveryPlanNodeKind;
-use crate::Function;
+use crate::FunctionDescriptor;
 use crate::FunctionKind;
 use crate::RuntimeValue;
 use crate::describe_function;
@@ -19,6 +18,7 @@ use facet::UserType;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::ptr;
+use teamy_cancellation::CancellationScope;
 
 /// Owns the relationship between internal node indices, reflected shape identity,
 /// and the first derivation establishing each shape's structural availability.
@@ -26,13 +26,13 @@ pub(crate) struct DiscoveryPlanGraph {
     nodes: Vec<DiscoveryPlanNode>,
     edges: Vec<DiscoveryPlanEdge>,
     shapes: HashMap<&'static Shape, usize>,
-    functions: Vec<(&'static Function, usize)>,
+    functions: Vec<(&'static FunctionDescriptor, usize)>,
     witnesses: HashMap<usize, usize>,
 }
 
 impl DiscoveryPlanGraph {
     pub(crate) fn new(
-        functions: impl IntoIterator<Item = &'static Function>,
+        functions: impl IntoIterator<Item = &'static FunctionDescriptor>,
         seeds: impl IntoIterator<Item = &'static Shape>,
         targets: impl IntoIterator<Item = &'static Shape>,
         cancellation: &CancellationScope,
@@ -162,7 +162,7 @@ impl DiscoveryPlanGraph {
         id
     }
 
-    fn inputs(&self, function: &Function) -> Vec<(usize, String)> {
+    fn inputs(&self, function: &FunctionDescriptor) -> Vec<(usize, String)> {
         let input = self.shapes[function.input_shape];
         if self.nodes[input].reachable || function.kind != FunctionKind::AsyncInvoke {
             return vec![(input, "input".to_owned())];
@@ -330,7 +330,7 @@ impl DiscoveryPlanGraph {
     }
 }
 
-fn eligible(function: &Function) -> bool {
+fn eligible(function: &FunctionDescriptor) -> bool {
     match function.kind {
         FunctionKind::AsyncInvoke => function.is_read_only() && !function.requires_user_input(),
         FunctionKind::Conversion | FunctionKind::Projection => {

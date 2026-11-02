@@ -111,4 +111,4 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(PrivateEndpointListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(PrivateEndpointListRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(PrivateEndpointListRequest<'static> => Vec<AzurePrivateEndpointResource>, effects = [Read]);
+cloud_terrastodon_registry_execution::register_into_future!(PrivateEndpointListRequest<'static> => Vec<AzurePrivateEndpointResource>, effects = [Read]);

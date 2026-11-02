@@ -128,7 +128,7 @@ fn project_choice(project: AzureDevOpsProject) -> Choice<AzureDevOpsProject> {
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsProjectPickRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsProjectPickRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(
+cloud_terrastodon_registry_execution::register_into_future!(
     AzureDevOpsProjectPickRequest<'static> => AzureDevOpsProjectArgument<'static>,
     effects = [Read, Solicit]
 );
@@ -136,7 +136,7 @@ cloud_terrastodon_registry::register_into_future!(
 #[cfg(test)]
 mod test {
     use super::AzureDevOpsProjectPickRequest;
-    use cloud_terrastodon_registry::shape_can_be_produced_from_defaults;
+    use cloud_terrastodon_registry_execution::shape_can_be_produced_from_defaults;
     use facet::Facet;
 
     #[test]

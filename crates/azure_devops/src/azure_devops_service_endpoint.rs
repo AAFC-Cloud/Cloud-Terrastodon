@@ -84,7 +84,7 @@ impl<'a> CacheableCommand for AzureDevOpsServiceEndpointsListRequest<'a> {
 cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsServiceEndpointsListRequest<'a>, 'a);
 cloud_terrastodon_registry::register_thing!(AzureDevOpsServiceEndpointsListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsServiceEndpointsListRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(AzureDevOpsServiceEndpointsListRequest<'static> => Vec<AzureDevOpsServiceEndpoint>, effects = [Read]);
+cloud_terrastodon_registry_execution::register_into_future!(AzureDevOpsServiceEndpointsListRequest<'static> => Vec<AzureDevOpsServiceEndpoint>, effects = [Read]);
 
 #[cfg(test)]
 mod test {

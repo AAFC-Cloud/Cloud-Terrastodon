@@ -1,5 +1,5 @@
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_registry::InvocationFuture;
+use cloud_terrastodon_registry_execution::InvocationFuture;
 use std::any::Any;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]

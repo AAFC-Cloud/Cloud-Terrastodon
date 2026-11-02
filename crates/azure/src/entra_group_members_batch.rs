@@ -127,4 +127,4 @@ cloud_terrastodon_command::impl_cacheable_into_future!(EntraGroupMembersListBatc
 cloud_terrastodon_registry::register_thing!(EntraGroupMembersListBatchRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(EntraGroupMembersListBatchRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(HashMap<EntraGroupId, Vec<EntraDirectoryObject>>);
-cloud_terrastodon_registry::register_into_future!(EntraGroupMembersListBatchRequest<'static> => HashMap<EntraGroupId, Vec<EntraDirectoryObject>>, effects = [Read]);
+cloud_terrastodon_registry_execution::register_into_future!(EntraGroupMembersListBatchRequest<'static> => HashMap<EntraGroupId, Vec<EntraDirectoryObject>>, effects = [Read]);

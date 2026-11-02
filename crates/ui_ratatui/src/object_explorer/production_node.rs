@@ -8,13 +8,13 @@ use super::invocation_mode::InvocationMode;
 use super::slot_id::SlotId;
 use super::value_builder::BuilderStore;
 use cloud_terrastodon_registry::ArbitraryBytes;
-use cloud_terrastodon_registry::DefaultProductionPlan;
-use cloud_terrastodon_registry::DefaultProductionPlanKind;
-use cloud_terrastodon_registry::Function;
 use cloud_terrastodon_registry::RuntimeValue;
 use cloud_terrastodon_registry::describe_function;
 use cloud_terrastodon_registry::describe_shape;
 use cloud_terrastodon_registry::known_thing_for_shape;
+use cloud_terrastodon_registry_execution::DefaultProductionPlan;
+use cloud_terrastodon_registry_execution::DefaultProductionPlanKind;
+use cloud_terrastodon_registry_execution::Function;
 use facet::Shape;
 
 pub(super) enum ProductionNodeAdvance {
@@ -52,7 +52,7 @@ struct ProductionFieldNode {
 }
 
 pub(super) struct InvokeProductionNode {
-    function: &'static Function,
+    function: Function,
     input: Box<ProductionNode>,
     output: Option<SlotId>,
 }
@@ -91,7 +91,7 @@ impl ProductionNode {
         }
     }
 
-    pub(super) fn invoke(function: &'static Function, input: Self) -> Self {
+    pub(super) fn invoke(function: Function, input: Self) -> Self {
         Self::Invoke(InvokeProductionNode {
             function,
             input: Box::new(input),
@@ -309,7 +309,7 @@ impl InvokeProductionNode {
             }
             Err(error) => ProductionNodeAdvance::Failed(format!(
                 "could not invoke {}: {error}",
-                describe_function(self.function)
+                describe_function(self.function.descriptor())
             )),
         }
     }

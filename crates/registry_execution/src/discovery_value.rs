@@ -1,5 +1,5 @@
 use crate::Function;
-use crate::RuntimeValue;
+use cloud_terrastodon_registry::RuntimeValue;
 
 /// One representative of a type reached by an offline discovery simulation.
 ///
@@ -8,5 +8,5 @@ use crate::RuntimeValue;
 pub struct DiscoveryValue {
     pub value: RuntimeValue,
     pub depth: usize,
-    pub producer: Option<&'static Function>,
+    pub producer: Option<Function>,
 }

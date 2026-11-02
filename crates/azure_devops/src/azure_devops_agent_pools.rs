@@ -88,7 +88,7 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsAgentPoolLis
 cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsAgentPoolListRequest<'a>, 'a);
 cloud_terrastodon_registry::register_thing!(AzureDevOpsAgentPoolListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsAgentPoolListRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(AzureDevOpsAgentPoolListRequest<'static> => Vec<AzureDevOpsAgentPool>, effects = [Read]);
+cloud_terrastodon_registry_execution::register_into_future!(AzureDevOpsAgentPoolListRequest<'static> => Vec<AzureDevOpsAgentPool>, effects = [Read]);
 
 #[cfg(test)]
 mod test {

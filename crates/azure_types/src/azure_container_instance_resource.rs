@@ -314,22 +314,19 @@ mod tests {
 
     #[test]
     fn registered_container_generator_can_produce_nonempty_json() -> eyre::Result<()> {
-        let constructor = cloud_terrastodon_registry::functions_from_to(
-            cloud_terrastodon_registry::ArbitraryBytes::SHAPE,
-            Vec::<AzureContainerInstanceResource>::SHAPE,
-        )
-        .into_iter()
-        .find(|function| {
-            function
-                .output_shape
-                .is_shape(Vec::<AzureContainerInstanceResource>::SHAPE)
-        })
-        .expect("an exact container vector generator must be registered");
+        let constructor = cloud_terrastodon_registry::KNOWN_ARBITRARY_VALUES
+            .iter()
+            .find(|function| {
+                function
+                    .output_shape
+                    .is_shape(Vec::<AzureContainerInstanceResource>::SHAPE)
+            })
+            .expect("an exact container vector generator must be registered");
         let mut bytes = vec![0; 4096];
         bytes[0] = 1;
         let mut input = cloud_terrastodon_registry::ArbitraryBytes::new(bytes);
         let resources = constructor
-            .invoke_mut_boxed(&mut input)?
+            .generate(&mut input)?
             .downcast::<Vec<AzureContainerInstanceResource>>()
             .expect("constructor output has the registered vector type");
         assert_eq!(

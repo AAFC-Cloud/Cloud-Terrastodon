@@ -97,16 +97,13 @@ mod tests {
     use facet::Facet;
 
     fn generated<T: Facet<'static> + Send + 'static>(seed: u8) -> T {
-        let constructor = cloud_terrastodon_registry::functions_from_to(
-            cloud_terrastodon_registry::ArbitraryBytes::SHAPE,
-            T::SHAPE,
-        )
-        .into_iter()
-        .find(|function| function.output_shape.is_shape(T::SHAPE))
-        .expect("the exact arbitrary constructor is registered");
+        let constructor = cloud_terrastodon_registry::KNOWN_ARBITRARY_VALUES
+            .iter()
+            .find(|function| function.output_shape.is_shape(T::SHAPE))
+            .expect("the exact arbitrary constructor is registered");
         let mut bytes = cloud_terrastodon_registry::ArbitraryBytes::new(vec![seed; 1024]);
         *constructor
-            .invoke_mut_boxed(&mut bytes)
+            .generate(&mut bytes)
             .expect("deterministic scope input should generate a value")
             .downcast::<T>()
             .expect("the constructor returns its declared type")

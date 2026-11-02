@@ -46,7 +46,7 @@ cloud_terrastodon_command::impl_cacheable_into_future!(GiteaLoginsListRequest);
 
 cloud_terrastodon_registry::register_thing!(GiteaLoginsListRequest);
 cloud_terrastodon_registry::register_arbitrary!(GiteaLoginsListRequest);
-cloud_terrastodon_registry::register_into_future!(
+cloud_terrastodon_registry_execution::register_into_future!(
     GiteaLoginsListRequest => Vec<GiteaLogin>,
     effects = [Read]
 );

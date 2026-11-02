@@ -279,7 +279,7 @@ MVCC snapshot and no materialized `Vec<ArbitraryJson>`.
 
 ## Extending or testing without Ratatui
 
-`cloud_terrastodon_registry::DiscoverySimulation` explores registered type
+`cloud_terrastodon_registry_execution::DiscoverySimulation` explores registered type
 coverage entirely offline. Supply explicit seed `RuntimeValue`s, an audited
 operation catalog, a deterministic random seed, round/value budgets, and a
 caller-owned cancellation scope. Its result includes discovered values, their
@@ -288,28 +288,41 @@ depth and producing functions, simulated requests, convergence, and diagnostics.
 For a known request type, `Request::REGISTERED_INTO_FUTURE` refers directly to
 the entry emitted by `register_into_future!`. The function-like macro adds an
 inherent associated constant on the registered request specialization; no derive
-macro or registry search is involved. The reference aliases the exact linked
-static so operation identity is preserved. Requests must be defined in the crate
-that invokes the macro, as required for an inherent implementation.
+macro or registry search is involved. The `Function::Runtime` handle references
+the exact linked record so operation identity is preserved. Requests must be
+defined in the crate that invokes the macro, as required for an inherent
+implementation.
 
 For a locally defined value type, use
 `register_arbitrary!(Type, associated = REGISTERED_ARBITRARY)` and access
 `Type::REGISTERED_ARBITRARY`. Collection and externally owned value types can use
 `register_arbitrary!(pub static NAME: Type)` instead. Both forms expose the exact
-linked constructor, so tests and selected catalogs need no registry search.
+linked pure constructor in `cloud_terrastodon_registry`. To include that
+constructor in an executable catalogue, use
+`Function::Arbitrary(Type::REGISTERED_ARBITRARY)` from
+`cloud_terrastodon_registry_execution`. This directly wraps the original
+registration without lookup, allocation, or running the constructor.
 
 For a conversion whose input type is defined in the registering crate, use
 `register_from!(Input => Output, associated = REGISTERED_INTO_OUTPUT)` and include
-`Input::REGISTERED_INTO_OUTPUT` in a catalog. The caller names the associated
-constant so a type can expose several conversions. Like request handles, these
-references alias the exact linked static without searching the registry.
+`Input::REGISTERED_INTO_OUTPUT` as a pure registration handle. The caller names
+the associated constant so a type can expose several conversions. To include
+it in an executable catalogue, use
+`Function::Pure(Input::REGISTERED_INTO_OUTPUT)`.
+The lower registration remains authoritative and is directly callable offline.
 
 Registrations between externally owned types can use
-`register_from!(pub static NAME: Input => Output)` and include `&NAME` in a
-catalog; this form requires no inherent implementation. The anonymous
+`register_from!(pub static NAME: Input => Output)` and use `Function::Pure(&NAME)`
+for an executable catalogue; this form requires no
+inherent implementation. The anonymous
 registration form also remains available. Explicit test catalogs list their
-selected request/conversion references directly and explicitly include their
-response constructors. Pass `known_functions()` for the full linked catalog.
+selected runtime, pure conversion, and arbitrary constructor handles by value.
+Pass `known_functions()` for the full linked executable catalogue. It wraps the
+original registrations during iteration without an adapter table. Equality and
+hashing use each variant's original registration address, so copied handles retain
+their identity. Pure metadata
+and structural planning live in `cloud_terrastodon_registry`; invocation lives
+in `cloud_terrastodon_registry_execution`.
 
 `Function::trait_contract` declares a `FunctionTraitContract`: `IntoFuture`, `From`,
 `TryFrom`, `Arbitrary`, or `Other(&'static str)` for custom registrations. Static
@@ -377,7 +390,7 @@ Another test traverses the full linked catalog and prints sampled type names,
 depths, and convergence totals when run with `--nocapture`.
 
 ```pwsh
-cargo test --offline -p cloud_terrastodon_registry --lib discovery_simulation_tests
+cargo test --offline -p cloud_terrastodon_registry_execution --lib discovery_simulation_tests
 cargo test --offline -p cloud_terrastodon_azure_devops --test discovery_simulation
 cargo test --offline -p cloud_terrastodon_azure_devops --test discovery_simulation full_linked_catalog -- --nocapture
 cargo test --offline -p cloud_terrastodon_entrypoint --lib entrypoint::tests::async_requests_declare_effects -- --exact

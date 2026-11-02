@@ -60,7 +60,7 @@ cloud_terrastodon_registry::register_thing!(AzureDevOpsWorkItemRelationTypeListR
 cloud_terrastodon_registry::register_arbitrary!(
     AzureDevOpsWorkItemRelationTypeListRequest<'static>
 );
-cloud_terrastodon_registry::register_into_future!(
+cloud_terrastodon_registry_execution::register_into_future!(
     AzureDevOpsWorkItemRelationTypeListRequest<'static> => Vec<AzureDevOpsWorkItemRelationType>,
     effects = [Read]
 );

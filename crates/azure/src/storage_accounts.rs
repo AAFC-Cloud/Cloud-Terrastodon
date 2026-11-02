@@ -105,4 +105,4 @@ mod test {
 
 cloud_terrastodon_registry::register_thing!(StorageAccountListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(StorageAccountListRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(StorageAccountListRequest<'static> => Vec<StorageAccount>, effects = [Read]);
+cloud_terrastodon_registry_execution::register_into_future!(StorageAccountListRequest<'static> => Vec<StorageAccount>, effects = [Read]);

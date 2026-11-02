@@ -51,11 +51,13 @@ mod tests {
     use facet::Facet;
 
     fn generated<T: Facet<'static> + Send + 'static>(bytes: Vec<u8>) -> T {
-        let constructor =
-            cloud_terrastodon_registry::functions_from_to(ArbitraryBytes::SHAPE, T::SHAPE)
-                .into_iter()
-                .find(|function| function.output_shape.is_shape(T::SHAPE))
-                .expect("the exact arbitrary constructor is registered");
+        let constructor = cloud_terrastodon_registry_execution::functions_from_to(
+            ArbitraryBytes::SHAPE,
+            T::SHAPE,
+        )
+        .into_iter()
+        .find(|function| function.output_shape.is_shape(T::SHAPE))
+        .expect("the exact arbitrary constructor is registered");
         *constructor
             .invoke_mut_boxed(&mut ArbitraryBytes::new(bytes))
             .expect("the deterministic query fixture should generate")

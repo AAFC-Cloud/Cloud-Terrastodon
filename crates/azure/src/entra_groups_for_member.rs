@@ -104,7 +104,7 @@ impl CacheableCommand for EntraGroupsForMemberRequest<'_> {
 cloud_terrastodon_command::impl_cacheable_into_future!(EntraGroupsForMemberRequest<'a>, 'a);
 cloud_terrastodon_registry::register_thing!(EntraGroupsForMemberRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(EntraGroupsForMemberRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(
+cloud_terrastodon_registry_execution::register_into_future!(
     EntraGroupsForMemberRequest<'static> => Vec<EntraGroup>,
     effects = [Read]
 );

@@ -60,7 +60,7 @@ cloud_terrastodon_registry::register_thing!(AzureDevOpsWorkItemFieldDefinitionGe
 cloud_terrastodon_registry::register_arbitrary!(
     AzureDevOpsWorkItemFieldDefinitionGetRequest<'static>
 );
-cloud_terrastodon_registry::register_into_future!(
+cloud_terrastodon_registry_execution::register_into_future!(
     AzureDevOpsWorkItemFieldDefinitionGetRequest<'static> => AzureDevOpsWorkItemFieldDefinition,
     effects = [Read]
 );

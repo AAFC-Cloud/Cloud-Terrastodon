@@ -68,7 +68,7 @@ impl CacheableCommand for ApplicationRoleListRequest {
 cloud_terrastodon_command::impl_cacheable_into_future!(ApplicationRoleListRequest);
 cloud_terrastodon_registry::register_thing!(ApplicationRoleListRequest);
 cloud_terrastodon_registry::register_arbitrary!(ApplicationRoleListRequest);
-cloud_terrastodon_registry::register_into_future!(
+cloud_terrastodon_registry_execution::register_into_future!(
     ApplicationRoleListRequest => EntraServicePrincipalApplicationPermissions,
     effects = [Read]
 );

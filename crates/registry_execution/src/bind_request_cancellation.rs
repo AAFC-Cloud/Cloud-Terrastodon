@@ -14,7 +14,7 @@ pub type CancellationBindingFn = fn(&mut (dyn Any + Send), &CancellationScope) -
 
 // Runtime cancellation handles are supplied by invocation hosts rather than
 // deserialized from user input. Register their reflection interoperability here.
-crate::register_thing!(CancellationScope);
+cloud_terrastodon_registry::register_thing!(CancellationScope);
 
 /// Bind an executable request's single direct scope field to its caller's token.
 ///

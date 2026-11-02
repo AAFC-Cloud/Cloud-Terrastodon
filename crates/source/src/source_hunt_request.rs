@@ -186,7 +186,7 @@ impl IntoFuture for SourceHuntRequest {
 
 cloud_terrastodon_registry::register_thing!(SourceHuntRequest);
 cloud_terrastodon_registry::register_arbitrary!(SourceHuntRequest);
-cloud_terrastodon_registry::register_into_future!(SourceHuntRequest => SourceHuntReport, effects = [Read]);
+cloud_terrastodon_registry_execution::register_into_future!(SourceHuntRequest => SourceHuntReport, effects = [Read]);
 
 fn progress_snapshot(
     report: &SourceHuntReport,

@@ -1,13 +1,15 @@
-use crate::ArbitraryBytes;
 use crate::DiscoveryPlanBuildRequest;
+use crate::Function;
 use crate::RegisteredFunction;
-use crate::RegisteredShape;
 use crate::functions_from_to;
 use crate::functions_to;
 use crate::known_functions;
-use crate::known_thing_for_shape;
-use crate::known_things;
 use arbitrary::Arbitrary;
+use cloud_terrastodon_registry::ArbitraryBytes;
+use cloud_terrastodon_registry::RegisteredShape;
+use cloud_terrastodon_registry::known_function_descriptors;
+use cloud_terrastodon_registry::known_thing_for_shape;
+use cloud_terrastodon_registry::known_things;
 use facet::Facet;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
@@ -28,11 +30,8 @@ impl<'a> Arbitrary<'a> for PureValue {
     }
 }
 
-cloud_terrastodon_registry_values::register_thing!(PureValue);
-cloud_terrastodon_registry_values::register_arbitrary!(
-    PureValue,
-    associated = REGISTERED_GENERATOR
-);
+cloud_terrastodon_registry::register_thing!(PureValue);
+cloud_terrastodon_registry::register_arbitrary!(PureValue, associated = REGISTERED_GENERATOR);
 
 #[test]
 fn pure_registrations_join_the_catalog_without_running_or_duplicating_them() -> eyre::Result<()> {
@@ -48,23 +47,33 @@ fn pure_registrations_join_the_catalog_without_running_or_duplicating_them() -> 
 
     let constructors = functions_from_to(ArbitraryBytes::SHAPE, PureValue::SHAPE);
     let [constructor] = constructors.as_slice() else {
-        panic!("the low descriptor must have one catalog adapter");
+        panic!("the low descriptor must have one catalog handle");
     };
+    assert!(*constructor == Function::Arbitrary(PureValue::REGISTERED_GENERATOR));
     assert!(std::ptr::eq(
-        constructor.arbitrary_registration.unwrap(),
-        PureValue::REGISTERED_GENERATOR,
+        constructor.descriptor(),
+        PureValue::REGISTERED_GENERATOR.descriptor(),
     ));
-    assert!(std::ptr::eq(
-        *constructor,
-        functions_to(PureValue::SHAPE)[0]
-    ));
+    assert_eq!(
+        known_function_descriptors()
+            .filter(|descriptor| std::ptr::eq(*descriptor, constructor.descriptor()))
+            .count(),
+        1,
+        "the executable and pure catalogues must share one authoritative descriptor",
+    );
+    assert!(*constructor == functions_to(PureValue::SHAPE)[0]);
 
-    let handle = RegisteredFunction::from_function(constructor);
+    let handle = RegisteredFunction::from_function(*constructor);
     assert_eq!(handle.to_string().parse::<RegisteredFunction>()?, handle);
     assert!(DiscoveryPlanBuildRequest::default_functions().contains(&handle));
     assert!(
-        RegisteredShape::all(known_functions(), known_things())
-            .contains(&RegisteredShape::from_shape(PureValue::SHAPE))
+        RegisteredShape::all(
+            known_functions()
+                .iter()
+                .map(|function| function.descriptor()),
+            known_things()
+        )
+        .contains(&RegisteredShape::from_shape(PureValue::SHAPE))
     );
     assert_eq!(GENERATED.load(Ordering::SeqCst), 0);
 
@@ -74,9 +83,6 @@ fn pure_registrations_join_the_catalog_without_running_or_duplicating_them() -> 
     assert!(runtime.shape().is_shape(PureValue::SHAPE));
     assert!(input.as_slice().len() < 4);
     assert_eq!(GENERATED.load(Ordering::SeqCst), 1);
-    assert!(std::ptr::eq(
-        *constructor,
-        functions_to(PureValue::SHAPE)[0]
-    ));
+    assert!(*constructor == functions_to(PureValue::SHAPE)[0]);
     Ok(())
 }

@@ -14,13 +14,13 @@ use super::slot_id::SlotId;
 use super::value_builder::BuilderStore;
 use super::work_budget::WorkBudget;
 use cloud_terrastodon_registry::ArbitraryBytes;
-use cloud_terrastodon_registry::Function;
 use cloud_terrastodon_registry::ProductionKind;
 use cloud_terrastodon_registry::RuntimeValue;
-use cloud_terrastodon_registry::default_production_plan;
 use cloud_terrastodon_registry::describe_function;
 use cloud_terrastodon_registry::describe_shape;
-use cloud_terrastodon_registry::functions_from;
+use cloud_terrastodon_registry_execution::Function;
+use cloud_terrastodon_registry_execution::default_production_plan;
+use cloud_terrastodon_registry_execution::functions_from;
 use facet::Facet;
 use facet::Shape;
 use std::collections::BTreeMap;
@@ -72,7 +72,7 @@ impl ProductionController {
         invocation_host: &mut dyn InvocationHost,
         destination: SlotId,
         field: usize,
-        function: &'static Function,
+        function: Function,
         strategy: ProductionStrategy,
         max_work: usize,
     ) -> Result<ProductionBatch, String> {
@@ -232,7 +232,7 @@ impl ProductionController {
         builders: &BuilderStore,
         destination: SlotId,
         field: usize,
-        function: &'static Function,
+        function: Function,
     ) -> Result<(), String> {
         let builder = builders
             .builder(destination)
@@ -244,7 +244,7 @@ impl ProductionController {
         if function.production_kind(source_shape) != Some(ProductionKind::Exact) {
             return Err(format!(
                 "{} does not exactly produce {} for slot {destination} field {field}",
-                describe_function(function),
+                describe_function(function.descriptor()),
                 describe_shape(source_shape)
             ));
         }
@@ -336,7 +336,7 @@ impl ProductionController {
     }
 }
 
-pub(crate) fn arbitrary_constructor_for(shape: &'static Shape) -> Option<&'static Function> {
+pub(crate) fn arbitrary_constructor_for(shape: &'static Shape) -> Option<Function> {
     functions_from(ArbitraryBytes::SHAPE)
         .into_iter()
         .find(|function| function.production_kind(shape) == Some(ProductionKind::Exact))
@@ -353,7 +353,7 @@ mod tests {
     use crate::object_explorer::tokio_invocation_host::TokioInvocationHost;
     use crate::object_explorer::value_builder::BuilderTransition;
     use arbitrary::Arbitrary;
-    use cloud_terrastodon_registry::functions_from;
+    use cloud_terrastodon_registry_execution::functions_from;
     use facet::Facet;
     use std::future::Future;
     use std::future::IntoFuture;
@@ -392,10 +392,10 @@ mod tests {
 
     cloud_terrastodon_registry::register_thing!(ProducerRequest);
     cloud_terrastodon_registry::register_thing!(ProducedValue);
-    cloud_terrastodon_registry::register_into_future!(ProducerRequest => ProducedValue, effects = [Read]);
+    cloud_terrastodon_registry_execution::register_into_future!(ProducerRequest => ProducedValue, effects = [Read]);
     cloud_terrastodon_registry::register_arbitrary!(ProducerRequest);
 
-    fn producer() -> &'static Function {
+    fn producer() -> Function {
         functions_from(ProducerRequest::SHAPE)
             .into_iter()
             .find(|function| {
@@ -405,8 +405,8 @@ mod tests {
     }
 
     fn attach_nothing(
-        future: cloud_terrastodon_registry::InvocationFuture,
-    ) -> cloud_terrastodon_registry::InvocationFuture {
+        future: cloud_terrastodon_registry_execution::InvocationFuture,
+    ) -> cloud_terrastodon_registry_execution::InvocationFuture {
         future
     }
 

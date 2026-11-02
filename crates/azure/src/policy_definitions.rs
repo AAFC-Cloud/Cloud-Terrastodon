@@ -118,4 +118,4 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(PolicyDefinitionListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(PolicyDefinitionListRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(PolicyDefinitionListRequest<'static> => Vec<PolicyDefinition>, effects = [Read]);
+cloud_terrastodon_registry_execution::register_into_future!(PolicyDefinitionListRequest<'static> => Vec<PolicyDefinition>, effects = [Read]);

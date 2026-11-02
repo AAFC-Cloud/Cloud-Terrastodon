@@ -45,7 +45,7 @@ impl From<&AuthPartition> for String {
     }
 }
 
-cloud_terrastodon_registry_values::register_thing!(AuthPartition);
+cloud_terrastodon_registry::register_thing!(AuthPartition);
 
 #[cfg(test)]
 mod tests {

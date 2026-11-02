@@ -1,5 +1,5 @@
-use cloud_terrastodon_registry::RegisteredFunction;
 use cloud_terrastodon_registry::RegisteredShape;
+use cloud_terrastodon_registry_execution::RegisteredFunction;
 use facet::Facet;
 use facet::Shape;
 

@@ -17,18 +17,19 @@ use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_registry::ArbitraryBytes;
 use cloud_terrastodon_registry::DiscoveryPlan;
 use cloud_terrastodon_registry::DiscoveryPlanNodeKind;
-use cloud_terrastodon_registry::DiscoverySimulation;
-use cloud_terrastodon_registry::Function;
+use cloud_terrastodon_registry::FunctionDescriptor;
 use cloud_terrastodon_registry::FunctionKind;
 use cloud_terrastodon_registry::FunctionTraitContract;
 use cloud_terrastodon_registry::RuntimeValue;
 use cloud_terrastodon_registry::describe_shape;
-use cloud_terrastodon_registry::known_functions;
+use cloud_terrastodon_registry_execution::DiscoverySimulation;
+use cloud_terrastodon_registry_execution::Function;
+use cloud_terrastodon_registry_execution::known_functions;
 use facet::Facet;
 use facet::Shape;
 
 fn plan(
-    catalog: impl IntoIterator<Item = &'static Function>,
+    catalog: impl IntoIterator<Item = &'static FunctionDescriptor>,
     seeds: &[&'static Shape],
     targets: &[&'static Shape],
 ) -> DiscoveryPlan {
@@ -47,7 +48,7 @@ fn plan(
 #[test]
 fn linked_catalog_connects_projects_to_service_connections_and_full_build_definitions() {
     let plan = plan(
-        known_functions(),
+        known_functions().iter().map(Function::descriptor),
         &[
             AzureDevOpsOrganizationUrl::SHAPE,
             AzureDevOpsAuthContext::SHAPE,
@@ -86,7 +87,7 @@ fn linked_catalog_connects_projects_to_service_connections_and_full_build_defini
 #[test]
 fn an_organization_without_authentication_cannot_unlock_project_inventories() {
     let plan = plan(
-        known_functions(),
+        known_functions().iter().map(Function::descriptor),
         &[AzureDevOpsOrganizationUrl::SHAPE],
         &[
             AzureDevOpsServiceEndpoint::SHAPE,
@@ -116,8 +117,8 @@ fn project_argument_conversion_is_required_even_when_request_arbitrary_is_regist
     // conversions. Their registrations in the linked global registry cannot
     // fill a gap in the catalog supplied to this planner.
     let catalog = [
-        AzureDevOpsProjectsListRequest::REGISTERED_INTO_FUTURE,
-        AzureDevOpsServiceEndpointsListRequest::REGISTERED_INTO_FUTURE,
+        AzureDevOpsProjectsListRequest::REGISTERED_INTO_FUTURE.descriptor(),
+        AzureDevOpsServiceEndpointsListRequest::REGISTERED_INTO_FUTURE.descriptor(),
     ];
     let seeds = [
         AzureDevOpsOrganizationUrl::SHAPE,
@@ -145,7 +146,7 @@ fn project_argument_conversion_is_required_even_when_request_arbitrary_is_regist
     let connected = plan(
         catalog
             .into_iter()
-            .chain([AzureDevOpsProject::REGISTERED_INTO_PROJECT_ARGUMENT]),
+            .chain([AzureDevOpsProject::REGISTERED_INTO_PROJECT_ARGUMENT.descriptor()]),
         &seeds,
         &targets,
     );
@@ -157,10 +158,10 @@ fn project_argument_conversion_is_required_even_when_request_arbitrary_is_regist
 fn yaml_filename_is_a_conditional_descendant_of_a_full_build_definition() {
     let plan = plan(
         [
-            AzureDevOpsProjectsListRequest::REGISTERED_INTO_FUTURE,
-            AzureDevOpsProject::REGISTERED_INTO_PROJECT_ARGUMENT,
-            AzureDevOpsBuildDefinitionListRequest::REGISTERED_INTO_FUTURE,
-            AzureDevOpsBuildDefinitionGetRequest::REGISTERED_INTO_FUTURE,
+            AzureDevOpsProjectsListRequest::REGISTERED_INTO_FUTURE.descriptor(),
+            AzureDevOpsProject::REGISTERED_INTO_PROJECT_ARGUMENT.descriptor(),
+            AzureDevOpsBuildDefinitionListRequest::REGISTERED_INTO_FUTURE.descriptor(),
+            AzureDevOpsBuildDefinitionGetRequest::REGISTERED_INTO_FUTURE.descriptor(),
         ],
         &[
             AzureDevOpsOrganizationUrl::SHAPE,
@@ -182,7 +183,7 @@ fn yaml_filename_is_a_conditional_descendant_of_a_full_build_definition() {
 #[test]
 fn devops_auth_does_not_supply_the_tenant_context_from_its_bearer_variant() {
     let plan = plan(
-        known_functions(),
+        known_functions().iter().map(Function::descriptor),
         &[
             AzureDevOpsOrganizationUrl::SHAPE,
             AzureDevOpsAuthContext::SHAPE,
@@ -205,7 +206,7 @@ fn devops_auth_does_not_supply_the_tenant_context_from_its_bearer_variant() {
 fn structural_project_folder_plan_covers_the_arbitrary_simulation_requests() {
     let catalog = [
         AzureDevOpsProjectsListRequest::REGISTERED_INTO_FUTURE,
-        AzureDevOpsProject::REGISTERED_INTO_PROJECT_ARGUMENT,
+        Function::Pure(AzureDevOpsProject::REGISTERED_INTO_PROJECT_ARGUMENT),
         AzureDevOpsBuildFolderListRequest::REGISTERED_INTO_FUTURE,
     ]
     .into_iter()
@@ -224,7 +225,7 @@ fn structural_project_folder_plan_covers_the_arbitrary_simulation_requests() {
     }))
     .collect::<Vec<_>>();
     let plan = plan(
-        catalog.iter().copied(),
+        catalog.iter().map(|function| function.descriptor()),
         &[
             AzureDevOpsOrganizationUrl::SHAPE,
             AzureDevOpsAuthContext::SHAPE,

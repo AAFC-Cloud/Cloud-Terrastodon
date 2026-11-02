@@ -15,5 +15,5 @@ pub enum ExecutorKind {
     Other(String),
 }
 
-cloud_terrastodon_registry_values::register_thing!(ExecutorKind);
-cloud_terrastodon_registry_values::register_arbitrary!(ExecutorKind);
+cloud_terrastodon_registry::register_thing!(ExecutorKind);
+cloud_terrastodon_registry::register_arbitrary!(ExecutorKind);

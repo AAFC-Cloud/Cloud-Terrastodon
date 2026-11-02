@@ -199,8 +199,10 @@ from the organization, tenant and authentication flags.
 
 ## Building a plan in the object explorer
 
-`DiscoveryPlanBuildRequest` separates the editable planning inputs from the
-resulting `DiscoveryPlan` graph. Its `seeds` and `targets` fields are lists of
+`registry_execution::DiscoveryPlanBuildRequest` separates the editable planning
+inputs from the pure `registry::DiscoveryPlan` graph. Direct offline planning
+accepts `registry::FunctionDescriptor` references and needs no invocation
+registry. The request's `seeds` and `targets` fields are lists of
 `RegisteredShape`; choose them through the explorer's shape picker. Seeds declare
 the input types assumed available, such as `AzureDevOpsOrganizationUrl` and
 `AzureDevOpsAuthContext`. They do not create input values or resolve credentials.

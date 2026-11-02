@@ -14,5 +14,5 @@ pub struct CacheKey {
     pub valid_for: Duration,
 }
 
-cloud_terrastodon_registry_values::register_thing!(CacheKey);
-cloud_terrastodon_registry_values::register_arbitrary!(CacheKey);
+cloud_terrastodon_registry::register_thing!(CacheKey);
+cloud_terrastodon_registry::register_arbitrary!(CacheKey);

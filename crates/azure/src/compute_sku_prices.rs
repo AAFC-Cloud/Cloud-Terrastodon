@@ -107,4 +107,4 @@ mod test {
 
 cloud_terrastodon_registry::register_thing!(ComputeSkuPricesRequest);
 cloud_terrastodon_registry::register_arbitrary!(ComputeSkuPricesRequest);
-cloud_terrastodon_registry::register_into_future!(ComputeSkuPricesRequest => Vec<Price>, effects = [Read]);
+cloud_terrastodon_registry_execution::register_into_future!(ComputeSkuPricesRequest => Vec<Price>, effects = [Read]);

@@ -99,7 +99,7 @@ impl<'a> CacheableCommand for WorkItemQueriesForProjectRequest<'a> {
 cloud_terrastodon_command::impl_cacheable_into_future!(WorkItemQueriesForProjectRequest<'a>, 'a);
 cloud_terrastodon_registry::register_thing!(WorkItemQueriesForProjectRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(WorkItemQueriesForProjectRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(WorkItemQueriesForProjectRequest<'static> => Vec<AzureDevOpsWorkItemQuery>, effects = [Read]);
+cloud_terrastodon_registry_execution::register_into_future!(WorkItemQueriesForProjectRequest<'static> => Vec<AzureDevOpsWorkItemQuery>, effects = [Read]);
 
 #[cfg(test)]
 mod test {

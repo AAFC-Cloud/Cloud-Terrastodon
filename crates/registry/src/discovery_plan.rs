@@ -1,10 +1,10 @@
-use crate::CancellationScope;
 use crate::DiscoveryPlanEdge;
 use crate::DiscoveryPlanNode;
-use crate::Function;
+use crate::FunctionDescriptor;
 use crate::discovery_plan_graph::DiscoveryPlanGraph;
 use facet::Facet;
 use facet::Shape;
+use teamy_cancellation::CancellationScope;
 
 /// An offline, target-directed graph of structurally possible discovery work.
 ///
@@ -38,7 +38,7 @@ impl DiscoveryPlan {
     /// admitted. Catalog effects remain declarations requiring an audit. No
     /// global registry is consulted, including for Arbitrary generators.
     pub fn build(
-        functions: impl IntoIterator<Item = &'static Function>,
+        functions: impl IntoIterator<Item = &'static FunctionDescriptor>,
         seeds: impl IntoIterator<Item = &'static Shape>,
         targets: impl IntoIterator<Item = &'static Shape>,
         cancellation: &CancellationScope,

@@ -1,10 +1,10 @@
 use crate::InvocationFuture;
+use cloud_terrastodon_registry::SyncMutFn;
+use cloud_terrastodon_registry::SyncRefFn;
+use cloud_terrastodon_registry::SyncValueFn;
 use std::any::Any;
 
 pub type AsyncValueFn = fn(Box<dyn Any + Send>) -> InvocationFuture;
-pub type SyncValueFn = fn(Box<dyn Any + Send>) -> eyre::Result<Box<dyn Any + Send>>;
-pub type SyncRefFn = fn(&(dyn Any + Send)) -> eyre::Result<Box<dyn Any + Send>>;
-pub type SyncMutFn = fn(&mut (dyn Any + Send)) -> eyre::Result<Box<dyn Any + Send>>;
 
 #[derive(Clone, Copy)]
 pub enum FunctionExecutor {

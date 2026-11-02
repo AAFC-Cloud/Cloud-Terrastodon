@@ -11,14 +11,14 @@ use super::slot_id::SlotId;
 use super::value_builder::BuilderStore;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_registry::ArbitraryBytes;
-use cloud_terrastodon_registry::Function;
-use cloud_terrastodon_registry::FunctionInvocation;
 use cloud_terrastodon_registry::ProductionKind;
 use cloud_terrastodon_registry::ReceiverMode;
 use cloud_terrastodon_registry::RuntimeFromBoxedFn;
 use cloud_terrastodon_registry::RuntimeValue;
 use cloud_terrastodon_registry::Thing;
 use cloud_terrastodon_registry::known_thing_for_shape;
+use cloud_terrastodon_registry_execution::Function;
+use cloud_terrastodon_registry_execution::FunctionInvocation;
 use facet::Facet;
 use std::any::Any;
 use std::collections::BTreeMap;
@@ -208,7 +208,7 @@ impl InvocationController {
         host: &mut H,
         input: SlotId,
         input_thing: &'static Thing,
-        function: &'static Function,
+        function: Function,
         mode: InvocationMode,
     ) -> Result<InvocationStart, InvocationControllerError> {
         self.invoke_linked(
@@ -237,8 +237,8 @@ impl InvocationController {
         borrow_graph: &mut BorrowGraph,
         host: &mut H,
         request: SlotId,
-        request_function: &'static Function,
-        constructor: &'static Function,
+        request_function: Function,
+        constructor: Function,
         bytes: Vec<u8>,
     ) -> Result<ArbitraryInvocationStart, InvocationControllerError> {
         let request_value = arena.ready_value(request).ok_or_else(|| {
@@ -822,11 +822,12 @@ mod tests {
     use cloud_terrastodon_registry::Effect;
     use cloud_terrastodon_registry::FunctionKind;
     use cloud_terrastodon_registry::FunctionTraitContract;
-    use cloud_terrastodon_registry::InvocationFuture;
     use cloud_terrastodon_registry::RegistrationSite;
     use cloud_terrastodon_registry::RuntimeValue;
     use cloud_terrastodon_registry::runtime_from_boxed;
     use cloud_terrastodon_registry::runtime_into_boxed;
+    use cloud_terrastodon_registry_execution::InvocationFuture;
+    use cloud_terrastodon_registry_execution::RuntimeFunction;
     use facet::Facet;
     use std::any::Any;
     use std::borrow::Cow;
@@ -900,7 +901,7 @@ mod tests {
         RegistrationSite::new(file!(), line!()),
     );
 
-    static TEST_FUNCTION: Function = Function::async_value(
+    static TEST_FUNCTION: RuntimeFunction = RuntimeFunction::async_value(
         TestRequest::SHAPE,
         String::SHAPE,
         FunctionKind::AsyncInvoke,
@@ -919,7 +920,7 @@ mod tests {
         RegistrationSite::new(file!(), line!()),
     );
 
-    static BORROW_FUNCTION: Function = Function::async_value(
+    static BORROW_FUNCTION: RuntimeFunction = RuntimeFunction::async_value(
         <BorrowRequest<'static>>::SHAPE,
         String::SHAPE,
         FunctionKind::AsyncInvoke,
@@ -931,7 +932,7 @@ mod tests {
         RegistrationSite::new(file!(), line!()),
     );
 
-    static BORROW_HELD_FUNCTION: Function = Function::async_value(
+    static BORROW_HELD_FUNCTION: RuntimeFunction = RuntimeFunction::async_value(
         <BorrowRequest<'static>>::SHAPE,
         String::SHAPE,
         FunctionKind::AsyncInvoke,
@@ -982,7 +983,7 @@ mod tests {
             &mut host,
             input,
             &TEST_REQUEST_THING,
-            &TEST_FUNCTION,
+            Function::Runtime(&TEST_FUNCTION),
             InvocationMode::Consume,
         );
 
@@ -1031,7 +1032,7 @@ mod tests {
                 &mut host,
                 request,
                 &BORROW_REQUEST_THING,
-                &BORROW_HELD_FUNCTION,
+                Function::Runtime(&BORROW_HELD_FUNCTION),
                 InvocationMode::Consume,
             )
             .unwrap()
@@ -1108,7 +1109,7 @@ mod tests {
                 &mut host,
                 input,
                 &TEST_REQUEST_THING,
-                &TEST_FUNCTION,
+                Function::Runtime(&TEST_FUNCTION),
                 InvocationMode::Retain,
             )
             .unwrap()
@@ -1173,7 +1174,7 @@ mod tests {
                 &mut host,
                 first,
                 &TEST_REQUEST_THING,
-                &TEST_FUNCTION,
+                Function::Runtime(&TEST_FUNCTION),
                 InvocationMode::Retain,
             )
             .unwrap()
@@ -1191,7 +1192,7 @@ mod tests {
                 &mut host,
                 second,
                 &TEST_REQUEST_THING,
-                &TEST_FUNCTION,
+                Function::Runtime(&TEST_FUNCTION),
                 InvocationMode::Retain,
             )
             .unwrap()
@@ -1209,7 +1210,7 @@ mod tests {
                 &mut host,
                 third,
                 &TEST_REQUEST_THING,
-                &TEST_FUNCTION,
+                Function::Runtime(&TEST_FUNCTION),
                 InvocationMode::Retain,
             )
             .unwrap()
@@ -1279,7 +1280,7 @@ mod tests {
                 &mut host,
                 request,
                 &BORROW_REQUEST_THING,
-                &BORROW_FUNCTION,
+                Function::Runtime(&BORROW_FUNCTION),
                 InvocationMode::Retain,
             )
             .unwrap()
@@ -1331,7 +1332,7 @@ mod tests {
                 &mut host,
                 moved_request,
                 &BORROW_REQUEST_THING,
-                &BORROW_FUNCTION,
+                Function::Runtime(&BORROW_FUNCTION),
                 InvocationMode::Consume,
             )
             .unwrap()
@@ -1384,7 +1385,7 @@ mod tests {
                 [first, second].map(|input| PlannedInvocation {
                     input,
                     input_thing: &TEST_REQUEST_THING,
-                    function: &TEST_FUNCTION,
+                    function: Function::Runtime(&TEST_FUNCTION),
                     mode: InvocationMode::Retain,
                 }),
             )
@@ -1443,7 +1444,7 @@ mod tests {
         Box::pin(async move { return_borrowed_source(input) })
     }
 
-    static RETURN_BORROWED_SOURCE: Function = Function::sync_value(
+    static RETURN_BORROWED_SOURCE: RuntimeFunction = RuntimeFunction::sync_value(
         <BorrowRequest<'static>>::SHAPE,
         <Cow<'static, BorrowSource>>::SHAPE,
         FunctionKind::Conversion,
@@ -1455,7 +1456,7 @@ mod tests {
         RegistrationSite::new(file!(), line!()),
     );
 
-    static RETURN_BORROWED_SOURCE_ASYNC: Function = Function::async_value(
+    static RETURN_BORROWED_SOURCE_ASYNC: RuntimeFunction = RuntimeFunction::async_value(
         <BorrowRequest<'static>>::SHAPE,
         <Cow<'static, BorrowSource>>::SHAPE,
         FunctionKind::AsyncInvoke,
@@ -1469,7 +1470,10 @@ mod tests {
 
     #[tokio::test]
     async fn sync_and_async_results_retain_borrowed_sources_in_both_invocation_modes() {
-        for function in [&RETURN_BORROWED_SOURCE, &RETURN_BORROWED_SOURCE_ASYNC] {
+        for function in [
+            Function::Runtime(&RETURN_BORROWED_SOURCE),
+            Function::Runtime(&RETURN_BORROWED_SOURCE_ASYNC),
+        ] {
             for mode in [InvocationMode::Retain, InvocationMode::Consume] {
                 let mut arena = Arena::default();
                 let source = arena
@@ -1648,7 +1652,7 @@ mod tests {
         RegistrationSite::new(file!(), line!()),
     );
 
-    static GUARD_SYNC_PANIC: Function = Function::sync_value(
+    static GUARD_SYNC_PANIC: RuntimeFunction = RuntimeFunction::sync_value(
         GuardRequest::SHAPE,
         GuardRequest::SHAPE,
         FunctionKind::Conversion,
@@ -1659,7 +1663,7 @@ mod tests {
         runtime_from_boxed::<GuardRequest>,
         RegistrationSite::new(file!(), line!()),
     );
-    static GUARD_SYNC_ERROR: Function = Function::sync_value(
+    static GUARD_SYNC_ERROR: RuntimeFunction = RuntimeFunction::sync_value(
         GuardRequest::SHAPE,
         GuardRequest::SHAPE,
         FunctionKind::Conversion,
@@ -1670,7 +1674,7 @@ mod tests {
         runtime_from_boxed::<GuardRequest>,
         RegistrationSite::new(file!(), line!()),
     );
-    static GUARD_CONVERTER_PANIC: Function = Function::sync_value(
+    static GUARD_CONVERTER_PANIC: RuntimeFunction = RuntimeFunction::sync_value(
         GuardRequest::SHAPE,
         GuardRequest::SHAPE,
         FunctionKind::Conversion,
@@ -1681,7 +1685,7 @@ mod tests {
         guarded_converter_panic,
         RegistrationSite::new(file!(), line!()),
     );
-    static GUARD_CONVERTER_ERROR: Function = Function::sync_value(
+    static GUARD_CONVERTER_ERROR: RuntimeFunction = RuntimeFunction::sync_value(
         GuardRequest::SHAPE,
         GuardRequest::SHAPE,
         FunctionKind::Conversion,
@@ -1693,7 +1697,7 @@ mod tests {
         RegistrationSite::new(file!(), line!()),
     );
 
-    static GUARD_ASYNC_CONVERTER_PANIC: Function = Function::async_value(
+    static GUARD_ASYNC_CONVERTER_PANIC: RuntimeFunction = RuntimeFunction::async_value(
         GuardRequest::SHAPE,
         GuardRequest::SHAPE,
         FunctionKind::AsyncInvoke,
@@ -1704,7 +1708,7 @@ mod tests {
         guarded_converter_panic,
         RegistrationSite::new(file!(), line!()),
     );
-    static GUARD_ASYNC_CONVERTER_ERROR: Function = Function::async_value(
+    static GUARD_ASYNC_CONVERTER_ERROR: RuntimeFunction = RuntimeFunction::async_value(
         GuardRequest::SHAPE,
         GuardRequest::SHAPE,
         FunctionKind::AsyncInvoke,
@@ -1715,7 +1719,7 @@ mod tests {
         guarded_converter_error,
         RegistrationSite::new(file!(), line!()),
     );
-    static GUARD_REF_ERROR: Function = Function::sync_ref(
+    static GUARD_REF_ERROR: RuntimeFunction = RuntimeFunction::sync_ref(
         GuardRequest::SHAPE,
         GuardRequest::SHAPE,
         FunctionKind::Conversion,
@@ -1726,7 +1730,7 @@ mod tests {
         runtime_from_boxed::<GuardRequest>,
         RegistrationSite::new(file!(), line!()),
     );
-    static GUARD_MUT_ERROR: Function = Function::sync_mut(
+    static GUARD_MUT_ERROR: RuntimeFunction = RuntimeFunction::sync_mut(
         GuardRequest::SHAPE,
         GuardRequest::SHAPE,
         FunctionKind::Conversion,
@@ -1737,7 +1741,7 @@ mod tests {
         runtime_from_boxed::<GuardRequest>,
         RegistrationSite::new(file!(), line!()),
     );
-    static GUARD_MUT_RETURN: Function = Function::sync_mut(
+    static GUARD_MUT_RETURN: RuntimeFunction = RuntimeFunction::sync_mut(
         GuardRequest::SHAPE,
         GuardRequest::SHAPE,
         FunctionKind::Conversion,
@@ -1756,43 +1760,63 @@ mod tests {
         use std::sync::atomic::Ordering;
 
         for (thing, function, mode, expected_drops) in [
-            (&GUARD_THING, &GUARD_SYNC_PANIC, InvocationMode::Consume, 1),
-            (&GUARD_THING, &GUARD_SYNC_ERROR, InvocationMode::Consume, 2),
             (
                 &GUARD_THING,
-                &GUARD_CONVERTER_PANIC,
+                Function::Runtime(&GUARD_SYNC_PANIC),
                 InvocationMode::Consume,
                 1,
             ),
             (
                 &GUARD_THING,
-                &GUARD_CONVERTER_ERROR,
+                Function::Runtime(&GUARD_SYNC_ERROR),
+                InvocationMode::Consume,
+                2,
+            ),
+            (
+                &GUARD_THING,
+                Function::Runtime(&GUARD_CONVERTER_PANIC),
+                InvocationMode::Consume,
+                1,
+            ),
+            (
+                &GUARD_THING,
+                Function::Runtime(&GUARD_CONVERTER_ERROR),
                 InvocationMode::Consume,
                 2,
             ),
             (
                 &GUARD_PANICKING_INPUT_THING,
-                &GUARD_SYNC_PANIC,
+                Function::Runtime(&GUARD_SYNC_PANIC),
                 InvocationMode::Consume,
                 1,
             ),
             (
                 &GUARD_THING,
-                &GUARD_ASYNC_CONVERTER_PANIC,
+                Function::Runtime(&GUARD_ASYNC_CONVERTER_PANIC),
                 InvocationMode::Consume,
                 1,
             ),
             (
                 &GUARD_THING,
-                &GUARD_ASYNC_CONVERTER_ERROR,
+                Function::Runtime(&GUARD_ASYNC_CONVERTER_ERROR),
                 InvocationMode::Consume,
                 2,
             ),
-            (&GUARD_THING, &GUARD_REF_ERROR, InvocationMode::Consume, 3),
-            (&GUARD_THING, &GUARD_MUT_ERROR, InvocationMode::Consume, 3),
+            (
+                &GUARD_THING,
+                Function::Runtime(&GUARD_REF_ERROR),
+                InvocationMode::Consume,
+                3,
+            ),
+            (
+                &GUARD_THING,
+                Function::Runtime(&GUARD_MUT_ERROR),
+                InvocationMode::Consume,
+                3,
+            ),
             (
                 &GUARD_MUTATED_INPUT_ERROR_THING,
-                &GUARD_MUT_RETURN,
+                Function::Runtime(&GUARD_MUT_RETURN),
                 InvocationMode::Retain,
                 // The full report formats the wrapped BorrowingError cause,
                 // which creates another borrowed panic payload to dispose in
@@ -1928,7 +1952,7 @@ mod tests {
                 &mut host,
                 input,
                 &TEST_REQUEST_THING,
-                &TEST_FUNCTION,
+                Function::Runtime(&TEST_FUNCTION),
                 InvocationMode::Retain,
             )
             .unwrap()

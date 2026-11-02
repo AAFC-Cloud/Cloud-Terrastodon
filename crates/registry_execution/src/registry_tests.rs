@@ -1,5 +1,14 @@
 use super::*;
 use arbitrary::Arbitrary;
+use cloud_terrastodon_registry::ArbitraryBytes;
+use cloud_terrastodon_registry::FunctionKind;
+use cloud_terrastodon_registry::KNOWN_BORROWED_POINTER_KINDS;
+use cloud_terrastodon_registry::ProductionKind;
+use cloud_terrastodon_registry::ReceiverMode;
+use cloud_terrastodon_registry::RuntimeValue;
+use cloud_terrastodon_registry::describe_shape;
+use cloud_terrastodon_registry::known_shapes;
+use cloud_terrastodon_registry::shape_variants_for_thing;
 use facet::Facet;
 use std::any::Any;
 use std::borrow::Cow;
@@ -72,16 +81,16 @@ impl From<DummyOutput> for DummyConverted {
     }
 }
 
-crate::register_thing!(DummyTenant);
-crate::register_thing!(DummyOutput);
-crate::register_thing!(DummyListRequest);
-crate::register_thing!(DummyRenamedDefault);
-crate::register_thing!(DummyManualDefault);
+cloud_terrastodon_registry::register_thing!(DummyTenant);
+cloud_terrastodon_registry::register_thing!(DummyOutput);
+cloud_terrastodon_registry::register_thing!(DummyListRequest);
+cloud_terrastodon_registry::register_thing!(DummyRenamedDefault);
+cloud_terrastodon_registry::register_thing!(DummyManualDefault);
 crate::register_into_future!(DummyListRequest => Vec<DummyOutput>, effects = [Read]);
-crate::register_from!(DummyOutput => DummyConverted, associated = REGISTERED_INTO_CONVERTED, effects = []);
-crate::register_from!(static U8_TO_U16: u8 => u16);
-crate::register_arbitrary!(DummyOutput, associated = REGISTERED_ARBITRARY);
-crate::register_arbitrary!(static DUMMY_OUTPUTS_ARBITRARY: Vec<DummyOutput>);
+cloud_terrastodon_registry::register_from!(DummyOutput => DummyConverted, associated = REGISTERED_INTO_CONVERTED, effects = []);
+cloud_terrastodon_registry::register_from!(static U8_TO_U16: u8 => u16);
+cloud_terrastodon_registry::register_arbitrary!(DummyOutput, associated = REGISTERED_ARBITRARY);
+cloud_terrastodon_registry::register_arbitrary!(static DUMMY_OUTPUTS_ARBITRARY: Vec<DummyOutput>);
 
 #[test]
 fn known_shapes_deduplicates() {
@@ -376,10 +385,10 @@ fn runtime_value_rejects_lists_without_element_clone_support() -> eyre::Result<(
 fn direct_registration_handles_alias_the_linked_entries() {
     for handle in [
         DummyListRequest::REGISTERED_INTO_FUTURE,
-        DummyOutput::REGISTERED_INTO_CONVERTED,
-        &U8_TO_U16,
-        DummyOutput::REGISTERED_ARBITRARY,
-        &DUMMY_OUTPUTS_ARBITRARY,
+        Function::Pure(DummyOutput::REGISTERED_INTO_CONVERTED),
+        Function::Pure(&U8_TO_U16),
+        Function::Arbitrary(DummyOutput::REGISTERED_ARBITRARY),
+        Function::Arbitrary(&DUMMY_OUTPUTS_ARBITRARY),
     ] {
         let registrations = known_functions()
             .iter()
@@ -395,7 +404,7 @@ fn direct_registration_handles_alias_the_linked_entries() {
             "a handle must not add a second entry"
         );
         assert!(
-            std::ptr::eq(registrations[0], handle),
+            registrations[0] == handle,
             "a handle must reference the linked static, not copied metadata",
         );
     }
@@ -487,7 +496,7 @@ impl std::future::IntoFuture for CancellationProbeRequest {
         Box::pin(async move { Ok(!self.stop_signal.is_cancelled()) })
     }
 }
-register_thing!(CancellationProbeRequest);
+cloud_terrastodon_registry::register_thing!(CancellationProbeRequest);
 register_into_future!(CancellationProbeRequest => bool, effects = [Read]);
 
 #[tokio::test]

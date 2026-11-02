@@ -2034,12 +2034,12 @@ mod tests {
     use arbitrary::Arbitrary;
     use cloud_terrastodon_excalidraw::ProduceExcalidrawDumpPlanRequest;
     use cloud_terrastodon_registry::ArbitraryBytes;
-    use cloud_terrastodon_registry::DiscoveryPlanBuildRequest;
     use cloud_terrastodon_registry::ProductionKind;
-    use cloud_terrastodon_registry::RegisteredFunction;
     use cloud_terrastodon_registry::RegisteredShape;
     use cloud_terrastodon_registry::RuntimeValue;
-    use cloud_terrastodon_registry::functions_from;
+    use cloud_terrastodon_registry_execution::DiscoveryPlanBuildRequest;
+    use cloud_terrastodon_registry_execution::RegisteredFunction;
+    use cloud_terrastodon_registry_execution::functions_from;
     use facet::Facet;
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
@@ -2089,12 +2089,12 @@ mod tests {
     cloud_terrastodon_registry::register_thing!(BrowserProducerRequest);
     cloud_terrastodon_registry::register_thing!(BrowserProducedValue);
     cloud_terrastodon_registry::register_arbitrary!(BrowserProducedValue);
-    cloud_terrastodon_registry::register_into_future!(
+    cloud_terrastodon_registry_execution::register_into_future!(
         BrowserProducerRequest => BrowserProducedValue,
         effects = [Read]
     );
 
-    fn browser_producer() -> &'static cloud_terrastodon_registry::Function {
+    fn browser_producer() -> cloud_terrastodon_registry_execution::Function {
         functions_from(BrowserProducerRequest::SHAPE)
             .into_iter()
             .find(|function| {
@@ -2690,7 +2690,7 @@ mod tests {
                 "plan",
                 cloud_terrastodon_registry::DiscoveryPlan::SHAPE,
             );
-            let choice = picker.rows().iter().find(|row| matches!(row.choice(), ValuePickerChoice::CreateProducer { function } if std::ptr::eq(*function, DiscoveryPlanBuildRequest::REGISTERED_INTO_FUTURE))).unwrap().choice().clone();
+            let choice = picker.rows().iter().find(|row| matches!(row.choice(), ValuePickerChoice::CreateProducer { function } if *function == DiscoveryPlanBuildRequest::REGISTERED_INTO_FUTURE)).unwrap().choice().clone();
             app.accept_value_picker_choice_data(export, 0, choice)
                 .await
                 .unwrap();
@@ -2878,7 +2878,7 @@ mod tests {
             assert!(matches!(
                 selected.choice(),
                 ValuePickerChoice::InvokeDefaultProducer { function }
-                    if std::ptr::eq(*function, browser_producer())
+                    if *function == browser_producer()
             ));
 
             app.handle_event(&key(KeyCode::Enter)).await.unwrap();

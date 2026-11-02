@@ -1,16 +1,16 @@
-use crate::ArbitraryBytes;
 use crate::CancellationScope;
 use crate::DiscoverySimulation;
-use crate::Effect;
 use crate::Function;
-use crate::FunctionExecutor;
-use crate::FunctionKind;
-use crate::FunctionTraitContract;
 use crate::InvocationFuture;
-use crate::RegistrationSite;
-use crate::RuntimeValue;
-use crate::runtime_from_boxed;
+use crate::RuntimeFunction;
 use arbitrary::Arbitrary;
+use cloud_terrastodon_registry::ArbitraryBytes;
+use cloud_terrastodon_registry::Effect;
+use cloud_terrastodon_registry::FunctionKind;
+use cloud_terrastodon_registry::FunctionTraitContract;
+use cloud_terrastodon_registry::RegistrationSite;
+use cloud_terrastodon_registry::RuntimeValue;
+use cloud_terrastodon_registry::runtime_from_boxed;
 use facet::Facet;
 use std::any::Any;
 use std::cell::Cell;
@@ -138,26 +138,29 @@ impl IntoFuture for CatalogRequestEnvelopeRequest {
     }
 }
 
-crate::register_arbitrary!(CatalogRequest, associated = REGISTERED_ARBITRARY);
-crate::register_thing!(CatalogItem);
-crate::register_arbitrary!(CatalogItem, associated = REGISTERED_ARBITRARY);
-crate::register_thing!(ItemArgument);
-crate::register_arbitrary!(ItemArgument, associated = REGISTERED_ARBITRARY);
-crate::register_arbitrary!(ItemDetails, associated = REGISTERED_ARBITRARY);
-crate::register_arbitrary!(CatalogRequestEnvelope, associated = REGISTERED_ARBITRARY);
+cloud_terrastodon_registry::register_arbitrary!(CatalogRequest, associated = REGISTERED_ARBITRARY);
+cloud_terrastodon_registry::register_thing!(CatalogItem);
+cloud_terrastodon_registry::register_arbitrary!(CatalogItem, associated = REGISTERED_ARBITRARY);
+cloud_terrastodon_registry::register_thing!(ItemArgument);
+cloud_terrastodon_registry::register_arbitrary!(ItemArgument, associated = REGISTERED_ARBITRARY);
+cloud_terrastodon_registry::register_arbitrary!(ItemDetails, associated = REGISTERED_ARBITRARY);
+cloud_terrastodon_registry::register_arbitrary!(
+    CatalogRequestEnvelope,
+    associated = REGISTERED_ARBITRARY
+);
 crate::register_into_future!(CatalogRequest => CatalogItem, effects = [Read]);
 crate::register_into_future!(ItemDetailsRequest => ItemDetails, effects = [Read]);
 crate::register_into_future!(CatalogRequestEnvelopeRequest => CatalogRequestEnvelope, effects = [Read]);
-crate::register_from!(CatalogItem => ItemArgument, associated = REGISTERED_INTO_ITEM_ARGUMENT);
-crate::register_from!(ItemArgument => CatalogItem, associated = REGISTERED_INTO_CATALOG_ITEM);
+cloud_terrastodon_registry::register_from!(CatalogItem => ItemArgument, associated = REGISTERED_INTO_ITEM_ARGUMENT);
+cloud_terrastodon_registry::register_from!(ItemArgument => CatalogItem, associated = REGISTERED_INTO_CATALOG_ITEM);
 
-const GRAPH: [&Function; 6] = [
+static GRAPH: [Function; 6] = [
     CatalogRequest::REGISTERED_INTO_FUTURE,
     ItemDetailsRequest::REGISTERED_INTO_FUTURE,
-    CatalogItem::REGISTERED_INTO_ITEM_ARGUMENT,
-    CatalogItem::REGISTERED_ARBITRARY,
-    ItemDetails::REGISTERED_ARBITRARY,
-    CatalogRequest::REGISTERED_ARBITRARY,
+    Function::Pure(CatalogItem::REGISTERED_INTO_ITEM_ARGUMENT),
+    Function::Arbitrary(CatalogItem::REGISTERED_ARBITRARY),
+    Function::Arbitrary(ItemDetails::REGISTERED_ARBITRARY),
+    Function::Arbitrary(CatalogRequest::REGISTERED_ARBITRARY),
 ];
 
 fn runtime<T: Facet<'static> + Send + 'static>(value: T) -> RuntimeValue {
@@ -166,7 +169,7 @@ fn runtime<T: Facet<'static> + Send + 'static>(value: T) -> RuntimeValue {
 
 fn simulate(
     seeds: Vec<RuntimeValue>,
-    functions: &[&'static Function],
+    functions: &[Function],
     max_rounds: usize,
     max_values: usize,
 ) -> DiscoverySimulation {
@@ -190,7 +193,12 @@ fn has<T: Facet<'static>>(simulation: &DiscoverySimulation) -> bool {
 
 #[test]
 fn discovery_fabricates_reads_and_runs_real_conversions_to_unlock_downstream_requests() {
-    let simulation = simulate(vec![runtime(CatalogSeed { marker: 7 })], &GRAPH, 32, 128);
+    let simulation = simulate(
+        vec![runtime(CatalogSeed { marker: 7 })],
+        GRAPH.as_slice(),
+        32,
+        128,
+    );
 
     assert!(simulation.converged, "{:?}", simulation.diagnostics);
     assert_eq!(simulation.simulated_requests.len(), 2);
@@ -216,7 +224,12 @@ fn discovery_fabricates_reads_and_runs_real_conversions_to_unlock_downstream_req
     assert!(details.depth > 0);
     assert!(details.producer.is_some());
 
-    let repeated = simulate(vec![runtime(CatalogSeed { marker: 7 })], &GRAPH, 32, 128);
+    let repeated = simulate(
+        vec![runtime(CatalogSeed { marker: 7 })],
+        GRAPH.as_slice(),
+        32,
+        128,
+    );
     let repeated_details = repeated
         .values
         .get(ItemDetails::SHAPE)
@@ -261,13 +274,22 @@ fn response_generators_outside_the_catalog_do_not_unlock_discovery() {
 
 #[test]
 fn custom_trait_contract_text_cannot_claim_the_arbitrary_generator_contract() {
-    let mut constructor = *CatalogItem::REGISTERED_ARBITRARY;
-    constructor.trait_contract = FunctionTraitContract::Other("Arbitrary");
+    let constructor = RuntimeFunction::sync_mut(
+        ArbitraryBytes::SHAPE,
+        CatalogItem::SHAPE,
+        FunctionKind::Constructor,
+        "arbitrary",
+        FunctionTraitContract::Other("Arbitrary"),
+        &[],
+        CatalogItem::REGISTERED_ARBITRARY.invocation(),
+        runtime_from_boxed::<CatalogItem>,
+        RegistrationSite::new(file!(), line!()),
+    );
     let simulation = simulate(
         vec![runtime(CatalogSeed { marker: 7 })],
         &[
             CatalogRequest::REGISTERED_INTO_FUTURE,
-            Box::leak(Box::new(constructor)),
+            Function::Runtime(Box::leak(Box::new(constructor))),
         ],
         32,
         128,
@@ -288,7 +310,7 @@ fn custom_trait_contract_text_cannot_claim_the_arbitrary_generator_contract() {
 
 #[test]
 fn arbitrary_request_constructor_cannot_create_a_missing_dependency() {
-    let simulation = simulate(Vec::new(), &GRAPH, 32, 128);
+    let simulation = simulate(Vec::new(), GRAPH.as_slice(), 32, 128);
     assert!(simulation.converged);
     assert!(simulation.simulated_requests.is_empty());
     assert!(!has::<CatalogItem>(&simulation));
@@ -296,23 +318,32 @@ fn arbitrary_request_constructor_cannot_create_a_missing_dependency() {
 }
 
 #[test]
-fn write_prompting_mixed_and_unclassified_requests_are_never_simulated() {
+fn write_prompting_and_mixed_requests_are_never_simulated() {
     for effects in [
         &[Effect::Write][..],
         &[Effect::Read, Effect::Write][..],
         &[Effect::Solicit][..],
         &[Effect::Read, Effect::Solicit][..],
         &[Effect::Read, Effect::Write, Effect::Solicit][..],
-        &[][..],
     ] {
-        // Mutating a copy models external custom registration bypassing the
-        // standard constructor's nonempty-effects invariant.
-        let mut request = *CatalogRequest::REGISTERED_INTO_FUTURE;
-        request.effects = effects;
-        let request = Box::leak(Box::new(request));
+        let request = RuntimeFunction::async_value(
+            CatalogRequest::SHAPE,
+            CatalogItem::SHAPE,
+            FunctionKind::AsyncInvoke,
+            "invoke",
+            FunctionTraitContract::IntoFuture,
+            effects,
+            forbidden_async_conversion,
+            runtime_from_boxed::<CatalogItem>,
+            RegistrationSite::new(file!(), line!()),
+        );
+        let request = Function::Runtime(Box::leak(Box::new(request)));
         let simulation = simulate(
             vec![runtime(CatalogSeed { marker: 7 })],
-            &[request, CatalogItem::REGISTERED_ARBITRARY],
+            &[
+                request,
+                Function::Arbitrary(CatalogItem::REGISTERED_ARBITRARY),
+            ],
             32,
             128,
         );
@@ -336,15 +367,23 @@ fn effectful_conversions_cannot_unlock_downstream_reads() {
         &[Effect::Write][..],
         &[Effect::Solicit][..],
     ] {
-        let mut conversion = *CatalogItem::REGISTERED_INTO_ITEM_ARGUMENT;
-        conversion.effects = effects;
-        conversion.executor = FunctionExecutor::SyncValue(forbidden_conversion);
+        let conversion = RuntimeFunction::sync_value(
+            CatalogItem::SHAPE,
+            ItemArgument::SHAPE,
+            FunctionKind::Conversion,
+            "from",
+            FunctionTraitContract::From,
+            effects,
+            forbidden_conversion,
+            runtime_from_boxed::<ItemArgument>,
+            RegistrationSite::new(file!(), line!()),
+        );
         let simulation = simulate(
             vec![runtime(CatalogItem { marker: 11 })],
             &[
-                Box::leak(Box::new(conversion)),
+                Function::Runtime(Box::leak(Box::new(conversion))),
                 ItemDetailsRequest::REGISTERED_INTO_FUTURE,
-                ItemDetails::REGISTERED_ARBITRARY,
+                Function::Arbitrary(ItemDetails::REGISTERED_ARBITRARY),
             ],
             32,
             128,
@@ -357,14 +396,23 @@ fn effectful_conversions_cannot_unlock_downstream_reads() {
 
 #[test]
 fn async_conversion_metadata_does_not_permit_executing_its_future() {
-    let mut conversion = *CatalogItem::REGISTERED_INTO_ITEM_ARGUMENT;
-    conversion.executor = FunctionExecutor::AsyncValue(forbidden_async_conversion);
+    let conversion = RuntimeFunction::async_value(
+        CatalogItem::SHAPE,
+        ItemArgument::SHAPE,
+        FunctionKind::Conversion,
+        "from",
+        FunctionTraitContract::From,
+        &[],
+        forbidden_async_conversion,
+        runtime_from_boxed::<ItemArgument>,
+        RegistrationSite::new(file!(), line!()),
+    );
     let simulation = simulate(
         vec![runtime(CatalogItem { marker: 11 })],
         &[
-            Box::leak(Box::new(conversion)),
+            Function::Runtime(Box::leak(Box::new(conversion))),
             ItemDetailsRequest::REGISTERED_INTO_FUTURE,
-            ItemDetails::REGISTERED_ARBITRARY,
+            Function::Arbitrary(ItemDetails::REGISTERED_ARBITRARY),
         ],
         32,
         128,
@@ -376,7 +424,7 @@ fn async_conversion_metadata_does_not_permit_executing_its_future() {
 #[test]
 fn conversion_cycle_reaches_a_fixed_point_without_repeating_requests() {
     let mut functions = GRAPH.to_vec();
-    functions.push(ItemArgument::REGISTERED_INTO_CATALOG_ITEM);
+    functions.push(Function::Pure(ItemArgument::REGISTERED_INTO_CATALOG_ITEM));
     let simulation = simulate(
         vec![runtime(CatalogSeed { marker: 7 })],
         &functions,
@@ -396,12 +444,21 @@ fn count_failed_conversion(_: Box<dyn Any + Send>) -> eyre::Result<Box<dyn Any +
 #[test]
 fn repeated_catalog_handles_complete_each_distinct_registration_once_even_on_failure() {
     CONVERSION_INVOCATIONS.with(|count| count.set(0));
-    let mut conversion = *CatalogItem::REGISTERED_INTO_ITEM_ARGUMENT;
-    conversion.executor = FunctionExecutor::SyncValue(count_failed_conversion);
+    let conversion = RuntimeFunction::sync_value(
+        CatalogItem::SHAPE,
+        ItemArgument::SHAPE,
+        FunctionKind::Conversion,
+        "from",
+        FunctionTraitContract::From,
+        &[],
+        count_failed_conversion,
+        runtime_from_boxed::<ItemArgument>,
+        RegistrationSite::new(file!(), line!()),
+    );
     // These entries deliberately share all metadata and the executor. Their
     // registration addresses, rather than their signatures, distinguish them.
-    let first: &'static Function = Box::leak(Box::new(conversion));
-    let second: &'static Function = Box::leak(Box::new(conversion));
+    let first: Function = Function::Runtime(Box::leak(Box::new(conversion)));
+    let second: Function = Function::Runtime(Box::leak(Box::new(conversion)));
     let simulation = simulate(
         vec![runtime(CatalogItem { marker: 7 })],
         &[first, first, second, second],
@@ -421,14 +478,24 @@ fn repeated_catalog_handles_complete_each_distinct_registration_once_even_on_fai
 
 #[test]
 fn round_limit_reports_incomplete_discovery() {
-    let simulation = simulate(vec![runtime(CatalogSeed { marker: 7 })], &GRAPH, 1, 128);
+    let simulation = simulate(
+        vec![runtime(CatalogSeed { marker: 7 })],
+        GRAPH.as_slice(),
+        1,
+        128,
+    );
     assert!(!simulation.converged);
     assert!(!simulation.diagnostics.is_empty());
 }
 
 #[test]
 fn value_limit_reports_incomplete_discovery() {
-    let simulation = simulate(vec![runtime(CatalogSeed { marker: 7 })], &GRAPH, 32, 1);
+    let simulation = simulate(
+        vec![runtime(CatalogSeed { marker: 7 })],
+        GRAPH.as_slice(),
+        32,
+        1,
+    );
     assert!(!simulation.converged);
     assert!(simulation.values.values().map(Vec::len).sum::<usize>() <= 1);
     assert!(!simulation.diagnostics.is_empty());
@@ -460,7 +527,7 @@ fn arbitrary_response_containing_a_request_is_rejected_before_generation() {
         vec![runtime(CatalogSeed { marker: 7 })],
         &[
             CatalogRequestEnvelopeRequest::REGISTERED_INTO_FUTURE,
-            CatalogRequestEnvelope::REGISTERED_ARBITRARY,
+            Function::Arbitrary(CatalogRequestEnvelope::REGISTERED_ARBITRARY),
             CatalogRequest::REGISTERED_INTO_FUTURE,
         ],
         32,
@@ -491,10 +558,18 @@ fn cancellation_during_response_generation_is_not_reported_as_a_generation_failu
     CancellationToken::new().with_scope(|scope| {
         let previous = RESPONSE_CANCELLATION.with(|current| current.replace(Some(scope.clone())));
         let _restore = RestoreResponseCancellation(previous);
-        let mut request = *CatalogRequest::REGISTERED_INTO_FUTURE;
-        request.output_shape = CancelledResponse::SHAPE;
-        request.output_to_runtime = runtime_from_boxed::<CancelledResponse>;
-        let generator = Function::sync_mut(
+        let request = RuntimeFunction::async_value(
+            CatalogRequest::SHAPE,
+            CancelledResponse::SHAPE,
+            FunctionKind::AsyncInvoke,
+            "invoke",
+            FunctionTraitContract::IntoFuture,
+            &[Effect::Read],
+            forbidden_async_conversion,
+            runtime_from_boxed::<CancelledResponse>,
+            RegistrationSite::new(file!(), line!()),
+        );
+        let generator = RuntimeFunction::sync_mut(
             ArbitraryBytes::SHAPE,
             CancelledResponse::SHAPE,
             FunctionKind::Constructor,
@@ -505,8 +580,10 @@ fn cancellation_during_response_generation_is_not_reported_as_a_generation_failu
             runtime_from_boxed::<CancelledResponse>,
             RegistrationSite::new(file!(), line!()),
         );
-        let functions: [&'static Function; 2] =
-            [Box::leak(Box::new(request)), Box::leak(Box::new(generator))];
+        let functions: [Function; 2] = [
+            Function::Runtime(Box::leak(Box::new(request))),
+            Function::Runtime(Box::leak(Box::new(generator))),
+        ];
         let result = DiscoverySimulation::run(
             vec![runtime(CatalogSeed { marker: 7 })],
             functions,
@@ -529,7 +606,7 @@ fn cancellation_during_response_generation_is_not_reported_as_a_generation_failu
 #[test]
 #[should_panic(expected = "effects")]
 fn custom_async_request_constructor_rejects_empty_effects() {
-    let _ = Function::async_value(
+    let _ = RuntimeFunction::async_value(
         CatalogRequest::SHAPE,
         CatalogItem::SHAPE,
         FunctionKind::AsyncInvoke,

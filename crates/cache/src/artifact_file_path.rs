@@ -109,7 +109,7 @@ fn is_windows_device_name(base: &str) -> bool {
     )
 }
 
-cloud_terrastodon_registry_values::register_thing!(ArtifactFilePath);
+cloud_terrastodon_registry::register_thing!(ArtifactFilePath);
 
 #[cfg(test)]
 mod tests {

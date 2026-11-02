@@ -64,7 +64,7 @@ cloud_terrastodon_command::impl_cacheable_into_future!(GiteaOrganizationListRequ
 
 cloud_terrastodon_registry::register_thing!(GiteaOrganizationListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(GiteaOrganizationListRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(
+cloud_terrastodon_registry_execution::register_into_future!(
     GiteaOrganizationListRequest<'static> => Vec<GiteaOrganization>,
     effects = [Read]
 );

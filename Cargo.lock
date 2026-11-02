@@ -976,6 +976,7 @@ dependencies = [
  "cloud_terrastodon_hcl_types",
  "cloud_terrastodon_pathing",
  "cloud_terrastodon_registry",
+ "cloud_terrastodon_registry_execution",
  "cloud_terrastodon_relative_location",
  "cloud_terrastodon_rest",
  "cloud_terrastodon_user_input",
@@ -1042,6 +1043,7 @@ dependencies = [
  "cloud_terrastodon_hcl_types",
  "cloud_terrastodon_pathing",
  "cloud_terrastodon_registry",
+ "cloud_terrastodon_registry_execution",
  "cloud_terrastodon_rest",
  "cloud_terrastodon_user_input",
  "eyre",
@@ -1094,7 +1096,6 @@ dependencies = [
  "arbitrary",
  "chrono",
  "cloud_terrastodon_azure_types",
- "cloud_terrastodon_command",
  "cloud_terrastodon_hcl_types",
  "cloud_terrastodon_registry",
  "cloud_terrastodon_user_input",
@@ -1163,7 +1164,7 @@ dependencies = [
  "blake3",
  "chrono",
  "cloud_terrastodon_pathing",
- "cloud_terrastodon_registry_values",
+ "cloud_terrastodon_registry",
  "eyre",
  "linkme",
  "teamy-cancellation",
@@ -1285,6 +1286,7 @@ dependencies = [
  "cloud_terrastodon_hcl",
  "cloud_terrastodon_pathing",
  "cloud_terrastodon_registry",
+ "cloud_terrastodon_registry_execution",
  "cloud_terrastodon_rest",
  "cloud_terrastodon_source_cli",
  "cloud_terrastodon_tracing",
@@ -1336,6 +1338,7 @@ name = "cloud_terrastodon_excalidraw"
 version = "0.37.0"
 dependencies = [
  "cloud_terrastodon_registry",
+ "cloud_terrastodon_registry_execution",
  "eyre",
  "linkme",
  "nucleo",
@@ -1356,6 +1359,7 @@ dependencies = [
  "cloud_terrastodon_command",
  "cloud_terrastodon_pathing",
  "cloud_terrastodon_registry",
+ "cloud_terrastodon_registry_execution",
  "compact_str",
  "eyre",
  "linkme",
@@ -1431,7 +1435,19 @@ name = "cloud_terrastodon_registry"
 version = "0.37.0"
 dependencies = [
  "arbitrary",
- "cloud_terrastodon_registry_values",
+ "eyre",
+ "linkme",
+ "teamy-cancellation",
+ "teamy-facet",
+ "teamy-facet-reflect",
+]
+
+[[package]]
+name = "cloud_terrastodon_registry_execution"
+version = "0.37.0"
+dependencies = [
+ "arbitrary",
+ "cloud_terrastodon_registry",
  "eyre",
  "linkme",
  "rand 0.10.2",
@@ -1439,17 +1455,6 @@ dependencies = [
  "teamy-facet",
  "teamy-facet-reflect",
  "tokio",
-]
-
-[[package]]
-name = "cloud_terrastodon_registry_values"
-version = "0.37.0"
-dependencies = [
- "arbitrary",
- "eyre",
- "linkme",
- "teamy-facet",
- "teamy-facet-reflect",
 ]
 
 [[package]]
@@ -1508,6 +1513,7 @@ dependencies = [
  "arbitrary",
  "chrono",
  "cloud_terrastodon_registry",
+ "cloud_terrastodon_registry_execution",
  "cloud_terrastodon_source_types",
  "eyre",
  "futures",
@@ -1606,6 +1612,7 @@ dependencies = [
  "cloud_terrastodon_credentials",
  "cloud_terrastodon_excalidraw",
  "cloud_terrastodon_registry",
+ "cloud_terrastodon_registry_execution",
  "cloud_terrastodon_user_input",
  "color-eyre",
  "crossterm",

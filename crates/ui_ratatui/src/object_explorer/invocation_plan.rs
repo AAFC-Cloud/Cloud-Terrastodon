@@ -1,8 +1,8 @@
 use super::invocation_host::InvocationId;
 use super::invocation_mode::InvocationMode;
 use super::slot_id::SlotId;
-use cloud_terrastodon_registry::Function;
 use cloud_terrastodon_registry::Thing;
+use cloud_terrastodon_registry_execution::Function;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub(crate) struct InvocationPlanId(u64);
@@ -21,7 +21,7 @@ impl InvocationPlanId {
 pub(crate) struct PlannedInvocation {
     pub(crate) input: SlotId,
     pub(crate) input_thing: &'static Thing,
-    pub(crate) function: &'static Function,
+    pub(crate) function: Function,
     pub(crate) mode: InvocationMode,
 }
 

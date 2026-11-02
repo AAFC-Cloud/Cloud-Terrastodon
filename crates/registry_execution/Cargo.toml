@@ -1,6 +1,6 @@
 [package]
-name = "cloud_terrastodon_registry_values"
-description = "Pure value reflection and offline constructors for Cloud Terrastodon"
+name = "cloud_terrastodon_registry_execution"
+description = "Invocation and execution of registered Cloud Terrastodon operations"
 version = "0.37.0" # CT_VERSION
 readme.workspace = true
 edition.workspace = true
@@ -11,11 +11,17 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
+cloud_terrastodon_registry.workspace = true
 eyre.workspace = true
 arbitrary.workspace = true
 facet.workspace = true
 facet-reflect.workspace = true
 linkme.workspace = true
+rand.workspace = true
+teamy-cancellation.workspace = true
+
+[dev-dependencies]
+tokio.workspace = true
 
 [lints]
 workspace = true

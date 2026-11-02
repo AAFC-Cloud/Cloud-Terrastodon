@@ -116,8 +116,8 @@ impl ExplorerEngine {
 
     pub(crate) fn empty_with_tokio_invocation_host(
         attach: fn(
-            cloud_terrastodon_registry::InvocationFuture,
-        ) -> cloud_terrastodon_registry::InvocationFuture,
+            cloud_terrastodon_registry_execution::InvocationFuture,
+        ) -> cloud_terrastodon_registry_execution::InvocationFuture,
         cancellation: &CancellationScope,
     ) -> Self {
         Self::with_invocation_host(
@@ -283,8 +283,8 @@ impl ExplorerEngine {
 }
 
 fn identity_invocation_future(
-    future: cloud_terrastodon_registry::InvocationFuture,
-) -> cloud_terrastodon_registry::InvocationFuture {
+    future: cloud_terrastodon_registry_execution::InvocationFuture,
+) -> cloud_terrastodon_registry_execution::InvocationFuture {
     future
 }
 
@@ -1612,17 +1612,18 @@ mod tests {
     use crate::object_explorer::value_path::ValuePathSegment;
     use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_registry::Effect;
-    use cloud_terrastodon_registry::Function;
     use cloud_terrastodon_registry::FunctionKind;
     use cloud_terrastodon_registry::FunctionTraitContract;
-    use cloud_terrastodon_registry::InvocationFuture;
     use cloud_terrastodon_registry::ProductionKind;
     use cloud_terrastodon_registry::RegistrationSite;
     use cloud_terrastodon_registry::RuntimeValue;
     use cloud_terrastodon_registry::Thing;
-    use cloud_terrastodon_registry::functions_from;
     use cloud_terrastodon_registry::runtime_from_boxed;
     use cloud_terrastodon_registry::runtime_into_boxed;
+    use cloud_terrastodon_registry_execution::Function;
+    use cloud_terrastodon_registry_execution::InvocationFuture;
+    use cloud_terrastodon_registry_execution::RuntimeFunction;
+    use cloud_terrastodon_registry_execution::functions_from;
     use facet::Facet;
     use std::any::Any;
     use std::borrow::Cow;
@@ -1722,7 +1723,7 @@ mod tests {
 
     cloud_terrastodon_registry::register_thing!(EngineDefaultProducerRequest);
     cloud_terrastodon_registry::register_thing!(EngineProducedValue);
-    cloud_terrastodon_registry::register_into_future!(
+    cloud_terrastodon_registry_execution::register_into_future!(
         EngineDefaultProducerRequest => EngineProducedValue,
         effects = [Read]
     );
@@ -1753,7 +1754,7 @@ mod tests {
         RegistrationSite::new(file!(), line!()),
     );
 
-    static ENGINE_INVOCATION_FUNCTION: Function = Function::async_value(
+    static ENGINE_INVOCATION_FUNCTION: RuntimeFunction = RuntimeFunction::async_value(
         EngineInvocationRequest::SHAPE,
         String::SHAPE,
         FunctionKind::AsyncInvoke,
@@ -1765,7 +1766,7 @@ mod tests {
         RegistrationSite::new(file!(), line!()),
     );
 
-    static ENGINE_HELD_INVOCATION_FUNCTION: Function = Function::async_value(
+    static ENGINE_HELD_INVOCATION_FUNCTION: RuntimeFunction = RuntimeFunction::async_value(
         EngineInvocationRequest::SHAPE,
         String::SHAPE,
         FunctionKind::AsyncInvoke,
@@ -1801,7 +1802,7 @@ mod tests {
                     &mut host,
                     input,
                     &ENGINE_INVOCATION_THING,
-                    &ENGINE_HELD_INVOCATION_FUNCTION,
+                    Function::Runtime(&ENGINE_HELD_INVOCATION_FUNCTION),
                     super::super::invocation_mode::InvocationMode::Consume,
                 )
                 .unwrap()
@@ -1848,7 +1849,7 @@ mod tests {
         }).await.unwrap();
     }
 
-    fn engine_default_producer() -> &'static Function {
+    fn engine_default_producer() -> Function {
         functions_from(EngineDefaultProducerRequest::SHAPE)
             .into_iter()
             .find(|function| {
@@ -1936,7 +1937,7 @@ mod tests {
                 .invoke(
                     input,
                     &ENGINE_INVOCATION_THING,
-                    &ENGINE_INVOCATION_FUNCTION,
+                    Function::Runtime(&ENGINE_INVOCATION_FUNCTION),
                     super::super::invocation_mode::InvocationMode::Retain,
                 )
                 .await

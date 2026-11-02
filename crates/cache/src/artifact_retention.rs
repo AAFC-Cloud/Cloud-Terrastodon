@@ -21,4 +21,4 @@ pub enum ArtifactRetention {
     Disabled,
 }
 
-cloud_terrastodon_registry_values::register_thing!(ArtifactRetention);
+cloud_terrastodon_registry::register_thing!(ArtifactRetention);

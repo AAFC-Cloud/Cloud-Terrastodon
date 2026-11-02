@@ -1,4 +1,4 @@
-use crate::Function;
+use crate::FunctionDescriptor;
 use crate::RegisteredShapeIndex;
 use crate::Thing;
 use crate::describe_shape;
@@ -34,7 +34,7 @@ impl RegisteredShape {
     /// Includes collection elements and request fields without invoking any
     /// registration, constructor, credential provider, or arbitrary generator.
     pub fn all(
-        functions: impl IntoIterator<Item = &'static Function>,
+        functions: impl IntoIterator<Item = &'static FunctionDescriptor>,
         things: impl IntoIterator<Item = &'static Thing>,
     ) -> Vec<Self> {
         let mut pending = things
@@ -97,7 +97,7 @@ impl FromStr for RegisteredShape {
         // once rather than traversing every shape for each parsed target name.
         static LINKED_SHAPES: LazyLock<RegisteredShapeIndex> = LazyLock::new(|| {
             RegisteredShapeIndex::new(RegisteredShape::all(
-                crate::known_functions(),
+                crate::known_function_descriptors(),
                 crate::known_things(),
             ))
         });

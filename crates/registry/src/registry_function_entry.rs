@@ -1,5 +1,5 @@
 use crate::Effect;
-use crate::Function;
+use crate::FunctionDescriptor;
 use crate::FunctionKind;
 use crate::FunctionTraitContract;
 use crate::ReceiverMode;
@@ -25,8 +25,8 @@ pub struct RegistryFunctionEntry {
     pub registration_line: u32,
 }
 
-impl From<&Function> for RegistryFunctionEntry {
-    fn from(function: &Function) -> Self {
+impl From<&FunctionDescriptor> for RegistryFunctionEntry {
+    fn from(function: &FunctionDescriptor) -> Self {
         Self {
             input: describe_shape(function.input_shape),
             output: describe_shape(function.output_shape),

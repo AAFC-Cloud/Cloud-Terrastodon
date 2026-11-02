@@ -25,4 +25,4 @@ impl ArtifactMetadata {
     }
 }
 
-cloud_terrastodon_registry_values::register_thing!(ArtifactMetadata);
+cloud_terrastodon_registry::register_thing!(ArtifactMetadata);

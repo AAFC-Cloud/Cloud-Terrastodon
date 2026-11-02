@@ -158,4 +158,4 @@ pub async fn fetch_entra_pim_role_settings_with_graph_access_token(
         .pop()
         .ok_or_else(|| eyre::eyre!("PIM role settings response is empty"))
 }
-cloud_terrastodon_registry::register_into_future!(EntraPimRoleSettingsRequest => PimEntraRoleSettings, effects = [Read]);
+cloud_terrastodon_registry_execution::register_into_future!(EntraPimRoleSettingsRequest => PimEntraRoleSettings, effects = [Read]);

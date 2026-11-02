@@ -155,7 +155,7 @@ impl<'a> IntoFuture for AzureDevOpsWorkItemCopyPlanRequest<'a> {
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsWorkItemCopyPlanRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsWorkItemCopyPlanRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(
+cloud_terrastodon_registry_execution::register_into_future!(
     AzureDevOpsWorkItemCopyPlanRequest<'static> => AzureDevOpsWorkItemCopyPlan,
     effects = [Read]
 );

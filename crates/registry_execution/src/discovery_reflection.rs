@@ -1,8 +1,8 @@
 use crate::CancellationScope;
 use crate::DiscoveryValue;
 use crate::Function;
-use crate::RuntimeValue;
-use crate::describe_shape;
+use cloud_terrastodon_registry::RuntimeValue;
+use cloud_terrastodon_registry::describe_shape;
 use facet::Shape;
 use facet_reflect::HasFields;
 use facet_reflect::Peek;
@@ -18,7 +18,7 @@ use std::collections::HashSet;
 pub(crate) fn reflected_descendants(
     value: &RuntimeValue,
     depth: usize,
-    producer: Option<&'static Function>,
+    producer: Option<Function>,
     known_values: &HashMap<&'static Shape, Vec<DiscoveryValue>>,
     remaining: usize,
     cancellation: &CancellationScope,

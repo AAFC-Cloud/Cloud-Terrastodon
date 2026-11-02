@@ -105,7 +105,7 @@ cloud_terrastodon_registry::register_thing!(
 cloud_terrastodon_registry::register_arbitrary!(
     AzureDevOpsAgentPoolEntitlementListForProjectRequest<'static>
 );
-cloud_terrastodon_registry::register_into_future!(AzureDevOpsAgentPoolEntitlementListForProjectRequest<'static> => Vec<crate::AzureDevOpsAgentPoolEntitlement>, effects = [Read]);
+cloud_terrastodon_registry_execution::register_into_future!(AzureDevOpsAgentPoolEntitlementListForProjectRequest<'static> => Vec<crate::AzureDevOpsAgentPoolEntitlement>, effects = [Read]);
 
 #[cfg(test)]
 mod test {

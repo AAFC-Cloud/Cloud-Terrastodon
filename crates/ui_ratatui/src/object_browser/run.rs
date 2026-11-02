@@ -8,7 +8,7 @@ use crate::object_explorer::ExplorerEngine;
 #[cfg(test)]
 use crate::object_explorer::TokioInvocationHost;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_registry::InvocationFuture;
+use cloud_terrastodon_registry_execution::InvocationFuture;
 use cloud_terrastodon_user_input::TerminalBackend;
 use cloud_terrastodon_user_input::TerminalControl;
 use cloud_terrastodon_user_input::TerminalCoordinator;

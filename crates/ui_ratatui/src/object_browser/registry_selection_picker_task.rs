@@ -2,10 +2,10 @@ use super::registry_selection::RegistrySelection;
 use crate::object_explorer::SlotId;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CancellationToken;
-use cloud_terrastodon_registry::RegisteredFunction;
 use cloud_terrastodon_registry::RegisteredShape;
-use cloud_terrastodon_registry::known_functions;
 use cloud_terrastodon_registry::known_things;
+use cloud_terrastodon_registry_execution::RegisteredFunction;
+use cloud_terrastodon_registry_execution::known_functions;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickError;
 use cloud_terrastodon_user_input::PickerTui;
@@ -34,7 +34,7 @@ impl RegistrySelectionPickerTask {
             .ok_or_else(|| "Registry selection requires the terminal coordinator".to_owned())?;
         let (cancellation, future) = cancellation.with_async_child_scope(move |scope| async move {
             if shape.is_shape(Vec::<RegisteredShape>::SHAPE) {
-                let choices = RegisteredShape::all(known_functions(), known_things())
+                let choices = RegisteredShape::all(known_functions().iter().map(|function| function.descriptor()), known_things())
                     .into_iter()
                     .map(|shape| Choice {
                         key: format!("{} · {}", shape.shape().type_identifier, shape),

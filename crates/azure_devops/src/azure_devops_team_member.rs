@@ -102,7 +102,7 @@ impl<'a> CacheableCommand for AzureDevOpsTeamMembersRequest<'a> {
 cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsTeamMembersRequest<'a>, 'a);
 cloud_terrastodon_registry::register_thing!(AzureDevOpsTeamMembersRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsTeamMembersRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(AzureDevOpsTeamMembersRequest<'static> => Vec<AzureDevOpsTeamMember>, effects = [Read]);
+cloud_terrastodon_registry_execution::register_into_future!(AzureDevOpsTeamMembersRequest<'static> => Vec<AzureDevOpsTeamMember>, effects = [Read]);
 
 #[cfg(test)]
 mod test {

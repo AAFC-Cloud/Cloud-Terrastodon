@@ -185,7 +185,7 @@ impl<'a> IntoFuture for AzureDevOpsBuildFolderPruneRequest<'a> {
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsBuildFolderPruneRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsBuildFolderPruneRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(
+cloud_terrastodon_registry_execution::register_into_future!(
     AzureDevOpsBuildFolderPruneRequest<'static> => AzureDevOpsBuildFolderPruneReport,
     effects = [Read, Write]
 );

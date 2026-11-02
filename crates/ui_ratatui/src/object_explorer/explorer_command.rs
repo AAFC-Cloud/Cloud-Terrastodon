@@ -20,11 +20,11 @@ use super::tab_update::TabUpdate;
 use super::value_address::ValueAddress;
 use super::value_builder::BuilderTransition;
 use cloud_terrastodon_excalidraw::ExcalidrawObjectSnapshot;
-use cloud_terrastodon_registry::Function;
 use cloud_terrastodon_registry::RuntimeFromBoxedFn;
 use cloud_terrastodon_registry::RuntimeValue;
 use cloud_terrastodon_registry::Thing;
 use cloud_terrastodon_registry::runtime_from_boxed;
+use cloud_terrastodon_registry_execution::Function;
 use facet::Facet;
 use facet::Shape;
 use std::any::Any;
@@ -164,14 +164,14 @@ pub(crate) enum ArenaMutationCommand {
     Invoke {
         input: SlotId,
         input_thing: &'static Thing,
-        function: &'static Function,
+        function: Function,
         mode: InvocationMode,
         response: oneshot::Sender<ExplorerCommandResponse<InvocationStart>>,
     },
     InvokeArbitrary {
         request: SlotId,
-        request_function: &'static Function,
-        constructor: &'static Function,
+        request_function: Function,
+        constructor: Function,
         bytes: Vec<u8>,
         response: oneshot::Sender<ExplorerCommandResponse<ArbitraryInvocationStart>>,
     },
@@ -181,7 +181,7 @@ pub(crate) enum ArenaMutationCommand {
     StartProduction {
         destination: SlotId,
         field: usize,
-        function: &'static Function,
+        function: Function,
         strategy: ProductionStrategy,
         max_work: usize,
         response: oneshot::Sender<ExplorerCommandResponse<ProductionBatch>>,
@@ -469,7 +469,7 @@ impl ExplorerHandle {
         &self,
         input: SlotId,
         input_thing: &'static Thing,
-        function: &'static Function,
+        function: Function,
         mode: InvocationMode,
     ) -> Result<InvocationStart, ExplorerHandleError> {
         let (response, receiver) = oneshot::channel();
@@ -487,8 +487,8 @@ impl ExplorerHandle {
     pub(crate) async fn invoke_arbitrary(
         &self,
         request: SlotId,
-        request_function: &'static Function,
-        constructor: &'static Function,
+        request_function: Function,
+        constructor: Function,
         bytes: Vec<u8>,
     ) -> Result<ArbitraryInvocationStart, ExplorerHandleError> {
         let (response, receiver) = oneshot::channel();
@@ -542,7 +542,7 @@ impl ExplorerHandle {
         &self,
         destination: SlotId,
         field: usize,
-        function: &'static Function,
+        function: Function,
         strategy: ProductionStrategy,
         max_work: usize,
     ) -> Result<ProductionBatch, ExplorerHandleError> {

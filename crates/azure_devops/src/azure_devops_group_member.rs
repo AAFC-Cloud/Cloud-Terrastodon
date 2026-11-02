@@ -184,7 +184,7 @@ cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsGroupMembersV2
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsGroupMembersListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsGroupMembersListRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(
+cloud_terrastodon_registry_execution::register_into_future!(
     AzureDevOpsGroupMembersListRequest<'static> => HashMap<AzureDevOpsDescriptor, AzureDevOpsGroupMember>,
     effects = [Read]
 );
@@ -192,7 +192,7 @@ cloud_terrastodon_registry::register_thing!(AzureDevOpsGroupMembersV2Response);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsGroupMembersV2Response);
 cloud_terrastodon_registry::register_thing!(AzureDevOpsGroupMembersV2Request<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsGroupMembersV2Request<'static>);
-cloud_terrastodon_registry::register_into_future!(
+cloud_terrastodon_registry_execution::register_into_future!(
     AzureDevOpsGroupMembersV2Request<'static> => AzureDevOpsGroupMembersV2Response,
     effects = [Read]
 );

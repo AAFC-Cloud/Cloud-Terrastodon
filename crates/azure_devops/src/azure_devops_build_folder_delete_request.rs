@@ -208,7 +208,7 @@ impl<'a> IntoFuture for AzureDevOpsBuildFolderDeleteRequest<'a> {
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsBuildFolderDeleteRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsBuildFolderDeleteRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(
+cloud_terrastodon_registry_execution::register_into_future!(
     AzureDevOpsBuildFolderDeleteRequest<'static> => (),
     effects = [Write]
 );

@@ -114,7 +114,7 @@ cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsProjectsListRe
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsProjectsListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsProjectsListRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(
+cloud_terrastodon_registry_execution::register_into_future!(
     AzureDevOpsProjectsListRequest<'static> => Vec<AzureDevOpsProject>,
     effects = [Read]
 );

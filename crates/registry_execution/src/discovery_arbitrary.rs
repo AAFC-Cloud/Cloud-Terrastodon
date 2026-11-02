@@ -1,11 +1,11 @@
-use crate::ArbitraryBytes;
 use crate::CancellationScope;
 use crate::Function;
 use crate::FunctionExecutor;
-use crate::FunctionKind;
-use crate::FunctionTraitContract;
-use crate::RuntimeValue;
-use crate::describe_shape;
+use cloud_terrastodon_registry::ArbitraryBytes;
+use cloud_terrastodon_registry::FunctionKind;
+use cloud_terrastodon_registry::FunctionTraitContract;
+use cloud_terrastodon_registry::RuntimeValue;
+use cloud_terrastodon_registry::describe_shape;
 use facet::Def;
 use facet::Facet;
 use facet::Shape;
@@ -22,7 +22,7 @@ const GENERATION_BYTES: usize = 64 * 1024;
 /// generate the response; linked operations outside that catalog are not used.
 pub(crate) fn fabricate_response(
     shape: &'static Shape,
-    mut catalog: impl Iterator<Item = &'static Function> + Clone,
+    mut catalog: impl Iterator<Item = Function> + Clone,
     random: &mut StdRng,
     cancellation: &CancellationScope,
     diagnostics: &mut Vec<String>,
@@ -57,7 +57,7 @@ pub(crate) fn fabricate_response(
         let mut input = Box::new(ArbitraryBytes::new(bytes));
         // Match the synchronous executor directly. Even dishonest constructor
         // metadata cannot make an AsyncValue function execute here.
-        let response = match generator.executor {
+        let response = match generator.executor() {
             FunctionExecutor::SyncMut(invoke) => invoke(input.as_mut()),
             FunctionExecutor::SyncRef(invoke) => invoke(input.as_ref()),
             FunctionExecutor::SyncValue(invoke) => invoke(input),
@@ -83,7 +83,7 @@ pub(crate) fn fabricate_response(
 
 fn contains_request_shape(
     shape: &'static Shape,
-    functions: impl Iterator<Item = &'static Function> + Clone,
+    functions: impl Iterator<Item = Function> + Clone,
     cancellation: &CancellationScope,
 ) -> eyre::Result<bool> {
     let mut pending = vec![shape];

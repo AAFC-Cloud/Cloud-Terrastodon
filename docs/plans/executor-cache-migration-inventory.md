@@ -2,6 +2,11 @@
 
 **Inventory date:** 2026-10-30
 
+**Boundary decision update:** 2026-11-02; approved option B and `auth`/`auth_types`
+naming. Task 3.0's registry cutover is complete; auth renaming and extraction are
+pending in 3.1. The snapshot counts remain the original baseline, and the owning
+plan records current implementation and validation evidence.
+
 **Owning work item:** [Migration plan, task 1.2](executor-cache-migration.md)
 
 **Status:** Source inventory complete; implementation and runtime validation are
@@ -112,8 +117,8 @@ rg -n 'invoke_value_boxed|invoke_result_future|bind_request_cancellation|REGISTE
 | B01 Cache owner and artifact storage | 2.1–2.4 | [artifact_cache.rs](../../crates/command/src/artifact_cache.rs), [cache_key.rs](../../crates/command/src/cache_key.rs), [cache_invalidatable.rs](../../crates/command/src/cache_invalidatable.rs), [command_cache_discovery.rs](../../crates/command/src/command_cache_discovery.rs) | Replace global memory ownership; bind invalidation and discovery to the explicit cache root/owner; preserve inspectable artifacts, validity, readable scope hierarchy, and live-entry coordination. |
 | B02 Shared work and subprocess adapter | 2.1, 2.3, 4.1 | [cacheable_work.rs](../../crates/command/src/cacheable_work.rs), [cachable_command.rs](../../crates/command/src/cachable_command.rs), [command.rs](../../crates/command/src/command.rs), [process_fingerprint.rs](../../crates/command/src/process_fingerprint.rs), [from_command_output.rs](../../crates/command/src/from_command_output.rs) | Migrate both request traits/macros and all subprocess entrypoints to one explicit lifecycle. The existing spelling `cachable_command.rs` is intentional in this reference. Preserve complete fingerprints, retries, raw outputs, per-caller policy, caller/span diagnostics, and cancellation. |
 | B03 REST adapter | 4.2 | [rest_request.rs](../../crates/rest/src/rest_request.rs), [request_execution.rs](../../crates/rest/src/request_execution.rs), [tenant_inference.rs](../../crates/rest/src/tenant_inference.rs) | Move auth/scope resources to execution; cover cached and uncached paths, raw and typed outputs, decoders, validators, metadata mappers, continuation headers, and explicit auth selection. |
-| B04 Credential selection and runtime | 3.1, 3.2 | [auth_context.rs](../../crates/credentials/src/auth_context.rs), [azure_tenant_auth_context.rs](../../crates/credentials/src/azure_tenant_auth_context.rs), [azure_devops_auth_context.rs](../../crates/credentials/src/azure_devops_auth_context.rs), [azure_access_token.rs](../../crates/credentials/src/azure_access_token.rs), [tracked_tenants.rs](../../crates/azure/src/tracked_tenants.rs) | Add serializable selection and explicit bearer tenant; retain runtime token/session ownership, WIF tenant checks, headless policy, and PAT independence. Move tenant/source imports and dependencies to `auth_types` across all consumers, tests, examples, and docs in 3.1; remove old exports without compatibility aliases. Credential acquisition's subprocess is an infrastructure dependency, not a new domain-data dependency. |
-| B05 Registry invocation and discovery | 3.3, 6.3, 7.1 | [registry lib](../../crates/registry/src/lib.rs), [bind_request_cancellation.rs](../../crates/registry/src/bind_request_cancellation.rs), [default_production.rs](../../crates/registry/src/default_production.rs), [function_trait_contract.rs](../../crates/registry/src/function_trait_contract.rs), [discovery_reflection.rs](../../crates/registry/src/discovery_reflection.rs) | Replace reflected scope injection with explicit runtime invocation without adding a registry-to-concrete-executor cycle; preserve pure conversions, effects/admission, registered outputs, and offline planning/simulation. Remove historical value compatibility exports and move consumers directly to `registry_values` in 7.1; retain the registry's execution adaptation responsibility. |
+| B04 Credential selection and runtime | 3.1, 3.2 | [auth_source.rs](../../crates/credentials/src/auth_source.rs), [auth_context.rs](../../crates/credentials/src/auth_context.rs), [azure_tenant_auth_context.rs](../../crates/credentials/src/azure_tenant_auth_context.rs), [azure_devops_auth_context.rs](../../crates/credentials/src/azure_devops_auth_context.rs), [azure_access_token.rs](../../crates/credentials/src/azure_access_token.rs), [tracked_tenants.rs](../../crates/azure/src/tracked_tenants.rs) | Rename runtime `credentials` to `auth`; move `AuthSource` and resolved serializable selections to `auth_types`. Keep `AzureTenantId` in `azure_types`. Retain token/session ownership, explicit bearer tenant, WIF tenant checks, headless policy, and PAT independence. Cut over every consumer, manifest, feature, example, and public export in 3.1 without compatibility aliases. Credential acquisition's subprocess is an infrastructure dependency, not a new domain-data dependency. |
+| B05 Registry invocation and discovery | 3.0, 3.3, 6.3, 7.1 | [pure registry lib](../../crates/registry/src/lib.rs), [invocation registry lib](../../crates/registry_execution/src/lib.rs), [function.rs](../../crates/registry_execution/src/function.rs), [bind_request_cancellation.rs](../../crates/registry_execution/src/bind_request_cancellation.rs), [default_production.rs](../../crates/registry_execution/src/default_production.rs), [function_trait_contract.rs](../../crates/registry/src/function_trait_contract.rs), [discovery_reflection.rs](../../crates/registry_execution/src/discovery_reflection.rs) | Completed 3.0 makes `registry` the pure foundation, absorbing `registry_values` and pure conversions/metadata/planning; runtime invocation lives in `registry_execution` with no old package/import compatibility surfaces. One authoritative registration per operation supplies metadata and runtime catalogue views. Task 3.3 integrates the executor ABI in `registry_execution` without adding an upward dependency from the foundation. Task 7.1 audits residual old references rather than postponing this cutover. |
 
 Subprocess methods requiring an explicit migration disposition are `run_raw`,
 `run_raw_polite`, `run`, `run_polite`, `run_with_validator`, `run_with_mapper`,
@@ -142,6 +147,59 @@ providers, PAT retrieval, and PIM configuration/token helpers. They remain runti
 resources and are not themselves serialized into ordinary SDK requests. Preserve
 their existing protocol behavior. Do not require Azure tenants for local-only or
 Gitea work merely because those operations acquire an executor parameter.
+
+### Approved crate-boundary cutover inventory
+
+The following source paths are **historical locations at the boundary decision**.
+Task 3.0 has implemented the registry destinations; the auth destinations remain
+planned. Pure and runtime registrations have different owning crates, so future
+callers must choose their imports by responsibility.
+
+| Current source | Approved target | Required classification |
+| --- | --- | --- |
+| `crates/registry_values` | `crates/registry`, package `cloud_terrastodon_registry` | Reflection, runtime value representation, registration sites, offline arbitrary constructors, and their invariants stay below execution. Remove the old `registry_values` package and compatibility exports after consumer migration. |
+| `crates/registry` | Split between the pure `registry` and `crates/registry_execution`, package `cloud_terrastodon_registry_execution` | Keep context-free constructors, conversions, metadata, and planning in the foundation; place executor-dependent invocation and its adapters in `registry_execution`. Split mixed modules by responsibility, including `Function` metadata versus invocation. A function is not automatically an execution-layer operation. |
+| `crates/credentials` | `crates/auth`, package `cloud_terrastodon_auth` | Preserve credential acquisition, browser/workload sessions, token caches, logout, and OS credential integration. The runtime implements the provider interface owned by `execution`; execution does not import this concrete implementation. |
+| `crates/credentials/src/auth_source.rs` and new resolved selection vocabulary | `crates/auth_types`, package `cloud_terrastodon_auth_types` | Move the existing `AuthSource` preference enum with its parsing and wire behavior; keep `Auto` resolution in runtime startup. Resolved request selections remain explicit and token-free. |
+| `crates/azure_types/src/tenant_id.rs` | Remains in `crates/azure_types` | Keep one `AzureTenantId` definition and registration. `auth_types` may depend on `azure_types`; `azure_types` must not acquire a reverse auth/runtime dependency. |
+
+The `azure_types` registration surface includes `register_thing!`,
+`register_arbitrary!`, and six consuming `From`/`TryFrom` registrations in
+[entra_principal.rs](../../crates/azure_types/src/entra_principal.rs). The latter
+are pure conversions and now use lower `PureFunction` registrations. Task 3.0
+preserved their discoverability, ownership, failure behavior, and query coverage
+while moving descriptor/invocation support down. Metadata consumers
+must not need `registry_execution` solely to inspect registered types or pure
+conversion relationships. Executor-dependent invocation and admission belong in
+the higher layer. Existing discovery simulation remains offline and never invokes
+service requests; context-free metadata and planning belong in the foundation.
+Classification cannot be based only on a filename or an `async` signature.
+
+Audit more than Rust imports. The root [Cargo.toml](../../Cargo.toml) now names
+both registry packages but still exposes a `credentials` feature; [src/lib.rs](../../src/lib.rs)
+exposes the corresponding facade module. [app's manifest](../../crates/app/Cargo.toml)
+already calls its optional authentication feature `auth` while depending on the
+old credentials package. Tasks 3.0 and 3.1 must update workspace dependency keys,
+member paths, package names, affected lockfile entries, feature references, macro
+paths, facade exports, tests, examples, standalone tools, source configuration
+types, CI/build scripts where present, and maintained documentation to their
+owning targets. Existing configured auth-source spellings and runtime credential
+storage semantics are preserved; a crate rename does not authorize changing
+them. Historical completion evidence may retain an old name with its date.
+
+Refresh this inventory with source-only searches before each boundary cutover:
+
+```powershell
+rg -n 'cloud_terrastodon_(registry_values|registry|registry_execution|credentials|auth_types|auth)|crates/(registry_values|credentials)|\bAuthSource\b|\bAzureTenantId\b' Cargo.toml Cargo.lock src crates examples tools docs .github -g '*.rs' -g '*.toml' -g '*.lock' -g '*.md' -g '*.ps1' -g '*.yml' -g '*.yaml' -g '!docs/plans/context rework.md'
+rg -n 'register_from!|register_try_from!|register_arbitrary!|functions_from_to|invoke_value_boxed|bind_request_cancellation' crates -g '*.rs'
+```
+
+Record the final dependency graph in tasks 3.0/3.1, not just successful import
+replacement. `registry` must have no dependency on `registry_execution`,
+`execution`, or runtime `auth`; `azure_types` must stay on the pure foundation;
+`execution` must not depend on concrete `auth`. Executable registration consumers
+use `registry_execution` directly, with no old-name facade or compatibility
+re-export that silently restores a removed dependency edge.
 
 ## SDK batches and ownership changes
 
@@ -230,7 +288,7 @@ them the inventory's memoized owner merely because they invalidate it.
 | B20 Ratatui and discovery consumers | 3.3, 6.3 | [invocation_controller.rs](../../crates/ui_ratatui/src/object_explorer/invocation_controller.rs), `production_controller.rs`, `explorer_engine.rs`, `value_builder.rs`, browser event/snapshot code, [dump_plan_cli.rs](../../crates/entrypoint/src/cli/command/dump/dump_plan_cli.rs) | Pass explicit resources to registry invocation; seed selection data rather than runtime auth objects; preserve ownership/lease behavior, offline simulation, effects, and terminal coordination. |
 | B21 egui workers | 6.3 | [app.rs](../../crates/ui_egui/src/app.rs), [run_app.rs](../../crates/ui_egui/src/run_app.rs), [workers](../../crates/ui_egui/src/workers), [resources_window.rs](../../crates/ui_egui/src/windows/resources_window.rs) | Cloned workers share cache/auth resources but receive their own linked child scope. Migrate subscription/resource-group/resource loads and launch callers together. |
 | B22 HCL and raw process consumers | 2.6, 6.3 | [reflow_new.rs](../../crates/hcl/src/reflow/reflow_new.rs), HCL writer/importer/import-builder/provider/work-directory lifecycle, [as_formatted_hcl_string.rs](../../crates/hcl/src/as_formatted_hcl_string.rs), entrypoint Terraform/process-generated helpers | Task 2.6 moves formatting from `hcl_types` to `hcl`; later separate reflow request data from optional auth/scope and pass explicit process executor to raw command helpers while preserving cleanup and subprocess side effects. HCL transformations themselves are not redesigned. |
-| B23 Source scanning and local exports | 3.3, 6.3 | [SourceHuntRequest](../../crates/source/src/source_hunt_request.rs), source CLI, [DiscoveryPlanBuildRequest](../../crates/registry/src/discovery_plan_build_request.rs), [ProduceJsonRequest](../../crates/ui_ratatui/src/object_explorer/produce_json_request.rs), [ProduceExcalidrawDumpPlanRequest](../../crates/excalidraw/src/produce_excalidraw_dump_plan_request.rs) | Move request-owned cancellation/progress handles to bound execution/observation without artificial auth. Preserve blocking-worker checkpoints and required filesystem publication. These execute through the contract but do not become reusable cloud reads. |
+| B23 Source scanning and local exports | 3.3, 6.3 | [SourceHuntRequest](../../crates/source/src/source_hunt_request.rs), source CLI, [DiscoveryPlanBuildRequest](../../crates/registry_execution/src/discovery_plan_build_request.rs), [ProduceJsonRequest](../../crates/ui_ratatui/src/object_explorer/produce_json_request.rs), [ProduceExcalidrawDumpPlanRequest](../../crates/excalidraw/src/produce_excalidraw_dump_plan_request.rs) | Move request-owned cancellation/progress handles to bound execution/observation without artificial auth. Preserve blocking-worker checkpoints and required filesystem publication. These execute through the contract but do not become reusable cloud reads. |
 | B24 Cache inspection and refresh UX | 2.1, 6.2 | [cache list](../../crates/entrypoint/src/cli/command/cache/list/cache_list_cli.rs), [cache clean](../../crates/entrypoint/src/cli/command/cache/clean_tui_cli.rs), `with_invalidation` callers from snapshot | Preserve readable discovered scopes and use the owning cache handle for memory/disk invalidation. Test against isolated synthetic storage only. |
 
 Raw-result callers require deliberate preservation of their interpretation step.

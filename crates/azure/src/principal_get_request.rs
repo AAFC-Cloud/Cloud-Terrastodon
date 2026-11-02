@@ -160,4 +160,4 @@ impl CacheableCommand for PrincipalRequest<'_> {
 cloud_terrastodon_command::impl_cacheable_into_future!(PrincipalRequest<'a>, 'a);
 cloud_terrastodon_registry::register_thing!(PrincipalRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(PrincipalRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(PrincipalRequest<'static> => EntraPrincipal, effects = [Read]);
+cloud_terrastodon_registry_execution::register_into_future!(PrincipalRequest<'static> => EntraPrincipal, effects = [Read]);

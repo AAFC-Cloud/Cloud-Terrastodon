@@ -110,4 +110,4 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(VirtualMachineListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(VirtualMachineListRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(VirtualMachineListRequest<'static> => Vec<VirtualMachine>, effects = [Read]);
+cloud_terrastodon_registry_execution::register_into_future!(VirtualMachineListRequest<'static> => Vec<VirtualMachine>, effects = [Read]);

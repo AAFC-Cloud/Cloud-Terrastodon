@@ -10,11 +10,11 @@ use super::slot_id::SlotId;
 use super::value_address::ValueAddress;
 use super::value_path::ValuePathSegment;
 use super::value_resolution_error::ValueResolutionError;
-use cloud_terrastodon_registry::RegisteredFunction;
 use cloud_terrastodon_registry::RegisteredShape;
 use cloud_terrastodon_registry::RuntimeValue;
 use cloud_terrastodon_registry::describe_function;
 use cloud_terrastodon_registry::describe_shape;
+use cloud_terrastodon_registry_execution::RegisteredFunction;
 use facet::Facet;
 use facet::Type;
 use std::path::Path;
@@ -158,7 +158,7 @@ impl CardSnapshot {
             .then_some(address.root_id());
         if include_actions && owned_slot.is_some() {
             let can_clone = RuntimeValue::can_clone_shape(resolved.shape());
-            let actions = cloud_terrastodon_registry::functions_from(resolved.shape())
+            let actions = cloud_terrastodon_registry_execution::functions_from(resolved.shape())
                 .into_iter()
                 .flat_map(|function| {
                     [
@@ -265,7 +265,7 @@ fn scalar_summary(value: ResolvedValue<'_>) -> Option<String> {
         return Some(truncate(
             &format!(
                 "{} · {}",
-                describe_function(function.function()),
+                describe_function(function.function().descriptor()),
                 function.function().registration_site,
             ),
             MAX_SCALAR_SUMMARY_CHARS,
@@ -328,8 +328,8 @@ mod tests {
     use cloud_terrastodon_credentials::AuthSource;
     use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
     use cloud_terrastodon_credentials::WorkloadIdentityConfig;
-    use cloud_terrastodon_registry::DiscoveryPlanBuildRequest;
     use cloud_terrastodon_registry::RuntimeValue;
+    use cloud_terrastodon_registry_execution::DiscoveryPlanBuildRequest;
     use facet::Facet;
     use std::num::NonZeroUsize;
 
@@ -545,7 +545,7 @@ mod tests {
     fn selected_catalog_functions_display_signatures_without_exposing_metadata_pointers() {
         let selected =
             RegisteredFunction::from_function(DiscoveryPlanBuildRequest::REGISTERED_INTO_FUTURE);
-        let signature = describe_function(selected.function());
+        let signature = describe_function(selected.function().descriptor());
         let mut arena = Arena::default();
         let root = arena.insert_ready(runtime(vec![selected])).unwrap();
         let source = ArenaAddressSource::new(&arena);

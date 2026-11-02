@@ -33,7 +33,7 @@ use crate::object_explorer::TabUpdate;
 use crate::object_explorer::ValueAddress;
 use crate::object_explorer::ValueCandidateWindow;
 use crate::object_explorer::ValueCandidateWindowBudget;
-use cloud_terrastodon_registry::Function;
+use cloud_terrastodon_registry_execution::Function;
 use facet::Facet;
 use facet::Shape;
 use std::collections::BTreeMap;
@@ -445,7 +445,7 @@ impl ObjectBrowserController {
     pub(crate) async fn invoke(
         &self,
         input: SlotId,
-        function: &'static Function,
+        function: Function,
         mode: InvocationMode,
     ) -> Result<InvocationStart, ObjectBrowserControllerError> {
         let input_thing = cloud_terrastodon_registry::known_thing_for_shape(function.input_shape)
@@ -464,8 +464,8 @@ impl ObjectBrowserController {
     pub(crate) async fn invoke_arbitrary(
         &self,
         request: SlotId,
-        request_function: &'static Function,
-        constructor: &'static Function,
+        request_function: Function,
+        constructor: Function,
         bytes: Vec<u8>,
     ) -> Result<ArbitraryInvocationStart, ObjectBrowserControllerError> {
         Ok(self
@@ -484,7 +484,7 @@ impl ObjectBrowserController {
         &self,
         destination: SlotId,
         field: usize,
-        function: &'static Function,
+        function: Function,
         strategy: ProductionStrategy,
         max_work: usize,
     ) -> Result<ProductionBatch, ObjectBrowserControllerError> {

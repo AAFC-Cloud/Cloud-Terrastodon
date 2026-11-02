@@ -2,9 +2,9 @@ use super::arena_query_context::ArenaQueryContext;
 use super::breadcrumbs::Breadcrumbs;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_registry::DiscoveryPlan;
-use cloud_terrastodon_registry::Function;
 use cloud_terrastodon_registry::RegisteredShape;
-use cloud_terrastodon_registry::known_functions;
+use cloud_terrastodon_registry_execution::Function;
+use cloud_terrastodon_registry_execution::known_functions;
 use facet::Facet;
 use std::collections::HashSet;
 use std::future::Future;
@@ -34,7 +34,7 @@ impl DiscoveryPlanRequest {
     pub(crate) async fn run(
         self,
         context: ArenaQueryContext,
-        functions: Vec<&'static Function>,
+        functions: Vec<Function>,
     ) -> eyre::Result<DiscoveryPlan> {
         let session = context.open_export(self.inputs).await?;
         let mut seeds = HashSet::new();
@@ -49,7 +49,7 @@ impl DiscoveryPlanRequest {
         session.complete().await?;
         self.cancellation.bail_if_cancelled()?;
         DiscoveryPlan::build(
-            functions,
+            functions.into_iter().map(|function| function.descriptor()),
             seeds,
             self.targets.iter().map(|target| target.shape()),
             &self.cancellation,
@@ -75,7 +75,7 @@ impl IntoFuture for DiscoveryPlanRequest {
 }
 
 cloud_terrastodon_registry::register_thing!(DiscoveryPlanRequest);
-cloud_terrastodon_registry::register_into_future!(DiscoveryPlanRequest => DiscoveryPlan, effects = [Read]);
+cloud_terrastodon_registry_execution::register_into_future!(DiscoveryPlanRequest => DiscoveryPlan, effects = [Read]);
 
 #[cfg(test)]
 mod tests {
@@ -107,7 +107,7 @@ mod tests {
         }
     }
 
-    cloud_terrastodon_registry::register_into_future!(InventoryRequest => Inventory, effects = [Read]);
+    cloud_terrastodon_registry_execution::register_into_future!(InventoryRequest => Inventory, effects = [Read]);
 
     #[tokio::test]
     async fn plan_uses_only_ready_values_selected_by_its_input_query() -> eyre::Result<()> {

@@ -384,7 +384,7 @@ impl<'a> IntoFuture for AzureDevOpsWorkItemCopyRequest<'a> {
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsWorkItemCopyRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsWorkItemCopyRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(
+cloud_terrastodon_registry_execution::register_into_future!(
     AzureDevOpsWorkItemCopyRequest<'static> => AzureDevOpsWorkItemCopyJournal,
     effects = [Read, Write]
 );

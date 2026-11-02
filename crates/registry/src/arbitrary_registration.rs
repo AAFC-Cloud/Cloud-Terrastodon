@@ -1,9 +1,15 @@
 use crate::ArbitraryBytes;
+use crate::FunctionDescriptor;
+use crate::FunctionKind;
+use crate::FunctionTraitContract;
+use crate::ReceiverMode;
 use crate::RegistrationSite;
 use crate::RuntimeFromBoxedFn;
+use facet::Facet;
 use facet::Shape;
 use linkme::distributed_slice;
 use std::any::Any;
+use std::ops::Deref;
 
 /// An erased synchronous constructor used to integrate pure value catalogs.
 pub type ArbitraryInvocationFn = fn(&mut (dyn Any + Send)) -> eyre::Result<Box<dyn Any + Send>>;
@@ -14,13 +20,30 @@ pub type ArbitraryInvocationFn = fn(&mut (dyn Any + Send)) -> eyre::Result<Box<d
 /// expose an executable view while retaining a reference to this descriptor.
 #[derive(Clone, Copy)]
 pub struct ArbitraryRegistration {
-    pub output_shape: &'static Shape,
-    pub invoke_boxed: ArbitraryInvocationFn,
-    pub output_to_runtime: RuntimeFromBoxedFn,
-    pub registration_site: RegistrationSite,
+    // Keep the mutable entropy callback paired with its fixed constructor metadata.
+    descriptor: FunctionDescriptor,
+    invoke_boxed: ArbitraryInvocationFn,
+}
+
+impl Deref for ArbitraryRegistration {
+    type Target = FunctionDescriptor;
+
+    fn deref(&self) -> &Self::Target {
+        &self.descriptor
+    }
 }
 
 impl ArbitraryRegistration {
+    /// Borrow the metadata without changing the constructor's invocation contract.
+    pub const fn descriptor(&self) -> &FunctionDescriptor {
+        &self.descriptor
+    }
+
+    /// Copy the synchronous callback for an execution-layer adapter.
+    pub const fn invocation(&self) -> ArbitraryInvocationFn {
+        self.invoke_boxed
+    }
+
     pub const fn new(
         output_shape: &'static Shape,
         invoke_boxed: ArbitraryInvocationFn,
@@ -28,10 +51,19 @@ impl ArbitraryRegistration {
         registration_site: RegistrationSite,
     ) -> Self {
         Self {
-            output_shape,
+            descriptor: FunctionDescriptor {
+                input_shape: ArbitraryBytes::SHAPE,
+                output_shape,
+                receiver_mode: ReceiverMode::ByMut,
+                kind: FunctionKind::Constructor,
+                label: "arbitrary",
+                trait_contract: FunctionTraitContract::Arbitrary,
+                effects: &[],
+                asynchronous: false,
+                output_to_runtime,
+                registration_site,
+            },
             invoke_boxed,
-            output_to_runtime,
-            registration_site,
         }
     }
 
@@ -73,5 +105,9 @@ macro_rules! register_arbitrary {
             $crate::runtime_from_boxed::<$thing_ty>,
             $crate::RegistrationSite::new(file!(), line!()),
         );
+        const _: () = {
+            #[$crate::distributed_slice($crate::KNOWN_FUNCTION_DESCRIPTORS)]
+            static REGISTERED_DESCRIPTOR: &$crate::FunctionDescriptor = $name.descriptor();
+        };
     };
 }

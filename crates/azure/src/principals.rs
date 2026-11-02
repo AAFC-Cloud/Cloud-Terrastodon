@@ -101,4 +101,4 @@ mod tests {
 cloud_terrastodon_registry::register_thing!(PrincipalListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(PrincipalListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(EntraPrincipalCollection);
-cloud_terrastodon_registry::register_into_future!(PrincipalListRequest<'static> => EntraPrincipalCollection, effects = [Read]);
+cloud_terrastodon_registry_execution::register_into_future!(PrincipalListRequest<'static> => EntraPrincipalCollection, effects = [Read]);

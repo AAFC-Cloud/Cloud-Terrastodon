@@ -93,8 +93,8 @@ impl<'a> Arbitrary<'a> for CacheScope {
     }
 }
 
-cloud_terrastodon_registry_values::register_thing!(CacheScope);
-cloud_terrastodon_registry_values::register_arbitrary!(CacheScope);
+cloud_terrastodon_registry::register_thing!(CacheScope);
+cloud_terrastodon_registry::register_arbitrary!(CacheScope);
 
 #[cfg(test)]
 mod tests {

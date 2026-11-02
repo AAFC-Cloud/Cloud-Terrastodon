@@ -131,8 +131,6 @@ mod tests {
     use crate::AzureDevOpsProjectState;
     use crate::AzureDevOpsProjectVisibility;
     use chrono::DateTime;
-    use cloud_terrastodon_command::CancellationToken;
-    use cloud_terrastodon_registry::FunctionInvocation;
     use cloud_terrastodon_registry::RuntimeValue;
     use cloud_terrastodon_registry::functions_from_to;
     use facet::Facet;
@@ -148,16 +146,10 @@ mod tests {
             1,
             "expected one project selector conversion"
         );
-        CancellationToken::new()
-            .with_scope(|cancellation| {
-                let invocation = functions[0]
-                    .invoke_value_boxed(Box::new(input), &cancellation)
-                    .unwrap();
-                let FunctionInvocation::Ready(value) = invocation else {
-                    panic!("project selector conversions must complete synchronously");
-                };
-                Ok::<_, eyre::Report>(*value.downcast::<AzureDevOpsProjectArgument>().unwrap())
-            })
+        *functions[0]
+            .invoke_value_boxed(Box::new(input))
+            .unwrap()
+            .downcast::<AzureDevOpsProjectArgument>()
             .unwrap()
     }
 

@@ -98,13 +98,13 @@ mod tests {
     use cloud_terrastodon_azure::EntraUser;
     use cloud_terrastodon_azure::EntraUserPickRequest;
     use cloud_terrastodon_registry::ArbitraryBytes;
-    use cloud_terrastodon_registry::Function;
     use cloud_terrastodon_registry::FunctionKind;
     use cloud_terrastodon_registry::Thing;
     use cloud_terrastodon_registry::describe_shape;
-    use cloud_terrastodon_registry::functions_from_to;
-    use cloud_terrastodon_registry::known_functions;
     use cloud_terrastodon_registry::known_things;
+    use cloud_terrastodon_registry_execution::Function;
+    use cloud_terrastodon_registry_execution::functions_from_to;
+    use cloud_terrastodon_registry_execution::known_functions;
     use facet::Facet;
     use std::collections::BTreeMap;
 
@@ -405,7 +405,7 @@ mod tests {
             .collect()
     }
 
-    fn function_signature(function: &Function) -> String {
+    fn function_signature(function: Function) -> String {
         format!(
             "{} {} -> {} ({:?} | {:?} | {})",
             function.label,
@@ -417,7 +417,7 @@ mod tests {
         )
     }
 
-    fn format_function_registration(function: &Function) -> String {
+    fn format_function_registration(function: Function) -> String {
         format!(
             "effects: {} at {}",
             format_effects(function.effects),

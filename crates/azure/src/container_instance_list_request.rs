@@ -88,7 +88,7 @@ impl<'a> CacheableCommand for ContainerInstanceListRequest<'a> {
 cloud_terrastodon_command::impl_cacheable_into_future!(ContainerInstanceListRequest<'a>, 'a);
 cloud_terrastodon_registry::register_thing!(ContainerInstanceListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(ContainerInstanceListRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(
+cloud_terrastodon_registry_execution::register_into_future!(
     ContainerInstanceListRequest<'static> => Vec<AzureContainerInstanceResource>,
     effects = [Read]
 );

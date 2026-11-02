@@ -208,7 +208,7 @@ cloud_terrastodon_command::impl_cacheable_into_future!(
 
 cloud_terrastodon_registry::register_thing!(GiteaRepoEnumerationAnalysisRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(GiteaRepoEnumerationAnalysisRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(
+cloud_terrastodon_registry_execution::register_into_future!(
     GiteaRepoEnumerationAnalysisRequest<'static> => GiteaRepoEnumerationComparisonReport,
     effects = [Read]
 );

@@ -209,7 +209,7 @@ impl RuntimeValue {
     /// Safe code must not be able to erase a stack-owned source's lifetime:
     ///
     /// ```compile_fail,E0133
-    /// use cloud_terrastodon_registry_values::RuntimeValue;
+    /// use cloud_terrastodon_registry::RuntimeValue;
     /// use facet::Facet;
     /// use std::borrow::Cow;
     /// let source = RuntimeValue::from_box(Box::new(String::from("source"))).unwrap();
@@ -395,7 +395,7 @@ impl RuntimeValue {
     /// Projected lists and owned roots share the same recursive cloning path.
     ///
     /// ```compile_fail
-    /// use cloud_terrastodon_registry_values::RuntimeValue;
+    /// use cloud_terrastodon_registry::RuntimeValue;
     /// use facet_reflect::Peek;
     /// use std::borrow::Cow;
     /// let source = String::from("source");

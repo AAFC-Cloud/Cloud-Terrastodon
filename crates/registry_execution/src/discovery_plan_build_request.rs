@@ -1,8 +1,8 @@
 use crate::CancellationScope;
-use crate::DiscoveryPlan;
 use crate::RegisteredFunction;
-use crate::RegisteredShape;
 use crate::known_functions;
+use cloud_terrastodon_registry::DiscoveryPlan;
+use cloud_terrastodon_registry::RegisteredShape;
 use facet::Facet;
 use std::future::Future;
 use std::pin::Pin;
@@ -41,7 +41,9 @@ impl IntoFuture for DiscoveryPlanBuildRequest {
     fn into_future(self) -> Self::IntoFuture {
         Box::pin(async move {
             DiscoveryPlan::build(
-                self.functions.iter().map(|function| function.function()),
+                self.functions
+                    .iter()
+                    .map(|function| function.function().descriptor()),
                 self.seeds.iter().map(|seed| seed.shape()),
                 self.targets.iter().map(|target| target.shape()),
                 &self.cancellation,
@@ -50,13 +52,13 @@ impl IntoFuture for DiscoveryPlanBuildRequest {
     }
 }
 
-crate::register_thing!(DiscoveryPlanBuildRequest);
+cloud_terrastodon_registry::register_thing!(DiscoveryPlanBuildRequest);
 crate::register_into_future!(DiscoveryPlanBuildRequest => DiscoveryPlan, effects = [Read]);
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::RuntimeValue;
+    use cloud_terrastodon_registry::RuntimeValue;
     use std::future::Ready;
     use teamy_cancellation::CancellationToken;
 

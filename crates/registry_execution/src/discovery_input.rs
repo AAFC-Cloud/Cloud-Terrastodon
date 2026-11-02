@@ -1,7 +1,7 @@
 use crate::CancellationScope;
 use crate::DiscoveryValue;
-use crate::RuntimeValue;
-use crate::describe_shape;
+use cloud_terrastodon_registry::RuntimeValue;
+use cloud_terrastodon_registry::describe_shape;
 use facet::Def;
 use facet::Facet;
 use facet::KnownPointer;

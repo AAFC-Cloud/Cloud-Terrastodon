@@ -112,4 +112,4 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(PublicIpListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(PublicIpListRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(PublicIpListRequest<'static> => Vec<AzurePublicIpResource>, effects = [Read]);
+cloud_terrastodon_registry_execution::register_into_future!(PublicIpListRequest<'static> => Vec<AzurePublicIpResource>, effects = [Read]);

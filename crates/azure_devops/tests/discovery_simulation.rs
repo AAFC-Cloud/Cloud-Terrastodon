@@ -11,12 +11,13 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
 use cloud_terrastodon_command::CancellationToken;
 use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use cloud_terrastodon_registry::ArbitraryBytes;
-use cloud_terrastodon_registry::DiscoverySimulation;
 use cloud_terrastodon_registry::FunctionKind;
 use cloud_terrastodon_registry::FunctionTraitContract;
 use cloud_terrastodon_registry::RuntimeValue;
 use cloud_terrastodon_registry::describe_shape;
-use cloud_terrastodon_registry::known_functions;
+use cloud_terrastodon_registry_execution::DiscoverySimulation;
+use cloud_terrastodon_registry_execution::Function;
+use cloud_terrastodon_registry_execution::known_functions;
 use facet::Facet;
 use std::borrow::Cow;
 
@@ -49,7 +50,7 @@ fn fabricated_project_inventory_unlocks_project_scoped_folder_discovery() {
                     vec![RuntimeValue::from_box(Box::new(request)).unwrap()],
                     [
                         AzureDevOpsProjectsListRequest::REGISTERED_INTO_FUTURE,
-                        AzureDevOpsProject::REGISTERED_INTO_PROJECT_ARGUMENT,
+                        Function::Pure(AzureDevOpsProject::REGISTERED_INTO_PROJECT_ARGUMENT),
                         AzureDevOpsBuildFolderListRequest::REGISTERED_INTO_FUTURE,
                     ]
                     .into_iter()
@@ -186,7 +187,7 @@ fn bounded_simulation_reports_why_discovery_stopped_before_convergence() {
                 vec![RuntimeValue::from_box(Box::new(fabricated_seed(7))).unwrap()],
                 [
                     AzureDevOpsProjectsListRequest::REGISTERED_INTO_FUTURE,
-                    AzureDevOpsProject::REGISTERED_INTO_PROJECT_ARGUMENT,
+                    Function::Pure(AzureDevOpsProject::REGISTERED_INTO_PROJECT_ARGUMENT),
                     AzureDevOpsBuildFolderListRequest::REGISTERED_INTO_FUTURE,
                 ]
                 .into_iter()

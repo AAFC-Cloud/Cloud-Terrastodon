@@ -15,14 +15,15 @@ use crate::object_explorer::slot_id::SlotId;
 use crate::object_explorer::value_address::ValueAddress;
 use crate::object_explorer::value_builder::BuilderTransition;
 use cloud_terrastodon_registry::Effect;
-use cloud_terrastodon_registry::Function;
 use cloud_terrastodon_registry::FunctionKind;
 use cloud_terrastodon_registry::FunctionTraitContract;
-use cloud_terrastodon_registry::InvocationFuture;
 use cloud_terrastodon_registry::RegistrationSite;
 use cloud_terrastodon_registry::Thing;
 use cloud_terrastodon_registry::runtime_from_boxed;
 use cloud_terrastodon_registry::runtime_into_boxed;
+use cloud_terrastodon_registry_execution::Function;
+use cloud_terrastodon_registry_execution::InvocationFuture;
+use cloud_terrastodon_registry_execution::RuntimeFunction;
 use std::any::Any;
 use std::borrow::Cow;
 use std::panic::AssertUnwindSafe;
@@ -187,7 +188,7 @@ static BORROW_THING: Thing = Thing::value(
     RegistrationSite::new(file!(), line!()),
 );
 
-static HOLD_REQUEST: Function = Function::async_value(
+static HOLD_REQUEST: RuntimeFunction = RuntimeFunction::async_value(
     BorrowRecord::SHAPE,
     BorrowRecord::SHAPE,
     FunctionKind::AsyncInvoke,
@@ -199,7 +200,7 @@ static HOLD_REQUEST: Function = Function::async_value(
     RegistrationSite::new(file!(), line!()),
 );
 
-static RETURN_REQUEST: Function = Function::async_value(
+static RETURN_REQUEST: RuntimeFunction = RuntimeFunction::async_value(
     BorrowRecord::SHAPE,
     BorrowRecord::SHAPE,
     FunctionKind::AsyncInvoke,
@@ -211,11 +212,7 @@ static RETURN_REQUEST: Function = Function::async_value(
     RegistrationSite::new(file!(), line!()),
 );
 
-fn invoke(
-    engine: &mut ExplorerEngine,
-    request: SlotId,
-    function: &'static Function,
-) -> InvocationId {
+fn invoke(engine: &mut ExplorerEngine, request: SlotId, function: Function) -> InvocationId {
     let InvocationStart::Pending { invocation, .. } = engine
         .invocations
         .invoke(
@@ -267,7 +264,7 @@ fn shutdown_drops_fake_host_held_request_before_its_source() {
     let mut engine =
         ExplorerEngine::empty_with_invocation_host(Box::new(FakeInvocationHost::default()));
     let (source, request) = borrower_fixture(&mut engine, &events);
-    invoke(&mut engine, request, &HOLD_REQUEST);
+    invoke(&mut engine, request, Function::Runtime(&HOLD_REQUEST));
     assert!(engine.borrow_graph.protects_root(source));
     assert!(observed(&events).is_empty());
 
@@ -281,7 +278,7 @@ async fn shutdown_synchronously_drops_tokio_request_before_first_poll() {
     let events = events();
     let mut engine = ExplorerEngine::empty();
     let (_, request) = borrower_fixture(&mut engine, &events);
-    invoke(&mut engine, request, &HOLD_REQUEST);
+    invoke(&mut engine, request, Function::Runtime(&HOLD_REQUEST));
 
     // No yield: aborting a Tokio task does not synchronously destroy this
     // future. Engine destruction must not rely on another scheduler turn.
@@ -295,7 +292,7 @@ async fn shutdown_synchronously_drops_tokio_request_after_pending_poll() {
     let events = events();
     let mut engine = ExplorerEngine::empty();
     let (_, request) = borrower_fixture(&mut engine, &events);
-    invoke(&mut engine, request, &HOLD_REQUEST);
+    invoke(&mut engine, request, Function::Runtime(&HOLD_REQUEST));
     tokio::time::timeout(std::time::Duration::from_secs(2), async {
         while !observed(&events).contains(&"polled") {
             tokio::task::yield_now().await;
@@ -314,7 +311,7 @@ async fn shutdown_drops_completed_unclaimed_cow_output_before_source() {
     let events = events();
     let mut engine = ExplorerEngine::empty();
     let (source, request) = borrower_fixture(&mut engine, &events);
-    let invocation = invoke(&mut engine, request, &RETURN_REQUEST);
+    let invocation = invoke(&mut engine, request, Function::Runtime(&RETURN_REQUEST));
     tokio::time::timeout(std::time::Duration::from_secs(2), async {
         while !engine.invocation_host.is_ready(invocation) {
             tokio::task::yield_now().await;

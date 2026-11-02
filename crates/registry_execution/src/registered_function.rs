@@ -1,12 +1,11 @@
 use crate::Function;
-use crate::RegisteredShape;
 use crate::known_functions;
+use cloud_terrastodon_registry::RegisteredShape;
 use facet::Facet;
 use std::collections::HashMap;
 use std::fmt;
 use std::hash::Hash;
 use std::hash::Hasher;
-use std::ptr;
 use std::str::FromStr;
 use std::sync::LazyLock;
 
@@ -18,21 +17,21 @@ use std::sync::LazyLock;
 /// it is not a persistent operation ID across source changes.
 #[derive(Clone, Copy, Facet)]
 #[facet(proxy = String)]
-pub struct RegisteredFunction(#[facet(opaque)] &'static Function);
+pub struct RegisteredFunction(#[facet(opaque)] Function);
 
 impl RegisteredFunction {
-    pub const fn from_function(function: &'static Function) -> Self {
+    pub const fn from_function(function: Function) -> Self {
         Self(function)
     }
 
-    pub const fn function(self) -> &'static Function {
+    pub const fn function(self) -> Function {
         self.0
     }
 }
 
 impl PartialEq for RegisteredFunction {
     fn eq(&self, other: &Self) -> bool {
-        ptr::eq(self.0, other.0)
+        self.0 == other.0
     }
 }
 
@@ -40,7 +39,7 @@ impl Eq for RegisteredFunction {}
 
 impl Hash for RegisteredFunction {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        ptr::from_ref(self.0).hash(state);
+        self.0.hash(state);
     }
 }
 
@@ -112,14 +111,14 @@ impl From<&RegisteredFunction> for String {
     }
 }
 
-crate::register_thing!(RegisteredFunction);
-crate::register_thing!(Vec<RegisteredFunction>);
+cloud_terrastodon_registry::register_thing!(RegisteredFunction);
+cloud_terrastodon_registry::register_thing!(Vec<RegisteredFunction>);
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::DiscoveryPlanBuildRequest;
-    use crate::RuntimeValue;
+    use cloud_terrastodon_registry::RuntimeValue;
 
     #[test]
     fn reflected_function_text_preserves_the_registered_executor_identity() -> eyre::Result<()> {

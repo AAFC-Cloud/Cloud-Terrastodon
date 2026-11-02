@@ -50,7 +50,7 @@ cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsCliConfigReque
 cloud_terrastodon_registry::register_thing!(AzureDevOpsCliConfigRequest);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsCliConfigRequest);
 cloud_terrastodon_registry::register_arbitrary!(String);
-cloud_terrastodon_registry::register_into_future!(
+cloud_terrastodon_registry_execution::register_into_future!(
     AzureDevOpsCliConfigRequest => String,
     effects = [Read]
 );

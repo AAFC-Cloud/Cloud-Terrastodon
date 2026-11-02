@@ -3,12 +3,12 @@ use crate::object_explorer::ValueAddress;
 use crate::object_explorer::ValueCandidate;
 use crate::object_explorer::ValueCandidateWindow;
 use crate::object_explorer::arbitrary_constructor_for;
-use cloud_terrastodon_registry::Function;
 use cloud_terrastodon_registry::ProductionKind;
-use cloud_terrastodon_registry::default_production_plan;
 use cloud_terrastodon_registry::describe_function;
 use cloud_terrastodon_registry::describe_shape;
-use cloud_terrastodon_registry::functions_to;
+use cloud_terrastodon_registry_execution::Function;
+use cloud_terrastodon_registry_execution::default_production_plan;
+use cloud_terrastodon_registry_execution::functions_to;
 use facet::Facet;
 use facet::Shape;
 use std::fmt;
@@ -17,9 +17,9 @@ use std::fmt;
 pub(crate) enum ValuePickerChoice {
     CreateNewOwned { shape: &'static Shape },
     Candidate { address: ValueAddress },
-    CreateProducer { function: &'static Function },
-    InvokeDefaultProducer { function: &'static Function },
-    InvokeArbitraryProducer { function: &'static Function },
+    CreateProducer { function: Function },
+    InvokeDefaultProducer { function: Function },
+    InvokeArbitraryProducer { function: Function },
 }
 
 impl fmt::Debug for ValuePickerChoice {
@@ -35,15 +35,15 @@ impl fmt::Debug for ValuePickerChoice {
                 .finish(),
             Self::CreateProducer { function } => formatter
                 .debug_struct("CreateProducer")
-                .field("function", &describe_function(function))
+                .field("function", &describe_function(function.descriptor()))
                 .finish(),
             Self::InvokeDefaultProducer { function } => formatter
                 .debug_struct("InvokeDefaultProducer")
-                .field("function", &describe_function(function))
+                .field("function", &describe_function(function.descriptor()))
                 .finish(),
             Self::InvokeArbitraryProducer { function } => formatter
                 .debug_struct("InvokeArbitraryProducer")
-                .field("function", &describe_function(function))
+                .field("function", &describe_function(function.descriptor()))
                 .finish(),
         }
     }
@@ -66,7 +66,7 @@ impl PartialEq for ValuePickerChoice {
             | (
                 Self::InvokeArbitraryProducer { function: left },
                 Self::InvokeArbitraryProducer { function: right },
-            ) => std::ptr::eq(*left, *right),
+            ) => left == right,
             _ => false,
         }
     }
@@ -75,7 +75,7 @@ impl PartialEq for ValuePickerChoice {
 impl Eq for ValuePickerChoice {}
 
 struct ProducerChoiceMetadata {
-    function: &'static Function,
+    function: Function,
     has_default: bool,
     has_arbitrary: bool,
     is_arbitrary_constructor: bool,
@@ -133,7 +133,7 @@ impl FieldValuePicker {
                 has_default: default_production_plan(function.input_shape).is_some(),
                 has_arbitrary: arbitrary_constructor_for(function.input_shape).is_some(),
                 is_arbitrary_constructor: arbitrary_constructor
-                    .is_some_and(|candidate| std::ptr::eq(candidate, function)),
+                    .is_some_and(|candidate| candidate == function),
             })
             .collect();
         let mut result = Self {
@@ -273,7 +273,7 @@ impl FieldValuePicker {
             let row = ValuePickerRow {
                 label: format!(
                     "+ create {input} for {target} (edit, then {})",
-                    describe_function(producer.function)
+                    describe_function(producer.function.descriptor())
                 ),
                 choice: ValuePickerChoice::CreateProducer {
                     function: producer.function,

@@ -168,9 +168,9 @@ path = "./crates/azure_cli"
 version = "0.37.0"         # CT_VERSION
 path = "./crates/registry"
 
-[workspace.dependencies.cloud_terrastodon_registry_values]
+[workspace.dependencies.cloud_terrastodon_registry_execution]
 version = "0.37.0" # CT_VERSION
-path = "./crates/registry_values"
+path = "./crates/registry_execution"
 
 [workspace.dependencies.cloud_terrastodon_excalidraw]
 version = "0.37.0" # CT_VERSION

@@ -128,7 +128,7 @@ impl<'a> IntoFuture for AzureDevOpsWorkItemRelationChangeRequest<'a> {
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsWorkItemRelationChangeRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsWorkItemRelationChangeRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(
+cloud_terrastodon_registry_execution::register_into_future!(
     AzureDevOpsWorkItemRelationChangeRequest<'static> => ArbitraryJson,
     effects = [Read, Write]
 );

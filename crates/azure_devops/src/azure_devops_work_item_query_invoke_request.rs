@@ -93,7 +93,7 @@ impl<'a> IntoFuture for AzureDevOpsWorkItemQueryInvokeRequest<'a> {
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsWorkItemQueryInvokeRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsWorkItemQueryInvokeRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(
+cloud_terrastodon_registry_execution::register_into_future!(
     AzureDevOpsWorkItemQueryInvokeRequest<'static> => WorkItemQueryResult,
     effects = [Read]
 );

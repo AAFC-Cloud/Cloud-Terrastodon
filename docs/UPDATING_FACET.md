@@ -256,7 +256,7 @@ The audited local-library selection for this checkpoint is:
 
 ```powershell
 cargo +1.96.0 test --offline --locked --no-fail-fast --lib `
-  -p cloud_terrastodon_registry -p cloud_terrastodon_azure_types `
+  -p cloud_terrastodon_registry -p cloud_terrastodon_registry_execution -p cloud_terrastodon_azure_types `
   -p cloud_terrastodon_azure_devops_types -p cloud_terrastodon_azure_resource_types `
   -p cloud_terrastodon_rest -p cloud_terrastodon_ui_ratatui `
   -p cloud_terrastodon_entrypoint -p cloud_terrastodon_credentials `

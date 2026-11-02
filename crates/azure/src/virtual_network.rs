@@ -111,4 +111,4 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(VirtualNetworkListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(VirtualNetworkListRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(VirtualNetworkListRequest<'static> => Vec<VirtualNetwork>, effects = [Read]);
+cloud_terrastodon_registry_execution::register_into_future!(VirtualNetworkListRequest<'static> => Vec<VirtualNetwork>, effects = [Read]);

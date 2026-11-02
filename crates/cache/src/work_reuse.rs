@@ -15,4 +15,4 @@ pub enum WorkReuse {
     ExecuteEveryTime,
 }
 
-cloud_terrastodon_registry_values::register_thing!(WorkReuse);
+cloud_terrastodon_registry::register_thing!(WorkReuse);

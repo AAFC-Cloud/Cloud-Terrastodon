@@ -208,4 +208,4 @@ mod test {
 
 cloud_terrastodon_registry::register_thing!(ContainerRegistryListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(ContainerRegistryListRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(ContainerRegistryListRequest<'static> => Vec<ContainerRegistry>, effects = [Read]);
+cloud_terrastodon_registry_execution::register_into_future!(ContainerRegistryListRequest<'static> => Vec<ContainerRegistry>, effects = [Read]);

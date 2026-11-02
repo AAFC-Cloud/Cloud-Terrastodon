@@ -107,4 +107,4 @@ mod test {
 
 cloud_terrastodon_registry::register_thing!(AzureTenantDetailsRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AzureTenantDetailsRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(AzureTenantDetailsRequest<'static> => MicrosoftGraphOrganization, effects = [Read]);
+cloud_terrastodon_registry_execution::register_into_future!(AzureTenantDetailsRequest<'static> => MicrosoftGraphOrganization, effects = [Read]);

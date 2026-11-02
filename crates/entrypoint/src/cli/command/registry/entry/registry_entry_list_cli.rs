@@ -4,7 +4,7 @@ use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_registry::Effect;
 use cloud_terrastodon_registry::FunctionKind;
 use cloud_terrastodon_registry::RegistryFunctionEntry;
-use cloud_terrastodon_registry::known_functions;
+use cloud_terrastodon_registry_execution::known_functions;
 use color_eyre::owo_colors::OwoColorize;
 use color_eyre::owo_colors::Stream;
 use color_eyre::owo_colors::Style;
@@ -42,7 +42,7 @@ impl RegistryEntryListArgs {
             {
                 continue;
             }
-            let entry = RegistryFunctionEntry::from(function);
+            let entry = RegistryFunctionEntry::from(function.descriptor());
             if let Some(filter) = &filter
                 && ![
                     entry.input.as_str(),

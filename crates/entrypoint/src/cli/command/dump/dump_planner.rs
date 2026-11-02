@@ -2,10 +2,10 @@ use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_registry::DiscoveryPlan;
 use cloud_terrastodon_registry::DiscoveryPlanNode;
 use cloud_terrastodon_registry::DiscoveryPlanNodeKind;
-use cloud_terrastodon_registry::Function;
 use cloud_terrastodon_registry::FunctionKind;
 use cloud_terrastodon_registry::Thing;
 use cloud_terrastodon_registry::describe_shape;
+use cloud_terrastodon_registry_execution::Function;
 use eyre::Result;
 use eyre::ensure;
 use facet::Def;
@@ -23,7 +23,7 @@ use std::collections::HashSet;
 pub(super) struct DumpPlanner {
     // Keep the name index and palette consistent with the catalog and seeds
     // captured when this planning session starts.
-    functions: Vec<&'static Function>,
+    functions: Vec<Function>,
     seeds: Vec<&'static Shape>,
     shapes_by_name: BTreeMap<String, HashSet<&'static Shape>>,
     target_names: Vec<String>,
@@ -31,7 +31,7 @@ pub(super) struct DumpPlanner {
 
 impl DumpPlanner {
     pub(super) fn new(
-        functions: impl IntoIterator<Item = &'static Function>,
+        functions: impl IntoIterator<Item = Function>,
         things: impl IntoIterator<Item = &'static Thing>,
         seeds: Vec<&'static Shape>,
     ) -> Self {
@@ -144,7 +144,7 @@ impl DumpPlanner {
             }
         }
         let mut plan = DiscoveryPlan::build(
-            self.functions.iter().copied(),
+            self.functions.iter().map(|function| function.descriptor()),
             self.seeds.iter().copied(),
             targets,
             cancellation,

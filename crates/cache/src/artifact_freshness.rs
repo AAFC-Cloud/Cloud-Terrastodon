@@ -114,7 +114,7 @@ fn deadline(observed_at: DateTime<Utc>, valid_for: Duration) -> Result<Option<Da
         .ok_or_else(|| eyre!("artifact validity exceeds the representable timestamp range"))
 }
 
-cloud_terrastodon_registry_values::register_thing!(ArtifactFreshness);
+cloud_terrastodon_registry::register_thing!(ArtifactFreshness);
 
 #[cfg(test)]
 mod tests {

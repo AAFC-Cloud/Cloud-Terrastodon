@@ -10,54 +10,107 @@ sketch; the signatures below describe the selected API.
 
 ## G1 — package responsibilities and dependency direction
 
+U59–U61 revise the original package proposal after the completed types-crate
+dependency cleanup. The user selected candidate B: `registry` is the pure
+foundation, and `registry_execution` owns execution-aware registration and
+invocation. The runtime authentication crate is named `auth`, paired with
+`auth_types`. `AzureTenantId` remains in `azure_types`; `AuthSource` moves from
+the current `credentials` crate to `auth_types`. Task 3.0 has implemented the
+registry split. The auth rename/extraction and executor integration remain
+approved target boundaries for tasks 3.1–3.3.
+
 The concrete `CloudTerrastodonExecutor` belongs in a new
 `cloud_terrastodon_execution` crate. It owns capabilities through interfaces and
-does not import credential implementations. The credentials crate supplies
+does not import credential implementations. The target `auth` crate supplies
 `CredentialAuthenticationProvider`, which implements the execution crate's
 `AuthenticationProvider` interface. Application startup constructs the provider
 and injects it into the executor. A separate higher-level executor crate and a
 second wrapper around the executor are unnecessary.
 
-The following table lists the new edges and relevant existing edges. An arrow
-means the left package depends on the right package; other existing workspace
-dependencies remain as recorded in their manifests.
+The following table lists target edges relevant to this boundary. Other existing
+workspace dependencies remain unless a named migration task changes them.
 
 | Package | Required dependency direction | Responsibility |
 | --- | --- | --- |
-| `registry_values` | Existing pinned external reflection/registration dependencies only | Value reflection, owned erased values, and pure arbitrary registration |
-| `auth_types` | `registry_values` | Credential-selection vocabulary and tenant identity; no discovery or token acquisition |
-| `cache` | `registry_values`, `pathing` | Explicit cache owner, typed result ownership, artifacts, generations, and dependencies |
+| `registry` | Existing pinned external dependencies only | Pure reflection, erased owned values, offline constructors, pure conversion descriptors, and context-free metadata/planning |
+| `azure_types` | `registry`; existing pure domain/HCL/UI dependencies | Azure domain values, including the existing `AzureTenantId`; no dependency on `auth_types` or executor-aware registration |
+| `auth_types` | `azure_types`, `registry` | Serializable credential-selection vocabulary, audience, and authorization value contracts; no discovery or token acquisition |
+| `cache` | `registry`, `pathing` | Explicit cache owner, typed result ownership, artifacts, generations, and dependencies |
 | `execution` | `cache`, `auth_types` | Executor, executable request contract, bounded execution, typed credential capability |
-| `registry` | `registry_values`, `execution` | Executable invocation, effects, discovery, and adapters for pure value registrations |
-| `command` | `execution`, `cache`, `registry` | Subprocess adapter and its execution policy |
-| `credentials` | `execution`, `auth_types`, `command`, `registry` | Credential provider implementations and invocation-owned token caches |
-| `rest` | `execution`, `cache`, `registry`; existing dependencies until their callers migrate | HTTP adapter, typed response decoding, and response artifacts |
+| `registry_execution` | `registry`, `execution` | Executor-aware callbacks, invocation, effect admission, execution-aware discovery, and a common handle for original registrations |
+| `command` | `execution`, `cache`, `registry`, `registry_execution` | Subprocess adapter and its execution policy; registrations use their owning layer |
+| `auth` | `execution`, `auth_types`, `command`, `registry`, `registry_execution` | Runtime authentication, credential provider implementations, sessions, and invocation-owned token caches |
+| `rest` | `execution`, `cache`, `registry`, `registry_execution`; existing dependencies until their callers migrate | HTTP adapter, typed response decoding, and response artifacts |
 | SDK and CLI crates | The lower interfaces/adapters they use | Operation procedures and application policy, respectively |
-| `app` | `execution`; `credentials` only behind its auth feature | Bounded invocation ownership and resource construction |
+| `app` | `execution`; `auth` only behind its auth feature | Bounded invocation ownership and resource construction |
 
-The full package names use the `cloud_terrastodon_` prefix. Neither `cache` nor
-`execution` depends on `command`, `credentials`, the high-level `registry`, or
-`azure_types`. This prevents both credential/subprocess and registry/executor
-cycles. New packages reuse the existing pinned dependencies; this decision does
-not authorize dependency upgrades.
+The diagram shows the cycle-sensitive target edges; arrows mean **depends on**,
+not runtime calls. The full package names use the `cloud_terrastodon_` prefix.
+
+```mermaid
+flowchart TD
+    app --> execution
+    app -. auth feature .-> auth
+    auth --> command
+    auth --> execution
+    auth --> auth_types
+    command --> execution
+    command --> registry_execution
+    registry_execution --> execution
+    registry_execution --> registry
+    execution --> cache
+    execution --> auth_types
+    cache --> registry
+    cache --> pathing
+    auth_types --> azure_types
+    auth_types --> registry
+    azure_types --> registry
+```
+
+Neither `cache` nor `execution` depends on `command`, `auth`, or
+`registry_execution`. `execution` may reach `azure_types` through `auth_types`;
+this is acyclic only after `azure_types` uses the pure `registry`. There must be
+no reverse `azure_types -> auth_types` edge and no `registry -> execution` edge.
+New packages reuse existing pinned dependencies; this decision does not
+authorize dependency upgrades.
+
+At runtime the executor can call its injected provider, whose implementation in
+`auth` can run a token-acquisition command through the executor. That callback
+path does not add an `execution -> auth` package dependency. The acquisition
+remains credential infrastructure under G3, including sensitive-output retention
+and the rule against treating token refresh as an inventory dependency.
+
+Candidate A retained `registry_values` below the current runtime `registry`. It
+could provide the same acyclic responsibilities with fewer renames, but the user
+selected B's explicit foundation/runtime names. Candidate C would put the runtime
+catalogue and invocation machinery inside `execution`, saving a package while
+broadening the executor's responsibility and the dependencies of catalogue
+consumers. It was not selected. The selected split does not require relocating
+tenant identity.
 
 The direct `azure_types` dependency on `command` came only from an unnecessarily
-broad Resource Graph decoding bound. Task 2.5 replaces it with `Facet` and removes
-that edge while keeping response records in `azure_types`. Tasks 2.6–2.7 remove
-the remaining command paths: Terraform formatting moves from `hcl_types` into
-`hcl`, and resource-type generation moves into unpublished `tools/` maintenance
-tooling. Task 2.8 places provider API records in `azure_types` and their cached
-tenant-scoped list request in `azure`; the tool owns catalogue generation and
-file publication. This adds no execution dependency to the types crates.
-The planned high-level registry dependency on `execution` remains
-relevant. Removing the command paths does not replace the separate `auth_types`
-boundary or move authentication vocabulary back into `azure_types`.
+broad Resource Graph decoding bound. Completed task 2.5 replaced it with `Facet`
+and removed that edge while keeping response records in `azure_types`. Completed
+tasks 2.6–2.7 removed the remaining command paths: Terraform formatting moved
+from `hcl_types` into `hcl`, and resource-type generation moved into unpublished
+`tools/` maintenance tooling. Task 2.8 placed provider API records in `azure_types`
+and their cached tenant-scoped list request in `azure`; the tool owns catalogue
+generation and file publication. Those changes did not remove the current
+`azure_types -> registry` edge. Completed task 3.0 made that dependency pure
+before task 3.1 introduces `auth_types -> azure_types` and task 3.3 gives
+`registry_execution` executor-aware callbacks. Task 3.0 moved the existing runtime
+callbacks without requiring the new executor; task 3.2 implements `execution`,
+and task 3.3 adds the target `registry_execution -> execution` edge.
 
-### Pure registry extraction
+### Pure registration and executor-aware invocation
 
-The current value registry cannot simply be imported by `auth_types`: executable
-registry invocation will itself depend on `execution`, which needs the auth
-vocabulary. Extract these responsibilities into `registry_values`:
+Task 2.0 already extracted a working `registry_values` foundation and left
+compatibility exports and executable registration in `registry`. That is verified
+historical foundation, not the target package naming. Completed task 3.0 absorbed
+those pure facilities into `registry`, moved runtime facilities to
+`registry_execution`, and removed the `registry_values` package and compatibility
+paths in one full cutover.
+The pure foundation owns:
 
 - `RuntimeValue`, its owning-allocation operations and pointer bridge;
   `BorrowedPointerKind` and its distributed slice.
@@ -65,55 +118,101 @@ vocabulary. Extract these responsibilities into `registry_values`:
   helpers, and reflection helpers used by those types.
 - `register_thing!` and `register_borrowed_pointer_kind!`.
 - `ArbitraryBytes`, a pure `ArbitraryRegistration` descriptor, its distributed
-  slice, and a low-level `register_arbitrary!` macro.
+  slice, and `register_arbitrary!`.
+- Pure `From`/`TryFrom` descriptors and their registrations, including the Entra
+  principal conversions currently registered from `azure_types`. A conversion
+  needing runtime capabilities or declaring effects belongs to the runtime layer.
+- Context-free operation metadata such as input/output shapes and effect
+  declarations. Planning and simulation that inspect only supplied descriptors
+  may remain here; wrappers that invoke requests or need an executor belong in
+  `registry_execution`.
 
 `ArbitraryRegistration` owns an output shape, a synchronous generator accepting
 `&mut ArbitraryBytes`, its boxed-output-to-runtime conversion, and its registration
 site. It has no executor, cancellation scope, authentication, or async invocation.
-Executable `Function`, executable callback variants, effects admission, and
-discovery stay in `registry`.
+`FunctionDescriptor` owns context-free metadata; `PureFunction` owns a synchronous
+pure callback and its descriptor. `RuntimeFunction` owns runtime callbacks,
+metadata, and cancellation binding in `registry_execution`. Task 3.0 separates these
+responsibilities deliberately. The boundary is runtime
+independence, not a rule that every function or every discovery algorithm is
+high-level. Task 3.3 subsequently binds runtime invocation to the executor under
+G2 without making pure descriptors depend on it.
 
-Task 2.0 introduced high-level registry re-exports under the earlier policy.
-U49 supersedes that policy: consumers must import low value types and macros
-from `registry_values`, and task 7.1 removes those compatibility exports.
-The high-level registry still adapts low arbitrary descriptors into its constructor
-catalog as an execution responsibility. An adapted entry retains
-provenance to its authoritative descriptor. It is not a second distributed
-registration. The current high-level `register_arbitrary!` and its existing
-associated `&Function` handles remain available during migration. New low-level
-types use the low-level macro and its descriptor handles; do not silently change
-existing associated constants to a different type. Catalog traversal must include
-both sources without duplicate registration or executing generators during
-planning. This is an explicit integration task, not an assumption about the
-current `KNOWN_FUNCTIONS` slice.
+Each operation has one authoritative registration beside its owning type.
+U63–U65 replace the initial optional-provenance adapter design with a copyable
+`Function` enum in `registry_execution`:
 
-Task 2.0 implements the merged catalog as `KnownFunctions`, returned by
-`known_functions()`. Its iterator chains original executable registrations and
-persistent pure-descriptor adapters. It preserves existing associated handles
-and their addresses; it no longer promises a contiguous slice. The raw
-`KNOWN_FUNCTIONS` distributed slice contains only legacy registrations, so
-discovery and lookup use the merged view.
+```rust
+pub enum Function {
+    Runtime(&'static RuntimeFunction),
+    Pure(&'static PureFunction),
+    Arbitrary(&'static ArbitraryRegistration),
+}
+```
+
+Common invocation APIs accept this handle by value. Pure associated constants
+remain references to their lower registrations and are wrapped directly with
+`Function::Pure` or `Function::Arbitrary`; runtime associated constants supply
+`Function::Runtime` handles. Construction is infallible and constant-time, without
+registry lookup or allocated adapters. Each variant gets its metadata and callback
+from its original record; pure variants cannot carry runtime cancellation state.
+Equality, hashing, and deduplication use the variant and original registration
+address, never the address of a copied handle. Invocation and cancellation remain
+owned by the appropriate registration type. Preserve pure invocation without
+authentication and migrate all consumers without compatibility re-exports.
+
+Task 2.0 established the merged `KnownFunctions` view, returned by
+`known_functions()`, for original executable registrations and persistent pure
+arbitrary adapters. That is historical implementation evidence. Task 3.0's
+enum refinement replaces adapter storage with iteration over the original
+registration slices, yielding `Function` values. The iterator does not promise
+a contiguous slice. Discovery and lookup must use the
+merged view rather than assuming the raw `KNOWN_RUNTIME_FUNCTIONS` slice contains pure
+registrations. Building or inspecting the catalogue must not invoke generators,
+conversions, or executable requests.
+
+The implemented pure `known_function_descriptors()` catalogue contains references
+to authoritative descriptors from both layers. It enables metadata-only shape
+discovery without a dependency on `registry_execution`. `DiscoveryPlan::build`
+accepts an iterator of those descriptors. `Function::descriptor(self)` returns
+the original `&'static FunctionDescriptor`, preserving identity when a caller
+combines catalogue views or copies handles. Metadata-only consumers use lower
+descriptors directly. Each owning registration keeps its callback and descriptor
+relationship private; the common handle contains neither copies nor optional
+provenance fields. The pure associated handles remain directly callable offline.
 
 ### Owning files
 
-Each production type gets its own file. The initial homes are:
+Each production type gets its own file. The target homes are:
 
 | Home | Types/responsibilities |
 | --- | --- |
-| `crates/registry_values/src/` | `runtime_value.rs`, `thing.rs`, `registration_site.rs`, `borrowed_pointer_kind.rs`, `arbitrary_bytes.rs`, `arbitrary_registration.rs`; cohesive function-only reflection/registration modules |
-| `crates/auth_types/src/` | `auth_source.rs`, `azure_bearer_auth_source.rs`, `azure_tenant_id.rs`, `azure_credential_resource.rs`, `authentication_selection.rs`, `azure_devops_auth_selection.rs`, `authorization.rs` |
+| `crates/registry/src/` | Existing pure facilities from `registry_values`, pure conversion descriptors, and context-free metadata/planning; cohesive reflection/registration modules |
+| `crates/registry_execution/src/` | `Function` enum handles, `RuntimeFunction` records, executor-aware callbacks, lifetime-aware invocation, effect admission, and executable registration |
+| `crates/azure_types/src/tenant_id.rs` | Existing `AzureTenantId`, its parsing, Facet representation, arbitrary generation, and pure registration; no duplicate tenant type |
+| `crates/auth_types/src/` | `auth_source.rs`, `azure_bearer_auth_source.rs`, `azure_credential_resource.rs`, `authentication_selection.rs`, `azure_devops_auth_selection.rs`, `authorization.rs` |
 | `crates/cache/src/` | `work_cache.rs`, `cache_scope.rs`, `cache_key.rs`, `executor_kind.rs`, `cache_operation_owner.rs`, `auth_partition.rs`, `cached_work_spec.rs`, and the coordination types selected in G5/G6 |
 | `crates/execution/src/` | `cloud_terrastodon_executor.rs`, `executable_request.rs`, `request_execution.rs`, `authentication_provider.rs`, `disabled_authentication_provider.rs`, and invocation-observation types |
-| `crates/credentials/src/` | `credential_authentication_provider.rs`; existing credential/session/token implementations |
-| `crates/registry/src/` | Executable function metadata, lifetime-aware invocation, and executable registration adapters |
+| `crates/auth/src/` | Runtime files renamed from `credentials`; `credential_authentication_provider.rs` and existing credential/session/token implementations |
 
-Move the existing `AzureTenantId` and pure `AuthSource` definitions to `auth_types`.
-Update every consumer's imports and dependencies, including registrations, tests,
-examples, and documentation, and remove their old exports from `azure_types` and
-`credentials` in the same slice. No compatibility re-exports or aliases remain.
-Do not introduce a second tenant-ID type with conversions between otherwise
-identical values. Keep parsing, Facet representation, arbitrary generation, and
-registrations beside the owning low-level definitions.
+Task 3.1 renames `cloud_terrastodon_credentials`/`crates/credentials` to
+`cloud_terrastodon_auth`/`crates/auth` and moves the pure `AuthSource` definition
+to `auth_types`. Update every consumer's imports, manifest dependencies,
+registrations, tests, examples, and documentation in that slice. Remove the old
+credentials package and exports; do not add a forwarding package, dependency
+alias, or compatibility re-export. `AzureTenantId` retains its existing
+`azure_types` public path. `auth_types` uses that same type rather than introducing
+a second tenant identity or conversion between identical wrappers. Parsing,
+Facet representation, arbitrary generation, and registrations stay beside each
+owning definition. These are package/type ownership changes, not authorization
+to alter credential discovery, admission, or session behavior.
+
+Task 3.1 must compile before the new `execution` crate exists. Its runtime
+identity-policy work uses the existing execution plumbing. Task 3.2 introduces
+the executor and provider interface, implements `CredentialAuthenticationProvider`
+in `auth`, and wires provider injection at startup; that task adds the target
+`auth -> execution` edge. The target table does not require this provider adapter
+or dependency during the earlier rename/extraction slice.
 
 ## G2 — request execution, scopes, and lifetime bounds
 
@@ -233,7 +332,13 @@ it does not acquire cache bounds merely because its input was an `Arc<T>`.
 
 ### Registry invocation
 
-The registry's executable callback borrows the low-level executor directly:
+After the package cutover in task 3.0, task 3.3 gives `registry_execution` an
+executable callback that borrows the low-level executor directly. The pure
+`registry` never imports this callback or the executor.
+
+The callback and its cancellation policy belong to `RuntimeFunction`.
+`Function::Runtime` delegates to that record; the pure and arbitrary handle
+variants retain their runtime-independent invocation contracts.
 
 ```rust
 pub type InvocationFuture<'a> =
@@ -245,8 +350,9 @@ pub type AsyncExecutionFn = for<'a> fn(
 ) -> InvocationFuture<'a>;
 ```
 
-`FunctionInvocation<'a>` carries this pending future or an already-produced boxed
-value. Executable dispatch accepts `&'a CloudTerrastodonExecutor` and returns
+`registry_execution::FunctionInvocation<'a>` carries this pending future or an
+already-produced boxed value. Executable dispatch accepts
+`&'a CloudTerrastodonExecutor` and returns
 `Result<FunctionInvocation<'a>>`. Its generic adapter downcasts the request,
 awaits `executor.execute(request)`, and boxes the result. The erased registry
 boundary requires `R: ExecutableRequest + Any + Send + 'static` and
@@ -300,9 +406,9 @@ credential contexts without using a current access token as request identity.
 
 ### Serializable authentication selection
 
-`AuthSource` retains application selection preferences, including `Auto` and
-`None`. Executable bearer request data uses `AzureBearerAuthSource`, a selected
-source vocabulary containing `AzureCli`, `WorkloadIdentity`, and `Browser`.
+`auth_types::AuthSource` retains application selection preferences, including
+`Auto` and `None`. Executable bearer request data uses `AzureBearerAuthSource`,
+a selected source vocabulary containing `AzureCli`, `WorkloadIdentity`, and `Browser`.
 This is a distinct validated contract: a request cannot encode an unresolved
 auto preference, disabled source, or PAT as a bearer source.
 
@@ -453,12 +559,14 @@ Introduce low contracts and explicitly bound adapters before moving caller
 families. Every type move updates all consumer imports and dependencies and
 removes old-path exports in the same slice; no compatibility exports or aliases
 may bridge phases. Ordinary module re-exports within the owning crate remain valid.
-Remove the compatibility exports from the earlier registry extraction in task
-7.1 while migrating their consumers. Preserve legacy registry registration/associated
-handles until their consumers migrate. Temporary execution adapters require an
-explicit executor;
-none may select a global cache, manufacture a scope, invent a tenant, or resolve
-an implicit authentication provider.
+Task 3.0 completes the registry package cutover and removes the compatibility
+paths from the earlier extraction while migrating their consumers and associated
+handles. Task 3.1 completes the `credentials -> auth` rename and source-vocabulary
+extraction. Task 3.3 integrates executor-aware invocation in `registry_execution`;
+legacy callback implementations may remain there until their request families
+migrate, but old crate paths do not. Temporary execution adapters require an
+explicit executor; none may select a global cache, manufacture a scope, invent
+a tenant, or resolve an implicit authentication provider.
 
 Direct request `.await`, runtime-bearing request fields, owned versus shared
 inventory results, and registry invocation signatures are deliberate Rust API
@@ -469,7 +577,11 @@ not a permanent alternative API.
 Compile the contracts with borrowed request/output examples, a `Send` but
 non-`Sync` uncached output, and borrowed non-`Send` caller callbacks. Verify boxed
 registry invocation separately from direct invocation and confirm the new
-dependency DAG in manifests. The owning plan records actual commands/results.
+dependency DAG in manifests. Verify after task 3.0 that the normal/build closure
+of `azure_types` and `cache` cannot reach `registry_execution`, and after task 3.1
+that `auth_types -> azure_types -> registry` has no reverse edge. Confirm removal
+of the old package names at their respective cutovers, not merely absence of
+direct imports in one crate. The owning plan records actual commands/results.
 Further runtime proofs use synthetic values and isolated storage only: no
 credential discovery, live service calls, production data, or existing production
 cache reads are authorized for development validation.

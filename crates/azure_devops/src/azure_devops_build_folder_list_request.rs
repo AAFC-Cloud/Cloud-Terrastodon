@@ -213,7 +213,7 @@ impl<'a> IntoFuture for AzureDevOpsBuildFolderListRequest<'a> {
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsBuildFolderListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsBuildFolderListRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(
+cloud_terrastodon_registry_execution::register_into_future!(
     AzureDevOpsBuildFolderListRequest<'static> => Vec<AzureDevOpsBuildFolder>,
     effects = [Read]
 );

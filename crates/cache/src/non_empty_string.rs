@@ -41,7 +41,7 @@ impl From<&NonEmptyString> for String {
     }
 }
 
-cloud_terrastodon_registry_values::register_thing!(NonEmptyString);
+cloud_terrastodon_registry::register_thing!(NonEmptyString);
 
 #[cfg(test)]
 mod tests {

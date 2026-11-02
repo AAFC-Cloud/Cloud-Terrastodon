@@ -1,12 +1,15 @@
 use crate::CancellationScope;
+use crate::DefaultProductionField;
+use crate::DefaultProductionPlan;
 use crate::Function;
 use crate::FunctionInvocation;
 use crate::InvocationFuture;
-use crate::ProductionKind;
-use crate::RuntimeValue;
-use crate::describe_shape;
+use crate::default_production_kind::DefaultProductionKind;
 use crate::functions_to;
-use crate::known_thing_for_shape;
+use cloud_terrastodon_registry::ProductionKind;
+use cloud_terrastodon_registry::RuntimeValue;
+use cloud_terrastodon_registry::describe_shape;
+use cloud_terrastodon_registry::known_thing_for_shape;
 use facet::Shape;
 use facet::Type;
 use facet::UserType;
@@ -15,57 +18,6 @@ use std::pin::Pin;
 
 type BoxedDefaultInputFuture<'a> =
     Pin<Box<dyn Future<Output = eyre::Result<Box<dyn std::any::Any + Send>>> + Send + 'a>>;
-
-/// A registry-discovered recipe for producing a value without user-provided
-/// input. The recipe is deliberately type-erased: callers can inspect its
-/// target shape, while the registry remains responsible for deciding which
-/// defaults and registered producers form a valid chain.
-pub struct DefaultProductionPlan {
-    shape: &'static Shape,
-    kind: DefaultProductionKind,
-}
-
-enum DefaultProductionKind {
-    Default,
-    Struct {
-        fields: Vec<DefaultProductionField>,
-    },
-    Invoke {
-        function: &'static Function,
-        input: Box<DefaultProductionPlan>,
-    },
-}
-
-pub struct DefaultProductionField {
-    pub field_index: usize,
-    pub field_name: &'static str,
-    pub plan: Box<DefaultProductionPlan>,
-}
-
-pub enum DefaultProductionPlanKind<'a> {
-    Default,
-    Struct(&'a [DefaultProductionField]),
-    Invoke {
-        function: &'static Function,
-        input: &'a DefaultProductionPlan,
-    },
-}
-
-impl DefaultProductionPlan {
-    pub fn shape(&self) -> &'static Shape {
-        self.shape
-    }
-
-    pub fn kind(&self) -> DefaultProductionPlanKind<'_> {
-        match &self.kind {
-            DefaultProductionKind::Default => DefaultProductionPlanKind::Default,
-            DefaultProductionKind::Struct { fields } => DefaultProductionPlanKind::Struct(fields),
-            DefaultProductionKind::Invoke { function, input } => {
-                DefaultProductionPlanKind::Invoke { function, input }
-            }
-        }
-    }
-}
 
 /// Find a recipe for constructing `shape` from reflected defaults and
 /// registered producers.
@@ -88,7 +40,7 @@ pub fn shape_can_be_produced_from_defaults(shape: &'static Shape) -> bool {
 /// Executable requests are bound to the supplied operation token before dispatch;
 /// reflected input defaults never determine their cancellation lifetime.
 pub fn invoke_with_default_input(
-    function: &'static Function,
+    function: Function,
     cancellation: &CancellationScope,
 ) -> InvocationFuture {
     let cancellation = cancellation.clone();
@@ -102,11 +54,13 @@ pub fn invoke_with_default_input(
         let input = realize_plan_as_boxed(&plan, &cancellation).await?;
 
         let output = match function.receiver_mode {
-            crate::ReceiverMode::ByValue => function.invoke_value_boxed(input, &cancellation)?,
-            crate::ReceiverMode::ByRef => {
+            cloud_terrastodon_registry::ReceiverMode::ByValue => {
+                function.invoke_value_boxed(input, &cancellation)?
+            }
+            cloud_terrastodon_registry::ReceiverMode::ByRef => {
                 FunctionInvocation::Ready(function.invoke_ref_boxed(input.as_ref())?)
             }
-            crate::ReceiverMode::ByMut => {
+            cloud_terrastodon_registry::ReceiverMode::ByMut => {
                 let mut input = input;
                 FunctionInvocation::Ready(function.invoke_mut_boxed(input.as_mut())?)
             }
@@ -223,13 +177,13 @@ fn realize_plan<'a>(
             DefaultProductionKind::Invoke { function, input } => {
                 let input = realize_plan_as_boxed(input, cancellation).await?;
                 let output = match function.receiver_mode {
-                    crate::ReceiverMode::ByValue => {
+                    cloud_terrastodon_registry::ReceiverMode::ByValue => {
                         function.invoke_value_boxed(input, cancellation)?
                     }
-                    crate::ReceiverMode::ByRef => {
+                    cloud_terrastodon_registry::ReceiverMode::ByRef => {
                         FunctionInvocation::Ready(function.invoke_ref_boxed(input.as_ref())?)
                     }
-                    crate::ReceiverMode::ByMut => {
+                    cloud_terrastodon_registry::ReceiverMode::ByMut => {
                         let mut input = input;
                         FunctionInvocation::Ready(function.invoke_mut_boxed(input.as_mut())?)
                     }

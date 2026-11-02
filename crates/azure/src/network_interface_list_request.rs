@@ -115,4 +115,4 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(NetworkInterfaceListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(NetworkInterfaceListRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(NetworkInterfaceListRequest<'static> => Vec<AzureNetworkInterfaceResource>, effects = [Read]);
+cloud_terrastodon_registry_execution::register_into_future!(NetworkInterfaceListRequest<'static> => Vec<AzureNetworkInterfaceResource>, effects = [Read]);

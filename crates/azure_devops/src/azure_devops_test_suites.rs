@@ -119,7 +119,7 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsTestSuiteLis
 cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsTestSuiteListRequest<'a>, 'a);
 cloud_terrastodon_registry::register_thing!(AzureDevOpsTestSuiteListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsTestSuiteListRequest<'static>);
-cloud_terrastodon_registry::register_into_future!(AzureDevOpsTestSuiteListRequest<'static> => Vec<AzureDevOpsTestSuite>, effects = [Read]);
+cloud_terrastodon_registry_execution::register_into_future!(AzureDevOpsTestSuiteListRequest<'static> => Vec<AzureDevOpsTestSuite>, effects = [Read]);
 
 #[cfg(test)]
 mod test {
