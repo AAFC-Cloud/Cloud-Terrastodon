@@ -1,6 +1,6 @@
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [workspace]
-members = ["crates/*", "examples/standalone-cli", "examples/group-management"]
+members = ["crates/*", "examples/standalone-cli", "examples/group-management", "tools/iconography-cli"]
 [workspace.package]
 edition = "2024"
 authors = ["TeamDman"]
@@ -86,6 +86,7 @@ eyre = "0.6.12"
 color-eyre = "0.6.3"
 bstr = "1.11.3"
 reqwest = { version = "0.12.22", features = ["json"] }
+quick-xml = "=0.39.4"
 url = "2.5.8"
 base64 = "0.22.1"
 sha2 = "0.10.9"
@@ -235,6 +236,22 @@ path = "./crates/credentials"
 [workspace.dependencies.cloud_terrastodon_rest]
 version = "0.37.0"            # CT_VERSION
 path = "./crates/rest"
+
+
+[workspace.dependencies.cloud_terrastodon_iconography]
+version = "0.37.0" # CT_VERSION
+path = "./crates/iconography"
+default-features = false
+
+[workspace.dependencies.cloud_terrastodon_iconography_azure]
+version = "0.37.0" # CT_VERSION
+path = "./crates/iconography_azure"
+default-features = false
+
+[workspace.dependencies.cloud_terrastodon_iconography_azure_devops]
+version = "0.37.0" # CT_VERSION
+path = "./crates/iconography_azure_devops"
+default-features = false
 
 [package]
 name = "cloud_terrastodon"

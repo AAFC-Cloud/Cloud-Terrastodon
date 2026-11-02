@@ -1397,6 +1397,67 @@ dependencies = [
 ]
 
 [[package]]
+name = "cloud_terrastodon_iconography"
+version = "0.37.0"
+dependencies = [
+ "arbitrary",
+ "cloud_terrastodon_registry",
+ "eyre",
+ "linkme",
+ "teamy-facet",
+]
+
+[[package]]
+name = "cloud_terrastodon_iconography_azure"
+version = "0.37.0"
+dependencies = [
+ "arbitrary",
+ "cloud_terrastodon_azure_resource_types",
+ "cloud_terrastodon_iconography",
+ "eyre",
+ "linkme",
+ "teamy-facet",
+]
+
+[[package]]
+name = "cloud_terrastodon_iconography_azure_devops"
+version = "0.37.0"
+dependencies = [
+ "arbitrary",
+ "cloud_terrastodon_iconography",
+ "eyre",
+ "linkme",
+ "teamy-facet",
+]
+
+[[package]]
+name = "cloud_terrastodon_iconography_cli"
+version = "0.37.0"
+dependencies = [
+ "base64",
+ "chrono",
+ "cloud_terrastodon_app",
+ "cloud_terrastodon_iconography",
+ "cloud_terrastodon_iconography_azure",
+ "cloud_terrastodon_iconography_azure_devops",
+ "cloud_terrastodon_registry",
+ "eyre",
+ "prettyplease",
+ "proc-macro2",
+ "quick-xml",
+ "quote",
+ "reqwest",
+ "sha2 0.10.9",
+ "syn 2.0.118",
+ "teamy-cancellation",
+ "teamy-facet",
+ "teamy-facet-json",
+ "tempfile",
+ "tokio",
+ "url",
+]
+
+[[package]]
 name = "cloud_terrastodon_pathing"
 version = "0.37.0"
 dependencies = [

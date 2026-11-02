@@ -1,0 +1,24 @@
+[package]
+name = "cloud_terrastodon_iconography"
+description = "Shared SVG icon contracts for Cloud Terrastodon icon collections"
+version = "0.37.0" # CT_VERSION
+readme = "README.md"
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+cloud_terrastodon_registry = { workspace = true, optional = true }
+eyre = { workspace = true, optional = true }
+facet = { workspace = true, optional = true }
+
+[dev-dependencies]
+arbitrary.workspace = true
+linkme.workspace = true
+
+[features]
+default = []
+registry = ["dep:cloud_terrastodon_registry", "dep:eyre", "dep:facet"]

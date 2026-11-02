@@ -1,0 +1,117 @@
+{
+  "research_version": 1,
+  "researched_utc": "2026-10-26T18:15:30Z",
+  "assets": [
+    {
+      "slug": "azure/resource-group",
+      "destination": "crates/iconography_azure/svg/resource-group.svg",
+      "logical_name": "svg/HubsExtension/ResourceGroups.svg",
+      "url": "https://raw.githubusercontent.com/maskati/azure-icons/c1388089fcf9ba405bd8f721124d7d94ed8c0ba3/svg/HubsExtension/ResourceGroups.svg",
+      "discovery_url": "https://api.github.com/repos/maskati/azure-icons/commits/main",
+      "discovery_method": "Resolve current main SHA, verify logical path against repository README, then use a revision-pinned raw URL",
+      "pinned_revision": "c1388089fcf9ba405bd8f721124d7d94ed8c0ba3",
+      "original_source_url": "https://portal.azure.com/",
+      "extractor_url": "https://github.com/maskati/azure-icons/blob/c1388089fcf9ba405bd8f721124d7d94ed8c0ba3/.github/workflows/download-azure-icons.yml",
+      "retrieved_utc": "2026-10-26T18:15:30Z",
+      "sha256": "9837c31bb94e4c8fb910127bdaadfcb58122d50f1b5c47bad7f501de68159865",
+      "byte_length": 5462,
+      "content_type": "image/svg+xml",
+      "final_url": "https://raw.githubusercontent.com/maskati/azure-icons/c1388089fcf9ba405bd8f721124d7d94ed8c0ba3/svg/HubsExtension/ResourceGroups.svg",
+      "terms_url": "https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions",
+      "view_box": "0 0 18 18"
+    },
+    {
+      "slug": "azure/subscription",
+      "destination": "crates/iconography_azure/svg/subscription.svg",
+      "logical_name": "svg/Microsoft_Azure_Billing/Subscription.svg",
+      "url": "https://raw.githubusercontent.com/maskati/azure-icons/c1388089fcf9ba405bd8f721124d7d94ed8c0ba3/svg/Microsoft_Azure_Billing/Subscription.svg",
+      "discovery_url": "https://api.github.com/repos/maskati/azure-icons/commits/main",
+      "discovery_method": "Resolve current main SHA, verify logical path against repository README, then use a revision-pinned raw URL",
+      "pinned_revision": "c1388089fcf9ba405bd8f721124d7d94ed8c0ba3",
+      "original_source_url": "https://portal.azure.com/",
+      "extractor_url": "https://github.com/maskati/azure-icons/blob/c1388089fcf9ba405bd8f721124d7d94ed8c0ba3/.github/workflows/download-azure-icons.yml",
+      "retrieved_utc": "2026-10-26T18:15:30Z",
+      "sha256": "80a3815fbd58bf2c3eb4b16a72b03a4509e9e4845088773616ccab53ce5742a1",
+      "byte_length": 5208,
+      "content_type": "image/svg+xml",
+      "final_url": "https://raw.githubusercontent.com/maskati/azure-icons/c1388089fcf9ba405bd8f721124d7d94ed8c0ba3/svg/Microsoft_Azure_Billing/Subscription.svg",
+      "terms_url": "https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions",
+      "view_box": "0 0 18 18"
+    },
+    {
+      "slug": "azure-devops/boards",
+      "destination": "crates/iconography_azure_devops/svg/boards.svg",
+      "logical_name": "ms.vss-status-web/core/Content/AzDevOpsBoards.svg",
+      "url": "https://cdn.vsassets.io/ext/ms.vss-status-web/core/Content/AzDevOpsBoards.Gfto6L.svg",
+      "discovery_url": "https://status.dev.azure.com/_history",
+      "discovery_method": "Read sharedData._assets from the public page contribution JSON and resolve the exact logical name",
+      "pinned_revision": null,
+      "original_source_url": "https://status.dev.azure.com/_history",
+      "retrieved_utc": "2026-10-26T18:15:30Z",
+      "sha256": "19fb68e8b3047dd763aa2525925696a46ec77413606c9d8a95544937384a5847",
+      "byte_length": 3531,
+      "content_type": "image/svg+xml",
+      "final_url": "https://cdn.vsassets.io/ext/ms.vss-status-web/core/Content/AzDevOpsBoards.Gfto6L.svg",
+      "terms_url": "https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions",
+      "view_box": "0 0 96 96"
+    },
+    {
+      "slug": "azure-devops/plan",
+      "destination": "crates/iconography_azure_devops/svg/plan.svg",
+      "logical_name": "ms.vss-work-web/common-content/Content/Plan.svg",
+      "url": "https://cdn.vsassets.io/ext/ms.vss-work-web/common-content/Content/Plan.Gfto6L.svg",
+      "discovery_url": "https://cdn.vsassets.io/ext/ms.vss-work-web/common-content/Content/Plan.Gfto6L.svg",
+      "discovery_method": "Exact user-provided hashed asset URL; not a status-page map entry and no hash rediscovery source has been verified",
+      "pinned_revision": null,
+      "original_source_url": "https://cdn.vsassets.io/ext/ms.vss-work-web/common-content/Content/Plan.Gfto6L.svg",
+      "retrieved_utc": "2026-10-26T18:15:30Z",
+      "sha256": "19fb68e8b3047dd763aa2525925696a46ec77413606c9d8a95544937384a5847",
+      "byte_length": 3531,
+      "content_type": "image/svg+xml",
+      "final_url": "https://cdn.vsassets.io/ext/ms.vss-work-web/common-content/Content/Plan.Gfto6L.svg",
+      "terms_url": "https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions",
+      "view_box": "0 0 96 96"
+    },
+    {
+      "slug": "azure-devops/repos",
+      "destination": "crates/iconography_azure_devops/svg/repos.svg",
+      "logical_name": "ms.vss-status-web/core/Content/AzDevOpsRepos.svg",
+      "url": "https://cdn.vsassets.io/ext/ms.vss-status-web/core/Content/AzDevOpsRepos.TyuQQr.svg",
+      "discovery_url": "https://status.dev.azure.com/_history",
+      "discovery_method": "Read sharedData._assets from the public page contribution JSON and resolve the exact logical name",
+      "pinned_revision": null,
+      "original_source_url": "https://status.dev.azure.com/_history",
+      "retrieved_utc": "2026-10-26T18:15:30Z",
+      "sha256": "4f2b9042b80595b84b25f59faa8635fb86fe3ba90014c189d00dbf6efb00d28e",
+      "byte_length": 3835,
+      "content_type": "image/svg+xml",
+      "final_url": "https://cdn.vsassets.io/ext/ms.vss-status-web/core/Content/AzDevOpsRepos.TyuQQr.svg",
+      "terms_url": "https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions",
+      "view_box": "0 0 96 96"
+    }
+  ],
+  "azure_repository": {
+    "url": "https://github.com/maskati/azure-icons",
+    "pinned_revision": "c1388089fcf9ba405bd8f721124d7d94ed8c0ba3",
+    "readme_url": "https://github.com/maskati/azure-icons/blob/c1388089fcf9ba405bd8f721124d7d94ed8c0ba3/README.md",
+    "extractor_url": "https://github.com/maskati/azure-icons/blob/c1388089fcf9ba405bd8f721124d7d94ed8c0ba3/.github/workflows/download-azure-icons.yml",
+    "portal_version": "18.357.4.1",
+    "portal_configuration_hash": "Zalm24MY-7F3",
+    "reported_extraction_date": "2026-10-26",
+    "extraction_notes": "The repository obtains the anonymous Portal bootstrap, require configuration, base image library, SVG module bundles, and extension asset-type manifests. It resolves icon types through the image library and preserves extension/asset identity in filenames. Its saved SVGs add title/description and base image CSS, set the SVG namespace, and replace GUID reference identifiers. These downloads preserve the repository SVG bytes exactly; they are not claimed to be untouched Portal bundle substrings."
+  },
+  "terms_sources": [
+    {
+      "url": "https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions",
+      "conclusion": "The Azure repository cites this Microsoft copyright guidance. It permits specific documentation and training uses subject to conditions and does not provide a general open-source artwork license. No separate redistribution grant for these Portal or DevOps CDN assets was verified. Public availability does not establish that grant."
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/azure/architecture/icons/",
+      "conclusion": "This separate official collection allows architecture diagrams, training materials, and documentation under its stated icon terms. Those terms were not assumed to cover Portal-extracted or Azure DevOps CDN artwork."
+    },
+    {
+      "url": "https://www.microsoft.com/en-us/legal/intellectualproperty/trademarks",
+      "conclusion": "Microsoft retains rights in product icons and other brand assets; the guidelines do not establish an unrestricted artwork redistribution license."
+    }
+  ]
+}

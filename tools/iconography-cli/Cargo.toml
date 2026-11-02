@@ -1,0 +1,39 @@
+[package]
+name = "cloud_terrastodon_iconography_cli"
+description = "Standalone maintenance CLI for Cloud Terrastodon icon catalogues"
+version = "0.37.0" # CT_VERSION
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+publish = false
+readme = "README.md"
+
+[[bin]]
+name = "iconography"
+path = "src/main.rs"
+
+[dependencies]
+cloud_terrastodon_app.workspace = true
+facet.workspace = true
+facet-json.workspace = true
+chrono.workspace = true
+url.workspace = true
+reqwest.workspace = true
+sha2.workspace = true
+quote.workspace = true
+proc-macro2.workspace = true
+syn.workspace = true
+prettyplease.workspace = true
+tempfile.workspace = true
+eyre.workspace = true
+quick-xml.workspace = true
+
+[dev-dependencies]
+cloud_terrastodon_registry.workspace = true
+cloud_terrastodon_iconography = { workspace = true, features = ["registry"] }
+cloud_terrastodon_iconography_azure = { workspace = true, features = ["resources", "registry"] }
+cloud_terrastodon_iconography_azure_devops = { workspace = true, features = ["boards", "registry"] }
+base64.workspace = true
+teamy-cancellation.workspace = true
+tokio.workspace = true

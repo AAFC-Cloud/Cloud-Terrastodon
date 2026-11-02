@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "icons": [
+    {
+      "family": "azure",
+      "variant": "ResourceGroup",
+      "name": "Resource group",
+      "category": "resources",
+      "file": "resource-group.svg",
+      "source_url": "https://raw.githubusercontent.com/maskati/azure-icons/c1388089fcf9ba405bd8f721124d7d94ed8c0ba3/svg/HubsExtension/ResourceGroups.svg",
+      "logical_name": "svg/HubsExtension/ResourceGroups.svg",
+      "discovery_url": "https://api.github.com/repos/maskati/azure-icons/git/ref/heads/main",
+      "sha256": "9837c31bb94e4c8fb910127bdaadfcb58122d50f1b5c47bad7f501de68159865",
+      "retrieved_at": "2026-10-26T18:15:30Z",
+      "terms_url": "https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions",
+      "resource_types": [
+        "Microsoft.Resources/resourceGroups",
+        "Microsoft.Resources/subscriptions/resourceGroups"
+      ]
+    },
+    {
+      "family": "azure",
+      "variant": "Subscription",
+      "name": "Subscription",
+      "category": "resources",
+      "file": "subscription.svg",
+      "source_url": "https://raw.githubusercontent.com/maskati/azure-icons/c1388089fcf9ba405bd8f721124d7d94ed8c0ba3/svg/Microsoft_Azure_Billing/Subscription.svg",
+      "logical_name": "svg/Microsoft_Azure_Billing/Subscription.svg",
+      "discovery_url": "https://api.github.com/repos/maskati/azure-icons/git/ref/heads/main",
+      "sha256": "80a3815fbd58bf2c3eb4b16a72b03a4509e9e4845088773616ccab53ce5742a1",
+      "retrieved_at": "2026-10-26T18:15:30Z",
+      "terms_url": "https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions",
+      "resource_types": [
+        "Microsoft.Resources/subscriptions"
+      ]
+    },
+    {
+      "family": "azure-devops",
+      "variant": "Boards",
+      "name": "Boards",
+      "category": "boards",
+      "file": "boards.svg",
+      "source_url": "https://cdn.vsassets.io/ext/ms.vss-status-web/core/Content/AzDevOpsBoards.Gfto6L.svg",
+      "logical_name": "ms.vss-status-web/core/Content/AzDevOpsBoards.svg",
+      "discovery_url": "https://status.dev.azure.com/_history",
+      "sha256": "19fb68e8b3047dd763aa2525925696a46ec77413606c9d8a95544937384a5847",
+      "retrieved_at": "2026-10-26T18:15:30Z",
+      "terms_url": "https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions",
+      "resource_types": []
+    },
+    {
+      "family": "azure-devops",
+      "variant": "Plan",
+      "name": "Plan",
+      "category": "boards",
+      "file": "plan.svg",
+      "source_url": "https://cdn.vsassets.io/ext/ms.vss-work-web/common-content/Content/Plan.Gfto6L.svg",
+      "logical_name": "ms.vss-work-web/common-content/Content/Plan.svg",
+      "discovery_url": "https://cdn.vsassets.io/ext/ms.vss-work-web/common-content/Content/Plan.Gfto6L.svg",
+      "sha256": "19fb68e8b3047dd763aa2525925696a46ec77413606c9d8a95544937384a5847",
+      "retrieved_at": "2026-10-26T18:15:30Z",
+      "terms_url": "https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions",
+      "resource_types": []
+    },
+    {
+      "family": "azure-devops",
+      "variant": "Repos",
+      "name": "Repos",
+      "category": "repos",
+      "file": "repos.svg",
+      "source_url": "https://cdn.vsassets.io/ext/ms.vss-status-web/core/Content/AzDevOpsRepos.TyuQQr.svg",
+      "logical_name": "ms.vss-status-web/core/Content/AzDevOpsRepos.svg",
+      "discovery_url": "https://status.dev.azure.com/_history",
+      "sha256": "4f2b9042b80595b84b25f59faa8635fb86fe3ba90014c189d00dbf6efb00d28e",
+      "retrieved_at": "2026-10-26T18:15:30Z",
+      "terms_url": "https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions",
+      "resource_types": []
+    }
+  ]
+}
