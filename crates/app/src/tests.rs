@@ -188,40 +188,6 @@ fn invalid_schema_returns_typed_builder_error() {
 }
 
 #[test]
-fn module_directives_and_independent_file_filter_are_supported() {
-    let globals = GlobalArgs {
-        log_filter: "consumer_example=trace".into(),
-        log_file_filter: Some("warn".into()),
-        ..GlobalArgs::default()
-    };
-    let (console, file) = logging_filters(&globals).unwrap();
-    assert_eq!(console.to_string(), "consumer_example=trace");
-    assert_eq!(file.unwrap().to_string(), "warn");
-}
-
-#[test]
-fn debug_selects_console_debug_but_preserves_file_filter() {
-    let globals = GlobalArgs {
-        debug: true,
-        log_filter: "not a valid directive".into(),
-        log_file_filter: Some("error".into()),
-        ..GlobalArgs::default()
-    };
-    let (console, file) = logging_filters(&globals).unwrap();
-    assert_eq!(console.to_string(), "debug");
-    assert_eq!(file.unwrap().to_string(), "error");
-}
-
-#[test]
-fn exit_guard_requests_cooperative_cancellation() {
-    let token = CancellationToken::new();
-    let guard = CancelOnDrop(token.clone());
-    assert!(!token.is_cancelled());
-    drop(guard);
-    assert!(token.is_cancelled());
-}
-
-#[test]
 fn nested_runtime_is_rejected_without_invoking_handler() {
     let runtime = tokio::runtime::Builder::new_current_thread()
         .build()

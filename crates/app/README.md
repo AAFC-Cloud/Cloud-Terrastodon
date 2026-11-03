@@ -86,8 +86,21 @@ cancellation at their error boundary in the same way.
 
 Optional `auth` enables `--auth-source` and `AppContext::auth`. Optional `terminal`
 enables coordinated pickers/logs. Neither enables Cloud Terrastodon's full command
-tree or egui. Without them, the runner does not depend on the registry or cloud
-credentials. Features are additive across a Cargo dependency graph.
+tree or egui. Without `auth`, the runner supplies a disabled authentication
+provider and does not load the runtime credential implementation. Features are
+additive across a Cargo dependency graph.
+
+`context.executor()` binds a cheap executor handle to the handler's current
+cancellation scope, selected authentication, and invocation-owned work cache.
+Requests implementing `ExecutableRequest` can use
+`context.executor().execute(request).await`; the equivalent request method is
+`request.execute(&executor).await` after binding a local executor handle.
+Repeated bindings share the cache owner and resolved credential session. Binding
+does not discover credentials, acquire tokens, or read cache contents. Startup
+selects the `commands/work` subdirectory of the existing application cache root;
+the directory is created only when work needs to persist artifacts. The public
+`auth` and `cancellation` fields remain available for existing SDK callers; each
+new executor binding uses their current values.
 
 Authentication runtime state lives in `cloud_terrastodon_auth`; source and
 request selections live in `cloud_terrastodon_auth_types`. The facade exports

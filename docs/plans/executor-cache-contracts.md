@@ -16,16 +16,18 @@ foundation, and `registry_execution` owns execution-aware registration and
 invocation. The runtime authentication crate is named `auth`, paired with
 `auth_types`. `AzureTenantId` remains in `azure_types`; task 3.1 has moved
 `AuthSource` from the former `credentials` crate to `auth_types` and renamed the
-runtime to `auth`. Task 3.0 implemented the registry split. Executor/provider
-integration remains the approved target for tasks 3.2–3.3.
+runtime to `auth`. Task 3.0 implemented the registry split. Task 3.2 implemented
+the executor/provider and application binding with offline verification recorded
+in the owning plan. Registry invocation integration remains task 3.3.
 
-The concrete `CloudTerrastodonExecutor` belongs in a new
+The concrete `CloudTerrastodonExecutor` belongs in the new
 `cloud_terrastodon_execution` crate. It owns capabilities through interfaces and
-does not import credential implementations. The target `auth` crate supplies
+does not import credential implementations. The `auth` crate supplies
 `CredentialAuthenticationProvider`, which implements the execution crate's
-`AuthenticationProvider` interface. Application startup constructs the provider
-and injects it into the executor. A separate higher-level executor crate and a
-second wrapper around the executor are unnecessary.
+`AuthenticationProvider` interface. Application startup supplies the bounded
+scope, selected auth context, and cache owner; `AppContext::executor()` binds them
+to an executor with the injected provider. A separate higher-level executor crate
+and a second wrapper around the executor are unnecessary.
 
 The following table lists target edges relevant to this boundary. Other existing
 workspace dependencies remain unless a named migration task changes them.
@@ -208,10 +210,10 @@ owning definition. Package/type ownership changes alone do not authorize changes
 to credential discovery, admission, or session behavior. U67/U68 separately
 authorize the identity and persistent-session contracts specified in G3 below.
 
-Task 3.1 must compile before the new `execution` crate exists. Its runtime
-identity-policy work uses the existing execution plumbing. Task 3.2 introduces
+Task 3.1 was independently compilable before the new `execution` crate existed.
+Its runtime identity-policy work used the existing execution plumbing. Task 3.2 introduces
 the executor and provider interface, implements `CredentialAuthenticationProvider`
-in `auth`, and wires provider injection at startup; that task adds the target
+in `auth`, and wires provider injection through the app binding; that task adds the target
 `auth -> execution` edge. The target table does not require this provider adapter
 or dependency during the earlier rename/extraction slice.
 
@@ -277,6 +279,16 @@ scope rebinding is internal; public `cancellable_scope`, `with_async_scope`,
 their callbacks. Explicitly dropping a future still can abandon work; the executor
 does not promise protection beyond the underlying cancellation contract.
 
+The minimal task 3.2 app binding retains the existing public `AppContext::auth`
+and `AppContext::cancellation` fields until their callers migrate. The context
+owns one private `WorkCache`; `executor()` builds a cheap bound handle from those
+current fields and the shared cache. Repeated auth wrappers retain the same
+`AuthContext`-owned credential session. Already-returned executors retain their
+original binding if the caller replaces a context field. No independently stored
+executor snapshot competes with those fields. Startup selects the separate
+`commands/work` cache directory and performs lexical root validation without
+reading or creating it; parsing never constructs this runtime binding.
+
 The pinned cancellation API accepts factories of the form
 `FnOnce(CancellationScope) -> F`, where `F: IntoFuture<Output = Result<T, E>>`
 and `E: From<CancellationError>`. It does not impose `'static` callbacks or
@@ -285,6 +297,12 @@ preserve the distinction between protected new work and already-owed cleanup.
 The initiating caller owns a shared read attempt; cancelling it cancels that
 attempt, releases initializer ownership, and permits a surviving waiter to retry.
 No detached cache-fill task is introduced.
+
+A completed cancellation wrapper may still own its inner future until the
+wrapper is dropped. An owner must release that wrapper before awaiting another
+caller whose retry needs the inner future's initializer ownership. A normal
+lexical scope or explicit drop supplies that boundary; retaining a completed
+pinned wrapper must not prolong the work's locks while waiting on its successor.
 
 An ordinary `cancellable_scope` creates a child ownership boundary while sharing
 the parent's cancellation intent. Calling `request_cancel` on that scope is not
@@ -315,6 +333,15 @@ explicit cache/scope inputs through an execution-layer adapter; it does not
 import `CloudTerrastodonExecutor` or a credential provider back into `cache`.
 Authentication admission supplies an `AuthPartition` before that adapter asks
 the cache to reuse an entry.
+The execution adapter rechecks admission at binding, before cache access, before
+and after initialization, and before returning a result. Each check must still
+admit the same partition. Revocation or identity changes while waiting cannot
+authorize receipt or retry under the old binding, and changes during
+initialization cannot publish that output under its earlier partition.
+An admission error from semantic child work makes the active parent and its
+ancestors nonreusable even if the parent catches the error. The cache exposes
+`WorkAttempt::prevent_reuse` for that execution-layer boundary and rejects using
+a completed token to revoke an accepted result.
 
 An arbitrary validator/mapper is caller policy. It runs for every caller after
 obtaining the canonical result, including hits and joiners, and its output is
@@ -330,6 +357,9 @@ or a retained cache entry. Consequently that wrapper itself need not be `Send`.
 Callers that spawn it are responsible for supplying `Send` callbacks. A projection
 may return an owned caller-specific value or a value borrowing caller-owned data;
 it does not acquire cache bounds merely because its input was an `Arc<T>`.
+Task 3.2 verifies these caller-side lifetimes with synthetic wrappers; it does not
+introduce a lifecycle-observer API or migrate transport callback entrypoints.
+Those adapter and SDK changes retain their later owning tasks.
 
 ### Registry invocation
 
@@ -458,6 +488,9 @@ the correct child cancellation relationship when running subprocesses or HTTP
 exchanges. Such work is explicitly credential infrastructure, not a semantic
 inventory dependency. Infrastructure classification cannot hide a domain write
 or user solicitation.
+The executor rejects both general cached work and direct cache-handle access
+inside credential infrastructure; its linked child scope helpers preserve that
+classification. Authorization cannot recursively request authorization.
 
 ### Auth partitions and their lifetime
 

@@ -918,6 +918,7 @@ dependencies = [
  "cloud_terrastodon_command",
  "cloud_terrastodon_config",
  "cloud_terrastodon_entrypoint",
+ "cloud_terrastodon_execution",
  "cloud_terrastodon_gitea",
  "cloud_terrastodon_hcl",
  "cloud_terrastodon_hcl_types",
@@ -949,6 +950,9 @@ dependencies = [
  "arbitrary",
  "cloud_terrastodon_auth",
  "cloud_terrastodon_auth_types",
+ "cloud_terrastodon_cache",
+ "cloud_terrastodon_execution",
+ "cloud_terrastodon_pathing",
  "cloud_terrastodon_tracing",
  "cloud_terrastodon_user_input",
  "color-eyre",
@@ -977,6 +981,7 @@ dependencies = [
  "cloud_terrastodon_cache",
  "cloud_terrastodon_command",
  "cloud_terrastodon_config",
+ "cloud_terrastodon_execution",
  "cloud_terrastodon_pathing",
  "cloud_terrastodon_registry",
  "eyre",
@@ -1371,6 +1376,19 @@ dependencies = [
  "teamy-facet-json",
  "tempfile",
  "tokio",
+]
+
+[[package]]
+name = "cloud_terrastodon_execution"
+version = "0.37.0"
+dependencies = [
+ "cloud_terrastodon_auth_types",
+ "cloud_terrastodon_cache",
+ "eyre",
+ "teamy-cancellation",
+ "tempfile",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

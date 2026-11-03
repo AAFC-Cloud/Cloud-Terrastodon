@@ -1,5 +1,7 @@
 # Unreleased
 
+- Add `cloud_terrastodon_execution` with explicitly bound request execution, shared cache/authentication handles, linked cancellation scopes, and an injected credential-provider interface. `AppContext::executor()` binds the current app context without credential discovery or cache I/O; existing auth/cancellation fields remain available. Registry invocation and production Command/REST cache cutover remain later migration steps.
+
 - Rename `cloud_terrastodon_credentials` to `cloud_terrastodon_auth` and move authentication selections and credential audiences into `cloud_terrastodon_auth_types`, without compatibility exports. The facade now uses `auth` and `auth-types`; `AzureTenantId` remains in `azure_types`.
 
 - Require an explicit tenant for Azure CLI bearer authentication, including Azure DevOps; PAT authentication remains tenant-independent. Establish persistent, application-owned CLI logins with `ct az tenant login <ID-or-alias> --auth-source azure-cli`. Token acquisition no longer relies on ambient CLI login state or starts an implicit login. Policy remediation and storage-backend container inventory now use typed ARM REST requests with the selected context; the CLI service runner and allowlist are removed. Container inventory is management metadata and does not establish blob-data access. Legacy unbound SDK helpers remain scheduled for request migration. See [authentication](docs/authentication.md).

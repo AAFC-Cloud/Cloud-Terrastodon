@@ -1,0 +1,25 @@
+[package]
+name = "cloud_terrastodon_execution"
+description = "Scoped request execution and injected authentication for Cloud Terrastodon"
+version = "0.37.0" # CT_VERSION
+readme.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+cloud_terrastodon_auth_types.workspace = true
+cloud_terrastodon_cache.workspace = true
+eyre.workspace = true
+teamy-cancellation.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+tokio.workspace = true
+
+[lints]
+workspace = true

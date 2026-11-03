@@ -136,6 +136,10 @@ path = "./crates/pathing"
 version = "0.37.0" # CT_VERSION
 path = "./crates/cache"
 
+[workspace.dependencies.cloud_terrastodon_execution]
+version = "0.37.0" # CT_VERSION
+path = "./crates/execution"
+
 [workspace.dependencies.cloud_terrastodon_source]
 version = "0.37.0"        # CT_VERSION
 path = "./crates/source"
@@ -308,6 +312,7 @@ cloud_terrastodon_ui_ratatui = { workspace = true, optional = true }
 cloud_terrastodon_ui_egui = { workspace = true, optional = true }
 cloud_terrastodon_auth = { workspace = true, optional = true }
 cloud_terrastodon_auth_types = { workspace = true, optional = true }
+cloud_terrastodon_execution = { workspace = true, optional = true }
 cloud_terrastodon_rest = { workspace = true, optional = true }
 
 [dev-dependencies]
@@ -367,6 +372,7 @@ ui-ratatui = ["dep:cloud_terrastodon_ui_ratatui"]
 ui-egui = ["dep:cloud_terrastodon_ui_egui"]
 auth = ["dep:cloud_terrastodon_auth"]
 auth-types = ["dep:cloud_terrastodon_auth_types"]
+execution = ["dep:cloud_terrastodon_execution"]
 rest = ["dep:cloud_terrastodon_rest"]
 
 # Convenience feature that enables all re-exports, similar to tokio's `full`.
@@ -397,6 +403,7 @@ full = [
     "ui-egui",
     "auth",
     "auth-types",
+    "execution",
     "rest",
 ]
 

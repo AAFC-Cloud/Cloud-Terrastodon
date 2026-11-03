@@ -11,7 +11,7 @@
 //! - `pathing`, `config`, `azure`, `azure-types`, `azure-resource-types`,
 //!   `azure-devops`, `azure-devops-types`, `hcl`, `hcl-types`, `user-input`,
 //!   `command`, `software`, `zombies`, `relative-location`, `ui-ratatui`, `ui-egui`,
-//!   `azure-locations`, `auth`, `auth-types`, `rest`, `source`, `source-types`.
+//!   `azure-locations`, `auth`, `auth-types`, `execution`, `rest`, `source`, `source-types`.
 //! - `azure-cli`, `azure-devops-cli`, `source-cli`, `cli-types`: Reusable command
 //!   groups and shared command-line input contracts.
 
@@ -42,6 +42,8 @@ pub use cloud_terrastodon_cli_types as cli_types;
 pub use cloud_terrastodon_command as command;
 #[cfg(feature = "config")]
 pub use cloud_terrastodon_config as config;
+#[cfg(feature = "execution")]
+pub use cloud_terrastodon_execution as execution;
 #[cfg(feature = "hcl")]
 pub use cloud_terrastodon_hcl as hcl;
 #[cfg(feature = "hcl-types")]

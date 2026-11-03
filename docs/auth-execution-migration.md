@@ -15,6 +15,7 @@ Serializable authentication choices belong to `cloud_terrastodon_auth_types`:
 | Resolved request selection | `auth_types::AuthenticationSelection`, `AzureDevOpsAuthSelection`, and `AzureBearerAuthSource` |
 | Credential audience | `auth_types::AzureCredentialResource`, replacing `AzureRestResource` |
 | Credential acquisition and invocation-owned state | `auth::AuthContext`, `AzureTenantAuthContext`, and `AzureDevOpsAuthContext` |
+| Bound execution and injected authentication contract | `execution::CloudTerrastodonExecutor`, `ExecutableRequest`, and `AuthenticationProvider` |
 | Tenant identity | `azure_types::AzureTenantId` |
 
 The facade exposes `cloud_terrastodon::auth` with feature `auth`, and
@@ -27,6 +28,30 @@ Request selections contain the source and tenant, not tokens or credential
 caches. The runtime admits those selections against its owned authentication
 state. Acquired `auth_types::Authorization` values are sensitive and have no
 serialization implementation.
+
+## Binding execution resources
+
+`cloud_terrastodon_execution` supplies the executor and request contract. The
+facade exposes them through `cloud_terrastodon::execution` with feature
+`execution`. Inside an app handler, `context.executor()` binds its current
+cancellation scope, selected authentication, and invocation-owned cache. New
+requests implementing `ExecutableRequest` support either
+`executor.execute(request).await` or `request.execute(&executor).await`.
+
+Repeated app bindings share cache ownership and the resolved credential session.
+Binding does not discover credentials, acquire tokens, or read cache files.
+Without app authentication support, the executor uses a disabled provider that
+permits anonymous work. The existing public `context.auth` and
+`context.cancellation` fields remain available while SDK consumers migrate;
+new bindings use their current values, and existing executor handles keep their
+original binding.
+
+The executor depends on the provider interface, while
+`auth::CredentialAuthenticationProvider` supplies the implementation from an
+already-selected `AuthContext`. Admission checks source/tenant policy before
+cache reuse; acquiring credentials is separate sensitive infrastructure.
+Registry invocation and production Command/REST adapter migration remain later
+steps in the [executor/cache plan](plans/executor-cache-migration.md).
 
 ## Choosing a source and tenant
 
@@ -99,5 +124,6 @@ and subscription explicitly.
 Legacy SDK helpers that execute Azure CLI without an authentication-context
 parameter still use their existing execution path. Their request migrations
 remain in phases 5 and 6 of the [executor/cache plan](plans/executor-cache-migration.md).
-The shared executor and full Command/REST cache cutover are also subsequent
-work; this change does not make every SDK request use the new cache owner.
+The executor binding is available for migrated requests; the full Command/REST
+cache cutover remains subsequent work. Existing SDK requests are not silently
+switched to the new cache owner by adding that binding.

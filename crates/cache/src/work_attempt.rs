@@ -22,6 +22,19 @@ pub struct WorkAttempt {
 }
 
 impl WorkAttempt {
+    /// Prevent this active initializer and its ancestors from publishing reusable results.
+    ///
+    /// Semantic admission or validation may fail outside the cache's child guard.
+    /// Record that failure even when the caller catches it and returns a fallback.
+    /// Already-started leaf publication is quarantined by the same failure policy.
+    /// A completed attempt is rejected without affecting its accepted results.
+    pub fn prevent_reuse(&self) -> Result<()> {
+        let mut state = self.cache.lock_state()?;
+        self.entry(&self.cache, &state)?;
+        self.mark_nonreusable(&mut state);
+        Ok(())
+    }
+
     pub(crate) fn entry<'a>(
         &self,
         cache: &WorkCache,
@@ -168,7 +181,11 @@ mod tests {
         };
 
         // Exercise the interval after publication releases state but before the
-        // attempt guard drops. Both entry points must see a completed token.
+        // attempt guard drops. Every entry point must see a completed token.
+        let error = attempt
+            .prevent_reuse()
+            .expect_err("a finished token cannot revoke an accepted result");
+        assert!(error.to_string().contains("already completed"));
         for owner in [&cache, &foreign] {
             let error = WorkChildGuard::admit(owner, &attempt, true)
                 .err()
@@ -191,6 +208,10 @@ mod tests {
             assert!(state.publication_quarantine.is_empty());
         }
         drop(guard);
+        let error = attempt
+            .prevent_reuse()
+            .expect_err("a retired token cannot revoke an accepted result");
+        assert!(error.to_string().contains("already completed"));
         let state = cache.lock_state()?;
         assert!(state.publication_quarantine.is_empty());
         assert!(state.values[&identity].is_reusable(&state));
