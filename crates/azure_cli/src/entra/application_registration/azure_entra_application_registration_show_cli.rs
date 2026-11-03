@@ -1,3 +1,4 @@
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::EntraApplicationClientId;
@@ -5,7 +6,6 @@ use cloud_terrastodon_azure::EntraApplicationRegistration;
 use cloud_terrastodon_azure::fetch_all_application_registrations;
 use cloud_terrastodon_azure::fetch_application_registration;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use eyre::bail;
 use std::io::Write;

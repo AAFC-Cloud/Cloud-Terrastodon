@@ -7,8 +7,8 @@ pub use azure_entra_role_definition_browse_cli::AzureEntraRoleDefinitionBrowseAr
 pub use azure_entra_role_definition_cli::AzureEntraRoleDefinitionCommand;
 pub use azure_entra_role_definition_find_cli::AzureEntraRoleDefinitionFindArgs;
 pub use azure_entra_role_definition_list_cli::AzureEntraRoleDefinitionListArgs;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Manage Entra role definitions.

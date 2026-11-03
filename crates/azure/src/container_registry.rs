@@ -1,4 +1,5 @@
 use crate::ResourceGraphHelper;
+use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure_types::ContainerRegistry;
 use cloud_terrastodon_azure_types::ContainerRegistryId;
 use cloud_terrastodon_azure_types::ContainerRegistryRepositoryName;
@@ -11,7 +12,6 @@ use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Result;
 use std::borrow::Cow;
 use std::path::PathBuf;
@@ -135,9 +135,9 @@ mod test {
     use crate::fetch_container_registry_repository_names;
     use crate::fetch_container_registry_repository_tags;
     use crate::get_test_tenant_id;
+    use cloud_terrastodon_auth::AuthContext;
     use cloud_terrastodon_azure_types::Slug;
     use cloud_terrastodon_command::CancellationToken;
-    use cloud_terrastodon_credentials::AuthContext;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {

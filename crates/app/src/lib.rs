@@ -23,9 +23,9 @@ mod windows_support;
 
 use app_cli::AppCli;
 #[cfg(feature = "auth")]
-pub use cloud_terrastodon_credentials::AuthContext;
+pub use cloud_terrastodon_auth::AuthContext;
 #[cfg(feature = "auth")]
-pub use cloud_terrastodon_credentials::AuthSource;
+pub use cloud_terrastodon_auth_types::AuthSource;
 pub use eyre::Result;
 pub use facet;
 pub use figue;

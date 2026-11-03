@@ -11,8 +11,9 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
+cloud_terrastodon_auth_types = { workspace = true, optional = true }
 cloud_terrastodon_tracing.workspace = true
-cloud_terrastodon_credentials = { workspace = true, optional = true }
+cloud_terrastodon_auth = { workspace = true, optional = true }
 cloud_terrastodon_user_input = { workspace = true, optional = true }
 facet.workspace = true
 facet-json.workspace = true
@@ -31,7 +32,7 @@ windows = { version = "0.62.2", features = ["Win32_System_Console", "Win32_Globa
 
 [features]
 default = []
-auth = ["dep:cloud_terrastodon_credentials"]
+auth = ["dep:cloud_terrastodon_auth", "dep:cloud_terrastodon_auth_types"]
 terminal = ["dep:cloud_terrastodon_user_input"]
 arbitrary = ["dep:arbitrary"]
 extended_observability = [

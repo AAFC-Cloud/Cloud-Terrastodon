@@ -1,7 +1,7 @@
 use crate::domain::DesiredGroup;
 use cloud_terrastodon::app::AuthContext;
+use cloud_terrastodon::auth::AzureTenantAuthContext;
 use cloud_terrastodon::azure_types::AzureTenantId;
-use cloud_terrastodon::credentials::AzureTenantAuthContext;
 use eyre::Result;
 use eyre::ensure;
 use std::collections::BTreeMap;
@@ -52,7 +52,7 @@ mod tests {
     use crate::domain::ReconciliationMode;
     use cloud_terrastodon::app::AuthContext;
     use cloud_terrastodon::app::AuthSource;
-    use cloud_terrastodon::credentials::WorkloadIdentityConfig;
+    use cloud_terrastodon::auth::WorkloadIdentityConfig;
 
     fn group(tenant: &str) -> DesiredGroup {
         DesiredGroup {

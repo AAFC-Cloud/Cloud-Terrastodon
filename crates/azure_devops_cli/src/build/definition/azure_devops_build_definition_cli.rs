@@ -2,8 +2,8 @@ use super::folder::AzureDevOpsBuildDefinitionFolderArgs;
 use super::list::AzureDevOpsBuildDefinitionListArgs;
 use super::show::AzureDevOpsBuildDefinitionShowArgs;
 use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Pipeline definitions and their folders.

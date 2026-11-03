@@ -1,6 +1,7 @@
 use super::OAuth2PermissionGrantPreset;
 use super::resolve_preset_service_principals;
 use super::split_scope_csv;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::AzurePrincipalArgument;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
@@ -10,7 +11,6 @@ use cloud_terrastodon_azure::merge_oauth2_permission_grant_scopes;
 use cloud_terrastodon_azure::remove_oauth2_permission_grant;
 use cloud_terrastodon_azure::update_oauth2_permission_grant;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::ContextCompat;
 use eyre::Result;
 use std::io::Write;

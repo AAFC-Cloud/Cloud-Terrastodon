@@ -1,3 +1,4 @@
+use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure::ResourceGraphHelper;
 use cloud_terrastodon_azure::ResourceGroupId;
 use cloud_terrastodon_azure::ResourceTagsId;
@@ -5,7 +6,6 @@ use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::replace_tags_for_resources;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Result;
 use std::collections::HashMap;
 use std::path::PathBuf;

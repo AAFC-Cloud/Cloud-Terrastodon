@@ -1,9 +1,9 @@
+use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::fetch_all_principals;
 use cloud_terrastodon_azure::fetch_all_resources;
 use cloud_terrastodon_azure::fetch_all_role_definitions_and_assignments;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use itertools::Itertools;
 use std::collections::HashMap;
 use tokio::try_join;

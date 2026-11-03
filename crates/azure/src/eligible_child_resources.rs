@@ -1,5 +1,6 @@
 use crate::management_groups::fetch_root_management_group;
 use crate::resource_group_list_request::fetch_all_resource_groups;
+use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure_types::AsScope;
 use cloud_terrastodon_azure_types::EligibleChildResource;
 use cloud_terrastodon_azure_types::EligibleChildResourceKind;
@@ -8,7 +9,6 @@ use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
 use std::borrow::Cow;
@@ -134,10 +134,10 @@ mod tests {
     use crate::management_groups::fetch_root_management_group;
     use crate::subscriptions::fetch_all_subscriptions;
     use crate::test_helpers::expect_aad_premium_p2_license;
+    use cloud_terrastodon_auth::AuthContext;
     use cloud_terrastodon_azure_types::AsScope;
     use cloud_terrastodon_azure_types::Scope;
     use cloud_terrastodon_command::CancellationToken;
-    use cloud_terrastodon_credentials::AuthContext;
     use cloud_terrastodon_user_input::Choice;
     use cloud_terrastodon_user_input::PickerTui;
 

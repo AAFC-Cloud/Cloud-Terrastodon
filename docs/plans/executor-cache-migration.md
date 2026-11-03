@@ -6,12 +6,19 @@ committed as `aa02c23c`. U59–U61 revise the next boundary: option B with pure
 `auth_types`; `AzureTenantId` stays in `azure_types`. Task 3.0's package cutover and
 U63–U65's direct enum-handle refinement are complete. U66 records their local
 commit checkpoint, titled `Separate pure registry from execution with direct function handles`.
-Task 3.1 is next: rename credential runtime to `auth` and extract `AuthSource`
-and resolved selections into `auth_types`.
+Task 3.1 is complete under U67/U68: runtime `auth`, pure `auth_types`, and
+persistent application-owned Azure CLI login generations.
+U69–U72's authorization-value refinement and replacement of the
+temporary CLI service-command bridge with ARM requests are complete in task 3.1a.
+U73's response-field requiredness correction is complete across that slice.
+U74 records the completed work in the local checkpoint titled
+`Split auth runtime and migrate Azure operations to ARM REST`.
+Task 3.2's scoped executor and injected authentication provider are next.
+The registry checkpoint is `09d8bb11`.
 
 **Primary implementation root:** Repository root (`.`); no branch change prescribed.
 
-**Last updated:** 2026-11-02
+**Last updated:** 2026-11-03
 
 **Source baseline:** `26e14bcc`; tracked files were initially clean. Pre-existing
 untracked notes are preserved.
@@ -29,6 +36,16 @@ with the `auth`/`auth_types` naming correction and U62's authorization to implem
 the next planned slice, task 3.0. U63–U65 subsequently authorize replacing the
 registry's adapter lookups and optional provenance fields with direct enum handles.
 U66 authorizes committing that completed work and identifying the next task.
+U67 authorizes proceeding with task 3.1, retaining offline-only validation.
+U68 selects a persistent Cloud Terrastodon Azure CLI login store after discussion
+of persistent versus per-executor login sessions.
+The 2026-11-03 refinement audit covers U69–U72: explicit authorization variants,
+the service-command allowlist explanation, the REST replacement proposal, and
+authorization to implement that replacement.
+U73's subsequent review rejects speculative optional response fields across the
+new ARM records, retaining optionality only for concrete omission or conditionality.
+U74 requests a local commit of the completed changes and a description of the next
+plan phase; it does not start task 3.2 or authorize pushing.
 
 **Planning method:** User-invoked `resumable-implementation-plans` skill.
 
@@ -107,6 +124,25 @@ starting auth migration, or reading production data.
 U66 subsequently authorizes a local commit of the completed registry package
 cutover and enum refinement, then a description of task 3.1. The reviewed staged
 changes belong to that slice. No push or implementation of task 3.1 is requested.
+U67 subsequently authorizes task 3.1's auth runtime/type cutover and its tenant,
+identity, and sensitive-output contracts. No commit, push, live credential access,
+or production-data validation is implied.
+U68 selects persistent application-owned CLI authentication. Explicit login
+creates a new generation; acquisition remains noninteractive and cannot import
+the ambient CLI login. This permits implementation, not a live login for testing.
+U69 requests an authorization enum with valid typed states. U70 requests an
+explanation of the CLI allowlist. U71 proposes replacing policy remediation and
+container listing with REST; U72 authorizes proceeding with the described ARM
+implementation and removal of the service-command bridge. Preserve user staging
+and the persistent CLI credential store. No commit, push, live login, or
+production-data validation is authorized by this refinement.
+U73 authorizes tightening the new container, remediation, and shared provenance
+response records. An absent OpenAPI `required` declaration alone does not justify
+`Option`; weaken a response field only when concrete evidence warrants absence.
+Review nested records too, and simplify consumers whose checks move into decoding.
+U74 authorizes committing the completed staged auth/ARM changes and these plan
+checkpoint notes, then describing task 3.2. Preserve the staged scope; no push,
+live validation, or next-phase implementation is part of this checkpoint.
 
 ## How to update this plan
 
@@ -415,6 +451,68 @@ changes since the recorded baseline before starting.
   staging in the authorized commit, exclude unrelated notes/generated data, and
   retain no compatibility exports. Do not interpret committing as permission to
   push, release packages, start auth migration, or access production data.
+- **Auth migration, pass 1 — extraction:** U67 records the request to proceed
+  with the next described slice. U68 records the selected persistent CLI store
+  after the user requested an explanation of the two session lifetimes.
+  Earlier tenant ownership, no compatibility exports, explicit source/tenant,
+  caller cancellation, and no-production-data requirements remain active.
+- **Auth migration, pass 2 — traceability:** U67 maps to task 3.1 and G1/G3;
+  U68 maps to generation storage, explicit login, local identity validation,
+  and the authentication guide. Provider injection remains 3.2 and shared cache
+  adapter admission remains phase 4. Legacy unbound request migrations stay in
+  5/6 and are enumerated instead of being silently treated as complete.
+- **Auth migration, pass 3 — adversarial omission:** Rechecked the available
+  original user requests and durable U01–U66 ledger: tenant ID stays in
+  `azure_types`, source vocabulary moves to `auth_types`, runtime becomes `auth`,
+  PAT does not gain a fabricated tenant, and CLI token acquisition never falls
+  back to an active tenant or implicit login. Scope includes the selected
+  persistent store but no actual login, production test, commit, or push.
+  Earlier compacted implementation details rely on the recorded task evidence;
+  this audit does not claim to have reread unavailable assistant turns.
+
+- **ARM refinement, pass 1 — extraction (2026-11-03):** Reread the available
+  authorization-enum request, allowlist explanation request, REST proposal, and
+  explicit instruction to proceed. U69–U72 retain each distinct request. Earlier
+  constraints remain in U01–U68 and their recorded audits; unavailable compacted
+  implementation detail is not treated as newly reread evidence.
+- **ARM refinement, pass 2 — traceability:** U69 maps to typed authorization
+  variants and their focused validation. U70–U72 map to task 3.1a: request-owned
+  ARM execution and reusable API records, container-picker reuse/invalidation,
+  deletion of the service bridge, and preserved CLI credential sessions. The
+  chosen management-plane container inventory follows the proposal approved by
+  U72; it does not claim blob-data access. Parallel owners are explicit in 3.1a.
+- **ARM refinement, pass 3 — adversarial omission:** Rechecked that the change
+  removes the allowlist instead of relocating it, covers both remediation
+  branches and both container-list paths, retains explicit tenant/source,
+  protects mutations, and leaves staged changes untouched. Synthetic tests and
+  source/schema verification establish local behavior; no production validation,
+  executor implementation, commit, or push is implied.
+
+- **Response-field correction, pass 1 — extraction (2026-11-03):** U73 covers
+  the selected container identity record and the other new response types, not
+  only one file. It requests required fields first, weakening them when actual
+  omission is justified. Earlier scope and offline-only constraints still apply.
+- **Response-field correction, pass 2 — traceability:** U73 maps to task 3.1a's
+  container/remediation/provenance records, nested field review, and direct typed
+  container-page decoding. Remaining optional fields need specific absence or
+  conditionality evidence; schema omission of `required` is insufficient.
+- **Response-field correction, pass 3 — adversarial omission:** Confirmed this
+  correction removes speculative `Option` and empty `Default` records without
+  inventing fallback values, erasing genuinely conditional data, adding JSON
+  fixture tests, or requiring live requests. Historical verification remains
+  labeled separately from the refinement's checks.
+
+- **Commit checkpoint, pass 1 — extraction (2026-11-03):** U74 preserves both
+  requested outcomes: commit the completed changes and describe the next plan
+  phase. U67–U73's implementation and response-field corrections remain included.
+- **Commit checkpoint, pass 2 — traceability:** U74 maps to the task 3.1a
+  checkpoint, reviewed staged auth/ARM scope, and task 3.2's executor/provider
+  description. Existing offline verification evidence remains attached to its
+  actual implementation checkpoint rather than being reported as newly rerun.
+- **Commit checkpoint, pass 3 — adversarial omission:** Confirmed that the
+  checkpoint includes the required-field correction and full crate cutover, keeps
+  runtime provider implementations outside `execution`, and leaves task 3.2
+  unstarted. A local commit does not imply pushing or accessing production data.
 
 ## Authoritative user guidance ledger
 
@@ -490,6 +588,14 @@ do not silently rewrite earlier guidance.
 | U64 | Optional registration provenance fields allow invalid combinations; would Function be better represented as an enum? | Model runtime, pure, and arbitrary registrations as exclusive variants; reference original records without copying metadata or maintaining nullable provenance. | — |
 | U65 | Perform the proposed enum-handle changes. | Refine task 3.0: pass copyable handles by value, remove adapter allocation/scans, preserve variant/source identity and runtime cancellation, migrate consumers, and validate offline. | — |
 | U66 | Commit the completed changes and identify what comes next. | Commit the reviewed registry cutover and enum refinement locally; describe task 3.1 without starting it or pushing. | — |
+| U67 | Proceed after the task 3.1 description. | Implement the auth runtime/type cutover, explicit selections and identity policy; preserve full-cutover and offline-only validation constraints. | — |
+| U68 | Use a persistent Cloud Terrastodon login store after elaborating on the isolated CLI session alternatives. | Explicit login publishes a new app-owned generation, later invocations reuse its identity, existing providers retain their binding, and acquisition never prompts or uses ambient CLI credentials. | — |
+| U69 | Authorization should be an enum to make invalid states unrepresentable. | Anonymous, bearer, and PAT variants use distinct validated payloads; preserve sensitive headers and redacted diagnostics without raw-header construction bypasses. | — |
+| U70 | Explain the policy-remediation/storage-container command allowlist. | Record its temporary identity-binding purpose and the misplaced service-specific policy in auth; this explanation alone does not authorize a new implementation. | — |
+| U71 | Could policy remediation creation and storage container listing use REST to remove the allowlist? | Verify REST equivalents and identify the ARM inventory behavior choice, reusable container request, removable bridge, and retained CLI credential lifecycle. | — |
+| U72 | Proceed with the described REST conversion. | Implement typed ARM remediation and container inventory, reuse the latter in the picker, remove the service bridge, preserve explicit auth and offline-only verification; no commit/push. | — |
+| U73 | Prefer required response fields and weaken them only when omission is justified; apply this to the other new types as well as StorageAccountBlobContainer. | Review all new ARM response records, including nested and shared provenance types; require ordinary response fields, document concrete conditional/omitted exceptions, and simplify consumers. A missing OpenAPI required list alone is insufficient. | — |
+| U74 | Commit changes and describe the next phase of the plan. | Commit the reviewed auth/ARM work and response-field refinement locally, then explain task 3.2's scoped executor and injected provider; do not push or begin that task. | — |
 
 U18 supersedes the earlier assistant suggestion to preserve an Azure CLI
 active-tenant selection. That suggestion was not user approval. U13 rejects the
@@ -576,6 +682,14 @@ not an implemented package; U61 selects `auth_types` paired with runtime `auth`.
 | U64 | G1; 3.0 refinement | Exclusive Function variants and original static metadata/callback ownership |
 | U65 | Current authorization; 3.0 refinement | Workspace consumer cutover, identity/deduplication and invocation tests, inspected offline checks; no commit or live access |
 | U66 | Current authorization; 3.0 checkpoint; 3.1 next-step description | Reviewed staged scope, local commit identity, clean post-commit status, and description of auth runtime/selection separation |
+| U67 | Current authorization; 3.1; G1/G3 | Auth package/type ownership, tenant/source admission, sensitive credential retention, and inspected offline validation |
+| U68 | 3.1; G3; authentication guide | Immutable CLI login generations, explicit tenant/account binding, serialized generation use, logout revocation, no implicit login, synthetic session tests |
+| U69 | 3.1 refinement | Authorization enum and separate validating bearer/PAT payloads; six auth_types tests and focused Clippy passed on 2026-11-02 |
+| U70 | 3.1a rationale; G3 | Temporary guard explained; auth/service responsibility separation drives its removal |
+| U71 | 3.1a API decisions and scope | Official ARM remediation/container-list references; management metadata behavior explicit |
+| U72 | Current authorization; 3.1a; inventory and public auth docs | Typed SDK requests, consumer cutover, obsolete service runner deletion, focused offline checks |
+| U73 | Current authorization; 3.1a response-field refinement | Required container/remediation/provenance fields; documented residual optionality; direct typed page decoding and focused offline compilation/lint checks |
+| U74 | Current authorization; 3.1a commit checkpoint; 3.2 next-step description | Reviewed staged scope, local commit title, clean post-commit status, and executor/provider scope description |
 
 ## Purpose and scope
 
@@ -611,9 +725,9 @@ These are source-inspection findings at the recorded baseline, not test results.
 | Commands | [command.rs](../../crates/command/src/command.rs), [process_fingerprint.rs](../../crates/command/src/process_fingerprint.rs), [command_kind.rs](../../crates/command/src/command_kind.rs). | Retries reenter the cache boundary; raw success is published before typed decode; adjacent files are written into the cache directory before execution. |
 | REST | [rest_request.rs](../../crates/rest/src/rest_request.rs) uses shared cached work but has a separate uncached branch; arbitrary validators/mappers run for callers. | Preserve status/header/body diagnostics, tracked caller/span, and per-caller callbacks. |
 | SDK trait | [cachable_command.rs](../../crates/command/src/cachable_command.rs) supplies key/run and IntoFuture macros; it does not cache assembled SDK outputs. | Aggregate memoization is new behavior, not merely moving the current cache. |
-| Auth runtime | [auth_context.rs](../../crates/credentials/src/auth_context.rs) already owns invocation-local reference-counted token caches. | Preserve source policy, headless behavior, and cache isolation while moving ownership. |
-| Tenant binding | [azure_tenant_auth_context.rs](../../crates/credentials/src/azure_tenant_auth_context.rs) validates resolved enabled sources and workload-identity tenant agreement. | Keep these invariants in the new auth-selection/execution boundary. |
-| CLI fallback | [azure_devops_auth_context.rs](../../crates/credentials/src/azure_devops_auth_context.rs), [azure_access_token.rs](../../crates/credentials/src/azure_access_token.rs), [tracked_tenants.rs](../../crates/azure/src/tracked_tenants.rs). | Active-tenant compatibility and optional CLI token tenant must be removed from authenticated request execution. |
+| Auth runtime | [auth_context.rs](../../crates/auth/src/auth_context.rs) already owns invocation-local reference-counted token caches. | Preserve source policy, headless behavior, and cache isolation while moving ownership. |
+| Tenant binding | [azure_tenant_auth_context.rs](../../crates/auth/src/azure_tenant_auth_context.rs) validates resolved enabled sources and workload-identity tenant agreement. | Keep these invariants in the new auth-selection/execution boundary. |
+| CLI fallback | [azure_devops_auth_context.rs](../../crates/auth/src/azure_devops_auth_context.rs), [azure_access_token.rs](../../crates/auth/src/azure_access_token.rs), [tracked_tenants.rs](../../crates/azure/src/tracked_tenants.rs). | Active-tenant compatibility and optional CLI token tenant must be removed from authenticated request execution. |
 | Graph | [microsoft_graph.rs](../../crates/azure/src/microsoft_graph.rs), [entra_user_list_request.rs](../../crates/azure/src/entra_user_list_request.rs), [principals.rs](../../crates/azure/src/principals.rs). | Runtime fields/progress hooks move out; continuation recovery invalidates its own subtree; records currently move into aggregates. |
 | RBAC | [resource_graph.rs](../../crates/azure/src/resource_graph.rs), role_definitions.rs, role_assignments.rs, role_definitions_and_assignments.rs in the Azure SDK. | Paginated read-only POST, combined validation, and separate child keys exercise shared results and dependencies. |
 | Shared domain values | [entra_principal.rs](../../crates/azure_types/src/entra_principal.rs), [entra_principal_collection.rs](../../crates/azure_types/src/entra_principal_collection.rs), [role_definitions_and_assignments.rs](../../crates/azure_types/src/role_definitions_and_assignments.rs). | Box/owned conversions, mutable collection access, and cross-record invariants constrain Arc placement. |
@@ -1997,7 +2111,101 @@ or compatibility import. `azure_types` and cache cannot reach executor-aware
 registration through normal/build dependencies. The proposed auth/execution
 graph is acyclic, and offline constructors/conversions retain their contracts.
 
-### [ ] 3.1 Rename credential runtime to auth and extract auth_types
+### [x] 3.1 Rename credential runtime to auth and extract auth_types
+
+**Completion notes — 2026-11-02 checkpoint:** Implementation and offline
+verification passed. The service bridge described in this checkpoint is superseded
+by task 3.1a; its test counts below are historical. `credentials` has become `auth`,
+without compatibility exports.
+`auth_types` owns `AuthSource`, resolved bearer/DevOps/general selections,
+`AzureCredentialResource`, and nonserializable redacted `Authorization`.
+`AzureTenantId` remains in `azure_types`. All consumer manifests, imports,
+features, CLI surfaces, examples, and tool references use the new owners.
+
+`AuthContext::Resolved` owns immutable, reference-counted runtime state; replacing
+workload identity creates fresh caches and session state. Admission checks source,
+tenant, disabled/headless policy, and configured identity without acquiring tokens. Workload
+identity uses authority/tenant/client partitions; browser, CLI, and PAT contexts
+use fresh session partitions shared only by their clones. PAT is captured once;
+browser refresh is serialized across audiences and cannot silently replace its
+tenant, client, or refresh chain after failed refresh. Direct REST execution no
+longer resolves an implicit Auto context. Provider/executor injection remains 3.2;
+the shared cache adapter's call to admission before every hit remains phase 4.
+
+U68 selected persistent isolated CLI sessions. Explicit tenant login creates a
+new generation under the application's auth configuration directory, with an
+atomic per-tenant selector. Existing contexts retain their chosen generation.
+Token and service subprocesses use that generation's explicit config directory;
+OS file leases coordinate its refresh and execution. Brokers, ambient Azure
+environment overrides, CLI file logging, debug output, and automatic login
+retries are disabled for this path. Account identity is checked around execution;
+logout revokes owned generations. Credential stdout/stderr and decoder excerpts
+bypass general command artifacts and diagnostics, including failures. Acquired
+tokens remain in sensitive runtime caches. Credential subprocess completion is
+protected so cooperative cancellation does not release the lease while a launcher
+child may still be writing credentials. Service callers acquire their lease before
+deferral, so waiting remains cancellable. Logout collects per-generation failures
+and continues revoking remaining sessions; revoked directories stay in place so
+already-bound contexts fail closed. Explicit future abort/drop remains outside
+cooperative completion guarantees.
+
+Initial browser consent uses the same supported-audience set as explicit browser
+login, while token redemption remains resource-specific. Failed refresh never
+silently substitutes a new account or starts another interactive handoff.
+
+Official behavior was verified from [CLI configuration](https://learn.microsoft.com/cli/azure/azure-cli-configuration),
+[interactive tenant login](https://learn.microsoft.com/cli/azure/authenticate-azure-cli-interactively),
+and the official CLI [profile](https://github.com/Azure/azure-cli/blob/dev/src/azure-cli-core/azure/cli/core/_profile.py),
+[persistence](https://github.com/Azure/azure-cli/blob/dev/src/azure-cli-core/azure/cli/core/auth/persistence.py),
+and [logging](https://github.com/Azure/azure-cli/blob/dev/src/azure-cli-core/azure/cli/core/azlogging.py)
+implementations. `--tenant` alone does not select a principal; no ambient cache
+copy is used. Windows retains DPAPI cache encryption. Unix retains CLI's default
+file persistence inside owner-only directories; shared keychain persistence is
+not enabled. Synthetic checks establish local policy and coordination only;
+no production data, credential store, CLI login, or service was accessed.
+
+**Remaining boundary:** Explicit tenant login and CLI token acquisition retain
+the owned session. Task 3.1a moves policy remediation and backend container listing
+to ARM requests. Legacy SDK requests without an auth parameter remain in the
+request-migration batches in 5/6; the
+inventory names them explicitly. Their old ambient CLI behavior is not evidence
+that they satisfy the new provider contract, and they must not be wrapped in
+shared executor caching until migrated. The legacy PIM workflow likewise remains
+outside provider identity binding; this slice only sanitizes its credential
+diagnostics. The shared command/REST cache lifecycle still moves in phase 4.
+
+**Verification evidence:** Inspected test bodies before execution. All selected
+tests use synthetic values, temporary directories, or held local leases; no live
+login, credential/configuration discovery, service request, production cache,
+or local resource-type catalogue was used. Passed:
+
+- `auth_types --lib`: 5 tests.
+- `auth --lib auth_context::tests`: 17 tests across the matching context modules.
+- `auth --lib browser_`: 16 tests; `auth --lib azure_cli_`: 10 tests, including
+  cancellation of typed/raw service waiters and aggregation of logout failures.
+- `auth --lib azure_access_token::test`: 5 passed, 2 live tests ignored;
+  `auth --lib workload_identity`: 6 passed; each PIM response module: 1 passed.
+- `command --lib execution_policy_tests`: 4 tests; `rest --lib request_execution::tests`:
+  5 tests, including missing-tenant rejection before credential/network access.
+- Filtered tenant-login CLI tests: 5; project-list CLI tests: 4; auth-card UI tests: 3.
+
+These are per-command counts and include overlapping filters. Commands used
+`cargo test --offline --locked -p cloud_terrastodon_<package>` (the initial
+auth-types run also updated only workspace lock records). Nightly workspace
+formatting, `cargo check --offline --locked --workspace --all-targets`, and Clippy
+for `auth_types`, `auth`, `rest`, and `command` with `--all-targets -- -D warnings`
+passed. CRLF-aware `git diff --check` passed. The normal/build graph plus planned
+executor edges is acyclic across 37 workspace packages; `auth_types`,
+`azure_types`, `cache`, and `registry` cannot reach runtime auth, command, REST,
+or executable registration. All 820 external lock records are unchanged.
+Documentation review checked all 68 ledger/traceability pairs, case-sensitive
+relative links, and identifying-path patterns. Existing operational instructions
+remain in [authentication](../authentication.md); the public
+[auth migration guide](../auth-execution-migration.md) describes the cutover.
+
+Task 3.1a refines this checkpoint and U74 records both completed tasks before
+task 3.2 creates `execution`, defines the injected provider contract, and binds
+request/executor execution.
 
 **Work:** Implement resolved Azure bearer selection with explicit source/tenant
 and Azure DevOps bearer/PAT selection. Preserve tenant validation, source policy,
@@ -2052,8 +2260,7 @@ independent-provider partitioning, and credential retention on success and failu
 Inspect imports and public exports for the runtime rename and moved AuthSource,
 including grouped/glob imports, and verify every consumer uses the owning crate.
 Recheck the normal/build dependency graph after the auth additions, including
-configuration and registry dependencies. The target package names above are
-proposed until this task implements them. Review documentation
+configuration and registry dependencies. Review documentation
 and examples alongside the workspace compile check; do not add compile-fail tests
 solely to prove that removed exports are absent.
 
@@ -2064,6 +2271,119 @@ token, session, or cancellation scope. PAT needs no fabricated tenant.
 selection consumers import `auth_types`; runtime consumers import `auth`.
 The old `credentials` package and exports are absent, and the full workspace
 compiles without compatibility exports or aliases for the moved auth types.
+
+### [x] 3.1a Replace the CLI service bridge with typed ARM operations
+
+**Completion notes — 2026-11-03:** Implementation and offline verification passed
+under U72; U73's response-field refinement also passed its checks. Independent
+tracks delivered the policy-remediation request and
+workflow, storage-container records/request and backend picker, and auth/command
+bridge cleanup. The primary agent integrated module exports, documentation,
+plan evidence, and serial verification. Existing staged work is preserved without
+staging or committing this refinement.
+
+[PolicyRemediationCreateRequest](../../crates/azure/src/policy_remediation_create_request.rs)
+owns the typed PUT, zero-lifetime artifact key, and explicit tenant authentication.
+Both workflow branches use it. Submission does not wait for policy deployments;
+there is no existing remediation read cache to invalidate, and later resource or
+compliance inventory refresh remains the caller's responsibility after completion.
+[StorageAccountBlobContainerNamesListRequest](../../crates/azure/src/storage_account_blob_container_names.rs)
+owns cached ARM pages, account-bound continuation validation, and parent-key
+invalidation. The picker reuses it and forwards reload. Reusable records live in
+`azure_types`, including shared ARM system data, typed remediation scope/name/ID,
+container identity, and nested response vocabularies. Container names now accept
+documented special names and reject trailing hyphens. The generic CLI service
+runner, route/flag allowlist, and bridge-only command hooks are removed; persistent
+credential sessions remain.
+
+**U73 response-field refinement — complete:** Separate storage and remediation
+owners reviewed core and nested records; the primary agent integrated shared
+provenance, container decoding, and verification. Container identity/type/etag,
+properties and page values are required, as are ordinary state and nested audit
+fields. Remediation identity, assignment, progress, timestamps, deployment counts,
+status text, and present failure-threshold percentage are required. A present
+provenance record requires all six fields. Remaining optional fields have specific
+omission/conditionality comments linked to official examples or field semantics;
+no field is nullable solely because the schema omits `required`.
+
+Removed obsolete empty-record `Default` derives. Container pages now use direct
+typed `RestRequest::receive`, so missing required fields fail during decoding
+with response artifacts retained; there is no supplementary missing-name/list
+mapper. Validation strategy selected compilation/linting and official contract
+review for these type-shape changes, without new derive-mirroring fixtures or
+live requests. Passed `cargo clippy --offline --locked -p cloud_terrastodon_azure_types
+-p cloud_terrastodon_azure --all-targets -- -D warnings`,
+`cargo check --offline --locked --workspace --all-targets`, nightly workspace
+format checking, and CRLF-aware diff checks. All 73 ledger/traceability pairs and
+64 relative plan links resolve; identifying-path/email checks passed. Existing
+tests were compiled but not rerun for this field-shape correction. The earlier
+U72 test counts below remain historical evidence for that checkpoint.
+
+**Decisions:** Use Policy Insights create/update at resource-group and
+management-group scopes (`2024-10-01`) and Storage Resource Provider container
+listing (`2025-06-01`). These use the existing ARM audience. Container listing
+is management metadata inventory, with no claim that the user can access state
+blobs. REST records belong to `azure_types`; executable operations and pagination
+belong to `azure`. Reuse the existing container-names request and its typed output.
+
+**Work:** Replace both remediation branches' CLI invocation with one reusable
+typed SDK mutation. Retain the selected assignment/reference and supported scopes,
+mutation execution artifacts, cancellation completion, and affected-read
+invalidation where applicable. Convert `StorageAccountBlobContainerNamesListRequest`
+to authenticated ARM pagination and have the picker call it with its reload flag.
+Remove `bind_command`, its allowlist, and the auth context/session service-runner
+methods and obsolete bridge-only command hooks. Keep CLI login, isolated token
+acquisition, identity validation, generation leases, and logout. Update current
+documentation without rewriting historical test evidence.
+
+**Validation:** Inspect new/existing tests before selecting offline filters;
+the former live `blob_works` test was removed. Check owned domain invariants, selection
+conversion, cache scope/pagination validation where warranted, and preserved
+session lifecycle tests. Run focused package Clippy and
+`cargo check --offline --locked --workspace --all-targets`; format with the pinned
+nightly formatter and inspect the diff. Official schema/source review supplies
+endpoint/shape evidence; fabricated responses cannot prove service compatibility.
+
+**Verification evidence:** Inspected each selected test before execution; all
+inputs are synthetic and no service, credential/configuration discovery, production
+cache, or local catalogue was accessed. Passed with `cargo test --offline --locked`:
+
+- `azure_types --lib storage_account_blob_container`: 4 passed, 1 local preview
+  test ignored; `azure_types --lib policy_remediation`: 3 passed.
+- `azure --lib storage_account_blob_container_names::tests`: 2 passed, covering
+  continuation destination/account confinement and tenant/source/account cache scope.
+- `auth --lib azure_cli_`: 6 passed, retaining tenant admission, redacted failure,
+  lease cancellation, generation binding, and logout failure aggregation.
+- `command --lib command::execution_policy_tests`: 3 passed. The deleted bridge's
+  flag-validation and debug-suppression tests are intentionally absent.
+
+`cargo check --offline --locked --workspace --all-targets` passed. Clippy passed
+for `azure_types`, `azure`, `auth`, `command`, and `entrypoint` with
+`--offline --locked --all-targets -- -D warnings`; the final mapper formatting
+simplification was rechecked through `azure` and `entrypoint`. Nightly workspace
+format checking and CRLF-aware diff checks passed. Independent source/schema
+reviews covered the SDK workflows, response shapes, credential destinations,
+cache invalidation, and removal of bridge references. Documentation review checked
+all 72 ledger/traceability pairs, relative links, and identifying-path patterns.
+No commit or push was performed during U72/U73 implementation. U74 authorizes
+the local checkpoint below. Task 3.2 remains unstarted.
+
+**U74 local commit checkpoint:** `Split auth runtime and migrate Azure operations to ARM REST`.
+Review covered all 563 staged files: auth runtime/type ownership and consumers,
+explicit tenant selection, persistent CLI login generations, ARM remediation and
+container pagination, required response fields, manifests, and supporting docs.
+The lockfile changes only workspace package records; no external version churn,
+local catalogue, user notes, or credential/cache artifacts are included. The
+staged tree matched the source validated by the U73 workspace check and focused
+Clippy; this checkpoint adds documentation only. CRLF-aware staged/working-tree
+diff checks passed. Task 3.2 is next: an explicit shared executor, bound requests,
+and an injected authentication provider. Registry integration remains task 3.3;
+the common Command/REST cache lifecycle remains phase 4.
+
+**Completion criteria:** Both workflows use typed ARM requests, the picker shares
+the existing container request and refreshes its pages, no bound CLI service
+runner or allowlist remains, credential session behavior is preserved, and
+offline checks plus documentation accurately record the supported boundary.
 
 ### [ ] 3.2 Bind requests to a scoped executor through both execute spellings
 
@@ -2407,7 +2727,7 @@ evidence and documentation. This item remains deferred when phases 1–7 complet
 
 ## Overall initial-migration completion criteria
 
-- [ ] Every active U01–U66 requirement has task evidence; G1–G6 are closed and
+- [ ] Every active U01–U74 requirement has task evidence; G1–G6 are closed and
   phases 1–7 complete. Phase 8 remains explicitly deferred.
 - [ ] Requests contain explicit operation/auth selection data and no execution
   resources; both execute spellings and registry invocation share one contract.

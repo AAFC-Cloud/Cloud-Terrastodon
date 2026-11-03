@@ -1,8 +1,8 @@
+use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure::PolicyAssignmentId;
 use cloud_terrastodon_azure::ResourceGraphHelper;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use indoc::indoc;
 use std::path::PathBuf;
 use std::time::Duration;

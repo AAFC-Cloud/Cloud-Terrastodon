@@ -1,3 +1,5 @@
+use cloud_terrastodon_auth::AzureDevOpsAuthContext;
+use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure::fetch_all_resource_groups;
 use cloud_terrastodon_azure::fetch_all_subscriptions;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectId;
@@ -8,8 +10,6 @@ use cloud_terrastodon_azure_devops::get_default_organization_url;
 use cloud_terrastodon_azure_devops::get_personal_access_token;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
-use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
-use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_hcl::FreshTFWorkDir;
 use cloud_terrastodon_hcl::GeneratedConfigOutTFWorkDir;
 use cloud_terrastodon_hcl::HclBlock;

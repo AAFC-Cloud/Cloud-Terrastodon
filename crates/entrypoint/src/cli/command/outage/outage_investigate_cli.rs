@@ -1,3 +1,4 @@
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::AzureApplicationGatewayResourceBackendHealthResponse;
 use cloud_terrastodon_azure::AzureApplicationGatewayResourceBackendHealthServer;
 use cloud_terrastodon_azure::AzureApplicationGatewayResourceBackendHealthServerHealth;
@@ -18,7 +19,6 @@ use cloud_terrastodon_azure::fetch_all_public_ips;
 use cloud_terrastodon_azure::fetch_all_virtual_networks;
 use cloud_terrastodon_azure::fetch_application_gateway_backend_health;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use color_eyre::owo_colors::OwoColorize;
 use eyre::Context;
 use eyre::ContextCompat;

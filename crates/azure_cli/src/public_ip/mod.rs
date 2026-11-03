@@ -1,5 +1,5 @@
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 pub mod azure_public_ip_cli;
 pub mod azure_public_ip_list_cli;
 pub mod azure_public_ip_show_cli;

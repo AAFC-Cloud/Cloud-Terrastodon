@@ -4,18 +4,18 @@ The Build commands use the Azure DevOps Build REST API. They cover build runs,
 pipeline definitions, and the folders containing those definitions.
 
 ```powershell
-ct az devops build definition list --org example-org --project abc
-ct az devops build definition list --org example-org --project abc --name 'CI*' --path '\Team'
-ct az devops build definition show 42 --org example-org --project abc
-ct az devops build definition show 42 --org example-org --project abc --revision 3 --output-format json
-ct az devops build list --org example-org --project abc
-ct az devops build list --org example-org --project abc --no-cache
-ct az devops build list --org example-org --project abc --definition 42 --status completed --result failed --branch refs/heads/main --limit 25
-ct az devops build definition folder list --org example-org --project abc
-ct az devops build definition folder list --org example-org --project abc --path '\Team'
-ct az devops build definition folder prune --org example-org --project abc --dry-run
-ct az devops build definition folder prune --org example-org --project abc
-ct az devops build definition folder prune --org example-org --project abc --path '\Team' --dry-run
+ct az devops build definition list --org example-org --project abc --tenant example-tenant
+ct az devops build definition list --org example-org --project abc --name 'CI*' --path '\Team' --tenant example-tenant
+ct az devops build definition show 42 --org example-org --project abc --tenant example-tenant
+ct az devops build definition show 42 --org example-org --project abc --revision 3 --output-format json --tenant example-tenant
+ct az devops build list --org example-org --project abc --tenant example-tenant
+ct az devops build list --org example-org --project abc --no-cache --tenant example-tenant
+ct az devops build list --org example-org --project abc --definition 42 --status completed --result failed --branch refs/heads/main --limit 25 --tenant example-tenant
+ct az devops build definition folder list --org example-org --project abc --tenant example-tenant
+ct az devops build definition folder list --org example-org --project abc --path '\Team' --tenant example-tenant
+ct az devops build definition folder prune --org example-org --project abc --dry-run --tenant example-tenant
+ct az devops build definition folder prune --org example-org --project abc --tenant example-tenant
+ct az devops build definition folder prune --org example-org --project abc --path '\Team' --dry-run --tenant example-tenant
 ```
 
 All build commands require explicit `--org` and `--project` selectors.
@@ -23,9 +23,11 @@ All build commands require explicit `--org` and `--project` selectors.
 name; bare names expand to `https://dev.azure.com/{name}`.
 `--project` accepts a project ID or name, including the literal name `default`.
 Commands do not read configured organization or project defaults.
-`--tenant` selects a tracked tenant or alias for delegated authentication,
-following the other Azure DevOps commands. Both `ct az devops` and `ct azdo` reach
-the same command surface.
+`--tenant` selects a tenant UUID or tracked alias for bearer authentication,
+including Azure CLI. Replace `example-tenant` in the examples with that selection.
+PAT authentication can omit the tenant. See [authentication](authentication.md)
+for establishing the Cloud Terrastodon Azure CLI login store. Both `ct az devops`
+and `ct azdo` reach the same command surface.
 
 Build, definition, and folder listings cache GET responses through the shared
 REST cache, including continuation pages. Each list command accepts `--no-cache`

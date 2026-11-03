@@ -1,4 +1,5 @@
 use crate::ResourceGraphHelper;
+use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure_types::KeyVault;
 use cloud_terrastodon_azure_types::KeyVaultName;
 use cloud_terrastodon_command::CacheKey;
@@ -7,7 +8,6 @@ use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Result;
 use std::borrow::Cow;
 use std::path::PathBuf;
@@ -95,8 +95,8 @@ pub async fn is_key_vault_name_available(
 mod test {
     use crate::fetch_all_key_vaults;
     use crate::get_test_tenant_id;
+    use cloud_terrastodon_auth::AuthContext;
     use cloud_terrastodon_command::CancellationToken;
-    use cloud_terrastodon_credentials::AuthContext;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {

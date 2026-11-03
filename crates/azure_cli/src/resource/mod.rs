@@ -7,8 +7,8 @@ pub use azure_resource_browse_cli::AzureResourceBrowseArgs;
 pub use azure_resource_cli::AzureResourceCommand;
 pub use azure_resource_list_cli::AzureResourceListArgs;
 pub use azure_resource_show_cli::AzureResourceShowArgs;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Manage Azure resources.

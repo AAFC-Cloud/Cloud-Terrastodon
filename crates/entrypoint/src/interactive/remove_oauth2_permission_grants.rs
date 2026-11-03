@@ -1,7 +1,7 @@
+use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure::pick_oauth2_permission_grants;
 use cloud_terrastodon_azure::remove_oauth2_permission_grant;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::are_you_sure;
 use eyre::Result;

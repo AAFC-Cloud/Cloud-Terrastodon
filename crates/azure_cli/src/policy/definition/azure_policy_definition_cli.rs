@@ -1,8 +1,8 @@
 use super::AzurePolicyDefinitionBrowseArgs;
 use super::AzurePolicyDefinitionListArgs;
 use super::AzurePolicyDefinitionShowArgs;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Subcommands for managing Azure policy definitions.

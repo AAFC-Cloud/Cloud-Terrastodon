@@ -4,8 +4,8 @@ pub mod definition;
 
 pub use assignment::AzureEntraRoleAssignmentArgs;
 pub use azure_entra_role_cli::AzureEntraRoleCommand;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 pub use definition::AzureEntraRoleDefinitionArgs;
 use eyre::Result;
 

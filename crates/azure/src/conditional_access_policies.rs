@@ -1,10 +1,10 @@
 use crate::MicrosoftGraphHelper;
+use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure_types::ConditionalAccessPolicy;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Result;
 use std::borrow::Cow;
 use std::path::PathBuf;
@@ -71,12 +71,12 @@ mod test {
     use crate::fetch_all_conditional_access_named_locations;
     use crate::fetch_all_conditional_access_policies;
     use crate::get_test_tenant_id;
+    use cloud_terrastodon_auth::AuthContext;
     use cloud_terrastodon_azure_types::AllOr;
     use cloud_terrastodon_azure_types::ConditionalAccessPolicyGrantControlBuiltInControl;
     use cloud_terrastodon_azure_types::ConditionalAccessPolicyState;
     use cloud_terrastodon_azure_types::ipnetwork::Ipv4Network;
     use cloud_terrastodon_command::CancellationToken;
-    use cloud_terrastodon_credentials::AuthContext;
     use std::net::Ipv4Addr;
     use tokio::try_join;
     use tracing::warn;

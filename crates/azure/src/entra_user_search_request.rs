@@ -1,12 +1,12 @@
 use crate::MicrosoftGraphHelper;
 use crate::PercentEncodeExt;
 use arbitrary::Arbitrary;
+use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure_types::EntraUser;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Result;
 use facet::Facet;
 use std::borrow::Cow;
@@ -124,9 +124,9 @@ mod tests {
     use super::*;
     use crate::fetch_current_user;
     use crate::get_test_tenant_id;
+    use cloud_terrastodon_auth::AuthContext;
     use cloud_terrastodon_azure_types::AzureTenantId;
     use cloud_terrastodon_command::CancellationToken;
-    use cloud_terrastodon_credentials::AuthContext;
 
     fn test_auth_context() -> AzureTenantAuthContext {
         AuthContext::explicit_azure_cli()

@@ -1,6 +1,6 @@
 use super::*;
+use cloud_terrastodon_auth_types::AuthSource;
 use cloud_terrastodon_command::CancellationToken;
-use cloud_terrastodon_credentials::AuthSource;
 
 fn session() -> DumpPlanSession {
     let planner = DumpPlanner::new([], [], Vec::new());

@@ -63,8 +63,8 @@ mod test {
     use crate::fetch_all_locations;
     use crate::fetch_all_subscriptions;
     use crate::get_test_tenant_id;
+    use cloud_terrastodon_auth::AuthContext;
     use cloud_terrastodon_command::CancellationToken;
-    use cloud_terrastodon_credentials::AuthContext;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {

@@ -13,6 +13,7 @@ categories.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+cloud_terrastodon_auth_types.workspace = true
 cloud_terrastodon_registry_execution.workspace = true
 cloud_terrastodon_app = { workspace = true, features = ["auth", "terminal", "arbitrary"] }
 cloud_terrastodon_user_input.workspace = true
@@ -24,7 +25,7 @@ cloud_terrastodon_azure_devops_cli.workspace = true
 cloud_terrastodon_cli_types.workspace = true
 cloud_terrastodon_gitea.workspace = true
 cloud_terrastodon_command.workspace = true
-cloud_terrastodon_credentials.workspace = true
+cloud_terrastodon_auth.workspace = true
 cloud_terrastodon_rest.workspace = true
 cloud_terrastodon_pathing.workspace = true
 cloud_terrastodon_source_cli.workspace = true

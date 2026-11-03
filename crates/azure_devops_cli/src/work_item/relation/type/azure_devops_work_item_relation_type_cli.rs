@@ -1,7 +1,7 @@
 use crate::work_item::relation::r#type::list::AzureDevOpsWorkItemRelationTypeListArgs;
 use crate::work_item::relation::r#type::show::AzureDevOpsWorkItemRelationTypeShowArgs;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Inspect relation type definitions.

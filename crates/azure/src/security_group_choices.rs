@@ -1,7 +1,7 @@
 use crate::fetch_all_security_groups;
+use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure_types::EntraGroup;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_user_input::Choice;
 use itertools::Itertools;
 

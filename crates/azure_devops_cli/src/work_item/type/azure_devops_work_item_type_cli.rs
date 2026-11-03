@@ -1,8 +1,8 @@
 use crate::work_item::r#type::field::AzureDevOpsWorkItemTypeFieldArgs;
 use crate::work_item::r#type::list::AzureDevOpsWorkItemTypeListArgs;
 use crate::work_item::r#type::show::AzureDevOpsWorkItemTypeShowArgs;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Inspect project work item types.

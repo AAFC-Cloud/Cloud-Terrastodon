@@ -1,6 +1,6 @@
+use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure::ResourceGraphHelper;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_user_input::PickerTui;
 use facet_json::RawJson;
 use std::path::PathBuf;

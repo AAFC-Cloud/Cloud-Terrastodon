@@ -7,8 +7,8 @@ pub use azure_entra_service_principal_browse_cli::AzureEntraSpBrowseArgs;
 pub use azure_entra_service_principal_cli::AzureEntraSpCommand;
 pub use azure_entra_service_principal_list_cli::AzureEntraSpListArgs;
 pub use azure_entra_service_principal_show_cli::AzureEntraSpShowArgs;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Entra service principal subcommands.

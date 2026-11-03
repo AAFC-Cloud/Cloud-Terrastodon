@@ -1,7 +1,7 @@
 use super::AzurePrivateEndpointListArgs;
 use super::AzurePrivateEndpointShowArgs;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Subcommands for Azure private endpoints.

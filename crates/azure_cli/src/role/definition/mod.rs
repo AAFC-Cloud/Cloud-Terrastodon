@@ -7,8 +7,8 @@ pub use azure_role_definition_browse_cli::AzureRoleDefinitionBrowseArgs;
 pub use azure_role_definition_cli::AzureRoleDefinitionCommand;
 pub use azure_role_definition_find_cli::AzureRoleDefinitionFindArgs;
 pub use azure_role_definition_list_cli::AzureRoleDefinitionListArgs;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Manage Azure role definitions.

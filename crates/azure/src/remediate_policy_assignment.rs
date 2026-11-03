@@ -1,14 +1,14 @@
+use crate::create_policy_remediation;
 use crate::fetch_all_policy_assignments;
 use crate::fetch_all_policy_set_definitions;
+use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure_types::DistinctByScope;
 use cloud_terrastodon_azure_types::PolicyAssignment;
 use cloud_terrastodon_azure_types::PolicyDefinitionIdReference;
-use cloud_terrastodon_azure_types::Scope;
-use cloud_terrastodon_azure_types::ScopeImpl;
+use cloud_terrastodon_azure_types::PolicyRemediationId;
+use cloud_terrastodon_azure_types::PolicyRemediationName;
+use cloud_terrastodon_azure_types::PolicyRemediationScope;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
-use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
@@ -18,128 +18,75 @@ use itertools::Itertools;
 use rand::Rng;
 use tracing::info;
 
+/// Interactively select an assignment and submit its remediation tasks.
+///
+/// Tasks run asynchronously in Azure; see [policy remediation](https://learn.microsoft.com/en-us/azure/governance/policy/how-to/remediate-resources).
 pub async fn remediate_policy_assignment(
     auth_context: &AzureTenantAuthContext,
     cancellation: &CancellationScope,
 ) -> Result<()> {
     cancellation.cancellable_scope(|cancellation| async move {
-                let cancellation = &cancellation;
-    info!("Fetching policy assignments");
-    let policy_assignments = fetch_all_policy_assignments(auth_context, cancellation).await?;
+        info!("Fetching policy assignments");
+        let policy_assignments = fetch_all_policy_assignments(auth_context, &cancellation).await?;
+        let choices = policy_assignments
+            .into_iter()
+            .distinct_by_scope()
+            .map(|assignment| Choice::<PolicyAssignment> {
+                key: format!(
+                    "{} {:?}",
+                    assignment.name,
+                    assignment.properties.display_name.as_deref()
+                        .unwrap_or(assignment.name.as_str())
+                ),
+                value: assignment,
+            });
+        let policy_assignment: PolicyAssignment = PickerTui::<_>::new()
+            .set_header("Choose policy to remediate")
+            .pick_one(choices)
+            .await?;
+        cancellation.bail_if_cancelled()?;
+        let remediation_scope = PolicyRemediationScope::try_from(&policy_assignment.properties.scope)?;
 
-    info!("Building choices of policies to remediate");
-    let choices = policy_assignments
-        .into_iter()
-        .distinct_by_scope()
-        .map(|ass| Choice::<PolicyAssignment> {
-            key: format!(
-                "{} {:?}",
-                ass.name,
-                ass.properties
-                    .display_name
-                    .as_deref()
-                    .unwrap_or(ass.name.as_str())
-            ),
-            value: ass,
-        });
-
-    info!("Prompting for user choice");
-    let policy_assignment: PolicyAssignment = PickerTui::<_>::new()
-        .set_header("Choose policy to remediate")
-        .pick_one(choices)
-        .await?;
-
-    info!("Finding policy definition for chosen");
-    match policy_assignment.properties.policy_definition_id {
-        PolicyDefinitionIdReference::PolicySetDefinitionId(policy_set_definition_id) => {
-            info!("Remediating a policy set - must prompt for inner choice");
-            let Some(policy_set_definition) =
-                fetch_all_policy_set_definitions(auth_context, cancellation)
+        let reference_ids = match policy_assignment.properties.policy_definition_id {
+            PolicyDefinitionIdReference::PolicySetDefinitionId(policy_set_definition_id) => {
+                let Some(policy_set_definition) = fetch_all_policy_set_definitions(auth_context, &cancellation)
+                    .await?.into_iter().find(|definition| definition.id == policy_set_definition_id)
+                else {
+                    bail!("Could not find policy set definition with id {policy_set_definition_id:?}");
+                };
+                let choices = policy_set_definition.policy_definitions.ok_or_else(|| eyre!(
+                    "Expected {policy_set_definition_id:?} to have inner policy definitions"
+                ))?.into_iter().map(|definition| Choice {
+                    key: definition.policy_definition_reference_id.to_owned(),
+                    value: definition,
+                }).collect_vec();
+                PickerTui::<_>::new()
+                    .set_header("Pick the inner definitions to remediate")
+                    .pick_many(choices)
                     .await?
                     .into_iter()
-                    .find(|def| def.id == policy_set_definition_id)
-            else {
-                bail!("Could not find policy set definition with id {policy_set_definition_id:?}");
+                    .map(|definition| definition.policy_definition_reference_id.parse().map(Some))
+                    .collect::<Result<Vec<_>>>()?
+            }
+            PolicyDefinitionIdReference::PolicyDefinitionId(_) => vec![None],
+        };
+
+        info!("Launching remediation tasks");
+        for reference_id in reference_ids {
+            cancellation.bail_if_cancelled()?;
+            let id = PolicyRemediationId {
+                scope: remediation_scope.clone(),
+                name: PolicyRemediationName::new(format!("myRemediation{:x}", rand::rng().next_u32()))?,
             };
-
-            info!("Found policy set definition - prompting for inner definitions to remediate");
-            let reference_ids = policy_set_definition
-                .policy_definitions
-                .ok_or(eyre!(
-                    "Expected {policy_set_definition_id:?} to have inner policy definitions"
-                ))?
-                .into_iter()
-                .map(|x| Choice {
-                    key: x.policy_definition_reference_id.to_owned(),
-                    value: x,
-                })
-                .collect_vec();
-            let chosen = PickerTui::<_>::new()
-                .set_header("Pick the inner definitions to remediate")
-                .pick_many(reference_ids)
-                .await?;
-
-            info!("Launching remediation tasks");
-            for choice in chosen {
-                let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-                cmd.args(["policy", "remediation", "create"]);
-                cmd.args([
-                    "--name",
-                    format!("myRemediation{:x}", rand::rng().next_u32()).as_ref(),
-                ]);
-                cmd.args(["--policy-assignment", &policy_assignment.id.expanded_form()]);
-                cmd.args([
-                    "--definition-reference-id",
-                    choice.policy_definition_reference_id.as_ref(),
-                ]);
-                let scope = &policy_assignment.properties.scope;
-                match scope {
-                    ScopeImpl::ManagementGroup(management_group_id) => {
-                        cmd.args(["--management-group", &management_group_id.short_form()]);
-                    }
-                    ScopeImpl::ResourceGroup(resource_group_id) => {
-                        cmd.args(["--resource-group", &resource_group_id.short_form()]);
-                    }
-                    x => {
-                        bail!(
-                            "Scope is of unsupported kind, expected management group or resource group, got {x:?}"
-                        );
-                    }
-                }
-                cmd.should_announce(true);
-                cmd.run_raw(cancellation).await?;
-            }
+            info!(remediation = %id, "Submitting policy remediation task");
+            create_policy_remediation(
+                id,
+                policy_assignment.id.clone(),
+                reference_id,
+                auth_context,
+                &cancellation,
+            ).await?;
         }
-        PolicyDefinitionIdReference::PolicyDefinitionId(_policy_definition_id) => {
-            info!("Remediating a policy definition");
-            let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-            cmd.args(["policy", "remediation", "create"]);
-            cmd.args([
-                "--name",
-                format!("myRemediation{:x}", rand::rng().next_u32()).as_ref(),
-            ]);
-            cmd.args(["--policy-assignment", &policy_assignment.id.expanded_form()]);
-
-            let scope = &policy_assignment.properties.scope;
-            match scope {
-                ScopeImpl::ManagementGroup(management_group_id) => {
-                    cmd.args(["--management-group", &management_group_id.short_form()]);
-                }
-                ScopeImpl::ResourceGroup(resource_group_id) => {
-                    cmd.args(["--resource-group", &resource_group_id.short_form()]);
-                }
-                x => {
-                    bail!(
-                        "Scope is of unsupported kind, expected management group or resource group, got {x:?}"
-                    );
-                }
-            }
-            cmd.should_announce(true);
-            cmd.run_raw(cancellation).await?;
-        }
-    }
-
-    Ok(())
-
-        }).await
+        Ok(())
+    }).await
 }

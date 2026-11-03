@@ -1,8 +1,8 @@
+use cloud_terrastodon_auth_types::AuthSource;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::set_tracked_tenant_auth_source;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthSource;
 use eyre::Result;
 use std::io::Write;
 

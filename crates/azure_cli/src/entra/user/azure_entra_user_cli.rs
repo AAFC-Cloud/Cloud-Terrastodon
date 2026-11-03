@@ -2,8 +2,8 @@ use super::AzureEntraUserBrowseArgs;
 use super::AzureEntraUserListArgs;
 use super::AzureEntraUserSearchArgs;
 use super::AzureEntraUserShowArgs;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// User-related Entra (Azure AD) commands.

@@ -1,6 +1,8 @@
 use chrono::Local;
 use chrono::TimeDelta;
 use chrono::Utc;
+use cloud_terrastodon_auth::AzureDevOpsAuthContext;
+use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure::fetch_all_entra_users;
 use cloud_terrastodon_azure_devops::AzureDevOpsDescriptor;
 use cloud_terrastodon_azure_devops::AzureDevOpsLicenseType;
@@ -14,8 +16,6 @@ use cloud_terrastodon_azure_devops::fetch_azure_devops_test_suites;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlements;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
-use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
-use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::time::Duration;

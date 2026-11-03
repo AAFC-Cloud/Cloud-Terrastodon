@@ -1,12 +1,14 @@
 use crate::RequestHeaders;
 use crate::RestService;
+use cloud_terrastodon_auth::AuthBearerExt;
+use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_auth::AzureBearerToken;
+use cloud_terrastodon_auth::create_azure_devops_rest_client;
+use cloud_terrastodon_auth::fetch_azure_bearer_access_token;
+use cloud_terrastodon_auth_types::AuthSource;
+use cloud_terrastodon_auth_types::AzureCredentialResource;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
-use cloud_terrastodon_credentials::AuthSource;
-use cloud_terrastodon_credentials::create_azure_devops_rest_client;
-use cloud_terrastodon_credentials::fetch_azure_bearer_access_token;
-use cloud_terrastodon_credentials::get_azure_devops_personal_access_token_from_credential_manager;
 use eyre::Result;
 use http::Method;
 use reqwest::Client;
@@ -16,13 +18,6 @@ use reqwest::Url;
 use reqwest::header::CONTENT_TYPE;
 use reqwest::tls::Version;
 use tracing::debug;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum AzureRestResource {
-    MicrosoftGraph,
-    AzureResourceManager,
-    AzureDevOps,
-}
 
 pub async fn read_optional_body(body: Option<String>) -> Result<Option<String>> {
     let Some(body) = body else {
@@ -74,7 +69,7 @@ pub async fn execute_rest_request(
                 headers,
                 tenant,
                 bearer_token,
-                AzureRestResource::MicrosoftGraph,
+                AzureCredentialResource::MicrosoftGraph,
                 cancellation,
             )
             .await
@@ -88,7 +83,7 @@ pub async fn execute_rest_request(
                 headers,
                 tenant,
                 bearer_token,
-                AzureRestResource::AzureResourceManager,
+                AzureCredentialResource::AzureResourceManager,
                 cancellation,
             )
             .await
@@ -117,26 +112,23 @@ pub async fn execute_azure_devops_request(
     );
 
     if matches!(source, Some(AuthSource::PersonalAccessToken)) {
-        let pat = get_azure_devops_personal_access_token_from_credential_manager()
-            .await
-            .map_err(|error| {
-                eyre::eyre!(
-                    "Azure DevOps PAT authentication was selected but no PAT was available: {error}"
-                )
-            })?;
+        let pat = auth_context.personal_access_token(cancellation).await?;
         return execute_authenticated_azure_devops_request(
             method,
             url,
             body,
             headers,
-            &pat,
+            pat.as_ref(),
             cancellation,
         )
         .await;
     }
 
+    let tenant = tenant.ok_or_else(|| {
+        eyre::eyre!("Azure DevOps bearer authentication requires an explicit tenant")
+    })?;
     if let Some(bearer_token) = bearer_token {
-        let bearer_token = cloud_terrastodon_credentials::AzureBearerToken::new(bearer_token);
+        let bearer_token = AzureBearerToken::new(bearer_token);
         return execute_authenticated_azure_devops_request(
             method,
             url,
@@ -151,7 +143,7 @@ pub async fn execute_azure_devops_request(
     let token = fetch_azure_bearer_access_token(
         auth_context,
         tenant,
-        cloud_terrastodon_credentials::AzureRestResource::AzureDevOps,
+        AzureCredentialResource::AzureDevOps,
         cancellation,
     )
     .await?;
@@ -164,7 +156,7 @@ async fn execute_authenticated_azure_devops_request(
     url: Url,
     body: Option<String>,
     headers: Option<RequestHeaders>,
-    token: &impl cloud_terrastodon_credentials::AuthBearerExt,
+    token: &impl AuthBearerExt,
     cancellation: &CancellationScope,
 ) -> Result<Response> {
     let client = create_azure_devops_rest_client(token).await?;
@@ -195,47 +187,22 @@ pub async fn execute_azure_bearer_request(
     headers: Option<RequestHeaders>,
     tenant: Option<AzureTenantId>,
     bearer_token: Option<String>,
-    resource: AzureRestResource,
+    resource: AzureCredentialResource,
     cancellation: &CancellationScope,
 ) -> Result<Response> {
     eyre::ensure!(
         auth_context.source() != Some(AuthSource::None),
         "authentication is disabled by auth source none; cannot execute an authenticated Azure request"
     );
+    let tenant = tenant
+        .ok_or_else(|| eyre::eyre!("Azure bearer authentication requires an explicit tenant"))?;
     let token = match bearer_token {
         Some(token) => token,
-        None => match resource {
-            AzureRestResource::MicrosoftGraph => fetch_azure_bearer_access_token(
-                auth_context,
-                tenant,
-                cloud_terrastodon_credentials::AzureRestResource::MicrosoftGraph,
-                cancellation,
-            )
+        None => fetch_azure_bearer_access_token(auth_context, tenant, resource, cancellation)
             .await?
             .access_token
             .as_str()
             .to_owned(),
-            AzureRestResource::AzureResourceManager => fetch_azure_bearer_access_token(
-                auth_context,
-                tenant,
-                cloud_terrastodon_credentials::AzureRestResource::AzureResourceManager,
-                cancellation,
-            )
-            .await?
-            .access_token
-            .as_str()
-            .to_owned(),
-            AzureRestResource::AzureDevOps => fetch_azure_bearer_access_token(
-                auth_context,
-                tenant,
-                cloud_terrastodon_credentials::AzureRestResource::AzureDevOps,
-                cancellation,
-            )
-            .await?
-            .access_token
-            .as_str()
-            .to_owned(),
-        },
     };
     let client = create_tls12_client()?;
     debug!(?method, %url, ?resource, ?tenant, "Executing Azure REST request");
@@ -261,14 +228,54 @@ fn create_tls12_client() -> Result<Client> {
 
 #[cfg(test)]
 mod tests {
-    use super::AzureRestResource;
+    use super::AzureCredentialResource;
     use super::execute_azure_bearer_request;
     use super::execute_azure_devops_request;
+    use cloud_terrastodon_auth::AuthContext;
+    use cloud_terrastodon_auth_types::AuthSource;
     use cloud_terrastodon_command::CancellationToken;
-    use cloud_terrastodon_credentials::AuthContext;
-    use cloud_terrastodon_credentials::AuthSource;
     use http::Method;
     use reqwest::Url;
+
+    #[tokio::test]
+    async fn bearer_requests_require_a_tenant_before_credentials_or_network() -> eyre::Result<()> {
+        CancellationToken::new()
+            .with_async_scope(|scope| async move {
+                let context = AuthContext::explicit(AuthSource::AzureCli);
+                let url = Url::parse("file:///synthetic-no-request")?;
+                for token in [None, Some("synthetic-unused-token".to_owned())] {
+                    let error = execute_azure_devops_request(
+                        &context,
+                        Method::GET,
+                        url.clone(),
+                        None,
+                        None,
+                        None,
+                        token.clone(),
+                        &scope,
+                    )
+                    .await
+                    .unwrap_err();
+                    assert!(error.to_string().contains("explicit tenant"));
+                    let error = execute_azure_bearer_request(
+                        &context,
+                        Method::GET,
+                        url.clone(),
+                        None,
+                        None,
+                        None,
+                        token,
+                        AzureCredentialResource::MicrosoftGraph,
+                        &scope,
+                    )
+                    .await
+                    .unwrap_err();
+                    assert!(error.to_string().contains("explicit tenant"));
+                }
+                Ok(())
+            })
+            .await
+    }
 
     #[tokio::test]
     async fn disabled_authentication_cannot_be_overridden_by_an_explicit_bearer_token()
@@ -299,7 +306,7 @@ mod tests {
                     None,
                     None,
                     Some("synthetic-unused-token".into()),
-                    AzureRestResource::MicrosoftGraph,
+                    AzureCredentialResource::MicrosoftGraph,
                     &cancellation,
                 )
                 .await

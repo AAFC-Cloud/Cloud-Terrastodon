@@ -1,5 +1,6 @@
 #![allow(deprecated)]
 use arbitrary::Arbitrary;
+use cloud_terrastodon_auth::AzureDevOpsAuthContext;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemQueryId;
 use cloud_terrastodon_azure_devops_types::WorkItemQueryResult;
@@ -7,7 +8,6 @@ use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use cloud_terrastodon_rest::RestRequest;
 use reqwest::Method;
 use std::borrow::Cow;
@@ -100,10 +100,10 @@ mod test {
     use crate::fetch_queries_for_project;
     use crate::fetch_work_items_for_query;
     use crate::get_default_organization_url;
+    use cloud_terrastodon_auth::AuthContext;
+    use cloud_terrastodon_auth::AzureDevOpsAuthContext;
     use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemQuery;
     use cloud_terrastodon_command::CancellationToken;
-    use cloud_terrastodon_credentials::AuthContext;
-    use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
     use eyre::Context;
     use eyre::bail;
 
@@ -113,9 +113,12 @@ mod test {
         CancellationToken::new()
             .with_async_scope(|cancellation| async move {
                 // get all projects
-                let org_url = get_default_organization_url(&cancellation).await?;
                 let auth_context = AuthContext::explicit_azure_cli();
-                let azure_devops_auth_context = AzureDevOpsAuthContext::new(&auth_context)?;
+                let azure_devops_auth_context = AzureDevOpsAuthContext::for_tenant(
+                    &auth_context,
+                    crate::test_tenant_id::test_tenant_id()?,
+                )?;
+                let org_url = get_default_organization_url(&cancellation).await?;
                 let mut projects = fetch_all_azure_devops_projects(
                     &org_url,
                     &azure_devops_auth_context,

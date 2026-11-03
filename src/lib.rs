@@ -11,13 +11,17 @@
 //! - `pathing`, `config`, `azure`, `azure-types`, `azure-resource-types`,
 //!   `azure-devops`, `azure-devops-types`, `hcl`, `hcl-types`, `user-input`,
 //!   `command`, `software`, `zombies`, `relative-location`, `ui-ratatui`, `ui-egui`,
-//!   `azure-locations`, `credentials`, `rest`, `source`, `source-types`.
+//!   `azure-locations`, `auth`, `auth-types`, `rest`, `source`, `source-types`.
 //! - `azure-cli`, `azure-devops-cli`, `source-cli`, `cli-types`: Reusable command
 //!   groups and shared command-line input contracts.
 
 // One pub use per optional subcrate, behind its feature flag.
 #[cfg(feature = "app")]
 pub use cloud_terrastodon_app as app;
+#[cfg(feature = "auth")]
+pub use cloud_terrastodon_auth as auth;
+#[cfg(feature = "auth-types")]
+pub use cloud_terrastodon_auth_types as auth_types;
 #[cfg(feature = "azure")]
 pub use cloud_terrastodon_azure as azure;
 #[cfg(feature = "azure-cli")]
@@ -38,8 +42,6 @@ pub use cloud_terrastodon_cli_types as cli_types;
 pub use cloud_terrastodon_command as command;
 #[cfg(feature = "config")]
 pub use cloud_terrastodon_config as config;
-#[cfg(feature = "credentials")]
-pub use cloud_terrastodon_credentials as credentials;
 #[cfg(feature = "hcl")]
 pub use cloud_terrastodon_hcl as hcl;
 #[cfg(feature = "hcl-types")]

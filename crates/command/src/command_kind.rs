@@ -94,7 +94,7 @@ impl CommandKind {
                 args = new_args.into_iter().map(CommandArgument::Literal).collect();
             }
             CommandKind::AzureCLI => {
-                // Always add --debug if not present
+                // Always add --debug if not present.
                 let has_debug = args
                     .iter()
                     .any(|a| matches!(a, CommandArgument::Literal(lit) if lit == "--debug"));
@@ -175,7 +175,19 @@ impl CommandKind {
             }
         }
 
-        // Apply envs to tokio Command
+        // Remove inherited values before applying deliberate replacements.
+        if !this.removed_env_prefixes.is_empty() {
+            for (name, _) in env::vars_os() {
+                if this.removed_env_prefixes.iter().any(|prefix| {
+                    CommandBuilder::environment_name_has_prefix(&name.to_string_lossy(), prefix)
+                }) {
+                    cmd.env_remove(name);
+                }
+            }
+        }
+        for key in &this.removed_env {
+            cmd.env_remove(key);
+        }
         cmd.envs(&this.env);
 
         // All done :)

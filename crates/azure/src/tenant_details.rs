@@ -1,10 +1,10 @@
 use crate::MicrosoftGraphHelper;
+use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure_types::MicrosoftGraphOrganization;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Result;
 use eyre::ensure;
 use std::borrow::Cow;
@@ -79,8 +79,8 @@ cloud_terrastodon_command::impl_cacheable_into_future!(AzureTenantDetailsRequest
 mod test {
     use crate::fetch_azure_tenant_details;
     use crate::list_tracked_tenants;
+    use cloud_terrastodon_auth::AuthContext;
     use cloud_terrastodon_command::CancellationToken;
-    use cloud_terrastodon_credentials::AuthContext;
     use eyre::ensure;
     use std::collections::HashSet;
 

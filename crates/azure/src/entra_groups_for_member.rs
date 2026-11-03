@@ -1,4 +1,5 @@
 use crate::fetch_groups_by_id;
+use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure_types::EntraGroup;
 use cloud_terrastodon_azure_types::EntraGroupId;
 use cloud_terrastodon_azure_types::EntraPrincipalId;
@@ -6,7 +7,6 @@ use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_rest::RestRequest;
 use http::Method;
 use std::borrow::Cow;

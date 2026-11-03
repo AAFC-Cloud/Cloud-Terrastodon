@@ -86,17 +86,20 @@ mod tests {
     use super::*;
     use crate::fetch_all_azure_devops_projects;
     use crate::get_default_organization_url;
+    use cloud_terrastodon_auth::AuthContext;
+    use cloud_terrastodon_auth::AzureDevOpsAuthContext;
     use cloud_terrastodon_command::CancellationToken;
-    use cloud_terrastodon_credentials::AuthContext;
-    use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 
     #[tokio::test]
     async fn test_fetch_all_azure_devops_repos() -> Result<()> {
         CancellationToken::new()
             .with_async_scope(|cancellation| async move {
-                let org_url = get_default_organization_url(&cancellation).await?;
                 let auth_context = AuthContext::explicit_azure_cli();
-                let azure_devops_auth_context = AzureDevOpsAuthContext::new(&auth_context)?;
+                let azure_devops_auth_context = AzureDevOpsAuthContext::for_tenant(
+                    &auth_context,
+                    crate::test_tenant_id::test_tenant_id()?,
+                )?;
+                let org_url = get_default_organization_url(&cancellation).await?;
                 let projects = fetch_all_azure_devops_projects(
                     &org_url,
                     &azure_devops_auth_context,

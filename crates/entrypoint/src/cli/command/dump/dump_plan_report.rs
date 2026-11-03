@@ -1,7 +1,7 @@
 use super::dump_plan_diagram_path_proxy::DumpPlanDiagramPathProxy;
+use cloud_terrastodon_auth_types::AuthSource;
 use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
-use cloud_terrastodon_credentials::AuthSource;
 use cloud_terrastodon_registry::DiscoveryPlan;
 use std::path::PathBuf;
 

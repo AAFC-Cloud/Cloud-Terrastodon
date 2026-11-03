@@ -1,6 +1,6 @@
 use crate::agent::pool::entitlement::list::AzureDevOpsAgentPoolEntitlementListArgs;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Azure DevOps agent pool entitlement-related commands (grouping for entitlement subcommands).

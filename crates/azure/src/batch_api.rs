@@ -1,7 +1,7 @@
+use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure_types::uuid::Uuid;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::FromCommandOutput;
-use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_relative_location::RelativeLocation;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Context;
@@ -249,9 +249,9 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cloud_terrastodon_auth::AuthContext;
+    use cloud_terrastodon_auth_types::AuthSource;
     use cloud_terrastodon_command::CancellationToken;
-    use cloud_terrastodon_credentials::AuthContext;
-    use cloud_terrastodon_credentials::AuthSource;
 
     #[test]
     fn batch_request_stores_the_tenant_binding() -> Result<()> {

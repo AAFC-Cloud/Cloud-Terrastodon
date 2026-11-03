@@ -1,6 +1,6 @@
 use crate::OutputFormat;
 #[cfg(feature = "auth")]
-use cloud_terrastodon_credentials::AuthSource;
+use cloud_terrastodon_auth_types::AuthSource;
 use std::path::PathBuf;
 
 /// Arguments that apply to all commands, including consumer-defined subcommands.

@@ -1,5 +1,5 @@
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 pub mod azure_policy_set_definition_browse_cli;
 pub mod azure_policy_set_definition_cli;
 pub mod azure_policy_set_definition_list_cli;

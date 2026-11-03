@@ -1,3 +1,4 @@
+use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure::Resource;
 use cloud_terrastodon_azure::ResourceGroup;
 use cloud_terrastodon_azure::ResourceTagsId;
@@ -7,7 +8,6 @@ use cloud_terrastodon_azure::fetch_all_resources;
 use cloud_terrastodon_azure::get_tags_for_resources;
 use cloud_terrastodon_azure::replace_tags_for_resources;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use cloud_terrastodon_user_input::prompt_line;

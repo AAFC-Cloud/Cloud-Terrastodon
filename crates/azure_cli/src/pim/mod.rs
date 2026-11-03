@@ -3,8 +3,8 @@ pub mod azure_pim_setup_cli;
 
 pub use azure_pim_activate_cli::AzurePimActivateArgs;
 pub use azure_pim_setup_cli::AzurePimSetupArgs;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Arguments for Azure Privileged Identity Management operations.

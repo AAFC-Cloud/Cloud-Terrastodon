@@ -1,10 +1,10 @@
 use crate::MicrosoftGraphHelper;
+use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure_types::UnifiedRoleAssignment;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use std::borrow::Cow;
 use std::path::PathBuf;
 use tracing::debug;
@@ -73,8 +73,8 @@ cloud_terrastodon_command::impl_cacheable_into_future!(UnifiedRoleAssignmentList
 #[cfg(test)]
 mod test {
     use crate::get_test_tenant_id;
+    use cloud_terrastodon_auth::AuthContext;
     use cloud_terrastodon_command::CancellationToken;
-    use cloud_terrastodon_credentials::AuthContext;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {

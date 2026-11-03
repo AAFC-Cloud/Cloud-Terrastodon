@@ -21,6 +21,7 @@ use eyre::Result;
 use eyre::bail;
 use std::any::type_name;
 use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::ffi::OsString;
@@ -57,6 +58,8 @@ pub struct CommandBuilder {
     pub(crate) args: Vec<CommandArgument>,
     pub(crate) adjacent_files: HashMap<PathBuf, BString>,
     pub(crate) env: HashMap<String, String>,
+    pub(crate) removed_env: BTreeSet<String>,
+    pub(crate) removed_env_prefixes: BTreeSet<String>,
     pub(crate) run_dir: Option<PathBuf>,
     pub(crate) retry_behaviour: RetryBehaviour,
     pub(crate) output_behaviour: OutputBehaviour,
@@ -77,6 +80,7 @@ impl CommandBuilder {
             ..Self::default()
         }
     }
+
     /// Allows this command to be abandoned in response to cooperative cancellation.
     ///
     /// Commands otherwise defer cancellation through execution, output decoding,
@@ -212,8 +216,47 @@ impl CommandBuilder {
     }
 
     pub fn env(&mut self, key: impl AsRef<str>, value: impl AsRef<str>) -> &mut Self {
+        let key = key.as_ref();
+        if cfg!(windows) {
+            self.env
+                .retain(|existing, _| !existing.eq_ignore_ascii_case(key));
+        }
+        self.env.insert(key.to_owned(), value.as_ref().to_owned());
+        self
+    }
+
+    /// Remove inherited variables and earlier explicit values with this prefix.
+    /// Matching follows platform environment-name casing, and a later `env`
+    /// call can deliberately replace a removed value.
+    pub fn env_remove_prefix(&mut self, prefix: impl AsRef<str>) -> &mut Self {
+        let prefix = prefix.as_ref();
         self.env
-            .insert(key.as_ref().to_string(), value.as_ref().to_string());
+            .retain(|key, _| !Self::environment_name_has_prefix(key, prefix));
+        self.removed_env_prefixes.insert(prefix.to_owned());
+        self
+    }
+
+    pub(crate) fn environment_name_has_prefix(name: &str, prefix: &str) -> bool {
+        if cfg!(windows) {
+            name.get(..prefix.len())
+                .is_some_and(|start| start.eq_ignore_ascii_case(prefix))
+        } else {
+            name.starts_with(prefix)
+        }
+    }
+
+    /// Remove an inherited environment variable and any earlier explicit value.
+    /// A subsequent `env` call can supply a replacement value.
+    pub fn env_remove(&mut self, key: impl AsRef<str>) -> &mut Self {
+        let key = key.as_ref();
+        self.env.retain(|existing, _| {
+            if cfg!(windows) {
+                !existing.eq_ignore_ascii_case(key)
+            } else {
+                existing != key
+            }
+        });
+        self.removed_env.insert(key.to_owned());
         self
     }
 
@@ -273,6 +316,8 @@ impl CommandBuilder {
                 .iter()
                 .map(|(key, value)| (key.clone(), value.clone()))
                 .collect(),
+            removed_env: self.removed_env.clone(),
+            removed_env_prefixes: self.removed_env_prefixes.clone(),
             run_dir: self
                 .run_dir
                 .as_ref()
@@ -471,7 +516,7 @@ impl CommandBuilder {
 
                             // Perform login command
                             // (avoid using azure crate to avoid a dependency)
-                            // This could maybe be moved to cloud_terrastodon_credentials
+                            // This could maybe be moved to cloud_terrastodon_auth
                             // We could also try and extract `--tenant {}` from args
                             // or just make the tenant id be explicitly set for CommandBuilder
                             // Reauthentication commands must not retry and reacquire this lock.
@@ -937,6 +982,124 @@ fn allow_interactive_reauthentication_for(
         return false;
     }
     true
+}
+
+#[cfg(test)]
+mod execution_policy_tests {
+    use super::CommandBuilder;
+    use crate::CommandKind;
+    use std::collections::BTreeMap;
+    use std::ffi::OsStr;
+    use tokio::process::Command;
+
+    #[tokio::test]
+    async fn removed_environment_changes_cache_identity_and_clears_prior_overrides()
+    -> eyre::Result<()> {
+        let mut builder = CommandBuilder::new(CommandKind::Other("unused-test-program".to_owned()));
+        let fingerprint = builder.cache_fingerprint(&BTreeMap::new()).await?;
+        builder.env_remove("CT_SYNTHETIC_SESSION");
+        assert_ne!(
+            fingerprint,
+            builder.cache_fingerprint(&BTreeMap::new()).await?
+        );
+
+        builder.env("CT_SYNTHETIC_SESSION", "synthetic");
+        // Windows treats differently cased environment names as the same key.
+        let removed_name = if cfg!(windows) {
+            "ct_synthetic_session"
+        } else {
+            "CT_SYNTHETIC_SESSION"
+        };
+        builder.env_remove(removed_name);
+        let mut process = Command::new("unused-test-program");
+        builder
+            .kind
+            .apply_args_and_envs(&builder, &mut process)
+            .await?;
+        assert!(
+            process
+                .as_std()
+                .get_envs()
+                .all(|(_, value)| value.is_none())
+        );
+
+        builder.env("CT_SYNTHETIC_SESSION", "replacement");
+        let mut process = Command::new("unused-test-program");
+        builder
+            .kind
+            .apply_args_and_envs(&builder, &mut process)
+            .await?;
+        assert!(
+            process
+                .as_std()
+                .get_envs()
+                .any(|(_, value)| { value == Some(OsStr::new("replacement")) })
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn environment_prefix_removal_clears_overrides_and_changes_cache_identity()
+    -> eyre::Result<()> {
+        let mut builder = CommandBuilder::new(CommandKind::Other("unused-test-program".to_owned()));
+        builder.env("CT_UNRELATED_TEST_VALUE", "keep");
+        let baseline = builder.cache_fingerprint(&BTreeMap::new()).await?;
+        let credential_name = if cfg!(windows) {
+            "ct_synthetic_session_secret"
+        } else {
+            "CT_SYNTHETIC_SESSION_SECRET"
+        };
+        builder.env(credential_name, "synthetic-credential");
+        builder.env_remove_prefix("CT_SYNTHETIC_SESSION_");
+        assert_ne!(baseline, builder.cache_fingerprint(&BTreeMap::new()).await?);
+        let mut process = Command::new("unused-test-program");
+        builder
+            .kind
+            .apply_args_and_envs(&builder, &mut process)
+            .await?;
+        assert!(
+            !process
+                .as_std()
+                .get_envs()
+                .any(|(_, value)| { value == Some(OsStr::new("synthetic-credential")) })
+        );
+        assert!(
+            process
+                .as_std()
+                .get_envs()
+                .any(|(_, value)| value == Some(OsStr::new("keep")))
+        );
+
+        builder.env("CT_SYNTHETIC_SESSION_SECRET", "selected-credential");
+        let mut process = Command::new("unused-test-program");
+        builder
+            .kind
+            .apply_args_and_envs(&builder, &mut process)
+            .await?;
+        assert!(
+            process
+                .as_std()
+                .get_envs()
+                .any(|(_, value)| { value == Some(OsStr::new("selected-credential")) })
+        );
+        Ok(())
+    }
+
+    #[cfg(windows)]
+    #[tokio::test]
+    async fn environment_replacement_has_one_case_insensitive_identity() -> eyre::Result<()> {
+        let mut builder = CommandBuilder::new(CommandKind::Other("unused-test-program".to_owned()));
+        builder.env("cloud_terrastodon_auth_partition", "unselected");
+        builder.env("CLOUD_TERRASTODON_AUTH_PARTITION", "selected");
+        let mut expected =
+            CommandBuilder::new(CommandKind::Other("unused-test-program".to_owned()));
+        expected.env("CLOUD_TERRASTODON_AUTH_PARTITION", "selected");
+        assert_eq!(
+            builder.cache_fingerprint(&BTreeMap::new()).await?,
+            expected.cache_fingerprint(&BTreeMap::new()).await?
+        );
+        Ok(())
+    }
 }
 
 #[cfg(test)]

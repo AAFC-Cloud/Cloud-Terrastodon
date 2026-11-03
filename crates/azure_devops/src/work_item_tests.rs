@@ -2,14 +2,14 @@
 //! this module sends a mutation to a service.
 use crate::work_item_copy_writer::WorkItemCopyWriter;
 use crate::*;
+use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_auth::AzureDevOpsAuthContext;
+use cloud_terrastodon_auth_types::AuthSource;
 use cloud_terrastodon_azure_types::ArbitraryJson;
 use cloud_terrastodon_command::CancellationError;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CancellationToken;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_credentials::AuthContext;
-use cloud_terrastodon_credentials::AuthSource;
-use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use eyre::Result;
 use std::borrow::Cow;
 use std::collections::BTreeMap;
@@ -666,10 +666,7 @@ async fn live_work_item_deserialization() -> Result<()> {
                     .split(',')
                     .map(|id| id.trim().parse())
                     .collect::<Result<Vec<AzureDevOpsWorkItemId>>>()?;
-                let mut auth = AuthContext::resolve(AuthSource::Browser)?;
-                if let AuthContext::Resolved { headless, .. } = &mut auth {
-                    *headless = true;
-                }
+                let auth = AuthContext::explicit_headless(AuthSource::Browser);
                 let auth_context = AzureDevOpsAuthContext::for_tenant(&auth, tenant)?;
                 *stage = "selected item reads";
                 let as_of = chrono::Utc::now();

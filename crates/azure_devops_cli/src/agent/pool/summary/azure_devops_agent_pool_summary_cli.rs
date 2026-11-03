@@ -1,3 +1,6 @@
+use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_azure::AzureDevOpsTenantArgumentExt;
+use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsAgentPoolEntitlement;
 use cloud_terrastodon_azure_devops::AzureDevOpsAgentPoolId;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
@@ -7,8 +10,6 @@ use cloud_terrastodon_azure_devops::fetch_azure_devops_agent_pool_entitlements_f
 use cloud_terrastodon_azure_devops::fetch_azure_devops_agent_pools;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
-use cloud_terrastodon_credentials::AuthContext;
-use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use color_eyre::owo_colors::OwoColorize;
 use eyre::Result;
 use std::collections::HashMap;
@@ -17,6 +18,10 @@ use std::collections::HashSet;
 /// Print a summary of agent pools and projects that belong to each pool.
 #[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsAgentPoolSummaryArgs {
+    /// Tenant id or tracked alias for bearer authentication; PAT authentication may omit it.
+    #[facet(figue::named)]
+    pub tenant: Option<AzureTenantArgument<'static>>,
+
     /// Azure DevOps organization name or URL.
     #[facet(figue::named)]
     pub org: AzureDevOpsOrganizationUrl,
@@ -30,7 +35,10 @@ impl AzureDevOpsAgentPoolSummaryArgs {
     ) -> Result<()> {
         // Fetch pools and projects once
         let pools = fetch_azure_devops_agent_pools(&self.org, cancellation).await?;
-        let azure_devops_auth_context = AzureDevOpsAuthContext::new(auth_context)?;
+        let azure_devops_auth_context = self
+            .tenant
+            .bind_auth_context(auth_context, cancellation)
+            .await?;
         let projects =
             fetch_all_azure_devops_projects(&self.org, &azure_devops_auth_context, cancellation)
                 .await?;

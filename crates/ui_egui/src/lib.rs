@@ -15,9 +15,9 @@ pub mod work;
 pub mod work_tracker;
 pub mod workers;
 
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use tracing::info;
 
 pub async fn egui_main(

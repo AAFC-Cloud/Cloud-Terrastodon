@@ -1,10 +1,10 @@
 use crate::MicrosoftGraphHelper;
+use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure_types::UnifiedRoleDefinition;
 use cloud_terrastodon_azure_types::UnifiedRoleDefinitionId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use std::borrow::Cow;
 use std::path::PathBuf;
 
@@ -107,9 +107,9 @@ mod test {
     use crate::fetch_unified_role_definition;
     use crate::fetch_unified_role_definition_deep;
     use crate::get_test_tenant_id;
+    use cloud_terrastodon_auth::AuthContext;
     use cloud_terrastodon_azure_types::UnifiedRoleDefinitionId;
     use cloud_terrastodon_command::CancellationToken;
-    use cloud_terrastodon_credentials::AuthContext;
 
     #[tokio::test]
     pub async fn it_works_single() -> eyre::Result<()> {

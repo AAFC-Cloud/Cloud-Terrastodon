@@ -3,8 +3,8 @@ use super::AzureEntraOAuth2PermissionGrantClaimArgs;
 use super::AzureEntraOAuth2PermissionGrantCreateArgs;
 use super::AzureEntraOAuth2PermissionGrantListArgs;
 use super::AzureEntraOAuth2PermissionGrantUpdateArgs;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Subcommands for Entra OAuth2 delegated permission grants.

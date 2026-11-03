@@ -32,6 +32,19 @@ By defauilt, the app takes no arguments and enters an interactive terminal user 
 
 The most helpful commands are "pim activate" and the "browse ..." ones.
 
+For Azure CLI authentication, establish a Cloud Terrastodon login for an
+explicit tenant ID or tracked alias:
+
+```pwsh
+ct az tenant login example-tenant --auth-source azure-cli
+```
+
+This login persists in Cloud Terrastodon's own store. A separate `az login`
+does not populate it, and token acquisition does not start an implicit login.
+Azure DevOps bearer requests need a tenant; PAT authentication can omit it.
+See [authentication sources](docs/authentication.md) and the
+[crate migration](docs/auth-execution-migration.md).
+
 `cloud_terrastodon az subscription list` lists subscriptions grouped by tracked
 tenant, with tenant IDs, names, aliases, and links to subscriptions in the Azure
 portal. Tenants with unavailable authentication appear with an error while other
@@ -58,8 +71,8 @@ definitions, and definition folders, and prune empty folders with an optional
 `--org` and `--project` selectors:
 
 ```pwsh
-ct az devops build definition list --org example-org --project example-project
-ct az devops build list --org example-org --project example-project
+ct az devops build definition list --org example-org --project example-project --tenant example-tenant
+ct az devops build list --org example-org --project example-project --tenant example-tenant
 ```
 
 Azure DevOps commands accept an organization URL or name through `--org`.
@@ -83,7 +96,7 @@ Use [source hunt](docs/SOURCE_HUNT.md) to count file extensions by local Git
 repository, inspect remotes, and sort the JSON report in PowerShell:
 
 ```pwsh
-ct source hunt 'C:\Users\phillipsdo\source\repos' --extension php --extension js --extension ts
+ct source hunt 'C:\source\repos' --extension php --extension js --extension ts
 ```
 
 ## Caching

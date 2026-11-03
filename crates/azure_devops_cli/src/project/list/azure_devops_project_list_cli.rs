@@ -1,12 +1,12 @@
+use cloud_terrastodon_auth::AuthContext;
+#[cfg(test)]
+use cloud_terrastodon_auth_types::AuthSource;
 use cloud_terrastodon_azure::AzureDevOpsTenantArgumentExt;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::to_writer_pretty;
-use cloud_terrastodon_credentials::AuthContext;
-#[cfg(test)]
-use cloud_terrastodon_credentials::AuthSource;
 use eyre::Result;
 use std::io::Write;
 use std::io::stdout;
@@ -117,15 +117,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn headless_cli_project_list_fails_before_cli_or_rest_access() {
+    async fn cli_project_list_requires_tenant_before_cli_or_rest_access() {
         CancellationToken::new()
             .with_async_scope(|cancellation| async move {
                 let cancellation = &cancellation;
 
-                let mut auth_context = AuthContext::explicit(AuthSource::AzureCli);
-                if let AuthContext::Resolved { headless, .. } = &mut auth_context {
-                    *headless = true;
-                }
+                let auth_context = AuthContext::explicit(AuthSource::AzureCli);
                 // Cached project pages intentionally bypass fresh authentication. Use
                 // a new cache namespace, without touching any existing user cache.
                 let organization = format!("offline-test-{}", uuid::Uuid::new_v4());
@@ -136,11 +133,11 @@ mod tests {
                 let error = args
                     .invoke(&auth_context, cancellation)
                     .await
-                    .expect_err("headless CLI auth should fail before command or REST access");
+                    .expect_err("missing tenant must fail before command or REST access");
                 assert!(
                     error
                         .chain()
-                        .any(|cause| cause.to_string().contains("disabled")),
+                        .any(|cause| cause.to_string().contains("explicit tenant")),
                     "{error:#}"
                 );
 

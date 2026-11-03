@@ -5,8 +5,8 @@ use crate::license_entitlement::user::AzureDevOpsLicenseEntitlementUserShowArgs;
 use crate::license_entitlement::user::AzureDevOpsLicenseEntitlementUserSummaryArgs;
 use crate::license_entitlement::user::AzureDevOpsLicenseEntitlementUserUpdateArgs;
 use crate::license_entitlement::user::AzureDevOpsLicenseEntitlementUserUpdateTuiArgs;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Azure DevOps license entitlement-related commands.

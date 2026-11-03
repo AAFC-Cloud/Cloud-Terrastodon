@@ -323,11 +323,11 @@ mod tests {
     use super::*;
     use crate::object_explorer::arena::Arena;
     use crate::object_explorer::card_window::CardWindow;
+    use cloud_terrastodon_auth::AuthContext;
+    use cloud_terrastodon_auth::AzureDevOpsAuthContext;
+    use cloud_terrastodon_auth::WorkloadIdentityConfig;
+    use cloud_terrastodon_auth_types::AuthSource;
     use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
-    use cloud_terrastodon_credentials::AuthContext;
-    use cloud_terrastodon_credentials::AuthSource;
-    use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
-    use cloud_terrastodon_credentials::WorkloadIdentityConfig;
     use cloud_terrastodon_registry::RuntimeValue;
     use cloud_terrastodon_registry_execution::DiscoveryPlanBuildRequest;
     use facet::Facet;
@@ -357,7 +357,9 @@ mod tests {
             let mut arena = Arena::default();
             let owned = arena.insert_ready(runtime(context.clone())).unwrap();
             let wrapper = arena
-                .insert_ready(runtime(AzureDevOpsAuthContext::AzureCli(context)))
+                .insert_ready(runtime(AzureDevOpsAuthContext::PersonalAccessToken(
+                    context,
+                )))
                 .unwrap();
             let source = ArenaAddressSource::new(&arena);
             let projected =
@@ -379,7 +381,7 @@ mod tests {
                 CardSnapshot::observe_fields(&source, ValueAddress::root(wrapper), 1).unwrap();
             assert!(card.rows().iter().any(|row| {
                 row.key() == &CardRowKey::Variant
-                    && row.content() == &CardRowContent::Text("AzureCli".to_owned())
+                    && row.content() == &CardRowContent::Text("PersonalAccessToken".to_owned())
             }));
             let field = card
                 .rows()
@@ -391,7 +393,7 @@ mod tests {
     }
 
     #[test]
-    fn resolved_auth_cards_show_public_policy_and_tenant_without_credential_fields() {
+    fn resolved_auth_cards_keep_tenant_visible_and_hide_session_state() {
         let tenant_id = "11111111-1111-1111-1111-111111111111".parse().unwrap();
         let context = AuthContext::explicit(AuthSource::WorkloadIdentity)
             .with_workload_identity(WorkloadIdentityConfig {
@@ -419,14 +421,14 @@ mod tests {
                 _ => None,
             })
             .collect::<Vec<_>>();
-        assert_eq!(
-            fields,
-            [
-                ("requested_source", Some("workload-identity")),
-                ("source", Some("workload-identity")),
-                ("headless", Some("false")),
-            ]
+        assert!(
+            fields.is_empty(),
+            "credential-session internals must not be browsable"
         );
+        assert!(card.rows().iter().any(|row| {
+            row.key() == &CardRowKey::Variant
+                && row.content() == &CardRowContent::Text("Resolved".to_owned())
+        }));
         assert!(card.relationships_complete());
         let card = CardSnapshot::observe_fields(&source, tenant_context, 8).unwrap();
         let tenant = card

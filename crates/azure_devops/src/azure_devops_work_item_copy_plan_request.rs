@@ -6,12 +6,12 @@ use crate::azure_devops_work_item_type_field_list_request::AzureDevOpsWorkItemTy
 use crate::azure_devops_work_items_get_request::AzureDevOpsWorkItemsGetRequest;
 use crate::build_work_item_copy_plan;
 use arbitrary::Arbitrary;
+use cloud_terrastodon_auth::AzureDevOpsAuthContext;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemId;
 use cloud_terrastodon_azure_devops_types::WORK_ITEM_CHILD_RELATION;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use eyre::Result;
 use eyre::ensure;
 use facet::Facet;

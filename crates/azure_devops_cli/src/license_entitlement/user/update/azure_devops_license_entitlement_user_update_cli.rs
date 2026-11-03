@@ -1,3 +1,6 @@
+use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_azure::AzureDevOpsTenantArgumentExt;
+use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsLicenseType;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsUserArgument;
@@ -6,8 +9,6 @@ use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlement;
 use cloud_terrastodon_azure_devops::update_azure_devops_user_license_entitlement;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
-use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use color_eyre::owo_colors::OwoColorize;
 use eyre::Result;
 use eyre::bail;
@@ -17,6 +18,10 @@ use tracing::info;
 #[derive(facet::Facet, Debug, Clone)]
 /// Update an Azure DevOps user's license entitlement.
 pub struct AzureDevOpsLicenseEntitlementUserUpdateArgs {
+    /// Tenant id or tracked alias for bearer authentication; PAT authentication may omit it.
+    #[facet(figue::named)]
+    pub tenant: Option<AzureTenantArgument<'static>>,
+
     /// Azure DevOps organization name or URL.
     #[facet(figue::named)]
     pub org: AzureDevOpsOrganizationUrl,
@@ -48,7 +53,10 @@ impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
         auth_context: &AuthContext,
         cancellation: &CancellationScope,
     ) -> Result<()> {
-        let azure_devops_auth_context = AzureDevOpsAuthContext::new(auth_context)?;
+        let azure_devops_auth_context = self
+            .tenant
+            .bind_auth_context(auth_context, cancellation)
+            .await?;
 
         if let AzureDevOpsLicenseType::Other(s) = &self.license {
             bail!("Invalid license kind specified: {}", s);

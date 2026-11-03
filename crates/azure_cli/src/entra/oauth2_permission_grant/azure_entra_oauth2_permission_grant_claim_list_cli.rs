@@ -1,3 +1,5 @@
+use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::EntraServicePrincipal;
@@ -6,8 +8,6 @@ use cloud_terrastodon_azure::fetch_all_service_principals;
 use cloud_terrastodon_azure::fetch_oauth2_permission_scopes;
 use cloud_terrastodon_azure::fetch_service_principal;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
-use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Result;
 use eyre::bail;
 use std::io::Write;

@@ -9,6 +9,14 @@ use std::str::FromStr;
 
 const STORAGE_ACCOUNT_NAMING_RULES_URL: &str = "https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftstorage";
 
+/// A blob container name, including Azure's documented special containers.
+///
+/// Ordinary names follow the [container naming rules](https://learn.microsoft.com/en-us/rest/api/storageservices/naming-and-referencing-containers--blobs--and-metadata#container-names).
+/// Azure also defines [`$root`](https://learn.microsoft.com/en-us/rest/api/storageservices/working-with-the-root-container),
+/// [`$web`](https://learn.microsoft.com/en-us/azure/storage/blobs/storage-blob-static-website),
+/// [`$logs`](https://learn.microsoft.com/en-us/azure/storage/common/storage-analytics-logging),
+/// and [`$blobchangefeed`](https://learn.microsoft.com/en-us/azure/storage/blobs/storage-blob-change-feed).
+/// Accepting these identities does not imply that each listing API returns them.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, facet::Facet)]
 #[facet(json::proxy = String)]
 pub struct StorageAccountBlobContainerName {
@@ -35,6 +43,9 @@ fn validate_storage_account_blob_container_name(value: &str) -> eyre::Result<()>
 }
 
 fn validate_storage_account_blob_container_name_inner(value: &str) -> eyre::Result<()> {
+    if matches!(value, "$root" | "$web" | "$logs" | "$blobchangefeed") {
+        return Ok(());
+    }
     // Check length requirements (3-63 characters)
     let char_count = value.chars().count();
     if !(3..=63).contains(&char_count) {
@@ -55,6 +66,13 @@ fn validate_storage_account_blob_container_name_inner(value: &str) -> eyre::Resu
         }
     } else {
         bail!("Storage account blob container name cannot be empty");
+    }
+
+    if !chars
+        .last()
+        .is_some_and(|last| last.is_ascii_lowercase() || last.is_ascii_digit())
+    {
+        bail!("Storage account blob container name must end with lowercase letter or number");
     }
 
     for (i, &char) in chars.iter().enumerate() {
@@ -139,8 +157,12 @@ impl<'a> Arbitrary<'a> for StorageAccountBlobContainerName {
         name.push(first_char);
 
         // Generate remaining characters
-        for _ in 1..len {
-            let char = *u.choose(&all_choices)?;
+        for index in 1..len {
+            let char = if index == len - 1 {
+                *u.choose(&start_choices)?
+            } else {
+                *u.choose(&all_choices)?
+            };
 
             // Avoid consecutive hyphens
             if char == '-' && name.ends_with('-') {
@@ -159,6 +181,9 @@ impl<'a> Arbitrary<'a> for StorageAccountBlobContainerName {
 
 cloud_terrastodon_registry::register_thing!(StorageAccountBlobContainerName);
 cloud_terrastodon_registry::register_arbitrary!(StorageAccountBlobContainerName);
+cloud_terrastodon_registry::register_thing!(
+    std::collections::HashSet<StorageAccountBlobContainerName>
+);
 cloud_terrastodon_registry::register_arbitrary!(
     std::collections::HashSet<StorageAccountBlobContainerName>
 );
@@ -213,6 +238,25 @@ mod test {
         assert!(StorageAccountBlobContainerName::try_new("test@container").is_err());
         assert!(StorageAccountBlobContainerName::try_new("test container").is_err()); // space
 
+        Ok(())
+    }
+
+    #[test]
+    fn supports_documented_special_names_without_weakening_ordinary_names() -> eyre::Result<()> {
+        for value in ["$root", "$web", "$logs", "$blobchangefeed"] {
+            let name = StorageAccountBlobContainerName::try_new(value)?;
+            assert_eq!(name.to_string(), value);
+            let encoded = facet_json::to_string(&name)?;
+            assert_eq!(
+                facet_json::from_str::<StorageAccountBlobContainerName>(&encoded)?,
+                name
+            );
+        }
+        for value in ["$other", "$ROOT", "abc-", "a--b"] {
+            assert!(StorageAccountBlobContainerName::try_new(value).is_err());
+            let encoded = facet_json::to_string(&value)?;
+            assert!(facet_json::from_str::<StorageAccountBlobContainerName>(&encoded).is_err());
+        }
         Ok(())
     }
 

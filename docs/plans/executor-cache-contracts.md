@@ -14,10 +14,10 @@ U59–U61 revise the original package proposal after the completed types-crate
 dependency cleanup. The user selected candidate B: `registry` is the pure
 foundation, and `registry_execution` owns execution-aware registration and
 invocation. The runtime authentication crate is named `auth`, paired with
-`auth_types`. `AzureTenantId` remains in `azure_types`; `AuthSource` moves from
-the current `credentials` crate to `auth_types`. Task 3.0 has implemented the
-registry split. The auth rename/extraction and executor integration remain
-approved target boundaries for tasks 3.1–3.3.
+`auth_types`. `AzureTenantId` remains in `azure_types`; task 3.1 has moved
+`AuthSource` from the former `credentials` crate to `auth_types` and renamed the
+runtime to `auth`. Task 3.0 implemented the registry split. Executor/provider
+integration remains the approved target for tasks 3.2–3.3.
 
 The concrete `CloudTerrastodonExecutor` belongs in a new
 `cloud_terrastodon_execution` crate. It owns capabilities through interfaces and
@@ -204,8 +204,9 @@ alias, or compatibility re-export. `AzureTenantId` retains its existing
 `azure_types` public path. `auth_types` uses that same type rather than introducing
 a second tenant identity or conversion between identical wrappers. Parsing,
 Facet representation, arbitrary generation, and registrations stay beside each
-owning definition. These are package/type ownership changes, not authorization
-to alter credential discovery, admission, or session behavior.
+owning definition. Package/type ownership changes alone do not authorize changes
+to credential discovery, admission, or session behavior. U67/U68 separately
+authorize the identity and persistent-session contracts specified in G3 below.
 
 Task 3.1 must compile before the new `execution` crate exists. Its runtime
 identity-policy work uses the existing execution plumbing. Task 3.2 introduces
@@ -481,18 +482,31 @@ new audience or tenant and a refresh, must preserve its established identity. A
 changed or unverifiable identity requires a new provider/partition or an error,
 not silent reuse under the old partition.
 
-Authenticated Azure CLI service subprocesses must use the same provider-bound
-session that supplied admission and the cache partition. A token-only check is
-insufficient: an ordinary service command can otherwise read a different account
-through mutable external CLI state. The selected contract requires an isolated
-provider-owned CLI session with explicit tenant/account binding. Do not fall back
-to an ambient CLI configuration directory. If a stable session cannot be
-established, reject authenticated subprocess execution before it starts. Copying
-configuration files alone is not proof of a stable credential snapshot. Task 3.1
-must verify the actual provisioning mechanism against official platform behavior
-and synthetic isolation tests before enabling this migrated path; this document
-does not assert that a particular copy/login mechanism already meets it. External
-CLI account switches cannot redefine an existing executor's identity.
+Migrated service operations use REST with the selected provider's authorization.
+U71/U72 replace the temporary CLI service bridge with typed ARM remediation and
+container-inventory requests; there is no generic auth-owned service runner or
+allowlist. CLI credential subprocesses still require an isolated provider-owned
+session with explicit tenant/account binding. Do not fall back to an ambient
+configuration directory. Copying CLI configuration files alone does not establish
+a stable credential snapshot. Task 3.1 records the provisioning mechanism and
+synthetic isolation checks. External CLI account switches cannot redefine an
+existing executor's identity. Legacy SDK command paths retain their explicit
+migration disposition; they do not inherit these guarantees automatically.
+
+U68 selected persistent Cloud Terrastodon login storage. Task 3.1 implements
+fresh app-owned generations for explicit tenant login, an atomic tenant selector,
+and per-generation OS file leases. Existing contexts retain their selected
+generation when another login publishes a new one. Credential subprocesses
+use that generation's config directory and recorded account, with
+brokers, ambient credential overrides, file logging, debug output, and implicit
+login disabled. CLI token acquisition requires an explicit tenant and never
+falls back to the ambient CLI store. Logout revokes owned generations.
+Legacy SDK command paths without auth context remain inventoried for phases 5/6.
+Credential
+subprocesses use a dedicated sensitive-output boundary until the shared adapter
+supports that retention contract in phase 4. See the
+[authentication guide](../authentication.md) and task 3.1's evidence for platform
+storage behavior and the limits of offline validation.
 
 No identity partition includes raw tokens, assertions, refresh tokens, PATs,
 or secret-derived printable keys. A valid hit performs no token acquisition.

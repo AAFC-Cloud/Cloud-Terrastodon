@@ -1,5 +1,7 @@
 use crate::ResourceGraphHelper;
 use crate::list_tracked_tenants;
+use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::Subscription;
 use cloud_terrastodon_azure_types::SubscriptionId;
@@ -9,8 +11,6 @@ use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_credentials::AuthContext;
-use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Result;
 use eyre::bail;
 use indoc::indoc;

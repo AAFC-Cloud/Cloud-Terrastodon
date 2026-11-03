@@ -2,10 +2,10 @@ use crate::BatchRequest;
 use crate::BatchRequestEntry;
 use crate::BatchResponse;
 use crate::invoke_batch_request;
+use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure_types::ResourceTagsId;
 use cloud_terrastodon_azure_types::Scope;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Result;
 use http::Method;
 use itertools::Itertools;
@@ -147,8 +147,8 @@ mod tests {
     use super::*;
     use crate::fetch_all_resource_groups;
     use crate::get_test_tenant_id;
+    use cloud_terrastodon_auth::AuthContext;
     use cloud_terrastodon_command::CancellationToken;
-    use cloud_terrastodon_credentials::AuthContext;
 
     #[tokio::test]
     async fn get_tags_test() -> Result<()> {

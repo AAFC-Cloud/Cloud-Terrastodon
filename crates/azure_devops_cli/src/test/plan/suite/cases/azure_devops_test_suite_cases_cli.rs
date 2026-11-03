@@ -1,7 +1,7 @@
 use crate::test::plan::suite::cases::list::AzureDevOpsTestSuiteCaseListArgs;
 use crate::test::plan::suite::cases::show::AzureDevOpsTestSuiteCaseShowArgs;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Azure DevOps test suite cases-related commands.

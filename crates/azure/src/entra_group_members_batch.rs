@@ -1,13 +1,13 @@
 use crate::EntraGroupMembersListRequest;
 use crate::MicrosoftGraphBatchRequest;
 use crate::MicrosoftGraphResponse;
+use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure_types::EntraDirectoryObject;
 use cloud_terrastodon_azure_types::EntraGroupId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Context;
 use std::borrow::Cow;
 use std::collections::HashMap;

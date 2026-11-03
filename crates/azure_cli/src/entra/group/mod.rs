@@ -7,8 +7,8 @@ pub use azure_entra_group_cli::AzureEntraGroupCommand;
 pub use azure_entra_group_list_cli::AzureEntraGroupListArgs;
 pub use azure_entra_group_show_cli::AzureEntraGroupShowArgs;
 use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 pub use member::AzureEntraGroupMemberArgs;
 

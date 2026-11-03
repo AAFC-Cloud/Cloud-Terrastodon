@@ -3,8 +3,8 @@ use super::AzureEntraApplicationRegistrationListArgs;
 use super::AzureEntraApplicationRegistrationRoleArgs;
 use super::AzureEntraApplicationRegistrationSearchArgs;
 use super::AzureEntraApplicationRegistrationShowArgs;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Application registration-related Entra (Azure AD) commands.

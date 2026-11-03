@@ -1,8 +1,8 @@
 use super::dump_plan_cli::DumpPlanArgs;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_types::AuthSource;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthSource;
 use eyre::Result;
 
 /// Plan cloud inventories from the linked request registry.

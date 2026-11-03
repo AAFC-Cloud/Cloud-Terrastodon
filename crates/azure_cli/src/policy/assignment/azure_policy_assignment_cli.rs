@@ -1,8 +1,8 @@
 use super::AzurePolicyAssignmentBrowseArgs;
 use super::AzurePolicyAssignmentListArgs;
 use super::AzurePolicyAssignmentShowArgs;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Subcommands for managing Azure policy assignments.

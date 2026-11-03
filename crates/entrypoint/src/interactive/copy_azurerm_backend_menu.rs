@@ -1,12 +1,11 @@
+use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::SubscriptionName;
 use cloud_terrastodon_azure::fetch_all_storage_accounts;
 use cloud_terrastodon_azure::fetch_all_subscriptions;
+use cloud_terrastodon_azure::fetch_storage_account_blob_container_names;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
-use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
@@ -62,31 +61,23 @@ pub async fn copy_azurerm_backend_menu(
     info!("Fetching blob containers for {}", chosen_storage_account.1);
     let chosen_blob_container = PickerTui::<_>::new()
         .set_header("Blob Container Name")
-        .pick_one_reloadable(|_invalidate| {
+        .pick_one_reloadable(|invalidate| {
             let chosen_storage_account = &chosen_storage_account;
             async move {
-                let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-                cmd.cancellation_safe();
-                cmd.args(["storage", "container", "list", "--account-name"]);
-                cmd.arg(&*chosen_storage_account.0.name);
-                cmd.arg("--subscription");
-                cmd.arg(
-                    chosen_storage_account
-                        .0
-                        .id
-                        .resource_group_id
-                        .subscription_id
-                        .short_form(),
-                );
-                cmd.args(["--query", "[].name", "--output", "json"]);
-                let blob_container_names = cmd.run::<Vec<String>>(cancellation).await?;
+                let blob_container_names = fetch_storage_account_blob_container_names(
+                    &chosen_storage_account.0.id,
+                    auth_context,
+                    cancellation,
+                )
+                .with_invalidation(invalidate)
+                .await?;
 
                 if blob_container_names.is_empty() {
                     bail!("No blob containers found in {}", chosen_storage_account.1);
                 }
 
                 Ok(blob_container_names.into_iter().map(|name| Choice {
-                    key: name.clone(),
+                    key: name.to_string(),
                     value: name,
                 }))
             }

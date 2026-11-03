@@ -1,3 +1,4 @@
+use cloud_terrastodon_auth::AzureDevOpsAuthContext;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_group_members;
@@ -5,8 +6,6 @@ use cloud_terrastodon_azure_devops::fetch_azure_devops_groups_for_project;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlements;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
-use cloud_terrastodon_credentials::AuthContext;
-use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 
 #[derive(facet::Facet)]
 struct AzureDevOpsDumpPayload {
@@ -31,16 +30,15 @@ struct AzureDevOpsDumpGroupMembers {
 /// Write to stdout the json for a bunch of Azure DevOps info
 pub async fn dump_azure_devops(
     org_url: AzureDevOpsOrganizationUrl,
-    auth_context: &AuthContext,
+    azure_devops_auth_context: &AzureDevOpsAuthContext,
     cancellation: &CancellationScope,
 ) -> eyre::Result<()> {
-    let azure_devops_auth_context = AzureDevOpsAuthContext::new(auth_context)?;
     let projects =
-        fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context, cancellation).await?;
+        fetch_all_azure_devops_projects(&org_url, azure_devops_auth_context, cancellation).await?;
 
     let users = fetch_azure_devops_user_license_entitlements(
         &org_url,
-        &azure_devops_auth_context,
+        azure_devops_auth_context,
         cancellation,
     )
     .await?;

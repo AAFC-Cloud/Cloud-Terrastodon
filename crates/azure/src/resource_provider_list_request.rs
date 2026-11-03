@@ -1,4 +1,5 @@
 use arbitrary::Arbitrary;
+use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure_types::AzureResourceProvider;
 use cloud_terrastodon_azure_types::AzureResourceProviderListResponse;
 use cloud_terrastodon_command::CacheInvalidatable;
@@ -6,7 +7,6 @@ use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::HasCacheKey;
-use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
 use eyre::WrapErr;
@@ -179,10 +179,10 @@ cloud_terrastodon_registry_execution::register_into_future!(
 mod tests {
     use super::ResourceProviderListRequest;
     use super::fetch_all_resource_providers;
+    use cloud_terrastodon_auth::AuthContext;
+    use cloud_terrastodon_auth_types::AuthSource;
     use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_command::HasCacheKey;
-    use cloud_terrastodon_credentials::AuthContext;
-    use cloud_terrastodon_credentials::AuthSource;
     use eyre::Result;
 
     #[test]

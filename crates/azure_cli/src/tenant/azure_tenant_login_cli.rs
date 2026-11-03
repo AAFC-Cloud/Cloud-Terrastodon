@@ -1,12 +1,10 @@
+use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_auth::login_browser_session;
+use cloud_terrastodon_auth_types::AuthSource;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::resolve_tenant_auth_context;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
-use cloud_terrastodon_credentials::AuthContext;
-use cloud_terrastodon_credentials::AuthSource;
-use cloud_terrastodon_credentials::login_browser_session;
 use eyre::Result;
 use eyre::bail;
 
@@ -83,8 +81,7 @@ async fn login_resolved_tenant(
                     "browser tenant login requires an interactive terminal; use workload identity in pipelines"
                 );
             }
-            let client_id =
-                cloud_terrastodon_credentials::pim_client_id(&tenant_id, cancellation).await?;
+            let client_id = cloud_terrastodon_auth::pim_client_id(&tenant_id, cancellation).await?;
             login_browser_session(tenant_id, client_id, cancellation).await?;
             Ok(())
         }
@@ -99,11 +96,7 @@ async fn login_resolved_tenant(
                     "Reauthentication is disabled by the CLOUD_TERRASTODON_REAUTH environment variable. Please refresh your credentials and try again."
                 );
             }
-            let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-            cmd.args(["login", "--tenant", &tenant_id.to_string()]);
-            cmd.should_announce(true);
-            cmd.run_raw(cancellation).await?;
-            Ok(())
+            auth_context.login_azure_cli(tenant_id, cancellation).await
         }
     }
 }
@@ -169,10 +162,7 @@ mod tests {
         CancellationToken::new()
             .with_async_scope(|cancellation| async move {
                 // No environment, credential cache, or tracked-tenant prerequisite.
-                let mut auth_context = AuthContext::explicit(AuthSource::Auto);
-                if let AuthContext::Resolved { headless, .. } = &mut auth_context {
-                    *headless = true;
-                }
+                let auth_context = AuthContext::explicit_headless(AuthSource::Auto);
                 let tenant = "11111111-1111-1111-1111-111111111111".parse().unwrap();
                 let error = login_resolved_tenant(tenant, &auth_context, &cancellation)
                     .await

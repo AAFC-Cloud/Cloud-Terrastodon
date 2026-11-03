@@ -7,8 +7,8 @@ pub mod terraform_source_add_imports_cli;
 pub mod terraform_source_cli;
 pub mod terraform_source_generate_cli;
 
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 pub use terraform_command_cli::TerraformCommand;
 

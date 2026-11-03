@@ -4,8 +4,8 @@ use crate::work_item::relation::remove::AzureDevOpsWorkItemRelationRemoveArgs;
 use crate::work_item::relation::show::AzureDevOpsWorkItemRelationShowArgs;
 use crate::work_item::relation::r#type::AzureDevOpsWorkItemRelationTypeArgs;
 use crate::work_item::relation::update::AzureDevOpsWorkItemRelationUpdateArgs;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Read and write work item relations.

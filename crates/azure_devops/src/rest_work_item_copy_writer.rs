@@ -3,6 +3,7 @@ use crate::azure_devops_work_item_relation_change::AzureDevOpsWorkItemRelationCh
 use crate::azure_devops_work_item_relation_change_request::AzureDevOpsWorkItemRelationChangeRequest;
 use crate::azure_devops_work_items_get_request::AzureDevOpsWorkItemsGetRequest;
 use crate::work_item_copy_writer::WorkItemCopyWriter;
+use cloud_terrastodon_auth::AzureDevOpsAuthContext;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsJsonPatch;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
@@ -12,7 +13,6 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemRelationInput;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemType;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use eyre::Result;
 use std::borrow::Cow;
 

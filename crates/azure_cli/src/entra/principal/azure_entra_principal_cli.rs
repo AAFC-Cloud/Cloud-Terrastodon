@@ -1,7 +1,7 @@
 use super::AzureEntraPrincipalListArgs;
 use super::AzureEntraPrincipalShowArgs;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Principal-related Entra (Azure AD) commands.

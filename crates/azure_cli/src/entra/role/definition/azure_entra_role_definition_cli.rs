@@ -1,8 +1,8 @@
 use super::AzureEntraRoleDefinitionBrowseArgs;
 use super::AzureEntraRoleDefinitionFindArgs;
 use super::AzureEntraRoleDefinitionListArgs;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Subcommands for Entra role definition operations.

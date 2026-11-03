@@ -1,5 +1,6 @@
 use super::error_summary;
 use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::AzureTenantAlias;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
@@ -12,7 +13,6 @@ use cloud_terrastodon_azure::list_tracked_tenant_aliases_for;
 use cloud_terrastodon_azure::list_tracked_tenants;
 use cloud_terrastodon_azure::resolve_tenant_auth_context;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use color_eyre::owo_colors::OwoColorize;
 use color_eyre::owo_colors::Stream;
 use color_eyre::owo_colors::Style;

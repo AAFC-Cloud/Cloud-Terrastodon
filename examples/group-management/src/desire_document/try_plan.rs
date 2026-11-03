@@ -10,6 +10,8 @@ use crate::planning::GroupPlanBlocker;
 use crate::tenant_preflight::preflight_tenants;
 use cloud_terrastodon::app::AuthContext;
 use cloud_terrastodon::app::CancellationScope;
+use cloud_terrastodon::auth::AzureTenantAuthContext;
+use cloud_terrastodon::auth_types::AzureCredentialResource;
 use cloud_terrastodon::azure::fetch_entra_directory_objects_by_ids;
 use cloud_terrastodon::azure::fetch_entra_user;
 use cloud_terrastodon::azure::fetch_group;
@@ -20,8 +22,6 @@ use cloud_terrastodon::azure_types::EntraGroup;
 use cloud_terrastodon::azure_types::EntraUser;
 use cloud_terrastodon::azure_types::uuid::Uuid;
 use cloud_terrastodon::command::CacheInvalidatableIntoFuture;
-use cloud_terrastodon::credentials::AzureRestResource;
-use cloud_terrastodon::credentials::AzureTenantAuthContext;
 use cloud_terrastodon::rest::RestHttpError;
 use eyre::Context;
 use eyre::Result;
@@ -61,7 +61,7 @@ impl DesireDocument {
         for binding in bindings.values() {
             cancellation.bail_if_cancelled()?;
             binding
-                .fetch_bearer_access_token(AzureRestResource::MicrosoftGraph, cancellation)
+                .fetch_bearer_access_token(AzureCredentialResource::MicrosoftGraph, cancellation)
                 .await
                 .wrap_err_with(|| {
                     format!(

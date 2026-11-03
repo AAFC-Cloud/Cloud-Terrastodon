@@ -89,6 +89,12 @@ enables coordinated pickers/logs. Neither enables Cloud Terrastodon's full comma
 tree or egui. Without them, the runner does not depend on the registry or cloud
 credentials. Features are additive across a Cargo dependency graph.
 
+Authentication runtime state lives in `cloud_terrastodon_auth`; source and
+request selections live in `cloud_terrastodon_auth_types`. The facade exports
+them through `auth` and `auth_types`, using features `auth` and `auth-types`.
+See [authentication selections and execution](../../docs/auth-execution-migration.md) for the import cutover,
+explicit bearer tenant selection, and application-owned Azure CLI logins.
+
 The runner owns process-global error/tracing/Ctrl-C hooks and its Tokio runtime;
 use once per process before another component installs those hooks.
 `run` and `run_parsed` automatically wrap the handler in a cancellable execution

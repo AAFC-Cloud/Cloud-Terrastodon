@@ -15,7 +15,7 @@ pub async fn predict_would_secret_list_succeed() -> eyre::Result<()> {
         .cancellable_scope(|cancellation| async move {
             let current_user = fetch_current_user(&cancellation).await?;
             let tenant_id = get_test_tenant_id(&cancellation).await?;
-            let auth_context = cloud_terrastodon_credentials::AuthContext::explicit_azure_cli();
+            let auth_context = cloud_terrastodon_auth::AuthContext::explicit_azure_cli();
             let tenant_auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
             let (key_vaults, rbac) = try_join!(
                 fetch_all_key_vaults(&tenant_auth_context, &cancellation),

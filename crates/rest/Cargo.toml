@@ -13,7 +13,8 @@ categories.workspace = true
 [dependencies]
 cloud_terrastodon_azure_types.workspace = true
 cloud_terrastodon_command.workspace = true
-cloud_terrastodon_credentials.workspace = true
+cloud_terrastodon_auth.workspace = true
+cloud_terrastodon_auth_types.workspace = true
 cloud_terrastodon_relative_location.workspace = true
 cloud_terrastodon_registry.workspace = true
 linkme.workspace = true

@@ -1,7 +1,7 @@
 use super::terraform_source_add_imports_cli::TerraformSourceAddImportsArgs;
 use super::terraform_source_generate_cli::TerraformSourceGenerateArgs;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Manage Terraform source files.

@@ -4,6 +4,8 @@ use crate::RestResponseBody;
 use crate::RestService;
 use crate::SerializableRestResponse;
 use crate::execute_rest_request;
+use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_auth::AzureDevOpsAuthContext;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_command::ArtifactMetadata;
 use cloud_terrastodon_command::CacheKey;
@@ -16,9 +18,6 @@ use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_command::run_cached_work;
 use cloud_terrastodon_command::to_vec_pretty;
 use cloud_terrastodon_command::write_failure_with_extra_files;
-use cloud_terrastodon_credentials::AuthContext;
-use cloud_terrastodon_credentials::AuthSource;
-use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use cloud_terrastodon_relative_location::RelativeLocation;
 use eyre::Context;
 use eyre::ContextCompat;
@@ -56,9 +55,8 @@ pub struct RestRequest {
     /// Defaults to true for methods other than GET, HEAD, and OPTIONS.
     /// Read-only POST operations can explicitly opt into [`Self::cancellation_safe`].
     pub complete_on_cancellation: bool,
-    /// Authentication is request-scoped. The optional value keeps the
-    /// low-level builder source-compatible for non-CLI callers while callers
-    /// that have an invocation context should always set it with
+    /// Authentication is request-scoped. Requests acquiring credentials must
+    /// provide an invocation context through
     /// [`RestRequest::azure_auth_context`] or
     /// [`RestRequest::azure_devops_auth_context`].
     pub auth_context: Option<AuthContext>,
@@ -156,8 +154,8 @@ impl RestRequest {
 
     /// Attach Azure DevOps authentication policy and its selected bearer tenant.
     ///
-    /// Azure CLI active-tenant authentication and personal access tokens retain
-    /// their underlying context. This only configures the request: credentials
+    /// Bearer authentication always includes its explicit tenant; personal access
+    /// tokens are tenant-independent. This only configures the request: credentials
     /// are acquired during execution, after any cache lookup. A missing context
     /// is rejected locally and attributed to the caller.
     #[track_caller]
@@ -169,8 +167,7 @@ impl RestRequest {
             AzureDevOpsAuthContext::Bearer(context) => self
                 .azure_auth_context(&context.auth_context)
                 .tenant(context.tenant_id),
-            AzureDevOpsAuthContext::AzureCli(context)
-            | AzureDevOpsAuthContext::PersonalAccessToken(context) => {
+            AzureDevOpsAuthContext::PersonalAccessToken(context) => {
                 self.azure_auth_context(context)
             }
         })
@@ -282,13 +279,9 @@ impl RestRequest {
                 ..self
             };
             let start = Instant::now();
-            // Direct library users predate the CLI invocation context. Keep that
-            // API usable, but make the compatibility resolution local to this
-            // request rather than storing policy in process-global state.
-            let auth_context = match request.auth_context {
-                Some(auth_context) => auth_context,
-                None => AuthContext::resolve(AuthSource::Auto)?,
-            };
+            // Explicit token callers need no credential discovery. Requests
+            // acquiring credentials must already carry resolved source policy.
+            let auth_context = request.auth_context.unwrap_or_default();
             let response = execute_rest_request(
                 &auth_context,
                 request.service,

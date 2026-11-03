@@ -2,6 +2,7 @@ use crate::app_message::AppMessage;
 use crate::autosave_info::AutoSaveBehaviour;
 use crate::loadable::Loadable;
 use crate::work_tracker::WorkTracker;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure::Resource;
 use cloud_terrastodon_azure::ResourceGroupMap;
@@ -11,7 +12,6 @@ use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_config::Config;
 use cloud_terrastodon_config::EguiConfig;
 use cloud_terrastodon_config::WorkDirsConfig;
-use cloud_terrastodon_credentials::AuthContext;
 // use cloud_terrastodon_tracing::event_collector; // TODO(EGUI-TRACING)
 use eframe::App;
 use eframe::egui::Align2;

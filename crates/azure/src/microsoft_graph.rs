@@ -1,7 +1,7 @@
+use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::FromCommandOutput;
-use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_rest::RequestHeaders;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
@@ -186,8 +186,8 @@ pub struct MicrosoftGraphResponse<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cloud_terrastodon_auth::AzureTenantAuthContext;
     use cloud_terrastodon_command::CancellationToken;
-    use cloud_terrastodon_credentials::AzureTenantAuthContext;
 
     #[test]
     fn consistency_level_eventual_adds_the_expected_header() -> Result<()> {

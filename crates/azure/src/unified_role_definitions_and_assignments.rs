@@ -1,11 +1,11 @@
 use crate::fetch_all_unified_role_assignments;
 use crate::fetch_all_unified_role_definitions;
+use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure_types::UnifiedRoleDefinitionsAndAssignments;
 use cloud_terrastodon_command::CacheInvalidatable;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use std::borrow::Cow;
 use std::pin::Pin;
 use tokio::try_join;
@@ -82,10 +82,10 @@ mod test {
     use crate::fetch_all_principals;
     use crate::fetch_all_unified_role_definitions_and_assignments;
     use crate::get_test_tenant_id;
+    use cloud_terrastodon_auth::AuthContext;
     use cloud_terrastodon_azure_types::RolePermissionAction;
     use cloud_terrastodon_azure_types::UnifiedRoleDefinitionsAndAssignmentsIterTools;
     use cloud_terrastodon_command::CancellationToken;
-    use cloud_terrastodon_credentials::AuthContext;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {

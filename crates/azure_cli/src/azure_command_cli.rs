@@ -19,9 +19,9 @@ use super::virtual_network::AzureVirtualNetworkArgs;
 use super::vm::AzureVmArgs;
 use crate::entra::AzureEntraArgs;
 use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure_devops_cli::AzureDevOpsArgs;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Arguments for Azure-specific operations.

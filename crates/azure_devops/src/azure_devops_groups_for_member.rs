@@ -1,11 +1,11 @@
 use arbitrary::Arbitrary;
+use cloud_terrastodon_auth::AzureDevOpsAuthContext;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsDescriptor;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_types::ArbitraryJson;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use cloud_terrastodon_rest::RestRequest;
 use reqwest::Method;
 use std::borrow::Cow;
@@ -105,17 +105,20 @@ mod test {
     use crate::fetch_azure_devops_groups_for_member;
     use crate::fetch_azure_devops_user_license_entitlements;
     use crate::get_default_organization_url;
+    use cloud_terrastodon_auth::AuthContext;
+    use cloud_terrastodon_auth::AzureDevOpsAuthContext;
     use cloud_terrastodon_command::CancellationToken;
-    use cloud_terrastodon_credentials::AuthContext;
-    use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
         CancellationToken::new()
             .with_async_scope(|cancellation| async move {
-                let org_url = get_default_organization_url(&cancellation).await?;
                 let auth_context = AuthContext::explicit_azure_cli();
-                let azure_devops_auth_context = AzureDevOpsAuthContext::new(&auth_context)?;
+                let azure_devops_auth_context = AzureDevOpsAuthContext::for_tenant(
+                    &auth_context,
+                    crate::test_tenant_id::test_tenant_id()?,
+                )?;
+                let org_url = get_default_organization_url(&cancellation).await?;
                 let users = fetch_azure_devops_user_license_entitlements(
                     &org_url,
                     &azure_devops_auth_context,

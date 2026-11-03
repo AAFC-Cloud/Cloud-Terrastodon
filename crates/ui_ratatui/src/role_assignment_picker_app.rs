@@ -1,3 +1,4 @@
+use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure::EntraPrincipal;
 use cloud_terrastodon_azure::EntraPrincipalCollection;
 use cloud_terrastodon_azure::RoleAssignment;
@@ -11,7 +12,6 @@ use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::app_work::AppWorkState;
 use cloud_terrastodon_command::app_work::Loadable;
 use cloud_terrastodon_command::app_work::LoadableWorkBuilder;
-use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Result;
 use ratatui::crossterm::event;
 use ratatui::crossterm::event::Event;
@@ -605,9 +605,9 @@ impl std::fmt::Debug for PrincipalCollectionHolder {
 mod test {
     use super::RoleAssignmentPickerApp;
     use super::RoleAssignmentPickerAppResult;
+    use cloud_terrastodon_auth::AuthContext;
     use cloud_terrastodon_azure::get_test_tenant_id;
     use cloud_terrastodon_command::CancellationToken;
-    use cloud_terrastodon_credentials::AuthContext;
 
     #[tokio::test]
     #[ignore = "manual entrypoint"]

@@ -1,8 +1,8 @@
 use super::AzureRoleAssignmentBrowseArgs;
 use super::AzureRoleAssignmentListArgs;
 use super::azure_role_assignment_create_cli::AzureRoleAssignmentCreateArgs;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Subcommands for Azure role assignment operations.

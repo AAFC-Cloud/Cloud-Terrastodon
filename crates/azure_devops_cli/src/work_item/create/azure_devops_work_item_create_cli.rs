@@ -1,3 +1,4 @@
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::ArbitraryJson;
 use cloud_terrastodon_azure::AzureDevOpsTenantArgumentExt;
 use cloud_terrastodon_azure::AzureTenantArgument;
@@ -10,7 +11,6 @@ use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemPatchFields;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemRelationInput;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemType;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use eyre::ensure;
 use std::borrow::Cow;

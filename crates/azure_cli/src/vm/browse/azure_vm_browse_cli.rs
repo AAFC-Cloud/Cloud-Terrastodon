@@ -1,5 +1,6 @@
 use crate::vm::browse::AzureVmBrowseOption;
 use crate::vm::publisher::AzureVmPublisherBrowseArgs;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::fetch_all_subscriptions;
@@ -7,7 +8,6 @@ use cloud_terrastodon_azure::fetch_all_virtual_machines;
 use cloud_terrastodon_azure::fetch_virtual_machine_skus;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::PickerTui;

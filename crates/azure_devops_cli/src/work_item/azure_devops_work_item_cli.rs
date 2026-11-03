@@ -7,8 +7,8 @@ use crate::work_item::relation::AzureDevOpsWorkItemRelationArgs;
 use crate::work_item::show::AzureDevOpsWorkItemShowArgs;
 use crate::work_item::r#type::AzureDevOpsWorkItemTypeArgs;
 use crate::work_item::update::AzureDevOpsWorkItemUpdateArgs;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Work items, saved queries, fields, and relations.

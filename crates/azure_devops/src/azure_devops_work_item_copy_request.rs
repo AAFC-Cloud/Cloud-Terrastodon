@@ -5,6 +5,7 @@ use crate::azure_devops_work_item_relation_selector::AzureDevOpsWorkItemRelation
 use crate::rest_work_item_copy_writer::RestWorkItemCopyWriter;
 use crate::work_item_copy_writer::WorkItemCopyWriter;
 use arbitrary::Arbitrary;
+use cloud_terrastodon_auth::AzureDevOpsAuthContext;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsJsonPatch;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
@@ -15,7 +16,6 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemUrl;
 use cloud_terrastodon_azure_devops_types::WORK_ITEM_CHILD_RELATION;
 use cloud_terrastodon_azure_devops_types::WORK_ITEM_PARENT_RELATION;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use eyre::Result;
 use eyre::WrapErr;
 use eyre::ensure;

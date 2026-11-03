@@ -1,7 +1,7 @@
 use crate::agent::pool::AzureDevOpsAgentPoolArgs;
 use crate::agent_package::AzureDevOpsAgentPackageArgs;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Azure DevOps agent-related commands (grouping for agent subcommands).

@@ -1,5 +1,7 @@
 #![cfg(test)]
 
+use cloud_terrastodon_auth::AzureDevOpsAuthContext;
+use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure_devops::AzureDevOpsBuildDefinitionGetRequest;
 use cloud_terrastodon_azure_devops::AzureDevOpsBuildDefinitionListRequest;
 use cloud_terrastodon_azure_devops::AzureDevOpsBuildFolderListRequest;
@@ -12,8 +14,6 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProject;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsServiceEndpoint;
 use cloud_terrastodon_command::CancellationToken;
-use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
-use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_registry::ArbitraryBytes;
 use cloud_terrastodon_registry::DiscoveryPlan;
 use cloud_terrastodon_registry::DiscoveryPlanNodeKind;

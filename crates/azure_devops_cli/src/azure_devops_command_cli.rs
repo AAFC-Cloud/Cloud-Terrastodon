@@ -11,8 +11,8 @@ use crate::team::AzureDevOpsTeamArgs;
 use crate::test::AzureDevOpsTestArgs;
 use crate::work_item::AzureDevOpsWorkItemArgs;
 use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Arguments for Azure DevOps-specific operations.

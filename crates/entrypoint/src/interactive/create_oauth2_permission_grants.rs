@@ -1,3 +1,4 @@
+use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure::create_oauth2_permission_grant;
 use cloud_terrastodon_azure::fetch_all_entra_users;
 use cloud_terrastodon_azure::fetch_all_service_principals;
@@ -8,7 +9,6 @@ use cloud_terrastodon_azure::join_oauth2_permission_grant_scopes;
 use cloud_terrastodon_azure::merge_oauth2_permission_grant_scopes;
 use cloud_terrastodon_azure::update_oauth2_permission_grant;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;

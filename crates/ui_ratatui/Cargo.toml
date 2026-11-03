@@ -11,6 +11,7 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
+cloud_terrastodon_auth_types.workspace = true
 cloud_terrastodon_registry_execution.workspace = true
 arbitrary = { workspace = true }
 ratatui = { workspace = true, features = ["unstable-rendered-line-info"] }
@@ -31,7 +32,7 @@ nucleo = { workspace = true }
 ratatui-textarea = { workspace = true }
 cloud_terrastodon_azure = { workspace = true }
 cloud_terrastodon_command = { workspace = true }
-cloud_terrastodon_credentials = { workspace = true }
+cloud_terrastodon_auth = { workspace = true }
 cloud_terrastodon_excalidraw = { workspace = true }
 cloud_terrastodon_registry = { workspace = true }
 cloud_terrastodon_user_input = { workspace = true }

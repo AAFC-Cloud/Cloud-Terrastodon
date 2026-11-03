@@ -3,8 +3,8 @@ use crate::work_item::field::list::AzureDevOpsWorkItemFieldListArgs;
 use crate::work_item::field::remove::AzureDevOpsWorkItemFieldRemoveArgs;
 use crate::work_item::field::set::AzureDevOpsWorkItemFieldSetArgs;
 use crate::work_item::field::show::AzureDevOpsWorkItemFieldShowArgs;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Read and write work item fields.

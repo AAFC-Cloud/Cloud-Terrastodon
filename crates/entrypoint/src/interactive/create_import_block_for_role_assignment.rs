@@ -1,6 +1,6 @@
+use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_hcl::AsHclString;
 use cloud_terrastodon_hcl::AzureRmResourceBlockKind;
 use cloud_terrastodon_hcl::HclImportBlock;

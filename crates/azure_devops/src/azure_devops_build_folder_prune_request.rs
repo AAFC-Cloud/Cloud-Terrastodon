@@ -6,12 +6,12 @@ use crate::azure_devops_build_folder_validated_snapshot::AzureDevOpsBuildFolderV
 use crate::fetch_azure_devops_build_definitions;
 use crate::fetch_azure_devops_build_folders;
 use arbitrary::Arbitrary;
+use cloud_terrastodon_auth::AzureDevOpsAuthContext;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsBuildFolderPath;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use eyre::Context;
 use eyre::Result;
 use std::borrow::Cow;

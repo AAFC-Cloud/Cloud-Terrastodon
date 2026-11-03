@@ -1,8 +1,8 @@
 use crate::test::plan::list::AzureDevOpsTestPlanListArgs;
 use crate::test::plan::show::AzureDevOpsTestPlanShowArgs;
 use crate::test::plan::suite::AzureDevOpsTestSuiteArgs;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Azure DevOps test plan-related commands.

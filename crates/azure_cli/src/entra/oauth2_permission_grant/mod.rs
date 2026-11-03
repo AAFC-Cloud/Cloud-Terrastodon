@@ -13,12 +13,12 @@ pub use azure_entra_oauth2_permission_grant_cli::AzureEntraOAuth2PermissionGrant
 pub use azure_entra_oauth2_permission_grant_create_cli::AzureEntraOAuth2PermissionGrantCreateArgs;
 pub use azure_entra_oauth2_permission_grant_list_cli::AzureEntraOAuth2PermissionGrantListArgs;
 pub use azure_entra_oauth2_permission_grant_update_cli::AzureEntraOAuth2PermissionGrantUpdateArgs;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::EntraApplicationClientId;
 use cloud_terrastodon_azure::EntraServicePrincipal;
 use cloud_terrastodon_azure::EntraServicePrincipalObjectId;
 use cloud_terrastodon_azure::fetch_all_service_principals;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::ContextCompat;
 use eyre::Result;
 

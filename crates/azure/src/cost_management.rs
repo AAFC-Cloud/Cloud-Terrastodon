@@ -1,9 +1,9 @@
 use crate::fetch_root_management_group;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::CostManagementQueryDefinition;
 use cloud_terrastodon_azure_types::CostManagementQueryResult;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_rest::RestRequest;
 use cloud_terrastodon_rest::RestResponseBody;
 use cloud_terrastodon_rest::SerializableRestResponse;
@@ -125,8 +125,8 @@ fn format_rest_error_body(body: &RestResponseBody) -> String {
 mod tests {
     use super::*;
     use crate::get_test_tenant_id;
+    use cloud_terrastodon_auth::AuthContext;
     use cloud_terrastodon_command::CancellationToken;
-    use cloud_terrastodon_credentials::AuthContext;
     use http::HeaderMap;
     use http::HeaderValue;
     use http::StatusCode;

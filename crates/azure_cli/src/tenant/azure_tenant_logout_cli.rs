@@ -1,6 +1,6 @@
 use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth::logout_all_auth_sources;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::logout_all_auth_sources;
 use eyre::Result;
 
 /// Log out of all tenants and organizations across stored authentication sources.

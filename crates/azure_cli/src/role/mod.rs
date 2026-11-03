@@ -5,8 +5,8 @@ pub mod operation;
 
 pub use assignment::AzureRoleAssignmentArgs;
 pub use azure_role_cli::AzureRoleCommand;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 pub use definition::AzureRoleDefinitionArgs;
 use eyre::Result;
 pub use operation::AzureRoleOperationArgs;

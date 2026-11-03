@@ -1,8 +1,8 @@
 use super::AzureEntraSpBrowseArgs;
 use super::AzureEntraSpListArgs;
 use super::AzureEntraSpShowArgs;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Service principal-related Entra (Azure AD) commands.

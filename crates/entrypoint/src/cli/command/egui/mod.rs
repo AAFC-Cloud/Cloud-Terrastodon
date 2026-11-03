@@ -1,7 +1,7 @@
 use crate::version::full_version;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::get_default_tenant_id;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_ui_egui::egui_main;
 
 /// Launch the egui-based graphical interface.

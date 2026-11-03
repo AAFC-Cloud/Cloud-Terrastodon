@@ -1,8 +1,8 @@
 use super::list::AzureDevOpsBuildDefinitionFolderListArgs;
 use super::prune::AzureDevOpsBuildDefinitionFolderPruneArgs;
 use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Build definition folder listings and empty-folder pruning.

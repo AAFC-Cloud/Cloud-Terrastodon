@@ -132,7 +132,7 @@ Use the `ResourceGraphHelper` pattern:
 For action endpoints or non-graph fetches:
 - Follow the backend-health pattern
 - Use typed REST responses instead of raw `Value` when possible
-- Reuse shared REST plumbing from `cloud_terrastodon_credentials`
+- Reuse shared REST plumbing from `cloud_terrastodon_auth`
 
 ### 8. Export The Request From `crates/azure`
 Update `crates/azure/src/lib.rs`.
@@ -289,6 +289,6 @@ A resource addition is complete when all of the following are true:
 - Prefer `apply_patch` for focused file edits
 - Prefer ASCII in new files
 - Reuse existing repo patterns rather than inventing a new abstraction layer
-- Do not duplicate REST response types already provided by `cloud_terrastodon_credentials`
+- Do not duplicate REST response types already provided by `cloud_terrastodon_auth`
 - Use `deserialize_default_if_null` aggressively for Azure arrays and maps that may come back as `null`
 - Validate end-to-end with `./check-all.ps1`

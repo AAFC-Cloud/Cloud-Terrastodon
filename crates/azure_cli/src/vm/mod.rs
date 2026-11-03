@@ -3,8 +3,8 @@ pub mod publisher;
 
 use crate::vm::browse::AzureVmBrowseArgs;
 use crate::vm::publisher::AzureVmPublisherArgs;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Virtual machine related subcommands.

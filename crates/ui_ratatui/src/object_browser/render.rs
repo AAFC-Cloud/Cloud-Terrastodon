@@ -669,11 +669,11 @@ mod tests {
     use crate::object_explorer::RootRevision;
     use crate::object_explorer::SlotId;
     use crate::object_explorer::ValueAddress;
+    use cloud_terrastodon_auth::AuthContext;
+    use cloud_terrastodon_auth::AzureDevOpsAuthContext;
     use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
     use cloud_terrastodon_azure_devops::AzureDevOpsProjectsListRequest;
     use cloud_terrastodon_command::CancellationToken;
-    use cloud_terrastodon_credentials::AuthContext;
-    use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
     use cloud_terrastodon_registry::RuntimeValue;
     use facet::Facet;
     use ratatui::Terminal;
@@ -699,7 +699,7 @@ mod tests {
     fn auth_cards_render_the_active_variant_and_nested_policy_preview() {
         let mut arena = Arena::default();
         let root = arena
-            .insert_ready(runtime(AzureDevOpsAuthContext::AzureCli(
+            .insert_ready(runtime(AzureDevOpsAuthContext::PersonalAccessToken(
                 AuthContext::Unresolved,
             )))
             .unwrap();
@@ -722,7 +722,7 @@ mod tests {
             })
             .unwrap();
         let rendered = terminal.backend().to_string();
-        assert!(rendered.contains("variant: AzureCli"));
+        assert!(rendered.contains("variant: PersonalAccessToken"));
         assert!(rendered.contains("variant: Unresolved"));
         assert!(rendered.contains("variant: None"));
         assert!(rendered.contains("value Unresolved"));

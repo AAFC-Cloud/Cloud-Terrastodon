@@ -1,9 +1,9 @@
 use crate::noninteractive::perform_import;
 use crate::noninteractive::process_generated;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Perform code-generation from existing import definitions.

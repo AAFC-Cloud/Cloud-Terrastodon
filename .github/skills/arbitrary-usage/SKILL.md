@@ -265,9 +265,9 @@ copying a pattern:
   arbitrary sample plus explicit service-principal-name mutation.
 - `crates/azure_cli/src/app_service/azure_app_service_show_cli.rs`:
   arbitrary sample plus explicit hostname/private-endpoint mutation.
-- `crates/credentials/src/pim_graph_access_token.rs`: Facet-only OAuth
+- `crates/auth/src/pim_graph_access_token.rs`: Facet-only OAuth
   response structs parsed with `facet_json`.
-- `crates/credentials/src/pim_config.rs`: a small model deriving both traits
+- `crates/auth/src/pim_config.rs`: a small model deriving both traits
   with a `facet_json` round-trip test.
 
 ## Example prompts

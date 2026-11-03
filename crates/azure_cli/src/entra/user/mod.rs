@@ -9,8 +9,8 @@ pub use azure_entra_user_cli::AzureEntraUserCommand;
 pub use azure_entra_user_list_cli::AzureEntraUserListArgs;
 pub use azure_entra_user_search_cli::AzureEntraUserSearchArgs;
 pub use azure_entra_user_show_cli::AzureEntraUserShowArgs;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Entra user subcommands.

@@ -1,4 +1,5 @@
 use crate::cognitive_services::CognitiveServicesAccountArgument;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::AzureCognitiveServicesAccountDeployment;
 use cloud_terrastodon_azure::AzureCognitiveServicesAccountResource;
 use cloud_terrastodon_azure::AzureTenantArgument;
@@ -7,7 +8,6 @@ use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::fetch_all_cognitive_services_accounts;
 use cloud_terrastodon_azure::fetch_cognitive_services_account_deployments;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 use eyre::bail;
 use std::io::Write;

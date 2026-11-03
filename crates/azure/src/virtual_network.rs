@@ -1,10 +1,10 @@
 use crate::ResourceGraphHelper;
+use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure_types::VirtualNetwork;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use indoc::indoc;
 use std::borrow::Cow;
 use std::path::PathBuf;
@@ -86,8 +86,8 @@ cloud_terrastodon_command::impl_cacheable_into_future!(VirtualNetworkListRequest
 mod tests {
     use super::*;
     use crate::get_test_tenant_id;
+    use cloud_terrastodon_auth::AuthContext;
     use cloud_terrastodon_command::CancellationToken;
-    use cloud_terrastodon_credentials::AuthContext;
 
     #[test_log::test(tokio::test)]
     async fn it_works() -> eyre::Result<()> {

@@ -1,10 +1,10 @@
 use crate::noninteractive::write_imports_for_all_resource_groups;
 use crate::noninteractive::write_imports_for_all_role_assignments;
 use crate::noninteractive::write_imports_for_all_security_groups;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Write Terraform import definitions for all supported resources.

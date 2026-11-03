@@ -1,9 +1,9 @@
+use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure_types::ResourceGraphEntryDeserializeError;
 use cloud_terrastodon_azure_types::ResourceGraphQueryResponse;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::FromCommandOutput;
-use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_relative_location::RelativeLocation;
 use cloud_terrastodon_rest::RestRequest;
 use cloud_terrastodon_rest::RestResponseBody;
@@ -448,8 +448,8 @@ fn format_rest_error_body(body: &RestResponseBody) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cloud_terrastodon_auth::AuthContext;
     use cloud_terrastodon_command::CancellationToken;
-    use cloud_terrastodon_credentials::AuthContext;
     use http::HeaderMap;
     use http::HeaderValue;
     use http::StatusCode;

@@ -147,3 +147,6 @@ pub use crate::default_project::*;
 pub use crate::get_pat::*;
 pub use crate::work_item_copy::*;
 pub use cloud_terrastodon_azure_devops_types::*;
+
+#[cfg(test)]
+mod test_tenant_id;

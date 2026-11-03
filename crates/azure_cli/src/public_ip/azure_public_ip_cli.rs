@@ -1,7 +1,7 @@
 use super::AzurePublicIpListArgs;
 use super::AzurePublicIpShowArgs;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Subcommands for Azure public IP addresses.

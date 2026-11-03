@@ -1,9 +1,9 @@
 use crate::MicrosoftGraphHelper;
+use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure_types::EntraPrincipalId;
 use cloud_terrastodon_azure_types::GovernanceRoleAssignment;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use std::path::PathBuf;
 
 /// See also: https://github.com/Azure/azure-cli/issues/28854
@@ -40,8 +40,8 @@ mod test {
     use crate::fetch_governance_role_assignments_for_principal;
     use crate::get_test_tenant_id;
     use crate::test_helpers::expect_aad_premium_p2_license;
+    use cloud_terrastodon_auth::AuthContext;
     use cloud_terrastodon_command::CancellationToken;
-    use cloud_terrastodon_credentials::AuthContext;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {

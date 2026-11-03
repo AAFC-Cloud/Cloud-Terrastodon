@@ -1,15 +1,15 @@
 use crate::az_account_list;
 use crate::get_default_tenant_id;
 use arbitrary::Arbitrary;
+use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_auth::AzureDevOpsAuthContext;
+use cloud_terrastodon_auth::AzureTenantAuthContext;
+use cloud_terrastodon_auth_types::AuthSource;
 use cloud_terrastodon_azure_types::Account;
 use cloud_terrastodon_azure_types::AzureTenantAlias;
 use cloud_terrastodon_azure_types::AzureTenantArgument;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
-use cloud_terrastodon_credentials::AuthSource;
-use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
-use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_pathing::AppDir;
 use eyre::Context;
 use eyre::bail;
@@ -141,9 +141,9 @@ pub trait AzureTenantArgumentExt {
 }
 
 /// Bind an optional Azure tenant selector to the authentication shape needed
-/// by Azure DevOps. An omitted selector preserves tenant-independent Azure CLI
-/// and PAT compatibility; an explicit selector produces tenant-bound bearer
-/// authentication where applicable.
+/// by Azure DevOps. Bearer authentication requires an explicit tenant or an
+/// already tenant-bound authentication context. PAT authentication may omit
+/// the tenant because its credential is independent of Azure tenant selection.
 #[expect(async_fn_in_trait)]
 pub trait AzureDevOpsTenantArgumentExt {
     async fn bind_auth_context(
@@ -730,13 +730,13 @@ mod tests {
     use super::resolve_tracked_tenant_alias_in;
     use super::set_tracked_tenant_auth_source_in;
     use crate::tracked_tenants::discover_tracked_tenants_in;
+    use cloud_terrastodon_auth::AuthContext;
+    use cloud_terrastodon_auth::WorkloadIdentityConfig;
+    use cloud_terrastodon_auth_types::AuthSource;
     use cloud_terrastodon_azure_types::AzureTenantAlias;
     use cloud_terrastodon_azure_types::AzureTenantArgument;
     use cloud_terrastodon_azure_types::AzureTenantId;
     use cloud_terrastodon_command::CancellationToken;
-    use cloud_terrastodon_credentials::AuthContext;
-    use cloud_terrastodon_credentials::AuthSource;
-    use cloud_terrastodon_credentials::WorkloadIdentityConfig;
     use std::str::FromStr;
     use tempfile::tempdir;
     use tokio::fs;

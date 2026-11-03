@@ -9,8 +9,8 @@ pub use azure_vm_publisher_list_cli::AzureVmPublisherListArgs;
 pub use azure_vm_publisher_offer_list_cli::AzureVmPublisherOfferListArgs;
 pub use azure_vm_publisher_offer_sku_list_cli::AzureVmPublisherOfferSkuListArgs;
 pub use azure_vm_publisher_offer_sku_version_list_cli::AzureVmPublisherOfferSkuVersionListArgs;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 #[derive(facet::Facet, Debug, Clone)]

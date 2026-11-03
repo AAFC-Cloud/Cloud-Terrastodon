@@ -151,6 +151,14 @@ The shared runner remains independent of whether your schema is private or publi
 
 ## Included and optional facilities
 
+Authentication runtime types now live in `cloud_terrastodon_auth`; import
+`AuthSource` and request selections from `cloud_terrastodon_auth_types`.
+The facade features and modules are `auth` and `auth-types`/`auth_types`.
+There are no compatibility exports from the former `credentials` crate or
+facade module. `AzureTenantId` stays in `azure_types`. See
+[authentication](authentication.md) for tenant binding and the persistent
+Cloud Terrastodon Azure CLI login store.
+
 | Facade feature | Facilities |
 | --- | --- |
 | `app` | Shared debug/logging/output arguments; text/JSON output rendering; Figue help/version/completions; caller-owned schema; error reporting; Tokio runtime; cooperative Ctrl-C cancellation |
@@ -160,7 +168,7 @@ The shared runner remains independent of whether your schema is private or publi
 Authentication resolves preferences at startup, not during help; individual
 Cloud Terrastodon API calls still determine whether credentials/network access
 are needed. Enable the facade's relevant SDK features separately when using those
-APIs. The auth feature currently brings in the registry through credentials.
+APIs. The auth feature brings in the registry through the `auth` crate.
 Terminal support brings in the picker/Ratatui dependencies. Features are additive:
 another dependency enabling `auth` adds its globals to the shared type too. Prefer
 `GlobalArgs::default()` over exhaustive literals when constructing it manually.
@@ -173,6 +181,9 @@ Binding that argument to `context.auth` retains a known authentication tenant
 when omitted and otherwise uses Azure CLI's default tenant. The handler calls
 `fetch_all_resource_groups` for accessible subscriptions in that tenant; existing
 SDK request caches may supply the inventory.
+That default lookup remains part of the existing CLI selector. Authentication
+receives its resolved tenant and uses the application-owned CLI login described
+above. Supplying `--tenant` chooses the tenant directly through an ID or alias.
 
 The runner accepts one tracing directive for each `--log-filter` and
 `--log-file-filter`, including a module directive such as `field_notes=debug`.

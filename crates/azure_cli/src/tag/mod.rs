@@ -3,8 +3,8 @@ pub mod azure_tag_for_cleanup_cli;
 
 pub use azure_tag_cli::AzureTagCommand;
 pub use azure_tag_for_cleanup_cli::AzureTagForCleanupArgs;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Manage Azure tag operations.

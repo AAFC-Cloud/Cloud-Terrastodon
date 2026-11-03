@@ -1,12 +1,12 @@
 use crate::PercentEncodeExt;
 use arbitrary::Arbitrary;
+use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure_types::EntraUser;
 use cloud_terrastodon_azure_types::EntraUserArgument;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_pathing::sanitize_windows_path_component;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
@@ -167,9 +167,9 @@ cloud_terrastodon_registry_execution::register_into_future!(EntraUserGetRequest<
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cloud_terrastodon_auth::AuthContext;
     use cloud_terrastodon_azure_types::AzureTenantId;
     use cloud_terrastodon_command::CancellationToken;
-    use cloud_terrastodon_credentials::AuthContext;
 
     #[test]
     fn url_keeps_special_upns_in_the_user_key() {

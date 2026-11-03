@@ -1,10 +1,10 @@
 use crate::pim_activate;
 use crate::pim_activate_azurerm;
 use crate::pim_activate_entra;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Arguments for activating Privileged Identity Management roles.

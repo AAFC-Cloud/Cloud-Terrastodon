@@ -1,9 +1,9 @@
 use crate::get_resource_group_choices;
 use crate::get_role_assignment_choices;
 use crate::get_security_group_choices;
+use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure_types::Scope;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;

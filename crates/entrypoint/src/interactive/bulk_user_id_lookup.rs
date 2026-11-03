@@ -1,7 +1,7 @@
+use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure::EntraUserId;
 use cloud_terrastodon_azure::fetch_all_entra_users;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_user_input::prompt_line;
 use eyre::Result;
 use indexmap::IndexSet;

@@ -1,8 +1,8 @@
 pub mod outage_cli;
 pub mod outage_investigate_cli;
 
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 pub use outage_cli::OutageCommand;
 pub use outage_investigate_cli::OutageInvestigateArgs;

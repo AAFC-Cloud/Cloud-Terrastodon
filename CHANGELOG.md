@@ -1,5 +1,9 @@
 # Unreleased
 
+- Rename `cloud_terrastodon_credentials` to `cloud_terrastodon_auth` and move authentication selections and credential audiences into `cloud_terrastodon_auth_types`, without compatibility exports. The facade now uses `auth` and `auth-types`; `AzureTenantId` remains in `azure_types`.
+
+- Require an explicit tenant for Azure CLI bearer authentication, including Azure DevOps; PAT authentication remains tenant-independent. Establish persistent, application-owned CLI logins with `ct az tenant login <ID-or-alias> --auth-source azure-cli`. Token acquisition no longer relies on ambient CLI login state or starts an implicit login. Policy remediation and storage-backend container inventory now use typed ARM REST requests with the selected context; the CLI service runner and allowlist are removed. Container inventory is management metadata and does not establish blob-data access. Legacy unbound SDK helpers remain scheduled for request migration. See [authentication](docs/authentication.md).
+
 - Expose resource-provider metadata through `azure_types` and `azure::fetch_all_resource_providers`, including tenant-scoped pagination, cached pages, and invalidation. The maintenance tool consumes this SDK surface; provider-relative names preserve unknown types and service spelling for enum generation.
 
 - Move Terraform formatting to `hcl::AsFormattedHclString`, keeping pure HCL conversions in `hcl_types`. Extract resource-type maintenance into the unpublished `tools/resource-types-cli` with offline generation/checking and explicit tenant ID-or-alias/source refresh. The types crates no longer depend transitively on command execution.

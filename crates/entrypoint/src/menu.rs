@@ -1,8 +1,8 @@
 use crate::menu_action::MenuAction;
 use crate::menu_action::MenuActionResult;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::get_default_tenant_id;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use cloud_terrastodon_user_input::PickError;
 use cloud_terrastodon_user_input::PickerTui;
 use cloud_terrastodon_user_input::prompt_line;

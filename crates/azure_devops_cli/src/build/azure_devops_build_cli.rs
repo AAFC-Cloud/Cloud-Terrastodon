@@ -1,8 +1,8 @@
 use super::definition::AzureDevOpsBuildDefinitionArgs;
 use super::list::AzureDevOpsBuildListArgs;
 use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Build runs, pipeline definitions, and definition folders.

@@ -3,8 +3,8 @@
 **Inventory date:** 2026-10-30
 
 **Boundary decision update:** 2026-11-02; approved option B and `auth`/`auth_types`
-naming. Task 3.0's registry cutover is complete; auth renaming and extraction are
-pending in 3.1. The snapshot counts remain the original baseline, and the owning
+naming. Task 3.0's registry cutover and task 3.1's auth rename/extraction are
+implemented. The snapshot counts remain the original baseline, and the owning
 plan records current implementation and validation evidence.
 
 **Owning work item:** [Migration plan, task 1.2](executor-cache-migration.md)
@@ -37,6 +37,34 @@ in `tests.rs` are excluded from the snapshot; their compilation and relevant
 offline integration coverage still belong to the owning implementation batch.
 
 ## Reproducible source snapshot
+
+Task 3.1 moved context-bound operations to isolated auth-owned CLI sessions.
+Task 3.1a replaces policy remediation and both container-list paths with typed
+ARM requests, removes the generic service runner/allowlist, and retains CLI
+sessions for explicit login and token acquisition. The backend picker reuses the
+container-names request, including reload invalidation. The following
+legacy SDK files still construct ambient CLI operations and require explicit
+request/executor migration in phases 5/6 before shared provider/cache admission:
+
+- Azure: `accounts.rs`, `auth.rs` (legacy current-user/login helpers),
+  `container_registry.rs`, `create_role_assignment.rs`,
+  `entra_group_member_add.rs`, `entra_group_member_remove.rs`,
+  `key_vault_secrets.rs`, `key_vaults.rs`,
+  `storage_account_name_availability.rs`, and `subscriptions.rs`.
+- Azure DevOps: `azure_devops_agent_packages.rs`, `azure_devops_agent_pools.rs`,
+  `azure_devops_group_license_entitlements.rs`, `azure_devops_group_member.rs`,
+  `azure_devops_repos.rs`, `azure_devops_service_endpoint.rs`,
+  `azure_devops_team.rs`, `azure_devops_team_member.rs`,
+  `azure_devops_user_license_entitlement_update.rs`, and
+  `azure_devops_work_item_queries.rs`.
+- Legacy PIM authentication still has its own refresh/interactive lifecycle;
+  task 3.1 sanitizes its credential diagnostics but does not bind it to the new
+  invocation provider. CLI configuration/default-organization helpers remain
+  local configuration operations; retail-price fetching uses a public API.
+
+These are an implementation follow-up inventory, not compatible substitutes
+for the new explicit auth provider. Their current signatures must change in
+their owning request batches; do not infer an identity partition from ambient CLI.
 
 Run from repository root in PowerShell. These commands inspect tracked workspace
 source and do not invoke any application or inspect its cache/configuration.
@@ -117,7 +145,7 @@ rg -n 'invoke_value_boxed|invoke_result_future|bind_request_cancellation|REGISTE
 | B01 Cache owner and artifact storage | 2.1–2.4 | [artifact_cache.rs](../../crates/command/src/artifact_cache.rs), [cache_key.rs](../../crates/command/src/cache_key.rs), [cache_invalidatable.rs](../../crates/command/src/cache_invalidatable.rs), [command_cache_discovery.rs](../../crates/command/src/command_cache_discovery.rs) | Replace global memory ownership; bind invalidation and discovery to the explicit cache root/owner; preserve inspectable artifacts, validity, readable scope hierarchy, and live-entry coordination. |
 | B02 Shared work and subprocess adapter | 2.1, 2.3, 4.1 | [cacheable_work.rs](../../crates/command/src/cacheable_work.rs), [cachable_command.rs](../../crates/command/src/cachable_command.rs), [command.rs](../../crates/command/src/command.rs), [process_fingerprint.rs](../../crates/command/src/process_fingerprint.rs), [from_command_output.rs](../../crates/command/src/from_command_output.rs) | Migrate both request traits/macros and all subprocess entrypoints to one explicit lifecycle. The existing spelling `cachable_command.rs` is intentional in this reference. Preserve complete fingerprints, retries, raw outputs, per-caller policy, caller/span diagnostics, and cancellation. |
 | B03 REST adapter | 4.2 | [rest_request.rs](../../crates/rest/src/rest_request.rs), [request_execution.rs](../../crates/rest/src/request_execution.rs), [tenant_inference.rs](../../crates/rest/src/tenant_inference.rs) | Move auth/scope resources to execution; cover cached and uncached paths, raw and typed outputs, decoders, validators, metadata mappers, continuation headers, and explicit auth selection. |
-| B04 Credential selection and runtime | 3.1, 3.2 | [auth_source.rs](../../crates/credentials/src/auth_source.rs), [auth_context.rs](../../crates/credentials/src/auth_context.rs), [azure_tenant_auth_context.rs](../../crates/credentials/src/azure_tenant_auth_context.rs), [azure_devops_auth_context.rs](../../crates/credentials/src/azure_devops_auth_context.rs), [azure_access_token.rs](../../crates/credentials/src/azure_access_token.rs), [tracked_tenants.rs](../../crates/azure/src/tracked_tenants.rs) | Rename runtime `credentials` to `auth`; move `AuthSource` and resolved serializable selections to `auth_types`. Keep `AzureTenantId` in `azure_types`. Retain token/session ownership, explicit bearer tenant, WIF tenant checks, headless policy, and PAT independence. Cut over every consumer, manifest, feature, example, and public export in 3.1 without compatibility aliases. Credential acquisition's subprocess is an infrastructure dependency, not a new domain-data dependency. |
+| B04 Credential selection and runtime | 3.1, 3.2 | [auth_source.rs](../../crates/auth_types/src/auth_source.rs), [auth_context.rs](../../crates/auth/src/auth_context.rs), [azure_tenant_auth_context.rs](../../crates/auth/src/azure_tenant_auth_context.rs), [azure_devops_auth_context.rs](../../crates/auth/src/azure_devops_auth_context.rs), [azure_access_token.rs](../../crates/auth/src/azure_access_token.rs), [tracked_tenants.rs](../../crates/azure/src/tracked_tenants.rs) | Rename runtime `credentials` to `auth`; move `AuthSource` and resolved serializable selections to `auth_types`. Keep `AzureTenantId` in `azure_types`. Retain token/session ownership, explicit bearer tenant, WIF tenant checks, headless policy, and PAT independence. Cut over every consumer, manifest, feature, example, and public export in 3.1 without compatibility aliases. Credential acquisition's subprocess is an infrastructure dependency, not a new domain-data dependency. |
 | B05 Registry invocation and discovery | 3.0, 3.3, 6.3, 7.1 | [pure registry lib](../../crates/registry/src/lib.rs), [invocation registry lib](../../crates/registry_execution/src/lib.rs), [function.rs](../../crates/registry_execution/src/function.rs), [bind_request_cancellation.rs](../../crates/registry_execution/src/bind_request_cancellation.rs), [default_production.rs](../../crates/registry_execution/src/default_production.rs), [function_trait_contract.rs](../../crates/registry/src/function_trait_contract.rs), [discovery_reflection.rs](../../crates/registry_execution/src/discovery_reflection.rs) | Completed 3.0 makes `registry` the pure foundation, absorbing `registry_values` and pure conversions/metadata/planning; runtime invocation lives in `registry_execution` with no old package/import compatibility surfaces. One authoritative registration per operation supplies metadata and runtime catalogue views. Task 3.3 integrates the executor ABI in `registry_execution` without adding an upward dependency from the foundation. Task 7.1 audits residual old references rather than postponing this cutover. |
 
 Subprocess methods requiring an explicit migration disposition are `run_raw`,
@@ -151,8 +179,8 @@ Gitea work merely because those operations acquire an executor parameter.
 ### Approved crate-boundary cutover inventory
 
 The following source paths are **historical locations at the boundary decision**.
-Task 3.0 has implemented the registry destinations; the auth destinations remain
-planned. Pure and runtime registrations have different owning crates, so future
+Tasks 3.0 and 3.1 have implemented the registry and auth destinations. Pure and
+runtime registrations have different owning crates, so future
 callers must choose their imports by responsibility.
 
 | Current source | Approved target | Required classification |
@@ -176,16 +204,17 @@ service requests; context-free metadata and planning belong in the foundation.
 Classification cannot be based only on a filename or an `async` signature.
 
 Audit more than Rust imports. The root [Cargo.toml](../../Cargo.toml) now names
-both registry packages but still exposes a `credentials` feature; [src/lib.rs](../../src/lib.rs)
-exposes the corresponding facade module. [app's manifest](../../crates/app/Cargo.toml)
-already calls its optional authentication feature `auth` while depending on the
-old credentials package. Tasks 3.0 and 3.1 must update workspace dependency keys,
-member paths, package names, affected lockfile entries, feature references, macro
-paths, facade exports, tests, examples, standalone tools, source configuration
-types, CI/build scripts where present, and maintained documentation to their
-owning targets. Existing configured auth-source spellings and runtime credential
-storage semantics are preserved; a crate rename does not authorize changing
-them. Historical completion evidence may retain an old name with its date.
+both registry packages and the `auth`/`auth_types` packages, with `auth` and
+`auth-types` features. [src/lib.rs](../../src/lib.rs) exposes their owning facade
+modules. [app's manifest](../../crates/app/Cargo.toml) retains its optional `auth`
+feature and now depends on the renamed runtime package. The cutover audit covers
+workspace dependency keys, member paths, package names, affected lockfile entries,
+feature references, macro paths, facade exports, tests, examples, standalone tools,
+source configuration types, CI/build scripts where present, and maintained
+documentation. Existing configured auth-source spellings are preserved. U67/U68
+separately authorize the identity and persistent-session changes described in
+[G3](executor-cache-contracts.md); the package rename alone does not authorize
+behavior changes. Historical completion evidence may retain an old name with its date.
 
 Refresh this inventory with source-only searches before each boundary cutover:
 
@@ -215,7 +244,7 @@ patch. No batch authorizes a new endpoint, live inventory, or unrelated policy.
 | B08 Azure DevOps project vertical slice | 5.3 | [azure_devops_projects.rs](../../crates/azure_devops/src/azure_devops_projects.rs), project-list CLI, project picker and direct project-list consumers | Preserve explicit organization, explicit bearer tenant, PAT selection, continuation metadata, cache-hit behavior, and chosen shared-record output shape. Picker interaction itself is not memoized. |
 | B09 Remaining Graph identity reads | 6.3, 7.1 | `entra_user_get/search`, `entra_group_get/list/members/members_batch/owners`, `entra_groups_for_member`, `entra_directory_objects_by_ids`, `principal_get`, `service_principal_get`, and `microsoft_graph_batch` under [Azure SDK](../../crates/azure/src) | Move runtime construction/fetching; preserve mixed known/unknown principal resolution, batching, absence semantics, and pagination. Revisit owned conversions only where the selected shared-record boundary requires it. |
 | B10 Graph application/tenant/security reads | 6.3, 7.1 | Azure `application_registration_*`, `application_role_list`, `oauth2_permission_grant_list`, `oauth2_permission_scopes`, `conditional_access_*`, `tenant_details/licenses`, `service_groups`, `unified_role_*`, and `pim_entra_role_*` | Migrate each subfamily independently; preserve bearer audience/tenant, child dependencies, and protected policy boundaries. Unified role aggregates require the same cross-branch invalidation treatment as RBAC. |
-| B11 ARM inventories | 6.3, 7.1 | Azure `subscriptions`, `resource_group_list`, `resources`, `management_groups`, [resource_provider_list_request](../../crates/azure/src/resource_provider_list_request.rs), `policy_*`, network/VM/storage/compute families, app-service/application-gateway/container/cognitive-services/key-vault inventories | Migrate one resource family at a time through its current Resource Graph, REST, or command boundary. Preserve its identity filters/limits and output. Protocol replacement is not part of this migration. |
+| B11 ARM inventories | 6.3, 7.1 | Azure `subscriptions`, `resource_group_list`, `resources`, `management_groups`, [resource_provider_list_request](../../crates/azure/src/resource_provider_list_request.rs), `policy_*`, network/VM/storage/compute families, app-service/application-gateway/container/cognitive-services/key-vault inventories | Migrate one resource family at a time through its current Resource Graph, REST, or command boundary. Preserve its identity filters/limits and output. Protocol replacement requires separate authorization; task 3.1a's remediation/container ARM cutover is the approved U71/U72 exception. |
 | B12 Azure direct helpers and mutations | 6.3, 7.1 | Azure `batch_api`, `cost_management`, `metrics`, `tags`, `storage_account_name_availability`, `virtual_machine_prices/sizes`, `create_role_assignment`, `governance_role_assignments`, `eligible_child_resources`, `role_eligibility_schedules`, `role_management_policy_assignments`, `evaluate_policy_assignment_compliance`, `remediate_policy_assignment`, `entra_group_member_add/remove`, OAuth grant create/update/remove, and PIM activation | Inventory plain functions and `.invoke()` helpers as well as request macros. Read-only batches opt in explicitly; writes execute every time and preserve required response/artifact/invalidation work. |
 | B13 Azure DevOps builds and folders | 6.3, 7.1 | `azure_devops_build_*_request.rs` and corresponding [build CLI](../../crates/azure_devops_cli/src/build) | Preserve list/get filters and revision identity, preflight freshness, folder prune/delete deferrals, and visible affected-read invalidation. |
 | B14 Azure DevOps work items | 6.3, 7.1 | `azure_devops_work_item*`, `work_item_copy*`, `rest_work_item_copy_writer.rs`, and corresponding work-item CLI | Migrate schema/query reads, mutations, copy planner, writer, and durable journal workflows in separate slices. Preserve effect declarations, journaling/required completion, and existing copy-plan decisions. |

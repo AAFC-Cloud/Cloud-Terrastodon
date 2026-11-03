@@ -2,8 +2,8 @@ use crate::work_item::query::create::AzureDevOpsWorkItemQueryCreateArgs;
 use crate::work_item::query::invoke::AzureDevOpsWorkItemQueryInvokeArgs;
 use crate::work_item::query::list::AzureDevOpsWorkItemQueryListArgs;
 use crate::work_item::query::show::AzureDevOpsWorkItemQueryShowArgs;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// List, inspect, execute, and create work item queries.

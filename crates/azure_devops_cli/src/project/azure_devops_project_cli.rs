@@ -2,8 +2,8 @@ use crate::project::dump::AzureDevOpsProjectDumpArgs;
 use crate::project::list::AzureDevOpsProjectListArgs;
 use crate::project::member::AzureDevOpsProjectMemberArgs;
 use crate::project::show::AzureDevOpsProjectShowArgs;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Azure DevOps project-related commands.

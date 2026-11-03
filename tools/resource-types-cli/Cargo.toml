@@ -14,11 +14,12 @@ name = "resource-types"
 path = "src/main.rs"
 
 [dependencies]
+cloud_terrastodon_auth_types.workspace = true
 cloud_terrastodon_app.workspace = true
 cloud_terrastodon_azure.workspace = true
 cloud_terrastodon_azure_types.workspace = true
 cloud_terrastodon_command.workspace = true
-cloud_terrastodon_credentials.workspace = true
+cloud_terrastodon_auth.workspace = true
 facet.workspace = true
 facet-json.workspace = true
 eyre.workspace = true

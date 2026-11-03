@@ -8,9 +8,9 @@ use crate::git_revision::set_git_revision;
 use crate::version::full_version;
 use crate::version::set_version;
 use cloud_terrastodon_app::App;
+use cloud_terrastodon_auth_types::AuthSource;
 use cloud_terrastodon_azure_cli::AzureCommand;
 use cloud_terrastodon_azure_cli::tenant::AzureTenantCommand;
-use cloud_terrastodon_credentials::AuthSource;
 use eyre::Result;
 use std::process::ExitCode;
 use std::process::Termination;
@@ -227,7 +227,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             cli.global_args.auth_source,
-            cloud_terrastodon_credentials::AuthSource::WorkloadIdentity
+            cloud_terrastodon_auth_types::AuthSource::WorkloadIdentity
         );
         assert!(cli.global_args.debug);
         assert_eq!(cli.global_args.log_filter, "trace");

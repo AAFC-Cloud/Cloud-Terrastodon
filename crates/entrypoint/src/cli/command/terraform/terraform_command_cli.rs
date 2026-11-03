@@ -3,8 +3,8 @@ use super::terraform_reflow_cli::TerraformReflowArgs;
 use super::terraform_show_cli::TerraformShowArgs;
 use super::terraform_source_cli::TerraformSourceArgs;
 use crate::cli::terraform::terraform_apply_cli::TerraformApplyArgs;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Terraform-specific commands.

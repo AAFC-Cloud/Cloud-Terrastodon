@@ -244,9 +244,13 @@ path = "./crates/ui_egui"
 version = "0.37.0"            # CT_VERSION
 path = "./crates/tracing"
 
-[workspace.dependencies.cloud_terrastodon_credentials]
+[workspace.dependencies.cloud_terrastodon_auth]
 version = "0.37.0"            # CT_VERSION
-path = "./crates/credentials"
+path = "./crates/auth"
+
+[workspace.dependencies.cloud_terrastodon_auth_types]
+version = "0.37.0" # CT_VERSION
+path = "./crates/auth_types"
 
 [workspace.dependencies.cloud_terrastodon_rest]
 version = "0.37.0"            # CT_VERSION
@@ -302,7 +306,8 @@ cloud_terrastodon_zombies = { workspace = true, optional = true }
 cloud_terrastodon_relative_location = { workspace = true, optional = true }
 cloud_terrastodon_ui_ratatui = { workspace = true, optional = true }
 cloud_terrastodon_ui_egui = { workspace = true, optional = true }
-cloud_terrastodon_credentials = { workspace = true, optional = true }
+cloud_terrastodon_auth = { workspace = true, optional = true }
+cloud_terrastodon_auth_types = { workspace = true, optional = true }
 cloud_terrastodon_rest = { workspace = true, optional = true }
 
 [dev-dependencies]
@@ -360,7 +365,8 @@ zombies = ["dep:cloud_terrastodon_zombies"]
 relative-location = ["dep:cloud_terrastodon_relative_location"]
 ui-ratatui = ["dep:cloud_terrastodon_ui_ratatui"]
 ui-egui = ["dep:cloud_terrastodon_ui_egui"]
-credentials = ["dep:cloud_terrastodon_credentials"]
+auth = ["dep:cloud_terrastodon_auth"]
+auth-types = ["dep:cloud_terrastodon_auth_types"]
 rest = ["dep:cloud_terrastodon_rest"]
 
 # Convenience feature that enables all re-exports, similar to tokio's `full`.
@@ -389,7 +395,8 @@ full = [
     "relative-location",
     "ui-ratatui",
     "ui-egui",
-    "credentials",
+    "auth",
+    "auth-types",
     "rest",
 ]
 

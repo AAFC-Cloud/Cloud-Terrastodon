@@ -1,4 +1,4 @@
-use cloud_terrastodon_credentials::AuthSource;
+use cloud_terrastodon_auth_types::AuthSource;
 use eyre::Result;
 use eyre::ensure;
 use facet::Facet;
@@ -58,7 +58,7 @@ impl From<&ResourceTypesRefreshAuthSourceArgument> for String {
 #[cfg(test)]
 mod tests {
     use super::ResourceTypesRefreshAuthSourceArgument;
-    use cloud_terrastodon_credentials::AuthSource;
+    use cloud_terrastodon_auth_types::AuthSource;
 
     #[test]
     fn unsuitable_authentication_is_rejected_without_resolving_runtime_state() {

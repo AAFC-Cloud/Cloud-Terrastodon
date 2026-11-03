@@ -1,11 +1,12 @@
+use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_azure::AzureDevOpsTenantArgumentExt;
+use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_repos_for_project;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::to_writer_pretty;
-use cloud_terrastodon_credentials::AuthContext;
-use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use eyre::Result;
 use eyre::bail;
 use std::io::stdout;
@@ -13,6 +14,10 @@ use std::io::stdout;
 /// Show Azure DevOps repo details.
 #[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsRepoShowArgs {
+    /// Tenant id or tracked alias for bearer authentication; PAT authentication may omit it.
+    #[facet(figue::named)]
+    pub tenant: Option<AzureTenantArgument<'static>>,
+
     /// Azure DevOps organization name or URL.
     #[facet(figue::named)]
     pub org: AzureDevOpsOrganizationUrl,
@@ -32,7 +37,10 @@ impl AzureDevOpsRepoShowArgs {
         cancellation: &CancellationScope,
     ) -> Result<()> {
         // Find a project matching the provided identifier (id or name).
-        let azure_devops_auth_context = AzureDevOpsAuthContext::new(auth_context)?;
+        let azure_devops_auth_context = self
+            .tenant
+            .bind_auth_context(auth_context, cancellation)
+            .await?;
         let projects =
             fetch_all_azure_devops_projects(&self.org, &azure_devops_auth_context, cancellation)
                 .await?;

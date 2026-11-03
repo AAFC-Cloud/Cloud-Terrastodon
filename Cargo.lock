@@ -905,6 +905,8 @@ version = "0.37.0"
 dependencies = [
  "arbitrary",
  "cloud_terrastodon_app",
+ "cloud_terrastodon_auth",
+ "cloud_terrastodon_auth_types",
  "cloud_terrastodon_azure",
  "cloud_terrastodon_azure_cli",
  "cloud_terrastodon_azure_devops",
@@ -915,7 +917,6 @@ dependencies = [
  "cloud_terrastodon_cli_types",
  "cloud_terrastodon_command",
  "cloud_terrastodon_config",
- "cloud_terrastodon_credentials",
  "cloud_terrastodon_entrypoint",
  "cloud_terrastodon_gitea",
  "cloud_terrastodon_hcl",
@@ -946,7 +947,8 @@ name = "cloud_terrastodon_app"
 version = "0.37.0"
 dependencies = [
  "arbitrary",
- "cloud_terrastodon_credentials",
+ "cloud_terrastodon_auth",
+ "cloud_terrastodon_auth_types",
  "cloud_terrastodon_tracing",
  "cloud_terrastodon_user_input",
  "color-eyre",
@@ -963,6 +965,50 @@ dependencies = [
 ]
 
 [[package]]
+name = "cloud_terrastodon_auth"
+version = "0.37.0"
+dependencies = [
+ "arbitrary",
+ "async-trait",
+ "base64",
+ "chrono",
+ "cloud_terrastodon_auth_types",
+ "cloud_terrastodon_azure_types",
+ "cloud_terrastodon_cache",
+ "cloud_terrastodon_command",
+ "cloud_terrastodon_config",
+ "cloud_terrastodon_pathing",
+ "cloud_terrastodon_registry",
+ "eyre",
+ "http",
+ "linkme",
+ "reqwest",
+ "sha2 0.10.9",
+ "teamy-facet",
+ "teamy-facet-json",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "uuid",
+ "webbrowser",
+ "windows 0.62.2",
+]
+
+[[package]]
+name = "cloud_terrastodon_auth_types"
+version = "0.37.0"
+dependencies = [
+ "arbitrary",
+ "base64",
+ "cloud_terrastodon_azure_types",
+ "cloud_terrastodon_registry",
+ "eyre",
+ "http",
+ "linkme",
+ "teamy-facet",
+]
+
+[[package]]
 name = "cloud_terrastodon_azure"
 version = "0.37.0"
 dependencies = [
@@ -970,9 +1016,10 @@ dependencies = [
  "blake3",
  "bstr",
  "chrono",
+ "cloud_terrastodon_auth",
+ "cloud_terrastodon_auth_types",
  "cloud_terrastodon_azure_types",
  "cloud_terrastodon_command",
- "cloud_terrastodon_credentials",
  "cloud_terrastodon_hcl_types",
  "cloud_terrastodon_pathing",
  "cloud_terrastodon_registry",
@@ -1005,11 +1052,12 @@ dependencies = [
  "arbitrary",
  "chrono",
  "cloud_terrastodon_app",
+ "cloud_terrastodon_auth",
+ "cloud_terrastodon_auth_types",
  "cloud_terrastodon_azure",
  "cloud_terrastodon_azure_devops_cli",
  "cloud_terrastodon_command",
  "cloud_terrastodon_config",
- "cloud_terrastodon_credentials",
  "cloud_terrastodon_user_input",
  "color-eyre",
  "eyre",
@@ -1036,10 +1084,11 @@ dependencies = [
  "base64",
  "blake3",
  "chrono",
+ "cloud_terrastodon_auth",
+ "cloud_terrastodon_auth_types",
  "cloud_terrastodon_azure_devops_types",
  "cloud_terrastodon_azure_types",
  "cloud_terrastodon_command",
- "cloud_terrastodon_credentials",
  "cloud_terrastodon_hcl_types",
  "cloud_terrastodon_pathing",
  "cloud_terrastodon_registry",
@@ -1069,11 +1118,12 @@ version = "0.37.0"
 dependencies = [
  "chrono",
  "cloud_terrastodon_app",
+ "cloud_terrastodon_auth",
+ "cloud_terrastodon_auth_types",
  "cloud_terrastodon_azure",
  "cloud_terrastodon_azure_devops",
  "cloud_terrastodon_cli_types",
  "cloud_terrastodon_command",
- "cloud_terrastodon_credentials",
  "cloud_terrastodon_rest",
  "cloud_terrastodon_user_input",
  "color-eyre",
@@ -1238,33 +1288,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cloud_terrastodon_credentials"
-version = "0.37.0"
-dependencies = [
- "arbitrary",
- "async-trait",
- "base64",
- "chrono",
- "cloud_terrastodon_azure_types",
- "cloud_terrastodon_command",
- "cloud_terrastodon_config",
- "cloud_terrastodon_pathing",
- "cloud_terrastodon_registry",
- "eyre",
- "http",
- "linkme",
- "reqwest",
- "sha2 0.10.9",
- "teamy-facet",
- "teamy-facet-json",
- "tokio",
- "tracing",
- "uuid",
- "webbrowser",
- "windows 0.62.2",
-]
-
-[[package]]
 name = "cloud_terrastodon_entrypoint"
 version = "0.37.0"
 dependencies = [
@@ -1273,6 +1296,8 @@ dependencies = [
  "base64",
  "chrono",
  "cloud_terrastodon_app",
+ "cloud_terrastodon_auth",
+ "cloud_terrastodon_auth_types",
  "cloud_terrastodon_azure",
  "cloud_terrastodon_azure_cli",
  "cloud_terrastodon_azure_devops",
@@ -1280,7 +1305,6 @@ dependencies = [
  "cloud_terrastodon_cli_types",
  "cloud_terrastodon_command",
  "cloud_terrastodon_config",
- "cloud_terrastodon_credentials",
  "cloud_terrastodon_excalidraw",
  "cloud_terrastodon_gitea",
  "cloud_terrastodon_hcl",
@@ -1377,10 +1401,10 @@ version = "0.37.0"
 dependencies = [
  "arbitrary",
  "async-trait",
+ "cloud_terrastodon_auth",
  "cloud_terrastodon_azure",
  "cloud_terrastodon_azure_devops",
  "cloud_terrastodon_command",
- "cloud_terrastodon_credentials",
  "cloud_terrastodon_hcl_types",
  "cloud_terrastodon_pathing",
  "cloud_terrastodon_relative_location",
@@ -1469,10 +1493,11 @@ name = "cloud_terrastodon_resource_types_cli"
 version = "0.37.0"
 dependencies = [
  "cloud_terrastodon_app",
+ "cloud_terrastodon_auth",
+ "cloud_terrastodon_auth_types",
  "cloud_terrastodon_azure",
  "cloud_terrastodon_azure_types",
  "cloud_terrastodon_command",
- "cloud_terrastodon_credentials",
  "eyre",
  "prettyplease",
  "quote",
@@ -1489,9 +1514,10 @@ version = "0.37.0"
 dependencies = [
  "arbitrary",
  "bstr",
+ "cloud_terrastodon_auth",
+ "cloud_terrastodon_auth_types",
  "cloud_terrastodon_azure_types",
  "cloud_terrastodon_command",
- "cloud_terrastodon_credentials",
  "cloud_terrastodon_registry",
  "cloud_terrastodon_relative_location",
  "eyre",
@@ -1576,11 +1602,11 @@ dependencies = [
 name = "cloud_terrastodon_ui_egui"
 version = "0.37.0"
 dependencies = [
+ "cloud_terrastodon_auth",
  "cloud_terrastodon_azure",
  "cloud_terrastodon_azure_devops",
  "cloud_terrastodon_command",
  "cloud_terrastodon_config",
- "cloud_terrastodon_credentials",
  "cloud_terrastodon_hcl",
  "cloud_terrastodon_pathing",
  "cloud_terrastodon_relative_location",
@@ -1606,10 +1632,11 @@ name = "cloud_terrastodon_ui_ratatui"
 version = "0.37.0"
 dependencies = [
  "arbitrary",
+ "cloud_terrastodon_auth",
+ "cloud_terrastodon_auth_types",
  "cloud_terrastodon_azure",
  "cloud_terrastodon_azure_devops",
  "cloud_terrastodon_command",
- "cloud_terrastodon_credentials",
  "cloud_terrastodon_excalidraw",
  "cloud_terrastodon_registry",
  "cloud_terrastodon_registry_execution",

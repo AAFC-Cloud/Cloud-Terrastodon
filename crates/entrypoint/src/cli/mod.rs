@@ -8,8 +8,8 @@ pub mod output {
 }
 
 use crate::menu::menu_loop;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 pub use command::*;
 pub use global_args::GlobalArgs;
 
@@ -82,8 +82,8 @@ mod tests {
     use crate::cli::azure_devops::build::definition::folder::list::AzureDevOpsBuildDefinitionFolderListArgs;
     use crate::cli::azure_devops::project::AzureDevOpsProjectCommand;
     use cloud_terrastodon_app::OutputFormat;
+    use cloud_terrastodon_auth_types::AuthSource;
     use cloud_terrastodon_command::CancellationToken;
-    use cloud_terrastodon_credentials::AuthSource;
 
     #[test]
     fn nested_devops_work_item_preserves_global_auth_and_tenant_context() {

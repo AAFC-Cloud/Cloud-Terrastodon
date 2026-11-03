@@ -2,6 +2,7 @@
 
 use arbitrary::Arbitrary;
 use arbitrary::Unstructured;
+use cloud_terrastodon_auth::AzureDevOpsAuthContext;
 use cloud_terrastodon_azure_devops::AzureDevOpsBuildFolderListRequest;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectPickRequest;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectsListRequest;
@@ -9,7 +10,6 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsBuildFolder;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProject;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
 use cloud_terrastodon_command::CancellationToken;
-use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use cloud_terrastodon_registry::ArbitraryBytes;
 use cloud_terrastodon_registry::FunctionKind;
 use cloud_terrastodon_registry::FunctionTraitContract;

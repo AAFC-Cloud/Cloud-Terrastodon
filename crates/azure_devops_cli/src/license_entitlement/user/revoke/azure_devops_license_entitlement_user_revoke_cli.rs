@@ -1,3 +1,5 @@
+use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_auth::AzureDevOpsAuthContext;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::EntraGroupId;
@@ -15,8 +17,6 @@ use cloud_terrastodon_azure_devops::update_azure_devops_user_license_entitlement
 use cloud_terrastodon_command::CacheInvalidatable;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
-use cloud_terrastodon_credentials::AzureDevOpsAuthContext;
 use eyre::Context;
 use eyre::ContextCompat;
 use eyre::Result;

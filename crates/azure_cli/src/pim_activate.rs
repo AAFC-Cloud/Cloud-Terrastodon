@@ -1,4 +1,6 @@
 use crate::pim_kind::PimKind;
+use cloud_terrastodon_auth::AzureTenantAuthContext;
+use cloud_terrastodon_auth::fetch_pim_graph_access_token;
 use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure::GovernanceRoleAssignmentState;
 use cloud_terrastodon_azure::Scope;
@@ -14,8 +16,6 @@ use cloud_terrastodon_azure::fetch_my_role_eligibility_schedules;
 use cloud_terrastodon_azure::fetch_role_management_policy_assignments;
 use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AzureTenantAuthContext;
-use cloud_terrastodon_credentials::fetch_pim_graph_access_token;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use cloud_terrastodon_user_input::prompt_line;

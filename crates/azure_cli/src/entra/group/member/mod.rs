@@ -5,8 +5,8 @@ pub mod azure_entra_group_member_remove_cli;
 pub use azure_entra_group_member_add_cli::AzureEntraGroupMemberAddArgs;
 pub use azure_entra_group_member_list_cli::AzureEntraGroupMemberListArgs;
 pub use azure_entra_group_member_remove_cli::AzureEntraGroupMemberRemoveArgs;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AuthContext;
 use eyre::Result;
 
 /// Group member operations (add/remove)

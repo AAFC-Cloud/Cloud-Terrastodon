@@ -4,11 +4,11 @@ use chrono::Datelike;
 use chrono::Local;
 use chrono::SecondsFormat;
 use chrono::TimeZone;
+use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure_types::AsScope;
 use cloud_terrastodon_azure_types::Metrics;
 use cloud_terrastodon_azure_types::Scope;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use cloud_terrastodon_pathing::AppDir;
 use cloud_terrastodon_pathing::Existy;
 use eyre::OptionExt;
@@ -66,8 +66,8 @@ mod tests {
     use super::*;
     use crate::fetch_all_storage_accounts;
     use crate::get_test_tenant_id;
+    use cloud_terrastodon_auth::AuthContext;
     use cloud_terrastodon_command::CancellationToken;
-    use cloud_terrastodon_credentials::AuthContext;
 
     #[tokio::test]
     async fn it_works() -> eyre::Result<()> {

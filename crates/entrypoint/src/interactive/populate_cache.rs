@@ -1,3 +1,4 @@
+use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure::fetch_all_entra_users;
 use cloud_terrastodon_azure::fetch_all_policy_assignments;
 use cloud_terrastodon_azure::fetch_all_policy_definitions;
@@ -5,7 +6,6 @@ use cloud_terrastodon_azure::fetch_all_policy_set_definitions;
 use cloud_terrastodon_azure::fetch_all_resource_groups;
 use cloud_terrastodon_azure::fetch_all_role_assignments;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_credentials::AzureTenantAuthContext;
 use eyre::Result;
 use indicatif::ProgressBar;
 use tokio::task::JoinSet;
@@ -114,9 +114,9 @@ pub async fn populate_cache(
 #[cfg(test)]
 mod test {
     use super::*;
+    use cloud_terrastodon_auth::AuthContext;
     use cloud_terrastodon_azure::get_test_tenant_id;
     use cloud_terrastodon_command::CancellationToken;
-    use cloud_terrastodon_credentials::AuthContext;
 
     #[test_log::test(tokio::test)]
     #[ignore]
