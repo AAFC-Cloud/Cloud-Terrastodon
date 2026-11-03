@@ -1,5 +1,7 @@
 # Unreleased
 
+- Bind raw artifacts to the executor's admitted work identity and active initializer, preserving disk freshness and invalidation when importing decoded results. Execute-every-time work cannot substitute disk results even with a positive cache lifetime; production Command/REST integration remains pending.
+
 - Keep Command retries below cache lookup and isolate each subprocess attempt's adjacent input files. Own stdin writing alongside output collection and timeout; the shared typed-cache adapter remains pending.
 
 - Let `WorkCache` own temporary directories through `temporary()` and `from_tempdir()`. Cleanup follows the last shared cache or artifact owner; path-only caches retain caller-managed storage.

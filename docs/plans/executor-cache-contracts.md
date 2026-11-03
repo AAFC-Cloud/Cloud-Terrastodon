@@ -355,6 +355,23 @@ ancestors nonreusable even if the parent catches the error. The cache exposes
 `WorkAttempt::prevent_reuse` for that execution-layer boundary and rejects using
 a completed token to revoke an accepted result.
 
+Task 4.1b adds `CloudTerrastodonExecutor::cached_work_with_artifacts` for adapters
+that also retain raw outcomes. It uses the same typed-work admission procedure
+and passes `(executor, ArtifactEntry)` to the initializer. The entry has the exact
+admitted identity and active initializer token, so disk decoding can return
+`LoadedArtifact::decoded(value)` with its original age and generation proof.
+Constructing an unbound entry through `cache().artifacts(...)` cannot supply that
+proof. Memory hits bypass the initializer, including raw loading and decoding.
+
+The artifact entry has zero effective validity for `ExecuteEveryTime`, including
+when the requested validity is positive. Its raw outcomes may be retained but
+cannot replace execution or become reusable selections. Disabled raw retention
+does not disable decoded memory sharing; credential infrastructure is excluded
+from both general-work entry points. The initializer remains responsible for
+canonical decoding, retaining failures, and selecting accepted leaf artifacts.
+Callers retain the operation's cancellation/deferral policy. Owned uncached output
+must keep its separate non-`Sync` contract during the production adapter cutover.
+
 An arbitrary validator/mapper is caller policy. It runs for every caller after
 obtaining the canonical result, including hits and joiners, and its output is
 not automatically memoized. Different callbacks returning the same Rust type

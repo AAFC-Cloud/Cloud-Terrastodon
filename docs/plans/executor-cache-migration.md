@@ -19,8 +19,10 @@ registry invocation, offline discovery, and direct UI callers use the explicit
 executor. U80/U81's provider naming and temporary-cache ownership refinements
 are included in checkpoint `b00bff46`, `Bind registry and UI execution to explicit executor ownership`.
 U82 begins task 4.1's production Command integration with uncached process
-ownership and retry isolation (4.1a); the shared-cache adapter remains unfinished.
-REST follows in 4.2.
+ownership and retry isolation (4.1a). U83 commits that slice as `c981de2b`,
+`Isolate command attempts and keep retries below cache admission`, and begins
+4.1b with executor-bound raw artifacts. The production Command adapter and
+caller cutover remain unfinished; REST follows in 4.2.
 U78 authorizes the local checkpoint titled
 `Add scoped executor with shared cache and injected authentication`, including
 U76's execution-mode names and U77's startup diagnostics.
@@ -187,6 +189,11 @@ cleanup while preserving caller-owned path storage. U82 authorizes committing
 those changes with task 3.3, identifying the next phase, and beginning task 4.1.
 The existing staged work was committed as `b00bff46`; new task 4.1 changes remain
 uncommitted. No push or production-data validation is authorized by this request.
+U83 subsequently requests committing the completed 4.1a changes, identifying the
+next phase, and beginning it. The reviewed ten-file staged scope was committed as
+`c981de2b`; task 4.1b starts from that clean checkpoint. Its first implementation
+focus is shared executor artifact binding. No push, live service access, or
+production-data validation is implied.
 
 ## How to update this plan
 
@@ -586,6 +593,20 @@ changes since the recorded baseline before starting.
   sensitive-output exclusion, and offline-only validation. Do not mistake
   independent temporary input directories for single-flight cache coordination.
   Keep all unfinished task 4.1 acceptance criteria visible; no push is implied.
+- **Task 4.1 continuation, pass 1 — extraction (U83):** The latest request again
+  orders commit, next-phase identification, then implementation. The prior
+  completed slice is 4.1a; the next existing task is 4.1b. Preserve the earlier
+  explicit-executor, full-cutover, typed-sharing, cancellation, and privacy
+  requirements in the ledger rather than treating this as a new design request.
+- **Pass 2 — traceability:** U83 maps to checkpoint `c981de2b` and the artifact
+  binding prerequisite inside 4.1b. Source review establishes that adapters cannot
+  recover the executor's private active `WorkAttempt`; a shared binding method
+  must carry its admitted identity and effective disk-reuse policy.
+- **Pass 3 — adversarial omission:** Keep `ExecuteEveryTime` independent even
+  with positive requested validity; disabled raw retention is separate from
+  decoded memory sharing. Preserve admission checks and original disk freshness.
+  The owned non-`Sync` path, Command callers, and REST remain explicit follow-ups;
+  the new boundary must not be described as a completed transport cutover.
 
 ## Authoritative user guidance ledger
 
@@ -686,6 +707,7 @@ do not silently rewrite earlier guidance.
 | U80 | Rename DisabledAuthenticationProvider to AnonymousAuthenticationProvider and extract UnusedAuthentication as a reusable UnreachableAuthenticationProvider for tests. | Make anonymous admission explicit and share the fail-on-use provider through opt-in test support rather than coupling it to discovery. | — |
 | U81 | Preserve temporary-directory cleanup when WorkCache owns its root, alongside normal path storage. | Retain the TempDir guard in shared cache ownership through clones, artifacts, and workers; keep path-only roots caller-managed. | — |
 | U82 | Commit changes, identify the next phase, then begin its implementation. | Commit the reviewed task 3.3/refinement scope, explain phase 4's Command-first integration, and implement/test the first bounded task 4.1 slice without claiming the full adapter cutover. | — |
+| U83 | Commit changes, identify the next phase, then begin its implementation. | Commit completed task 4.1a locally, identify 4.1b, and begin the shared executor artifact boundary required by the Command cutover; retain the unfinished caller and transport acceptance criteria. | — |
 
 U18 supersedes the earlier assistant suggestion to preserve an Azure CLI
 active-tenant selection. That suggestion was not user approval. U13 rejects the
@@ -788,6 +810,7 @@ not an implemented package; U61 selects `auth_types` paired with runtime `auth`.
 | U80 | Current authorization; 3.3 provider refinement | Anonymous admission and reusable opt-in unreachable test provider; 55 focused registry tests and targeted checks |
 | U81 | Current authorization; 3.3 temporary-root refinement | Cache-owned TempDir lifetime across owners/workers; 146 focused cache/registry/UI tests and targeted checks |
 | U82 | Current authorization; 3.3 checkpoint; 4.1a | Local commit b00bff46; Command process/retry extraction, isolated input ownership, synthetic regression evidence and remaining 4.1 work recorded below |
+| U83 | Current authorization; 4.1a checkpoint; 4.1b | Local commit c981de2b; executor artifact binding, synthetic disk/memory/policy checks, and explicit remaining caller cutover |
 
 ## Purpose and scope
 
@@ -2763,7 +2786,7 @@ shared collection outputs remain discoverable. The graph stays acyclic.
 
 ### [~] 4.1 Route subprocess execution through shared work
 
-**Resume at 4.1b (U82):** The first slice, 4.1a, is complete and verified below.
+**Active task 4.1b (U83):** The first slice, 4.1a, is complete and committed below.
 Production Command callers still use the existing cache boundary until 4.1b
 completes the explicit-executor cutover. The original completion criteria below
 remain required for task 4.1.
@@ -2839,21 +2862,79 @@ git diff --check
 No Azure, Terraform, credential, or live service tests were run. This is Windows
 local-process evidence, not Linux or live compatibility evidence. Source review
 confirms retry branches call only the uncached process path and the nested login
-helper, not the cache boundary. New implementation and plan changes remain
-uncommitted; no production single-flight or typed memoization is claimed yet.
+helper, not the cache boundary. These changes were uncommitted at the end of U82;
+no production single-flight or typed memoization was claimed.
 
-#### [ ] 4.1b Bind Command artifacts and decoded results to the executor
+**Commit checkpoint (U83):** The reviewed ten-file staged scope was committed as
+`c981de2b`, `Isolate command attempts and keep retries below cache admission`.
+The working tree was clean afterward. Verification above is the recorded result
+for that slice; no push or additional service validation was performed.
 
-**Next work:** Add an executor boundary that binds an `ArtifactEntry` to the
-active `WorkAttempt`, preserving generation/freshness proof during disk import
-and publication. The current executor keeps the attempt in its private execution
-mode; bypassing it through `cache().artifacts(...)` would lose that contract.
-Then route canonical command decoding through shared work, apply per-caller
+#### [~] 4.1b Bind Command artifacts and decoded results to the executor
+
+**Execution tracks:** Shared executor binding and integration; disk/memory
+lifecycle tests; admission/retention policy tests; independent source review.
+Only the integration owner runs builds and updates the plan. Validation uses
+temporary cache roots, synthetic payloads, and injected offline providers.
+
+**Completed artifact binding prerequisite (2026-11-03):**
+`CloudTerrastodonExecutor::cached_work_with_artifacts`
+shares admission and typed coordination with `cached_work` through a private
+binding procedure. Its initializer receives an `ArtifactEntry` for the exact
+admitted identity and active `WorkAttempt`; adapters do not reconstruct ancestry
+or resolve a different authentication partition after waiting. Memory hits skip
+artifact construction and decoding. Disk hits must return
+`LoadedArtifact::decoded` so the original freshness/generation proof survives.
+The initializer retains observed outcomes and selects successful canonical leaf
+artifacts through the existing store; aggregate publication remains forbidden.
+
+`ExecuteEveryTime` uses zero effective artifact validity, even when the request
+supplies a positive duration. This prevents disk substitution and reusable
+selection while preserving inspectable outcomes. `ArtifactRetention::Disabled`
+suppresses raw disk I/O independently of decoded memory sharing. Credential mode
+cannot use the shared boundary. Callers retain cancellation policy and must wrap
+effectful work in the executor's deferral; this binding adds no automatic root,
+transport, provider, or compatibility path.
+
+**Verification:** All 21 focused executor tests passed: 13 existing execution
+contracts, 3 artifact-binding scenarios, and 5 artifact-policy scenarios. The new
+checks prove active disk import and memory reuse without another decode,
+invalidation during blocked decoding without stale refill, child dependency
+invalidation with no durable aggregate selection, independent execute-every-time
+invocations despite an existing positive-lifetime disk entry, disabled raw
+retention with memory sharing, credential-mode rejection before initialization,
+and quarantine after authentication changes following raw publication. A caught
+nonreusable-child admission failure prevents caching its parent's fallback.
+
+```powershell
+cargo test --offline --locked -p cloud_terrastodon_execution --test artifact_binding_tests --test artifact_policy_tests --test execution_contract_tests
+cargo check --offline --locked --workspace --all-targets
+cargo clippy --offline --locked -p cloud_terrastodon_execution --all-targets -- -D warnings
+cargo +nightly fmt --all -- --check
+git diff --check
+```
+
+Workspace/all-target compilation, targeted Clippy, formatting, whitespace,
+ledger/traceability, and plan-privacy checks passed. No dependency versions or
+lockfile entries changed. The new implementation and documentation remain
+uncommitted. These are synthetic local Windows checks; no credentials,
+production data, or remote services were accessed. They establish the executor
+boundary, not a completed Command/REST transport cutover. Source review found
+no outstanding correctness issue in this prerequisite.
+
+**Remaining work:** Route canonical command decoding through shared work, apply per-caller
 validators on hits, and migrate actual callers to an explicitly supplied executor
 and operation owner. The current Command APIs accept only a cancellation scope;
 the source inventory finds 42 production caller files across SDK, auth, HCL,
 Gitea, and entrypoint code. There must be no implicit default executor or second
 adapter left alongside the old path.
+
+The owned uncached path must preserve non-`Sync` output and explicit semantic
+admission: a reusable initializer must reject nonreusable child work even when
+there is no shared result to retain. Do not force that API through the shared
+method's `Sync` bound or silently bypass parent dependency admission. Keep the
+Command API and real caller migration together; constructing an executor from
+only a cancellation scope or retaining a parallel legacy adapter is not a cutover.
 
 This slice still owes typed `Arc` reuse, operation/type collision enforcement,
 decoded acceptance before reusable publication, sensitive-output policy,
@@ -3125,7 +3206,7 @@ evidence and documentation. This item remains deferred when phases 1–7 complet
 
 ## Overall initial-migration completion criteria
 
-- [ ] Every active U01–U82 requirement has task evidence; G1–G6 are closed and
+- [ ] Every active U01–U83 requirement has task evidence; G1–G6 are closed and
   phases 1–7 complete. Phase 8 remains explicitly deferred.
 - [ ] Requests contain explicit operation/auth selection data and no execution
   resources; both execute spellings and registry invocation share one contract.

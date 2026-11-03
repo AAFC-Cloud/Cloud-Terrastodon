@@ -6,6 +6,8 @@ use crate::execution_mode::ExecutionMode;
 use cloud_terrastodon_auth_types::AuthenticationSelection;
 use cloud_terrastodon_auth_types::Authorization;
 use cloud_terrastodon_auth_types::AzureCredentialResource;
+use cloud_terrastodon_cache::ArtifactEntry;
+use cloud_terrastodon_cache::ArtifactRetention;
 use cloud_terrastodon_cache::AuthPartition;
 use cloud_terrastodon_cache::CacheEntryIdentity;
 use cloud_terrastodon_cache::CacheKey;
@@ -21,6 +23,7 @@ use std::future::Future;
 use std::future::IntoFuture;
 use std::panic::Location;
 use std::sync::Arc;
+use std::time::Duration;
 use teamy_cancellation::CancellationError;
 use teamy_cancellation::CancellationScope;
 use teamy_cancellation::CancellationToken;
@@ -62,8 +65,9 @@ impl CloudTerrastodonExecutor {
     }
 
     /// The explicit owner for invalidation and low-level artifact adapters.
-    /// Semantic initialization uses [`Self::cached_work`] to retain admission
-    /// and dependency ancestry rather than calling the low cache directly.
+    /// Semantic initialization uses [`Self::cached_work`] or
+    /// [`Self::cached_work_with_artifacts`] to retain admission and dependency
+    /// ancestry rather than calling the low cache directly.
     /// Credential infrastructure cannot access general execution artifacts.
     pub fn cache(&self) -> Result<&WorkCache> {
         ensure!(
@@ -151,18 +155,129 @@ impl CloudTerrastodonExecutor {
         F: FnOnce(Self) -> Fut + Send + 'a,
         Fut: Future<Output = Result<WorkOutput<T>>> + Send + 'a,
     {
+        self.bind_cached_work(
+            kind,
+            key,
+            owner,
+            selection,
+            fingerprint,
+            reuse,
+            move |child, _identity| initialize(child),
+        )
+    }
+
+    /// Bind canonical work and its raw artifacts to the same admitted identity.
+    ///
+    /// The initializer receives an entry bound to its active work attempt. Load
+    /// disk results through that entry and return [`cloud_terrastodon_cache::LoadedArtifact::decoded`]
+    /// so original freshness and invalidation generations survive decoding.
+    /// Finish observed artifacts even on decoding failure; publish them only
+    /// after canonical acceptance. Publication remains limited to leaf results.
+    ///
+    /// `ExecuteEveryTime` and zero-validity requests cannot load or publish raw
+    /// results for reuse, but may retain inspectable execution artifacts. Disabled
+    /// retention suppresses raw disk access independently of decoded memory reuse.
+    /// Credential infrastructure cannot enter either general work-cache API.
+    /// Cancellation policy belongs to the caller: use [`Self::deferred`] for work
+    /// whose effects, decoding, and artifacts must finish together. Caller-specific
+    /// validators and projections run after this future, including on memory hits.
+    #[track_caller]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "identity, auth admission, reuse, raw retention, and initialization are separate contracts"
+    )]
+    pub fn cached_work_with_artifacts<'a, T, F, Fut>(
+        &'a self,
+        kind: ExecutorKind,
+        key: CacheKey,
+        owner: CacheOperationOwner,
+        selection: &'a AuthenticationSelection,
+        fingerprint: NonEmptyString,
+        reuse: WorkReuse,
+        retention: ArtifactRetention,
+        initialize: F,
+    ) -> Result<ExecutionFuture<'a, Arc<T>>>
+    where
+        T: Send + Sync + 'static,
+        F: FnOnce(Self, ArtifactEntry) -> Fut + Send + 'a,
+        Fut: Future<Output = Result<WorkOutput<T>>> + Send + 'a,
+    {
+        let artifact_validity = match reuse {
+            WorkReuse::ReusableRead => key.valid_for,
+            WorkReuse::ExecuteEveryTime => Duration::ZERO,
+        };
+        self.bind_cached_work(
+            kind,
+            key,
+            owner,
+            selection,
+            fingerprint,
+            reuse,
+            move |child, identity| async move {
+                let entry = child.cache.artifacts::<T>(
+                    identity.kind,
+                    CacheKey {
+                        scope: identity.scope,
+                        valid_for: artifact_validity,
+                    },
+                    owner,
+                    identity.auth_partition,
+                    identity.fingerprint,
+                    retention,
+                )?;
+                let entry = match &child.mode {
+                    ExecutionMode::Normal(Some(attempt)) => entry.for_work(attempt)?,
+                    // Nonreusable work has no initializer token of its own. Its
+                    // zero artifact validity prevents disk substitution too.
+                    ExecutionMode::Normal(None) => entry,
+                    ExecutionMode::NoWorkCacheOrAuthorizationReentry => {
+                        eyre::bail!(
+                            "credential infrastructure cannot retain general work artifacts"
+                        );
+                    }
+                };
+                initialize(child, entry).await
+            },
+        )
+    }
+
+    // Both public entry points share admission, coordination, and ancestry. The
+    // exact admitted identity is carried into the initializer rather than rebuilt
+    // by a transport adapter or resolved again after authentication changes.
+    #[track_caller]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "operation identity, selection, reuse, and initialization are separate contracts"
+    )]
+    fn bind_cached_work<'a, T, F, Fut>(
+        &'a self,
+        kind: ExecutorKind,
+        key: CacheKey,
+        owner: CacheOperationOwner,
+        selection: &'a AuthenticationSelection,
+        fingerprint: NonEmptyString,
+        reuse: WorkReuse,
+        initialize: F,
+    ) -> Result<ExecutionFuture<'a, Arc<T>>>
+    where
+        T: Send + Sync + 'static,
+        F: FnOnce(Self, CacheEntryIdentity) -> Fut + Send + 'a,
+        Fut: Future<Output = Result<WorkOutput<T>>> + Send + 'a,
+    {
         let ExecutionMode::Normal(parent) = &self.mode else {
             eyre::bail!("credential infrastructure cannot use the general work cache");
         };
         let partition = self.record_semantic_result(self.admit(selection))?;
         let initialization_partition = partition.clone();
+        let identity = CacheEntryIdentity {
+            kind,
+            scope: key.scope,
+            auth_partition: partition.clone(),
+            fingerprint,
+        };
+        let initialization_identity = identity.clone();
         let spec = self.cache.cached_work(
-            CacheEntryIdentity {
-                kind,
-                scope: key.scope,
-                auth_partition: partition.clone(),
-                fingerprint,
-            },
+            identity,
             owner,
             reuse,
             key.valid_for,
@@ -175,7 +290,7 @@ impl CloudTerrastodonExecutor {
                 );
                 let mut child = self.with_scope(scope);
                 child.mode = ExecutionMode::Normal(attempt);
-                let output = initialize(child).await?;
+                let output = initialize(child, initialization_identity).await?;
                 ensure!(
                     self.admit(selection)? == initialization_partition,
                     "authentication identity changed during cached work initialization"
