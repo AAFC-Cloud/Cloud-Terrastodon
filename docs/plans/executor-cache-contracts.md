@@ -367,10 +367,26 @@ The artifact entry has zero effective validity for `ExecuteEveryTime`, including
 when the requested validity is positive. Its raw outcomes may be retained but
 cannot replace execution or become reusable selections. Disabled raw retention
 does not disable decoded memory sharing; credential infrastructure is excluded
-from both general-work entry points. The initializer remains responsible for
+from general semantic work. The initializer remains responsible for
 canonical decoding, retaining failures, and selecting accepted leaf artifacts.
-Callers retain the operation's cancellation/deferral policy. Owned uncached output
-must keep its separate non-`Sync` contract during the production adapter cutover.
+Callers retain the operation's cancellation/deferral policy.
+
+`CloudTerrastodonExecutor::uncached_work` returns an owned `T: Send` that may
+borrow invocation data. Each call has an independent linked cancellable scope;
+there is no cache identity, lookup, joining, or retained result. The artifact
+variant, `uncached_work_with_artifacts`, claims the canonical operation and output
+type synchronously, then supplies an entry for the admitted partition with zero
+validity. That ownership claim requires `T: 'static`, but neither owned API needs
+`Sync` or wraps its output in `Arc<T>`. Raw outcomes may be retained without
+reusing or selecting them; disabled retention still suppresses all raw I/O.
+
+Owned work uses the same binding admission and before-poll/after-result identity
+checks as shared work. A reusable initializer cannot admit it, and catching that
+rejection still poisons ancestor reuse and quarantines already-published artifacts.
+Credential infrastructure cannot enter either owned boundary. Effects, canonical
+decoding, and required artifact completion belong inside the caller's deferral;
+the linked scope inherits that protection. These task 4.1b boundaries preserve
+the owned contract for the subsequent Command API/caller cutover.
 
 An arbitrary validator/mapper is caller policy. It runs for every caller after
 obtaining the canonical result, including hits and joiners, and its output is

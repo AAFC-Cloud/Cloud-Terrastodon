@@ -1,5 +1,7 @@
 # Unreleased
 
+- Add admitted, owned executor work without a `Sync` requirement or result sharing. Optional execution artifacts retain canonical owner/type checks with zero reuse; reusable parents reject uncached child work even when callers catch the error. Production Command integration remains pending.
+
 - Bind raw artifacts to the executor's admitted work identity and active initializer, preserving disk freshness and invalidation when importing decoded results. Execute-every-time work cannot substitute disk results even with a positive cache lifetime; production Command/REST integration remains pending.
 
 - Keep Command retries below cache lookup and isolate each subprocess attempt's adjacent input files. Own stdin writing alongside output collection and timeout; the shared typed-cache adapter remains pending.

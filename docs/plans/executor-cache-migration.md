@@ -21,7 +21,9 @@ are included in checkpoint `b00bff46`, `Bind registry and UI execution to explic
 U82 begins task 4.1's production Command integration with uncached process
 ownership and retry isolation (4.1a). U83 commits that slice as `c981de2b`,
 `Isolate command attempts and keep retries below cache admission`, and begins
-4.1b with executor-bound raw artifacts. The production Command adapter and
+4.1b with executor-bound raw artifacts. U84 commits that prerequisite as
+`811468f3`, `Bind executor artifacts to admitted cache attempts`, and adds owned
+uncached execution with explicit admission. The production Command adapter and
 caller cutover remain unfinished; REST follows in 4.2.
 U78 authorizes the local checkpoint titled
 `Add scoped executor with shared cache and injected authentication`, including
@@ -194,6 +196,12 @@ next phase, and beginning it. The reviewed ten-file staged scope was committed a
 `c981de2b`; task 4.1b starts from that clean checkpoint. Its first implementation
 focus is shared executor artifact binding. No push, live service access, or
 production-data validation is implied.
+U84 repeats the commit, next-phase identification, and implementation request.
+The reviewed six-file staged artifact-binding scope was committed as `811468f3`;
+the working tree was clean afterward. Task 4.1b continues with owned uncached
+execution, preserving non-`Sync` outputs and admission before the actual Command
+API/caller cutover. New changes remain uncommitted; no push or live validation
+is authorized by this continuation.
 
 ## How to update this plan
 
@@ -607,6 +615,20 @@ changes since the recorded baseline before starting.
   decoded memory sharing. Preserve admission checks and original disk freshness.
   The owned non-`Sync` path, Command callers, and REST remain explicit follow-ups;
   the new boundary must not be described as a completed transport cutover.
+- **Owned execution continuation, pass 1 — extraction (U84):** Commit the current
+  artifact-binding changes, identify the next unfinished task, then implement it.
+  The available request and preserved ledger retain explicit resources, caller
+  cancellation, canonical type ownership, and non-`Sync` owned outputs.
+- **Pass 2 — traceability:** U84 maps to checkpoint `811468f3` and task 4.1b's
+  owned-work prerequisite. Existing Command output bounds allow `Send` without
+  `Sync`; forcing uncached decoding through an `Arc<T>` cache would narrow that
+  contract. Plain owned execution also preserves invocation-borrowed results.
+- **Pass 3 — adversarial omission:** Uncached work still requires admission and
+  authentication rechecks. Reusable parents must reject it before effects and
+  cannot cache a caught-error fallback. Artifact ownership remains canonical,
+  even without memory reuse. Keep the 42-file caller migration and provider-bound
+  subprocess behavior visible; do not add a parallel Command adapter or claim a
+  completed transport cutover. Validation remains synthetic and local.
 
 ## Authoritative user guidance ledger
 
@@ -708,6 +730,7 @@ do not silently rewrite earlier guidance.
 | U81 | Preserve temporary-directory cleanup when WorkCache owns its root, alongside normal path storage. | Retain the TempDir guard in shared cache ownership through clones, artifacts, and workers; keep path-only roots caller-managed. | — |
 | U82 | Commit changes, identify the next phase, then begin its implementation. | Commit the reviewed task 3.3/refinement scope, explain phase 4's Command-first integration, and implement/test the first bounded task 4.1 slice without claiming the full adapter cutover. | — |
 | U83 | Commit changes, identify the next phase, then begin its implementation. | Commit completed task 4.1a locally, identify 4.1b, and begin the shared executor artifact boundary required by the Command cutover; retain the unfinished caller and transport acceptance criteria. | — |
+| U84 | Commit changes, identify the next phase, then begin its implementation. | Commit the completed artifact-binding prerequisite, continue task 4.1b with owned uncached execution and explicit admission, and preserve the remaining Command API/caller cutover. | — |
 
 U18 supersedes the earlier assistant suggestion to preserve an Azure CLI
 active-tenant selection. That suggestion was not user approval. U13 rejects the
@@ -811,6 +834,7 @@ not an implemented package; U61 selects `auth_types` paired with runtime `auth`.
 | U81 | Current authorization; 3.3 temporary-root refinement | Cache-owned TempDir lifetime across owners/workers; 146 focused cache/registry/UI tests and targeted checks |
 | U82 | Current authorization; 3.3 checkpoint; 4.1a | Local commit b00bff46; Command process/retry extraction, isolated input ownership, synthetic regression evidence and remaining 4.1 work recorded below |
 | U83 | Current authorization; 4.1a checkpoint; 4.1b | Local commit c981de2b; executor artifact binding, synthetic disk/memory/policy checks, and explicit remaining caller cutover |
+| U84 | Current authorization; artifact-binding checkpoint; 4.1b | Local commit 811468f3; owned execution, canonical artifact claims, parent admission, cancellation and authentication tests; production transport migration remains open |
 
 ## Purpose and scope
 
@@ -2786,7 +2810,9 @@ shared collection outputs remain discoverable. The graph stays acyclic.
 
 ### [~] 4.1 Route subprocess execution through shared work
 
-**Active task 4.1b (U83):** The first slice, 4.1a, is complete and committed below.
+**Active task 4.1b (U84):** The first slice, 4.1a, and the shared artifact-binding
+prerequisite are complete and committed below. Owned uncached execution is the
+current prerequisite implementation.
 Production Command callers still use the existing cache boundary until 4.1b
 completes the explicit-executor cutover. The original completion criteria below
 remain required for task 4.1.
@@ -2916,11 +2942,57 @@ git diff --check
 
 Workspace/all-target compilation, targeted Clippy, formatting, whitespace,
 ledger/traceability, and plan-privacy checks passed. No dependency versions or
-lockfile entries changed. The new implementation and documentation remain
-uncommitted. These are synthetic local Windows checks; no credentials,
-production data, or remote services were accessed. They establish the executor
+lockfile entries changed. These changes were uncommitted at the end of U83 and
+are now included in checkpoint `811468f3` below. These are synthetic local Windows
+checks; no credentials, production data, or remote services were accessed. They establish the executor
 boundary, not a completed Command/REST transport cutover. Source review found
 no outstanding correctness issue in this prerequisite.
+
+**Commit checkpoint (U84):** The reviewed six-file staged scope was committed as
+`811468f3`, `Bind executor artifacts to admitted cache attempts`. The working
+tree was clean afterward. No push or live validation was performed.
+
+**Completed owned execution prerequisite (2026-11-03):**
+`CloudTerrastodonExecutor::uncached_work` admits independent execution and returns
+the caller-owned value without cache lookup, joining, retention, or a `Sync` bound.
+Its output may borrow invocation data. `uncached_work_with_artifacts` additionally
+claims the canonical operation/output type at binding, before polling or disk I/O,
+and supplies an admitted artifact entry with zero validity. Its `T: 'static`
+bound serves only that ownership claim; `T: Sync` and `Arc<T>` are unnecessary.
+Existing selections cannot substitute for execution, and new outcomes remain
+inspectable without becoming reusable selections.
+
+Both APIs use linked cancellable scopes and inherit caller deferrals. The caller
+still owns protecting effects, decoding, and required artifact completion together.
+Credential infrastructure is excluded. Admission is checked synchronously, then
+the same authentication partition is required before polling and after completion.
+The cached and owned paths share these admission/result checks while retaining
+the cached initializer's additional checks around publication. A reusable parent
+cannot admit an uncached child; rejection prevents ancestor reuse and quarantines
+already-published artifacts even if its caller catches the error.
+
+**Verification:** All 30 focused executor tests passed: the previous 21 scenarios,
+4 owned-work lifetime/cancellation scenarios, and 5 owned-artifact policy scenarios.
+The new tests cover borrowed and non-`Sync` outputs, borrowed non-`Send` caller
+policy, independent simultaneous executions, scope closure, pre-poll/in-flight
+cancellation, inherited deferral, canonical owner/type conflicts before callbacks,
+no disk substitution or selection, caught-child rejection, authentication changes,
+and credential-mode exclusion. Independent source review found no correctness issue.
+
+```powershell
+cargo test --offline --locked -p cloud_terrastodon_execution --test uncached_work_tests --test uncached_artifact_tests --test artifact_binding_tests --test artifact_policy_tests --test execution_contract_tests
+cargo check --offline --locked --workspace --all-targets
+cargo clippy --offline --locked -p cloud_terrastodon_execution --all-targets -- -D warnings
+cargo +nightly fmt --all -- --check
+git diff --check
+```
+
+The focused tests, workspace/all-target compilation, Execution/all-target Clippy
+with warnings denied, workspace nightly formatting, whitespace, U01–U84
+ledger/traceability, and plan privacy checks passed.
+These new changes remain uncommitted. Validation uses synthetic temporary caches
+and injected providers on Windows; no credentials, production data, or remote
+services are involved. Dependency pins and the lockfile are unchanged.
 
 **Remaining work:** Route canonical command decoding through shared work, apply per-caller
 validators on hits, and migrate actual callers to an explicitly supplied executor
@@ -2929,12 +3001,12 @@ the source inventory finds 42 production caller files across SDK, auth, HCL,
 Gitea, and entrypoint code. There must be no implicit default executor or second
 adapter left alongside the old path.
 
-The owned uncached path must preserve non-`Sync` output and explicit semantic
-admission: a reusable initializer must reject nonreusable child work even when
-there is no shared result to retain. Do not force that API through the shared
-method's `Sync` bound or silently bypass parent dependency admission. Keep the
-Command API and real caller migration together; constructing an executor from
-only a cancellation scope or retaining a parallel legacy adapter is not a cutover.
+Use the completed owned boundaries for nonreusable Command results, preserving
+their non-`Sync` contract and parent admission. Keep the Command API and real
+caller migration together; constructing an executor from only a cancellation
+scope or retaining a parallel legacy adapter is not a cutover. Authenticated
+legacy subprocess callers still need an explicit provider-bound execution policy;
+do not restore the removed generic CLI service runner or allowlist as a shortcut.
 
 This slice still owes typed `Arc` reuse, operation/type collision enforcement,
 decoded acceptance before reusable publication, sensitive-output policy,
@@ -3206,7 +3278,7 @@ evidence and documentation. This item remains deferred when phases 1–7 complet
 
 ## Overall initial-migration completion criteria
 
-- [ ] Every active U01–U83 requirement has task evidence; G1–G6 are closed and
+- [ ] Every active U01–U84 requirement has task evidence; G1–G6 are closed and
   phases 1–7 complete. Phase 8 remains explicitly deferred.
 - [ ] Requests contain explicit operation/auth selection data and no execution
   resources; both execute spellings and registry invocation share one contract.

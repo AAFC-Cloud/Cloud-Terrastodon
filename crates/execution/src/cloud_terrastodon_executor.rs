@@ -14,6 +14,7 @@ use cloud_terrastodon_cache::CacheKey;
 use cloud_terrastodon_cache::CacheOperationOwner;
 use cloud_terrastodon_cache::ExecutorKind;
 use cloud_terrastodon_cache::NonEmptyString;
+use cloud_terrastodon_cache::WorkAttempt;
 use cloud_terrastodon_cache::WorkCache;
 use cloud_terrastodon_cache::WorkOutput;
 use cloud_terrastodon_cache::WorkReuse;
@@ -241,7 +242,83 @@ impl CloudTerrastodonExecutor {
         )
     }
 
-    // Both public entry points share admission, coordination, and ancestry. The
+    /// Execute independent work and return its caller-owned result.
+    ///
+    /// There is no cache lookup, join, or result retention, so output may borrow
+    /// invocation data and need not be `Sync`. A reusable initializer cannot admit
+    /// this operation: catching that error still prevents reuse of its ancestors.
+    /// Credential infrastructure cannot enter this semantic work boundary.
+    ///
+    /// The callback receives a linked cancellable scope. Use [`Self::deferred`]
+    /// around effectful work and its required completion; caller-specific borrowed
+    /// or non-`Send` callbacks can run after awaiting the owned result.
+    #[track_caller]
+    pub fn uncached_work<'a, T, F, Fut>(
+        &'a self,
+        selection: &'a AuthenticationSelection,
+        execute: F,
+    ) -> Result<ExecutionFuture<'a, T>>
+    where
+        T: Send + 'a,
+        F: FnOnce(Self) -> Fut + Send + 'a,
+        Fut: Future<Output = Result<T>> + Send + 'a,
+    {
+        let partition = self.admit_uncached_work(selection)?;
+        Ok(self.await_admitted_work(selection, partition, self.cancellable_scope(execute)))
+    }
+
+    /// Execute independent work with inspectable artifacts and an owned result.
+    ///
+    /// This retains the canonical operation/output ownership claim without
+    /// requiring `Sync`, allocating an `Arc<T>`, or acquiring an initializer lock.
+    /// The artifact key always has zero validity, regardless of requested lifetime:
+    /// old disk results cannot replace execution and new outcomes cannot become
+    /// reusable selections. Disabled retention suppresses all raw artifact I/O.
+    ///
+    /// The caller owns canonical decoding and artifact completion within the
+    /// callback. Use [`Self::deferred`] when effects and their completion must stay
+    /// together. The `'static` output bound identifies the artifact's canonical
+    /// type; borrowed outputs without artifacts use [`Self::uncached_work`].
+    #[track_caller]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "artifact identity, authentication, retention, and execution are separate contracts"
+    )]
+    pub fn uncached_work_with_artifacts<'a, T, F, Fut>(
+        &'a self,
+        kind: ExecutorKind,
+        key: CacheKey,
+        owner: CacheOperationOwner,
+        selection: &'a AuthenticationSelection,
+        fingerprint: NonEmptyString,
+        retention: ArtifactRetention,
+        execute: F,
+    ) -> Result<ExecutionFuture<'a, T>>
+    where
+        T: Send + 'static,
+        F: FnOnce(Self, ArtifactEntry) -> Fut + Send + 'a,
+        Fut: Future<Output = Result<T>> + Send + 'a,
+    {
+        let partition = self.admit_uncached_work(selection)?;
+        let entry = self.cache.artifacts::<T>(
+            kind,
+            CacheKey {
+                valid_for: Duration::ZERO,
+                ..key
+            },
+            owner,
+            partition.clone(),
+            fingerprint,
+            retention,
+        )?;
+        Ok(self.await_admitted_work(
+            selection,
+            partition,
+            self.cancellable_scope(move |child| execute(child, entry)),
+        ))
+    }
+
+    // Cached entry points share coordination and ancestry. The
     // exact admitted identity is carried into the initializer rather than rebuilt
     // by a transport adapter or resolved again after authentication changes.
     #[track_caller]
@@ -264,10 +341,7 @@ impl CloudTerrastodonExecutor {
         F: FnOnce(Self, CacheEntryIdentity) -> Fut + Send + 'a,
         Fut: Future<Output = Result<WorkOutput<T>>> + Send + 'a,
     {
-        let ExecutionMode::Normal(parent) = &self.mode else {
-            eyre::bail!("credential infrastructure cannot use the general work cache");
-        };
-        let partition = self.record_semantic_result(self.admit(selection))?;
+        let (partition, parent) = self.admit_work(selection)?;
         let initialization_partition = partition.clone();
         let identity = CacheEntryIdentity {
             kind,
@@ -281,7 +355,7 @@ impl CloudTerrastodonExecutor {
             owner,
             reuse,
             key.valid_for,
-            parent.as_ref(),
+            parent,
             &self.cancellation,
             move |attempt, scope| async move {
                 ensure!(
@@ -298,17 +372,58 @@ impl CloudTerrastodonExecutor {
                 Ok(output)
             },
         )?;
-        Ok(Box::pin(
+        Ok(self.await_admitted_work(selection, partition, spec))
+    }
+
+    // Keep admission and the canonical claim synchronous so track_caller can
+    // still identify the operation's binding site, before a future is polled.
+    fn admit_work(
+        &self,
+        selection: &AuthenticationSelection,
+    ) -> Result<(AuthPartition, Option<&WorkAttempt>)> {
+        let ExecutionMode::Normal(parent) = &self.mode else {
+            eyre::bail!("credential infrastructure cannot enter semantic work");
+        };
+        let partition = self.record_semantic_result(self.admit(selection))?;
+        Ok((partition, parent.as_ref()))
+    }
+
+    fn admit_uncached_work(&self, selection: &AuthenticationSelection) -> Result<AuthPartition> {
+        let (partition, parent) = self.admit_work(selection)?;
+        if parent.is_some() {
+            // All active cache attempts are reusable initializers. Reject their
+            // nonreusable child before callbacks, claims, or artifact I/O, and
+            // poison the ancestor even when its caller catches this rejection.
+            return self.record_semantic_result(Err(eyre::eyre!(
+                "a reusable initializer cannot admit nonreusable semantic child work"
+            )));
+        }
+        Ok(partition)
+    }
+
+    fn await_admitted_work<'a, T, F>(
+        &'a self,
+        selection: &'a AuthenticationSelection,
+        partition: AuthPartition,
+        work: F,
+    ) -> ExecutionFuture<'a, T>
+    where
+        T: Send + 'a,
+        F: IntoFuture<Output = Result<T>>,
+        F::IntoFuture: Send + 'a,
+    {
+        let work = work.into_future();
+        Box::pin(
             async move {
                 let result = async {
                     ensure!(
                         self.admit(selection)? == partition,
-                        "authentication identity changed after binding cached work"
+                        "authentication identity changed after binding work"
                     );
-                    let value = spec.await?;
+                    let value = work.await?;
                     ensure!(
                         self.admit(selection)? == partition,
-                        "authentication identity changed while awaiting cached work"
+                        "authentication identity changed while awaiting work"
                     );
                     Ok(value)
                 }
@@ -316,7 +431,7 @@ impl CloudTerrastodonExecutor {
                 self.record_semantic_result(result)
             }
             .in_current_span(),
-        ))
+        )
     }
 
     /// Automatically cancellable child work sharing the parent's cancellation intent.
