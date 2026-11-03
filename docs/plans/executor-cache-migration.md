@@ -16,7 +16,11 @@ U74 records the completed work in the local checkpoint titled
 U75's task 3.2 is complete: the scoped executor, injected authentication provider,
 and minimal application binding passed offline checks. U79's task 3.3 is complete:
 registry invocation, offline discovery, and direct UI callers use the explicit
-executor. Task 4.1's production Command integration is next; REST follows in 4.2.
+executor. U80/U81's provider naming and temporary-cache ownership refinements
+are included in checkpoint `b00bff46`, `Bind registry and UI execution to explicit executor ownership`.
+U82 begins task 4.1's production Command integration with uncached process
+ownership and retry isolation (4.1a); the shared-cache adapter remains unfinished.
+REST follows in 4.2.
 U78 authorizes the local checkpoint titled
 `Add scoped executor with shared cache and injected authentication`, including
 U76's execution-mode names and U77's startup diagnostics.
@@ -62,7 +66,8 @@ the extracted app startup helper.
 U78 requests committing the completed changes and identifying the next
 implementation phase; it does not start task 3.3 or authorize pushing.
 U79 subsequently authorizes implementing task 3.3 with synthetic/offline checks;
-its completion evidence is recorded below. Later transport tasks remain unstarted.
+its completion evidence is recorded below. Transport tasks remained unstarted at
+that checkpoint; U82 begins task 4.1 below.
 
 **Planning method:** User-invoked `resumable-implementation-plans` skill.
 
@@ -176,6 +181,12 @@ U79 now authorizes task 3.3's registry invocation, discovery, and direct UI call
 integration. Preserve independent job cancellation and G2's separately tagged
 legacy callback during the scheduled SDK migration. No commit, push, phase 4
 implementation, credential lookup, or production-data validation is implied.
+U80 authorizes renaming the anonymous provider and extracting a reusable
+test-only unreachable provider. U81 authorizes cache-owned temporary-directory
+cleanup while preserving caller-owned path storage. U82 authorizes committing
+those changes with task 3.3, identifying the next phase, and beginning task 4.1.
+The existing staged work was committed as `b00bff46`; new task 4.1 changes remain
+uncommitted. No push or production-data validation is authorized by this request.
 
 ## How to update this plan
 
@@ -561,6 +572,21 @@ changes since the recorded baseline before starting.
   records focused offline evidence; no production compatibility or downstream
   transport cutover is inferred from those checks.
 
+- **Task 3.3 refinements and phase 4, pass 1 — extraction (U80–U82):** Preserve
+  the user's provider names, reusable test-provider responsibility, and temporary
+  cache cleanup ownership. The latest request explicitly orders commit, next-phase
+  identification, then implementation. Earlier guidance remains in the preserved
+  ledger; no reread of unavailable intervening conversation is claimed.
+- **Pass 2 — traceability:** U80/U81 map to task 3.3's refinement checkpoint;
+  U82 maps to commit `b00bff46` and task 4.1's first bounded implementation slice.
+  Retries and input ownership are prerequisites for the shared lifecycle, not
+  evidence that canonical decoded caching or executor-bound callers are complete.
+- **Pass 3 — adversarial omission:** Retain full cutover without compatibility
+  exports, caller-owned cancellation, final failure artifacts, explicit auth,
+  sensitive-output exclusion, and offline-only validation. Do not mistake
+  independent temporary input directories for single-flight cache coordination.
+  Keep all unfinished task 4.1 acceptance criteria visible; no push is implied.
+
 ## Authoritative user guidance ledger
 
 **U79 intent audit (2026-11-03):** Extraction preserves the latest instruction to
@@ -657,6 +683,9 @@ do not silently rewrite earlier guidance.
 | U77 | Print hook-setup errors with `eprintln!` instead of silently discarding them. | Report eyre hook installation errors and describe an already-initialized panic-hook retention conflict; preserve nonfatal startup and fallible hook construction. | — |
 | U78 | Commit changes and identify the next implementation phase. | Commit the completed executor/provider/app slice and its reviewed refinements locally; identify task 3.3 and the following transport phase without starting them or pushing. | — |
 | U79 | Proceed with the next described implementation task. | Implement task 3.3's explicit registry invocation and offline discovery; update direct UI consumers while preserving shared resources and cancellation ownership. | — |
+| U80 | Rename DisabledAuthenticationProvider to AnonymousAuthenticationProvider and extract UnusedAuthentication as a reusable UnreachableAuthenticationProvider for tests. | Make anonymous admission explicit and share the fail-on-use provider through opt-in test support rather than coupling it to discovery. | — |
+| U81 | Preserve temporary-directory cleanup when WorkCache owns its root, alongside normal path storage. | Retain the TempDir guard in shared cache ownership through clones, artifacts, and workers; keep path-only roots caller-managed. | — |
+| U82 | Commit changes, identify the next phase, then begin its implementation. | Commit the reviewed task 3.3/refinement scope, explain phase 4's Command-first integration, and implement/test the first bounded task 4.1 slice without claiming the full adapter cutover. | — |
 
 U18 supersedes the earlier assistant suggestion to preserve an Azure CLI
 active-tenant selection. That suggestion was not user approval. U13 rejects the
@@ -756,6 +785,9 @@ not an implemented package; U61 selects `auth_types` paired with runtime `auth`.
 | U77 | Current authorization; 3.2 startup diagnostics refinement | Startup helper diagnostics, existing isolated early-error-report process test, and focused formatting |
 | U78 | Current authorization; 3.2 commit checkpoint; 3.3 next-step description | Reviewed staged scope and local checkpoint title; prior focused verification and final whitespace/status checks |
 | U79 | Current authorization; G2; 3.3 | 127 focused offline tests, workspace compilation, targeted Clippy, formatting, and 37-package normal/build boundary review passed; no commit or later-phase implementation |
+| U80 | Current authorization; 3.3 provider refinement | Anonymous admission and reusable opt-in unreachable test provider; 55 focused registry tests and targeted checks |
+| U81 | Current authorization; 3.3 temporary-root refinement | Cache-owned TempDir lifetime across owners/workers; 146 focused cache/registry/UI tests and targeted checks |
+| U82 | Current authorization; 3.3 checkpoint; 4.1a | Local commit b00bff46; Command process/retry extraction, isolated input ownership, synthetic regression evidence and remaining 4.1 work recorded below |
 
 ## Purpose and scope
 
@@ -2691,6 +2723,26 @@ The pure registry also cannot reach `execution`. Clippy and formatting passed;
 final whitespace/privacy checks passed. Existing user staging is preserved.
 No live compatibility, Linux test result, commit, push, or publication is claimed.
 
+**Follow-up refinements and checkpoint (U80–U82):** The anonymous provider is now
+`AnonymousAuthenticationProvider`. `UnreachableAuthenticationProvider` lives in
+`execution` behind its opt-in `test-support` feature and fails immediately if a
+test unexpectedly attempts authentication or provider admission. The provider
+refinement passed 55 registry tests and targeted Clippy/formatting checks.
+
+`WorkCache::temporary()` and `WorkCache::from_tempdir()` retain a `TempDir` guard
+inside the shared cache state. Cache clones, artifact owners, and asynchronous
+workers retain that state; invalidation workers also retain the cache rather than
+only a copied path. Cleanup follows the last owner. `WorkCache::new(path)` retains
+caller-managed storage. This refinement passed 146 focused tests: cache library
+47, registry execution 55, artifact invalidation 9, artifact store 13, temporary
+roots 4, UI host 17, and UI export 1, plus targeted Clippy/formatting checks.
+These are the recorded refinement results, not tests newly rerun for U82.
+
+U82 committed the reviewed 62-file staged scope as `b00bff46`,
+`Bind registry and UI execution to explicit executor ownership`. The working tree
+was clean after that commit; no push was requested or performed. New task 4.1
+implementation follows this checkpoint and is not included in that commit.
+
 **Work:** Bind `registry_execution` invocation metadata/macros, default production,
 discovery inputs/admission, and cancellation to G1's `execution` contract.
 Store the new callback in `RuntimeFunction` and delegate through the existing
@@ -2709,7 +2761,12 @@ shared collection outputs remain discoverable. The graph stays acyclic.
 
 ## Phase 4 — one Command/REST execution lifecycle
 
-### [ ] 4.1 Route subprocess execution through shared work
+### [~] 4.1 Route subprocess execution through shared work
+
+**Resume at 4.1b (U82):** The first slice, 4.1a, is complete and verified below.
+Production Command callers still use the existing cache boundary until 4.1b
+completes the explicit-executor cutover. The original completion criteria below
+remain required for task 4.1.
 
 **Work:** Extract uncached process execution with retries inside its ownership
 boundary. Route cached/uncached, raw/typed, polite, mapper, and validator entry
@@ -2733,6 +2790,78 @@ cargo test --offline --locked -p cloud_terrastodon_command --test command_cancel
 one accepted canonical result per read identity, preserved cancellation/artifacts,
 and independently executed mutations. Existing tests are migrated to the new
 boundary rather than maintaining a second production implementation.
+
+#### [x] 4.1a Own uncached process attempts and keep retries below admission
+
+**Execution tracks:** Process/input resource ownership; local subprocess
+regressions; integration of the existing Command retry and cache boundary. Only
+the integration owner runs builds and updates shared manifests and this plan.
+
+**Implementation:** `CommandProcess` owns the child and its input workspace;
+stdin writing and stdout/stderr collection are awaited together under the same
+timeout, with kill-on-drop retained. `CommandInputWorkspace` stages each attempt's
+files in a unique temporary directory, validates portable relative paths through
+`cache::ArtifactFilePath`, and keeps cleanup ownership through process completion.
+The staging worker itself owns the guard if its awaiting future is dropped.
+Process inputs no longer share filenames in the retained cache directory.
+`CommandKind::apply_args_and_envs` returns `Result<Option<CommandInputWorkspace>>`;
+manual subprocess callers must retain that public guard through child completion.
+
+`CommandBuilder::run_uncached` keeps the existing single retry inside a loop.
+It never revisits cache lookup or repeats the polite delay. Nested legacy login
+commands also run below that admission boundary and cannot recursively retry.
+The existing outer Command path still owns caller attribution, cancellation,
+final status acceptance, and retained output. No parallel production adapter or
+compatibility API was added. Checked retry-duration arithmetic returns an error
+instead of overflowing. The unused command dependency on `async-recursion` is
+removed; the local package record adds `cache` without changing version pins.
+Explicit `Box::pin` boundaries preserve the previous heap ownership at ordinary
+and nested login entry points, avoiding larger inline caller futures after the
+recursion macro is removed.
+
+**Verification (2026-11-03):** All 48 selected local tests passed: command library
+26, legacy in-process cache 7, cancellation 7, process regressions 5, echo 2, and
+stdin 1. Inspected synthetic PowerShell fixtures cover
+concurrent same-name inputs, cache injection during retry, bounded retry/failure
+artifacts, duplex pipe draining, and timeout. Direct input-admission coverage
+checks that absolute/traversing paths cannot overwrite an outside sentinel.
+Workspace/all-target compilation, Command/all-target Clippy with warnings denied,
+and workspace nightly formatting passed after the final boxing refinement.
+
+```powershell
+cargo test --offline --locked -p cloud_terrastodon_command --lib --test command_process_tests --test command_cancellation_tests --test cacheable_work_tests --test command_stdin_tests --test command_echo_tests
+cargo check --offline --locked --workspace --all-targets
+cargo clippy --offline --locked -p cloud_terrastodon_command --all-targets -- -D warnings
+cargo +nightly fmt --all -- --check
+git diff --check
+```
+
+No Azure, Terraform, credential, or live service tests were run. This is Windows
+local-process evidence, not Linux or live compatibility evidence. Source review
+confirms retry branches call only the uncached process path and the nested login
+helper, not the cache boundary. New implementation and plan changes remain
+uncommitted; no production single-flight or typed memoization is claimed yet.
+
+#### [ ] 4.1b Bind Command artifacts and decoded results to the executor
+
+**Next work:** Add an executor boundary that binds an `ArtifactEntry` to the
+active `WorkAttempt`, preserving generation/freshness proof during disk import
+and publication. The current executor keeps the attempt in its private execution
+mode; bypassing it through `cache().artifacts(...)` would lose that contract.
+Then route canonical command decoding through shared work, apply per-caller
+validators on hits, and migrate actual callers to an explicitly supplied executor
+and operation owner. The current Command APIs accept only a cancellation scope;
+the source inventory finds 42 production caller files across SDK, auth, HCL,
+Gitea, and entrypoint code. There must be no implicit default executor or second
+adapter left alongside the old path.
+
+This slice still owes typed `Arc` reuse, operation/type collision enforcement,
+decoded acceptance before reusable publication, sensitive-output policy,
+generation/dependency invalidation, and provider-bound authenticated subprocess
+admission. The current raw-success-before-typed-decode behavior and legacy CLI
+reauthentication remain scheduled for this cutover. Existing isolated credential
+provider subprocesses remain outside ordinary work caching. Once these contracts
+and the original 4.1 completion criteria pass, begin REST task 4.2.
 
 ### [ ] 4.2 Route REST execution and decoding through shared work
 
@@ -2996,7 +3125,7 @@ evidence and documentation. This item remains deferred when phases 1–7 complet
 
 ## Overall initial-migration completion criteria
 
-- [ ] Every active U01–U79 requirement has task evidence; G1–G6 are closed and
+- [ ] Every active U01–U82 requirement has task evidence; G1–G6 are closed and
   phases 1–7 complete. Phase 8 remains explicitly deferred.
 - [ ] Requests contain explicit operation/auth selection data and no execution
   resources; both execute spellings and registry invocation share one contract.

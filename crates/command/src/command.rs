@@ -9,8 +9,8 @@ use crate::OutputBehaviour;
 use crate::PathMapper;
 use crate::RetryBehaviour;
 use crate::command_output_decode_error::CommandOutputDecodeError;
+use crate::command_process::CommandProcess;
 use crate::process_fingerprint::ProcessFingerprint;
-use async_recursion::async_recursion;
 pub use bstr;
 use bstr::BString;
 use bstr::ByteSlice;
@@ -31,23 +31,18 @@ use std::io::IsTerminal;
 use std::panic::Location;
 use std::path::Path;
 use std::path::PathBuf;
-use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
 use teamy_cancellation::CancellableScopeFuture;
 use teamy_cancellation::CancellationReportExt;
 use tokio::fs::OpenOptions;
-use tokio::io::AsyncWriteExt;
-use tokio::process::Command;
 use tokio::sync::Mutex;
 use tokio::task::spawn_blocking;
 use tokio::time::sleep;
-use tokio::time::timeout;
 use tracing::Instrument;
 use tracing::Span;
 use tracing::debug;
-use tracing::error;
 use tracing::info;
 use tracing::info_span;
 use tracing::warn;
@@ -360,141 +355,66 @@ impl CommandBuilder {
         self
     }
 
-    async fn run_raw_inner(
+    /// Execute attempts without entering cache lookup or publishing an outcome.
+    /// A retry remains inside the one owner admitted by the outer boundary.
+    async fn run_uncached(
         &self,
-        caller: &'static Location<'static>,
         cancellation: &CancellationScope,
-    ) -> Result<CommandOutput> {
-        let mut command = Command::new(self.kind.program().await?);
-        match self.output_behaviour {
-            OutputBehaviour::Capture => {
-                command.stdin(Stdio::piped()); // Set stdin to piped for capture mode
-                command.stdout(Stdio::piped());
-                command.stderr(Stdio::piped());
+    ) -> Result<(CommandOutput, RetryBehaviour)> {
+        let mut retry_behaviour = self.retry_behaviour;
+        loop {
+            let output = CommandProcess::spawn(self, cancellation)
+                .await?
+                .wait(self.stdin_content.as_deref(), self.timeout)
+                .await?;
+            if output.success() {
+                return Ok((output, retry_behaviour));
             }
-            OutputBehaviour::Display => {
-                if self.stdin_content.is_some() {
-                    command.stdin(Stdio::piped()); // Still need piped stdin if we want to send content
-                }
-            }
-        }
 
-        // Apply arguments, saving temp files to a variable to be cleaned up when dropped later
-        let _temp_files = self
-            .kind
-            .apply_args_and_envs(self, &mut command)
-            .await
-            .context("applying args and envs")?;
-
-        if let Some(ref dir) = self.run_dir {
-            command.current_dir(dir);
-        }
-
-        // Announce launch
-        if self.should_announce {
-            info!("Executing command");
-        } else {
-            debug!("Executing command");
-        }
-
-        // Launch command
-        command.kill_on_drop(true);
-        cancellation.bail_if_cancelled()?;
-        let mut child = command.spawn().wrap_err("Failed to spawn command")?;
-
-        // Send stdin content if provided
-        if let Some(content) = &self.stdin_content
-            && let Some(mut stdin) = child.stdin.take()
-        {
-            let content = content.to_owned();
-            tokio::spawn(async move {
-                // Spawn a task to avoid blocking the main thread while writing to stdin
-                if let Err(e) = stdin.write_all(content.as_bytes()).await {
-                    error!("Failed to write to stdin: {:?}", e);
-                }
-            });
-        }
-
-        // Wait for it to finish
-        // The public execution boundary owns cancellation for these plain waits.
-        let output = if let Some(timeout_duration) = self.timeout {
-            match timeout(timeout_duration, child.wait_with_output()).await {
-                Ok(output) => output,
-                Err(elapsed) => {
-                    bail!(
-                        "Command timeout, {elapsed:?} ({})",
-                        humantime::format_duration(timeout_duration)
-                    );
-                }
-            }
-        } else {
-            child.wait_with_output().await
-        };
-        let output: CommandOutput = output
-            .wrap_err("Acquiring result of command execution")?
-            .try_into()
-            .wrap_err("Converting output of command")?;
-
-        // Return if errored
-        if !output.success() {
-            match self.retry_behaviour {
-                 RetryBehaviour::Retry
-                    if [
-                        "ERROR: Too Many Requests",
-                        "Error: Too Many Requests"
-                    ]
-                    .into_iter()
-                    .any(|x| output.stderr.contains_str(x)) =>
+            match retry_behaviour {
+                RetryBehaviour::Retry
+                    if ["ERROR: Too Many Requests", "Error: Too Many Requests"]
+                        .into_iter()
+                        .any(|message| output.stderr.contains_str(message)) =>
                 {
                     let mut sleep_duration = Duration::from_secs(30);
-
-                    // Scan output to determine a tighter sleep duration
-                    //  'x-ms-user-quota-resets-after': '00:00:04'
                     let needle = "'x-ms-user-quota-resets-after': '";
                     if let Some(pos) = output.stderr.find(needle) {
                         let start = pos + needle.len();
                         if let Some(end) = output.stderr[start..].find("'") {
-                            let reset_after_str = String::from_utf8_lossy(&output.stderr[start..start + end]);
-                            // parse duration in format "hh:mm:ss"
-                            let parts = reset_after_str.split(':').map(|x| x.parse::<u64>()).collect::<Result<Vec<_>, _>>()?;
-                            sleep_duration = match parts.as_slice() {
-                                [hh, mm, ss] => {
-                                    Duration::from_secs(hh * 3600 + mm * 60 + ss) + Duration::from_secs(5)
-                                }
-                                _ => sleep_duration,
-                            };
+                            let reset_after = String::from_utf8_lossy(&output.stderr[start..start + end]);
+                            let parts = reset_after
+                                .split(':')
+                                .map(|part| part.parse::<u64>())
+                                .collect::<Result<Vec<_>, _>>()?;
+                            if let [hours, minutes, seconds] = parts.as_slice() {
+                                let seconds = hours
+                                    .checked_mul(3600)
+                                    .and_then(|total| minutes.checked_mul(60).and_then(|minutes| total.checked_add(minutes)))
+                                    .and_then(|total| total.checked_add(*seconds))
+                                    .and_then(|total| total.checked_add(5))
+                                    .ok_or_else(|| eyre::eyre!("command retry delay exceeds the supported duration"))?;
+                                sleep_duration = Duration::from_secs(seconds);
+                            }
                         }
                     }
-
-
-                    // Retry the failed command, no further retries
-                    warn!("Rate limit detected ⏳ Retrying command after {sleep_duration:?} wait...");
+                    warn!("Rate limit detected; retrying command after {sleep_duration:?}");
                     sleep(sleep_duration).await;
                     cancellation.bail_if_cancelled()?;
-
-                    info!("It's been {sleep_duration:?}, retrying command `{}`", self.summarize().await?);
-                    let mut retry = self.clone();
-                    retry.use_retry_behaviour(RetryBehaviour::Fail);
-                    let output = retry.run_raw_from(Duration::ZERO, caller, cancellation).await;
-
-                    // Return the result
-                    return output;
-                },
-                // Legacy Azure CLI compatibility: once Azure/Graph/Azure DevOps
-                // operations have migrated to the REST request helpers, this
-                // reauthentication-and-retry path should be removed with the
-                // remaining CLI-backed commands.
+                    info!("Retrying command after rate-limit wait");
+                }
+                // Legacy CLI callers retain their current login policy until their
+                // explicit provider-bound request migration. Credential-provider
+                // subprocesses already bypass this general command boundary.
                 RetryBehaviour::Retry
                     if [
                         "AADSTS70043",
                         "No subscription found. Run 'az account set' to select a subscription.",
                         "Please run 'az login' to setup account.",
                         "ERROR: (pii). Status: Response_Status.Status_InteractionRequired, Error code: 3399614467",
-                        // r#"ERROR: cli.azure.cli.core.azclierror: Forbidden({"error":{"code":"UnauthorizedAccessException"#, // this one is because the wrong tenant was used - `az rest` ignores `--subscription` and only cares about the active account, we will need to migrate to reqwest+`az account get-access-token` or some `az account set` shenanigans
-                        // "Continuous access evaluation resulted in challenge with result: InteractionRequired" // may require `az logout` first? https://github.com/Azure/azure-cli/issues/26504
                     ]
                     .into_iter()
-                    .any(|x| output.stderr.contains_str(x)) =>
+                    .any(|message| output.stderr.contains_str(message)) =>
                 {
                     if !allow_interactive_reauthentication() {
                         bail!(
@@ -531,7 +451,7 @@ impl CommandBuilder {
                                     "--output",
                                     "tsv",
                                 ])
-                                .run_raw_scoped_from(Duration::ZERO, caller, cancellation)
+                                .run_reauthentication_command(cancellation)
                                 .await?
                                 .stdout;
                             let tenant_id = tenant_id.trim();
@@ -543,7 +463,7 @@ impl CommandBuilder {
                                     .use_retry_behaviour(RetryBehaviour::Fail)
                                     .arg("login")
                                     .use_output_behaviour(OutputBehaviour::Display)
-                                    .run_raw_scoped_from(Duration::ZERO, caller, cancellation)
+                                    .run_reauthentication_command(cancellation)
                                     .await?;
                             } else {
                                 CommandBuilder::new(CommandKind::AzureCLI)
@@ -555,7 +475,7 @@ impl CommandBuilder {
                                             .to_str()
                                             .wrap_err("converting tenant id to str")?,
                                     ])
-                                    .run_raw_scoped_from(Duration::ZERO, caller, cancellation)
+                                    .run_reauthentication_command(cancellation)
                                     .await?;
                             }
 
@@ -570,51 +490,60 @@ impl CommandBuilder {
                         }
                     }
 
-                    // The retry is a new execution after the authentication wait.
+
                     cancellation.bail_if_cancelled()?;
-                    info!("Retrying command with refreshed credential...");
-                    let mut retry = self.clone();
-                    retry.use_retry_behaviour(RetryBehaviour::Fail);
-                    let output = retry.run_raw_from(Duration::ZERO, caller, cancellation).await;
-
-                    // Return the result
-                    return output;
+                    info!("Retrying command with refreshed credential");
                 }
-                _ => {
-                    let dir = self.write_failure(&output).await?;
-                    let mut error = Err(Report::from(output).wrap_err(format!(
-                        "Command did not execute successfully, using retry behaviour {:?}, dumped to {dir:?}",
-                        self.retry_behaviour
-                    )));
-                    if matches!(self.output_behaviour, OutputBehaviour::Display) {
-                        error = error.wrap_err(format!(
-                            "The output behaviour was set to {:?} instead of {:?} so the stdout and stderr are not available in the dump, try scrolling up in your terminal.", 
-                            OutputBehaviour::Display,
-                            OutputBehaviour::Capture,
-                        ));
-                    }
-
-                    return error;
+                RetryBehaviour::Fail | RetryBehaviour::Retry => {
+                    return Ok((output, retry_behaviour));
                 }
             }
-        }
 
-        if let Some(cache_key) = &self.cache_key {
-            cancellation
-                .finish_required(
-                    "persisting command output and execution artifacts",
-                    |_| async {
-                        if let Err(error) =
-                            self.write_output(&output, &cache_key.path_on_disk()).await
-                        {
-                            crate::artifact_cache::note_cache_write_failure(&error);
-                        }
-                        Ok::<_, Report>(())
-                    },
-                )
-                .await?;
+            // Both retry routes execute once more without revisiting the cache,
+            // repeating a polite delay, or reacquiring a future per-key lock.
+            retry_behaviour = RetryBehaviour::Fail;
         }
-        Ok(output)
+    }
+
+    /// Login infrastructure has no cache key and cannot retry or recurse into
+    /// cache admission. Keep each nested command's own cancellation policy.
+    fn run_reauthentication_command<'a>(
+        &'a self,
+        cancellation: &'a CancellationScope,
+    ) -> impl Future<Output = Result<CommandOutput>> + Send + 'a {
+        // Keep the nested command's previous boxing boundary: login branches
+        // must not enlarge every ordinary command's debug poll frame.
+        Box::pin(
+            self.with_cancellation_policy(cancellation, move |scope| async move {
+                let output = CommandProcess::spawn(self, &scope)
+                    .await?
+                    .wait(self.stdin_content.as_deref(), self.timeout)
+                    .await?;
+                self.require_success(output, RetryBehaviour::Fail).await
+            }),
+        )
+    }
+
+    async fn require_success(
+        &self,
+        output: CommandOutput,
+        retry_behaviour: RetryBehaviour,
+    ) -> Result<CommandOutput> {
+        if output.success() {
+            return Ok(output);
+        }
+        let dir = self.write_failure(&output).await?;
+        let mut error = Err(Report::from(output).wrap_err(format!(
+            "Command did not execute successfully, using retry behaviour {retry_behaviour:?}, dumped to {dir:?}",
+        )));
+        if matches!(self.output_behaviour, OutputBehaviour::Display) {
+            error = error.wrap_err(format!(
+                "The output behaviour was set to {:?} instead of {:?} so the stdout and stderr are not available in the dump, try scrolling up in your terminal.",
+                OutputBehaviour::Display,
+                OutputBehaviour::Capture,
+            ));
+        }
+        error
     }
 
     /// Executes a command using its configured cancellation policy.
@@ -649,57 +578,76 @@ impl CommandBuilder {
     }
 
     /// Runs within an already-admitted policy; retries reuse that same owner.
-    #[expect(
-        clippy::double_must_use,
-        reason = "async-recursion adds #[must_use] to an already must-use future"
-    )]
-    #[async_recursion]
-    async fn run_raw_from(
-        &self,
+    fn run_raw_from<'a>(
+        &'a self,
         uncached_delay: Duration,
         caller: &'static Location<'static>,
-        cancellation: &CancellationScope,
-    ) -> Result<CommandOutput> {
-        let summary = self.summarize().await?;
-        let span = info_span!("command_run_raw", summary, ?self.run_dir, ?self.cache_key, location=%RelativeLocation::from(caller)).or_current();
+        cancellation: &'a CancellationScope,
+    ) -> impl Future<Output = Result<CommandOutput>> + Send + 'a {
+        // Preserve the old async-recursion boundary's bounded caller-frame size
+        // while keeping retries in the uncached loop rather than recursive calls.
+        Box::pin(async move {
+            let summary = self.summarize().await?;
+            let span = info_span!("command_run_raw", summary, ?self.run_dir, ?self.cache_key, location=%RelativeLocation::from(caller)).or_current();
 
-        async {
-            match self.get_cached_output().await {
-                Ok(Some(output)) => return Ok(output),
-                Ok(None) => {}
-                Err(error) if error.is_cancellation() => {
-                    return Err(error);
+            async {
+                match self.get_cached_output().await {
+                    Ok(Some(output)) => return Ok(output),
+                    Ok(None) => {}
+                    Err(error) if error.is_cancellation() => {
+                        return Err(error);
+                    }
+                    Err(error) => debug!(?self.cache_key, %error, "Cache load failed"),
                 }
-                Err(error) => debug!(?self.cache_key, %error, "Cache load failed"),
-            }
 
-            if !uncached_delay.is_zero() {
+                if !uncached_delay.is_zero() {
+                    debug!(
+                        delay_ms = uncached_delay.as_millis(),
+                        "Sleeping before uncached command execution"
+                    );
+                    sleep(uncached_delay).await;
+                }
+
+                let start = Instant::now();
+                let output = async {
+                    let (output, retry_behaviour) = self.run_uncached(cancellation).await?;
+                    let output = self.require_success(output, retry_behaviour).await?;
+                    if let Some(cache_key) = &self.cache_key {
+                        cancellation
+                            .finish_required(
+                                "persisting command output and execution artifacts",
+                                |_| async {
+                                    if let Err(error) =
+                                        self.write_output(&output, &cache_key.path_on_disk()).await
+                                    {
+                                        crate::artifact_cache::note_cache_write_failure(&error);
+                                    }
+                                    Ok::<_, Report>(())
+                                },
+                            )
+                            .await?;
+                    }
+                    Ok(output)
+                }
+                .await;
+                let elapsed = start.elapsed();
                 debug!(
-                    delay_ms = uncached_delay.as_millis(),
-                    "Sleeping before uncached command execution"
+                    elapsed_ms = elapsed.as_millis(),
+                    "Command executed in {}",
+                    humantime::format_duration(elapsed),
                 );
-                sleep(uncached_delay).await;
+                output
             }
-
-            let start = Instant::now();
-            let output = self.run_raw_inner(caller, cancellation).await;
-            let elapsed = start.elapsed();
-            debug!(
-                elapsed_ms = elapsed.as_millis(),
-                "Command executed in {}",
-                humantime::format_duration(elapsed),
-            );
-            output
-        }
-        .instrument(span)
-        .await
-        .wrap_err_with(|| {
-            format!(
-                "Command::run_raw failed, called from {}",
-                RelativeLocation::from(caller)
-            )
+            .instrument(span)
+            .await
+            .wrap_err_with(|| {
+                format!(
+                    "Command::run_raw failed, called from {}",
+                    RelativeLocation::from(caller)
+                )
+            })
+            .wrap_err_with(|| format!("Invoking command failed: {summary}"))
         })
-        .wrap_err_with(|| format!("Invoking command failed: {summary}"))
     }
 
     #[track_caller]

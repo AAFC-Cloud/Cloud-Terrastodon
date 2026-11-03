@@ -1249,11 +1249,11 @@ name = "cloud_terrastodon_command"
 version = "0.37.0"
 dependencies = [
  "arbitrary",
- "async-recursion",
  "async-trait",
  "blake3",
  "bstr",
  "chrono",
+ "cloud_terrastodon_cache",
  "cloud_terrastodon_config",
  "cloud_terrastodon_pathing",
  "cloud_terrastodon_registry",

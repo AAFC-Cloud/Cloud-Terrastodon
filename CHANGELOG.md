@@ -1,5 +1,7 @@
 # Unreleased
 
+- Keep Command retries below cache lookup and isolate each subprocess attempt's adjacent input files. Own stdin writing alongside output collection and timeout; the shared typed-cache adapter remains pending.
+
 - Let `WorkCache` own temporary directories through `temporary()` and `from_tempdir()`. Cleanup follows the last shared cache or artifact owner; path-only caches retain caller-managed storage.
 
 - Add `cloud_terrastodon_execution` with explicitly bound request execution, shared cache/authentication handles, linked cancellation scopes, and an injected credential-provider interface. `AppContext::executor()` binds the current app context without credential discovery or cache I/O; existing auth/cancellation fields remain available. Production Command/REST cache cutover remains a later migration step.

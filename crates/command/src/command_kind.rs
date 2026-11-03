@@ -1,26 +1,17 @@
 use crate::CommandArgument;
 use crate::CommandBuilder;
+use crate::CommandInputWorkspace;
 pub use bstr;
 use bstr::ByteSlice;
 use cloud_terrastodon_config::CommandsConfig;
 use cloud_terrastodon_config::Config;
-use cloud_terrastodon_pathing::AppDir;
-use cloud_terrastodon_pathing::Existy;
-use eyre::Context;
 use eyre::OptionExt;
 use eyre::Result;
 use eyre::bail;
-use eyre::eyre;
-use std::collections::HashMap;
 use std::env;
 use std::ffi::OsString;
-use std::path::PathBuf;
-use tempfile::TempPath;
-use tokio::fs::OpenOptions;
-use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 use tokio::sync::OnceCell;
-use tracing::debug;
 
 #[derive(Clone, Default, Debug, Eq, PartialEq)]
 pub enum CommandKind {
@@ -59,14 +50,13 @@ impl CommandKind {
             CommandKind::Other(x) => x.to_owned(),
         })
     }
+    /// Apply command arguments and environment, retaining staged adjacent inputs.
+    /// Keep the returned workspace alive until the subprocess has finished.
     pub async fn apply_args_and_envs(
         &self,
         this: &CommandBuilder,
         cmd: &mut Command,
-    ) -> Result<Vec<TempPath>> {
-        // Prepare list of temp paths to return
-        let mut rtn = Vec::new();
-
+    ) -> Result<Option<CommandInputWorkspace>> {
         // Prepare args using a clone for idempotency
         let mut args = this.args.clone();
 
@@ -105,59 +95,16 @@ impl CommandKind {
             _ => {}
         }
 
-        // Write adjacent files
-        let mut canonical_path_lookup: HashMap<PathBuf, PathBuf> = HashMap::new();
-        for (adj_path, adj_content) in this.adjacent_files.iter() {
-            let file_path = match &this.cache_key {
-                Some(cache_key) => {
-                    // Cache dir has been provided
-                    let cache_dir = cache_key.path_on_disk();
-                    cache_dir.ensure_dir_exists().await?;
-                    cache_dir.join(adj_path)
-                }
-                None => {
-                    // No cache dir has been provided
-                    // We will write adjacent files to temp files
-                    let temp_dir = AppDir::Temp.as_path_buf();
-                    temp_dir.ensure_dir_exists().await?;
-                    let path = tempfile::Builder::new()
-                        .suffix(&adj_path)
-                        .tempfile_in(temp_dir)
-                        .context(format!("creating temp file {}", adj_path.to_string_lossy()))?
-                        .into_temp_path();
-
-                    let path_buf = path.to_path_buf();
-                    rtn.push(path); // add to rtn list so its not dropped+cleaned immediately
-                    path_buf
-                }
-            };
-
-            debug!("Writing arg {}", file_path.display());
-            let mut file = OpenOptions::new()
-                .create(true)
-                .truncate(true)
-                .write(true)
-                .open(&file_path)
-                .await
-                .context(format!("Opening adjacent file {}", file_path.display()))?;
-            file.write_all(adj_content.as_bytes())
-                .await
-                .context(format!("Writing adjacent file {}", file_path.display()))?;
-
-            // canonicalize the path for transformation when passing as argument to command
-            let file_path = file_path
-                .canonicalize()
-                .wrap_err_with(|| eyre!("Failed to canonicalize path {file_path:?}"))?;
-            canonical_path_lookup.insert(adj_path.clone(), file_path.clone());
-        }
+        let workspace = CommandInputWorkspace::stage(&this.adjacent_files).await?;
 
         // Patch arguments to point to canonical paths
         for arg in args.iter_mut() {
             if let CommandArgument::DeferredAdjacentFilePath { key, mapper } = arg {
-                let path_to_map = canonical_path_lookup
-                    .get(key)
-                    .ok_or_eyre("Adjacent file path not found in lookup")?;
-                let mapped_path = mapper.map_path(path_to_map.as_path());
+                let path_to_map = workspace
+                    .as_ref()
+                    .ok_or_eyre("deferred adjacent input has no command workspace")?
+                    .input_path(key)?;
+                let mapped_path = mapper.map_path(path_to_map);
                 *arg = CommandArgument::Literal(mapped_path.as_os_str().to_owned());
             }
         }
@@ -190,7 +137,6 @@ impl CommandKind {
         }
         cmd.envs(&this.env);
 
-        // All done :)
-        Ok(rtn)
+        Ok(workspace)
     }
 }
