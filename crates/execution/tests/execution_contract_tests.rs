@@ -326,21 +326,86 @@ async fn scope_helpers_accept_borrowed_non_send_callbacks_and_close_their_child(
                 }
             };
             let cancellable = executor.cancellable_scope(callback).await?;
+            let (_, child) = executor.cancellable_child_scope(callback);
+            let independent = child.await?;
             let cooperative = executor.with_async_scope(callback).await?;
+            let (_, child) = executor.with_async_child_scope(callback);
+            let independent_cooperative = child.await?;
             let protected = executor
                 .deferred("synthetic protected work", callback)
                 .await?;
             let required = executor
                 .finish_required("synthetic owed cleanup", callback)
                 .await?;
-            for closed in [cancellable, cooperative, protected, required] {
+            for closed in [
+                cancellable,
+                independent,
+                cooperative,
+                independent_cooperative,
+                protected,
+                required,
+            ] {
                 assert!(closed.bail_if_cancelled().is_err());
             }
             executor.cancellation().bail_if_cancelled()?;
-            assert_eq!(observations.get(), 4);
+            assert_eq!(observations.get(), 6);
             Ok(())
         })
         .await
+}
+
+#[tokio::test]
+async fn independent_jobs_share_resources_but_preserve_separate_cancellation() -> Result<()> {
+    let root = CancellationToken::new();
+    root.with_async_scope(|scope| async {
+        let temporary = tempfile::tempdir()?;
+        let authentication = Arc::new(SyntheticAuthentication::default());
+        let executor = CloudTerrastodonExecutor::new(
+            WorkCache::new(temporary.path())?,
+            authentication.clone(),
+            scope,
+        );
+        let decodes = AtomicUsize::new(0);
+        let cached = executor.execute(CachedNumber::new("42", &decodes)).await?;
+        let (cancel_first, first) = executor.cancellable_child_scope(|child| async move {
+            child.cancellation().cancelled().await;
+            Ok::<_, eyre::Report>(())
+        });
+        tokio::pin!(first);
+        assert_pending(first.as_mut()).await;
+        cancel_first.request_cancel("cancel one synthetic job");
+        assert!(first.await.is_err());
+        executor.cancellation().bail_if_cancelled()?;
+        let (_, second) = executor.with_async_child_scope(|child| {
+            let decodes = &decodes;
+            async move {
+                let result = child.execute(CachedNumber::new("99", decodes)).await?;
+                child
+                    .cancellation()
+                    .request_cancel("cooperative child shutdown");
+                Ok::<_, eyre::Report>(result)
+            }
+        });
+        assert!(Arc::ptr_eq(&cached, &second.await?));
+        executor.cancellation().bail_if_cancelled()?;
+        assert_eq!(decodes.load(Ordering::SeqCst), 1);
+        assert_eq!(authentication.acquisitions.load(Ordering::SeqCst), 1);
+
+        // Creating the future through a temporary clone proves it owns its
+        // resources rather than borrowing the executor handle used to bind it.
+        let (_, last) = executor
+            .clone()
+            .cancellable_child_scope(|child| async move {
+                child.cancellation().cancelled().await;
+                Ok::<_, eyre::Report>(())
+            });
+        tokio::pin!(last);
+        assert_pending(last.as_mut()).await;
+        root.request_cancel("cancel the synthetic parent");
+        assert!(last.await.is_err());
+        Ok(())
+    })
+    .await
 }
 
 #[tokio::test]

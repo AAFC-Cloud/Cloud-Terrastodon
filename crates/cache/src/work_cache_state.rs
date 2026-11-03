@@ -1,5 +1,5 @@
 use crate::cache_state::CacheState;
-use std::path::PathBuf;
+use crate::work_cache_root::WorkCacheRoot;
 use std::sync::Arc;
 use std::sync::Mutex;
 
@@ -8,7 +8,9 @@ use std::sync::Mutex;
 /// coordinates artifact I/O; per-entry initializer mutexes coalesce execution.
 #[derive(Debug)]
 pub(crate) struct WorkCacheState {
-    pub root: PathBuf,
     pub registry: Mutex<CacheState>,
     pub artifact_gate: Arc<tokio::sync::Mutex<()>>,
+    // Drop cached values before removing an owned temporary directory. Their
+    // destructors may still need files beneath this root.
+    pub root: WorkCacheRoot,
 }

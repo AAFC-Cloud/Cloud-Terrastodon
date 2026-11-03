@@ -37,6 +37,7 @@ use super::value_candidate::ValueCandidate;
 use super::value_candidate_window::ValueCandidateWindow;
 use super::work_budget::WorkBudget;
 use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_registry::RuntimeValue;
 use facet::Facet;
 use std::mem::ManuallyDrop;
@@ -99,10 +100,12 @@ impl Drop for ExplorerEngine {
 }
 
 impl ExplorerEngine {
+    #[cfg(test)]
     pub(crate) fn empty() -> Self {
         Self::new(Arena::default())
     }
 
+    #[cfg(test)]
     pub(crate) fn new(arena: Arena) -> Self {
         Self::with_invocation_host(
             arena,
@@ -110,19 +113,20 @@ impl ExplorerEngine {
         )
     }
 
+    #[cfg(test)]
     pub(crate) fn empty_with_invocation_host(host: Box<dyn InvocationHost>) -> Self {
         Self::with_invocation_host(Arena::default(), host)
     }
 
     pub(crate) fn empty_with_tokio_invocation_host(
         attach: fn(
-            cloud_terrastodon_registry_execution::InvocationFuture,
-        ) -> cloud_terrastodon_registry_execution::InvocationFuture,
-        cancellation: &CancellationScope,
+            cloud_terrastodon_registry_execution::InvocationFuture<'static>,
+        ) -> cloud_terrastodon_registry_execution::InvocationFuture<'static>,
+        executor: &CloudTerrastodonExecutor,
     ) -> Self {
         Self::with_invocation_host(
             Arena::default(),
-            Box::new(TokioInvocationHost::with_cancellation(attach, cancellation)),
+            Box::new(TokioInvocationHost::with_executor(attach, executor)),
         )
     }
 
@@ -282,9 +286,10 @@ impl ExplorerEngine {
     }
 }
 
+#[cfg(test)]
 fn identity_invocation_future(
-    future: cloud_terrastodon_registry_execution::InvocationFuture,
-) -> cloud_terrastodon_registry_execution::InvocationFuture {
+    future: cloud_terrastodon_registry_execution::InvocationFuture<'static>,
+) -> cloud_terrastodon_registry_execution::InvocationFuture<'static> {
     future
 }
 
@@ -1728,7 +1733,7 @@ mod tests {
         effects = [Read]
     );
 
-    fn invoke_engine_request(input: Box<dyn Any + Send>) -> InvocationFuture {
+    fn invoke_engine_request(input: Box<dyn Any + Send>) -> InvocationFuture<'static> {
         Box::pin(async move {
             let request = input
                 .downcast::<EngineInvocationRequest>()
@@ -1737,7 +1742,7 @@ mod tests {
         })
     }
 
-    fn hold_engine_request(input: Box<dyn Any + Send>) -> InvocationFuture {
+    fn hold_engine_request(input: Box<dyn Any + Send>) -> InvocationFuture<'static> {
         Box::pin(async move {
             let request = input
                 .downcast::<EngineInvocationRequest>()

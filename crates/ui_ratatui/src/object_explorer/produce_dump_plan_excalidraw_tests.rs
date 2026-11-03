@@ -82,7 +82,8 @@ async fn export_plan_through_explorer(cancellation: CancellationScope) -> eyre::
         !plan.edges.is_empty(),
         "the fixture includes a real dependency chain"
     );
-    let engine = ExplorerEngine::empty_with_tokio_invocation_host(|future| future, &cancellation);
+    let executor = super::synthetic_executor::synthetic_executor(&cancellation);
+    let engine = ExplorerEngine::empty_with_tokio_invocation_host(|future| future, &executor);
     let (context, inbox) = ArenaQueryContext::channel(8);
     let client = async {
         let handle = context.engine_handle();

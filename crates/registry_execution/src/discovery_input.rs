@@ -1,5 +1,7 @@
 use crate::CancellationScope;
 use crate::DiscoveryValue;
+use cloud_terrastodon_registry::FunctionDescriptor;
+use cloud_terrastodon_registry::FunctionTraitContract;
 use cloud_terrastodon_registry::RuntimeValue;
 use cloud_terrastodon_registry::describe_shape;
 use facet::Def;
@@ -14,12 +16,15 @@ use std::collections::HashMap;
 /// Assemble only an executable request's own struct. Domain values and selectors
 /// must already exist in the pool or come from a registered pure conversion.
 pub(crate) fn assemble_request(
-    shape: &'static Shape,
+    function: &FunctionDescriptor,
     values: &HashMap<&'static Shape, Vec<DiscoveryValue>>,
     cancellation: &CancellationScope,
 ) -> eyre::Result<(RuntimeValue, usize)> {
-    let Type::User(UserType::Struct(struct_type)) = shape.ty else {
-        eyre::bail!("{} is not a request struct", describe_shape(shape));
+    let Type::User(UserType::Struct(struct_type)) = function.input_shape.ty else {
+        eyre::bail!(
+            "{} is not a request struct",
+            describe_shape(function.input_shape)
+        );
     };
     let mut fields = Vec::with_capacity(struct_type.fields.len());
     let mut depth = 0;
@@ -27,18 +32,23 @@ pub(crate) fn assemble_request(
         cancellation.bail_if_cancelled()?;
         // Actual shapes matter here: a String proxy is not a discovered domain
         // selector, even when the selector's wire representation is a string.
-        let (value, field_depth) =
-            input_field(field.shape(), values, cancellation).map_err(|error| {
-                error.wrap_err(format!(
-                    "missing field '{}' of {}",
-                    field.name,
-                    describe_shape(shape)
-                ))
-            })?;
+        let (value, field_depth) = input_field(
+            field.shape(),
+            values,
+            cancellation,
+            function.trait_contract == FunctionTraitContract::IntoFuture,
+        )
+        .map_err(|error| {
+            error.wrap_err(format!(
+                "missing field '{}' of {}",
+                field.name,
+                describe_shape(function.input_shape)
+            ))
+        })?;
         fields.push((index, value));
         depth = depth.max(field_depth);
     }
-    let value = RuntimeValue::build_with(shape, |mut partial| {
+    let value = RuntimeValue::build_with(function.input_shape, |mut partial| {
         for (index, value) in fields {
             partial = partial.begin_nth_field(index)?;
             // SAFETY: the field was built against its actual reflected shape.
@@ -57,11 +67,12 @@ fn input_field(
     shape: &'static Shape,
     values: &HashMap<&'static Shape, Vec<DiscoveryValue>>,
     cancellation: &CancellationScope,
+    legacy_runtime_inputs: bool,
 ) -> eyre::Result<(RuntimeValue, usize)> {
-    if shape.is_shape(CancellationScope::SHAPE) {
+    if legacy_runtime_inputs && shape.is_shape(CancellationScope::SHAPE) {
         return Ok((RuntimeValue::from_box(Box::new(cancellation.clone()))?, 0));
     }
-    if shape.is_shape(<OpaqueBorrow<'static, CancellationScope>>::SHAPE) {
+    if legacy_runtime_inputs && shape.is_shape(<OpaqueBorrow<'static, CancellationScope>>::SHAPE) {
         return Ok((
             RuntimeValue::from_box(Box::new(OpaqueBorrow::<'static, _>::new(
                 cancellation.clone(),

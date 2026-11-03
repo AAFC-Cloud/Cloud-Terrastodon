@@ -1,4 +1,4 @@
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_ui_ratatui::ui_main;
 use eyre::Result;
 use std::path::PathBuf;
@@ -13,7 +13,7 @@ pub struct RatatuiArgs {
 }
 
 impl RatatuiArgs {
-    pub async fn invoke(self, cancellation: &CancellationScope) -> Result<()> {
-        ui_main(self.excalidraw, cancellation).await
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<()> {
+        ui_main(self.excalidraw, executor).await
     }
 }

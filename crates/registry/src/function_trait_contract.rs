@@ -9,6 +9,8 @@ use std::fmt;
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Facet)]
 #[repr(u8)]
 pub enum FunctionTraitContract {
+    /// A data-only request bound to explicit execution resources at invocation.
+    ExecutableRequest,
     /// An executable request registered through its `IntoFuture` implementation.
     IntoFuture,
     /// An infallible conversion registered through `From`.
@@ -25,6 +27,7 @@ impl FunctionTraitContract {
     /// Text for presentation and search; classify contracts using enum variants.
     pub const fn as_str(self) -> &'static str {
         match self {
+            Self::ExecutableRequest => "ExecutableRequest",
             Self::IntoFuture => "IntoFuture",
             Self::From => "From",
             Self::TryFrom => "TryFrom",

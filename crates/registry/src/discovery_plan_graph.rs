@@ -5,6 +5,7 @@ use crate::DiscoveryPlanNode;
 use crate::DiscoveryPlanNodeKind;
 use crate::FunctionDescriptor;
 use crate::FunctionKind;
+use crate::FunctionTraitContract;
 use crate::RuntimeValue;
 use crate::describe_function;
 use crate::describe_shape;
@@ -173,7 +174,7 @@ impl DiscoveryPlanGraph {
         let inputs: Vec<_> = record
             .fields
             .iter()
-            .filter(|field| !host_supplied_or_optional(field.shape()))
+            .filter(|field| !host_supplied_or_optional(field.shape(), function.trait_contract))
             .map(|field| {
                 let field_id = self.shapes[field.shape()];
                 let source = if self.nodes[field_id].reachable {
@@ -340,10 +341,11 @@ fn eligible(function: &FunctionDescriptor) -> bool {
     }
 }
 
-fn host_supplied_or_optional(shape: &'static Shape) -> bool {
-    shape.is_shape(CancellationScope::SHAPE)
-        || shape.is_shape(<OpaqueBorrow<'static, CancellationScope>>::SHAPE)
-        || matches!(shape.def, Def::Option(_))
+fn host_supplied_or_optional(shape: &'static Shape, contract: FunctionTraitContract) -> bool {
+    matches!(shape.def, Def::Option(_))
+        || (contract == FunctionTraitContract::IntoFuture
+            && (shape.is_shape(CancellationScope::SHAPE)
+                || shape.is_shape(<OpaqueBorrow<'static, CancellationScope>>::SHAPE)))
 }
 
 fn owning_input_shape(shape: &'static Shape) -> Option<&'static Shape> {

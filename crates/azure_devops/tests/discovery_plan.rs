@@ -1,10 +1,16 @@
 #![cfg(test)]
 
+// Keep the actual SDK metadata checks explicitly legacy until its requests
+// migrate. New executor discovery uses data-only offline requests below.
+
+#[path = "support/discovery_requests.rs"]
+mod discovery_requests;
+
 use cloud_terrastodon_auth::AzureDevOpsAuthContext;
 use cloud_terrastodon_auth::AzureTenantAuthContext;
+use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
 use cloud_terrastodon_azure_devops::AzureDevOpsBuildDefinitionGetRequest;
 use cloud_terrastodon_azure_devops::AzureDevOpsBuildDefinitionListRequest;
-use cloud_terrastodon_azure_devops::AzureDevOpsBuildFolderListRequest;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectsListRequest;
 use cloud_terrastodon_azure_devops::AzureDevOpsServiceEndpointsListRequest;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsBuildDefinition;
@@ -25,8 +31,11 @@ use cloud_terrastodon_registry::describe_shape;
 use cloud_terrastodon_registry_execution::DiscoverySimulation;
 use cloud_terrastodon_registry_execution::Function;
 use cloud_terrastodon_registry_execution::known_functions;
+use discovery_requests::ProjectFoldersRequest;
+use discovery_requests::ProjectInventoryRequest;
 use facet::Facet;
 use facet::Shape;
+use std::sync::Arc;
 
 fn plan(
     catalog: impl IntoIterator<Item = &'static FunctionDescriptor>,
@@ -46,7 +55,7 @@ fn plan(
 }
 
 #[test]
-fn linked_catalog_connects_projects_to_service_connections_and_full_build_definitions() {
+fn legacy_linked_catalog_connects_projects_to_service_connections_and_full_build_definitions() {
     let plan = plan(
         known_functions().iter().map(Function::descriptor),
         &[
@@ -85,7 +94,7 @@ fn linked_catalog_connects_projects_to_service_connections_and_full_build_defini
 }
 
 #[test]
-fn an_organization_without_authentication_cannot_unlock_project_inventories() {
+fn legacy_an_organization_without_authentication_cannot_unlock_project_inventories() {
     let plan = plan(
         known_functions().iter().map(Function::descriptor),
         &[AzureDevOpsOrganizationUrl::SHAPE],
@@ -112,7 +121,7 @@ fn an_organization_without_authentication_cannot_unlock_project_inventories() {
 }
 
 #[test]
-fn project_argument_conversion_is_required_even_when_request_arbitrary_is_registered() {
+fn legacy_project_argument_conversion_is_required_even_when_request_arbitrary_is_registered() {
     // The curated catalog intentionally omits the alternate project ID/name
     // conversions. Their registrations in the linked global registry cannot
     // fill a gap in the catalog supplied to this planner.
@@ -155,7 +164,7 @@ fn project_argument_conversion_is_required_even_when_request_arbitrary_is_regist
 }
 
 #[test]
-fn yaml_filename_is_a_conditional_descendant_of_a_full_build_definition() {
+fn legacy_yaml_filename_is_a_conditional_descendant_of_a_full_build_definition() {
     let plan = plan(
         [
             AzureDevOpsProjectsListRequest::REGISTERED_INTO_FUTURE.descriptor(),
@@ -181,7 +190,7 @@ fn yaml_filename_is_a_conditional_descendant_of_a_full_build_definition() {
 }
 
 #[test]
-fn devops_auth_does_not_supply_the_tenant_context_from_its_bearer_variant() {
+fn legacy_devops_auth_does_not_supply_the_tenant_context_from_its_bearer_variant() {
     let plan = plan(
         known_functions().iter().map(Function::descriptor),
         &[
@@ -205,9 +214,9 @@ fn devops_auth_does_not_supply_the_tenant_context_from_its_bearer_variant() {
 #[test]
 fn structural_project_folder_plan_covers_the_arbitrary_simulation_requests() {
     let catalog = [
-        AzureDevOpsProjectsListRequest::REGISTERED_INTO_FUTURE,
+        ProjectInventoryRequest::REGISTERED_EXECUTABLE_REQUEST,
         Function::Pure(AzureDevOpsProject::REGISTERED_INTO_PROJECT_ARGUMENT),
-        AzureDevOpsBuildFolderListRequest::REGISTERED_INTO_FUTURE,
+        ProjectFoldersRequest::REGISTERED_EXECUTABLE_REQUEST,
     ]
     .into_iter()
     .chain(known_functions().iter().filter(|function| {
@@ -218,17 +227,17 @@ fn structural_project_folder_plan_covers_the_arbitrary_simulation_requests() {
             && function.input_shape.is_shape(ArbitraryBytes::SHAPE)
             && (function
                 .output_shape
-                .is_shape(Vec::<AzureDevOpsProject>::SHAPE)
+                .is_shape(Arc::<Vec<Arc<AzureDevOpsProject>>>::SHAPE)
                 || function
                     .output_shape
-                    .is_shape(Vec::<AzureDevOpsBuildFolder>::SHAPE))
+                    .is_shape(Arc::<Vec<Arc<AzureDevOpsBuildFolder>>>::SHAPE))
     }))
     .collect::<Vec<_>>();
     let plan = plan(
         catalog.iter().map(|function| function.descriptor()),
         &[
             AzureDevOpsOrganizationUrl::SHAPE,
-            AzureDevOpsAuthContext::SHAPE,
+            AzureDevOpsAuthSelection::SHAPE,
         ],
         &[AzureDevOpsBuildFolder::SHAPE],
     );
@@ -239,7 +248,9 @@ fn structural_project_folder_plan_covers_the_arbitrary_simulation_requests() {
                     RuntimeValue::from_box(Box::new(
                         "example".parse::<AzureDevOpsOrganizationUrl>()?,
                     ))?,
-                    RuntimeValue::from_box(Box::new(AzureDevOpsAuthContext::None))?,
+                    RuntimeValue::from_box(Box::new(
+                        AzureDevOpsAuthSelection::PersonalAccessToken,
+                    ))?,
                 ],
                 catalog.iter().copied(),
                 7,
@@ -264,4 +275,53 @@ fn structural_project_folder_plan_covers_the_arbitrary_simulation_requests() {
                 && node.label == describe_shape(request.input_shape)
         }));
     }
+}
+
+#[test]
+fn executable_discovery_requires_credential_selection_and_traverses_shared_records() {
+    let catalog = [
+        ProjectInventoryRequest::REGISTERED_EXECUTABLE_REQUEST.descriptor(),
+        AzureDevOpsProject::REGISTERED_INTO_PROJECT_ARGUMENT.descriptor(),
+        ProjectFoldersRequest::REGISTERED_EXECUTABLE_REQUEST.descriptor(),
+    ];
+    let blocked = plan(
+        catalog,
+        &[AzureDevOpsOrganizationUrl::SHAPE],
+        &[AzureDevOpsBuildFolder::SHAPE],
+    );
+    assert!(
+        blocked
+            .nodes
+            .iter()
+            .filter(|node| node.target)
+            .all(|node| !node.reachable)
+    );
+    assert!(blocked.nodes.iter().any(|node| {
+        node.missing_inputs
+            .iter()
+            .any(|input| input == "auth_selection: AzureDevOpsAuthSelection")
+    }));
+
+    let reachable = plan(
+        catalog,
+        &[
+            AzureDevOpsOrganizationUrl::SHAPE,
+            AzureDevOpsAuthSelection::SHAPE,
+        ],
+        &[AzureDevOpsBuildFolder::SHAPE],
+    );
+    assert!(reachable.nodes.iter().all(|node| node.reachable));
+    assert!(reachable.edges.iter().any(|edge| edge.label == "pointee"));
+    assert!(
+        reachable
+            .edges
+            .iter()
+            .any(|edge| edge.label == "element (if present)")
+    );
+    assert!(
+        !reachable
+            .nodes
+            .iter()
+            .any(|node| node.label.contains("AuthContext"))
+    );
 }

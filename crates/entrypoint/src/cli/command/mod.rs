@@ -56,6 +56,7 @@ use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_auth_types::AuthSource;
 use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
 /// All top-level commands for the cloud-terrastodon CLI.
@@ -133,10 +134,11 @@ impl CloudTerrastodonCommand {
         cancellation: &CancellationScope,
         auth_context: &AuthContext,
         requested_auth_source: AuthSource,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<CliOutput> {
         // Box child futures so large commands do not enlarge every dispatcher stack frame.
         match self {
-            CloudTerrastodonCommand::Ratatui(args) => Box::pin(args.invoke(cancellation)).await,
+            CloudTerrastodonCommand::Ratatui(args) => Box::pin(args.invoke(executor)).await,
             CloudTerrastodonCommand::Egui(args) => {
                 Box::pin(args.invoke(auth_context, cancellation)).await
             }

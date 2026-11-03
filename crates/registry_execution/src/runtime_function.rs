@@ -1,8 +1,9 @@
+use crate::AsyncExecutionFn;
 use crate::AsyncValueFn;
 use crate::CancellationBindingFn;
-use crate::CancellationScope;
 use crate::FunctionExecutor;
 use crate::FunctionInvocation;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_registry::Effect;
 use cloud_terrastodon_registry::FunctionDescriptor;
 use cloud_terrastodon_registry::FunctionKind;
@@ -17,6 +18,8 @@ use cloud_terrastodon_registry::describe_function;
 use facet::Shape;
 use linkme::distributed_slice;
 use std::any::Any;
+use std::panic::Location;
+use tracing::Instrument;
 
 /// An executor-dependent registration and its callback contract.
 ///
@@ -60,6 +63,41 @@ impl RuntimeFunction {
             !matches!(kind, FunctionKind::AsyncInvoke) || !effects.is_empty(),
             "executable requests must explicitly declare nonempty effects"
         );
+    }
+
+    /// Register an asynchronous callback with explicitly borrowed execution resources.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Registry functions are assembled from static macro metadata"
+    )]
+    pub const fn async_execution(
+        input_shape: &'static Shape,
+        output_shape: &'static Shape,
+        kind: FunctionKind,
+        label: &'static str,
+        trait_contract: FunctionTraitContract,
+        effects: &'static [Effect],
+        invoke: AsyncExecutionFn,
+        output_to_runtime: RuntimeFromBoxedFn,
+        registration_site: RegistrationSite,
+    ) -> Self {
+        Self::assert_request_effects(kind, effects);
+        Self {
+            descriptor: FunctionDescriptor {
+                input_shape,
+                output_shape,
+                receiver_mode: ReceiverMode::ByValue,
+                kind,
+                label,
+                trait_contract,
+                effects,
+                output_to_runtime,
+                registration_site,
+                asynchronous: true,
+            },
+            executor: FunctionExecutor::AsyncExecution(invoke),
+            cancellation_binding: None,
+        }
     }
 
     #[expect(
@@ -208,16 +246,40 @@ impl RuntimeFunction {
         self
     }
 
-    pub fn invoke_value_boxed(
+    #[track_caller]
+    pub fn invoke_value_boxed<'a>(
         &self,
         mut input: Box<dyn Any + Send>,
-        cancellation: &CancellationScope,
-    ) -> eyre::Result<FunctionInvocation> {
-        if let Some(bind) = self.cancellation_binding {
-            bind(input.as_mut(), cancellation)?;
-        }
+        executor: &'a CloudTerrastodonExecutor,
+    ) -> eyre::Result<FunctionInvocation<'a>> {
+        let span = tracing::trace_span!(
+            "invoke_registered_function",
+            operation = self.descriptor.label,
+            file = Location::caller().file(),
+            line = Location::caller().line(),
+            column = Location::caller().column(),
+        )
+        .or_current();
         match self.executor {
-            FunctionExecutor::AsyncValue(invoke) => Ok(FunctionInvocation::Pending(invoke(input))),
+            FunctionExecutor::AsyncExecution(invoke) => {
+                let future = span.in_scope(|| invoke(input, executor));
+                Ok(FunctionInvocation::Pending(Box::pin(
+                    future.instrument(span),
+                )))
+            }
+            FunctionExecutor::AsyncValue(invoke) => {
+                let bind = self.cancellation_binding;
+                Ok(FunctionInvocation::Pending(Box::pin(
+                    executor
+                        .cancellable_scope(move |child| async move {
+                            if let Some(bind) = bind {
+                                bind(input.as_mut(), child.cancellation())?;
+                            }
+                            invoke(input).await
+                        })
+                        .instrument(span),
+                )))
+            }
             FunctionExecutor::SyncValue(invoke) => Ok(FunctionInvocation::Ready(invoke(input)?)),
             FunctionExecutor::SyncRef(_) => {
                 eyre::bail!("{} requires ByRef", describe_function(self));
@@ -250,7 +312,52 @@ impl RuntimeFunction {
     }
 }
 
-/// Register an executable request with shape-discovered caller cancellation.
+/// Register a data-only executable request with explicit runtime resources.
+///
+/// The operation receives its executor through `ExecutableRequest::run` and is
+/// invoked through `executor.execute(request)`. No input field is inspected or
+/// replaced to supply cancellation. The erased boundary requires owned, `Send`
+/// inputs and outputs, but neither `Sync` outputs nor a static executor borrow.
+///
+/// Declare nonempty effects, including `Write` for mutations and `Solicit` for
+/// user input. `Request::REGISTERED_EXECUTABLE_REQUEST` references this exact
+/// linked registration without lookup or a second registration.
+#[macro_export]
+macro_rules! register_executable_request {
+    ($thing_ty:ty => $output_ty:ty) => {
+        compile_error!("register_executable_request! requires explicit, nonempty effects containing Read, Write, Solicit, or a combination");
+    };
+    ($thing_ty:ty => $output_ty:ty, effects = []) => {
+        compile_error!("executable requests cannot have empty effects; declare Read, Write, Solicit, or a combination");
+    };
+    ($thing_ty:ty => $output_ty:ty, effects = [$($effect:ident),+ $(,)?]) => {
+        const _: () = {
+            #[$crate::distributed_slice($crate::KNOWN_RUNTIME_FUNCTIONS)]
+            static REGISTERED_FUNCTION: $crate::RuntimeFunction = $crate::RuntimeFunction::async_execution(
+                <$thing_ty as facet::Facet<'static>>::SHAPE,
+                <$output_ty as facet::Facet<'static>>::SHAPE,
+                cloud_terrastodon_registry::FunctionKind::AsyncInvoke,
+                "execute",
+                cloud_terrastodon_registry::FunctionTraitContract::ExecutableRequest,
+                &[$(cloud_terrastodon_registry::Effect::$effect),*],
+                $crate::invoke_executable_request::<$thing_ty, $output_ty>,
+                cloud_terrastodon_registry::runtime_from_boxed::<$output_ty>,
+                cloud_terrastodon_registry::RegistrationSite::new(file!(), line!()),
+            );
+
+            #[cloud_terrastodon_registry::distributed_slice(cloud_terrastodon_registry::KNOWN_FUNCTION_DESCRIPTORS)]
+            static REGISTERED_DESCRIPTOR: &cloud_terrastodon_registry::FunctionDescriptor = REGISTERED_FUNCTION.descriptor();
+
+            impl $thing_ty {
+                /// The exact registered `ExecutableRequest` operation for this request.
+                #[allow(dead_code, reason = "Registrations may be consumed solely through the distributed slice")]
+                pub const REGISTERED_EXECUTABLE_REQUEST: $crate::Function = $crate::Function::Runtime(&REGISTERED_FUNCTION);
+            }
+        };
+    };
+}
+
+/// Register a legacy `IntoFuture` request with shape-discovered cancellation.
 ///
 /// A single direct cancellation-token field is replaced before invocation,
 /// including opaque fields. Tokenless inputs are unchanged; multiple matching

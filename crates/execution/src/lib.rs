@@ -5,17 +5,21 @@
 //! Credential implementations and production transport adapters live above this
 //! crate; neither they nor registry invocation are dependencies here.
 
+mod anonymous_authentication_provider;
 mod authentication_provider;
 mod cloud_terrastodon_executor;
-mod disabled_authentication_provider;
 mod executable_request;
 mod execution_future;
 mod execution_mode;
 mod request_execution;
+#[cfg(any(test, feature = "test-support"))]
+mod unreachable_authentication_provider;
 
+pub use anonymous_authentication_provider::AnonymousAuthenticationProvider;
 pub use authentication_provider::AuthenticationProvider;
 pub use cloud_terrastodon_executor::CloudTerrastodonExecutor;
-pub use disabled_authentication_provider::DisabledAuthenticationProvider;
 pub use executable_request::ExecutableRequest;
 pub use execution_future::ExecutionFuture;
 pub use request_execution::RequestExecution;
+#[cfg(any(test, feature = "test-support"))]
+pub use unreachable_authentication_provider::UnreachableAuthenticationProvider;

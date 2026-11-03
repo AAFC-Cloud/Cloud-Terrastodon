@@ -1,4 +1,3 @@
-use crate::CancellationScope;
 use crate::DefaultProductionField;
 use crate::DefaultProductionPlan;
 use crate::Function;
@@ -6,18 +5,21 @@ use crate::FunctionInvocation;
 use crate::InvocationFuture;
 use crate::default_production_kind::DefaultProductionKind;
 use crate::functions_to;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_registry::ProductionKind;
+use cloud_terrastodon_registry::ReceiverMode;
 use cloud_terrastodon_registry::RuntimeValue;
 use cloud_terrastodon_registry::describe_shape;
 use cloud_terrastodon_registry::known_thing_for_shape;
 use facet::Shape;
 use facet::Type;
 use facet::UserType;
+use std::any::Any;
 use std::future::Future;
 use std::pin::Pin;
 
 type BoxedDefaultInputFuture<'a> =
-    Pin<Box<dyn Future<Output = eyre::Result<Box<dyn std::any::Any + Send>>> + Send + 'a>>;
+    Pin<Box<dyn Future<Output = eyre::Result<Box<dyn Any + Send>>> + Send + 'a>>;
 
 /// Find a recipe for constructing `shape` from reflected defaults and
 /// registered producers.
@@ -37,30 +39,27 @@ pub fn shape_can_be_produced_from_defaults(shape: &'static Shape) -> bool {
 
 /// Invoke a registered function after recursively producing its input from
 /// the registry's default-production plan.
-/// Executable requests are bound to the supplied operation token before dispatch;
+/// Executable requests use the supplied executor and its linked child scope;
 /// reflected input defaults never determine their cancellation lifetime.
-pub fn invoke_with_default_input(
+pub fn invoke_with_default_input<'a>(
     function: Function,
-    cancellation: &CancellationScope,
-) -> InvocationFuture {
-    let cancellation = cancellation.clone();
-    Box::pin(async move {
+    executor: &'a CloudTerrastodonExecutor,
+) -> InvocationFuture<'a> {
+    Box::pin(executor.cancellable_scope(move |child| async move {
         let plan = default_production_plan(function.input_shape).ok_or_else(|| {
             eyre::eyre!(
                 "no default production path is registered for {}",
                 describe_shape(function.input_shape)
             )
         })?;
-        let input = realize_plan_as_boxed(&plan, &cancellation).await?;
+        let input = realize_plan_as_boxed(&plan, &child).await?;
 
         let output = match function.receiver_mode {
-            cloud_terrastodon_registry::ReceiverMode::ByValue => {
-                function.invoke_value_boxed(input, &cancellation)?
-            }
-            cloud_terrastodon_registry::ReceiverMode::ByRef => {
+            ReceiverMode::ByValue => function.invoke_value_boxed(input, &child)?,
+            ReceiverMode::ByRef => {
                 FunctionInvocation::Ready(function.invoke_ref_boxed(input.as_ref())?)
             }
-            cloud_terrastodon_registry::ReceiverMode::ByMut => {
+            ReceiverMode::ByMut => {
                 let mut input = input;
                 FunctionInvocation::Ready(function.invoke_mut_boxed(input.as_mut())?)
             }
@@ -70,7 +69,7 @@ pub fn invoke_with_default_input(
             FunctionInvocation::Pending(future) => future.await,
             FunctionInvocation::Ready(output) => Ok(output),
         }
-    })
+    }))
 }
 
 fn plan_for_shape(
@@ -143,7 +142,7 @@ fn plan_for_shape(
 
 fn realize_plan<'a>(
     plan: &'a DefaultProductionPlan,
-    cancellation: &'a CancellationScope,
+    executor: &'a CloudTerrastodonExecutor,
 ) -> Pin<Box<dyn Future<Output = eyre::Result<RuntimeValue>> + Send + 'a>> {
     Box::pin(async move {
         match &plan.kind {
@@ -151,6 +150,7 @@ fn realize_plan<'a>(
             DefaultProductionKind::Struct { fields } => {
                 let mut values = Vec::with_capacity(fields.len());
                 for field in fields {
+                    executor.cancellation().bail_if_cancelled()?;
                     let thing = known_thing_for_shape(field.plan.shape()).ok_or_else(|| {
                         eyre::eyre!(
                             "{} is not a registered field thing",
@@ -160,7 +160,7 @@ fn realize_plan<'a>(
                     values.push((
                         field.field_index,
                         thing,
-                        realize_plan_as_boxed(&field.plan, cancellation).await?,
+                        realize_plan_as_boxed(&field.plan, executor).await?,
                     ));
                 }
                 RuntimeValue::build_with(plan.shape, |mut partial| {
@@ -175,15 +175,13 @@ fn realize_plan<'a>(
                 })
             }
             DefaultProductionKind::Invoke { function, input } => {
-                let input = realize_plan_as_boxed(input, cancellation).await?;
+                let input = realize_plan_as_boxed(input, executor).await?;
                 let output = match function.receiver_mode {
-                    cloud_terrastodon_registry::ReceiverMode::ByValue => {
-                        function.invoke_value_boxed(input, cancellation)?
-                    }
-                    cloud_terrastodon_registry::ReceiverMode::ByRef => {
+                    ReceiverMode::ByValue => function.invoke_value_boxed(input, executor)?,
+                    ReceiverMode::ByRef => {
                         FunctionInvocation::Ready(function.invoke_ref_boxed(input.as_ref())?)
                     }
-                    cloud_terrastodon_registry::ReceiverMode::ByMut => {
+                    ReceiverMode::ByMut => {
                         let mut input = input;
                         FunctionInvocation::Ready(function.invoke_mut_boxed(input.as_mut())?)
                     }
@@ -200,10 +198,10 @@ fn realize_plan<'a>(
 
 fn realize_plan_as_boxed<'a>(
     plan: &'a DefaultProductionPlan,
-    cancellation: &'a CancellationScope,
+    executor: &'a CloudTerrastodonExecutor,
 ) -> BoxedDefaultInputFuture<'a> {
     Box::pin(async move {
-        let value = realize_plan(plan, cancellation).await?;
+        let value = realize_plan(plan, executor).await?;
         let thing = known_thing_for_shape(plan.shape).ok_or_else(|| {
             eyre::eyre!(
                 "{} is not a registered input thing",

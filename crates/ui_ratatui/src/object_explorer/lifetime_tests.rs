@@ -168,7 +168,7 @@ fn borrower_fixture(engine: &mut ExplorerEngine, events: &Events) -> (SlotId, Sl
     (source, borrower)
 }
 
-fn hold_request(input: Box<dyn Any + Send>) -> InvocationFuture {
+fn hold_request(input: Box<dyn Any + Send>) -> InvocationFuture<'static> {
     Box::pin(async move {
         let request = input.downcast::<BorrowRecord>().unwrap();
         request.probe.events.lock().unwrap().push("polled");
@@ -177,7 +177,7 @@ fn hold_request(input: Box<dyn Any + Send>) -> InvocationFuture {
     })
 }
 
-fn return_request(input: Box<dyn Any + Send>) -> InvocationFuture {
+fn return_request(input: Box<dyn Any + Send>) -> InvocationFuture<'static> {
     Box::pin(async move { Ok(input) })
 }
 

@@ -1,7 +1,7 @@
-use crate::CancellationScope;
 use crate::FunctionExecutor;
 use crate::FunctionInvocation;
 use crate::RuntimeFunction;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_registry::ArbitraryRegistration;
 use cloud_terrastodon_registry::FunctionDescriptor;
 use cloud_terrastodon_registry::PureFunction;
@@ -58,13 +58,14 @@ impl Function {
         }
     }
 
-    pub fn invoke_value_boxed(
+    #[track_caller]
+    pub fn invoke_value_boxed<'a>(
         self,
         input: Box<dyn Any + Send>,
-        cancellation: &CancellationScope,
-    ) -> eyre::Result<FunctionInvocation> {
+        executor: &'a CloudTerrastodonExecutor,
+    ) -> eyre::Result<FunctionInvocation<'a>> {
         match self {
-            Self::Runtime(registration) => registration.invoke_value_boxed(input, cancellation),
+            Self::Runtime(registration) => registration.invoke_value_boxed(input, executor),
             Self::Pure(registration) => Ok(FunctionInvocation::Ready(
                 registration.invoke_value_boxed(input)?,
             )),
@@ -148,11 +149,14 @@ impl fmt::Debug for Function {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cloud_terrastodon_cache::WorkCache;
+    use cloud_terrastodon_execution::AnonymousAuthenticationProvider;
     use cloud_terrastodon_registry::FunctionKind;
     use cloud_terrastodon_registry::FunctionTraitContract;
     use cloud_terrastodon_registry::RegistrationSite;
     use cloud_terrastodon_registry::runtime_from_boxed;
     use facet::Facet;
+    use std::sync::Arc;
     use teamy_cancellation::CancellationToken;
 
     fn increment(input: Box<dyn Any + Send>) -> eyre::Result<Box<dyn Any + Send>> {
@@ -178,7 +182,12 @@ mod tests {
         let function = Function::Pure(&UNLINKED);
         assert!(ptr::eq(function.descriptor(), UNLINKED.descriptor()));
         CancellationToken::new().with_scope(|scope| {
-            let invocation = function.invoke_value_boxed(Box::new(7_u16), &scope)?;
+            let executor = CloudTerrastodonExecutor::new(
+                WorkCache::temporary()?,
+                Arc::new(AnonymousAuthenticationProvider),
+                scope,
+            );
+            let invocation = function.invoke_value_boxed(Box::new(7_u16), &executor)?;
             let FunctionInvocation::Ready(output) = invocation else {
                 panic!("a pure operation must remain synchronous");
             };

@@ -23,6 +23,7 @@ use std::panic::Location;
 use std::sync::Arc;
 use teamy_cancellation::CancellationError;
 use teamy_cancellation::CancellationScope;
+use teamy_cancellation::CancellationToken;
 use tracing::Instrument;
 
 /// Shared execution resources bound to an already-owned invocation lifetime.
@@ -216,6 +217,29 @@ impl CloudTerrastodonExecutor {
             .cancellable_scope(move |scope| factory(parent.with_scope(scope)))
     }
 
+    /// Linked child work with its own cancellation signal.
+    ///
+    /// Cancelling the returned token affects this child and its descendants,
+    /// while parent cancellation still propagates. The future owns its executor
+    /// clone and preserves cache ancestry and authentication restrictions.
+    #[track_caller]
+    pub fn cancellable_child_scope<C, F, T, E>(
+        &self,
+        factory: C,
+    ) -> (
+        CancellationToken,
+        impl Future<Output = Result<T, E>> + use<C, F, T, E>,
+    )
+    where
+        C: FnOnce(Self) -> F,
+        F: IntoFuture<Output = Result<T, E>>,
+        E: From<CancellationError>,
+    {
+        let parent = self.clone();
+        self.cancellation
+            .cancellable_child_scope(move |scope| factory(parent.with_scope(scope)))
+    }
+
     /// Cooperative child work whose owner must run checkpoints and shutdown.
     #[track_caller]
     pub fn with_async_scope<C, F, T, E>(&self, factory: C) -> impl Future<Output = Result<T, E>>
@@ -227,6 +251,28 @@ impl CloudTerrastodonExecutor {
         let parent = self.clone();
         self.cancellation
             .with_async_scope(move |scope| factory(parent.with_scope(scope)))
+    }
+
+    /// Cooperative child work with an independent cancellation signal.
+    ///
+    /// Once admitted, the callback owns shutdown and draining required work.
+    /// Its cancellation signal leaves the parent and sibling jobs unaffected.
+    #[track_caller]
+    pub fn with_async_child_scope<C, F, T, E>(
+        &self,
+        factory: C,
+    ) -> (
+        CancellationToken,
+        impl Future<Output = Result<T, E>> + use<C, F, T, E>,
+    )
+    where
+        C: FnOnce(Self) -> F,
+        F: IntoFuture<Output = Result<T, E>>,
+        E: From<CancellationError>,
+    {
+        let parent = self.clone();
+        self.cancellation
+            .with_async_child_scope(move |scope| factory(parent.with_scope(scope)))
     }
 
     /// Protected new work; cancellation admission is owned by the supplied scope.

@@ -10,13 +10,13 @@ use eyre::ensure;
 
 /// Anonymous-only execution without a runtime credential dependency or discovery.
 #[derive(Debug, Clone, Copy, Default)]
-pub struct DisabledAuthenticationProvider;
+pub struct AnonymousAuthenticationProvider;
 
-impl AuthenticationProvider for DisabledAuthenticationProvider {
+impl AuthenticationProvider for AnonymousAuthenticationProvider {
     fn admit(&self, selection: &AuthenticationSelection) -> Result<AuthPartition> {
         ensure!(
             matches!(selection, AuthenticationSelection::Anonymous),
-            "authentication is disabled for this executor"
+            "this provider permits only anonymous authentication"
         );
         AuthPartition::new("anonymous")
     }

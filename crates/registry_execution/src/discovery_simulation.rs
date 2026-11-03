@@ -118,7 +118,7 @@ impl DiscoverySimulation {
                         request.depth
                     } else {
                         let request = assemble_request(
-                            function.input_shape,
+                            function.descriptor(),
                             &simulation.values,
                             cancellation,
                         );
@@ -324,7 +324,7 @@ fn invoke_pure(function: Function, input: &RuntimeValue) -> eyre::Result<Runtime
         FunctionExecutor::SyncValue(invoke) => invoke(input),
         FunctionExecutor::SyncRef(invoke) => invoke(input.as_ref()),
         FunctionExecutor::SyncMut(invoke) => invoke(input.as_mut()),
-        FunctionExecutor::AsyncValue(_) => {
+        FunctionExecutor::AsyncValue(_) | FunctionExecutor::AsyncExecution(_) => {
             eyre::bail!("async conversion is ineligible");
         }
     }?;

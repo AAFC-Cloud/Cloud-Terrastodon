@@ -40,8 +40,9 @@ requests implementing `ExecutableRequest` support either
 
 Repeated app bindings share cache ownership and the resolved credential session.
 Binding does not discover credentials, acquire tokens, or read cache files.
-Without app authentication support, the executor uses a disabled provider that
-permits anonymous work. The existing public `context.auth` and
+Without app authentication support, the executor uses
+`execution::AnonymousAuthenticationProvider`, which permits anonymous work and
+rejects selections requiring credentials. The existing public `context.auth` and
 `context.cancellation` fields remain available while SDK consumers migrate;
 new bindings use their current values, and existing executor handles keep their
 original binding.
@@ -50,8 +51,28 @@ The executor depends on the provider interface, while
 `auth::CredentialAuthenticationProvider` supplies the implementation from an
 already-selected `AuthContext`. Admission checks source/tenant policy before
 cache reuse; acquiring credentials is separate sensitive infrastructure.
-Registry invocation and production Command/REST adapter migration remain later
-steps in the [executor/cache plan](plans/executor-cache-migration.md).
+Registry invocation accepts the same explicit executor. Register data-only
+requests with `registry_execution::register_executable_request!`; their
+`REGISTERED_EXECUTABLE_REQUEST` handle invokes the request without registry lookup
+or cancellation-field injection. The erased invocation borrows the executor,
+and UI workers own their executor clone while awaiting it. Independent child
+scopes let UI jobs cancel individually and let UI shutdown drain required work.
+
+Tests asserting that no authentication is consulted can use the public
+`execution::UnreachableAuthenticationProvider`. Enable the execution crate's
+`test-support` feature only through a dev-dependency. Both admission and
+authorization panic synchronously on any call, including anonymous selections;
+the authorization check does not wait for its returned future to be polled.
+The provider is excluded from normal builds and differs from the anonymous
+provider, whose anonymous admission and authorization are valid operations.
+
+`DiscoveryPlanBuildRequest` also implements `ExecutableRequest`; supply execution
+resources when running it. Planning and synthetic discovery inspect request data
+and registered shapes without resolving credentials or invoking service requests.
+Legacy `IntoFuture` registrations retain their separate callback and child-scope
+binding during the scheduled SDK migration. Production Command/REST adapters and
+SDK request cutover remain later steps in the
+[executor/cache plan](plans/executor-cache-migration.md).
 
 ## Choosing a source and tenant
 

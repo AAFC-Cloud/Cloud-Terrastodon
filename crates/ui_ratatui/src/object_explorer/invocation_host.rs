@@ -1,4 +1,6 @@
+#[cfg(test)]
 use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_registry_execution::InvocationFuture;
 use std::any::Any;
 
@@ -27,16 +29,14 @@ pub(crate) enum InvocationHostPoll {
 /// Implementations may spawn, hold, or deterministically fake futures. They
 /// never receive Arena, RuntimeValue, Facet Peek, or borrow-lease ownership.
 pub(crate) trait InvocationHost {
-    fn start(&mut self, id: InvocationId, future: InvocationFuture);
+    fn executor(&self) -> &CloudTerrastodonExecutor;
+    fn start(&mut self, id: InvocationId, future: InvocationFuture<'static>);
     /// Bind executable input only after the host admits its owning scope.
     fn start_scoped(
         &mut self,
         id: InvocationId,
-        factory: Box<dyn FnOnce(CancellationScope) -> InvocationFuture + Send>,
-    ) {
-        // Deterministic fake hosts hold futures without executing the request.
-        self.start(id, factory(CancellationScope::unbound()));
-    }
+        factory: Box<dyn FnOnce(CloudTerrastodonExecutor) -> InvocationFuture<'static> + Send>,
+    );
     fn is_ready(&self, id: InvocationId) -> bool;
     fn poll(&mut self, id: InvocationId) -> InvocationHostPoll;
     /// Request cancellation. A true result guarantees synchronous destruction
@@ -49,14 +49,24 @@ pub(crate) trait InvocationHost {
 }
 
 #[cfg(test)]
-#[derive(Default)]
 pub(crate) struct FakeInvocationHost {
     jobs: std::collections::BTreeMap<InvocationId, FakeJob>,
+    executor: CloudTerrastodonExecutor,
+}
+
+#[cfg(test)]
+impl Default for FakeInvocationHost {
+    fn default() -> Self {
+        Self {
+            jobs: Default::default(),
+            executor: super::synthetic_executor::synthetic_executor(&CancellationScope::unbound()),
+        }
+    }
 }
 
 #[cfg(test)]
 enum FakeJob {
-    Held(InvocationFuture),
+    Held(InvocationFuture<'static>),
     Ready(Box<dyn Any + Send>),
     Failed(String),
     Cancelled,
@@ -95,8 +105,21 @@ impl FakeInvocationHost {
 
 #[cfg(test)]
 impl InvocationHost for FakeInvocationHost {
-    fn start(&mut self, id: InvocationId, future: InvocationFuture) {
+    fn executor(&self) -> &CloudTerrastodonExecutor {
+        &self.executor
+    }
+
+    fn start(&mut self, id: InvocationId, future: InvocationFuture<'static>) {
         assert!(self.jobs.insert(id, FakeJob::Held(future)).is_none());
+    }
+
+    fn start_scoped(
+        &mut self,
+        id: InvocationId,
+        factory: Box<dyn FnOnce(CloudTerrastodonExecutor) -> InvocationFuture<'static> + Send>,
+    ) {
+        // This fake holds the future without polling or executing the request.
+        self.start(id, factory(self.executor().clone()));
     }
 
     fn is_ready(&self, id: InvocationId) -> bool {

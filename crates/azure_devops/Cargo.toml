@@ -43,6 +43,7 @@ chrono = { workspace = true }
 arbitrary.workspace = true 
 
 [dev-dependencies]
+cloud_terrastodon_execution.workspace = true
 test-log.workspace = true
 
 [features]

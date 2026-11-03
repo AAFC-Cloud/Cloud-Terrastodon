@@ -4,7 +4,11 @@ use crate::Function;
 use crate::InvocationFuture;
 use crate::RuntimeFunction;
 use arbitrary::Arbitrary;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_registry::ArbitraryBytes;
+use cloud_terrastodon_registry::DiscoveryPlan;
 use cloud_terrastodon_registry::Effect;
 use cloud_terrastodon_registry::FunctionKind;
 use cloud_terrastodon_registry::FunctionTraitContract;
@@ -15,14 +19,14 @@ use facet::Facet;
 use std::any::Any;
 use std::cell::Cell;
 use std::cell::RefCell;
-use std::future::IntoFuture;
-use std::future::Ready;
+use std::sync::Arc;
 use teamy_cancellation::CancellationError;
 use teamy_cancellation::CancellationToken;
 
 thread_local! {
     static RESPONSE_CANCELLATION: RefCell<Option<CancellationScope>> = const { RefCell::new(None) };
     static CONVERSION_INVOCATIONS: Cell<usize> = const { Cell::new(0) };
+    static SHARED_RESPONSE_ATTEMPTS: Cell<usize> = const { Cell::new(0) };
 }
 
 #[derive(Clone, Debug, Facet)]
@@ -57,6 +61,14 @@ struct RepeatedFieldsSeed {
 #[derive(Clone, Debug, Facet)]
 struct CatalogRequest {
     seed: CatalogSeed,
+}
+
+/// Deliberately retains the legacy runtime field to test that new registrations
+/// cannot silently receive it from offline discovery.
+#[derive(Clone, Debug, Facet)]
+struct ScopeBearingRequest {
+    seed: CatalogSeed,
+    cancellation: CancellationScope,
 }
 
 impl<'a> Arbitrary<'a> for CatalogRequest {
@@ -111,29 +123,38 @@ struct CatalogRequestEnvelopeRequest {
     seed: CatalogSeed,
 }
 
-impl IntoFuture for CatalogRequest {
-    type Output = eyre::Result<CatalogItem>;
-    type IntoFuture = Ready<Self::Output>;
+impl ExecutableRequest for CatalogRequest {
+    type Output = CatalogItem;
 
-    fn into_future(self) -> Self::IntoFuture {
+    fn run<'a>(self, _: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>
+    where
+        Self: 'a,
+        Self::Output: 'a,
+    {
         panic!("discovery must fabricate the response without invoking the request")
     }
 }
 
-impl IntoFuture for ItemDetailsRequest {
-    type Output = eyre::Result<ItemDetails>;
-    type IntoFuture = Ready<Self::Output>;
+impl ExecutableRequest for ItemDetailsRequest {
+    type Output = ItemDetails;
 
-    fn into_future(self) -> Self::IntoFuture {
+    fn run<'a>(self, _: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>
+    where
+        Self: 'a,
+        Self::Output: 'a,
+    {
         panic!("discovery must never execute downstream requests")
     }
 }
 
-impl IntoFuture for CatalogRequestEnvelopeRequest {
-    type Output = eyre::Result<CatalogRequestEnvelope>;
-    type IntoFuture = Ready<Self::Output>;
+impl ExecutableRequest for CatalogRequestEnvelopeRequest {
+    type Output = CatalogRequestEnvelope;
 
-    fn into_future(self) -> Self::IntoFuture {
+    fn run<'a>(self, _: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>
+    where
+        Self: 'a,
+        Self::Output: 'a,
+    {
         panic!("nested request response simulation must never invoke a request")
     }
 }
@@ -148,15 +169,15 @@ cloud_terrastodon_registry::register_arbitrary!(
     CatalogRequestEnvelope,
     associated = REGISTERED_ARBITRARY
 );
-crate::register_into_future!(CatalogRequest => CatalogItem, effects = [Read]);
-crate::register_into_future!(ItemDetailsRequest => ItemDetails, effects = [Read]);
-crate::register_into_future!(CatalogRequestEnvelopeRequest => CatalogRequestEnvelope, effects = [Read]);
+crate::register_executable_request!(CatalogRequest => CatalogItem, effects = [Read]);
+crate::register_executable_request!(ItemDetailsRequest => ItemDetails, effects = [Read]);
+crate::register_executable_request!(CatalogRequestEnvelopeRequest => CatalogRequestEnvelope, effects = [Read]);
 cloud_terrastodon_registry::register_from!(CatalogItem => ItemArgument, associated = REGISTERED_INTO_ITEM_ARGUMENT);
 cloud_terrastodon_registry::register_from!(ItemArgument => CatalogItem, associated = REGISTERED_INTO_CATALOG_ITEM);
 
 static GRAPH: [Function; 6] = [
-    CatalogRequest::REGISTERED_INTO_FUTURE,
-    ItemDetailsRequest::REGISTERED_INTO_FUTURE,
+    CatalogRequest::REGISTERED_EXECUTABLE_REQUEST,
+    ItemDetailsRequest::REGISTERED_EXECUTABLE_REQUEST,
     Function::Pure(CatalogItem::REGISTERED_INTO_ITEM_ARGUMENT),
     Function::Arbitrary(CatalogItem::REGISTERED_ARBITRARY),
     Function::Arbitrary(ItemDetails::REGISTERED_ARBITRARY),
@@ -288,7 +309,7 @@ fn custom_trait_contract_text_cannot_claim_the_arbitrary_generator_contract() {
     let simulation = simulate(
         vec![runtime(CatalogSeed { marker: 7 })],
         &[
-            CatalogRequest::REGISTERED_INTO_FUTURE,
+            CatalogRequest::REGISTERED_EXECUTABLE_REQUEST,
             Function::Runtime(Box::leak(Box::new(constructor))),
         ],
         32,
@@ -356,8 +377,139 @@ fn forbidden_conversion(_: Box<dyn Any + Send>) -> eyre::Result<Box<dyn Any + Se
     panic!("an effectful conversion must never run during discovery")
 }
 
-fn forbidden_async_conversion(_: Box<dyn Any + Send>) -> InvocationFuture {
+fn forbidden_async_conversion(_: Box<dyn Any + Send>) -> InvocationFuture<'static> {
     panic!("an async executor must never run during discovery")
+}
+
+fn forbidden_execution(
+    _: Box<dyn Any + Send>,
+    _: &CloudTerrastodonExecutor,
+) -> InvocationFuture<'_> {
+    panic!("offline discovery must not invoke an executor-dependent callback")
+}
+
+#[test]
+fn only_legacy_request_contracts_receive_host_supplied_cancellation() {
+    let legacy = RuntimeFunction::async_value(
+        ScopeBearingRequest::SHAPE,
+        CatalogItem::SHAPE,
+        FunctionKind::AsyncInvoke,
+        "invoke",
+        FunctionTraitContract::IntoFuture,
+        &[Effect::Read],
+        forbidden_async_conversion,
+        runtime_from_boxed::<CatalogItem>,
+        RegistrationSite::new(file!(), line!()),
+    );
+    let executable = RuntimeFunction::async_execution(
+        ScopeBearingRequest::SHAPE,
+        CatalogItem::SHAPE,
+        FunctionKind::AsyncInvoke,
+        "execute",
+        FunctionTraitContract::ExecutableRequest,
+        &[Effect::Read],
+        forbidden_execution,
+        runtime_from_boxed::<CatalogItem>,
+        RegistrationSite::new(file!(), line!()),
+    );
+    for (registration, expected_reachable) in [(legacy, true), (executable, false)] {
+        let function = Function::Runtime(Box::leak(Box::new(registration)));
+        let plan = CancellationToken::new()
+            .with_scope(|scope| {
+                DiscoveryPlan::build(
+                    [function.descriptor()],
+                    [CatalogSeed::SHAPE],
+                    [CatalogItem::SHAPE],
+                    &scope,
+                )
+            })
+            .unwrap();
+        assert_eq!(
+            plan.nodes
+                .iter()
+                .find(|node| node.target)
+                .unwrap()
+                .reachable,
+            expected_reachable,
+        );
+        let simulation = simulate(
+            vec![runtime(CatalogSeed { marker: 7 })],
+            &[
+                function,
+                Function::Arbitrary(CatalogItem::REGISTERED_ARBITRARY),
+            ],
+            32,
+            128,
+        );
+        assert_eq!(has::<CatalogItem>(&simulation), expected_reachable);
+        if !expected_reachable {
+            assert!(plan.nodes.iter().any(|node| {
+                node.missing_inputs
+                    .iter()
+                    .any(|input| input == "cancellation: CancellationScope")
+            }));
+            assert!(simulation.simulated_requests.is_empty());
+        }
+    }
+}
+
+fn generate_shared_inventory(_: &mut (dyn Any + Send)) -> eyre::Result<Box<dyn Any + Send>> {
+    let attempt = SHARED_RESPONSE_ATTEMPTS.with(|count| {
+        count.set(count.get() + 1);
+        count.get()
+    });
+    let items = if attempt == 1 {
+        Vec::new()
+    } else {
+        vec![Arc::new(CatalogItem { marker: 7 })]
+    };
+    Ok(Box::new(Arc::new(items)))
+}
+
+#[test]
+fn empty_shared_inventories_are_retried_before_downstream_discovery() {
+    SHARED_RESPONSE_ATTEMPTS.with(|count| count.set(0));
+    let request = RuntimeFunction::async_execution(
+        CatalogRequest::SHAPE,
+        Arc::<Vec<Arc<CatalogItem>>>::SHAPE,
+        FunctionKind::AsyncInvoke,
+        "execute",
+        FunctionTraitContract::ExecutableRequest,
+        &[Effect::Read],
+        forbidden_execution,
+        runtime_from_boxed::<Arc<Vec<Arc<CatalogItem>>>>,
+        RegistrationSite::new(file!(), line!()),
+    );
+    let generator = RuntimeFunction::sync_mut(
+        ArbitraryBytes::SHAPE,
+        Arc::<Vec<Arc<CatalogItem>>>::SHAPE,
+        FunctionKind::Constructor,
+        "arbitrary",
+        FunctionTraitContract::Arbitrary,
+        &[],
+        generate_shared_inventory,
+        runtime_from_boxed::<Arc<Vec<Arc<CatalogItem>>>>,
+        RegistrationSite::new(file!(), line!()),
+    );
+    let simulation = simulate(
+        vec![runtime(CatalogSeed { marker: 7 })],
+        &[
+            Function::Runtime(Box::leak(Box::new(request))),
+            Function::Runtime(Box::leak(Box::new(generator))),
+            Function::Pure(CatalogItem::REGISTERED_INTO_ITEM_ARGUMENT),
+            ItemDetailsRequest::REGISTERED_EXECUTABLE_REQUEST,
+            Function::Arbitrary(ItemDetails::REGISTERED_ARBITRARY),
+        ],
+        32,
+        128,
+    );
+    SHARED_RESPONSE_ATTEMPTS.with(|count| assert_eq!(count.get(), 2));
+    assert!(
+        has::<ItemDetails>(&simulation),
+        "{:?}",
+        simulation.diagnostics
+    );
+    assert!(simulation.converged);
 }
 
 #[test]
@@ -382,7 +534,7 @@ fn effectful_conversions_cannot_unlock_downstream_reads() {
             vec![runtime(CatalogItem { marker: 11 })],
             &[
                 Function::Runtime(Box::leak(Box::new(conversion))),
-                ItemDetailsRequest::REGISTERED_INTO_FUTURE,
+                ItemDetailsRequest::REGISTERED_EXECUTABLE_REQUEST,
                 Function::Arbitrary(ItemDetails::REGISTERED_ARBITRARY),
             ],
             32,
@@ -411,7 +563,7 @@ fn async_conversion_metadata_does_not_permit_executing_its_future() {
         vec![runtime(CatalogItem { marker: 11 })],
         &[
             Function::Runtime(Box::leak(Box::new(conversion))),
-            ItemDetailsRequest::REGISTERED_INTO_FUTURE,
+            ItemDetailsRequest::REGISTERED_EXECUTABLE_REQUEST,
             Function::Arbitrary(ItemDetails::REGISTERED_ARBITRARY),
         ],
         32,
@@ -526,9 +678,9 @@ fn arbitrary_response_containing_a_request_is_rejected_before_generation() {
     let simulation = simulate(
         vec![runtime(CatalogSeed { marker: 7 })],
         &[
-            CatalogRequestEnvelopeRequest::REGISTERED_INTO_FUTURE,
+            CatalogRequestEnvelopeRequest::REGISTERED_EXECUTABLE_REQUEST,
             Function::Arbitrary(CatalogRequestEnvelope::REGISTERED_ARBITRARY),
-            CatalogRequest::REGISTERED_INTO_FUTURE,
+            CatalogRequest::REGISTERED_EXECUTABLE_REQUEST,
         ],
         32,
         128,

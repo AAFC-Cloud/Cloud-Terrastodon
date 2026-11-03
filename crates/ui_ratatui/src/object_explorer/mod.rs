@@ -68,6 +68,8 @@ mod root_snapshot;
 mod selection;
 mod shape_batch;
 mod slot_id;
+#[cfg(test)]
+mod synthetic_executor;
 mod tab;
 mod tab_header_snapshot;
 mod tab_ui_state;

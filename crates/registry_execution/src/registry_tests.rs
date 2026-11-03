@@ -1,5 +1,23 @@
 use super::*;
 use arbitrary::Arbitrary;
+use cloud_terrastodon_auth_types::AuthenticationSelection;
+use cloud_terrastodon_auth_types::Authorization;
+use cloud_terrastodon_auth_types::AzureCredentialResource;
+use cloud_terrastodon_cache::ArtifactObservation;
+use cloud_terrastodon_cache::AuthPartition;
+use cloud_terrastodon_cache::CacheKey;
+use cloud_terrastodon_cache::CacheOperationOwner;
+use cloud_terrastodon_cache::CacheScope;
+use cloud_terrastodon_cache::ExecutorKind;
+use cloud_terrastodon_cache::NonEmptyString;
+use cloud_terrastodon_cache::WorkCache;
+use cloud_terrastodon_cache::WorkOutput;
+use cloud_terrastodon_cache::WorkReuse;
+use cloud_terrastodon_execution::AnonymousAuthenticationProvider;
+use cloud_terrastodon_execution::AuthenticationProvider;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_registry::ArbitraryBytes;
 use cloud_terrastodon_registry::FunctionKind;
 use cloud_terrastodon_registry::KNOWN_BORROWED_POINTER_KINDS;
@@ -12,8 +30,17 @@ use cloud_terrastodon_registry::shape_variants_for_thing;
 use facet::Facet;
 use std::any::Any;
 use std::borrow::Cow;
+use std::cell::Cell;
 use std::future::Future;
 use std::future::IntoFuture;
+use std::future::pending;
+use std::future::poll_fn;
+use std::sync::Arc;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
+use std::task::Poll;
+use std::time::Duration;
+use teamy_cancellation::CancellationError;
 use teamy_cancellation::CancellationToken;
 
 #[derive(Debug, Clone, Copy, Default, Facet)]
@@ -431,6 +458,7 @@ fn function_lookup_tracks_receivers() {
 async fn async_functions_invoke_erased_requests() -> eyre::Result<()> {
     CancellationToken::new()
         .cancellable_scope(|cancellation| async move {
+            let executor = test_executor(cancellation)?;
             let function = functions_from(DummyListRequest::SHAPE)
                 .into_iter()
                 .find(|f| f.kind == FunctionKind::AsyncInvoke)
@@ -439,7 +467,7 @@ async fn async_functions_invoke_erased_requests() -> eyre::Result<()> {
                 Box::new(DummyListRequest {
                     tenant: DummyTenant,
                 }),
-                &cancellation,
+                &executor,
             )? {
                 FunctionInvocation::Pending(future) => future.await?,
                 FunctionInvocation::Ready(_) => panic!("expected pending"),
@@ -455,13 +483,14 @@ async fn async_functions_invoke_erased_requests() -> eyre::Result<()> {
 async fn default_production_composes_registered_field_producers() -> eyre::Result<()> {
     CancellationToken::new()
         .cancellable_scope(|cancellation| async move {
+            let executor = test_executor(cancellation)?;
             assert!(shape_can_be_produced_from_defaults(DummyListRequest::SHAPE));
 
             let function = functions_from(DummyListRequest::SHAPE)
                 .into_iter()
                 .find(|function| function.kind == FunctionKind::AsyncInvoke)
                 .unwrap();
-            let output = invoke_with_default_input(function, &cancellation).await?;
+            let output = invoke_with_default_input(function, &executor).await?;
             let output = output.downcast::<Vec<DummyOutput>>().unwrap();
             assert_eq!(output[0].value, "ok");
             Ok(())
@@ -503,6 +532,7 @@ register_into_future!(CancellationProbeRequest => bool, effects = [Read]);
 async fn invocation_binds_the_callers_token_instead_of_reflected_input_state() -> eyre::Result<()> {
     CancellationToken::new()
         .cancellable_scope(|invocation_token| async move {
+            let executor = test_executor(invocation_token)?;
             let input_token = CancellationScope::unbound();
             input_token.request_cancel("stale input cancellation");
 
@@ -514,7 +544,7 @@ async fn invocation_binds_the_callers_token_instead_of_reflected_input_state() -
                 Box::new(CancellationProbeRequest {
                     stop_signal: input_token,
                 }),
-                &invocation_token,
+                &executor,
             )?;
             let FunctionInvocation::Pending(future) = invocation else {
                 panic!("expected async probe")
@@ -523,4 +553,293 @@ async fn invocation_binds_the_callers_token_instead_of_reflected_input_state() -
             Ok(())
         })
         .await
+}
+
+fn test_executor(scope: CancellationScope) -> eyre::Result<CloudTerrastodonExecutor> {
+    Ok(CloudTerrastodonExecutor::new(
+        WorkCache::temporary()?,
+        Arc::new(AnonymousAuthenticationProvider),
+        scope,
+    ))
+}
+
+#[derive(Default)]
+struct ProbeAuthentication {
+    acquisitions: AtomicUsize,
+}
+
+impl AuthenticationProvider for ProbeAuthentication {
+    fn admit(&self, selection: &AuthenticationSelection) -> eyre::Result<AuthPartition> {
+        eyre::ensure!(
+            matches!(selection, AuthenticationSelection::Anonymous),
+            "the synthetic provider only admits local work"
+        );
+        AuthPartition::new("synthetic-registry-provider")
+    }
+
+    fn authorization<'a>(
+        &'a self,
+        selection: &'a AuthenticationSelection,
+        _resource: AzureCredentialResource,
+        _executor: &'a CloudTerrastodonExecutor,
+    ) -> ExecutionFuture<'a, Authorization> {
+        Box::pin(async move {
+            self.admit(selection)?;
+            self.acquisitions.fetch_add(1, Ordering::SeqCst);
+            Ok(Authorization::Anonymous)
+        })
+    }
+}
+
+#[derive(Facet)]
+struct CachedRequest {
+    value: String,
+}
+
+impl Default for CachedRequest {
+    fn default() -> Self {
+        Self {
+            value: "synthetic-default-value".to_owned(),
+        }
+    }
+}
+
+impl ExecutableRequest for CachedRequest {
+    type Output = Arc<DummyOutput>;
+
+    fn run<'a>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>
+    where
+        Self: 'a,
+        Self::Output: 'a,
+    {
+        Box::pin(async move {
+            executor
+                .cached_work(
+                    ExecutorKind::InProcess,
+                    CacheKey {
+                        scope: CacheScope::try_from_components(["synthetic", "registry-value"])?,
+                        valid_for: Duration::from_secs(60),
+                    },
+                    CacheOperationOwner::of::<Self>(),
+                    &AuthenticationSelection::Anonymous,
+                    NonEmptyString::new(self.value.clone())?,
+                    WorkReuse::ReusableRead,
+                    move |child| async move {
+                        child
+                            .authorization(
+                                &AuthenticationSelection::Anonymous,
+                                AzureCredentialResource::AzureResourceManager,
+                            )
+                            .await?;
+                        Ok(WorkOutput::new(
+                            DummyOutput { value: self.value },
+                            ArtifactObservation::now(),
+                        ))
+                    },
+                )?
+                .await
+        })
+    }
+}
+
+cloud_terrastodon_registry::register_thing!(CachedRequest);
+cloud_terrastodon_registry::register_thing!(Arc<DummyOutput>);
+register_executable_request!(CachedRequest => Arc<DummyOutput>, effects = [Read]);
+
+#[tokio::test]
+async fn executable_registration_uses_bound_authentication_and_shares_cached_output()
+-> eyre::Result<()> {
+    CancellationToken::new()
+        .with_async_scope(|scope| async move {
+            let provider = Arc::new(ProbeAuthentication::default());
+            let executor =
+                CloudTerrastodonExecutor::new(WorkCache::temporary()?, provider.clone(), scope);
+            let direct = executor
+                .execute(CachedRequest {
+                    value: "shared".into(),
+                })
+                .await?;
+            let function = CachedRequest::REGISTERED_EXECUTABLE_REQUEST;
+            assert_eq!(
+                known_functions()
+                    .iter()
+                    .filter(|entry| *entry == function)
+                    .count(),
+                1
+            );
+            let FunctionInvocation::Pending(invocation) = function.invoke_value_boxed(
+                Box::new(CachedRequest {
+                    value: "shared".into(),
+                }),
+                &executor,
+            )?
+            else {
+                panic!("executable requests must produce pending invocations");
+            };
+            let erased = invocation.await?.downcast::<Arc<DummyOutput>>().unwrap();
+            assert!(Arc::ptr_eq(&direct, &erased));
+            assert_eq!(provider.acquisitions.load(Ordering::SeqCst), 1);
+
+            let FunctionInvocation::Pending(wrong_input) =
+                function.invoke_value_boxed(Box::new(DummyTenant), &executor)?
+            else {
+                panic!("executable requests must produce pending invocations");
+            };
+            let error = wrong_input.await.unwrap_err();
+            assert!(
+                error
+                    .to_string()
+                    .contains(std::any::type_name::<CachedRequest>())
+            );
+            Ok(())
+        })
+        .await
+}
+
+#[tokio::test]
+async fn default_production_executes_new_requests_with_the_callers_shared_resources()
+-> eyre::Result<()> {
+    CancellationToken::new()
+        .with_async_scope(|scope| async move {
+            let provider = Arc::new(ProbeAuthentication::default());
+            let executor =
+                CloudTerrastodonExecutor::new(WorkCache::temporary()?, provider.clone(), scope);
+            assert!(default_production_plan(CachedRequest::SHAPE).is_some());
+            assert_eq!(provider.acquisitions.load(Ordering::SeqCst), 0);
+
+            let produced =
+                invoke_with_default_input(CachedRequest::REGISTERED_EXECUTABLE_REQUEST, &executor)
+                    .await?
+                    .downcast::<Arc<DummyOutput>>()
+                    .unwrap();
+            assert_eq!(produced.value, CachedRequest::default().value);
+            assert_eq!(provider.acquisitions.load(Ordering::SeqCst), 1);
+
+            let direct = executor.execute(CachedRequest::default()).await?;
+            assert!(Arc::ptr_eq(&produced, &direct));
+            assert_eq!(provider.acquisitions.load(Ordering::SeqCst), 1);
+            Ok(())
+        })
+        .await
+}
+
+#[derive(Facet)]
+struct NonSyncOutput {
+    #[facet(opaque)]
+    value: Cell<u32>,
+}
+
+#[derive(Facet)]
+struct NonSyncRequest;
+
+impl ExecutableRequest for NonSyncRequest {
+    type Output = NonSyncOutput;
+
+    fn run<'a>(self, _executor: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>
+    where
+        Self: 'a,
+        Self::Output: 'a,
+    {
+        Box::pin(async {
+            Ok(NonSyncOutput {
+                value: Cell::new(7),
+            })
+        })
+    }
+}
+
+cloud_terrastodon_registry::register_thing!(NonSyncRequest);
+cloud_terrastodon_registry::register_thing!(NonSyncOutput);
+register_executable_request!(NonSyncRequest => NonSyncOutput, effects = [Read]);
+
+#[tokio::test]
+async fn executable_registration_returns_owned_non_sync_values() -> eyre::Result<()> {
+    CancellationToken::new()
+        .with_async_scope(|scope| async move {
+            let executor = test_executor(scope)?;
+            let FunctionInvocation::Pending(invocation) =
+                NonSyncRequest::REGISTERED_EXECUTABLE_REQUEST
+                    .invoke_value_boxed(Box::new(NonSyncRequest), &executor)?
+            else {
+                panic!("executable requests must produce pending invocations");
+            };
+            let output = invocation.await?.downcast::<NonSyncOutput>().unwrap();
+            output.value.set(output.value.get() + 1);
+            assert_eq!(output.value.get(), 8);
+            Ok(())
+        })
+        .await
+}
+
+#[derive(Facet)]
+struct PendingRequest;
+
+impl ExecutableRequest for PendingRequest {
+    type Output = ();
+
+    fn run<'a>(self, _executor: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>
+    where
+        Self: 'a,
+        Self::Output: 'a,
+    {
+        Box::pin(pending())
+    }
+}
+
+register_executable_request!(PendingRequest => (), effects = [Read]);
+
+#[derive(Facet)]
+struct PendingLegacyRequest;
+
+impl IntoFuture for PendingLegacyRequest {
+    type Output = eyre::Result<()>;
+    type IntoFuture = std::future::Pending<Self::Output>;
+
+    fn into_future(self) -> Self::IntoFuture {
+        pending()
+    }
+}
+
+register_into_future!(PendingLegacyRequest => (), effects = [Read]);
+
+#[tokio::test]
+async fn pending_new_and_legacy_invocations_obey_the_supplied_executor_scope() -> eyre::Result<()> {
+    for (function, input) in [
+        (
+            PendingRequest::REGISTERED_EXECUTABLE_REQUEST,
+            Box::new(PendingRequest) as Box<dyn Any + Send>,
+        ),
+        (
+            PendingLegacyRequest::REGISTERED_INTO_FUTURE,
+            Box::new(PendingLegacyRequest) as Box<dyn Any + Send>,
+        ),
+    ] {
+        CancellationToken::new()
+            .with_async_scope(|scope| async move {
+                let executor = test_executor(scope)?;
+                let FunctionInvocation::Pending(mut invocation) =
+                    function.invoke_value_boxed(input, &executor)?
+                else {
+                    panic!("asynchronous registrations must produce pending invocations");
+                };
+                poll_fn(|context| {
+                    assert!(invocation.as_mut().poll(context).is_pending());
+                    Poll::Ready(())
+                })
+                .await;
+                executor
+                    .cancellation()
+                    .request_cancel("synthetic registry owner cancelled");
+                let error = tokio::time::timeout(Duration::from_secs(5), invocation)
+                    .await?
+                    .unwrap_err();
+                assert_eq!(
+                    error.downcast_ref::<CancellationError>().unwrap().reason,
+                    "synthetic registry owner cancelled"
+                );
+                Ok::<_, eyre::Report>(())
+            })
+            .await?;
+    }
+    Ok(())
 }

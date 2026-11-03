@@ -8,6 +8,7 @@ use crate::object_explorer::ExplorerEngine;
 #[cfg(test)]
 use crate::object_explorer::TokioInvocationHost;
 use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_registry_execution::InvocationFuture;
 use cloud_terrastodon_user_input::TerminalBackend;
 use cloud_terrastodon_user_input::TerminalControl;
@@ -26,7 +27,7 @@ const COMMAND_CAPACITY: usize = 256;
 
 pub(crate) async fn run_object_browser(
     excalidraw: Option<PathBuf>,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
     let coordinator = match TerminalCoordinator::try_current() {
         Some(coordinator) => coordinator,
@@ -34,14 +35,14 @@ pub(crate) async fn run_object_browser(
     };
     let scoped_coordinator = coordinator.clone();
     coordinator
-        .scope(async move { run_with_terminal(scoped_coordinator, excalidraw, cancellation).await })
+        .scope(async move { run_with_terminal(scoped_coordinator, excalidraw, executor).await })
         .await
 }
 
 async fn run_with_terminal(
     coordinator: TerminalCoordinator,
     excalidraw: Option<PathBuf>,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
     tracing::info!("Starting arena-backed object browser");
     let logs = try_current_picker_log_buffer()
@@ -66,7 +67,7 @@ async fn run_with_terminal(
         &mut guard,
         &coordinator,
         excalidraw,
-        cancellation,
+        executor,
     )
     .await;
     let restore_result = terminal.close().inspect_err(|error| {
@@ -89,10 +90,10 @@ async fn run_engine_and_ui(
     guard: &mut TerminalGuard,
     coordinator: &TerminalCoordinator,
     excalidraw: Option<PathBuf>,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
-    let (_shutdown, run) = cancellation.with_async_child_scope(move |cancellation| async move {
-        let app_cancellation = cancellation.clone();
+    let (_shutdown, run) = executor.with_async_child_scope(move |executor| async move {
+        let app_cancellation = executor.cancellation().clone();
         let (context, inbox) = ArenaQueryContext::channel(COMMAND_CAPACITY);
         let shutdown_handle = context.engine_handle();
         let app_context = context.clone();
@@ -101,7 +102,7 @@ async fn run_engine_and_ui(
         drop(context);
 
         let engine =
-            ExplorerEngine::empty_with_tokio_invocation_host(attach_invocation_contexts, &cancellation);
+            ExplorerEngine::empty_with_tokio_invocation_host(attach_invocation_contexts, &executor);
         let engine_future = engine.run(inbox).with_arena_query_context(engine_context);
         let app_future = async {
             let mut app = ObjectBrowserApp::bootstrap(app_context.clone()).await?;
@@ -123,7 +124,7 @@ async fn run_engine_and_ui(
                 // Let the UI close its render jobs and nested pickers even when
                 // the engine has failed. Dropping this future would skip that
                 // owned shutdown and could strand terminal ownership.
-                cancellation.request_cancel("explorer engine stopped");
+                executor.cancellation().request_cancel("explorer engine stopped");
                 let cleanup = app_future.as_mut().await;
                 if let Err(cleanup_error) = cleanup {
                     tracing::warn!(%cleanup_error, "Object browser cleanup after engine failure failed");
@@ -132,7 +133,7 @@ async fn run_engine_and_ui(
             },
         };
         drop(app_future);
-        cancellation.request_cancel("object browser closed");
+        executor.cancellation().request_cancel("object browser closed");
         // Restore normal console input/output before waiting so cancellation
         // acknowledgments remain visible and Ctrl-C can still force an exit.
         let restore_result = terminal.close().inspect_err(|error| {
@@ -277,7 +278,7 @@ async fn finish_ui_cleanup(
     }
 }
 
-fn attach_invocation_contexts(future: InvocationFuture) -> InvocationFuture {
+fn attach_invocation_contexts(future: InvocationFuture<'static>) -> InvocationFuture<'static> {
     let future = match TerminalCoordinator::try_current() {
         Some(coordinator) => Box::pin(future.with_terminal_coordinator(coordinator)),
         None => future,

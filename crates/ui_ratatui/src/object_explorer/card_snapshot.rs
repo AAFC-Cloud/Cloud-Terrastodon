@@ -545,8 +545,9 @@ mod tests {
 
     #[test]
     fn selected_catalog_functions_display_signatures_without_exposing_metadata_pointers() {
-        let selected =
-            RegisteredFunction::from_function(DiscoveryPlanBuildRequest::REGISTERED_INTO_FUTURE);
+        let selected = RegisteredFunction::from_function(
+            DiscoveryPlanBuildRequest::REGISTERED_EXECUTABLE_REQUEST,
+        );
         let signature = describe_function(selected.function().descriptor());
         let mut arena = Arena::default();
         let root = arena.insert_ready(runtime(vec![selected])).unwrap();

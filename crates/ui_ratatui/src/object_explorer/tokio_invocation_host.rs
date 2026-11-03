@@ -4,6 +4,7 @@ use super::invocation_host::InvocationId;
 use cloud_terrastodon_command::CancellationReportExt;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CancellationToken;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_registry_execution::InvocationFuture;
 use std::any::Any;
 use std::collections::BTreeMap;
@@ -22,9 +23,11 @@ use tokio::task::JoinHandle;
 /// The context attachment function must wrap its input without detaching it or
 /// transferring its ownership anywhere except the returned future.
 pub(crate) struct TokioInvocationHost {
-    cancellation: Option<CancellationScope>,
-    attach: fn(InvocationFuture) -> InvocationFuture,
+    executor: CloudTerrastodonExecutor,
+    attach: fn(InvocationFuture<'static>) -> InvocationFuture<'static>,
     jobs: BTreeMap<InvocationId, InvocationJob>,
+    #[cfg(test)]
+    independent_test_scopes: bool,
 }
 
 struct InvocationJob {
@@ -37,13 +40,13 @@ struct InvocationJob {
 /// All borrow-carrying ownership stays here, never in a task's return value.
 /// User polling, attachment, formatting, and destruction run while locked.
 struct JobState {
-    future: Option<InvocationFuture>,
+    future: Option<InvocationFuture<'static>>,
     outcome: Option<InvocationHostPoll>,
 }
 
 impl InvocationJob {
     fn new(
-        future: InvocationFuture,
+        future: InvocationFuture<'static>,
         cancellation: &CancellationToken,
         scope: Arc<Mutex<Option<CancellationScope>>>,
     ) -> Self {
@@ -110,7 +113,7 @@ fn dispose<T>(value: T) -> Option<String> {
 }
 
 impl JobState {
-    fn attach(&mut self, attach: fn(InvocationFuture) -> InvocationFuture) {
+    fn attach(&mut self, attach: fn(InvocationFuture<'static>) -> InvocationFuture<'static>) {
         let Some(future) = self.future.take() else {
             self.fail("invocation context attachment has no future".to_owned());
             return;
@@ -190,27 +193,64 @@ impl JobState {
 }
 
 impl TokioInvocationHost {
-    pub(crate) fn new(attach: fn(InvocationFuture) -> InvocationFuture) -> Self {
+    #[cfg(test)]
+    pub(crate) fn new(attach: fn(InvocationFuture<'static>) -> InvocationFuture<'static>) -> Self {
         Self {
-            cancellation: None,
+            executor: super::synthetic_executor::synthetic_executor(&CancellationScope::unbound()),
             attach,
             jobs: BTreeMap::new(),
+            independent_test_scopes: true,
         }
     }
 
+    #[cfg(test)]
     pub(crate) fn with_cancellation(
-        attach: fn(InvocationFuture) -> InvocationFuture,
+        attach: fn(InvocationFuture<'static>) -> InvocationFuture<'static>,
         cancellation: &CancellationScope,
     ) -> Self {
+        Self::with_executor(
+            attach,
+            &super::synthetic_executor::synthetic_executor(cancellation),
+        )
+    }
+
+    pub(crate) fn with_executor(
+        attach: fn(InvocationFuture<'static>) -> InvocationFuture<'static>,
+        executor: &CloudTerrastodonExecutor,
+    ) -> Self {
         Self {
-            cancellation: Some(cancellation.clone()),
+            executor: executor.clone(),
             attach,
             jobs: BTreeMap::new(),
+            #[cfg(test)]
+            independent_test_scopes: false,
         }
     }
 
     pub(crate) fn pending_count(&self) -> usize {
         self.jobs.len()
+    }
+
+    fn scoped_future(
+        &self,
+        factory: impl FnOnce(CloudTerrastodonExecutor) -> InvocationFuture<'static> + Send + 'static,
+    ) -> (CancellationToken, InvocationFuture<'static>) {
+        #[cfg(test)]
+        if self.independent_test_scopes {
+            use cloud_terrastodon_execution::AnonymousAuthenticationProvider;
+            let cancellation = CancellationToken::new();
+            let cache = self.executor.cache().unwrap().clone();
+            let future = cancellation.cancellable_scope(move |scope| {
+                factory(CloudTerrastodonExecutor::new(
+                    cache,
+                    Arc::new(AnonymousAuthenticationProvider),
+                    scope,
+                ))
+            });
+            return (cancellation, Box::pin(future));
+        }
+        let (cancellation, future) = self.executor.cancellable_child_scope(factory);
+        (cancellation, Box::pin(future))
     }
 
     #[cfg(test)]
@@ -225,35 +265,28 @@ impl TokioInvocationHost {
 }
 
 impl InvocationHost for TokioInvocationHost {
-    fn start(&mut self, id: InvocationId, future: InvocationFuture) {
+    fn executor(&self) -> &CloudTerrastodonExecutor {
+        &self.executor
+    }
+
+    fn start(&mut self, id: InvocationId, future: InvocationFuture<'static>) {
         self.start_scoped(id, Box::new(move |_| future));
     }
 
     fn start_scoped(
         &mut self,
         id: InvocationId,
-        factory: Box<dyn FnOnce(CancellationScope) -> InvocationFuture + Send>,
+        factory: Box<dyn FnOnce(CloudTerrastodonExecutor) -> InvocationFuture<'static> + Send>,
     ) {
         let scope = Arc::new(Mutex::new(None));
         let admitted_scope = Arc::clone(&scope);
-        let factory = move |scope: CancellationScope| {
+        let factory = move |executor: CloudTerrastodonExecutor| {
             *admitted_scope
                 .lock()
-                .unwrap_or_else(|error| error.into_inner()) = Some(scope.clone());
-            factory(scope)
+                .unwrap_or_else(|error| error.into_inner()) = Some(executor.cancellation().clone());
+            factory(executor)
         };
-        let (cancellation, future): (CancellationToken, InvocationFuture) = match &self.cancellation
-        {
-            Some(parent) => {
-                let (cancellation, future) = parent.cancellable_child_scope(factory);
-                (cancellation, Box::pin(future))
-            }
-            None => {
-                let cancellation = CancellationToken::new();
-                let future = Box::pin(cancellation.cancellable_scope(factory));
-                (cancellation, future)
-            }
-        };
+        let (cancellation, future) = self.scoped_future(factory);
         let mut job = InvocationJob::new(future, &cancellation, scope);
 
         assert!(
@@ -362,11 +395,11 @@ mod tests {
         (DropFlag(observed.clone()), observed)
     }
 
-    fn attach_nothing(future: InvocationFuture) -> InvocationFuture {
+    fn attach_nothing(future: InvocationFuture<'static>) -> InvocationFuture<'static> {
         future
     }
 
-    fn held_future(value: DropFlag) -> InvocationFuture {
+    fn held_future(value: DropFlag) -> InvocationFuture<'static> {
         Box::pin(async move {
             let _value = value;
             std::future::pending().await
@@ -382,13 +415,17 @@ mod tests {
         let id = InvocationId::new(91);
         host.start_scoped(
             id,
-            Box::new(move |scope| {
-                Box::pin(scope.deferred("recording completed work", |_| async move {
-                    let _value = value;
-                    let _ = entered.send(());
-                    finished.await?;
-                    Ok(Box::new(String::from("completed outcome")) as Box<dyn Any + Send>)
-                }))
+            Box::new(move |executor| {
+                Box::pin(async move {
+                    executor
+                        .deferred("recording completed work", |_| async move {
+                            let _value = value;
+                            let _ = entered.send(());
+                            finished.await?;
+                            Ok(Box::new(String::from("completed outcome")) as Box<dyn Any + Send>)
+                        })
+                        .await
+                })
             }),
         );
         tokio::time::timeout(Duration::from_secs(2), entry)
@@ -432,14 +469,16 @@ mod tests {
                 let independent_id = InvocationId::new(93);
                 host.start_scoped(
                     protected_id,
-                    Box::new(move |scope| {
-                        Box::pin(
-                            scope.deferred("saving an operation outcome", |_| async move {
-                                let _ = entered.send(());
-                                finished.await?;
-                                Ok(Box::new(42_u8) as Box<dyn Any + Send>)
-                            }),
-                        )
+                    Box::new(move |executor| {
+                        Box::pin(async move {
+                            executor
+                                .deferred("saving an operation outcome", |_| async move {
+                                    let _ = entered.send(());
+                                    finished.await?;
+                                    Ok(Box::new(42_u8) as Box<dyn Any + Send>)
+                                })
+                                .await
+                        })
                     }),
                 );
                 host.start(independent_id, Box::pin(std::future::pending()));
@@ -713,7 +752,7 @@ mod tests {
         assert!(matches!(host.poll(id), InvocationHostPoll::Failed(_)));
     }
 
-    fn attach_panics_with_future(future: InvocationFuture) -> InvocationFuture {
+    fn attach_panics_with_future(future: InvocationFuture<'static>) -> InvocationFuture<'static> {
         std::panic::panic_any(future);
     }
 

@@ -62,7 +62,8 @@ pub fn entrypoint(
             if matches!(cli.command, Some(CloudTerrastodonCommand::Dump(_))) {
                 cli.global_args.auth_source = requested_auth_source;
             }
-            cli.invoke(&context.cancellation, &context.auth).await
+            cli.invoke(&context.cancellation, &context.auth, &context.executor())
+                .await
         })
 }
 

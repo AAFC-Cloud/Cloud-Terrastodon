@@ -10,6 +10,7 @@ pub mod output {
 use crate::menu::menu_loop;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 pub use command::*;
 pub use global_args::GlobalArgs;
 
@@ -45,14 +46,20 @@ impl Cli {
         self,
         cancellation: &CancellationScope,
         auth_context: &AuthContext,
+        executor: &CloudTerrastodonExecutor,
     ) -> eyre::Result<()> {
         let requested_format = self.global_args.output_format;
         // Keep command and interactive-menu futures out of this outer future's
         // inline state; nested debug poll frames otherwise exhaust small stacks.
         let output = match self.command {
             Some(cmd) => {
-                Box::pin(cmd.invoke(cancellation, auth_context, self.global_args.auth_source))
-                    .await?
+                Box::pin(cmd.invoke(
+                    cancellation,
+                    auth_context,
+                    self.global_args.auth_source,
+                    executor,
+                ))
+                .await?
             }
             None => {
                 Box::pin(menu_loop(auth_context, cancellation)).await?;
@@ -165,11 +172,19 @@ mod tests {
                     .build()
                     .unwrap();
                 let error = runtime
-                    .block_on(Box::pin(
-                        cancellation_token.with_async_scope(|cancellation| async move {
-                            cli.invoke(&cancellation, &auth_context).await
-                        }),
-                    ))
+                    .block_on(Box::pin(cancellation_token.with_async_scope(
+                        |cancellation| async move {
+                            let root = tempfile::tempdir()?;
+                            let executor = CloudTerrastodonExecutor::new(
+                                cloud_terrastodon_cache::WorkCache::new(root.path())?,
+                                std::sync::Arc::new(
+                                    cloud_terrastodon_execution::AnonymousAuthenticationProvider,
+                                ),
+                                cancellation.clone(),
+                            );
+                            cli.invoke(&cancellation, &auth_context, &executor).await
+                        },
+                    )))
                     .expect_err("placeholder authentication should fail locally");
                 assert!(error.chain().any(|cause| {
                     cause

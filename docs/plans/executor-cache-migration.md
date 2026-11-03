@@ -14,11 +14,13 @@ U73's response-field requiredness correction is complete across that slice.
 U74 records the completed work in the local checkpoint titled
 `Split auth runtime and migrate Azure operations to ARM REST`.
 U75's task 3.2 is complete: the scoped executor, injected authentication provider,
-and minimal application binding passed offline checks. Registry integration is
-next in task 3.3; production Command/REST cache integration remains phase 4.
+and minimal application binding passed offline checks. U79's task 3.3 is complete:
+registry invocation, offline discovery, and direct UI callers use the explicit
+executor. Task 4.1's production Command integration is next; REST follows in 4.2.
 U78 authorizes the local checkpoint titled
 `Add scoped executor with shared cache and injected authentication`, including
 U76's execution-mode names and U77's startup diagnostics.
+That checkpoint is `3478e3bb`; U79 begins from its clean working tree.
 The registry checkpoint is `09d8bb11`.
 
 **Primary implementation root:** Repository root (`.`); no branch change prescribed.
@@ -28,7 +30,8 @@ The registry checkpoint is `09d8bb11`.
 **Source baseline:** `26e14bcc`; tracked files were initially clean. Pre-existing
 untracked notes are preserved.
 
-**Intent audit:** Passed 2026-11-02 against the original design discussion,
+**Intent audit:** Updated 2026-11-03 using the preserved ledger and available user
+instructions. The original audit covered the design discussion,
 subsequent corrections, plan request, three planning-question replies, and the
 latest review corrections about production data, validation, and key collisions,
 authorization to proceed with implementation, the full-cutover correction, and
@@ -58,6 +61,8 @@ U77 requires stderr diagnostics for hook-setup errors previously discarded by
 the extracted app startup helper.
 U78 requests committing the completed changes and identifying the next
 implementation phase; it does not start task 3.3 or authorize pushing.
+U79 subsequently authorizes implementing task 3.3 with synthetic/offline checks;
+its completion evidence is recorded below. Later transport tasks remain unstarted.
 
 **Planning method:** User-invoked `resumable-implementation-plans` skill.
 
@@ -167,6 +172,10 @@ panic-hook retention failures on stderr, preserving user staging and startup pol
 U78 authorizes committing the reviewed task 3.2 implementation and its U76/U77
 refinements locally, then describing task 3.3. Preserve the staged scope; no push,
 next-phase implementation, or live validation is implied by this checkpoint.
+U79 now authorizes task 3.3's registry invocation, discovery, and direct UI caller
+integration. Preserve independent job cancellation and G2's separately tagged
+legacy callback during the scheduled SDK migration. No commit, push, phase 4
+implementation, credential lookup, or production-data validation is implied.
 
 ## How to update this plan
 
@@ -554,6 +563,15 @@ changes since the recorded baseline before starting.
 
 ## Authoritative user guidance ledger
 
+**U79 intent audit (2026-11-03):** Extraction preserves the latest instruction to
+proceed after the task 3.2 checkpoint. Traceability maps it to task 3.3, G2's
+borrowed invocation ABI, offline discovery, and direct UI consumer integration.
+The adversarial pass retains separate job cancellation, shared resources, pure
+registry boundaries, explicit auth selection, and the scheduled legacy callback
+removal; it does not expand authorization to later adapters or live validation.
+Earlier design details use the existing ledger where intervening conversation
+has been compacted; no reread of unavailable material is claimed.
+
 The statements below preserve user direction. Recommendations elsewhere are not
 automatically confirmed decisions. Add new IDs for changes and mark supersession;
 do not silently rewrite earlier guidance.
@@ -638,6 +656,7 @@ do not silently rewrite earlier guidance.
 | U76 | Improve the execution variants' names, suggesting normal execution and a mode disabling caching and reentrance. | Name the type `ExecutionMode` with `Normal` and `NoWorkCacheOrAuthorizationReentry`; document exactly which capabilities are restricted without changing nested execution or sensitive token caching. | — |
 | U77 | Print hook-setup errors with `eprintln!` instead of silently discarding them. | Report eyre hook installation errors and describe an already-initialized panic-hook retention conflict; preserve nonfatal startup and fallible hook construction. | — |
 | U78 | Commit changes and identify the next implementation phase. | Commit the completed executor/provider/app slice and its reviewed refinements locally; identify task 3.3 and the following transport phase without starting them or pushing. | — |
+| U79 | Proceed with the next described implementation task. | Implement task 3.3's explicit registry invocation and offline discovery; update direct UI consumers while preserving shared resources and cancellation ownership. | — |
 
 U18 supersedes the earlier assistant suggestion to preserve an Azure CLI
 active-tenant selection. That suggestion was not user approval. U13 rejects the
@@ -736,6 +755,7 @@ not an implemented package; U61 selects `auth_types` paired with runtime `auth`.
 | U76 | Current authorization; 3.2 naming refinement | Execution-mode definition and all executor guards; focused execution tests and formatting |
 | U77 | Current authorization; 3.2 startup diagnostics refinement | Startup helper diagnostics, existing isolated early-error-report process test, and focused formatting |
 | U78 | Current authorization; 3.2 commit checkpoint; 3.3 next-step description | Reviewed staged scope and local checkpoint title; prior focused verification and final whitespace/status checks |
+| U79 | Current authorization; G2; 3.3 | 127 focused offline tests, workspace compilation, targeted Clippy, formatting, and 37-package normal/build boundary review passed; no commit or later-phase implementation |
 
 ## Purpose and scope
 
@@ -2442,7 +2462,7 @@ live authentication; U78 separately authorizes the local checkpoint below.
 
 The new [execution crate](../../crates/execution/src/lib.rs) contains
 `CloudTerrastodonExecutor`, `ExecutableRequest`, awaitable `RequestExecution`,
-`AuthenticationProvider`, and `DisabledAuthenticationProvider`. Both execute
+`AuthenticationProvider`, and `AnonymousAuthenticationProvider`. Both execute
 spellings bind requests through a linked child scope. The executor exposes
 cooperative/protected child helpers and adapts the existing explicit cache owner
 with admission before reuse and semantic child dependency tracking. Credential
@@ -2474,7 +2494,7 @@ second mutable scope/provider snapshot while preserving existing consumers.
 Startup constructs the cache handle inside the handler's bounded scope, using
 `AppDir::Commands.join("work")`. Construction validates that path without cache
 I/O; parsing does not construct the runtime resources. Without the `auth` feature,
-the executor receives the disabled provider. App's touched types now have their
+the executor receives the anonymous-only provider. App's touched types now have their
 own modules with the existing public exports retained.
 
 **Verification:** The following commands passed against the completed source:
@@ -2578,7 +2598,98 @@ spellings, shared handles across clones, child-scope cancellation, parent deferr
 rules, caller cancellation/waiter retry, and no auth access for local-only work.
 Request inspection/offline construction does not initialize runtime services.
 
-### [ ] 3.3 Add executor-aware registry invocation and discovery
+### [x] 3.3 Add executor-aware registry invocation and discovery
+
+**Execution tracks:** Registry ABI and registrations; default production and
+offline discovery; direct UI invocation consumers. The integration owner handles
+shared manifests, executor child cancellation, validation, and this living plan.
+These tracks share the explicit executor API and do not independently build or
+change dependencies. Source baseline: `3478e3bb`, clean before this slice.
+
+**Completed under U79 (2026-11-03):** `AsyncExecutionFn`, lifetime-bearing
+`InvocationFuture`/`FunctionInvocation`, and `register_executable_request!` bind
+data-only requests to a borrowed executor. The macro exposes a direct
+`REGISTERED_EXECUTABLE_REQUEST` handle and enforces nonempty effects. Ordinary
+erased outputs remain `Send` without requiring `Sync`; retained shared results
+keep the cache's stronger bounds. Default production uses the same executor.
+
+`DiscoveryPlanBuildRequest` now contains only editable planning data and runs
+through `ExecutableRequest`. Planning/simulation recognizes the new registration
+contract, requires explicit selection inputs, traverses shared pointer/list
+outputs, and retries empty collections behind shared pointers. Five legacy SDK
+metadata tests remain explicitly labeled, while new offline fixtures use
+serializable selections and `Arc<Vec<Arc<T>>>` responses. Request callbacks and
+planning-provider probes fail if offline discovery attempts execution/authentication.
+
+The entrypoint binds `AppContext::executor()` through Ratatui to the invocation
+host. Workers own an executor clone and create/await borrowed invocations inside
+that worker, preserving borrowed-value leases and shutdown ordering. The executor
+adds `cancellable_child_scope` and `with_async_child_scope`, explicitly enabling
+the pinned cancellation crate's `inheritance` feature. Independent cancellation
+does not cancel sibling jobs; cooperative UI shutdown retains its own signal.
+Only test hosts can synthesize disabled resources; production admission is an
+explicit host responsibility.
+
+G2's separately tagged legacy IntoFuture callback remains for the request
+families scheduled in phases 4–6. It receives an executor-owned child scope before
+binding a legacy cancellation field. New executable requests receive no such
+field injection. This is not a production Command/REST cache cutover and adds no
+default executor or compatibility re-export.
+
+**Recovery:** The first compile stopped on insufficient local disk space. The
+user ran `cargo clean`; the one interrupted test-file write was restored from
+its exact original source before applying the intended change. Validation then
+completed from the clean build directory. No production data or credential state
+was read.
+
+**Discovery admission boundary:** Offline planning/simulation requires explicit
+auth-selection and resource-scope inputs and excludes writes/solicitation. It
+does not acquire credentials, call provider admission, or prove that arbitrary
+tenant/organization values may be combined. Runtime discovery admission remains
+task 6.3; synthetic reachability is not evidence of live authorization.
+
+**Verification:** All 127 selected offline tests passed: execution contracts 13;
+pure registry 7; registry execution 55; Azure DevOps planning 7 and simulation 4;
+UI host/controller/production/lifetime/export checks 40; entrypoint small-stack
+dispatch 1. The controller deferral fixture now protects work inside the actual
+invoked request scope, retaining its assertions that source leases survive
+cancellation until required work completes. An externally opened host deferral
+would protect a sibling and does not establish that operation's completion duty.
+
+Commands used for the focused tests and checks:
+
+```powershell
+cargo test --offline --locked -p cloud_terrastodon_execution --test execution_contract_tests
+cargo test --offline -p cloud_terrastodon_registry -p cloud_terrastodon_registry_execution --lib
+cargo test --offline --locked -p cloud_terrastodon_azure_devops --test discovery_plan --test discovery_simulation
+$filters = @(
+    'object_explorer::invocation_host::tests',
+    'object_explorer::tokio_invocation_host::tests',
+    'object_explorer::invocation_controller::tests',
+    'object_explorer::production_controller::tests',
+    'object_explorer::explorer_engine::lifetime_tests',
+    'object_explorer::produce_dump_plan_excalidraw_tests',
+    'object_browser::event::tests::export_plan_field_can_use_an_explicitly_configured_plan_builder'
+)
+foreach ($filter in $filters) {
+    cargo test --offline --locked -p cloud_terrastodon_ui_ratatui --lib $filter
+    if ($LASTEXITCODE -ne 0) { throw "UI verification failed: $filter" }
+}
+cargo test --offline --locked -p cloud_terrastodon_entrypoint --lib cli::tests::build_folder_dispatch_reports_auth_error_on_a_small_stack -- --exact
+cargo check --offline --locked --workspace --all-targets
+cargo clippy --offline --locked -p cloud_terrastodon_execution -p cloud_terrastodon_registry -p cloud_terrastodon_registry_execution -p cloud_terrastodon_azure_devops -p cloud_terrastodon_ui_ratatui -p cloud_terrastodon_entrypoint --all-targets -- -D warnings
+cargo +nightly fmt --all -- --check
+```
+
+The unlocked offline registry-test invocation updated only local package records
+in `Cargo.lock`; dependency versions/pins are unchanged. Workspace compilation
+includes both consumer examples. Metadata review confirms all 37 workspace
+packages form an acyclic normal/build graph, `registry_execution -> execution`
+exists, and `registry`, `auth_types`, `azure_types`, `cache`, and `execution`
+cannot reach runtime `auth`, `command`, `rest`, or `registry_execution`.
+The pure registry also cannot reach `execution`. Clippy and formatting passed;
+final whitespace/privacy checks passed. Existing user staging is preserved.
+No live compatibility, Linux test result, commit, push, or publication is claimed.
 
 **Work:** Bind `registry_execution` invocation metadata/macros, default production,
 discovery inputs/admission, and cancellation to G1's `execution` contract.
@@ -2591,13 +2702,6 @@ conversion/arbitrary pure operations, nonempty executable effects, Solicit
 exclusion for unattended discovery, and explicit auth/scope admission. Replace
 synthetic AuthContext request inputs with serializable selection data. Register
 shared output shapes and verify pointer/list traversal without live execution.
-
-```powershell
-cargo test --offline --locked -p cloud_terrastodon_registry --lib
-cargo test --offline --locked -p cloud_terrastodon_registry_execution --lib
-cargo test --offline --locked -p cloud_terrastodon_azure_devops --test discovery_plan
-cargo test --offline --locked -p cloud_terrastodon_azure_devops --test discovery_simulation
-```
 
 **Completion criteria:** Registered synthetic requests execute with explicit
 resources; offline planning never resolves credentials or invokes operations;
@@ -2884,7 +2988,7 @@ evidence and documentation. This item remains deferred when phases 1–7 complet
 | Graph principals, ARM RBAC, Azure DevOps projects | Explicit auth/scope; shared assembled results | Typed local composition/discovery tests and compile checks | Pending |
 | Azure CLI bearer, browser, workload identity | Explicit request tenant/source | Offline selection/command construction; no live credential tests | Pending |
 | PAT and local-only/disabled auth | PAT tenant-independent; local work credential-free | Selection/admission tests | Task 3.2's provider policy and no-auth app binding passed; production adapter integration remains phase 4 |
-| Registry, UI, discovery, CLI output | Explicit execution; offline planning preserved | Synthetic invocation/discovery and scoped UI/output checks | Pending |
+| Registry, UI, discovery, CLI output | Explicit execution; offline planning preserved | Synthetic invocation/discovery and scoped UI/output checks | Task 3.3's registry, shared-output discovery, UI lifecycle/export, and entrypoint dispatch checks passed; broader service/output consumer migration remains phase 6 |
 | App with auth and without auth; workspace examples | Supported feature boundaries; no production inputs | Both process-suite feature configurations, `--auth-source none` local handler with isolated storage, and consumer compile checks | Task 3.2's no-auth library and auth-enabled binding tests plus workspace compilation passed; later consumer/process acceptance remains task 6.2 |
 | Windows | Primary local validation platform | Existing linker/toolchain; local PowerShell fixture suites | Pending |
 | Linux | Preserve documented consumer support | Repeat relevant compilation/tests when environment available | Pending |
@@ -2892,7 +2996,7 @@ evidence and documentation. This item remains deferred when phases 1–7 complet
 
 ## Overall initial-migration completion criteria
 
-- [ ] Every active U01–U75 requirement has task evidence; G1–G6 are closed and
+- [ ] Every active U01–U79 requirement has task evidence; G1–G6 are closed and
   phases 1–7 complete. Phase 8 remains explicitly deferred.
 - [ ] Requests contain explicit operation/auth selection data and no execution
   resources; both execute spellings and registry invocation share one contract.

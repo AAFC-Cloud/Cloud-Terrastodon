@@ -122,8 +122,9 @@ mod tests {
 
     #[test]
     fn reflected_function_text_preserves_the_registered_executor_identity() -> eyre::Result<()> {
-        let function =
-            RegisteredFunction::from_function(DiscoveryPlanBuildRequest::REGISTERED_INTO_FUTURE);
+        let function = RegisteredFunction::from_function(
+            DiscoveryPlanBuildRequest::REGISTERED_EXECUTABLE_REQUEST,
+        );
         let value = RuntimeValue::from_text(RegisteredFunction::SHAPE, &function.to_string())?;
         assert_eq!(*value.peek().get::<RegisteredFunction>()?, function);
         assert!(

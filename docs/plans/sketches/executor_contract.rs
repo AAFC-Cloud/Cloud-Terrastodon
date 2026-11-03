@@ -36,14 +36,14 @@ trait AuthenticationProvider: Send + Sync {
     ) -> ExecutionFuture<'a, ()>;
 }
 
-struct DisabledAuthenticationProvider;
+struct AnonymousAuthenticationProvider;
 
-impl AuthenticationProvider for DisabledAuthenticationProvider {
+impl AuthenticationProvider for AnonymousAuthenticationProvider {
     fn admit(&self, selection: AuthSelection) -> Result<()> {
         match selection {
             AuthSelection::Anonymous => Ok(()),
             AuthSelection::SyntheticBearer { tenant } => {
-                eyre::bail!("authentication disabled for synthetic tenant {tenant}");
+                eyre::bail!("anonymous authentication cannot admit synthetic tenant {tenant}");
             }
         }
     }
@@ -75,7 +75,7 @@ impl CloudTerrastodonExecutor {
     fn new(cancellation: CancellationScope) -> Self {
         Self {
             cancellation,
-            authentication: Arc::new(DisabledAuthenticationProvider),
+            authentication: Arc::new(AnonymousAuthenticationProvider),
             shared_resource: Arc::new(()),
         }
     }

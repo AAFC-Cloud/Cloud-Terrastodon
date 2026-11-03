@@ -10,11 +10,15 @@ license.workspace = true
 keywords.workspace = true
 categories.workspace = true
 
+[features]
+# Opt-in instrumentation for downstream tests; not needed by applications.
+test-support = []
+
 [dependencies]
 cloud_terrastodon_auth_types.workspace = true
 cloud_terrastodon_cache.workspace = true
 eyre.workspace = true
-teamy-cancellation.workspace = true
+teamy-cancellation = { workspace = true, features = ["inheritance"] }
 tracing.workspace = true
 
 [dev-dependencies]

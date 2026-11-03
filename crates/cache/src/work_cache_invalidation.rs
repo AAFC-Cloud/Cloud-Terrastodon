@@ -74,11 +74,13 @@ impl WorkCache {
                     );
                     state.generations.advance(&target)?;
                 }
-                let root = self.root().to_path_buf();
+                // A dropped awaiter cannot remove a temporary root while its
+                // blocking worker still uses it.
+                let cache = self.clone();
                 let disk_target = target.clone();
                 let (_gate, invalidated) = gate
                     .run_blocking(move || {
-                        ArtifactDirectory::invalidate_selections(&root, &disk_target)
+                        ArtifactDirectory::invalidate_selections(cache.root(), &disk_target)
                     })
                     .await?;
                 invalidated

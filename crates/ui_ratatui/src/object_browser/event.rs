@@ -2690,7 +2690,7 @@ mod tests {
                 "plan",
                 cloud_terrastodon_registry::DiscoveryPlan::SHAPE,
             );
-            let choice = picker.rows().iter().find(|row| matches!(row.choice(), ValuePickerChoice::CreateProducer { function } if *function == DiscoveryPlanBuildRequest::REGISTERED_INTO_FUTURE)).unwrap().choice().clone();
+            let choice = picker.rows().iter().find(|row| matches!(row.choice(), ValuePickerChoice::CreateProducer { function } if *function == DiscoveryPlanBuildRequest::REGISTERED_EXECUTABLE_REQUEST)).unwrap().choice().clone();
             app.accept_value_picker_choice_data(export, 0, choice)
                 .await
                 .unwrap();
@@ -2732,7 +2732,7 @@ mod tests {
                 .controller
                 .invoke(
                     input,
-                    DiscoveryPlanBuildRequest::REGISTERED_INTO_FUTURE,
+                    DiscoveryPlanBuildRequest::REGISTERED_EXECUTABLE_REQUEST,
                     InvocationMode::Consume,
                 )
                 .await
@@ -2773,7 +2773,7 @@ mod tests {
                     export,
                     0,
                     ValuePickerChoice::CreateProducer {
-                        function: DiscoveryPlanBuildRequest::REGISTERED_INTO_FUTURE,
+                        function: DiscoveryPlanBuildRequest::REGISTERED_EXECUTABLE_REQUEST,
                     },
                 )
                 .await

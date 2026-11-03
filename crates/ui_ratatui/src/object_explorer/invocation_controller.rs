@@ -9,7 +9,6 @@ use super::invocation_plan::InvocationPlanId;
 use super::invocation_plan::PlannedInvocation;
 use super::slot_id::SlotId;
 use super::value_builder::BuilderStore;
-use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_registry::ArbitraryBytes;
 use cloud_terrastodon_registry::ProductionKind;
 use cloud_terrastodon_registry::ReceiverMode;
@@ -675,9 +674,10 @@ impl InvocationController {
             let invocation = invocation_id;
             host.start_scoped(
                 invocation,
-                Box::new(move |cancellation| {
+                Box::new(move |executor| {
                     Box::pin(async move {
-                        match function.invoke_value_boxed(boxed_input, &cancellation)? {
+                        let invocation = function.invoke_value_boxed(boxed_input, &executor)?;
+                        match invocation {
                             FunctionInvocation::Pending(future) => future.await,
                             FunctionInvocation::Ready(value) => Ok(value),
                         }
@@ -695,7 +695,6 @@ impl InvocationController {
             );
             return Ok(InvocationStart::Pending { invocation, output });
         }
-        let cancellation = CancellationScope::unbound();
         let invocation = guarded_user_operation("invocation dispatch", || {
             use eyre::WrapErr;
 
@@ -703,14 +702,20 @@ impl InvocationController {
                 .runtime_into_boxed(runtime_input)
                 .wrap_err("could not convert invocation input")?;
             match function.receiver_mode {
-                ReceiverMode::ByValue => function.invoke_value_boxed(boxed_input, &cancellation),
-                ReceiverMode::ByRef => function
-                    .invoke_ref_boxed(boxed_input.as_ref())
-                    .map(FunctionInvocation::Ready),
+                ReceiverMode::ByValue => {
+                    match function.invoke_value_boxed(boxed_input, host.executor())? {
+                        FunctionInvocation::Ready(value) => Ok(value),
+                        FunctionInvocation::Pending(future) => {
+                            drop(future);
+                            eyre::bail!(
+                                "a synchronous registry operation returned a pending invocation"
+                            );
+                        }
+                    }
+                }
+                ReceiverMode::ByRef => function.invoke_ref_boxed(boxed_input.as_ref()),
                 ReceiverMode::ByMut => {
-                    let result = function
-                        .invoke_mut_boxed(boxed_input.as_mut())
-                        .map(FunctionInvocation::Ready);
+                    let result = function.invoke_mut_boxed(boxed_input.as_mut());
                     if result.is_ok() && mode == InvocationMode::Retain {
                         let updated = input_thing
                             .runtime_from_boxed(boxed_input)
@@ -730,39 +735,19 @@ impl InvocationController {
                 return Ok(self.failed_start(arena, builders, borrow_graph, output, message));
             }
         };
-        match invocation {
-            FunctionInvocation::Ready(value) => {
-                match guarded_user_operation("could not store invocation output", || {
-                    (function.output_to_runtime)(value)
-                }) {
-                    Ok(value) => {
-                        guarded_user_operation("could not complete invocation output", || {
-                            builders
-                                .complete_pending(arena, borrow_graph, output, value)
-                                .map_err(Into::into)
-                        })
-                        .map_err(InvocationControllerError::new)?;
-                        Ok(InvocationStart::Ready { output })
-                    }
-                    Err(message) => {
-                        Ok(self.failed_start(arena, builders, borrow_graph, output, message))
-                    }
-                }
+        match guarded_user_operation("could not store invocation output", || {
+            (function.output_to_runtime)(invocation)
+        }) {
+            Ok(value) => {
+                guarded_user_operation("could not complete invocation output", || {
+                    builders
+                        .complete_pending(arena, borrow_graph, output, value)
+                        .map_err(Into::into)
+                })
+                .map_err(InvocationControllerError::new)?;
+                Ok(InvocationStart::Ready { output })
             }
-            FunctionInvocation::Pending(future) => {
-                let invocation = invocation_id;
-                host.start(invocation, future);
-                self.pending.insert(
-                    invocation,
-                    PendingInvocation {
-                        input,
-                        output,
-                        output_to_runtime: function.output_to_runtime,
-                        plan_step,
-                    },
-                );
-                Ok(InvocationStart::Pending { invocation, output })
-            }
+            Err(message) => Ok(self.failed_start(arena, builders, borrow_graph, output, message)),
         }
     }
 
@@ -866,7 +851,70 @@ mod tests {
         source: Cow<'a, BorrowSource>,
     }
 
-    fn invoke_test_request(input: Box<dyn Any + Send>) -> InvocationFuture {
+    #[derive(Clone, Debug, Facet)]
+    #[facet(opaque)]
+    struct BorrowCompletion {
+        entered: std::sync::Arc<tokio::sync::Notify>,
+        finish: std::sync::Arc<tokio::sync::Notify>,
+    }
+
+    #[derive(Clone, Debug, Facet)]
+    #[repr(C)]
+    struct DeferredBorrowRequest<'a> {
+        source: Cow<'a, BorrowSource>,
+        completion: BorrowCompletion,
+        #[facet(skip_serializing)]
+        cancellation: cloud_terrastodon_command::CancellationScope,
+    }
+
+    fn invoke_deferred_borrow_request(input: Box<dyn Any + Send>) -> InvocationFuture<'static> {
+        Box::pin(async move {
+            let request = input
+                .downcast::<DeferredBorrowRequest<'static>>()
+                .map_err(|_| eyre::eyre!("wrong deferred borrow request input"))?;
+            let cancellation = request.cancellation.clone();
+            let output = cancellation
+                .deferred(
+                    "finishing work that borrows an arena source",
+                    |_| async move {
+                        request.completion.entered.notify_one();
+                        request.completion.finish.notified().await;
+                        Ok::<_, eyre::Report>(
+                            Box::new(request.source.value.clone()) as Box<dyn Any + Send>
+                        )
+                    },
+                )
+                .await?;
+            cancellation.bail_if_cancelled()?;
+            Ok(output)
+        })
+    }
+
+    static DEFERRED_BORROW_THING: Thing = Thing::value(
+        <DeferredBorrowRequest<'static>>::SHAPE,
+        runtime_from_boxed::<DeferredBorrowRequest<'static>>,
+        runtime_into_boxed::<DeferredBorrowRequest<'static>>,
+        RegistrationSite::new(file!(), line!()),
+    );
+
+    static DEFERRED_BORROW_FUNCTION: RuntimeFunction = RuntimeFunction::async_value(
+        <DeferredBorrowRequest<'static>>::SHAPE,
+        String::SHAPE,
+        FunctionKind::AsyncInvoke,
+        "invoke",
+        FunctionTraitContract::Other("deferred borrowed operation"),
+        &[Effect::Read],
+        invoke_deferred_borrow_request,
+        runtime_from_boxed::<String>,
+        RegistrationSite::new(file!(), line!()),
+    )
+    .with_cancellation_binding(
+        cloud_terrastodon_registry_execution::bind_request_cancellation::<
+            DeferredBorrowRequest<'static>,
+        >,
+    );
+
+    fn invoke_test_request(input: Box<dyn Any + Send>) -> InvocationFuture<'static> {
         Box::pin(async move {
             let request = input
                 .downcast::<TestRequest>()
@@ -875,7 +923,7 @@ mod tests {
         })
     }
 
-    fn invoke_borrow_request(input: Box<dyn Any + Send>) -> InvocationFuture {
+    fn invoke_borrow_request(input: Box<dyn Any + Send>) -> InvocationFuture<'static> {
         Box::pin(async move {
             let request = input
                 .downcast::<BorrowRequest<'static>>()
@@ -884,7 +932,7 @@ mod tests {
         })
     }
 
-    fn hold_borrow_request(input: Box<dyn Any + Send>) -> InvocationFuture {
+    fn hold_borrow_request(input: Box<dyn Any + Send>) -> InvocationFuture<'static> {
         Box::pin(async move {
             let request = input
                 .downcast::<BorrowRequest<'static>>()
@@ -955,7 +1003,7 @@ mod tests {
         arena.slot(slot).expect("slot exists").state()
     }
 
-    fn attach_nothing(future: InvocationFuture) -> InvocationFuture {
+    fn attach_nothing(future: InvocationFuture<'static>) -> InvocationFuture<'static> {
         future
     }
 
@@ -996,6 +1044,10 @@ mod tests {
 
     #[tokio::test(flavor = "current_thread")]
     async fn deferred_cancellation_retains_pending_borrow_leases_until_the_future_is_destroyed() {
+        let completion = BorrowCompletion {
+            entered: std::sync::Arc::new(tokio::sync::Notify::new()),
+            finish: std::sync::Arc::new(tokio::sync::Notify::new()),
+        };
         let mut arena = Arena::default();
         let source = arena
             .insert_ready(runtime(BorrowSource {
@@ -1010,7 +1062,7 @@ mod tests {
                 &mut arena,
                 &mut borrows,
                 request,
-                ValueBuilder::new(<BorrowRequest<'static>>::SHAPE),
+                ValueBuilder::new(<DeferredBorrowRequest<'static>>::SHAPE),
             )
             .unwrap();
         builders
@@ -1022,6 +1074,15 @@ mod tests {
                 FieldBinding::BorrowFrom(ValueAddress::root(source)),
             )
             .unwrap();
+        builders
+            .set_field_and_finalize(
+                &mut arena,
+                &mut borrows,
+                request,
+                1,
+                FieldBinding::InlineOwned(runtime(completion.clone())),
+            )
+            .unwrap();
         let mut host = TokioInvocationHost::new(attach_nothing);
         let mut controller = InvocationController::default();
         let InvocationStart::Pending { invocation, output } = controller
@@ -1031,26 +1092,22 @@ mod tests {
                 &mut borrows,
                 &mut host,
                 request,
-                &BORROW_REQUEST_THING,
-                Function::Runtime(&BORROW_HELD_FUNCTION),
+                &DEFERRED_BORROW_THING,
+                Function::Runtime(&DEFERRED_BORROW_FUNCTION),
                 InvocationMode::Consume,
             )
             .unwrap()
         else {
             panic!("The held borrow must remain pending");
         };
-        tokio::task::yield_now().await;
-        let cancellation = host.operation_scope(invocation).unwrap();
-        let mut deferral = Box::pin(
-            cancellation.deferred("finishing work that borrows an arena source", |_| {
-                std::future::pending::<Result<(), eyre::Report>>()
-            }),
-        );
-        std::future::poll_fn(|context| {
-            assert!(deferral.as_mut().poll(context).is_pending());
-            std::task::Poll::Ready(())
-        })
-        .await;
+        // The request owns protection inside the registry's bound child scope;
+        // a deferral started on the host would be an unrelated sibling.
+        tokio::time::timeout(
+            std::time::Duration::from_secs(2),
+            completion.entered.notified(),
+        )
+        .await
+        .unwrap();
         let event = controller
             .cancel(
                 &mut arena,
@@ -1071,7 +1128,7 @@ mod tests {
                 .is_empty()
         );
 
-        drop(deferral);
+        completion.finish.notify_one();
         let events = tokio::time::timeout(std::time::Duration::from_secs(2), async {
             loop {
                 let events = controller.poll(&mut arena, &mut builders, &mut borrows, &mut host);
@@ -1440,7 +1497,7 @@ mod tests {
         Ok(Box::new(request.source))
     }
 
-    fn return_borrowed_source_async(input: Box<dyn Any + Send>) -> InvocationFuture {
+    fn return_borrowed_source_async(input: Box<dyn Any + Send>) -> InvocationFuture<'static> {
         Box::pin(async move { return_borrowed_source(input) })
     }
 
@@ -1587,7 +1644,7 @@ mod tests {
         Ok(input)
     }
 
-    fn guarded_return_async(input: Box<dyn Any + Send>) -> InvocationFuture {
+    fn guarded_return_async(input: Box<dyn Any + Send>) -> InvocationFuture<'static> {
         Box::pin(async move { Ok(input) })
     }
 

@@ -18,7 +18,9 @@ invocation. The runtime authentication crate is named `auth`, paired with
 `AuthSource` from the former `credentials` crate to `auth_types` and renamed the
 runtime to `auth`. Task 3.0 implemented the registry split. Task 3.2 implemented
 the executor/provider and application binding with offline verification recorded
-in the owning plan. Registry invocation integration remains task 3.3.
+in the owning plan. Task 3.3 implemented borrowed registry invocation, offline
+shared-output discovery, and direct UI integration; production transport and SDK
+request migration remain the subsequent phases.
 
 The concrete `CloudTerrastodonExecutor` belongs in the new
 `cloud_terrastodon_execution` crate. It owns capabilities through interfaces and
@@ -194,7 +196,7 @@ Each production type gets its own file. The target homes are:
 | `crates/azure_types/src/tenant_id.rs` | Existing `AzureTenantId`, its parsing, Facet representation, arbitrary generation, and pure registration; no duplicate tenant type |
 | `crates/auth_types/src/` | `auth_source.rs`, `azure_bearer_auth_source.rs`, `azure_credential_resource.rs`, `authentication_selection.rs`, `azure_devops_auth_selection.rs`, `authorization.rs` |
 | `crates/cache/src/` | `work_cache.rs`, `cache_scope.rs`, `cache_key.rs`, `executor_kind.rs`, `cache_operation_owner.rs`, `auth_partition.rs`, `cached_work_spec.rs`, and the coordination types selected in G5/G6 |
-| `crates/execution/src/` | `cloud_terrastodon_executor.rs`, `executable_request.rs`, `request_execution.rs`, `authentication_provider.rs`, `disabled_authentication_provider.rs`, and invocation-observation types |
+| `crates/execution/src/` | `cloud_terrastodon_executor.rs`, `executable_request.rs`, `request_execution.rs`, `authentication_provider.rs`, `anonymous_authentication_provider.rs`, and invocation-observation types |
 | `crates/auth/src/` | Runtime files renamed from `credentials`; `credential_authentication_provider.rs` and existing credential/session/token implementations |
 
 Task 3.1 renames `cloud_terrastodon_credentials`/`crates/credentials` to
@@ -289,6 +291,14 @@ executor snapshot competes with those fields. Startup selects the separate
 `commands/work` cache directory and performs lexical root validation without
 reading or creating it; parsing never constructs this runtime binding.
 
+`WorkCache::new(path)` owns the location only and never deletes it on drop.
+`WorkCache::from_tempdir(directory)` transfers a `TempDir` and its cleanup policy;
+`WorkCache::temporary()` creates a fresh directory with automatic cleanup. The
+shared cache state retains that guard through clones, artifact handles, and
+blocking artifact workers, then drops cached values before the guard. Copied
+paths do not extend ownership. Cleanup uses `TempDir`'s best-effort drop behavior.
+Tests can return an executor owning a temporary cache without a separate guard.
+
 The pinned cancellation API accepts factories of the form
 `FnOnce(CancellationScope) -> F`, where `F: IntoFuture<Output = Result<T, E>>`
 and `E: From<CancellationError>`. It does not impose `'static` callbacks or
@@ -311,8 +321,10 @@ independent caller signals established by their owners, or explicitly drop the
 initiating caller's future; they must not assume an ordinary child scope has an
 independent token. Pinned cancellation version 0.7 provides
 `cancellable_child_scope` and `with_async_child_scope` for independent child
-signals behind its `inheritance` feature. If that facility is adopted, enable
-the existing pinned feature explicitly. Root cancellation cancels all linked
+signals behind its `inheritance` feature. Task 3.3 exposes both through the
+executor for independently cancelled UI jobs and cooperative UI shutdown, enabling the pinned
+feature. The returned future owns its executor clone; resources, cache ancestry,
+and authorization restrictions remain inherited. Root cancellation cancels all linked
 callers and does not leave a waiter authorized to retry.
 
 Only APIs retaining shared decoded values impose `T: Send + Sync + 'static`.
@@ -543,9 +555,17 @@ storage behavior and the limits of offline validation.
 
 No identity partition includes raw tokens, assertions, refresh tokens, PATs,
 or secret-derived printable keys. A valid hit performs no token acquisition.
-The auth-disabled provider permits anonymous/local work and rejects requests
-requiring credentials before reuse. Local startup tests still need isolated
-storage: disabled authentication does not prevent reading an existing disk cache.
+`AnonymousAuthenticationProvider` permits anonymous/local work and rejects
+requests requiring credentials before reuse. Local startup tests still need
+isolated storage: anonymous authentication does not prevent reading an existing
+disk cache.
+
+The public `execution::UnreachableAuthenticationProvider` is a test sentinel
+behind the default-off `test-support` feature, enabled only through a
+dev-dependency. Its admission and authorization methods panic synchronously on
+every call, including anonymous selections, so offline tests detect unexpected
+authentication even when the caller would ignore an error or never poll the
+authorization future. It is excluded from normal builds.
 
 Credential infrastructure also declares sensitive-output retention before work
 starts. Token acquisition results stay in the provider's runtime token cache,

@@ -61,7 +61,9 @@ pub(crate) fn fabricate_response(
             FunctionExecutor::SyncMut(invoke) => invoke(input.as_mut()),
             FunctionExecutor::SyncRef(invoke) => invoke(input.as_ref()),
             FunctionExecutor::SyncValue(invoke) => invoke(input),
-            FunctionExecutor::AsyncValue(_) => unreachable!("filtered async constructor"),
+            FunctionExecutor::AsyncValue(_) | FunctionExecutor::AsyncExecution(_) => {
+                eyre::bail!("async response constructors cannot run during discovery");
+            }
         }
         .and_then(generator.output_to_runtime);
         cancellation.bail_if_cancelled()?;
@@ -130,7 +132,18 @@ fn contains_request_shape(
 }
 
 fn is_empty_collection(value: &RuntimeValue) -> bool {
-    let peek = value.peek();
+    let mut peek = value.peek();
+    let mut visited = Vec::new();
+    while let Ok(pointer) = peek.into_pointer() {
+        if visited.contains(&peek.shape()) {
+            return false;
+        }
+        visited.push(peek.shape());
+        let Some(inner) = pointer.borrow_inner() else {
+            return false;
+        };
+        peek = inner;
+    }
     if let Ok(list) = peek.into_list_like() {
         return list.is_empty();
     }

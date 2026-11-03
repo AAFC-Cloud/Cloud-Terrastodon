@@ -3,9 +3,9 @@ use cloud_terrastodon_auth::AuthContext;
 #[cfg(feature = "auth")]
 use cloud_terrastodon_auth::CredentialAuthenticationProvider;
 use cloud_terrastodon_cache::WorkCache;
-use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 #[cfg(not(feature = "auth"))]
-use cloud_terrastodon_execution::DisabledAuthenticationProvider;
+use cloud_terrastodon_execution::AnonymousAuthenticationProvider;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use std::sync::Arc;
 use teamy_cancellation::CancellationScope;
 
@@ -46,7 +46,7 @@ impl AppContext {
         #[cfg(feature = "auth")]
         let authentication = Arc::new(CredentialAuthenticationProvider::new(self.auth.clone()));
         #[cfg(not(feature = "auth"))]
-        let authentication = Arc::new(DisabledAuthenticationProvider);
+        let authentication = Arc::new(AnonymousAuthenticationProvider);
         CloudTerrastodonExecutor::new(
             self.cache.clone(),
             authentication,

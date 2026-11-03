@@ -405,8 +405,8 @@ mod tests {
     }
 
     fn attach_nothing(
-        future: cloud_terrastodon_registry_execution::InvocationFuture,
-    ) -> cloud_terrastodon_registry_execution::InvocationFuture {
+        future: cloud_terrastodon_registry_execution::InvocationFuture<'static>,
+    ) -> cloud_terrastodon_registry_execution::InvocationFuture<'static> {
         future
     }
 

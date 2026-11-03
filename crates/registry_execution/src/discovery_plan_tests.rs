@@ -1,22 +1,20 @@
 use arbitrary::Arbitrary;
+use cloud_terrastodon_auth_types::AuthenticationSelection;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_registry::DiscoveryPlan;
 use cloud_terrastodon_registry::DiscoveryPlanNodeKind;
 use cloud_terrastodon_registry::FunctionDescriptor;
 use cloud_terrastodon_registry::describe_shape;
 use facet::Facet;
-use facet::OpaqueBorrow;
 use facet::Shape;
 use std::borrow::Cow;
-use std::future::IntoFuture;
-use std::future::Ready;
-use teamy_cancellation::CancellationScope;
+use std::sync::Arc;
 use teamy_cancellation::CancellationToken;
 
 #[derive(Clone, Facet)]
 struct Organization;
-
-#[derive(Clone, Facet)]
-struct Auth;
 
 #[derive(Clone, Facet)]
 struct OtherAuth;
@@ -25,7 +23,13 @@ struct OtherAuth;
 #[repr(u8)]
 enum AuthChoice {
     Other(OtherAuth),
-    Current(Auth),
+    Current(
+        #[allow(
+            dead_code,
+            reason = "Planning inspects this payload's shape without constructing a value"
+        )]
+        AuthenticationSelection,
+    ),
 }
 
 #[derive(Arbitrary, Clone, Facet)]
@@ -55,17 +59,15 @@ struct Unrelated;
 #[derive(Facet)]
 struct ProjectsRequest {
     org: Organization,
-    auth: Auth,
-    cancellation: OpaqueBorrow<'static, CancellationScope>,
+    auth: AuthenticationSelection,
 }
 
 #[derive(Facet)]
 struct ConnectionsRequest {
     org: Organization,
-    auth: Auth,
+    auth: AuthenticationSelection,
     project: Cow<'static, ProjectArgument>,
     filter: Option<String>,
-    cancellation: OpaqueBorrow<'static, CancellationScope>,
 }
 
 #[derive(Clone, Facet)]
@@ -85,45 +87,47 @@ struct SolicitingRequest {
 
 #[derive(Facet)]
 struct AmbientProjectRequest {
-    cancellation: OpaqueBorrow<'static, CancellationScope>,
     filter: Option<String>,
 }
 
 macro_rules! nonexecuting_request {
     ($request:ty => $output:ty) => {
-        impl IntoFuture for $request {
-            type Output = eyre::Result<$output>;
-            type IntoFuture = Ready<Self::Output>;
+        impl ExecutableRequest for $request {
+            type Output = $output;
 
-            fn into_future(self) -> Self::IntoFuture {
+            fn run<'a>(self, _: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>
+            where
+                Self: 'a,
+                Self::Output: 'a,
+            {
                 panic!("planning must not invoke requests")
             }
         }
     };
 }
 
-nonexecuting_request!(ProjectsRequest => Vec<Project>);
-nonexecuting_request!(ConnectionsRequest => Vec<ServiceConnection>);
+nonexecuting_request!(ProjectsRequest => Arc<Vec<Arc<Project>>>);
+nonexecuting_request!(ConnectionsRequest => Arc<Vec<Arc<ServiceConnection>>>);
 nonexecuting_request!(UnrelatedRequest => Unrelated);
 nonexecuting_request!(MutationRequest => ServiceConnection);
 nonexecuting_request!(SolicitingRequest => ServiceConnection);
 nonexecuting_request!(AmbientProjectRequest => Project);
-crate::register_into_future!(ProjectsRequest => Vec<Project>, effects = [Read]);
-crate::register_into_future!(ConnectionsRequest => Vec<ServiceConnection>, effects = [Read]);
-crate::register_into_future!(UnrelatedRequest => Unrelated, effects = [Read]);
-crate::register_into_future!(MutationRequest => ServiceConnection, effects = [Write]);
-crate::register_into_future!(SolicitingRequest => ServiceConnection, effects = [Read, Solicit]);
-crate::register_into_future!(AmbientProjectRequest => Project, effects = [Read]);
+crate::register_executable_request!(ProjectsRequest => Arc<Vec<Arc<Project>>>, effects = [Read]);
+crate::register_executable_request!(ConnectionsRequest => Arc<Vec<Arc<ServiceConnection>>>, effects = [Read]);
+crate::register_executable_request!(UnrelatedRequest => Unrelated, effects = [Read]);
+crate::register_executable_request!(MutationRequest => ServiceConnection, effects = [Write]);
+crate::register_executable_request!(SolicitingRequest => ServiceConnection, effects = [Read, Solicit]);
+crate::register_executable_request!(AmbientProjectRequest => Project, effects = [Read]);
 cloud_terrastodon_registry::register_from!(Project => ProjectArgument, associated = REGISTERED_ARGUMENT);
 cloud_terrastodon_registry::register_from!(ProjectArgument => Project, associated = REGISTERED_PROJECT);
 cloud_terrastodon_registry::register_arbitrary!(Project, associated = REGISTERED_ARBITRARY);
 
 const CATALOG: [&FunctionDescriptor; 8] = [
-    ConnectionsRequest::REGISTERED_INTO_FUTURE.descriptor(),
-    ProjectsRequest::REGISTERED_INTO_FUTURE.descriptor(),
-    UnrelatedRequest::REGISTERED_INTO_FUTURE.descriptor(),
-    MutationRequest::REGISTERED_INTO_FUTURE.descriptor(),
-    SolicitingRequest::REGISTERED_INTO_FUTURE.descriptor(),
+    ConnectionsRequest::REGISTERED_EXECUTABLE_REQUEST.descriptor(),
+    ProjectsRequest::REGISTERED_EXECUTABLE_REQUEST.descriptor(),
+    UnrelatedRequest::REGISTERED_EXECUTABLE_REQUEST.descriptor(),
+    MutationRequest::REGISTERED_EXECUTABLE_REQUEST.descriptor(),
+    SolicitingRequest::REGISTERED_EXECUTABLE_REQUEST.descriptor(),
     Project::REGISTERED_ARGUMENT.descriptor(),
     ProjectArgument::REGISTERED_PROJECT.descriptor(),
     Project::REGISTERED_ARBITRARY.descriptor(),
@@ -150,7 +154,7 @@ fn plan(
 fn includes_every_required_input_in_a_target_directed_chain() {
     let plan = plan(
         CATALOG,
-        &[Organization::SHAPE, Auth::SHAPE],
+        &[Organization::SHAPE, AuthenticationSelection::SHAPE],
         &[ServiceConnection::SHAPE],
     );
     assert!(plan.diagnostics.is_empty());
@@ -207,7 +211,7 @@ fn missing_auth_blocks_the_chain_and_is_explained() {
             && node
                 .missing_inputs
                 .iter()
-                .any(|input| input == "auth: Auth")
+                .any(|input| input == "auth: AuthenticationSelection")
     }));
     assert_eq!(plan.diagnostics.len(), 1);
 }
@@ -216,8 +220,8 @@ fn missing_auth_blocks_the_chain_and_is_explained() {
 fn writes_solicitation_and_arbitrary_cannot_supply_a_missing_target() {
     let plan = plan(
         [
-            MutationRequest::REGISTERED_INTO_FUTURE.descriptor(),
-            SolicitingRequest::REGISTERED_INTO_FUTURE.descriptor(),
+            MutationRequest::REGISTERED_EXECUTABLE_REQUEST.descriptor(),
+            SolicitingRequest::REGISTERED_EXECUTABLE_REQUEST.descriptor(),
             Project::REGISTERED_ARBITRARY.descriptor(),
         ],
         &[Organization::SHAPE],
@@ -245,8 +249,8 @@ fn unseeded_conversion_cycle_cannot_invent_values() {
 #[test]
 fn a_supplied_catalog_is_the_only_source_of_operations() {
     let plan = plan(
-        [ConnectionsRequest::REGISTERED_INTO_FUTURE.descriptor()],
-        &[Organization::SHAPE, Auth::SHAPE],
+        [ConnectionsRequest::REGISTERED_EXECUTABLE_REQUEST.descriptor()],
+        &[Organization::SHAPE, AuthenticationSelection::SHAPE],
         &[ServiceConnection::SHAPE],
     );
     assert!(plan.nodes.iter().any(|node| {
@@ -283,8 +287,8 @@ fn seed_enum_variants_do_not_authorize_additional_auth_contexts() {
 #[test]
 fn collection_elements_are_planned_without_fabricating_or_executing() {
     let plan = plan(
-        [ProjectsRequest::REGISTERED_INTO_FUTURE.descriptor()],
-        &[Organization::SHAPE, Auth::SHAPE],
+        [ProjectsRequest::REGISTERED_EXECUTABLE_REQUEST.descriptor()],
+        &[Organization::SHAPE, AuthenticationSelection::SHAPE],
         &[Project::SHAPE],
     );
     assert!(
@@ -306,7 +310,7 @@ fn collection_elements_are_planned_without_fabricating_or_executing() {
 #[test]
 fn explicit_request_seed_is_an_alternative_to_assembling_its_fields() {
     let plan = plan(
-        [ProjectsRequest::REGISTERED_INTO_FUTURE.descriptor()],
+        [ProjectsRequest::REGISTERED_EXECUTABLE_REQUEST.descriptor()],
         &[ProjectsRequest::SHAPE],
         &[Project::SHAPE],
     );
@@ -315,7 +319,7 @@ fn explicit_request_seed_is_an_alternative_to_assembling_its_fields() {
         !plan
             .nodes
             .iter()
-            .any(|node| node.label == describe_shape(Auth::SHAPE))
+            .any(|node| node.label == describe_shape(AuthenticationSelection::SHAPE))
     );
 }
 
@@ -323,12 +327,12 @@ fn explicit_request_seed_is_an_alternative_to_assembling_its_fields() {
 fn input_order_and_duplicate_catalog_handles_do_not_change_the_plan() {
     let first = plan(
         CATALOG,
-        &[Auth::SHAPE, Organization::SHAPE],
+        &[AuthenticationSelection::SHAPE, Organization::SHAPE],
         &[ServiceConnection::SHAPE],
     );
     let second = plan(
         CATALOG.into_iter().rev().chain(CATALOG),
-        &[Organization::SHAPE, Auth::SHAPE],
+        &[Organization::SHAPE, AuthenticationSelection::SHAPE],
         &[ServiceConnection::SHAPE],
     );
     assert_eq!(format!("{first:?}"), format!("{second:?}"));
@@ -336,7 +340,7 @@ fn input_order_and_duplicate_catalog_handles_do_not_change_the_plan() {
 
 #[test]
 fn requests_without_required_domain_inputs_cannot_bootstrap_ambient_defaults() {
-    let catalog = [AmbientProjectRequest::REGISTERED_INTO_FUTURE.descriptor()];
+    let catalog = [AmbientProjectRequest::REGISTERED_EXECUTABLE_REQUEST.descriptor()];
     let blocked = plan(catalog, &[Organization::SHAPE], &[Project::SHAPE]);
     assert!(blocked.nodes.iter().all(|node| !node.reachable));
     assert!(blocked.nodes.iter().any(|node| {

@@ -13,8 +13,10 @@ use crate::WorkOutput;
 use crate::WorkReuse;
 use crate::cache_ownership_claim::CacheOwnershipClaim;
 use crate::cache_state::CacheState;
+use crate::work_cache_root::WorkCacheRoot;
 use crate::work_cache_state::WorkCacheState;
 use crate::work_child_guard::WorkChildGuard;
+use eyre::Context;
 use eyre::Result;
 use eyre::ensure;
 use eyre::eyre;
@@ -31,12 +33,14 @@ use std::sync::Mutex;
 use std::sync::MutexGuard;
 use std::time::Duration;
 use teamy_cancellation::CancellationScope;
+use tempfile::TempDir;
 
 /// An explicitly owned cache root and its in-process logical operation claims.
 ///
 /// Clones share the same claims. Separately constructed handles are isolated,
-/// even when given the same root. Construction and claiming perform no I/O,
+/// even when given the same root. [`Self::new`] and claiming perform no I/O,
 /// resolve no defaults, and never consult the legacy command cache.
+/// [`Self::temporary`] explicitly creates a directory owned by the shared cache.
 ///
 /// Raw artifacts and shared decoded results use this owner, including scoped
 /// generation invalidation and transitive semantic dependency freshness.
@@ -156,27 +160,55 @@ impl WorkCache {
     /// components are rejected as a library identity constraint, not a platform
     /// restriction. Symlinks are not resolved, and even the filesystem root is
     /// accepted. Storage validates its requirements when performing I/O.
+    /// This constructor owns only the path and never removes it on drop. Use
+    /// [`Self::from_tempdir`] to transfer a temporary directory's cleanup guard.
     pub fn new(root: impl Into<PathBuf>) -> Result<Self> {
-        let root = root.into();
-        ensure!(root.is_absolute(), "cache root must be absolute: {root:?}");
+        Self::from_root(WorkCacheRoot::Path(root.into()))
+    }
+
+    /// Take ownership of an existing temporary directory and its cleanup policy.
+    ///
+    /// Cache clones and artifact handles retain the guard until the final owner
+    /// drops. Merely copying [`Self::root`] does not extend that lifetime. Cleanup
+    /// follows `TempDir`'s policy, including its best-effort deletion on drop.
+    /// Binding performs lexical validation only; it does not inspect the disk.
+    pub fn from_tempdir(root: TempDir) -> Result<Self> {
+        Self::from_root(WorkCacheRoot::Temporary(root))
+    }
+
+    /// Create a unique temporary directory whose cleanup follows the cache owner.
+    ///
+    /// Unlike [`Self::new`], this creates a directory on disk. It remains alive
+    /// through cache clones, artifact handles, and in-flight artifact workers;
+    /// the final owner drops its `TempDir` guard after releasing cached values.
+    pub fn temporary() -> Result<Self> {
+        Self::from_tempdir(tempfile::tempdir().wrap_err("creating temporary work cache root")?)
+    }
+
+    fn from_root(root: WorkCacheRoot) -> Result<Self> {
+        ensure!(
+            root.path().is_absolute(),
+            "cache root must be absolute: {root:?}"
+        );
         ensure!(
             !root
+                .path()
                 .components()
                 .any(|component| component == Component::ParentDir),
             "cache root must not contain unresolved parent traversal: {root:?}"
         );
         Ok(Self {
             state: Arc::new(WorkCacheState {
-                root,
                 registry: Mutex::new(CacheState::default()),
                 artifact_gate: Arc::new(tokio::sync::Mutex::new(())),
+                root,
             }),
         })
     }
 
     /// The explicit root, without any filesystem inspection or normalization.
     pub fn root(&self) -> &Path {
-        &self.state.root
+        self.state.root.path()
     }
 
     /// Reserve or verify the canonical owner and output type for a scope.

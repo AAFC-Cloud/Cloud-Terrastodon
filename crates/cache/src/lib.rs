@@ -47,6 +47,7 @@ mod work_attempt_guard;
 mod work_attempt_state;
 mod work_cache;
 mod work_cache_invalidation;
+mod work_cache_root;
 mod work_cache_state;
 mod work_certificate;
 mod work_child_guard;

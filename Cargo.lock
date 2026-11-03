@@ -1094,6 +1094,7 @@ dependencies = [
  "cloud_terrastodon_azure_devops_types",
  "cloud_terrastodon_azure_types",
  "cloud_terrastodon_command",
+ "cloud_terrastodon_execution",
  "cloud_terrastodon_hcl_types",
  "cloud_terrastodon_pathing",
  "cloud_terrastodon_registry",
@@ -1307,10 +1308,12 @@ dependencies = [
  "cloud_terrastodon_azure_cli",
  "cloud_terrastodon_azure_devops",
  "cloud_terrastodon_azure_devops_cli",
+ "cloud_terrastodon_cache",
  "cloud_terrastodon_cli_types",
  "cloud_terrastodon_command",
  "cloud_terrastodon_config",
  "cloud_terrastodon_excalidraw",
+ "cloud_terrastodon_execution",
  "cloud_terrastodon_gitea",
  "cloud_terrastodon_hcl",
  "cloud_terrastodon_pathing",
@@ -1489,6 +1492,9 @@ name = "cloud_terrastodon_registry_execution"
 version = "0.37.0"
 dependencies = [
  "arbitrary",
+ "cloud_terrastodon_auth_types",
+ "cloud_terrastodon_cache",
+ "cloud_terrastodon_execution",
  "cloud_terrastodon_registry",
  "eyre",
  "linkme",
@@ -1497,6 +1503,7 @@ dependencies = [
  "teamy-facet",
  "teamy-facet-reflect",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -1654,8 +1661,10 @@ dependencies = [
  "cloud_terrastodon_auth_types",
  "cloud_terrastodon_azure",
  "cloud_terrastodon_azure_devops",
+ "cloud_terrastodon_cache",
  "cloud_terrastodon_command",
  "cloud_terrastodon_excalidraw",
+ "cloud_terrastodon_execution",
  "cloud_terrastodon_registry",
  "cloud_terrastodon_registry_execution",
  "cloud_terrastodon_user_input",

@@ -1,18 +1,18 @@
-use crate::CancellationScope;
 use crate::RegisteredFunction;
 use crate::known_functions;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_registry::DiscoveryPlan;
 use cloud_terrastodon_registry::RegisteredShape;
 use facet::Facet;
-use std::future::Future;
-use std::pin::Pin;
 
 /// Build an offline discovery graph from editable seed and target shapes.
 ///
 /// Unlike the resulting [`DiscoveryPlan`], this is the plan's input contract.
 /// Seed shapes are explicit assumptions, not values or credentials. Building
 /// the plan does not construct those values or execute any catalog operation.
-/// The invocation host supplies cancellation. The reflected `functions` default
+/// The executor supplies cancellation. The reflected `functions` default
 /// opts into the linked registry, and callers can replace it with a subset.
 #[derive(Clone, Debug, Facet)]
 pub struct DiscoveryPlanBuildRequest {
@@ -20,8 +20,6 @@ pub struct DiscoveryPlanBuildRequest {
     pub functions: Vec<RegisteredFunction>,
     pub seeds: Vec<RegisteredShape>,
     pub targets: Vec<RegisteredShape>,
-    #[facet(skip_serializing)]
-    pub cancellation: CancellationScope,
 }
 
 impl DiscoveryPlanBuildRequest {
@@ -34,11 +32,14 @@ impl DiscoveryPlanBuildRequest {
     }
 }
 
-impl IntoFuture for DiscoveryPlanBuildRequest {
-    type Output = eyre::Result<DiscoveryPlan>;
-    type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + Send>>;
+impl ExecutableRequest for DiscoveryPlanBuildRequest {
+    type Output = DiscoveryPlan;
 
-    fn into_future(self) -> Self::IntoFuture {
+    fn run<'a>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>
+    where
+        Self: 'a,
+        Self::Output: 'a,
+    {
         Box::pin(async move {
             DiscoveryPlan::build(
                 self.functions
@@ -46,21 +47,32 @@ impl IntoFuture for DiscoveryPlanBuildRequest {
                     .map(|function| function.function().descriptor()),
                 self.seeds.iter().map(|seed| seed.shape()),
                 self.targets.iter().map(|target| target.shape()),
-                &self.cancellation,
+                executor.cancellation(),
             )
         })
     }
 }
 
 cloud_terrastodon_registry::register_thing!(DiscoveryPlanBuildRequest);
-crate::register_into_future!(DiscoveryPlanBuildRequest => DiscoveryPlan, effects = [Read]);
+crate::register_executable_request!(DiscoveryPlanBuildRequest => DiscoveryPlan, effects = [Read]);
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cloud_terrastodon_cache::WorkCache;
+    use cloud_terrastodon_execution::UnreachableAuthenticationProvider;
     use cloud_terrastodon_registry::RuntimeValue;
-    use std::future::Ready;
+    use std::sync::Arc;
+    use teamy_cancellation::CancellationScope;
     use teamy_cancellation::CancellationToken;
+
+    fn executor(cancellation: CancellationScope) -> eyre::Result<CloudTerrastodonExecutor> {
+        Ok(CloudTerrastodonExecutor::new(
+            WorkCache::temporary()?,
+            Arc::new(UnreachableAuthenticationProvider),
+            cancellation,
+        ))
+    }
 
     #[derive(Facet)]
     struct Input;
@@ -73,26 +85,30 @@ mod tests {
         input: Input,
     }
 
-    impl IntoFuture for InventoryRequest {
-        type Output = eyre::Result<Output>;
-        type IntoFuture = Ready<Self::Output>;
+    impl ExecutableRequest for InventoryRequest {
+        type Output = Output;
 
-        fn into_future(self) -> Self::IntoFuture {
+        fn run<'a>(self, _: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>
+        where
+            Self: 'a,
+            Self::Output: 'a,
+        {
             panic!("building an offline plan must not execute its requests")
         }
     }
 
-    crate::register_into_future!(InventoryRequest => Output, effects = [Read]);
+    crate::register_executable_request!(InventoryRequest => Output, effects = [Read]);
 
     #[tokio::test]
     async fn editable_seeds_and_catalog_control_reachability_without_invoking_requests()
     -> eyre::Result<()> {
         CancellationToken::new()
             .with_async_scope(|cancellation| async move {
+                let executor = executor(cancellation)?;
                 for (functions, seeds, reachable) in [
                     (
                         vec![RegisteredFunction::from_function(
-                            InventoryRequest::REGISTERED_INTO_FUTURE,
+                            InventoryRequest::REGISTERED_EXECUTABLE_REQUEST,
                         )],
                         vec![RegisteredShape::from_shape(Input::SHAPE)],
                         true,
@@ -104,7 +120,7 @@ mod tests {
                     ),
                     (
                         vec![RegisteredFunction::from_function(
-                            InventoryRequest::REGISTERED_INTO_FUTURE,
+                            InventoryRequest::REGISTERED_EXECUTABLE_REQUEST,
                         )],
                         vec![],
                         false,
@@ -114,8 +130,8 @@ mod tests {
                         functions,
                         seeds,
                         targets: vec![RegisteredShape::from_shape(Output::SHAPE)],
-                        cancellation: cancellation.clone(),
                     }
+                    .execute(&executor)
                     .await?;
                     assert_eq!(
                         plan.nodes
@@ -137,7 +153,7 @@ mod tests {
         CancellationToken::new()
             .with_async_scope(|cancellation| async move {
                 // This is the same reflected construction path the explorer uses:
-                // set the chosen lists and host scope, then apply field defaults.
+                // set chosen data, then apply field defaults; execution is bound later.
                 let request =
                     RuntimeValue::build_with(DiscoveryPlanBuildRequest::SHAPE, |partial| {
                         Ok(partial
@@ -146,9 +162,6 @@ mod tests {
                             .end()?
                             .begin_field("targets")?
                             .set(vec![RegisteredShape::from_shape(Output::SHAPE)])?
-                            .end()?
-                            .begin_field("cancellation")?
-                            .set(cancellation)?
                             .end()?)
                     })?;
                 let request = request
@@ -159,10 +172,10 @@ mod tests {
                     request
                         .functions
                         .contains(&RegisteredFunction::from_function(
-                            InventoryRequest::REGISTERED_INTO_FUTURE
+                            InventoryRequest::REGISTERED_EXECUTABLE_REQUEST
                         ))
                 );
-                let plan = (*request).await?;
+                let plan = executor(cancellation)?.execute(*request).await?;
                 assert!(
                     plan.nodes
                         .iter()

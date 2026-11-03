@@ -1,6 +1,10 @@
 # Unreleased
 
-- Add `cloud_terrastodon_execution` with explicitly bound request execution, shared cache/authentication handles, linked cancellation scopes, and an injected credential-provider interface. `AppContext::executor()` binds the current app context without credential discovery or cache I/O; existing auth/cancellation fields remain available. Registry invocation and production Command/REST cache cutover remain later migration steps.
+- Let `WorkCache` own temporary directories through `temporary()` and `from_tempdir()`. Cleanup follows the last shared cache or artifact owner; path-only caches retain caller-managed storage.
+
+- Add `cloud_terrastodon_execution` with explicitly bound request execution, shared cache/authentication handles, linked cancellation scopes, and an injected credential-provider interface. `AppContext::executor()` binds the current app context without credential discovery or cache I/O; existing auth/cancellation fields remain available. Production Command/REST cache cutover remains a later migration step.
+
+- Bind registry invocation and UI jobs to the explicit executor. `register_executable_request!` supports data-only requests and shared outputs; offline discovery does not acquire credentials or execute requests. Each UI job retains independent cancellation. The separately tagged legacy `IntoFuture` callback remains until its SDK and local request callers migrate.
 
 - Rename `cloud_terrastodon_credentials` to `cloud_terrastodon_auth` and move authentication selections and credential audiences into `cloud_terrastodon_auth_types`, without compatibility exports. The facade now uses `auth` and `auth-types`; `AzureTenantId` remains in `azure_types`.
 
