@@ -133,8 +133,7 @@ impl<'a> IntoFuture for ResourceProviderListRequest<'a> {
                 let page_key =
                     page_cache.join(blake3::hash(url.as_str().as_bytes()).to_hex().as_str());
                 let page = RestRequest::from_method_and_url(Method::GET, url, &self.cancellation)?
-                    .azure_auth_context(&self.auth_context.auth_context)
-                    .tenant(self.auth_context.tenant_id)
+                    .azure_auth_context(&self.auth_context)
                     .cache(page_key)
                     .receive::<AzureResourceProviderListResponse>()
                     .await?;

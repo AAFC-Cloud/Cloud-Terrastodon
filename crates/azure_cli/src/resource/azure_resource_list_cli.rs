@@ -31,7 +31,8 @@ impl AzureResourceListArgs {
 
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();
-        cloud_terrastodon_command::to_writer_pretty(&mut handle, &resources)?;
+        facet_json::to_writer_std_pretty(&mut handle, &resources)
+            .map_err(|error| eyre::eyre!("{error:?}"))?;
         handle.write_all(b"\n")?;
         Ok(())
     }

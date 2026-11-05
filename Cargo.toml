@@ -6,6 +6,7 @@ members = ["crates/*", "examples/standalone-cli", "examples/group-management", "
 # `deny` permits test macros to apply their own test-only lint allowances.
 expect_used = "deny"
 unwrap_used = "deny"
+disallowed_types = "warn"
 
 [workspace.package]
 edition = "2024"
@@ -433,6 +434,7 @@ unused_lifetimes = "warn"
 # Packages with their own lint tables cannot also inherit workspace lints.
 expect_used = "deny"
 unwrap_used = "deny"
+disallowed_types = "warn"
 cargo = { level = "warn", priority = -1 }
 complexity = { level = "warn", priority = -1 }
 correctness = { level = "warn", priority = -1 }

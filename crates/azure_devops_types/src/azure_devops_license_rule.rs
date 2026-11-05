@@ -1,18 +1,39 @@
+use crate::AzureDevOpsAccountLicenseType;
 use crate::AzureDevOpsLicenseType;
+use crate::AzureDevOpsMsdnLicenseType;
 use arbitrary::Arbitrary;
 use std::str::FromStr;
 
+/// License information from [AccessLevel 7.1](https://learn.microsoft.com/en-us/rest/api/azure/devops/memberentitlementmanagement/user-entitlements/update-user-entitlement?view=azure-devops-rest-7.1#accesslevel).
 #[derive(Clone, Debug, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
+#[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct AzureDevOpsLicenseRule {
     pub licensing_source: AzureDevOpsLicenseRuleSource,
-    pub account_license_type: AzureDevOpsLicenseType,
-    pub msdn_license_type: AzureDevOpsLicenseRuleMsdnLicenseType,
-    pub git_hub_license_type: AzureDevOpsLicenseRuleGitHubLicenseType,
+    pub account_license_type: AzureDevOpsAccountLicenseType,
+    pub msdn_license_type: AzureDevOpsMsdnLicenseType,
+    /// Omitted by the documented 7.1 AccessLevel response.
+    pub git_hub_license_type: Option<AzureDevOpsLicenseRuleGitHubLicenseType>,
     pub license_display_name: String,
     pub status: AzureDevOpsLicenseRuleStatus,
     pub status_message: String,
     pub assignment_source: AzureDevOpsLicenseRuleAssignmentSource,
+}
+
+impl AzureDevOpsLicenseRule {
+    /// Whether this rule grants the selected license through its active source.
+    /// An inactive family field must never identify a group for license revocation.
+    pub fn matches_license(&self, license: &AzureDevOpsLicenseType) -> bool {
+        match (&self.licensing_source, license) {
+            (AzureDevOpsLicenseRuleSource::Account, AzureDevOpsLicenseType::Account(license)) => {
+                &self.account_license_type == license
+            }
+            (AzureDevOpsLicenseRuleSource::Msdn, AzureDevOpsLicenseType::Msdn(license)) => {
+                &self.msdn_license_type == license
+            }
+            _ => false,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Arbitrary, facet::Facet)]
@@ -21,15 +42,6 @@ pub struct AzureDevOpsLicenseRule {
 pub enum AzureDevOpsLicenseRuleSource {
     Account,
     Msdn,
-    Other(String),
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Arbitrary, facet::Facet)]
-#[facet(proxy = String)]
-#[repr(C)]
-pub enum AzureDevOpsLicenseRuleMsdnLicenseType {
-    None,
-    Eligible,
     Other(String),
 }
 
@@ -101,19 +113,6 @@ impl_string_backed_enum!(
 );
 
 impl_string_backed_enum!(
-    AzureDevOpsLicenseRuleMsdnLicenseType,
-    {
-        "none" => Self::None,
-        "eligible" => Self::Eligible,
-    },
-    value => match value {
-        AzureDevOpsLicenseRuleMsdnLicenseType::None => "none".to_owned(),
-        AzureDevOpsLicenseRuleMsdnLicenseType::Eligible => "eligible".to_owned(),
-        AzureDevOpsLicenseRuleMsdnLicenseType::Other(value) => value.clone(),
-    }
-);
-
-impl_string_backed_enum!(
     AzureDevOpsLicenseRuleGitHubLicenseType,
     {
         "none" => Self::None,
@@ -153,7 +152,35 @@ cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsLicenseRule);
 
 #[cfg(test)]
 mod test {
-    use crate::AzureDevOpsLicenseRule;
+    use super::*;
+
+    #[test]
+    fn matching_uses_the_active_license_family() {
+        // Responses carry both family fields. Only licensingSource identifies
+        // which one grants the group's license, even when names coincide.
+        let mut rule = AzureDevOpsLicenseRule {
+            licensing_source: AzureDevOpsLicenseRuleSource::Account,
+            account_license_type: AzureDevOpsAccountLicenseType::Professional,
+            msdn_license_type: AzureDevOpsMsdnLicenseType::Professional,
+            git_hub_license_type: None,
+            license_display_name: "Professional".into(),
+            status: AzureDevOpsLicenseRuleStatus::Active,
+            status_message: String::new(),
+            assignment_source: AzureDevOpsLicenseRuleAssignmentSource::GroupRule,
+        };
+        let account = AzureDevOpsLicenseType::Account(AzureDevOpsAccountLicenseType::Professional);
+        let msdn = AzureDevOpsLicenseType::Msdn(AzureDevOpsMsdnLicenseType::Professional);
+        assert!(rule.matches_license(&account));
+        assert!(!rule.matches_license(&msdn));
+
+        rule.licensing_source = AzureDevOpsLicenseRuleSource::Msdn;
+        assert!(!rule.matches_license(&account));
+        assert!(rule.matches_license(&msdn));
+
+        rule.licensing_source = AzureDevOpsLicenseRuleSource::Other("future".into());
+        assert!(!rule.matches_license(&account));
+        assert!(!rule.matches_license(&msdn));
+    }
 
     #[test]
     pub fn it_works() -> eyre::Result<()> {

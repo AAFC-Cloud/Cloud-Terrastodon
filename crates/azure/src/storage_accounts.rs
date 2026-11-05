@@ -83,18 +83,24 @@ mod test {
     pub async fn it_works() -> eyre::Result<()> {
         CancellationToken::new()
             .cancellable_scope(|cancellation| async move {
-                let storage_accounts = fetch_all_storage_accounts(
-                    &AuthContext::explicit_azure_cli()
-                        .bind_to_azure_tenant(get_test_tenant_id(&cancellation).await?)?,
-                    &cancellation,
-                )
-                .await?;
+                let auth_context = AuthContext::explicit_azure_cli()
+                    .bind_to_azure_tenant(get_test_tenant_id(&cancellation).await?)?;
+                let storage_accounts =
+                    fetch_all_storage_accounts(&auth_context, &cancellation).await?;
                 assert!(!storage_accounts.is_empty());
                 let check_name = rand::random::<u64>() % storage_accounts.len() as u64;
                 for (i, sa) in storage_accounts.into_iter().enumerate() {
                     sa.name.validate_slug()?;
                     if i == check_name as usize {
-                        assert!(!is_storage_account_name_available(&sa.name, &cancellation).await?);
+                        assert!(
+                            !is_storage_account_name_available(
+                                &sa.name,
+                                sa.id.resource_group_id.subscription_id,
+                                &auth_context,
+                                &cancellation
+                            )
+                            .await?
+                        );
                     }
                 }
                 Ok(())

@@ -178,7 +178,7 @@ impl CloudTerrastodonCommand {
             CloudTerrastodonCommand::Azure(args) => {
                 return Box::pin(args.invoke(auth_context, cancellation)).await;
             }
-            CloudTerrastodonCommand::Tea(args) => Box::pin(args.invoke(cancellation)).await,
+            CloudTerrastodonCommand::Tea(args) => Box::pin(args.invoke(executor)).await,
             CloudTerrastodonCommand::Jwt(args) => Box::pin(args.invoke(cancellation)).await,
             CloudTerrastodonCommand::ExtractUuid(args) => Box::pin(args.invoke(cancellation)).await,
             CloudTerrastodonCommand::Pick(args) => Box::pin(args.invoke(cancellation)).await,

@@ -6,7 +6,6 @@ use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemId;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_test_suite_cases;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::to_writer_pretty;
 use eyre::Result;
 use eyre::bail;
 use std::io::stdout;
@@ -66,7 +65,8 @@ impl AzureDevOpsTestSuiteCaseShowArgs {
                 .unwrap_or(false)
                 || case_id.is_some_and(|id| c.test_case.id == Some(id))
         }) {
-            to_writer_pretty(stdout(), &case)?;
+            facet_json::to_writer_std_pretty(stdout(), &case)
+                .map_err(|error| eyre::eyre!("{error:?}"))?;
             Ok(())
         } else {
             bail!("No test case found matching '{}'.", self.case);

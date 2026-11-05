@@ -1,15 +1,17 @@
 use arbitrary::Arbitrary;
 use cloud_terrastodon_auth::AzureDevOpsAuthContext;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsCollectionResponse;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsDescriptor;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsGraphMembership;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsGraphSubjectLookupBody;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsGraphSubjectLookupKey;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsGroupMember;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
+use cloud_terrastodon_azure_types::ArbitraryJson;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_rest::RestRequest;
-use facet_json::RawJson;
 use reqwest::Method;
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -23,17 +25,20 @@ pub struct AzureDevOpsGroupMembersListRequest<'a> {
     pub cancellation: CancellationScope,
 
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
+    pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
     pub group_id: Cow<'a, AzureDevOpsDescriptor>,
 }
 
 pub fn fetch_azure_devops_group_members<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     group_id: &'a AzureDevOpsDescriptor,
+    auth_context: &'a AzureDevOpsAuthContext,
     cancellation: &CancellationScope,
 ) -> AzureDevOpsGroupMembersListRequest<'a> {
     AzureDevOpsGroupMembersListRequest {
         cancellation: cancellation.clone(),
         org_url: Cow::Borrowed(org_url),
+        auth_context: Cow::Borrowed(auth_context),
         group_id: Cow::Borrowed(group_id),
     }
 }
@@ -43,6 +48,7 @@ impl<'a> Arbitrary<'a> for AzureDevOpsGroupMembersListRequest<'static> {
         Ok(Self {
             cancellation: CancellationScope::arbitrary(u)?,
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
+            auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
             group_id: Cow::Owned(AzureDevOpsDescriptor::arbitrary(u)?),
         })
     }
@@ -67,25 +73,59 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupMembers
     }
 
     async fn run(self) -> eyre::Result<Self::Output> {
-        let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-        cmd.cancellation_safe();
-        let org = self.org_url.to_string();
-        let gid = self.group_id.to_string();
-        cmd.args([
-            "devops",
-            "security",
-            "group",
-            "membership",
-            "list",
-            "--organization",
-            org.as_str(),
-            "--id",
-            gid.as_str(),
-            "--output",
-            "json",
-        ]);
-        cmd.cache(self.cache_key());
-        cmd.run(&self.cancellation).await
+        // Membership edges identify descriptors; subject lookup supplies the
+        // records returned by the former CLI projection.
+        // https://learn.microsoft.com/en-us/rest/api/azure/devops/graph/memberships/list?view=azure-devops-rest-7.1
+        let cache_key = self.cache_key();
+        let mut url = self.org_url.api_url(
+            "vssps.dev.azure.com",
+            "",
+            &[
+                ("api-version", "7.1-preview.1"),
+                ("direction", "down"),
+                ("depth", "1"),
+            ],
+        )?;
+        url.path_segments_mut()
+            .map_err(|()| eyre::eyre!("organization URL must have a hierarchical path"))?
+            .pop_if_empty()
+            .extend(["_apis", "graph", "memberships", &self.group_id.to_string()]);
+        let memberships = RestRequest::from_method_and_url(Method::GET, url, &self.cancellation)?
+            .cache(cache_key.join("memberships"))
+            .azure_devops_auth_context(self.auth_context.as_ref())?
+            .receive::<AzureDevOpsCollectionResponse<Vec<AzureDevOpsGraphMembership>>>()
+            .await?;
+        self.cancellation.bail_if_cancelled()?;
+        if memberships.value.is_empty() {
+            return Ok(HashMap::new());
+        }
+        let body = AzureDevOpsGraphSubjectLookupBody {
+            lookup_keys: memberships
+                .value
+                .into_iter()
+                .map(|membership| AzureDevOpsGraphSubjectLookupKey {
+                    descriptor: membership.member_descriptor,
+                })
+                .collect(),
+        };
+        // This documented POST only resolves subjects; it does not mutate them.
+        // https://learn.microsoft.com/en-us/rest/api/azure/devops/graph/subject-lookup/lookup-subjects?view=azure-devops-rest-7.1
+        let url = self.org_url.api_url(
+            "vssps.dev.azure.com",
+            "_apis/graph/subjectlookup",
+            &[("api-version", "7.1-preview.1")],
+        )?;
+        let response =
+            RestRequest::from_method_and_url(Method::POST, url, &self.cancellation)?
+                .cancellation_safe()
+                .body(facet_json::to_string(&body)?)
+                .cache(cache_key.join("subjects"))
+                .azure_devops_auth_context(self.auth_context.as_ref())?
+                .receive::<AzureDevOpsCollectionResponse<
+                    HashMap<AzureDevOpsDescriptor, AzureDevOpsGroupMember>,
+                >>()
+                .await?;
+        Ok(response.value)
     }
 }
 
@@ -93,16 +133,17 @@ cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsGroupMembersLi
 
 #[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
 #[facet(transparent)]
-pub struct AzureDevOpsGroupMembersV2Response(pub RawJson<'static>);
+pub struct AzureDevOpsGroupMembersV2Response(pub ArbitraryJson);
 
 impl<'a> Arbitrary<'a> for AzureDevOpsGroupMembersV2Response {
     fn arbitrary(_u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        Ok(Self(RawJson::from_owned("{}".to_string())))
+        // Keep the response's object envelope when generating offline values.
+        Ok(Self(ArbitraryJson::object()))
     }
 }
 
 impl Deref for AzureDevOpsGroupMembersV2Response {
-    type Target = RawJson<'static>;
+    type Target = ArbitraryJson;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -175,7 +216,7 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupMembers
             .receive_raw()
             .await?;
         Ok(AzureDevOpsGroupMembersV2Response(
-            response.into_json_body()?,
+            response.into_json_body()?.into(),
         ))
     }
 }
@@ -209,9 +250,9 @@ mod test {
     use cloud_terrastodon_azure_devops_types::AzureDevOpsDescriptor;
     use cloud_terrastodon_azure_devops_types::AzureDevOpsGroupMember;
     use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
+    use cloud_terrastodon_azure_types::ArbitraryJson;
     use cloud_terrastodon_command::CancellationToken;
     use eyre::bail;
-    use facet_json::RawJson;
     use std::collections::HashMap;
     use std::str::FromStr;
 
@@ -265,7 +306,7 @@ mod test {
                     .await?;
                     for group in &groups {
                         let members =
-                            fetch_azure_devops_group_members(&org_url, &group.descriptor, &cancellation)
+                            fetch_azure_devops_group_members(&org_url, &group.descriptor, &azure_devops_auth_context, &cancellation)
                                 .await?;
                         if !members.is_empty() {
                             assert!(
@@ -292,7 +333,7 @@ mod test {
                 #[derive(facet::Facet)]
                 struct MembershipsResponse {
                     #[facet(default)]
-                    value: Option<RawJson<'static>>,
+                    value: Option<ArbitraryJson>,
                     #[facet(default)]
                     count: Option<usize>,
                 }

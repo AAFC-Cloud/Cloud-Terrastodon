@@ -18,6 +18,10 @@ pub async fn create_azure_devops_rest_client(token: &impl AuthBearerExt) -> eyre
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::disallowed_types,
+    reason = "This transport test inspects a raw JSON response without a domain schema."
+)]
 mod test {
     use crate::create_azure_devops_rest_client;
     use crate::get_azure_devops_personal_access_token_from_credential_manager;

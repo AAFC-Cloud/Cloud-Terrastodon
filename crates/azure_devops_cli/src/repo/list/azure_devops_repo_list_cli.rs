@@ -6,7 +6,6 @@ use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_repos_for_project;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::to_writer_pretty;
 use eyre::Result;
 use std::io::stdout;
 
@@ -46,9 +45,15 @@ impl AzureDevOpsRepoListArgs {
         else {
             eyre::bail!("No project found matching '{}'.", self.project);
         };
-        let repos =
-            fetch_all_azure_devops_repos_for_project(&self.org, &project.id, cancellation).await?;
-        to_writer_pretty(stdout(), &repos)?;
+        let repos = fetch_all_azure_devops_repos_for_project(
+            &self.org,
+            &project.id,
+            &azure_devops_auth_context,
+            cancellation,
+        )
+        .await?;
+        facet_json::to_writer_std_pretty(stdout(), &repos)
+            .map_err(|error| eyre::eyre!("{error:?}"))?;
         Ok(())
     }
 }

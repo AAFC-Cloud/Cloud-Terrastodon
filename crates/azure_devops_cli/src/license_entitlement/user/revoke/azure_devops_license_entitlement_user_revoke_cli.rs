@@ -7,8 +7,10 @@ use cloud_terrastodon_azure::EntraUserArgument;
 use cloud_terrastodon_azure::fetch_entra_user;
 use cloud_terrastodon_azure::fetch_group_members;
 use cloud_terrastodon_azure::remove_group_member;
+use cloud_terrastodon_azure_devops::AzureDevOpsAccountLicenseType;
 use cloud_terrastodon_azure_devops::AzureDevOpsLicenseAssignmentSource;
 use cloud_terrastodon_azure_devops::AzureDevOpsLicenseType;
+use cloud_terrastodon_azure_devops::AzureDevOpsMsdnLicenseType;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsUserArgument;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_group_license_entitlements;
@@ -68,8 +70,10 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
         let user_principal_name = user_entitlement.user.unique_name;
 
         if matches!(
-            user_entitlement.license,
-            AzureDevOpsLicenseType::AccountStakeholder | AzureDevOpsLicenseType::None
+            &user_entitlement.license,
+            AzureDevOpsLicenseType::Account(
+                AzureDevOpsAccountLicenseType::Stakeholder | AzureDevOpsAccountLicenseType::None,
+            ) | AzureDevOpsLicenseType::Msdn(AzureDevOpsMsdnLicenseType::None)
         ) {
             info!(
                 user_devops_id = %user_entitlement.user_id,
@@ -95,17 +99,24 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
             // Find the rule that is granting the license and remove the user from that group
 
             // Fetch groups that are granting licenses
-            let group_entitlements =
-                fetch_azure_devops_group_license_entitlements(&self.org, cancellation).await?;
+            let group_entitlements = fetch_azure_devops_group_license_entitlements(
+                &self.org,
+                &azure_devops_auth_context,
+                cancellation,
+            )
+            .await?;
 
             // Identify groups which grant the license that the user has
             for group_license_entitlement in group_entitlements {
-                let matches = group_license_entitlement.license_rule.account_license_type
-                    == user_entitlement.license;
+                let matches = group_license_entitlement
+                    .license_rule
+                    .matches_license(&user_entitlement.license);
                 debug!(
                     group_display_name = %group_license_entitlement.group.display_name,
                     group_origin_id = %group_license_entitlement.group.origin_id,
-                    group_license_type = ?group_license_entitlement.license_rule.account_license_type,
+                    group_licensing_source = ?group_license_entitlement.license_rule.licensing_source,
+                    group_account_license_type = ?group_license_entitlement.license_rule.account_license_type,
+                    group_msdn_license_type = ?group_license_entitlement.license_rule.msdn_license_type,
                     matches,
                     "Checking group entitlement against user license"
                 );
@@ -148,8 +159,13 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
                             |protected| {
                                 let tenant_auth_context = &tenant_auth_context;
                                 async move {
-                                    remove_group_member(group_entra_id, entra_user_id, &protected)
-                                        .await?;
+                                    remove_group_member(
+                                        group_entra_id,
+                                        entra_user_id,
+                                        tenant_auth_context,
+                                        &protected,
+                                    )
+                                    .await?;
                                     fetch_group_members(
                                         group_entra_id,
                                         tenant_auth_context,
@@ -168,7 +184,8 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
             update_azure_devops_user_license_entitlement(
                 &self.org,
                 user_entitlement.user_id,
-                AzureDevOpsLicenseType::AccountStakeholder,
+                AzureDevOpsLicenseType::Account(AzureDevOpsAccountLicenseType::Stakeholder),
+                &azure_devops_auth_context,
                 cancellation,
             )
             .await?;

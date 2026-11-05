@@ -62,9 +62,8 @@ impl<'a> MicrosoftGraphHelper<'a> {
     }
 
     fn get_request(&self, url: &str) -> Result<RestRequest> {
-        let mut request = RestRequest::new(http::Method::GET, url, &self.cancellation)?;
-        request.tenant = Some(self.auth_context.tenant_id);
-        request = request.azure_auth_context(&self.auth_context.auth_context);
+        let mut request = RestRequest::new(http::Method::GET, url, &self.cancellation)?
+            .azure_auth_context(self.auth_context);
         request.cache_key = self.cache_key.clone();
         request.headers = self.headers.clone();
         Ok(request)

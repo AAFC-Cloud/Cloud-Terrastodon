@@ -1,4 +1,5 @@
 use cloud_terrastodon_auth::AzureTenantAuthContext;
+use cloud_terrastodon_azure::ArbitraryJson;
 use cloud_terrastodon_azure::ResourceGraphHelper;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandBuilder;
@@ -6,7 +7,6 @@ use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_pathing::AppDir;
 use cloud_terrastodon_pathing::Existy;
 use cloud_terrastodon_user_input::PickerTui;
-use facet_json::RawJson;
 use tracing::debug;
 use tracing::info;
 
@@ -51,11 +51,12 @@ resources
         debug!("Received query:\n{}", query);
 
         info!("Running query");
-        let rows: Vec<RawJson<'static>> =
+        let rows: Vec<ArbitraryJson> =
             ResourceGraphHelper::new(query.clone(), None, auth_context, cancellation)
                 .collect_all()
                 .await?;
-        let rows_json = cloud_terrastodon_command::to_string_pretty(&rows)?;
+        let rows_json =
+            facet_json::to_string_pretty(&rows).map_err(|error| eyre::eyre!("{error:?}"))?;
 
         debug!("Writing results to temp file");
         let results_path = tempfile::Builder::new()

@@ -1,8 +1,8 @@
 use cloud_terrastodon_auth::AzureTenantAuthContext;
+use cloud_terrastodon_azure::ArbitraryJson;
 use cloud_terrastodon_azure::ResourceGraphHelper;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_user_input::PickerTui;
-use facet_json::RawJson;
 use std::path::PathBuf;
 use tokio::fs::OpenOptions;
 use tokio::fs::try_exists;
@@ -47,7 +47,7 @@ resources
         auth_context,
         cancellation,
     )
-    .collect_all::<RawJson<'static>>()
+    .collect_all::<ArbitraryJson>()
     .await?;
 
     let mut file = OpenOptions::new()
@@ -57,8 +57,12 @@ resources
         .open(&path)
         .await?;
 
-    file.write_all(cloud_terrastodon_command::to_vec_pretty(&data)?.as_slice())
-        .await?;
+    file.write_all(
+        facet_json::to_vec_pretty(&data)
+            .map_err(|error| eyre::eyre!("{error:?}"))?
+            .as_slice(),
+    )
+    .await?;
     info!("Dumped resources to {}", path.display());
     warn!("YOU PROBABLY WANT TO GITIGNORE THIS!");
     Ok(())

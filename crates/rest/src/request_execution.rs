@@ -47,6 +47,29 @@ pub async fn execute_rest_request(
     cancellation: &CancellationScope,
 ) -> Result<Response> {
     match service {
+        RestService::AzureRetailPrices => {
+            // The public catalogue is anonymous, including --auth-source none.
+            // https://learn.microsoft.com/rest/api/cost-management/retail-prices/azure-retail-prices
+            eyre::ensure!(
+                bearer_token.is_none() && tenant.is_none(),
+                "the public retail-price service does not accept bearer credentials or a tenant"
+            );
+            let mut request = create_tls12_client()?.request(method, url);
+            if let Some(body) = body {
+                request = request.header(CONTENT_TYPE, "application/json").body(body);
+            }
+            if let Some(headers) = headers {
+                let headers = headers.to_header_map()?;
+                eyre::ensure!(
+                    !headers.contains_key(reqwest::header::AUTHORIZATION),
+                    "the public retail-price service does not accept authorization headers"
+                );
+                request = request.headers(headers);
+            }
+            cancellation
+                .cancellable_scope(|_| async { Ok::<_, eyre::Report>(request.send().await?) })
+                .await
+        }
         RestService::AzureDevOps => {
             execute_azure_devops_request(
                 auth_context,
@@ -84,6 +107,36 @@ pub async fn execute_rest_request(
                 tenant,
                 bearer_token,
                 AzureCredentialResource::AzureResourceManager,
+                cancellation,
+            )
+            .await
+        }
+        RestService::AzureKeyVault => {
+            execute_azure_bearer_request(
+                auth_context,
+                method,
+                url,
+                body,
+                headers,
+                tenant,
+                bearer_token,
+                AzureCredentialResource::AzureKeyVault,
+                cancellation,
+            )
+            .await
+        }
+        RestService::AzureContainerRegistry => {
+            eyre::ensure!(
+                bearer_token.is_none(),
+                "Container Registry authenticates using the explicitly selected credential source"
+            );
+            crate::container_registry_request_execution::execute_container_registry_request(
+                auth_context,
+                method,
+                url,
+                body,
+                headers,
+                tenant,
                 cancellation,
             )
             .await

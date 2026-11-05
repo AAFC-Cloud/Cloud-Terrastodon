@@ -110,7 +110,7 @@ mod test {
                     description: Some(format!("This is policy definition number {}", i)),
                     mode: "All".to_string(),
                     parameters: Some(Default::default()),
-                    policy_rule: facet_json::RawJson::from_owned("{}".to_string()).into(),
+                    policy_rule: crate::ArbitraryJson::object(),
                     policy_type: "Custom".to_string(),
                     version: "1.0".to_string(),
                 }

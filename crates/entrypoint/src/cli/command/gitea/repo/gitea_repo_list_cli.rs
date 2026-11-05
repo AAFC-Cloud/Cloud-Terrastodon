@@ -1,4 +1,4 @@
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_gitea::GiteaTenantArgument;
 use cloud_terrastodon_gitea::GiteaTenantArgumentExt;
 use cloud_terrastodon_gitea::fetch_all_gitea_organization_repositories;
@@ -41,13 +41,14 @@ pub struct GiteaRepoListArgs {
 }
 
 impl GiteaRepoListArgs {
-    pub async fn invoke(self, cancellation: &CancellationScope) -> Result<()> {
-        let tenant = self.tenant.resolve(cancellation).await?;
-        let repositories = self.fetch_repositories(&tenant, cancellation).await?;
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<()> {
+        let tenant = self.tenant.resolve(executor).await?;
+        let repositories = self.fetch_repositories(&tenant, executor).await?;
         info!(count = repositories.len(), ?self.method, "Fetched Gitea repositories");
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();
-        cloud_terrastodon_command::to_writer_pretty(&mut handle, &repositories)?;
+        facet_json::to_writer_std_pretty(&mut handle, &repositories)
+            .map_err(|error| eyre::eyre!("{error:?}"))?;
         handle.write_all(b"\n")?;
         Ok(())
     }
@@ -55,24 +56,22 @@ impl GiteaRepoListArgs {
     pub async fn fetch_repositories(
         &self,
         tenant: &cloud_terrastodon_gitea::GiteaInstanceUrl,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<Vec<cloud_terrastodon_gitea::GiteaRepo>> {
         match self.method {
-            GiteaRepoListMethod::Combined => {
-                fetch_all_gitea_repositories(tenant, cancellation).await
-            }
+            GiteaRepoListMethod::Combined => fetch_all_gitea_repositories(tenant, executor).await,
             GiteaRepoListMethod::Search => {
-                fetch_all_gitea_repositories_via_search(tenant, cancellation).await
+                fetch_all_gitea_repositories_via_search(tenant, executor).await
             }
             GiteaRepoListMethod::Organizations => {
-                let organizations = fetch_all_gitea_organizations(tenant, cancellation).await?;
+                let organizations = fetch_all_gitea_organizations(tenant, executor).await?;
                 let mut repositories = Vec::new();
                 for organization in &organizations {
                     repositories.extend(
                         fetch_all_gitea_organization_repositories(
                             tenant,
                             &organization.username,
-                            cancellation,
+                            executor,
                         )
                         .await?,
                     );
@@ -80,22 +79,20 @@ impl GiteaRepoListArgs {
                 Ok(cloud_terrastodon_gitea::dedupe_repositories(repositories))
             }
             GiteaRepoListMethod::Users => {
-                let users = fetch_all_gitea_users(tenant, cancellation).await?;
+                let users = fetch_all_gitea_users(tenant, executor).await?;
                 let mut repositories = Vec::new();
                 for user in &users {
                     repositories.extend(
-                        fetch_all_gitea_user_repositories(tenant, &user.login, cancellation)
-                            .await?,
+                        fetch_all_gitea_user_repositories(tenant, &user.login, executor).await?,
                     );
                 }
                 Ok(cloud_terrastodon_gitea::dedupe_repositories(repositories))
             }
             GiteaRepoListMethod::CurrentUser => {
-                fetch_current_user_gitea_repositories(tenant, cancellation).await
+                fetch_current_user_gitea_repositories(tenant, executor).await
             }
             GiteaRepoListMethod::IdRange => {
-                fetch_gitea_repositories_by_id_range(tenant, 1, self.max_repo_id, cancellation)
-                    .await
+                fetch_gitea_repositories_by_id_range(tenant, 1, self.max_repo_id, executor).await
             }
         }
     }

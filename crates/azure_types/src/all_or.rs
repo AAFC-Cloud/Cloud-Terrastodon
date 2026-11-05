@@ -1,3 +1,8 @@
+#![allow(
+    clippy::disallowed_types,
+    reason = "The AllOr wire codec and its Facet-generated sibling items use RawJson to distinguish sentinels from typed values"
+)]
+
 use arbitrary::Arbitrary;
 use facet::Facet;
 use facet_json::RawJson;
@@ -91,10 +96,11 @@ where
 #[cfg(test)]
 mod test {
     use super::AllOr;
-    use facet_json::RawJson;
 
     #[test]
     pub fn it_works() -> eyre::Result<()> {
+        use facet_json::RawJson;
+
         let json_string = "\"all\"";
         let all_or: super::AllOr<String> =
             RawJson::from_owned(json_string.to_owned()).try_into()?;

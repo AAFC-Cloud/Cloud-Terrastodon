@@ -14,7 +14,7 @@ use tokio::fs::{self};
 use tracing::info;
 use tracing::instrument;
 
-#[instrument(level = "debug")]
+#[instrument(level = "debug", skip(cancellation))]
 pub async fn process_generated(
     auth_context: &AzureTenantAuthContext,
     cancellation: &CancellationScope,

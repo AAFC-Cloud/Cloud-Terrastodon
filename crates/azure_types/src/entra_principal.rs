@@ -1,3 +1,8 @@
+#![allow(
+    clippy::disallowed_types,
+    reason = "The OData discriminator codec and its Facet-generated sibling items require RawJson before selecting a typed principal"
+)]
+
 use crate::EntraGroup;
 use crate::EntraPrincipalId;
 use crate::EntraServicePrincipal;

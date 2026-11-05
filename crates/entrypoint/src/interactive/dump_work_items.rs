@@ -24,7 +24,8 @@ pub async fn dump_work_items(
         .await?;
     let mut queries = Vec::new();
     for proj in &projects {
-        let found = fetch_queries_for_project(&org_url, &proj.name, cancellation).await?;
+        let found =
+            fetch_queries_for_project(&org_url, &proj.name, auth_context, cancellation).await?;
         queries.extend(found);
     }
     let queries = AzureDevOpsWorkItemQuery::flatten_many(&queries);

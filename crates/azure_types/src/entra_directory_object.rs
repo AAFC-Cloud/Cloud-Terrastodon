@@ -1,3 +1,8 @@
+#![allow(
+    clippy::disallowed_types,
+    reason = "The OData discriminator codec and its Facet-generated sibling items require RawJson before selecting a typed directory object"
+)]
+
 use crate::EntraDirectoryObjectDevice;
 use crate::EntraDirectoryObjectGroup;
 use crate::EntraDirectoryObjectOrganizationalContact;

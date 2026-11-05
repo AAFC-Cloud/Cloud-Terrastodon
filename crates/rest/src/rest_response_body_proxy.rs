@@ -1,3 +1,8 @@
+#![allow(
+    clippy::disallowed_types,
+    reason = "This codec preserves raw response-cache envelopes, including generated Facet implementations."
+)]
+
 use crate::RestResponseBody;
 use crate::rest_response_body::pretty_json_body;
 use eyre::WrapErr;

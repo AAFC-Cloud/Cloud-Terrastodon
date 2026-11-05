@@ -32,7 +32,9 @@ impl AzureTagForCleanupArgs {
             .bind_auth_context(auth_context, cancellation)
             .await?;
         let cleanup_tagged_date = Local::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
-        let cleanup_tagged_by = fetch_current_user(cancellation).await?.user_principal_name;
+        let cleanup_tagged_by = fetch_current_user(&tenant_auth_context, cancellation)
+            .await?
+            .user_principal_name;
 
         let cleanup_policy = {
             match PickerTui::<_>::new()

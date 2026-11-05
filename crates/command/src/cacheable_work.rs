@@ -73,7 +73,7 @@ fn work_fingerprint(
             .map(|(path, contents)| (path.to_string_lossy().into_owned(), contents.clone()))
             .collect(),
     };
-    let bytes = crate::json::to_vec(&fingerprint)?;
+    let bytes = facet_json::to_vec(&fingerprint).map_err(|error| eyre::eyre!("{error:?}"))?;
     Ok(blake3::hash(&bytes).to_hex().to_string())
 }
 
@@ -135,7 +135,8 @@ where
                         if let Some(raw) = fresh_raw {
                             let extra_files = extra_files.map(|f| f(&raw)).unwrap_or_default();
                             let output = CommandOutput {
-                                stdout: crate::json::to_vec_pretty(&raw)
+                                stdout: facet_json::to_vec_pretty(&raw)
+                                    .map_err(|error| eyre::eyre!("{error:?}"))
                                     .context("serializing cached work raw output to JSON")?
                                     .into(),
                                 stderr: BString::default(),
@@ -151,7 +152,8 @@ where
                                     "cached work has neither a cached output nor a fresh response"
                                 )
                             })?;
-                            let raw = crate::json::from_slice::<Raw>(&output.stdout)
+                            let raw = facet_json::from_slice::<Raw>(&output.stdout)
+                                .map_err(|error| eyre::eyre!("{error:?}"))
                                 .context("Deserializing cached work output");
                             let extra_files = raw
                                 .as_ref()

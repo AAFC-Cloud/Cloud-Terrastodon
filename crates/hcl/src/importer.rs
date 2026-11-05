@@ -222,15 +222,14 @@ mod test {
         let mut join_set: JoinSet<eyre::Result<()>> = JoinSet::new();
         for i in 0..num_workspaces {
             let workspace_dir = temp_dir.path().join(format!("workspace_{i:03}"));
-            let cancellation = cancellation.clone();
-            join_set.spawn(async move {
+            join_set.spawn(cancellation.cancellable_scope(move |cancellation| async move {
                 workspace_dir.ensure_dir_exists().await?;
                 GenerateConfigOutHelper::new()
                     .with_run_dir(&workspace_dir)
                     .run(&cancellation)
                     .await?;
                 Ok(())
-            });
+            }));
         }
         while let Some(x) = join_set.join_next().await {
             x??;
@@ -264,18 +263,19 @@ mod test {
                     let workspace_dir = temp_dir.path().join(format!("workspace_{i:03}"));
                     let cache_dir = cache_dir.clone();
                     let limit = limit.clone();
-                    let cancellation = cancellation.clone();
-                    join_set.spawn(async move {
-                        workspace_dir.ensure_dir_exists().await?;
-                        let permit = limit.acquire().await?;
-                        GenerateConfigOutHelper::new()
-                            .with_run_dir(&workspace_dir)
-                            .with_plugin_dir(cache_dir)
-                            .run(&cancellation)
-                            .await?;
-                        drop(permit);
-                        Ok(())
-                    });
+                    join_set.spawn(cancellation.cancellable_scope(
+                        move |cancellation| async move {
+                            workspace_dir.ensure_dir_exists().await?;
+                            let permit = limit.acquire().await?;
+                            GenerateConfigOutHelper::new()
+                                .with_run_dir(&workspace_dir)
+                                .with_plugin_dir(cache_dir)
+                                .run(&cancellation)
+                                .await?;
+                            drop(permit);
+                            Ok(())
+                        },
+                    ));
                 }
 
                 _ = temp_dir.keep(); // keep it around

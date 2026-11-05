@@ -56,7 +56,7 @@ pub async fn browse_security_groups(
 
     info!(
         "You chose:\n{}",
-        cloud_terrastodon_command::to_string_pretty(&security_groups)?
+        facet_json::to_string_pretty(&security_groups).map_err(|error| eyre::eyre!("{error:?}"))?
     );
     maybe_error?;
 
@@ -168,7 +168,7 @@ pub async fn browse_security_groups(
     }
     info!(
         "You chose:\n{}",
-        cloud_terrastodon_command::to_string_pretty(&rows)?
+        facet_json::to_string_pretty(&rows).map_err(|error| eyre::eyre!("{error:?}"))?
     );
 
     Ok(())

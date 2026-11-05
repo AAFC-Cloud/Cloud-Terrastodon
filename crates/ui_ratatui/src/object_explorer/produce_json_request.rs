@@ -244,6 +244,10 @@ cloud_terrastodon_registry_execution::register_into_future!(
 );
 
 #[cfg(test)]
+#[allow(
+    clippy::disallowed_types,
+    reason = "These tests inspect heterogeneous serialized snapshots without imposing a shared domain schema."
+)]
 mod tests {
     use super::*;
     use crate::object_explorer::arena::Arena;

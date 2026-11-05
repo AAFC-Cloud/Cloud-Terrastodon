@@ -1,5 +1,3 @@
-use crate::ArtifactMetadata;
-use crate::CacheKey;
 use crate::CancellationScope;
 use crate::CommandArgument;
 use crate::CommandKind;
@@ -8,17 +6,29 @@ use crate::FromCommandOutput;
 use crate::OutputBehaviour;
 use crate::PathMapper;
 use crate::RetryBehaviour;
-use crate::command_output_decode_error::CommandOutputDecodeError;
 use crate::command_process::CommandProcess;
 use crate::process_fingerprint::ProcessFingerprint;
 pub use bstr;
 use bstr::BString;
 use bstr::ByteSlice;
+use cloud_terrastodon_auth_types::AuthenticationSelection;
+use cloud_terrastodon_cache::ArtifactEntry;
+use cloud_terrastodon_cache::ArtifactFilePath;
+use cloud_terrastodon_cache::ArtifactObservation;
+use cloud_terrastodon_cache::ArtifactRetention;
+use cloud_terrastodon_cache::ArtifactSet;
+use cloud_terrastodon_cache::CacheKey;
+use cloud_terrastodon_cache::CacheOperationOwner;
+use cloud_terrastodon_cache::CacheScope;
+use cloud_terrastodon_cache::ExecutorKind;
+use cloud_terrastodon_cache::NonEmptyString;
+use cloud_terrastodon_cache::WorkOutput;
+use cloud_terrastodon_cache::WorkReuse;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_relative_location::RelativeLocation;
 use eyre::Context;
 use eyre::Report;
 use eyre::Result;
-use eyre::bail;
 use std::any::type_name;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
@@ -27,27 +37,21 @@ use std::ffi::OsStr;
 use std::ffi::OsString;
 use std::future::Future;
 use std::future::IntoFuture;
-use std::io::IsTerminal;
 use std::panic::Location;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
-use std::time::Instant;
-use teamy_cancellation::CancellableScopeFuture;
 use teamy_cancellation::CancellationReportExt;
-use tokio::fs::OpenOptions;
-use tokio::sync::Mutex;
 use tokio::task::spawn_blocking;
 use tokio::time::sleep;
 use tracing::Instrument;
 use tracing::Span;
-use tracing::debug;
 use tracing::info;
 use tracing::info_span;
 use tracing::warn;
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct CommandBuilder {
     pub(crate) kind: CommandKind,
     pub(crate) args: Vec<CommandArgument>,
@@ -64,9 +68,30 @@ pub struct CommandBuilder {
     pub(crate) stdin_content: Option<String>,
     /// False by default: retain command execution, decoding, and artifacts.
     pub(crate) cancellation_safe: bool,
+    pub(crate) artifact_retention: ArtifactRetention,
 }
 
-static LOGIN_LOCK: Mutex<()> = Mutex::const_new(());
+impl Default for CommandBuilder {
+    fn default() -> Self {
+        Self {
+            kind: CommandKind::default(),
+            args: Vec::new(),
+            adjacent_files: HashMap::new(),
+            env: HashMap::new(),
+            removed_env: BTreeSet::new(),
+            removed_env_prefixes: BTreeSet::new(),
+            run_dir: None,
+            retry_behaviour: RetryBehaviour::default(),
+            output_behaviour: OutputBehaviour::default(),
+            cache_key: None,
+            should_announce: false,
+            timeout: None,
+            stdin_content: None,
+            cancellation_safe: false,
+            artifact_retention: ArtifactRetention::Full,
+        }
+    }
+}
 
 impl CommandBuilder {
     pub fn new(kind: CommandKind) -> CommandBuilder {
@@ -87,49 +112,63 @@ impl CommandBuilder {
         self
     }
 
-    #[track_caller]
-    fn with_cancellation_policy<C, F, T>(
-        &self,
-        cancellation: &CancellationScope,
+    async fn with_cancellation_policy<'a, C, F, T>(
+        &'a self,
+        cancellation: &'a CancellationScope,
         execute: C,
-    ) -> CancellableScopeFuture<C, F>
+    ) -> Result<T>
     where
-        C: FnOnce(CancellationScope) -> F,
-        F: IntoFuture<Output = Result<T>>,
+        C: FnOnce(CancellationScope) -> F + 'a,
+        F: IntoFuture<Output = Result<T>> + 'a,
+        F::IntoFuture: 'a,
+        T: 'a,
     {
         if self.cancellation_safe {
-            cancellation.cancellable_scope(execute)
+            cancellation.cancellable_scope(execute).await
         } else {
-            cancellation.deferred(
-                "finishing command execution, decoding its outcome, and retaining execution artifacts",
-                execute,
-            )
+            cancellation
+                .deferred(
+                    "finishing command execution, decoding, and caller validation",
+                    execute,
+                )
+                .await
         }
+    }
+
+    async fn with_executor_cancellation_policy<'a, C, F, T>(
+        &'a self,
+        executor: &'a CloudTerrastodonExecutor,
+        execute: C,
+    ) -> Result<T>
+    where
+        C: FnOnce(CloudTerrastodonExecutor) -> F + 'a,
+        F: IntoFuture<Output = Result<T>> + 'a,
+        F::IntoFuture: 'a,
+        T: 'a,
+    {
+        if self.cancellation_safe {
+            executor.cancellable_scope(execute).await
+        } else {
+            executor
+                .deferred(
+                    "finishing command execution, decoding, caller validation, and artifacts",
+                    execute,
+                )
+                .await
+        }
+    }
+
+    /// Suppress every raw input, output, and error artifact for sensitive commands.
+    /// Sensitive failures do not include captured stdout, stderr, or decoder text.
+    pub fn artifact_retention(&mut self, retention: ArtifactRetention) -> &mut Self {
+        self.artifact_retention = retention;
+        self
     }
 
     pub fn use_command(&mut self, kind: CommandKind) -> &mut Self {
         self.kind = kind;
         self
     }
-    pub async fn bust_cache(&self) -> Result<()> {
-        let Some(cache_key) = &self.cache_key else {
-            bail!("no cache entry present");
-        };
-        let cache_dir = cache_key.path_on_disk();
-        let busted_path = cache_dir.join("busted");
-        let _file = OpenOptions::new()
-            .create(true)
-            .truncate(false)
-            .write(true)
-            .open(&busted_path)
-            .await
-            .context(format!(
-                "failed creating busted cache indicator at {}",
-                busted_path.display(),
-            ))?;
-        Ok(())
-    }
-
     #[track_caller]
     pub fn cache(&mut self, key: CacheKey) -> &mut Self {
         self.cache_key = Some(key);
@@ -285,10 +324,6 @@ impl CommandBuilder {
             .collect()
     }
 
-    fn cache_metadata(fingerprint: &str) -> ArtifactMetadata {
-        ArtifactMetadata::new(fingerprint, "process", type_name::<CommandOutput>())
-    }
-
     async fn cache_fingerprint(&self, debug_inputs: &BTreeMap<PathBuf, BString>) -> Result<String> {
         let mut args = self.args.clone();
         if self.kind == CommandKind::AzureCLI {
@@ -300,6 +335,7 @@ impl CommandBuilder {
             }
         }
         let fingerprint = ProcessFingerprint {
+            kind: self.kind.clone(),
             program: self.kind.program().await?,
             args: args
                 .into_iter()
@@ -323,30 +359,8 @@ impl CommandBuilder {
                 .map(|(path, contents)| (path.to_string_lossy().into_owned(), contents.clone()))
                 .collect(),
         };
-        let bytes = crate::json::to_vec(&fingerprint)?;
+        let bytes = facet_json::to_vec(&fingerprint).map_err(|error| eyre::eyre!("{error:?}"))?;
         Ok(blake3::hash(&bytes).to_hex().to_string())
-    }
-
-    pub async fn get_cached_output(&self) -> Result<Option<CommandOutput>> {
-        let Some(cache_key) = &self.cache_key else {
-            debug!("Cache behaviour is None, not using cache");
-            return Ok(None);
-        };
-        let context = self.summarize().await?;
-        let debug_inputs = self.cache_debug_inputs();
-        let fingerprint = self.cache_fingerprint(&debug_inputs).await?;
-        crate::artifact_cache::get_cached_output(cache_key, &context, &debug_inputs, &fingerprint)
-            .await
-    }
-
-    pub async fn write_output(&self, output: &CommandOutput, parent_dir: &Path) -> Result<()> {
-        debug!(path = %parent_dir.display(), "Writing command results");
-        let context = self.summarize().await?;
-        let debug_inputs = self.cache_debug_inputs();
-        let fingerprint = self.cache_fingerprint(&debug_inputs).await?;
-        let metadata = Self::cache_metadata(&fingerprint);
-        crate::artifact_cache::write_output(parent_dir, &context, &debug_inputs, output, &metadata)
-            .await
     }
 
     /// Sends content to stdin of the command.
@@ -382,7 +396,8 @@ impl CommandBuilder {
                     if let Some(pos) = output.stderr.find(needle) {
                         let start = pos + needle.len();
                         if let Some(end) = output.stderr[start..].find("'") {
-                            let reset_after = String::from_utf8_lossy(&output.stderr[start..start + end]);
+                            let reset_after =
+                                String::from_utf8_lossy(&output.stderr[start..start + end]);
                             let parts = reset_after
                                 .split(':')
                                 .map(|part| part.parse::<u64>())
@@ -390,10 +405,18 @@ impl CommandBuilder {
                             if let [hours, minutes, seconds] = parts.as_slice() {
                                 let seconds = hours
                                     .checked_mul(3600)
-                                    .and_then(|total| minutes.checked_mul(60).and_then(|minutes| total.checked_add(minutes)))
+                                    .and_then(|total| {
+                                        minutes
+                                            .checked_mul(60)
+                                            .and_then(|minutes| total.checked_add(minutes))
+                                    })
                                     .and_then(|total| total.checked_add(*seconds))
                                     .and_then(|total| total.checked_add(5))
-                                    .ok_or_else(|| eyre::eyre!("command retry delay exceeds the supported duration"))?;
+                                    .ok_or_else(|| {
+                                        eyre::eyre!(
+                                            "command retry delay exceeds the supported duration"
+                                        )
+                                    })?;
                                 sleep_duration = Duration::from_secs(seconds);
                             }
                         }
@@ -403,533 +426,776 @@ impl CommandBuilder {
                     cancellation.bail_if_cancelled()?;
                     info!("Retrying command after rate-limit wait");
                 }
-                // Legacy CLI callers retain their current login policy until their
-                // explicit provider-bound request migration. Credential-provider
-                // subprocesses already bypass this general command boundary.
-                RetryBehaviour::Retry
-                    if [
-                        "AADSTS70043",
-                        "No subscription found. Run 'az account set' to select a subscription.",
-                        "Please run 'az login' to setup account.",
-                        "ERROR: (pii). Status: Response_Status.Status_InteractionRequired, Error code: 3399614467",
-                    ]
-                    .into_iter()
-                    .any(|message| output.stderr.contains_str(message)) =>
-                {
-                    if !allow_interactive_reauthentication() {
-                        bail!(
-                            "Command failed due to an authentication challenge; interactive Azure CLI reauthentication is disabled for the selected/headless authentication source"
-                        );
-                    }
-                    if std::env::var("CLOUD_TERRASTODON_REAUTH").unwrap_or_default().to_uppercase() == "DENY" {
-                        bail!("Command failed due to bad auth, and automatic reauthentication is disabled by the CLOUD_TERRASTODON_REAUTH environment variable. Please refresh your credentials and try again.");
-                    }
-                    match LOGIN_LOCK.try_lock() {
-                        Ok(login_guard) => {
-                            debug!(
-                                "Acquired login lock without waiting, there isn't a login in progress"
-                            );
-                            // Let the user know
-                            warn!(
-                                "Command failed due to bad auth. Refreshing credential, user action required in a moment..."
-                            );
-
-                            // Perform login command
-                            // (avoid using azure crate to avoid a dependency)
-                            // This could maybe be moved to cloud_terrastodon_auth
-                            // We could also try and extract `--tenant {}` from args
-                            // or just make the tenant id be explicitly set for CommandBuilder
-                            // Reauthentication commands must not retry and reacquire this lock.
-                            let tenant_id = CommandBuilder::new(CommandKind::AzureCLI)
-                                .cancellation_safe()
-                                .use_retry_behaviour(RetryBehaviour::Fail)
-                                .args([
-                                    "account",
-                                    "list",
-                                    "--query",
-                                    "[?isDefault].tenantId",
-                                    "--output",
-                                    "tsv",
-                                ])
-                                .run_reauthentication_command(cancellation)
-                                .await?
-                                .stdout;
-                            let tenant_id = tenant_id.trim();
-                            if tenant_id.is_empty() {
-                                warn!(
-                                    "Failed to find tenant ID from default account, the login command without tenant ID has been flaky for me .-. trying anyways"
-                                );
-                                CommandBuilder::new(CommandKind::AzureCLI)
-                                    .use_retry_behaviour(RetryBehaviour::Fail)
-                                    .arg("login")
-                                    .use_output_behaviour(OutputBehaviour::Display)
-                                    .run_reauthentication_command(cancellation)
-                                    .await?;
-                            } else {
-                                CommandBuilder::new(CommandKind::AzureCLI)
-                                    .use_retry_behaviour(RetryBehaviour::Fail)
-                                    .args([
-                                        "login",
-                                        "--tenant",
-                                        tenant_id
-                                            .to_str()
-                                            .wrap_err("converting tenant id to str")?,
-                                    ])
-                                    .run_reauthentication_command(cancellation)
-                                    .await?;
-                            }
-
-                            drop(login_guard);
-                        }
-                        Err(_) => {
-                            debug!("Login lock busy, waiting for the login to complete");
-                            warn!(
-                                "Command failed due to bad auth. Waiting for login in progress..."
-                            );
-                            let _login_guard = LOGIN_LOCK.lock().await;
-                        }
-                    }
-
-
-                    cancellation.bail_if_cancelled()?;
-                    info!("Retrying command with refreshed credential");
-                }
                 RetryBehaviour::Fail | RetryBehaviour::Retry => {
                     return Ok((output, retry_behaviour));
                 }
             }
 
-            // Both retry routes execute once more without revisiting the cache,
-            // repeating a polite delay, or reacquiring a future per-key lock.
+            // Retry once below the canonical work boundary.
             retry_behaviour = RetryBehaviour::Fail;
         }
     }
 
-    /// Login infrastructure has no cache key and cannot retry or recurse into
-    /// cache admission. Keep each nested command's own cancellation policy.
-    fn run_reauthentication_command<'a>(
-        &'a self,
-        cancellation: &'a CancellationScope,
-    ) -> impl Future<Output = Result<CommandOutput>> + Send + 'a {
-        // Keep the nested command's previous boxing boundary: login branches
-        // must not enlarge every ordinary command's debug poll frame.
-        Box::pin(
-            self.with_cancellation_policy(cancellation, move |scope| async move {
-                let output = CommandProcess::spawn(self, &scope)
-                    .await?
-                    .wait(self.stdin_content.as_deref(), self.timeout)
-                    .await?;
-                self.require_success(output, RetryBehaviour::Fail).await
-            }),
-        )
+    fn artifact_key(&self, caller: &'static Location<'static>) -> Result<CacheKey> {
+        Ok(self.cache_key.clone().unwrap_or(CacheKey {
+            scope: CacheScope::try_from_components([
+                "uncached".to_owned(),
+                caller.file().to_owned(),
+                caller.line().to_string(),
+                caller.column().to_string(),
+            ])?,
+            valid_for: Duration::ZERO,
+        }))
     }
 
-    async fn require_success(
+    fn artifact_inputs(&self) -> Result<BTreeMap<ArtifactFilePath, Vec<u8>>> {
+        self.adjacent_files
+            .iter()
+            .map(|(path, bytes)| {
+                let path = path
+                    .to_str()
+                    .ok_or_else(|| eyre::eyre!("command input path is not Unicode"))?;
+                #[cfg(windows)]
+                let path = path.replace('\\', "/");
+                Ok((ArtifactFilePath::new(path)?, bytes.to_vec()))
+            })
+            .collect()
+    }
+
+    fn diagnostics(
+        &self,
+        summary: &str,
+        output: Option<&CommandOutput>,
+        error: Option<&Report>,
+    ) -> Result<BTreeMap<ArtifactFilePath, Vec<u8>>> {
+        let mut files = BTreeMap::from([(
+            ArtifactFilePath::new("context.txt")?,
+            summary.as_bytes().to_vec(),
+        )]);
+        if let Some(output) = output {
+            files.insert(
+                ArtifactFilePath::new("stdout.json")?,
+                output.stdout.to_vec(),
+            );
+            files.insert(
+                ArtifactFilePath::new("stderr.json")?,
+                output.stderr.to_vec(),
+            );
+            files.insert(
+                ArtifactFilePath::new("status.txt")?,
+                output.status.to_string().into_bytes(),
+            );
+        }
+        if let Some(error) = error {
+            files.insert(
+                ArtifactFilePath::new("error.txt")?,
+                format!("{error:?}").into_bytes(),
+            );
+        }
+        Ok(files)
+    }
+
+    async fn diagnostic_summary(&self) -> Result<String> {
+        if self.artifact_retention == ArtifactRetention::Disabled {
+            Ok("sensitive command (arguments and output suppressed)".to_owned())
+        } else {
+            self.summarize().await
+        }
+    }
+
+    async fn decode<T: Send + 'static>(
         &self,
         output: CommandOutput,
-        retry_behaviour: RetryBehaviour,
-    ) -> Result<CommandOutput> {
-        if output.success() {
-            return Ok(output);
-        }
-        let dir = self.write_failure(&output).await?;
-        let mut error = Err(Report::from(output).wrap_err(format!(
-            "Command did not execute successfully, using retry behaviour {retry_behaviour:?}, dumped to {dir:?}",
-        )));
-        if matches!(self.output_behaviour, OutputBehaviour::Display) {
-            error = error.wrap_err(format!(
-                "The output behaviour was set to {:?} instead of {:?} so the stdout and stderr are not available in the dump, try scrolling up in your terminal.",
-                OutputBehaviour::Display,
-                OutputBehaviour::Capture,
-            ));
-        }
-        error
-    }
-
-    /// Executes a command using its configured cancellation policy.
-    #[track_caller]
-    pub fn run_raw<'a>(
-        &'a self,
-        cancellation: &'a CancellationScope,
-    ) -> impl Future<Output = Result<CommandOutput>> + Send + 'a {
-        self.run_raw_scoped_from(Duration::ZERO, Location::caller(), cancellation)
-    }
-
-    /// Returns cached output immediately, or waits before an uncached execution.
-    #[track_caller]
-    pub fn run_raw_polite<'a>(
-        &'a self,
-        uncached_delay: Duration,
-        cancellation: &'a CancellationScope,
-    ) -> impl Future<Output = Result<CommandOutput>> + Send + 'a {
-        self.run_raw_scoped_from(uncached_delay, Location::caller(), cancellation)
-    }
-
-    #[track_caller]
-    fn run_raw_scoped_from<'a>(
-        &'a self,
-        uncached_delay: Duration,
-        caller: &'static Location<'static>,
-        cancellation: &'a CancellationScope,
-    ) -> impl Future<Output = Result<CommandOutput>> + Send + 'a {
-        self.with_cancellation_policy(cancellation, move |scope| async move {
-            self.run_raw_from(uncached_delay, caller, &scope).await
-        })
-    }
-
-    /// Runs within an already-admitted policy; retries reuse that same owner.
-    fn run_raw_from<'a>(
-        &'a self,
-        uncached_delay: Duration,
-        caller: &'static Location<'static>,
-        cancellation: &'a CancellationScope,
-    ) -> impl Future<Output = Result<CommandOutput>> + Send + 'a {
-        // Preserve the old async-recursion boundary's bounded caller-frame size
-        // while keeping retries in the uncached loop rather than recursive calls.
-        Box::pin(async move {
-            let summary = self.summarize().await?;
-            let span = info_span!("command_run_raw", summary, ?self.run_dir, ?self.cache_key, location=%RelativeLocation::from(caller)).or_current();
-
-            async {
-                match self.get_cached_output().await {
-                    Ok(Some(output)) => return Ok(output),
-                    Ok(None) => {}
-                    Err(error) if error.is_cancellation() => {
-                        return Err(error);
+        decoder: fn(&CommandOutput) -> Result<T>,
+    ) -> Result<(CommandOutput, Result<T>)> {
+        let span = Span::current();
+        let dispatch = tracing::dispatcher::get_default(Clone::clone);
+        let sensitive = self.artifact_retention == ArtifactRetention::Disabled;
+        spawn_blocking(move || {
+            tracing::dispatcher::with_default(&dispatch, || {
+                let _entered = span.enter();
+                let decoded = if !output.success() {
+                    if sensitive {
+                        Err(eyre::eyre!(
+                            "sensitive command failed with status {}",
+                            output.status
+                        ))
+                    } else {
+                        Err(Report::from(output.clone()))
                     }
-                    Err(error) => debug!(?self.cache_key, %error, "Cache load failed"),
-                }
-
-                if !uncached_delay.is_zero() {
-                    debug!(
-                        delay_ms = uncached_delay.as_millis(),
-                        "Sleeping before uncached command execution"
-                    );
-                    sleep(uncached_delay).await;
-                }
-
-                let start = Instant::now();
-                let output = async {
-                    let (output, retry_behaviour) = self.run_uncached(cancellation).await?;
-                    let output = self.require_success(output, retry_behaviour).await?;
-                    if let Some(cache_key) = &self.cache_key {
-                        cancellation
-                            .finish_required(
-                                "persisting command output and execution artifacts",
-                                |_| async {
-                                    if let Err(error) =
-                                        self.write_output(&output, &cache_key.path_on_disk()).await
-                                    {
-                                        crate::artifact_cache::note_cache_write_failure(&error);
-                                    }
-                                    Ok::<_, Report>(())
-                                },
+                } else {
+                    decoder(&output).map_err(|error| {
+                        if sensitive {
+                            eyre::eyre!(
+                                "sensitive command output could not be decoded as {}",
+                                type_name::<T>()
                             )
-                            .await?;
-                    }
-                    Ok(output)
-                }
-                .await;
-                let elapsed = start.elapsed();
-                debug!(
-                    elapsed_ms = elapsed.as_millis(),
-                    "Command executed in {}",
-                    humantime::format_duration(elapsed),
-                );
-                output
-            }
-            .instrument(span)
-            .await
-            .wrap_err_with(|| {
-                format!(
-                    "Command::run_raw failed, called from {}",
-                    RelativeLocation::from(caller)
-                )
+                        } else {
+                            error
+                        }
+                    })
+                };
+                (output, decoded)
             })
-            .wrap_err_with(|| format!("Invoking command failed: {summary}"))
+        })
+        .await
+        .wrap_err("command decoder worker failed")
+    }
+
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "canonical identity, owned transport outcome, decoding, and diagnostics are distinct contracts"
+    )]
+    async fn canonical<T: Send + 'static>(
+        &self,
+        cancellation: &CancellationScope,
+        entry: ArtifactEntry,
+        reusable: bool,
+        delay: Duration,
+        caller: &'static Location<'static>,
+        summary: &str,
+        decoder: fn(&CommandOutput) -> Result<T>,
+    ) -> Result<WorkOutput<T>> {
+        if reusable && let Some(loaded) = entry.load(cancellation).await? {
+            // Move the complete loaded proof through decoding. Its original age
+            // and generation must survive the blocking worker unchanged.
+            let span = Span::current();
+            let dispatch = tracing::dispatcher::get_default(Clone::clone);
+            let (loaded, decoded) = spawn_blocking(move || {
+                tracing::dispatcher::with_default(&dispatch, || {
+                    let _entered = span.enter();
+                    let decoded =
+                        facet_json::from_slice::<CommandOutput>(&loaded.artifacts.payload)
+                            .map_err(|error| eyre::eyre!("{error:?}"))
+                            .and_then(|output| {
+                                if output.success() {
+                                    decoder(&output)
+                                } else {
+                                    Err(Report::from(output))
+                                }
+                            });
+                    (loaded, decoded)
+                })
+            })
+            .await
+            .wrap_err("cached command decoder worker failed")?;
+            return match decoded {
+                Ok(value) => Ok(loaded.decoded(value)),
+                Err(error) => {
+                    cancellation.finish_required(
+                        "invalidate rejected command output and retain its diagnosis",
+                        |child| async move {
+                            entry.reject(&child).await?;
+                            let mut artifacts = loaded.artifacts;
+                            artifacts.diagnostics.extend(self.diagnostics(summary, None, Some(&error))?);
+                            let directory = if let Some(attempt) = entry.begin_attempt(self.artifact_inputs()?, &child).await? {
+                                Some(attempt.finish(artifacts, ArtifactObservation::now(), &child).await?.directory().to_path_buf())
+                            } else { None };
+                            Err(error).wrap_err(format!(
+                                "Canonical cached command decoding failed; called from {}; artifacts: {directory:?}",
+                                RelativeLocation::from(caller)
+                            ))
+                        },
+                    ).await
+                }
+            };
+        }
+
+        let attempt = entry
+            .begin_attempt(self.artifact_inputs()?, cancellation)
+            .await?;
+        if !delay.is_zero() {
+            sleep(delay).await;
+            cancellation.bail_if_cancelled()?;
+        }
+        let outcome = self.run_uncached(cancellation).await;
+        let observation = ArtifactObservation::now();
+        cancellation.finish_required(
+            "decode the command outcome and retain its artifacts",
+            |child| async move {
+                let (output, decoded) = match outcome {
+                    Ok((output, _retry)) => {
+                        let (output, decoded) = self.decode(output, decoder).await?;
+                        (Some(output), decoded)
+                    }
+                    Err(error) => (None, Err(error)),
+                };
+                let stored = if let Some(attempt) = attempt {
+                    let payload = output
+                        .as_ref()
+                        .map(facet_json::to_vec)
+                        .transpose()
+                        .map_err(|error| eyre::eyre!("{error:?}"))?
+                        .unwrap_or_default();
+                    let artifacts = ArtifactSet {
+                        payload,
+                        diagnostics: self.diagnostics(summary, output.as_ref(), decoded.as_ref().err())?,
+                    };
+                    Some(attempt.finish(artifacts, observation, &child).await?)
+                } else { None };
+                match decoded {
+                    Ok(value) => {
+                        if reusable && let Some(stored) = &stored {
+                            entry.publish(stored, &child).await?;
+                        }
+                        Ok(WorkOutput::new(value, observation))
+                    }
+                    Err(error) => {
+                        let directory = stored.as_ref().map(|stored| stored.directory());
+                        Err(error).wrap_err(format!(
+                            "Command execution or canonical decoding failed; called from {}; artifacts: {directory:?}",
+                            RelativeLocation::from(caller),
+                        ))
+                    }
+                }
+            },
+        ).await
+    }
+
+    fn decode_json<T: FromCommandOutput>(output: &CommandOutput) -> Result<T> {
+        facet_json::from_slice(output.stdout.to_str_lossy().as_bytes())
+            .map_err(|error| eyre::eyre!("{error:?}"))
+    }
+
+    // Local execution has no work identity, provider, cache root, or persistent
+    // artifacts. Managed callers admit semantic work before using this same
+    // subprocess/decode machinery; a scope alone cannot track cache ancestry.
+    fn run_local_from<'a, T: Send + 'static>(
+        &'a self,
+        cancellation: &'a CancellationScope,
+        delay: Duration,
+        caller: &'static Location<'static>,
+        decoder: fn(&CommandOutput) -> Result<T>,
+    ) -> impl Future<Output = Result<T>> + Send + 'a {
+        self.with_cancellation_policy(cancellation, move |scope| async move {
+            eyre::ensure!(
+                self.cache_key.is_none(),
+                "plain command execution cannot use a cache key; use an explicit cached or artifact execution method"
+            );
+            let summary = self.diagnostic_summary().await?;
+            let span = info_span!("command_run", summary, location=%RelativeLocation::from(caller))
+                .or_current();
+            async {
+                if !delay.is_zero() {
+                    sleep(delay).await;
+                    scope.bail_if_cancelled()?;
+                }
+                let outcome = self.run_uncached(&scope).await;
+                scope.finish_required("decode the observed command outcome", |_completion| async move {
+                    let (output, _) = outcome?;
+                    let (_, decoded) = self.decode(output, decoder).await?;
+                    decoded
+                }).await.wrap_err_with(|| format!(
+                    "Command execution or decoding failed; called from {}",
+                    RelativeLocation::from(caller),
+                ))
+            }.instrument(span).await
         })
     }
 
+    /// Run a local process and decode its output without a cache or artifact store.
+    ///
+    /// Semantic requests that need admission, dependency tracking, or retained
+    /// artifacts use the explicit executor-managed methods instead. A configured
+    /// cache key is rejected here rather than silently ignored.
     #[track_caller]
     pub fn run<'a, T: FromCommandOutput>(
         &'a self,
         cancellation: &'a CancellationScope,
     ) -> impl Future<Output = Result<T>> + Send + 'a {
-        self.run_from(None, Location::caller(), cancellation)
+        self.run_local_from(
+            cancellation,
+            Duration::ZERO,
+            Location::caller(),
+            Self::decode_json::<T>,
+        )
     }
 
-    /// Returns decoded cached output immediately, or delays an uncached execution.
+    /// Run a local process without cache lookup or persistent execution artifacts.
     #[track_caller]
-    pub fn run_polite<'a, T: FromCommandOutput>(
+    pub fn run_raw<'a>(
         &'a self,
-        uncached_delay: Duration,
         cancellation: &'a CancellationScope,
-    ) -> impl Future<Output = Result<T>> + Send + 'a {
-        self.run_from(Some(uncached_delay), Location::caller(), cancellation)
-    }
-
-    #[track_caller]
-    fn run_from<'a, T: FromCommandOutput>(
-        &'a self,
-        uncached_delay: Option<Duration>,
-        caller: &'static Location<'static>,
-        cancellation: &'a CancellationScope,
-    ) -> impl Future<Output = Result<T>> + Send + 'a {
-        self.with_cancellation_policy(cancellation, move |scope| async move {
-            let summary = self.summarize().await?;
-            let (operation, span) = if uncached_delay.is_some() {
-                ("Command::run_polite", info_span!("command_run_polite", summary, ?self.run_dir, ?self.cache_key, location=%RelativeLocation::from(caller)).or_current())
-            } else {
-                ("Command::run", info_span!("command_run", summary, ?self.run_dir, ?self.cache_key, location=%RelativeLocation::from(caller)).or_current())
-            };
-            async {
-                let output = self
-                    .run_raw_from(uncached_delay.unwrap_or_default(), caller, &scope)
-                    .await
-                    .wrap_err_with(|| format!("{operation} failed, called from {}", RelativeLocation::from(caller)))?;
-                self.decode_output::<T, T, _>(output, Ok, caller, &summary).await
-            }
-            .instrument(span)
-            .await
+    ) -> impl Future<Output = Result<CommandOutput>> + Send + 'a {
+        self.run_local_from(cancellation, Duration::ZERO, Location::caller(), |output| {
+            Ok(output.clone())
         })
     }
 
+    /// Delay this independent local invocation before starting its process.
     #[track_caller]
-    pub fn run_with_validator<'a, T, F>(
+    pub fn run_polite<'a, T: FromCommandOutput>(
         &'a self,
-        validator: F,
+        delay: Duration,
         cancellation: &'a CancellationScope,
-    ) -> impl Future<Output = Result<T>> + Send + 'a
-    where
-        T: FromCommandOutput,
-        F: FnOnce(T) -> Result<T> + Send + 'static,
-    {
-        self.run_with_validator_from(validator, Location::caller(), cancellation)
+    ) -> impl Future<Output = Result<T>> + Send + 'a {
+        self.run_local_from(
+            cancellation,
+            delay,
+            Location::caller(),
+            Self::decode_json::<T>,
+        )
     }
 
-    /// Parse command output as `Raw`, then fallibly map it to a different output shape.
-    /// Both parse and map failures are dumped through the command failure artifact path.
+    /// Delay a local process without entering the executor or artifact lifecycle.
+    #[track_caller]
+    pub fn run_raw_polite<'a>(
+        &'a self,
+        delay: Duration,
+        cancellation: &'a CancellationScope,
+    ) -> impl Future<Output = Result<CommandOutput>> + Send + 'a {
+        self.run_local_from(cancellation, delay, Location::caller(), |output| {
+            Ok(output.clone())
+        })
+    }
+
+    fn local_policy_failure(&self, error: Report, caller: &'static Location<'static>) -> Report {
+        if error.is_cancellation() {
+            error
+        } else if self.artifact_retention == ArtifactRetention::Disabled {
+            eyre::eyre!(
+                "sensitive command output policy rejected its result; called from {}",
+                RelativeLocation::from(caller)
+            )
+        } else {
+            error.wrap_err(format!(
+                "Command output mapping or validation failed; called from {}",
+                RelativeLocation::from(caller)
+            ))
+        }
+    }
+
+    /// Decode locally and apply caller policy without requiring shared execution.
+    /// The callback and output may borrow non-Send caller state.
     #[track_caller]
     pub fn run_with_mapper<'a, Raw, Output, F>(
         &'a self,
         mapper: F,
         cancellation: &'a CancellationScope,
-    ) -> impl Future<Output = Result<Output>> + Send + 'a
+    ) -> impl Future<Output = Result<Output>> + 'a
     where
         Raw: FromCommandOutput,
-        Output: Send + 'static,
-        F: FnOnce(Raw) -> Result<Output> + Send + 'static,
+        Output: 'a,
+        F: FnOnce(Raw) -> Result<Output> + 'a,
     {
-        self.run_with_mapper_from(mapper, Location::caller(), cancellation)
+        let caller = Location::caller();
+        self.with_cancellation_policy(cancellation, move |scope| async move {
+            let value = self
+                .run_local_from(&scope, Duration::ZERO, caller, Self::decode_json::<Raw>)
+                .await?;
+            mapper(value).map_err(|error| self.local_policy_failure(error, caller))
+        })
+        .instrument(info_span!("command_output_policy", location=%RelativeLocation::from(caller)))
+    }
+
+    /// Validate this invocation's owned value without persistent artifacts.
+    #[track_caller]
+    pub fn run_with_validator<'a, T, F>(
+        &'a self,
+        validator: F,
+        cancellation: &'a CancellationScope,
+    ) -> impl Future<Output = Result<T>> + 'a
+    where
+        T: FromCommandOutput,
+        F: FnOnce(T) -> Result<T> + 'a,
+    {
+        self.run_with_validator_from(validator, Location::caller(), cancellation)
+    }
+
+    /// Validate locally with the caller captured by a forwarding operation.
+    pub fn run_with_validator_from<'a, T, F>(
+        &'a self,
+        validator: F,
+        caller: &'static Location<'static>,
+        cancellation: &'a CancellationScope,
+    ) -> impl Future<Output = Result<T>> + 'a
+    where
+        T: FromCommandOutput,
+        F: FnOnce(T) -> Result<T> + 'a,
+    {
+        self.with_cancellation_policy(cancellation, move |scope| async move {
+            let value = self
+                .run_local_from(&scope, Duration::ZERO, caller, Self::decode_json::<T>)
+                .await?;
+            validator(value).map_err(|error| self.local_policy_failure(error, caller))
+        })
+        .instrument(info_span!("command_output_policy", location=%RelativeLocation::from(caller)))
     }
 
     #[track_caller]
-    fn run_with_mapper_from<'a, Raw, Output, F>(
+    fn run_with_artifacts_from<'a, T: Send + 'static>(
         &'a self,
-        mapper: F,
+        executor: &'a CloudTerrastodonExecutor,
+        delay: Duration,
         caller: &'static Location<'static>,
-        cancellation: &'a CancellationScope,
-    ) -> impl Future<Output = Result<Output>> + Send + 'a
-    where
-        Raw: FromCommandOutput,
-        Output: Send + 'static,
-        F: FnOnce(Raw) -> Result<Output> + Send + 'static,
-    {
-        self.with_cancellation_policy(cancellation, move |scope| async move {
-            let summary = self.summarize().await?;
-            let span = info_span!("command_run_with_mapper", summary, ?self.run_dir, ?self.cache_key, location=%RelativeLocation::from(caller)).or_current();
-            async {
-                let output = self.run_raw_from(Duration::ZERO, caller, &scope).await
-                    .wrap_err_with(|| format!("Command::run_with_mapper failed, called from {}", RelativeLocation::from(caller)))?;
-                self.decode_output::<Raw, Output, F>(output, mapper, caller, &summary).await
-            }
-            .instrument(span)
-            .await
+        decoder: fn(&CommandOutput) -> Result<T>,
+    ) -> impl Future<Output = Result<T>> + Send + 'a {
+        Box::pin(
+            self.with_executor_cancellation_policy(executor, move |child| async move {
+                let summary = self.diagnostic_summary().await?;
+                let key = self.artifact_key(caller)?;
+                let fingerprint =
+                    NonEmptyString::new(self.cache_fingerprint(&self.cache_debug_inputs()).await?)?;
+                let span =
+                    info_span!("command_run", summary, location=%RelativeLocation::from(caller))
+                        .or_current();
+                child
+                    .uncached_work_with_artifacts(
+                        ExecutorKind::Command,
+                        key,
+                        CacheOperationOwner::of::<Self>(),
+                        &AuthenticationSelection::Anonymous,
+                        fingerprint,
+                        self.artifact_retention,
+                        |attempt, entry| async move {
+                            Ok(self
+                                .canonical(
+                                    attempt.cancellation(),
+                                    entry,
+                                    false,
+                                    delay,
+                                    caller,
+                                    &summary,
+                                    decoder,
+                                )
+                                .await?
+                                .value)
+                        },
+                    )?
+                    .instrument(span)
+                    .await
+            }),
+        )
+    }
+
+    #[track_caller]
+    fn run_cached_from<'a, T: Send + Sync + 'static>(
+        &'a self,
+        executor: &'a CloudTerrastodonExecutor,
+        owner: CacheOperationOwner,
+        delay: Duration,
+        caller: &'static Location<'static>,
+        decoder: fn(&CommandOutput) -> Result<T>,
+    ) -> impl Future<Output = Result<Arc<T>>> + Send + 'a {
+        Box::pin(self.with_executor_cancellation_policy(executor, move |child| async move {
+            eyre::ensure!(matches!(self.output_behaviour, OutputBehaviour::Capture), "shared command execution requires captured output; use owned execution to display output on every invocation");
+            let key = self.cache_key.clone().ok_or_else(|| eyre::eyre!("cached commands require an explicit cache key"))?;
+            let summary = self.diagnostic_summary().await?;
+            let fingerprint = NonEmptyString::new(self.cache_fingerprint(&self.cache_debug_inputs()).await?)?;
+            let span = info_span!("command_run_cached", summary, location=%RelativeLocation::from(caller)).or_current();
+            child.cached_work_with_artifacts(
+                ExecutorKind::Command,
+                key,
+                owner,
+                &AuthenticationSelection::Anonymous,
+                fingerprint,
+                WorkReuse::ReusableRead,
+                self.artifact_retention,
+                |attempt, entry| async move {
+                    self.canonical(attempt.cancellation(), entry, true, delay, caller, &summary, decoder).await
+                },
+            )?.instrument(span).await
+        }))
+    }
+
+    /// Admit independent executor-managed work and retain execution artifacts.
+    /// Return owned JSON-decoded output; configured keys identify artifacts only.
+    #[track_caller]
+    pub fn run_with_artifacts<'a, T: FromCommandOutput>(
+        &'a self,
+        executor: &'a CloudTerrastodonExecutor,
+    ) -> impl Future<Output = Result<T>> + Send + 'a {
+        self.run_with_artifacts_from(
+            executor,
+            Duration::ZERO,
+            Location::caller(),
+            Self::decode_json::<T>,
+        )
+    }
+
+    /// Admit independent executor-managed work and retain its raw outcome.
+    #[track_caller]
+    pub fn run_raw_with_artifacts<'a>(
+        &'a self,
+        executor: &'a CloudTerrastodonExecutor,
+    ) -> impl Future<Output = Result<CommandOutput>> + Send + 'a {
+        self.run_with_artifacts_from(executor, Duration::ZERO, Location::caller(), |output| {
+            Ok(output.clone())
         })
     }
 
-    async fn decode_output<Raw, Output, F>(
+    /// Share one canonical JSON value for an explicitly owned cache identity.
+    #[track_caller]
+    pub fn run_cached<'a, T: FromCommandOutput + Sync>(
+        &'a self,
+        executor: &'a CloudTerrastodonExecutor,
+        owner: CacheOperationOwner,
+    ) -> impl Future<Output = Result<Arc<T>>> + Send + 'a {
+        self.run_cached_from(
+            executor,
+            owner,
+            Duration::ZERO,
+            Location::caller(),
+            Self::decode_json::<T>,
+        )
+    }
+
+    /// Share a canonical raw outcome without repeating process execution.
+    #[track_caller]
+    pub fn run_raw_cached<'a>(
+        &'a self,
+        executor: &'a CloudTerrastodonExecutor,
+        owner: CacheOperationOwner,
+    ) -> impl Future<Output = Result<Arc<CommandOutput>>> + Send + 'a {
+        self.run_cached_from(
+            executor,
+            owner,
+            Duration::ZERO,
+            Location::caller(),
+            |output| Ok(output.clone()),
+        )
+    }
+
+    /// Delay independent executor-managed work while retaining its artifacts.
+    #[track_caller]
+    pub fn run_polite_with_artifacts<'a, T: FromCommandOutput>(
+        &'a self,
+        delay: Duration,
+        executor: &'a CloudTerrastodonExecutor,
+    ) -> impl Future<Output = Result<T>> + Send + 'a {
+        self.run_with_artifacts_from(executor, delay, Location::caller(), Self::decode_json::<T>)
+    }
+
+    /// Delay independent executor-managed work and retain its raw outcome.
+    #[track_caller]
+    pub fn run_raw_polite_with_artifacts<'a>(
+        &'a self,
+        delay: Duration,
+        executor: &'a CloudTerrastodonExecutor,
+    ) -> impl Future<Output = Result<CommandOutput>> + Send + 'a {
+        self.run_with_artifacts_from(executor, delay, Location::caller(), |output| {
+            Ok(output.clone())
+        })
+    }
+
+    /// Delay only a cache miss, including its bounded rate-limit retry.
+    #[track_caller]
+    pub fn run_cached_polite<'a, T: FromCommandOutput + Sync>(
+        &'a self,
+        delay: Duration,
+        executor: &'a CloudTerrastodonExecutor,
+        owner: CacheOperationOwner,
+    ) -> impl Future<Output = Result<Arc<T>>> + Send + 'a {
+        self.run_cached_from(
+            executor,
+            owner,
+            delay,
+            Location::caller(),
+            Self::decode_json::<T>,
+        )
+    }
+
+    #[track_caller]
+    pub fn run_raw_cached_polite<'a>(
+        &'a self,
+        delay: Duration,
+        executor: &'a CloudTerrastodonExecutor,
+        owner: CacheOperationOwner,
+    ) -> impl Future<Output = Result<Arc<CommandOutput>>> + Send + 'a {
+        self.run_cached_from(executor, owner, delay, Location::caller(), |output| {
+            Ok(output.clone())
+        })
+    }
+
+    async fn retain_callback_failure<T: 'static>(
         &self,
-        output: CommandOutput,
-        mapper: F,
+        executor: &CloudTerrastodonExecutor,
+        owner: CacheOperationOwner,
         caller: &'static Location<'static>,
-        summary: &str,
-    ) -> Result<Output>
-    where
-        Raw: FromCommandOutput,
-        Output: Send + 'static,
-        F: FnOnce(Raw) -> Result<Output> + Send + 'static,
-    {
-        let span = Span::current();
-        let output = Arc::new(output);
-
-        let decode_result = {
-            let output = Arc::clone(&output);
-            let span = span.clone();
-            let dispatch = tracing::dispatcher::get_default(Clone::clone);
-            spawn_blocking(move || {
-                tracing::dispatcher::with_default(&dispatch, || {
-                    let _guard = span.enter();
-                    let span2 = info_span!("command_parse_and_map_output").or_current();
-                    let _guard2 = span2.enter();
-                    let start = Instant::now();
-
-                    let stdout = output.stdout.to_str_lossy();
-                    let slice = stdout.as_bytes();
-                    let decode_result = crate::json::from_slice::<Raw>(slice)
-                        .map_err(CommandOutputDecodeError::Deserialize)
-                        .and_then(|raw| mapper(raw).map_err(CommandOutputDecodeError::Map));
-
-                    let elapsed = Instant::now().duration_since(start);
-                    debug!(
-                        parse_ms = elapsed.as_millis(),
-                        "Parsed and mapped command output in {}",
-                        humantime::format_duration(elapsed),
-                    );
-                    decode_result
-                })
-            })
-            .await?
-        };
-
-        match decode_result {
-            Ok(results) => Ok(results),
-            Err(CommandOutputDecodeError::Deserialize(e) | CommandOutputDecodeError::Map(e))
-                if e.is_cancellation() =>
+        error: Report,
+    ) -> Report {
+        if self.artifact_retention == ArtifactRetention::Disabled {
+            return eyre::eyre!("sensitive command output policy rejected its result");
+        }
+        let retained = async {
+            let summary = self.diagnostic_summary().await?;
+            let mut key = self.artifact_key(caller)?;
+            key.valid_for = Duration::ZERO;
+            let entry = executor.cache()?.artifacts::<T>(
+                ExecutorKind::Command,
+                key,
+                owner,
+                executor.admit(&AuthenticationSelection::Anonymous)?,
+                NonEmptyString::new(self.cache_fingerprint(&self.cache_debug_inputs()).await?)?,
+                self.artifact_retention,
+            )?;
+            if let Some(attempt) = entry
+                .begin_attempt(self.artifact_inputs()?, executor.cancellation())
+                .await?
             {
-                Err(e)
-            }
-            Err(CommandOutputDecodeError::Deserialize(e)) => {
-                let dir = self
-                    .write_failure(&output)
-                    .instrument(span.or_current())
+                let stored = attempt
+                    .finish(
+                        ArtifactSet {
+                            payload: Vec::new(),
+                            diagnostics: self.diagnostics(&summary, None, Some(&error))?,
+                        },
+                        ArtifactObservation::now(),
+                        executor.cancellation(),
+                    )
                     .await?;
-                Err(e.wrap_err(format!(
-                    "Deserialization failed!\n - Command: `{summary}`\n - Called by: \"{}\"\n - Dumped to: {dir:?}\n - Type: {}{}",
-                    RelativeLocation::from(caller),
-                    type_name::<Raw>(),
-                    crate::artifact_cache::cache_clean_recommendation(self.cache_key.as_ref())
-                )))
+                Ok::<_, Report>(Some(stored.directory().to_path_buf()))
+            } else {
+                Ok(None)
             }
-            Err(CommandOutputDecodeError::Map(e)) => {
-                let dir = self
-                    .write_failure(&output)
-                    .instrument(span.or_current())
-                    .await?;
-                Err(e.wrap_err(format!(
-                    "Output mapping failed!\n - Command: `{summary}`\n - Called by: \"{}\"\n - Dumped to: {dir:?}\n - Parsed Type: {}\n - Output Type: {}",
-                    RelativeLocation::from(caller),
-                    type_name::<Raw>(),
-                    type_name::<Output>()
-                )))
-            }
+        }
+        .await;
+        match retained {
+            Ok(directory) => error.wrap_err(format!(
+                "Command output mapping or validation failed; called from {}; artifacts: {directory:?}",
+                RelativeLocation::from(caller),
+            )),
+            Err(retention_error) => error.wrap_err(format!(
+                "Command output mapping or validation failed; could not retain diagnostics: {retention_error:#}"
+            )),
         }
     }
 
-    pub async fn run_with_validator_from<T, F>(
-        &self,
-        validator: F,
-        caller: &'static Location<'static>,
-        cancellation: &CancellationScope,
-    ) -> Result<T>
+    /// Retain an owned execution, then run caller policy without a blocking worker.
+    /// The callback and its output may borrow caller-owned, non-Send state.
+    #[track_caller]
+    pub fn run_with_artifacts_and_mapper<'a, Raw, Output, F>(
+        &'a self,
+        mapper: F,
+        executor: &'a CloudTerrastodonExecutor,
+    ) -> impl Future<Output = Result<Output>> + 'a
     where
-        T: FromCommandOutput,
-        F: FnOnce(T) -> Result<T>,
+        Raw: FromCommandOutput,
+        Output: 'a,
+        F: FnOnce(Raw) -> Result<Output> + 'a,
     {
-        self.with_cancellation_policy(cancellation, |cancellation| async move {
-            // Get stdout
-            let output = self.run_raw_from(Duration::ZERO, caller, &cancellation).await?;
-
-            // Parse
-            match crate::json::from_slice(&output.stdout) {
-                Ok(results) => match validator(results) {
-                    Ok(results) => Ok(results),
-                    Err(e) if e.is_cancellation() => Err(e),
-                    Err(e) => {
-                        let dir = self.write_failure(&output).await?;
-                        Err(e).context(format!("Encountered validation error after successful invocation of `{}`\ncalled by \"{}\"\ndumped to {:?}",
-                                    self.summarize().await?,
-                                    RelativeLocation::from(caller),
-                                    dir
-                                ))
-                    }
-                },
-                Err(e) if e.is_cancellation() => Err(e),
-                Err(e) => {
-                    let dir = self.write_failure(&output).await?;
-                    Err(e.wrap_err(format!(
-                        "deserializing `{}` failed\ncalled by \"{}\"\ndumped to {:?}{}",
-                        self.summarize().await?,
-                        RelativeLocation::from(caller),
-                        dir,
-                        crate::artifact_cache::cache_clean_recommendation(self.cache_key.as_ref())
-                    )))
-                }
+        let caller = Location::caller();
+        self.with_executor_cancellation_policy(executor, move |child| async move {
+            let value = self
+                .run_with_artifacts_from(&child, Duration::ZERO, caller, Self::decode_json::<Raw>)
+                .await?;
+            match mapper(value) {
+                Ok(value) => Ok(value),
+                Err(error) if error.is_cancellation() => Err(error),
+                Err(error) => Err(self
+                    .retain_callback_failure::<Raw>(
+                        &child,
+                        CacheOperationOwner::of::<Self>(),
+                        caller,
+                        error,
+                    )
+                    .await),
             }
         })
-        .await
+        .instrument(info_span!("command_output_policy", location=%RelativeLocation::from(caller)))
     }
 
-    pub async fn write_failure(&self, output: &CommandOutput) -> Result<PathBuf> {
-        let context = self.summarize().await?;
-        let debug_inputs = self.cache_debug_inputs();
-        let fingerprint = self.cache_fingerprint(&debug_inputs).await?;
-        let metadata = Self::cache_metadata(&fingerprint);
-        crate::artifact_cache::write_failure(
-            self.cache_key.as_ref(),
-            &context,
-            &debug_inputs,
-            output,
-            &metadata,
-            None,
-        )
-        .await
-    }
-}
-
-fn allow_interactive_reauthentication() -> bool {
-    // Presence of any WIF input means Auto must not turn a failed token
-    // request into an unrelated interactive Azure CLI login. The credentials
-    // crate provides the detailed completeness error at the actual boundary.
-    let has_workload_identity_input = [
-        "AZURE_CLIENT_ID",
-        "servicePrincipalId",
-        "AZURE_TENANT_ID",
-        "tenantId",
-        "AZURE_FEDERATED_TOKEN",
-        "idToken",
-    ]
-    .into_iter()
-    .any(|name| std::env::var_os(name).is_some_and(|value| !value.is_empty()));
-    let headless = std::env::var("CI")
-        .or_else(|_| std::env::var("TF_BUILD"))
-        .or_else(|_| std::env::var("BUILD_BUILDID"))
-        .is_ok_and(|value| !value.is_empty())
-        || !std::io::stdin().is_terminal();
-    allow_interactive_reauthentication_for("auto", has_workload_identity_input, headless)
-}
-
-fn allow_interactive_reauthentication_for(
-    selected_source: &str,
-    has_workload_identity_input: bool,
-    headless: bool,
-) -> bool {
-    if matches!(
-        selected_source,
-        "workload-identity"
-            | "workload_identity"
-            | "wif"
-            | "browser"
-            | "delegated"
-            | "pat"
-            | "personal-access-token"
-            | "personal_access_token"
-    ) || has_workload_identity_input
-        || headless
+    /// Validate an owned managed result, retaining rejection diagnostics.
+    #[track_caller]
+    pub fn run_with_artifacts_and_validator<'a, T, F>(
+        &'a self,
+        validator: F,
+        executor: &'a CloudTerrastodonExecutor,
+    ) -> impl Future<Output = Result<T>> + 'a
+    where
+        T: FromCommandOutput,
+        F: FnOnce(T) -> Result<T> + 'a,
     {
-        return false;
+        self.run_with_artifacts_and_validator_from(validator, Location::caller(), executor)
     }
-    true
+
+    /// Retain managed execution and validation using a forwarding caller's site.
+    pub fn run_with_artifacts_and_validator_from<'a, T, F>(
+        &'a self,
+        validator: F,
+        caller: &'static Location<'static>,
+        executor: &'a CloudTerrastodonExecutor,
+    ) -> impl Future<Output = Result<T>> + 'a
+    where
+        T: FromCommandOutput,
+        F: FnOnce(T) -> Result<T> + 'a,
+    {
+        self.with_executor_cancellation_policy(executor, move |child| async move {
+            let value = self
+                .run_with_artifacts_from(&child, Duration::ZERO, caller, Self::decode_json::<T>)
+                .await?;
+            match validator(value) {
+                Ok(value) => Ok(value),
+                Err(error) if error.is_cancellation() => Err(error),
+                Err(error) => Err(self
+                    .retain_callback_failure::<T>(
+                        &child,
+                        CacheOperationOwner::of::<Self>(),
+                        caller,
+                        error,
+                    )
+                    .await),
+            }
+        })
+        .instrument(info_span!("command_output_policy", location=%RelativeLocation::from(caller)))
+    }
+
+    /// Apply this caller's projection on every result, including hits and joiners.
+    /// Rejected caller policy does not evict the operation's canonical output.
+    #[track_caller]
+    pub fn run_cached_with_mapper<'a, Raw, Output, F>(
+        &'a self,
+        mapper: F,
+        executor: &'a CloudTerrastodonExecutor,
+        owner: CacheOperationOwner,
+    ) -> impl Future<Output = Result<Output>> + 'a
+    where
+        Raw: FromCommandOutput + Sync,
+        Output: 'a,
+        F: FnOnce(Arc<Raw>) -> Result<Output> + 'a,
+    {
+        let caller = Location::caller();
+        self.with_executor_cancellation_policy(executor, move |child| async move {
+            let value = self
+                .run_cached_from(
+                    &child,
+                    owner,
+                    Duration::ZERO,
+                    caller,
+                    Self::decode_json::<Raw>,
+                )
+                .await?;
+            match mapper(value) {
+                Ok(value) => Ok(value),
+                Err(error) if error.is_cancellation() => Err(error),
+                Err(error) => Err(self
+                    .retain_callback_failure::<Raw>(&child, owner, caller, error)
+                    .await),
+            }
+        })
+        .instrument(info_span!("command_output_policy", location=%RelativeLocation::from(caller)))
+    }
+
+    /// Check caller policy without copying or replacing a canonical shared value.
+    #[track_caller]
+    pub fn run_cached_with_validator<'a, T, F>(
+        &'a self,
+        validator: F,
+        executor: &'a CloudTerrastodonExecutor,
+        owner: CacheOperationOwner,
+    ) -> impl Future<Output = Result<Arc<T>>> + 'a
+    where
+        T: FromCommandOutput + Sync,
+        F: FnOnce(&T) -> Result<()> + 'a,
+    {
+        self.run_cached_with_mapper(
+            move |value: Arc<T>| {
+                validator(&value)?;
+                Ok(value)
+            },
+            executor,
+            owner,
+        )
+    }
 }
 
 #[cfg(test)]
@@ -1047,34 +1313,5 @@ mod execution_policy_tests {
             expected.cache_fingerprint(&BTreeMap::new()).await?
         );
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod auth_retry_tests {
-    use super::allow_interactive_reauthentication_for;
-
-    #[test]
-    fn headless_and_wif_contexts_never_allow_cli_login() {
-        assert!(!allow_interactive_reauthentication_for("auto", true, false));
-        assert!(!allow_interactive_reauthentication_for("auto", false, true));
-        assert!(!allow_interactive_reauthentication_for(
-            "workload-identity",
-            false,
-            false
-        ));
-        assert!(!allow_interactive_reauthentication_for(
-            "browser", false, false
-        ));
-        assert!(!allow_interactive_reauthentication_for("pat", false, false));
-    }
-
-    #[test]
-    fn explicit_local_context_can_reauthenticate() {
-        assert!(allow_interactive_reauthentication_for(
-            "azure-cli",
-            false,
-            false
-        ));
     }
 }

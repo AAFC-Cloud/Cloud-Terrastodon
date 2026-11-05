@@ -27,7 +27,9 @@ pub async fn browse_azure_devops_project_teams(
         }))
         .await?;
 
-    let teams = fetch_azure_devops_teams_for_project(&org_url, &project.id, cancellation).await?;
+    let teams =
+        fetch_azure_devops_teams_for_project(&org_url, &project.id, auth_context, cancellation)
+            .await?;
     let (teams, maybe_error) = PickerTui::<_>::new()
         .set_header("Azure DevOps Teams")
         .pick_many(teams.into_iter().map(|team| Choice {

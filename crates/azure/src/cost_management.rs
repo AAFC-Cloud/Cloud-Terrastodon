@@ -29,8 +29,7 @@ pub async fn fetch_cost_query_results(
     );
     let request = RestRequest::new(http::Method::POST, url.as_str(), cancellation)?
         .cancellation_safe()
-        .azure_auth_context(auth_context)
-        .tenant(tenant_id)
+        .azure_auth_context(&tenant_auth_context)
         .body(facet_json::to_string_pretty(query).map_err(|error| eyre::eyre!("{error:?}"))?);
     receive_cost_management_response(request).await
 }

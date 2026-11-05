@@ -391,11 +391,16 @@ pub async fn find_resource_owners_menu(
         for project in projects.iter() {
             let org_url = org_url.clone();
             let project_name = project.name.clone();
+            let azure_devops_auth_context = azure_devops_auth_context.clone();
             work.enqueue({
                 cancellation.cancellable_scope(move |cancellation| async move {
-                    let cancellation = &cancellation;
-                    fetch_all_azure_devops_service_endpoints(&org_url, &project_name, cancellation)
-                        .await
+                    fetch_all_azure_devops_service_endpoints(
+                        &org_url,
+                        &project_name,
+                        &azure_devops_auth_context,
+                        &cancellation,
+                    )
+                    .await
                 })
             });
         }

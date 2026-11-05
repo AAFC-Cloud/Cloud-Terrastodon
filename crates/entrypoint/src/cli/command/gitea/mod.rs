@@ -5,7 +5,7 @@ pub mod tenant;
 pub mod user;
 
 use crate::cli::gitea::gitea_command_cli::GiteaCommand;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
 #[derive(facet::Facet, Debug, Clone)]
@@ -15,7 +15,7 @@ pub struct GiteaArgs {
 }
 
 impl GiteaArgs {
-    pub async fn invoke(self, cancellation: &CancellationScope) -> Result<()> {
-        self.command.invoke(cancellation).await
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<()> {
+        self.command.invoke(executor).await
     }
 }

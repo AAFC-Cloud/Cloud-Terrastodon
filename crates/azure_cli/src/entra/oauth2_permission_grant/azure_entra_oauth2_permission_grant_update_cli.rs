@@ -129,13 +129,14 @@ impl AzureEntraOAuth2PermissionGrantUpdateArgs {
 
             remove_oauth2_permission_grant(&tenant_auth_context, grant.id.clone(), cancellation)
                 .await?;
-            cloud_terrastodon_command::to_writer_pretty(
+            facet_json::to_writer_std_pretty(
                 &mut handle,
                 &DeletedResponse {
                     deleted: true,
                     id: grant.id,
                 },
-            )?;
+            )
+            .map_err(|error| eyre::eyre!("{error:?}"))?;
             handle.write_all(b"\n")?;
             return Ok(());
         }
@@ -154,14 +155,15 @@ impl AzureEntraOAuth2PermissionGrantUpdateArgs {
             cancellation,
         )
         .await?;
-        cloud_terrastodon_command::to_writer_pretty(
+        facet_json::to_writer_std_pretty(
             &mut handle,
             &UpdatedResponse {
                 deleted: false,
                 id: grant.id,
                 scope: merged_scope,
             },
-        )?;
+        )
+        .map_err(|error| eyre::eyre!("{error:?}"))?;
         handle.write_all(b"\n")?;
         Ok(())
     }

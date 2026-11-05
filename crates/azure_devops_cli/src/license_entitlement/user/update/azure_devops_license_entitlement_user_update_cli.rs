@@ -1,6 +1,8 @@
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::AzureDevOpsTenantArgumentExt;
 use cloud_terrastodon_azure::AzureTenantArgument;
+use cloud_terrastodon_azure_devops::AzureDevOpsAccountLicenseType;
+use cloud_terrastodon_azure_devops::AzureDevOpsLicenseAccessLevelUpdate;
 use cloud_terrastodon_azure_devops::AzureDevOpsLicenseType;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsUserArgument;
@@ -11,7 +13,6 @@ use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_command::CancellationScope;
 use color_eyre::owo_colors::OwoColorize;
 use eyre::Result;
-use eyre::bail;
 use tracing::error;
 use tracing::info;
 
@@ -53,14 +54,11 @@ impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
         auth_context: &AuthContext,
         cancellation: &CancellationScope,
     ) -> Result<()> {
+        AzureDevOpsLicenseAccessLevelUpdate::try_from(&self.license)?;
         let azure_devops_auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
-
-        if let AzureDevOpsLicenseType::Other(s) = &self.license {
-            bail!("Invalid license kind specified: {}", s);
-        };
 
         #[derive(Default)]
         #[expect(
@@ -99,7 +97,14 @@ impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
                 .await
                 {
                     Ok(entitlement) => Some(entitlement),
-                    Err(_) if expected == &AzureDevOpsLicenseType::AccountStakeholder => None,
+                    Err(_)
+                        if expected
+                            == &AzureDevOpsLicenseType::Account(
+                                AzureDevOpsAccountLicenseType::Stakeholder,
+                            ) =>
+                    {
+                        None
+                    }
                     Err(e) => {
                         error!(
                             %user,
@@ -156,6 +161,7 @@ impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
                 &self.org,
                 &user,
                 self.license.clone(),
+                &azure_devops_auth_context,
                 cancellation,
             )
             .await?;

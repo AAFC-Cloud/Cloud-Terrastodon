@@ -40,9 +40,9 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ArbitraryJson;
     use crate::ResourceGraphColumn;
     use crate::ResourceGraphData;
-    use facet_json::RawJson;
 
     #[test]
     fn transforms_resource_group_rows_with_string_backed_fields() -> eyre::Result<()> {
@@ -67,19 +67,16 @@ mod tests {
                     column("subscription_name"),
                 ],
                 rows: vec![vec![
-                    RawJson::from_owned(
-                        r#""/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/example-rg""#
-                            .to_string(),
+                    ArbitraryJson::from_text(
+                        "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/example-rg",
                     ),
-                    RawJson::from_owned(
-                        r#""00000000-0000-0000-0000-000000000000""#.to_string(),
-                    ),
-                    RawJson::from_owned(r#""eastus""#.to_string()),
-                    RawJson::from_owned(r#""""#.to_string()),
-                    RawJson::from_owned(r#""example-rg""#.to_string()),
-                    RawJson::from_owned(r#"{"provisioningState":"Succeeded"}"#.to_string()),
-                    RawJson::from_owned(r#"{}"#.to_string()),
-                    RawJson::from_owned(r#""Example Subscription""#.to_string()),
+                    ArbitraryJson::from_text("00000000-0000-0000-0000-000000000000"),
+                    ArbitraryJson::from_text("eastus"),
+                    ArbitraryJson::from_text(""),
+                    ArbitraryJson::from_text("example-rg"),
+                    facet_json::from_str(r#"{"provisioningState":"Succeeded"}"#)?,
+                    ArbitraryJson::object(),
+                    ArbitraryJson::from_text("Example Subscription"),
                 ]],
             },
             skip_token: None,

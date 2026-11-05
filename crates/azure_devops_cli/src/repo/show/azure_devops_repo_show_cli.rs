@@ -6,7 +6,6 @@ use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_repos_for_project;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::to_writer_pretty;
 use eyre::Result;
 use eyre::bail;
 use std::io::stdout;
@@ -47,14 +46,19 @@ impl AzureDevOpsRepoShowArgs {
         let maybe = projects.into_iter().find(|p| self.project.matches(p));
 
         if let Some(project) = maybe {
-            let repos =
-                fetch_all_azure_devops_repos_for_project(&self.org, &project.id, cancellation)
-                    .await?;
+            let repos = fetch_all_azure_devops_repos_for_project(
+                &self.org,
+                &project.id,
+                &azure_devops_auth_context,
+                cancellation,
+            )
+            .await?;
             if let Some(repo) = repos
                 .into_iter()
                 .find(|r| r.name == self.repo || r.id.to_string() == self.repo)
             {
-                to_writer_pretty(stdout(), &repo)?;
+                facet_json::to_writer_std_pretty(stdout(), &repo)
+                    .map_err(|error| eyre::eyre!("{error:?}"))?;
                 Ok(())
             } else {
                 bail!(

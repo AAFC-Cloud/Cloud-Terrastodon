@@ -1,17 +1,12 @@
-use crate::CommandBuilder;
 pub use bstr;
 use bstr::BString;
 use bstr::ByteSlice;
-use cloud_terrastodon_relative_location::RelativeLocation;
 use eyre::Error;
 use eyre::Result;
-use facet::Facet;
-use std::future::Future;
 #[cfg(not(windows))]
 use std::os::unix::process::ExitStatusExt;
 #[cfg(windows)]
 use std::os::windows::process::ExitStatusExt;
-use std::panic::Location;
 use std::process::ExitStatus;
 use std::process::Output;
 
@@ -27,36 +22,6 @@ impl CommandOutput {
         return ExitStatus::from_raw(self.status as u32).success();
         #[cfg(not(windows))]
         return ExitStatus::from_raw(self.status).success();
-    }
-    #[track_caller]
-    pub fn try_interpret<'a, T: Facet<'static> + 'a>(
-        &'a self,
-        command: &'a CommandBuilder,
-    ) -> impl Future<Output = eyre::Result<T>> + 'a {
-        self.try_interpret_from(command, Location::caller())
-    }
-
-    async fn try_interpret_from<T: Facet<'static>>(
-        &self,
-        command: &CommandBuilder,
-        caller: &'static Location<'static>,
-    ) -> eyre::Result<T> {
-        match crate::json::from_slice(self.stdout.to_str_lossy().as_bytes()) {
-            Ok(results) => Ok(results),
-            Err(e) => {
-                let dir = command.write_failure(self).await?;
-                Err(e
-                    .wrap_err(format!("Called from {}", RelativeLocation::from(caller)))
-                    .wrap_err(format!(
-                        "deserializing `{}` failed, dumped to {:?}{}",
-                        command.summarize().await?,
-                        dir,
-                        crate::artifact_cache::cache_clean_recommendation(
-                            command.cache_key.as_ref()
-                        )
-                    )))
-            }
-        }
     }
     /// Keeps only the first and last 500 lines of stdout and stderr
     pub fn shorten(&mut self) {

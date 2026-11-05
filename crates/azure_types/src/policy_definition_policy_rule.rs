@@ -1,3 +1,9 @@
+#![allow(
+    clippy::disallowed_types,
+    reason = "The policy-condition codec and its Facet-generated sibling items require RawJson for structural representation selection"
+)]
+
+use crate::ArbitraryJson;
 use facet_json::RawJson;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -29,14 +35,14 @@ pub enum AzurePolicyDefinitionPolicyRuleIfBlock {
     AnyOf(AzurePolicyDefinitionPolicyRuleIfBlockAnyOf),
     Equals(AzurePolicyDefinitionPolicyRuleIfBlockEquals),
     FieldIn(AzurePolicyDefinitionPolicyRuleIfBlockFieldIn),
-    Other(HashMap<String, RawJson<'static>>),
+    Other(HashMap<String, ArbitraryJson>),
 }
 
 impl TryFrom<RawJson<'static>> for AzurePolicyDefinitionPolicyRuleIfBlock {
     type Error = eyre::Error;
 
     fn try_from(value: RawJson<'static>) -> Result<Self, Self::Error> {
-        let obj = facet_json::from_str::<HashMap<String, RawJson<'static>>>(value.as_str())?;
+        let obj = facet_json::from_str::<HashMap<String, ArbitraryJson>>(value.as_str())?;
 
         if let Some(all_of) = obj.get("allOf") {
             let all_of =
@@ -73,7 +79,7 @@ impl TryFrom<&AzurePolicyDefinitionPolicyRuleIfBlock> for RawJson<'static> {
                 let mut object = HashMap::new();
                 object.insert(
                     "allOf".to_string(),
-                    RawJson::from_owned(facet_json::to_string(&all_of.0)?),
+                    ArbitraryJson::try_from_facet(&all_of.0)?,
                 );
                 facet_json::to_string(&object)?
             }
@@ -81,7 +87,7 @@ impl TryFrom<&AzurePolicyDefinitionPolicyRuleIfBlock> for RawJson<'static> {
                 let mut object = HashMap::new();
                 object.insert(
                     "anyOf".to_string(),
-                    RawJson::from_owned(facet_json::to_string(&any_of.0)?),
+                    ArbitraryJson::try_from_facet(&any_of.0)?,
                 );
                 facet_json::to_string(&object)?
             }

@@ -1,3 +1,6 @@
+use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_azure::AzureTenantArgument;
+use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::EntraGroupId;
 use cloud_terrastodon_azure::EntraPrincipalId;
 use cloud_terrastodon_azure::add_group_member;
@@ -8,6 +11,9 @@ use tracing::info;
 /// Add a member to an Entra (Azure AD) group.
 #[derive(facet::Facet, Debug, Clone)]
 pub struct AzureEntraGroupMemberAddArgs {
+    /// Tenant ID or tracked tenant alias for authentication.
+    #[facet(figue::named, default)]
+    pub tenant: AzureTenantArgument<'static>,
     /// Entra group id (GUID).
     #[facet(figue::named, proxy = String)]
     pub group_id: EntraGroupId,
@@ -18,8 +24,22 @@ pub struct AzureEntraGroupMemberAddArgs {
 }
 
 impl AzureEntraGroupMemberAddArgs {
-    pub async fn invoke(self, cancellation: &CancellationScope) -> Result<()> {
-        add_group_member(self.group_id, self.member_id, cancellation).await?;
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let tenant_auth_context = self
+            .tenant
+            .bind_auth_context(auth_context, cancellation)
+            .await?;
+        add_group_member(
+            self.group_id,
+            self.member_id,
+            &tenant_auth_context,
+            cancellation,
+        )
+        .await?;
         info!(group_id=%self.group_id, member_id=%self.member_id, "Added member to group");
         Ok(())
     }

@@ -6,14 +6,14 @@ use crate::browser_access_token::BROWSER_SESSION_FILE;
 #[cfg(windows)]
 use crate::pim_graph_access_token::PIM_REFRESH_TOKEN_TARGET_PREFIX;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::CommandOutput;
-use cloud_terrastodon_command::RetryBehaviour;
 use cloud_terrastodon_pathing::AppDir;
 use eyre::Context;
 use eyre::Result;
 use std::path::Path;
+use std::process::Stdio;
+use tokio::process::Command;
 
 /// Clear local browser/PIM refresh tokens and log out of Azure CLI and Azure DevOps.
 ///
@@ -54,7 +54,7 @@ pub async fn logout_all_auth_sources(cancellation: &CancellationScope) -> Result
                     errors.push(error.wrap_err("clearing application-owned Azure CLI sessions"));
                 }
 
-                // Never cache logout or enter CommandBuilder's compatibility login retry.
+                // Credential cleanup bypasses semantic work and raw artifacts.
                 // Keep attempting the other sources after an individual failure.
                 // az logout only removes the active account. account clear calls
                 // Profile.logout_all(), removing all cached users and service principals:
@@ -64,10 +64,7 @@ pub async fn logout_all_auth_sources(cancellation: &CancellationScope) -> Result
                     &["account", "clear"][..],
                     &["devops", "logout"][..],
                 ] {
-                    let mut command = CommandBuilder::new(CommandKind::AzureCLI);
-                    command.args(args.iter().copied());
-                    command.use_retry_behaviour(RetryBehaviour::Fail);
-                    if let Err(error) = command.run_raw(&cancellation).await {
+                    if let Err(error) = run_logout_command(args).await {
                         // Both logout commands can fail when already logged out.
                         // Match only their known diagnostics; other failures remain errors.
                         let already_logged_out_message = match args {
@@ -93,6 +90,26 @@ pub async fn logout_all_auth_sources(cancellation: &CancellationScope) -> Result
         .await
 }
 
+// The surrounding deferral owns completion of all cleanup attempts. This path
+// cannot acquire credentials, retry into login, or retain general artifacts.
+async fn run_logout_command(args: &[&str]) -> Result<()> {
+    let output = Command::new(CommandKind::AzureCLI.program().await?)
+        .args(args)
+        .arg("--only-show-errors")
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .kill_on_drop(true)
+        .output()
+        .await
+        .wrap_err("running local Azure CLI credential cleanup")?;
+    let output = CommandOutput::try_from(output)?;
+    if !output.success() {
+        return Err(output.into());
+    }
+    Ok(())
+}
+
 fn remove_browser_session_file(path: &Path) -> Result<()> {
     match std::fs::remove_file(path) {
         Ok(()) => Ok(()),
@@ -108,7 +125,7 @@ fn command_reports_only_error(error: &eyre::Report, expected: &str) -> bool {
     let Some(output) = error.downcast_ref::<CommandOutput>() else {
         return false;
     };
-    // CommandKind::AzureCLI adds --debug, which includes module-qualified error
+    // Azure CLI may include module-qualified error
     // lines and diagnostic context. Accept the known message only when every
     // ERROR line reports that same condition.
     let stderr = String::from_utf8_lossy(&output.stderr);

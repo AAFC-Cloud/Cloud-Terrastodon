@@ -160,6 +160,10 @@ pub async fn fetch_azure_devops_bearer_access_token(
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::disallowed_types,
+    reason = "These tests inspect raw JSON returned by the authentication transport."
+)]
 mod test {
     use crate::AuthContext;
     use crate::AzureBearerToken;

@@ -1,6 +1,17 @@
+#![allow(
+    clippy::disallowed_types,
+    reason = "ArbitraryJson owns the RawJson codec boundary for opaque JSON values"
+)]
+
 use arbitrary::Arbitrary;
 use facet_json::RawJson;
+use facet_reflect::Peek;
 
+/// An owned opaque JSON value with support for offline arbitrary generation.
+///
+/// Serialization preserves the JSON value rather than escaping it as text.
+/// Prefer concrete records for modeled schemas; use this for intentionally
+/// opaque values and open property bags.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
 #[facet(proxy = RawJson<'static>)]
 pub struct ArbitraryJson(RawJson<'static>);
@@ -23,7 +34,12 @@ impl ArbitraryJson {
     /// Serializes a Facet value into the raw JSON representation used by
     /// Azure API payloads.
     pub fn try_from_facet<T: facet::Facet<'static>>(value: &T) -> eyre::Result<Self> {
-        Ok(facet_json::RawJson::from_owned(facet_json::to_string(value)?).into())
+        Ok(RawJson::from_owned(facet_json::to_string(value)?).into())
+    }
+
+    /// Serialize a reflected field using its effective Facet representation.
+    pub fn try_from_peek(value: Peek<'_, '_>) -> eyre::Result<Self> {
+        Ok(RawJson::from_owned(facet_json::peek_to_string(value)?).into())
     }
 }
 

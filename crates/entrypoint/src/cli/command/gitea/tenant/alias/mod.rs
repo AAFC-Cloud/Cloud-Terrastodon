@@ -2,7 +2,7 @@ pub mod gitea_tenant_alias_add_cli;
 pub mod gitea_tenant_alias_list_cli;
 pub mod gitea_tenant_alias_remove_cli;
 
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 pub use gitea_tenant_alias_add_cli::GiteaTenantAliasAddArgs;
 pub use gitea_tenant_alias_list_cli::GiteaTenantAliasListArgs;
@@ -26,11 +26,11 @@ pub enum GiteaTenantAliasCommand {
 }
 
 impl GiteaTenantAliasArgs {
-    pub async fn invoke(self, cancellation: &CancellationScope) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<()> {
         match self.command {
-            GiteaTenantAliasCommand::Add(args) => args.invoke(cancellation).await?,
-            GiteaTenantAliasCommand::List(args) => args.invoke(cancellation).await?,
-            GiteaTenantAliasCommand::Remove(args) => args.invoke(cancellation).await?,
+            GiteaTenantAliasCommand::Add(args) => args.invoke(executor).await?,
+            GiteaTenantAliasCommand::List(args) => args.invoke(executor).await?,
+            GiteaTenantAliasCommand::Remove(args) => args.invoke(executor).await?,
         }
         Ok(())
     }

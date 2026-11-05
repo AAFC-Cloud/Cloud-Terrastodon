@@ -166,10 +166,10 @@ mod tests {
     async fn it_finds_the_current_user_by_user_principal_name() -> Result<()> {
         CancellationToken::new()
             .cancellable_scope(|cancellation| async move {
-                let current_user = fetch_current_user(&cancellation).await?;
                 let auth_context = AuthContext::explicit_azure_cli();
                 let auth_context =
                     auth_context.bind_to_azure_tenant(get_test_tenant_id(&cancellation).await?)?;
+                let current_user = fetch_current_user(&auth_context, &cancellation).await?;
                 let users = search_entra_users(
                     current_user.user_principal_name.as_str(),
                     &auth_context,

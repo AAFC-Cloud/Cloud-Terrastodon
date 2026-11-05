@@ -77,12 +77,17 @@ pub async fn dump_azure_devops(
         .cloned()
     {
         let org_url = org_url.clone();
+        let azure_devops_auth_context = azure_devops_auth_context.clone();
         group_members.enqueue({
             cancellation.cancellable_scope(move |cancellation| async move {
                 let cancellation = &cancellation;
-                let members =
-                    fetch_azure_devops_group_members(&org_url, &group.descriptor, cancellation)
-                        .await?;
+                let members = fetch_azure_devops_group_members(
+                    &org_url,
+                    &group.descriptor,
+                    &azure_devops_auth_context,
+                    cancellation,
+                )
+                .await?;
                 eyre::Ok(AzureDevOpsDumpGroupMembers {
                     group_descriptor: group.descriptor.clone(),
                     members: members.into_values().collect(),
@@ -99,6 +104,9 @@ pub async fn dump_azure_devops(
         group_members,
     };
 
-    println!("{}", cloud_terrastodon_command::to_string_pretty(&payload)?);
+    println!(
+        "{}",
+        facet_json::to_string_pretty(&payload).map_err(|error| eyre::eyre!("{error:?}"))?
+    );
     Ok(())
 }

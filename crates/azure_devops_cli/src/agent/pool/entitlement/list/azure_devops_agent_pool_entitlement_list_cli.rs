@@ -6,7 +6,6 @@ use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_agent_pool_entitlements_for_project;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::to_writer_pretty;
 use eyre::Result;
 use std::io::stdout;
 
@@ -52,7 +51,8 @@ impl AzureDevOpsAgentPoolEntitlementListArgs {
                     .is_none_or(|pool| pool.matches_entitlement(entitlement))
             })
             .collect();
-        to_writer_pretty(stdout(), &entitlements)?;
+        facet_json::to_writer_std_pretty(stdout(), &entitlements)
+            .map_err(|error| eyre::eyre!("{error:?}"))?;
         Ok(())
     }
 }

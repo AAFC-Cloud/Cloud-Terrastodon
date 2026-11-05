@@ -1,4 +1,5 @@
 use crate::fetch_current_user;
+use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::EntraPrincipalId;
 use cloud_terrastodon_azure_types::GovernanceRoleAssignment;
@@ -14,13 +15,16 @@ use std::path::PathBuf;
 pub struct MyEntraPimRoleAssignmentsListRequest {
     #[facet(skip_serializing)]
     pub cancellation: CancellationScope,
+    pub auth_context: AzureTenantAuthContext,
 }
 
 pub fn fetch_my_entra_pim_role_assignments(
+    auth_context: &AzureTenantAuthContext,
     cancellation: &CancellationScope,
 ) -> MyEntraPimRoleAssignmentsListRequest {
     MyEntraPimRoleAssignmentsListRequest {
         cancellation: cancellation.clone(),
+        auth_context: auth_context.clone(),
     }
 }
 
@@ -34,11 +38,14 @@ impl cloud_terrastodon_command::CacheableCommand for MyEntraPimRoleAssignmentsLi
             "rest",
             "GET",
             "pim_roleAssignments",
+            self.auth_context.tenant_id.to_string().as_str(),
         ]))
     }
 
     async fn run(self) -> Result<Self::Output> {
-        let my_object_id = fetch_current_user(&self.cancellation).await?.id;
+        let my_object_id = fetch_current_user(&self.auth_context, &self.cancellation)
+            .await?
+            .id;
         let url = format!(
             "{}{}{}{}",
             "https://graph.microsoft.com/beta/",
@@ -69,8 +76,9 @@ impl cloud_terrastodon_command::CacheableCommand for MyEntraPimRoleAssignmentsLi
             value: Vec<GovernanceRoleAssignment>,
         }
 
-        let request =
-            RestRequest::new(http::Method::GET, &url, &self.cancellation)?.cache(self.cache_key());
+        let request = RestRequest::new(http::Method::GET, &url, &self.cancellation)?
+            .azure_auth_context(&self.auth_context)
+            .cache(self.cache_key());
         let mut result: Result<Response, _> = request.clone().receive().await;
         if result.is_err() {
             self.cancellation.bail_if_cancelled()?;
@@ -93,8 +101,10 @@ mod tests {
     async fn it_works() -> Result<()> {
         CancellationToken::new()
             .cancellable_scope(|cancellation| async move {
+                let auth_context = cloud_terrastodon_auth::AuthContext::explicit_azure_cli()
+                    .bind_to_azure_tenant(crate::get_test_tenant_id(&cancellation).await?)?;
                 let Some(result) = expect_aad_premium_p2_license(
-                    fetch_my_entra_pim_role_assignments(&cancellation).await,
+                    fetch_my_entra_pim_role_assignments(&auth_context, &cancellation).await,
                 )
                 .await?
                 else {

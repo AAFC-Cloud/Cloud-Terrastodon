@@ -6,6 +6,7 @@ use crate::SerializableRestResponse;
 use crate::execute_rest_request;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_auth::AzureDevOpsAuthContext;
+use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_command::ArtifactMetadata;
 use cloud_terrastodon_command::CacheKey;
@@ -16,7 +17,6 @@ use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandOutput;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_command::run_cached_work;
-use cloud_terrastodon_command::to_vec_pretty;
 use cloud_terrastodon_command::write_failure_with_extra_files;
 use cloud_terrastodon_relative_location::RelativeLocation;
 use eyre::Context;
@@ -57,7 +57,7 @@ pub struct RestRequest {
     pub complete_on_cancellation: bool,
     /// Authentication is request-scoped. Requests acquiring credentials must
     /// provide an invocation context through
-    /// [`RestRequest::azure_auth_context`] or
+    /// [`RestRequest::auth_context`], [`RestRequest::azure_auth_context`], or
     /// [`RestRequest::azure_devops_auth_context`].
     pub auth_context: Option<AuthContext>,
     pub service: RestService,
@@ -122,6 +122,30 @@ impl RestRequest {
         let service = RestService::infer(&url).wrap_err_with(|| {
             format!("unsupported REST host '{}'", url.host_str().unwrap_or(""))
         })?;
+        Self::from_method_and_url_for_service(method, url, service, cancellation)
+    }
+
+    /// Construct a request for a service selected by a trusted SDK domain boundary.
+    ///
+    /// This supports validated Azure DevOps Server collection URLs whose host
+    /// cannot be inferred from a public service suffix. The caller owns selecting
+    /// the authentication family for the intended destination. Embedded URL
+    /// credentials and non-HTTP(S) destinations are rejected.
+    #[track_caller]
+    pub fn from_method_and_url_for_service(
+        method: Method,
+        url: Url,
+        service: RestService,
+        cancellation: &CancellationScope,
+    ) -> Result<Self> {
+        eyre::ensure!(
+            matches!(url.scheme(), "http" | "https") && url.host_str().is_some(),
+            "REST destinations must be absolute HTTP(S) URLs"
+        );
+        eyre::ensure!(
+            url.username().is_empty() && url.password().is_none(),
+            "REST destinations must not contain embedded credentials"
+        );
         Ok(Self {
             cancellation: cancellation.clone(),
             complete_on_cancellation: !matches!(
@@ -144,12 +168,21 @@ impl RestRequest {
 
     /// Attach authentication policy without acquiring credentials.
     ///
-    /// Explicit tenant overrides are set through [`Self::tenant`]. Azure DevOps
-    /// callers should use [`Self::azure_devops_auth_context`] to preserve their
-    /// authentication source and tenant together.
-    pub fn azure_auth_context(mut self, auth_context: &AuthContext) -> Self {
+    /// This context is not bound to a tenant. Callers with a tenant-bound context
+    /// should use [`Self::azure_auth_context`] or [`Self::azure_devops_auth_context`]
+    /// to preserve the authentication source and selected tenant together.
+    pub fn auth_context(mut self, auth_context: &AuthContext) -> Self {
         self.auth_context = Some(auth_context.clone());
         self
+    }
+
+    /// Attach Azure authentication policy and its explicitly selected tenant.
+    ///
+    /// This only configures the request; credentials are acquired during execution,
+    /// after any cache lookup. Cloning the context preserves its shared token caches.
+    pub fn azure_auth_context(self, auth_context: &AzureTenantAuthContext) -> Self {
+        self.auth_context(&auth_context.auth_context)
+            .tenant(auth_context.tenant_id)
     }
 
     /// Attach Azure DevOps authentication policy and its selected bearer tenant.
@@ -164,12 +197,8 @@ impl RestRequest {
             AzureDevOpsAuthContext::None => {
                 bail!("Azure DevOps authentication is not configured for this request");
             }
-            AzureDevOpsAuthContext::Bearer(context) => self
-                .azure_auth_context(&context.auth_context)
-                .tenant(context.tenant_id),
-            AzureDevOpsAuthContext::PersonalAccessToken(context) => {
-                self.azure_auth_context(context)
-            }
+            AzureDevOpsAuthContext::Bearer(context) => self.azure_auth_context(context),
+            AzureDevOpsAuthContext::PersonalAccessToken(context) => self.auth_context(context),
         })
     }
 
@@ -580,7 +609,8 @@ fn rest_response_extra_files(
 
 fn rest_response_output(response: &SerializableRestResponse) -> Result<CommandOutput> {
     Ok(CommandOutput {
-        stdout: to_vec_pretty(response)
+        stdout: facet_json::to_vec_pretty(response)
+            .map_err(|error| eyre::eyre!("{error:?}"))
             .wrap_err("serializing failed REST response to JSON")?
             .into(),
         stderr: bstr::BString::default(),
@@ -689,6 +719,36 @@ mod tests {
     use super::*;
     use reqwest::header::HeaderMap;
     use reqwest::header::HeaderValue;
+
+    #[test]
+    fn explicit_service_accepts_server_hosts_without_inferring_unknown_destinations()
+    -> eyre::Result<()> {
+        let scope = CancellationScope::unbound();
+        let server = Url::parse("https://server.example.invalid/tfs/Collection/_apis/projects")?;
+        assert!(RestRequest::from_method_and_url(Method::GET, server.clone(), &scope).is_err());
+        let request = RestRequest::from_method_and_url_for_service(
+            Method::GET,
+            server,
+            RestService::AzureDevOps,
+            &scope,
+        )?;
+        assert_eq!(request.service, RestService::AzureDevOps);
+        for invalid in [
+            "ftp://server.example.invalid/file",
+            "https://user:secret@server.example.invalid/path",
+        ] {
+            assert!(
+                RestRequest::from_method_and_url_for_service(
+                    Method::GET,
+                    Url::parse(invalid)?,
+                    RestService::AzureDevOps,
+                    &scope,
+                )
+                .is_err()
+            );
+        }
+        Ok(())
+    }
 
     fn pretty_json(input: &str) -> String {
         facet_json::to_string_pretty(&facet_json::from_str::<facet_value::Value>(input).unwrap())

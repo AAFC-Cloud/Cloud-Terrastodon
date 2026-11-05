@@ -5,7 +5,6 @@ use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsUserArgument;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlement;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::to_writer_pretty;
 use eyre::Result;
 use std::io::stdout;
 
@@ -40,7 +39,8 @@ impl AzureDevOpsLicenseEntitlementUserShowArgs {
             cancellation,
         )
         .await?;
-        to_writer_pretty(stdout(), &found)?;
+        facet_json::to_writer_std_pretty(stdout(), &found)
+            .map_err(|error| eyre::eyre!("{error:?}"))?;
         Ok(())
     }
 }

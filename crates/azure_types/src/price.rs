@@ -6,11 +6,15 @@ use uuid::Uuid;
 /// https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices
 #[derive(Debug, Clone, PartialEq, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
+#[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct Price {
     pub arm_region_name: AzureLocationName,
     pub arm_sku_name: String,
     pub currency_code: String,
-    pub effective_start_date: DateTime<Utc>,
+    /// The catalogue documents this date as optional.
+    pub effective_start_date: Option<DateTime<Utc>>,
+    pub reservation_term: Option<String>,
+    pub availability_id: Option<String>,
     pub is_primary_meter_region: bool,
     pub location: String,
     pub meter_id: Uuid,

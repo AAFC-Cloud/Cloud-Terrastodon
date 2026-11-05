@@ -1,10 +1,10 @@
+use crate::ArbitraryJson;
 use chrono::DateTime;
 use chrono::Datelike;
 use chrono::Local;
 use chrono::Utc;
 use eyre::ContextCompat;
 use eyre::Result;
-use facet_json::RawJson;
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -237,7 +237,7 @@ pub struct CostManagementQueryResult {
     pub name: Uuid,
     pub properties: CostManagementQueryResultProperties,
     pub sku: Option<String>,
-    pub tags: Option<RawJson<'static>>,
+    pub tags: Option<ArbitraryJson>,
     #[facet(rename = "type")]
     pub kind: String,
 }
@@ -246,7 +246,7 @@ pub struct CostManagementQueryResultProperties {
     pub columns: Vec<CostManagementQueryColumn>,
     #[facet(rename = "nextLink")]
     pub next_link: Option<String>,
-    pub rows: Vec<RawJson<'static>>,
+    pub rows: Vec<ArbitraryJson>,
 }
 #[derive(Debug, Clone, facet::Facet)]
 pub struct CostManagementQueryTimePeriod {

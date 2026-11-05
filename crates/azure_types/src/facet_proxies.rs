@@ -1,3 +1,8 @@
+#![allow(
+    clippy::disallowed_types,
+    reason = "The bool-or-string wire proxy and its Facet-generated sibling items require RawJson for representation selection"
+)]
+
 use chrono::DateTime;
 use chrono::Local;
 use cloud_terrastodon_azure_resource_types::ResourceType;

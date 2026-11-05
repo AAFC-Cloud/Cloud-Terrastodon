@@ -94,8 +94,10 @@ mod tests {
         CancellationToken::new()
             .cancellable_scope(|cancellation| async move {
                 let tenant_id = get_test_tenant_id(&cancellation).await?;
+                let auth_context = cloud_terrastodon_auth::AuthContext::explicit_azure_cli()
+                    .bind_to_azure_tenant(tenant_id)?;
                 let Some(role_assignments) = expect_aad_premium_p2_license(
-                    fetch_my_entra_pim_role_assignments(&cancellation).await,
+                    fetch_my_entra_pim_role_assignments(&auth_context, &cancellation).await,
                 )
                 .await?
                 else {

@@ -23,10 +23,12 @@ impl AzureTenantAliasListArgs {
             let tenant_id = tenant.resolve(cancellation).await?;
             let mut aliases = list_tracked_tenant_aliases_for(tenant_id).await?;
             aliases.sort();
-            cloud_terrastodon_command::to_writer_pretty(&mut handle, &aliases)?;
+            facet_json::to_writer_std_pretty(&mut handle, &aliases)
+                .map_err(|error| eyre::eyre!("{error:?}"))?;
         } else {
             let aliases = list_tracked_tenant_aliases().await?;
-            cloud_terrastodon_command::to_writer_pretty(&mut handle, &aliases)?;
+            facet_json::to_writer_std_pretty(&mut handle, &aliases)
+                .map_err(|error| eyre::eyre!("{error:?}"))?;
         }
 
         handle.write_all(b"\n")?;

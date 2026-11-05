@@ -2,9 +2,13 @@ use reqwest::Url;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RestService {
+    /// Public retail-price catalogue; no credential acquisition is required.
+    AzureRetailPrices,
     AzureDevOps,
     MicrosoftGraph,
     AzureResourceManager,
+    AzureKeyVault,
+    AzureContainerRegistry,
 }
 
 impl RestService {
@@ -13,8 +17,21 @@ impl RestService {
     pub fn infer(url: &Url) -> Option<Self> {
         let host = url.host_str()?.to_ascii_lowercase();
         match host.as_str() {
+            "prices.azure.com" => Some(Self::AzureRetailPrices),
             "graph.microsoft.com" => Some(Self::MicrosoftGraph),
             "management.azure.com" => Some(Self::AzureResourceManager),
+            _ if host
+                .strip_suffix(".vault.azure.net")
+                .is_some_and(|name| !name.is_empty()) =>
+            {
+                Some(Self::AzureKeyVault)
+            }
+            _ if host
+                .strip_suffix(".azurecr.io")
+                .is_some_and(|name| !name.is_empty()) =>
+            {
+                Some(Self::AzureContainerRegistry)
+            }
             "dev.azure.com"
             | "vssps.dev.azure.com"
             | "vsrm.dev.azure.com"

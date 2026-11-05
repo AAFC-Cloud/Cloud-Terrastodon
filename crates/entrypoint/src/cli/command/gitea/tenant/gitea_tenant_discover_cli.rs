@@ -1,4 +1,4 @@
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_gitea::discover_and_track_tenants;
 use eyre::Result;
 use std::io::Write;
@@ -7,11 +7,12 @@ use std::io::Write;
 pub struct GiteaTenantDiscoverArgs {}
 
 impl GiteaTenantDiscoverArgs {
-    pub async fn invoke(self, cancellation: &CancellationScope) -> Result<()> {
-        let tenants = discover_and_track_tenants(cancellation).await?;
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<()> {
+        let tenants = discover_and_track_tenants(executor).await?;
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();
-        cloud_terrastodon_command::to_writer_pretty(&mut handle, &tenants)?;
+        facet_json::to_writer_std_pretty(&mut handle, &tenants)
+            .map_err(|error| eyre::eyre!("{error:?}"))?;
         handle.write_all(b"\n")?;
         Ok(())
     }

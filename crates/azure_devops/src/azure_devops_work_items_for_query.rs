@@ -127,8 +127,13 @@ mod test {
                 .await?;
                 while let Some(project) = projects.pop() {
                     // get queries for project
-                    let queries =
-                        fetch_queries_for_project(&org_url, &project.name, &cancellation).await?;
+                    let queries = fetch_queries_for_project(
+                        &org_url,
+                        &project.name,
+                        &azure_devops_auth_context,
+                        &cancellation,
+                    )
+                    .await?;
 
                     // get query we can run
                     let query = AzureDevOpsWorkItemQuery::flatten_many(&queries)

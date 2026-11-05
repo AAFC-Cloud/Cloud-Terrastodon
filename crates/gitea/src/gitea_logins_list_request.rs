@@ -1,52 +1,61 @@
 use crate::GiteaLogin;
 use arbitrary::Arbitrary;
-use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CacheableCommand;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_cache::CacheKey;
+use cloud_terrastodon_cache::CacheScope;
+use cloud_terrastodon_cache::HasCacheKey;
+use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
-use cloud_terrastodon_command::async_trait;
-use std::path::PathBuf;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
+use cloud_terrastodon_execution::RequestExecution;
 use std::time::Duration;
 
-#[must_use = "This is a future request, you must .await it"]
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
-pub struct GiteaLoginsListRequest {
-    #[facet(skip_serializing)]
-    pub cancellation: CancellationScope,
+/// Inspect non-secret local tea login metadata without querying a service.
+#[derive(Debug, Clone, Copy, Arbitrary, facet::Facet)]
+pub struct GiteaLoginsListRequest;
+
+pub fn list_gitea_logins(
+    executor: &CloudTerrastodonExecutor,
+) -> RequestExecution<'_, GiteaLoginsListRequest> {
+    executor.execute(GiteaLoginsListRequest)
 }
 
-pub fn list_gitea_logins(cancellation: &CancellationScope) -> GiteaLoginsListRequest {
-    GiteaLoginsListRequest {
-        cancellation: cancellation.clone(),
+impl InvalidatesOwnCacheKey for GiteaLoginsListRequest {}
+
+impl HasCacheKey for GiteaLoginsListRequest {
+    fn cache_key(&self) -> eyre::Result<CacheKey> {
+        Ok(CacheKey {
+            scope: CacheScope::try_from_components(["tea", "logins", "list"])?,
+            valid_for: Duration::ZERO,
+        })
     }
 }
 
-#[async_trait]
-impl CacheableCommand for GiteaLoginsListRequest {
+impl ExecutableRequest for GiteaLoginsListRequest {
     type Output = Vec<GiteaLogin>;
 
-    fn cache_key(&self) -> CacheKey {
-        CacheKey {
-            path: PathBuf::from_iter(["tea", "logins", "list"]),
-            valid_for: Duration::from_secs(5),
-        }
-    }
-
-    async fn run(self) -> eyre::Result<Self::Output> {
-        let mut cmd = CommandBuilder::new(CommandKind::Gitea);
-        cmd.cancellation_safe();
-        cmd.args(["logins", "list", "--output", "json"]);
-        cmd.cache(self.cache_key());
-        cmd.run(&self.cancellation).await
+    fn run<'a>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>
+    where
+        Self: 'a,
+    {
+        Box::pin(async move {
+            // Always refresh: login membership selects the profile for a later
+            // external process, and its configuration has no cache generation.
+            CommandBuilder::new(CommandKind::Gitea)
+                .cancellation_safe()
+                .args(["logins", "list", "--output", "json"])
+                .cache(self.cache_key()?)
+                .run_with_artifacts(&executor)
+                .await
+        })
     }
 }
-
-cloud_terrastodon_command::impl_cacheable_into_future!(GiteaLoginsListRequest);
 
 cloud_terrastodon_registry::register_thing!(GiteaLoginsListRequest);
 cloud_terrastodon_registry::register_arbitrary!(GiteaLoginsListRequest);
-cloud_terrastodon_registry_execution::register_into_future!(
+cloud_terrastodon_registry_execution::register_executable_request!(
     GiteaLoginsListRequest => Vec<GiteaLogin>,
     effects = [Read]
 );

@@ -1,3 +1,8 @@
+#![allow(
+    clippy::disallowed_types,
+    reason = "The authorization-scheme codec and its Facet-generated sibling items require RawJson before selecting typed parameters"
+)]
+
 use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_types::ArbitraryJson;
 use cloud_terrastodon_azure_types::AzureTenantId;
@@ -155,7 +160,6 @@ pub struct AzureDevOpsServiceEndpointAuthorizationManagedServiceIdentity {
 #[cfg(test)]
 mod test {
     use super::AzureDevOpsServiceEndpointAuthorization;
-    use facet_json::RawJson;
 
     #[test]
     fn unknown_scheme_deserializes_to_other() -> eyre::Result<()> {
@@ -165,9 +169,7 @@ mod test {
 
         assert_eq!(
             authorization,
-            AzureDevOpsServiceEndpointAuthorization::Other(
-                RawJson::from_owned(json.to_string()).into()
-            )
+            AzureDevOpsServiceEndpointAuthorization::Other(facet_json::from_str(json)?)
         );
         Ok(())
     }
@@ -180,9 +182,7 @@ mod test {
 
         assert_eq!(
             authorization,
-            AzureDevOpsServiceEndpointAuthorization::Other(
-                RawJson::from_owned(json.to_string()).into()
-            )
+            AzureDevOpsServiceEndpointAuthorization::Other(facet_json::from_str(json)?)
         );
         Ok(())
     }

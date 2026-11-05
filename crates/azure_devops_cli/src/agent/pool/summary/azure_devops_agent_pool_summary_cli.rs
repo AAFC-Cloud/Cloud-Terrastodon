@@ -34,11 +34,13 @@ impl AzureDevOpsAgentPoolSummaryArgs {
         cancellation: &CancellationScope,
     ) -> Result<()> {
         // Fetch pools and projects once
-        let pools = fetch_azure_devops_agent_pools(&self.org, cancellation).await?;
         let azure_devops_auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let pools =
+            fetch_azure_devops_agent_pools(&self.org, &azure_devops_auth_context, cancellation)
+                .await?;
         let projects =
             fetch_all_azure_devops_projects(&self.org, &azure_devops_auth_context, cancellation)
                 .await?;

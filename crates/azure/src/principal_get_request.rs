@@ -14,6 +14,10 @@ use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use eyre::Result;
+#[allow(
+    clippy::disallowed_types,
+    reason = "Principal batch responses are decoded after the response ID identifies their domain shape."
+)]
 use facet_json::RawJson;
 use std::borrow::Cow;
 use std::path::PathBuf;
@@ -65,6 +69,10 @@ impl CacheableCommand for PrincipalRequest<'_> {
         ]))
     }
 
+    #[allow(
+        clippy::disallowed_types,
+        reason = "The heterogeneous batch selects user, group, or service-principal decoding by response ID."
+    )]
     async fn run(self) -> Result<Self::Output> {
         let cache_key = self.cache_key();
         let auth_context = self.auth_context;

@@ -1,16 +1,9 @@
 use crate::ResourceGraphHelper;
 use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure_types::ContainerRegistry;
-use cloud_terrastodon_azure_types::ContainerRegistryId;
-use cloud_terrastodon_azure_types::ContainerRegistryRepositoryName;
-use cloud_terrastodon_azure_types::ContainerRegistryRepositoryTag;
-use cloud_terrastodon_azure_types::HasSlug;
-use cloud_terrastodon_azure_types::Scope;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
 use eyre::Result;
 use std::borrow::Cow;
@@ -74,61 +67,6 @@ Resources
 
 cloud_terrastodon_command::impl_cacheable_into_future!(ContainerRegistryListRequest<'a>, 'a);
 
-pub async fn fetch_container_registry_repository_names(
-    registry_id: &ContainerRegistryId,
-    cancellation: &CancellationScope,
-) -> Result<Vec<ContainerRegistryRepositoryName>> {
-    let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-    cmd.cancellation_safe();
-    cmd.args([
-        "acr",
-        "repository",
-        "list",
-        "--name",
-        &registry_id.container_registry_name,
-        "--resource-group",
-        registry_id.resource_group_id.name(),
-        "--subscription",
-        &registry_id.resource_group_id.subscription_id.short_form(),
-        "--output",
-        "json",
-    ]);
-    cmd.cache(CacheKey::new(PathBuf::from_iter([
-        "container_registry_repositories",
-        &registry_id.container_registry_name,
-    ])));
-    cmd.run(cancellation).await
-}
-
-pub async fn fetch_container_registry_repository_tags(
-    registry_id: &ContainerRegistryId,
-    repository_name: &ContainerRegistryRepositoryName,
-    cancellation: &CancellationScope,
-) -> Result<Vec<ContainerRegistryRepositoryTag>> {
-    let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-    cmd.cancellation_safe();
-    cmd.args([
-        "acr",
-        "repository",
-        "show-tags",
-        "--detail",
-        "--name",
-        &registry_id.container_registry_name,
-        "--repository",
-        repository_name,
-        "--subscription",
-        &registry_id.resource_group_id.subscription_id.short_form(),
-        "--output",
-        "json",
-    ]);
-    cmd.cache(CacheKey::new(PathBuf::from_iter([
-        "container_registry_repository_tags",
-        &registry_id.container_registry_name,
-        repository_name,
-    ])));
-    cmd.run(cancellation).await
-}
-
 #[cfg(test)]
 mod test {
     use crate::fetch_all_container_registries;
@@ -172,6 +110,7 @@ mod test {
                 for (i, container_registry) in found.into_iter().enumerate() {
                     let repository_names = fetch_container_registry_repository_names(
                         &container_registry.id,
+                        &auth_context,
                         &cancellation,
                     )
                     .await?;
@@ -184,6 +123,7 @@ mod test {
                         let tags = fetch_container_registry_repository_tags(
                             &container_registry.id,
                             repository,
+                            &auth_context,
                             &cancellation,
                         )
                         .await?;

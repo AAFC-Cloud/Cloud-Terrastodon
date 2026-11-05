@@ -1,23 +1,26 @@
+use crate::fetch_azure_devops_user_license_entitlements;
 use arbitrary::Arbitrary;
-use chrono::DateTime;
-use chrono::Utc;
-use cloud_terrastodon_azure_devops_types::AzureDevOpsLicenseRule;
+use cloud_terrastodon_auth::AzureDevOpsAuthContext;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsJsonPatch;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsJsonPatchOperation;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsLicenseAccessLevelUpdate;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsLicenseEntitlementUpdateResponse;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsLicenseType;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsUserArgument;
-use cloud_terrastodon_azure_devops_types::AzureDevOpsUserId;
-use cloud_terrastodon_azure_devops_types::LastAccessedDate;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsUserEntitlementsPatchResponse;
+use cloud_terrastodon_azure_types::ArbitraryJson;
+use cloud_terrastodon_command::CacheInvalidatable;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
-use facet_json::RawJson;
+use cloud_terrastodon_rest::RequestHeaders;
+use cloud_terrastodon_rest::RestRequest;
+use reqwest::Method;
 use std::borrow::Cow;
 use std::path::PathBuf;
 use std::time::Duration;
-use tracing::debug;
 
 /// <https://learn.microsoft.com/en-us/rest/api/azure/devops/memberentitlementmanagement/user-entitlements/update-user-entitlement?view=azure-devops-rest-7.1>
 #[must_use = "This is an unsent request, you must .await it"]
@@ -28,6 +31,7 @@ pub struct AzureDevOpsUserLicenseEntitlementUpdateRequest<'a> {
     pub cancellation: CancellationScope,
 
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
+    pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
     pub user: AzureDevOpsUserArgument<'a>,
     pub license_kind: AzureDevOpsLicenseType,
 }
@@ -36,11 +40,13 @@ pub fn update_azure_devops_user_license_entitlement<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     user: impl Into<AzureDevOpsUserArgument<'a>>,
     license_kind: AzureDevOpsLicenseType,
+    auth_context: &'a AzureDevOpsAuthContext,
     cancellation: &CancellationScope,
 ) -> AzureDevOpsUserLicenseEntitlementUpdateRequest<'a> {
     AzureDevOpsUserLicenseEntitlementUpdateRequest {
         cancellation: cancellation.clone(),
         org_url: Cow::Borrowed(org_url),
+        auth_context: Cow::Borrowed(auth_context),
         user: user.into(),
         license_kind,
     }
@@ -51,6 +57,7 @@ impl<'a> Arbitrary<'a> for AzureDevOpsUserLicenseEntitlementUpdateRequest<'stati
         Ok(Self {
             cancellation: CancellationScope::arbitrary(u)?,
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
+            auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
             user: AzureDevOpsUserArgument::arbitrary(u)?.into_owned(),
             license_kind: AzureDevOpsLicenseType::arbitrary(u)?,
         })
@@ -76,34 +83,93 @@ impl<'a> CacheableCommand for AzureDevOpsUserLicenseEntitlementUpdateRequest<'a>
         }
     }
     async fn run(self) -> eyre::Result<Self::Output> {
-        debug!(
-            user = %self.user,
-            license_kind = ?self.license_kind,
-            "Updating license entitlement for user",
-        );
-        let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-        cmd.args([
-            "devops",
-            "user",
-            "update",
-            "--user",
-            &self.user.to_string(),
-            "--organization",
-            &self.org_url.to_string(),
-            "--license-type",
-            match &self.license_kind {
-                AzureDevOpsLicenseType::AccountExpress => "express",
-                AzureDevOpsLicenseType::AccountStakeholder => "stakeholder",
-                AzureDevOpsLicenseType::AccountAdvanced => "advanced",
-                AzureDevOpsLicenseType::MsdnEligible => "professional",
-                AzureDevOpsLicenseType::MsdnEnterprise => "professional",
-                AzureDevOpsLicenseType::MsdnProfessional => "professional",
-                AzureDevOpsLicenseType::Other(s) => s,
-                AzureDevOpsLicenseType::None => "none",
-            },
-        ]);
-        cmd.cache(self.cache_key());
-        cmd.run(&self.cancellation).await
+        let access_level = AzureDevOpsLicenseAccessLevelUpdate::try_from(&self.license_kind)?;
+        let user_id = match &self.user {
+            AzureDevOpsUserArgument::Id(id) => *id.as_ref(),
+            AzureDevOpsUserArgument::Email(_) => {
+                let listing = fetch_azure_devops_user_license_entitlements(
+                    self.org_url.as_ref(),
+                    self.auth_context.as_ref(),
+                    &self.cancellation,
+                );
+                listing.invalidate().await?;
+                let users = listing.await?;
+                let mut matches = users
+                    .into_iter()
+                    .filter(|entry| self.user.matches(&entry.user));
+                let user = matches
+                    .next()
+                    .ok_or_else(|| eyre::eyre!("no entitlement matches the selected user"))?;
+                eyre::ensure!(
+                    matches.next().is_none(),
+                    "the user selection matches multiple entitlements"
+                );
+                user.user_id
+            }
+        };
+        let patch = AzureDevOpsJsonPatch::new(vec![AzureDevOpsJsonPatchOperation::Replace {
+            path: "/accessLevel".to_owned(),
+            value: ArbitraryJson::try_from_facet(&access_level)?,
+        }])?;
+        let mut url = self
+            .org_url
+            .api_url("vsaex.dev.azure.com", "", &[("api-version", "7.1")])?;
+        url.path_segments_mut()
+            .map_err(|()| eyre::eyre!("organization URL must have a hierarchical path"))?
+            .pop_if_empty()
+            .extend(["_apis", "userentitlements", &user_id.to_string()]);
+        let cache_key = self.cache_key();
+        // Retain the mutation result and invalidate its affected inventory as
+        // one completion unit. A decoded partial failure can have side effects.
+        self.cancellation
+            .deferred(
+                "updating a user license and invalidating entitlements",
+                |cancellation| async move {
+                    let response =
+                        RestRequest::from_method_and_url(Method::PATCH, url, &cancellation)?
+                            .headers(RequestHeaders::from_header(
+                                "Content-Type",
+                                "application/json-patch+json",
+                            )?)
+                            .body(facet_json::to_string(&patch)?)
+                            .cache(cache_key)
+                            .azure_devops_auth_context(self.auth_context.as_ref())?
+                            .receive::<AzureDevOpsUserEntitlementsPatchResponse>()
+                            .await;
+                    // A response-decoding failure cannot prove that PATCH had no effect.
+                    let invalidation = fetch_azure_devops_user_license_entitlements(
+                        self.org_url.as_ref(),
+                        self.auth_context.as_ref(),
+                        &cancellation,
+                    )
+                    .invalidate()
+                    .await;
+                    let response = match (response, invalidation) {
+                        (Ok(response), Ok(())) => response,
+                        (Err(error), Ok(())) | (Ok(_), Err(error)) => return Err(error),
+                        (Err(error), Err(invalidation)) => {
+                            return Err(error.wrap_err(format!(
+                                "entitlement inventory invalidation also failed: {invalidation:#}"
+                            )));
+                        }
+                    };
+                    eyre::ensure!(
+                        response.is_success
+                            && response
+                                .operation_results
+                                .iter()
+                                .all(|operation| operation.is_success),
+                        "Azure DevOps rejected one or more license changes: {:?}",
+                        response.operation_results,
+                    );
+                    eyre::ensure!(
+                        response.user_entitlement.id == user_id,
+                        "license update returned a different user"
+                    );
+                    Ok(response.user_entitlement)
+                },
+            )
+            .await
     }
 }
 
@@ -116,99 +182,24 @@ cloud_terrastodon_registry::register_arbitrary!(
 );
 cloud_terrastodon_registry_execution::register_into_future!(AzureDevOpsUserLicenseEntitlementUpdateRequest<'static> => AzureDevOpsLicenseEntitlementUpdateResponse, effects = [Write]);
 
-#[derive(facet::Facet, Debug)]
-#[facet(rename_all = "camelCase")]
-pub struct AzureDevOpsLicenseEntitlementUpdateResponse {
-    pub access_level: AzureDevOpsLicenseRule,
-    pub date_created: DateTime<Utc>,
-    pub extensions: Vec<RawJson<'static>>,
-    pub group_assignments: Vec<RawJson<'static>>,
-    pub id: AzureDevOpsUserId,
-    pub last_accessed_date: LastAccessedDate,
-    pub project_entitlements: Vec<RawJson<'static>>,
-    pub user: RawJson<'static>,
-}
-
-impl<'a> Arbitrary<'a> for AzureDevOpsLicenseEntitlementUpdateResponse {
-    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        // Keep generated dates within 2000–2099, where RFC3339 round-trips are
-        // supported, and don't generate a last access before account creation.
-        const LAST_TIMESTAMP: i64 = 4_102_444_799;
-        let created_timestamp = u.int_in_range(946_684_800..=LAST_TIMESTAMP)?;
-        let date_created = DateTime::from_timestamp(created_timestamp, 0)
-            .ok_or(arbitrary::Error::IncorrectFormat)?;
-        let last_accessed_date = if bool::arbitrary(u)? {
-            let timestamp = u.int_in_range(created_timestamp..=LAST_TIMESTAMP)?;
-            LastAccessedDate::Some(
-                DateTime::from_timestamp(timestamp, 0).ok_or(arbitrary::Error::IncorrectFormat)?,
-            )
-        } else {
-            LastAccessedDate::Never
-        };
-        let id = AzureDevOpsUserId::arbitrary(u)?;
-
-        // RawJson has no Arbitrary implementation. Generate a bounded set of
-        // representative, owned JSON objects rather than unvalidated random
-        // text. These samples are not fixtures of a particular server response.
-        fn objects(
-            u: &mut arbitrary::Unstructured<'_>,
-            kind: &str,
-        ) -> arbitrary::Result<Vec<RawJson<'static>>> {
-            (0..u.int_in_range(0..=3)?)
-                .map(|_| {
-                    let number = u32::arbitrary(u)?;
-                    Ok(RawJson::from_owned(format!(
-                        r#"{{"id":"{kind}-{number}","displayName":"Example {kind} {number}"}}"#
-                    )))
-                })
-                .collect()
-        }
-
-        let extensions = objects(u, "extension")?;
-        let group_assignments = objects(u, "group")?;
-        let project_entitlements = objects(u, "project")?;
-        let user = RawJson::from_owned(format!(
-            r#"{{"id":"{id}","subjectKind":"user","displayName":"Example user {id}","principalName":"{id}@example.invalid"}}"#
-        ));
-
-        Ok(Self {
-            access_level: AzureDevOpsLicenseRule::arbitrary(u)?,
-            date_created,
-            extensions,
-            group_assignments,
-            id,
-            last_accessed_date,
-            project_entitlements,
-            user,
-        })
-    }
-}
-
-cloud_terrastodon_registry::register_arbitrary!(
-    AzureDevOpsLicenseEntitlementUpdateResponse,
-    associated = REGISTERED_ARBITRARY
-);
-
 #[cfg(test)]
 mod tests {
     use super::AzureDevOpsLicenseEntitlementUpdateResponse;
-    use chrono::DateTime;
     use cloud_terrastodon_azure_devops_types::LastAccessedDate;
     use cloud_terrastodon_registry::ArbitraryBytes;
-    use facet_json::RawJson;
     use std::collections::BTreeMap;
 
     #[test]
     fn registered_response_constructor_generates_round_trippable_json() -> eyre::Result<()> {
         let constructor = AzureDevOpsLicenseEntitlementUpdateResponse::REGISTERED_ARBITRARY;
-        let mut saw_empty = [false; 3];
-        let mut saw_populated = [false; 3];
         let mut saw_never_accessed = false;
         let mut saw_accessed = false;
+        let mut saw_empty_collection = false;
+        let mut saw_populated_collection = false;
 
         for seed in 0..=3 {
-            // The prefix varies bounded dates, IDs, and collection contents.
-            // A zero suffix keeps the arbitrary license-rule strings short.
+            // The prefix varies dates and license data; the zero suffix supplies
+            // valid inputs for the generated license strings.
             let mut bytes = vec![0; 256];
             bytes[..128].fill(seed);
             let mut input = ArbitraryBytes::new(bytes);
@@ -225,47 +216,44 @@ mod tests {
             assert_eq!(decoded.last_accessed_date, response.last_accessed_date);
             assert_eq!(facet_json::to_string(&decoded)?, json);
 
-            let document: BTreeMap<String, RawJson<'static>> = facet_json::from_str(&json)?;
-            let created: String = facet_json::from_str(document["dateCreated"].as_str())?;
-            assert_eq!(
-                DateTime::parse_from_rfc3339(&created)?.timestamp(),
-                response.date_created.timestamp()
+            let user: BTreeMap<String, String> = facet_json::from_str(response.user.as_str())?;
+            assert_eq!(user.get("id"), Some(&response.id.to_string()));
+            assert_eq!(user.get("subjectKind").map(String::as_str), Some("user"));
+            assert!(user.get("displayName").is_some_and(|name| !name.is_empty()));
+            for objects in [
+                &response.extensions,
+                &response.group_assignments,
+                &response.project_entitlements,
+            ] {
+                assert!(objects.len() <= 3);
+                saw_empty_collection |= objects.is_empty();
+                saw_populated_collection |= !objects.is_empty();
+                for object in objects {
+                    let fields: BTreeMap<String, String> = facet_json::from_str(object.as_str())?;
+                    assert!(fields.get("id").is_some_and(|id| !id.is_empty()));
+                    assert!(
+                        fields
+                            .get("displayName")
+                            .is_some_and(|name| !name.is_empty())
+                    );
+                }
+            }
+
+            assert!(
+                (946_684_800..=4_102_444_799).contains(&response.date_created.unwrap().timestamp())
             );
-            assert!((946_684_800..=4_102_444_799).contains(&response.date_created.timestamp()));
-            let accessed: String = facet_json::from_str(document["lastAccessedDate"].as_str())?;
-            DateTime::parse_from_rfc3339(&accessed)?;
             match response.last_accessed_date {
                 LastAccessedDate::Never => saw_never_accessed = true,
                 LastAccessedDate::Some(date) => {
                     saw_accessed = true;
-                    assert!(date >= response.date_created);
+                    assert!(date >= response.date_created.unwrap());
                     assert!(date.timestamp() <= 4_102_444_799);
-                }
-            }
-
-            let user: BTreeMap<String, String> = facet_json::from_str(response.user.as_str())?;
-            assert_eq!(user["id"], response.id.to_string());
-            assert_eq!(user["subjectKind"], "user");
-            assert!(!user["displayName"].is_empty());
-            for (index, key) in ["extensions", "groupAssignments", "projectEntitlements"]
-                .into_iter()
-                .enumerate()
-            {
-                let objects: Vec<BTreeMap<String, String>> =
-                    facet_json::from_str(document[key].as_str())?;
-                assert!(objects.len() <= 3);
-                saw_empty[index] |= objects.is_empty();
-                saw_populated[index] |= !objects.is_empty();
-                for object in objects {
-                    assert!(!object["id"].is_empty());
-                    assert!(!object["displayName"].is_empty());
                 }
             }
         }
 
-        assert!(saw_empty.into_iter().all(|seen| seen));
-        assert!(saw_populated.into_iter().all(|seen| seen));
         assert!(saw_never_accessed && saw_accessed);
+        assert!(saw_empty_collection && saw_populated_collection);
         Ok(())
     }
 }

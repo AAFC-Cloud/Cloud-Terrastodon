@@ -1,3 +1,4 @@
+use crate::ArbitraryJson;
 use crate::AsScope;
 use crate::ResourceGroupId;
 use crate::ResourceType;
@@ -10,7 +11,6 @@ use crate::slug::HasSlug;
 use arbitrary::Arbitrary;
 use compact_str::CompactString;
 use eyre::Result;
-use facet_json::RawJson;
 use std::collections::HashMap;
 use std::str::FromStr;
 
@@ -94,9 +94,9 @@ impl FromStr for ResourceId {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, facet::Facet)]
-#[facet(proxy = RawJson<'static>)]
+#[facet(proxy = ArbitraryJson)]
 pub struct ResourcePropertyValue {
-    raw: RawJson<'static>,
+    raw: ArbitraryJson,
     string: Option<String>,
 }
 
@@ -109,9 +109,7 @@ impl ResourcePropertyValue {
 impl<'a> Arbitrary<'a> for ResourcePropertyValue {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         let string = String::arbitrary(u)?;
-        let raw = RawJson::from_owned(
-            facet_json::to_string(&string).map_err(|_| arbitrary::Error::IncorrectFormat)?,
-        );
+        let raw = ArbitraryJson::from_text(&string);
         Ok(Self {
             raw,
             string: Some(string),
@@ -119,14 +117,14 @@ impl<'a> Arbitrary<'a> for ResourcePropertyValue {
     }
 }
 
-impl From<RawJson<'static>> for ResourcePropertyValue {
-    fn from(raw: RawJson<'static>) -> Self {
+impl From<ArbitraryJson> for ResourcePropertyValue {
+    fn from(raw: ArbitraryJson) -> Self {
         let string = facet_json::from_str::<String>(raw.as_str()).ok();
         Self { raw, string }
     }
 }
 
-impl From<&ResourcePropertyValue> for RawJson<'static> {
+impl From<&ResourcePropertyValue> for ArbitraryJson {
     fn from(value: &ResourcePropertyValue) -> Self {
         value.raw.clone()
     }
@@ -153,9 +151,7 @@ impl<'a> Arbitrary<'a> for Resource {
         let mut properties = HashMap::new();
         properties.insert(
             "displayName".to_string(),
-            ResourcePropertyValue::from(RawJson::from_owned(
-                facet_json::to_string(&name).map_err(|_| arbitrary::Error::IncorrectFormat)?,
-            )),
+            ResourcePropertyValue::from(ArbitraryJson::from_text(&name)),
         );
         Ok(Self {
             id: ScopeImpl::arbitrary(u)?,

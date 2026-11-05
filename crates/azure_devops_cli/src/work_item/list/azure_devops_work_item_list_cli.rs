@@ -58,7 +58,8 @@ impl AzureDevOpsWorkItemListArgs {
             as_of: self.as_of,
         }
         .await?;
-        cloud_terrastodon_command::to_writer_pretty(std::io::stdout(), &items)?;
+        facet_json::to_writer_std_pretty(std::io::stdout(), &items)
+            .map_err(|error| eyre::eyre!("{error:?}"))?;
         Ok(())
     }
 }

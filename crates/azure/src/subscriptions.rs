@@ -2,14 +2,13 @@ use crate::ResourceGraphHelper;
 use crate::list_tracked_tenants;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_auth::AzureTenantAuthContext;
+use cloud_terrastodon_auth::read_azure_cli_local_accounts;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::Subscription;
 use cloud_terrastodon_azure_types::SubscriptionId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
 use eyre::Result;
 use eyre::bail;
@@ -125,18 +124,18 @@ impl<'a> CacheableCommand for SubscriptionListRequest<'a> {
 pub async fn get_active_subscription_id(
     cancellation: &CancellationScope,
 ) -> Result<SubscriptionId> {
-    let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-    cmd.cancellation_safe();
-    cmd.args([
-        "account",
-        "list",
-        "--query",
-        "[?isDefault].id",
-        "--output",
-        "json",
-    ]);
-    let rtn = cmd.run::<[SubscriptionId; 1]>(cancellation).await?[0];
-    Ok(rtn)
+    let mut accounts = read_azure_cli_local_accounts(cancellation)
+        .await?
+        .into_iter()
+        .filter(|account| account.is_default);
+    let account = accounts
+        .next()
+        .ok_or_else(|| eyre::eyre!("Azure CLI has no selected local subscription"))?;
+    eyre::ensure!(
+        accounts.next().is_none(),
+        "Azure CLI has multiple selected local subscriptions"
+    );
+    Ok(account.id.into())
 }
 
 cloud_terrastodon_command::impl_cacheable_into_future!(SubscriptionListRequest<'a>, 'a);

@@ -48,9 +48,9 @@ mod test {
         CancellationToken::new()
             .cancellable_scope(|cancellation| async move {
                 let tenant_id = get_test_tenant_id(&cancellation).await?;
-                let me = fetch_current_user(&cancellation).await?.id;
                 let auth_context = AuthContext::explicit_azure_cli();
                 let auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
+                let me = fetch_current_user(&auth_context, &cancellation).await?.id;
                 let Some(governance_role_assignments) = expect_aad_premium_p2_license(
                     fetch_governance_role_assignments_for_principal(
                         &me,

@@ -2,6 +2,7 @@ use crate::get_default_organization_url;
 use crate::set_default_organization_url;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::ContextCompat;
 use ratatui::crossterm::event::Event;
 use ratatui::crossterm::event::KeyCode;
@@ -337,10 +338,10 @@ pub enum DefaultOrganizationTuiResponse {
     Cancel,
 }
 impl DefaultOrganizationTuiResponse {
-    pub async fn handle(self, cancellation: &CancellationScope) -> eyre::Result<()> {
+    pub async fn handle(self, executor: &CloudTerrastodonExecutor) -> eyre::Result<()> {
         match self {
             DefaultOrganizationTuiResponse::SetDefaultOrganizationUrl(url) => {
-                set_default_organization_url(url, cancellation).await?;
+                set_default_organization_url(url, executor).await?;
                 Ok(())
             }
             DefaultOrganizationTuiResponse::Cancel => Ok(()),
@@ -357,7 +358,14 @@ mod test {
         CancellationToken::new()
             .with_async_scope(|cancellation| async move {
                 let tui = super::AzureDevOpsDefaultOrganizationUrlTui::new(&cancellation);
-                tui.run().await?.handle(&cancellation).await?;
+                let executor = cloud_terrastodon_execution::CloudTerrastodonExecutor::new(
+                    cloud_terrastodon_cache::WorkCache::temporary()?,
+                    std::sync::Arc::new(
+                        cloud_terrastodon_execution::AnonymousAuthenticationProvider,
+                    ),
+                    cancellation,
+                );
+                tui.run().await?.handle(&executor).await?;
                 Ok(())
             })
             .await

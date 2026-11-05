@@ -166,10 +166,9 @@ pub(crate) async fn fetch_browser_access_token(
 ) -> Result<AzureAccessToken<AzureBearerToken>> {
     cancellation
         .cancellable_scope(|cancellation| async move {
-            let scopes = format!("{} offline_access", resource.delegated_scope());
             let key = BrowserTokenCacheKey {
                 resource,
-                scopes: scopes.clone(),
+                scopes: format!("{} offline_access", resource.delegated_scope()),
             };
             // This lock spans all resources because they rotate one refresh
             // credential. It also prevents simultaneous initial account prompts.
@@ -178,54 +177,87 @@ pub(crate) async fn fetch_browser_access_token(
                 return Ok(token);
             }
 
-            let token = if let Some(refresh_token) = session.refresh_token() {
-                request_with_refresh_token(
-                    tenant_id,
-                    client_id,
-                    resource,
-                    &scopes,
-                    refresh_token,
-                    &cancellation,
-                )
-                .await
-                .wrap_err("refreshing the admitted browser session; sign in with a new authentication context if reauthentication is required")?
+            let mut acquisition_resource = if session.refresh_token().is_some() {
+                resource
             } else {
-                session.begin_initial_login(allow_interactive)?;
-                // Consent to every supported audience during the one account
-                // handoff. Later audiences must use the admitted refresh chain,
-                // and token redemption still filters to this request's resource.
-                request_with_authorization_code(
-                    tenant_id,
-                    client_id,
-                    resource,
-                    &delegated_login_scopes(),
-                    &cancellation,
-                )
-                .await?
+                initial_browser_resource(resource)
             };
+            loop {
+                let scopes = format!("{} offline_access", acquisition_resource.delegated_scope());
+                let acquisition_key = BrowserTokenCacheKey {
+                    resource: acquisition_resource,
+                    scopes: scopes.clone(),
+                };
+                let token = if let Some(refresh_token) = session.refresh_token() {
+                    request_with_refresh_token(
+                        tenant_id,
+                        client_id,
+                        acquisition_resource,
+                        &scopes,
+                        refresh_token,
+                        &cancellation,
+                    )
+                    .await
+                    .wrap_err("refreshing the admitted browser session; sign in with a new authentication context if reauthentication is required")?
+                } else {
+                    session.begin_initial_login(allow_interactive)?;
+                    // Initial consent covers named delegated permissions. ACR
+                    // first acquires Graph, then uses that session's refresh
+                    // token for its separate .default request.
+                    request_with_authorization_code(
+                        tenant_id,
+                        client_id,
+                        acquisition_resource,
+                        &delegated_login_scopes(),
+                        &cancellation,
+                    )
+                    .await?
+                };
 
-            cancellation
-                .finish_required(
-                    "persisting the acquired browser session and updating its token cache",
-                    |_| async move {
-                        let access_token = token.access_token.clone();
-                        // Publish the identity transition even if durable saving
-                        // fails. That failure must never permit a new account
-                        // handoff within this provider's existing partition.
-                        session.remember(key, token);
-                        if let Some(refresh_token) = session.refresh_token() {
-                            store_browser_session(&BrowserSession {
-                                tenant_id,
-                                client_id,
-                                refresh_token: refresh_token.to_owned(),
-                            })?;
-                        }
-                        Ok(access_token)
-                    },
-                )
-                .await
+                let access_token = cancellation
+                    .finish_required(
+                        "persisting the acquired browser session and updating its token cache",
+                        |_| async {
+                            let access_token = token.access_token.clone();
+                            // Publish the identity transition even if durable saving
+                            // fails. That failure must never permit a new account
+                            // handoff within this provider's existing partition.
+                            session.remember(acquisition_key, token);
+                            if let Some(refresh_token) = session.refresh_token() {
+                                store_browser_session(&BrowserSession {
+                                    tenant_id,
+                                    client_id,
+                                    refresh_token: refresh_token.to_owned(),
+                                })?;
+                            }
+                            Ok::<_, eyre::Report>(access_token)
+                        },
+                    )
+                    .await?;
+                if acquisition_resource == resource {
+                    return Ok(access_token);
+                }
+
+                // The bootstrap credential is already retained under its actual
+                // audience and persisted before cancellation or ACR failure can
+                // interrupt the next exchange. Never repeat the account handoff.
+                cancellation.bail_if_cancelled()?;
+                if session.refresh_token().is_none() {
+                    bail!("Entra browser login did not return a refresh token");
+                }
+                acquisition_resource = resource;
+            }
         })
         .await
+}
+
+/// Select an audience present in the named-permission consent request. ACR's
+/// .default scope is acquired through the resulting refresh credential instead.
+fn initial_browser_resource(resource: AzureCredentialResource) -> AzureCredentialResource {
+    match resource {
+        AzureCredentialResource::AzureContainerRegistry => AzureCredentialResource::MicrosoftGraph,
+        resource => resource,
+    }
 }
 
 /// Complete one delegated browser login and persist the resulting refresh
@@ -266,10 +298,13 @@ pub async fn login_browser_session(
 }
 
 fn delegated_login_scopes() -> String {
+    // ACR exposes only .default, which cannot be mixed with named delegated
+    // scopes during consent; its audience is requested separately on token refresh.
     [
         AzureCredentialResource::MicrosoftGraph.delegated_scope(),
         AzureCredentialResource::AzureResourceManager.delegated_scope(),
         AzureCredentialResource::AzureDevOps.delegated_scope(),
+        AzureCredentialResource::AzureKeyVault.delegated_scope(),
         "offline_access",
     ]
     .join(" ")
@@ -582,6 +617,12 @@ fn token_exchange_scopes(resource: AzureCredentialResource, scopes: &str) -> Str
                     AzureCredentialResource::AzureDevOps => {
                         scope.starts_with("499b84ac-1321-427f-aa17-267ca6975798/")
                     }
+                    AzureCredentialResource::AzureKeyVault => {
+                        scope.starts_with("https://vault.azure.net/")
+                    }
+                    AzureCredentialResource::AzureContainerRegistry => {
+                        scope.starts_with("https://containerregistry.azure.net/")
+                    }
                 }
         })
         .collect::<Vec<_>>()
@@ -608,16 +649,38 @@ mod tests {
     }
 
     #[test]
-    fn initial_browser_consent_covers_all_supported_audiences() {
+    fn initial_browser_consent_covers_named_delegated_permissions() {
         let scopes = delegated_login_scopes();
         assert!(scopes.contains(AzureCredentialResource::MicrosoftGraph.delegated_scope()));
         assert!(scopes.contains(AzureCredentialResource::AzureResourceManager.delegated_scope()));
         assert!(scopes.contains(AzureCredentialResource::AzureDevOps.delegated_scope()));
+        assert!(scopes.contains(AzureCredentialResource::AzureKeyVault.delegated_scope()));
+        assert!(!scopes.contains("/.default"));
         assert!(
             scopes
                 .split_whitespace()
                 .any(|scope| scope == "offline_access")
         );
+    }
+
+    #[test]
+    fn fresh_registry_login_redeems_a_consented_audience_before_requesting_default_scope() {
+        let resource = AzureCredentialResource::AzureContainerRegistry;
+        let initial_resource = initial_browser_resource(resource);
+        let login_scopes = delegated_login_scopes();
+        let redemption_scopes = token_exchange_scopes(initial_resource, &login_scopes);
+        assert!(
+            redemption_scopes
+                .split_whitespace()
+                .any(|scope| scope == initial_resource.delegated_scope())
+        );
+        assert!(
+            redemption_scopes
+                .split_whitespace()
+                .any(|scope| scope == "offline_access")
+        );
+        assert!(!login_scopes.contains(resource.delegated_scope()));
+        assert_ne!(initial_resource, resource);
     }
 
     #[test]

@@ -183,11 +183,13 @@ impl<'a> IntoFuture for AzureDevOpsProjectMemberListRequest<'a> {
                     for permission_object in permission_objects {
                         cancellation.bail_if_cancelled()?;
                         let org_url = self.org_url.as_ref().clone();
+                        let auth_context = self.auth_context.as_ref().clone();
                         work.enqueue(cancellation.cancellable_scope(
                             move |cancellation| async move {
                                 let members = collect_transitive_user_members(
                                     &org_url,
                                     &permission_object.descriptor,
+                                    &auth_context,
                                     &cancellation,
                                 )
                                 .await
@@ -257,6 +259,7 @@ impl<'a> IntoFuture for AzureDevOpsProjectMemberListRequest<'a> {
 async fn collect_transitive_user_members(
     org_url: &AzureDevOpsOrganizationUrl,
     root_descriptor: &AzureDevOpsDescriptor,
+    auth_context: &AzureDevOpsAuthContext,
     cancellation: &CancellationScope,
 ) -> Result<Vec<AzureDevOpsGroupMember>> {
     let mut visited_permission_objects = HashSet::new();
@@ -269,11 +272,12 @@ async fn collect_transitive_user_members(
             continue;
         }
 
-        let members = fetch_azure_devops_group_members(org_url, &descriptor, cancellation)
-            .await
-            .wrap_err_with(|| {
-                format!("Failed to list members for permission object {descriptor}")
-            })?;
+        let members =
+            fetch_azure_devops_group_members(org_url, &descriptor, auth_context, cancellation)
+                .await
+                .wrap_err_with(|| {
+                    format!("Failed to list members for permission object {descriptor}")
+                })?;
 
         for member in members.into_values() {
             if is_user_member(&member) {

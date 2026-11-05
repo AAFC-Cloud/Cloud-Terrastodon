@@ -2,7 +2,7 @@
 
 **Inventory date:** 2026-10-30
 
-**Boundary decision update:** 2026-11-03; approved option B and `auth`/`auth_types`
+**Boundary decision update:** 2026-11-05; approved option B and `auth`/`auth_types`
 naming. Task 3.0's registry cutover and task 3.1's auth rename/extraction are
 implemented. Task 3.2's lower executor, injected provider, and minimal app binding
 are implemented and verified offline in the owning plan. The snapshot
@@ -39,34 +39,38 @@ offline integration coverage still belong to the owning implementation batch.
 
 ## Reproducible source snapshot
 
-Task 3.1 moved context-bound operations to isolated auth-owned CLI sessions.
-Task 3.1a replaces policy remediation and both container-list paths with typed
-ARM requests, removes the generic service runner/allowlist, and retains CLI
-sessions for explicit login and token acquisition. The backend picker reuses the
-container-names request, including reload invalidation. The following
-legacy SDK files still construct ambient CLI operations and require explicit
-request/executor migration in phases 5/6 before shared provider/cache admission:
+Task 4.1b's Command cutover is narrowed by U87/U88 and task 4.1c: local process
+and cancellation-only helpers take scopes directly; artifact/cache-managed
+operations take explicit executors. `CommandBuilder` no longer appears in `azure/src`; the
+DevOps SDK uses it only for local CLI configuration. Auth-owned account metadata
+and logout processes bypass semantic caching and never start implicit login.
+Terraform/HCL, cancellation-only menu/workflow code, and egui use scopes directly.
+Dispatch retains the application executor for genuine managed requests. Gitea
+selects an explicit matching tea profile and uses managed owned results because
+the external tool exposes no credential generation. Fresh local configuration
+helpers use scopes; registered cached configuration requests retain the executor.
 
-- Azure: `accounts.rs`, `auth.rs` (legacy current-user/login helpers),
-  `container_registry.rs`, `create_role_assignment.rs`,
-  `entra_group_member_add.rs`, `entra_group_member_remove.rs`,
-  `key_vault_secrets.rs`, `key_vaults.rs`,
-  `storage_account_name_availability.rs`, and `subscriptions.rs`.
-- Azure DevOps: `azure_devops_agent_packages.rs`, `azure_devops_agent_pools.rs`,
-  `azure_devops_group_license_entitlements.rs`, `azure_devops_group_member.rs`,
-  `azure_devops_repos.rs`, `azure_devops_service_endpoint.rs`,
-  `azure_devops_team.rs`, `azure_devops_team_member.rs`,
-  `azure_devops_user_license_entitlement_update.rs`, and
-  `azure_devops_work_item_queries.rs`.
-- Legacy PIM authentication still has its own refresh/interactive lifecycle;
-  task 3.1 sanitizes its credential diagnostics but does not bind it to the new
-  invocation provider. CLI configuration/default-organization helpers remain
-  local configuration operations; retail-price fetching uses a public API.
+The formerly ambient Azure/DevOps operations listed in this baseline now use
+explicit-context REST: current user, group membership, role assignments, resource
+name availability, retail pricing, Key Vault metadata, registry repositories/tags,
+DevOps agent packages/pools, group entitlements/membership, repositories, teams,
+service endpoints, queries, and license updates. ACR endpoint discovery uses the
+actual login server; credential exchanges do not enter the raw artifact store.
+Core DevOps routes preserve Server collection identity. New response records live
+in the domain types crates. Command service authentication is no longer inferred
+from an ambient CLI session.
 
-These are an implementation follow-up inventory, not compatible substitutes
-for the new explicit auth provider. Their current signatures must change in
-their owning request batches; do not infer an identity partition from ambient CLI.
+REST still uses its existing cache/lifecycle until task 4.2, and most service
+request objects still carry their legacy context/scope until the SDK batches.
+Legacy `CacheableCommand` therefore now describes REST request invalidation in
+many files; its presence is not evidence of remaining subprocess execution.
+The new local configuration files are `azure_devops_cli_config_request.rs`,
+`default_azure_devops_organization_url_request.rs`, and
+`default_azure_devops_project_name_request.rs`.
 
+Source searches and compile/test evidence for the cutover are recorded in the
+owning plan. No production service, credential, default configuration, or existing
+cache was consulted for validation. The table below retains historical counts.
 Run from repository root in PowerShell. These commands inspect tracked workspace
 source and do not invoke any application or inspect its cache/configuration.
 
@@ -146,26 +150,28 @@ and [request contract](../../crates/execution/src/executable_request.rs) beneath
 the runtime credential implementation. B04 owns its provider adapter and B19 owns
 application binding. Task 3.3 implements B05's borrowed invocation ABI and the
 direct UI consumers, with validation recorded in the owning plan. B02/B03's
-production transport lifecycle remains phase 4; service SDK callers still need
+production transport lifecycle belongs to phase 4; B02's Command cutover is
+complete in 4.1b and B03's REST cutover remains 4.2. Service SDK callers still need
 their scheduled request cutover. Legacy IntoFuture callbacks remain separately
 tagged until those callers migrate.
 
 | Batch | Owning tasks | Source and responsibility | Completion obligation |
 | --- | --- | --- | --- |
 | B01 Cache owner and artifact storage | 2.1–2.4 | [artifact_cache.rs](../../crates/command/src/artifact_cache.rs), [cache_key.rs](../../crates/command/src/cache_key.rs), [cache_invalidatable.rs](../../crates/command/src/cache_invalidatable.rs), [command_cache_discovery.rs](../../crates/command/src/command_cache_discovery.rs) | Replace global memory ownership; bind invalidation and discovery to the explicit cache root/owner; preserve inspectable artifacts, validity, readable scope hierarchy, and live-entry coordination. |
-| B02 Shared work and subprocess adapter | 2.1, 2.3, 4.1 | [cacheable_work.rs](../../crates/command/src/cacheable_work.rs), [cachable_command.rs](../../crates/command/src/cachable_command.rs), [command.rs](../../crates/command/src/command.rs), [process_fingerprint.rs](../../crates/command/src/process_fingerprint.rs), [from_command_output.rs](../../crates/command/src/from_command_output.rs) | Migrate both request traits/macros and all subprocess entrypoints to one explicit lifecycle. The existing spelling `cachable_command.rs` is intentional in this reference. Preserve complete fingerprints, retries, raw outputs, per-caller policy, caller/span diagnostics, and cancellation. |
+| B02 Shared work and subprocess adapter | 2.1, 2.3, 4.1; residual traits 4.2, 5–7 | [cacheable_work.rs](../../crates/command/src/cacheable_work.rs), [cachable_command.rs](../../crates/command/src/cachable_command.rs), [command.rs](../../crates/command/src/command.rs), [process_fingerprint.rs](../../crates/command/src/process_fingerprint.rs), [from_command_output.rs](../../crates/command/src/from_command_output.rs) | Tasks 4.1b/4.1c use explicit managed entrypoints for artifacts and cached results, with scope-only local process methods beneath them. Preserve fingerprints, retries, raw outputs, per-caller policy, caller/span diagnostics, and cancellation. Legacy request traits/macros remain only for REST and SDK callers scheduled in 4.2 and phases 5–7. The existing spelling `cachable_command.rs` is intentional in this reference. |
 | B03 REST adapter | 4.2 | [rest_request.rs](../../crates/rest/src/rest_request.rs), [request_execution.rs](../../crates/rest/src/request_execution.rs), [tenant_inference.rs](../../crates/rest/src/tenant_inference.rs) | Move auth/scope resources to execution; cover cached and uncached paths, raw and typed outputs, decoders, validators, metadata mappers, continuation headers, and explicit auth selection. |
 | B04 Credential selection and runtime | 3.1, 3.2 | [auth_source.rs](../../crates/auth_types/src/auth_source.rs), [auth_context.rs](../../crates/auth/src/auth_context.rs), [credential_authentication_provider.rs](../../crates/auth/src/credential_authentication_provider.rs), [azure_tenant_auth_context.rs](../../crates/auth/src/azure_tenant_auth_context.rs), [azure_devops_auth_context.rs](../../crates/auth/src/azure_devops_auth_context.rs), [azure_access_token.rs](../../crates/auth/src/azure_access_token.rs), [tracked_tenants.rs](../../crates/azure/src/tracked_tenants.rs) | Completed 3.1 renames runtime `credentials` to `auth` and moves selections to `auth_types` without compatibility aliases; `AzureTenantId` stays in `azure_types`. Task 3.2 adapts the owned auth context to the lower `AuthenticationProvider` interface, preserving source/tenant admission, session identity, sensitive token caches, and PAT audience policy. Credential acquisition is infrastructure, not an inventory dependency or general-cache result. |
 | B05 Registry invocation and discovery | 3.0, 3.3, 6.3, 7.1 | [pure registry lib](../../crates/registry/src/lib.rs), [invocation registry lib](../../crates/registry_execution/src/lib.rs), [function.rs](../../crates/registry_execution/src/function.rs), [bind_request_cancellation.rs](../../crates/registry_execution/src/bind_request_cancellation.rs), [default_production.rs](../../crates/registry_execution/src/default_production.rs), [function_trait_contract.rs](../../crates/registry/src/function_trait_contract.rs), [discovery_reflection.rs](../../crates/registry_execution/src/discovery_reflection.rs) | Completed 3.0 makes `registry` the pure foundation, absorbing `registry_values` and pure conversions/metadata/planning; runtime invocation lives in `registry_execution` with no old package/import compatibility surfaces. One authoritative registration per operation supplies metadata and runtime catalogue views. Task 3.3 adds the borrowed executable callback, direct registration handle, executor-bound default production, and offline shared-output discovery without adding an upward dependency from the foundation. The separately tagged legacy callback is removed with its remaining request families in phases 5–7. Task 7.1 audits residual old references rather than postponing this cutover. |
 
-Subprocess methods requiring an explicit migration disposition are `run_raw`,
-`run_raw_polite`, `run`, `run_polite`, `run_with_validator`, `run_with_mapper`,
-and public `run_with_validator_from`. `get_cached_output`, `write_output`,
-`write_failure`, and `bust_cache` are also public artifact/cache boundaries.
-The last writes a disk `busted` marker today; [oauth2_permission_grants.rs](../../crates/azure/src/oauth2_permission_grants.rs)
-calls it directly. Include this path in owner-aware invalidation even though the
-snapshot's narrower `Invalidation` pattern does not find it. Internal retry calls reenter raw execution today; they must not
-reacquire a non-reentrant key lock while the outer operation owns it.
+Task 4.1c corrects the overly broad 4.1b dependency: `run_raw`, `run_raw_polite`,
+`run`, `run_polite`, `run_with_validator`, `run_with_mapper`, and
+`run_with_validator_from` take cancellation scopes. Explicit artifact variants
+retain executor admission; cached variants require a canonical owner and return
+shared values. The former public Command cache
+methods `get_cached_output`, `write_output`, `write_failure`, and `bust_cache`
+are removed. [oauth2_permission_grants.rs](../../crates/azure/src/oauth2_permission_grants.rs)
+uses its read-request invalidation contract. Internal retries stay within the
+admitted uncached process attempt and never reacquire its key lock.
 
 REST methods requiring coverage are `receive_raw_with_decoder`, `receive_raw`,
 `receive`, `receive_with_validator`, `receive_with_mapper`, and
@@ -254,12 +260,12 @@ patch. No batch authorizes a new endpoint, live inventory, or unrelated policy.
 | B08 Azure DevOps project vertical slice | 5.3 | [azure_devops_projects.rs](../../crates/azure_devops/src/azure_devops_projects.rs), project-list CLI, project picker and direct project-list consumers | Preserve explicit organization, explicit bearer tenant, PAT selection, continuation metadata, cache-hit behavior, and chosen shared-record output shape. Picker interaction itself is not memoized. |
 | B09 Remaining Graph identity reads | 6.3, 7.1 | `entra_user_get/search`, `entra_group_get/list/members/members_batch/owners`, `entra_groups_for_member`, `entra_directory_objects_by_ids`, `principal_get`, `service_principal_get`, and `microsoft_graph_batch` under [Azure SDK](../../crates/azure/src) | Move runtime construction/fetching; preserve mixed known/unknown principal resolution, batching, absence semantics, and pagination. Revisit owned conversions only where the selected shared-record boundary requires it. |
 | B10 Graph application/tenant/security reads | 6.3, 7.1 | Azure `application_registration_*`, `application_role_list`, `oauth2_permission_grant_list`, `oauth2_permission_scopes`, `conditional_access_*`, `tenant_details/licenses`, `service_groups`, `unified_role_*`, and `pim_entra_role_*` | Migrate each subfamily independently; preserve bearer audience/tenant, child dependencies, and protected policy boundaries. Unified role aggregates require the same cross-branch invalidation treatment as RBAC. |
-| B11 ARM inventories | 6.3, 7.1 | Azure `subscriptions`, `resource_group_list`, `resources`, `management_groups`, [resource_provider_list_request](../../crates/azure/src/resource_provider_list_request.rs), `policy_*`, network/VM/storage/compute families, app-service/application-gateway/container/cognitive-services/key-vault inventories | Migrate one resource family at a time through its current Resource Graph, REST, or command boundary. Preserve its identity filters/limits and output. Protocol replacement requires separate authorization; task 3.1a's remediation/container ARM cutover is the approved U71/U72 exception. |
+| B11 ARM inventories | 4.1b, 6.3, 7.1 | Azure `subscriptions`, `resource_group_list`, `resources`, `management_groups`, [resource_provider_list_request](../../crates/azure/src/resource_provider_list_request.rs), `policy_*`, network/VM/storage/compute families, app-service/application-gateway/container/cognitive-services/key-vault inventories | Migrate one resource family at a time through its current Resource Graph or REST boundary. Preserve its identity filters/limits and output. Approved protocol replacements include task 3.1a's remediation/container ARM cutover (U71/U72) and task 4.1b's remaining service CLI replacements (U86). |
 | B12 Azure direct helpers and mutations | 6.3, 7.1 | Azure `batch_api`, `cost_management`, `metrics`, `tags`, `storage_account_name_availability`, `virtual_machine_prices/sizes`, `create_role_assignment`, `governance_role_assignments`, `eligible_child_resources`, `role_eligibility_schedules`, `role_management_policy_assignments`, `evaluate_policy_assignment_compliance`, `remediate_policy_assignment`, `entra_group_member_add/remove`, OAuth grant create/update/remove, and PIM activation | Inventory plain functions and `.invoke()` helpers as well as request macros. Read-only batches opt in explicitly; writes execute every time and preserve required response/artifact/invalidation work. |
 | B13 Azure DevOps builds and folders | 6.3, 7.1 | `azure_devops_build_*_request.rs` and corresponding [build CLI](../../crates/azure_devops_cli/src/build) | Preserve list/get filters and revision identity, preflight freshness, folder prune/delete deferrals, and visible affected-read invalidation. |
 | B14 Azure DevOps work items | 6.3, 7.1 | `azure_devops_work_item*`, `work_item_copy*`, `rest_work_item_copy_writer.rs`, and corresponding work-item CLI | Migrate schema/query reads, mutations, copy planner, writer, and durable journal workflows in separate slices. Preserve effect declarations, journaling/required completion, and existing copy-plan decisions. |
 | B15 Other Azure DevOps inventories/projections | 6.3, 7.1 | `azure_devops_agent_*`, group/team/member families, service endpoints, test plans/suites/cases, user/group licensing, project members, onboarding statuses, and `azure_devops_repos.rs` | Include plain async repository helpers and non-Send projection futures. Reuse inventories without suppressing explicit invalidation or changing source policy. Licensing writes remain mutations. |
-| B16 Gitea requests | 6.3, 7.1 | [gitea_api_support.rs](../../crates/gitea/src/gitea_api_support.rs) and `gitea_*_request.rs` under [Gitea SDK](../../crates/gitea/src) | Preserve command-backed pagination, uncached pacing, best-effort error behavior, tenant identity, login-list handling, and repository scan/enumeration dependencies. Move execution resources explicitly without introducing Azure authentication. |
+| B16 Gitea requests | 4.1b; final audit 7.1 | [gitea_api_support.rs](../../crates/gitea/src/gitea_api_support.rs) and `gitea_*_request.rs` under [Gitea SDK](../../crates/gitea/src) | Task 4.1b completes data-only executable requests and explicit executor propagation, preserving command-backed pagination, uncached pacing, best-effort behavior, tenant identity, and scan/enumeration workflows. Tea receives exactly one matching profile explicitly; service reads execute independently because profile names do not establish credential generations. No Azure authentication is introduced. |
 
 The `B11` remainder is resolved by the complete request/constructor searches over
 `crates/azure/src`; any hit not named above must be assigned to a subfamily or an
@@ -288,9 +294,9 @@ These are source-established examples, not failures reproduced against real cach
 | [EntraUserGetRequest](../../crates/azure/src/entra_user_get_request.rs) → REST receive | Assigns `Some(self.cache_key())` directly to RestRequest | SDK and REST must have distinct execution owners/identities, even if they decode the same user type. |
 | [EntraGroupGetRequest](../../crates/azure/src/entra_group_get_request.rs), service-principal/application get → Graph `fetch_one` → REST | Graph forwards the caller key unchanged for singleton requests | A generic Graph location is not an owner identifier; classify all singleton helper callers. |
 | [PrincipalRequest](../../crates/azure/src/principal_get_request.rs) for unknown ID → Graph batch | Batch receives the principal request key but returns a different intermediate shape | Separate transport batch artifacts from canonical principal result; preserve dependencies for known-ID child requests too. |
-| [ComputeSkuPricesRequest](../../crates/azure/src/compute_sku_prices.rs) → CommandBuilder | `cmd.cache(self.cache_key())` | A REST-only prefix does not prevent SDK/command collisions. |
-| Azure DevOps agent/group/team/service-endpoint/legacy query requests → CommandBuilder | Multiple wrappers attach `self.cache_key()` directly | Apply shared central ownership checks and namespaces to command-backed wrappers as well as REST. |
-| [Gitea singleton get](../../crates/gitea/src/gitea_user_get_request.rs) → `gitea_api_get` → command | Helper forwards its optional key to `cmd.use_cache` | Distinguish SDK result ownership from raw command execution; preserve best-effort callers separately. |
+| [ComputeSkuPricesRequest](../../crates/azure/src/compute_sku_prices.rs) → REST pages | Task 4.1b replaces Command with anonymous pricing requests beneath the SDK scope | Task 4.2 separates the canonical REST owner from the future memoized SDK result. |
+| Azure DevOps agent/group/team/service-endpoint/legacy query requests → REST | Task 4.1b replaces Command; request keys still identify existing REST artifacts | Preserve scoped invalidation while introducing central REST namespaces and owners in 4.2. |
+| [Gitea singleton get](../../crates/gitea/src/gitea_user_get_request.rs) → `gitea_api_get` → command | Task 4.1b uses independently executed commands with zero-validity artifacts | SDK requests remain nonreusable without credential-generation identity; best-effort raw parsing has a distinct artifact scope. |
 | Graph/Resource Graph/project lists → page requests | Child pages usually append a page index; aggregate is currently not memoized | Preserve logical subtree invalidation while separating namespaces/owners; absence of exact-key recursion does not supply aggregate dependency freshness. |
 
 Reproduce the forwarding inventory, then inspect helper propagation rather than
@@ -325,8 +331,8 @@ them the inventory's memoized owner merely because they invalidate it.
 | B18 Service CLI and entrypoint | 6.2, 6.3 | [Azure CLI](../../crates/azure_cli/src), [Azure DevOps CLI](../../crates/azure_devops_cli/src), [entrypoint commands](../../crates/entrypoint/src/cli/command), interactive and noninteractive entrypoint modules | Move one command family with its SDK batch; preserve explicit org/project, tenant selection, boxed dispatch futures, output, --no-cache, menus, and protected workflows. Include raw `rest`, `terraform`, login, and Gitea commands. |
 | B19 Reusable app and examples | 3.1, 3.2, 6.2, 7.1 | [App](../../crates/app/src/app.rs), [AppContext](../../crates/app/src/app_context.rs), [standalone example](../../examples/standalone-cli/src/main.rs), [group-management example](../../examples/group-management/src/main.rs), its `desire_document/try_plan.rs`, public facade exports | Task 3.2 binds the context's current auth/cancellation to one invocation cache through `executor()`, preserving the existing public fields for scheduled consumers and using a disabled provider without the auth feature. Construction performs no cache I/O or token acquisition. Keep child ownership explicit; task 6.2 completes examples and broader app consumers. Do not rely on counts to discover AppContext users. |
 | B20 Ratatui and discovery consumers | 3.3, 6.3 | [invocation_controller.rs](../../crates/ui_ratatui/src/object_explorer/invocation_controller.rs), `production_controller.rs`, `explorer_engine.rs`, `value_builder.rs`, browser event/snapshot code, [dump_plan_cli.rs](../../crates/entrypoint/src/cli/command/dump/dump_plan_cli.rs) | Task 3.3 threads the app-bound executor through Ratatui, the invocation host, and default production; each job has an independently cancellable linked child, and borrowed invocations remain inside the owning worker. Offline fixtures seed selection data and shared outputs. Preserve remaining service-request migration and runtime discovery admission under 6.3. |
-| B21 egui workers | 6.3 | [app.rs](../../crates/ui_egui/src/app.rs), [run_app.rs](../../crates/ui_egui/src/run_app.rs), [workers](../../crates/ui_egui/src/workers), [resources_window.rs](../../crates/ui_egui/src/windows/resources_window.rs) | Cloned workers share cache/auth resources but receive their own linked child scope. Migrate subscription/resource-group/resource loads and launch callers together. |
-| B22 HCL and raw process consumers | 2.6, 6.3 | [reflow_new.rs](../../crates/hcl/src/reflow/reflow_new.rs), HCL writer/importer/import-builder/provider/work-directory lifecycle, [as_formatted_hcl_string.rs](../../crates/hcl/src/as_formatted_hcl_string.rs), entrypoint Terraform/process-generated helpers | Task 2.6 moves formatting from `hcl_types` to `hcl`; later separate reflow request data from optional auth/scope and pass explicit process executor to raw command helpers while preserving cleanup and subprocess side effects. HCL transformations themselves are not redesigned. |
+| B21 egui workers | 4.1c, 6.3 | [app.rs](../../crates/ui_egui/src/app.rs), [run_app.rs](../../crates/ui_egui/src/run_app.rs), [workers](../../crates/ui_egui/src/workers), [resources_window.rs](../../crates/ui_egui/src/windows/resources_window.rs) | Task 4.1c removes incidental executor storage and passes each worker its linked scope. Task 6.3 introduces shared executor resources only for migrated service requests that actually require them; local GUI work stays scope-only. Migrate subscription/resource-group/resource loads and launch callers together. |
+| B22 HCL and raw process consumers | 2.6, 4.1b, 4.1c; remaining request separation 6.3 | [reflow_new.rs](../../crates/hcl/src/reflow/reflow_new.rs), HCL writer/importer/import-builder/provider/work-directory lifecycle, [as_formatted_hcl_string.rs](../../crates/hcl/src/as_formatted_hcl_string.rs), entrypoint Terraform/process-generated helpers | Task 2.6 moves formatting from `hcl_types` to `hcl`; task 4.1c corrects 4.1b's broad executor dependency with scope-only process/helpers, preserving cleanup and effects. HCL and egui no longer depend directly on execution/cache crates. Task 6.3 still separates remaining reflow request data from optional auth/scope. HCL transformations themselves are not redesigned. |
 | B23 Source scanning and local exports | 3.3, 6.3 | [SourceHuntRequest](../../crates/source/src/source_hunt_request.rs), source CLI, [DiscoveryPlanBuildRequest](../../crates/registry_execution/src/discovery_plan_build_request.rs), [ProduceJsonRequest](../../crates/ui_ratatui/src/object_explorer/produce_json_request.rs), [ProduceExcalidrawDumpPlanRequest](../../crates/excalidraw/src/produce_excalidraw_dump_plan_request.rs) | Task 3.3 migrates DiscoveryPlanBuildRequest to data-only ExecutableRequest. Remaining source/export requests move cancellation/progress handles to bound execution/observation in 6.3, without artificial auth. Preserve blocking-worker checkpoints and required filesystem publication. These execute through the contract but do not become reusable cloud reads. |
 | B24 Cache inspection and refresh UX | 2.1, 6.2 | [cache list](../../crates/entrypoint/src/cli/command/cache/list/cache_list_cli.rs), [cache clean](../../crates/entrypoint/src/cli/command/cache/clean_tui_cli.rs), `with_invalidation` callers from snapshot | Preserve readable discovered scopes and use the owning cache handle for memory/disk invalidation. Test against isolated synthetic storage only. |
 

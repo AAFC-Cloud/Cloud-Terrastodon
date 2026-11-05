@@ -1,6 +1,8 @@
 //! Runtime authentication, invocation-owned credential sessions and sensitive token caches.
 //! Serializable source and tenant selections are owned by `cloud_terrastodon_auth_types`.
 
+mod azure_cli_local_accounts;
+pub use azure_cli_local_accounts::read_azure_cli_local_accounts;
 mod auth_bearer_ext;
 pub use cloud_terrastodon_command::CancellationScope;
 mod auth_context;
@@ -73,3 +75,8 @@ pub use windows_credential_manager::*;
 pub use windows_credential_manager_target_name::*;
 pub use workload_identity::*;
 pub use workload_identity_config::WorkloadIdentityConfig;
+
+mod container_registry_bearer_challenge;
+pub use container_registry_bearer_challenge::ContainerRegistryBearerChallenge;
+mod container_registry_access_token_response;
+mod container_registry_refresh_token_response;

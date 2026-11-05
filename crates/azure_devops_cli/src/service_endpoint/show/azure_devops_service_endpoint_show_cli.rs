@@ -1,8 +1,10 @@
+use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_azure::AzureDevOpsTenantArgumentExt;
+use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_service_endpoints;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::to_writer_pretty;
 use eyre::Result;
 use eyre::bail;
 use std::io::stdout;
@@ -10,6 +12,10 @@ use std::io::stdout;
 /// Show Azure DevOps service endpoint details.
 #[derive(facet::Facet, Debug, Clone)]
 pub struct AzureDevOpsServiceEndpointShowArgs {
+    /// Tenant id or tracked alias for bearer authentication; PAT authentication may omit it.
+    #[facet(figue::named)]
+    pub tenant: Option<AzureTenantArgument<'static>>,
+
     /// Azure DevOps organization name or URL.
     #[facet(figue::named)]
     pub org: AzureDevOpsOrganizationUrl,
@@ -23,14 +29,28 @@ pub struct AzureDevOpsServiceEndpointShowArgs {
 }
 
 impl AzureDevOpsServiceEndpointShowArgs {
-    pub async fn invoke(self, cancellation: &CancellationScope) -> Result<()> {
-        let endpoints =
-            fetch_all_azure_devops_service_endpoints(&self.org, self.project, cancellation).await?;
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let azure_devops_auth_context = self
+            .tenant
+            .bind_auth_context(auth_context, cancellation)
+            .await?;
+        let endpoints = fetch_all_azure_devops_service_endpoints(
+            &self.org,
+            self.project,
+            &azure_devops_auth_context,
+            cancellation,
+        )
+        .await?;
         if let Some(ep) = endpoints
             .into_iter()
             .find(|e| e.name.to_string() == self.endpoint || e.id.to_string() == self.endpoint)
         {
-            to_writer_pretty(stdout(), &ep)?;
+            facet_json::to_writer_std_pretty(stdout(), &ep)
+                .map_err(|error| eyre::eyre!("{error:?}"))?;
             Ok(())
         } else {
             bail!("No service endpoint found matching '{}'.", self.endpoint);

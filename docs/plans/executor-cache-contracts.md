@@ -386,8 +386,38 @@ rejection still poisons ancestor reuse and quarantines already-published artifac
 Credential infrastructure cannot enter either owned boundary. Effects, canonical
 decoding, and required artifact completion belong inside the caller's deferral;
 the linked scope inherits that protection. These task 4.1b boundaries preserve
-the owned contract for the subsequent Command API/caller cutover.
+the owned contract used by explicitly managed Command execution.
 
+U87/U88 narrow the Command boundary. `run`/`run_raw`, their polite variants,
+and ordinary mapper/validator APIs take only a `CancellationScope`. They use no
+work cache or provider and persist no execution artifacts. Explicit cache keys
+are rejected on that path rather than silently ignored. Local file/formatting
+helpers and fresh local configuration reads need only this scope-based contract.
+
+`run_with_artifacts`/`run_raw_with_artifacts`, their polite variants, and
+`run_with_artifacts_and_mapper`/`run_with_artifacts_and_validator` use the executor
+boundaries above, execute independently, and retain owned outcomes; cache keys
+identify zero-validity artifacts only. `run_cached`/`run_raw_cached`
+and cached polite variants require an explicit `CacheOperationOwner` and return
+`Arc<T>`. JSON output is canonical for the typed API; raw status/stdout/stderr is
+canonical for the raw API. Shared execution requires captured output. The
+fingerprint includes CommandKind because kinds may transform the same arguments
+differently even when they select the same executable. Caller mapper/validator
+variants do not change canonical identity. `ArtifactEntry::reject` rejects an
+exact selected disk result without clearing sibling variants or child pages.
+
+Managed subprocess execution uses anonymous executor admission, meaning no
+executor credential lookup. Plain execution needs no admission provider. Neither
+path sandboxes external program credentials. Cancellation-only helper functions
+receive scopes directly, not executors or substitute context bags. Executor child
+callbacks preserve ancestry/restrictions only for children needing those resources.
+Semantic requests retain admission before invoking the scope-only process layer;
+the physical transport itself cannot infer cache ancestry from a scope.
+Azure/DevOps service subprocesses were replaced by explicit-context REST calls;
+credential acquisition and local logout remain isolated auth infrastructure.
+Tea receives an explicitly matched login profile and uses explicit managed owned
+execution because profile names do not establish credential generations. The
+REST executor/cache migration remains task 4.2.
 An arbitrary validator/mapper is caller policy. It runs for every caller after
 obtaining the canonical result, including hits and joiners, and its output is
 not automatically memoized. Different callbacks returning the same Rust type
@@ -568,8 +598,9 @@ session with explicit tenant/account binding. Do not fall back to an ambient
 configuration directory. Copying CLI configuration files alone does not establish
 a stable credential snapshot. Task 3.1 records the provisioning mechanism and
 synthetic isolation checks. External CLI account switches cannot redefine an
-existing executor's identity. Legacy SDK command paths retain their explicit
-migration disposition; they do not inherit these guarantees automatically.
+existing executor's identity. Task 4.1b removes the remaining Azure/DevOps service
+Command callers. Their REST requests retain explicit auth contexts until the
+scheduled REST and data-only SDK migration.
 
 U68 selected persistent Cloud Terrastodon login storage. Task 3.1 implements
 fresh app-owned generations for explicit tenant login, an atomic tenant selector,
@@ -579,10 +610,11 @@ use that generation's config directory and recorded account, with
 brokers, ambient credential overrides, file logging, debug output, and implicit
 login disabled. CLI token acquisition requires an explicit tenant and never
 falls back to the ambient CLI store. Logout revokes owned generations.
-Legacy SDK command paths without auth context remain inventoried for phases 5/6.
-Credential
-subprocesses use a dedicated sensitive-output boundary until the shared adapter
-supports that retention contract in phase 4. See the
+Task 4.1b replaces the remaining ambient Azure/DevOps service command paths with
+explicit-context REST. Credential subprocesses continue to use their dedicated
+sensitive-output boundary outside ordinary semantic work, even though Command
+now supports disabled raw retention. Local account metadata and logout likewise
+remain auth infrastructure rather than reusable inventory operations. See the
 [authentication guide](../authentication.md) and task 3.1's evidence for platform
 storage behavior and the limits of offline validation.
 

@@ -89,8 +89,15 @@ mod tests {
     async fn it_fetches_repositories_without_empty_ids() -> eyre::Result<()> {
         CancellationToken::new()
             .with_async_scope(|cancellation| async move {
-                let tenant = get_default_gitea_instance_url(&cancellation).await?;
-                let repositories = fetch_all_gitea_repositories(&tenant, &cancellation).await?;
+                let executor = cloud_terrastodon_execution::CloudTerrastodonExecutor::new(
+                    cloud_terrastodon_cache::WorkCache::temporary()?,
+                    std::sync::Arc::new(
+                        cloud_terrastodon_execution::AnonymousAuthenticationProvider,
+                    ),
+                    cancellation,
+                );
+                let tenant = get_default_gitea_instance_url(&executor).await?;
+                let repositories = fetch_all_gitea_repositories(&tenant, &executor).await?;
                 assert!(!repositories.is_empty());
                 assert!(repositories.iter().all(|repo| *repo.id > 0));
                 Ok(())
@@ -103,8 +110,15 @@ mod tests {
     async fn it_analyzes_repo_enumeration_methods() -> eyre::Result<()> {
         CancellationToken::new()
             .with_async_scope(|cancellation| async move {
-                let tenant = get_default_gitea_instance_url(&cancellation).await?;
-                let report = analyze_gitea_repo_enumeration(&tenant, 1000, &cancellation).await?;
+                let executor = cloud_terrastodon_execution::CloudTerrastodonExecutor::new(
+                    cloud_terrastodon_cache::WorkCache::temporary()?,
+                    std::sync::Arc::new(
+                        cloud_terrastodon_execution::AnonymousAuthenticationProvider,
+                    ),
+                    cancellation,
+                );
+                let tenant = get_default_gitea_instance_url(&executor).await?;
+                let report = analyze_gitea_repo_enumeration(&tenant, 1000, &executor).await?;
                 assert!(report.combined.repo_count > 0);
                 assert!(report.search.repo_count > 0);
                 assert!(report.search_missing_from_combined.is_empty());

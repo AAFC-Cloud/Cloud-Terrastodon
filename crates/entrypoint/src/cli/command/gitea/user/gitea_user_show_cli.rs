@@ -1,4 +1,4 @@
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_gitea::GiteaTenantArgument;
 use cloud_terrastodon_gitea::GiteaTenantArgumentExt;
 use cloud_terrastodon_gitea::GiteaUserArgument;
@@ -20,14 +20,14 @@ pub struct GiteaUserShowArgs {
 }
 
 impl GiteaUserShowArgs {
-    pub async fn invoke(self, cancellation: &CancellationScope) -> Result<()> {
-        let tenant = self.tenant.resolve(cancellation).await?;
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<()> {
+        let tenant = self.tenant.resolve(executor).await?;
         let user = match &self.user {
             GiteaUserArgument::Username(username) => {
-                fetch_gitea_user(&tenant, username.as_ref(), cancellation).await?
+                fetch_gitea_user(&tenant, username.as_ref(), executor).await?
             }
             GiteaUserArgument::Id(_) => {
-                let users = fetch_all_gitea_users(&tenant, cancellation).await?;
+                let users = fetch_all_gitea_users(&tenant, executor).await?;
                 let matches = users
                     .into_iter()
                     .filter(|user| self.user.matches(user))
@@ -49,7 +49,8 @@ impl GiteaUserShowArgs {
 
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();
-        cloud_terrastodon_command::to_writer_pretty(&mut handle, &user)?;
+        facet_json::to_writer_std_pretty(&mut handle, &user)
+            .map_err(|error| eyre::eyre!("{error:?}"))?;
         handle.write_all(b"\n")?;
         Ok(())
     }

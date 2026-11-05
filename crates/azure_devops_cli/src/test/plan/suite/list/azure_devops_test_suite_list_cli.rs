@@ -5,7 +5,6 @@ use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_test_suites;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::to_writer_pretty;
 use eyre::Result;
 use std::io::stdout;
 
@@ -46,7 +45,8 @@ impl AzureDevOpsTestSuiteListArgs {
             cancellation,
         )
         .await?;
-        to_writer_pretty(stdout(), &suites)?;
+        facet_json::to_writer_std_pretty(stdout(), &suites)
+            .map_err(|error| eyre::eyre!("{error:?}"))?;
         Ok(())
     }
 }

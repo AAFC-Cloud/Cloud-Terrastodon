@@ -1,5 +1,9 @@
 use eyre::Result;
 use eyre::WrapErr;
+#[allow(
+    clippy::disallowed_types,
+    reason = "Header parsing selects between string and string-array wire values."
+)]
 use facet_json::RawJson;
 use reqwest::header::HeaderMap;
 use reqwest::header::HeaderName;
@@ -38,6 +42,10 @@ impl RequestHeaders {
         Ok(parsed)
     }
 
+    #[allow(
+        clippy::disallowed_types,
+        reason = "Raw values are temporary parser inputs for the supported header wire shapes."
+    )]
     pub fn from_json_str(headers: &str) -> Result<Self> {
         let raw_headers = facet_json::from_str::<BTreeMap<String, RawJson<'static>>>(headers)
             .map_err(|error| eyre::eyre!("{error:?}"))

@@ -41,7 +41,7 @@ impl AzureFindArgs {
 
         let serialized_resources = resources
             .iter()
-            .map(cloud_terrastodon_command::to_string)
+            .map(|value| facet_json::to_string(value).map_err(|error| eyre::eyre!("{error:?}")))
             .collect::<Result<Vec<_>, _>>()?;
 
         let mut nucleo: Nucleo<usize> =
@@ -74,7 +74,8 @@ impl AzureFindArgs {
 
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();
-        cloud_terrastodon_command::to_writer_pretty(&mut handle, &matches)?;
+        facet_json::to_writer_std_pretty(&mut handle, &matches)
+            .map_err(|error| eyre::eyre!("{error:?}"))?;
         handle.write_all(b"\n")?;
         Ok(())
     }

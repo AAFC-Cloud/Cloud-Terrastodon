@@ -1,18 +1,17 @@
 use cloud_terrastodon_command::CancellationToken;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
-use facet_json::RawJson;
 
 #[tokio::main]
 pub async fn main() -> eyre::Result<()> {
     CancellationToken::new()
-        .with_async_scope(|cancellation| async move {
-            let resource_groups = CommandBuilder::new(CommandKind::AzureCLI)
+        .with_async_scope(|scope| async move {
+            let numbers = CommandBuilder::new(CommandKind::Echo)
                 .cancellation_safe()
-                .args(["group", "list"])
-                .run::<Vec<RawJson<'static>>>(&cancellation)
+                .args(["[1,2,3]"])
+                .run::<Vec<u64>>(&scope)
                 .await?;
-            println!("Found {} resource groups", resource_groups.len());
+            println!("Decoded {} numbers from a local command", numbers.len());
             Ok(())
         })
         .await

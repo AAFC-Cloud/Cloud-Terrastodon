@@ -1,7 +1,9 @@
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::AzureDevOpsTenantArgumentExt;
 use cloud_terrastodon_azure::AzureTenantArgument;
+use cloud_terrastodon_azure_devops::AzureDevOpsAccountLicenseType;
 use cloud_terrastodon_azure_devops::AzureDevOpsLicenseType;
+use cloud_terrastodon_azure_devops::AzureDevOpsMsdnLicenseType;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlements;
 use cloud_terrastodon_command::CancellationScope;
@@ -205,14 +207,33 @@ fn pad_left_colored(raw: &str, width: usize, colored: String) -> String {
 
 fn paint_license(license: &AzureDevOpsLicenseType, value: String) -> String {
     match license {
-        AzureDevOpsLicenseType::AccountAdvanced => value.bright_red().bold().to_string(),
-        AzureDevOpsLicenseType::AccountExpress => value.bright_yellow().bold().to_string(),
-        AzureDevOpsLicenseType::AccountStakeholder => value.bright_green().bold().to_string(),
-        AzureDevOpsLicenseType::MsdnEligible
-        | AzureDevOpsLicenseType::MsdnEnterprise
-        | AzureDevOpsLicenseType::MsdnProfessional => value.bright_blue().bold().to_string(),
-        AzureDevOpsLicenseType::None => value.dimmed().to_string(),
-        AzureDevOpsLicenseType::Other(_) => value.magenta().bold().to_string(),
+        AzureDevOpsLicenseType::Account(AzureDevOpsAccountLicenseType::Advanced) => {
+            value.bright_red().bold().to_string()
+        }
+        AzureDevOpsLicenseType::Account(
+            AzureDevOpsAccountLicenseType::Express
+            | AzureDevOpsAccountLicenseType::EarlyAdopter
+            | AzureDevOpsAccountLicenseType::Professional,
+        ) => value.bright_yellow().bold().to_string(),
+        AzureDevOpsLicenseType::Account(AzureDevOpsAccountLicenseType::Stakeholder) => {
+            value.bright_green().bold().to_string()
+        }
+        AzureDevOpsLicenseType::Msdn(
+            AzureDevOpsMsdnLicenseType::Eligible
+            | AzureDevOpsMsdnLicenseType::Enterprise
+            | AzureDevOpsMsdnLicenseType::Professional
+            | AzureDevOpsMsdnLicenseType::Platforms
+            | AzureDevOpsMsdnLicenseType::TestProfessional
+            | AzureDevOpsMsdnLicenseType::Premium
+            | AzureDevOpsMsdnLicenseType::Ultimate,
+        ) => value.bright_blue().bold().to_string(),
+        AzureDevOpsLicenseType::Account(AzureDevOpsAccountLicenseType::None)
+        | AzureDevOpsLicenseType::Msdn(AzureDevOpsMsdnLicenseType::None) => {
+            value.dimmed().to_string()
+        }
+        AzureDevOpsLicenseType::Account(AzureDevOpsAccountLicenseType::Other(_))
+        | AzureDevOpsLicenseType::Msdn(AzureDevOpsMsdnLicenseType::Other(_))
+        | AzureDevOpsLicenseType::Other(_) => value.magenta().bold().to_string(),
     }
 }
 
@@ -246,27 +267,58 @@ fn paint_total_cost(cost: f64, value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::summarize_licenses;
+    use cloud_terrastodon_azure_devops::AzureDevOpsAccountLicenseType;
     use cloud_terrastodon_azure_devops::AzureDevOpsLicenseType;
+    use cloud_terrastodon_azure_devops::AzureDevOpsMsdnLicenseType;
 
     #[test]
     fn it_groups_and_sorts_license_rows_by_monthly_cost() {
         let licenses = [
-            AzureDevOpsLicenseType::AccountStakeholder,
-            AzureDevOpsLicenseType::AccountAdvanced,
-            AzureDevOpsLicenseType::AccountExpress,
-            AzureDevOpsLicenseType::AccountAdvanced,
-            AzureDevOpsLicenseType::AccountExpress,
-            AzureDevOpsLicenseType::AccountExpress,
+            AzureDevOpsLicenseType::Account(AzureDevOpsAccountLicenseType::Stakeholder),
+            AzureDevOpsLicenseType::Account(AzureDevOpsAccountLicenseType::Advanced),
+            AzureDevOpsLicenseType::Account(AzureDevOpsAccountLicenseType::Express),
+            AzureDevOpsLicenseType::Account(AzureDevOpsAccountLicenseType::Advanced),
+            AzureDevOpsLicenseType::Account(AzureDevOpsAccountLicenseType::Express),
+            AzureDevOpsLicenseType::Account(AzureDevOpsAccountLicenseType::Express),
         ];
 
         let rows = summarize_licenses(licenses.iter());
 
         assert_eq!(rows.len(), 3);
-        assert_eq!(rows[0].license, AzureDevOpsLicenseType::AccountAdvanced);
+        assert_eq!(
+            rows[0].license,
+            AzureDevOpsLicenseType::Account(AzureDevOpsAccountLicenseType::Advanced)
+        );
         assert_eq!(rows[0].count, 2);
-        assert_eq!(rows[1].license, AzureDevOpsLicenseType::AccountExpress);
+        assert_eq!(
+            rows[1].license,
+            AzureDevOpsLicenseType::Account(AzureDevOpsAccountLicenseType::Express)
+        );
         assert_eq!(rows[1].count, 3);
-        assert_eq!(rows[2].license, AzureDevOpsLicenseType::AccountStakeholder);
+        assert_eq!(
+            rows[2].license,
+            AzureDevOpsLicenseType::Account(AzureDevOpsAccountLicenseType::Stakeholder)
+        );
         assert_eq!(rows[2].count, 1);
+    }
+    #[test]
+    fn it_keeps_matching_license_names_in_distinct_families() {
+        let account = AzureDevOpsLicenseType::Account(AzureDevOpsAccountLicenseType::Professional);
+        let msdn = AzureDevOpsLicenseType::Msdn(AzureDevOpsMsdnLicenseType::Professional);
+        let licenses = [account.clone(), msdn.clone(), account.clone()];
+        let rows = summarize_licenses(licenses.iter());
+
+        assert_eq!(rows.len(), 2);
+        assert_eq!(
+            rows.iter()
+                .find(|row| row.license == account)
+                .unwrap()
+                .count,
+            2
+        );
+        assert_eq!(
+            rows.iter().find(|row| row.license == msdn).unwrap().count,
+            1
+        );
     }
 }

@@ -11,6 +11,10 @@ use crate::interactive_scene_fields::text;
 use eyre::Context;
 use eyre::Result;
 use eyre::bail;
+#[allow(
+    clippy::disallowed_types,
+    reason = "The local scene editor retains document JSON without an Azure domain dependency."
+)]
 use facet_json::RawJson;
 use std::collections::BTreeMap;
 use std::time::SystemTime;
@@ -62,6 +66,10 @@ impl ExcalidrawInteractiveDocument {
 
     /// A local playground with visible question, reload, and log controls. No
     /// identity or decision semantics are hidden in element IDs or customData.
+    #[allow(
+        clippy::disallowed_types,
+        reason = "The demo supplies raw fields for the lossless scene editor's document representation."
+    )]
     pub fn demo() -> Result<Self> {
         let mut fields = SceneFields::new();
         set(&mut fields, "type", &"excalidraw")?;

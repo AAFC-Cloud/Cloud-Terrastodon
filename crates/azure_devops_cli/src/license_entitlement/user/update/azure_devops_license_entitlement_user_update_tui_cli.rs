@@ -71,6 +71,7 @@ impl AzureDevOpsLicenseEntitlementUserUpdateTuiArgs {
                 &self.org,
                 entitlement.user_id,
                 license.clone(),
+                &azure_devops_auth_context,
                 cancellation,
             )
             .await?;

@@ -11,6 +11,10 @@ use eyre::Result;
 use eyre::WrapErr;
 use eyre::bail;
 use facet::Facet;
+#[allow(
+    clippy::disallowed_types,
+    reason = "The transport exposes raw JSON for callers that perform their own shape selection."
+)]
 use facet_json::RawJson;
 use http::StatusCode;
 use reqwest::Response;
@@ -58,6 +62,10 @@ impl SerializableRestResponse {
         })
     }
 
+    #[allow(
+        clippy::disallowed_types,
+        reason = "This transport conversion retains a JSON body without imposing a domain shape."
+    )]
     pub fn into_json_body(self) -> Result<RawJson<'static>> {
         match self.body {
             RestResponseBody::Json(body) => Ok(body),

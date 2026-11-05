@@ -173,8 +173,7 @@ impl<'a> IntoFuture for PolicyRemediationCreateRequest<'a> {
             // RestRequest's PUT deferral retains the response, decoded task,
             // and artifacts even when cancellation arrives after submission.
             RestRequest::from_method_and_url(Method::PUT, url, &self.cancellation)?
-                .azure_auth_context(&self.auth_context.auth_context)
-                .tenant(self.auth_context.tenant_id)
+                .azure_auth_context(&self.auth_context)
                 .cache(cache_key)
                 .body(facet_json::to_string(&body).wrap_err("encoding the remediation request")?)
                 .receive::<PolicyRemediation>()

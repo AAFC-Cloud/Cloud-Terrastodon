@@ -5,7 +5,6 @@ use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::to_writer_pretty;
 use eyre::Result;
 use eyre::bail;
 use std::io::stdout;
@@ -43,7 +42,8 @@ impl AzureDevOpsProjectShowArgs {
         let maybe = projects.into_iter().find(|p| self.project.matches(p));
 
         if let Some(project) = maybe {
-            to_writer_pretty(stdout(), &project)?;
+            facet_json::to_writer_std_pretty(stdout(), &project)
+                .map_err(|error| eyre::eyre!("{error:?}"))?;
         } else {
             bail!("No project found matching '{}'.", self.project);
         }

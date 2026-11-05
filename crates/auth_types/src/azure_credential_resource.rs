@@ -21,6 +21,10 @@ pub enum AzureCredentialResource {
     MicrosoftGraph,
     AzureResourceManager,
     AzureDevOps,
+    /// [Key Vault data-plane audience](https://learn.microsoft.com/en-us/rest/api/keyvault/secrets/get-secrets/get-secrets?view=rest-keyvault-secrets-2025-07-01#security).
+    AzureKeyVault,
+    /// [Container Registry data-plane audience](https://learn.microsoft.com/en-us/rest/api/registry-dataplane/container-registry/get-tags?view=rest-registry-dataplane-2021-07-01#security).
+    AzureContainerRegistry,
 }
 
 impl AzureCredentialResource {
@@ -30,19 +34,24 @@ impl AzureCredentialResource {
             Self::MicrosoftGraph => "https://graph.microsoft.com/.default",
             Self::AzureResourceManager => "https://management.azure.com/.default",
             Self::AzureDevOps => "499b84ac-1321-427f-aa17-267ca6975798/.default",
+            Self::AzureKeyVault => "https://vault.azure.net/.default",
+            Self::AzureContainerRegistry => "https://containerregistry.azure.net/.default",
         }
     }
 
-    /// Concrete delegated permission requested by the existing browser flow.
+    /// Scope requested by the browser flow for this resource.
     ///
-    /// This deliberately preserves that flow's scope selection separately from
-    /// the workload-identity default scope. It does not claim that `.default`
-    /// is restricted to application authentication.
+    /// Named delegated permissions are kept separate from workload identity's
+    /// default scopes. ACR exposes only `.default`; that scope is also valid for
+    /// delegated token acquisition and must not be mixed with named permissions.
     pub const fn delegated_scope(self) -> &'static str {
         match self {
             Self::MicrosoftGraph => "https://graph.microsoft.com/User.Read",
             Self::AzureResourceManager => "https://management.azure.com/user_impersonation",
             Self::AzureDevOps => AZURE_DEVOPS_DELEGATED_SCOPE,
+            Self::AzureKeyVault => "https://vault.azure.net/user_impersonation",
+            // ACR exposes no named delegated permission. Its documented scope is .default.
+            Self::AzureContainerRegistry => "https://containerregistry.azure.net/.default",
         }
     }
 }

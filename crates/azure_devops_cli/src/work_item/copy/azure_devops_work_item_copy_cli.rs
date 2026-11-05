@@ -114,7 +114,8 @@ impl AzureDevOpsWorkItemCopyArgs {
             .await?
         };
         if self.dry_run {
-            cloud_terrastodon_command::to_writer_pretty(std::io::stdout(), &plan)?;
+            facet_json::to_writer_std_pretty(std::io::stdout(), &plan)
+                .map_err(|error| eyre::eyre!("{error:?}"))?;
             return Ok(());
         }
         let journal_path = self.journal.unwrap_or_else(|| {
@@ -132,7 +133,8 @@ impl AzureDevOpsWorkItemCopyArgs {
             suppress_notifications: self.suppress_notifications,
         }
         .await?;
-        cloud_terrastodon_command::to_writer_pretty(std::io::stdout(), &result)?;
+        facet_json::to_writer_std_pretty(std::io::stdout(), &result)
+            .map_err(|error| eyre::eyre!("{error:?}"))?;
         Ok(())
     }
 }

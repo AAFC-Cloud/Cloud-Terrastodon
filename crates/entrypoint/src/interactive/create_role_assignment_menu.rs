@@ -59,7 +59,14 @@ pub async fn create_role_assignment_menu(
                     "Assigning {} to {} on {}",
                     role.display_name, principal.user_principal_name, res.id
                 );
-                create_role_assignment(&res.id, &role.id, &principal.id, cancellation).await?;
+                create_role_assignment(
+                    &res.id,
+                    &role.id,
+                    &principal.id,
+                    auth_context,
+                    cancellation,
+                )
+                .await?;
                 total += 1;
             }
         }

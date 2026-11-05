@@ -1,3 +1,8 @@
+#![allow(
+    clippy::disallowed_types,
+    reason = "The tea login wire type and its generated Facet code retain bool, string, and number default-flag forms without an Azure domain dependency."
+)]
+
 use crate::GiteaInstanceUrl;
 use arbitrary::Arbitrary;
 use facet::Facet;
@@ -30,6 +35,27 @@ impl<'a> Arbitrary<'a> for GiteaLogin {
 }
 
 impl GiteaLogin {
+    /// Select one explicit external profile for an exact instance URL.
+    /// Defaults are deliberately irrelevant when a service instance is supplied.
+    pub fn for_instance(
+        logins: impl IntoIterator<Item = Self>,
+        instance: &GiteaInstanceUrl,
+    ) -> eyre::Result<Self> {
+        let mut matches = logins.into_iter().filter(|login| login.url == *instance);
+        let login = matches
+            .next()
+            .ok_or_else(|| eyre::eyre!("No tea login matches the selected Gitea instance"))?;
+        eyre::ensure!(
+            matches.next().is_none(),
+            "Multiple tea logins match the selected Gitea instance; configure a unique profile"
+        );
+        eyre::ensure!(
+            !login.name.is_empty(),
+            "The matching tea login has an empty profile name"
+        );
+        Ok(login)
+    }
+
     pub fn is_default(&self) -> bool {
         is_default_flag(self.is_default.as_str())
     }
@@ -56,6 +82,40 @@ cloud_terrastodon_registry::register_arbitrary!(Vec<GiteaLogin>);
 #[cfg(test)]
 mod tests {
     use super::GiteaLogin;
+    use crate::GiteaInstanceUrl;
+    use facet_json::RawJson;
+
+    #[test]
+    fn instance_selection_never_falls_back_to_an_unrelated_default_or_ambiguous_profile()
+    -> eyre::Result<()> {
+        let selected: GiteaInstanceUrl = "https://selected.example.invalid".parse()?;
+        let other: GiteaInstanceUrl = "https://other.example.invalid".parse()?;
+        let profile = |name: &str, url: GiteaInstanceUrl, default: bool| GiteaLogin {
+            name: name.to_owned(),
+            url,
+            ssh_host: None,
+            user: None,
+            is_default: RawJson::from_owned(default.to_string()),
+        };
+        let unrelated_default = profile("unrelated", other, true);
+        assert!(GiteaLogin::for_instance([unrelated_default.clone()], &selected).is_err());
+        let matching = profile("matching", selected.clone(), false);
+        assert_eq!(
+            GiteaLogin::for_instance([unrelated_default, matching.clone()], &selected)?.name,
+            "matching"
+        );
+        assert!(
+            GiteaLogin::for_instance(
+                [matching, profile("second", selected.clone(), true)],
+                &selected
+            )
+            .is_err()
+        );
+        assert!(
+            GiteaLogin::for_instance([profile("", selected.clone(), true)], &selected).is_err()
+        );
+        Ok(())
+    }
 
     #[test]
     fn it_deserializes_tea_default_flag_as_string() -> eyre::Result<()> {

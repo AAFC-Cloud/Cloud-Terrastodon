@@ -185,6 +185,10 @@ Standalone examples may remain self-contained, as described in
   `ArbitraryJson`. Reuse typed ID/name properties in a shallow reference instead
   of requiring fields that only exist on the full object. Reserve arbitrary JSON
   for genuinely open property bags or deliberately opaque portions of a schema.
+- Use the existing `ArbitraryJson` type for opaque JSON values.
+  `facet_json::RawJson` is reserved for intentional serialization or transport
+  boundaries, with a narrowly scoped `clippy::disallowed_types` lint exception
+  that explains why raw JSON is required. Do not blanket-exempt crates or tests.
 - Preserve missing versus known values. Use `Option<T>` for optional API fields;
   never replace an unknown identity or path with a default that implies knowledge.
   Choose optionality from documented or observed omission; do not make documented

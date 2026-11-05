@@ -5,6 +5,7 @@ use chrono::Local;
 use chrono::SecondsFormat;
 use chrono::TimeZone;
 use cloud_terrastodon_auth::AzureTenantAuthContext;
+use cloud_terrastodon_azure_types::ArbitraryJson;
 use cloud_terrastodon_azure_types::AsScope;
 use cloud_terrastodon_azure_types::Metrics;
 use cloud_terrastodon_azure_types::Scope;
@@ -42,9 +43,7 @@ pub async fn fetch_metrics(
         "Fetching metrics for {} resources",
         batch_request.requests.len()
     );
-    let resp = batch_request
-        .invoke::<facet_json::RawJson<'static>>()
-        .await?;
+    let resp = batch_request.invoke::<ArbitraryJson>().await?;
     // dbg!(resp);
     let dir = AppDir::Temp.as_path_buf();
     dir.ensure_dir_exists().await?;

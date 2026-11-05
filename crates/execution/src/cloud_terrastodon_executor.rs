@@ -35,6 +35,11 @@ use tracing::Instrument;
 /// Construction performs no discovery or I/O and creates no cancellation root.
 /// Clones share the cache and provider; child callbacks retain dependency lineage
 /// while receiving their own linked scope. A clone cannot extend its scope's life.
+///
+/// Pass this context to operations that need those execution resources. Helpers
+/// that only need cancellation receive [`CancellationScope`] directly. The child
+/// callbacks below rebind executor state for nested requests; they are not a
+/// replacement for using cancellation scopes in local work.
 #[derive(Clone)]
 pub struct CloudTerrastodonExecutor {
     // Private fields preserve scope ownership, execution restrictions, and cache
@@ -436,7 +441,10 @@ impl CloudTerrastodonExecutor {
 
     /// Automatically cancellable child work sharing the parent's cancellation intent.
     #[track_caller]
-    pub fn cancellable_scope<C, F, T, E>(&self, factory: C) -> impl Future<Output = Result<T, E>>
+    pub fn cancellable_scope<C, F, T, E>(
+        &self,
+        factory: C,
+    ) -> impl Future<Output = Result<T, E>> + use<C, F, T, E>
     where
         C: FnOnce(Self) -> F,
         F: IntoFuture<Output = Result<T, E>>,
@@ -472,7 +480,10 @@ impl CloudTerrastodonExecutor {
 
     /// Cooperative child work whose owner must run checkpoints and shutdown.
     #[track_caller]
-    pub fn with_async_scope<C, F, T, E>(&self, factory: C) -> impl Future<Output = Result<T, E>>
+    pub fn with_async_scope<C, F, T, E>(
+        &self,
+        factory: C,
+    ) -> impl Future<Output = Result<T, E>> + use<C, F, T, E>
     where
         C: FnOnce(Self) -> F,
         F: IntoFuture<Output = Result<T, E>>,

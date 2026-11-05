@@ -23,8 +23,26 @@ ownership and retry isolation (4.1a). U83 commits that slice as `c981de2b`,
 `Isolate command attempts and keep retries below cache admission`, and begins
 4.1b with executor-bound raw artifacts. U84 commits that prerequisite as
 `811468f3`, `Bind executor artifacts to admitted cache attempts`, and adds owned
-uncached execution with explicit admission. The production Command adapter and
-caller cutover remain unfinished; REST follows in 4.2.
+uncached execution with explicit admission. U85 commits that prerequisite as
+`5f627dfc`, `Add admitted owned execution without shared result bounds`.
+U86 clarifies that implementation means completing the Command API and caller
+cutover, not stopping after another prerequisite. Task 4.1b is complete, including
+its production callers and offline verification. U97 requests its local checkpoint;
+U87 corrects excessive executor coupling in cancellation-only helpers; U88
+authorizes that correction. Task 4.1c is complete with scope-only local Command
+APIs and callers, explicit managed artifact/cache paths, and offline validation.
+U97's checkpoint also includes these changes. U89 additionally unifies the account/MSDN
+license vocabulary introduced by the REST replacements with the existing combined
+license type; its refinement evidence is recorded below. U90 retains the generic
+`auth_context` setter and centralizes tenant-bound REST authentication in
+`azure_auth_context`. U91 includes Azure CLI program resolution in its linked
+cancellation scope. U92 audits raw JSON storage, reuses `ArbitraryJson`, and adds
+a Clippy reminder with explained codec exceptions. U93 inlines the Command JSON
+helpers. U94–U96 restore bound-request invalidation chaining and separate key
+ownership from own-key, multiple-key, or custom async invalidation policies.
+REST task 4.2 is next.
+U97 requests reviewing and committing the completed Command migration and its
+refinements, then explaining REST task 4.2 without starting it.
 U78 authorizes the local checkpoint titled
 `Add scoped executor with shared cache and injected authentication`, including
 U76's execution-mode names and U77's startup diagnostics.
@@ -33,12 +51,12 @@ The registry checkpoint is `09d8bb11`.
 
 **Primary implementation root:** Repository root (`.`); no branch change prescribed.
 
-**Last updated:** 2026-11-03
+**Last updated:** 2026-11-05
 
 **Source baseline:** `26e14bcc`; tracked files were initially clean. Pre-existing
 untracked notes are preserved.
 
-**Intent audit:** Updated 2026-11-03 using the preserved ledger and available user
+**Intent audit:** Updated 2026-11-05 using the preserved ledger and available user
 instructions. The original audit covered the design discussion,
 subsequent corrections, plan request, three planning-question replies, and the
 latest review corrections about production data, validation, and key collisions,
@@ -202,6 +220,14 @@ the working tree was clean afterward. Task 4.1b continues with owned uncached
 execution, preserving non-`Sync` outputs and admission before the actual Command
 API/caller cutover. New changes remain uncommitted; no push or live validation
 is authorized by this continuation.
+
+U85 again requests committing existing changes, identifying the next phase, and
+implementing it. The six-file owned-work prerequisite was committed as
+`5f627dfc`; no push was requested. U86 explicitly requires carrying the next
+implementation task through its real callers and validation. The active scope
+is all of task 4.1b, including replacement of ambient authenticated service
+subprocesses, rather than another bounded prerequisite. New cutover work remains
+uncommitted. Production-data and credential access remain prohibited for validation.
 
 ## How to update this plan
 
@@ -630,6 +656,116 @@ changes since the recorded baseline before starting.
   subprocess behavior visible; do not add a parallel Command adapter or claim a
   completed transport cutover. Validation remains synthetic and local.
 
+- **Command cutover, pass 1 — extraction (U85–U86):** Commit the existing owned
+  execution changes, identify the remaining Command task, and complete its
+  implementation. The user's clarification expressly rejects stopping after
+  another prerequisite. Preserve all earlier no-compatibility, explicit-resource,
+  cancellation, type-ownership, and no-production-data requirements.
+- **Pass 2 — traceability:** U85 maps to checkpoint `5f627dfc`; U86 maps to all
+  remaining 4.1b acceptance criteria, production consumers, and offline checks.
+  Azure/DevOps service subprocesses must move to explicit-context REST because
+  restoring an ambient or generic CLI service runner violates the approved auth
+  boundary. Local configuration, Terraform, and Gitea receive the real executor.
+- **Pass 3 — adversarial omission:** Owned and shared Command APIs must cut over
+  together. Preserve borrowed caller policy, decode-before-publication, exact
+  rejection, sensitive-output suppression, and required cancellation completion.
+  Do not manufacture executors from scopes or claim all REST/SDK migration is
+  complete. Tea and Terraform retain externally managed process credentials;
+  executor anonymous admission is not a subprocess security sandbox. Tea selects
+  an explicit matching profile and its service results remain nonreusable.
+  Earlier conversation requirements use the preserved ledger and available
+  history; no reread of unavailable material is claimed.
+
+- **Dependency correction, pass 1 — extraction (U87–U88):** The user identifies
+  unused executor parameters and cancellation delegation in HCL audit/writer as
+  excessive coupling, then authorizes the correction. Preserve executor value
+  for actual auth/cache work while restoring narrow local helper dependencies.
+- **Pass 2 — traceability:** Task 4.1c owns scope-only Command APIs, explicit
+  artifact variants, HCL/workflow/configuration callers, tests, and documentation.
+  Earlier requirements for explicit managed ownership and no hidden globals
+  remain; they do not require promoting every physical operation to an executor.
+- **Pass 3 — adversarial omission:** Preserve shared and independent managed
+  admission, sensitive suppression, caller attribution, and required completion.
+  Do not replace the executor with a parameter bag, construct hidden executors,
+  or remove useful child binding for genuinely managed operations. No production
+  data validation, commit, or push is authorized by this correction. Earlier
+  intent is checked against the preserved ledger; this audit uses the available
+  U87/U88 messages and does not claim to reread unavailable earlier material.
+- **License refinement, pass 1 — extraction (U89):** Unify the newly introduced
+  account-license enum with the existing combined license model, avoiding
+  duplicated account/MSDN vocabularies.
+- **Pass 2 — traceability:** The task 4.1b REST replacement refinement below owns
+  shared family types, combined serialization, response/update consumers, and CLI
+  matching. Task 4.2 remains pending.
+- **Pass 3 — adversarial omission:** Preserve combined strings and aliases while
+  keeping REST family fields distinct. Match group rules by licensing source;
+  reject unmodeled mutation selections before authentication. Preserve future
+  response values without changing their spelling. Use only synthetic validation,
+  preserve prior work, and do not commit or push. This audit uses U89 and the
+  preserved ledger, without claiming access to unavailable conversation material.
+
+- **REST setter refinement, pass 1 — extraction (U90):** Preserve the user's
+  `auth_context(&AuthContext)` rename; add `azure_auth_context` accepting the
+  tenant-bound Azure context and transferring both source and tenant.
+- **Pass 2 — traceability:** The REST setter refinement below owns the helper,
+  Azure DevOps bearer delegation, and existing tenant-context callers.
+- **Pass 3 — adversarial omission:** Preserve user staging and existing work;
+  do not manufacture contexts for token-only or tenant-only legacy operations,
+  change SDK signatures, acquire credentials, or broaden into task 4.2. This
+  audit uses U90 and the preserved ledger.
+
+- **JSON/cancellation refinement, pass 1 — extraction (U91–U92):** Include
+  asynchronous Azure CLI program resolution in the supplied cancellable child;
+  replace opaque domain `RawJson` storage with the existing `ArbitraryJson` and
+  audit other uses before configuring a lint reminder.
+- **Pass 2 — resolution:** Keep raw JSON for deliberate codecs and transport
+  representations. Avoid new dependency cycles for HCL and lower-level crates;
+  document narrow exceptions. Preserve custom generator relationships and object
+  shapes even when the shared wrapper provides unconstrained arbitrary JSON.
+- **Pass 3 — scope audit:** This refinement does not complete service schemas,
+  move the JSON wrapper between crates, change optionality, or begin REST task 4.2.
+  Verify with local compiler/lint probes and reviewed synthetic tests, without
+  service requests or production data. Audit uses U91–U92 and the preserved ledger.
+
+- **Request ergonomics refinement, pass 1 — extraction (U93–U95):** Inline the
+  Command JSON helpers, restore `.with_invalidation(bool)` on bound requests,
+  and use a shared key trait for generic invalidation instead of repeating
+  inherent key methods and invalidation implementations.
+- **Pass 2 — traceability:** Task 4.1c's refinements record the removed helpers,
+  `cache::HasCacheKey`, the blanket `CacheInvalidatableRequest` implementation,
+  migrated request callers, and offline execution-policy tests.
+- **Pass 3 — adversarial omission:** Keep request-owned scopes and delegated
+  invalidation for default selections, both execute spellings, caller tracing,
+  cancellation, and borrowed/non-`Sync` support. Preserve staging and unrelated
+  changes. The legacy Command trait uses a different key and cannot become an
+  execution dependency; REST task 4.2 remains separate. The latest user messages
+  and current source support this refinement; earlier completed work retains its
+  recorded evidence.
+
+- **Invalidation policy refinement, pass 1 — extraction (U96):** The RBAC
+  composition illustrates invalidation of several child keys. Preserve three
+  choices: the own-key default, an explicit key list, and arbitrary async logic.
+  A request with `HasCacheKey` must remain eligible for all three alternatives.
+- **Pass 2 — traceability:** Task 4.1c uses an explicit `InvalidatesOwnCacheKey`
+  marker, a `CacheInvalidationKeys` list contract, and the async
+  `CacheInvalidatableRequest` contract. Tests exercise multi-key refresh while
+  retaining unrelated entries, and a keyed request with custom async behavior.
+- **Pass 3 — overlap audit:** A blanket list implementation for all `HasCacheKey`
+  types would merely relocate the same Rust coherence conflict. Only explicit
+  own-key opt-in receives that default. The three choices are alternatives;
+  key ownership alone commits to none. Legacy RBAC remains part of its scheduled
+  SDK migration rather than mixing old/new cache keys in this refinement.
+
+- **Commit checkpoint, pass 1 — extraction (U97):** Review the completed changes,
+  commit them locally, and identify the next phase and its scope.
+- **Pass 2 — traceability:** Task 4.1c's checkpoint records the staged migration,
+  review fixes, and offline validation. Task 4.2 remains the next implementation
+  step, followed by the SDK vertical slices in phase 5.
+- **Pass 3 — authorization audit:** The existing staged scope belongs to the
+  completed Command migration and its reviewed refinements. Preserve unrelated
+  notes and dependency pins; no push, publication, production-data access, or
+  next-phase implementation is requested. Review fixes remain in this checkpoint.
+
 ## Authoritative user guidance ledger
 
 **U79 intent audit (2026-11-03):** Extraction preserves the latest instruction to
@@ -731,6 +867,19 @@ do not silently rewrite earlier guidance.
 | U82 | Commit changes, identify the next phase, then begin its implementation. | Commit the reviewed task 3.3/refinement scope, explain phase 4's Command-first integration, and implement/test the first bounded task 4.1 slice without claiming the full adapter cutover. | — |
 | U83 | Commit changes, identify the next phase, then begin its implementation. | Commit completed task 4.1a locally, identify 4.1b, and begin the shared executor artifact boundary required by the Command cutover; retain the unfinished caller and transport acceptance criteria. | — |
 | U84 | Commit changes, identify the next phase, then begin its implementation. | Commit the completed artifact-binding prerequisite, continue task 4.1b with owned uncached execution and explicit admission, and preserve the remaining Command API/caller cutover. | — |
+| U85 | Commit changes, identify the next phase, then begin implementation. | Commit owned execution as 5f627dfc and carry out the remaining Command cutover. | — |
+| U86 | Begin implementation means do the work, not the first part and then pause. | Complete task 4.1b across its API, production callers, validation, and plan evidence; do not stop at another prerequisite. | — |
+| U87 | Keep cancellation-only helpers independent of the executor; HCL audit, formatting, and writing illustrate excessive coupling. | Restore scope-only local execution and narrow affected callers. Executor cancellation wrappers are for child operations that actually need executor resources. Retain explicit cache/auth/artifact boundaries. | — |
+| U88 | Perform the dependency-boundary correction. | Complete task 4.1c, including affected callers, regression checks, and plan evidence before continuing REST. Preserve the existing uncommitted work; no commit or push requested. | — |
+| U89 | Unify the new account-license type with the existing Azure DevOps license type. | Reuse shared account/MSDN family types in the combined selection, REST responses, updates, and CLI consumers. Preserve family identity and existing combined text. | — |
+| U90 | Keep `auth_context` for an unbound context; make `azure_auth_context` accept the Azure tenant context and set source/tenant together. | Centralize the transfer in REST and simplify existing bound-context callers, preserving the user's rename. | — |
+| U91 | Put Azure CLI program resolution inside the cancellable scope. | Keep asynchronous preparation within the linked child operation in local account discovery. | — |
+| U92 | Reuse `ArbitraryJson` for opaque values, audit `RawJson`, and consider a Clippy reminder. | Replace opaque domain storage, preserve generator constraints, and configure a workspace warning with explained wire-boundary exceptions. | — |
+| U93 | Inline the Command JSON helpers because their indirection is not justified. | Remove the helper module and exports, using the underlying JSON operations at callers without changing error handling. | — |
+| U94 | Restore `fetch_all_gitea_organizations(tenant, executor).with_invalidation(invalidate).await`, including equivalent migrated requests. | Add lazy invalidation on the bound execution and simplify callers while preserving each request's scope. | — |
+| U95 | Use `HasCacheKey` to blanket-implement `CacheInvalidatableRequest` for executable requests. | Centralize the modern key contract in `cache`; the direct blanket is replaced by U96's selectable invalidation policies. | U96 |
+| U96 | Separate single-key, multiple-key, and arbitrary async invalidation so having a key does not prevent custom behavior. | Use explicit own-key opt-in, a key-list contract for compositions, and the async contract for custom procedures; avoid overlapping blanket implementations. | — |
+| U97 | Review and commit the completed changes, then identify what the next phase encompasses. | Review the staged Command migration/refinements, correct findings, validate offline, commit locally, and explain REST task 4.2 without beginning it. | — |
 
 U18 supersedes the earlier assistant suggestion to preserve an Azure CLI
 active-tenant selection. That suggestion was not user approval. U13 rejects the
@@ -835,14 +984,29 @@ not an implemented package; U61 selects `auth_types` paired with runtime `auth`.
 | U82 | Current authorization; 3.3 checkpoint; 4.1a | Local commit b00bff46; Command process/retry extraction, isolated input ownership, synthetic regression evidence and remaining 4.1 work recorded below |
 | U83 | Current authorization; 4.1a checkpoint; 4.1b | Local commit c981de2b; executor artifact binding, synthetic disk/memory/policy checks, and explicit remaining caller cutover |
 | U84 | Current authorization; artifact-binding checkpoint; 4.1b | Local commit 811468f3; owned execution, canonical artifact claims, parent admission, cancellation and authentication tests; production transport migration remains open |
+| U85 | Current authorization; owned-work checkpoint; 4.1b | Local commit 5f627dfc; actual Command integration and callers |
+| U86 | Current authorization; complete 4.1b acceptance criteria | Full implementation and offline validation, including service subprocess replacement, without another prerequisite-only stopping point |
+| U87 | 4.1c; contracts; B02/B22 | Scope-only process, HCL, and local configuration paths; explicit managed artifact/cache execution |
+| U88 | Current authorization; 4.1c | Caller correction and local regression evidence recorded beneath the task |
+| U89 | 4.1b license refinement | Shared family types, source-aware rule matching, combined-wire and mutation-validation checks |
+| U90 | 4.1b REST setter refinement | Typed context transfer, Azure DevOps bearer delegation, and 23 Azure caller simplifications |
+| U91 | 4.1c local account cancellation refinement | Program resolution moved into the existing child scope; auth compilation passed |
+| U92 | 4.1b JSON representation refinement | Shared opaque wrapper, preserved object/identity generators, audit inventory, and targeted Clippy enforcement |
+| U93 | 4.1c Command JSON helper refinement | Helper module/exports removed, callers inlined, workspace compilation |
+| U94 | 4.1c bound-request invalidation refinement | Lazy refresh/reuse, failure/cancellation handling, both execute spellings, updated Gitea browse callers |
+| U95 | 4.1c bound-request invalidation refinement; superseded by U96 for blanket selection | Shared key trait retained; invalidation now requires a selected policy |
+| U96 | 4.1c bound-request invalidation refinement | Own-key marker, custom key lists, custom async keyed requests, multi-key refresh isolation, borrowed/non-`Sync` proof |
+| U97 | 4.1b/4.1c local checkpoint; 4.2 next-phase scope | Reviewed local commit, corrected error/invalidation and first-login audience paths, offline validation; REST remains pending |
 
 ## Purpose and scope
 
 Allow independently implemented audits to request the same inventory through an
 explicit executor and share one decoded result. Request values remain useful for
-text inspection and offline construction. Commands, HTTP requests, and in-process
-work use one execution/cache lifecycle while preserving their distinct effects,
-failure artifacts, cancellation requirements, and authentication rules.
+text inspection and offline construction. Managed commands, HTTP requests, and
+in-process work use one execution/cache lifecycle while preserving their distinct
+effects, failure artifacts, cancellation requirements, and authentication rules.
+Cancellation-only helpers and plain local processes remain independent of that
+context; they receive the bounded cancellation scope directly (U87/U88).
 
 The initial implementation includes the cache/execution foundation, explicit auth
 selection, registry integration, Graph principals, ARM RBAC, Azure DevOps projects,
@@ -2808,14 +2972,13 @@ shared collection outputs remain discoverable. The graph stays acyclic.
 
 ## Phase 4 — one Command/REST execution lifecycle
 
-### [~] 4.1 Route subprocess execution through shared work
+### [x] 4.1 Route subprocess execution through shared work
 
-**Active task 4.1b (U84):** The first slice, 4.1a, and the shared artifact-binding
-prerequisite are complete and committed below. Owned uncached execution is the
-current prerequisite implementation.
-Production Command callers still use the existing cache boundary until 4.1b
-completes the explicit-executor cutover. The original completion criteria below
-remain required for task 4.1.
+**Completed task 4.1b (U85–U86):** Process ownership, shared artifact binding, and
+owned execution prerequisites are committed below. The Command API and all
+production callers were migrated and final offline verification passed. U87/U88
+corrected the overly broad executor requirement in completed task 4.1c below. REST lifecycle
+integration follows that correction in task 4.2.
 
 **Work:** Extract uncached process execution with retries inside its ownership
 boundary. Route cached/uncached, raw/typed, polite, mapper, and validator entry
@@ -2827,7 +2990,8 @@ never automatically replay a rejected mutating operation. Keep per-caller
 validation on hits, including supported borrowed/non-Send callbacks.
 Apply the sensitive-output policy before retaining any success or failure output;
 do not start persisting successful credential commands that previously had no
-artifact key. Authenticated Azure CLI subprocesses use the provider's bound session.
+artifact key. Credential Azure CLI subprocesses use the provider's bound session;
+service operations use explicit-context REST rather than an ambient CLI runner.
 
 ```powershell
 cargo test --offline --locked -p cloud_terrastodon_command --lib
@@ -2896,7 +3060,7 @@ no production single-flight or typed memoization was claimed.
 The working tree was clean afterward. Verification above is the recorded result
 for that slice; no push or additional service validation was performed.
 
-#### [~] 4.1b Bind Command artifacts and decoded results to the executor
+#### [x] 4.1b Bind Command artifacts and decoded results to the executor
 
 **Execution tracks:** Shared executor binding and integration; disk/memory
 lifecycle tests; admission/retention policy tests; independent source review.
@@ -2990,31 +3154,389 @@ git diff --check
 The focused tests, workspace/all-target compilation, Execution/all-target Clippy
 with warnings denied, workspace nightly formatting, whitespace, U01–U84
 ledger/traceability, and plan privacy checks passed.
-These new changes remain uncommitted. Validation uses synthetic temporary caches
+These prerequisite changes were uncommitted at the end of U84 and are included
+in checkpoint `5f627dfc` below. Validation uses synthetic temporary caches
 and injected providers on Windows; no credentials, production data, or remote
 services are involved. Dependency pins and the lockfile are unchanged.
 
-**Remaining work:** Route canonical command decoding through shared work, apply per-caller
-validators on hits, and migrate actual callers to an explicitly supplied executor
-and operation owner. The current Command APIs accept only a cancellation scope;
-the source inventory finds 42 production caller files across SDK, auth, HCL,
-Gitea, and entrypoint code. There must be no implicit default executor or second
-adapter left alongside the old path.
+**Commit checkpoint (U85):** The six-file owned-execution prerequisite was
+committed as `5f627dfc`, `Add admitted owned execution without shared result bounds`.
+No push was requested or performed.
 
-Use the completed owned boundaries for nonreusable Command results, preserving
-their non-`Sync` contract and parent admission. Keep the Command API and real
-caller migration together; constructing an executor from only a cancellation
-scope or retaining a parallel legacy adapter is not a cutover. Authenticated
-legacy subprocess callers still need an explicit provider-bound execution policy;
-do not restore the removed generic CLI service runner or allowlist as a shortcut.
+**Full Command cutover (U86; complete 2026-11-03; narrowed by 4.1c):** This
+checkpoint made Command receive the
+caller-owned executor throughout its owned/shared, raw/typed, polite, mapper,
+and validator APIs. `run` and `run_raw` always execute independently and return
+owned values. `run_cached` and `run_raw_cached` require a canonical operation
+owner and an explicit cache key, returning `Arc<T>`. Their mapper/validator
+variants apply caller policy on hits and joiners without copying or evicting the
+canonical value. Owned outputs still need no `Sync`; callbacks may borrow
+non-`Send` caller state. Default deferral spans process execution, decoding,
+caller policy, and retained artifacts. Read callers opt into cancellation.
 
-This slice still owes typed `Arc` reuse, operation/type collision enforcement,
-decoded acceptance before reusable publication, sensitive-output policy,
-generation/dependency invalidation, and provider-bound authenticated subprocess
-admission. The current raw-success-before-typed-decode behavior and legacy CLI
-reauthentication remain scheduled for this cutover. Existing isolated credential
-provider subprocesses remain outside ordinary work caching. Once these contracts
-and the original 4.1 completion criteria pass, begin REST task 4.2.
+The shared adapter decodes before publishing, loads disk with its original
+freshness/generation proof, and rejects only the exact entry on canonical disk
+failure. Independent variants and child pages survive rejection. Retries remain
+inside the admitted initializer; failed canonical decoding is never replayed.
+Sensitive output suppresses raw files and decoder/process payload diagnostics.
+Command kind participates in the fingerprint because it changes argument
+semantics; shared execution requires captured output, while owned execution can
+display output on every invocation. The implicit login retry is removed.
+
+HCL/Terraform, interactive workflows, CLI dispatch, local DevOps configuration,
+Gitea, and GUI paths pass the existing application executor and linked child
+executors. No scope-only adapter or implicit executor constructor remains in
+production Command consumers. Local DevOps request objects are data-only and
+registered through `ExecutableRequest`; configuration reads share raw output.
+Gitea request objects similarly use explicit execution. Tea selects exactly one
+profile matching the requested instance and receives `--login`; service reads
+remain independent because an external profile name cannot supply a credential
+generation. General subprocess execution does not consult the Azure credential
+provider and is not a security sandbox for external programs such as tea or
+Terraform.
+
+Remaining Azure/DevOps service CLI operations now use the established explicit
+context REST boundary: Graph/current-user/group membership, ARM role assignment
+and name availability, public pricing, Key Vault secret metadata, ACR repository
+metadata, and DevOps agent/core/git/graph/licensing operations. Key Vault and ACR
+use their dedicated credential audiences. ACR obtains the actual registry login
+server and performs challenge-bound token exchanges outside raw artifacts;
+credential redirects are disabled. Pagination retains each operation's selected
+scope. Local account/default selection and logout remain auth infrastructure
+with bounded direct processes, no interactive login retry, no reusable semantic
+result, and no general artifact cache.
+
+Independent reviews corrected command-kind fingerprinting, exact artifact
+rejection, DevOps Server URL preservation, documented response omissions, and
+case-normalized project-name scopes. Role/group/licensing mutations invalidate
+affected reads after attempted execution even when response decoding or artifact
+retention fails; both failures remain reported if invalidation also fails.
+Storage/Key Vault availability checks retain zero-validity artifacts and always
+contact the service. Readable pricing scope components use the shared escaping
+policy. Local account failures preserve process status/stderr without including
+account-list stdout in diagnostics.
+
+These REST requests still use the existing REST cache/lifecycle until task 4.2;
+their source/tenant context is explicit, but the remaining data-only SDK and REST
+executor migration is not claimed complete. Legacy cache helpers in `command`
+remain solely for REST and its scheduled SDK consumers. Validation is synthetic
+and local; remote API compatibility requires later authorized use, never
+production data fetched for development.
+
+**Verification:** All 51 reviewed Command tests passed: 23 library, 7 legacy
+cacheable-work (retained for REST), 7 cancellation, 5 process, 2 echo, 1 stdin,
+and 6 executor-cache tests. They cover one canonical decode across joiners/hits,
+per-caller borrowed policy, non-`Sync` owned outputs, owner/type rejection,
+disabled sensitive retention, independent execution, retry isolation, protected
+completion, and exact disk rejection without replay or child invalidation.
+The command-kind regression fixture initially omitted PowerShell's `-Command`
+argument; correcting the fixture made the complete suite pass.
+
+All 16 additional reviewed offline tests passed. These exercise ACR challenge
+validation and secret suppression, no-auth rejection before network access,
+continuation boundaries, domain URL/timestamp invariants, delegated-consent
+policy, logout cancellation/cleanup, unambiguous tea profile selection, Server
+URL preservation, registered response construction, and project cache identity.
+No credentials, production cache, configured account metadata, service data, or
+live cloud/tea/Terraform operations were used. These checks do not establish live
+service compatibility; Linux validation remains outstanding.
+
+```powershell
+cargo test --offline --locked -p cloud_terrastodon_command --lib --test executor_cache_tests --test command_process_tests --test command_cancellation_tests --test cacheable_work_tests --test command_stdin_tests --test command_echo_tests
+
+$cases = @(
+    @('cloud_terrastodon_auth', 'container_registry_'),
+    @('cloud_terrastodon_rest', 'container_registry_request_execution::tests::'),
+    @('cloud_terrastodon_azure', 'container_registry_pagination::tests::'),
+    @('cloud_terrastodon_azure_types', 'container_registry_login_server::tests::'),
+    @('cloud_terrastodon_azure_types', 'utc_date_time_epoch_seconds_proxy::tests::'),
+    @('cloud_terrastodon_azure_types', 'entra_directory_object_url::tests::'),
+    @('cloud_terrastodon_auth', 'initial_browser_consent_covers_named_delegated_permissions'),
+    @('cloud_terrastodon_auth', 'logout_all_auth_sources::tests::'),
+    @('cloud_terrastodon_gitea', 'instance_selection_never_falls_back_to_an_unrelated_default_or_ambiguous_profile'),
+    @('cloud_terrastodon_rest', 'explicit_service_accepts_server_hosts_without_inferring_unknown_destinations'),
+    @('cloud_terrastodon_azure_devops_types', 'core_api_preserves_server_scope_but_cloud_only_areas_reject_it'),
+    @('cloud_terrastodon_azure_devops', 'registered_response_constructor_generates_round_trippable_json'),
+    @('cloud_terrastodon_azure_devops', 'project_cache_scopes_preserve_selector_identity_and_name_matching')
+)
+foreach ($case in $cases) {
+    cargo test --offline --locked -p $case[0] --lib $case[1]
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+}
+
+cargo check --offline --locked --workspace --all-targets
+cargo clippy --offline --locked -p cloud_terrastodon_command -p cloud_terrastodon_execution -p cloud_terrastodon_cache -p cloud_terrastodon_auth -p cloud_terrastodon_rest -p cloud_terrastodon_azure -p cloud_terrastodon_azure_types -p cloud_terrastodon_azure_devops -p cloud_terrastodon_azure_devops_types -p cloud_terrastodon_gitea -p cloud_terrastodon_hcl -p cloud_terrastodon_entrypoint -p cloud_terrastodon_ui_egui -p cloud_terrastodon_azure_cli -p cloud_terrastodon_azure_devops_cli --all-targets -- -D warnings
+cargo +nightly fmt --all -- --check
+git diff --check
+```
+
+Final workspace/all-target compilation, affected-crate/all-target Clippy with
+warnings denied, nightly formatting, and whitespace checks passed. Searches
+confirm no CommandBuilder remains in the Azure SDK; DevOps retains it only for
+local configuration. Removed Command cache methods have no compatibility API.
+The lockfile changes only workspace package dependency edges; dependency pins
+are unchanged. The U01–U86 ledger and traceability each retain all 86 entries;
+the plan privacy audit remains free of personal names and absolute local paths.
+The completed cutover is uncommitted after checkpoint `5f627dfc`; no push occurred.
+
+#### [x] 4.1c Keep local execution and cancellation helpers independent
+
+**Work (U87–U88):** Plain Command `run`, `run_raw`, polite, mapper, and validator
+methods take only `CancellationScope`. They execute independently without cache
+admission, synthesized artifact identities, or persistent artifacts. An attached
+cache key is rejected instead of silently ignored. Explicit `*_with_artifacts`
+methods retain executor admission and owned outcome artifacts; cached methods
+retain canonical sharing. All paths share process lifetime, retry, and decoding
+implementations and preserve default deferral and cancellation-safe opt-in.
+
+HCL audit, writing, formatting, import preparation, provider handling, local
+Terraform workflows, and their cancellation-only callers receive scopes rather
+than executors. Fresh Azure DevOps configuration/default helpers also use scopes;
+their explicitly registered cached request forms keep the executor. Gitea
+semantic work and configuration mutations retain explicit managed execution.
+No helper manufactures an executor, cache, or authentication provider.
+
+Executor child-scope methods retain their real responsibility: preserving cache
+ancestry and authentication restrictions for children that still need executor
+resources. Lower artifact processing receives its admitted entry and scope.
+Scope-only primitives cannot enforce semantic ancestry; managed requests must
+admit uncached/cached work before invoking physical operations. `execute` alone
+does not enforce effects. Cached initializers may invoke physical transport
+without re-admitting it as a separate nonreusable semantic child.
+
+**Completion criteria:** All affected callers compile with their narrowest
+dependency. Local process tests construct no executor, cache, or provider and
+verify independent outputs, cancellation, required completion, caller diagnostics,
+and sensitive suppression. Managed tests preserve artifact retention and parent
+admission. Run reviewed synthetic checks only, then update contracts/inventory,
+ledger/privacy evidence, and this task's status together.
+
+**Completed 2026-11-05:** HCL and egui have no executor references or direct
+execution/cache dependencies. The example local command also constructs no cache
+or provider. Local menu/workflow dispatch passes scopes; genuine Gitea/registry
+operations retain managed execution. Gitea tenant add/list and alias resolution,
+and the default-organization picker, were narrowed after a final caller audit.
+The picker's response handler keeps its executor for mutation and invalidation.
+
+The shared process/retry/decoder implementation serves both paths. Artifact
+processing receives an already-admitted entry plus its scope. Mapper/validator
+callbacks have a captured caller span covering the callback lifecycle, and
+blocking decoding preserves the caller's tracing dispatcher. An independent
+review found and corrected the callback span gap; no remaining material issues
+were reported in the boundary/caller review.
+
+**Verification:** All 57 reviewed Command tests passed: 23 library, 7 legacy
+cacheable-work, 8 cancellation, 5 process, 2 echo, 1 stdin, 7 executor-cache, and
+4 plain-command tests. Six new regressions prove scope-only repeated execution
+with non-`Sync` owned/borrowed outputs, rejection of explicit cache intent before
+process start, tracing/source-error retention, sensitive suppression, protected
+local completion after cancellation, and managed-child rejection under a cached
+parent even when its error is caught. All five pure HCL audit tests also passed.
+
+```powershell
+cargo test --offline --locked -p cloud_terrastodon_command --lib --test executor_cache_tests --test plain_command_tests --test command_process_tests --test command_cancellation_tests --test cacheable_work_tests --test command_stdin_tests --test command_echo_tests
+cargo test --offline --locked -p cloud_terrastodon_hcl --lib audit::tests::
+cargo check --offline --workspace --all-targets
+cargo clippy --offline --locked -p cloud_terrastodon_command -p cloud_terrastodon_execution -p cloud_terrastodon_hcl -p cloud_terrastodon_azure_devops -p cloud_terrastodon_azure_devops_cli -p cloud_terrastodon_gitea -p cloud_terrastodon_entrypoint -p cloud_terrastodon_ui_egui --all-targets -- -D warnings
+cargo +nightly fmt --all -- --check
+git diff --check
+```
+
+Workspace/all-target compilation and affected-crate/all-target Clippy passed.
+The unlocked offline check reconciled only removed workspace dependency edges;
+subsequent locked checks/tests passed and dependency versions were unchanged.
+Formatting, whitespace, all 88 ledger/traceability pairs, and plan privacy checks
+passed. Tests use synthetic temporary storage/local processes; no production
+services, credentials, configured command paths, or production caches were read.
+Broad HCL tests remain deliberately unrun because some invoke configured Terraform
+or inspect profile/plugin state. No commit or push was requested or performed.
+
+**License vocabulary refinement (U89; 2026-11-05):** The REST replacements now
+share `AzureDevOpsAccountLicenseType` and `AzureDevOpsMsdnLicenseType` with
+`AzureDevOpsLicenseType::Account` / `Msdn`. The combined type preserves existing
+entitlement strings, aliases, display labels, and interactive choices; `None`
+normalizes to `Account(None)`. The account-only REST field no longer uses a
+combined type, and the duplicate rule-specific MSDN enum is removed. Unmodeled
+family response values remain observable in release builds, with debug diagnostics;
+combined unknown identifiers retain their spelling and family. Mutation conversion
+rejects unknown values, including nested ones, before CLI authentication.
+
+Group-rule matching now uses the active licensing source and corresponding family
+field. Account and MSDN values with the same name remain distinct in comparisons
+and summaries. The existing limited cost estimator is unchanged; this refinement
+does not introduce prices for newly modeled historical values.
+
+**Refinement verification:** Nine reviewed synthetic tests passed: six license
+type/rule tests, two CLI summary tests, and the existing registered update-response
+constructor test. They cover alias normalization, family distinctions, combined
+serialization, unknown-value retention/rejection, and source-aware group matching.
+The Azure DevOps CLI dependency graph and all its targets compile. All-target
+Clippy for the types, SDK, and CLI crates passed with warnings denied. Formatting,
+whitespace, all 89 ledger/traceability pairs, and plan privacy checks passed.
+No live requests, credential resolution, or production caches were used.
+
+```powershell
+cargo test --offline --locked -p cloud_terrastodon_azure_devops_types --lib azure_devops_license_
+cargo test --offline --locked -p cloud_terrastodon_azure_devops_cli --lib azure_devops_license_entitlement_user_summary_cli::tests::
+cargo test --offline --locked -p cloud_terrastodon_azure_devops --lib azure_devops_user_license_entitlement_update::tests::registered_response_constructor_generates_round_trippable_json
+cargo check --offline -p cloud_terrastodon_azure_devops_cli --all-targets
+cargo clippy --offline --locked -p cloud_terrastodon_azure_devops_types -p cloud_terrastodon_azure_devops -p cloud_terrastodon_azure_devops_cli --all-targets -- -D warnings
+```
+
+**REST setter refinement (U90; 2026-11-05):** `RestRequest::auth_context` remains
+the generic `AuthContext` setter. `azure_auth_context(&AzureTenantAuthContext)`
+attaches both the shared authentication context and explicit tenant without
+credential acquisition. The Azure DevOps bearer branch delegates to it. Twenty-three
+Azure caller sites now use their existing bound contexts, including Graph,
+Resource Graph, reversed setter chains, and Cost Management. Fourteen explicit-token
+or legacy tenant-only calls remain unchanged; no missing contexts were fabricated
+and no SDK operation signatures changed. The user's staged rename is preserved.
+
+**Setter verification:** Seven existing synthetic checks passed: six REST
+authentication-guard/policy tests and the DevOps browser-tenant preservation test.
+All-target Clippy for REST, Azure, and Azure DevOps passed with warnings denied.
+Formatting, whitespace, 90 ledger/traceability pairs, and plan privacy checks
+passed. No live requests or production-data validation were performed.
+
+```powershell
+cargo test --offline --locked -p cloud_terrastodon_rest --lib request_execution::tests::
+cargo test --offline --locked -p cloud_terrastodon_azure_devops --lib work_item_tests::browser_auth_retains_tenant_and_revision_uses_a_test_operation -- --exact
+cargo clippy --offline --locked -p cloud_terrastodon_rest -p cloud_terrastodon_azure -p cloud_terrastodon_azure_devops --all-targets -- -D warnings
+```
+
+**Local account cancellation refinement (U91; 2026-11-05):** Azure CLI program
+resolution now runs inside the existing linked cancellable scope in
+`auth::azure_cli_local_accounts`. The supplied child scope still owns subprocess
+execution. Auth compilation passed without invoking Azure CLI or credentials.
+
+**JSON representation refinement (U92; 2026-11-05):** Opaque Azure/DevOps records,
+Resource Graph cells, resource properties, and query consumers use the existing
+`ArbitraryJson` wrapper. The license response retains bounded object collections,
+user identity coherence, and timestamp ordering in its generator; the DevOps
+group-member response retains its object envelope. `try_from_peek` centralizes
+reflected-field encoding using the existing pinned `facet-reflect` dependency.
+Known modeled service fields remain typed. This does not complete partial schemas
+or change their optionality.
+
+Clippy warns on direct `facet_json::RawJson` use across workspace members,
+including the root and example with independent lint tables. Intentional codecs
+and transport boundaries have explained exceptions. Facet emits sibling codec
+items, so those exceptions cover the owning module when necessary; Graph raw
+response types now have separate modules instead of exempting orchestration.
+Lower-level HCL and document codecs retain raw JSON to avoid inappropriate Azure
+dependencies. See [the audit inventory](../raw-json-usage.md).
+
+**JSON verification:** Twenty-six reviewed synthetic tests passed, covering
+resource-row conversion/error retention, string-property caching, sentinel and
+discriminator codecs, generator invariants, and work-item field/patch behavior.
+Workspace all-target Clippy passed with `disallowed_types` denied. Existing root
+warnings about the `test-support` feature name and a bare documentation URL remain
+outside this change. Direct Clippy probes also confirmed that allowing a raw
+import or a neighboring codec module does not exempt another type's fields.
+Formatting, whitespace checks recognizing CRLF line endings, 92 paired guidance
+and traceability rows, and plan privacy checks passed. No live service or
+production-data validation was performed.
+
+```powershell
+cargo test --offline --locked -p cloud_terrastodon_azure_types --lib -- arbitrary_json::tests resource_graph_data::tests resources::test role_management_policy_assignments::tests::registered_assignment_generator_can_produce_nonempty_coherent_json all_or::test entra_directory_object::tests pim_entra_role_settings::tests::settings_json_round_trips policy_definition_policy_rule::test --skip resource_graph_data::tests::it_slow
+cargo test --offline --locked -p cloud_terrastodon_azure_devops --lib -- --exact azure_devops_user_license_entitlement_update::tests::registered_response_constructor_generates_round_trippable_json work_item_tests::create_patch_preserves_typed_fields_and_parent_relations work_item_tests::patches_distinguish_null_from_remove
+cargo clippy --offline --locked --workspace --all-targets -- -D clippy::disallowed_types
+cargo +nightly fmt --all -- --check
+git -c core.whitespace=cr-at-eol diff --check
+```
+
+**Command JSON helper refinement (U93; 2026-11-05):** Removed
+`command/src/json.rs` and its exports. Command decoding and external callers now
+use the underlying Facet JSON operations directly, retaining their error mapping.
+Workspace all-target compilation passed with the inlined callers.
+
+**Bound-request invalidation refinement (U94–U96; 2026-11-05):**
+`RequestExecution::with_invalidation(bool)` invalidates and executes lazily in
+one linked child scope with the binding's tracing span. Invalidation errors stop
+execution; a post-invalidation checkpoint prevents starting the request after
+protected invalidation completes during cancellation. Both execute spellings
+retain borrowed and non-`Sync` request/output support.
+
+`cache::HasCacheKey` owns the fallible modern key contract independently of
+invalidation. `InvalidatesOwnCacheKey` explicitly opts into a one-key
+`CacheInvalidationKeys` implementation; compositions implement the key-list
+trait directly. The executor blanket implements `CacheInvalidatableRequest`
+only for the key-list contract. A request can instead implement custom async
+invalidation while retaining `HasCacheKey`, by omitting both key-selection
+policies. Automatically implementing the list for every keyed request would
+reintroduce the original overlap at that layer.
+
+Fifteen Gitea requests and `AzureDevOpsCliConfigRequest` opt into their own keys.
+Three default-selection requests select their underlying request keys. The Gitea
+organization/user browse menus use chained invalidation; mutation-owned
+invalidation remains explicit. Existing scopes and freshness policies are
+unchanged, including Gitea's execute-every-time policy. This does not promise
+recursive refresh of composed requests that only invalidate their own scope.
+The full key list is constructed before any invalidation. Its scopes are
+invalidated sequentially, and a failure or cancellation prevents execution;
+earlier completed invalidations remain effective. This is not an atomic batch.
+Legacy RBAC's two-key composition demonstrates the need for the list contract
+but remains on its existing runtime/cache boundary until its planned migration.
+
+The legacy `command::HasCacheKey` still belongs to the old path-based cache.
+Reusing it here would introduce an execution-to-command dependency cycle. It
+remains scheduled for removal with the remaining legacy consumers; no bridge or
+compatibility export was added.
+
+**Invalidation verification:** Workspace all-target compilation and all 18 tests
+in the execution-contract and request-invalidation targets passed. Tests cover
+real typed-cache refresh/reuse,
+two-child refresh with unrelated cache retention, lazy invalidation, failure
+and cancellation preventing execution, and borrowed/non-`Sync` requests through
+the blanket implementation, and custom async behavior on a keyed request.
+All runtime validation uses temporary caches and
+synthetic inputs without credentials or production data.
+
+```powershell
+cargo check --offline --locked --workspace --all-targets
+cargo test --offline --locked -p cloud_terrastodon_execution --test request_invalidation_tests --test execution_contract_tests
+cargo +nightly fmt --all -- --check
+git -c core.whitespace=cr-at-eol diff --check
+```
+
+**Commit checkpoint (U97; 2026-11-05):** The completed Command migration and its
+refinements are reviewed for the local commit titled
+`Complete Command executor migration and refine cache invalidation`.
+Review covered the staged execution/cache lifecycle, scope-only callers, Gitea,
+Azure/DevOps service replacements, authentication, typed JSON, and dependency
+changes. Two findings were corrected before the checkpoint:
+
+- A local DevOps defaults command can change configuration before its artifact
+  persistence fails. Its existing completion scope now attempts cache
+  invalidation even when execution reports an error, retaining both errors when
+  invalidation also fails.
+- A fresh browser session requesting ACR could redeem a code with only
+  `offline_access`. It now acquires a consented Graph token first, retains and
+  persists that session under the Graph key, then exchanges the refresh token
+  for ACR. Failure or cancellation in the second exchange cannot relabel the
+  bootstrap token or reopen the account handoff. Independent review found no
+  further issues in the corrected lifecycle.
+
+**Checkpoint verification:** All 57 selected local Command tests and all 10 pure
+browser scope/URL/callback tests passed. The 18 execution/invalidation tests
+recorded above remain current. Workspace all-target Clippy passed with the raw
+JSON rule denied; its existing root feature-name and documentation-URL warnings
+remain outside this change. Focused auth/DevOps Clippy, formatting, staged
+whitespace, and guidance/privacy checks cover the final fixes. Validation uses
+synthetic data and local temporary resources; no live service or credential
+acquisition was performed. These checks do not establish live API compatibility.
+
+```powershell
+cargo test --offline --locked -p cloud_terrastodon_command --lib --test executor_cache_tests --test plain_command_tests --test command_process_tests --test command_cancellation_tests --test cacheable_work_tests --test command_stdin_tests --test command_echo_tests
+cargo test --offline --locked -p cloud_terrastodon_auth --lib browser_access_token::tests::
+cargo clippy --offline --locked --workspace --all-targets -- -D clippy::disallowed_types
+cargo clippy --offline --locked -p cloud_terrastodon_auth -p cloud_terrastodon_azure_devops --all-targets -- -D warnings
+cargo +nightly fmt --all -- --check
+git -c core.whitespace=cr-at-eol diff --cached --check
+```
+
+Task 4.2 below remains unstarted. U97 requests a local checkpoint and next-phase
+description, not a push or implementation of the REST migration.
 
 ### [ ] 4.2 Route REST execution and decoding through shared work
 
@@ -3263,22 +3785,22 @@ evidence and documentation. This item remains deferred when phases 1–7 complet
 | --- | --- | --- | --- |
 | Shared cache handle and executor clones | Coordinated within one owner | Concurrent typed sharing, per-key ownership, generation/dependency races | Tasks 2.3–2.4 cache races and task 3.2's shared decoding, ancestry, admission, and caller-cancellation tests passed |
 | Independent handles/processes sharing disk | No single-flight/coherent invalidation guarantee yet | Document limits; phase 8 supplies stronger proof later | Deferred |
-| Command, REST, in-process reads | One lifecycle, canonical memoization | Local adapter + cache tests; different validators still run | Pending |
-| Raw artifact storage | Isolated complete attempts and guarded selection within one handle | Local storage/integrity, freshness, and worker-drop tests | Tasks 2.2–2.4 storage, generation, quarantine, and bound import checks passed; production adapters pending |
+| Command, REST, in-process reads | One lifecycle, canonical memoization | Local adapter + cache tests; different validators still run | Command task 4.1's typed sharing and caller-policy checks passed; REST integration remains 4.2 |
+| Raw artifact storage | Isolated complete attempts and guarded selection within one handle | Local storage/integrity, freshness, and worker-drop tests | Tasks 2.2–2.4 storage, generation, quarantine, and bound import checks passed; Command adapter passed in 4.1, REST remains 4.2 |
 | SDK/transport namespaces and ownership | Separate concrete entries; shared logical invalidation scope | Synthetic wrapper succeeds; same-namespace owner/type collisions bail before execution/reuse; invalidation covers all kinds | Pending |
-| Mutations, zero-duration and uncached work | Execute each invocation; retain required artifacts | Cancellation and artifact/invalidation tests | Pending |
+| Mutations, zero-duration and uncached work | Execute each invocation; retain required artifacts | Cancellation and artifact/invalidation tests | Executor and Command independent-execution/required-completion checks passed; REST integration remains 4.2 |
 | Graph principals, ARM RBAC, Azure DevOps projects | Explicit auth/scope; shared assembled results | Typed local composition/discovery tests and compile checks | Pending |
 | Azure CLI bearer, browser, workload identity | Explicit request tenant/source | Offline selection/command construction; no live credential tests | Pending |
 | PAT and local-only/disabled auth | PAT tenant-independent; local work credential-free | Selection/admission tests | Task 3.2's provider policy and no-auth app binding passed; production adapter integration remains phase 4 |
 | Registry, UI, discovery, CLI output | Explicit execution; offline planning preserved | Synthetic invocation/discovery and scoped UI/output checks | Task 3.3's registry, shared-output discovery, UI lifecycle/export, and entrypoint dispatch checks passed; broader service/output consumer migration remains phase 6 |
 | App with auth and without auth; workspace examples | Supported feature boundaries; no production inputs | Both process-suite feature configurations, `--auth-source none` local handler with isolated storage, and consumer compile checks | Task 3.2's no-auth library and auth-enabled binding tests plus workspace compilation passed; later consumer/process acceptance remains task 6.2 |
-| Windows | Primary local validation platform | Existing linker/toolchain; local PowerShell fixture suites | Pending |
+| Windows | Primary local validation platform | Existing linker/toolchain; local PowerShell fixture suites | Command phase 4.1's 51 local tests and 16 focused policy tests passed; later migration phases remain open |
 | Linux | Preserve documented consumer support | Repeat relevant compilation/tests when environment available | Pending |
 | Live cloud and pipeline use | Outside this migration's development validation; no production data access or ingestion | Local synthetic fixtures and compile checks only; live compatibility is not established | Not run |
 
 ## Overall initial-migration completion criteria
 
-- [ ] Every active U01–U84 requirement has task evidence; G1–G6 are closed and
+- [ ] Every active U01–U97 requirement has task evidence; G1–G6 are closed and
   phases 1–7 complete. Phase 8 remains explicitly deferred.
 - [ ] Requests contain explicit operation/auth selection data and no execution
   resources; both execute spellings and registry invocation share one contract.

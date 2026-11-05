@@ -1,50 +1,46 @@
+use crate::AzureDevOpsAccountLicenseType;
+use crate::AzureDevOpsMsdnLicenseType;
 use arbitrary::Arbitrary;
+use std::fmt::Display;
+use std::fmt::Formatter;
 use std::str::FromStr;
 
+/// A license identified by its family and kind.
+///
+/// Shares the account and MSDN vocabularies from [AccessLevel 7.1](https://learn.microsoft.com/en-us/rest/api/azure/devops/memberentitlementmanagement/user-entitlements/update-user-entitlement?view=azure-devops-rest-7.1#accesslevel).
+/// The combined entitlement/CLI representation remains `Account-Express`,
+/// `Msdn-Enterprise`, etc.; individual REST fields use the family's own spelling.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, facet::Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum AzureDevOpsLicenseType {
-    /// Express means "Basic" in the UI
-    AccountExpress,
-
-    AccountStakeholder,
-
-    /// Basic+Test plans
-    AccountAdvanced,
-
-    MsdnEligible,
-
-    MsdnEnterprise,
-
-    MsdnProfessional,
-
-    None,
-
+    Account(AzureDevOpsAccountLicenseType),
+    Msdn(AzureDevOpsMsdnLicenseType),
+    /// Preserve opaque combined identifiers from other licensing sources.
+    /// This combined vocabulary is open; it is not an account/MSDN REST value.
+    #[arbitrary(skip)]
     Other(String),
 }
 
 impl AzureDevOpsLicenseType {
-    pub const VARIANTS: &'static [AzureDevOpsLicenseType] = &[
-        AzureDevOpsLicenseType::AccountExpress,
-        AzureDevOpsLicenseType::AccountStakeholder,
-        AzureDevOpsLicenseType::AccountAdvanced,
-        AzureDevOpsLicenseType::MsdnEligible,
-        AzureDevOpsLicenseType::MsdnEnterprise,
-        AzureDevOpsLicenseType::MsdnProfessional,
+    /// The existing interactive choices, rather than every historical service value.
+    pub const VARIANTS: &'static [Self] = &[
+        Self::Account(AzureDevOpsAccountLicenseType::Express),
+        Self::Account(AzureDevOpsAccountLicenseType::Stakeholder),
+        Self::Account(AzureDevOpsAccountLicenseType::Advanced),
+        Self::Msdn(AzureDevOpsMsdnLicenseType::Eligible),
+        Self::Msdn(AzureDevOpsMsdnLicenseType::Enterprise),
+        Self::Msdn(AzureDevOpsMsdnLicenseType::Professional),
     ];
 
-    /// https://azure.microsoft.com/en-us/pricing/details/devops/azure-devops-services/
+    /// Existing estimate for the two priced account tiers; unpriced kinds
+    /// contribute zero to the estimate, which does not establish that they are free.
+    /// See <https://azure.microsoft.com/en-us/pricing/details/devops/azure-devops-services/>.
     pub fn cost_per_month_cad(&self) -> f64 {
         match self {
-            AzureDevOpsLicenseType::AccountExpress => 8.30,
-            AzureDevOpsLicenseType::AccountStakeholder => 0.0,
-            AzureDevOpsLicenseType::AccountAdvanced => 71.93,
-            AzureDevOpsLicenseType::MsdnEnterprise => 0.00,
-            AzureDevOpsLicenseType::MsdnProfessional => 0.00,
-            AzureDevOpsLicenseType::MsdnEligible => 0.00,
-            AzureDevOpsLicenseType::None => 0.00,
-            AzureDevOpsLicenseType::Other(_) => 0.0,
+            Self::Account(AzureDevOpsAccountLicenseType::Express) => 8.30,
+            Self::Account(AzureDevOpsAccountLicenseType::Advanced) => 71.93,
+            _ => 0.0,
         }
     }
 }
@@ -52,32 +48,65 @@ impl AzureDevOpsLicenseType {
 impl FromStr for AzureDevOpsLicenseType {
     type Err = eyre::Error;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(match s {
-            "Account-Express" | "Basic" | "basic" | "express" => Self::AccountExpress,
-            "Account-Stakeholder" | "Stakeholder" | "stakeholder" => Self::AccountStakeholder,
-            "Account-Advanced" | "Advanced" | "advanced" | "test" | "Test" => Self::AccountAdvanced,
-            "Msdn-Eligible" => Self::MsdnEligible,
-            "Msdn-Enterprise" => Self::MsdnEnterprise,
-            "Msdn-Professional" => Self::MsdnProfessional,
-            "None" | "none" => Self::None,
-            other => Self::Other(other.to_owned()),
-        })
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        // Shorthand belongs to the combined selection, never to a family's REST parser.
+        match value {
+            "Basic" | "basic" | "express" => {
+                return Ok(Self::Account(AzureDevOpsAccountLicenseType::Express));
+            }
+            "Stakeholder" | "stakeholder" => {
+                return Ok(Self::Account(AzureDevOpsAccountLicenseType::Stakeholder));
+            }
+            "Advanced" | "advanced" | "test" | "Test" => {
+                return Ok(Self::Account(AzureDevOpsAccountLicenseType::Advanced));
+            }
+            "None" | "none" => return Ok(Self::Account(AzureDevOpsAccountLicenseType::None)),
+            _ => {}
+        }
+        if let Some((family, spelling)) = value.split_once('-') {
+            let mut name = spelling.to_owned();
+            if let Some(first) = name.get_mut(..1) {
+                first.make_ascii_lowercase();
+            }
+            match family {
+                "Account" => {
+                    return Ok(Self::Account(name.parse().unwrap_or_else(|_| {
+                        AzureDevOpsAccountLicenseType::Other(spelling.to_owned())
+                    })));
+                }
+                "Msdn" => {
+                    return Ok(Self::Msdn(name.parse().unwrap_or_else(|_| {
+                        AzureDevOpsMsdnLicenseType::Other(spelling.to_owned())
+                    })));
+                }
+                _ => {}
+            }
+        }
+        Ok(Self::Other(value.to_owned()))
     }
 }
 
 impl From<&AzureDevOpsLicenseType> for String {
     fn from(value: &AzureDevOpsLicenseType) -> Self {
-        match value {
-            AzureDevOpsLicenseType::AccountExpress => "Account-Express".to_owned(),
-            AzureDevOpsLicenseType::AccountStakeholder => "Account-Stakeholder".to_owned(),
-            AzureDevOpsLicenseType::AccountAdvanced => "Account-Advanced".to_owned(),
-            AzureDevOpsLicenseType::MsdnEligible => "Msdn-Eligible".to_owned(),
-            AzureDevOpsLicenseType::MsdnEnterprise => "Msdn-Enterprise".to_owned(),
-            AzureDevOpsLicenseType::MsdnProfessional => "Msdn-Professional".to_owned(),
-            AzureDevOpsLicenseType::None => "None".to_owned(),
-            AzureDevOpsLicenseType::Other(value) => value.clone(),
+        let (family, name) = match value {
+            AzureDevOpsLicenseType::Account(AzureDevOpsAccountLicenseType::None) => {
+                return "None".to_owned();
+            }
+            AzureDevOpsLicenseType::Account(AzureDevOpsAccountLicenseType::Other(value)) => {
+                return format!("Account-{value}");
+            }
+            AzureDevOpsLicenseType::Msdn(AzureDevOpsMsdnLicenseType::Other(value)) => {
+                return format!("Msdn-{value}");
+            }
+            AzureDevOpsLicenseType::Account(license) => ("Account", license.as_str()),
+            AzureDevOpsLicenseType::Msdn(license) => ("Msdn", license.as_str()),
+            AzureDevOpsLicenseType::Other(value) => return value.clone(),
+        };
+        let mut name = name.to_owned();
+        if let Some(first) = name.get_mut(..1) {
+            first.make_ascii_uppercase();
         }
+        format!("{family}-{name}")
     }
 }
 
@@ -89,17 +118,13 @@ impl TryFrom<String> for AzureDevOpsLicenseType {
     }
 }
 
-impl std::fmt::Display for AzureDevOpsLicenseType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Display for AzureDevOpsLicenseType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&String::from(self))?;
         match self {
-            AzureDevOpsLicenseType::AccountExpress => write!(f, "Account-Express (Basic)"),
-            AzureDevOpsLicenseType::AccountStakeholder => write!(f, "Account-Stakeholder"),
-            AzureDevOpsLicenseType::AccountAdvanced => write!(f, "Account-Advanced (Basic+Test)"),
-            AzureDevOpsLicenseType::MsdnEligible => write!(f, "Msdn-Eligible"),
-            AzureDevOpsLicenseType::MsdnEnterprise => write!(f, "Msdn-Enterprise"),
-            AzureDevOpsLicenseType::MsdnProfessional => write!(f, "Msdn-Professional"),
-            AzureDevOpsLicenseType::None => write!(f, "None"),
-            AzureDevOpsLicenseType::Other(s) => write!(f, "{}", s),
+            Self::Account(AzureDevOpsAccountLicenseType::Express) => f.write_str(" (Basic)"),
+            Self::Account(AzureDevOpsAccountLicenseType::Advanced) => f.write_str(" (Basic+Test)"),
+            _ => Ok(()),
         }
     }
 }
@@ -108,82 +133,86 @@ cloud_terrastodon_registry::register_thing!(AzureDevOpsLicenseType);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsLicenseType);
 
 #[cfg(test)]
-mod license_tests {
-    use super::AzureDevOpsLicenseType;
+mod tests {
+    use super::*;
+    use crate::AzureDevOpsLicenseAccessLevelUpdate;
 
     #[test]
-    pub fn deserializes_account_express() -> eyre::Result<()> {
-        let license = facet_json::from_str::<AzureDevOpsLicenseType>(r#""Account-Express""#)?;
-        assert_eq!(license, AzureDevOpsLicenseType::AccountExpress);
-        Ok(())
-    }
-
-    #[test]
-    pub fn deserializes_account_stakeholder() -> eyre::Result<()> {
-        let license = facet_json::from_str::<AzureDevOpsLicenseType>(r#""Account-Stakeholder""#)?;
-        assert_eq!(license, AzureDevOpsLicenseType::AccountStakeholder);
-        Ok(())
-    }
-
-    #[test]
-    pub fn deserializes_account_advanced() -> eyre::Result<()> {
-        let license = facet_json::from_str::<AzureDevOpsLicenseType>(r#""Account-Advanced""#)?;
-        assert_eq!(license, AzureDevOpsLicenseType::AccountAdvanced);
-        Ok(())
-    }
-
-    #[test]
-    pub fn deserializes_msdn_eligible() -> eyre::Result<()> {
-        let license = facet_json::from_str::<AzureDevOpsLicenseType>(r#""Msdn-Eligible""#)?;
-        assert_eq!(license, AzureDevOpsLicenseType::MsdnEligible);
-        Ok(())
-    }
-
-    #[test]
-    pub fn deserializes_msdn_enterprise() -> eyre::Result<()> {
-        let license = facet_json::from_str::<AzureDevOpsLicenseType>(r#""Msdn-Enterprise""#)?;
-        assert_eq!(license, AzureDevOpsLicenseType::MsdnEnterprise);
-        Ok(())
-    }
-
-    #[test]
-    pub fn deserializes_msdn_professional() -> eyre::Result<()> {
-        let license = facet_json::from_str::<AzureDevOpsLicenseType>(r#""Msdn-Professional""#)?;
-        assert_eq!(license, AzureDevOpsLicenseType::MsdnProfessional);
-        Ok(())
-    }
-
-    #[test]
-    pub fn deserializes_none() -> eyre::Result<()> {
-        let license = facet_json::from_str::<AzureDevOpsLicenseType>(r#""None""#)?;
-        assert_eq!(license, AzureDevOpsLicenseType::None);
-        Ok(())
-    }
-
-    #[test]
-    pub fn deserializes_other() -> eyre::Result<()> {
-        let license = facet_json::from_str::<AzureDevOpsLicenseType>(r#""Custom-License""#)?;
-        assert_eq!(
-            license,
-            AzureDevOpsLicenseType::Other("Custom-License".to_string())
-        );
-        Ok(())
-    }
-    #[test]
-    pub fn display_account_express() -> eyre::Result<()> {
-        assert_eq!(
-            format!("{}", AzureDevOpsLicenseType::AccountExpress),
-            "Account-Express (Basic)"
+    fn aliases_share_identity_and_update_family() -> eyre::Result<()> {
+        let basic = "Basic".parse::<AzureDevOpsLicenseType>()?;
+        let canonical = "Account-Express".parse::<AzureDevOpsLicenseType>()?;
+        assert_eq!(basic, canonical);
+        assert_eq!(String::from(&basic), "Account-Express");
+        assert_eq!(basic.to_string(), "Account-Express (Basic)");
+        assert!(matches!(
+            AzureDevOpsLicenseAccessLevelUpdate::try_from(&basic)?,
+            AzureDevOpsLicenseAccessLevelUpdate::Account {
+                license: AzureDevOpsAccountLicenseType::Express
+            }
+        ));
+        // Combined selection syntax must not leak into the account REST field.
+        assert!("Basic".parse::<AzureDevOpsAccountLicenseType>().is_err());
+        assert!(
+            "Msdn-Professional"
+                .parse::<AzureDevOpsAccountLicenseType>()
+                .is_err()
         );
         Ok(())
     }
 
     #[test]
-    pub fn display_account_advanced() -> eyre::Result<()> {
-        assert_eq!(
-            format!("{}", AzureDevOpsLicenseType::AccountAdvanced),
-            "Account-Advanced (Basic+Test)"
-        );
+    fn same_named_licenses_keep_distinct_families() -> eyre::Result<()> {
+        let account = "Account-Professional".parse::<AzureDevOpsLicenseType>()?;
+        let msdn = "Msdn-Professional".parse::<AzureDevOpsLicenseType>()?;
+        assert_ne!(account, msdn);
+        assert!(matches!(
+            AzureDevOpsLicenseAccessLevelUpdate::try_from(&account)?,
+            AzureDevOpsLicenseAccessLevelUpdate::Account {
+                license: AzureDevOpsAccountLicenseType::Professional
+            }
+        ));
+        assert!(matches!(
+            AzureDevOpsLicenseAccessLevelUpdate::try_from(&msdn)?,
+            AzureDevOpsLicenseAccessLevelUpdate::Msdn {
+                license: AzureDevOpsMsdnLicenseType::Professional
+            }
+        ));
+        Ok(())
+    }
+
+    #[test]
+    fn selectable_licenses_preserve_combined_wire_identity() -> eyre::Result<()> {
+        for license in AzureDevOpsLicenseType::VARIANTS {
+            let text = facet_json::to_string(license)?;
+            assert_eq!(
+                facet_json::from_str::<AzureDevOpsLicenseType>(&text)?,
+                *license
+            );
+            AzureDevOpsLicenseAccessLevelUpdate::try_from(license)?;
+        }
+        let none = "None".parse::<AzureDevOpsLicenseType>()?;
+        assert_eq!(none, "Account-None".parse()?);
+        assert_eq!(String::from(&none), "None");
+        Ok(())
+    }
+
+    #[test]
+    fn unknown_licenses_are_observable_but_not_mutation_selections() -> eyre::Result<()> {
+        let unknown = "Custom-License".parse::<AzureDevOpsLicenseType>()?;
+        assert_eq!(String::from(&unknown), "Custom-License");
+        for license in [
+            unknown,
+            AzureDevOpsLicenseType::Account(AzureDevOpsAccountLicenseType::Other(
+                "futureTier".into(),
+            )),
+            AzureDevOpsLicenseType::Msdn(AzureDevOpsMsdnLicenseType::Other("FutureTier".into())),
+        ] {
+            assert_eq!(
+                String::from(&license).parse::<AzureDevOpsLicenseType>()?,
+                license
+            );
+            assert!(AzureDevOpsLicenseAccessLevelUpdate::try_from(&license).is_err());
+        }
         Ok(())
     }
 }

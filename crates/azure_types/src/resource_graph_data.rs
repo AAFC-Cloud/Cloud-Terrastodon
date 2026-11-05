@@ -1,9 +1,9 @@
+use crate::ArbitraryJson;
 use crate::ResourceGraphColumn;
 use crate::ResourceGraphEntryDeserializeError;
 use eyre::Context;
 use eyre::Result;
 use facet::Facet;
-use facet_json::RawJson;
 use facet_value::Value;
 use std::any::type_name;
 use std::time::Instant;
@@ -18,7 +18,7 @@ use tracing::debug_span;
 #[derive(Debug, Clone, PartialEq, Eq, Facet)]
 pub struct ResourceGraphData {
     pub columns: Vec<ResourceGraphColumn>,
-    pub rows: Vec<Vec<RawJson<'static>>>,
+    pub rows: Vec<Vec<ArbitraryJson>>,
 }
 
 impl ResourceGraphData {
@@ -95,7 +95,7 @@ impl ResourceGraphData {
 
     fn row_json(
         columns: &[ResourceGraphColumn],
-        row: Vec<RawJson<'static>>,
+        row: Vec<ArbitraryJson>,
         index: usize,
     ) -> Result<String> {
         let record_value: Value = columns
@@ -133,8 +133,8 @@ mod tests {
             }],
             rows: names
                 .iter()
-                .map(|name| Ok(vec![RawJson::from_owned(facet_json::to_string(name)?)]))
-                .collect::<Result<_>>()?,
+                .map(|name| vec![ArbitraryJson::from_text(name)])
+                .collect(),
         };
         let records = data.into_records::<MyRecord>()?;
         assert_eq!(
@@ -161,8 +161,8 @@ mod tests {
                 },
             ],
             rows: vec![vec![
-                RawJson::from_owned(r#""example-policy""#.to_string()),
-                RawJson::from_owned(r#"{"description":"hello"}"#.to_string()),
+                ArbitraryJson::from_text("example-policy"),
+                facet_json::from_str(r#"{"description":"hello"}"#)?,
             ]],
         };
 
@@ -188,7 +188,7 @@ mod tests {
                 name: "name".to_string(),
                 kind: "string".to_string(),
             }],
-            rows: vec![vec![RawJson::from_owned(r#""not-a-number""#.to_string())]],
+            rows: vec![vec![ArbitraryJson::from_text("not-a-number")]],
         };
 
         #[derive(Debug, facet::Facet)]
@@ -234,12 +234,12 @@ mod tests {
         for row in 0..1_000 {
             let mut row_data = vec![];
             for col in 0..8 {
-                row_data.push(RawJson::from_owned(facet_json::to_string(&format!(
+                row_data.push(ArbitraryJson::from_text(&format!(
                     "r{}_c{}_{}",
                     row,
                     col,
                     "a".repeat(5000)
-                ))?));
+                )));
             }
             data.data.rows.push(row_data);
         }

@@ -152,6 +152,10 @@ cloud_terrastodon_registry::register_arbitrary!(EntraDirectoryObjectsByIdsReques
 cloud_terrastodon_registry_execution::register_into_future!(EntraDirectoryObjectsByIdsRequest<'static> => Vec<EntraDirectoryObject>, effects = [Read]);
 
 #[cfg(test)]
+#[allow(
+    clippy::disallowed_types,
+    reason = "These tests inspect the encoded request body before decoding its individual fields."
+)]
 mod tests {
     use super::*;
     use cloud_terrastodon_auth::AuthContext;

@@ -257,8 +257,8 @@ mod test {
         let json = facet_json::to_string(&something)?;
         let json_expected = r#"{"resource_group_id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/My-RG"}"#;
         assert_eq!(
-            facet_json::from_str::<facet_json::RawJson>(&json)?,
-            facet_json::from_str::<facet_json::RawJson>(json_expected)?
+            facet_json::from_str::<crate::ArbitraryJson>(&json)?,
+            facet_json::from_str::<crate::ArbitraryJson>(json_expected)?
         );
 
         Ok(())

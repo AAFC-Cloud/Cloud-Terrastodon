@@ -3,11 +3,11 @@ use cloud_terrastodon_auth::AzureDevOpsAuthContext;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops_types::SuiteTestCase;
+use cloud_terrastodon_azure_types::ArbitraryJson;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_rest::RestRequest;
-use facet_json::RawJson;
 use reqwest::Method;
 use std::borrow::Cow;
 use std::path::PathBuf;
@@ -81,7 +81,7 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsTestSuiteCas
         #[derive(facet::Facet)]
         #[allow(dead_code)]
         struct InvokeResponse {
-            continuation_token: Option<RawJson<'static>>,
+            continuation_token: Option<ArbitraryJson>,
             count: u32,
             value: Vec<SuiteTestCase>,
         }

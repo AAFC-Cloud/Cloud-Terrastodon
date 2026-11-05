@@ -4,8 +4,8 @@
 //! - Building command arguments and environment variables.
 //! - Handling file arguments for commands like Azure CLI.
 //! - Configuring output behavior (capture or display).
-//! - Implementing retry logic for authentication failures.
-//! - Caching command output for improved performance.
+//! - Retrying rate-limited subprocess attempts within their execution owner.
+//! - Sharing canonical decoded command results through an explicit executor.
 //! - Sending content to command stdin.
 //! - Writing command failures and successes to files for debugging and caching.
 
@@ -21,10 +21,8 @@ mod command_cache_discovery;
 mod command_input_workspace;
 mod command_kind;
 mod command_output;
-mod command_output_decode_error;
 mod command_process;
 mod from_command_output;
-mod json;
 mod no_spaces;
 mod output_behaviour;
 mod path_mapper;
@@ -44,7 +42,6 @@ pub use crate::command_input_workspace::CommandInputWorkspace;
 pub use crate::command_kind::*;
 pub use crate::command_output::*;
 pub use crate::from_command_output::FromCommandOutput;
-pub use crate::json::*;
 pub use crate::no_spaces::*;
 pub use crate::output_behaviour::OutputBehaviour;
 pub use crate::path_mapper::*;

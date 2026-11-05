@@ -1,4 +1,4 @@
-use crate::az_account_list;
+use cloud_terrastodon_auth::read_azure_cli_local_accounts;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_command::CancellationScope;
 use eyre::bail;
@@ -6,7 +6,7 @@ use eyre::bail;
 pub async fn get_default_tenant_id(
     cancellation: &CancellationScope,
 ) -> eyre::Result<AzureTenantId> {
-    let accounts = az_account_list(cancellation).await?;
+    let accounts = read_azure_cli_local_accounts(cancellation).await?;
     let num_accounts = accounts.len();
     let Some(default_account) = accounts.into_iter().find(|account| account.is_default) else {
         bail!(

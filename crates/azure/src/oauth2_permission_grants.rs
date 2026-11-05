@@ -4,7 +4,6 @@ use cloud_terrastodon_azure_types::EntraServicePrincipalObjectId;
 use cloud_terrastodon_azure_types::EntraUserId;
 use cloud_terrastodon_azure_types::OAuth2PermissionGrant;
 use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CommandBuilder;
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::LazyLock;
@@ -15,11 +14,9 @@ pub static FETCH_OAUTH2_PERMISSION_GRANTS_CACHE_DIR: LazyLock<PathBuf> =
 pub(crate) async fn bust_oauth2_permission_grants_cache(
     tenant_id: AzureTenantId,
 ) -> eyre::Result<()> {
-    let mut cache = CommandBuilder::default();
-    cache.cache(CacheKey::new(
-        FETCH_OAUTH2_PERMISSION_GRANTS_CACHE_DIR.join(tenant_id.to_string()),
-    ));
-    cache.bust_cache().await?;
+    CacheKey::new(FETCH_OAUTH2_PERMISSION_GRANTS_CACHE_DIR.join(tenant_id.to_string()))
+        .invalidate()
+        .await?;
     Ok(())
 }
 

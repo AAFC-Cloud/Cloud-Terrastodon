@@ -29,7 +29,10 @@ impl CacheListArgs {
             })
             .collect();
 
-        println!("{}", cloud_terrastodon_command::to_string_pretty(&payload)?);
+        println!(
+            "{}",
+            facet_json::to_string_pretty(&payload).map_err(|error| eyre::eyre!("{error:?}"))?
+        );
         Ok(())
     }
 }

@@ -183,7 +183,10 @@ impl AzureDevOpsWorkItemFields {
     pub fn to_patch_fields(&self) -> Result<AzureDevOpsWorkItemPatchFields> {
         let mut fields = BTreeMap::new();
         for (field, value) in Peek::new(self).into_struct()?.fields_for_serialize() {
-            fields.insert(field.effective_name().parse()?, arbitrary_json(value)?);
+            fields.insert(
+                field.effective_name().parse()?,
+                ArbitraryJson::try_from_peek(value)?,
+            );
         }
         Ok(fields.into())
     }
@@ -192,15 +195,11 @@ impl AzureDevOpsWorkItemFields {
     pub fn field(&self, name: &str) -> Result<Option<ArbitraryJson>> {
         for (field, value) in Peek::new(self).into_struct()?.fields_for_serialize() {
             if field.effective_name() == name {
-                return Ok(Some(arbitrary_json(value)?));
+                return Ok(Some(ArbitraryJson::try_from_peek(value)?));
             }
         }
         Ok(None)
     }
-}
-
-fn arbitrary_json(value: Peek<'_, '_>) -> Result<ArbitraryJson> {
-    Ok(facet_json::RawJson::from_owned(facet_json::peek_to_string(value)?).into())
 }
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsWorkItemFields);

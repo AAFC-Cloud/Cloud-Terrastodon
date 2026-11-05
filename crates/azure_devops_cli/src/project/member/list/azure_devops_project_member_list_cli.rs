@@ -5,7 +5,6 @@ use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_project_members;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::to_writer_pretty;
 use eyre::Result;
 use std::io::Write;
 use std::io::stdout;
@@ -44,7 +43,8 @@ impl AzureDevOpsProjectMemberListArgs {
         .await?;
 
         let mut out = stdout().lock();
-        to_writer_pretty(&mut out, &members)?;
+        facet_json::to_writer_std_pretty(&mut out, &members)
+            .map_err(|error| eyre::eyre!("{error:?}"))?;
         out.write_all(b"\n")?;
 
         Ok(())

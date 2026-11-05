@@ -2,7 +2,7 @@ use crate::cli::gitea::org::GiteaOrgArgs;
 use crate::cli::gitea::repo::GiteaRepoArgs;
 use crate::cli::gitea::tenant::GiteaTenantArgs;
 use crate::cli::gitea::user::GiteaUserArgs;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
 #[derive(facet::Facet, Debug, Clone)]
@@ -22,12 +22,12 @@ pub enum GiteaCommand {
 }
 
 impl GiteaCommand {
-    pub async fn invoke(self, cancellation: &CancellationScope) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<()> {
         match self {
-            GiteaCommand::Tenant(args) => args.invoke(cancellation).await?,
-            GiteaCommand::Org(args) => args.invoke(cancellation).await?,
-            GiteaCommand::User(args) => args.invoke(cancellation).await?,
-            GiteaCommand::Repo(args) => args.invoke(cancellation).await?,
+            GiteaCommand::Tenant(args) => args.invoke(executor).await?,
+            GiteaCommand::Org(args) => args.invoke(executor).await?,
+            GiteaCommand::User(args) => args.invoke(executor).await?,
+            GiteaCommand::Repo(args) => args.invoke(executor).await?,
         }
         Ok(())
     }

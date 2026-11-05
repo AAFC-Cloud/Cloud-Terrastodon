@@ -5,7 +5,6 @@ use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_test_plans;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::to_writer_pretty;
 use eyre::Result;
 use eyre::bail;
 use std::io::stdout;
@@ -50,7 +49,8 @@ impl AzureDevOpsTestPlanShowArgs {
             .into_iter()
             .find(|p| p.name == self.plan || p.id.to_string() == self.plan)
         {
-            to_writer_pretty(stdout(), &plan)?;
+            facet_json::to_writer_std_pretty(stdout(), &plan)
+                .map_err(|error| eyre::eyre!("{error:?}"))?;
             Ok(())
         } else {
             bail!("No test plan found matching '{}'.", self.plan);

@@ -61,7 +61,8 @@ impl AzureVmBrowseArgs {
                     .into_chosen_and_maybe_error()?;
                 println!(
                     "{}",
-                    cloud_terrastodon_command::to_string_pretty(&chosen_resources)?
+                    facet_json::to_string_pretty(&chosen_resources)
+                        .map_err(|error| eyre::eyre!("{error:?}"))?
                 );
                 maybe_error?;
             }
@@ -86,14 +87,15 @@ impl AzureVmBrowseArgs {
                         info!(%chosen_subscription.name, %chosen_subscription.id, "Fetching VM SKUs, this may take a while" );
                         let skus = fetch_virtual_machine_skus(chosen_subscription.id, cancellation).with_invalidation(invalidate).await?;
                         skus.into_iter().map(|sku| eyre::Ok(Choice {
-                            key: format!("{} - {} - {}", sku.resource_type, sku.name, cloud_terrastodon_command::to_string(&sku.locations)?),
+                            key: format!("{} - {} - {}", sku.resource_type, sku.name, facet_json::to_string(&sku.locations).map_err(|error| eyre::eyre!("{error:?}"))?),
                             value: sku,
                         })).collect::<eyre::Result<Vec<_>>>()
                     }
                 }).await.into_chosen_and_maybe_error()?;
                 println!(
                     "{}",
-                    cloud_terrastodon_command::to_string_pretty(&chosen_skus)?
+                    facet_json::to_string_pretty(&chosen_skus)
+                        .map_err(|error| eyre::eyre!("{error:?}"))?
                 );
                 maybe_error?;
             }

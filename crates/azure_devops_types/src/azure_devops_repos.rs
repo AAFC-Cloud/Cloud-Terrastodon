@@ -1,11 +1,11 @@
 use crate::AzureDevOpsProject;
 use crate::AzureDevOpsRepoId;
+use cloud_terrastodon_azure_types::ArbitraryJson;
 use cloud_terrastodon_hcl_types::AzureDevOpsResourceBlockKind;
 use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
-use facet_json::RawJson;
 
 #[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
 #[facet(rename_all = "camelCase")]
@@ -22,7 +22,7 @@ pub struct AzureDevOpsRepo {
 
     pub name: String,
 
-    pub parent_repository: Option<RawJson<'static>>,
+    pub parent_repository: Option<ArbitraryJson>,
 
     pub project: AzureDevOpsProject,
 
@@ -34,7 +34,7 @@ pub struct AzureDevOpsRepo {
 
     pub url: String,
 
-    pub valid_remote_urls: Option<RawJson<'static>>,
+    pub valid_remote_urls: Option<ArbitraryJson>,
 
     pub web_url: String,
 }

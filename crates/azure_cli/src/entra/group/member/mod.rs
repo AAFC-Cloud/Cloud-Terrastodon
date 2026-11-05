@@ -34,9 +34,9 @@ impl AzureEntraGroupMemberArgs {
         cancellation: &CancellationScope,
     ) -> Result<()> {
         match self.command {
-            AzureEntraGroupMemberCommand::Add(a) => a.invoke(cancellation).await?,
+            AzureEntraGroupMemberCommand::Add(a) => a.invoke(auth_context, cancellation).await?,
             AzureEntraGroupMemberCommand::List(a) => a.invoke(auth_context, cancellation).await?,
-            AzureEntraGroupMemberCommand::Remove(a) => a.invoke(cancellation).await?,
+            AzureEntraGroupMemberCommand::Remove(a) => a.invoke(auth_context, cancellation).await?,
         }
         Ok(())
     }

@@ -100,3 +100,5 @@ mod test {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry::register_arbitrary!(Vec<ContainerRegistryRepositoryName>);

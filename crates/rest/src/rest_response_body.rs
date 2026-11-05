@@ -1,3 +1,8 @@
+#![allow(
+    clippy::disallowed_types,
+    reason = "The transport retains raw response bodies before domain decoding, including generated Facet codecs."
+)]
+
 use arbitrary::Arbitrary;
 use facet::Facet;
 use facet_json::RawJson;

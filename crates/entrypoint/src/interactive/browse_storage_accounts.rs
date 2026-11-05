@@ -22,7 +22,7 @@ pub async fn browse_storage_accounts(
         .into_chosen_and_maybe_error()?;
     println!(
         "You chose: {}",
-        cloud_terrastodon_command::to_string_pretty(&chosen)?
+        facet_json::to_string_pretty(&chosen).map_err(|error| eyre::eyre!("{error:?}"))?
     );
     maybe_error
 }

@@ -96,7 +96,12 @@ mod test {
                     crate::test_tenant_id::test_tenant_id()?,
                 )?;
                 let org_url = get_default_organization_url(&cancellation).await?;
-                let agent_pools = fetch_azure_devops_agent_pools(&org_url, &cancellation).await?;
+                let agent_pools = fetch_azure_devops_agent_pools(
+                    &org_url,
+                    &azure_devops_auth_context,
+                    &cancellation,
+                )
+                .await?;
                 let our_agent_pools = agent_pools
                     .iter()
                     .filter(|pool| !pool.is_hosted)

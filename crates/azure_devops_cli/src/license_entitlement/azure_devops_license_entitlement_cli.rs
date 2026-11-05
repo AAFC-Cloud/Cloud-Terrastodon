@@ -90,7 +90,7 @@ impl AzureDevOpsLicenseEntitlementArgs {
             },
             AzureDevOpsLicenseEntitlementCommand::Group(args) => match args.command {
                 AzureDevOpsLicenseEntitlementGroupCommand::List(a) => {
-                    a.invoke(cancellation).await?
+                    a.invoke(auth_context, cancellation).await?
                 }
             },
         }

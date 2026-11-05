@@ -1,5 +1,5 @@
+use crate::ArbitraryJson;
 use crate::tenant_id::AzureTenantId;
-use facet_json::RawJson;
 use uuid::Uuid;
 
 #[derive(Debug, Eq, PartialEq, facet::Facet)]
@@ -12,7 +12,7 @@ pub struct Account {
     #[facet(rename = "isDefault")]
     pub is_default: bool,
     #[facet(rename = "managedByTenants")]
-    pub managed_by_tenants: Option<Vec<RawJson<'static>>>,
+    pub managed_by_tenants: Option<Vec<ArbitraryJson>>,
     pub name: String,
     pub state: String,
     #[facet(rename = "tenantId")]

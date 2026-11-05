@@ -118,7 +118,7 @@ impl RestArgs {
             (None, None) => None,
         };
         let mut request = RestRequest::from_method_and_url(self.method.0, url, cancellation)?
-            .azure_auth_context(auth_context);
+            .auth_context(auth_context);
         request.service = service;
         request.body = body;
         request.headers = headers;
@@ -155,6 +155,10 @@ fn write_response_body(
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::disallowed_types,
+    reason = "These tests construct the REST transport's raw response-body representation."
+)]
 mod test {
     use super::RestArgs;
     use super::RestService;

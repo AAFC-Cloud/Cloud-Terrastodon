@@ -1,7 +1,9 @@
 #![cfg(test)]
 
+mod support;
+
 use bstr::ByteSlice;
-use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_cache::CacheOperationOwner;
 use cloud_terrastodon_command::CancellationToken;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
@@ -15,6 +17,7 @@ use eyre::ensure;
 use std::borrow::Cow;
 use std::path::Path;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::fs;
 use tokio::time::sleep;
@@ -47,18 +50,9 @@ impl Drop for ReleaseChildOnDrop {
 }
 
 fn fixture_command(directory: &Path, script: &str) -> Result<CommandBuilder> {
-    let artifact_dir = directory.join("artifacts");
-    let cache_key = CacheKey {
-        path: artifact_dir.clone(),
-        valid_for: Duration::ZERO,
-    };
     ensure!(
         directory.is_absolute(),
         "fixture directory must be absolute"
-    );
-    ensure!(
-        cache_key.path_on_disk() == artifact_dir,
-        "fixture cache key must resolve inside its temporary directory"
     );
     let mut command = CommandBuilder::new(CommandKind::Pwsh);
     command.args([
@@ -72,7 +66,6 @@ fn fixture_command(directory: &Path, script: &str) -> Result<CommandBuilder> {
     command.env("CT_PROCESS_FIXTURE", directory.to_string_lossy());
     command.use_retry_behaviour(RetryBehaviour::Fail);
     command.use_timeout(LIMIT);
-    command.cache(cache_key);
     Ok(command)
 }
 
@@ -139,8 +132,8 @@ async fn concurrent_processes_keep_their_own_staged_input_until_the_child_finish
             assert_eq!(first_payload, "first payload");
             assert_eq!(second_payload, "second payload");
             assert_ne!(first_path, second_path);
-            // Cache artifacts have separate lifetimes. The ephemeral command
-            // inputs must disappear when their invocation owner is dropped.
+            // Ephemeral inputs disappear when their invocation owner is dropped,
+            // even when no artifact/cache owner participates in execution.
             assert!(!fs::try_exists(Path::new(first_path.trim_end_matches('\r'))).await?);
             assert!(!fs::try_exists(Path::new(second_path.trim_end_matches('\r'))).await?);
             Ok(())
@@ -170,45 +163,38 @@ if (-not [IO.File]::Exists($attempt)) {
     CancellationToken::new()
         .with_async_scope(|cancellation| async move {
             let directory = tempfile::tempdir()?;
+            let executor =
+                support::executor_in(cancellation.clone(), &directory.path().join("artifacts"))?;
             let release = ReleaseChildOnDrop(directory.path().join("release"));
             let artifact_dir = directory.path().join("artifacts");
             let attempted = directory.path().join("attempt");
             let mut command = fixture_command(directory.path(), SCRIPT)?;
-            command.cache(CacheKey {
-                path: artifact_dir.clone(),
-                valid_for: Duration::MAX,
-            });
+            command.cache(support::key(Duration::MAX));
+            struct RetryOperation;
+            let owner = CacheOperationOwner::of::<RetryOperation>();
             command.use_retry_behaviour(RetryBehaviour::Retry);
-            let mut running = Box::pin(command.run_raw(&cancellation));
+            let mut running = Box::pin(command.run_raw_cached(&executor, owner));
             tokio::select! {
                 output = &mut running => { bail!("child finished before injection: {output:?}"); },
                 ready = wait_for_file(&attempted) => ready?,
             }
 
-            // The initial lookup already missed. A separate writer publishes a
-            // valid artifact for this exact identity before the rate-limit exit.
-            // Re-entering run_raw during retry would incorrectly return it.
-            command
-                .write_output(
-                    &CommandOutput {
-                        stdout: "unrelated cached completion".into(),
-                        stderr: "".into(),
-                        status: 0,
-                    },
-                    &artifact_dir,
-                )
-                .await?;
+            // A second caller joins the same canonical identity while the first
+            // attempt is pending. Retrying through cache admission would reacquire
+            // the leader's own initializer lock and hang both callers.
+            let waiting = command.run_raw_cached(&executor, owner);
             fs::write(&release.0, b"release").await?;
-            let output = timeout(LIMIT, running).await??;
+            let (output, joined) =
+                timeout(LIMIT, async { tokio::try_join!(running, waiting) }).await??;
+            assert!(Arc::ptr_eq(&output, &joined));
             assert_eq!(output.stdout.as_bytes(), b"retry executed");
             assert_eq!(
                 fs::read_to_string(directory.path().join("attempt")).await?,
                 "2"
             );
-            assert_eq!(
-                fs::read(artifact_dir.join("stdout.json")).await?,
-                b"retry executed"
-            );
+            let files = support::files_named(&artifact_dir, "stdout.json")?;
+            assert_eq!(files.len(), 1);
+            assert_eq!(fs::read(&files[0]).await?, b"retry executed");
             Ok(())
         })
         .await
@@ -229,9 +215,11 @@ exit 29
     CancellationToken::new()
         .with_async_scope(|cancellation| async move {
             let directory = tempfile::tempdir()?;
+            let executor =
+                support::executor_in(cancellation.clone(), &directory.path().join("artifacts"))?;
             let mut command = fixture_command(directory.path(), SCRIPT)?;
             command.use_retry_behaviour(RetryBehaviour::Retry);
-            let error = timeout(LIMIT, command.run_raw(&cancellation))
+            let error = timeout(LIMIT, command.run_raw_with_artifacts(&executor))
                 .await?
                 .expect_err("the second rate limit must terminate the retry sequence");
             let output = error
@@ -243,14 +231,18 @@ exit 29
                 fs::read_to_string(directory.path().join("attempt")).await?,
                 "2"
             );
-            assert!(!fs::try_exists(directory.path().join("artifacts/stdout.json")).await?);
+            assert!(
+                support::files_named(&directory.path().join("artifacts"), "selection.json")?
+                    .is_empty()
+            );
 
-            let mut failures = fs::read_dir(directory.path().join("artifacts/failed")).await?;
+            let failures =
+                support::files_named(&directory.path().join("artifacts"), "stdout.json")?;
             let mut retained_second_attempt = false;
-            while let Some(failure) = failures.next_entry().await? {
-                if fs::read(failure.path().join("stdout.json")).await? == b"attempt 2" {
+            for failure in failures {
+                if fs::read(&failure).await? == b"attempt 2" {
                     assert_eq!(
-                        fs::read_to_string(failure.path().join("status.txt")).await?,
+                        fs::read_to_string(failure.with_file_name("status.txt")).await?,
                         "29"
                     );
                     retained_second_attempt = true;
@@ -301,9 +293,11 @@ $ErrorActionPreference = 'Stop'
     CancellationToken::new()
         .with_async_scope(|cancellation| async move {
             let directory = tempfile::tempdir()?;
+            let executor =
+                support::executor_in(cancellation.clone(), &directory.path().join("artifacts"))?;
             let mut command = fixture_command(directory.path(), SCRIPT)?;
             command.use_timeout(Duration::from_secs(5));
-            let error = timeout(LIMIT, command.run_raw(&cancellation))
+            let error = timeout(LIMIT, command.run_raw_with_artifacts(&executor))
                 .await?
                 .expect_err("the child's wait must be bounded by its execution timeout");
             assert!(
@@ -312,7 +306,10 @@ $ErrorActionPreference = 'Stop'
             );
             assert!(fs::try_exists(directory.path().join("started")).await?);
             assert!(!fs::try_exists(directory.path().join("completed")).await?);
-            assert!(!fs::try_exists(directory.path().join("artifacts/stdout.json")).await?);
+            assert!(
+                support::files_named(&directory.path().join("artifacts"), "selection.json")?
+                    .is_empty()
+            );
             Ok(())
         })
         .await

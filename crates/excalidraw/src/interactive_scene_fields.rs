@@ -1,6 +1,10 @@
 use eyre::Context;
 use eyre::Result;
 use facet::Facet;
+#[allow(
+    clippy::disallowed_types,
+    reason = "The scene editor retains raw document fields independently of Azure domain types."
+)]
 use facet_json::RawJson;
 use std::collections::BTreeMap;
 use std::time::SystemTime;
@@ -9,6 +13,10 @@ use std::time::UNIX_EPOCH;
 // Opaque fields deliberately retain their original JSON representation. An
 // interactive edit must not drop future element kinds, images, customData,
 // tombstones, or integer precision that this crate does not interpret.
+#[allow(
+    clippy::disallowed_types,
+    reason = "Lossless scene editing preserves unmodeled fields and numeric representations without an Azure dependency."
+)]
 pub(crate) type SceneFields = BTreeMap<String, RawJson<'static>>;
 
 pub(crate) fn string(fields: &SceneFields, name: &str) -> Option<String> {
@@ -40,6 +48,10 @@ pub(crate) fn log_output(fields: &SceneFields) -> bool {
         .is_some_and(|groups| groups.iter().any(|group| group.starts_with("ct-log-")))
 }
 
+#[allow(
+    clippy::disallowed_types,
+    reason = "Updated scene fields are encoded into the editor's retained JSON representation."
+)]
 pub(crate) fn set<'a, T: Facet<'a>>(fields: &mut SceneFields, name: &str, value: &T) -> Result<()> {
     fields.insert(
         name.into(),

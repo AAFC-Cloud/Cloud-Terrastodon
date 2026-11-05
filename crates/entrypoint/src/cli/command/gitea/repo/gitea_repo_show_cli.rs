@@ -1,4 +1,4 @@
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_gitea::GiteaRepoArgument;
 use cloud_terrastodon_gitea::GiteaTenantArgument;
 use cloud_terrastodon_gitea::GiteaTenantArgumentExt;
@@ -21,17 +21,17 @@ pub struct GiteaRepoShowArgs {
 }
 
 impl GiteaRepoShowArgs {
-    pub async fn invoke(self, cancellation: &CancellationScope) -> Result<()> {
-        let tenant = self.tenant.resolve(cancellation).await?;
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<()> {
+        let tenant = self.tenant.resolve(executor).await?;
         let repository = match &self.repo {
             GiteaRepoArgument::Id(repo_id) => {
-                fetch_gitea_repository_by_id(&tenant, *repo_id.as_ref(), cancellation).await?
+                fetch_gitea_repository_by_id(&tenant, *repo_id.as_ref(), executor).await?
             }
             GiteaRepoArgument::FullName(full_name) => {
-                fetch_gitea_repository(&tenant, full_name.as_ref(), cancellation).await?
+                fetch_gitea_repository(&tenant, full_name.as_ref(), executor).await?
             }
             GiteaRepoArgument::Name(_) => {
-                let repositories = fetch_all_gitea_repositories(&tenant, cancellation).await?;
+                let repositories = fetch_all_gitea_repositories(&tenant, executor).await?;
                 let matches = repositories
                     .into_iter()
                     .filter(|repo| self.repo.matches(repo))
@@ -52,7 +52,8 @@ impl GiteaRepoShowArgs {
         };
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();
-        cloud_terrastodon_command::to_writer_pretty(&mut handle, &repository)?;
+        facet_json::to_writer_std_pretty(&mut handle, &repository)
+            .map_err(|error| eyre::eyre!("{error:?}"))?;
         handle.write_all(b"\n")?;
         Ok(())
     }

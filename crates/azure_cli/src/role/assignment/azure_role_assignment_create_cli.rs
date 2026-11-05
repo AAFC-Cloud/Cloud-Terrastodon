@@ -132,9 +132,14 @@ impl AzureRoleAssignmentCreateArgs {
                         principal.name(),
                         scope.expanded_form()
                     );
-                    let id =
-                        create_role_assignment(&scope, &role.id, principal.as_ref(), cancellation)
-                            .await?;
+                    let id = create_role_assignment(
+                        &scope,
+                        &role.id,
+                        principal.as_ref(),
+                        &tenant_auth_context,
+                        cancellation,
+                    )
+                    .await?;
                     results.push(RoleAssignmentCreateResult {
                         scope: scope.expanded_form(),
                         role: role.display_name.clone(),
@@ -147,7 +152,8 @@ impl AzureRoleAssignmentCreateArgs {
 
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();
-        cloud_terrastodon_command::to_writer_pretty(&mut handle, &results)?;
+        facet_json::to_writer_std_pretty(&mut handle, &results)
+            .map_err(|error| eyre::eyre!("{error:?}"))?;
         handle.write_all(b"\n")?;
 
         info!("Successfully created {} role assignments", results.len());

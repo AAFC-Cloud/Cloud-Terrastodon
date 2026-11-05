@@ -37,6 +37,7 @@ ordermap.workspace = true
 indexmap.workspace = true
 facet.workspace = true
 facet-json.workspace = true
+facet-reflect.workspace = true
 facet-value.workspace = true
 linkme.workspace = true
 

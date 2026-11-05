@@ -37,14 +37,6 @@ const ERROR_FILE: &str = "error.txt";
 
 static MEMORY_CACHE: OnceLock<Mutex<HashMap<String, CommandOutput>>> = OnceLock::new();
 
-pub(crate) fn cache_clean_recommendation(cache_key: Option<&CacheKey>) -> &'static str {
-    if cache_key.is_some_and(|cache_key| !cache_key.valid_for.is_zero()) {
-        "\n - If this is caused by stale cached data, run `cloud_terrastodon clean` and retry."
-    } else {
-        ""
-    }
-}
-
 fn memory_cache() -> &'static Mutex<HashMap<String, CommandOutput>> {
     MEMORY_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
 }
@@ -209,10 +201,12 @@ pub async fn get_cached_output(
 
     let metadata = match load_file(&cache_dir, METADATA_FILE).await {
         Ok(contents) => Some(
-            crate::json::from_slice::<ArtifactMetadata>(&contents).context(format!(
-                "deserializing cache metadata at {}",
-                cache_dir.display()
-            ))?,
+            facet_json::from_slice::<ArtifactMetadata>(&contents)
+                .map_err(|error| eyre::eyre!("{error:?}"))
+                .context(format!(
+                    "deserializing cache metadata at {}",
+                    cache_dir.display()
+                ))?,
         ),
         Err(error) => {
             debug!(
@@ -325,7 +319,7 @@ pub async fn write_output_with_extra_files(
 
     let status = output.status.to_string();
     let timestamp = Local::now().to_rfc2822();
-    let metadata = crate::json::to_vec_pretty(metadata)?;
+    let metadata = facet_json::to_vec_pretty(metadata).map_err(|error| eyre::eyre!("{error:?}"))?;
     let files = [
         (CONTEXT_FILE, context.as_bytes()),
         (STDOUT_FILE, output.stdout.as_bytes()),
@@ -431,21 +425,6 @@ pub fn put_memory_cache_entry(
 
 pub fn note_cache_write_failure(error: &eyre::Error) {
     error!("Encountered problem saving cache: {:?}", error);
-}
-
-#[cfg(test)]
-mod tests {
-    use super::cache_clean_recommendation;
-    use crate::CacheKey;
-
-    #[test]
-    fn recommends_cleaning_when_cache_is_enabled() {
-        assert!(
-            cache_clean_recommendation(Some(&CacheKey::new("test")))
-                .contains("cloud_terrastodon clean")
-        );
-        assert_eq!(cache_clean_recommendation(None), "");
-    }
 }
 
 cloud_terrastodon_registry::register_thing!(ArtifactMetadata);

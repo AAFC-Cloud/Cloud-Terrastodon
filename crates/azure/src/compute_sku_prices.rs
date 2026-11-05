@@ -1,14 +1,22 @@
 use cloud_terrastodon_azure_types::AzureLocationName;
 use cloud_terrastodon_azure_types::ComputeSkuName;
 use cloud_terrastodon_azure_types::Price;
+use cloud_terrastodon_azure_types::RetailPriceListResponse;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_pathing::sanitize_windows_path_component;
+use cloud_terrastodon_rest::RestRequest;
+use http::Method;
+use std::collections::HashSet;
 use std::path::PathBuf;
+use url::Url;
 
+/// List the Canadian-dollar primary-meter prices for a VM SKU in one region.
+///
+/// Uses the anonymous [Retail Prices API](https://learn.microsoft.com/rest/api/cost-management/retail-prices/azure-retail-prices)
+/// and follows all result pages. No Azure login or subscription is required.
 #[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct ComputeSkuPricesRequest {
     #[facet(skip_serializing)]
@@ -36,48 +44,61 @@ impl CacheableCommand for ComputeSkuPricesRequest {
 
     fn cache_key(&self) -> CacheKey {
         CacheKey::new(PathBuf::from_iter([
-            "az",
+            "rest",
+            "azure-retail-prices",
             "vm",
-            "list-sku-pricings",
-            self.location.to_string().as_ref(),
-            self.sku.as_ref(),
+            "CAD",
+            "primary-meter",
+            &sanitize_windows_path_component(&self.location.to_string()),
+            &sanitize_windows_path_component(self.sku.as_str()),
         ]))
     }
 
     async fn run(self) -> eyre::Result<Self::Output> {
-        let url = format!(
-            "https://prices.azure.com/api/retail/prices?{filter}&meterRegion='primary'&currencyCode='CAD'",
-            filter = format_args!(
-                "$filter=serviceName eq '{service_name}' and tolower(armRegionName) eq tolower('{location}') and armSkuName eq '{sku}'",
-                service_name = "Virtual Machines",
-                location = self.location,
-                sku = self.sku
-            )
-        );
-        let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-        cmd.cancellation_safe();
-        cmd.args(["rest", "--method", "GET", "--url"]);
-        cmd.azure_file_arg("url.txt", url);
-        cmd.cache(self.cache_key());
-
-        #[derive(facet::Facet)]
-        #[allow(dead_code)]
-        struct Response {
-            #[facet(rename = "BillingCurrency")]
-            billing_currency: String,
-            #[facet(rename = "Count")]
-            count: usize,
-            #[facet(rename = "CustomerEntityId")]
-            customer_entity_id: String,
-            #[facet(rename = "CustomerEntityType")]
-            customer_entity_type: String,
-            #[facet(rename = "Items")]
-            items: Vec<Price>,
-            #[facet(rename = "NextPageLink")]
-            next_page_link: Option<String>,
+        let mut url = Url::parse("https://prices.azure.com/api/retail/prices")?;
+        url.query_pairs_mut()
+            .append_pair("api-version", "2023-01-01")
+            .append_pair("$filter", &format!(
+                "serviceName eq 'Virtual Machines' and armRegionName eq '{}' and armSkuName eq '{}'",
+                self.location.to_string().replace('\'', "''"),
+                self.sku.as_str().replace('\'', "''"),
+            ))
+            .append_pair("meterRegion", "'primary'")
+            .append_pair("currencyCode", "'CAD'");
+        let mut prices = Vec::new();
+        let mut page = 0_usize;
+        let mut visited = HashSet::new();
+        loop {
+            self.cancellation.bail_if_cancelled()?;
+            eyre::ensure!(
+                visited.insert(url.clone()),
+                "retail-price service returned a repeated continuation URL"
+            );
+            eyre::ensure!(
+                url.scheme() == "https" && url.host_str() == Some("prices.azure.com"),
+                "retail-price continuation must remain on the public pricing service"
+            );
+            let fingerprint = blake3::hash(url.as_str().as_bytes()).to_hex().to_string();
+            let response: RetailPriceListResponse =
+                RestRequest::from_method_and_url(Method::GET, url, &self.cancellation)?
+                    .cache(CacheKey::new(
+                        self.cache_key()
+                            .path
+                            .join("pages")
+                            .join(page.to_string())
+                            .join(fingerprint),
+                    ))
+                    .receive()
+                    .await?;
+            self.cancellation.bail_if_cancelled()?;
+            prices.extend(response.items);
+            let Some(next) = response.next_page_link else {
+                break;
+            };
+            url = next;
+            page += 1;
         }
-        let rtn = cmd.run::<Response>(&self.cancellation).await?.items;
-        Ok(rtn)
+        Ok(prices)
     }
 }
 

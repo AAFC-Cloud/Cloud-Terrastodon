@@ -1,5 +1,6 @@
 use crate::service_endpoint::list::AzureDevOpsServiceEndpointListArgs;
 use crate::service_endpoint::show::AzureDevOpsServiceEndpointShowArgs;
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 
@@ -20,10 +21,18 @@ pub enum AzureDevOpsServiceEndpointCommand {
 }
 
 impl AzureDevOpsServiceEndpointArgs {
-    pub async fn invoke(self, cancellation: &CancellationScope) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         match self.command {
-            AzureDevOpsServiceEndpointCommand::List(args) => args.invoke(cancellation).await?,
-            AzureDevOpsServiceEndpointCommand::Show(args) => args.invoke(cancellation).await?,
+            AzureDevOpsServiceEndpointCommand::List(args) => {
+                args.invoke(auth_context, cancellation).await?
+            }
+            AzureDevOpsServiceEndpointCommand::Show(args) => {
+                args.invoke(auth_context, cancellation).await?
+            }
         }
 
         Ok(())

@@ -152,8 +152,7 @@ impl CacheableCommand for EntraUserGetRequest<'_> {
 
         let mut request =
             RestRequest::from_method_and_url(Method::GET, self.url()?, &self.cancellation)?
-                .azure_auth_context(&self.auth_context.auth_context)
-                .tenant(self.auth_context.tenant_id);
+                .azure_auth_context(&self.auth_context);
         request.cache_key = Some(self.cache_key());
         request.receive::<EntraUser>().await
     }

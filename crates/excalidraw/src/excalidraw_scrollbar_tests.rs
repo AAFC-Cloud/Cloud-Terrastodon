@@ -1,3 +1,8 @@
+#![allow(
+    clippy::disallowed_types,
+    reason = "These editor tests construct raw scene fields at the document parsing boundary."
+)]
+
 use super::*;
 use facet_json::RawJson;
 

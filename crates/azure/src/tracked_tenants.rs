@@ -1,9 +1,9 @@
-use crate::az_account_list;
 use crate::get_default_tenant_id;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_auth::AzureDevOpsAuthContext;
 use cloud_terrastodon_auth::AzureTenantAuthContext;
+use cloud_terrastodon_auth::read_azure_cli_local_accounts;
 use cloud_terrastodon_auth_types::AuthSource;
 use cloud_terrastodon_azure_types::Account;
 use cloud_terrastodon_azure_types::AzureTenantAlias;
@@ -271,7 +271,7 @@ pub async fn remove_tracked_tenant_aliases(
 pub async fn discover_and_track_tenants(
     cancellation: &CancellationScope,
 ) -> eyre::Result<Vec<AzureTenantId>> {
-    let accounts = az_account_list(cancellation).await?;
+    let accounts = read_azure_cli_local_accounts(cancellation).await?;
     discover_tracked_tenants_from_accounts(accounts).await
 }
 

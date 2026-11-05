@@ -5,7 +5,6 @@ use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_test_suites;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::to_writer_pretty;
 use eyre::Result;
 use eyre::bail;
 use std::io::stdout;
@@ -55,7 +54,8 @@ impl AzureDevOpsTestSuiteShowArgs {
             .into_iter()
             .find(|s| s.name == self.suite || s.id.to_string() == self.suite)
         {
-            to_writer_pretty(stdout(), &suite)?;
+            facet_json::to_writer_std_pretty(stdout(), &suite)
+                .map_err(|error| eyre::eyre!("{error:?}"))?;
             Ok(())
         } else {
             bail!("No test suite found matching '{}'.", self.suite);

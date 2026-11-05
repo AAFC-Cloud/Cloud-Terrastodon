@@ -6,7 +6,6 @@ use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::to_writer_pretty;
 use eyre::Result;
 use std::io::Write;
 use std::io::stdout;
@@ -37,7 +36,8 @@ impl AzureDevOpsProjectListArgs {
             fetch_all_azure_devops_projects(&self.org, &azure_devops_auth_context, cancellation)
                 .await?;
         let mut out = stdout().lock();
-        to_writer_pretty(&mut out, &projects)?;
+        facet_json::to_writer_std_pretty(&mut out, &projects)
+            .map_err(|error| eyre::eyre!("{error:?}"))?;
         out.write_all(b"\n")?;
 
         Ok(())

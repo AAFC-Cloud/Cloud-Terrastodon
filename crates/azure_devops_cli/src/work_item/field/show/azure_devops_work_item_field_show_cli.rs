@@ -45,7 +45,8 @@ impl AzureDevOpsWorkItemFieldShowArgs {
             .fields
             .field(self.field.as_ref())?
             .ok_or_else(|| eyre::eyre!("Field is not present on the work item"))?;
-        cloud_terrastodon_command::to_writer_pretty(std::io::stdout(), &value)?;
+        facet_json::to_writer_std_pretty(std::io::stdout(), &value)
+            .map_err(|error| eyre::eyre!("{error:?}"))?;
         Ok(())
     }
 }

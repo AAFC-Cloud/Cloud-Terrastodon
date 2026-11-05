@@ -41,6 +41,13 @@ pub struct ArtifactEntry {
 }
 
 impl ArtifactEntry {
+    /// Reject this entry's selected payload after canonical decoding fails.
+    /// Independent pages and request variants remain reusable; this entry and
+    /// results that depend on it cannot reuse the rejected generation.
+    pub async fn reject(&self, cancellation: &CancellationScope) -> Result<()> {
+        self.cache.reject(&self.identity, cancellation).await
+    }
+
     /// Bind raw leaf artifacts to the enclosing canonical initializer.
     /// Publication freezes that attempt's child ledger and refuses durable reuse
     /// when semantic dependencies make its output an assembled result.

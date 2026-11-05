@@ -1,16 +1,22 @@
 use crate::ResourceGraphHelper;
 use cloud_terrastodon_auth::AzureTenantAuthContext;
+use cloud_terrastodon_azure_types::AzureResourceNameAvailability;
+use cloud_terrastodon_azure_types::AzureResourceNameAvailabilityBody;
 use cloud_terrastodon_azure_types::KeyVault;
 use cloud_terrastodon_azure_types::KeyVaultName;
+use cloud_terrastodon_azure_types::ResourceType;
+use cloud_terrastodon_azure_types::SubscriptionId;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CacheableCommand;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
+use http::Method;
 use std::borrow::Cow;
 use std::path::PathBuf;
+use std::time::Duration;
+use url::Url;
 
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Debug, Clone, facet::Facet)]
@@ -71,23 +77,39 @@ resources
 
 cloud_terrastodon_command::impl_cacheable_into_future!(KeyVaultListRequest<'a>, 'a);
 
-#[deprecated(note = "https://github.com/Azure/azure-cli/issues/31178")]
+/// Check vault-name availability with the selected subscription and tenant.
+/// Always checks the service; availability can change outside this application.
+///
+/// [Key Vault 2024-11-01](https://learn.microsoft.com/rest/api/keyvault/keyvault/vaults/check-name-availability?view=rest-keyvault-keyvault-2024-11-01).
 pub async fn is_key_vault_name_available(
     name: &KeyVaultName,
+    subscription_id: SubscriptionId,
+    auth_context: &AzureTenantAuthContext,
     cancellation: &CancellationScope,
 ) -> eyre::Result<bool> {
-    let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-    cmd.cancellation_safe();
-    cmd.args(["keyvault", "check-name", "--name", name]);
-    #[derive(facet::Facet)]
-    #[allow(unused)]
-    struct Response {
-        message: String,
-        #[facet(rename = "nameAvailable")]
-        name_available: bool,
-        reason: facet_json::RawJson<'static>,
-    }
-    let response = cmd.run::<Response>(cancellation).await?;
+    let url = Url::parse(&format!(
+        "https://management.azure.com/subscriptions/{subscription_id}/providers/Microsoft.KeyVault/checkNameAvailability?api-version=2024-11-01"
+    ))?;
+    let body = AzureResourceNameAvailabilityBody {
+        name: name.clone(),
+        resource_type: ResourceType::MICROSOFT_DOT_KEYVAULT_SLASH_VAULTS,
+    };
+    let response: AzureResourceNameAvailability =
+        RestRequest::from_method_and_url(Method::POST, url, cancellation)?
+            .azure_auth_context(auth_context)
+            .cancellation_safe()
+            .body(facet_json::to_string(&body)?)
+            .cache(CacheKey {
+                path: PathBuf::from("rest/arm/tenants")
+                    .join(auth_context.tenant_id.to_string())
+                    .join("subscriptions")
+                    .join(subscription_id.to_string())
+                    .join("key-vault-name-availability")
+                    .join(name.as_str()),
+                valid_for: Duration::ZERO,
+            })
+            .receive()
+            .await?;
     Ok(response.name_available)
 }
 

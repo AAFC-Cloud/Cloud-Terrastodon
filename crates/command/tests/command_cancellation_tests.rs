@@ -1,6 +1,8 @@
 #![cfg(test)]
 
-use cloud_terrastodon_command::CacheKey;
+mod support;
+
+use cloud_terrastodon_cache::CacheOperationOwner;
 use cloud_terrastodon_command::CancellationError;
 use cloud_terrastodon_command::CancellationToken;
 use cloud_terrastodon_command::CommandBuilder;
@@ -18,11 +20,9 @@ use std::io::ErrorKind;
 use std::panic::Location;
 use std::path::Path;
 use std::path::PathBuf;
-use std::sync::mpsc;
 use std::task::Poll;
 use std::time::Duration;
 use tokio::fs;
-use tokio::sync::oneshot;
 use tokio::time::sleep;
 use tokio::time::timeout;
 
@@ -58,20 +58,9 @@ impl Drop for ReleaseChildOnDrop {
 }
 
 fn fixture_command(directory: &Path) -> Result<CommandBuilder> {
-    let artifact_dir = directory.join("artifacts");
-    let cache_key = CacheKey {
-        path: artifact_dir.clone(),
-        valid_for: Duration::ZERO,
-    };
-    // Absolute keys use Path::join semantics. Reject any path normalization that
-    // would redirect even a failed command's artifacts outside this test's tempdir.
     ensure!(
         directory.is_absolute(),
         "fixture directory must be absolute"
-    );
-    ensure!(
-        cache_key.path_on_disk() == artifact_dir,
-        "fixture cache key must resolve inside its temporary directory"
     );
 
     let mut command = CommandBuilder::new(CommandKind::Pwsh);
@@ -85,7 +74,6 @@ fn fixture_command(directory: &Path) -> Result<CommandBuilder> {
     command.use_run_dir(directory);
     command.use_retry_behaviour(RetryBehaviour::Fail);
     command.use_timeout(LIMIT);
-    command.cache(cache_key);
     Ok(command)
 }
 
@@ -101,13 +89,16 @@ async fn wait_for_file(path: &Path) -> Result<()> {
 }
 
 async fn assert_fixture_artifacts(directory: &Path) -> Result<()> {
+    let outputs = support::files_named(directory, "stdout.json")?;
+    assert_eq!(outputs.len(), 1);
     assert_eq!(
-        fs::read_to_string(directory.join("stdout.json"))
-            .await?
-            .trim(),
+        fs::read_to_string(&outputs[0]).await?.trim(),
         r#"{"value":"completed"}"#
     );
-    assert_eq!(fs::read_to_string(directory.join("status.txt")).await?, "0");
+    assert_eq!(
+        fs::read_to_string(outputs[0].with_file_name("status.txt")).await?,
+        "0"
+    );
     Ok(())
 }
 
@@ -118,19 +109,17 @@ async fn default_command_finishes_process_mapping_and_artifacts_after_cancellati
     token
         .with_async_scope(|cancellation| async move {
             let directory = tempfile::tempdir()?;
+            let executor = support::executor_in(cancellation.clone(), &directory.path().join("artifacts"))?;
             let release = ReleaseChildOnDrop(directory.path().join("release"));
             let started = directory.path().join("started");
             let command = fixture_command(directory.path())?;
-            let (decoding, decode_started) = oneshot::channel();
-            let (finish_decode, may_decode) = mpsc::channel();
-            let mut running = Box::pin(cancellation.cancellable_scope(move |child| async move {
+            let mapped = std::cell::Cell::new(false);
+            let mapped = &mapped;
+            let mut running = Box::pin(executor.cancellable_scope(move |child| async move {
                 command
-                    .run_with_mapper::<ChildOutput, String, _>(
+                    .run_with_artifacts_and_mapper::<ChildOutput, String, _>(
                         move |output| {
-                            let _ = decoding.send(());
-                            may_decode
-                                .recv_timeout(LIMIT)
-                                .wrap_err("waiting for the test to release output mapping")?;
+                            mapped.set(true);
                             Ok(output.value)
                         },
                         &child,
@@ -150,20 +139,52 @@ async fn default_command_finishes_process_mapping_and_artifacts_after_cancellati
             .await;
             fs::write(&release.0, b"release").await?;
 
-            tokio::select! {
-                result = &mut running => { bail!("command finished before mapping was released: {result:?}"); },
-                result = timeout(LIMIT, decode_started) => result??,
-            }
-            poll_fn(|context| match Future::poll(running.as_mut(), context) {
-                Poll::Pending => Poll::Ready(()),
-                Poll::Ready(result) => panic!("default command abandoned output mapping: {result:?}"),
-            })
-            .await;
-            finish_decode.send(())?;
-
             assert_eq!(timeout(LIMIT, running).await??, "completed");
+            assert!(mapped.get());
             assert!(fs::try_exists(directory.path().join("completed")).await?);
             assert_fixture_artifacts(&directory.path().join("artifacts")).await?;
+            Ok(())
+        })
+        .await
+}
+
+#[tokio::test]
+async fn plain_default_command_finishes_process_and_mapping_after_cancellation() -> Result<()> {
+    let token = CancellationToken::new();
+    let requester = token.clone();
+    token
+        .with_async_scope(|cancellation| async move {
+            let directory = tempfile::tempdir()?;
+            let release = ReleaseChildOnDrop(directory.path().join("release"));
+            let started = directory.path().join("started");
+            let command = fixture_command(directory.path())?;
+            let mapped = std::cell::Cell::new(false);
+            let mapped = &mapped;
+            let mut running = Box::pin(cancellation.cancellable_scope(move |child| async move {
+                command
+                    .run_with_mapper::<ChildOutput, String, _>(
+                        move |output| {
+                            mapped.set(true);
+                            Ok(output.value)
+                        },
+                        &child,
+                    )
+                    .await
+            }));
+            tokio::select! {
+                result = &mut running => { bail!("command finished before fixture release: {result:?}"); },
+                result = wait_for_file(&started) => result?,
+            }
+            requester.request_cancel("cancel the plain command while it owns completion");
+            poll_fn(|context| match Future::poll(running.as_mut(), context) {
+                Poll::Pending => Poll::Ready(()),
+                Poll::Ready(result) => panic!("plain command abandoned its child: {result:?}"),
+            })
+            .await;
+            fs::write(&release.0, b"release").await?;
+            assert_eq!(timeout(LIMIT, running).await??, "completed");
+            assert!(mapped.get());
+            assert!(fs::try_exists(directory.path().join("completed")).await?);
             Ok(())
         })
         .await
@@ -223,7 +244,6 @@ async fn already_cancelled_commands_never_start_in_either_policy() -> Result<()>
                 "{error:#}"
             );
             assert!(!fs::try_exists(directory.path().join("started")).await?);
-            assert!(!fs::try_exists(directory.path().join("artifacts")).await?);
             Ok(())
         })
         .await
@@ -274,26 +294,25 @@ async fn polite_cache_hits_return_without_delaying_or_restarting_the_child() -> 
     CancellationToken::new()
         .with_async_scope(|cancellation| async move {
             let directory = tempfile::tempdir()?;
+            let executor =
+                support::executor_in(cancellation.clone(), &directory.path().join("artifacts"))?;
             let release = ReleaseChildOnDrop(directory.path().join("release"));
             let mut command = fixture_command(directory.path())?;
+            command.cache(support::key(Duration::MAX));
+            struct ChildOperation;
+            let owner = CacheOperationOwner::of::<ChildOperation>();
             fs::write(&release.0, b"release").await?;
-            let output = timeout(LIMIT, command.run::<ChildOutput>(&cancellation)).await??;
+            let output =
+                timeout(LIMIT, command.run_cached::<ChildOutput>(&executor, owner)).await??;
             assert_eq!(output.value, "completed");
 
-            let artifact_dir = directory.path().join("artifacts");
-            let cache_key = CacheKey {
-                path: artifact_dir.clone(),
-                valid_for: Duration::MAX,
-            };
-            ensure!(cache_key.path_on_disk() == artifact_dir);
-            command.cache(cache_key);
             fs::remove_file(directory.path().join("started")).await?;
             fs::remove_file(directory.path().join("completed")).await?;
 
             // A cache hit must bypass a delay longer than this bounded wait.
             let cached = timeout(
                 LIMIT,
-                command.run_polite::<ChildOutput>(Duration::from_secs(30), &cancellation),
+                command.run_cached_polite::<ChildOutput>(Duration::from_secs(30), &executor, owner),
             )
             .await??;
             assert_eq!(cached.value, "completed");
@@ -333,7 +352,6 @@ async fn cancellation_safe_polite_wait_can_stop_before_starting_the_child() -> R
                 "{error:#}"
             );
             assert!(!fs::try_exists(directory.path().join("started")).await?);
-            assert!(!fs::try_exists(directory.path().join("artifacts")).await?);
             Ok(())
         })
         .await
@@ -349,19 +367,23 @@ async fn rejected_output_preserves_source_caller_and_failure_artifacts_after_can
         token
             .with_async_scope(|cancellation| async move {
                 let directory = tempfile::tempdir()?;
+                let executor = support::executor_in(
+                    cancellation.clone(),
+                    &directory.path().join("artifacts"),
+                )?;
                 let release = ReleaseChildOnDrop(directory.path().join("release"));
                 let command = fixture_command(directory.path())?;
                 fs::write(&release.0, b"release").await?;
                 let caller = Location::caller();
                 let error = timeout(
                     LIMIT,
-                    cancellation.cancellable_scope(move |child| async move {
+                    executor.cancellable_scope(move |child| async move {
                         if validate {
                             // The explicit-caller API also supports a non-Send,
                             // non-'static validator borrowing local state.
                             let calls = RefCell::new(0);
                             let result = command
-                                .run_with_validator_from(
+                                .run_with_artifacts_and_validator_from(
                                     |_output: ChildOutput| {
                                         *calls.borrow_mut() += 1;
                                         requester.request_cancel("cancel during validation");
@@ -379,7 +401,7 @@ async fn rejected_output_preserves_source_caller_and_failure_artifacts_after_can
                             result.map(|_| ())
                         } else {
                             command
-                                .run_with_mapper::<ChildOutput, (), _>(
+                                .run_with_artifacts_and_mapper::<ChildOutput, (), _>(
                                     move |_output| {
                                         requester.request_cancel("cancel during mapping");
                                         Err(IoError::new(
@@ -415,13 +437,15 @@ async fn rejected_output_preserves_source_caller_and_failure_artifacts_after_can
                     );
                 }
 
-                let mut failures = fs::read_dir(directory.path().join("artifacts/failed")).await?;
-                let failure = failures
-                    .next_entry()
-                    .await?
-                    .expect("failure artifacts must exist");
-                assert!(failures.next_entry().await?.is_none());
-                assert_fixture_artifacts(&failure.path()).await?;
+                let root = directory.path().join("artifacts");
+                let failures = support::files_named(&root, "error.txt")?;
+                assert_eq!(failures.len(), 1);
+                assert!(
+                    fs::read_to_string(&failures[0])
+                        .await?
+                        .contains("synthetic child output rejected")
+                );
+                assert_fixture_artifacts(&root).await?;
                 Ok::<_, eyre::Report>(())
             })
             .await?;

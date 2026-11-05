@@ -20,6 +20,10 @@ use directories_next::BaseDirs;
 use eyre::Context;
 use eyre::OptionExt;
 use eyre::bail;
+#[allow(
+    clippy::disallowed_types,
+    reason = "Mirror index parsing reads version keys without interpreting their payloads."
+)]
 use facet_json::RawJson;
 use hcl::edit::structure::Block;
 use std::collections::HashMap;
@@ -93,6 +97,10 @@ impl ProviderManager {
         })
     }
 
+    #[allow(
+        clippy::disallowed_types,
+        reason = "Mirror index parsing reads version keys without interpreting payloads; this scope includes generated Facet codecs."
+    )]
     pub async fn list_cached_providers(&self) -> eyre::Result<HashSet<ProviderAvailability>> {
         let mut rtn = HashSet::default();
         if !matches!(

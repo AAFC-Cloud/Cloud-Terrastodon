@@ -94,7 +94,8 @@ impl AzureDevOpsWorkItemCreateArgs {
             suppress_notifications: self.suppress_notifications,
         }
         .await?;
-        cloud_terrastodon_command::to_writer_pretty(std::io::stdout(), &item)?;
+        facet_json::to_writer_std_pretty(std::io::stdout(), &item)
+            .map_err(|error| eyre::eyre!("{error:?}"))?;
         Ok(())
     }
 }

@@ -303,7 +303,6 @@ async fn process_generated_many(
         let auth_context = auth_context.clone();
         reflow_jobs.spawn({
             cancellation.cancellable_scope(move |cancellation| async move {
-                let cancellation = &cancellation;
                 let permit = cancellation
                     .cancellable_scope(|_cancellation| async {
                         eyre::Ok(rate_limit.acquire().await?)
@@ -317,7 +316,7 @@ async fn process_generated_many(
                 );
 
                 let hcl = discover_hcl(work_dir, DiscoveryDepth::Shallow).await?;
-                let hcl = ReflowHclRequest::new(hcl, Some(&auth_context), cancellation)
+                let hcl = ReflowHclRequest::new(hcl, Some(&auth_context), &cancellation)
                     .include_principal_id_comments(true)
                     .await?;
                 drop(permit);
@@ -361,7 +360,6 @@ async fn process_generated_many(
                                 let rate_limit = rate_limit.clone();
                                 write_jobs.spawn({
                                     task_parent.cancellable_scope(move |cancellation| async move {
-                                        let cancellation = &cancellation;
                                         let permit = cancellation
                                             .cancellable_scope(|_cancellation| async {
                                                 eyre::Ok(rate_limit.acquire().await?)
@@ -370,7 +368,7 @@ async fn process_generated_many(
                                         path_clone.ensure_parent_dir_exists().await?;
                                         HclWriter::new(path_clone)
                                             .format_on_write()
-                                            .overwrite(content, cancellation)
+                                            .overwrite(content, &cancellation)
                                             .await?;
                                         drop(permit);
                                         Ok(())
@@ -460,7 +458,6 @@ async fn clean_up_generated_files(
                 let generated_path = work_dir.join("generated.tf");
                 join_set.spawn(
                     cancellation.cancellable_scope(move |cancellation| async move {
-                        let cancellation = &cancellation;
                         let exists = cancellation
                             .cancellable_scope(|_cancellation| async {
                                 eyre::Ok(matches!(
@@ -630,21 +627,27 @@ async fn write_all_import_blocks(
         .iter()
         .map(|project| project.id.clone())
         .collect();
-    let mut azure_devops_project_repos =
-        fetch_azure_devops_repos_batch(&org_url, project_ids.clone(), cancellation).await?;
+    let mut azure_devops_project_repos = fetch_azure_devops_repos_batch(
+        &org_url,
+        project_ids.clone(),
+        &azure_devops_auth_context,
+        cancellation,
+    )
+    .await?;
 
     let mut azure_devops_project_teams = {
         async move {
             let mut work = ParallelFallibleWorkQueue::new("Fetching Azure DevOps teams", 10);
             for project_id in project_ids {
                 let org_url = org_url.clone();
+                let azure_devops_auth_context = azure_devops_auth_context.clone();
                 work.enqueue({
                     cancellation.cancellable_scope(move |cancellation| async move {
-                        let cancellation = &cancellation;
                         let teams = fetch_azure_devops_teams_for_project(
                             &org_url,
                             &project_id,
-                            cancellation,
+                            &azure_devops_auth_context,
+                            &cancellation,
                         );
                         teams.await.map(|teams| (project_id.clone(), teams))
                     })
@@ -677,7 +680,6 @@ async fn write_all_import_blocks(
                     let provider_blocks = &mut *provider_blocks;
                     phase_cancellation
                         .cancellable_scope(move |cancellation| async move {
-                            let cancellation = &cancellation;
                             info!("Writing Azure DevOps tf files");
                             for project in azure_devops_projects {
                                 cancellation.bail_if_cancelled()?;
@@ -715,12 +717,11 @@ async fn write_all_import_blocks(
                                     join_set.spawn({
                                         task_parent.cancellable_scope(
                                             move |cancellation| async move {
-                                                let cancellation = &cancellation;
                                                 let provider_manager = ProviderManager::try_new()?;
                                                 provider_manager
                                                     .write_default_provider_configs(
                                                         &project_creation_dir,
-                                                        cancellation,
+                                                        &cancellation,
                                                     )
                                                     .await?;
                                                 Ok(())
@@ -730,13 +731,12 @@ async fn write_all_import_blocks(
                                     join_set.spawn({
                                         task_parent.cancellable_scope(
                                             move |cancellation| async move {
-                                                let cancellation = &cancellation;
                                                 let provider_manager = ProviderManager::try_new()?;
 
                                                 provider_manager
                                                     .write_default_provider_configs(
                                                         &project_repos_dir,
-                                                        cancellation,
+                                                        &cancellation,
                                                     )
                                                     .await?;
                                                 Ok(())
@@ -746,12 +746,11 @@ async fn write_all_import_blocks(
                                     join_set.spawn({
                                         task_parent.cancellable_scope(
                                             move |cancellation| async move {
-                                                let cancellation = &cancellation;
                                                 let provider_manager = ProviderManager::try_new()?;
                                                 provider_manager
                                                     .write_default_provider_configs(
                                                         &project_teams_dir,
-                                                        cancellation,
+                                                        &cancellation,
                                                     )
                                                     .await?;
                                                 Ok(())
@@ -763,13 +762,12 @@ async fn write_all_import_blocks(
                                 let sender = all_in_one_imports_tx.clone();
                                 join_set.spawn({
                                     task_parent.cancellable_scope(move |cancellation| async move {
-                                        let cancellation = &cancellation;
                                         write_import_blocks(
                                             project_tf_file,
                                             vec![project],
                                             sender,
                                             strategy,
-                                            cancellation,
+                                            &cancellation,
                                         )
                                         .await?;
                                         Ok(())
@@ -779,13 +777,12 @@ async fn write_all_import_blocks(
                                 let sender = all_in_one_imports_tx.clone();
                                 join_set.spawn({
                                     task_parent.cancellable_scope(move |cancellation| async move {
-                                        let cancellation = &cancellation;
                                         write_import_blocks(
                                             repos_tf_file,
                                             repos,
                                             sender,
                                             strategy,
-                                            cancellation,
+                                            &cancellation,
                                         )
                                         .await?;
                                         Ok(())
@@ -795,13 +792,12 @@ async fn write_all_import_blocks(
                                 let sender = all_in_one_imports_tx.clone();
                                 join_set.spawn({
                                     task_parent.cancellable_scope(move |cancellation| async move {
-                                        let cancellation = &cancellation;
                                         write_import_blocks(
                                             teams_tf_file,
                                             teams,
                                             sender,
                                             strategy,
-                                            cancellation,
+                                            &cancellation,
                                         )
                                         .await?;
                                         Ok(())
@@ -848,11 +844,10 @@ async fn write_all_import_blocks(
                                 let sender = all_in_one_imports_tx.clone();
                                 join_set.spawn({
                                     task_parent.cancellable_scope(move |cancellation| async move {
-                                        let cancellation = &cancellation;
                                         if strategy.split() {
                                             HclWriter::new(&boilerplate_file)
                                                 .format_on_write()
-                                                .merge([azurerm_provider_block], cancellation)
+                                                .merge([azurerm_provider_block], &cancellation)
                                                 .await?;
                                         }
 
@@ -861,7 +856,7 @@ async fn write_all_import_blocks(
                                             [resource_group_import_block],
                                             sender,
                                             strategy,
-                                            cancellation,
+                                            &cancellation,
                                         )
                                         .await?;
                                         Ok(())
@@ -876,12 +871,11 @@ async fn write_all_import_blocks(
                                 let all_in_one_dir = all_in_one_dir.to_path_buf();
                                 join_set.spawn({
                                     task_parent.cancellable_scope(move |cancellation| async move {
-                                        let cancellation = &cancellation;
                                         let provider_manager = ProviderManager::try_new()?;
                                         provider_manager
                                             .write_default_provider_configs(
                                                 &all_in_one_dir,
-                                                cancellation,
+                                                &cancellation,
                                             )
                                             .await?;
                                         Ok(())

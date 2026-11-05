@@ -33,7 +33,8 @@ impl AzureDevOpsWorkItemTypeFieldListArgs {
             work_item_type: self.work_item_type,
         }
         .await?;
-        cloud_terrastodon_command::to_writer_pretty(std::io::stdout(), &values)?;
+        facet_json::to_writer_std_pretty(std::io::stdout(), &values)
+            .map_err(|error| eyre::eyre!("{error:?}"))?;
         Ok(())
     }
 }

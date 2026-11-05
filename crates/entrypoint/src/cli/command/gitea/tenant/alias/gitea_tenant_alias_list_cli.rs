@@ -1,4 +1,4 @@
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_gitea::GiteaTenantArgument;
 use cloud_terrastodon_gitea::GiteaTenantArgumentExt;
 use cloud_terrastodon_gitea::list_tracked_tenant_aliases;
@@ -14,18 +14,20 @@ pub struct GiteaTenantAliasListArgs {
 }
 
 impl GiteaTenantAliasListArgs {
-    pub async fn invoke(self, cancellation: &CancellationScope) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<()> {
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();
 
         if let Some(tenant) = self.tenant {
-            let tenant_url = tenant.resolve(cancellation).await?;
+            let tenant_url = tenant.resolve(executor).await?;
             let mut aliases = list_tracked_tenant_aliases_for(&tenant_url).await?;
             aliases.sort();
-            cloud_terrastodon_command::to_writer_pretty(&mut handle, &aliases)?;
+            facet_json::to_writer_std_pretty(&mut handle, &aliases)
+                .map_err(|error| eyre::eyre!("{error:?}"))?;
         } else {
             let aliases = list_tracked_tenant_aliases().await?;
-            cloud_terrastodon_command::to_writer_pretty(&mut handle, &aliases)?;
+            facet_json::to_writer_std_pretty(&mut handle, &aliases)
+                .map_err(|error| eyre::eyre!("{error:?}"))?;
         }
 
         handle.write_all(b"\n")?;

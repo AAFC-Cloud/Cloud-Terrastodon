@@ -103,7 +103,7 @@ impl TerraformApplyArgs {
         let entra_rbac =
             fetch_all_unified_role_definitions_and_assignments(&tenant_auth_context, cancellation)
                 .await?;
-        let current_user = fetch_current_user(cancellation).await?;
+        let current_user = fetch_current_user(&tenant_auth_context, cancellation).await?;
         let current_user_rbac = entra_rbac
             .iter_role_assignments()
             .filter_principal(&current_user.id)

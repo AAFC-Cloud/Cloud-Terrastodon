@@ -5,7 +5,7 @@ where
     T: Facet<'static>,
 {
     let facet_json = facet_json::to_string(value)?;
-    let _: facet_json::RawJson<'static> = facet_json::from_str(&facet_json)?;
+    let _: crate::ArbitraryJson = facet_json::from_str(&facet_json)?;
     Ok(())
 }
 

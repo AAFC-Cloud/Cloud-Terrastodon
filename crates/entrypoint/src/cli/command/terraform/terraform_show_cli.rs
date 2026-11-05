@@ -11,6 +11,10 @@ use cloud_terrastodon_hcl::TerraformChangeAction;
 use cloud_terrastodon_hcl::TerraformPlan;
 use eyre::ContextCompat;
 use eyre::Result;
+#[allow(
+    clippy::disallowed_types,
+    reason = "Terraform plan values use hcl_types' raw representation to avoid an azure_types dependency cycle."
+)]
 use facet_json::RawJson;
 use std::cell::RefCell;
 use std::collections::HashSet;
@@ -181,6 +185,10 @@ impl TerraformShowArgs {
     }
 }
 
+#[allow(
+    clippy::disallowed_types,
+    reason = "This decoder consumes the raw provider-dependent values exposed by hcl_types."
+)]
 fn extract_members_and_owners(
     azuread_group_data: Option<&RawJson<'static>>,
 ) -> Result<(HashSet<EntraPrincipalId>, HashSet<EntraPrincipalId>), eyre::Error> {

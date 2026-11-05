@@ -7,6 +7,7 @@
 
 mod anonymous_authentication_provider;
 mod authentication_provider;
+mod cache_invalidatable_request;
 mod cloud_terrastodon_executor;
 mod executable_request;
 mod execution_future;
@@ -17,6 +18,7 @@ mod unreachable_authentication_provider;
 
 pub use anonymous_authentication_provider::AnonymousAuthenticationProvider;
 pub use authentication_provider::AuthenticationProvider;
+pub use cache_invalidatable_request::CacheInvalidatableRequest;
 pub use cloud_terrastodon_executor::CloudTerrastodonExecutor;
 pub use executable_request::ExecutableRequest;
 pub use execution_future::ExecutionFuture;

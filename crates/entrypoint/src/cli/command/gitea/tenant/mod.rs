@@ -6,7 +6,7 @@ pub mod gitea_tenant_list_cli;
 pub mod gitea_tenant_show_cli;
 
 pub use alias::GiteaTenantAliasArgs;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 pub use gitea_tenant_add_cli::GiteaTenantAddArgs;
 pub use gitea_tenant_discover_cli::GiteaTenantDiscoverArgs;
@@ -38,14 +38,14 @@ pub enum GiteaTenantCommand {
 }
 
 impl GiteaTenantArgs {
-    pub async fn invoke(self, cancellation: &CancellationScope) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<()> {
         match self.command {
-            GiteaTenantCommand::List(args) => args.invoke(cancellation).await?,
-            GiteaTenantCommand::Discover(args) => args.invoke(cancellation).await?,
-            GiteaTenantCommand::Alias(args) => args.invoke(cancellation).await?,
-            GiteaTenantCommand::Add(args) => args.invoke(cancellation).await?,
-            GiteaTenantCommand::Show(args) => args.invoke(cancellation).await?,
-            GiteaTenantCommand::Forget(args) => args.invoke(cancellation).await?,
+            GiteaTenantCommand::List(args) => args.invoke(executor.cancellation()).await?,
+            GiteaTenantCommand::Discover(args) => args.invoke(executor).await?,
+            GiteaTenantCommand::Alias(args) => args.invoke(executor).await?,
+            GiteaTenantCommand::Add(args) => args.invoke(executor.cancellation()).await?,
+            GiteaTenantCommand::Show(args) => args.invoke(executor).await?,
+            GiteaTenantCommand::Forget(args) => args.invoke(executor).await?,
         }
         Ok(())
     }

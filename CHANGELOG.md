@@ -1,14 +1,30 @@
 # Unreleased
 
-- Add admitted, owned executor work without a `Sync` requirement or result sharing. Optional execution artifacts retain canonical owner/type checks with zero reuse; reusable parents reject uncached child work even when callers catch the error. Production Command integration remains pending.
+- Acquire the first browser Container Registry token through a consented Graph session followed by an ACR refresh exchange. Preserve the established session if the second exchange fails or is cancelled.
 
-- Bind raw artifacts to the executor's admitted work identity and active initializer, preserving disk freshness and invalidation when importing decoded results. Execute-every-time work cannot substitute disk results even with a positive cache lifetime; production Command/REST integration remains pending.
+- Invalidate cached local DevOps configuration after attempting a defaults change, including when command artifact persistence fails after the CLI has already changed the configuration.
 
-- Keep Command retries below cache lookup and isolate each subprocess attempt's adjacent input files. Own stdin writing alongside output collection and timeout; the shared typed-cache adapter remains pending.
+- Restore `.with_invalidation(bool)` on executor-bound requests. Keep `HasCacheKey` independent of invalidation policy: requests opt into their own key, declare several keys, or implement custom async invalidation. Composed default selections select their underlying request keys. Invalidation remains lazy and must succeed before execution begins.
+
+- Reuse `ArbitraryJson` for opaque Azure/DevOps values and preserve their generator constraints. Add a workspace Clippy reminder for direct `RawJson` usage, with documented codec and transport exceptions.
+
+- Add a tenant-bound REST authentication setter that transfers the Azure authentication context and tenant together; reuse it in Azure SDK callers and Azure DevOps bearer authentication.
+
+- Share Azure DevOps account/MSDN license types between combined selections, REST responses, and updates. Preserve existing license strings and aliases; match group rules by licensing source and reject unknown update selections before authentication.
+
+- Keep local Command execution and HCL/file workflows cancellation-only. Explicit artifact and cached Command APIs use the caller-owned executor; shared reads return one decoded `Arc` per canonical owner/type. Preserve cancellation, retries, caller validation, and managed failure artifacts; reject bad disk values without clearing unrelated pages. Remove implicit Azure CLI login retries.
+
+- Replace remaining Azure/DevOps service CLI operations with explicit-context REST, including Key Vault metadata and ACR repository/tag reads with isolated token exchanges. Pass cancellation scopes through local Terraform, menu, and GUI workflows; retain executors for managed requests. Local configuration inspection supports fresh scope-only reads and explicit cached requests. Gitea selects an explicit tea profile and executes independently until external credential generations can partition reuse. REST's executor-cache migration follows separately.
+
+- Add admitted, owned executor work without a `Sync` requirement or result sharing. Optional execution artifacts retain canonical owner/type checks with zero reuse; reusable parents reject uncached child work even when callers catch the error.
+
+- Bind raw artifacts to the executor's admitted work identity and active initializer, preserving disk freshness and invalidation when importing decoded results. Execute-every-time work cannot substitute disk results even with a positive cache lifetime; REST integration remains pending.
+
+- Keep Command retries below cache lookup and isolate each subprocess attempt's adjacent input files. Own stdin writing alongside output collection and timeout.
 
 - Let `WorkCache` own temporary directories through `temporary()` and `from_tempdir()`. Cleanup follows the last shared cache or artifact owner; path-only caches retain caller-managed storage.
 
-- Add `cloud_terrastodon_execution` with explicitly bound request execution, shared cache/authentication handles, linked cancellation scopes, and an injected credential-provider interface. `AppContext::executor()` binds the current app context without credential discovery or cache I/O; existing auth/cancellation fields remain available. Production Command/REST cache cutover remains a later migration step.
+- Add `cloud_terrastodon_execution` with explicitly bound request execution, shared cache/authentication handles, linked cancellation scopes, and an injected credential-provider interface. `AppContext::executor()` binds the current app context without credential discovery or cache I/O; existing auth/cancellation fields remain available. The REST cache cutover remains a later migration step.
 
 - Bind registry invocation and UI jobs to the explicit executor. `register_executable_request!` supports data-only requests and shared outputs; offline discovery does not acquire credentials or execute requests. Each UI job retains independent cancellation. The separately tagged legacy `IntoFuture` callback remains until its SDK and local request callers migrate.
 
@@ -26,13 +42,13 @@
 
 - Prohibit production `unwrap` and `expect` with workspace Clippy checks, retaining test exemptions. Fallible initialization, conversions, and execution helpers return errors through their callers. Callers must now handle `Result` from command program/summary resolution, authorization-header conversion, Graph consistency-header setup, organization URL and cost-query constructors, terminal startup, and diagram generation.
 
-- Add hierarchical generation invalidation and transitive dependency tracking to the explicit cache owner, including disk quarantine after failed invalidation and original-freshness proofs for decoded artifacts. Production adapter cutover remains pending.
+- Add hierarchical generation invalidation and transitive dependency tracking to the explicit cache owner, including disk quarantine after failed invalidation and original-freshness proofs for decoded artifacts. REST adapter cutover remains pending.
 
-- Add per-entry initialization and decoded `Arc` reuse to the explicit cache owner, with caller-owned cancellation, retry, and wait-cycle detection. Production adapter cutover remains pending.
+- Add per-entry initialization and decoded `Arc` reuse to the explicit cache owner, with caller-owned cancellation, retry, and wait-cycle detection. REST adapter cutover remains pending.
 
-- Add isolated raw artifact storage to the explicit cache owner: unique input workspaces, verified immutable payloads, guarded publication, sensitive-output exclusion, and freshness preserved through disk reloads. Command and REST cutover remains pending.
+- Add isolated raw artifact storage to the explicit cache owner: unique input workspaces, verified immutable payloads, guarded publication, sensitive-output exclusion, and freshness preserved through disk reloads. REST cutover remains pending.
 
-- Add `cloud_terrastodon_cache` foundations with explicit roots, validated logical scopes, and operation/output ownership checks. Command and REST continue using their existing caches until the coordinated lifecycle migration.
+- Add `cloud_terrastodon_cache` foundations with explicit roots, validated logical scopes, and operation/output ownership checks. REST continues using its existing cache until its coordinated lifecycle migration.
 
 - Make `cloud_terrastodon_registry` the pure reflection, constructor, conversion, and planning foundation; move request registration and invocation to `cloud_terrastodon_registry_execution`. Remove `cloud_terrastodon_registry_values` and compatibility re-exports. Copyable `Function` enum handles reference runtime, pure, or arbitrary registrations directly, preserving identity without adapter allocation or lookup.
 

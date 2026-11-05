@@ -22,3 +22,5 @@ pub use rest_response_body_proxy::*;
 pub use rest_response_headers::*;
 pub use rest_service::*;
 pub use tenant_inference::*;
+
+mod container_registry_request_execution;

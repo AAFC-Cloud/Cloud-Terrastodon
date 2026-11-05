@@ -1,3 +1,8 @@
+#![allow(
+    clippy::disallowed_types,
+    reason = "Provider metadata needs raw JSON without an azure_types dependency cycle; the module scope includes generated Facet codecs."
+)]
+
 use crate::version::SemVer;
 use facet_json::RawJson;
 

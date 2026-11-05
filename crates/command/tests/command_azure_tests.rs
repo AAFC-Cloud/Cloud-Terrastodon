@@ -1,28 +1,26 @@
 #![cfg(test)]
 
+mod support;
+
 use bstr::ByteSlice;
-use cloud_terrastodon_command::CacheKey;
+use cloud_terrastodon_cache::CacheOperationOwner;
 use cloud_terrastodon_command::CancellationToken;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
-use cloud_terrastodon_command::CommandOutput;
-use cloud_terrastodon_command::RetryBehaviour;
-use eyre::Context;
 use eyre::Result;
-use eyre::bail;
-use std::path::PathBuf;
-use std::thread;
+use std::sync::Arc;
 use std::time::Duration;
-use tokio::time::Instant;
-use tokio::time::sleep_until;
+
+struct AzureCliVersion;
 
 #[tokio::test]
-async fn it_works() -> Result<()> {
+#[ignore = "requires a configured local Azure CLI executable; performs no service request"]
+async fn local_cli_metadata_uses_explicit_execution() -> Result<()> {
     CancellationToken::new()
-        .with_async_scope(|cancellation| async move {
+        .with_async_scope(|scope| async move {
             let result = CommandBuilder::new(CommandKind::AzureCLI)
                 .args(["--version"])
-                .run_raw(&cancellation)
+                .run_raw(&scope)
                 .await?;
             assert!(result.success());
             assert!(!result.stdout.trim().is_empty());
@@ -32,215 +30,19 @@ async fn it_works() -> Result<()> {
 }
 
 #[tokio::test]
-async fn it_works_cached() -> Result<()> {
+#[ignore = "requires a configured local Azure CLI executable; performs no service request"]
+async fn local_cli_metadata_can_share_a_canonical_raw_result() -> Result<()> {
     CancellationToken::new()
-        .with_async_scope(|cancellation| async move {
-            let result = CommandBuilder::new(CommandKind::AzureCLI)
-                .args(["--version"])
-                .cache(CacheKey::new(PathBuf::from("version")))
-                .run_raw(&cancellation)
-                .await?;
-            assert!(result.success());
-            assert!(!result.stdout.trim().is_empty());
-            Ok(())
-        })
-        .await
-}
-
-#[tokio::test]
-async fn it_works_azure() -> Result<()> {
-    CancellationToken::new()
-        .with_async_scope(|cancellation| async move {
-            let result = CommandBuilder::new(CommandKind::AzureCLI)
-                .args(["graph", "query", "--graph-query"])
-                .use_retry_behaviour(RetryBehaviour::Fail)
-                .azure_file_arg(
-                    "query.kql",
-                    r#"
-resourcecontainers
-| summarize count()
-"#
-                    .to_string(),
-                )
-                .run_raw(&cancellation)
-                .await?;
-            assert!(result.success());
-            assert!(!result.stdout.trim().is_empty());
-            Ok(())
-        })
-        .await
-}
-
-#[tokio::test]
-async fn it_works_azure_cached() -> Result<()> {
-    CancellationToken::new()
-        .with_async_scope(|cancellation| async move {
-            let result = CommandBuilder::new(CommandKind::AzureCLI)
-                .args(["graph", "query", "--graph-query"])
-                .use_retry_behaviour(RetryBehaviour::Fail)
-                .azure_file_arg(
-                    "query.kql",
-                    r#"
-resourcecontainers
-| summarize count()
-"#
-                    .to_string(),
-                )
-                .cache(CacheKey::new(PathBuf::from_iter([
-                    "az",
-                    "graph",
-                    "query",
-                    "count-resource-containers",
-                ])))
-                .run_raw(&cancellation)
-                .await?;
-            assert!(result.success());
-            assert!(!result.stdout.trim().is_empty());
-            Ok(())
-        })
-        .await
-}
-
-#[tokio::test]
-async fn it_works_azure_cached_valid_for() -> Result<()> {
-    CancellationToken::new()
-        .with_async_scope(|cancellation| async move {
-            let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-            cmd.use_retry_behaviour(RetryBehaviour::Fail);
-            cmd.args(["graph", "query", "--graph-query"]);
-            cmd.azure_file_arg(
-                "query.kql",
-                r#"
-Resources	
-| limit 1
-| project CurrentTime = now()
-"#
-                .to_string(),
-            );
-            let period = Duration::from_secs(5);
-            cmd.cache(CacheKey {
-                path: PathBuf::from_iter(["az", "resource_graph", "current-time"]),
-                valid_for: period,
-            });
-
-            // we don't want anything between our `await` calls that could mess with the timing
-            thread::Builder::new().spawn(move || {
-                tokio::runtime::Runtime::new()
-                    .unwrap()
-                    .block_on(async {
-                        // fetch and cache
-                        let t1 = Instant::now();
-                        let result1 = cmd.run_raw(&cancellation).await?;
-
-                        // ensure there is at least 1 second remaining before cache expiry
-                        let t2 = Instant::now();
-                        assert!(t2 + Duration::from_secs(1) < t1 + period);
-
-                        // fetch using cache
-                        let result2 = cmd.run_raw(&cancellation).await?;
-
-                        // sleep until cache expired
-                        sleep_until(t2 + period + Duration::from_secs(1)).await;
-                        let t3 = Instant::now();
-                        assert!(t3 > t2 + period);
-
-                        // fetch new results without using cache
-                        let result3 = cmd.run_raw(&cancellation).await?;
-
-                        // ensure first two match and don't match third
-                        assert_eq!(result1, result2);
-                        assert_ne!(result1, result3);
-                        Ok::<(), eyre::Error>(())
-                    })
-                    .unwrap();
-            })?;
-            Ok(())
-        })
-        .await
-}
-
-#[tokio::test]
-async fn user() -> Result<()> {
-    CancellationToken::new()
-        .with_async_scope(|cancellation| async move {
-            let result = CommandBuilder::new(CommandKind::AzureCLI)
-                .args(["ad", "signed-in-user", "show"])
-                .use_retry_behaviour(RetryBehaviour::Fail)
-                .run_raw(&cancellation)
-                .await;
-            let result = result?;
-            assert!(result.success());
-            assert!(!result.stdout.trim().is_empty());
-            Ok(())
-        })
-        .await
-}
-
-#[tokio::test]
-#[ignore]
-async fn login() -> Result<()> {
-    CancellationToken::new().with_async_scope(|cancellation| async move {
-    if std::env::var("CLOUD_TERRASTODON_REAUTH")
-        .unwrap_or_default()
-        .to_uppercase()
-        == "DENY"
-    {
-        bail!(
-            "Reauthentication is disabled by the CLOUD_TERRASTODON_REAUTH environment variable. Please refresh your credentials and try again."
-        );
-    }
-    let result = CommandBuilder::new(CommandKind::AzureCLI)
-        .args(["login"])
-        .run_raw(&cancellation)
-        .await?;
-    assert!(result.success());
-    Ok(())
-}).await
-}
-
-#[tokio::test]
-#[ignore]
-async fn logout() -> Result<()> {
-    CancellationToken::new()
-        .with_async_scope(|cancellation| async move {
-            let result = CommandBuilder::new(CommandKind::AzureCLI)
-                .args(["logout"])
-                .run_raw(&cancellation)
-                .await;
-            if let Ok(output) = result {
-                assert!(output.success());
-            }
-            Ok(())
-        })
-        .await
-}
-#[tokio::test]
-#[ignore]
-async fn reauth() -> Result<()> {
-    CancellationToken::new()
-        .with_async_scope(|cancellation| async move {
-            let logout_result = CommandBuilder::new(CommandKind::AzureCLI)
-                .args(["logout"])
-                .run_raw(&cancellation)
-                .await;
-            match logout_result {
-                Ok(msg) => {
-                    assert!(msg.success());
-                }
-                Err(e) => match e.downcast_ref::<CommandOutput>() {
-                    Some(CommandOutput { stderr, .. })
-                        if stderr.contains_str("ERROR: There are no active accounts.") => {}
-                    _ => {
-                        return Err(e).context("unknown logout failure");
-                    }
-                },
-            }
-            let result = CommandBuilder::new(CommandKind::AzureCLI)
-                .args(["ad", "signed-in-user", "show"])
-                .run_raw(&cancellation)
-                .await?;
-            assert!(result.success());
-            assert!(!result.stdout.trim().is_empty());
+        .with_async_scope(|scope| async move {
+            let executor = support::executor(scope)?;
+            let mut command = CommandBuilder::new(CommandKind::AzureCLI);
+            command.args(["--version"]);
+            command.cache(support::key(Duration::from_secs(60)));
+            let owner = CacheOperationOwner::of::<AzureCliVersion>();
+            let first = command.run_raw_cached(&executor, owner).await?;
+            let second = command.run_raw_cached(&executor, owner).await?;
+            assert!(first.success());
+            assert!(Arc::ptr_eq(&first, &second));
             Ok(())
         })
         .await

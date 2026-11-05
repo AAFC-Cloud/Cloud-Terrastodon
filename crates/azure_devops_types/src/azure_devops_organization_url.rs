@@ -267,13 +267,16 @@ impl AzureDevOpsOrganizationUrl {
 
     /// Build a REST endpoint for a cloud API area's service host, encoding query
     /// parameters with [`Url`]. Legacy organization URLs retain their host and
-    /// collection prefix. Server collection scopes do not have a cloud
-    /// organization name and return an error.
+    /// collection prefix. Core service routes (the `dev.azure.com` host) also
+    /// preserve Server collection URLs. Cloud-only API areas still require a
+    /// cloud organization name.
     ///
     /// See Microsoft's [Azure DevOps service URL forms](https://learn.microsoft.com/en-us/azure/devops/extend/develop/work-with-urls?view=azure-devops).
     #[track_caller]
     pub fn api_url(&self, host: &str, path: &str, query: &[(&str, &str)]) -> Result<Url> {
-        let base = if self.is_visual_studio_com_format() {
+        let base = if self.is_visual_studio_com_format()
+            || (host == "dev.azure.com" && self.collection_name().is_some())
+        {
             self.expanded_form()
         } else {
             format!("https://{host}/{}", self.organization_name()?.as_ref())
@@ -474,6 +477,24 @@ cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsOrganizationUrl);
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn core_api_preserves_server_scope_but_cloud_only_areas_reject_it() -> Result<()> {
+        let collection: AzureDevOpsOrganizationUrl =
+            "http://server.example.invalid:8080/tfs%20instance/My%20Collection".parse()?;
+        let url =
+            collection.api_url("dev.azure.com", "_apis/projects", &[("api-version", "7.1")])?;
+        assert_eq!(url.scheme(), "http");
+        assert_eq!(url.host_str(), Some("server.example.invalid"));
+        assert_eq!(url.port(), Some(8080));
+        assert_eq!(url.path(), "/tfs%20instance/My%20Collection/_apis/projects");
+        assert!(
+            collection
+                .api_url("vssps.dev.azure.com", "_apis/graph/groups", &[])
+                .is_err()
+        );
+        Ok(())
+    }
 
     #[test]
     fn test_dev_azure_com_format() -> Result<()> {

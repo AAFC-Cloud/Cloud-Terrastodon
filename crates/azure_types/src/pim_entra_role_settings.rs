@@ -2,7 +2,6 @@ use crate::ArbitraryJson;
 use arbitrary::Arbitrary;
 use eyre::Result;
 use eyre::bail;
-use facet_json::RawJson;
 use std::time::Duration;
 use uuid::Uuid;
 
@@ -75,10 +74,9 @@ impl TryFrom<&PimEntraRoleSettingsRule> for PimEntraRoleSettingsRuleProxy {
 
     fn try_from(value: &PimEntraRoleSettingsRule) -> Result<Self, Self::Error> {
         let (rule_identifier, setting) = match value {
-            PimEntraRoleSettingsRule::ExpirationRule(setting) => (
-                "ExpirationRule",
-                RawJson::from_owned(facet_json::to_string(setting)?).into(),
-            ),
+            PimEntraRoleSettingsRule::ExpirationRule(setting) => {
+                ("ExpirationRule", ArbitraryJson::try_from_facet(setting)?)
+            }
             PimEntraRoleSettingsRule::MfaRule(setting) => ("MfaRule", setting.clone()),
             PimEntraRoleSettingsRule::JustificationRule(setting) => {
                 ("JustificationRule", setting.clone())

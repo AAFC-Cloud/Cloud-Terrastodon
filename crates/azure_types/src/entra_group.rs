@@ -1,3 +1,4 @@
+use crate::ArbitraryJson;
 use crate::EntraGroupDisplayName;
 use crate::EntraGroupId;
 use arbitrary::Arbitrary;
@@ -8,14 +9,13 @@ use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
-use facet_json::RawJson;
 
 /// An Entra [group](https://learn.microsoft.com/en-us/graph/api/resources/group?view=graph-rest-1.0)
 /// returned by Microsoft Graph v1.0.
 #[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct EntraGroup {
-    pub classification: Option<RawJson<'static>>,
+    pub classification: Option<ArbitraryJson>,
     pub created_date_time: Option<DateTime<Utc>>,
     pub creation_options: Vec<String>,
     pub deleted_date_time: Option<DateTime<Utc>>,
@@ -28,12 +28,12 @@ pub struct EntraGroup {
     pub mail: Option<String>,
     pub mail_enabled: Option<bool>,
     pub mail_nickname: Option<String>,
-    pub membership_rule: Option<RawJson<'static>>,
-    pub membership_rule_processing_state: Option<RawJson<'static>>,
+    pub membership_rule: Option<ArbitraryJson>,
+    pub membership_rule_processing_state: Option<ArbitraryJson>,
     pub on_premises_domain_name: Option<String>,
     pub on_premises_last_sync_date_time: Option<DateTime<Utc>>,
     pub on_premises_net_bios_name: Option<String>,
-    pub on_premises_provisioning_errors: Vec<RawJson<'static>>,
+    pub on_premises_provisioning_errors: Vec<ArbitraryJson>,
     pub on_premises_sam_account_name: Option<String>,
     pub on_premises_security_identifier: Option<String>,
     pub on_premises_sync_enabled: Option<bool>,
@@ -45,15 +45,15 @@ pub struct EntraGroup {
     pub resource_provisioning_options: Vec<String>,
     pub security_enabled: bool,
     pub security_identifier: String,
-    pub service_provisioning_errors: Vec<RawJson<'static>>,
-    pub theme: Option<RawJson<'static>>,
+    pub service_provisioning_errors: Vec<ArbitraryJson>,
+    pub theme: Option<ArbitraryJson>,
     pub unique_name: Option<String>,
     pub visibility: Option<String>,
 }
 impl<'a> Arbitrary<'a> for EntraGroup {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
-            classification: arbitrary_optional_raw_json(u)?,
+            classification: arbitrary_optional_json(u)?,
             created_date_time: Option::<DateTime<Utc>>::arbitrary(u)?,
             creation_options: Vec::<String>::arbitrary(u)?,
             deleted_date_time: Option::<DateTime<Utc>>::arbitrary(u)?,
@@ -66,12 +66,12 @@ impl<'a> Arbitrary<'a> for EntraGroup {
             mail: Option::<String>::arbitrary(u)?,
             mail_enabled: Option::<bool>::arbitrary(u)?,
             mail_nickname: Option::<String>::arbitrary(u)?,
-            membership_rule: arbitrary_optional_raw_json(u)?,
-            membership_rule_processing_state: arbitrary_optional_raw_json(u)?,
+            membership_rule: arbitrary_optional_json(u)?,
+            membership_rule_processing_state: arbitrary_optional_json(u)?,
             on_premises_domain_name: Option::<String>::arbitrary(u)?,
             on_premises_last_sync_date_time: Option::<DateTime<Utc>>::arbitrary(u)?,
             on_premises_net_bios_name: Option::<String>::arbitrary(u)?,
-            on_premises_provisioning_errors: arbitrary_raw_json_vec(u)?,
+            on_premises_provisioning_errors: arbitrary_json_vec(u)?,
             on_premises_sam_account_name: Option::<String>::arbitrary(u)?,
             on_premises_security_identifier: Option::<String>::arbitrary(u)?,
             on_premises_sync_enabled: Option::<bool>::arbitrary(u)?,
@@ -83,37 +83,29 @@ impl<'a> Arbitrary<'a> for EntraGroup {
             resource_provisioning_options: Vec::<String>::arbitrary(u)?,
             security_enabled: bool::arbitrary(u)?,
             security_identifier: String::arbitrary(u)?,
-            service_provisioning_errors: arbitrary_raw_json_vec(u)?,
-            theme: arbitrary_optional_raw_json(u)?,
+            service_provisioning_errors: arbitrary_json_vec(u)?,
+            theme: arbitrary_optional_json(u)?,
             unique_name: Option::<String>::arbitrary(u)?,
             visibility: Option::<String>::arbitrary(u)?,
         })
     }
 }
 
-fn arbitrary_optional_raw_json<'a>(
+fn arbitrary_optional_json<'a>(
     u: &mut arbitrary::Unstructured<'a>,
-) -> arbitrary::Result<Option<RawJson<'static>>> {
-    Option::<String>::arbitrary(u)?
-        .map(|value| {
-            facet_json::to_string(&value)
-                .map(RawJson::from_owned)
-                .map_err(|_| arbitrary::Error::IncorrectFormat)
-        })
-        .transpose()
+) -> arbitrary::Result<Option<ArbitraryJson>> {
+    Ok(Option::<String>::arbitrary(u)?
+        .as_deref()
+        .map(ArbitraryJson::from_text))
 }
 
-fn arbitrary_raw_json_vec<'a>(
+fn arbitrary_json_vec<'a>(
     u: &mut arbitrary::Unstructured<'a>,
-) -> arbitrary::Result<Vec<RawJson<'static>>> {
-    Vec::<String>::arbitrary(u)?
+) -> arbitrary::Result<Vec<ArbitraryJson>> {
+    Ok(Vec::<String>::arbitrary(u)?
         .into_iter()
-        .map(|value| {
-            facet_json::to_string(&value)
-                .map(RawJson::from_owned)
-                .map_err(|_| arbitrary::Error::IncorrectFormat)
-        })
-        .collect()
+        .map(|value| ArbitraryJson::from_text(&value))
+        .collect())
 }
 impl std::fmt::Display for EntraGroup {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

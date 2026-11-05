@@ -4,19 +4,21 @@ use crate::GiteaRepoId;
 use crate::gitea_api_support::dedupe_repositories;
 use crate::try_fetch_gitea_repository_by_id;
 use arbitrary::Arbitrary;
-use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CacheableCommand;
-use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_cache::CacheKey;
+use cloud_terrastodon_cache::CacheScope;
+use cloud_terrastodon_cache::HasCacheKey;
+use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
+use cloud_terrastodon_execution::RequestExecution;
 use std::borrow::Cow;
-use std::path::PathBuf;
+use std::time::Duration;
 
 #[must_use = "This is a future request, you must .await it"]
 #[derive(Debug, Clone, facet::Facet)]
 #[facet(traits(Clone))]
 pub struct GiteaRepoScanByIdRequest<'a> {
-    #[facet(skip_serializing)]
-    pub cancellation: CancellationScope,
     pub tenant: Cow<'a, GiteaInstanceUrl>,
     pub start_id: u64,
     pub end_id: u64,
@@ -26,20 +28,18 @@ pub fn fetch_gitea_repositories_by_id_range<'a>(
     tenant: &'a GiteaInstanceUrl,
     start_id: u64,
     end_id: u64,
-    cancellation: &CancellationScope,
-) -> GiteaRepoScanByIdRequest<'a> {
-    GiteaRepoScanByIdRequest {
-        cancellation: cancellation.clone(),
+    executor: &'a CloudTerrastodonExecutor,
+) -> RequestExecution<'a, GiteaRepoScanByIdRequest<'a>> {
+    executor.execute(GiteaRepoScanByIdRequest {
         tenant: Cow::Borrowed(tenant),
         start_id,
         end_id,
-    }
+    })
 }
 
 impl<'a> Arbitrary<'a> for GiteaRepoScanByIdRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
-            cancellation: CancellationScope::unbound(),
             tenant: Cow::Owned(GiteaInstanceUrl::arbitrary(u)?),
             start_id: u64::arbitrary(u)?,
             end_id: u64::arbitrary(u)?,
@@ -47,45 +47,53 @@ impl<'a> Arbitrary<'a> for GiteaRepoScanByIdRequest<'static> {
     }
 }
 
-#[async_trait]
-impl<'a> CacheableCommand for GiteaRepoScanByIdRequest<'a> {
-    type Output = Vec<GiteaRepo>;
+impl InvalidatesOwnCacheKey for GiteaRepoScanByIdRequest<'_> {}
 
-    fn cache_key(&self) -> CacheKey {
-        CacheKey::new(PathBuf::from_iter([
-            "tea",
-            self.tenant.storage_key().as_str(),
-            "repositories",
-            "scan-by-id",
-            self.start_id.to_string().as_str(),
-            self.end_id.to_string().as_str(),
-        ]))
-    }
-
-    async fn run(self) -> eyre::Result<Self::Output> {
-        let mut repositories = Vec::new();
-        for repo_id in self.start_id..=self.end_id {
-            self.cancellation.bail_if_cancelled()?;
-            if let Some(repo) = try_fetch_gitea_repository_by_id(
-                self.tenant.as_ref(),
-                GiteaRepoId::new(repo_id),
-                &self.cancellation,
-            )
-            .await?
-            {
-                repositories.push(repo);
-            }
-        }
-        self.cancellation.bail_if_cancelled()?;
-        Ok(dedupe_repositories(repositories))
+impl HasCacheKey for GiteaRepoScanByIdRequest<'_> {
+    fn cache_key(&self) -> eyre::Result<CacheKey> {
+        Ok(CacheKey {
+            scope: CacheScope::try_from_components([
+                "tea",
+                self.tenant.storage_key().as_str(),
+                "repositories",
+                "scan-by-id",
+                self.start_id.to_string().as_str(),
+                self.end_id.to_string().as_str(),
+            ])?,
+            valid_for: Duration::ZERO,
+        })
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(GiteaRepoScanByIdRequest<'a>, 'a);
+impl ExecutableRequest for GiteaRepoScanByIdRequest<'_> {
+    type Output = Vec<GiteaRepo>;
+    fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
+    where
+        Self: 'exec,
+    {
+        Box::pin(async move {
+            let mut repositories = Vec::new();
+            for repo_id in self.start_id..=self.end_id {
+                executor.cancellation().bail_if_cancelled()?;
+                if let Some(repo) = try_fetch_gitea_repository_by_id(
+                    self.tenant.as_ref(),
+                    GiteaRepoId::new(repo_id),
+                    &executor,
+                )
+                .await?
+                {
+                    repositories.push(repo);
+                }
+            }
+            executor.cancellation().bail_if_cancelled()?;
+            Ok(dedupe_repositories(repositories))
+        })
+    }
+}
 
 cloud_terrastodon_registry::register_thing!(GiteaRepoScanByIdRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(GiteaRepoScanByIdRequest<'static>);
-cloud_terrastodon_registry_execution::register_into_future!(
+cloud_terrastodon_registry_execution::register_executable_request!(
     GiteaRepoScanByIdRequest<'static> => Vec<GiteaRepo>,
     effects = [Read]
 );

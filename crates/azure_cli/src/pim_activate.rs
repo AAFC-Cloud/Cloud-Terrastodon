@@ -261,7 +261,7 @@ pub async fn pim_activate_azurerm(
 
     let justification = prompt_line("Justification: ").await?;
 
-    let principal_id = fetch_current_user(cancellation).await?.id;
+    let principal_id = fetch_current_user(auth_context, cancellation).await?.id;
     for role in chosen_roles.iter() {
         info!(
             "Activating {role} for {} at: ",

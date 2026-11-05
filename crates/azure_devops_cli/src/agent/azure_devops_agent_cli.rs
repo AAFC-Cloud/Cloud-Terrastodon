@@ -27,7 +27,9 @@ impl AzureDevOpsAgentArgs {
         cancellation: &CancellationScope,
     ) -> Result<()> {
         match self.command {
-            AzureDevOpsAgentCommand::Package(args) => args.invoke(cancellation).await?,
+            AzureDevOpsAgentCommand::Package(args) => {
+                args.invoke(auth_context, cancellation).await?
+            }
             AzureDevOpsAgentCommand::Pool(args) => args.invoke(auth_context, cancellation).await?,
         }
 

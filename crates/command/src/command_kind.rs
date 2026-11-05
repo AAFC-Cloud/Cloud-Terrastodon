@@ -13,7 +13,8 @@ use std::ffi::OsString;
 use tokio::process::Command;
 use tokio::sync::OnceCell;
 
-#[derive(Clone, Default, Debug, Eq, PartialEq)]
+#[derive(Clone, Default, Debug, Eq, PartialEq, facet::Facet)]
+#[repr(u8)]
 pub enum CommandKind {
     #[default]
     AzureCLI,

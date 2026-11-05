@@ -194,6 +194,10 @@ fn parse_backend_health_response(
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::disallowed_types,
+    reason = "These tests construct raw transport bodies for response and error handling."
+)]
 mod tests {
     use super::build_backend_health_url;
     use super::parse_backend_health_response;

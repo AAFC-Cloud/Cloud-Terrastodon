@@ -555,3 +555,55 @@ pub use crate::virtual_network_properties::*;
 pub use cloud_terrastodon_azure_resource_types::*;
 pub use ipnetwork;
 pub use uuid;
+mod azure_resource_name_availability;
+mod azure_resource_name_availability_body;
+mod azure_resource_name_unavailable_reason;
+mod retail_price_list_response;
+pub use azure_resource_name_availability::*;
+pub use azure_resource_name_availability_body::*;
+pub use azure_resource_name_unavailable_reason::*;
+pub use retail_price_list_response::*;
+mod entra_directory_object_url;
+mod entra_group_member_reference;
+pub use entra_directory_object_url::*;
+pub use entra_group_member_reference::*;
+mod role_assignment_create_body;
+mod role_assignment_create_properties;
+mod role_assignment_principal_type;
+mod role_assignment_resource;
+mod role_assignment_resource_properties;
+pub use role_assignment_create_body::*;
+pub use role_assignment_create_properties::*;
+pub use role_assignment_principal_type::*;
+pub use role_assignment_resource::*;
+pub use role_assignment_resource_properties::*;
+
+mod utc_date_time_epoch_seconds_proxy;
+pub use utc_date_time_epoch_seconds_proxy::*;
+
+mod optional_utc_date_time_epoch_seconds_proxy;
+pub use optional_utc_date_time_epoch_seconds_proxy::*;
+
+mod key_vault_secret_attributes;
+pub use key_vault_secret_attributes::*;
+
+mod key_vault_deletion_recovery_level;
+pub use key_vault_deletion_recovery_level::*;
+
+mod key_vault_secret_list_response;
+pub use key_vault_secret_list_response::*;
+
+mod container_registry_login_server;
+pub use container_registry_login_server::*;
+
+mod container_registry_endpoint;
+pub use container_registry_endpoint::*;
+
+mod container_registry_tag_changeable_attributes;
+pub use container_registry_tag_changeable_attributes::*;
+
+mod container_registry_repository_list_response;
+pub use container_registry_repository_list_response::*;
+
+mod container_registry_tag_list_response;
+pub use container_registry_tag_list_response::*;

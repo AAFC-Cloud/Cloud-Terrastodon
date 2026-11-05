@@ -1,50 +1,61 @@
+use cloud_terrastodon_auth::AzureDevOpsAuthContext;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsCollectionResponse;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectId;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsRepo;
 use cloud_terrastodon_command::CacheKey;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::CommandBuilder;
-use cloud_terrastodon_command::CommandKind;
+use cloud_terrastodon_pathing::sanitize_windows_path_component;
+use cloud_terrastodon_rest::RestRequest;
+use cloud_terrastodon_rest::RestService;
 use eyre::Result;
 use eyre::WrapErr;
+use reqwest::Method;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use tokio::task::JoinSet;
-use tracing::debug;
 use tracing::info;
 
 pub async fn fetch_all_azure_devops_repos_for_project(
     org_url: &AzureDevOpsOrganizationUrl,
     project_id: &AzureDevOpsProjectId,
+    auth_context: &AzureDevOpsAuthContext,
     cancellation: &CancellationScope,
 ) -> Result<Vec<AzureDevOpsRepo>> {
-    debug!("Fetching repos for project {project_id:?}");
-    let mut cmd = CommandBuilder::new(CommandKind::AzureCLI);
-    cmd.cancellation_safe();
-    cmd.args([
-        "repos",
-        "list",
-        "--organization",
-        org_url.to_string().as_ref(),
-        "--output",
-        "json",
-        "--project",
-        project_id.to_string().as_ref(),
-    ]);
-    cmd.cache(CacheKey::new(PathBuf::from_iter([
-        "az",
-        "repos",
-        "list",
-        project_id.to_string().as_ref(),
-    ])));
-    let repos: Vec<AzureDevOpsRepo> = cmd.run(cancellation).await?;
-    debug!("Found {} repos for {project_id:?}", repos.len());
-    Ok(repos)
+    // https://learn.microsoft.com/en-us/rest/api/azure/devops/git/repositories/list?view=azure-devops-rest-7.1
+    let mut url = org_url.api_url("dev.azure.com", "", &[("api-version", "7.1")])?;
+    url.path_segments_mut()
+        .map_err(|()| eyre::eyre!("organization URL must have a hierarchical path"))?
+        .pop_if_empty()
+        .extend([&project_id.to_string(), "_apis", "git", "repositories"]);
+    let mut cache_path = PathBuf::from_iter(["az", "devops"]);
+    if org_url.collection_name().is_some() {
+        cache_path.push("server");
+        cache_path.push(org_url.instance_scheme());
+        for segment in org_url.instance_authority_and_path().split('/') {
+            cache_path.push(sanitize_windows_path_component(segment));
+        }
+        cache_path.push("collection");
+    }
+    cache_path.push(sanitize_windows_path_component(org_url.name()));
+    cache_path.extend(["repos", "list", &project_id.to_string()]);
+    let response = RestRequest::from_method_and_url_for_service(
+        Method::GET,
+        url,
+        RestService::AzureDevOps,
+        cancellation,
+    )?
+    .cache(CacheKey::new(cache_path))
+    .azure_devops_auth_context(auth_context)?
+    .receive::<AzureDevOpsCollectionResponse<Vec<AzureDevOpsRepo>>>()
+    .await?;
+    Ok(response.value)
 }
 
 pub async fn fetch_azure_devops_repos_batch(
     org_url: &AzureDevOpsOrganizationUrl,
     project_ids: Vec<AzureDevOpsProjectId>,
+    auth_context: &AzureDevOpsAuthContext,
     cancellation: &CancellationScope,
 ) -> Result<HashMap<AzureDevOpsProjectId, Vec<AzureDevOpsRepo>>> {
     cancellation
@@ -56,13 +67,16 @@ pub async fn fetch_azure_devops_repos_batch(
             for project_id in project_ids {
                 batch.bail_if_cancelled()?;
                 let org_url = org_url.clone();
+                let auth_context = auth_context.clone();
                 set.spawn(batch.cancellable_scope(move |job| async move {
-                    let repos =
-                        fetch_all_azure_devops_repos_for_project(&org_url, &project_id, &job)
-                            .await
-                            .wrap_err_with(|| {
-                                format!("Fetching repos for project {project_id:?}")
-                            })?;
+                    let repos = fetch_all_azure_devops_repos_for_project(
+                        &org_url,
+                        &project_id,
+                        &auth_context,
+                        &job,
+                    )
+                    .await
+                    .wrap_err_with(|| format!("Fetching repos for project {project_id:?}"))?;
                     Ok::<_, eyre::Report>((project_id, repos))
                 }));
             }
@@ -111,6 +125,7 @@ mod tests {
                     let repos = fetch_all_azure_devops_repos_for_project(
                         &org_url,
                         &project.id,
+                        &azure_devops_auth_context,
                         &cancellation,
                     )
                     .await?;

@@ -83,12 +83,14 @@ impl AzureDevOpsCommand {
             AzureDevOpsCommand::Group(args) => {
                 Box::pin(args.invoke(auth_context, cancellation)).await?
             }
-            AzureDevOpsCommand::Team(args) => Box::pin(args.invoke(cancellation)).await?,
+            AzureDevOpsCommand::Team(args) => {
+                Box::pin(args.invoke(auth_context, cancellation)).await?
+            }
             AzureDevOpsCommand::Repo(args) => {
                 Box::pin(args.invoke(auth_context, cancellation)).await?
             }
             AzureDevOpsCommand::ServiceEndpoint(args) => {
-                Box::pin(args.invoke(cancellation)).await?
+                Box::pin(args.invoke(auth_context, cancellation)).await?
             }
             AzureDevOpsCommand::LicenseEntitlement(args) => {
                 Box::pin(args.invoke(auth_context, cancellation)).await?

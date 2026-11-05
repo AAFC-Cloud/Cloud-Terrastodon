@@ -1,3 +1,8 @@
+#![allow(
+    clippy::disallowed_types,
+    reason = "These editor tests exercise preservation of raw scene fields and numeric precision."
+)]
+
 use super::*;
 
 fn log(message: &str) -> ExcalidrawLogRecord {

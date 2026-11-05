@@ -1,3 +1,8 @@
+#![allow(
+    clippy::disallowed_types,
+    reason = "Provider-defined Terraform values need raw JSON; importing azure_types::ArbitraryJson would create a cycle. The module scope includes generated Facet codecs."
+)]
+
 use crate::version::SemVer;
 use facet_json::RawJson;
 use std::collections::BTreeMap;

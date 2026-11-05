@@ -13,7 +13,6 @@ use cloud_terrastodon_azure_devops::fetch_azure_devops_groups_for_project;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_teams_for_project;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
-use cloud_terrastodon_command::to_writer_pretty;
 use eyre::Result;
 use eyre::bail;
 use std::io::stdout;
@@ -69,10 +68,15 @@ impl AzureDevOpsProjectDumpArgs {
             bail!("No project found matching '{}'.", self.project);
         };
 
-        let teams = fetch_azure_devops_teams_for_project(&self.org, &project, cancellation)
-            .into_future()
-            .instrument(span.clone())
-            .await?;
+        let teams = fetch_azure_devops_teams_for_project(
+            &self.org,
+            &project,
+            &azure_devops_auth_context,
+            cancellation,
+        )
+        .into_future()
+        .instrument(span.clone())
+        .await?;
 
         let groups = fetch_azure_devops_groups_for_project(
             &self.org,
@@ -114,7 +118,8 @@ impl AzureDevOpsProjectDumpArgs {
             group_members,
         };
 
-        to_writer_pretty(stdout(), &payload)?;
+        facet_json::to_writer_std_pretty(stdout(), &payload)
+            .map_err(|error| eyre::eyre!("{error:?}"))?;
 
         Ok(())
     }

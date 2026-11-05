@@ -1,4 +1,3 @@
-mod accounts;
 mod app_service_list_request;
 mod application_gateway_backend_health_request;
 mod application_gateway_list_request;
@@ -47,6 +46,9 @@ mod management_groups;
 mod metrics;
 mod microsoft_graph;
 mod microsoft_graph_batch;
+mod microsoft_graph_batch_error_envelope;
+mod microsoft_graph_batch_response_entry_body_proxy;
+mod microsoft_graph_batch_wire_response_entry;
 mod network_interface_list_request;
 mod oauth2_permission_grant_create_request;
 mod oauth2_permission_grant_list_request;
@@ -106,7 +108,7 @@ mod virtual_machine_sizes;
 mod virtual_machine_skus;
 mod virtual_machines;
 mod virtual_network;
-pub use crate::accounts::*;
+
 pub use crate::app_service_list_request::*;
 pub use crate::application_gateway_backend_health_request::*;
 pub use crate::application_gateway_list_request::*;
@@ -154,6 +156,7 @@ pub use crate::management_groups::*;
 pub use crate::metrics::*;
 pub use crate::microsoft_graph::*;
 pub use crate::microsoft_graph_batch::*;
+pub use crate::microsoft_graph_batch_response_entry_body_proxy::*;
 pub use crate::network_interface_list_request::*;
 pub use crate::oauth2_permission_grant_create_request::*;
 pub use crate::oauth2_permission_grant_list_request::*;
@@ -216,3 +219,14 @@ pub use crate::virtual_network::*;
 pub use cloud_terrastodon_azure_types::*;
 
 cloud_terrastodon_registry::register_arbitrary!(());
+
+mod container_registry_endpoint_request;
+pub use container_registry_endpoint_request::*;
+
+mod container_registry_repository_list_request;
+pub use container_registry_repository_list_request::*;
+
+mod container_registry_repository_tags_request;
+pub use container_registry_repository_tags_request::*;
+
+mod container_registry_pagination;

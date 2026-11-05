@@ -1,8 +1,8 @@
+use crate::ArbitraryJson;
 use crate::RoleManagementPolicyAssignmentId;
 use crate::iso8601_duration::IsoDuration;
 use arbitrary::Arbitrary;
 use eyre::Result;
-use facet_json::RawJson;
 use std::collections::HashMap;
 use std::fmt;
 
@@ -103,13 +103,13 @@ pub struct RoleManagementPolicyAssignmentProperties {
     #[facet(rename = "policyId")]
     pub policy_id: String,
     #[facet(rename = "effectiveRules")]
-    pub effective_rules: Vec<RawJson<'static>>,
+    pub effective_rules: Vec<ArbitraryJson>,
     #[facet(
         rename = "policyAssignmentProperties",
 
-        proxy = crate::HashMapDefaultNullProxy<RawJson<'static>>
+        proxy = crate::HashMapDefaultNullProxy<ArbitraryJson>
     )]
-    pub policy_assignment_properties: HashMap<String, RawJson<'static>>,
+    pub policy_assignment_properties: HashMap<String, ArbitraryJson>,
 }
 
 #[derive(Debug, PartialEq, facet::Facet)]
@@ -142,9 +142,10 @@ impl<'a> Arbitrary<'a> for RoleManagementPolicyAssignment {
                 id: RoleManagementPolicyAssignmentPropertiesEffectiveRuleId::ExpirationEnduserAssignment,
                 maximum_duration: std::time::Duration::from_secs(hours * 60 * 60).into(),
             };
-            effective_rules.push(RawJson::from_owned(
-                facet_json::to_string(&rule).map_err(|_| arbitrary::Error::IncorrectFormat)?,
-            ));
+            effective_rules.push(
+                ArbitraryJson::try_from_facet(&rule)
+                    .map_err(|_| arbitrary::Error::IncorrectFormat)?,
+            );
         }
         let role_definition_id =
             format!("{scope}/providers/Microsoft.Authorization/roleDefinitions/{role}");
