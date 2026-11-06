@@ -6,9 +6,10 @@ use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 
 /// Arguments for activating Privileged Identity Management roles.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzurePimActivateArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
     #[facet(figue::named, default)]
@@ -19,7 +20,7 @@ pub struct AzurePimActivateArgs {
 }
 
 /// Target environments that can be activated via PIM.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum AzurePimActivateTarget {
     /// Activate Azure Resource Manager roles.

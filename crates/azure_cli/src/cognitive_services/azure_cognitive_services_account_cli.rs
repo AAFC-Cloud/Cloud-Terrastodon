@@ -4,9 +4,10 @@ use super::AzureCognitiveServicesShowArgs;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 
 /// Manage Azure Cognitive Services accounts.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureCognitiveServicesAccountArgs {
     #[facet(figue::subcommand)]
     pub command: AzureCognitiveServicesAccountCommand,
@@ -22,7 +23,7 @@ impl AzureCognitiveServicesAccountArgs {
     }
 }
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum AzureCognitiveServicesAccountCommand {
     /// List Azure Cognitive Services accounts.

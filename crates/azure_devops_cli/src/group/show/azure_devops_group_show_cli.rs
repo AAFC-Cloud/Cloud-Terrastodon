@@ -7,10 +7,11 @@ use cloud_terrastodon_azure_devops::fetch_azure_devops_groups_for_project;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use eyre::bail;
+use facet::Facet;
 use std::io::stdout;
 
 /// Show Azure DevOps group details.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureDevOpsGroupShowArgs {
     /// Tenant id or tracked alias for bearer authentication; PAT authentication may omit it.
     #[facet(figue::named)]

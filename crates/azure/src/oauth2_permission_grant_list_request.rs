@@ -1,4 +1,5 @@
 use crate::FETCH_OAUTH2_PERMISSION_GRANTS_CACHE_DIR;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_auth_types::AuthenticationSelection;
 use cloud_terrastodon_auth_types::AzureBearerAuthSource;
 use cloud_terrastodon_azure_types::AzureTenantId;
@@ -12,9 +13,10 @@ use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_rest::RestRequest;
+use facet::Facet;
 use std::sync::Arc;
 
-#[derive(arbitrary::Arbitrary, facet::Facet)]
+#[derive(Arbitrary, Facet)]
 pub struct OAuth2PermissionGrantListRequest {
     pub auth_source: AzureBearerAuthSource,
 

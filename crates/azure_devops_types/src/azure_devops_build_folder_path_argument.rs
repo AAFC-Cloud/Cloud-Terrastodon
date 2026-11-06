@@ -1,5 +1,7 @@
 use crate::AzureDevOpsBuildFolderPath;
+use arbitrary::Arbitrary;
 use eyre::Result;
+use facet::Facet;
 use std::ops::Deref;
 use std::str::FromStr;
 
@@ -12,7 +14,7 @@ use std::str::FromStr;
 ///
 /// This type stores the validated path, so conversion to the domain value is
 /// infallible and command handlers do not need to parse raw strings.
-#[derive(Debug, Clone, PartialEq, Eq, arbitrary::Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(proxy = String)]
 pub struct AzureDevOpsBuildFolderPathArgument(AzureDevOpsBuildFolderPath);
 

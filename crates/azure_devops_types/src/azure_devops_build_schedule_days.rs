@@ -1,4 +1,5 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::str::FromStr;
 
 /// The named days or day combinations used by a build schedule.
@@ -7,7 +8,7 @@ use std::str::FromStr;
 /// represents ScheduleDays as text, unlike the TypeScript SDK's numeric enum.
 /// Named values are recognized. Unmodeled combinations and future values panic
 /// in debug builds and retain their exact wire spelling in release builds.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum AzureDevOpsBuildScheduleDays {

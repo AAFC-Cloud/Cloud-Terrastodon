@@ -23,33 +23,34 @@ use crate::scopes::TryFromUnscoped;
 use crate::slug::HasSlug;
 use arbitrary::Arbitrary;
 use eyre::Result;
+use facet::Facet;
 use std::str::FromStr;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet, Arbitrary)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Facet, Arbitrary)]
 #[facet(json::proxy = String)]
 pub struct UnscopedRoleEligibilityScheduleId {
     pub name: RoleEligibilityScheduleName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet, Arbitrary)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Facet, Arbitrary)]
 #[facet(json::proxy = String)]
 pub struct ManagementGroupScopedRoleEligibilityScheduleId {
     pub management_group_id: ManagementGroupId,
     pub name: RoleEligibilityScheduleName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet, Arbitrary)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Facet, Arbitrary)]
 #[facet(json::proxy = String)]
 pub struct SubscriptionScopedRoleEligibilityScheduleId {
     pub subscription_id: SubscriptionId,
     pub name: RoleEligibilityScheduleName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet, Arbitrary)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Facet, Arbitrary)]
 #[facet(json::proxy = String)]
 pub struct ResourceGroupScopedRoleEligibilityScheduleId {
     pub resource_group_id: ResourceGroupId,
     pub name: RoleEligibilityScheduleName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet, Arbitrary)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Facet, Arbitrary)]
 #[facet(json::proxy = String)]
 pub struct ResourceScopedRoleEligibilityScheduleId {
     pub resource_id: ResourceId,

@@ -1,10 +1,11 @@
 use arbitrary::Arbitrary;
 use eyre::Result;
 use eyre::ensure;
+use facet::Facet;
 use std::str::FromStr;
 
 /// Organization-scoped numeric work item ID (saved query IDs are UUIDs).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, facet::Facet)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Facet)]
 #[facet(proxy = i32)]
 pub struct AzureDevOpsWorkItemId(i32);
 

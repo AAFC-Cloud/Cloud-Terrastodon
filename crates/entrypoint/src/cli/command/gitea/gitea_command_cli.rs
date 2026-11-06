@@ -4,8 +4,9 @@ use crate::cli::gitea::tenant::GiteaTenantArgs;
 use crate::cli::gitea::user::GiteaUserArgs;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum GiteaCommand {
     /// Manage tracked Gitea tenants (instances).

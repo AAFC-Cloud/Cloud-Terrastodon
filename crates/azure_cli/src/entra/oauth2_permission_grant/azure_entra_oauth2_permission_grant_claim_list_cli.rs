@@ -10,11 +10,12 @@ use cloud_terrastodon_azure::fetch_service_principal;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use eyre::bail;
+use facet::Facet;
 use std::io::Write;
 use tracing::info;
 
 /// List the delegated OAuth2 permission claims exposed by a service principal.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureEntraOAuth2PermissionGrantClaimListArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
     #[facet(figue::named, default)]

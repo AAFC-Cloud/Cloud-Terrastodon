@@ -1,5 +1,6 @@
 use crate::AzureDevOpsBuildScheduleDays;
 use arbitrary::Arbitrary;
+use facet::Facet;
 
 /// A schedule associated with a build definition trigger.
 ///
@@ -7,7 +8,7 @@ use arbitrary::Arbitrary;
 /// The REST reference documents the base trigger. Schedule fields are described by
 /// Microsoft's [Schedule interface](https://learn.microsoft.com/en-us/javascript/api/azure-devops-extension-api/schedule)
 /// and [TypeScript source](https://github.com/microsoft/azure-devops-node-api/blob/master/api/interfaces/BuildInterfaces.ts#L2532).
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct AzureDevOpsBuildSchedule {

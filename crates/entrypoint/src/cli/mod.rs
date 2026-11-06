@@ -1,4 +1,5 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 pub mod command;
 pub mod global_args;
 pub mod output {
@@ -15,7 +16,7 @@ pub use command::*;
 pub use global_args::GlobalArgs;
 
 /// The primary entrypoint for command-line parsing.
-#[derive(facet::Facet, Debug)]
+#[derive(Facet, Debug)]
 #[facet(rename = "cloud_terrastodon")]
 pub struct Cli {
     #[facet(flatten)]

@@ -7,10 +7,11 @@ use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_agent_pool_entitlements_for_project;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 use std::io::stdout;
 
 /// List Azure DevOps agent pool entitlements (queues) in a project.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureDevOpsAgentPoolEntitlementListArgs {
     /// Tenant id or tracked alias for bearer authentication; PAT authentication may omit it.
     #[facet(figue::named)]

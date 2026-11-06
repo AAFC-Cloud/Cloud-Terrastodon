@@ -1,6 +1,7 @@
 use crate::OutputFormat;
 #[cfg(feature = "auth")]
 use cloud_terrastodon_auth_types::AuthSource;
+use facet::Facet;
 use std::path::PathBuf;
 
 /// Arguments that apply to all commands, including consumer-defined subcommands.
@@ -9,7 +10,7 @@ use std::path::PathBuf;
 /// [`crate::App::run`] supply Figue's standard builtin flags internally.
 /// Authentication selection is available with the `auth` feature. Prefer
 /// `Default` over exhaustive struct literals so optional facilities compose.
-#[derive(facet::Facet, Debug, Clone, PartialEq, Eq)]
+#[derive(Facet, Debug, Clone, PartialEq, Eq)]
 pub struct GlobalArgs {
     /// Authentication source preference. `auto` uses workload identity when
     /// configured and otherwise defaults to Azure CLI. Browser authentication

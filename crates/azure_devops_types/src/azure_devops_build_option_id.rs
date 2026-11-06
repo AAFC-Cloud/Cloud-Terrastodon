@@ -1,11 +1,12 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::str::FromStr;
 use uuid::Uuid;
 
 /// The UUID identifying an optional build behavior.
 ///
 /// Microsoft documentation: [schema](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/definitions/get?view=azure-devops-rest-7.1#buildoptiondefinitionreference).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Arbitrary, Facet)]
 #[facet(proxy = String)]
 pub struct AzureDevOpsBuildOptionId(pub Uuid);
 

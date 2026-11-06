@@ -1,4 +1,5 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::str::FromStr;
 
 /// A build status used in API records and build-list filters.
@@ -8,7 +9,7 @@ use std::str::FromStr;
 /// Release builds retain their original wire spelling for forward compatibility.
 /// Filters use the same API spelling. In release builds, Azure DevOps determines
 /// which unknown filter values it accepts.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum AzureDevOpsBuildStatus {

@@ -6,11 +6,12 @@ use cloud_terrastodon_azure::fetch_all_policy_assignments;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use eyre::bail;
+use facet::Facet;
 use std::io::Write;
 use tracing::info;
 
 /// Arguments for showing a single Azure policy assignment.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzurePolicyAssignmentShowArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
     #[facet(figue::named, default)]

@@ -1,7 +1,8 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 use uuid::Uuid;
 
-#[derive(Debug, Eq, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Arbitrary, Facet)]
 #[facet(json::proxy = String)]
 pub struct AzureDevOpsTeamId(Uuid);
 

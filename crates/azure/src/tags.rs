@@ -7,16 +7,17 @@ use cloud_terrastodon_azure_types::ResourceTagsId;
 use cloud_terrastodon_azure_types::Scope;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 use http::Method;
 use itertools::Itertools;
 use std::collections::HashMap;
 
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Facet)]
 struct TagContentProperties {
     tags: HashMap<String, String>,
 }
 
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Facet)]
 struct TagContent {
     id: ResourceTagsId,
     name: String,
@@ -31,7 +32,7 @@ impl TagContent {
     }
 }
 
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Facet)]
 struct TagPatchContent {
     operation: String, // todo: make enum
     properties: TagContentProperties,

@@ -19,6 +19,7 @@ use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_rest::RequestHeaders;
 use cloud_terrastodon_rest::RestRequest;
+use facet::Facet;
 use reqwest::Method;
 use std::borrow::Cow;
 use std::path::PathBuf;
@@ -26,7 +27,7 @@ use std::time::Duration;
 
 /// <https://learn.microsoft.com/en-us/rest/api/azure/devops/memberentitlementmanagement/user-entitlements/update-user-entitlement?view=azure-devops-rest-7.1>
 #[must_use = "This is an unsent request, you must .execute it"]
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[facet(traits(Clone))]
 pub struct AzureDevOpsUserLicenseEntitlementUpdateRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,

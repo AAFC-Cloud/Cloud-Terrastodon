@@ -17,12 +17,13 @@ use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_rest::RestRequest;
+use facet::Facet;
 use http::Method;
 use std::path::PathBuf;
 use std::time::Duration;
 use tracing::info;
 
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 pub struct OAuth2PermissionGrantCreateRequest {
     pub auth_source: AzureBearerAuthSource,
 

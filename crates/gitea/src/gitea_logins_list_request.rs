@@ -10,10 +10,11 @@ use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_execution::RequestExecution;
+use facet::Facet;
 use std::time::Duration;
 
 /// Inspect non-secret local tea login metadata without querying a service.
-#[derive(Debug, Clone, Copy, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Copy, Arbitrary, Facet)]
 pub struct GiteaLoginsListRequest;
 
 pub fn list_gitea_logins(

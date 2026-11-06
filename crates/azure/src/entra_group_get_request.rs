@@ -1,4 +1,5 @@
 use crate::MicrosoftGraphHelper;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_auth_types::AzureBearerAuthSource;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::EntraGroup;
@@ -10,13 +11,14 @@ use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_execution::RequestExecution;
+use facet::Facet;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tracing::debug;
 
 /// Fetch a Graph v1.0 [group](https://learn.microsoft.com/graph/api/group-get?view=graph-rest-1.0) by object ID.
 #[must_use = "This is a future request, you must .execute it"]
-#[derive(arbitrary::Arbitrary, facet::Facet)]
+#[derive(Arbitrary, Facet)]
 pub struct EntraGroupGetRequest {
     pub group_id: EntraGroupId,
     pub tenant_id: AzureTenantId,

@@ -1,9 +1,10 @@
 use crate::ManagementGroupId;
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::ops::Deref;
 use std::ops::DerefMut;
 
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[facet(transparent)]
 pub struct ManagementGroupAncestorsChain(Vec<ManagementGroupAncestorsChainEntry>);
 impl Deref for ManagementGroupAncestorsChain {
@@ -18,7 +19,7 @@ impl DerefMut for ManagementGroupAncestorsChain {
     }
 }
 
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 pub struct ManagementGroupAncestorsChainEntry {
     pub name: String,
     #[facet(rename = "displayName")]

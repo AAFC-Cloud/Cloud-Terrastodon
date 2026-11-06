@@ -5,11 +5,12 @@ use crate::ScopeImplKind;
 use crate::strip_suffix_case_insensitive;
 use eyre::Context;
 use eyre::Result;
+use facet::Facet;
 use std::str::FromStr;
 
 pub const TAGS_SUFFIX: &str = "/providers/Microsoft.Resources/tags/default";
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Facet)]
 #[facet(json::proxy = String)]
 pub struct ResourceTagsId {
     expanded: String,

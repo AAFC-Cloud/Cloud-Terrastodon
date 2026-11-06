@@ -7,12 +7,13 @@ use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::fetch_all_role_definitions_and_assignments;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 use std::collections::HashSet;
 use std::io::Write;
 use tracing::info;
 
 /// Find role definitions and role assignments that satisfy an action or data action.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureRoleDefinitionFindArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
     #[facet(figue::named, default)]
@@ -121,7 +122,7 @@ impl AzureRoleDefinitionFindArgs {
     }
 }
 
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Facet)]
 struct RoleDefinitionFindOutput {
     query_action: String,
     fallback_chain: Vec<String>,
@@ -131,13 +132,13 @@ struct RoleDefinitionFindOutput {
     role_assignment_matches: Vec<RoleAssignmentMatch>,
 }
 
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Facet)]
 struct LiteralMatchCount {
     candidate: String,
     role_definition_count: usize,
 }
 
-#[derive(Debug, facet::Facet, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Facet, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
 #[facet(rename_all = "snake_case")]
 #[repr(C)]
 enum MatchSource {
@@ -145,7 +146,7 @@ enum MatchSource {
     DataAction,
 }
 
-#[derive(Debug, facet::Facet, Clone)]
+#[derive(Debug, Facet, Clone)]
 struct RoleDefinitionMatch {
     role_definition_id: cloud_terrastodon_azure::RoleDefinitionId,
     role_definition_name: String,
@@ -156,7 +157,7 @@ struct RoleDefinitionMatch {
     literal_fallback_rank: Option<usize>,
 }
 
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Facet)]
 struct RoleAssignmentMatch {
     role_assignment_id: cloud_terrastodon_azure::RoleAssignmentId,
     role_definition_id: cloud_terrastodon_azure::RoleDefinitionId,

@@ -9,6 +9,7 @@ use arbitrary::Arbitrary;
 use arbitrary::Unstructured;
 use chrono::DateTime;
 use chrono::Utc;
+use facet::Facet;
 
 /// Configuration and progress of a submitted remediation task.
 ///
@@ -17,7 +18,7 @@ use chrono::Utc;
 /// The [basic creation responses](https://learn.microsoft.com/en-us/rest/api/policyinsights/remediations/create-or-update-at-resource-group?view=rest-policyinsights-2024-10-01#examples)
 /// omit filters and limit overrides; their absence does not establish an echoed
 /// default value.
-#[derive(Debug, Clone, PartialEq, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Facet)]
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct PolicyRemediationProperties {

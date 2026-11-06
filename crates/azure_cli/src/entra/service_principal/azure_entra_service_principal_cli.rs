@@ -4,9 +4,10 @@ use super::AzureEntraSpShowArgs;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 
 /// Service principal-related Entra (Azure AD) commands.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum AzureEntraSpCommand {
     /// List service principals.

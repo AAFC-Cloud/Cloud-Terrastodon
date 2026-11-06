@@ -15,6 +15,7 @@ use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_pathing::sanitize_windows_path_component;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::ensure;
+use facet::Facet;
 use http::Method;
 use std::borrow::Cow;
 use std::collections::HashSet;
@@ -23,7 +24,7 @@ use std::sync::Arc;
 
 /// List all registry repositories, using its real login server and a scoped ACR bearer exchange.
 /// [REST API 2021-07-01](https://learn.microsoft.com/en-us/rest/api/registry-dataplane/container-registry/get-repositories?view=rest-registry-dataplane-2021-07-01).
-#[derive(facet::Facet)]
+#[derive(Facet)]
 pub struct ContainerRegistryRepositoryListRequest<'a> {
     pub registry_id: Cow<'a, ContainerRegistryId>,
     pub auth_context: Cow<'a, AzureTenantAuthContext>,

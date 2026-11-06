@@ -3,10 +3,11 @@ use cloud_terrastodon_gitea::GiteaTenantArgument;
 use cloud_terrastodon_gitea::GiteaTenantArgumentExt;
 use cloud_terrastodon_gitea::fetch_all_gitea_users;
 use eyre::Result;
+use facet::Facet;
 use std::io::Write;
 use tracing::info;
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct GiteaUserListArgs {
     /// Tracked tenant URL or alias to query. Defaults to the active `tea` login.
     #[facet(figue::named, default, proxy = String)]

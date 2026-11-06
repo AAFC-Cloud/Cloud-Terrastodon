@@ -5,15 +5,16 @@ use crate::project::show::AzureDevOpsProjectShowArgs;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 
 /// Azure DevOps project-related commands.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureDevOpsProjectArgs {
     #[facet(figue::subcommand)]
     pub command: AzureDevOpsProjectCommand,
 }
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum AzureDevOpsProjectCommand {
     /// List Azure DevOps projects in the organization.

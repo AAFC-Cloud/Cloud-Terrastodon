@@ -4,9 +4,10 @@ use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 
 /// Arguments for auditing Azure resources.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureAuditArgs {
     /// Tracked tenant id or alias to query. Defaults to the selected
     /// workload-identity/browser tenant, then the Azure CLI tenant.

@@ -8,12 +8,13 @@ use crate::slug::Slug;
 use crate::strip_prefix_case_insensitive;
 use arbitrary::Arbitrary;
 use eyre::Result;
+use facet::Facet;
 use std::hash::Hash;
 use std::str::FromStr;
 
 pub const SERVICE_GROUP_ID_PREFIX: &str = "/providers/Microsoft.Management/serviceGroups/";
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, Facet)]
 #[facet(json::proxy = String)]
 pub struct ServiceGroupId {
     name: ServiceGroupName,

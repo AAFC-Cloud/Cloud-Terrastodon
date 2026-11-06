@@ -1,6 +1,7 @@
 use arbitrary::Arbitrary;
 use eyre::Result;
 use eyre::ensure;
+use facet::Facet;
 use std::ops::Deref;
 use std::str::FromStr;
 
@@ -10,7 +11,7 @@ use std::str::FromStr;
 /// This library rejects blank values and control characters as local safety
 /// constraints. It preserves spaces, Unicode and exact spelling, and imposes
 /// no speculative platform length or naming restrictions.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Facet)]
 #[facet(proxy = String)]
 pub struct AzureDevOpsBuildNumber(String);
 

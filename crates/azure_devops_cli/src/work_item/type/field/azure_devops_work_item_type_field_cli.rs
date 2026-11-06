@@ -3,15 +3,16 @@ use crate::work_item::r#type::field::show::AzureDevOpsWorkItemTypeFieldShowArgs;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 
 /// Inspect the fields of a work item type.
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 pub struct AzureDevOpsWorkItemTypeFieldArgs {
     #[facet(figue::subcommand)]
     pub command: AzureDevOpsWorkItemTypeFieldCommand,
 }
 
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[repr(u8)]
 pub enum AzureDevOpsWorkItemTypeFieldCommand {
     /// List fields and constraints for a work item type.

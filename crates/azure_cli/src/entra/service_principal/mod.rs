@@ -1,4 +1,5 @@
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use facet::Facet;
 pub mod azure_entra_service_principal_browse_cli;
 pub mod azure_entra_service_principal_cli;
 pub mod azure_entra_service_principal_list_cli;
@@ -12,7 +13,7 @@ use cloud_terrastodon_auth::AuthContext;
 use eyre::Result;
 
 /// Entra service principal subcommands.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureEntraServicePrincipalArgs {
     #[facet(figue::subcommand)]
     pub command: AzureEntraSpCommand,

@@ -20,12 +20,13 @@ use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_execution::RequestExecution;
+use facet::Facet;
 use std::borrow::Cow;
 use std::collections::BTreeSet;
 use std::time::Duration;
 
 #[must_use = "This is a future request, you must .execute it"]
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[facet(traits(Clone))]
 pub struct GiteaRepoEnumerationAnalysisRequest<'a> {
     pub tenant: Cow<'a, GiteaInstanceUrl>,

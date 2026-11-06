@@ -1,4 +1,5 @@
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use facet::Facet;
 pub mod azure_entra_application_registration_browse_cli;
 pub mod azure_entra_application_registration_cli;
 pub mod azure_entra_application_registration_list_cli;
@@ -18,7 +19,7 @@ use cloud_terrastodon_auth::AuthContext;
 use eyre::Result;
 
 /// Entra application registration subcommands.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureEntraApplicationRegistrationArgs {
     #[facet(figue::subcommand)]
     pub command: AzureEntraApplicationRegistrationCommand,

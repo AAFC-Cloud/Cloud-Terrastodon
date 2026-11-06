@@ -10,12 +10,13 @@ use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_rest::RestRequest;
+use facet::Facet;
 use http::Method;
 use std::borrow::Cow;
 use std::path::PathBuf;
 use std::time::Duration;
 
-#[derive(facet::Facet)]
+#[derive(Facet)]
 pub struct OAuth2PermissionGrantRemoveRequest<'a> {
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
     pub id: OAuth2PermissionGrantId,

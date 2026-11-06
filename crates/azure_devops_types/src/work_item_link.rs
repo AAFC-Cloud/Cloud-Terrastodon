@@ -1,9 +1,10 @@
 use crate::AzureDevOpsWorkItemRelationTypeName;
 use crate::WorkItemReference;
 use arbitrary::Arbitrary;
+use facet::Facet;
 
 /// A link between two work items.
-#[derive(Debug, Arbitrary, facet::Facet)]
+#[derive(Debug, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct WorkItemLink {
     /// The type of link (optional).

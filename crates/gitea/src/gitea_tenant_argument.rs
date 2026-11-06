@@ -2,11 +2,12 @@ use crate::GiteaInstanceUrl;
 use crate::GiteaTenantAlias;
 use arbitrary::Arbitrary;
 use eyre::bail;
+use facet::Facet;
 use std::borrow::Cow;
 use std::fmt::Display;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, Default, Eq, PartialEq, Hash, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Default, Eq, PartialEq, Hash, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum GiteaTenantArgument<'a> {

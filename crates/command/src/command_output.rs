@@ -3,6 +3,7 @@ use bstr::BString;
 use bstr::ByteSlice;
 use eyre::Error;
 use eyre::Result;
+use facet::Facet;
 #[cfg(not(windows))]
 use std::os::unix::process::ExitStatusExt;
 #[cfg(windows)]
@@ -10,7 +11,7 @@ use std::os::windows::process::ExitStatusExt;
 use std::process::ExitStatus;
 use std::process::Output;
 
-#[derive(Debug, Clone, facet::Facet, Eq, PartialEq)]
+#[derive(Debug, Clone, Facet, Eq, PartialEq)]
 pub struct CommandOutput {
     pub stdout: BString,
     pub stderr: BString,

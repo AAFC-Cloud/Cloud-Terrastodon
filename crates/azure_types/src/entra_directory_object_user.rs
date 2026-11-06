@@ -1,6 +1,7 @@
 use crate::EntraUserId;
 use crate::UserPrincipalName;
 use arbitrary::Arbitrary;
+use facet::Facet;
 
 /// Identity properties of a Microsoft Graph v1.0 [user](https://learn.microsoft.com/en-us/graph/api/resources/user?view=graph-rest-1.0#properties).
 ///
@@ -8,7 +9,7 @@ use arbitrary::Arbitrary;
 /// permission to read the resource is missing. Optional properties retain that
 /// limited-information state. This is an intentional shallow projection;
 /// additional properties in unrestricted Graph responses are ignored.
-#[derive(Debug, Clone, Eq, PartialEq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct EntraDirectoryObjectUser {
     pub display_name: Option<String>,

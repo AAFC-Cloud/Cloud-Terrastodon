@@ -1,8 +1,9 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::ops::Deref;
 
 /// A duration accepting human-readable command-line input such as `30m`.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[facet(proxy = String, opaque)]
 pub struct HumantimeDurationCli(pub humantime::Duration);
 

@@ -3,11 +3,12 @@ use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemId;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemRelationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemUrl;
 use eyre::Result;
+use facet::Facet;
 use std::borrow::Cow;
 use std::str::FromStr;
 
 /// A relation target supplied to the CLI as either a work-item ID or a URL.
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[facet(proxy = String)]
 #[repr(u8)]
 pub enum AzureDevOpsWorkItemRelationTarget {

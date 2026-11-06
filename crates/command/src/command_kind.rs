@@ -8,12 +8,13 @@ use cloud_terrastodon_config::Config;
 use eyre::OptionExt;
 use eyre::Result;
 use eyre::bail;
+use facet::Facet;
 use std::env;
 use std::ffi::OsString;
 use tokio::process::Command;
 use tokio::sync::OnceCell;
 
-#[derive(Clone, Default, Debug, Eq, PartialEq, facet::Facet)]
+#[derive(Clone, Default, Debug, Eq, PartialEq, Facet)]
 #[repr(u8)]
 pub enum CommandKind {
     #[default]

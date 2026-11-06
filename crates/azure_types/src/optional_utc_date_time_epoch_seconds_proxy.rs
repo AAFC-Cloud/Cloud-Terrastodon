@@ -1,9 +1,10 @@
 use crate::UtcDateTimeEpochSecondsProxy;
 use chrono::DateTime;
 use chrono::Utc;
+use facet::Facet;
 
 /// Optional Key Vault UTC timestamps retain absence without inventing a date.
-#[derive(Clone, Copy, Debug, facet::Facet)]
+#[derive(Clone, Copy, Debug, Facet)]
 #[facet(transparent)]
 pub struct OptionalUtcDateTimeEpochSecondsProxy(Option<UtcDateTimeEpochSecondsProxy>);
 

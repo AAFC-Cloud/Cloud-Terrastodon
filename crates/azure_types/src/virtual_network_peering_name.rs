@@ -4,11 +4,12 @@ use arbitrary::Unstructured;
 use compact_str::CompactString;
 use eyre::WrapErr;
 use eyre::bail;
+use facet::Facet;
 use std::ops::Deref;
 use std::str::FromStr;
 
 /// https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftnetwork
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Facet)]
 #[facet(json::proxy = String)]
 pub struct VirtualNetworkPeeringName {
     inner: CompactString,

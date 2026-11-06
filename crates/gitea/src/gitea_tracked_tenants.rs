@@ -10,6 +10,7 @@ use cloud_terrastodon_pathing::AppDir;
 use eyre::Context;
 use eyre::ContextCompat;
 use eyre::bail;
+use facet::Facet;
 use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
@@ -19,7 +20,7 @@ use tracing::warn;
 const ALIASES_FILE_NAME: &str = "aliases.txt";
 const URL_FILE_NAME: &str = "url.txt";
 
-#[derive(Debug, Clone, Eq, PartialEq, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Facet)]
 pub struct GiteaTrackedTenant {
     pub url: GiteaInstanceUrl,
     pub aliases: Vec<GiteaTenantAlias>,

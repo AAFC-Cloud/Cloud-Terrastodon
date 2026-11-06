@@ -1,10 +1,11 @@
 use crate::RolePermissionAction;
 use arbitrary::Arbitrary;
+use facet::Facet;
 use indexmap::IndexSet;
 use std::ops::Deref;
 use std::ops::DerefMut;
 
-#[derive(Debug, Default, PartialEq, Eq, Clone, facet::Facet, Arbitrary)]
+#[derive(Debug, Default, PartialEq, Eq, Clone, Facet, Arbitrary)]
 #[facet(transparent)]
 pub struct RolePermissionActionSet(IndexSet<RolePermissionAction>);
 

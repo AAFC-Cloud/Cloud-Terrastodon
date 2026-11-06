@@ -6,10 +6,11 @@ use cloud_terrastodon_azure::add_tracked_tenant_aliases;
 use cloud_terrastodon_azure::set_tracked_tenant_auth_source;
 use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
+use facet::Facet;
 use std::io::Write;
 
 /// Arguments for adding a tracked Azure tenant.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureTenantAddArgs {
     /// Tenant id (GUID) to track.
     #[facet(figue::positional, proxy = String)]
@@ -51,8 +52,9 @@ impl AzureTenantAddArgs {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use facet::Facet;
 
-    #[derive(facet::Facet, Debug)]
+    #[derive(Facet, Debug)]
     struct ParseArgs {
         #[facet(flatten)]
         args: AzureTenantAddArgs,

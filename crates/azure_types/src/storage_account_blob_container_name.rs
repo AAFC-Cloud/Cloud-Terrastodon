@@ -4,6 +4,7 @@ use arbitrary::Unstructured;
 use compact_str::CompactString;
 use eyre::WrapErr;
 use eyre::bail;
+use facet::Facet;
 use std::ops::Deref;
 use std::str::FromStr;
 
@@ -17,7 +18,7 @@ const STORAGE_ACCOUNT_NAMING_RULES_URL: &str = "https://learn.microsoft.com/en-u
 /// [`$logs`](https://learn.microsoft.com/en-us/azure/storage/common/storage-analytics-logging),
 /// and [`$blobchangefeed`](https://learn.microsoft.com/en-us/azure/storage/blobs/storage-blob-change-feed).
 /// Accepting these identities does not imply that each listing API returns them.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Facet)]
 #[facet(json::proxy = String)]
 pub struct StorageAccountBlobContainerName {
     inner: CompactString,

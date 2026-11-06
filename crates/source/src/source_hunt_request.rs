@@ -8,6 +8,7 @@ use arbitrary::Arbitrary;
 use arbitrary::Unstructured;
 use eyre::Result;
 use eyre::WrapErr;
+use facet::Facet;
 use futures::StreamExt;
 use futures::stream::FuturesUnordered;
 use std::collections::BTreeMap;
@@ -42,7 +43,7 @@ use tokio::time::MissedTickBehavior;
 /// most `jobs` directory reads outstanding. Cancelling or dropping the future
 /// closes its linked scopes so blocking directory loops stop at checkpoints.
 #[must_use = "Await the request to scan local source repositories"]
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 pub struct SourceHuntRequest {
     pub root: PathBuf,
     pub extensions: Vec<SourceFileExtension>,

@@ -1,5 +1,6 @@
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use facet::Facet;
 pub mod azure_role_operation_browse_cli;
 pub mod azure_role_operation_cli;
 pub mod azure_role_operation_list_cli;
@@ -10,7 +11,7 @@ pub use azure_role_operation_list_cli::AzureRoleOperationListArgs;
 use eyre::Result;
 
 /// Manage Azure provider operations.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureRoleOperationArgs {
     #[facet(figue::subcommand)]
     pub command: AzureRoleOperationCommand,

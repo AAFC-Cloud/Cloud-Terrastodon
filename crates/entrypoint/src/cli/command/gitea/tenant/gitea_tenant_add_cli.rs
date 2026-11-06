@@ -2,9 +2,10 @@ use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_gitea::GiteaInstanceUrl;
 use cloud_terrastodon_gitea::add_tracked_tenant;
 use eyre::Result;
+use facet::Facet;
 use std::io::Write;
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct GiteaTenantAddArgs {
     /// Gitea instance URL to track.
     #[facet(figue::positional, proxy = String)]

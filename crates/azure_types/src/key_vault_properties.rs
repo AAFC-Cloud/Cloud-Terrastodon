@@ -2,11 +2,12 @@ use crate::ArbitraryJson;
 use crate::KeyVaultAccessPolicy;
 use crate::tenant_id::AzureTenantId;
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::convert::Infallible;
 
 /// Selected Key Vault properties as returned by Azure. Some complex nested collections remain
 /// as raw JSON until modeled (see TODOs).
-#[derive(Debug, PartialEq, facet::Facet, Arbitrary)]
+#[derive(Debug, PartialEq, Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct KeyVaultProperties {
     pub network_acls: Option<NetworkAcls>,
@@ -27,13 +28,13 @@ pub struct KeyVaultProperties {
     pub sku: KeyVaultSku,
 }
 
-#[derive(Debug, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Arbitrary, Facet)]
 pub struct KeyVaultSku {
     pub name: String,
     pub family: String,
 }
 
-#[derive(Debug, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct NetworkAcls {
     pub virtual_network_rules: ArbitraryJson, // TODO: Vec<VirtualNetworkRule>
@@ -42,7 +43,7 @@ pub struct NetworkAcls {
     pub bypass: ArbitraryJson,                // TODO: enum Bypass (AzureServices / None)
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum ProvisioningState {
@@ -86,7 +87,7 @@ impl From<&ProvisioningState> for String {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum PublicNetworkAccess {

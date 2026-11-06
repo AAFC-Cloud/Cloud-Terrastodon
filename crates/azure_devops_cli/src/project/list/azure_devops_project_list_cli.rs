@@ -7,11 +7,12 @@ use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 use std::io::Write;
 use std::io::stdout;
 
 /// Azure DevOps project-related commands.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureDevOpsProjectListArgs {
     /// Azure DevOps organization name or URL.
     #[facet(figue::named)]
@@ -55,9 +56,10 @@ mod tests {
     use cloud_terrastodon_cache::WorkCache;
     use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_execution::UnreachableAuthenticationProvider;
+    use facet::Facet;
     use std::sync::Arc;
 
-    #[derive(facet::Facet, Debug)]
+    #[derive(Facet, Debug)]
     struct ParseArgs {
         #[facet(flatten)]
         args: AzureDevOpsProjectListArgs,

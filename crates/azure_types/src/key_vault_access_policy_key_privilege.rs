@@ -1,7 +1,8 @@
 use crate::key_vault_access_policy_all_privilege::KeyVaultAccessPolicyAllPrivilege;
 use arbitrary::Arbitrary;
+use facet::Facet;
 
-#[derive(Debug, PartialEq, Clone, Copy, facet::Facet, Arbitrary)]
+#[derive(Debug, PartialEq, Clone, Copy, Facet, Arbitrary)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum KeyVaultAccessPolicyKeyPrivilege {
@@ -104,7 +105,7 @@ impl std::str::FromStr for KeyVaultAccessPolicyKeyPrivilege {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy, facet::Facet, Arbitrary)]
+#[derive(Debug, PartialEq, Clone, Copy, Facet, Arbitrary)]
 #[repr(C)]
 pub enum KeyVaultAccessPolicyKeyManagementOperation {
     Get,
@@ -133,7 +134,7 @@ impl KeyVaultAccessPolicyKeyManagementOperation {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy, facet::Facet, Arbitrary)]
+#[derive(Debug, PartialEq, Clone, Copy, Facet, Arbitrary)]
 #[repr(C)]
 pub enum KeyVaultAccessPolicyCryptographicOperation {
     Decrypt,
@@ -156,7 +157,7 @@ impl KeyVaultAccessPolicyCryptographicOperation {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy, facet::Facet, Arbitrary)]
+#[derive(Debug, PartialEq, Clone, Copy, Facet, Arbitrary)]
 #[repr(C)]
 pub enum KeyVaultAccessPolicyPrivilegedKeyOperation {
     Purge,
@@ -171,7 +172,7 @@ impl KeyVaultAccessPolicyPrivilegedKeyOperation {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy, facet::Facet, Arbitrary)]
+#[derive(Debug, PartialEq, Clone, Copy, Facet, Arbitrary)]
 #[repr(C)]
 pub enum KeyVaultAccessPolicyRotationPolicyOperation {
     Rotate,

@@ -17,11 +17,12 @@ use color_eyre::owo_colors::OwoColorize;
 use color_eyre::owo_colors::Stream;
 use color_eyre::owo_colors::Style;
 use eyre::Result;
+use facet::Facet;
 use std::io::Write;
 use std::sync::Arc;
 
 /// List the latest build runs matching the supplied filters.
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 pub struct AzureDevOpsBuildListArgs {
     /// Organization name or URL.
     #[facet(figue::named)]

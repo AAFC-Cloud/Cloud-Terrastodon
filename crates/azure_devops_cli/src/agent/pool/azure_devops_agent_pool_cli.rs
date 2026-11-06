@@ -4,15 +4,16 @@ use crate::agent::pool::summary::AzureDevOpsAgentPoolSummaryArgs;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 
 /// Azure DevOps agent pool-related commands (grouping for pool subcommands).
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureDevOpsAgentPoolArgs {
     #[facet(figue::subcommand)]
     pub command: AzureDevOpsAgentPoolCommand,
 }
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum AzureDevOpsAgentPoolCommand {
     /// List Azure DevOps agent pools in the organization.

@@ -1,5 +1,6 @@
 use arbitrary::Arbitrary;
 use eyre::Result;
+use facet::Facet;
 use std::str::FromStr;
 use url::Url;
 
@@ -10,7 +11,7 @@ use url::Url;
 /// reference link. No universal image host or route is specified, so preserve
 /// the parsed URL without imposing additional scheme, host, path, query, or
 /// fragment restrictions.
-#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Facet)]
 #[facet(proxy = String)]
 pub struct AzureDevOpsIdentityImageUrl(Url);
 

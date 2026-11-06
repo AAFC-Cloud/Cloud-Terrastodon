@@ -1,8 +1,9 @@
 use crate::http_method_proxy::HttpMethodProxy;
 use cloud_terrastodon_azure_types::uuid::Uuid;
+use facet::Facet;
 use http::Method;
 
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 pub struct BatchRequestEntry<T> {
     #[facet(opaque, rename = "httpMethod", proxy = HttpMethodProxy)]
     pub http_method: Method,

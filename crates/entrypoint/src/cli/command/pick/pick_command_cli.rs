@@ -3,6 +3,7 @@ use crate::cli::pick::pick_stdin_command_cli::PickStdinArgs;
 use crate::serde_json_isolation::Value;
 use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
+use facet::Facet;
 use jmespath::Variable;
 use jsonpath_rust::JsonPath;
 use std::io::IsTerminal;
@@ -10,7 +11,7 @@ use strum::Display;
 use tracing::instrument;
 
 /// Pick from stdin or the filesystem.
-#[derive(facet::Facet, Debug, Clone, Default)]
+#[derive(Facet, Debug, Clone, Default)]
 pub struct PickArgs {
     #[facet(flatten)]
     pub common: PickCommonArgs,
@@ -18,7 +19,7 @@ pub struct PickArgs {
     pub command: Option<PickCommand>,
 }
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum PickCommand {
     /// Pick from stdin
@@ -27,7 +28,7 @@ pub enum PickCommand {
     Fs(PickFsArgs),
 }
 
-#[derive(facet::Facet, Debug, Clone, Default)]
+#[derive(Facet, Debug, Clone, Default)]
 pub struct PickCommonArgs {
     /// Query to be passed to the query engine, determines the display value for the choices
     #[facet(figue::named, figue::short = 'q', default = String::new())]
@@ -46,7 +47,7 @@ pub struct PickCommonArgs {
     pub default_query: Option<String>,
 }
 
-#[derive(Debug, Clone, facet::Facet, Display, Default)]
+#[derive(Debug, Clone, Facet, Display, Default)]
 #[strum(serialize_all = "kebab-case")]
 #[repr(u8)]
 pub enum QueryEngine {

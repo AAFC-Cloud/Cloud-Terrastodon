@@ -1,11 +1,12 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 
 /// Task-wide status, distinct from any individual deployment's result.
 ///
 /// [REST 2024-10-01](https://learn.microsoft.com/en-us/rest/api/policyinsights/remediations/create-or-update-at-resource-group?view=rest-policyinsights-2024-10-01#remediation)
 /// includes `Accepted` in its examples; the [task lifecycle guidance](https://learn.microsoft.com/en-us/azure/governance/policy/concepts/remediation-structure#provisioning-state-and-deployment-summary)
 /// additionally documents `Running`.
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum PolicyRemediationProvisioningState {

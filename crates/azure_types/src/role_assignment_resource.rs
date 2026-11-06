@@ -4,10 +4,11 @@ use crate::RoleAssignmentId;
 use crate::RoleAssignmentName;
 use crate::RoleAssignmentResourceProperties;
 use arbitrary::Arbitrary;
+use facet::Facet;
 
 /// ARM's [role-assignment resource](https://learn.microsoft.com/rest/api/authorization/role-assignments/create?view=rest-authorization-2022-04-01#roleassignment).
 /// This preserves the REST envelope separately from the flattened Resource Graph projection.
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct RoleAssignmentResource {

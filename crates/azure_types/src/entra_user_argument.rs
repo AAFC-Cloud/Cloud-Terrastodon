@@ -8,6 +8,7 @@ use arbitrary::Unstructured;
 use eyre::Report;
 use eyre::Result;
 use eyre::bail;
+use facet::Facet;
 use std::borrow::Cow;
 use std::fmt;
 use std::fmt::Display;
@@ -21,7 +22,7 @@ use std::str::FromStr;
 /// surrounding whitespace removed before parsing. Display names require search.
 /// Parsing and scalar deserialization own their validated value; conversion from
 /// a typed reference borrows it until [`Self::into_owned`] is requested.
-#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum EntraUserArgument<'a> {

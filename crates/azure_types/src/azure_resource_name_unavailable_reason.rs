@@ -1,10 +1,11 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 
 /// Reason a storage-account or vault name is unavailable.
 ///
 /// [Storage schema](https://learn.microsoft.com/rest/api/storagerp/storage-accounts/check-name-availability?view=rest-storagerp-2025-06-01#reason)
 /// and [Key Vault schema](https://learn.microsoft.com/rest/api/keyvault/keyvault/vaults/check-name-availability?view=rest-keyvault-keyvault-2024-11-01#reason).
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum AzureResourceNameUnavailableReason {

@@ -2,10 +2,11 @@ use crate::EntraGroupId;
 use crate::EntraServicePrincipalObjectId;
 use crate::EntraUserId;
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::hash::Hash;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Copy, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Copy, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum EntraPrincipalId {

@@ -1,4 +1,5 @@
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use facet::Facet;
 pub mod browse;
 pub mod publisher;
 
@@ -8,7 +9,7 @@ use cloud_terrastodon_auth::AuthContext;
 use eyre::Result;
 
 /// Virtual machine related subcommands.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum AzureVmCommand {
     /// Manage virtual machine publishers and images.
@@ -18,7 +19,7 @@ pub enum AzureVmCommand {
 }
 
 /// Arguments for VM commands.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureVmArgs {
     #[facet(figue::subcommand)]
     pub command: AzureVmCommand,

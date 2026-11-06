@@ -1,11 +1,12 @@
 use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
+use facet::Facet;
 
 /// A build metric's name, value and time scope.
 ///
 /// Microsoft documentation: [schema](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/definitions/get?view=azure-devops-rest-7.1#buildmetric).
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct AzureDevOpsBuildMetric {

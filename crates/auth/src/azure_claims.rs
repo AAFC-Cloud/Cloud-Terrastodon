@@ -5,8 +5,9 @@ use cloud_terrastodon_azure_types::EntraApplicationClientId;
 use cloud_terrastodon_azure_types::EntraGroupId;
 use cloud_terrastodon_azure_types::EntraPrincipalId;
 use cloud_terrastodon_azure_types::uuid::Uuid;
+use facet::Facet;
 
-#[derive(Debug, facet::Facet, Clone)]
+#[derive(Debug, Facet, Clone)]
 pub struct AzureClaims {
     #[facet(rename = "aud")]
     pub audience: String,

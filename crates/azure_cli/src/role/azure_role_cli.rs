@@ -4,9 +4,10 @@ use super::operation::AzureRoleOperationArgs;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 
 /// Subcommands for Azure RBAC operations.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[expect(clippy::large_enum_variant)]
 #[repr(u8)]
 pub enum AzureRoleCommand {

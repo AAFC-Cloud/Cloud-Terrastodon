@@ -9,10 +9,11 @@ use color_eyre::owo_colors::OwoColorize;
 use color_eyre::owo_colors::Stream;
 use color_eyre::owo_colors::Style;
 use eyre::Result;
+use facet::Facet;
 use std::io::Write;
 
 /// List registry metadata without invoking any registered operation.
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 pub struct RegistryEntryListArgs {
     /// Include only executable requests, excluding constructors and conversions.
     #[facet(figue::named, default)]

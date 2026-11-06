@@ -4,9 +4,10 @@ use super::AzureRoleDefinitionListArgs;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 
 /// Subcommands for Azure role definition operations.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum AzureRoleDefinitionCommand {
     /// List all Azure role definitions accessible to the account.

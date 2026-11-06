@@ -1,4 +1,5 @@
 use crate::azure_devops_work_item_relation_selector::AzureDevOpsWorkItemRelationSelector;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsJsonPatch;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsJsonPatchOperation;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
@@ -10,8 +11,9 @@ use cloud_terrastodon_azure_devops_types::WORK_ITEM_PARENT_RELATION;
 use cloud_terrastodon_azure_types::ArbitraryJson;
 use eyre::Result;
 use eyre::ensure;
+use facet::Facet;
 
-#[derive(Debug, Clone, arbitrary::Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[repr(u8)]
 pub enum AzureDevOpsWorkItemRelationChange {
     Create(AzureDevOpsWorkItemRelationInput),

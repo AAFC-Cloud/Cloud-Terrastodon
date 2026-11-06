@@ -1,9 +1,10 @@
 use eyre::Result;
+use facet::Facet;
 use std::path::PathBuf;
 
 /// Optional native path represented as a JSON string, preserving its identity.
 /// The pinned Facet JSON serializer does not support PathBuf scalars directly.
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Facet)]
 #[facet(transparent)]
 pub(super) struct DumpPlanDiagramPathProxy(pub Option<String>);
 

@@ -5,9 +5,10 @@ use cloud_terrastodon_gitea::GiteaTenantArgumentExt;
 use cloud_terrastodon_gitea::fetch_all_gitea_organizations;
 use eyre::Result;
 use eyre::bail;
+use facet::Facet;
 use std::io::Write;
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct GiteaOrgShowArgs {
     /// Organization id or name.
     #[facet(figue::positional, proxy = String)]

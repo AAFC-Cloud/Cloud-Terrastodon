@@ -7,6 +7,7 @@ use cloud_terrastodon_azure::resolve_tenant_auth_context;
 use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 use eyre::bail;
+use facet::Facet;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum TenantLoginMode {
@@ -40,7 +41,7 @@ fn tenant_login_mode(source: AuthSource) -> Result<TenantLoginMode> {
 
 /// Arguments for logging in to an Azure tenant. Browser PKCE is the default;
 /// Azure CLI remains available with `--auth-source azure-cli`.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureTenantLoginArgs {
     /// Tracked tenant id or alias to log in to.
     #[facet(figue::positional)]

@@ -1,5 +1,6 @@
+use facet::Facet;
 /// Whether to ignore a relationship or reconcile all or only required entries.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Facet)]
 #[facet(rename_all = "camelCase")]
 #[repr(u8)]
 pub enum ReconciliationMode {

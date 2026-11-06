@@ -5,11 +5,12 @@ use cloud_terrastodon_azure::fetch_all_role_operation_metadata;
 use cloud_terrastodon_azure::flatten_role_operations;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 use std::io::Write;
 use tracing::info;
 
 /// Arguments for listing Azure provider operations.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureRoleOperationListArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
     #[facet(figue::named, default)]

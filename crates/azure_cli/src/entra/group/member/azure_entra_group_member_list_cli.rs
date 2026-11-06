@@ -5,11 +5,12 @@ use cloud_terrastodon_azure::EntraGroupId;
 use cloud_terrastodon_azure::fetch_group_members;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 use std::io::Write;
 use tracing::info;
 
 /// List the members of an Entra (Azure AD) group.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureEntraGroupMemberListArgs {
     /// Entra group id (GUID).
     #[facet(figue::named, proxy = String)]

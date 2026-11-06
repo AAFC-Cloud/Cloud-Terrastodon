@@ -9,13 +9,14 @@ use crate::AzureDevOpsProjectReference;
 use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
+use facet::Facet;
 
 /// A possibly shallow definition reference embedded in a build response.
 ///
 /// An omitted path must not be used to establish that a build folder is empty.
 ///
 /// Microsoft documentation: [DefinitionReference](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/builds/list?view=azure-devops-rest-7.1#definitionreference).
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct AzureDevOpsBuildDefinitionSummary {

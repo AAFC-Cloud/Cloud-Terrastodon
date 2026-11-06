@@ -1,8 +1,9 @@
 use crate::azure_devops_work_item_copy_mapping::AzureDevOpsWorkItemCopyMapping;
 use crate::azure_devops_work_item_copy_plan::AzureDevOpsWorkItemCopyPlan;
+use arbitrary::Arbitrary;
 use facet::Facet;
 
-#[derive(Debug, Clone, arbitrary::Arbitrary, Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 pub struct AzureDevOpsWorkItemCopyJournal {
     pub version: u32,
     pub plan: AzureDevOpsWorkItemCopyPlan,

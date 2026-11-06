@@ -1,8 +1,9 @@
 use crate::AddressPrefix;
 use crate::RouteTableId;
 use arbitrary::Arbitrary;
+use facet::Facet;
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 pub struct SubnetProperties {
     #[facet(rename = "addressPrefix", default)]
     pub address_prefix: Option<AddressPrefix>,
@@ -50,23 +51,23 @@ pub struct SubnetProperties {
     pub nat_gateway: Option<NatGatewayReference>,
 }
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 pub struct NetworkSecurityGroupReference {
     pub id: String,
 }
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 pub struct RouteTableReference {
     pub id: RouteTableId,
 }
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 pub struct Delegation {
     pub name: String,
     pub properties: DelegationProperties,
 }
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 pub struct DelegationProperties {
     #[facet(rename = "serviceName")]
     pub service_name: String,
@@ -74,19 +75,19 @@ pub struct DelegationProperties {
     pub actions: Vec<String>,
 }
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 pub struct ServiceEndpoint {
     pub service: String,
     #[facet(default, proxy = crate::VecDefaultNullProxy<String>)]
     pub locations: Vec<String>,
 }
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 pub struct ServiceEndpointPolicyReference {
     pub id: String,
 }
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 pub struct NatGatewayReference {
     pub id: String,
 }

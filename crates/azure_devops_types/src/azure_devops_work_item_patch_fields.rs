@@ -1,12 +1,14 @@
 use crate::AzureDevOpsJsonPatchOperation;
 use crate::AzureDevOpsWorkItemFieldName;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_types::ArbitraryJson;
+use facet::Facet;
 use std::collections::BTreeMap;
 use std::ops::Deref;
 use std::ops::DerefMut;
 
 /// Arbitrary field values supplied when creating or updating a work item.
-#[derive(Debug, Clone, PartialEq, Eq, Default, arbitrary::Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Arbitrary, Facet)]
 #[facet(transparent)]
 pub struct AzureDevOpsWorkItemPatchFields(BTreeMap<AzureDevOpsWorkItemFieldName, ArbitraryJson>);
 

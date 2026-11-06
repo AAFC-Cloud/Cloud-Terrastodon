@@ -1,7 +1,8 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Copy, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Copy, Arbitrary, Facet)]
 #[facet(transparent)]
 pub struct AzureDevOpsAgentPoolId(usize);
 

@@ -2,6 +2,7 @@ use arbitrary::Arbitrary;
 use compact_str::CompactString;
 use eyre::Result;
 use eyre::ensure;
+use facet::Facet;
 use std::ops::Deref;
 use std::str::FromStr;
 
@@ -16,7 +17,7 @@ use std::str::FromStr;
 /// new collection may be created. Creation must separately check uniqueness and
 /// reserved names. In particular, the documented default `DefaultCollection`
 /// remains valid here despite its inclusion in the general reserved-name list.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Facet)]
 #[facet(proxy = String)]
 pub struct AzureDevOpsProjectCollectionName(CompactString);
 

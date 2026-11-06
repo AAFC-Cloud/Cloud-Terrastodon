@@ -1,6 +1,8 @@
 use super::breadcrumb::Breadcrumb;
+use arbitrary::Arbitrary;
+use facet::Facet;
 
-#[derive(Clone, Debug, Default, Eq, PartialEq, arbitrary::Arbitrary, facet::Facet)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Arbitrary, Facet)]
 #[repr(C)]
 pub(crate) struct Breadcrumbs {
     /// Ordered, composable projection/filter operations. This is the query

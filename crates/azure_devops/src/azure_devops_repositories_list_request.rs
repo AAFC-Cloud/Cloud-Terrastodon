@@ -15,6 +15,7 @@ use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_pathing::sanitize_windows_path_component;
 use cloud_terrastodon_rest::RestRequest;
 use cloud_terrastodon_rest::RestService;
+use facet::Facet;
 use reqwest::Method;
 use std::borrow::Cow;
 use std::path::PathBuf;
@@ -22,7 +23,7 @@ use std::sync::Arc;
 
 /// Repositories belonging to one explicitly selected project.
 /// <https://learn.microsoft.com/en-us/rest/api/azure/devops/git/repositories/list?view=azure-devops-rest-7.1>
-#[derive(Clone, Debug, facet::Facet)]
+#[derive(Clone, Debug, Facet)]
 #[facet(traits(Clone))]
 pub struct AzureDevOpsRepositoriesListRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,

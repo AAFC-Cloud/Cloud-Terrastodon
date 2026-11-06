@@ -1,9 +1,10 @@
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_gitea::list_tracked_tenants;
 use eyre::Result;
+use facet::Facet;
 use std::io::Write;
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct GiteaTenantListArgs {}
 
 impl GiteaTenantListArgs {

@@ -5,9 +5,10 @@ use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 
 /// Pipeline definitions and their folders.
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 pub struct AzureDevOpsBuildDefinitionArgs {
     #[facet(figue::subcommand)]
     pub command: AzureDevOpsBuildDefinitionCommand,
@@ -24,7 +25,7 @@ impl AzureDevOpsBuildDefinitionArgs {
 }
 
 /// Commands for pipeline definitions and their folders.
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[repr(u8)]
 pub enum AzureDevOpsBuildDefinitionCommand {
     /// List pipeline definitions in a project.

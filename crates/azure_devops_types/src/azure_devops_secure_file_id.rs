@@ -1,4 +1,5 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::str::FromStr;
 use uuid::Uuid;
 
@@ -6,7 +7,7 @@ use uuid::Uuid;
 ///
 /// Microsoft's [SecureFileReference.id wire model](https://github.com/microsoft/azure-devops-go-api/blob/dev/azuredevops/build/models.go#L1684)
 /// declares a UUID, unlike a build repository's provider-specific string ID.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Arbitrary, Facet)]
 #[facet(proxy = String)]
 pub struct AzureDevOpsSecureFileId(pub Uuid);
 

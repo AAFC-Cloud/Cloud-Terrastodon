@@ -21,7 +21,7 @@ use reqwest::Response;
 use reqwest::header::HeaderMap;
 use std::io::Write;
 
-#[derive(Arbitrary, Clone, Debug, PartialEq, facet::Facet)]
+#[derive(Arbitrary, Clone, Debug, PartialEq, Facet)]
 pub struct SerializableRestResponse {
     /// A validated HTTP status, serialized as its numeric code in cache artifacts.
     #[facet(opaque, proxy = HttpStatusCodeProxy)]

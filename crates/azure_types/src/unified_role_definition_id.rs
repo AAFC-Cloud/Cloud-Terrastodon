@@ -1,4 +1,6 @@
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, arbitrary::Arbitrary, facet::Facet)]
+use arbitrary::Arbitrary;
+use facet::Facet;
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Arbitrary, Facet)]
 #[facet(json::proxy = String)]
 pub struct UnifiedRoleDefinitionId(uuid::Uuid);
 

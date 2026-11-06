@@ -5,6 +5,7 @@ use crate::AzureDevOpsProjectId;
 use arbitrary::Arbitrary;
 use eyre::Result;
 use eyre::ensure;
+use facet::Facet;
 use std::str::FromStr;
 use url::Url;
 
@@ -18,7 +19,7 @@ const DEFINITION_ROUTE: [&str; 3] = ["_apis", "build", "definitions"];
 /// the transport URL is assembled from them. Parsing retains query parameters
 /// and collection prefixes, while rendering canonicalizes route spelling and
 /// path encoding. Organization forms follow [`AzureDevOpsOrganizationUrl`].
-#[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Facet)]
 #[facet(proxy = String)]
 pub struct AzureDevOpsBuildDefinitionUrl {
     pub org_url: AzureDevOpsOrganizationUrl,

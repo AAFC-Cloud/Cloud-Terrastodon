@@ -4,15 +4,16 @@ use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_auth_types::AuthSource;
 use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
+use facet::Facet;
 
 /// Plan cloud inventories from the linked request registry.
-#[derive(Debug, Arbitrary, facet::Facet)]
+#[derive(Debug, Arbitrary, Facet)]
 pub struct DumpArgs {
     #[facet(figue::subcommand)]
     pub command: DumpCommand,
 }
 
-#[derive(Debug, Arbitrary, facet::Facet)]
+#[derive(Debug, Arbitrary, Facet)]
 #[repr(u8)]
 pub enum DumpCommand {
     /// Plan read-only request dependencies offline and optionally export Excalidraw.

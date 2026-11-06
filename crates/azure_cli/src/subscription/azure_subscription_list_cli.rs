@@ -18,6 +18,7 @@ use color_eyre::owo_colors::OwoColorize;
 use color_eyre::owo_colors::Stream;
 use color_eyre::owo_colors::Style;
 use eyre::Result;
+use facet::Facet;
 use std::future::Future;
 use std::io::IsTerminal;
 use std::io::Write;
@@ -28,14 +29,14 @@ use tracing::debug;
 const MAX_CONCURRENT_TENANTS: usize = 4;
 
 /// Arguments for listing Azure subscriptions across tracked tenants.
-#[derive(facet::Facet, Debug, Clone, Default)]
+#[derive(Facet, Debug, Clone, Default)]
 pub struct AzureSubscriptionListArgs {
     /// Optional tenant id or tracked alias to query. Defaults to all tracked tenants.
     #[facet(figue::named)]
     pub tenant: Option<AzureTenantArgument<'static>>,
 }
 
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Facet)]
 struct TenantSubscriptions {
     tenant_id: AzureTenantId,
     tenant_name: Option<String>,
@@ -47,14 +48,14 @@ struct TenantSubscriptions {
     metadata_errors: Vec<String>,
 }
 
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Facet)]
 struct ListedSubscription {
     #[facet(flatten)]
     subscription: Arc<Subscription>,
     portal_url: String,
 }
 
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Facet)]
 #[facet(transparent)]
 struct SubscriptionListOutput(Vec<TenantSubscriptions>);
 
@@ -345,6 +346,7 @@ mod tests {
     use super::*;
     use cloud_terrastodon_app::OutputFormat;
     use cloud_terrastodon_command::CancellationToken;
+    use facet::Facet;
 
     fn render_text(output: SubscriptionListOutput, cancellation: &CancellationScope) -> String {
         output
@@ -375,7 +377,7 @@ mod tests {
         )])
     }
 
-    #[derive(Debug, facet::Facet)]
+    #[derive(Debug, Facet)]
     struct ParseArgs {
         #[facet(flatten, default)]
         args: AzureSubscriptionListArgs,

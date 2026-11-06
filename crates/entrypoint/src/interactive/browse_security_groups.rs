@@ -18,6 +18,7 @@ use cloud_terrastodon_user_input::PickerTui;
 use cloud_terrastodon_user_input::are_you_sure;
 use eyre::Result;
 use eyre::bail;
+use facet::Facet;
 use std::collections::HashMap;
 use std::sync::Arc;
 use strum::VariantArray;
@@ -31,7 +32,7 @@ enum SecurityGroupAction {
     JustPrint,
 }
 
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Facet)]
 struct SecurityGroupBrowseRow {
     group: Arc<EntraGroup>,
     owners: Option<Vec<Arc<EntraDirectoryObject>>>,
@@ -39,7 +40,7 @@ struct SecurityGroupBrowseRow {
     role_assignments: Option<Vec<SecurityGroupRoleAssignmentRow>>,
 }
 
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Facet)]
 struct SecurityGroupRoleAssignmentRow {
     role_assignment: Arc<RoleAssignment>,
     role_definition: Arc<RoleDefinition>,

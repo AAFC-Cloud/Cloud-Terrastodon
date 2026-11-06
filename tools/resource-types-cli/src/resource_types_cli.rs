@@ -8,9 +8,10 @@ use cloud_terrastodon_app::Result;
 use cloud_terrastodon_app::facet;
 use cloud_terrastodon_app::figue;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use facet::Facet;
 
 /// Refresh tenant metadata or maintain source from a reviewed local catalogue.
-#[derive(facet::Facet)]
+#[derive(Facet)]
 pub struct ResourceTypesArgs {
     #[facet(flatten)]
     pub global_args: GlobalArgs,
@@ -35,7 +36,7 @@ impl ResourceTypesArgs {
     }
 }
 
-#[derive(facet::Facet)]
+#[derive(Facet)]
 #[repr(u8)]
 pub enum ResourceTypesCommand {
     /// Write the generated enum from a local JSON array of resource-type names.

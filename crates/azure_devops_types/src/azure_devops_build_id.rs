@@ -1,12 +1,13 @@
 use arbitrary::Arbitrary;
 use eyre::Result;
 use eyre::ensure;
+use facet::Facet;
 use std::str::FromStr;
 
 /// A positive Azure DevOps build identifier.
 ///
 /// See the `id` field in Microsoft's [Build schema](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/builds/list?view=azure-devops-rest-7.1#build).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, facet::Facet)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Facet)]
 #[facet(proxy = i32)]
 pub struct AzureDevOpsBuildId(i32);
 

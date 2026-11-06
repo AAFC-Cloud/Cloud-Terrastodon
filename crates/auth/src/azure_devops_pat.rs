@@ -1,10 +1,11 @@
 use crate::AuthBearerExt;
 #[cfg(windows)]
 use crate::read_azure_devops_pat_from_credential_manager;
+use facet::Facet;
 use reqwest::header::HeaderValue;
 use std::ops::Deref;
 
-#[derive(facet::Facet)]
+#[derive(Facet)]
 #[facet(transparent)]
 pub struct AzureDevOpsPersonalAccessToken(#[facet(sensitive)] String);
 impl AzureDevOpsPersonalAccessToken {

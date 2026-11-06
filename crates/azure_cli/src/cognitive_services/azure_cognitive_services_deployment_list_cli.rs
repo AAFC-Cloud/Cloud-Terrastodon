@@ -10,17 +10,18 @@ use cloud_terrastodon_azure::fetch_cognitive_services_account_deployments;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use eyre::bail;
+use facet::Facet;
 use std::io::Write;
 use std::sync::Arc;
 
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 struct CognitiveServicesAccountDeploymentListEntry {
     account: Arc<AzureCognitiveServicesAccountResource>,
     deployment: Arc<AzureCognitiveServicesAccountDeployment>,
 }
 
 /// Arguments for listing deployments for Azure Cognitive Services accounts.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureCognitiveServicesDeploymentListArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
     #[facet(figue::named, default)]

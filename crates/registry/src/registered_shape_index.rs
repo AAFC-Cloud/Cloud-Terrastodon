@@ -51,12 +51,16 @@ mod tests {
     use facet::Facet;
 
     mod first {
-        #[derive(facet::Facet)]
+        use facet::Facet;
+
+        #[derive(Facet)]
         pub struct Item;
     }
 
     mod second {
-        #[derive(facet::Facet)]
+        use facet::Facet;
+
+        #[derive(Facet)]
         pub struct Item;
     }
 

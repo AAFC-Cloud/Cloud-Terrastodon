@@ -6,10 +6,11 @@ use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_test_suites;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 use std::io::stdout;
 
 /// List Azure DevOps test suites in a plan.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureDevOpsTestSuiteListArgs {
     /// Tenant id or tracked alias for bearer authentication; PAT authentication may omit it.
     #[facet(figue::named)]

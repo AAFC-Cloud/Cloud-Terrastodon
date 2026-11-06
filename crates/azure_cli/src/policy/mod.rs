@@ -1,5 +1,6 @@
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use facet::Facet;
 pub mod assignment;
 pub mod definition;
 pub mod set_definition;
@@ -19,14 +20,14 @@ pub use set_definition::AzurePolicySetDefinitionCommand;
 pub use set_definition::AzurePolicySetDefinitionListArgs;
 
 /// Manage Azure policy resources.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzurePolicyArgs {
     #[facet(figue::subcommand)]
     pub command: AzurePolicyCommand,
 }
 
 /// Subcommands for Azure policy operations.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum AzurePolicyCommand {
     /// Manage Azure policy assignments.

@@ -1,5 +1,6 @@
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use facet::Facet;
 pub mod azure_resource_group_browse_cli;
 pub mod azure_resource_group_cli;
 pub mod azure_resource_group_list_cli;
@@ -11,7 +12,7 @@ pub use azure_resource_group_list_cli::AzureResourceGroupListArgs;
 use eyre::Result;
 
 /// Manage Azure resource groups.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureResourceGroupArgs {
     #[facet(figue::subcommand)]
     pub command: AzureResourceGroupCommand,

@@ -1,6 +1,7 @@
 use crate::azure_devops_work_item_copy_edge::AzureDevOpsWorkItemCopyEdge;
 use crate::azure_devops_work_item_copy_node::AzureDevOpsWorkItemCopyNode;
 use crate::azure_devops_work_item_copy_omission::AzureDevOpsWorkItemCopyOmission;
+use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
@@ -8,7 +9,7 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemId;
 use facet::Facet;
 
-#[derive(Debug, Clone, arbitrary::Arbitrary, Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 pub struct AzureDevOpsWorkItemCopyPlan {
     pub root: AzureDevOpsWorkItemId,
     pub organization: AzureDevOpsOrganizationUrl,

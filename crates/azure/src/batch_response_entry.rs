@@ -1,7 +1,8 @@
 use cloud_terrastodon_azure_types::uuid::Uuid;
+use facet::Facet;
 use std::collections::HashMap;
 
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Facet)]
 pub struct BatchResponseEntry<T> {
     pub name: Uuid,
     #[facet(rename = "httpStatusCode")]

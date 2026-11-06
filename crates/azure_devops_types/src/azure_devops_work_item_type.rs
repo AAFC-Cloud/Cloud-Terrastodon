@@ -1,4 +1,5 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::ops::Deref;
 use std::str::FromStr;
 
@@ -7,7 +8,7 @@ use std::str::FromStr;
 /// The constructor performs the lexical checks that used to be deferred until
 /// a request was sent, so an `AzureDevOpsWorkItemType` cannot contain an empty
 /// or traversal path segment.
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Facet)]
 #[facet(transparent)]
 pub struct AzureDevOpsWorkItemType(String);
 

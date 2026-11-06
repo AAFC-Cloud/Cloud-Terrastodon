@@ -1,6 +1,7 @@
 use arbitrary::Arbitrary;
 use eyre::Result;
 use eyre::ensure;
+use facet::Facet;
 use std::str::FromStr;
 
 /// A positive maximum number of builds to return.
@@ -8,7 +9,7 @@ use std::str::FromStr;
 /// Microsoft's [Builds List `$top` parameter](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/builds/list?view=azure-devops-rest-7.1#uri-parameters)
 /// is an int32. This value is at most `i32::MAX` and rejects zero so a requested
 /// list limit has a useful positive meaning.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, facet::Facet)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Facet)]
 #[facet(proxy = u32)]
 pub struct AzureDevOpsBuildListLimit(u32);
 

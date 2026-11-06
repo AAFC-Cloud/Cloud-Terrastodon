@@ -1,9 +1,10 @@
 use cloud_terrastodon_azure_types::SubscriptionId;
 use cloud_terrastodon_azure_types::SubscriptionName;
 use compact_str::CompactString;
+use facet::Facet;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct ServiceEndpointAzureRMData {
     pub app_object_id: Option<Uuid>,
@@ -27,7 +28,7 @@ pub struct ServiceEndpointAzureRMData {
     pub subscription_name: Option<SubscriptionName>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Facet)]
 #[repr(C)]
 pub enum AzureDevOpsServiceEndpointAzureRMDataIdentityType {
     AppRegistrationManual,
@@ -36,19 +37,19 @@ pub enum AzureDevOpsServiceEndpointAzureRMDataIdentityType {
     #[facet(other)]
     Other(CompactString),
 }
-#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Facet)]
 #[repr(C)]
 pub enum AzureDevOpsServiceEndpointAzureRMDataCreationMode {
     Manual,
     Automatic,
 }
-#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Facet)]
 #[repr(C)]
 pub enum AzureDevOpsServiceEndpointAzureRMDataScopeLevel {
     Subscription,
     ManagementGroup,
 }
-#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Facet)]
 #[repr(C)]
 pub enum AzureDevOpsServiceEndpointAzureRMDataEnvironment {
     AzureCloud,

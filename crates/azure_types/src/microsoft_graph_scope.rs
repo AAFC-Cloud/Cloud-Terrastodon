@@ -1,5 +1,6 @@
 use compact_str::CompactString;
 use eyre::bail;
+use facet::Facet;
 use std::ops::Deref;
 use std::str::FromStr;
 
@@ -9,7 +10,7 @@ pub const MICROSOFT_GRAPH_SCOPE_PREFIX: &str = "https://graph.microsoft.com/";
 /// A Microsoft Graph delegated permission claim value, such as `User.Read`.
 ///
 /// This stores the bare permission value used by `oauth2PermissionGrant.scope`.
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Facet)]
 #[facet(transparent)]
 pub struct MicrosoftGraphScopeClaim(CompactString);
 

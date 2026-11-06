@@ -4,15 +4,16 @@ use crate::test::plan::suite::show::AzureDevOpsTestSuiteShowArgs;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 
 /// Azure DevOps test suite-related commands.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureDevOpsTestSuiteArgs {
     #[facet(figue::subcommand)]
     pub command: AzureDevOpsTestSuiteCommand,
 }
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum AzureDevOpsTestSuiteCommand {
     /// List Azure DevOps test suites in a plan.

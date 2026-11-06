@@ -1,6 +1,7 @@
 use arbitrary::Arbitrary;
 use eyre::Result;
 use eyre::ensure;
+use facet::Facet;
 use std::ops::Deref;
 use std::str::FromStr;
 
@@ -17,7 +18,7 @@ use std::str::FromStr;
 /// Exact spelling, spaces, Unicode and provider-specific separators are preserved.
 /// This is a repository path, not a local Windows path;
 /// leading slashes, repository separators and file extensions are not rewritten.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Facet)]
 #[facet(proxy = String)]
 pub struct AzureDevOpsBuildYamlFilename(String);
 

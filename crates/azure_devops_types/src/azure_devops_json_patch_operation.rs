@@ -2,6 +2,7 @@ use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_types::ArbitraryJson;
 use eyre::Result;
 use eyre::ensure;
+use facet::Facet;
 use std::collections::BTreeMap;
 use std::ops::Deref;
 use std::ops::DerefMut;
@@ -9,7 +10,7 @@ use std::ops::DerefMut;
 /// Raw object representation used only while encoding or decoding one JSON
 /// Patch operation. This is deliberately distinct from work item fields even
 /// though both happen to use a string-keyed JSON object.
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[facet(transparent)]
 struct AzureDevOpsJsonPatchOperationObject(BTreeMap<String, ArbitraryJson>);
 
@@ -32,7 +33,7 @@ impl DerefMut for AzureDevOpsJsonPatchOperationObject {
 /// The operation is an enum so each variant carries exactly the members that
 /// apply to that JSON Patch operation. In particular, `remove` cannot carry a
 /// value and `move`/`copy` cannot accidentally be sent without `from`.
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[facet(proxy = AzureDevOpsJsonPatchOperationObject)]
 #[repr(u8)]
 pub enum AzureDevOpsJsonPatchOperation {

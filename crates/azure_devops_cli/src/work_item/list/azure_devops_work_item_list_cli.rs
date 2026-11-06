@@ -7,9 +7,10 @@ use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemsGetRequest;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
+use facet::Facet;
 use std::borrow::Cow;
 
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 pub struct AzureDevOpsWorkItemListArgs {
     #[facet(figue::named)]
     pub org: AzureDevOpsOrganizationUrl,

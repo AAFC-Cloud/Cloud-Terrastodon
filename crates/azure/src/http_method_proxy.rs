@@ -1,7 +1,8 @@
 use eyre::Result;
+use facet::Facet;
 use http::Method;
 
-#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Facet)]
 #[facet(transparent)]
 pub(crate) struct HttpMethodProxy(String);
 

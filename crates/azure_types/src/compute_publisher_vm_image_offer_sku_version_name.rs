@@ -2,11 +2,12 @@ use crate::slug::Slug;
 use arbitrary::Arbitrary;
 use compact_str::CompactString;
 use eyre::bail;
+use facet::Facet;
 use std::hash::Hash;
 use std::ops::Deref;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, Eq, PartialOrd, Ord, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialOrd, Ord, Facet)]
 #[facet(json::proxy = String)]
 pub struct ComputePublisherVmImageOfferSkuVersionName(CompactString);
 crate::impl_facet_string_proxy!(ComputePublisherVmImageOfferSkuVersionName, value => value.to_string());

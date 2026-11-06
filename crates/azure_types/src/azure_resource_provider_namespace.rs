@@ -4,6 +4,7 @@ use arbitrary::Arbitrary;
 use arbitrary::Unstructured;
 use eyre::Result;
 use eyre::ensure;
+use facet::Facet;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::str::FromStr;
@@ -14,7 +15,7 @@ use std::str::FromStr;
 /// The namespace remains open to newly advertised providers. Requiring one
 /// nonempty path segment is a library composition invariant, not an additional
 /// Azure naming policy; spelling and case are preserved.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Facet)]
 #[facet(proxy = String)]
 pub struct AzureResourceProviderNamespace {
     // Private so mutation cannot introduce an empty or nested namespace.

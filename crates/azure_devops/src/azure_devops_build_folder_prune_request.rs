@@ -15,6 +15,7 @@ use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_execution::RequestExecution;
 use eyre::Context;
+use facet::Facet;
 use std::borrow::Cow;
 
 /// Folder pruning invalidates and refreshes project-wide list caches before
@@ -24,7 +25,7 @@ use std::borrow::Cow;
 ///
 /// See the [folder-delete API](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/folders/delete?view=azure-devops-rest-7.1).
 #[must_use = "This is a future request, you must .execute it"]
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[facet(traits(Clone))]
 pub struct AzureDevOpsBuildFolderPruneRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,

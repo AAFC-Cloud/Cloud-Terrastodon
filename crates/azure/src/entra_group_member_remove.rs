@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure_types::EntraGroupId;
 use cloud_terrastodon_azure_types::EntraPrincipalId;
@@ -10,6 +11,7 @@ use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_rest::RestRequest;
+use facet::Facet;
 use http::Method;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -17,7 +19,7 @@ use url::Url;
 
 /// Remove a group membership using Graph's [$ref endpoint](https://learn.microsoft.com/graph/api/group-delete-members?view=graph-rest-1.0).
 /// The directory object itself is never the DELETE target.
-#[derive(Debug, arbitrary::Arbitrary, facet::Facet)]
+#[derive(Debug, Arbitrary, Facet)]
 pub struct EntraGroupMemberRemoveRequest {
     pub auth_context: AzureTenantAuthContext,
 

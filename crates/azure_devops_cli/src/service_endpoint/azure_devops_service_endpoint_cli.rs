@@ -3,15 +3,16 @@ use crate::service_endpoint::show::AzureDevOpsServiceEndpointShowArgs;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 
 /// Azure DevOps service endpoint-related commands.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureDevOpsServiceEndpointArgs {
     #[facet(figue::subcommand)]
     pub command: AzureDevOpsServiceEndpointCommand,
 }
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum AzureDevOpsServiceEndpointCommand {
     /// List Azure DevOps service endpoints in a project.

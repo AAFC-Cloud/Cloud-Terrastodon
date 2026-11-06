@@ -6,11 +6,12 @@ use cloud_terrastodon_azure::fetch_all_network_interfaces;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use eyre::bail;
+use facet::Facet;
 use std::io::Write;
 use tracing::info;
 
 /// Arguments for showing a single Azure network interface.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureNetworkInterfaceShowArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
     #[facet(figue::named, default)]

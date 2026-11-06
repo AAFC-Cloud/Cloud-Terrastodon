@@ -1,8 +1,9 @@
 #![cfg(test)]
 
 use cloud_terrastodon_config::Config;
+use facet::Facet;
 
-#[derive(Debug, facet::Facet, Clone, PartialEq)]
+#[derive(Debug, Facet, Clone, PartialEq)]
 pub struct MyTestConfigV1 {
     pub bloop: String,
 }
@@ -15,7 +16,7 @@ impl Default for MyTestConfigV1 {
     }
 }
 
-#[derive(Debug, facet::Facet, Eq, PartialEq, Clone)]
+#[derive(Debug, Facet, Eq, PartialEq, Clone)]
 pub struct MyTestConfigV2 {
     pub bleep: bool,
     pub bloop: String,

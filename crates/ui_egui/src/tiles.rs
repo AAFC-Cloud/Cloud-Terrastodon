@@ -8,9 +8,10 @@ use egui_tiles::TileId;
 use egui_tiles::Tiles;
 use egui_tiles::Tree;
 use egui_tiles::UiResponse;
+use facet::Facet;
 use std::fmt::Debug;
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug, facet::Facet)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Facet)]
 #[repr(u8)]
 pub enum Pane {
     Home,

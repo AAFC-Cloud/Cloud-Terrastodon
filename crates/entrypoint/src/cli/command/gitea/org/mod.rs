@@ -1,3 +1,4 @@
+use facet::Facet;
 pub mod gitea_org_browse_cli;
 pub mod gitea_org_list_cli;
 pub mod gitea_org_show_cli;
@@ -8,13 +9,13 @@ pub use gitea_org_browse_cli::GiteaOrgBrowseArgs;
 pub use gitea_org_list_cli::GiteaOrgListArgs;
 pub use gitea_org_show_cli::GiteaOrgShowArgs;
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct GiteaOrgArgs {
     #[facet(figue::subcommand)]
     pub command: GiteaOrgCommand,
 }
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum GiteaOrgCommand {
     /// List organizations visible from the tenant.

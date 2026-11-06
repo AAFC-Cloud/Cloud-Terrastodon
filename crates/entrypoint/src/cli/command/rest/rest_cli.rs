@@ -20,11 +20,12 @@ use cloud_terrastodon_rest::read_optional_headers;
 use eyre::Context;
 use eyre::ContextCompat;
 use eyre::Result;
+use facet::Facet;
 use reqwest::Url;
 use std::io::Write;
 
 /// Arguments for issuing raw REST calls with Cloud Terrastodon's auth helpers.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct RestArgs {
     /// The HTTP method to use for the REST call.
     #[facet(figue::named)]
@@ -196,6 +197,7 @@ mod test {
     use cloud_terrastodon_rest::RestResponseBody;
     use cloud_terrastodon_rest::RestResponseHeaders;
     use cloud_terrastodon_rest::parse_response_body;
+    use facet::Facet;
     use facet_json::RawJson;
     use http::StatusCode;
     use reqwest::Url;
@@ -203,7 +205,7 @@ mod test {
     use reqwest::header::HeaderValue;
     use std::sync::Arc;
 
-    #[derive(facet::Facet, Debug)]
+    #[derive(Facet, Debug)]
     struct ParseArgs {
         #[facet(flatten)]
         global_args: GlobalArgs,

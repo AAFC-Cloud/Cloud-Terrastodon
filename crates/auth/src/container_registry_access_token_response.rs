@@ -1,8 +1,9 @@
 use eyre::Result;
 use eyre::ensure;
+use facet::Facet;
 
 /// Sensitive [ACR access-token response](https://learn.microsoft.com/en-us/rest/api/registry-dataplane/authentication/exchange-acr-refresh-token-for-acr-access-token?view=rest-registry-dataplane-2021-07-01#acraccesstoken).
-#[derive(facet::Facet)]
+#[derive(Facet)]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub(crate) struct ContainerRegistryAccessTokenResponse {
     #[facet(sensitive)]

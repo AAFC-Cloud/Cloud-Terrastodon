@@ -3,29 +3,30 @@ use arbitrary::Arbitrary;
 use emath::Pos2;
 use emath::Rect;
 use emath::Vec2;
+use facet::Facet;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-#[derive(Debug, facet::Facet, Clone, PartialEq)]
+#[derive(Debug, Facet, Clone, PartialEq)]
 #[facet(opaque, proxy = EguiConfigProxy)]
 pub struct EguiConfig {
     pub starting_points_window: Rect,
     pub open_dirs: HashMap<PathBuf, Rect>,
 }
 
-#[derive(Debug, Arbitrary, facet::Facet, Clone, PartialEq)]
+#[derive(Debug, Arbitrary, Facet, Clone, PartialEq)]
 struct EguiConfigProxy {
     pub starting_points_window: RectProxy,
     pub open_dirs: HashMap<PathBuf, RectProxy>,
 }
 
-#[derive(Debug, Arbitrary, facet::Facet, Clone, Copy, PartialEq)]
+#[derive(Debug, Arbitrary, Facet, Clone, Copy, PartialEq)]
 struct RectProxy {
     pub min: Pos2Proxy,
     pub max: Pos2Proxy,
 }
 
-#[derive(Debug, Arbitrary, facet::Facet, Clone, Copy, PartialEq)]
+#[derive(Debug, Arbitrary, Facet, Clone, Copy, PartialEq)]
 struct Pos2Proxy {
     pub x: f32,
     pub y: f32,

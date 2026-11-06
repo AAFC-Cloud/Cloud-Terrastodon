@@ -20,11 +20,12 @@ use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Context;
 use eyre::ContextCompat;
 use eyre::Result;
+use facet::Facet;
 use tracing::debug;
 use tracing::info;
 
 /// Demote a user to Stakeholder license level, including removing the user from any groups involved in transitive license assignment.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureDevOpsLicenseEntitlementUserRevokeArgs {
     /// Azure DevOps organization name or URL.
     #[facet(figue::named)]

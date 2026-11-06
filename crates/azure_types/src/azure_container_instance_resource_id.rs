@@ -11,12 +11,13 @@ use crate::slug::Slug;
 use arbitrary::Arbitrary;
 use eyre::Context;
 use eyre::Result;
+use facet::Facet;
 use std::str::FromStr;
 
 pub const AZURE_CONTAINER_INSTANCE_RESOURCE_ID_PREFIX: &str =
     "/providers/Microsoft.ContainerInstance/containerGroups/";
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, Facet)]
 #[facet(json::proxy = String)]
 pub struct AzureContainerInstanceResourceId {
     pub resource_group_id: ResourceGroupId,

@@ -1,3 +1,4 @@
+use facet::Facet;
 pub mod decode_cli;
 
 use crate::cli::command::jwt::decode_cli::JwtDecodeArgs;
@@ -5,13 +6,13 @@ use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 
 /// JWT-related commands.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct JwtArgs {
     #[facet(figue::subcommand)]
     pub command: JwtCommand,
 }
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum JwtCommand {
     /// Decode a JWT without validating its signature.

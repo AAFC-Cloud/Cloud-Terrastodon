@@ -1,11 +1,12 @@
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_pathing::AppDir;
 use eyre::Result;
+use facet::Facet;
 use tokio::io::AsyncWriteExt;
 use tokio::io::stdout;
 
 /// Retrieve the path to a well-known application directory.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct GetPathArgs {
     /// The application directory to resolve.
     #[facet(figue::positional)]

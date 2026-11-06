@@ -7,6 +7,7 @@ use cloud_terrastodon_app::ApplicationCli;
 use cloud_terrastodon_app::CancellationScope;
 use cloud_terrastodon_app::GlobalArgs;
 use cloud_terrastodon_app::Result;
+use facet::Facet;
 use std::cell::Cell;
 use std::future::pending;
 use std::future::poll_fn;
@@ -29,7 +30,7 @@ const VERIFIED: &str = "runner probe verified environment and shutdown";
 const CONSUMER_REASON: &str = "consumer-selected cancellation reason";
 
 // Deliberately no Debug or Arbitrary requirement on the consumer-owned CLI.
-#[derive(facet::Facet)]
+#[derive(Facet)]
 struct ProbeCli {
     #[facet(flatten)]
     global: GlobalArgs,
@@ -259,7 +260,7 @@ fn runner_process_probe() {
                     .into_result()
                     .is_err()
             );
-            #[derive(facet::Facet)]
+            #[derive(Facet)]
             struct InvalidCli {
                 global: GlobalArgs,
             }

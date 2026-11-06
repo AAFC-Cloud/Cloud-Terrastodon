@@ -5,12 +5,13 @@ use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
+use facet::Facet;
 use std::io::Read;
 use strum::Display;
 use tracing::instrument;
 use tracing::trace_span;
 
-#[derive(Debug, Clone, facet::Facet, Display)]
+#[derive(Debug, Clone, Facet, Display)]
 #[strum(serialize_all = "kebab-case")]
 #[repr(u8)]
 pub enum InputFormat {
@@ -21,7 +22,7 @@ pub enum InputFormat {
 }
 
 /// Pick from stdin.
-#[derive(facet::Facet, Debug, Clone, Default)]
+#[derive(Facet, Debug, Clone, Default)]
 pub struct PickStdinArgs {
     /// Stdin parsing mode (json | lines). Defaults to auto-detect when omitted.
     #[facet(figue::named)]

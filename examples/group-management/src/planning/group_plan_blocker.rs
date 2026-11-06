@@ -6,6 +6,7 @@ use cloud_terrastodon::azure_types::EntraDirectoryObjectType;
 use cloud_terrastodon::azure_types::EntraGroupId;
 use cloud_terrastodon::azure_types::EntraPrincipalId;
 use cloud_terrastodon::azure_types::UserPrincipalName;
+use facet::Facet;
 use std::cmp::Ordering;
 use std::error::Error;
 use std::fmt;
@@ -13,7 +14,7 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 
 /// A structured reason why a group's proposed changes cannot be applied safely.
-#[derive(Debug, Clone, Eq, PartialEq, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Facet)]
 #[repr(C)]
 #[facet(tag = "code", rename_all = "camelCase")]
 pub enum GroupPlanBlocker {

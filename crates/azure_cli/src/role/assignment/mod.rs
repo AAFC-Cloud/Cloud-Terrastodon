@@ -1,4 +1,5 @@
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use facet::Facet;
 pub mod azure_role_assignment_browse_cli;
 pub mod azure_role_assignment_cli;
 pub mod azure_role_assignment_create_cli;
@@ -12,7 +13,7 @@ use cloud_terrastodon_auth::AuthContext;
 use eyre::Result;
 
 /// Manage Azure role assignments.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureRoleAssignmentArgs {
     #[facet(figue::subcommand)]
     pub command: AzureRoleAssignmentCommand,

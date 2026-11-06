@@ -2,10 +2,11 @@ use crate::ArbitraryJson;
 use arbitrary::Arbitrary;
 use eyre::Result;
 use eyre::bail;
+use facet::Facet;
 use std::time::Duration;
 use uuid::Uuid;
 
-#[derive(Debug, PartialEq, facet::Facet, Arbitrary)]
+#[derive(Debug, PartialEq, Facet, Arbitrary)]
 pub struct PimEntraRoleSettings {
     id: Uuid,
     #[facet(rename = "roleDefinitionId")]
@@ -27,7 +28,7 @@ impl PimEntraRoleSettings {
     }
 }
 
-#[derive(Debug, PartialEq, facet::Facet, Arbitrary)]
+#[derive(Debug, PartialEq, Facet, Arbitrary)]
 #[facet(proxy = PimEntraRoleSettingsRuleProxy)]
 #[repr(C)]
 pub enum PimEntraRoleSettingsRule {
@@ -40,7 +41,7 @@ pub enum PimEntraRoleSettingsRule {
     AttributeConditionRule(ArbitraryJson),
 }
 
-#[derive(Debug, PartialEq, Eq, facet::Facet, Arbitrary)]
+#[derive(Debug, PartialEq, Eq, Facet, Arbitrary)]
 pub struct PimEntraRoleSettingsRuleProxy {
     #[facet(rename = "ruleIdentifier")]
     rule_identifier: String,
@@ -95,7 +96,7 @@ impl TryFrom<&PimEntraRoleSettingsRule> for PimEntraRoleSettingsRuleProxy {
     }
 }
 
-#[derive(Debug, PartialEq, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Arbitrary, Facet)]
 pub struct ExpirationRuleSetting {
     #[facet(rename = "maximumGrantPeriodInMinutes")]
     maximum_grant_period_in_minutes: u32,

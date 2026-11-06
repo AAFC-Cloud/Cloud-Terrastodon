@@ -1,3 +1,5 @@
+#[cfg(test)]
+use arbitrary::Arbitrary;
 use cloud_terrastodon::app::App;
 use cloud_terrastodon::app::ApplicationCli;
 use cloud_terrastodon::app::CliOutput;
@@ -10,12 +12,13 @@ use cloud_terrastodon::azure::AzureTenantArgumentExt;
 use cloud_terrastodon::azure::ResourceGroup;
 use cloud_terrastodon::azure::ResourceGroupName;
 use cloud_terrastodon::azure::fetch_all_resource_groups;
+use facet::Facet;
 use std::sync::Arc;
 
 /// Audit Azure resource groups with shared application startup.
 /// The commands and their data belong to this consumer, not Cloud Terrastodon.
-#[derive(facet::Facet)]
-#[cfg_attr(test, derive(arbitrary::Arbitrary))]
+#[derive(Facet)]
+#[cfg_attr(test, derive(Arbitrary))]
 pub struct Cli {
     #[facet(flatten)]
     pub global_args: GlobalArgs,
@@ -29,8 +32,8 @@ impl ApplicationCli for Cli {
     }
 }
 
-#[derive(facet::Facet)]
-#[cfg_attr(test, derive(arbitrary::Arbitrary))]
+#[derive(Facet)]
+#[cfg_attr(test, derive(Arbitrary))]
 #[repr(u8)]
 pub enum Command {
     /// Partition resource groups by whether their names contain exactly five vowels.
@@ -38,8 +41,8 @@ pub enum Command {
 }
 
 /// Select the tenant whose resource groups will be audited.
-#[derive(facet::Facet)]
-#[cfg_attr(test, derive(arbitrary::Arbitrary))]
+#[derive(Facet)]
+#[cfg_attr(test, derive(Arbitrary))]
 pub struct AuditArgs {
     /// Tenant ID, tracked alias, or `default`.
     /// Defaults to the authentication source's tenant or the active Azure CLI tenant.
@@ -48,7 +51,7 @@ pub struct AuditArgs {
 }
 
 /// Resource groups partitioned by the number of vowels in their names.
-#[derive(facet::Facet)]
+#[derive(Facet)]
 pub struct ResourceGroupAudit {
     /// Groups whose names have exactly five ASCII vowels (`a`, `e`, `i`, `o`, `u`), ignoring case.
     pub with_five_vowels: Vec<Arc<ResourceGroup>>,

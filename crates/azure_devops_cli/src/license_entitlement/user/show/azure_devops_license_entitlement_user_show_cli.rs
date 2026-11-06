@@ -6,10 +6,11 @@ use cloud_terrastodon_azure_devops::AzureDevOpsUserArgument;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlement;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 use std::io::stdout;
 
 /// Show a single Azure DevOps user license entitlement by user id.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureDevOpsLicenseEntitlementUserShowArgs {
     /// Tenant id or tracked alias for bearer authentication; PAT authentication may omit it.
     #[facet(figue::named)]

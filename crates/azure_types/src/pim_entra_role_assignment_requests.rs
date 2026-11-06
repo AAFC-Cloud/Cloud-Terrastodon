@@ -2,10 +2,11 @@ use crate::AzureTenantId;
 use crate::EntraPrincipalId;
 use crate::GovernanceRoleAssignment;
 use crate::iso8601_duration::IsoDuration;
+use facet::Facet;
 use std::time::Duration;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 pub struct RoleAssignmentRequest {
     #[facet(rename = "roleDefinitionId")]
     pub role_definition_id: Uuid,
@@ -31,24 +32,24 @@ pub struct RoleAssignmentRequest {
     // scoped_resource_id: Value,
 }
 
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[repr(C)]
 pub enum RoleAssignmentRequestAssignmentState {
     Active,
 }
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[repr(C)]
 pub enum RoleAssignmentRequestKind {
     UserAdd,
 }
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 pub struct RoleAssignmentRequestSchedule {
     #[facet(rename = "type")]
     pub kind: RoleAssignmentRequestScheduleKind,
     pub duration: IsoDuration,
 }
 
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[repr(C)]
 pub enum RoleAssignmentRequestScheduleKind {
     Once,

@@ -1,5 +1,7 @@
 use crate::UnifiedRoleDefinition;
 use crate::UnifiedRoleDefinitionId;
+use arbitrary::Arbitrary;
+use facet::Facet;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::Arc;
@@ -7,7 +9,7 @@ use std::sync::Arc;
 /// A collection of Entra role definitions, indexed by their template ID.
 ///
 /// Not to be confused with Azure RBAC role definitions.
-#[derive(Debug, Clone, arbitrary::Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 pub struct UnifiedRoleDefinitionCollection {
     lookup: HashMap<UnifiedRoleDefinitionId, Arc<UnifiedRoleDefinition>>,
     canonicalized: bool,

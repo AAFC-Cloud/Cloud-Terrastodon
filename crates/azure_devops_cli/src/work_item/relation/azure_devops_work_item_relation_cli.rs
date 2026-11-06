@@ -7,15 +7,16 @@ use crate::work_item::relation::update::AzureDevOpsWorkItemRelationUpdateArgs;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 
 /// Read and write work item relations.
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 pub struct AzureDevOpsWorkItemRelationArgs {
     #[facet(figue::subcommand)]
     pub command: AzureDevOpsWorkItemRelationCommand,
 }
 
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[repr(u8)]
 pub enum AzureDevOpsWorkItemRelationCommand {
     /// List links without fetching their targets.

@@ -4,6 +4,7 @@ use super::arena_query_session::JsonBatchBudget;
 use super::breadcrumbs::Breadcrumbs;
 use cloud_terrastodon_command::CancellationError;
 use cloud_terrastodon_command::CancellationScope;
+use facet::Facet;
 use std::error::Error;
 use std::fmt;
 use std::future::Future;
@@ -72,7 +73,7 @@ impl From<CancellationError> for ProduceJsonError {
 /// clone a Tab's projected `.breadcrumbs` value (or move a genuinely owned
 /// Breadcrumbs root) into this request; ProduceJson has no Tab-specific source
 /// lookup or borrow mechanism.
-#[derive(Clone, Debug, facet::Facet)]
+#[derive(Clone, Debug, Facet)]
 #[repr(C)]
 pub(crate) struct ProduceJsonRequest {
     breadcrumbs: Breadcrumbs,

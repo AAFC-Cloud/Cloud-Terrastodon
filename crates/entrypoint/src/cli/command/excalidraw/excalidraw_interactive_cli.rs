@@ -2,10 +2,11 @@ use super::excalidraw_interactive_session::ExcalidrawInteractiveSession;
 use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
+use facet::Facet;
 use std::path::PathBuf;
 
 /// A local file session: no credentials or cloud requests are used.
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Facet)]
 pub struct ExcalidrawInteractiveArgs {
     /// Drawing to watch. A missing file is initialized with example controls.
     #[facet(figue::positional)]

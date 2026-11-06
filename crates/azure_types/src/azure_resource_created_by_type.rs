@@ -1,11 +1,12 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 
 /// ARM classification of the identity responsible for resource creation or modification.
 ///
 /// Shared by [Storage RP 2025-06-01](https://learn.microsoft.com/en-us/rest/api/storagerp/blob-containers/list?view=rest-storagerp-2025-06-01#createdbytype)
 /// and [Policy Insights 2024-10-01](https://learn.microsoft.com/en-us/rest/api/policyinsights/remediations/create-or-update-at-resource?view=rest-policyinsights-2024-10-01#createdbytype).
 /// Release builds preserve new service values; debug builds expose unmodeled values.
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum AzureResourceCreatedByType {

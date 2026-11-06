@@ -2,6 +2,7 @@ use crate::slug::Slug;
 use arbitrary::Arbitrary;
 use compact_str::CompactString;
 use eyre::bail;
+use facet::Facet;
 use std::hash::Hash;
 use std::ops::Deref;
 use std::str::FromStr;
@@ -9,7 +10,7 @@ use std::str::FromStr;
 /// Represents the name component of a service group resource id.
 ///
 /// Can be up to [250 characters](https://learn.microsoft.com/en-us/azure/governance/service-groups/overview#important-facts-about-service-groups)
-#[derive(Debug, Clone, Eq, PartialOrd, Ord, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialOrd, Ord, Facet)]
 #[facet(json::proxy = String)]
 pub struct ServiceGroupName {
     inner: CompactString,

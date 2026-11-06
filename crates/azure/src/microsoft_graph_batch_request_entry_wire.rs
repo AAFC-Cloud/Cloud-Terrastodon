@@ -1,7 +1,8 @@
 use crate::MicrosoftGraphBatchRequestEntry;
+use facet::Facet;
 use std::collections::HashMap;
 
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Facet)]
 pub(crate) struct MicrosoftGraphBatchRequestEntryWire<T> {
     pub(crate) id: String,
     pub(crate) method: String,

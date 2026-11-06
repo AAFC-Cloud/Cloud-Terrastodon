@@ -1,11 +1,13 @@
+use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItem;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemRelationTypeName;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemUrl;
 use eyre::Result;
 use eyre::ensure;
+use facet::Facet;
 
-#[derive(Debug, Clone, arbitrary::Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 pub struct AzureDevOpsWorkItemRelationSelector {
     pub rel: AzureDevOpsWorkItemRelationTypeName,
     pub target: AzureDevOpsWorkItemUrl<'static>,

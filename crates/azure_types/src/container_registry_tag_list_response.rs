@@ -1,10 +1,11 @@
 use crate::ContainerRegistryLoginServer;
 use crate::ContainerRegistryRepositoryName;
 use crate::ContainerRegistryRepositoryTag;
+use facet::Facet;
 use std::sync::Arc;
 
 /// [TagList, API 2021-07-01](https://learn.microsoft.com/en-us/rest/api/registry-dataplane/container-registry/get-tags?view=rest-registry-dataplane-2021-07-01#taglist).
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Facet)]
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct ContainerRegistryTagListResponse {

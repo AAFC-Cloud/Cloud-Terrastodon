@@ -3,10 +3,11 @@ use cloud_terrastodon_auth_types::AuthSource;
 use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_registry::DiscoveryPlan;
+use facet::Facet;
 use std::path::PathBuf;
 
 /// An offline inventory plan and the explicit scope/policy supplied by its caller.
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 pub struct DumpPlanReport {
     pub organization: Option<AzureDevOpsOrganizationUrl>,
     pub tenant: Option<AzureTenantId>,

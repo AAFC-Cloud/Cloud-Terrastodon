@@ -3,16 +3,17 @@ use arbitrary::Arbitrary;
 use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
+use facet::Facet;
 
 /// Inspect the operations linked into this executable's registry.
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 pub struct RegistryArgs {
     #[facet(figue::subcommand)]
     pub command: RegistryCommand,
 }
 
 /// Registry metadata inspection commands.
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[repr(u8)]
 pub enum RegistryCommand {
     /// Inspect registered operations and their declared effects.

@@ -1,4 +1,5 @@
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use facet::Facet;
 pub mod azure_entra_user_browse_cli;
 pub mod azure_entra_user_cli;
 pub mod azure_entra_user_list_cli;
@@ -14,7 +15,7 @@ use cloud_terrastodon_auth::AuthContext;
 use eyre::Result;
 
 /// Entra user subcommands.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureEntraUserArgs {
     #[facet(figue::subcommand)]
     pub command: AzureEntraUserCommand,

@@ -11,13 +11,14 @@ use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_rest::RestRequest;
+use facet::Facet;
 use std::borrow::Cow;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 /// List VM sizes in the selected subscription and location.
 /// [Compute 2022-11-01](https://learn.microsoft.com/rest/api/compute/virtual-machine-sizes/list?view=rest-compute-2022-11-01).
-#[derive(facet::Facet)]
+#[derive(Facet)]
 pub struct VirtualMachineSizeListRequest<'a> {
     pub subscription_id: SubscriptionId,
     pub location: AzureLocationName,

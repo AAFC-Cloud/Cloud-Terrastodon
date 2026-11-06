@@ -1,5 +1,6 @@
 use arbitrary::Arbitrary;
 use eyre::Result;
+use facet::Facet;
 use std::str::FromStr;
 use url::Url;
 
@@ -10,7 +11,7 @@ use url::Url;
 /// Reference links can identify different resource kinds. Preserve the parsed
 /// URL without guessing an organization, resource route, or additional scheme,
 /// host, path, query, or fragment restrictions.
-#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Facet)]
 #[facet(proxy = String)]
 pub struct AzureDevOpsReferenceLinkUrl(Url);
 

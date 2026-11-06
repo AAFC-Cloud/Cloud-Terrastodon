@@ -4,9 +4,10 @@ use cloud_terrastodon::azure_types::EntraDirectoryObjectUser;
 use cloud_terrastodon::azure_types::EntraPrincipalId;
 use cloud_terrastodon::azure_types::EntraUser;
 use cloud_terrastodon::azure_types::UserPrincipalName;
+use facet::Facet;
 
 /// Identity and readable properties observed for one directory object.
-#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct ObservedPrincipal {
     pub id: EntraPrincipalId,

@@ -1,3 +1,4 @@
+use facet::Facet;
 use std::fmt::Display;
 use std::fmt::Formatter;
 
@@ -5,7 +6,7 @@ use std::fmt::Formatter;
 ///
 /// Members and owners have different eligibility rules and independently scoped
 /// diagnostics. SDK reads use their corresponding member or owner request types.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, facet::Facet)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Facet)]
 #[facet(rename_all = "camelCase")]
 #[repr(C)]
 pub enum GroupRelationship {

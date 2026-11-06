@@ -6,10 +6,11 @@ use cloud_terrastodon_azure::EntraPrincipalId;
 use cloud_terrastodon_azure::remove_group_member;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 use tracing::info;
 
 /// Remove a member from an Entra (Azure AD) group.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureEntraGroupMemberRemoveArgs {
     /// Tenant ID or tracked tenant alias for authentication.
     #[facet(figue::named, default)]

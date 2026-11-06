@@ -1,7 +1,8 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum AzureLocationName {

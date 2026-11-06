@@ -6,12 +6,13 @@ use compact_str::CompactString;
 use eyre::Context;
 use eyre::ContextCompat;
 use eyre::eyre;
+use facet::Facet;
 use std::str::FromStr;
 
 /// Something interchangeable with the format of `https://keyvaultname.vault.azure.net/secrets/SECRETNAME/SECRETVERSION`
 ///
 /// Does not contain subscription or resource group info.
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, Facet)]
 #[facet(json::proxy = String)]
 pub struct KeyVaultSecretVersionId {
     pub key_vault_name: KeyVaultName,

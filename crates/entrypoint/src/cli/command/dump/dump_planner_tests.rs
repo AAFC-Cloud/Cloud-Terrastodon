@@ -63,12 +63,14 @@ struct InteractiveRequest {
 }
 
 mod first {
-    #[derive(Clone, facet::Facet)]
+    use facet::Facet;
+    #[derive(Clone, Facet)]
     pub struct DuplicateName;
 }
 
 mod second {
-    #[derive(Clone, facet::Facet)]
+    use facet::Facet;
+    #[derive(Clone, Facet)]
     pub struct DuplicateName;
 }
 

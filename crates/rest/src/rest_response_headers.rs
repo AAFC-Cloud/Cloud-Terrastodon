@@ -1,11 +1,12 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 use http::HeaderMap;
 use std::collections::BTreeMap;
 use std::ops::Deref;
 use std::ops::DerefMut;
 use std::time::Duration;
 
-#[derive(Debug, Eq, PartialEq, facet::Facet, Default, Clone, Arbitrary)]
+#[derive(Debug, Eq, PartialEq, Facet, Default, Clone, Arbitrary)]
 #[facet(transparent)]
 pub struct RestResponseHeaders(pub BTreeMap<String, Vec<String>>);
 

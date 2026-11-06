@@ -4,10 +4,11 @@ use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
+use facet::Facet;
 use std::collections::HashSet;
 
 /// Invalidate selected logical cache scopes across execution and authentication variants.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct CacheCleanTuiArgs {}
 
 impl CacheCleanTuiArgs {

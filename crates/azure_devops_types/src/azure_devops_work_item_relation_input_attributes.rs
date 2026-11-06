@@ -1,6 +1,8 @@
+use arbitrary::Arbitrary;
+use facet::Facet;
 /// Attributes accepted when creating or updating an Azure DevOps work item
 /// relation.
-#[derive(Debug, Clone, Default, PartialEq, Eq, arbitrary::Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Arbitrary, Facet)]
 pub struct AzureDevOpsWorkItemRelationInputAttributes {
     #[facet(default, skip_serializing_if = Option::is_none)]
     pub comment: Option<String>,

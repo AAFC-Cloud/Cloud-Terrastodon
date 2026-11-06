@@ -1,13 +1,13 @@
 use crate::MICROSOFT_GRAPH_SCOPE_PREFIX;
 use crate::MicrosoftGraphScopeClaim;
 use crate::OpenIdConnectScopeClaim;
+use arbitrary::Arbitrary;
+use facet::Facet;
 use std::str::FromStr;
 
 /// One claim value in an Entra OAuth `scope` parameter.
 #[repr(C)]
-#[derive(
-    Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, facet::Facet, arbitrary::Arbitrary,
-)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Facet, Arbitrary)]
 pub enum EntraOAuthScopeClaim {
     OpenIdConnectScopeClaim(OpenIdConnectScopeClaim),
     MicrosoftGraphScopeClaim(MicrosoftGraphScopeClaim),

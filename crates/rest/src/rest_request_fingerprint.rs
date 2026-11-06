@@ -1,7 +1,8 @@
+use facet::Facet;
 use std::collections::BTreeMap;
 
 /// Semantic transport inputs, excluding acquired credentials and presentation.
-#[derive(facet::Facet)]
+#[derive(Facet)]
 pub(crate) struct RestRequestFingerprint {
     pub(crate) service: String,
     pub(crate) method: String,

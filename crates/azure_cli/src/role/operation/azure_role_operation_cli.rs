@@ -3,9 +3,10 @@ use super::AzureRoleOperationListArgs;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 
 /// Subcommands for Azure provider operation metadata.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum AzureRoleOperationCommand {
     /// List all Azure provider operations accessible to the account.

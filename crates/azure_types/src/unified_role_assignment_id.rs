@@ -1,7 +1,8 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::convert::Infallible;
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, Facet)]
 #[facet(json::proxy = String)]
 pub struct UnifiedRoleAssignmentId(String);
 crate::impl_facet_string_proxy!(UnifiedRoleAssignmentId, value => value.to_string());

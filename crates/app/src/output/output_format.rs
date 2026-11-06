@@ -1,8 +1,10 @@
+#[cfg(feature = "arbitrary")]
+use arbitrary::Arbitrary;
 use facet::Facet;
 
 /// The representation requested through `--output-format`.
 #[derive(Facet, Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
+#[cfg_attr(feature = "arbitrary", derive(Arbitrary))]
 #[facet(rename_all = "kebab-case")]
 #[repr(u8)]
 pub enum OutputFormat {

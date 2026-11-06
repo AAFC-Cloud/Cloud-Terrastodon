@@ -11,13 +11,14 @@ use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_rest::RestRequest;
+use facet::Facet;
 use reqwest::Method;
 use std::borrow::Cow;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tracing::debug;
 
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[facet(traits(Clone))]
 pub struct AzureDevOpsAgentPoolEntitlementListForProjectRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
@@ -77,7 +78,7 @@ impl<'a> ExecutableRequest for AzureDevOpsAgentPoolEntitlementListForProjectRequ
             let project = &self.project;
             debug!("Fetching Azure DevOps agent queues (pools) for project {project}");
 
-            #[derive(facet::Facet)]
+            #[derive(Facet)]
             struct Response {
                 count: u32,
                 value: Vec<Arc<crate::AzureDevOpsAgentPoolEntitlement>>,

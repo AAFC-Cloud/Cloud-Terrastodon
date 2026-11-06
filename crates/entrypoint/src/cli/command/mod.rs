@@ -1,4 +1,5 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 pub mod add_work_dir;
 pub use cloud_terrastodon_azure_cli as azure;
 pub use cloud_terrastodon_azure_devops_cli as azure_devops;
@@ -60,7 +61,7 @@ use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
 /// All top-level commands for the cloud-terrastodon CLI.
-#[derive(facet::Facet, Debug)]
+#[derive(Facet, Debug)]
 #[repr(u8)]
 pub enum CloudTerrastodonCommand {
     /// Launch the Ratatui-based interface.

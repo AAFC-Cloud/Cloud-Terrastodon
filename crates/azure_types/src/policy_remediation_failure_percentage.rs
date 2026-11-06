@@ -1,12 +1,13 @@
 use arbitrary::Arbitrary;
 use arbitrary::Unstructured;
 use eyre::ensure;
+use facet::Facet;
 
 /// A remediation failure threshold represented as a fraction from 0 to 1.
 ///
 /// The [REST percentage property](https://learn.microsoft.com/en-us/rest/api/policyinsights/remediations/create-or-update-at-resource-group?view=rest-policyinsights-2024-10-01#remediationpropertiesfailurethreshold)
 /// uses a fraction, although human-facing tools often describe it as 0–100%.
-#[derive(Debug, Clone, Copy, PartialEq, facet::Facet)]
+#[derive(Debug, Clone, Copy, PartialEq, Facet)]
 #[facet(proxy = f32)]
 pub struct PolicyRemediationFailurePercentage {
     // Private so every value remains finite and inside the service's interval.

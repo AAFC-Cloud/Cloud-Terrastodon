@@ -1,16 +1,17 @@
 use crate::ArbitraryJson;
 use crate::AzureApplicationGatewayResourceReference;
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::collections::BTreeMap;
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureApplicationGatewayResourceBackendHealthResponse {
     #[facet(default)]
     pub backend_address_pools: Vec<AzureApplicationGatewayResourceBackendHealthPool>,
 }
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureApplicationGatewayResourceBackendHealthPool {
     pub backend_address_pool: AzureApplicationGatewayResourceReference,
@@ -19,7 +20,7 @@ pub struct AzureApplicationGatewayResourceBackendHealthPool {
         Vec<AzureApplicationGatewayResourceBackendHealthHttpSettings>,
 }
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureApplicationGatewayResourceBackendHealthHttpSettings {
     pub backend_http_settings: AzureApplicationGatewayResourceReference,
@@ -27,7 +28,7 @@ pub struct AzureApplicationGatewayResourceBackendHealthHttpSettings {
     pub servers: Vec<AzureApplicationGatewayResourceBackendHealthServer>,
 }
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureApplicationGatewayResourceBackendHealthServer {
     pub address: String,
@@ -43,7 +44,7 @@ pub struct AzureApplicationGatewayResourceBackendHealthServer {
         Option<AzureApplicationGatewayResourceBackendHealthCertificateChainMetadata>,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum AzureApplicationGatewayResourceBackendHealthServerHealth {
@@ -101,7 +102,7 @@ impl From<AzureApplicationGatewayResourceBackendHealthServerHealth> for String {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum AzureApplicationGatewayResourceBackendHealthProbeErrorName {
@@ -138,7 +139,7 @@ impl From<AzureApplicationGatewayResourceBackendHealthProbeErrorName> for String
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureApplicationGatewayResourceBackendHealthCertificateChainMetadata {
     #[facet(default)]
@@ -146,7 +147,7 @@ pub struct AzureApplicationGatewayResourceBackendHealthCertificateChainMetadata 
         Vec<AzureApplicationGatewayResourceBackendHealthCertificateMetadataEntry>,
 }
 
-#[derive(Debug, PartialEq, Clone, Default, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Default, Arbitrary, Facet)]
 pub struct AzureApplicationGatewayResourceBackendHealthCertificateMetadataEntry {
     #[facet(flatten)]
     pub fields: BTreeMap<String, ArbitraryJson>,

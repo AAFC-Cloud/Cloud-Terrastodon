@@ -1,4 +1,5 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 
 /// Pull-request trigger settings for repository forks.
 ///
@@ -6,7 +7,7 @@ use arbitrary::Arbitrary;
 /// The REST reference documents the base trigger. Fork settings are described by
 /// Microsoft's [Forks interface](https://learn.microsoft.com/en-us/javascript/api/azure-devops-extension-api/forks)
 /// and [TypeScript source](https://github.com/microsoft/azure-devops-node-api/blob/master/api/interfaces/BuildInterfaces.ts#L1893).
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct AzureDevOpsBuildForks {

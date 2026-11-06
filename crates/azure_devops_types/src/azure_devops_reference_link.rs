@@ -1,5 +1,6 @@
 use crate::AzureDevOpsReferenceLinkUrl;
 use arbitrary::Arbitrary;
+use facet::Facet;
 
 /// A hypermedia reference returned by Azure DevOps.
 ///
@@ -8,7 +9,7 @@ use arbitrary::Arbitrary;
 /// by the SDK source below.
 /// Microsoft defines its optional `href` in the official [ReferenceLink source](https://github.com/microsoft/azure-devops-node-api/blob/master/api/interfaces/common/VSSInterfaces.ts).
 /// The owning relation name is stored by [`crate::AzureDevOpsReferenceLinks`].
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct AzureDevOpsReferenceLink {
     pub href: Option<AzureDevOpsReferenceLinkUrl>,

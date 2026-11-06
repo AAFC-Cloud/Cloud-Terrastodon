@@ -6,15 +6,16 @@ use crate::work_item::field::show::AzureDevOpsWorkItemFieldShowArgs;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 
 /// Read and write work item fields.
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 pub struct AzureDevOpsWorkItemFieldArgs {
     #[facet(figue::subcommand)]
     pub command: AzureDevOpsWorkItemFieldCommand,
 }
 
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[repr(u8)]
 pub enum AzureDevOpsWorkItemFieldCommand {
     /// List the selected item's field values.

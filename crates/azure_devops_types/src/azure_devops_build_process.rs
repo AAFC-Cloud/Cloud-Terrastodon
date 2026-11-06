@@ -4,6 +4,7 @@ use crate::AzureDevOpsBuildProcessType;
 use crate::AzureDevOpsBuildYamlFilename;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_types::ArbitraryJson;
+use facet::Facet;
 
 /// A build process with the properties of its published derived response shapes.
 ///
@@ -12,7 +13,7 @@ use cloud_terrastodon_azure_types::ArbitraryJson;
 /// Supplemental JavaScript shapes: [YamlProcess](https://learn.microsoft.com/en-us/javascript/api/azure-devops-extension-api/yamlprocess)
 /// and [DesignerProcess](https://learn.microsoft.com/en-us/javascript/api/azure-devops-extension-api/designerprocess).
 /// TypeScript source: [BuildProcess](https://github.com/microsoft/azure-devops-node-api/blob/master/api/interfaces/BuildInterfaces.ts#L1028).
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct AzureDevOpsBuildProcess {

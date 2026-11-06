@@ -4,11 +4,12 @@ use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::search_entra_users;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 use std::io::Write;
 use tracing::info;
 
 /// Search Entra (Azure AD) users by name, email address, or user principal name.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureEntraUserSearchArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
     #[facet(figue::named, default)]

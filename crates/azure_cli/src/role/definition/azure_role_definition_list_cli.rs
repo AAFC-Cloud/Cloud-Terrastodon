@@ -5,11 +5,12 @@ use cloud_terrastodon_azure::RolePermissionAction;
 use cloud_terrastodon_azure::fetch_all_role_definitions;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 use std::io::Write;
 use tracing::info;
 
 /// Arguments for listing Azure role definitions.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureRoleDefinitionListArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
     #[facet(figue::named, default)]

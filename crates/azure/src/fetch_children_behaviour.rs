@@ -1,5 +1,7 @@
+use arbitrary::Arbitrary;
+use facet::Facet;
 /// Whether ARM eligible-child discovery includes all descendants of a management group.
-#[derive(Eq, PartialEq, Debug, Default, facet::Facet, arbitrary::Arbitrary)]
+#[derive(Eq, PartialEq, Debug, Default, Facet, Arbitrary)]
 #[repr(u8)]
 pub enum FetchChildrenBehaviour {
     #[default]

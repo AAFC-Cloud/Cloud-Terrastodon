@@ -17,6 +17,7 @@ use eyre::Result;
 use eyre::WrapErr;
 use eyre::ensure;
 use eyre::eyre;
+use facet::Facet;
 use http::Method;
 use std::borrow::Cow;
 use std::collections::HashSet;
@@ -36,7 +37,7 @@ const CONTAINERS_API_VERSION: &str = "2025-06-01";
 /// schema and official `x-ms-pageable` contract define `nextLink`; this request
 /// follows it when present.
 #[must_use = "This is a future request, you must .execute it"]
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[facet(traits(Clone))]
 pub struct StorageAccountBlobContainerNamesListRequest<'a> {
     pub auth_context: Cow<'a, AzureTenantAuthContext>,

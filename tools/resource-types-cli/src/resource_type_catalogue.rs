@@ -157,8 +157,11 @@ impl ResourceTypeCatalogue {
         let lowercase = self.names.iter().map(|name| name.to_lowercase());
         let names = &self.names;
         let source = quote! {
+            use arbitrary::Arbitrary;
+            use facet::Facet;
+
             #[rustfmt::skip]
-            #[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet, arbitrary::Arbitrary)]
+            #[derive(Debug, Clone, Eq, PartialEq, Hash, Facet, Arbitrary)]
             #[facet(proxy = String)]
             #[repr(C)]
             #[allow(non_camel_case_types)]

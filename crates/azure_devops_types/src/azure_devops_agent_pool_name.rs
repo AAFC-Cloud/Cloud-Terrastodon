@@ -1,10 +1,11 @@
 use arbitrary::Arbitrary;
 use eyre::bail;
+use facet::Facet;
 use std::ops::Deref;
 use std::str::FromStr;
 
 /// A valid name is less than 128 characters in length and does not contain the following characters: ',', '"', '/', '\', '[', ']', ':', '|', '<', '>', '+', '=', ';', '?', '*'.
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Facet)]
 #[facet(transparent)]
 pub struct AzureDevOpsAgentPoolName(String);
 

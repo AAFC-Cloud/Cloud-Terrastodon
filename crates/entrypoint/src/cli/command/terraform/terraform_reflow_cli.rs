@@ -9,6 +9,7 @@ use cloud_terrastodon_hcl::discovery::discover_hcl;
 use cloud_terrastodon_hcl::reflow::ReflowHclRequest;
 use cloud_terrastodon_pathing::Existy;
 use eyre::Result;
+use facet::Facet;
 use std::collections::HashSet;
 use std::path::Path;
 use std::path::PathBuf;
@@ -16,7 +17,7 @@ use tracing::debug;
 use tracing::info;
 
 /// Reflow generated Terraform source files.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct TerraformReflowArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
     #[facet(figue::named, default = AzureTenantArgument::Default)]
@@ -173,8 +174,9 @@ impl TerraformReflowArgs {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use facet::Facet;
 
-    #[derive(facet::Facet, Debug)]
+    #[derive(Facet, Debug)]
     struct ParseArgs {
         #[facet(flatten)]
         args: TerraformReflowArgs,

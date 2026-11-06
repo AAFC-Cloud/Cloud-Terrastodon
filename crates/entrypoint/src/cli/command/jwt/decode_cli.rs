@@ -1,18 +1,19 @@
 use cloud_terrastodon_auth::decode_jwt;
 use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
+use facet::Facet;
 use facet_value::Value;
 use std::io::Read;
 
 /// Decode a JWT and print its header and claims as JSON.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct JwtDecodeArgs {
     /// JWT string or '-' to read from stdin
     #[facet(figue::positional)]
     pub input: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Facet)]
 struct DecodedJwtOutput {
     header: Value,
     claims: Value,

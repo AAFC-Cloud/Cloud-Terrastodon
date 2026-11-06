@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use cloud_terrastodon_auth_types::AuthenticationSelection;
 use cloud_terrastodon_auth_types::AzureBearerAuthSource;
 use cloud_terrastodon_azure_types::AzureProviderOperationsListResponse;
@@ -12,6 +13,7 @@ use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_rest::RestRequest;
+use facet::Facet;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tracing::debug;
@@ -19,7 +21,7 @@ use tracing::debug;
 const PROVIDER_OPERATIONS_API_VERSION: &str = "2022-04-01";
 
 #[must_use = "This is a future request, you must .execute it"]
-#[derive(arbitrary::Arbitrary, facet::Facet)]
+#[derive(Arbitrary, Facet)]
 pub struct RoleOperationListRequest {
     pub auth_source: AzureBearerAuthSource,
 

@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use cloud_terrastodon_auth_types::AuthenticationSelection;
 use cloud_terrastodon_auth_types::AzureBearerAuthSource;
 use cloud_terrastodon_azure_types::AzureTenantId;
@@ -14,13 +15,14 @@ use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
+use facet::Facet;
 use http::Method;
 use std::sync::Arc;
 use std::time::Duration;
 use url::Url;
 
 /// The selected role's legacy [PIM settings](https://learn.microsoft.com/graph/api/resources/governancerolesetting?view=graph-rest-beta).
-#[derive(arbitrary::Arbitrary, facet::Facet)]
+#[derive(Arbitrary, Facet)]
 pub struct EntraPimRoleSettingsRequest {
     pub tenant_id: AzureTenantId,
     pub auth_source: AzureBearerAuthSource,

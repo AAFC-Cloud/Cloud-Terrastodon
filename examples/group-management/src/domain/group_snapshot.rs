@@ -2,6 +2,7 @@ use crate::domain::ObservedPrincipal;
 use cloud_terrastodon::azure_types::AzureTenantId;
 use cloud_terrastodon::azure_types::EntraGroupDisplayName;
 use cloud_terrastodon::azure_types::EntraGroupId;
+use facet::Facet;
 
 /// Fresh direct relationships for an existing group in a particular tenant.
 ///
@@ -10,7 +11,7 @@ use cloud_terrastodon::azure_types::EntraGroupId;
 /// additive proposals, but exact reconciliation and absent service principals
 /// cannot be inferred safely. Failed pages, inaccessible relationships, or other
 /// unknown omissions must fail acquisition rather than produce this snapshot.
-#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct GroupSnapshot {
     pub tenant_id: AzureTenantId,

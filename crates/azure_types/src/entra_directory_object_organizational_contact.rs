@@ -1,5 +1,6 @@
 use crate::EntraOrganizationalContactId;
 use arbitrary::Arbitrary;
+use facet::Facet;
 
 /// Identity properties of a Microsoft Graph v1.0 [organizational contact](https://learn.microsoft.com/en-us/graph/api/resources/orgcontact?view=graph-rest-1.0#properties).
 ///
@@ -7,7 +8,7 @@ use arbitrary::Arbitrary;
 /// represent security principals. Missing names and mail remain unknown for
 /// limited-information responses. This shallow projection intentionally ignores
 /// other properties in unrestricted responses.
-#[derive(Debug, Clone, Eq, PartialEq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct EntraDirectoryObjectOrganizationalContact {
     pub display_name: Option<String>,

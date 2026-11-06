@@ -4,12 +4,13 @@ use crate::RoleDefinitionName;
 use crate::scopes::Scope;
 use crate::slug::Slug;
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::borrow::Cow;
 use std::str::FromStr;
 
 /// Role definition can be specified as a RoleDefinitionId (expanded form or scoped),
 /// or by its name (display name / GUID form).
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum AzureRoleDefinitionArgument<'a> {

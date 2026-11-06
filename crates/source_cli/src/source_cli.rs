@@ -2,9 +2,10 @@ use super::SourceHuntArgs;
 use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
+use facet::Facet;
 
 /// Inspect source code stored in local repositories.
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 pub struct SourceArgs {
     #[facet(figue::subcommand)]
     pub command: SourceCommand,
@@ -17,7 +18,7 @@ impl SourceArgs {
 }
 
 /// Local source discovery operations.
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[repr(u8)]
 pub enum SourceCommand {
     /// Find Git repositories recursively and summarize file extensions and authors.

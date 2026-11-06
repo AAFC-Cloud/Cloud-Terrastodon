@@ -1,4 +1,5 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 
 /// Registration state reported by Azure Resource Manager for a provider.
 ///
@@ -9,7 +10,7 @@ use arbitrary::Arbitrary;
 /// Subscription registration readiness must be checked for the selected
 /// subscription; a tenant catalogue does not establish it. Debug builds expose unmodeled
 /// states; release builds retain their original spelling.
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum AzureResourceProviderRegistrationState {

@@ -4,9 +4,10 @@ use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 
 /// Inspect subnets within Azure virtual networks.
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 pub struct AzureVirtualNetworkSubnetArgs {
     #[facet(figue::subcommand)]
     pub command: AzureVirtualNetworkSubnetCommand,
@@ -23,7 +24,7 @@ impl AzureVirtualNetworkSubnetArgs {
 }
 
 /// Read-only commands for Azure virtual-network subnets.
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[repr(u8)]
 pub enum AzureVirtualNetworkSubnetCommand {
     /// List subnets across a tenant or within matching virtual networks.

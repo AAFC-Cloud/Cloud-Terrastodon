@@ -8,10 +8,11 @@ use cloud_terrastodon_azure::fetch_cognitive_services_account_deployments;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use eyre::bail;
+use facet::Facet;
 use std::io::Write;
 
 /// Arguments for showing a single deployment for an Azure Cognitive Services account.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureCognitiveServicesDeploymentShowArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
     #[facet(figue::named, default)]

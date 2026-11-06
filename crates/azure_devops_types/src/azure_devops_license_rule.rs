@@ -2,10 +2,11 @@ use crate::AzureDevOpsAccountLicenseType;
 use crate::AzureDevOpsLicenseType;
 use crate::AzureDevOpsMsdnLicenseType;
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::str::FromStr;
 
 /// License information from [AccessLevel 7.1](https://learn.microsoft.com/en-us/rest/api/azure/devops/memberentitlementmanagement/user-entitlements/update-user-entitlement?view=azure-devops-rest-7.1#accesslevel).
-#[derive(Clone, Debug, Arbitrary, facet::Facet)]
+#[derive(Clone, Debug, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct AzureDevOpsLicenseRule {
@@ -36,7 +37,7 @@ impl AzureDevOpsLicenseRule {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Clone, Debug, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum AzureDevOpsLicenseRuleSource {
@@ -45,7 +46,7 @@ pub enum AzureDevOpsLicenseRuleSource {
     Other(String),
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Clone, Debug, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum AzureDevOpsLicenseRuleGitHubLicenseType {
@@ -53,7 +54,7 @@ pub enum AzureDevOpsLicenseRuleGitHubLicenseType {
     Other(String),
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Clone, Debug, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum AzureDevOpsLicenseRuleStatus {
@@ -61,7 +62,7 @@ pub enum AzureDevOpsLicenseRuleStatus {
     Other(String),
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Clone, Debug, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum AzureDevOpsLicenseRuleAssignmentSource {

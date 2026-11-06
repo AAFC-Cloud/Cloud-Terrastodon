@@ -1,10 +1,11 @@
 use crate::CommandKind;
 use bstr::BString;
+use facet::Facet;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 
 /// The execution inputs that distinguish cached subprocess output.
-#[derive(facet::Facet)]
+#[derive(Facet)]
 pub(crate) struct ProcessFingerprint {
     pub(crate) kind: CommandKind,
     pub(crate) program: String,

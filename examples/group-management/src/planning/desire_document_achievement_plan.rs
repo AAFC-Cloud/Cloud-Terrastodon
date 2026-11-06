@@ -2,6 +2,7 @@ use crate::planning::GroupPlan;
 use chrono::DateTime;
 use chrono::Utc;
 use cloud_terrastodon::azure_types::AzureTenantId;
+use facet::Facet;
 
 mod save;
 mod try_new;
@@ -11,7 +12,7 @@ mod try_new;
 /// This first milestone only emits plans. It is not an executable apply format;
 /// a future apply command must reauthenticate and verify fresh observed state.
 /// Schema version 2 represents warnings and blockers as tagged, typed records.
-#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct DesireDocumentAchievementPlan {
     pub schema_version: u32,

@@ -19,9 +19,10 @@ use cloud_terrastodon_azure_resource_types::ResourceType;
 use eyre::Context;
 use eyre::Result;
 use eyre::bail;
+use facet::Facet;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, Facet)]
 #[facet(json::proxy = String)]
 pub struct VirtualNetworkPeeringId {
     pub virtual_network_id: VirtualNetworkId,

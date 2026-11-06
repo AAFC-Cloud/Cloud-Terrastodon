@@ -1,4 +1,5 @@
-#[derive(Debug, PartialEq, Clone, Default, facet::Facet)]
+use facet::Facet;
+#[derive(Debug, PartialEq, Clone, Default, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct ComputePublisherVmImageOfferSkuVersionProperties {
     #[facet(default)]
@@ -15,7 +16,7 @@ pub struct ComputePublisherVmImageOfferSkuVersionProperties {
     pub go_live_date: Option<String>,
 }
 
-#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct ImageDeprecationStatus {
     #[facet(default)]

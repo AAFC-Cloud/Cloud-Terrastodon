@@ -16,6 +16,7 @@ use cloud_terrastodon_pathing::sanitize_windows_path_component;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Context;
 use eyre::ensure;
+use facet::Facet;
 use reqwest::Method;
 use reqwest::Url;
 use std::borrow::Cow;
@@ -34,7 +35,7 @@ use std::time::Duration;
 /// See Microsoft's [Folders Delete API](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/folders/delete?view=azure-devops-rest-7.1)
 /// (7.1-preview.2).
 #[must_use = "This is a future request, you must .execute it"]
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[facet(traits(Clone))]
 pub struct AzureDevOpsBuildFolderDeleteRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,

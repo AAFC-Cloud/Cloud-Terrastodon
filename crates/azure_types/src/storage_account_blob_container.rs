@@ -4,12 +4,13 @@ use crate::StorageAccountBlobContainerId;
 use crate::StorageAccountBlobContainerName;
 use crate::StorageAccountBlobContainerProperties;
 use arbitrary::Arbitrary;
+use facet::Facet;
 
 /// A container returned by the ARM storage inventory.
 ///
 /// [Storage Resource Provider 2025-06-01 schema](https://learn.microsoft.com/en-us/rest/api/storagerp/blob-containers/list?view=rest-storagerp-2025-06-01#listcontaineritem).
 /// The inventory identity and properties are required; ARM provenance is separate.
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct StorageAccountBlobContainer {

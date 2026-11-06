@@ -4,6 +4,7 @@ use eyre::Report;
 use eyre::Result;
 use eyre::bail;
 use eyre::ensure;
+use facet::Facet;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::ops::Deref;
@@ -25,7 +26,7 @@ use std::str::FromStr;
 ///
 /// Equality and hashing preserve exact spelling. Use [`Self::matches`] or
 /// [`Self::comparison_key`] for case-insensitive lookup comparisons.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Facet)]
 #[facet(proxy = String)]
 pub struct UserPrincipalName(String);
 

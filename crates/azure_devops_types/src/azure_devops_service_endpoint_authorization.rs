@@ -11,10 +11,11 @@ use cloud_terrastodon_azure_types::OptionalNonEmptyStringProxy;
 use cloud_terrastodon_azure_types::ScopeImpl;
 use compact_str::CompactString;
 use eyre::Context;
+use facet::Facet;
 use facet_json::RawJson;
 use std::collections::HashMap;
 
-#[derive(Debug, Eq, PartialEq, Clone, facet::Facet, Arbitrary)]
+#[derive(Debug, Eq, PartialEq, Clone, Facet, Arbitrary)]
 // https://github.com/facet-rs/facet/issues/2342
 #[facet(proxy = RawJson<'static>)]
 #[repr(C)]
@@ -107,7 +108,7 @@ impl TryFrom<&AzureDevOpsServiceEndpointAuthorization> for RawJson<'static> {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Hash, arbitrary::Arbitrary, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsServiceEndpointAuthorizationServicePrincipal {
     pub authentication_type:
@@ -118,21 +119,21 @@ pub struct AzureDevOpsServiceEndpointAuthorizationServicePrincipal {
     pub tenant_id: AzureTenantId,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, arbitrary::Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, Facet)]
 #[repr(C)]
 pub enum AzureDevOpsServiceEndpointAuthorizationServicePrincipalAuthenticationType {
     #[facet(rename = "spnKey")]
     SpnKey,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, arbitrary::Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 pub struct AzureDevOpsServiceEndpointAuthorizationUsernamePassword {
     pub username: CompactString,
     #[facet(flatten)]
     pub extra: HashMap<CompactString, CompactString>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, arbitrary::Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsServiceEndpointAuthorizationWorkloadIdentityFederation {
     pub scope: Option<ScopeImpl>,
@@ -146,7 +147,7 @@ pub struct AzureDevOpsServiceEndpointAuthorizationWorkloadIdentityFederation {
     pub workload_identity_federation_issuer_type: Option<CompactString>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, arbitrary::Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsServiceEndpointAuthorizationManagedServiceIdentity {
     #[facet(rename = "tenantId", alias = "tenantid")]

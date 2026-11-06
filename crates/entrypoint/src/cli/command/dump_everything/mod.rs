@@ -4,9 +4,10 @@ use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 
 /// Dump all collected metadata to disk.
-#[derive(facet::Facet, Debug, Clone, Default)]
+#[derive(Facet, Debug, Clone, Default)]
 pub struct DumpEverythingArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
     #[facet(figue::named, default)]

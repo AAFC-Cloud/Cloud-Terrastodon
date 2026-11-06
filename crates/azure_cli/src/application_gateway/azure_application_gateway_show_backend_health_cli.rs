@@ -7,11 +7,12 @@ use cloud_terrastodon_azure::fetch_application_gateway_backend_health;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use eyre::bail;
+use facet::Facet;
 use std::io::Write;
 use tracing::info;
 
 /// Arguments for showing backend health for a single Azure application gateway.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureApplicationGatewayShowBackendHealthArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
     #[facet(figue::named, default)]

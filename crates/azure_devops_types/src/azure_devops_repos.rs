@@ -6,8 +6,9 @@ use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
+use facet::Facet;
 
-#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsRepo {
     pub default_branch: Option<String>,

@@ -4,13 +4,14 @@ use crate::PolicyRemediationName;
 use crate::PolicyRemediationProperties;
 use crate::ResourceType;
 use arbitrary::Arbitrary;
+use facet::Facet;
 
 /// A remediation task returned by Azure Policy Insights.
 ///
 /// [2024-10-01 schema](https://learn.microsoft.com/en-us/rest/api/policyinsights/remediations/create-or-update-at-resource-group?view=rest-policyinsights-2024-10-01#remediation).
 /// A successful creation response acknowledges the task; it does not establish
 /// that its deployments completed. Task identity and properties are required.
-#[derive(Debug, Clone, PartialEq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct PolicyRemediation {

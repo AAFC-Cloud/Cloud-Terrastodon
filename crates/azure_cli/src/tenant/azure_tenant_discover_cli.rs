@@ -1,10 +1,11 @@
 use cloud_terrastodon_azure::discover_and_track_tenants;
 use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
+use facet::Facet;
 use std::io::Write;
 
 /// Discover tracked Azure tenants from Azure CLI accounts.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureTenantDiscoverArgs {}
 
 impl AzureTenantDiscoverArgs {

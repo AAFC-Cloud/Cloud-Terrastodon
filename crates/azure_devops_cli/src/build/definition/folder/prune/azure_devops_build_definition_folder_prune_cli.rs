@@ -13,12 +13,13 @@ use color_eyre::owo_colors::OwoColorize;
 use color_eyre::owo_colors::Stream;
 use color_eyre::owo_colors::Style;
 use eyre::Result;
+use facet::Facet;
 use std::io::Write;
 
 /// Remove empty build definition folders after fresh checks.
 /// Azure DevOps folder deletion cascades to definitions and builds. Requires
 /// visibility of every definition and no concurrent pipeline or folder edits.
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 pub struct AzureDevOpsBuildDefinitionFolderPruneArgs {
     /// Organization name or URL.
     #[facet(figue::named)]

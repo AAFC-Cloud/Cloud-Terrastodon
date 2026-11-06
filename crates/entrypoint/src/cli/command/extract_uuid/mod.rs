@@ -1,11 +1,12 @@
 use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
+use facet::Facet;
 use std::io::Read;
 use std::io::Write;
 use uuid::Uuid;
 
 /// Extract UUIDs from text input
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct ExtractUuidArgs {
     /// Input string or '-' to read from stdin
     #[facet(figue::positional)]

@@ -1,4 +1,6 @@
+use arbitrary::Arbitrary;
 use eyre::bail;
+use facet::Facet;
 use std::fmt::Display;
 use std::str::FromStr;
 
@@ -10,7 +12,7 @@ use std::str::FromStr;
 /// credential discovery for local-only operations.
 /// These are application preferences rather than resolved request credentials.
 /// See [Microsoft identity authentication flows](https://learn.microsoft.com/en-us/entra/identity-platform/authentication-flows-app-scenarios).
-#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, arbitrary::Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(u8)]
 pub enum AuthSource {

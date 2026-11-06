@@ -1,5 +1,6 @@
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use facet::Facet;
 pub mod azure_cognitive_services_account_argument_cli;
 pub mod azure_cognitive_services_account_cli;
 pub mod azure_cognitive_services_cli;
@@ -20,7 +21,7 @@ pub use azure_cognitive_services_show_cli::AzureCognitiveServicesShowArgs;
 use eyre::Result;
 
 /// Manage Azure Cognitive Services accounts and deployments.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureCognitiveServicesArgs {
     #[facet(figue::subcommand)]
     pub command: AzureCognitiveServicesCommand,

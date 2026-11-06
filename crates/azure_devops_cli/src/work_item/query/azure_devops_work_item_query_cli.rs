@@ -5,15 +5,16 @@ use crate::work_item::query::show::AzureDevOpsWorkItemQueryShowArgs;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 
 /// List, inspect, execute, and create work item queries.
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 pub struct AzureDevOpsWorkItemQueryArgs {
     #[facet(figue::subcommand)]
     pub command: AzureDevOpsWorkItemQueryCommand,
 }
 
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[repr(u8)]
 pub enum AzureDevOpsWorkItemQueryCommand {
     /// List saved queries and folders in a project.

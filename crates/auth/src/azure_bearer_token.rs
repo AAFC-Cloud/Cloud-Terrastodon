@@ -1,9 +1,10 @@
+use facet::Facet;
 use std::fmt::Debug;
 
 /// A resource access token obtained from Entra. This type is intentionally
 /// distinct from an Azure DevOps PAT so the REST layer cannot accidentally use
 /// PAT Basic authentication for a federated token.
-#[derive(Clone, Eq, PartialEq, facet::Facet)]
+#[derive(Clone, Eq, PartialEq, Facet)]
 #[facet(transparent)]
 pub struct AzureBearerToken(#[facet(sensitive)] String);
 

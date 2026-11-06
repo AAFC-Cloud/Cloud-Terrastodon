@@ -2,6 +2,7 @@ use cloud_terrastodon::azure_types::AzureTenantId;
 use cloud_terrastodon::azure_types::EntraDirectoryObjectType;
 use cloud_terrastodon::azure_types::EntraPrincipalId;
 use cloud_terrastodon::azure_types::UserPrincipalName;
+use facet::Facet;
 use std::cmp::Ordering;
 use std::error::Error;
 use std::fmt;
@@ -9,7 +10,7 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 
 /// A missing or inconsistent identity observation that prevents principal resolution.
-#[derive(Debug, Clone, Eq, PartialEq, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Facet)]
 #[repr(C)]
 #[facet(tag = "code", rename_all = "camelCase")]
 pub enum PrincipalResolutionError {

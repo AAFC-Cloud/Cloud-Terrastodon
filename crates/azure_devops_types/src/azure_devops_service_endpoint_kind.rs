@@ -1,8 +1,9 @@
 use arbitrary::Arbitrary;
 use compact_str::CompactString;
+use facet::Facet;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum AzureDevOpsServiceEndpointKind {

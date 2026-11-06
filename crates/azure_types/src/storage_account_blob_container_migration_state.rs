@@ -1,10 +1,11 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 
 /// Progress of migration to object-level immutability.
 ///
 /// [Storage Resource Provider 2025-06-01 schema](https://learn.microsoft.com/en-us/rest/api/storagerp/blob-containers/list?view=rest-storagerp-2025-06-01#migrationstate).
 /// Release builds preserve new service values; debug builds expose missing vocabulary.
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum StorageAccountBlobContainerMigrationState {

@@ -2,15 +2,16 @@ use crate::agent::pool::entitlement::list::AzureDevOpsAgentPoolEntitlementListAr
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 
 /// Azure DevOps agent pool entitlement-related commands (grouping for entitlement subcommands).
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureDevOpsAgentPoolEntitlementArgs {
     #[facet(figue::subcommand)]
     pub command: AzureDevOpsAgentPoolEntitlementCommand,
 }
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum AzureDevOpsAgentPoolEntitlementCommand {
     /// List agent pool entitlements (queues) in a project.

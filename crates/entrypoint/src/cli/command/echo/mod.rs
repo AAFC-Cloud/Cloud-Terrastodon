@@ -1,8 +1,9 @@
 use cloud_terrastodon_command::CancellationScope;
+use facet::Facet;
 use tracing::info;
 
 /// Emit a message through the configured logging pipeline.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct EchoArgs {
     /// The message to emit.
     #[facet(figue::positional, default)]

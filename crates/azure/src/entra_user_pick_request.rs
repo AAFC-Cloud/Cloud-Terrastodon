@@ -2,6 +2,7 @@ use crate::EntraUserListRequest;
 use crate::EntraUserSearchRequest;
 use crate::fetch_all_entra_users;
 use crate::search_entra_users;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_auth_types::AzureBearerAuthSource;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::EntraUser;
@@ -26,7 +27,7 @@ use tracing::info;
 /// Refreshing invalidates both the complete inventory and every search for the
 /// selected tenant. The executor owns each event handler's cancellation scope.
 #[must_use = "This is an interactive request; execute it with an executor"]
-#[derive(arbitrary::Arbitrary, Facet)]
+#[derive(Arbitrary, Facet)]
 pub struct EntraUserPickRequest {
     pub tenant_id: AzureTenantId,
     pub auth_source: AzureBearerAuthSource,

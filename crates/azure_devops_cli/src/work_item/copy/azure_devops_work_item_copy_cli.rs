@@ -14,13 +14,14 @@ use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
 use eyre::ensure;
+use facet::Facet;
 use std::borrow::Cow;
 use std::path::PathBuf;
 use tracing::error;
 
 /// Copy writable fields and hierarchy. Comments/history and attachment binaries
 /// are omitted and reported in the plan. External links are opt-in.
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 pub struct AzureDevOpsWorkItemCopyArgs {
     #[facet(figue::named)]
     pub org: AzureDevOpsOrganizationUrl,

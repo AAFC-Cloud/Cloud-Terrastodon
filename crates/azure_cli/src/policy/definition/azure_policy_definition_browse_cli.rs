@@ -8,12 +8,13 @@ use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
+use facet::Facet;
 use std::io::Write;
 use std::sync::Arc;
 use tracing::info;
 
 /// Arguments for browsing Azure policy definitions interactively.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzurePolicyDefinitionBrowseArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
     #[facet(figue::named, default)]

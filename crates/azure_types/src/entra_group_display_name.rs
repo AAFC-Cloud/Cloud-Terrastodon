@@ -3,6 +3,7 @@ use arbitrary::Unstructured;
 use eyre::Report;
 use eyre::Result;
 use eyre::ensure;
+use facet::Facet;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::ops::Deref;
@@ -14,7 +15,7 @@ use std::str::FromStr;
 /// is required on creation, cannot be cleared during updates, and allows at most
 /// 256 characters. Construction and string deserialization enforce a nonempty
 /// value of at most 256 Unicode characters without adding character restrictions.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Facet)]
 #[facet(proxy = String)]
 pub struct EntraGroupDisplayName(String);
 

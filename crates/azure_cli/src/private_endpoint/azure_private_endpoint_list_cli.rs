@@ -4,11 +4,12 @@ use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::fetch_all_private_endpoints;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 use std::io::Write;
 use tracing::info;
 
 /// Arguments for listing Azure private endpoints.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzurePrivateEndpointListArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
     #[facet(figue::named, default)]

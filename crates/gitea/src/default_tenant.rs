@@ -1,6 +1,7 @@
 use crate::GiteaInstanceUrl;
 use crate::GiteaLoginsListRequest;
 use crate::list_gitea_logins;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_cache::CacheInvalidationKeys;
 use cloud_terrastodon_cache::CacheKey;
 use cloud_terrastodon_cache::HasCacheKey;
@@ -10,9 +11,10 @@ use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_execution::RequestExecution;
 use eyre::OptionExt;
 use eyre::bail;
+use facet::Facet;
 
 #[must_use = "This is a future request, you must .execute it"]
-#[derive(Debug, Clone, arbitrary::Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 pub struct DefaultGiteaInstanceUrlRequest;
 
 pub fn get_default_gitea_instance_url(

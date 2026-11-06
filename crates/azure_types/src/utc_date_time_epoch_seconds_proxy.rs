@@ -1,9 +1,10 @@
 use chrono::DateTime;
 use chrono::Utc;
+use facet::Facet;
 
 /// Key Vault's integer UTC timestamp representation.
 /// See [SecretAttributes](https://learn.microsoft.com/en-us/rest/api/keyvault/secrets/get-secrets/get-secrets?view=rest-keyvault-secrets-2025-07-01#secretattributes).
-#[derive(Clone, Copy, Debug, facet::Facet)]
+#[derive(Clone, Copy, Debug, Facet)]
 #[facet(transparent)]
 pub struct UtcDateTimeEpochSecondsProxy(i64);
 

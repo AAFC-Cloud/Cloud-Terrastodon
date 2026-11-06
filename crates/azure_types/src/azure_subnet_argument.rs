@@ -3,6 +3,7 @@ use crate::SubnetName;
 use crate::scopes::Scope;
 use arbitrary::Arbitrary;
 use eyre::WrapErr;
+use facet::Facet;
 use std::fmt::Display;
 use std::str::FromStr;
 
@@ -11,7 +12,7 @@ use std::str::FromStr;
 /// A leading `/` selects resource-ID parsing, so malformed IDs retain their
 /// original parsing error instead of becoming name selectors. Names follow the
 /// [Microsoft.Network naming rules](https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftnetwork).
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum AzureSubnetArgument {

@@ -6,12 +6,13 @@ use cloud_terrastodon_azure::fetch_all_groups;
 use cloud_terrastodon_azure::fetch_entra_groups_for_member;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 use std::io::Write;
 use std::sync::Arc;
 use tracing::info;
 
 /// List Entra (Azure AD) groups.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureEntraGroupListArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
     #[facet(figue::named, default)]

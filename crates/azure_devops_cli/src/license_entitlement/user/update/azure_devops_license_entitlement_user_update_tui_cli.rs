@@ -9,9 +9,10 @@ use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
+use facet::Facet;
 use tracing::info;
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 /// Update an Azure DevOps user's license entitlement.
 pub struct AzureDevOpsLicenseEntitlementUserUpdateTuiArgs {
     /// Tenant id or tracked alias for bearer authentication; PAT authentication may omit it.

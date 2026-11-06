@@ -12,11 +12,12 @@ use cloud_terrastodon_azure_devops::update_azure_devops_user_license_entitlement
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use color_eyre::owo_colors::OwoColorize;
 use eyre::Result;
+use facet::Facet;
 use std::sync::Arc;
 use tracing::error;
 use tracing::info;
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 /// Update an Azure DevOps user's license entitlement.
 pub struct AzureDevOpsLicenseEntitlementUserUpdateArgs {
     /// Tenant id or tracked alias for bearer authentication; PAT authentication may omit it.

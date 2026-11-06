@@ -1,5 +1,6 @@
 use arbitrary::Arbitrary;
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+use facet::Facet;
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[facet(transparent)]
 pub struct AzureDevOpsAgentPoolEntitlementId(usize);
 

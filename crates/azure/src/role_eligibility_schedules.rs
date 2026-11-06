@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use cloud_terrastodon_auth_types::AuthenticationSelection;
 use cloud_terrastodon_auth_types::AzureBearerAuthSource;
 use cloud_terrastodon_azure_types::AzureTenantId;
@@ -13,10 +14,11 @@ use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
+use facet::Facet;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-#[derive(arbitrary::Arbitrary, facet::Facet)]
+#[derive(Arbitrary, Facet)]
 pub struct MyEntraRoleEligibilityScheduleListRequest {
     pub auth_source: AzureBearerAuthSource,
     pub tenant_id: AzureTenantId,

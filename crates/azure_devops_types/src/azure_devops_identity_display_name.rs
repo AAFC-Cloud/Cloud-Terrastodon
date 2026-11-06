@@ -1,4 +1,5 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::convert::Infallible;
 use std::str::FromStr;
 
@@ -7,7 +8,7 @@ use std::str::FromStr;
 /// See `displayName` in Microsoft's [IdentityRef 7.1 schema](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/folders/list?view=azure-devops-rest-7.1#identityref).
 /// The name comes from the identity's source provider. Preserve its spelling
 /// without imposing project-name or build-definition naming restrictions.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Arbitrary, Facet)]
 #[facet(transparent)]
 pub struct AzureDevOpsIdentityDisplayName(String);
 

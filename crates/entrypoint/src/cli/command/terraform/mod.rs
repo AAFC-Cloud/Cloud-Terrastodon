@@ -1,3 +1,4 @@
+use facet::Facet;
 pub mod terraform_apply_cli;
 pub mod terraform_audit_cli;
 pub mod terraform_command_cli;
@@ -13,7 +14,7 @@ use eyre::Result;
 pub use terraform_command_cli::TerraformCommand;
 
 /// Arguments for Terraform-specific operations.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct TerraformArgs {
     #[facet(figue::subcommand)]
     pub command: TerraformCommand,

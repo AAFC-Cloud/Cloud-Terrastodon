@@ -12,12 +12,13 @@ use cloud_terrastodon_command::ParallelFallibleWorkQueue;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use color_eyre::owo_colors::OwoColorize;
 use eyre::Result;
+use facet::Facet;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 
 /// Print a summary of agent pools and projects that belong to each pool.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureDevOpsAgentPoolSummaryArgs {
     /// Tenant id or tracked alias for bearer authentication; PAT authentication may omit it.
     #[facet(figue::named)]

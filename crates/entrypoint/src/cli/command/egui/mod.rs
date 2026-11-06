@@ -3,9 +3,10 @@ use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::get_default_tenant_id;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_ui_egui::egui_main;
+use facet::Facet;
 
 /// Launch the egui-based graphical interface.
-#[derive(facet::Facet, Debug, Clone, Default)]
+#[derive(Facet, Debug, Clone, Default)]
 pub struct EguiArgs;
 
 impl EguiArgs {

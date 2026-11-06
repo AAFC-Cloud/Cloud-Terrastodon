@@ -1,6 +1,7 @@
 use arbitrary::Arbitrary;
 use eyre::Result;
 use eyre::ensure;
+use facet::Facet;
 use std::ops::Deref;
 use std::str::FromStr;
 
@@ -11,7 +12,7 @@ use std::str::FromStr;
 /// constraints, without imposing undocumented provider naming restrictions.
 /// Exact spelling, spaces, Unicode and provider-specific separators are preserved.
 /// Provider identifiers remain open strings so new source providers are preserved.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Facet)]
 #[facet(proxy = String)]
 pub struct AzureDevOpsBuildRepositoryType(String);
 

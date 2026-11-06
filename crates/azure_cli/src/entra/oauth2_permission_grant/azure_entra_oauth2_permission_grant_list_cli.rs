@@ -12,10 +12,11 @@ use cloud_terrastodon_azure::fetch_oauth2_permission_grants;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::ContextCompat;
 use eyre::Result;
+use facet::Facet;
 use std::io::Write;
 
 /// List Entra OAuth2 permission grants.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureEntraOAuth2PermissionGrantListArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
     #[facet(figue::named, default)]

@@ -7,9 +7,10 @@ use cloud_terrastodon_gitea::fetch_gitea_repository;
 use cloud_terrastodon_gitea::fetch_gitea_repository_by_id;
 use eyre::Result;
 use eyre::bail;
+use facet::Facet;
 use std::io::Write;
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct GiteaRepoShowArgs {
     /// Repository id, full name, or name.
     #[facet(figue::positional, proxy = String)]

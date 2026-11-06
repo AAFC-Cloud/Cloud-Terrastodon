@@ -3,9 +3,10 @@ use super::terraform_source_generate_cli::TerraformSourceGenerateArgs;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 
 /// Manage Terraform source files.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct TerraformSourceArgs {
     #[facet(figue::subcommand)]
     pub command: TerraformSourceCommand,
@@ -22,7 +23,7 @@ impl TerraformSourceArgs {
 }
 
 /// Operations available under `ct tf source`.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum TerraformSourceCommand {
     /// Create Terraform import definitions for selected resources.

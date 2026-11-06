@@ -4,6 +4,7 @@ use arbitrary::Unstructured;
 use compact_str::CompactString;
 use eyre::WrapErr;
 use eyre::bail;
+use facet::Facet;
 use std::hash::Hash;
 use std::ops::Deref;
 use std::str::FromStr;
@@ -18,7 +19,7 @@ use std::str::FromStr;
 ///  * Case-insensitive (comparisons and hashing lower-case)
 ///
 /// See also: https://github.com/Azure/azure-rest-api-specs/blob/6c548b0bd279f5e233661b1c81fb5b61b19965cd/specification/keyvault/resource-manager/Microsoft.KeyVault/stable/2024-11-01/keyvault.json
-#[derive(Debug, Clone, Eq, PartialOrd, Ord, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialOrd, Ord, Facet)]
 #[facet(json::proxy = String)]
 pub struct KeyVaultName {
     inner: CompactString,

@@ -1,4 +1,6 @@
+use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_types::ArbitraryJson;
+use facet::Facet;
 use std::collections::BTreeMap;
 
 /// Attributes returned by Azure DevOps for a work item relation.
@@ -6,7 +8,7 @@ use std::collections::BTreeMap;
 /// Azure DevOps may add relation attributes that are not part of the writable
 /// `comment`/`isLocked` input shape, so unknown response attributes are kept in
 /// `additional`.
-#[derive(Debug, Clone, Default, PartialEq, Eq, arbitrary::Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Arbitrary, Facet)]
 pub struct AzureDevOpsWorkItemRelationAttributes {
     #[facet(default, skip_serializing_if = Option::is_none)]
     pub comment: Option<String>,

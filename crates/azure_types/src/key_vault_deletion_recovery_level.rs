@@ -1,7 +1,8 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 
 /// [Key Vault deletion recovery levels](https://learn.microsoft.com/en-us/rest/api/keyvault/secrets/get-secrets/get-secrets?view=rest-keyvault-secrets-2025-07-01#deletionrecoverylevel).
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, Facet)]
 #[repr(u8)]
 #[facet(proxy = String)]
 pub enum KeyVaultDeletionRecoveryLevel {

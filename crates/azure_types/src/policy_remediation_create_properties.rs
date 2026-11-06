@@ -1,12 +1,13 @@
 use crate::PolicyAssignmentId;
 use crate::PolicyDefinitionReferenceId;
 use arbitrary::Arbitrary;
+use facet::Facet;
 
 /// Assignment selection sent when creating a remediation with service defaults.
 ///
 /// [2024-10-01 request schema](https://learn.microsoft.com/en-us/rest/api/policyinsights/remediations/create-or-update-at-resource-group?view=rest-policyinsights-2024-10-01#request-body).
 /// An initiative assignment requires its local definition reference ID.
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct PolicyRemediationCreateProperties {
     pub policy_assignment_id: PolicyAssignmentId,

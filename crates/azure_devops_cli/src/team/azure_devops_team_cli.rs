@@ -3,15 +3,16 @@ use crate::team::show::AzureDevOpsTeamShowArgs;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 
 /// Azure DevOps team-related commands.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureDevOpsTeamArgs {
     #[facet(figue::subcommand)]
     pub command: AzureDevOpsTeamCommand,
 }
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum AzureDevOpsTeamCommand {
     /// List Azure DevOps teams in the project.

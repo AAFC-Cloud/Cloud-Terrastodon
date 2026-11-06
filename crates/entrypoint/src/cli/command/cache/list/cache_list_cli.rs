@@ -1,9 +1,10 @@
 use cloud_terrastodon_cache::CacheInventorySelection;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 
 /// List execution artifact identities and their selected observation timestamps.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct CacheListArgs {}
 
 impl CacheListArgs {

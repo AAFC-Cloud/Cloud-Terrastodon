@@ -6,9 +6,10 @@ use super::AzureEntraOAuth2PermissionGrantUpdateArgs;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 
 /// Subcommands for Entra OAuth2 delegated permission grants.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum AzureEntraOAuth2PermissionGrantCommand {
     /// List delegated permission grants.

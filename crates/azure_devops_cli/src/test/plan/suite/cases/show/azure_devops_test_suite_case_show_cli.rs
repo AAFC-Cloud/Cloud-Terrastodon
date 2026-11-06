@@ -8,10 +8,11 @@ use cloud_terrastodon_azure_devops::fetch_azure_devops_test_suite_cases;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use eyre::bail;
+use facet::Facet;
 use std::io::stdout;
 
 /// Show Azure DevOps test case details.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureDevOpsTestSuiteCaseShowArgs {
     /// Tenant id or tracked alias for bearer authentication; PAT authentication may omit it.
     #[facet(figue::named)]

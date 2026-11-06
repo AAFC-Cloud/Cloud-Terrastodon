@@ -4,8 +4,9 @@ use crate::KeyVaultAccessPolicyKeyPrivilege;
 use crate::KeyVaultAccessPolicySecretPrivilege;
 use crate::tenant_id::AzureTenantId;
 use arbitrary::Arbitrary;
+use facet::Facet;
 
-#[derive(Debug, PartialEq, facet::Facet, Arbitrary)]
+#[derive(Debug, PartialEq, Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct KeyVaultAccessPolicy {
     pub object_id: EntraPrincipalId,
@@ -13,7 +14,7 @@ pub struct KeyVaultAccessPolicy {
     pub permissions: KeyVaultAccessPolicyPermissions,
 }
 
-#[derive(Debug, PartialEq, facet::Facet, Arbitrary)]
+#[derive(Debug, PartialEq, Facet, Arbitrary)]
 pub struct KeyVaultAccessPolicyPermissions {
     #[facet(default, proxy = crate::VecDefaultNullProxy<KeyVaultAccessPolicyKeyPrivilege>)]
     pub keys: Vec<KeyVaultAccessPolicyKeyPrivilege>,

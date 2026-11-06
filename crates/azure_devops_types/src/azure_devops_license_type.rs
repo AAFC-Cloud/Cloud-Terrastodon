@@ -1,6 +1,7 @@
 use crate::AzureDevOpsAccountLicenseType;
 use crate::AzureDevOpsMsdnLicenseType;
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::str::FromStr;
@@ -10,7 +11,7 @@ use std::str::FromStr;
 /// Shares the account and MSDN vocabularies from [AccessLevel 7.1](https://learn.microsoft.com/en-us/rest/api/azure/devops/memberentitlementmanagement/user-entitlements/update-user-entitlement?view=azure-devops-rest-7.1#accesslevel).
 /// The combined entitlement/CLI representation remains `Account-Express`,
 /// `Msdn-Enterprise`, etc.; individual REST fields use the family's own spelling.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum AzureDevOpsLicenseType {

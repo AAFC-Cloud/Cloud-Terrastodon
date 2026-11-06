@@ -4,9 +4,10 @@ use cloud_terrastodon_gitea::GiteaTenantArgumentExt;
 use cloud_terrastodon_gitea::list_tracked_tenant_aliases;
 use cloud_terrastodon_gitea::list_tracked_tenant_aliases_for;
 use eyre::Result;
+use facet::Facet;
 use std::io::Write;
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct GiteaTenantAliasListArgs {
     /// Optional tracked tenant URL or alias to filter by.
     #[facet(figue::named)]

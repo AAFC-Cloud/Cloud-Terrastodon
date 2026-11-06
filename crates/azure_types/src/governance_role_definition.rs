@@ -1,6 +1,7 @@
 use compact_str::CompactString;
+use facet::Facet;
 
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct GovernanceRoleDefinition {
     pub display_name: CompactString,

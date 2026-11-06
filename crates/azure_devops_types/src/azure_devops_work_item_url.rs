@@ -7,6 +7,7 @@ use arbitrary::Arbitrary;
 use eyre::Result;
 use eyre::bail;
 use eyre::ensure;
+use facet::Facet;
 use std::borrow::Cow;
 use std::str::FromStr;
 use url::Url;
@@ -18,7 +19,7 @@ const WORK_ITEM_ROUTE: [&str; 3] = ["_apis", "wit", "workitems"];
 /// The project segment is intentionally absent. Use
 /// [`AzureDevOpsWorkItemUrl::with_project`] when constructing a project-scoped
 /// endpoint.
-#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Facet)]
 #[facet(proxy = String)]
 pub struct AzureDevOpsWorkItemUrl<'a> {
     pub org_id: Cow<'a, AzureDevOpsOrganizationUrl>,

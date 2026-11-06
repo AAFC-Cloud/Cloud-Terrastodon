@@ -23,6 +23,7 @@ use color_eyre::owo_colors::Style;
 use eyre::OptionExt;
 use eyre::Result;
 use eyre::bail;
+use facet::Facet;
 use std::collections::HashMap;
 use std::io::BufRead;
 use std::io::Write;
@@ -31,7 +32,7 @@ use std::sync::Arc;
 use tracing::info;
 
 /// Show one or more Entra (Azure AD) groups by id.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureEntraGroupShowArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
     #[facet(figue::named, default)]
@@ -42,7 +43,7 @@ pub struct AzureEntraGroupShowArgs {
     pub group_id: Vec<String>,
 }
 
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Facet)]
 struct GroupData {
     group: Arc<EntraGroup>,
     members: Vec<Arc<EntraDirectoryObject>>,
@@ -51,7 +52,7 @@ struct GroupData {
 }
 
 /// Transparent to preserve the existing JSON array of group reports.
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Facet)]
 #[facet(transparent)]
 struct GroupShowOutput(Vec<GroupData>);
 

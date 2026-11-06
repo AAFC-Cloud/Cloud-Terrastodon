@@ -2,13 +2,14 @@ use crate::EntraPrincipalKind;
 use arbitrary::Arbitrary;
 use eyre::Result;
 use eyre::bail;
+use facet::Facet;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
 
 /// Object types represented by the shallow Microsoft Graph v1.0
 /// [directory-object model](https://learn.microsoft.com/en-us/graph/api/resources/directoryobject?view=graph-rest-1.0).
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Arbitrary, Facet)]
 #[repr(C)]
 pub enum EntraDirectoryObjectType {
     User,

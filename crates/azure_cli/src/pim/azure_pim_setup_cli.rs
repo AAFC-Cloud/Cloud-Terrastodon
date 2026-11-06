@@ -16,6 +16,7 @@ use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Context;
 use eyre::Result;
 use eyre::bail;
+use facet::Facet;
 use std::collections::HashSet;
 use std::io::Write;
 use std::sync::Arc;
@@ -26,7 +27,7 @@ const MICROSOFT_GRAPH_APP_ID: &str = "00000003-0000-0000-c000-000000000000";
 const MICROSOFT_GRAPH_SCOPE_PREFIX: &str = "https://graph.microsoft.com/";
 
 /// Configure the Cloud Terrastodon PIM app registration by client ID or discovery.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzurePimSetupArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
     #[facet(figue::named, default)]
@@ -173,7 +174,7 @@ async fn persist_client_id(
     config.save().await
 }
 
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Facet)]
 #[facet(rename_all = "camelCase")]
 struct PimClientIdSetupOutput {
     tenant_id: AzureTenantId,
@@ -182,7 +183,7 @@ struct PimClientIdSetupOutput {
     permissions_verified: bool,
 }
 
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Facet)]
 #[facet(rename_all = "camelCase")]
 struct PimSetupOutput {
     application_id: EntraApplicationClientId,
@@ -192,14 +193,14 @@ struct PimSetupOutput {
     client_id_persisted: bool,
 }
 
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Facet)]
 #[facet(rename_all = "camelCase")]
 struct RequiredResourceAccess {
     resource_app_id: EntraApplicationClientId,
     resource_access: Vec<RequiredResourceAccessEntry>,
 }
 
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Facet)]
 #[facet(rename_all = "camelCase")]
 struct RequiredResourceAccessEntry {
     id: Uuid,

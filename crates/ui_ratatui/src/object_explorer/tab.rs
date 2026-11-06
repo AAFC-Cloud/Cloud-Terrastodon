@@ -1,10 +1,12 @@
 use super::breadcrumbs::Breadcrumbs;
+use arbitrary::Arbitrary;
+use facet::Facet;
 
 /// An ordinary arena-owned query definition.
 ///
 /// Query results are never fields of Tab. Opening a tab in the UI stores only
 /// its SlotId; evaluation reads these breadcrumbs explicitly and lazily.
-#[derive(Clone, Debug, Eq, PartialEq, arbitrary::Arbitrary, facet::Facet)]
+#[derive(Clone, Debug, Eq, PartialEq, Arbitrary, Facet)]
 #[repr(C)]
 pub(crate) struct Tab {
     name: String,

@@ -4,10 +4,11 @@ use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_app::Result;
 use cloud_terrastodon_app::facet;
 use cloud_terrastodon_app::figue;
+use facet::Facet;
 use std::path::PathBuf;
 
 /// Compare generated source with a local catalogue.
-#[derive(facet::Facet)]
+#[derive(Facet)]
 pub struct ResourceTypesCheckArgs {
     /// Local JSON array of full resource-type names, preserving service spelling.
     /// Defaults to catalogue.json beside the tool's Cargo.toml.

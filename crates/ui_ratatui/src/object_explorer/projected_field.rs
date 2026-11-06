@@ -1,10 +1,10 @@
+use arbitrary::Arbitrary;
+use facet::Facet;
 /// Stable identity for one named field selected by a projection breadcrumb.
 ///
 /// The owner shape is part of the identity because unrelated reflected
 /// structs may use the same field name with different meanings.
-#[derive(
-    Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, arbitrary::Arbitrary, facet::Facet,
-)]
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, Arbitrary, Facet)]
 #[repr(C)]
 pub(crate) struct ProjectedField {
     owner_shape: String,

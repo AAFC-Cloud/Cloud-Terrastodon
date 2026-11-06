@@ -5,6 +5,7 @@ use arbitrary::Arbitrary;
 use eyre::Result;
 use eyre::WrapErr;
 use eyre::ensure;
+use facet::Facet;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::str::FromStr;
@@ -14,7 +15,7 @@ use std::str::FromStr;
 /// See the `id` property in the [2025-06-01 container schema](https://learn.microsoft.com/en-us/rest/api/storagerp/blob-containers/list?view=rest-storagerp-2025-06-01#listcontaineritem).
 /// The account and container name retain their domain validation; replacing
 /// either field with another valid value preserves this resource route.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, Facet)]
 #[facet(proxy = String)]
 pub struct StorageAccountBlobContainerId {
     pub storage_account_id: StorageAccountId,

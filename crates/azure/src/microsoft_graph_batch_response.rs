@@ -1,11 +1,12 @@
 use crate::MicrosoftGraphBatchResponseEntry;
 use cloud_terrastodon_command::FromCommandOutput;
+use facet::Facet;
 use std::ops::Deref;
 use std::ops::DerefMut;
 use std::sync::Arc;
 
 /// Responses to a [Microsoft Graph JSON batch](https://learn.microsoft.com/graph/json-batching#processing-the-json-batch-response).
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Facet)]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct MicrosoftGraphBatchResponse<T> {
     pub responses: Vec<Arc<MicrosoftGraphBatchResponseEntry<T>>>,

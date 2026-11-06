@@ -1,5 +1,6 @@
 use arbitrary::Arbitrary;
 use eyre::Result;
+use facet::Facet;
 use std::str::FromStr;
 use url::Url;
 
@@ -9,7 +10,7 @@ use url::Url;
 /// Repositories can belong to different source providers, so no common Azure
 /// organization/project route, scheme or host restriction is documented.
 /// Preserve a parsed URL rather than imposing one provider's resource identity.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Facet)]
 #[facet(proxy = String)]
 pub struct AzureDevOpsBuildRepositoryUrl(pub Url);
 

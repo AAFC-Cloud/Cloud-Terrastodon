@@ -15,6 +15,7 @@ use cloud_terrastodon_command::ParallelFallibleWorkQueue;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use eyre::bail;
+use facet::Facet;
 use std::io::stdout;
 use std::sync::Arc;
 use tracing::Instrument;
@@ -22,7 +23,7 @@ use tracing::info;
 use tracing::info_span;
 
 /// Azure DevOps project dump command.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureDevOpsProjectDumpArgs {
     /// Tenant id or tracked alias for bearer authentication; PAT authentication may omit it.
     #[facet(figue::named)]
@@ -36,7 +37,7 @@ pub struct AzureDevOpsProjectDumpArgs {
     project: AzureDevOpsProjectArgument<'static>,
 }
 
-#[derive(facet::Facet)]
+#[derive(Facet)]
 struct AzureDevOpsProjectDumpPayload {
     project: Arc<AzureDevOpsProject>,
     teams: Vec<Arc<AzureDevOpsTeam>>,

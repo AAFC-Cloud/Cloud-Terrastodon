@@ -1,9 +1,10 @@
 #![cfg(test)]
 
+use facet::Facet;
 #[test]
 fn bruh() -> eyre::Result<()> {
     let json = r#"{"id":1,"name":"Test"}"#;
-    #[derive(Debug, facet::Facet)]
+    #[derive(Debug, Facet)]
     #[allow(unused)]
     struct Response {
         id: u32,
@@ -20,7 +21,7 @@ fn bruh2() -> eyre::Result<()> {
     "id":1,
     "name":null
 }"#;
-    #[derive(Debug, facet::Facet)]
+    #[derive(Debug, Facet)]
     #[allow(unused)]
     struct Response {
         id: u32,
@@ -43,7 +44,7 @@ fn bruh3() -> eyre::Result<()> {
     "name":null
 }
 ]"#;
-    #[derive(Debug, facet::Facet)]
+    #[derive(Debug, Facet)]
     #[allow(unused)]
     struct Response {
         id: u32,
@@ -65,7 +66,7 @@ fn bruh4() -> eyre::Result<()> {
     "id":2
 }
 ]"#;
-    #[derive(Debug, facet::Facet)]
+    #[derive(Debug, Facet)]
     #[allow(unused)]
     struct Response {
         id: u32,

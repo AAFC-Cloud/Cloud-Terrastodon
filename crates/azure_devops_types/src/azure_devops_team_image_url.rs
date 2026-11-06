@@ -1,6 +1,7 @@
 use arbitrary::Arbitrary;
 use eyre::Result;
 use eyre::ensure;
+use facet::Facet;
 use std::str::FromStr;
 use url::Url;
 
@@ -11,7 +12,7 @@ use url::Url;
 /// preserves its path, query, and fragment without inferring an identity.
 /// Absolute HTTP(S) URLs without embedded credentials are library safety
 /// constraints, rather than guarantees stated by that schema.
-#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Facet)]
 #[facet(proxy = String)]
 pub struct AzureDevOpsTeamImageUrl(Url);
 

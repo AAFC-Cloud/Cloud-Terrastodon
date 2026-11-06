@@ -3,12 +3,13 @@ use crate::AzureDevOpsUserId;
 use crate::AzureDevOpsUserLicenseEntitlement;
 use arbitrary::Arbitrary;
 use eyre::bail;
+use facet::Facet;
 use std::borrow::Cow;
 use std::str::FromStr;
 
 type AzureDevOpsUserPredicate<'a> = dyn Fn(&AzureDevOpsUserLicenseEntitlement) -> bool + 'a;
 
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum AzureDevOpsUserArgument<'a> {

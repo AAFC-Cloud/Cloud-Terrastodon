@@ -18,13 +18,14 @@ use cloud_terrastodon_cache::AuthPartition;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::bail;
 use eyre::ensure;
+use facet::Facet;
 use std::sync::Arc;
 
 /// Invocation-owned authentication policy, credentials and identity partition.
 ///
 /// A resolved context shares its immutable credential session and sensitive
 /// caches with clones. Independent contexts never share a session partition.
-#[derive(Debug, Clone, Default, facet::Facet)]
+#[derive(Debug, Clone, Default, Facet)]
 #[repr(u8)]
 pub enum AuthContext {
     #[default]

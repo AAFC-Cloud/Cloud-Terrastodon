@@ -3,9 +3,10 @@ use super::AzureCognitiveServicesDeploymentShowArgs;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 
 /// Query Azure Cognitive Services deployments.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureCognitiveServicesDeploymentArgs {
     #[facet(figue::subcommand)]
     pub command: AzureCognitiveServicesDeploymentCommand,
@@ -21,7 +22,7 @@ impl AzureCognitiveServicesDeploymentArgs {
     }
 }
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum AzureCognitiveServicesDeploymentCommand {
     /// List deployments for a Cognitive Services account, or all accounts when omitted.

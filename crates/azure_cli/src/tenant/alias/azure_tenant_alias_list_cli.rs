@@ -4,10 +4,11 @@ use cloud_terrastodon_azure::list_tracked_tenant_aliases;
 use cloud_terrastodon_azure::list_tracked_tenant_aliases_for;
 use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
+use facet::Facet;
 use std::io::Write;
 
 /// Arguments for listing aliases for tracked Azure tenants.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureTenantAliasListArgs {
     /// Optional tracked tenant id or Cloud Terrastodon alias to filter by.
     #[facet(figue::named)]

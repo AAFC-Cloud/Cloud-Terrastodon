@@ -4,15 +4,16 @@ use crate::work_item::r#type::show::AzureDevOpsWorkItemTypeShowArgs;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 
 /// Inspect project work item types.
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 pub struct AzureDevOpsWorkItemTypeArgs {
     #[facet(figue::subcommand)]
     pub command: AzureDevOpsWorkItemTypeCommand,
 }
 
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[repr(u8)]
 pub enum AzureDevOpsWorkItemTypeCommand {
     /// List definitions.

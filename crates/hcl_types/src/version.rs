@@ -1,6 +1,7 @@
 use crate::ProviderKind;
 use eyre::OptionExt;
 use eyre::bail;
+use facet::Facet;
 use hcl::edit::Decorated;
 use hcl::edit::expr::Expression;
 use hcl::edit::expr::Object;
@@ -124,7 +125,7 @@ impl ProviderVersionConstraint {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Facet)]
 #[facet(proxy = String)]
 pub struct SemVer {
     pub major: u64,

@@ -4,6 +4,7 @@ use crate::Scope;
 use crate::ScopeImpl;
 use arbitrary::Arbitrary;
 use eyre::bail;
+use facet::Facet;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::str::FromStr;
@@ -13,7 +14,7 @@ use std::str::FromStr;
 /// ARM supports creation at [resource group](https://learn.microsoft.com/en-us/rest/api/policyinsights/remediations/create-or-update-at-resource-group?view=rest-policyinsights-2024-10-01)
 /// and [management group](https://learn.microsoft.com/en-us/rest/api/policyinsights/remediations/create-or-update-at-management-group?view=rest-policyinsights-2024-10-01)
 /// scopes. Other platform scopes require separate SDK support.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum PolicyRemediationScope {

@@ -41,6 +41,7 @@ use compact_str::ToCompactString;
 use eyre::Context;
 use eyre::ContextCompat;
 use eyre::bail;
+use facet::Facet;
 use std::convert::Infallible;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -665,7 +666,7 @@ impl std::fmt::Display for ScopeError {
         })
     }
 }
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Copy, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Copy, Facet)]
 #[repr(u8)]
 pub enum ScopeImplKind {
     ManagementGroup,
@@ -700,7 +701,7 @@ pub enum ScopeImplKind {
     Unknown,
 }
 
-#[derive(Debug, Eq, PartialEq, Hash, Clone, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum ScopeImpl {

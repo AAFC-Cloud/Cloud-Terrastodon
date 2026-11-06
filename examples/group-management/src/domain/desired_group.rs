@@ -3,13 +3,14 @@ use crate::domain::ReconciliationMode;
 use cloud_terrastodon::azure_types::AzureTenantId;
 use cloud_terrastodon::azure_types::EntraGroupDisplayName;
 use cloud_terrastodon::azure_types::EntraGroupId;
+use facet::Facet;
 
 /// Desired relationships for an existing group, identified within its tenant.
 ///
 /// `displayName` is an expected annotation, not a rename instruction. Both
 /// relationships require an explicit mode and list. `ignore` with an empty list
 /// leaves a relationship unmanaged.
-#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Facet)]
 #[facet(rename_all = "camelCase", deny_unknown_fields)]
 pub struct DesiredGroup {
     pub tenant_id: AzureTenantId,

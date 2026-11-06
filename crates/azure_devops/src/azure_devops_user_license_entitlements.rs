@@ -19,7 +19,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tracing::debug;
 
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[facet(traits(Clone))]
 pub struct AzureDevOpsUserLicenseEntitlementListRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,

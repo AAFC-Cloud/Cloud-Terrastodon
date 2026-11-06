@@ -14,11 +14,12 @@ use color_eyre::owo_colors::OwoColorize;
 use color_eyre::owo_colors::Stream;
 use color_eyre::owo_colors::Style;
 use eyre::Result;
+use facet::Facet;
 use std::io::Write;
 use std::sync::Arc;
 
 /// List pipeline definitions matching the supplied filters.
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 pub struct AzureDevOpsBuildDefinitionListArgs {
     /// Organization name or URL.
     #[facet(figue::named)]

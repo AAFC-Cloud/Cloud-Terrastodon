@@ -1,3 +1,4 @@
+use facet::Facet;
 pub mod outage_cli;
 pub mod outage_investigate_cli;
 
@@ -8,7 +9,7 @@ pub use outage_cli::OutageCommand;
 pub use outage_investigate_cli::OutageInvestigateArgs;
 
 /// Investigate suspected service outages.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct OutageArgs {
     #[facet(figue::subcommand)]
     pub command: OutageCommand,

@@ -1,4 +1,5 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::str::FromStr;
 
 /// Whether a definition permits builds to be queued and started.
@@ -7,7 +8,7 @@ use std::str::FromStr;
 /// Unknown values panic in debug builds so unmodeled vocabulary is surfaced.
 /// Release builds retain their original wire spelling for forward compatibility.
 /// Request filters remain a separate closed vocabulary.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum AzureDevOpsBuildDefinitionQueueStatus {

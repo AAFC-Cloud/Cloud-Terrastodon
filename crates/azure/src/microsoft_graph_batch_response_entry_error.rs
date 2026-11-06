@@ -1,8 +1,9 @@
 use cloud_terrastodon_azure_types::ArbitraryJson;
+use facet::Facet;
 use std::collections::HashMap;
 
 /// A [Microsoft Graph error](https://learn.microsoft.com/graph/errors#error-resource-type) returned for a batch item.
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Facet)]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct MicrosoftGraphBatchResponseEntryError {
     pub code: String,

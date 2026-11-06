@@ -4,10 +4,11 @@ use cloud_terrastodon_azure::forget_tracked_tenant;
 use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 use eyre::bail;
+use facet::Facet;
 use std::io::Write;
 
 /// Arguments for forgetting a tracked Azure tenant.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureTenantForgetArgs {
     /// Tenant id (GUID) or alias to forget.
     #[facet(figue::positional)]

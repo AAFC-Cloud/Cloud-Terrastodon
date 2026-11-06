@@ -14,6 +14,7 @@ use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_pathing::sanitize_windows_path_component;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::ensure;
+use facet::Facet;
 use http::Method;
 use std::borrow::Cow;
 use std::collections::HashSet;
@@ -23,7 +24,7 @@ use url::Url;
 
 /// List base secret metadata using the selected tenant's Key Vault credential.
 /// [Get Secrets, API 2025-07-01](https://learn.microsoft.com/en-us/rest/api/keyvault/secrets/get-secrets/get-secrets?view=rest-keyvault-secrets-2025-07-01).
-#[derive(facet::Facet)]
+#[derive(Facet)]
 pub struct KeyVaultSecretsListRequest<'a> {
     pub key_vault_id: Cow<'a, KeyVaultId>,
     pub auth_context: Cow<'a, AzureTenantAuthContext>,

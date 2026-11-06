@@ -1,11 +1,11 @@
+use arbitrary::Arbitrary;
 use eyre::bail;
+use facet::Facet;
 use std::str::FromStr;
 
 /// Standard OpenID Connect scope claim values understood by Microsoft Entra.
 #[repr(C)]
-#[derive(
-    Debug, Clone, Copy, Eq, PartialEq, Hash, PartialOrd, Ord, facet::Facet, arbitrary::Arbitrary,
-)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, PartialOrd, Ord, Facet, Arbitrary)]
 pub enum OpenIdConnectScopeClaim {
     OpenId,
     Profile,

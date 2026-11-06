@@ -1,3 +1,4 @@
+use facet::Facet;
 pub mod azure_tenant_alias_add_cli;
 pub mod azure_tenant_alias_list_cli;
 pub mod azure_tenant_alias_remove_cli;
@@ -9,13 +10,13 @@ use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 
 /// Alias-related commands for tracked Azure tenants.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureTenantAliasArgs {
     #[facet(figue::subcommand)]
     pub command: AzureTenantAliasCommand,
 }
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum AzureTenantAliasCommand {
     /// Add one or more aliases to a tracked tenant.

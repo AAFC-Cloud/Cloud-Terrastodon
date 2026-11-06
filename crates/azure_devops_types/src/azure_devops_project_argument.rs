@@ -3,13 +3,14 @@ use crate::AzureDevOpsProjectId;
 use crate::AzureDevOpsProjectName;
 use arbitrary::Arbitrary;
 use eyre::bail;
+use facet::Facet;
 use std::borrow::Cow;
 use std::str::FromStr;
 
 /// An explicit project ID or project name.
 ///
 /// Microsoft documentation: [project parameter](https://learn.microsoft.com/en-us/rest/api/azure/devops/core/projects/get?view=azure-devops-rest-7.1).
-#[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Facet)]
 #[facet(proxy = String)]
 #[facet(traits(Clone))]
 #[repr(C)]

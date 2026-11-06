@@ -1,10 +1,11 @@
 use crate::MicrosoftGraphBatchResponseEntryBody;
 use cloud_terrastodon_command::FromCommandOutput;
 use eyre::bail;
+use facet::Facet;
 use std::collections::HashMap;
 
 /// One response in a [Microsoft Graph JSON batch](https://learn.microsoft.com/graph/json-batching#processing-the-json-batch-response).
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Facet)]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct MicrosoftGraphBatchResponseEntry<T> {
     pub id: String,

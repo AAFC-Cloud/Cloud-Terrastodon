@@ -6,13 +6,14 @@ use cloud_terrastodon_source::SourceFileExtension;
 use cloud_terrastodon_source::SourceHuntProgress;
 use cloud_terrastodon_source::SourceHuntRequest;
 use eyre::Result;
+use facet::Facet;
 use std::path::PathBuf;
 use std::time::Duration;
 use tokio::sync::watch;
 use tokio::time::MissedTickBehavior;
 
 /// Inventory working-tree extensions, configured Git remotes, and commit authors.
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 pub struct SourceHuntArgs {
     /// Directory tree to search. Starting inside a repository scans only this subtree.
     #[facet(figue::positional)]

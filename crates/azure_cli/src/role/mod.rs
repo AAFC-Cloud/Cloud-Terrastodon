@@ -1,4 +1,5 @@
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use facet::Facet;
 pub mod assignment;
 pub mod azure_role_cli;
 pub mod definition;
@@ -12,7 +13,7 @@ use eyre::Result;
 pub use operation::AzureRoleOperationArgs;
 
 /// Manage Azure role-based access control.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureRoleArgs {
     #[facet(figue::subcommand)]
     pub command: AzureRoleCommand,

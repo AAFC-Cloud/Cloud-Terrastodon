@@ -3,9 +3,10 @@ use super::AzureContainerInstanceShowArgs;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 
 /// Subcommands for Azure Container Instances.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum AzureContainerInstanceCommand {
     /// List Azure Container Instance container groups.
@@ -15,7 +16,7 @@ pub enum AzureContainerInstanceCommand {
 }
 
 /// Arguments for Azure Container Instance operations.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureContainerInstanceArgs {
     #[facet(figue::subcommand)]
     pub command: AzureContainerInstanceCommand,

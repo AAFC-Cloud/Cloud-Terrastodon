@@ -14,9 +14,10 @@ use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 
 /// Arguments for Azure DevOps-specific operations.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureDevOpsArgs {
     #[facet(figue::subcommand)]
     pub command: AzureDevOpsCommand,
@@ -33,7 +34,7 @@ impl AzureDevOpsArgs {
 }
 
 /// Azure DevOps-specific commands.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum AzureDevOpsCommand {
     /// Build runs, pipeline definitions, and definition folders.

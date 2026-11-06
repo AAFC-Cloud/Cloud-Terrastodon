@@ -2,12 +2,13 @@ use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_auth::logout_all_auth_sources;
 use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
+use facet::Facet;
 
 /// Log out of all tenants and organizations across stored authentication sources.
 /// Clears browser/PIM refresh tokens, runs `az logout`, `az account clear`, and `az devops logout`,
 /// and attempts every source even if another fails. Environment credentials
 /// must be removed from the calling shell or pipeline separately.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureTenantLogoutArgs;
 
 impl AzureTenantLogoutArgs {

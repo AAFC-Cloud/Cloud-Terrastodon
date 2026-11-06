@@ -1,4 +1,5 @@
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use facet::Facet;
 pub mod azure_resource_browse_cli;
 pub mod azure_resource_cli;
 pub mod azure_resource_list_cli;
@@ -12,7 +13,7 @@ use cloud_terrastodon_auth::AuthContext;
 use eyre::Result;
 
 /// Manage Azure resources.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureResourceArgs {
     #[facet(figue::subcommand)]
     pub command: AzureResourceCommand,

@@ -13,13 +13,14 @@ use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_rest::RestRequest;
+use facet::Facet;
 use std::borrow::Cow;
 use std::sync::Arc;
 use std::time::Duration;
 
 /// List eligible children of one ARM scope.
 /// [Authorization 2020-10-01](https://learn.microsoft.com/rest/api/authorization/eligible-child-resources/get?view=rest-authorization-2020-10-01).
-#[derive(facet::Facet)]
+#[derive(Facet)]
 pub struct EligibleChildResourcesAtScopeRequest<'a> {
     pub scope: ScopeImpl,
     pub behaviour: FetchChildrenBehaviour,

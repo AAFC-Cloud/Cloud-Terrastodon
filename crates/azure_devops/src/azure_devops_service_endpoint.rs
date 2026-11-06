@@ -15,12 +15,13 @@ use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_pathing::sanitize_windows_path_component;
 use cloud_terrastodon_rest::RestRequest;
 use cloud_terrastodon_rest::RestService;
+use facet::Facet;
 use reqwest::Method;
 use std::borrow::Cow;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[facet(traits(Clone))]
 pub struct AzureDevOpsServiceEndpointsListRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,

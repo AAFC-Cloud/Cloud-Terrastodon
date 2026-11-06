@@ -5,11 +5,12 @@ use cloud_terrastodon_azure::EntraUserArgument;
 use cloud_terrastodon_azure::fetch_entra_user;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 use std::io::Write;
 use tracing::info;
 
 /// Show a single Entra (Azure AD) user.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureEntraUserShowArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
     #[facet(figue::named, default)]

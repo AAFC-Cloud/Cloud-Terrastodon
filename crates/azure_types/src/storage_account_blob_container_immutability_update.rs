@@ -5,6 +5,7 @@ use crate::UserPrincipalName;
 use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
+use facet::Facet;
 
 /// An audited change to a container's immutability policy.
 ///
@@ -12,7 +13,7 @@ use chrono::Utc;
 /// A history entry identifies the change, retention period, actor, and time.
 /// The [GetContainers examples](https://learn.microsoft.com/en-us/rest/api/storagerp/blob-containers/get?view=rest-storagerp-2025-06-01#examples)
 /// omit UPN and omit append settings in the basic example.
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct StorageAccountBlobContainerImmutabilityUpdate {

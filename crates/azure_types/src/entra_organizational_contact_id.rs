@@ -1,8 +1,9 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 use uuid::Uuid;
 
 /// The object ID of an Entra [organizational contact](https://learn.microsoft.com/en-us/graph/api/resources/orgcontact?view=graph-rest-1.0#properties).
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Arbitrary, Facet)]
 #[facet(json::proxy = String)]
 pub struct EntraOrganizationalContactId(Uuid);
 

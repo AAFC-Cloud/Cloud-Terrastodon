@@ -2,8 +2,9 @@ use crate::AzureDevOpsProjectId;
 use crate::AzureDevOpsProjectName;
 use crate::AzureDevOpsServiceEndpointName;
 use arbitrary::Arbitrary;
+use facet::Facet;
 
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsServiceEndpointProjectReference {
     #[facet(default)]
@@ -12,7 +13,7 @@ pub struct AzureDevOpsServiceEndpointProjectReference {
     pub project_reference: AzureDevOpsServiceEndpointProjectReferenceProjectReference,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsServiceEndpointProjectReferenceProjectReference {
     pub id: AzureDevOpsProjectId,

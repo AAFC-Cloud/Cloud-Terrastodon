@@ -12,12 +12,13 @@ use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_rest::RestRequest;
+use facet::Facet;
 use reqwest::Method;
 use std::borrow::Cow;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[facet(traits(Clone))]
 pub struct AzureDevOpsGroupLicenseEntitlementsRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,

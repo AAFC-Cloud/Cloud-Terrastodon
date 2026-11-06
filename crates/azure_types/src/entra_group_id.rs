@@ -1,7 +1,8 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 
 /// The object ID of an Entra [group](https://learn.microsoft.com/en-us/graph/api/resources/group?view=graph-rest-1.0#properties).
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Arbitrary, Facet)]
 #[facet(json::proxy = String)]
 pub struct EntraGroupId(pub uuid::Uuid);
 

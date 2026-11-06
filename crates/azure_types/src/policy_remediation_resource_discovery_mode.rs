@@ -1,10 +1,11 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 
 /// How a remediation identifies noncompliant resources.
 ///
 /// The [2024-10-01 schema](https://learn.microsoft.com/en-us/rest/api/policyinsights/remediations/create-or-update-at-resource-group?view=rest-policyinsights-2024-10-01#resourcediscoverymode)
 /// defaults to `ExistingNonCompliant` when the request omits this property.
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum PolicyRemediationResourceDiscoveryMode {

@@ -1,11 +1,12 @@
 use cloud_terrastodon::azure_types::EntraPrincipalId;
 use cloud_terrastodon::azure_types::UserPrincipalName;
+use facet::Facet;
 
 /// A pinned object ID, a user principal name to resolve, or both.
 ///
 /// IDs are authoritative; names provide readable annotations and drift checks.
 /// Group and service-principal references normally use an ID and display name.
-#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Facet)]
 #[facet(rename_all = "camelCase", deny_unknown_fields)]
 pub struct DesiredPrincipal {
     #[facet(default)]

@@ -6,10 +6,11 @@ use cloud_terrastodon_azure::EntraPrincipalId;
 use cloud_terrastodon_azure::add_group_member;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 use tracing::info;
 
 /// Add a member to an Entra (Azure AD) group.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureEntraGroupMemberAddArgs {
     /// Tenant ID or tracked tenant alias for authentication.
     #[facet(figue::named, default)]

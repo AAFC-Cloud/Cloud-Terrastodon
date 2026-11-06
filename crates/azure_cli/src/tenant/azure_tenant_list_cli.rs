@@ -1,10 +1,11 @@
 use cloud_terrastodon_azure::list_tracked_tenants;
 use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
+use facet::Facet;
 use std::io::Write;
 
 /// Arguments for listing tracked Azure tenants.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureTenantListArgs {}
 
 impl AzureTenantListArgs {

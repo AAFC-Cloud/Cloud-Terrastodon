@@ -2,6 +2,7 @@ use crate::AzureDevOpsBuildDefinitionId;
 use arbitrary::Arbitrary;
 use eyre::Result;
 use eyre::ensure;
+use facet::Facet;
 use std::str::FromStr;
 use url::Url;
 
@@ -13,7 +14,7 @@ use url::Url;
 ///
 /// See `uri` in Microsoft's [BuildDefinitionReference 7.1 schema](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/definitions/list?view=azure-devops-rest-7.1#builddefinitionreference)
 /// and the artifact URI in the [Favorites API sample](https://learn.microsoft.com/en-us/rest/api/azure/devops/favorite/favorites/get-favorite-by-artifact?view=azure-devops-rest-7.1#examples).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Arbitrary, Facet)]
 #[facet(proxy = String)]
 pub struct AzureDevOpsBuildDefinitionUri {
     pub definition_id: AzureDevOpsBuildDefinitionId,

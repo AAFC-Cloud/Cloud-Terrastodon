@@ -4,9 +4,10 @@ use cloud_terrastodon_gitea::GiteaTenantArgument;
 use cloud_terrastodon_gitea::GiteaTenantArgumentExt;
 use cloud_terrastodon_gitea::remove_tracked_tenant_aliases;
 use eyre::Result;
+use facet::Facet;
 use std::io::Write;
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct GiteaTenantAliasRemoveArgs {
     /// Tracked tenant URL or alias.
     #[facet(figue::named, proxy = String)]

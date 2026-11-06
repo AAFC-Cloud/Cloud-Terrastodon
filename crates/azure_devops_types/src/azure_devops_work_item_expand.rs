@@ -1,6 +1,7 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 
-#[derive(Debug, Clone, Copy, Default, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Copy, Default, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 #[repr(u8)]
 pub enum AzureDevOpsWorkItemExpand {

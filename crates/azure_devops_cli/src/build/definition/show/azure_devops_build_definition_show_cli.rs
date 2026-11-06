@@ -8,11 +8,12 @@ use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_build_definition;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 
 /// Show a pipeline's full definition, including repository and YAML process details.
 ///
 /// See Microsoft's [Definitions Get 7.1 API](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/definitions/get?view=azure-devops-rest-7.1).
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 pub struct AzureDevOpsBuildDefinitionShowArgs {
     /// Build definition ID from `build definition list`.
     #[facet(figue::positional, figue::label = "ID")]

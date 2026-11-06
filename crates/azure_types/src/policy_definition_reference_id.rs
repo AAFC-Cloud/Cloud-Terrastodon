@@ -1,6 +1,7 @@
 use arbitrary::Arbitrary;
 use arbitrary::Unstructured;
 use eyre::ensure;
+use facet::Facet;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::str::FromStr;
@@ -9,7 +10,7 @@ use std::str::FromStr;
 /// global ARM policy definition ID.
 ///
 /// See [remediation policy definition selection](https://learn.microsoft.com/en-us/azure/governance/policy/concepts/remediation-structure#policy-definition-id).
-#[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Facet)]
 #[facet(proxy = String)]
 pub struct PolicyDefinitionReferenceId {
     // An empty value cannot select an initiative member.

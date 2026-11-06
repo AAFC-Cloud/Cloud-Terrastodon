@@ -13,6 +13,7 @@ use crate::AzureDevOpsIdentityUrl;
 use crate::AzureDevOpsReferenceLinkUrl;
 use crate::AzureDevOpsReferenceLinks;
 use arbitrary::Arbitrary;
+use facet::Facet;
 
 /// A shallow reference to an Azure DevOps identity, including people, groups,
 /// and processes. Missing identity metadata remains unknown.
@@ -22,7 +23,7 @@ use arbitrary::Arbitrary;
 /// metadata. Microsoft's [IdentityRef](https://github.com/microsoft/azure-devops-node-api/blob/master/api/interfaces/common/VSSInterfaces.ts)
 /// and [GraphSubjectBase](https://github.com/microsoft/azure-devops-node-api/blob/master/api/interfaces/GraphInterfaces.ts)
 /// definitions allow metadata to be absent. Debug decoding still rejects unmodeled fields.
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct AzureDevOpsIdentityReference {

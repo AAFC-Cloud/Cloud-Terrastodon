@@ -4,13 +4,14 @@ use crate::AzureDevOpsBuildForks;
 use crate::AzureDevOpsBuildPipelineTriggerSettings;
 use crate::AzureDevOpsBuildSchedule;
 use arbitrary::Arbitrary;
+use facet::Facet;
 
 /// A definition trigger with its published trigger-specific properties.
 ///
 /// Microsoft REST documentation: [BuildTrigger schema](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/definitions/get?view=azure-devops-rest-7.1#buildtrigger).
 /// The REST reference lists `triggerType`; trigger-specific properties are described
 /// in Microsoft's [TypeScript source](https://github.com/microsoft/azure-devops-node-api/blob/master/api/interfaces/BuildInterfaces.ts#L1439).
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct AzureDevOpsBuildTrigger {

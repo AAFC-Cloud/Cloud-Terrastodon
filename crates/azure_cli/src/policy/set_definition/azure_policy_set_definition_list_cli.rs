@@ -5,6 +5,7 @@ use cloud_terrastodon_azure::fetch_all_policy_set_definitions;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use eyre::ensure;
+use facet::Facet;
 use nucleo::Config;
 use nucleo::Matcher;
 use nucleo::pattern::AtomKind;
@@ -15,7 +16,7 @@ use std::io::Write;
 use tracing::info;
 
 /// Arguments for listing Azure policy set definitions.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzurePolicySetDefinitionListArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
     #[facet(figue::named, default)]

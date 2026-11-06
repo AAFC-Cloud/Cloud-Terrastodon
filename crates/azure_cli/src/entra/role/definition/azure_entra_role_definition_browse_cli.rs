@@ -7,11 +7,12 @@ use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
+use facet::Facet;
 use std::io::Write;
 use tracing::info;
 
 /// Arguments for browsing Entra role definitions.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureEntraRoleDefinitionBrowseArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
     #[facet(figue::named, default)]

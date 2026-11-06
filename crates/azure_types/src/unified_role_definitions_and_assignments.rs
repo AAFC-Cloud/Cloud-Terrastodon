@@ -5,11 +5,12 @@ use crate::UnifiedRoleDefinition;
 use crate::UnifiedRoleDefinitionCollection;
 use crate::UnifiedRoleDefinitionId;
 use eyre::bail;
+use facet::Facet;
 use std::collections::HashMap;
 use std::sync::Arc;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 pub struct UnifiedRoleDefinitionsAndAssignments {
     pub role_definitions: UnifiedRoleDefinitionCollection,
     pub role_assignments: HashMap<UnifiedRoleAssignmentId, Arc<UnifiedRoleAssignment>>,

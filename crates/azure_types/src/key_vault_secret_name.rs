@@ -4,6 +4,7 @@ use arbitrary::Unstructured;
 use compact_str::CompactString;
 use eyre::WrapErr;
 use eyre::bail;
+use facet::Facet;
 use std::ops::Deref;
 use std::str::FromStr;
 
@@ -13,7 +14,7 @@ use std::str::FromStr;
 /// * Case-sensitive (we keep the exact casing) but validation only checks allowed set
 ///
 /// (Docs excerpt provided by user: "vaults / secrets Vault 1-127 Alphanumerics and hyphens")
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Facet)]
 #[facet(json::proxy = String)]
 pub struct KeyVaultSecretName {
     inner: CompactString,

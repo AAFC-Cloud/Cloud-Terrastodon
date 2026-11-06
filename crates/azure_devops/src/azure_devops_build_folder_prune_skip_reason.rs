@@ -1,9 +1,10 @@
 use arbitrary::Arbitrary;
 use eyre::Result;
+use facet::Facet;
 
 /// Why a fresh inventory prevents pruning a previously planned folder.
 /// The string proxy preserves the human-readable reason in prune JSON reports.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(u8)]
 pub enum AzureDevOpsBuildFolderPruneSkipReason {

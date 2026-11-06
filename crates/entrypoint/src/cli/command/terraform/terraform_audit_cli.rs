@@ -1,10 +1,11 @@
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_hcl::discover_terraform_source_dirs;
 use eyre::Result;
+use facet::Facet;
 use std::path::PathBuf;
 
 /// Identify and report Terraform provider issues.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct TerraformAuditArgs {
     #[facet(figue::positional, default = PathBuf::from("."))]
     pub source_dir: PathBuf,

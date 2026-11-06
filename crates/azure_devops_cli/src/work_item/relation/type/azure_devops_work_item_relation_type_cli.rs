@@ -3,15 +3,16 @@ use crate::work_item::relation::r#type::show::AzureDevOpsWorkItemRelationTypeSho
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 
 /// Inspect relation type definitions.
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 pub struct AzureDevOpsWorkItemRelationTypeArgs {
     #[facet(figue::subcommand)]
     pub command: AzureDevOpsWorkItemRelationTypeCommand,
 }
 
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[repr(u8)]
 pub enum AzureDevOpsWorkItemRelationTypeCommand {
     /// List definitions.

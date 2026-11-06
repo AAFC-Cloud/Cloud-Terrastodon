@@ -190,14 +190,15 @@ mod tests {
     use super::*;
     use crate::object_explorer::arena_slot_state::ArenaSlotState;
     use cloud_terrastodon_registry::RuntimeValue;
+    use facet::Facet;
 
-    #[derive(Clone, Debug, facet::Facet)]
+    #[derive(Clone, Debug, Facet)]
     #[repr(C)]
     struct TestBreadcrumbs {
         entries: Vec<String>,
     }
 
-    #[derive(Clone, Debug, facet::Facet)]
+    #[derive(Clone, Debug, Facet)]
     #[repr(C)]
     struct TestTab {
         name: String,

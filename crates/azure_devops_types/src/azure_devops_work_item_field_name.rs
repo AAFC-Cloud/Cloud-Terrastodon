@@ -1,10 +1,11 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::borrow::Borrow;
 use std::ops::Deref;
 use std::str::FromStr;
 
 /// A work item field reference name used in Azure DevOps API paths.
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Facet)]
 #[facet(transparent)]
 pub struct AzureDevOpsWorkItemFieldName(String);
 

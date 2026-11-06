@@ -7,9 +7,10 @@ use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::fetch_all_virtual_networks;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 
 /// List modeled subnets from the tenant's cached virtual-network inventory.
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 pub struct AzureVirtualNetworkSubnetListArgs {
     /// Tenant ID or tracked alias. Defaults to the selected authentication tenant.
     #[facet(figue::named, default)]

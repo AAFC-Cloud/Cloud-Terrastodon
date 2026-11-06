@@ -11,15 +11,16 @@ use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 
 /// Tenant-related commands for tracked tenant configuration.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureTenantArgs {
     #[facet(figue::subcommand)]
     pub command: AzureTenantCommand,
 }
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum AzureTenantCommand {
     /// List tracked Azure tenants.

@@ -10,11 +10,12 @@ use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_user_input::PickerTui;
 use cloud_terrastodon_user_input::prompt_line;
 use eyre::Result;
+use facet::Facet;
 use std::collections::HashMap;
 use tracing::info;
 
 /// Arguments for tagging resources that are slated for cleanup.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureTagForCleanupArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
     #[facet(figue::named, default)]

@@ -1,3 +1,4 @@
+use facet::Facet;
 pub mod gitea_tenant_alias_add_cli;
 pub mod gitea_tenant_alias_list_cli;
 pub mod gitea_tenant_alias_remove_cli;
@@ -8,13 +9,13 @@ pub use gitea_tenant_alias_add_cli::GiteaTenantAliasAddArgs;
 pub use gitea_tenant_alias_list_cli::GiteaTenantAliasListArgs;
 pub use gitea_tenant_alias_remove_cli::GiteaTenantAliasRemoveArgs;
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct GiteaTenantAliasArgs {
     #[facet(figue::subcommand)]
     pub command: GiteaTenantAliasCommand,
 }
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum GiteaTenantAliasCommand {
     /// Add one or more aliases to a tracked tenant.

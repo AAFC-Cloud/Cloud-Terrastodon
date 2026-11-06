@@ -1,10 +1,11 @@
 use crate::RolePermissionAction;
 use crate::RolePermissionActionSet;
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::cmp::Ordering;
 
 /// See also: `az provider operation list`
-#[derive(Debug, PartialEq, Eq, Clone, Hash, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, Facet)]
 pub struct RolePermissions {
     #[facet(alias = "Actions")]
     pub actions: RolePermissionActionSet,

@@ -15,6 +15,7 @@ use cloud_terrastodon_hcl::TerraformChangeAction;
 use cloud_terrastodon_hcl::TerraformPlan;
 use eyre::Result;
 use eyre::bail;
+use facet::Facet;
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -23,7 +24,7 @@ use std::path::PathBuf;
 use tracing::debug;
 
 /// Reflow generated Terraform source files.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct TerraformApplyArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
     #[facet(figue::named, default)]

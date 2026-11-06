@@ -1,8 +1,9 @@
 use crate::AzureDevOpsEntraUserDescriptor;
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum AzureDevOpsDescriptor {

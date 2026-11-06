@@ -5,10 +5,11 @@ use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
 use cloud_terrastodon_azure_types::ArbitraryJson;
+use facet::Facet;
 use std::collections::BTreeMap;
 
 /// User entitlement returned after an accepted [7.1 license update](https://learn.microsoft.com/en-us/rest/api/azure/devops/memberentitlementmanagement/user-entitlements/update-user-entitlement?view=azure-devops-rest-7.1#userentitlement).
-#[derive(facet::Facet, Debug)]
+#[derive(Facet, Debug)]
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct AzureDevOpsLicenseEntitlementUpdateResponse {

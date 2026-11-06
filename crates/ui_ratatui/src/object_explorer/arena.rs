@@ -387,7 +387,7 @@ mod tests {
     use facet::Facet;
     use std::borrow::Cow;
 
-    #[derive(Clone, Debug, facet::Facet)]
+    #[derive(Clone, Debug, Facet)]
     #[repr(C)]
     struct MyThing {
         age: usize,

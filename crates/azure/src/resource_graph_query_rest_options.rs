@@ -1,8 +1,9 @@
 use crate::QueryRestResultFormat;
 use crate::ResourceGraphQueryRestScopeFilterOption;
+use facet::Facet;
 
 /// [Resource Graph query options](https://learn.microsoft.com/rest/api/azureresourcegraph/resourcegraph/resources/resources?view=rest-azureresourcegraph-resourcegraph-2022-10-01#queryrequestoptions).
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Facet)]
 pub struct ResourceGraphQueryRestOptions {
     #[facet(rename = "$skip")]
     pub skip: u64,

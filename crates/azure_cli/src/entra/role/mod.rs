@@ -1,4 +1,5 @@
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use facet::Facet;
 pub mod assignment;
 pub mod azure_entra_role_cli;
 pub mod definition;
@@ -10,7 +11,7 @@ pub use definition::AzureEntraRoleDefinitionArgs;
 use eyre::Result;
 
 /// Manage Entra directory roles.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureEntraRoleArgs {
     #[facet(figue::subcommand)]
     pub command: AzureEntraRoleCommand,

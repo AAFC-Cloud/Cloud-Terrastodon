@@ -3,6 +3,7 @@ use crate::AzureDevOpsSecureFileReference;
 use crate::AzureDevOpsServiceEndpointReference;
 use crate::AzureDevOpsVariableGroupReference;
 use arbitrary::Arbitrary;
+use facet::Facet;
 
 /// Resources referenced by a YAML build process.
 ///
@@ -10,7 +11,7 @@ use arbitrary::Arbitrary;
 /// That REST page documents the base process but omits its YAML resources shape.
 /// Supplemental JavaScript shape: [BuildProcessResources](https://learn.microsoft.com/en-us/javascript/api/azure-devops-extension-api/buildprocessresources).
 /// TypeScript source: [BuildProcessResources](https://github.com/microsoft/azure-devops-node-api/blob/master/api/interfaces/BuildInterfaces.ts#L1038).
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct AzureDevOpsBuildProcessResources {

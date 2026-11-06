@@ -1,5 +1,6 @@
 use crate::MicrosoftGraphHelper;
 use crate::PercentEncodeExt;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_auth_types::AzureBearerAuthSource;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::EntraUser;
@@ -21,7 +22,7 @@ const USER_SEARCH_CACHE_DURATION: Duration = Duration::from_secs(60);
 
 /// Search Graph v1.0 [users](https://learn.microsoft.com/graph/api/user-list?view=graph-rest-1.0) by a prefix of their identity or name.
 #[must_use = "This is a future request, you must .execute it"]
-#[derive(arbitrary::Arbitrary, Facet)]
+#[derive(Arbitrary, Facet)]
 pub struct EntraUserSearchRequest {
     pub search_term: String,
     pub tenant_id: AzureTenantId,

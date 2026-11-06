@@ -1,5 +1,6 @@
 use crate::AzureDevOpsAgentPoolQueueId;
 use arbitrary::Arbitrary;
+use facet::Facet;
 
 /// An agent-queue resource reference used by a build process.
 ///
@@ -8,7 +9,7 @@ use arbitrary::Arbitrary;
 /// resource-reference shape.
 /// Supplemental JavaScript shape: [AgentPoolQueueReference](https://learn.microsoft.com/en-us/javascript/api/azure-devops-extension-api/agentpoolqueuereference).
 /// TypeScript source: [AgentPoolQueueReference](https://github.com/microsoft/azure-devops-node-api/blob/master/api/interfaces/BuildInterfaces.ts#L45).
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct AzureDevOpsAgentPoolQueueReference {

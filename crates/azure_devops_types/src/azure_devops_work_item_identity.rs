@@ -3,11 +3,12 @@ use crate::AzureDevOpsUserId;
 use crate::AzureDevOpsWorkItemIdentityLinks;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_types::ArbitraryJson;
+use facet::Facet;
 use std::collections::BTreeMap;
 
 /// The identity object used by Azure DevOps audit fields such as
 /// `System.CreatedBy` and `System.ChangedBy`.
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsWorkItemIdentity {
     #[facet(rename = "_links")]

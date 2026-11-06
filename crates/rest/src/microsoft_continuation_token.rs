@@ -1,6 +1,7 @@
 use arbitrary::Arbitrary;
 use eyre::Result;
 use eyre::ensure;
+use facet::Facet;
 use http::HeaderValue;
 use http::header::InvalidHeaderValue;
 use std::fmt::Display;
@@ -19,7 +20,7 @@ use std::str::FromStr;
 /// documented token grammar. Nonblank text is preserved exactly, without
 /// trimming, decoding, or interpreting its contents. HTTP header conversion
 /// checks transport syntax separately and can fail for a valid opaque token.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Facet)]
 #[facet(proxy = String)]
 pub struct MicrosoftContinuationToken(String);
 

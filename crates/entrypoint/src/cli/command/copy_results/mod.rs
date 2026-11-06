@@ -1,11 +1,12 @@
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_pathing::AppDir;
 use eyre::Result;
+use facet::Facet;
 use std::path::Path;
 use std::path::PathBuf;
 
 /// Copy run artifacts to a destination directory.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct CopyResultsArgs {
     /// Destination directory for copying results.
     #[facet(figue::positional)]

@@ -4,11 +4,12 @@ use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::fetch_all_resources;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 use std::io::Write;
 use tracing::info;
 
 /// Arguments for listing Azure resources.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureResourceListArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
     #[facet(figue::named, default)]

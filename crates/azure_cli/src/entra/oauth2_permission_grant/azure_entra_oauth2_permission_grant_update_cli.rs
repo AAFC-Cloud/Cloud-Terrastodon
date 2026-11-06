@@ -13,10 +13,11 @@ use cloud_terrastodon_azure::update_oauth2_permission_grant;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::ContextCompat;
 use eyre::Result;
+use facet::Facet;
 use std::io::Write;
 
 /// Update an Entra OAuth2 permission grant.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureEntraOAuth2PermissionGrantUpdateArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
     #[facet(figue::named, default)]
@@ -133,7 +134,7 @@ impl AzureEntraOAuth2PermissionGrantUpdateArgs {
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();
         if merged_scope.is_empty() {
-            #[derive(facet::Facet)]
+            #[derive(Facet)]
             struct DeletedResponse {
                 deleted: bool,
                 id: cloud_terrastodon_azure::OAuth2PermissionGrantId,
@@ -153,7 +154,7 @@ impl AzureEntraOAuth2PermissionGrantUpdateArgs {
             return Ok(());
         }
 
-        #[derive(facet::Facet)]
+        #[derive(Facet)]
         struct UpdatedResponse {
             deleted: bool,
             id: cloud_terrastodon_azure::OAuth2PermissionGrantId,

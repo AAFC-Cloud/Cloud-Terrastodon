@@ -6,12 +6,13 @@ use crate::azure_devops_work_item_url::build_url;
 use crate::azure_devops_work_item_url::parse_url;
 use arbitrary::Arbitrary;
 use eyre::Result;
+use facet::Facet;
 use std::borrow::Cow;
 use std::str::FromStr;
 use url::Url;
 
 /// A work item URL that includes a project path segment.
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[facet(proxy = String)]
 pub struct AzureDevOpsWorkItemProjectUrl<'a> {
     pub org_id: Cow<'a, AzureDevOpsOrganizationUrl>,

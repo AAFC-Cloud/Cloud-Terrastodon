@@ -1,10 +1,11 @@
 use crate::AzureDevOpsAccountLicenseType;
 use crate::AzureDevOpsLicenseType;
 use crate::AzureDevOpsMsdnLicenseType;
+use facet::Facet;
 
 /// An access-level change with a matching licensing source and license family.
 /// See [AccessLevel 7.1](https://learn.microsoft.com/en-us/rest/api/azure/devops/memberentitlementmanagement/user-entitlements/update-user-entitlement?view=azure-devops-rest-7.1#accesslevel).
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[facet(tag = "licensingSource", rename_all = "camelCase")]
 #[repr(u8)]
 pub enum AzureDevOpsLicenseAccessLevelUpdate {

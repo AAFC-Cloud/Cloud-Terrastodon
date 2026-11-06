@@ -2,6 +2,7 @@ use crate::azure_resource_created_by_type::AzureResourceCreatedByType;
 use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
+use facet::Facet;
 
 /// ARM provenance metadata for a resource's creation and latest modification.
 ///
@@ -11,7 +12,7 @@ use chrono::Utc;
 /// describes the six fields of a present provenance record. They are required
 /// here; a containing response models absence of the entire record separately.
 /// Identity strings have no UUID constraint.
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct AzureResourceSystemData {

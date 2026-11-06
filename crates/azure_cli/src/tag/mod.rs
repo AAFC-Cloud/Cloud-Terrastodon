@@ -1,4 +1,5 @@
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use facet::Facet;
 pub mod azure_tag_cli;
 pub mod azure_tag_for_cleanup_cli;
 
@@ -8,7 +9,7 @@ use cloud_terrastodon_auth::AuthContext;
 use eyre::Result;
 
 /// Manage Azure tag operations.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureTagArgs {
     #[facet(figue::subcommand)]
     pub command: AzureTagCommand,

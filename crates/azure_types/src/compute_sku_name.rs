@@ -1,10 +1,11 @@
 use arbitrary::Arbitrary;
 use compact_str::CompactString;
+use facet::Facet;
 use std::fmt::Display;
 use std::ops::Deref;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Facet)]
 #[facet(json::proxy = String)]
 pub struct ComputeSkuName(CompactString);
 crate::impl_facet_string_proxy!(ComputeSkuName, value => value.to_string());

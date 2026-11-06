@@ -5,12 +5,13 @@ use crate::WORK_ITEM_PARENT_RELATION;
 use arbitrary::Arbitrary;
 use eyre::Result;
 use eyre::ensure;
+use facet::Facet;
 use std::collections::HashSet;
 use std::ops::Deref;
 use std::ops::DerefMut;
 
 /// A non-empty Azure DevOps JSON Patch document.
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[facet(proxy = Vec<AzureDevOpsJsonPatchOperation>)]
 pub struct AzureDevOpsJsonPatch(Vec<AzureDevOpsJsonPatchOperation>);
 

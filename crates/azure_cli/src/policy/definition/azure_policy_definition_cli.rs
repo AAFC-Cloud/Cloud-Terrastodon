@@ -4,9 +4,10 @@ use super::AzurePolicyDefinitionShowArgs;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 
 /// Subcommands for managing Azure policy definitions.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum AzurePolicyDefinitionCommand {
     /// List all Azure policy definitions accessible to the account.

@@ -1,6 +1,7 @@
 use arbitrary::Arbitrary;
 use eyre::Result;
 use eyre::ensure;
+use facet::Facet;
 use std::ops::Deref;
 use std::str::FromStr;
 
@@ -16,7 +17,7 @@ use std::str::FromStr;
 /// These are local safety constraints; the Build API does not document an
 /// exhaustive character policy or a path length limit. Restrictions for TFVC
 /// or Azure Boards paths do not apply to this type.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Facet)]
 #[facet(proxy = String)]
 pub struct AzureDevOpsBuildFolderPath(String);
 

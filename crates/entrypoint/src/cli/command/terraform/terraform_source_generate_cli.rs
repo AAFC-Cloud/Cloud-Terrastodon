@@ -12,12 +12,13 @@ use cloud_terrastodon_hcl::discovery::discover_hcl;
 use cloud_terrastodon_hcl::reflow::ReflowHclRequest;
 use cloud_terrastodon_pathing::Existy;
 use eyre::Result;
+use facet::Facet;
 use std::path::PathBuf;
 use tempfile::Builder;
 use tracing::info;
 
 /// Create Terraform import definitions for selected resources.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct TerraformSourceGenerateArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
     #[facet(figue::named, default)]

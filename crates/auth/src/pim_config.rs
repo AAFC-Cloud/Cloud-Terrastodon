@@ -2,10 +2,11 @@ use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::EntraApplicationClientId;
 use cloud_terrastodon_config::Config;
+use facet::Facet;
 use std::collections::HashMap;
 
 /// Non-sensitive configuration for the Cloud Terrastodon PIM integration.
-#[derive(Debug, Default, Arbitrary, facet::Facet, Clone, PartialEq)]
+#[derive(Debug, Default, Arbitrary, Facet, Clone, PartialEq)]
 pub struct PimConfig {
     /// PIM application client ids keyed by Entra tenant id.
     pub client_ids: HashMap<AzureTenantId, EntraApplicationClientId>,

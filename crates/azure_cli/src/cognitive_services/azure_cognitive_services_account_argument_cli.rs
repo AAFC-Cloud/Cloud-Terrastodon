@@ -5,11 +5,12 @@ use cloud_terrastodon_azure::AzureCognitiveServicesAccountResourceName;
 use cloud_terrastodon_azure::Scope;
 use eyre::Result;
 use eyre::bail;
+use facet::Facet;
 use std::borrow::Cow;
 use std::str::FromStr;
 
 /// Cognitive Services account can be specified as an id, a validated name, or a wildcard pattern.
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum CognitiveServicesAccountArgument<'a> {

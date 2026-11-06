@@ -13,6 +13,7 @@ use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_pathing::AppDir;
 use eyre::Context;
 use eyre::bail;
+use facet::Facet;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::Path;
@@ -154,7 +155,7 @@ pub trait AzureDevOpsTenantArgumentExt {
 }
 
 #[must_use = "This is a future request, you must .run().await it"]
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 pub struct AzureTenantIdResolveRequest {
     #[facet(skip_serializing)]
     pub cancellation: CancellationScope,

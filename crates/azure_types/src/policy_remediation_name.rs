@@ -1,6 +1,7 @@
 use arbitrary::Arbitrary;
 use arbitrary::Unstructured;
 use eyre::ensure;
+use facet::Facet;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::str::FromStr;
@@ -10,7 +11,7 @@ use std::str::FromStr;
 /// Requiring one nonempty, non-dot path segment is a library composition
 /// invariant. The service does not document an additional character allowlist
 /// or length limit for this parameter.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Facet)]
 #[facet(proxy = String)]
 pub struct PolicyRemediationName {
     // Private so a valid ARM path segment cannot be replaced with a path.

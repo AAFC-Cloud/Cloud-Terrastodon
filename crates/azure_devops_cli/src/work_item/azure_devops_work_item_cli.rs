@@ -10,15 +10,16 @@ use crate::work_item::update::AzureDevOpsWorkItemUpdateArgs;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 
 /// Work items, saved queries, fields, and relations.
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 pub struct AzureDevOpsWorkItemArgs {
     #[facet(figue::subcommand)]
     pub command: AzureDevOpsWorkItemCommand,
 }
 
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[repr(u8)]
 pub enum AzureDevOpsWorkItemCommand {
     /// Fetch an explicit set of work item IDs.

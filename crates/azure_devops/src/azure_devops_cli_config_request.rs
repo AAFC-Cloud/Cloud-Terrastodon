@@ -13,11 +13,12 @@ use cloud_terrastodon_command::bstr::ByteSlice;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
+use facet::Facet;
 use std::time::Duration;
 
 /// Read local Azure CLI extension configuration; this performs no service request.
 /// <https://learn.microsoft.com/cli/azure/devops#az-devops-configure>
-#[derive(Debug, Clone, Copy, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Copy, Arbitrary, Facet)]
 pub struct AzureDevOpsCliConfigRequest;
 
 /// Read fresh local configuration without cache or artifact management.

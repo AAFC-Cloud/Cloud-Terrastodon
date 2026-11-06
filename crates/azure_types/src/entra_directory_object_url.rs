@@ -2,13 +2,14 @@ use crate::EntraPrincipalId;
 use arbitrary::Arbitrary;
 use eyre::Result;
 use eyre::ensure;
+use facet::Facet;
 use std::str::FromStr;
 use url::Url;
 
 /// Microsoft Graph v1.0 directory-object reference used by group membership writes.
 ///
 /// [Group member reference syntax](https://learn.microsoft.com/graph/api/group-post-members?view=graph-rest-1.0#request-body).
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[facet(proxy = String)]
 pub struct EntraDirectoryObjectUrl {
     pub id: EntraPrincipalId,

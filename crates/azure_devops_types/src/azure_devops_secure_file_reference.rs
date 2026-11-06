@@ -1,5 +1,6 @@
 use crate::AzureDevOpsSecureFileId;
 use arbitrary::Arbitrary;
+use facet::Facet;
 
 /// A secure-file resource reference used by a build process.
 ///
@@ -7,7 +8,7 @@ use arbitrary::Arbitrary;
 /// For this resource-reference shape, see Microsoft's
 /// [SecureFileReference interface](https://learn.microsoft.com/en-us/javascript/api/azure-devops-extension-api/securefilereference)
 /// and [TypeScript source](https://github.com/microsoft/azure-devops-node-api/blob/master/api/interfaces/BuildInterfaces.ts#L2609).
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct AzureDevOpsSecureFileReference {

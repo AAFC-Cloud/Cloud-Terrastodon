@@ -1,10 +1,11 @@
 use eyre::Result;
+use facet::Facet;
 use std::path::PathBuf;
 
 /// String wire representation for native paths in source inventory records.
 /// The pinned Facet JSON serializer does not handle PathBuf scalars directly.
 /// Reject non-Unicode paths rather than silently changing their identity.
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Facet)]
 #[facet(transparent)]
 pub(crate) struct SourcePathProxy(pub String);
 

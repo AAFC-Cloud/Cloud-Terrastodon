@@ -2,11 +2,12 @@ use arbitrary::Arbitrary;
 use compact_str::CompactString;
 use eyre::WrapErr;
 use eyre::bail;
+use facet::Facet;
 use std::ops::Deref;
 use std::str::FromStr;
 
 /// A Cloud Terrastodon-specific alias for a tracked Azure tenant.
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Facet)]
 #[facet(json::proxy = String)]
 pub struct AzureTenantAlias {
     inner: CompactString,

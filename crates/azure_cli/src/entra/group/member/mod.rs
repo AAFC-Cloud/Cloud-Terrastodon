@@ -1,4 +1,5 @@
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use facet::Facet;
 pub mod azure_entra_group_member_add_cli;
 pub mod azure_entra_group_member_list_cli;
 pub mod azure_entra_group_member_remove_cli;
@@ -10,13 +11,13 @@ use cloud_terrastodon_auth::AuthContext;
 use eyre::Result;
 
 /// Group member operations (add/remove)
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureEntraGroupMemberArgs {
     #[facet(figue::subcommand)]
     pub command: AzureEntraGroupMemberCommand,
 }
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum AzureEntraGroupMemberCommand {
     /// Add a member to a group.

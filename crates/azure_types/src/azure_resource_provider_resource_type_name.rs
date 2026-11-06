@@ -2,6 +2,7 @@ use arbitrary::Arbitrary;
 use arbitrary::Unstructured;
 use eyre::Result;
 use eyre::ensure;
+use facet::Facet;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::str::FromStr;
@@ -12,7 +13,7 @@ use std::str::FromStr;
 /// [Resource Management 2021-04-01 provider resource-type schema](https://learn.microsoft.com/en-us/rest/api/resources/providers/list-at-tenant-scope?view=rest-resources-2021-04-01#providerresourcetype),
 /// not a namespace-qualified `ResourceType`. Nonempty path segments are a
 /// library composition invariant; no character allowlist or length limit is added.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Facet)]
 #[facet(proxy = String)]
 pub struct AzureResourceProviderResourceTypeName {
     // Private so mutation cannot introduce an absolute or empty-segment path.

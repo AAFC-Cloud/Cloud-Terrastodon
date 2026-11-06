@@ -1,4 +1,5 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::num::ParseIntError;
 use std::str::FromStr;
 
@@ -6,7 +7,7 @@ use std::str::FromStr;
 ///
 /// Microsoft documentation: [VariableGroup.id](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/definitions/get?view=azure-devops-rest-7.1#variablegroup).
 /// The API uses a signed 32-bit integer; no speculative range restriction is imposed.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Arbitrary, Facet)]
 #[facet(transparent)]
 pub struct AzureDevOpsVariableGroupId(pub i32);
 

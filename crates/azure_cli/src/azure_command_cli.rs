@@ -23,9 +23,10 @@ use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure_devops_cli::AzureDevOpsArgs;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 
 /// Arguments for Azure-specific operations.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureArgs {
     #[facet(figue::subcommand)]
     pub command: AzureCommand,
@@ -42,7 +43,7 @@ impl AzureArgs {
 }
 
 /// Azure-specific commands.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum AzureCommand {
     /// Manage Azure App Services.

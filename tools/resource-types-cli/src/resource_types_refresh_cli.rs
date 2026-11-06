@@ -11,6 +11,7 @@ use cloud_terrastodon_azure_types::AzureTenantArgument;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::WrapErr;
 use eyre::ensure;
+use facet::Facet;
 use std::fs;
 use std::io::ErrorKind;
 use std::path::Path;
@@ -21,7 +22,7 @@ use std::path::PathBuf;
 /// Uses the Azure SDK's tenant-scoped provider request. Only normalized
 /// resource-type names are saved; provider metadata and credential/runtime state
 /// are not part of the catalogue.
-#[derive(facet::Facet)]
+#[derive(Facet)]
 pub struct ResourceTypesRefreshArgs {
     /// Tracked tenant UUID or alias. Omit or use default for the Azure CLI default tenant.
     #[facet(figue::named, default)]

@@ -13,11 +13,12 @@ use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use eyre::OptionExt;
+use facet::Facet;
 use tracing::info;
 
 /// Inspect the organization selected in local Azure CLI configuration.
 /// Service requests still require their own explicit organization.
-#[derive(Debug, Clone, Copy, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Copy, Arbitrary, Facet)]
 pub struct DefaultAzureDevOpsOrganizationUrlRequest;
 
 /// Read the organization from fresh local configuration without managed reuse.

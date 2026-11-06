@@ -1,5 +1,6 @@
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use facet::Facet;
 pub mod azure_policy_set_definition_browse_cli;
 pub mod azure_policy_set_definition_cli;
 pub mod azure_policy_set_definition_list_cli;
@@ -12,7 +13,7 @@ pub use azure_policy_set_definition_show_cli::AzurePolicySetDefinitionShowArgs;
 use eyre::Result;
 
 /// Manage Azure policy set definitions.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzurePolicySetDefinitionArgs {
     #[facet(figue::subcommand)]
     pub command: AzurePolicySetDefinitionCommand,

@@ -3,11 +3,12 @@ use crate::EntraPrincipalCollection;
 use crate::EntraPrincipalId;
 use crate::EntraPrincipalRef;
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::borrow::Cow;
 use std::str::FromStr;
 
 /// Principal can be specified as an id (UUID) or a display/user principal name.
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum AzurePrincipalArgument<'a> {

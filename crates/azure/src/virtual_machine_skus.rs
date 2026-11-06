@@ -1,5 +1,6 @@
 use crate::ComputeSkuListRequest;
 use crate::fetch_all_compute_skus;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_auth_types::AzureBearerAuthSource;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::ComputeSku;
@@ -12,9 +13,10 @@ use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_execution::RequestExecution;
+use facet::Facet;
 use std::sync::Arc;
 
-#[derive(arbitrary::Arbitrary, facet::Facet)]
+#[derive(Arbitrary, Facet)]
 pub struct VirtualMachineSkuRequest {
     pub auth_source: AzureBearerAuthSource,
     pub tenant_id: AzureTenantId,

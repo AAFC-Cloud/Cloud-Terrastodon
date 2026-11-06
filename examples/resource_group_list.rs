@@ -1,5 +1,7 @@
 // Prints each Azure Resource Group name using the re-exported Azure module.
 
+#[cfg(test)]
+use arbitrary::Arbitrary;
 use cloud_terrastodon::app::App;
 use cloud_terrastodon::app::ApplicationCli;
 use cloud_terrastodon::app::GlobalArgs;
@@ -12,7 +14,7 @@ use facet::Facet;
 
 /// List resource groups with their subscription names and resource IDs.
 #[derive(Facet)]
-#[cfg_attr(test, derive(arbitrary::Arbitrary))]
+#[cfg_attr(test, derive(Arbitrary))]
 struct Cli {
     #[facet(flatten)]
     global_args: GlobalArgs,

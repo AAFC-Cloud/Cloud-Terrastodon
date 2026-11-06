@@ -4,12 +4,13 @@ use crate::AzureDevOpsWorkItemUrl;
 use arbitrary::Arbitrary;
 use eyre::Result;
 use eyre::ensure;
+use facet::Facet;
 use std::str::FromStr;
 use url::Url;
 
 /// A relation target URL. Work-item targets are structured, while Azure DevOps
 /// relation responses may also contain URLs for attachments or other resources.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Facet)]
 #[facet(proxy = String)]
 #[repr(u8)]
 pub enum AzureDevOpsWorkItemRelationUrl {

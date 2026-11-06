@@ -4,11 +4,12 @@ use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::search_application_registrations;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 use std::io::Write;
 use tracing::info;
 
 /// Search Entra (Azure AD) application registrations by app id, name, or URI prefix.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureEntraApplicationRegistrationSearchArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
     #[facet(figue::named, default)]

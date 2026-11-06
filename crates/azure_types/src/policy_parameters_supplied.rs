@@ -1,9 +1,10 @@
 use crate::ArbitraryJson;
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::collections::HashMap;
 use std::ops::Deref;
 
-#[derive(Debug, Eq, PartialEq, Default, Arbitrary, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Default, Arbitrary, Facet)]
 #[facet(transparent)]
 pub struct AzurePolicyDefinitionParametersSupplied(
     pub HashMap<String, AzurePolicyDefinitionParametersSuppliedValue>,
@@ -17,7 +18,7 @@ impl Deref for AzurePolicyDefinitionParametersSupplied {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Arbitrary, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Arbitrary, Facet)]
 pub struct AzurePolicyDefinitionParametersSuppliedValue {
     pub value: ArbitraryJson,
 }

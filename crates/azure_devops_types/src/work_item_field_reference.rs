@@ -1,8 +1,9 @@
 use crate::AzureDevOpsWorkItemFieldName;
 use arbitrary::Arbitrary;
+use facet::Facet;
 
 /// Reference to a field in a work item.
-#[derive(Debug, Arbitrary, facet::Facet)]
+#[derive(Debug, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct WorkItemFieldReference {
     /// The reference name of the field.

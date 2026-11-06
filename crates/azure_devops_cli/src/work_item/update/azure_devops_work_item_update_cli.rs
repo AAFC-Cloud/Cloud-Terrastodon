@@ -8,9 +8,10 @@ use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemUpdateRequest;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
+use facet::Facet;
 use std::borrow::Cow;
 
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 pub struct AzureDevOpsWorkItemUpdateArgs {
     #[facet(figue::named)]
     pub org: AzureDevOpsOrganizationUrl,

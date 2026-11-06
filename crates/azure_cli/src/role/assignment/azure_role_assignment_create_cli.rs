@@ -13,12 +13,13 @@ use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
+use facet::Facet;
 use itertools::Itertools;
 use std::io::Write;
 use tracing::info;
 
 /// Create Azure role assignments.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureRoleAssignmentCreateArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
     #[facet(figue::named, default)]
@@ -37,7 +38,7 @@ pub struct AzureRoleAssignmentCreateArgs {
     pub scope: Option<ScopeImpl>,
 }
 
-#[derive(facet::Facet)]
+#[derive(Facet)]
 struct RoleAssignmentCreateResult {
     scope: String,
     role: String,

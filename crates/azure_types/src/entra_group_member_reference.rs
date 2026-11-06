@@ -1,8 +1,9 @@
 use crate::EntraDirectoryObjectUrl;
 use arbitrary::Arbitrary;
+use facet::Facet;
 
 /// Reference body for [adding a group member](https://learn.microsoft.com/graph/api/group-post-members?view=graph-rest-1.0#request-body).
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 pub struct EntraGroupMemberReference {
     #[facet(rename = "@odata.id")]
     pub member: EntraDirectoryObjectUrl,

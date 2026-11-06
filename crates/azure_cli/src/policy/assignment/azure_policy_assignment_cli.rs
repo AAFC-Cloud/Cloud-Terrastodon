@@ -4,9 +4,10 @@ use super::AzurePolicyAssignmentShowArgs;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 
 /// Subcommands for managing Azure policy assignments.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum AzurePolicyAssignmentCommand {
     /// List all Azure policy assignments accessible to the account.

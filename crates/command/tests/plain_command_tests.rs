@@ -8,6 +8,7 @@ use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::RetryBehaviour;
 use eyre::Result;
+use facet::Facet;
 use std::cell::Cell;
 use std::io::Error as IoError;
 use std::io::ErrorKind;
@@ -24,7 +25,7 @@ use tracing_subscriber::Registry;
 use tracing_subscriber::layer::Context;
 use tracing_subscriber::prelude::*;
 
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Facet)]
 #[facet(proxy = u64)]
 struct OwnedNumber(#[facet(opaque)] Cell<u64>);
 

@@ -1,4 +1,5 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 
 /// The numeric discriminator of a build definition's process.
 ///
@@ -6,7 +7,7 @@ use arbitrary::Arbitrary;
 /// Microsoft's [pipeline creation implementation](https://github.com/Azure/azure-devops-cli-extension/blob/master/azure-devops/azext_devops/dev/pipelines/pipeline_create.py)
 /// uses 2 for YAML. Other integers panic in debug builds so additional process
 /// kinds can be modeled; release builds preserve their numeric discriminators.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Arbitrary, Facet)]
 #[facet(proxy = i32)]
 #[repr(C)]
 pub enum AzureDevOpsBuildProcessType {

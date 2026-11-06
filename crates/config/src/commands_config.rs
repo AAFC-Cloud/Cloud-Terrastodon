@@ -1,7 +1,8 @@
 use crate::config::Config;
 use arbitrary::Arbitrary;
+use facet::Facet;
 
-#[derive(Debug, Arbitrary, facet::Facet, Clone, PartialEq)]
+#[derive(Debug, Arbitrary, Facet, Clone, PartialEq)]
 pub struct CommandsConfig {
     pub azure_cli: String,
     pub tofu: String,

@@ -20,6 +20,7 @@ use directories_next::BaseDirs;
 use eyre::Context;
 use eyre::OptionExt;
 use eyre::bail;
+use facet::Facet;
 #[allow(
     clippy::disallowed_types,
     reason = "Mirror index parsing reads version keys without interpreting their payloads."
@@ -125,7 +126,7 @@ impl ProviderManager {
                         let mut index_json_str = String::new();
                         index_json_file.read_to_string(&mut index_json_str).await?;
                         // Parse JSON into structs
-                        #[derive(Debug, facet::Facet)]
+                        #[derive(Debug, Facet)]
                         struct IndexJson {
                             pub versions: HashMap<String, RawJson<'static>>,
                         }

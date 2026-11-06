@@ -4,9 +4,10 @@
 )]
 
 use crate::version::SemVer;
+use facet::Facet;
 use facet_json::RawJson;
 
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Facet)]
 pub struct TerraformProviderInfo {
     pub id: String,
     pub owner: String,

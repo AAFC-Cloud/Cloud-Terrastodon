@@ -1,4 +1,5 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::convert::Infallible;
 use std::str::FromStr;
 
@@ -6,7 +7,7 @@ use std::str::FromStr;
 ///
 /// See `uniqueName` in Microsoft's [IdentityRef 7.1 schema](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/folders/list?view=azure-devops-rest-7.1#identityref).
 /// Preserves provider spelling without assuming an email address or UPN format.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Arbitrary, Facet)]
 #[facet(transparent)]
 pub struct AzureDevOpsIdentityUniqueName(String);
 

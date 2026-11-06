@@ -4,22 +4,23 @@
 )]
 
 use crate::ArbitraryJson;
+use facet::Facet;
 use facet_json::RawJson;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-#[derive(Debug, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Facet)]
 pub struct AzurePolicyDefinitionPolicyRule {
     pub r#if: AzurePolicyDefinitionPolicyRuleIfBlock,
     pub then: AzurePolicyDefinitionPolicyRuleEffectBlock,
 }
 
-#[derive(Debug, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Facet)]
 pub struct AzurePolicyDefinitionPolicyRuleEffectBlock {
     pub effect: AzurePolicyDefinitionPolicyRuleEffect,
 }
 
-#[derive(Debug, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Facet)]
 #[facet(rename_all = "camelCase")]
 #[repr(C)]
 pub enum AzurePolicyDefinitionPolicyRuleEffect {
@@ -27,7 +28,7 @@ pub enum AzurePolicyDefinitionPolicyRuleEffect {
     Deny,
 }
 
-#[derive(Debug, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Facet)]
 #[facet(proxy = RawJson<'static>)]
 #[repr(C)]
 pub enum AzurePolicyDefinitionPolicyRuleIfBlock {
@@ -103,25 +104,25 @@ impl TryFrom<&AzurePolicyDefinitionPolicyRuleIfBlock> for RawJson<'static> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Facet)]
 #[facet(transparent)]
 pub struct AzurePolicyDefinitionPolicyRuleIfBlockAllOf(
     pub Vec<AzurePolicyDefinitionPolicyRuleIfBlock>,
 );
 
-#[derive(Debug, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Facet)]
 #[facet(transparent)]
 pub struct AzurePolicyDefinitionPolicyRuleIfBlockAnyOf(
     pub Vec<AzurePolicyDefinitionPolicyRuleIfBlock>,
 );
 
-#[derive(Debug, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Facet)]
 pub struct AzurePolicyDefinitionPolicyRuleIfBlockEquals {
     pub equals: String,
     pub field: String,
 }
 
-#[derive(Debug, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Facet)]
 pub struct AzurePolicyDefinitionPolicyRuleIfBlockFieldIn {
     pub r#in: HashSet<String>,
     pub field: String,

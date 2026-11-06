@@ -1,9 +1,10 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::ops::Deref;
 use std::str::FromStr;
 
 /// A work item relation type reference name used by Azure DevOps.
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Facet)]
 #[facet(transparent)]
 pub struct AzureDevOpsWorkItemRelationTypeName(String);
 

@@ -2,15 +2,16 @@ use crate::project::member::list::AzureDevOpsProjectMemberListArgs;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 
 /// Azure DevOps project member-related commands.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureDevOpsProjectMemberArgs {
     #[facet(figue::subcommand)]
     pub command: AzureDevOpsProjectMemberCommand,
 }
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum AzureDevOpsProjectMemberCommand {
     /// List users that are transitively members of the project.

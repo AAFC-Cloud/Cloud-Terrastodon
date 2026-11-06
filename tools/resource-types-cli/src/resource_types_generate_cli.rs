@@ -6,12 +6,13 @@ use cloud_terrastodon_app::facet;
 use cloud_terrastodon_app::figue;
 use eyre::WrapErr;
 use eyre::ensure;
+use facet::Facet;
 use std::fs;
 use std::io::ErrorKind;
 use std::path::PathBuf;
 
 /// Render a complete catalogue to the generated Rust source file.
-#[derive(facet::Facet)]
+#[derive(Facet)]
 pub struct ResourceTypesGenerateArgs {
     /// Local JSON array of full resource-type names, preserving service spelling.
     /// Defaults to catalogue.json beside the tool's Cargo.toml.

@@ -6,9 +6,10 @@ use cloud_terrastodon_gitea::fetch_all_gitea_users;
 use cloud_terrastodon_gitea::fetch_gitea_user;
 use eyre::Result;
 use eyre::bail;
+use facet::Facet;
 use std::io::Write;
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct GiteaUserShowArgs {
     /// User id or username.
     #[facet(figue::positional, proxy = String)]

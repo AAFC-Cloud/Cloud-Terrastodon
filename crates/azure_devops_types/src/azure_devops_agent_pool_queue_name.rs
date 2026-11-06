@@ -1,4 +1,5 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::convert::Infallible;
 use std::ops::Deref;
 use std::str::FromStr;
@@ -8,7 +9,7 @@ use std::str::FromStr;
 /// See `name` in Microsoft's [AgentPoolQueue 7.1 schema](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/definitions/list?view=azure-devops-rest-7.1#agentpoolqueue).
 /// Preserve the service's exact Unicode spelling without applying agent-pool
 /// naming restrictions to this distinct property.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Arbitrary, Facet)]
 #[facet(transparent)]
 pub struct AzureDevOpsAgentPoolQueueName(pub String);
 

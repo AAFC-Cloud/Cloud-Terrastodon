@@ -1,11 +1,12 @@
 use arbitrary::Arbitrary;
 use arbitrary::Unstructured;
+use facet::Facet;
 
 /// Counts of deployments created by a remediation task.
 ///
 /// [2024-10-01 schema](https://learn.microsoft.com/en-us/rest/api/policyinsights/remediations/create-or-update-at-resource-group?view=rest-policyinsights-2024-10-01#remediationdeploymentsummary).
 /// All three counters are returned together, including zero counts.
-#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Facet)]
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct PolicyRemediationDeploymentSummary {

@@ -1,6 +1,7 @@
+use facet::Facet;
 use uuid::Uuid;
 
-#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Facet)]
 #[facet(json::proxy = String)]
 pub struct AzureDevOpsRepoId(Uuid);
 

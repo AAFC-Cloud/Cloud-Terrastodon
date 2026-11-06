@@ -4,10 +4,11 @@ use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::set_tracked_tenant_auth_source;
 use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
+use facet::Facet;
 use std::io::Write;
 
 /// Set the default authentication source for a tracked Azure tenant.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureTenantSetAuthSourceArgs {
     /// Tracked tenant id or alias to configure.
     #[facet(figue::positional)]

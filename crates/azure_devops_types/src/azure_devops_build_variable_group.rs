@@ -2,12 +2,13 @@ use crate::AzureDevOpsBuildDefinitionVariable;
 use crate::AzureDevOpsVariableGroupId;
 use crate::AzureDevOpsVariableGroupName;
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::collections::BTreeMap;
 
 /// A variable group included in a build definition.
 ///
 /// Microsoft documentation: [schema](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/definitions/get?view=azure-devops-rest-7.1#variablegroup).
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct AzureDevOpsBuildVariableGroup {

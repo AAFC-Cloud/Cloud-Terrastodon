@@ -1,5 +1,6 @@
 use arbitrary::Arbitrary;
 use eyre::Result;
+use facet::Facet;
 use std::str::FromStr;
 use url::Url;
 
@@ -9,7 +10,7 @@ use url::Url;
 /// The Build schema provides no route or project-scope guarantee for this link.
 /// Preserve its parsed URL instead of assuming it follows the different
 /// Distributed Task Queues API's route or inferring a project from the definition.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Facet)]
 #[facet(proxy = String)]
 pub struct AzureDevOpsAgentPoolQueueUrl(pub Url);
 

@@ -1,5 +1,7 @@
 use super::command::GroupManagementPlanArgs;
 use super::command::GroupManagementValidateArgs;
+#[cfg(test)]
+use arbitrary::Arbitrary;
 use cloud_terrastodon::app::ApplicationCli;
 use cloud_terrastodon::app::AuthContext;
 use cloud_terrastodon::app::CliOutput;
@@ -8,10 +10,11 @@ use cloud_terrastodon::app::Result;
 use cloud_terrastodon::app::facet;
 use cloud_terrastodon::app::figue;
 use cloud_terrastodon::execution::CloudTerrastodonExecutor;
+use facet::Facet;
 
 /// Validate desired Entra group state or compare it with existing groups.
-#[derive(facet::Facet)]
-#[cfg_attr(test, derive(arbitrary::Arbitrary))]
+#[derive(Facet)]
+#[cfg_attr(test, derive(Arbitrary))]
 pub struct GroupManagementArgs {
     #[facet(flatten)]
     pub global_args: GlobalArgs,
@@ -27,8 +30,8 @@ impl ApplicationCli for GroupManagementArgs {
 }
 
 /// Read-only operations; applying a plan is a later milestone.
-#[derive(facet::Facet)]
-#[cfg_attr(test, derive(arbitrary::Arbitrary))]
+#[derive(Facet)]
+#[cfg_attr(test, derive(Arbitrary))]
 #[repr(u8)]
 pub enum GroupManagementCommand {
     /// Validate the desired-state file without requesting credentials or directory data.

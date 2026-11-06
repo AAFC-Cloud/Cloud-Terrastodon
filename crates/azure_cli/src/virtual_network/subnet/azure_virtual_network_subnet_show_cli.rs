@@ -9,9 +9,10 @@ use cloud_terrastodon_azure::fetch_all_virtual_networks;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use eyre::bail;
+use facet::Facet;
 
 /// Show one subnet's modeled prefixes, policies, delegations, and resource references.
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 pub struct AzureVirtualNetworkSubnetShowArgs {
     /// Subnet name or full Azure resource ID, matched without case sensitivity.
     /// Must match exactly one subnet within the selected virtual networks.

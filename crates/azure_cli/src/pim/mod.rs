@@ -1,4 +1,5 @@
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use facet::Facet;
 pub mod azure_pim_activate_cli;
 pub mod azure_pim_setup_cli;
 
@@ -8,14 +9,14 @@ use cloud_terrastodon_auth::AuthContext;
 use eyre::Result;
 
 /// Arguments for Azure Privileged Identity Management operations.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzurePimArgs {
     #[facet(figue::subcommand)]
     pub command: AzurePimCommand,
 }
 
 /// Subcommands available under `cloud_terrastodon az pim`.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum AzurePimCommand {
     /// Activate Azure or Entra PIM assignments.

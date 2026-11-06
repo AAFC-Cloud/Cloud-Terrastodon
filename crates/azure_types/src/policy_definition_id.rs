@@ -23,13 +23,14 @@ use crate::scopes::try_from_expanded_hierarchy_scoped;
 use crate::slug::HasSlug;
 use arbitrary::Arbitrary;
 use eyre::Result;
+use facet::Facet;
 use std::str::FromStr;
 use uuid::Uuid;
 
 pub const POLICY_DEFINITION_ID_PREFIX: &str =
     "/providers/Microsoft.Authorization/policyDefinitions/";
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum PolicyDefinitionId {

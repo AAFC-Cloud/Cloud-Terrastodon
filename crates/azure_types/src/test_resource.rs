@@ -4,12 +4,13 @@ use crate::scopes::ScopeImpl;
 use crate::scopes::ScopeImplKind;
 use crate::strip_prefix_case_insensitive;
 use eyre::Result;
+use facet::Facet;
 use std::str::FromStr;
 
 pub const TEST_ID_PREFIX: &str = "/CloudTerrastodon/testResources/";
 
 /// A zero-assumption thing for usage in tests
-#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Facet)]
 #[facet(json::proxy = String)]
 pub struct TestResourceId {
     expanded: String,
@@ -51,7 +52,7 @@ impl FromStr for TestResourceId {
         Ok(TestResourceId::new(slug))
     }
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Facet)]
 pub struct TestResource {
     pub id: TestResourceId,
     pub name: String,

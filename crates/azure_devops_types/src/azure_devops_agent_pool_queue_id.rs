@@ -1,4 +1,5 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::num::ParseIntError;
 use std::str::FromStr;
 
@@ -7,7 +8,7 @@ use std::str::FromStr;
 /// See `id` in Microsoft's [AgentPoolQueue 7.1 schema](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/definitions/list?view=azure-devops-rest-7.1#agentpoolqueue).
 /// The documented wire value is a signed 32-bit integer; no additional range
 /// restriction is imposed. Queue and agent-pool identifiers are distinct values.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Arbitrary, Facet)]
 #[facet(transparent)]
 pub struct AzureDevOpsAgentPoolQueueId(pub i32);
 

@@ -3,9 +3,10 @@ use crate::VirtualNetworkId;
 use crate::VirtualNetworkPeeringId;
 use crate::VirtualNetworkPeeringName;
 use arbitrary::Arbitrary;
+use facet::Facet;
 use ipnetwork::Ipv4Network;
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct VirtualNetworkProperties {
     pub address_space: VirtualNetworkAddressSpace,
@@ -21,7 +22,7 @@ pub struct VirtualNetworkProperties {
     pub enable_ddos_protection: bool,
 }
 
-#[derive(Debug, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Facet)]
 pub struct VirtualNetworkAddressSpace {
     #[facet(
         rename = "addressPrefixes",
@@ -44,14 +45,14 @@ impl<'a> Arbitrary<'a> for VirtualNetworkAddressSpace {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 pub struct VirtualNetworkPeering {
     pub id: VirtualNetworkPeeringId,
     pub name: VirtualNetworkPeeringName,
     pub properties: VirtualNetworkPeeringProperties,
 }
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 pub struct VirtualNetworkPeeringProperties {
     #[facet(rename = "allowVirtualNetworkAccess")]
     pub allow_virtual_network_access: bool,
@@ -75,7 +76,7 @@ pub struct VirtualNetworkPeeringProperties {
     pub provisioning_state: String,
 }
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 pub struct RemoteVirtualNetworkReference {
     pub id: VirtualNetworkId,
 }

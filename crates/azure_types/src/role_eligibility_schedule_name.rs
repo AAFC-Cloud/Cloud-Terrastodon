@@ -2,12 +2,13 @@ use crate::slug::Slug;
 use arbitrary::Arbitrary;
 use compact_str::CompactString;
 use compact_str::ToCompactString;
+use facet::Facet;
 use std::ops::Deref;
 use std::str::FromStr;
 use uuid::Uuid;
 
 /// https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftauthorization
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Arbitrary, Facet)]
 #[facet(json::proxy = String)]
 pub struct RoleEligibilityScheduleName {
     inner: Uuid,

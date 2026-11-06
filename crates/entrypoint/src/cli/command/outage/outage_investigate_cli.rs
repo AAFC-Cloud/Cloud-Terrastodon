@@ -25,6 +25,7 @@ use eyre::Context;
 use eyre::ContextCompat;
 use eyre::Result;
 use eyre::bail;
+use facet::Facet;
 use hickory_resolver::TokioResolver;
 use hickory_resolver::config::ResolverConfig;
 use hickory_resolver::config::ResolverOpts;
@@ -42,7 +43,7 @@ use std::sync::Arc;
 use tracing::info;
 
 /// Investigate a URL or host by resolving DNS and correlating it with Azure public IPs.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct OutageInvestigateArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
     #[facet(figue::named, default)]
@@ -125,7 +126,7 @@ impl OutageInvestigateArgs {
     }
 }
 
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Facet)]
 struct OutageInvestigationReport {
     input: String,
     tenant: String,
@@ -134,14 +135,14 @@ struct OutageInvestigationReport {
     matches: Vec<OutagePublicIpMatch>,
 }
 
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Facet)]
 struct DnsResolution {
     canonical_name: String,
     aliases: Vec<String>,
     addresses: Vec<IpAddr>,
 }
 
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Facet)]
 struct OutagePublicIpMatch {
     public_ip: Arc<AzurePublicIpResource>,
     application_gateway_id: Option<String>,
@@ -153,7 +154,7 @@ struct OutagePublicIpMatch {
     virtual_network_backend_investigations: Vec<VirtualNetworkBackendInvestigation>,
 }
 
-#[derive(Debug, facet::Facet, Clone)]
+#[derive(Debug, Facet, Clone)]
 struct BackendProbeInvestigation {
     backend_address_pool_id: String,
     backend_http_settings_id: String,
@@ -164,7 +165,7 @@ struct BackendProbeInvestigation {
     private_link_service_ids: Vec<String>,
 }
 
-#[derive(Debug, facet::Facet, Clone)]
+#[derive(Debug, Facet, Clone)]
 struct VirtualNetworkBackendInvestigation {
     virtual_network: Arc<VirtualNetwork>,
     backend_entries: Vec<VirtualNetworkBackendEntry>,
@@ -172,7 +173,7 @@ struct VirtualNetworkBackendInvestigation {
     container_instances: Vec<Arc<AzureContainerInstanceResource>>,
 }
 
-#[derive(Debug, facet::Facet, Clone)]
+#[derive(Debug, Facet, Clone)]
 struct VirtualNetworkBackendEntry {
     backend_address_pool_id: String,
     backend_http_settings_id: String,
@@ -194,7 +195,7 @@ struct BackendServerCandidate {
     server: AzureApplicationGatewayResourceBackendHealthServer,
 }
 
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Facet)]
 struct ApplicationGatewayBackendHealthArtifact {
     application_gateway_id: String,
     backend_health: Option<AzureApplicationGatewayResourceBackendHealthResponse>,

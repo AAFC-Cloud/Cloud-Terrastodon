@@ -10,10 +10,11 @@ use cloud_terrastodon_gitea::fetch_all_gitea_users;
 use cloud_terrastodon_gitea::fetch_current_user_gitea_repositories;
 use cloud_terrastodon_gitea::fetch_gitea_repositories_by_id_range;
 use eyre::Result;
+use facet::Facet;
 use std::io::Write;
 use tracing::info;
 
-#[derive(facet::Facet, Debug, Clone, Copy, Default)]
+#[derive(Facet, Debug, Clone, Copy, Default)]
 #[repr(u8)]
 pub enum GiteaRepoListMethod {
     #[default]
@@ -25,7 +26,7 @@ pub enum GiteaRepoListMethod {
     IdRange,
 }
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct GiteaRepoListArgs {
     /// Tracked tenant URL or alias to query. Defaults to the active `tea` login.
     #[facet(figue::named, default, proxy = String)]

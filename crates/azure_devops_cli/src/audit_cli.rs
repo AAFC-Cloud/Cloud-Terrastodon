@@ -6,10 +6,11 @@ use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_cli_types::HumantimeDurationCli;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 use std::time::Duration;
 
 /// Arguments for auditing Azure DevOps resources.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureDevOpsAuditArgs {
     /// Azure DevOps organization name or URL.
     #[facet(figue::named)]

@@ -3,9 +3,10 @@ use cloud_terrastodon_gitea::GiteaTenantArgument;
 use cloud_terrastodon_gitea::GiteaTenantArgumentExt;
 use cloud_terrastodon_gitea::forget_tracked_tenant;
 use eyre::Result;
+use facet::Facet;
 use std::io::Write;
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct GiteaTenantForgetArgs {
     /// Tracked tenant URL or alias to forget.
     #[facet(figue::positional, proxy = String)]

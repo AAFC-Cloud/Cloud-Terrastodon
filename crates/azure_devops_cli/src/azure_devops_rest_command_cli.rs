@@ -7,10 +7,11 @@ use cloud_terrastodon_rest::RestOutputFormat;
 use cloud_terrastodon_rest::RestRequest;
 use cloud_terrastodon_rest::read_optional_body;
 use eyre::Result;
+use facet::Facet;
 
 // TODO: deprecate in favour of top-level rest command
 /// Arguments for issuing raw Azure DevOps REST calls.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureDevOpsRestArgs {
     /// Tenant id or tracked alias for delegated authentication.
     #[facet(figue::named)]

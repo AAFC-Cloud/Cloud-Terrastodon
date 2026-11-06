@@ -16,6 +16,7 @@ use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_pathing::sanitize_windows_path_component;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::ensure;
+use facet::Facet;
 use http::Method;
 use std::borrow::Cow;
 use std::collections::HashSet;
@@ -24,7 +25,7 @@ use std::sync::Arc;
 
 /// List all registry tags, using its real login server and a scoped ACR bearer exchange.
 /// [REST API 2021-07-01](https://learn.microsoft.com/en-us/rest/api/registry-dataplane/container-registry/get-tags?view=rest-registry-dataplane-2021-07-01).
-#[derive(facet::Facet)]
+#[derive(Facet)]
 pub struct ContainerRegistryRepositoryTagsRequest<'a> {
     pub registry_id: Cow<'a, ContainerRegistryId>,
     pub repository_name: Cow<'a, ContainerRegistryRepositoryName>,

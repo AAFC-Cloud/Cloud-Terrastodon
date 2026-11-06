@@ -2,10 +2,11 @@ use crate::DesireDocument;
 use cloud_terrastodon::azure_types::AzureTenantId;
 use eyre::Report;
 use eyre::Result;
+use facet::Facet;
 use std::path::Path;
 
 /// The locally validated document's scope, without authentication or directory reads.
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct ValidationReport {
     pub group_count: usize,

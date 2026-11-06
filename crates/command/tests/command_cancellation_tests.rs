@@ -1,5 +1,6 @@
 #![cfg(test)]
 
+use facet::Facet;
 mod support;
 
 use cloud_terrastodon_cache::CacheOperationOwner;
@@ -42,7 +43,7 @@ while (-not [System.IO.File]::Exists('release')) {
 [Console]::WriteLine('{"value":"completed"}')
 "#;
 
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Facet)]
 struct ChildOutput {
     value: String,
 }

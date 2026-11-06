@@ -1,5 +1,6 @@
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use facet::Facet;
 pub mod azure_app_service_cli;
 pub mod azure_app_service_list_cli;
 pub mod azure_app_service_show_cli;
@@ -10,7 +11,7 @@ pub use azure_app_service_show_cli::AzureAppServiceShowArgs;
 use eyre::Result;
 
 /// Manage Azure App Services.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureAppServiceArgs {
     #[facet(figue::subcommand)]
     pub command: AzureAppServiceCommand,

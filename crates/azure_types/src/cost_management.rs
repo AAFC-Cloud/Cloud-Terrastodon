@@ -5,6 +5,7 @@ use chrono::Local;
 use chrono::Utc;
 use eyre::ContextCompat;
 use eyre::Result;
+use facet::Facet;
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -119,16 +120,16 @@ impl CostManagementQueryTimePeriod {
     }
 }
 
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 pub struct CostManagementErrorDetails {
     pub code: String,
     pub message: String,
 }
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 pub struct CostManagementErrorResponse {
     pub error: CostManagementErrorDetails,
 }
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[repr(C)]
 pub enum CostManagementExportType {
     ActualCost,
@@ -136,43 +137,43 @@ pub enum CostManagementExportType {
     Usage,
 }
 
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[repr(C)]
 pub enum CostManagementFunctionType {
     Sum,
 }
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[repr(C)]
 pub enum CostManagementQueryDatasetGranularityType {
     Daily,
     None,
 }
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 pub struct CostManagementQueryAggregation {
     pub name: String,
     pub function: CostManagementFunctionType,
 }
 
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 pub struct CostManagementQueryColumn {
     pub name: String,
     #[facet(rename = "type")]
     pub kind: String,
 }
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[repr(C)]
 pub enum CostManagementQueryColumnType {
     Dimension,
     TagKey,
 }
 
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 pub struct CostManagementQueryComparisonExpression {
     pub name: String,
     pub operator: CostManagementQueryOperatorType,
     pub values: Vec<String>,
 }
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 pub struct CostManagementQueryDataset {
     pub granularity: CostManagementQueryDatasetGranularityType,
     pub aggregation: HashMap<String, CostManagementQueryAggregation>,
@@ -181,25 +182,25 @@ pub struct CostManagementQueryDataset {
     pub grouping: Option<Vec<CostManagementQueryGrouping>>,
     pub sorting: Option<Vec<CostManagementQuerySorting>>,
 }
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 pub struct CostManagementQuerySorting {
     pub direction: CostManagementQuerySortingDirection,
     pub name: String,
 }
 
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[repr(C)]
 pub enum CostManagementQuerySortingDirection {
     Descending,
     Ascending,
 }
 
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 pub struct QueryDatasetConfiguration {
     pub columns: Vec<String>,
 }
 
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 pub struct CostManagementQueryDefinition {
     pub dataset: CostManagementQueryDataset,
     pub timeframe: CostManagementTimeframeType,
@@ -208,7 +209,7 @@ pub struct CostManagementQueryDefinition {
     #[facet(rename = "timePeriod")]
     pub time_period: CostManagementQueryTimePeriod,
 }
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 pub struct CostManagementQueryFilter {
     pub and: Vec<CostManagementQueryFilter>,
     pub dimensions: CostManagementQueryComparisonExpression,
@@ -216,19 +217,19 @@ pub struct CostManagementQueryFilter {
     pub tags: CostManagementQueryComparisonExpression,
 }
 
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 pub struct CostManagementQueryGrouping {
     pub name: String,
     #[facet(rename = "type")]
     pub kind: CostManagementQueryColumnType,
 }
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[repr(C)]
 pub enum CostManagementQueryOperatorType {
     In,
 }
 
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 pub struct CostManagementQueryResult {
     #[facet(rename = "eTag")]
     pub e_tag: Option<String>,
@@ -241,20 +242,20 @@ pub struct CostManagementQueryResult {
     #[facet(rename = "type")]
     pub kind: String,
 }
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 pub struct CostManagementQueryResultProperties {
     pub columns: Vec<CostManagementQueryColumn>,
     #[facet(rename = "nextLink")]
     pub next_link: Option<String>,
     pub rows: Vec<ArbitraryJson>,
 }
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 pub struct CostManagementQueryTimePeriod {
     pub from: DateTime<Utc>,
     pub to: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[repr(C)]
 pub enum CostManagementTimeframeType {
     BillingMonthToDate,

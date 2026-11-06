@@ -4,10 +4,11 @@ use crate::UtcDateTimeEpochSecondsProxy;
 use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
+use facet::Facet;
 
 /// Secret metadata timestamps are Unix seconds on the Key Vault wire.
 /// [SecretAttributes, API 2025-07-01](https://learn.microsoft.com/en-us/rest/api/keyvault/secrets/get-secrets/get-secrets?view=rest-keyvault-secrets-2025-07-01#secretattributes).
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct KeyVaultSecretAttributes {

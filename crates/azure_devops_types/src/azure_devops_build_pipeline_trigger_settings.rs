@@ -1,4 +1,5 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 
 /// Effective protection settings for an individual pipeline trigger.
 ///
@@ -6,7 +7,7 @@ use arbitrary::Arbitrary;
 /// The REST reference documents the base trigger. Protection settings are described by
 /// Microsoft's [PipelineTriggerSettings interface](https://learn.microsoft.com/en-us/javascript/api/azure-devops-extension-api/pipelinetriggersettings)
 /// and [TypeScript source](https://github.com/microsoft/azure-devops-node-api/blob/master/api/interfaces/BuildInterfaces.ts#L2204).
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct AzureDevOpsBuildPipelineTriggerSettings {

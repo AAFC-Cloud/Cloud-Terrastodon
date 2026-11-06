@@ -4,9 +4,10 @@ use crate::planning::RelationshipPlan;
 use cloud_terrastodon::azure_types::AzureTenantId;
 use cloud_terrastodon::azure_types::EntraGroupDisplayName;
 use cloud_terrastodon::azure_types::EntraGroupId;
+use facet::Facet;
 
 /// Proposed changes and drift diagnostics for one tenant-qualified group.
-#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct GroupPlan {
     pub tenant_id: AzureTenantId,

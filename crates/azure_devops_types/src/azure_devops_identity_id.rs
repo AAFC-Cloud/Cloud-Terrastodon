@@ -1,4 +1,5 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::convert::Infallible;
 use std::str::FromStr;
 
@@ -8,7 +9,7 @@ use std::str::FromStr;
 /// See `id` in Microsoft's [IdentityRef 7.1 schema](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/folders/list?view=azure-devops-rest-7.1#identityref).
 /// The schema specifies a string without further format constraints. Preserve
 /// it verbatim rather than assuming that every identity ID is a user UUID.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Arbitrary, Facet)]
 #[facet(transparent)]
 pub struct AzureDevOpsIdentityId(String);
 

@@ -15,11 +15,12 @@ use cloud_terrastodon_rest::RequestHeaders;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
 use eyre::ensure;
+use facet::Facet;
 use reqwest::Method;
 use reqwest::Url;
 use std::borrow::Cow;
 
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[facet(traits(Clone))]
 pub struct AzureDevOpsWorkItemRelationChangeRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,

@@ -376,13 +376,13 @@ mod tests {
     static BREADCRUMB_EVALUATIONS: AtomicUsize = AtomicUsize::new(0);
     static BREADCRUMB_TEST_LOCK: Mutex<()> = Mutex::new(());
 
-    #[derive(Clone, Debug, facet::Facet)]
+    #[derive(Clone, Debug, Facet)]
     #[repr(C)]
     enum TestBreadcrumb {
         Pop,
     }
 
-    #[derive(Clone, Debug, Default, facet::Facet)]
+    #[derive(Clone, Debug, Default, Facet)]
     #[repr(C)]
     struct TestBreadcrumbs {
         operations: Vec<TestBreadcrumb>,
@@ -394,37 +394,37 @@ mod tests {
         }
     }
 
-    #[derive(Clone, Debug, facet::Facet)]
+    #[derive(Clone, Debug, Facet)]
     #[repr(C)]
     struct TestTab {
         name: String,
         breadcrumbs: TestBreadcrumbs,
     }
 
-    #[derive(Clone, Debug, facet::Facet)]
+    #[derive(Clone, Debug, Facet)]
     #[repr(C)]
     struct MyThing {
         age: usize,
         name: String,
     }
 
-    #[derive(Clone, Debug, facet::Facet)]
+    #[derive(Clone, Debug, Facet)]
     #[repr(C)]
     struct TestPermission {
         display_name: String,
     }
 
-    #[derive(Clone, Debug, facet::Facet)]
+    #[derive(Clone, Debug, Facet)]
     #[repr(C)]
     struct TestMember {
         permission_objects: Vec<TestPermission>,
     }
 
-    #[derive(Clone, Debug, facet::Facet)]
+    #[derive(Clone, Debug, Facet)]
     #[facet(transparent)]
     struct TransparentNames(Vec<String>);
 
-    #[derive(Clone, Debug, facet::Facet)]
+    #[derive(Clone, Debug, Facet)]
     #[repr(C)]
     struct AddressFixture {
         members: Vec<TestMember>,

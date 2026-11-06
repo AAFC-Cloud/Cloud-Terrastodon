@@ -2,13 +2,14 @@ use arbitrary::Arbitrary;
 use arbitrary::Unstructured;
 use eyre::Result;
 use eyre::ensure;
+use facet::Facet;
 use std::str::FromStr;
 use url::Url;
 
 /// Azure public-cloud registry DNS identity, including domain-name-label hashes.
 /// Read the service's loginServer property instead of deriving it from a registry name.
 /// [Registry properties](https://learn.microsoft.com/en-us/rest/api/container-registry/registries/get?view=rest-container-registry-2025-11-01#registry).
-#[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Facet)]
 #[facet(proxy = String)]
 pub struct ContainerRegistryLoginServer(String);
 

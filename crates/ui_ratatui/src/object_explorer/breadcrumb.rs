@@ -1,7 +1,9 @@
 use super::projected_field::ProjectedField;
 use super::value_path::ValuePathSegment;
+use arbitrary::Arbitrary;
+use facet::Facet;
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, arbitrary::Arbitrary, facet::Facet)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Arbitrary, Facet)]
 #[repr(C)]
 pub(crate) enum ValueFilterOperator {
     Equals,
@@ -9,7 +11,7 @@ pub(crate) enum ValueFilterOperator {
     Contains,
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, arbitrary::Arbitrary, facet::Facet)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Arbitrary, Facet)]
 #[repr(C)]
 pub(crate) enum ProjectFieldsMode {
     Extend,
@@ -31,7 +33,7 @@ impl ProjectFieldsMode {
 /// ValueAddresses, not synthetic view/projection slots. Root-vs-descendant
 /// filtering can be introduced as an address predicate when the migrated UI
 /// needs that distinction.
-#[derive(Clone, Debug, Eq, PartialEq, arbitrary::Arbitrary, facet::Facet)]
+#[derive(Clone, Debug, Eq, PartialEq, Arbitrary, Facet)]
 #[repr(C)]
 pub(crate) enum Breadcrumb {
     Projection {

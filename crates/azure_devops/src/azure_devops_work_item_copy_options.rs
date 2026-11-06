@@ -1,9 +1,10 @@
+use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemId;
 use facet::Facet;
 
-#[derive(Debug, Clone, arbitrary::Arbitrary, Default, Facet)]
+#[derive(Debug, Clone, Arbitrary, Default, Facet)]
 pub struct AzureDevOpsWorkItemCopyOptions {
     pub deep: bool,
     /// An empty set permits discovery of descendants in this organization.

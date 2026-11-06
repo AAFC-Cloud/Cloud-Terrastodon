@@ -1,5 +1,6 @@
 use arbitrary::Arbitrary;
 use compact_str::CompactString;
+use facet::Facet;
 use std::ops::Deref;
 use std::str::FromStr;
 
@@ -14,7 +15,7 @@ use std::str::FromStr;
 /// Ensure that your organization doesn't exceed 50 Unicode characters
 ///
 /// End with a letter or number
-#[derive(Debug, Eq, PartialEq, Clone, Hash, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash, Facet)]
 #[facet(transparent)]
 pub struct AzureDevOpsOrganizationName(CompactString);
 

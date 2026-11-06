@@ -1,3 +1,4 @@
+use facet::Facet;
 pub mod gitea_command_cli;
 pub mod org;
 pub mod repo;
@@ -8,7 +9,7 @@ use crate::cli::gitea::gitea_command_cli::GiteaCommand;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct GiteaArgs {
     #[facet(figue::subcommand)]
     pub command: GiteaCommand,

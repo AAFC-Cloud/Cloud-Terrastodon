@@ -7,12 +7,13 @@ use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use eyre::bail;
+use facet::Facet;
 
 /// Authentication state normalized for an Azure DevOps request.
 ///
 /// Every Entra bearer source, including Azure CLI, requires a concrete tenant.
 /// Personal access tokens remain tenant-independent.
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[repr(u8)]
 pub enum AzureDevOpsAuthContext {
     /// Synthetic or otherwise incomplete request state. Production context

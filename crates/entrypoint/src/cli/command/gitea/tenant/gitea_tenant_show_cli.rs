@@ -4,9 +4,10 @@ use cloud_terrastodon_gitea::GiteaTenantArgumentExt;
 use cloud_terrastodon_gitea::get_tracked_tenant;
 use eyre::Result;
 use eyre::bail;
+use facet::Facet;
 use std::io::Write;
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct GiteaTenantShowArgs {
     /// Tracked tenant URL or alias to show.
     #[facet(figue::positional, proxy = String)]

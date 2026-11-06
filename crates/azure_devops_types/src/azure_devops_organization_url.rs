@@ -7,6 +7,7 @@ use eyre::Context;
 use eyre::Result;
 use eyre::bail;
 use eyre::ensure;
+use facet::Facet;
 use std::str::FromStr;
 use url::Position;
 use url::Url;
@@ -26,7 +27,7 @@ use url::Url;
 ///
 /// See Microsoft's [organization URL forms](https://learn.microsoft.com/en-us/azure/devops/extend/develop/work-with-urls?view=azure-devops)
 /// and [REST instance/collection URL structure](https://learn.microsoft.com/en-us/rest/api/azure/devops/?view=azure-devops-rest-7.1#components-of-a-rest-api-requestresponse-pair).
-#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Facet)]
 #[facet(proxy = String)]
 pub struct AzureDevOpsOrganizationUrl {
     // Private to preserve the validated base URL and its agreement with `name`.

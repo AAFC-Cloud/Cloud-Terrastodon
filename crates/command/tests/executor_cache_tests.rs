@@ -21,6 +21,7 @@ use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use eyre::Result;
+use facet::Facet;
 use std::cell::Cell;
 use std::path::Path;
 use std::rc::Rc;
@@ -50,7 +51,7 @@ impl ExecutableRequest for ManagedCommandRequest {
 
 static REJECT_DISK_VALUE: AtomicBool = AtomicBool::new(false);
 
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Facet)]
 #[facet(proxy = u64)]
 struct RevisableNumber(u64);
 
@@ -74,7 +75,7 @@ impl From<&RevisableNumber> for u64 {
 
 static DECODES: AtomicUsize = AtomicUsize::new(0);
 
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Facet)]
 #[facet(proxy = u64)]
 struct CountedNumber(u64);
 
@@ -93,7 +94,7 @@ impl From<&CountedNumber> for u64 {
     }
 }
 
-#[derive(facet::Facet)]
+#[derive(Facet)]
 #[facet(proxy = u64)]
 struct OwnedNumber(#[facet(opaque)] Cell<u64>);
 

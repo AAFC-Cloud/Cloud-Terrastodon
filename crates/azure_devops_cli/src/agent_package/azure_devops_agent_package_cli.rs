@@ -3,15 +3,16 @@ use crate::agent_package::show_newest::AzureDevOpsAgentPackageShowNewestArgs;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 
 /// Azure DevOps agent package-related commands.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureDevOpsAgentPackageArgs {
     #[facet(figue::subcommand)]
     pub command: AzureDevOpsAgentPackageCommand,
 }
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum AzureDevOpsAgentPackageCommand {
     /// List Azure DevOps agent packages.

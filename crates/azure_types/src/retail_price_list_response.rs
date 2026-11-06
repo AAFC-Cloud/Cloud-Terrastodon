@@ -1,4 +1,5 @@
 use crate::Price;
+use facet::Facet;
 use std::sync::Arc;
 use url::Url;
 
@@ -6,7 +7,7 @@ use url::Url;
 ///
 /// [Retail Prices API](https://learn.microsoft.com/rest/api/cost-management/retail-prices/azure-retail-prices#api-response-pagination).
 /// `NextPageLink` is null at the end of the catalogue.
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Facet)]
 #[facet(rename_all = "PascalCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct RetailPriceListResponse {

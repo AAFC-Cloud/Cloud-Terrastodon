@@ -1,5 +1,6 @@
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use facet::Facet;
 pub mod azure_private_endpoint_cli;
 pub mod azure_private_endpoint_list_cli;
 pub mod azure_private_endpoint_show_cli;
@@ -10,7 +11,7 @@ pub use azure_private_endpoint_show_cli::AzurePrivateEndpointShowArgs;
 use eyre::Result;
 
 /// Manage Azure private endpoints.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzurePrivateEndpointArgs {
     #[facet(figue::subcommand)]
     pub command: AzurePrivateEndpointCommand,

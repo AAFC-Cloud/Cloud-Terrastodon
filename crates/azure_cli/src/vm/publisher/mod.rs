@@ -1,4 +1,5 @@
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use facet::Facet;
 pub mod azure_vm_publisher_browse_cli;
 pub mod azure_vm_publisher_list_cli;
 pub mod azure_vm_publisher_offer_list_cli;
@@ -13,7 +14,7 @@ pub use azure_vm_publisher_offer_sku_version_list_cli::AzureVmPublisherOfferSkuV
 use cloud_terrastodon_auth::AuthContext;
 use eyre::Result;
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureVmPublisherArgs {
     #[facet(figue::subcommand)]
     pub command: AzureVmPublisherCommand,
@@ -29,7 +30,7 @@ impl AzureVmPublisherArgs {
     }
 }
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureVmPublisherOfferArgs {
     #[facet(figue::subcommand)]
     pub command: AzureVmPublisherOfferCommand,
@@ -45,7 +46,7 @@ impl AzureVmPublisherOfferArgs {
     }
 }
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum AzureVmPublisherOfferCommand {
     /// List offers for a publisher.
@@ -67,7 +68,7 @@ impl AzureVmPublisherOfferCommand {
     }
 }
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureVmPublisherOfferSkuArgs {
     #[facet(figue::subcommand)]
     pub command: AzureVmPublisherOfferSkuCommand,
@@ -83,7 +84,7 @@ impl AzureVmPublisherOfferSkuArgs {
     }
 }
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum AzureVmPublisherOfferSkuCommand {
     /// List SKUs for a publisher's offer.
@@ -109,7 +110,7 @@ impl AzureVmPublisherOfferSkuCommand {
     }
 }
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureVmPublisherOfferSkuVersionArgs {
     #[facet(figue::subcommand)]
     pub command: AzureVmPublisherOfferSkuVersionCommand,
@@ -125,7 +126,7 @@ impl AzureVmPublisherOfferSkuVersionArgs {
     }
 }
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum AzureVmPublisherOfferSkuVersionCommand {
     /// List versions for a publisher's offer SKU.
@@ -147,7 +148,7 @@ impl AzureVmPublisherOfferSkuVersionCommand {
 }
 
 /// Manage VM publishers.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum AzureVmPublisherCommand {
     /// List VM publishers for a subscription and location.

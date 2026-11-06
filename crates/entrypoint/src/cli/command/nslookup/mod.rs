@@ -2,6 +2,7 @@ use cloud_terrastodon_command::CancellationScope;
 use eyre::Context;
 use eyre::Result;
 use eyre::bail;
+use facet::Facet;
 use hickory_resolver::TokioResolver;
 use hickory_resolver::config::ResolverConfig;
 use hickory_resolver::config::ResolverOpts;
@@ -13,7 +14,7 @@ use std::collections::HashSet;
 use std::net::IpAddr;
 
 /// Resolve a host name to IP addresses.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct NslookupArgs {
     /// Host name or IP address to resolve.
     #[facet(figue::positional)]

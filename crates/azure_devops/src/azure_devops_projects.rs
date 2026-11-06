@@ -22,6 +22,7 @@ use cloud_terrastodon_rest::MicrosoftContinuationToken;
 use cloud_terrastodon_rest::RestRequest;
 #[cfg(test)]
 use eyre::Result;
+use facet::Facet;
 use reqwest::Method;
 use std::borrow::Cow;
 use std::path::PathBuf;
@@ -32,7 +33,7 @@ use tracing::debug;
 /// credential selection. The executor owns runtime credentials and shared results.
 ///
 /// See [Projects List (7.1)](https://learn.microsoft.com/en-us/rest/api/azure/devops/core/projects/list?view=azure-devops-rest-7.1).
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[facet(traits(Clone))]
 pub struct AzureDevOpsProjectsListRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,

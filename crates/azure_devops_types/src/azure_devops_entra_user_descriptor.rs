@@ -1,7 +1,8 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::ops::Deref;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Facet)]
 #[facet(transparent)]
 pub struct AzureDevOpsEntraUserDescriptor(String);
 fn validate_has_prefix(value: &str) -> eyre::Result<()> {

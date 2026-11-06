@@ -3,10 +3,11 @@ use crate::PolicySetDefinitionId;
 use crate::scopes::Scope;
 use arbitrary::Arbitrary;
 use eyre::bail;
+use facet::Facet;
 use std::str::FromStr;
 
 /// An ID for either a policy definition or a policy set definition
-#[derive(Debug, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum PolicyDefinitionIdReference {

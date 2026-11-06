@@ -1,3 +1,4 @@
+use facet::Facet;
 pub mod alias;
 pub mod gitea_tenant_add_cli;
 pub mod gitea_tenant_discover_cli;
@@ -14,13 +15,13 @@ pub use gitea_tenant_forget_cli::GiteaTenantForgetArgs;
 pub use gitea_tenant_list_cli::GiteaTenantListArgs;
 pub use gitea_tenant_show_cli::GiteaTenantShowArgs;
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct GiteaTenantArgs {
     #[facet(figue::subcommand)]
     pub command: GiteaTenantCommand,
 }
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum GiteaTenantCommand {
     /// List tracked Gitea tenants.

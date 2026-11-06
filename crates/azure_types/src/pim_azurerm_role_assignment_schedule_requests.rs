@@ -4,9 +4,10 @@ use crate::RoleEligibilityScheduleId;
 use crate::iso8601_duration::IsoDuration;
 use chrono::DateTime;
 use chrono::Utc;
+use facet::Facet;
 use std::time::Duration;
 
-#[derive(Debug, Clone, PartialEq, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Facet)]
 pub struct RoleAssignmentScheduleRequest {
     #[facet(rename = "Properties")]
     pub properties: RoleAssignmentScheduleRequestProperties,
@@ -41,7 +42,7 @@ impl RoleAssignmentScheduleRequest {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Facet)]
 pub struct RoleAssignmentScheduleRequestProperties {
     #[facet(rename = "PrincipalId")]
     pub principal_id: EntraPrincipalId,
@@ -64,7 +65,7 @@ pub struct RoleAssignmentScheduleRequestProperties {
 }
 
 // https://learn.microsoft.com/en-us/azure/templates/microsoft.authorization/roleassignmentschedulerequests?pivots=deployment-language-terraform#roleassignmentschedulerequestproperties-2
-#[derive(Debug, Clone, PartialEq, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Facet)]
 #[repr(C)]
 pub enum RoleAssignmentScheduleRequestPropertiesRequestType {
     AdminAssign,
@@ -78,7 +79,7 @@ pub enum RoleAssignmentScheduleRequestPropertiesRequestType {
     SelfRenew,
 }
 
-#[derive(Debug, Clone, PartialEq, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Facet)]
 pub struct RoleAssignmentScheduleRequestPropertiesScheduleInfo {
     #[facet(rename = "StartDateTime", default)]
     pub start_date_time: Option<DateTime<Utc>>,
@@ -86,7 +87,7 @@ pub struct RoleAssignmentScheduleRequestPropertiesScheduleInfo {
     pub expiration: RoleAssignmentScheduleRequestPropertiesScheduleInfoExpiration,
 }
 
-#[derive(Debug, Clone, PartialEq, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Facet)]
 #[facet(tag = "Type")]
 #[repr(C)]
 pub enum RoleAssignmentScheduleRequestPropertiesScheduleInfoExpiration {
@@ -101,7 +102,7 @@ pub enum RoleAssignmentScheduleRequestPropertiesScheduleInfoExpiration {
     NoExpiration,
 }
 
-#[derive(Debug, Clone, PartialEq, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Facet)]
 pub struct RoleAssignmentScheduleRequestPropertiesTicketInfo {
     #[facet(rename = "TicketNumber")]
     pub ticket_number: String,

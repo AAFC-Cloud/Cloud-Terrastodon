@@ -1,4 +1,5 @@
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use facet::Facet;
 pub mod azure_entra_role_assignment_browse_cli;
 pub mod azure_entra_role_assignment_cli;
 pub mod azure_entra_role_assignment_list_cli;
@@ -10,7 +11,7 @@ use cloud_terrastodon_auth::AuthContext;
 use eyre::Result;
 
 /// Manage Entra role assignments.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureEntraRoleAssignmentArgs {
     #[facet(figue::subcommand)]
     pub command: AzureEntraRoleAssignmentCommand,

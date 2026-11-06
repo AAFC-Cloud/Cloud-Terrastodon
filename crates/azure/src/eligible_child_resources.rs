@@ -18,6 +18,7 @@ use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_execution::RequestExecution;
 use eyre::Result;
+use facet::Facet;
 use std::borrow::Cow;
 use std::sync::Arc;
 
@@ -36,7 +37,7 @@ pub fn fetch_eligible_child_resources<'a>(
 }
 
 #[must_use = "This is a future request, you must .execute it"]
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[facet(traits(Clone))]
 pub struct EligibleChildResourceListRequest<'a> {
     pub auth_context: Cow<'a, AzureTenantAuthContext>,

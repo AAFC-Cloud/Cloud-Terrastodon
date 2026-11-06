@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_types::AzureLocationName;
 use cloud_terrastodon_azure_types::ComputeSkuName;
 use cloud_terrastodon_azure_types::Price;
@@ -12,6 +13,7 @@ use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_pathing::sanitize_windows_path_component;
 use cloud_terrastodon_rest::RestRequest;
+use facet::Facet;
 use http::Method;
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -22,7 +24,7 @@ use url::Url;
 ///
 /// Uses the anonymous [Retail Prices API](https://learn.microsoft.com/rest/api/cost-management/retail-prices/azure-retail-prices)
 /// and follows all result pages. No Azure login or subscription is required.
-#[derive(arbitrary::Arbitrary, facet::Facet)]
+#[derive(Arbitrary, Facet)]
 pub struct ComputeSkuPricesRequest {
     pub location: AzureLocationName,
     pub sku: ComputeSkuName,

@@ -1,11 +1,12 @@
 use crate::EntraServicePrincipalObjectId;
 use arbitrary::Arbitrary;
+use facet::Facet;
 
 /// Identity properties of a Microsoft Graph v1.0 [service principal](https://learn.microsoft.com/en-us/graph/api/resources/serviceprincipal?view=graph-rest-1.0#properties).
 ///
 /// The name remains unknown for limited-information responses. This shallow
 /// projection intentionally ignores other properties in unrestricted responses.
-#[derive(Debug, Clone, Eq, PartialEq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct EntraDirectoryObjectServicePrincipal {
     pub display_name: Option<String>,

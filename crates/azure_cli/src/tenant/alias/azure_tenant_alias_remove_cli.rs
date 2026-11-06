@@ -4,10 +4,11 @@ use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::remove_tracked_tenant_aliases;
 use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
+use facet::Facet;
 use std::io::Write;
 
 /// Arguments for removing aliases from a tracked Azure tenant.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureTenantAliasRemoveArgs {
     /// Tracked tenant id or Cloud Terrastodon alias.
     #[facet(figue::named)]

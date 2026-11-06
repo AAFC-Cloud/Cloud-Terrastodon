@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use cloud_terrastodon_auth_types::AuthenticationSelection;
 use cloud_terrastodon_auth_types::AzureBearerAuthSource;
 use cloud_terrastodon_azure_types::AzureTenantId;
@@ -11,6 +12,7 @@ use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_rest::RestRequest;
+use facet::Facet;
 use http::Method;
 use std::sync::Arc;
 use std::time::Duration;
@@ -19,7 +21,7 @@ use url::Url;
 /// The delegated signed-in user in an explicitly selected tenant.
 /// [Graph /me](https://learn.microsoft.com/graph/api/user-get?view=graph-rest-1.0)
 /// requires delegated credentials; application-only authentication has no current user.
-#[derive(arbitrary::Arbitrary, facet::Facet)]
+#[derive(Arbitrary, Facet)]
 pub struct CurrentEntraUserRequest {
     pub tenant_id: AzureTenantId,
     pub auth_source: AzureBearerAuthSource,

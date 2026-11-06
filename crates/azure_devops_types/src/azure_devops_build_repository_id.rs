@@ -1,6 +1,7 @@
 use arbitrary::Arbitrary;
 use eyre::Result;
 use eyre::ensure;
+use facet::Facet;
 use std::ops::Deref;
 use std::str::FromStr;
 
@@ -12,7 +13,7 @@ use std::str::FromStr;
 /// Exact spelling, spaces, Unicode and provider-specific separators are preserved.
 /// The build API documents a string, unlike Azure Repos' UUID-only repository ID.
 /// GitHub owner/name identities and other source-provider identifiers remain valid.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Facet)]
 #[facet(proxy = String)]
 pub struct AzureDevOpsBuildRepositoryId(String);
 

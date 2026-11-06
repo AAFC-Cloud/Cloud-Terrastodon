@@ -1,8 +1,9 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 
 /// The avatar link returned in an Azure DevOps work item identity's `_links`
 /// object.
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 pub struct AzureDevOpsWorkItemIdentityAvatar {
     pub href: String,
 }

@@ -1,9 +1,10 @@
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_gitea::discover_and_track_tenants;
 use eyre::Result;
+use facet::Facet;
 use std::io::Write;
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct GiteaTenantDiscoverArgs {}
 
 impl GiteaTenantDiscoverArgs {

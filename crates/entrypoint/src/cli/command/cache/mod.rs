@@ -1,3 +1,4 @@
+use facet::Facet;
 pub mod clean_tui_cli;
 pub mod list;
 
@@ -7,13 +8,13 @@ use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
 /// Cache-related commands
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct CacheArgs {
     #[facet(figue::subcommand)]
     pub command: CacheCommand,
 }
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum CacheCommand {
     /// List cache entries

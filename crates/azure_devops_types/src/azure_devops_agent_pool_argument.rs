@@ -4,11 +4,12 @@ use crate::AzureDevOpsAgentPoolId;
 use crate::AzureDevOpsAgentPoolName;
 use arbitrary::Arbitrary;
 use eyre::bail;
+use facet::Facet;
 use std::borrow::Cow;
 use std::str::FromStr;
 
 /// The name or identifier for an [`AzureDevOpsAgentPool`]
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum AzureDevOpsAgentPoolArgument<'a> {

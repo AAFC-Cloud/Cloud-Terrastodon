@@ -2,9 +2,10 @@ use super::OutageInvestigateArgs;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 
 /// Outage investigation subcommands.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(C)]
 pub enum OutageCommand {
     /// Resolve a host and correlate it to Azure public IP resources.

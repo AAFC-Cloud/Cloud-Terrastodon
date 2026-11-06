@@ -1,3 +1,4 @@
+use facet::Facet;
 pub mod gitea_repo_browse_cli;
 pub mod gitea_repo_list_cli;
 pub mod gitea_repo_show_cli;
@@ -8,13 +9,13 @@ pub use gitea_repo_browse_cli::GiteaRepoBrowseArgs;
 pub use gitea_repo_list_cli::GiteaRepoListArgs;
 pub use gitea_repo_show_cli::GiteaRepoShowArgs;
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct GiteaRepoArgs {
     #[facet(figue::subcommand)]
     pub command: GiteaRepoCommand,
 }
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum GiteaRepoCommand {
     /// List repositories visible from the tenant.

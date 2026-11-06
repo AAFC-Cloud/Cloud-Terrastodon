@@ -3,10 +3,12 @@ use crate::AzureDevOpsWorkItemId;
 use crate::AzureDevOpsWorkItemIdentity;
 use crate::AzureDevOpsWorkItemPatchFields;
 use crate::AzureDevOpsWorkItemType;
+use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
 use cloud_terrastodon_azure_types::ArbitraryJson;
 use eyre::Result;
+use facet::Facet;
 use facet_reflect::HasFields;
 use facet_reflect::Peek;
 use std::collections::BTreeMap;
@@ -15,7 +17,7 @@ use std::collections::BTreeMap;
 ///
 /// Azure DevOps permits custom fields, so the known system fields are modeled
 /// explicitly and the remaining field values are retained as arbitrary JSON.
-#[derive(Debug, Clone, PartialEq, Eq, Default, arbitrary::Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Arbitrary, Facet)]
 pub struct AzureDevOpsWorkItemFields {
     #[facet(
         rename = "Microsoft.VSTS.Common.Priority",

@@ -6,10 +6,11 @@ use crate::ScopeImpl;
 use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
+use facet::Facet;
 
 /// [ARM role-assignment properties](https://learn.microsoft.com/rest/api/authorization/role-assignments/create?view=rest-authorization-2022-04-01#roleassignment).
 /// Conditions, description, delegation and audit metadata are absent from the documented minimal response.
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct RoleAssignmentResourceProperties {

@@ -1,4 +1,5 @@
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use facet::Facet;
 pub mod application_registration;
 pub mod azure_entra_cli;
 pub mod group;
@@ -21,7 +22,7 @@ pub use service_principal::AzureEntraServicePrincipalArgs;
 pub use user::AzureEntraUserArgs;
 
 /// Entra (Azure AD) related commands.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureEntraArgs {
     #[facet(figue::subcommand)]
     pub command: AzureEntraCommand,

@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure_types::EntraDirectoryObjectUrl;
 use cloud_terrastodon_azure_types::EntraGroupId;
@@ -12,13 +13,14 @@ use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_rest::RestRequest;
+use facet::Facet;
 use http::Method;
 use std::path::PathBuf;
 use std::time::Duration;
 use url::Url;
 
 /// Add a direct group membership through [Microsoft Graph v1.0](https://learn.microsoft.com/graph/api/group-post-members?view=graph-rest-1.0).
-#[derive(arbitrary::Arbitrary, facet::Facet)]
+#[derive(Arbitrary, Facet)]
 pub struct EntraGroupMemberAddRequest {
     pub auth_context: AzureTenantAuthContext,
 

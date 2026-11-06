@@ -12,9 +12,10 @@ use cloud_terrastodon_azure_devops::fetch_azure_devops_groups_for_project;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlements;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use facet::Facet;
 use std::sync::Arc;
 
-#[derive(facet::Facet)]
+#[derive(Facet)]
 struct AzureDevOpsDumpPayload {
     projects: Arc<Vec<Arc<AzureDevOpsProject>>>,
     users: Vec<Arc<AzureDevOpsUserLicenseEntitlement>>,
@@ -22,13 +23,13 @@ struct AzureDevOpsDumpPayload {
     group_members: Vec<AzureDevOpsDumpGroupMembers>,
 }
 
-#[derive(facet::Facet)]
+#[derive(Facet)]
 struct AzureDevOpsDumpProjectGroups {
     project_id: AzureDevOpsProjectId,
     groups: Vec<Arc<AzureDevOpsGroup>>,
 }
 
-#[derive(facet::Facet)]
+#[derive(Facet)]
 struct AzureDevOpsDumpGroupMembers {
     group_descriptor: AzureDevOpsDescriptor,
     members: Vec<Arc<AzureDevOpsGroupMember>>,

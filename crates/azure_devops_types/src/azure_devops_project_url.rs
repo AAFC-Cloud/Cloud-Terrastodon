@@ -3,6 +3,7 @@ use crate::AzureDevOpsProjectArgument;
 use arbitrary::Arbitrary;
 use eyre::Result;
 use eyre::ensure;
+use facet::Facet;
 use std::str::FromStr;
 use url::Url;
 
@@ -18,7 +19,7 @@ const PROJECT_ROUTE: [&str; 2] = ["_apis", "projects"];
 /// including Azure DevOps Server HTTP URLs and ports, while canonicalizing the
 /// REST route. Absolute HTTP(S), credential-free URLs and the absence of REST
 /// fragments are library safety constraints.
-#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Facet)]
 #[facet(proxy = String)]
 pub struct AzureDevOpsProjectUrl {
     pub org_url: AzureDevOpsOrganizationUrl,

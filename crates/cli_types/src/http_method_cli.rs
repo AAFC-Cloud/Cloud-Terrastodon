@@ -1,9 +1,10 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 use http::Method;
 use std::ops::Deref;
 
 /// An HTTP method parsed from a command-line string.
-#[derive(facet::Facet, Debug, Clone, PartialEq, Eq)]
+#[derive(Facet, Debug, Clone, PartialEq, Eq)]
 #[facet(proxy = String, opaque)]
 pub struct HttpMethodCli(pub Method);
 

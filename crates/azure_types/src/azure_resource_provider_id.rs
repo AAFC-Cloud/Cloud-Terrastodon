@@ -4,6 +4,7 @@ use arbitrary::Arbitrary;
 use eyre::Result;
 use eyre::WrapErr;
 use eyre::bail;
+use facet::Facet;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::str::FromStr;
@@ -14,7 +15,7 @@ use std::str::FromStr;
 /// and [subscription provider API](https://learn.microsoft.com/en-us/rest/api/resources/providers/get?view=rest-resources-2021-04-01).
 /// A tenant-scoped ID has no embedded tenant UUID; the executing request supplies
 /// its authentication tenant. These are provider identities, not deployed resources.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, Facet)]
 #[facet(proxy = String)]
 pub struct AzureResourceProviderId {
     pub subscription_id: Option<SubscriptionId>,

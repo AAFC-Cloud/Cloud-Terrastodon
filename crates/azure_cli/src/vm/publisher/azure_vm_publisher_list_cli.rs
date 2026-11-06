@@ -7,11 +7,12 @@ use cloud_terrastodon_azure::fetch_compute_publishers;
 use cloud_terrastodon_azure::get_active_subscription_id;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 use std::io::Write;
 use tracing::info;
 
 /// List VM publishers for a subscription and location.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureVmPublisherListArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
     #[facet(figue::named, default)]

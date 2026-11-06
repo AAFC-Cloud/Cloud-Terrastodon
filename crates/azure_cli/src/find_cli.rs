@@ -5,6 +5,7 @@ use cloud_terrastodon_azure::Resource;
 use cloud_terrastodon_azure::fetch_all_resources;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 use nucleo::Nucleo;
 use nucleo::pattern::CaseMatching;
 use nucleo::pattern::Normalization;
@@ -14,7 +15,7 @@ use std::sync::Arc;
 use tracing::info;
 
 /// Find Azure resources where the serialized JSON contains the provided text.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureFindArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
     #[facet(figue::named, default)]

@@ -9,6 +9,7 @@ use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerEvent;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
+use facet::Facet;
 use std::collections::VecDeque;
 use std::path::Path;
 use tracing::Instrument;
@@ -23,7 +24,7 @@ struct FsPickEntry {
 }
 
 /// Pick from the current working directory.
-#[derive(facet::Facet, Debug, Clone, Default)]
+#[derive(Facet, Debug, Clone, Default)]
 pub struct PickFsArgs {
     /// Recursively read child directories
     #[facet(figue::named)]

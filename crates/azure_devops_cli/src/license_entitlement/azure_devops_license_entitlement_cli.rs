@@ -8,15 +8,16 @@ use crate::license_entitlement::user::AzureDevOpsLicenseEntitlementUserUpdateTui
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 
 /// Azure DevOps license entitlement-related commands.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureDevOpsLicenseEntitlementArgs {
     #[facet(figue::subcommand)]
     pub command: AzureDevOpsLicenseEntitlementCommand,
 }
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum AzureDevOpsLicenseEntitlementCommand {
     /// Operations on user license entitlements.
@@ -25,13 +26,13 @@ pub enum AzureDevOpsLicenseEntitlementCommand {
     Group(AzureDevOpsLicenseEntitlementGroupArgs),
 }
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureDevOpsLicenseEntitlementUserArgs {
     #[facet(figue::subcommand)]
     pub command: AzureDevOpsLicenseEntitlementUserCommand,
 }
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum AzureDevOpsLicenseEntitlementUserCommand {
     /// List Azure DevOps user license entitlements.
@@ -48,13 +49,13 @@ pub enum AzureDevOpsLicenseEntitlementUserCommand {
     Revoke(AzureDevOpsLicenseEntitlementUserRevokeArgs),
 }
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureDevOpsLicenseEntitlementGroupArgs {
     #[facet(figue::subcommand)]
     pub command: AzureDevOpsLicenseEntitlementGroupCommand,
 }
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum AzureDevOpsLicenseEntitlementGroupCommand {
     /// List Azure DevOps group license entitlements.

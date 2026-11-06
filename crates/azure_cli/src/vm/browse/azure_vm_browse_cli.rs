@@ -10,10 +10,11 @@ use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::PickerTui;
+use facet::Facet;
 use strum::VariantArray;
 use tracing::info;
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureVmBrowseArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
     #[facet(figue::named, default)]

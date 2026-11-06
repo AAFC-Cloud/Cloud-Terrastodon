@@ -1,4 +1,5 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::str::FromStr;
 
 /// The project-state vocabulary in a shallow project reference.
@@ -6,7 +7,7 @@ use std::str::FromStr;
 /// See Microsoft's [schema](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/builds/list?view=azure-devops-rest-7.1#projectstate).
 /// Unmodeled values panic during debug parsing so new service values are reviewed.
 /// Release parsing preserves their exact wire spelling in [`Self::Unknown`].
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum AzureDevOpsProjectReferenceState {

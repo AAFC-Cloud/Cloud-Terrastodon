@@ -1,11 +1,13 @@
 use crate::AzureDevOpsWorkItemRelationAttributes;
 use crate::AzureDevOpsWorkItemRelationTypeName;
 use crate::AzureDevOpsWorkItemRelationUrl;
+use arbitrary::Arbitrary;
+use facet::Facet;
 
 pub const WORK_ITEM_CHILD_RELATION: &str = "System.LinkTypes.Hierarchy-Forward";
 pub const WORK_ITEM_PARENT_RELATION: &str = "System.LinkTypes.Hierarchy-Reverse";
 
-#[derive(Debug, Clone, PartialEq, Eq, arbitrary::Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 pub struct AzureDevOpsWorkItemRelation {
     pub rel: AzureDevOpsWorkItemRelationTypeName,
     pub url: AzureDevOpsWorkItemRelationUrl,

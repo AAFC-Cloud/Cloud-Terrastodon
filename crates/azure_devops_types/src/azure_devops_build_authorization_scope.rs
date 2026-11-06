@@ -1,4 +1,5 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::str::FromStr;
 
 /// The permissions scope used for a definition's jobs.
@@ -6,7 +7,7 @@ use std::str::FromStr;
 /// Microsoft documentation: [BuildAuthorizationScope](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/definitions/get?view=azure-devops-rest-7.1#buildauthorizationscope).
 /// Unknown values panic in debug builds and preserve their original spelling in
 /// release builds for forward compatibility.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum AzureDevOpsBuildAuthorizationScope {

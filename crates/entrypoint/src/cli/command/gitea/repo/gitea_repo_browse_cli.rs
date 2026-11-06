@@ -3,9 +3,10 @@ use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_gitea::GiteaTenantArgumentExt;
 use cloud_terrastodon_user_input::PickResultExt;
 use eyre::Result;
+use facet::Facet;
 use std::io::Write;
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct GiteaRepoBrowseArgs {
     #[facet(flatten)]
     pub list: GiteaRepoListArgs,

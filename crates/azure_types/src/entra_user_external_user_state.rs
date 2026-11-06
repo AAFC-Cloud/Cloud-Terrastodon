@@ -1,7 +1,8 @@
 use arbitrary::Arbitrary;
 use compact_str::CompactString;
+use facet::Facet;
 
-#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, Facet)]
 #[repr(C)]
 pub enum EntraUserExternalUserState {
     Accepted,

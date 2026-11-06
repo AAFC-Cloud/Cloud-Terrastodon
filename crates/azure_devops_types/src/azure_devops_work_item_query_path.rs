@@ -1,11 +1,12 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::ops::Deref;
 use std::str::FromStr;
 
 /// A slash-separated Azure DevOps work item query or folder path.
 ///
 /// See the `path` field in Microsoft's [QueryHierarchyItem schema](https://learn.microsoft.com/en-us/rest/api/azure/devops/wit/queries/get?view=azure-devops-rest-7.1#queryhierarchyitem).
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Facet)]
 #[facet(transparent)]
 pub struct AzureDevOpsWorkItemQueryPath(String);
 

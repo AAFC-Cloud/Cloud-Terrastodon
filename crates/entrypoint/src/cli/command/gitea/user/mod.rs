@@ -1,3 +1,4 @@
+use facet::Facet;
 pub mod gitea_user_browse_cli;
 pub mod gitea_user_list_cli;
 pub mod gitea_user_show_cli;
@@ -8,13 +9,13 @@ pub use gitea_user_browse_cli::GiteaUserBrowseArgs;
 pub use gitea_user_list_cli::GiteaUserListArgs;
 pub use gitea_user_show_cli::GiteaUserShowArgs;
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct GiteaUserArgs {
     #[facet(figue::subcommand)]
     pub command: GiteaUserCommand,
 }
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum GiteaUserCommand {
     /// List users visible from the tenant.

@@ -6,9 +6,10 @@ use crate::cli::terraform::terraform_apply_cli::TerraformApplyArgs;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 
 /// Terraform-specific commands.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 #[repr(u8)]
 pub enum TerraformCommand {
     /// Identify and report Terraform provider issues.

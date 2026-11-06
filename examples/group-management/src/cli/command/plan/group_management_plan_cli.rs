@@ -1,4 +1,6 @@
 use crate::DesireDocument;
+#[cfg(test)]
+use arbitrary::Arbitrary;
 use cloud_terrastodon::app::AuthContext;
 use cloud_terrastodon::app::CliOutput;
 use cloud_terrastodon::app::Result;
@@ -6,11 +8,12 @@ use cloud_terrastodon::app::facet;
 use cloud_terrastodon::app::figue;
 use cloud_terrastodon::azure::AzureTenantId;
 use cloud_terrastodon::execution::CloudTerrastodonExecutor;
+use facet::Facet;
 use std::path::PathBuf;
 
 /// Compare desired relationships with fresh directory reads without applying changes.
-#[derive(facet::Facet)]
-#[cfg_attr(test, derive(arbitrary::Arbitrary))]
+#[derive(Facet)]
+#[cfg_attr(test, derive(Arbitrary))]
 pub struct GroupManagementPlanArgs {
     /// JSON array describing existing groups, their tenants, and managed relationships.
     #[facet(figue::named, figue::label = "FILE")]

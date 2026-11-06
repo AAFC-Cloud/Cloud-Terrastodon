@@ -4,6 +4,7 @@ use arbitrary::Arbitrary;
 use eyre::WrapErr;
 use eyre::ensure;
 use eyre::eyre;
+use facet::Facet;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::str::FromStr;
@@ -11,7 +12,7 @@ use std::str::FromStr;
 /// ARM identity of a remediation at a supported management or resource group.
 ///
 /// See the [2024-10-01 remediation schema](https://learn.microsoft.com/en-us/rest/api/policyinsights/remediations/create-or-update-at-resource-group?view=rest-policyinsights-2024-10-01#remediation).
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, Facet)]
 #[facet(proxy = String)]
 pub struct PolicyRemediationId {
     pub scope: PolicyRemediationScope,

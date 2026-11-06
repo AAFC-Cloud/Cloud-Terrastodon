@@ -1,7 +1,8 @@
 use super::*;
+use facet::Facet;
 
 /// A public root owned by the consuming application, deliberately without Debug.
-#[derive(facet::Facet)]
+#[derive(Facet)]
 struct ConsumerCli {
     #[facet(flatten)]
     global: GlobalArgs,
@@ -9,14 +10,14 @@ struct ConsumerCli {
     command: Command,
 }
 
-#[derive(facet::Facet)]
+#[derive(Facet)]
 #[repr(u8)]
 enum Command {
     /// Inspect a local value.
     Inspect(Inspect),
 }
 
-#[derive(facet::Facet)]
+#[derive(Facet)]
 struct Inspect {
     /// The value to inspect, with a description
     /// continued on the next source line.
@@ -170,7 +171,7 @@ fn parse_errors_are_non_exiting_and_do_not_prevent_another_parse() {
 
 #[test]
 fn invalid_schema_returns_typed_builder_error() {
-    #[derive(facet::Facet)]
+    #[derive(Facet)]
     struct Invalid {
         global: GlobalArgs,
     }

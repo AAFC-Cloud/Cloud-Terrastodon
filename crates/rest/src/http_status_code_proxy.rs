@@ -1,12 +1,13 @@
 use arbitrary::Error as ArbitraryError;
 use arbitrary::Unstructured;
+use facet::Facet;
 use http::StatusCode;
 use http::status::InvalidStatusCode;
 
 /// Preserve numeric status codes on the wire while validating them through
 /// [`StatusCode::from_u16`]. Invalid numbers fail decoding instead of entering a
 /// response whose status cannot be classified.
-#[derive(Debug, Clone, Eq, PartialEq, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Facet)]
 #[facet(transparent)]
 pub(crate) struct HttpStatusCodeProxy(u16);
 

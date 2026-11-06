@@ -117,6 +117,7 @@ impl ResourceGraphData {
 mod tests {
     use super::*;
     use crate::RawResourceGraphQueryResponse;
+    use facet::Facet;
 
     #[test]
     fn maps_rows_using_column_names() -> Result<()> {
@@ -191,7 +192,7 @@ mod tests {
             rows: vec![vec![ArbitraryJson::from_text("not-a-number")]],
         };
 
-        #[derive(Debug, facet::Facet)]
+        #[derive(Debug, Facet)]
         struct MyRecord {
             name: u64,
         }
@@ -243,7 +244,7 @@ mod tests {
             }
             data.data.rows.push(row_data);
         }
-        #[derive(Debug, facet::Facet)]
+        #[derive(Debug, Facet)]
         struct MyRecord {
             col0: String,
             col1: String,

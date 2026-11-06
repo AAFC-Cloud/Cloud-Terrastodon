@@ -5,11 +5,12 @@ use arbitrary::Arbitrary;
 use eyre::Context;
 use eyre::ContextCompat;
 use eyre::Result;
+use facet::Facet;
 use std::str::FromStr;
 
 pub const AZURE_COGNITIVE_SERVICES_ACCOUNT_DEPLOYMENT_ID_SEGMENT: &str = "/deployments/";
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, Facet)]
 #[facet(json::proxy = String)]
 pub struct AzureCognitiveServicesAccountDeploymentId {
     pub account_id: AzureCognitiveServicesAccountResourceId,

@@ -10,12 +10,13 @@ use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::uuid::Uuid;
 use eyre::Result;
 use eyre::ensure;
+use facet::Facet;
 
 /// Invocation authentication state bound to one Azure tenant.
 ///
 /// Cloning this value preserves the invocation's shared token caches because
 /// the cache-bearing fields in [`AuthContext`] are reference counted.
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 pub struct AzureTenantAuthContext {
     pub auth_context: AuthContext,
     pub tenant_id: AzureTenantId,
