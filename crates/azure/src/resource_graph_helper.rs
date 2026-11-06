@@ -1,13 +1,20 @@
+use crate::QueryRestResultFormat;
+use crate::ResourceGraphQueryRestBody;
+use crate::ResourceGraphQueryRestOptions;
+use crate::ResourceGraphQueryRestScopeFilterOption;
+use crate::resource_graph_rate_limit_state::ResourceGraphRateLimitState;
 use cloud_terrastodon_auth::AzureTenantAuthContext;
+use cloud_terrastodon_azure_types::RawResourceGraphQueryResponse;
 use cloud_terrastodon_azure_types::ResourceGraphEntryDeserializeError;
 use cloud_terrastodon_azure_types::ResourceGraphQueryResponse;
-use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_cache::CacheKey;
+use cloud_terrastodon_cache::CacheOperationOwner;
 use cloud_terrastodon_command::FromCommandOutput;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_relative_location::RelativeLocation;
+use cloud_terrastodon_rest::RestHttpError;
 use cloud_terrastodon_rest::RestRequest;
-use cloud_terrastodon_rest::RestResponseBody;
-use cloud_terrastodon_rest::SerializableRestResponse;
+use cloud_terrastodon_rest::RestResponseHeaders;
 use eyre::Context;
 use eyre::Result;
 #[cfg(debug_assertions)]
@@ -19,6 +26,7 @@ use std::collections::HashSet;
 use std::future::Future;
 use std::panic::Location;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::sync::LazyLock;
 use std::time::Duration;
 use std::time::Instant;
@@ -35,21 +43,8 @@ static RESOURCE_GRAPH_RATE_LIMIT_STATE: LazyLock<Mutex<ResourceGraphRateLimitSta
     LazyLock::new(|| Mutex::new(ResourceGraphRateLimitState::new()));
 static RESOURCE_GRAPH_RECOVERY_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
-#[derive(Debug, Clone, Copy)]
-struct ResourceGraphRateLimitState {
-    blocked_until: Option<Instant>,
-}
-
-impl ResourceGraphRateLimitState {
-    const fn new() -> Self {
-        Self {
-            blocked_until: None,
-        }
-    }
-}
-
+/// Fetch paginated [Resource Graph 2022-10-01 query results](https://learn.microsoft.com/rest/api/azureresourcegraph/resourcegraph/resources/resources?view=rest-azureresourcegraph-resourcegraph-2022-10-01).
 pub struct ResourceGraphHelper<'a> {
-    cancellation: CancellationScope,
     query: String,
     cache_behaviour: Option<CacheKey>,
     auth_context: &'a AzureTenantAuthContext,
@@ -58,48 +53,13 @@ pub struct ResourceGraphHelper<'a> {
     #[cfg(debug_assertions)]
     seen_skip_tokens: HashSet<String>,
 }
-#[derive(Debug, facet::Facet)]
-pub struct ResourceGraphQueryRestOptions {
-    #[facet(rename = "$skip")]
-    skip: u64,
-    #[facet(rename = "$top")]
-    top: u64,
-    #[facet(rename = "$skipToken")]
-    skip_token: Option<String>,
-    #[facet(rename = "authorizationScopeFilter")]
-    authorization_scope_filter: ResourceGraphQueryRestScopeFilterOption,
-    #[facet(rename = "resultFormat")]
-    result_format: QueryRestResultFormat,
-}
-
-#[derive(Debug, facet::Facet)]
-#[repr(C)]
-pub enum ResourceGraphQueryRestScopeFilterOption {
-    AtScopeAboveAndBelow,
-}
-
-#[derive(Debug, facet::Facet)]
-#[repr(C)]
-pub enum QueryRestResultFormat {
-    #[facet(rename = "table")]
-    Table,
-}
-
-#[derive(Debug, facet::Facet)]
-pub struct ResourceGraphQueryRestBody {
-    query: String,
-    options: ResourceGraphQueryRestOptions,
-}
-
 impl<'a> ResourceGraphHelper<'a> {
     pub fn new(
         query: impl Into<String>,
         cache_behaviour: Option<CacheKey>,
         auth_context: &'a AzureTenantAuthContext,
-        cancellation: &CancellationScope,
     ) -> Self {
         Self {
-            cancellation: cancellation.clone(),
             query: query.into(),
             cache_behaviour,
             auth_context,
@@ -111,36 +71,27 @@ impl<'a> ResourceGraphHelper<'a> {
     }
 
     fn get_request(&self, body: String) -> Result<RestRequest> {
-        let mut request = RestRequest::new(
-            http::Method::POST,
-            "https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2022-10-01",
-         &self.cancellation)?.cancellation_safe()
-        .azure_auth_context(self.auth_context)
+        let mut request = RestRequest::new(http::Method::POST, "https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2022-10-01")?.cancellation_safe()
+        .azure_auth_context(self.auth_context)?
         .body(body);
-        request.cache_key = self.cache_behaviour.clone().or_else(|| {
-            Some(CacheKey::new(PathBuf::from_iter([
-                "az",
-                "resource_graph",
-                "query",
-            ])))
-        });
+        request.cache_key = self.cache_behaviour.clone();
         Ok(request)
     }
 
     #[track_caller]
-    pub fn fetch<T: FromCommandOutput>(
-        &mut self,
-    ) -> impl Future<Output = Result<Option<ResourceGraphQueryResponse<T>>>> + '_ {
+    pub fn fetch<'exec, T: FromCommandOutput + Sync>(
+        &'exec mut self,
+        executor: &'exec CloudTerrastodonExecutor,
+    ) -> impl Future<Output = Result<Option<Arc<ResourceGraphQueryResponse<Arc<T>>>>>> + 'exec {
         let caller = Location::caller();
-        let cancellation = self.cancellation.clone();
-        async move { self.fetch_from(caller, &cancellation).await }
+        async move { self.fetch_from(caller, executor).await }
     }
 
-    async fn fetch_from<T: FromCommandOutput>(
+    async fn fetch_from<T: FromCommandOutput + Sync>(
         &mut self,
         caller: &'static Location<'static>,
-        _cancellation: &CancellationScope,
-    ) -> Result<Option<ResourceGraphQueryResponse<T>>> {
+        executor: &CloudTerrastodonExecutor,
+    ) -> Result<Option<Arc<ResourceGraphQueryResponse<Arc<T>>>>> {
         async {
             #[cfg(debug_assertions)]
             if let Some((_, token)) = &self.skip
@@ -171,12 +122,12 @@ impl<'a> ResourceGraphHelper<'a> {
 
             // Set up caching
             if let Some(CacheKey {
-                ref path,
+                ref scope,
                 ref valid_for,
             }) = self.cache_behaviour
             {
                 request.cache_key = Some(CacheKey {
-                    path: path.join(self.index.to_string()),
+                    scope: scope.join(self.index.to_string())?,
                     valid_for: *valid_for,
                 });
             }
@@ -190,7 +141,7 @@ impl<'a> ResourceGraphHelper<'a> {
                 "Fetching resource graph batch",
             );
 
-            let results = receive_resource_graph_response(request).await?;
+            let results = receive_resource_graph_response(request, executor).await?;
 
             // Increment index for the next potential query
             self.index += 1;
@@ -216,21 +167,22 @@ impl<'a> ResourceGraphHelper<'a> {
     }
 
     #[track_caller]
-    pub fn collect_all<T: FromCommandOutput>(
-        &mut self,
-    ) -> impl Future<Output = Result<Vec<T>>> + '_ {
-        self.collect_all_from(Location::caller())
+    pub fn collect_all<'exec, T: FromCommandOutput + Sync>(
+        &'exec mut self,
+        executor: &'exec CloudTerrastodonExecutor,
+    ) -> impl Future<Output = Result<Vec<Arc<T>>>> + 'exec {
+        self.collect_all_from(Location::caller(), executor)
     }
 
-    async fn collect_all_from<T: FromCommandOutput>(
+    async fn collect_all_from<T: FromCommandOutput + Sync>(
         &mut self,
         caller: &'static Location<'static>,
-    ) -> Result<Vec<T>> {
-        let result: Result<Vec<T>> = async {
-            let cancellation = self.cancellation.clone();
+        executor: &CloudTerrastodonExecutor,
+    ) -> Result<Vec<Arc<T>>> {
+        let result: Result<Vec<Arc<T>>> = async {
             let mut all_data = Vec::new();
-            while let Some(response) = self.fetch_from(caller, &cancellation).await? {
-                all_data.extend(response.data);
+            while let Some(response) = self.fetch_from(caller, executor).await? {
+                all_data.extend(response.data.iter().cloned());
 
                 if self.skip.is_none() {
                     break;
@@ -297,10 +249,10 @@ async fn wait_for_resource_graph_rate_limit_window() {
     }
 }
 
-async fn note_resource_graph_rate_limit(response: &SerializableRestResponse) {
-    let should_block = response.status == StatusCode::TOO_MANY_REQUESTS
-        || response.headers.resource_graph_quota_remaining() == Some(0);
-    let Some(delay) = response.headers.retry_after() else {
+async fn note_resource_graph_rate_limit(status: StatusCode, headers: &RestResponseHeaders) {
+    let should_block = status == StatusCode::TOO_MANY_REQUESTS
+        || headers.resource_graph_quota_remaining() == Some(0);
+    let Some(delay) = headers.retry_after() else {
         return;
     };
 
@@ -317,107 +269,59 @@ async fn note_resource_graph_rate_limit(response: &SerializableRestResponse) {
     if should_update {
         state.blocked_until = Some(blocked_until);
         warn!(
-            remaining_quota = ?response.headers.resource_graph_quota_remaining(),
+            remaining_quota = ?headers.resource_graph_quota_remaining(),
             reset_in = %humantime::format_duration(delay),
-            status = response.status.as_u16(),
+            status = status.as_u16(),
             "Updated shared Resource Graph rate limit window"
         );
     }
 }
 
-async fn receive_resource_graph_response<T: FromCommandOutput>(
+async fn receive_resource_graph_response<T: FromCommandOutput + Sync>(
     request: RestRequest,
-) -> Result<ResourceGraphQueryResponse<T>> {
-    enum ResourceGraphResponse<T: FromCommandOutput> {
-        Parsed(ResourceGraphQueryResponse<T>),
-        Raw(SerializableRestResponse),
-    }
-
-    let cancellation = request.cancellation.clone();
+    executor: &CloudTerrastodonExecutor,
+) -> Result<Arc<ResourceGraphQueryResponse<Arc<T>>>> {
     let mut retries = 0usize;
     let request = request.failure_extra_files(resource_graph_failure_extra_files);
-
     loop {
-        cancellation.bail_if_cancelled()?;
-        let _recovery_guard = cancellation
+        executor.cancellation().bail_if_cancelled()?;
+        let _recovery_guard = executor
+            .cancellation()
             .cancellable_scope(|_| async {
                 let guard = acquire_resource_graph_recovery_guard().await;
                 wait_for_resource_graph_rate_limit_window().await;
                 eyre::Ok(guard)
             })
             .await?;
-
-        let cache_key = request.cache_key.clone();
-        let cache_path = cache_key.as_ref().map(|key| key.path_on_disk());
-        let outcome = request
-            .clone()
-            .receive_raw_with_decoder(move |response| {
-                if response.ok {
-                    let raw = facet_json::from_str::<
-                        cloud_terrastodon_azure_types::RawResourceGraphQueryResponse,
-                    >(response.into_json_body()?.as_str())
-                    .map_err(|error| eyre::eyre!("{error:?}"))
-                    .wrap_err_with(|| match &cache_path {
-                        Some(cache_path) => format!(
-                            "Deserializing REST response into {}. Cached response can be inspected at {:?}",
-                            std::any::type_name::<cloud_terrastodon_azure_types::RawResourceGraphQueryResponse>(),
-                            cache_path
-                        ),
-                        None => format!(
-                            "Deserializing REST response into {}",
-                            std::any::type_name::<cloud_terrastodon_azure_types::RawResourceGraphQueryResponse>()
-                        ),
-                    })?;
-                    let parsed = ResourceGraphQueryResponse::try_from(raw).wrap_err_with(|| match &cache_path {
-                            Some(cache_path) => format!(
-                                "Converting REST response into {}. Cached response can be inspected at {:?}",
-                                std::any::type_name::<ResourceGraphQueryResponse<T>>(),
-                                cache_path
-                            ),
-                            None => format!(
-                                "Converting REST response into {}",
-                                std::any::type_name::<ResourceGraphQueryResponse<T>>()
-                            ),
-                        })?;
-                    Ok(ResourceGraphResponse::Parsed(parsed))
-                } else {
-                    Ok(ResourceGraphResponse::Raw(response))
-                }
-            })
-            .await?;
-        let response = match outcome {
-            ResourceGraphResponse::Parsed(parsed) => return Ok(parsed),
-            ResourceGraphResponse::Raw(response) => response,
+        // Table conversion is part of canonical decoding: cache typed rows once,
+        // retain decode-failure artifacts, and share records across page callers.
+        let outcome = if request.cache_key.is_some() {
+            request.clone().receive_converted_cached::<RawResourceGraphQueryResponse, ResourceGraphQueryResponse<Arc<T>>>(
+                executor, CacheOperationOwner::of::<ResourceGraphHelper<'static>>(),
+            ).await
+        } else {
+            request.clone().receive_converted::<RawResourceGraphQueryResponse, ResourceGraphQueryResponse<Arc<T>>>(
+                executor,
+            ).await.map(Arc::new)
         };
-
-        cancellation
-            .cancellable_scope(|_| async {
-                note_resource_graph_rate_limit(&response).await;
-                eyre::Ok(())
-            })
-            .await?;
-
+        let error = match outcome {
+            Ok(parsed) => return Ok(parsed),
+            Err(error) => error,
+        };
+        let Some(response) = error.downcast_ref::<RestHttpError>() else {
+            return Err(error);
+        };
+        note_resource_graph_rate_limit(response.status, &response.headers).await;
         let is_throttled = response.status == StatusCode::TOO_MANY_REQUESTS
             || response.headers.resource_graph_quota_remaining() == Some(0);
-        if is_throttled && retries < RESOURCE_GRAPH_MAX_THROTTLE_RETRIES {
-            retries += 1;
-            if let Some(cache_key) = cache_key {
-                cache_key.invalidate().await?;
-            }
-            warn!(
-                attempt = retries,
-                max_attempts = RESOURCE_GRAPH_MAX_THROTTLE_RETRIES,
-                reset_in = ?response.headers.retry_after().map(|delay| humantime::format_duration(delay).to_string()),
-                "Retrying throttled Resource Graph request"
-            );
-            continue;
+        if !is_throttled || retries >= RESOURCE_GRAPH_MAX_THROTTLE_RETRIES {
+            return Err(error);
         }
-
-        eyre::bail!(
-            "REST call failed with status {}: {}{}",
-            response.status.as_u16(),
-            response.reason_phrase.as_deref().unwrap_or("Unknown error"),
-            format_rest_error_body(&response.body)
+        retries += 1;
+        warn!(
+            attempt = retries,
+            max_attempts = RESOURCE_GRAPH_MAX_THROTTLE_RETRIES,
+            "Retrying throttled Resource Graph request"
         );
     }
 }
@@ -436,25 +340,22 @@ fn resource_graph_failure_extra_files(error: &eyre::Report) -> BTreeMap<PathBuf,
     files
 }
 
-fn format_rest_error_body(body: &RestResponseBody) -> String {
-    match body {
-        RestResponseBody::Json(value) => format!("\nBody: {}", value.as_str()),
-        RestResponseBody::Text(text) if text.trim().is_empty() => String::new(),
-        RestResponseBody::Text(text) => format!("\nBody: {}", text.trim()),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use cloud_terrastodon_auth::AuthContext;
+    use cloud_terrastodon_auth::CredentialAuthenticationProvider;
+    use cloud_terrastodon_cache::WorkCache;
     use cloud_terrastodon_command::CancellationToken;
+    use cloud_terrastodon_rest::SerializableRestResponse;
     use http::HeaderMap;
     use http::HeaderValue;
     use http::StatusCode;
     use std::path::PathBuf;
+    use std::sync::Arc;
 
     #[tokio::test]
+    #[ignore = "requires explicitly configured test tenant and live Azure Resource Graph access"]
     async fn it_works() -> Result<()> {
         CancellationToken::new()
             .cancellable_scope(|cancellation| async move {
@@ -466,19 +367,24 @@ mod tests {
                 struct Row {
                     name: String,
                 }
-                let auth_context = AuthContext::explicit_azure_cli()
-                    .bind_to_azure_tenant(crate::get_test_tenant_id(&cancellation).await?)?;
+                let auth = AuthContext::explicit_azure_cli();
+                let auth_context =
+                    auth.bind_to_azure_tenant(crate::get_test_tenant_id(&cancellation).await?)?;
+                let executor = CloudTerrastodonExecutor::new(
+                    WorkCache::temporary()?,
+                    Arc::new(CredentialAuthenticationProvider::new(auth)),
+                    cancellation,
+                );
                 let data = ResourceGraphHelper::new(
                     query,
-                    Some(CacheKey::new(PathBuf::from_iter([
+                    Some(CacheKey::from_relative_path(PathBuf::from_iter([
                         "az",
                         "resource_graph",
                         "resource-container-names",
-                    ]))),
+                    ]))?),
                     &auth_context,
-                    &cancellation,
                 )
-                .collect_all::<Row>()
+                .collect_all::<Row>(&executor)
                 .await?;
                 assert!(data.len() > 10);
                 assert!(data.iter().all(|row| !row.name.is_empty()));

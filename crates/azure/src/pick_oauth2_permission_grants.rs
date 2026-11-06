@@ -6,7 +6,7 @@ use cloud_terrastodon_azure_types::ConsentType;
 use cloud_terrastodon_azure_types::EntraServicePrincipal;
 use cloud_terrastodon_azure_types::EntraUser;
 use cloud_terrastodon_azure_types::OAuth2PermissionGrant;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickError;
 use cloud_terrastodon_user_input::PickManyResult;
@@ -17,18 +17,19 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt;
 use std::future::IntoFuture;
+use std::sync::Arc;
 use tokio::try_join;
 
 #[derive(Debug)]
 pub struct Grant {
-    pub grant: OAuth2PermissionGrant,
-    pub service_principal: EntraServicePrincipal,
+    pub grant: Arc<OAuth2PermissionGrant>,
+    pub service_principal: Arc<EntraServicePrincipal>,
     pub target: Target,
 }
 #[derive(Debug)]
 pub enum Target {
     AllPrincipals,
-    User(Box<EntraUser>),
+    User(Arc<EntraUser>),
 }
 
 impl PartialEq for Grant {
@@ -79,14 +80,13 @@ impl fmt::Display for Grant {
 
 pub async fn pick_oauth2_permission_grants(
     auth_context: &AzureTenantAuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> PickManyResult<Grant> {
-    cancellation
-        .cancellable_scope(|cancellation| async move {
-            let cancellation = &cancellation;
-            let grants = fetch_oauth2_permission_grants(auth_context.tenant_id, cancellation);
-            let service_principals = fetch_all_service_principals(auth_context, cancellation);
-            let users = fetch_all_entra_users(auth_context, cancellation).into_future();
+    executor.cancellable_scope(|executor| async move {
+            let executor = &executor;
+            let grants = fetch_oauth2_permission_grants(auth_context.tenant_id, cloud_terrastodon_auth_types::AzureBearerAuthSource::try_from(auth_context.auth_context.source().ok_or_else(|| eyre::eyre!("authentication source is unresolved"))?)?, executor);
+            let service_principals = fetch_all_service_principals(auth_context, executor);
+            let users = fetch_all_entra_users(auth_context, executor).into_future();
             let (grants, service_principals, users) = try_join!(grants, service_principals, users)?;
             let service_principals_map = service_principals
                 .iter()
@@ -118,7 +118,7 @@ pub async fn pick_oauth2_permission_grants(
                             Grant {
                                 grant,
                                 service_principal: (*service_principal).clone(),
-                                target: Target::User(Box::new((*user).clone())),
+                                target: Target::User(Arc::clone(user)),
                             }
                         }
                         _ => {

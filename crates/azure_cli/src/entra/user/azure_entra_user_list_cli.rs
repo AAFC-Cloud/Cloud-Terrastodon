@@ -1,10 +1,12 @@
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_azure::EntraUserListRequest;
 use cloud_terrastodon_azure::MicrosoftGraphProgress;
-use cloud_terrastodon_azure::fetch_all_entra_users;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
+use std::borrow::Cow;
 use std::io::Write;
 use tracing::info;
 
@@ -20,24 +22,30 @@ impl AzureEntraUserListArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         info!("Fetching users");
         let tenant_auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
-        let users = fetch_all_entra_users(&tenant_auth_context, cancellation)
-            .progress_hook(|progress: MicrosoftGraphProgress| {
-                info!(
-                    total = ?progress.total,
-                    accumulated = progress.accumulated,
-                    received_this_page = progress.received_this_page,
-                    time_remaining = %humantime::format_duration(progress.time_remaining),
-                    "Fetched Entra users page"
-                );
-            })
-            .await?;
+        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
+        let users = EntraUserListRequest {
+            auth_context: Cow::Borrowed(&tenant_auth_context),
+            progress_hook: None,
+        }
+        .progress_hook(|progress: MicrosoftGraphProgress| {
+            info!(
+                total = ?progress.total,
+                accumulated = progress.accumulated,
+                received_this_page = progress.received_this_page,
+                time_remaining = %humantime::format_duration(progress.time_remaining),
+                "Fetched Entra users page"
+            );
+        })
+        .execute(executor)
+        .await?;
 
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();

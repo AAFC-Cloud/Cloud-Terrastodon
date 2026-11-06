@@ -11,6 +11,8 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
+cloud_terrastodon_cache.workspace = true
+cloud_terrastodon_execution.workspace = true
 cloud_terrastodon_auth_types.workspace = true
 cloud_terrastodon_app.workspace = true
 cloud_terrastodon_azure.workspace = true
@@ -34,6 +36,7 @@ tracing.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
+cloud_terrastodon_execution = { workspace = true, features = ["test-support"] }
 http.workspace = true
 
 [lints]

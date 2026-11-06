@@ -1,5 +1,5 @@
 use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 pub mod assignment;
 pub mod definition;
 pub mod set_definition;
@@ -42,9 +42,9 @@ impl AzurePolicyArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
-        self.command.invoke(auth_context, cancellation).await
+        self.command.invoke(auth_context, executor).await
     }
 }
 
@@ -52,14 +52,12 @@ impl AzurePolicyCommand {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
         match self {
-            AzurePolicyCommand::Assignment(args) => args.invoke(auth_context, cancellation).await,
-            AzurePolicyCommand::Definition(args) => args.invoke(auth_context, cancellation).await,
-            AzurePolicyCommand::SetDefinition(args) => {
-                args.invoke(auth_context, cancellation).await
-            }
+            AzurePolicyCommand::Assignment(args) => args.invoke(auth_context, executor).await,
+            AzurePolicyCommand::Definition(args) => args.invoke(auth_context, executor).await,
+            AzurePolicyCommand::SetDefinition(args) => args.invoke(auth_context, executor).await,
         }
     }
 }

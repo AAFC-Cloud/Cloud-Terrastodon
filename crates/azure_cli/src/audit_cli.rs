@@ -2,7 +2,7 @@ use crate::audit_azure;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
 /// Arguments for auditing Azure resources.
@@ -18,12 +18,14 @@ impl AzureAuditArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
-        audit_azure(&auth_context, cancellation).await
+        let executor = &auth_context.auth_context.bind_executor(executor)?;
+        audit_azure(&auth_context, executor).await
     }
 }

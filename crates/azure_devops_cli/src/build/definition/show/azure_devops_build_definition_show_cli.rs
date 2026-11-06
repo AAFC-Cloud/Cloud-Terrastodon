@@ -6,8 +6,7 @@ use cloud_terrastodon_azure_devops::AzureDevOpsBuildDefinitionId;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_build_definition;
-use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
 /// Show a pipeline's full definition, including repository and YAML process details.
@@ -44,19 +43,21 @@ impl AzureDevOpsBuildDefinitionShowArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<CliOutput> {
+        let cancellation = executor.cancellation();
         let auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &auth_context.bind_executor(executor)?;
         let definition = fetch_azure_devops_build_definition(
             &self.org,
             self.project,
             &auth_context,
             self.id,
             self.revision,
-            cancellation,
+            executor,
         )
         .with_invalidation(self.no_cache)
         .await?;

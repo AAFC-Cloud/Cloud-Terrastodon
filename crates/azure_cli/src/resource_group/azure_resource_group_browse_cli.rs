@@ -3,8 +3,7 @@ use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::fetch_all_resource_groups;
-use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
@@ -23,19 +22,21 @@ impl AzureResourceGroupBrowseArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
-        browse_resource_groups(&auth_context, cancellation).await
+        let executor = &auth_context.auth_context.bind_executor(executor)?;
+        browse_resource_groups(&auth_context, executor).await
     }
 }
 
 pub async fn browse_resource_groups(
     auth_context: &AzureTenantAuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
     let (chosen, maybe_error) = PickerTui::<_>::new()
         .pick_many_reloadable(|invalidate| {
@@ -43,7 +44,7 @@ pub async fn browse_resource_groups(
             async move {
                 info!(tenant_id = %auth_context.tenant_id, "Fetching all Azure resource groups");
 
-                fetch_all_resource_groups(&auth_context, cancellation)
+                fetch_all_resource_groups(&auth_context, executor)
                     .with_invalidation(invalidate)
                     .await
             }

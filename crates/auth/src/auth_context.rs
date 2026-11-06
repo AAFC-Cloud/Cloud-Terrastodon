@@ -4,6 +4,7 @@ use crate::AzureTenantAuthContext;
 use crate::BrowserSession;
 use crate::BrowserTokenCache;
 use crate::CancellationScope;
+use crate::CredentialAuthenticationProvider;
 use crate::ResolvedAuthContext;
 use crate::WorkloadIdentityConfig;
 use crate::browser_access_token::load_browser_session;
@@ -14,6 +15,7 @@ use cloud_terrastodon_auth_types::AuthenticationSelection;
 use cloud_terrastodon_auth_types::AzureBearerAuthSource;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_cache::AuthPartition;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::bail;
 use eyre::ensure;
 use std::sync::Arc;
@@ -96,6 +98,13 @@ impl AuthContext {
         }
     }
 
+    /// Return the resolved bearer selection without acquiring credentials.
+    pub fn azure_bearer_source(&self) -> eyre::Result<AzureBearerAuthSource> {
+        AzureBearerAuthSource::try_from(self.source().ok_or_else(|| {
+            eyre::eyre!("authentication source must be resolved before selecting Azure credentials")
+        })?)
+    }
+
     pub fn workload_identity(&self) -> Option<&WorkloadIdentityConfig> {
         match self {
             Self::Resolved(state) => state.workload_identity.as_ref(),
@@ -138,6 +147,22 @@ impl AuthContext {
         tenant_id: AzureTenantId,
     ) -> eyre::Result<AzureTenantAuthContext> {
         AzureTenantAuthContext::new(self, tenant_id)
+    }
+
+    /// Explicitly bind this selected credential session to an existing executor.
+    ///
+    /// Use at the caller boundary after resolving an authentication preference.
+    /// This performs no configuration lookup or credential acquisition and keeps
+    /// this context's shared sensitive caches and identity partition. The derived
+    /// executor retains the supplied cache, scope, and semantic ancestry. SDK and
+    /// transport requests must keep their injected provider instead of rebinding it.
+    pub fn bind_executor(
+        &self,
+        executor: &CloudTerrastodonExecutor,
+    ) -> eyre::Result<CloudTerrastodonExecutor> {
+        executor.with_authentication(Arc::new(CredentialAuthenticationProvider::new(
+            self.clone(),
+        )))
     }
 
     /// Check selection policy and derive identity before any reusable result lookup.
@@ -304,6 +329,7 @@ fn select_auth_source(requested: AuthSource, has_workload_identity: bool) -> Aut
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cloud_terrastodon_cache::WorkCache;
     use cloud_terrastodon_command::CancellationToken;
 
     #[test]
@@ -496,6 +522,44 @@ mod tests {
                 .is_ok()
         );
         Ok(())
+    }
+
+    #[tokio::test]
+    async fn executor_binding_uses_the_selected_context_and_preserves_disabled_policy()
+    -> eyre::Result<()> {
+        CancellationToken::new()
+            .with_async_scope(|scope| async move {
+                let original = AuthContext::explicit(AuthSource::AzureCli);
+                let selected = AuthContext::explicit(AuthSource::Browser);
+                let tenant_id = "11111111-1111-1111-1111-111111111111".parse()?;
+                let browser = AuthenticationSelection::AzureBearer {
+                    auth_source: AzureBearerAuthSource::Browser,
+                    tenant_id,
+                };
+                let executor = CloudTerrastodonExecutor::new(
+                    WorkCache::temporary()?,
+                    Arc::new(CredentialAuthenticationProvider::new(original)),
+                    scope,
+                );
+                assert!(executor.admit(&browser).is_err());
+
+                let rebound = selected.bind_executor(&executor)?;
+                assert_eq!(rebound.admit(&browser)?, selected.admit(&browser)?);
+                assert_eq!(
+                    selected.clone().bind_executor(&executor)?.admit(&browser)?,
+                    rebound.admit(&browser)?
+                );
+                // Binding is explicit and cannot mutate the caller's original
+                // provider or fall back when the selected context is disabled.
+                assert!(executor.admit(&browser).is_err());
+                for context in [AuthContext::None, AuthContext::Unresolved] {
+                    let disabled = context.bind_executor(&rebound)?;
+                    assert!(disabled.admit(&browser).is_err());
+                    assert!(disabled.admit(&AuthenticationSelection::Anonymous).is_ok());
+                }
+                Ok(())
+            })
+            .await
     }
 
     #[tokio::test]

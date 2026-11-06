@@ -1,7 +1,7 @@
 use crate::work_item::field::definition::list::AzureDevOpsWorkItemFieldDefinitionListArgs;
 use crate::work_item::field::definition::show::AzureDevOpsWorkItemFieldDefinitionShowArgs;
 use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
 /// Inspect field definitions.
@@ -21,13 +21,17 @@ pub enum AzureDevOpsWorkItemFieldDefinitionCommand {
 }
 
 impl AzureDevOpsWorkItemFieldDefinitionArgs {
-    pub async fn invoke(self, auth: &AuthContext, cancellation: &CancellationScope) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth: &AuthContext,
+        executor: &CloudTerrastodonExecutor,
+    ) -> Result<()> {
         match self.command {
             AzureDevOpsWorkItemFieldDefinitionCommand::List(args) => {
-                args.invoke(auth, cancellation).await
+                args.invoke(auth, executor).await
             }
             AzureDevOpsWorkItemFieldDefinitionCommand::Show(args) => {
-                args.invoke(auth, cancellation).await
+                args.invoke(auth, executor).await
             }
         }
     }

@@ -7,6 +7,7 @@ use arbitrary::Arbitrary;
 use std::collections::HashMap;
 use std::convert::Infallible;
 use std::net::IpAddr;
+use std::sync::Arc;
 
 #[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
@@ -264,3 +265,4 @@ mod tests {
 cloud_terrastodon_registry::register_thing!(AzureAppServiceResource);
 cloud_terrastodon_registry::register_arbitrary!(AzureAppServiceResource);
 cloud_terrastodon_registry::register_arbitrary!(Vec<AzureAppServiceResource>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<AzureAppServiceResource>>);

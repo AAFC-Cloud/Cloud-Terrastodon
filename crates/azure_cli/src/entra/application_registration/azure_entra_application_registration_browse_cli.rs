@@ -2,7 +2,7 @@ use crate::browse_application_registrations;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
 /// Interactively browse Entra (Azure AD) application registrations.
@@ -17,12 +17,13 @@ impl AzureEntraApplicationRegistrationBrowseArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         browse_application_registrations(
             self.tenant.resolve(cancellation).await?,
             auth_context,
-            cancellation,
+            executor,
         )
         .await
     }

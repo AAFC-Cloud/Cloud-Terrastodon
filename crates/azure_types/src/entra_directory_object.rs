@@ -14,6 +14,7 @@ use arbitrary::Arbitrary;
 use arbitrary::Unstructured;
 use facet_json::RawJson;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 /// A shallow typed Microsoft Graph v1.0 [directory object](https://learn.microsoft.com/en-us/graph/api/resources/directoryobject?view=graph-rest-1.0).
 ///
@@ -148,7 +149,7 @@ impl EntraDirectoryObject {
 
 cloud_terrastodon_registry::register_thing!(EntraDirectoryObject);
 cloud_terrastodon_registry::register_arbitrary!(EntraDirectoryObject);
-cloud_terrastodon_registry::register_arbitrary!(Vec<EntraDirectoryObject>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<EntraDirectoryObject>>);
 
 #[cfg(test)]
 mod tests {

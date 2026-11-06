@@ -43,6 +43,7 @@ use eyre::ContextCompat;
 use eyre::bail;
 use std::convert::Infallible;
 use std::str::FromStr;
+use std::sync::Arc;
 
 pub trait Scope: Sized + FromStr {
     type Err;
@@ -85,6 +86,16 @@ impl Scope for CompactString {
 
 pub trait AsScope {
     fn as_scope(&self) -> &impl Scope;
+}
+impl<T: AsScope> AsScope for Arc<T> {
+    fn as_scope(&self) -> &impl Scope {
+        self.as_ref().as_scope()
+    }
+}
+impl<T: AsScope> AsScope for &Arc<T> {
+    fn as_scope(&self) -> &impl Scope {
+        self.as_ref().as_scope()
+    }
 }
 impl<T> AsScope for T
 where

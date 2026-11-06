@@ -5,11 +5,15 @@ use crate::*;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_auth::AzureDevOpsAuthContext;
 use cloud_terrastodon_auth_types::AuthSource;
+use cloud_terrastodon_auth_types::AuthenticationSelection;
+use cloud_terrastodon_auth_types::AzureBearerAuthSource;
 use cloud_terrastodon_azure_types::ArbitraryJson;
 use cloud_terrastodon_command::CancellationError;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CancellationToken;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
 use std::borrow::Cow;
 use std::collections::BTreeMap;
@@ -170,8 +174,9 @@ async fn batch_read_rejects_an_empty_selection_before_authentication_or_network(
     CancellationToken::new()
         .with_async_scope(|cancellation| async move {
             let (organization, project, _) = scope()?;
+            let executor =
+                crate::test_executor::test_executor(&AzureDevOpsAuthContext::None, &cancellation)?;
             let error = AzureDevOpsWorkItemsGetRequest {
-                cancellation: cancellation.clone(),
                 org_url: std::borrow::Cow::Owned(organization),
                 project: Some(project),
                 auth_context: std::borrow::Cow::Owned(AzureDevOpsAuthContext::None),
@@ -180,6 +185,7 @@ async fn batch_read_rejects_an_empty_selection_before_authentication_or_network(
                 fields: Vec::new(),
                 as_of: None,
             }
+            .execute(&executor)
             .await
             .unwrap_err();
             assert!(
@@ -285,10 +291,15 @@ fn browser_auth_retains_tenant_and_revision_uses_a_test_operation() -> Result<()
     let request = cloud_terrastodon_rest::RestRequest::new(
         reqwest::Method::PATCH,
         "https://dev.azure.com/fixture/_apis/wit/workitems/1?api-version=7.1",
-        &CancellationScope::unbound(),
     )?
     .azure_devops_auth_context(&auth_context)?;
-    assert!(request.tenant == Some(tenant));
+    assert_eq!(
+        request.authentication,
+        AuthenticationSelection::AzureBearer {
+            auth_source: AzureBearerAuthSource::Browser,
+            tenant_id: tenant,
+        }
+    );
     let revision = AzureDevOpsJsonPatchOperation::Test {
         path: "/rev".to_owned(),
         value: ArbitraryJson::try_from_facet(&3)?,
@@ -368,9 +379,9 @@ async fn copy_scope_rejection_happens_before_authentication_or_network() -> Resu
         .with_async_scope(|cancellation| async move {
             let (organization, project, _) = scope()?;
             let auth_context = AzureDevOpsAuthContext::None;
+            let executor = crate::test_executor::test_executor(&auth_context, &cancellation)?;
             let ids = ids(2);
             let result = AzureDevOpsWorkItemCopyPlanRequest {
-                cancellation: cancellation.clone(),
                 org_url: Cow::Borrowed(&organization),
                 project,
                 auth_context: Cow::Borrowed(&auth_context),
@@ -381,6 +392,7 @@ async fn copy_scope_rejection_happens_before_authentication_or_network() -> Resu
                     ..Default::default()
                 },
             }
+            .execute(&executor)
             .await;
             assert!(result.is_err_and(|error| error.to_string().contains("allowed-ids")));
             Ok(())
@@ -405,7 +417,7 @@ impl WorkItemCopyWriter for MemoryWriter {
         &self,
         _kind: AzureDevOpsWorkItemType,
         patch: AzureDevOpsJsonPatch,
-        _cancellation: &CancellationScope,
+        _executor: &CloudTerrastodonExecutor,
     ) -> Result<AzureDevOpsWorkItem> {
         let mut calls = self.calls.lock().unwrap();
         if self.fail_after == Some(calls.len()) {
@@ -439,7 +451,7 @@ impl WorkItemCopyWriter for MemoryWriter {
         &self,
         source: AzureDevOpsWorkItemId,
         relation: AzureDevOpsWorkItemRelationInput,
-        _cancellation: &CancellationScope,
+        _executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
         let attributes: AzureDevOpsWorkItemRelationAttributes =
             facet_json::from_str(ArbitraryJson::try_from_facet(&relation.attributes)?.as_ref())?;
@@ -461,7 +473,7 @@ impl WorkItemCopyWriter for MemoryWriter {
     async fn read(
         &self,
         ids: Vec<AzureDevOpsWorkItemId>,
-        _cancellation: &CancellationScope,
+        _executor: &CloudTerrastodonExecutor,
     ) -> Result<Vec<AzureDevOpsWorkItem>> {
         self.read_calls.fetch_add(1, Ordering::SeqCst);
         let items = self.items.lock().unwrap();
@@ -474,6 +486,7 @@ async fn copy_execution_reuses_new_parent_urls_and_completed_journals() -> Resul
     CancellationToken::new()
         .with_async_scope(|cancellation| async move {
             let (organization, project, auth_context) = scope()?;
+            let executor = crate::test_executor::test_executor(&auth_context, &cancellation)?;
             let mut items = tree(&organization, &project)?;
             let leaf = items[0].id;
             items[1].relations.as_mut().unwrap().push(relation(
@@ -484,7 +497,6 @@ async fn copy_execution_reuses_new_parent_urls_and_completed_journals() -> Resul
             let plan = plan(&organization, &project, items[1].id, items)?;
             let directory = tempfile::tempdir()?;
             let request = AzureDevOpsWorkItemCopyRequest {
-                cancellation: cancellation.clone(),
                 org_url: Cow::Borrowed(&organization),
                 project: project.clone(),
                 auth_context: Cow::Borrowed(&auth_context),
@@ -503,7 +515,7 @@ async fn copy_execution_reuses_new_parent_urls_and_completed_journals() -> Resul
                 read_calls: AtomicUsize::new(0),
                 items: Mutex::new(BTreeMap::new()),
             };
-            let result = request.clone().execute_with(&writer).await?;
+            let result = request.clone().execute_with(&writer, &executor).await?;
             assert!(result.complete && result.created.len() == 3);
             assert!(result.completed_relations == 1);
             {
@@ -520,7 +532,7 @@ async fn copy_execution_reuses_new_parent_urls_and_completed_journals() -> Resul
             }
             let mut resumed = request;
             resumed.resume = true;
-            resumed.execute_with(&writer).await?;
+            resumed.execute_with(&writer, &executor).await?;
             assert!(writer.calls.lock().unwrap().len() == 3);
             // A second process holding the companion lock prevents any further writes.
             let lock = std::fs::OpenOptions::new()
@@ -530,7 +542,6 @@ async fn copy_execution_reuses_new_parent_urls_and_completed_journals() -> Resul
             lock.try_lock()?;
             let loaded = AzureDevOpsWorkItemCopyJournal::load(&directory.path().join("copy.json"))?;
             let busy = AzureDevOpsWorkItemCopyRequest {
-                cancellation: cancellation.clone(),
                 org_url: Cow::Borrowed(&organization),
                 project: project.clone(),
                 auth_context: Cow::Borrowed(&auth_context),
@@ -539,7 +550,7 @@ async fn copy_execution_reuses_new_parent_urls_and_completed_journals() -> Resul
                 resume: true,
                 suppress_notifications: false,
             };
-            assert!(busy.execute_with(&writer).await.is_err());
+            assert!(busy.execute_with(&writer, &executor).await.is_err());
             assert!(writer.calls.lock().unwrap().len() == 3);
             Ok(())
         })
@@ -551,11 +562,11 @@ async fn uncertain_create_keeps_progress_and_prevents_automatic_replay() -> Resu
     CancellationToken::new()
         .with_async_scope(|cancellation| async move {
             let (organization, project, auth_context) = scope()?;
+            let executor = crate::test_executor::test_executor(&auth_context, &cancellation)?;
             let items = tree(&organization, &project)?;
             let plan = plan(&organization, &project, items[1].id, items)?;
             let directory = tempfile::tempdir()?;
             let request = AzureDevOpsWorkItemCopyRequest {
-                cancellation: cancellation.clone(),
                 org_url: Cow::Borrowed(&organization),
                 project: project.clone(),
                 auth_context: Cow::Borrowed(&auth_context),
@@ -574,12 +585,18 @@ async fn uncertain_create_keeps_progress_and_prevents_automatic_replay() -> Resu
                 read_calls: AtomicUsize::new(0),
                 items: Mutex::new(BTreeMap::new()),
             };
-            assert!(request.clone().execute_with(&writer).await.is_err());
+            assert!(
+                request
+                    .clone()
+                    .execute_with(&writer, &executor)
+                    .await
+                    .is_err()
+            );
             let journal = AzureDevOpsWorkItemCopyJournal::load(&request.journal_path)?;
             assert!(journal.created.len() == 1 && journal.in_flight.is_some() && !journal.complete);
             let mut resumed = request;
             resumed.resume = true;
-            assert!(resumed.execute_with(&writer).await.is_err());
+            assert!(resumed.execute_with(&writer, &executor).await.is_err());
             assert!(writer.calls.lock().unwrap().len() == 1);
             Ok(())
         })
@@ -591,13 +608,13 @@ async fn copy_cancellation_after_create_saves_progress_before_stopping() -> Resu
     CancellationToken::new()
         .with_async_scope(|cancellation| async move {
             let (organization, project, auth_context) = scope()?;
+            let executor = crate::test_executor::test_executor(&auth_context, &cancellation)?;
             let items = tree(&organization, &project)?;
             let source_root = items[1].id;
             let plan = plan(&organization, &project, source_root, items)?;
             let directory = tempfile::tempdir()?;
 
             let request = AzureDevOpsWorkItemCopyRequest {
-                cancellation: cancellation.clone(),
                 org_url: Cow::Borrowed(&organization),
                 project: project.clone(),
                 auth_context: Cow::Borrowed(&auth_context),
@@ -617,7 +634,11 @@ async fn copy_cancellation_after_create_saves_progress_before_stopping() -> Resu
                 items: Mutex::new(BTreeMap::new()),
             };
 
-            let error = request.clone().execute_with(&writer).await.unwrap_err();
+            let error = request
+                .clone()
+                .execute_with(&writer, &executor)
+                .await
+                .unwrap_err();
             assert_eq!(
                 error.downcast_ref::<CancellationError>().unwrap().reason,
                 "stop after the first successful create"
@@ -668,10 +689,10 @@ async fn live_work_item_deserialization() -> Result<()> {
                     .collect::<Result<Vec<AzureDevOpsWorkItemId>>>()?;
                 let auth = AuthContext::explicit_headless(AuthSource::Browser);
                 let auth_context = AzureDevOpsAuthContext::for_tenant(&auth, tenant)?;
+                let executor = crate::test_executor::test_executor(&auth_context, cancellation)?;
                 *stage = "selected item reads";
                 let as_of = chrono::Utc::now();
                 let items = AzureDevOpsWorkItemsGetRequest {
-                    cancellation: cancellation.clone(),
                     org_url: std::borrow::Cow::Borrowed(&organization),
                     project: Some(project.clone()),
                     auth_context: std::borrow::Cow::Borrowed(&auth_context),
@@ -680,6 +701,7 @@ async fn live_work_item_deserialization() -> Result<()> {
                     fields: Vec::new(),
                     as_of: Some(as_of),
                 }
+                .execute(&executor)
                 .await?;
                 eyre::ensure!(
                     !items.is_empty()
@@ -690,10 +712,10 @@ async fn live_work_item_deserialization() -> Result<()> {
                 );
                 *stage = "field definitions";
                 let fields = AzureDevOpsWorkItemFieldDefinitionListRequest {
-                    cancellation: cancellation.clone(),
                     org_url: std::borrow::Cow::Borrowed(&organization),
                     auth_context: std::borrow::Cow::Borrowed(&auth_context),
                 }
+                .execute(&executor)
                 .await?;
                 eyre::ensure!(!fields.is_empty(), "No field definitions returned");
                 let kinds: std::collections::BTreeSet<AzureDevOpsWorkItemType> = items
@@ -709,22 +731,22 @@ async fn live_work_item_deserialization() -> Result<()> {
                 for work_item_type in kinds {
                     *stage = "type field definitions";
                     let fields = AzureDevOpsWorkItemTypeFieldListRequest {
-                        cancellation: cancellation.clone(),
                         org_url: std::borrow::Cow::Borrowed(&organization),
                         project: project.clone(),
                         auth_context: std::borrow::Cow::Borrowed(&auth_context),
                         work_item_type: work_item_type.clone(),
                     }
+                    .execute(&executor)
                     .await?;
                     eyre::ensure!(!fields.is_empty(), "No type fields returned");
                     type_fields.insert(work_item_type, fields);
                 }
                 *stage = "relation definitions";
                 let relations = AzureDevOpsWorkItemRelationTypeListRequest {
-                    cancellation: cancellation.clone(),
                     org_url: std::borrow::Cow::Borrowed(&organization),
                     auth_context: std::borrow::Cow::Borrowed(&auth_context),
                 }
+                .execute(&executor)
                 .await?;
                 eyre::ensure!(!relations.is_empty(), "No relation definitions returned");
                 if let Ok(root) = std::env::var("CT_TEST_AZDO_COPY_ROOT") {

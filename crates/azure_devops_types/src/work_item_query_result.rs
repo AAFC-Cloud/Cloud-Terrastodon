@@ -7,6 +7,7 @@ use crate::WorkItemReference;
 use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
+use std::sync::Arc;
 
 /// The result of a work item query.
 /// https://learn.microsoft.com/en-us/rest/api/azure/devops/wit/wiql/query-by-id?view=azure-devops-rest-7.1
@@ -33,4 +34,5 @@ pub struct WorkItemQueryResult {
 
 cloud_terrastodon_registry::register_thing!(WorkItemQueryResult);
 cloud_terrastodon_registry::register_arbitrary!(WorkItemQueryResult);
+cloud_terrastodon_registry::register_arbitrary!(Arc<Option<WorkItemQueryResult>>);
 cloud_terrastodon_registry::register_arbitrary!(Option<WorkItemQueryResult>);

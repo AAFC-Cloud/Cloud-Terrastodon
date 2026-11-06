@@ -3,6 +3,7 @@ use crate::fetch_azure_bearer_access_token;
 use cloud_terrastodon_auth_types::AuthenticationSelection;
 use cloud_terrastodon_auth_types::Authorization;
 use cloud_terrastodon_auth_types::AzureCredentialResource;
+use cloud_terrastodon_auth_types::ContainerRegistryBearerChallenge;
 use cloud_terrastodon_cache::AuthPartition;
 use cloud_terrastodon_execution::AuthenticationProvider;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
@@ -70,6 +71,29 @@ impl AuthenticationProvider for CredentialAuthenticationProvider {
                     Authorization::personal_access_token(token.as_str())
                 }
             }
+        })
+    }
+
+    fn container_registry_authorization<'a>(
+        &'a self,
+        selection: &'a AuthenticationSelection,
+        challenge: &'a ContainerRegistryBearerChallenge,
+        executor: &'a CloudTerrastodonExecutor,
+    ) -> ExecutionFuture<'a, Authorization> {
+        Box::pin(async move {
+            self.admit(selection)?;
+            let AuthenticationSelection::AzureBearer { tenant_id, .. } = selection else {
+                eyre::bail!(
+                    "Container Registry requires an explicitly tenant-bound bearer selection"
+                );
+            };
+            crate::container_registry_authorization::authorize_container_registry(
+                challenge,
+                &self.auth_context,
+                *tenant_id,
+                executor.cancellation(),
+            )
+            .await
         })
     }
 }

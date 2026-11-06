@@ -6,17 +6,18 @@ use crate::UnifiedRoleDefinitionCollection;
 use crate::UnifiedRoleDefinitionId;
 use eyre::bail;
 use std::collections::HashMap;
+use std::sync::Arc;
 use uuid::Uuid;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, facet::Facet)]
 pub struct UnifiedRoleDefinitionsAndAssignments {
     pub role_definitions: UnifiedRoleDefinitionCollection,
-    pub role_assignments: HashMap<UnifiedRoleAssignmentId, UnifiedRoleAssignment>,
+    pub role_assignments: HashMap<UnifiedRoleAssignmentId, Arc<UnifiedRoleAssignment>>,
 }
 impl UnifiedRoleDefinitionsAndAssignments {
     pub fn try_new(
-        role_definitions: impl IntoIterator<Item = UnifiedRoleDefinition>,
-        role_assignments: impl IntoIterator<Item = UnifiedRoleAssignment>,
+        role_definitions: impl IntoIterator<Item = Arc<UnifiedRoleDefinition>>,
+        role_assignments: impl IntoIterator<Item = Arc<UnifiedRoleAssignment>>,
     ) -> eyre::Result<Self> {
         let mut role_definitions = UnifiedRoleDefinitionCollection::new(role_definitions);
         role_definitions.canonicalize();
@@ -25,7 +26,7 @@ impl UnifiedRoleDefinitionsAndAssignments {
         ];
         let role_assignments = role_assignments
             .into_iter()
-            .filter(|ra: &UnifiedRoleAssignment| {
+            .filter(|ra: &Arc<UnifiedRoleAssignment>| {
                 // The following roles should not be used. They have been deprecated and will be removed from Microsoft Entra ID in the future.
                 // https://learn.microsoft.com/en-us/entra/identity/role-based-access-control/permissions-reference#deprecated-roles
                 // We filter them out because entra no longer includes them in the role definitions list, causing validation errors.
@@ -57,7 +58,7 @@ impl UnifiedRoleDefinitionsAndAssignments {
         self.role_assignments.values().filter_map(move |ra| {
             self.role_definitions
                 .get(&ra.role_definition_id)
-                .map(|rd| (ra, rd))
+                .map(|rd| (ra.as_ref(), rd.as_ref()))
         })
     }
 }

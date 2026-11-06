@@ -5,7 +5,7 @@ use std::ops::Deref;
 use std::ops::DerefMut;
 use std::time::Duration;
 
-#[derive(Debug, PartialEq, facet::Facet, Default, Clone, Arbitrary)]
+#[derive(Debug, Eq, PartialEq, facet::Facet, Default, Clone, Arbitrary)]
 #[facet(transparent)]
 pub struct RestResponseHeaders(pub BTreeMap<String, Vec<String>>);
 

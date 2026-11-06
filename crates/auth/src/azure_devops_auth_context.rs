@@ -4,6 +4,7 @@ use cloud_terrastodon_auth_types::AuthSource;
 use cloud_terrastodon_auth_types::AzureBearerAuthSource;
 use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
 use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use eyre::bail;
 
@@ -22,6 +23,23 @@ pub enum AzureDevOpsAuthContext {
 }
 
 impl AzureDevOpsAuthContext {
+    /// Bind the caller's selected credential session without resolving credentials.
+    ///
+    /// This is an explicit caller-boundary provider replacement. SDK operations
+    /// continue using the executor they receive, including injected providers.
+    pub fn bind_executor(
+        &self,
+        executor: &CloudTerrastodonExecutor,
+    ) -> Result<CloudTerrastodonExecutor> {
+        match self {
+            Self::None => {
+                bail!("the placeholder Azure DevOps context cannot bind an executor");
+            }
+            Self::Bearer(context) => context.auth_context.bind_executor(executor),
+            Self::PersonalAccessToken(context) => context.bind_executor(executor),
+        }
+    }
+
     /// Normalize an already tenant-bound Azure authentication context for
     /// Azure DevOps without splitting the tenant from its credentials.
     pub fn for_azure_tenant(auth_context: &AzureTenantAuthContext) -> Self {

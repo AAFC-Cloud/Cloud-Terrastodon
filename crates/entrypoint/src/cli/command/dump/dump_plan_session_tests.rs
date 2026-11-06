@@ -88,7 +88,7 @@ fn app_service_site_config_is_selectable_and_updates_the_diagram_without_executi
         // Only the descriptor participates. No Azure request, authentication or
         // arbitrary constructor runs while deriving the nested output shape.
         let planner = DumpPlanner::new(
-            [AppServiceListRequest::REGISTERED_INTO_FUTURE],
+            [AppServiceListRequest::REGISTERED_EXECUTABLE_REQUEST],
             [],
             Vec::new(),
         );

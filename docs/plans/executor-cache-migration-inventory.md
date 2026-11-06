@@ -60,10 +60,27 @@ Core DevOps routes preserve Server collection identity. New response records liv
 in the domain types crates. Command service authentication is no longer inferred
 from an ambient CLI session.
 
-REST still uses its existing cache/lifecycle until task 4.2, and most service
-request objects still carry their legacy context/scope until the SDK batches.
-Legacy `CacheableCommand` therefore now describes REST request invalidation in
-many files; its presence is not evidence of remaining subprocess execution.
+Task 4.2 now routes REST through the explicit executor and modern cache owner.
+The transport retains nonsecret authentication selection rather than runtime
+credentials or cancellation. Cached receives use canonical operation owners and
+decoded `Arc` values; owned receives execute independently. SDK and consumer
+callers use bound execution and modern invalidation contracts. The old Command
+global cache, `CacheableCommand`, and its request macros are removed.
+Some SDK request objects still retain authentication contexts pending phase 5's
+request-data refinement. Task 4.2b now carries cached response ownership through
+SDK consumers: singleton reads return `Arc<T>`, single-page collections can
+return `Arc<Vec<T>>`, and paginated/composed inventories retain records as
+`Vec<Arc<T>>`. It removes deep-copy adapters and response `Clone` derives/bounds
+used solely for those copies. Owned ID/name/path projections remain appropriate
+when they build a distinct domain value; consumers borrow or retain cached
+handles for ordinary selection and presentation. Task 4.2b records 46 passing
+offline tests and successful workspace all-target check/Clippy for this refinement.
+Sharing is not proof of aggregate memoization or
+dependency freshness. Existing uncached Work Item
+Tracking reads retain that policy. Unknown-ID `PrincipalRequest` batches share
+the typed envelope with opaque success bodies, then decode the ID-selected
+principal type on each invocation; that remaining concrete decode belongs to
+phase 5's canonical principal result.
 The new local configuration files are `azure_devops_cli_config_request.rs`,
 `default_azure_devops_organization_url_request.rs`, and
 `default_azure_devops_project_name_request.rs`.
@@ -150,16 +167,18 @@ and [request contract](../../crates/execution/src/executable_request.rs) beneath
 the runtime credential implementation. B04 owns its provider adapter and B19 owns
 application binding. Task 3.3 implements B05's borrowed invocation ABI and the
 direct UI consumers, with validation recorded in the owning plan. B02/B03's
-production transport lifecycle belongs to phase 4; B02's Command cutover is
-complete in 4.1b and B03's REST cutover remains 4.2. Service SDK callers still need
-their scheduled request cutover. Legacy IntoFuture callbacks remain separately
-tagged until those callers migrate.
+production transport lifecycle belongs to phase 4. B02's Command cutover is
+complete in 4.1b/4.1c; B03's REST cutover and caller propagation are complete
+in 4.2, with workspace all-target check/Clippy, focused offline tests, and final
+caller review passed. Legacy registry IntoFuture callbacks remain separately tagged for
+remaining local/request families; their presence does not imply a legacy REST
+cache path.
 
 | Batch | Owning tasks | Source and responsibility | Completion obligation |
 | --- | --- | --- | --- |
-| B01 Cache owner and artifact storage | 2.1–2.4 | [artifact_cache.rs](../../crates/command/src/artifact_cache.rs), [cache_key.rs](../../crates/command/src/cache_key.rs), [cache_invalidatable.rs](../../crates/command/src/cache_invalidatable.rs), [command_cache_discovery.rs](../../crates/command/src/command_cache_discovery.rs) | Replace global memory ownership; bind invalidation and discovery to the explicit cache root/owner; preserve inspectable artifacts, validity, readable scope hierarchy, and live-entry coordination. |
-| B02 Shared work and subprocess adapter | 2.1, 2.3, 4.1; residual traits 4.2, 5–7 | [cacheable_work.rs](../../crates/command/src/cacheable_work.rs), [cachable_command.rs](../../crates/command/src/cachable_command.rs), [command.rs](../../crates/command/src/command.rs), [process_fingerprint.rs](../../crates/command/src/process_fingerprint.rs), [from_command_output.rs](../../crates/command/src/from_command_output.rs) | Tasks 4.1b/4.1c use explicit managed entrypoints for artifacts and cached results, with scope-only local process methods beneath them. Preserve fingerprints, retries, raw outputs, per-caller policy, caller/span diagnostics, and cancellation. Legacy request traits/macros remain only for REST and SDK callers scheduled in 4.2 and phases 5–7. The existing spelling `cachable_command.rs` is intentional in this reference. |
-| B03 REST adapter | 4.2 | [rest_request.rs](../../crates/rest/src/rest_request.rs), [request_execution.rs](../../crates/rest/src/request_execution.rs), [tenant_inference.rs](../../crates/rest/src/tenant_inference.rs) | Move auth/scope resources to execution; cover cached and uncached paths, raw and typed outputs, decoders, validators, metadata mappers, continuation headers, and explicit auth selection. |
+| B01 Cache owner and artifact storage | 2.1–2.4, 4.2 | [work_cache.rs](../../crates/cache/src/work_cache.rs), [cache_key.rs](../../crates/cache/src/cache_key.rs), [work_cache_invalidation.rs](../../crates/cache/src/work_cache_invalidation.rs), [work_cache_inventory.rs](../../crates/cache/src/work_cache_inventory.rs) | Explicit cache ownership replaces the removed Command global cache. Modern inventory reads addresses and metadata under the artifact gate, without loading response payloads or credential inputs; list/clean consumers invalidate through that same owner. Preserve inspectable artifacts, validity, readable scopes, and in-flight coordination. |
+| B02 Shared work and subprocess adapter | 2.1, 2.3, 4.1, 4.2 | [cached_work_spec.rs](../../crates/cache/src/cached_work_spec.rs), [command.rs](../../crates/command/src/command.rs), [process_fingerprint.rs](../../crates/command/src/process_fingerprint.rs), [from_command_output.rs](../../crates/command/src/from_command_output.rs) | Tasks 4.1b/4.1c use explicit managed entrypoints for artifacts and cached results, with scope-only local process methods beneath them. Preserve fingerprints, retries, raw outputs, per-caller policy, caller/span diagnostics, and cancellation. Task 4.2 removes the residual Command cacheable-request traits/macros after migrating their REST/SDK consumers. |
+| B03 REST adapter | 4.2 | [rest_request.rs](../../crates/rest/src/rest_request.rs), [request_execution.rs](../../crates/rest/src/request_execution.rs), [container_registry_request_execution.rs](../../crates/rest/src/container_registry_request_execution.rs), [tenant_inference.rs](../../crates/rest/src/tenant_inference.rs) | Implemented explicit executor and authentication-selection boundaries, independent owned receives, canonical shared decoding, per-caller policy, metadata/continuation mapping, and provider-owned ACR authorization. Final local regression evidence belongs to task 4.2; no live compatibility claim. |
 | B04 Credential selection and runtime | 3.1, 3.2 | [auth_source.rs](../../crates/auth_types/src/auth_source.rs), [auth_context.rs](../../crates/auth/src/auth_context.rs), [credential_authentication_provider.rs](../../crates/auth/src/credential_authentication_provider.rs), [azure_tenant_auth_context.rs](../../crates/auth/src/azure_tenant_auth_context.rs), [azure_devops_auth_context.rs](../../crates/auth/src/azure_devops_auth_context.rs), [azure_access_token.rs](../../crates/auth/src/azure_access_token.rs), [tracked_tenants.rs](../../crates/azure/src/tracked_tenants.rs) | Completed 3.1 renames runtime `credentials` to `auth` and moves selections to `auth_types` without compatibility aliases; `AzureTenantId` stays in `azure_types`. Task 3.2 adapts the owned auth context to the lower `AuthenticationProvider` interface, preserving source/tenant admission, session identity, sensitive token caches, and PAT audience policy. Credential acquisition is infrastructure, not an inventory dependency or general-cache result. |
 | B05 Registry invocation and discovery | 3.0, 3.3, 6.3, 7.1 | [pure registry lib](../../crates/registry/src/lib.rs), [invocation registry lib](../../crates/registry_execution/src/lib.rs), [function.rs](../../crates/registry_execution/src/function.rs), [bind_request_cancellation.rs](../../crates/registry_execution/src/bind_request_cancellation.rs), [default_production.rs](../../crates/registry_execution/src/default_production.rs), [function_trait_contract.rs](../../crates/registry/src/function_trait_contract.rs), [discovery_reflection.rs](../../crates/registry_execution/src/discovery_reflection.rs) | Completed 3.0 makes `registry` the pure foundation, absorbing `registry_values` and pure conversions/metadata/planning; runtime invocation lives in `registry_execution` with no old package/import compatibility surfaces. One authoritative registration per operation supplies metadata and runtime catalogue views. Task 3.3 adds the borrowed executable callback, direct registration handle, executor-bound default production, and offline shared-output discovery without adding an upward dependency from the foundation. The separately tagged legacy callback is removed with its remaining request families in phases 5–7. Task 7.1 audits residual old references rather than postponing this cutover. |
 
@@ -284,18 +303,21 @@ Do not turn the optional `Vec<Arc<T>>` design into a blanket domain-model rewrit
 
 ## Existing key reuse that must not become nested initialization
 
-Today `CacheableCommand::run` executes the SDK body without caching the assembled
-SDK result. Therefore a request can pass its own key to a transport without an
-outer key lock. That becomes unsafe if SDK memoization is introduced mechanically.
-These are source-established examples, not failures reproduced against real caches:
+At the original inventory baseline, `CacheableCommand::run` executed SDK bodies
+without caching assembled results. Task 4.2 removes that contract: executable SDK
+procedures call canonical REST work under the Rest namespace, and most assembled
+SDK results remain owned. The historical forwarding examples below still guide
+phase 5's separate InProcess owners and dependency tracking; do not add an outer
+initializer using its child's concrete identity. These are source-established
+relationships, not failures reproduced against real caches:
 
 | Existing chain | Current key relationship | Required classification |
 | --- | --- | --- |
-| [EntraUserGetRequest](../../crates/azure/src/entra_user_get_request.rs) → REST receive | Assigns `Some(self.cache_key())` directly to RestRequest | SDK and REST must have distinct execution owners/identities, even if they decode the same user type. |
+| [EntraUserGetRequest](../../crates/azure/src/entra_user_get_request.rs) → REST receive | Shares its logical scope with canonical REST work; assembled SDK output remains owned | SDK aggregate and REST must have distinct execution owners/identities, even if they decode the same user type. |
 | [EntraGroupGetRequest](../../crates/azure/src/entra_group_get_request.rs), service-principal/application get → Graph `fetch_one` → REST | Graph forwards the caller key unchanged for singleton requests | A generic Graph location is not an owner identifier; classify all singleton helper callers. |
 | [PrincipalRequest](../../crates/azure/src/principal_get_request.rs) for unknown ID → Graph batch | Batch receives the principal request key but returns a different intermediate shape | Separate transport batch artifacts from canonical principal result; preserve dependencies for known-ID child requests too. |
-| [ComputeSkuPricesRequest](../../crates/azure/src/compute_sku_prices.rs) → REST pages | Task 4.1b replaces Command with anonymous pricing requests beneath the SDK scope | Task 4.2 separates the canonical REST owner from the future memoized SDK result. |
-| Azure DevOps agent/group/team/service-endpoint/legacy query requests → REST | Task 4.1b replaces Command; request keys still identify existing REST artifacts | Preserve scoped invalidation while introducing central REST namespaces and owners in 4.2. |
+| [ComputeSkuPricesRequest](../../crates/azure/src/compute_sku_prices.rs) → REST pages | Task 4.1b replaces Command with anonymous pricing; 4.2 uses explicit shared REST work | Keep the canonical REST owner separate from the future memoized SDK result. |
+| Azure DevOps agent/group/team/service-endpoint/legacy query requests → REST | Task 4.2 uses modern keys, central REST namespace, and explicit canonical owners | Preserve scoped invalidation and child dependencies when phase 5 adds aggregate owners. |
 | [Gitea singleton get](../../crates/gitea/src/gitea_user_get_request.rs) → `gitea_api_get` → command | Task 4.1b uses independently executed commands with zero-validity artifacts | SDK requests remain nonreusable without credential-generation identity; best-effort raw parsing has a distinct artifact scope. |
 | Graph/Resource Graph/project lists → page requests | Child pages usually append a page index; aggregate is currently not memoized | Preserve logical subtree invalidation while separating namespaces/owners; absence of exact-key recursion does not supply aggregate dependency freshness. |
 
@@ -342,6 +364,12 @@ response validators, build-definition validators, Gitea best-effort parsing,
 application-gateway/deployment raw response handling, build-folder deletion,
 and generic REST CLI output. The shared cache must not turn caller-specific
 validation/projection into canonical decoding merely because the Rust types match.
+Task 4.2b adds a distinct fixed wire-to-domain conversion boundary to REST:
+Resource Graph rows are decoded and converted once before publishing the shared
+domain result. Wire and target types both participate in the cache contract, and
+conversion failures retain response artifacts. Arbitrary per-caller validators
+and mappers still run separately and do not become canonical solely because
+their return types match.
 
 ## Explicit exclusions and exceptions
 

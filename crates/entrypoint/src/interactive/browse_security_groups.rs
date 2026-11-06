@@ -11,7 +11,7 @@ use cloud_terrastodon_azure::fetch_all_role_definitions;
 use cloud_terrastodon_azure::fetch_group_members;
 use cloud_terrastodon_azure::fetch_group_owners;
 use cloud_terrastodon_azure::get_security_group_choices;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::PickerTui;
@@ -19,6 +19,7 @@ use cloud_terrastodon_user_input::are_you_sure;
 use eyre::Result;
 use eyre::bail;
 use std::collections::HashMap;
+use std::sync::Arc;
 use strum::VariantArray;
 use tokio::try_join;
 use tracing::info;
@@ -32,25 +33,25 @@ enum SecurityGroupAction {
 
 #[derive(Debug, facet::Facet)]
 struct SecurityGroupBrowseRow {
-    group: EntraGroup,
-    owners: Option<Vec<EntraDirectoryObject>>,
-    members: Option<Vec<EntraDirectoryObject>>,
+    group: Arc<EntraGroup>,
+    owners: Option<Vec<Arc<EntraDirectoryObject>>>,
+    members: Option<Vec<Arc<EntraDirectoryObject>>>,
     role_assignments: Option<Vec<SecurityGroupRoleAssignmentRow>>,
 }
 
 #[derive(Debug, facet::Facet)]
 struct SecurityGroupRoleAssignmentRow {
-    role_assignment: RoleAssignment,
-    role_definition: RoleDefinition,
+    role_assignment: Arc<RoleAssignment>,
+    role_definition: Arc<RoleDefinition>,
 }
 
 pub async fn browse_security_groups(
     auth_context: &AzureTenantAuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
     let (security_groups, maybe_error) = PickerTui::<_>::new()
         .set_header("security groups")
-        .pick_many(get_security_group_choices(auth_context, cancellation).await?)
+        .pick_many(get_security_group_choices(auth_context, executor).await?)
         .await
         .into_chosen_and_maybe_error()?;
 
@@ -87,7 +88,7 @@ pub async fn browse_security_groups(
     let mut rows = Vec::with_capacity(security_groups.len());
     for group in &security_groups {
         let row = SecurityGroupBrowseRow {
-            group: group.clone(),
+            group: Arc::clone(group),
             owners: None,
             members: None,
             role_assignments: None,
@@ -104,8 +105,8 @@ pub async fn browse_security_groups(
                 );
                 for (group, row) in security_groups.iter().zip(rows.iter_mut()) {
                     let (owners, members) = try_join!(
-                        fetch_group_owners(group.id, auth_context, cancellation),
-                        fetch_group_members(group.id, auth_context, cancellation)
+                        fetch_group_owners(group.id, auth_context, executor),
+                        fetch_group_members(group.id, auth_context, executor)
                     )?;
                     row.owners = Some(owners);
                     row.members = Some(members);
@@ -117,19 +118,19 @@ pub async fn browse_security_groups(
                     security_groups.len()
                 );
                 let (role_assignments, role_definitions) = try_join!(
-                    fetch_all_role_assignments(auth_context, cancellation),
-                    fetch_all_role_definitions(auth_context, cancellation),
+                    fetch_all_role_assignments(auth_context, executor),
+                    fetch_all_role_definitions(auth_context, executor),
                 )?;
                 let role_assignments_by_principal: HashMap<
                     &EntraPrincipalId,
-                    Vec<&RoleAssignment>,
+                    Vec<&Arc<RoleAssignment>>,
                 > = role_assignments
                     .iter()
                     .fold(HashMap::default(), |mut map, row| {
                         map.entry(&row.principal_id).or_default().push(row);
                         map
                     });
-                let role_definitions_by_id: HashMap<&RoleDefinitionId, &RoleDefinition> =
+                let role_definitions_by_id: HashMap<&RoleDefinitionId, &Arc<RoleDefinition>> =
                     role_definitions
                         .iter()
                         .fold(HashMap::new(), |mut map, row| {
@@ -148,8 +149,8 @@ pub async fn browse_security_groups(
                                 role_definitions_by_id.get(&role_assignment.role_definition_id)
                             {
                                 Ok(SecurityGroupRoleAssignmentRow {
-                                    role_assignment: (*role_assignment).clone(),
-                                    role_definition: (*role_definition).clone(),
+                                    role_assignment: Arc::clone(role_assignment),
+                                    role_definition: Arc::clone(role_definition),
                                 })
                             } else {
                                 bail!(

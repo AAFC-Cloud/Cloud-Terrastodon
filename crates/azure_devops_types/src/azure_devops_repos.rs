@@ -39,8 +39,8 @@ pub struct AzureDevOpsRepo {
     pub web_url: String,
 }
 
-impl From<AzureDevOpsRepo> for HclImportBlock {
-    fn from(repo: AzureDevOpsRepo) -> Self {
+impl From<&AzureDevOpsRepo> for HclImportBlock {
+    fn from(repo: &AzureDevOpsRepo) -> Self {
         HclImportBlock {
             provider: HclProviderReference::Inherited,
             id: format!("{}/{}", repo.project.id, *repo.id),

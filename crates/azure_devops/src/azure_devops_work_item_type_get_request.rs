@@ -4,23 +4,18 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemType;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemTypeDefinition;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_rest::RestRequest;
-use eyre::Result;
 use facet::Facet;
 use reqwest::Method;
 use reqwest::Url;
 use std::borrow::Cow;
-use std::future::Future;
-use std::future::IntoFuture;
-use std::pin::Pin;
 
 #[derive(Debug, Clone, Facet)]
 #[facet(traits(Clone))]
 pub struct AzureDevOpsWorkItemTypeGetRequest<'a> {
-    #[facet(skip_serializing)]
-    pub cancellation: CancellationScope,
-
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub project: AzureDevOpsProjectArgument<'a>,
     pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
@@ -30,7 +25,6 @@ pub struct AzureDevOpsWorkItemTypeGetRequest<'a> {
 impl<'a> Arbitrary<'a> for AzureDevOpsWorkItemTypeGetRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
-            cancellation: CancellationScope::arbitrary(u)?,
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
             auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
@@ -39,11 +33,15 @@ impl<'a> Arbitrary<'a> for AzureDevOpsWorkItemTypeGetRequest<'static> {
     }
 }
 
-impl<'a> IntoFuture for AzureDevOpsWorkItemTypeGetRequest<'a> {
-    type Output = Result<AzureDevOpsWorkItemTypeDefinition>;
-    type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + Send + 'a>>;
+impl<'a> ExecutableRequest for AzureDevOpsWorkItemTypeGetRequest<'a> {
+    type Error = eyre::Report;
+    type Output = AzureDevOpsWorkItemTypeDefinition;
 
-    fn into_future(self) -> Self::IntoFuture {
+    fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
+    where
+        Self: 'exec,
+        Self::Output: 'exec,
+    {
         Box::pin(async move {
             let project = self.project.to_string();
             let mut url = Url::parse(&self.org_url.to_string())?;
@@ -54,16 +52,16 @@ impl<'a> IntoFuture for AzureDevOpsWorkItemTypeGetRequest<'a> {
                 .extend(["_apis", "wit", "workitemtypes"])
                 .push(self.name.as_ref());
             url.query_pairs_mut().append_pair("api-version", "7.1");
-            let request = RestRequest::from_method_and_url(Method::GET, url, &self.cancellation)?
+            let request = RestRequest::from_method_and_url(Method::GET, url)?
                 .azure_devops_auth_context(self.auth_context.as_ref())?;
-            request.receive().await
+            request.receive(&executor).await
         })
     }
 }
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsWorkItemTypeGetRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsWorkItemTypeGetRequest<'static>);
-cloud_terrastodon_registry_execution::register_into_future!(
+cloud_terrastodon_registry_execution::register_executable_request!(
     AzureDevOpsWorkItemTypeGetRequest<'static> => AzureDevOpsWorkItemTypeDefinition,
     effects = [Read]
 );

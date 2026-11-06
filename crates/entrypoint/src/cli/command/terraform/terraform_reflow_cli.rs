@@ -1,7 +1,8 @@
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_hcl::HclWriter;
 use cloud_terrastodon_hcl::discovery::DiscoveryDepth;
 use cloud_terrastodon_hcl::discovery::discover_hcl;
@@ -48,8 +49,9 @@ impl TerraformReflowArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         self.validate()?;
         let hcl = discover_hcl(&self.source_dir, self.discovery_depth()).await?;
         let old_paths = hcl.keys().cloned().collect::<HashSet<_>>();
@@ -65,12 +67,17 @@ impl TerraformReflowArgs {
         } else {
             None
         };
+        let executor = &match &tenant_auth_context {
+            Some(context) => context.auth_context.bind_executor(executor)?,
+            None => executor.clone(),
+        };
 
         info!(count = hcl.len(), "Discovered HCL files for reflowing");
-        let hcl = ReflowHclRequest::new(hcl, tenant_auth_context.as_ref(), cancellation)
+        let hcl = ReflowHclRequest::new(hcl, tenant_auth_context.as_ref())
             .include_principal_id_comments(self.full)
             .single_file_path(single_file_path)
             .mixed(self.mixed)
+            .execute(executor)
             .await?;
         let new_paths = hcl.keys().cloned().collect::<HashSet<_>>();
 

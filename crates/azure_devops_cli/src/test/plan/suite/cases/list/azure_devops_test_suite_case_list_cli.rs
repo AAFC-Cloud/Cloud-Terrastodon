@@ -4,7 +4,7 @@ use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_test_suite_cases;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use std::io::stdout;
 
@@ -35,19 +35,21 @@ impl AzureDevOpsTestSuiteCaseListArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let azure_devops_auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &azure_devops_auth_context.bind_executor(executor)?;
         let cases = fetch_azure_devops_test_suite_cases(
             &self.org,
             self.project,
             self.plan,
             self.suite,
             &azure_devops_auth_context,
-            cancellation,
+            executor,
         )
         .await?;
         facet_json::to_writer_std_pretty(stdout(), &cases)

@@ -3,7 +3,7 @@ use cloud_terrastodon_azure::fetch_all_policy_assignments;
 use cloud_terrastodon_azure::fetch_all_policy_definitions;
 use cloud_terrastodon_azure::fetch_all_policy_set_definitions;
 use cloud_terrastodon_azure::fetch_all_subscriptions;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_hcl::HclImportBlock;
 use cloud_terrastodon_hcl::HclProviderReference;
 use cloud_terrastodon_hcl::HclWriter;
@@ -19,14 +19,15 @@ use tracing::info;
 
 pub async fn build_policy_imports(
     auth_context: &AzureTenantAuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
+    let cancellation = executor.cancellation();
     info!("Fetching information");
     let (policy_definitions, policy_set_definitions, policy_assignments, subscriptions) = try_join!(
-        fetch_all_policy_definitions(auth_context, cancellation),
-        fetch_all_policy_set_definitions(auth_context, cancellation),
-        fetch_all_policy_assignments(auth_context, cancellation),
-        fetch_all_subscriptions(auth_context, cancellation),
+        fetch_all_policy_definitions(auth_context, executor),
+        fetch_all_policy_set_definitions(auth_context, executor),
+        fetch_all_policy_assignments(auth_context, executor),
+        fetch_all_subscriptions(auth_context, executor),
     )?;
 
     let subscriptions = subscriptions
@@ -55,7 +56,7 @@ pub async fn build_policy_imports(
             } else {
                 HclProviderReference::Inherited
             };
-            let mut block: HclImportBlock = policy_definition.into();
+            let mut block: HclImportBlock = policy_definition.as_ref().into();
             block.provider = provider;
             if seen_ids.insert(block.id.clone()) {
                 imports.push(block);
@@ -80,7 +81,7 @@ pub async fn build_policy_imports(
                 } else {
                     HclProviderReference::Inherited
                 };
-            let mut block: HclImportBlock = policy_set_definition.into();
+            let mut block: HclImportBlock = policy_set_definition.as_ref().into();
             block.provider = provider;
             if seen_ids.insert(block.id.clone()) {
                 imports.push(block);
@@ -91,7 +92,7 @@ pub async fn build_policy_imports(
     info!("Writing policy assignment import blocks");
     for policy_assignment in policy_assignments {
         //todo: filter out inherited assignments that cause the terraform block label to contain a mismatched management group name
-        let import_block: HclImportBlock = policy_assignment.into();
+        let import_block: HclImportBlock = policy_assignment.as_ref().into();
         let provider = import_block.provider;
         let id = import_block.id;
         let to = import_block.to;

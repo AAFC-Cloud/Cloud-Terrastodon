@@ -2,6 +2,7 @@ use crate::AzureCognitiveServicesAccountDeploymentId;
 use crate::AzureCognitiveServicesAccountDeploymentName;
 use arbitrary::Arbitrary;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 #[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
@@ -109,16 +110,7 @@ pub struct AzureCognitiveServicesSystemData {
     pub last_modified_at: Option<String>,
 }
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
-pub struct AzureCognitiveServicesAccountDeploymentListResult {
-    #[facet(
-        default,
-
-        proxy = crate::VecDefaultNullProxy<AzureCognitiveServicesAccountDeployment>
-    )]
-    pub value: Vec<AzureCognitiveServicesAccountDeployment>,
-}
-
 cloud_terrastodon_registry::register_thing!(AzureCognitiveServicesAccountDeployment);
 cloud_terrastodon_registry::register_arbitrary!(AzureCognitiveServicesAccountDeployment);
 cloud_terrastodon_registry::register_arbitrary!(Vec<AzureCognitiveServicesAccountDeployment>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<AzureCognitiveServicesAccountDeployment>>);

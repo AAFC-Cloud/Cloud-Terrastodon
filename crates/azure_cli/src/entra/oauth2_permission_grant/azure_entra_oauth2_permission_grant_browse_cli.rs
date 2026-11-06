@@ -2,7 +2,7 @@ use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::pick_oauth2_permission_grants;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_user_input::PickResultExt;
 use eyre::Result;
 use std::io::Write;
@@ -19,13 +19,15 @@ impl AzureEntraOAuth2PermissionGrantBrowseArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
-        let (chosen, maybe_error) = pick_oauth2_permission_grants(&auth_context, cancellation)
+        let executor = &auth_context.auth_context.bind_executor(executor)?;
+        let (chosen, maybe_error) = pick_oauth2_permission_grants(&auth_context, executor)
             .await
             .into_chosen_and_maybe_error()?;
         let chosen = chosen

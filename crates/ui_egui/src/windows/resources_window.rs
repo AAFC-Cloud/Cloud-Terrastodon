@@ -18,15 +18,13 @@ pub fn resources_ui(app: &mut MyApp, ui: &mut Ui) {
             let work = LoadableWorkBuilder::new()
                 .description("Fetch resources")
                 .setter(|app, l| app.resources = l)
-                .work(
-                    app.cancellation
-                        .cancellable_scope(move |cancellation| async move {
-                            let auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
-                            Ok(Arc::new(
-                                fetch_all_resources(&auth_context, &cancellation).await?,
-                            ))
-                        }),
-                )
+                .work(app.executor.cancellable_scope(move |executor| async move {
+                    let auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
+                    let executor = auth_context.auth_context.bind_executor(&executor)?;
+                    Ok(Arc::new(
+                        fetch_all_resources(&auth_context, &executor).await?,
+                    ))
+                }))
                 .build();
             match work {
                 Ok(work) => {
@@ -46,7 +44,7 @@ pub fn resources_ui(app: &mut MyApp, ui: &mut Ui) {
             ui.label(format!("Failed to load resources: {:#?}", err));
         }
         Loadable::Loaded(resources_rc) => {
-            let resources: &Vec<Resource> = resources_rc;
+            let resources: &Vec<Arc<Resource>> = resources_rc;
 
             let available_height = ui.available_height();
             let mut table = TableBuilder::new(ui)

@@ -2,12 +2,12 @@ use super::command::GroupManagementPlanArgs;
 use super::command::GroupManagementValidateArgs;
 use cloud_terrastodon::app::ApplicationCli;
 use cloud_terrastodon::app::AuthContext;
-use cloud_terrastodon::app::CancellationScope;
 use cloud_terrastodon::app::CliOutput;
 use cloud_terrastodon::app::GlobalArgs;
 use cloud_terrastodon::app::Result;
 use cloud_terrastodon::app::facet;
 use cloud_terrastodon::app::figue;
+use cloud_terrastodon::execution::CloudTerrastodonExecutor;
 
 /// Validate desired Entra group state or compare it with existing groups.
 #[derive(facet::Facet)]
@@ -41,11 +41,11 @@ impl GroupManagementArgs {
     pub async fn invoke(
         self,
         auth: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<CliOutput> {
         match self.command {
             GroupManagementCommand::Validate(args) => args.invoke(),
-            GroupManagementCommand::Plan(args) => Box::pin(args.invoke(auth, cancellation)).await,
+            GroupManagementCommand::Plan(args) => Box::pin(args.invoke(auth, executor)).await,
         }
     }
 }

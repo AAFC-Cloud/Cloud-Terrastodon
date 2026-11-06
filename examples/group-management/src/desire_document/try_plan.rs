@@ -9,8 +9,8 @@ use crate::planning::DesireDocumentAchievementPlan;
 use crate::planning::GroupPlanBlocker;
 use crate::tenant_preflight::preflight_tenants;
 use cloud_terrastodon::app::AuthContext;
-use cloud_terrastodon::app::CancellationScope;
 use cloud_terrastodon::auth::AzureTenantAuthContext;
+use cloud_terrastodon::auth_types::AuthenticationSelection;
 use cloud_terrastodon::auth_types::AzureCredentialResource;
 use cloud_terrastodon::azure::fetch_entra_directory_objects_by_ids;
 use cloud_terrastodon::azure::fetch_entra_user;
@@ -21,12 +21,13 @@ use cloud_terrastodon::azure_types::AzureTenantId;
 use cloud_terrastodon::azure_types::EntraGroup;
 use cloud_terrastodon::azure_types::EntraUser;
 use cloud_terrastodon::azure_types::uuid::Uuid;
-use cloud_terrastodon::command::CacheInvalidatableIntoFuture;
+use cloud_terrastodon::execution::CloudTerrastodonExecutor;
 use cloud_terrastodon::rest::RestHttpError;
 use eyre::Context;
 use eyre::Result;
 use eyre::ensure;
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 impl DesireDocument {
     /// Read fresh state and produce a review artifact without changing the directory.
@@ -41,7 +42,7 @@ impl DesireDocument {
         self,
         only_tenant: Option<AzureTenantId>,
         auth: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<DesireDocumentAchievementPlan> {
         let document_tenant_ids = {
             let mut tenants: Vec<_> = self.groups().iter().map(|group| group.tenant_id).collect();
@@ -59,9 +60,15 @@ impl DesireDocument {
         // to this tenant/resource. Complete these exchanges for every selected tenant
         // before reading the first group. No access token enters the plan artifact.
         for binding in bindings.values() {
-            cancellation.bail_if_cancelled()?;
-            binding
-                .fetch_bearer_access_token(AzureCredentialResource::MicrosoftGraph, cancellation)
+            executor.cancellation().bail_if_cancelled()?;
+            executor
+                .authorization(
+                    &AuthenticationSelection::AzureBearer {
+                        auth_source: binding.auth_context.azure_bearer_source()?,
+                        tenant_id: binding.tenant_id,
+                    },
+                    AzureCredentialResource::MicrosoftGraph,
+                )
                 .await
                 .wrap_err_with(|| {
                     format!(
@@ -71,18 +78,18 @@ impl DesireDocument {
                 })?;
         }
 
-        let resolutions = resolve_principals(desired.groups(), &bindings, cancellation).await?;
+        let resolutions = resolve_principals(desired.groups(), &bindings, executor).await?;
         let mut snapshots = Vec::with_capacity(desired.groups().len());
         let mut eligibility = BTreeMap::new();
         for group in desired.groups() {
-            cancellation.bail_if_cancelled()?;
+            executor.cancellation().bail_if_cancelled()?;
             let binding = bindings.get(&group.tenant_id).ok_or_else(|| {
                 eyre::eyre!(
                     "Tenant {} was not admitted by authentication preflight",
                     group.tenant_id
                 )
             })?;
-            let observed = fetch_group(group.group_id, binding, cancellation)
+            let observed = fetch_group(group.group_id, binding, executor)
                 .with_invalidation(true)
                 .await
                 .wrap_err_with(|| {
@@ -100,21 +107,21 @@ impl DesireDocument {
                 eligibility_blockers(&observed),
             );
             let members = if group.members_mode != ReconciliationMode::Ignore {
-                fetch_group_members(group.group_id, binding, cancellation)
+                fetch_group_members(group.group_id, binding, executor)
                     .with_invalidation(true)
                     .await?
                     .into_iter()
-                    .map(ObservedPrincipal::from)
+                    .map(|principal| ObservedPrincipal::from(principal.as_ref()))
                     .collect()
             } else {
                 Vec::new()
             };
             let owners = if group.owners_mode != ReconciliationMode::Ignore {
-                fetch_group_owners(group.group_id, binding, cancellation)
+                fetch_group_owners(group.group_id, binding, executor)
                     .with_invalidation(true)
                     .await?
                     .into_iter()
-                    .map(ObservedPrincipal::from)
+                    .map(|principal| ObservedPrincipal::from(principal.as_ref()))
                     .collect()
             } else {
                 Vec::new()
@@ -122,7 +129,7 @@ impl DesireDocument {
             snapshots.push(GroupSnapshot {
                 tenant_id: group.tenant_id,
                 group_id: group.group_id,
-                display_name: observed.display_name,
+                display_name: observed.display_name.clone(),
                 members,
                 owners,
                 members_complete: false,
@@ -130,7 +137,7 @@ impl DesireDocument {
             });
         }
 
-        cancellation.bail_if_cancelled()?;
+        executor.cancellation().bail_if_cancelled()?;
         let mut plan = DesireDocumentAchievementPlan::try_new(&desired, &snapshots, &resolutions)?;
         plan.selected_tenant_id = only_tenant;
         plan.excluded_tenant_ids = document_tenant_ids
@@ -162,11 +169,11 @@ impl DesireDocument {
 async fn resolve_principals(
     desired: &[DesiredGroup],
     bindings: &BTreeMap<AzureTenantId, AzureTenantAuthContext>,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> Result<Vec<PrincipalResolution>> {
     let mut resolutions = Vec::new();
     for binding in bindings.values() {
-        cancellation.bail_if_cancelled()?;
+        executor.cancellation().bail_if_cancelled()?;
         let mut references = BTreeMap::new();
         for group in desired
             .iter()
@@ -185,22 +192,22 @@ async fn resolve_principals(
         let by_id: BTreeMap<_, _> = if ids.is_empty() {
             BTreeMap::new()
         } else {
-            fetch_entra_directory_objects_by_ids(ids, binding, cancellation)
+            fetch_entra_directory_objects_by_ids(ids, binding, executor)
                 .with_invalidation(true)
                 .await?
                 .into_iter()
-                .map(ObservedPrincipal::from)
+                .map(|principal| ObservedPrincipal::from(principal.as_ref()))
                 .map(|principal| (principal.id.to_string(), principal))
                 .collect()
         };
         let mut by_upn = BTreeMap::new();
         for reference in references.into_values() {
-            cancellation.bail_if_cancelled()?;
+            executor.cancellation().bail_if_cancelled()?;
             let user = if let Some(upn) = &reference.user_principal_name {
                 let key = upn.comparison_key();
                 if !by_upn.contains_key(&key) {
                     let user = user_lookup_observation(
-                        fetch_entra_user(upn, binding, cancellation)
+                        fetch_entra_user(upn, binding, executor)
                             .with_invalidation(true)
                             .await,
                     )?;
@@ -224,9 +231,9 @@ async fn resolve_principals(
 }
 
 /// Only an explicit Graph not-found response establishes an absent user.
-fn user_lookup_observation(result: Result<EntraUser>) -> Result<Option<ObservedPrincipal>> {
+fn user_lookup_observation(result: Result<Arc<EntraUser>>) -> Result<Option<ObservedPrincipal>> {
     match result {
-        Ok(user) => Ok(Some(user.into())),
+        Ok(user) => Ok(Some(user.as_ref().into())),
         Err(error)
             if error
                 .downcast_ref::<RestHttpError>()
@@ -286,6 +293,7 @@ mod tests {
         Report::new(RestHttpError {
             status: status.try_into().unwrap(),
             reason_phrase: Some("Synthetic lookup response".into()),
+            headers: Default::default(),
         })
         .wrap_err("Reading a user")
     }

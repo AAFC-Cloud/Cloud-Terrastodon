@@ -1,7 +1,7 @@
 use crate::agent_package::list::AzureDevOpsAgentPackageListArgs;
 use crate::agent_package::show_newest::AzureDevOpsAgentPackageShowNewestArgs;
 use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
 /// Azure DevOps agent package-related commands.
@@ -24,14 +24,14 @@ impl AzureDevOpsAgentPackageArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
         match self.command {
             AzureDevOpsAgentPackageCommand::List(args) => {
-                args.invoke(auth_context, cancellation).await?
+                args.invoke(auth_context, executor).await?
             }
             AzureDevOpsAgentPackageCommand::ShowNewest(args) => {
-                args.invoke(auth_context, cancellation).await?
+                args.invoke(auth_context, executor).await?
             }
         }
 

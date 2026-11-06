@@ -3,7 +3,7 @@ use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::Resource;
 use cloud_terrastodon_azure::fetch_all_resources;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use nucleo::Nucleo;
 use nucleo::pattern::CaseMatching;
@@ -29,14 +29,16 @@ impl AzureFindArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let tenant_auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
         info!(needle = %self.text, "Fetching all Azure resources");
-        let resources = fetch_all_resources(&tenant_auth_context, cancellation).await?;
+        let resources = fetch_all_resources(&tenant_auth_context, executor).await?;
         info!(count = resources.len(), "Fetched Azure resources");
 
         let serialized_resources = resources
@@ -64,7 +66,7 @@ impl AzureFindArgs {
         let snapshot = nucleo.snapshot();
         let matched_indices: HashSet<usize> =
             snapshot.matched_items(..).map(|item| *item.data).collect();
-        let matches: Vec<Resource> = resources
+        let matches: Vec<Arc<Resource>> = resources
             .into_iter()
             .enumerate()
             .filter_map(|(idx, resource)| matched_indices.contains(&idx).then_some(resource))

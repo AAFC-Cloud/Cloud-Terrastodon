@@ -4,58 +4,55 @@ use cloud_terrastodon_auth::AzureDevOpsAuthContext;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemQueryId;
 use cloud_terrastodon_azure_devops_types::WorkItemQueryResult;
-use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CacheableCommand;
-use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_cache::CacheKey;
+use cloud_terrastodon_cache::CacheOperationOwner;
+use cloud_terrastodon_cache::HasCacheKey;
+use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
+use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_rest::RestRequest;
 use reqwest::Method;
 use std::borrow::Cow;
 use std::path::PathBuf;
+use std::sync::Arc;
 use tracing::debug;
 
 #[derive(Debug, Clone, facet::Facet)]
 #[facet(traits(Clone))]
 pub struct WorkItemsForQueryRequest<'a> {
-    #[facet(skip_serializing)]
-    pub cancellation: CancellationScope,
-
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub query_id: Cow<'a, AzureDevOpsWorkItemQueryId>,
     pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
 }
 
+#[track_caller]
 pub fn fetch_work_items_for_query<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     query_id: &'a AzureDevOpsWorkItemQueryId,
     auth_context: &'a AzureDevOpsAuthContext,
-    cancellation: &CancellationScope,
-) -> WorkItemsForQueryRequest<'a> {
-    WorkItemsForQueryRequest {
-        cancellation: cancellation.clone(),
+    executor: &'a CloudTerrastodonExecutor,
+) -> RequestExecution<'a, WorkItemsForQueryRequest<'a>> {
+    executor.execute(WorkItemsForQueryRequest {
         org_url: Cow::Borrowed(org_url),
         query_id: Cow::Borrowed(query_id),
         auth_context: Cow::Borrowed(auth_context),
-    }
+    })
 }
 
 impl<'a> Arbitrary<'a> for WorkItemsForQueryRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
-            cancellation: CancellationScope::arbitrary(u)?,
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             query_id: Cow::Owned(AzureDevOpsWorkItemQueryId::arbitrary(u)?),
             auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
         })
     }
 }
-
-#[async_trait]
-impl<'a> CacheableCommand for WorkItemsForQueryRequest<'a> {
-    type Output = Option<WorkItemQueryResult>;
-
-    fn cache_key(&self) -> CacheKey {
-        CacheKey::new(PathBuf::from_iter([
+impl<'a> HasCacheKey for WorkItemsForQueryRequest<'a> {
+    fn cache_key(&self) -> eyre::Result<CacheKey> {
+        CacheKey::from_relative_path(PathBuf::from_iter([
             "az",
             "devops",
             self.org_url.name(),
@@ -64,34 +61,47 @@ impl<'a> CacheableCommand for WorkItemsForQueryRequest<'a> {
             &self.query_id.to_string(),
         ]))
     }
+}
 
-    async fn run(self) -> eyre::Result<Self::Output> {
-        debug!(
-            "Fetching work item query results for {} from in organization {}",
-            self.query_id,
-            self.org_url.name()
-        );
-        // We have to use REST instead of `az devops invoke` because of https://developercommunity.visualstudio.com/t/Its-impossible-to-use-az-devops-invoke/10880749
-        // There is also `az boards query --organization {} --id {}` but it has a different output format.
-        // We want to hit the API to get the fields as described in https://learn.microsoft.com/en-us/rest/api/azure/devops/wit/wiql/query-by-wiql?view=azure-devops-rest-7.1&tabs=HTTP
-        let url = format!(
-            "{org_url}/_apis/wit/wiql/{query_id}?api-version=7.1",
-            org_url = self.org_url,
-            query_id = self.query_id,
-        );
-        let request = RestRequest::new(Method::GET, url.as_str(), &self.cancellation)?
-            .cache(self.cache_key());
-        request
-            .azure_devops_auth_context(self.auth_context.as_ref())?
-            .receive()
-            .await
+impl<'a> InvalidatesOwnCacheKey for WorkItemsForQueryRequest<'a> {}
+
+impl<'a> ExecutableRequest for WorkItemsForQueryRequest<'a> {
+    type Error = eyre::Report;
+    type Output = Arc<Option<WorkItemQueryResult>>;
+    fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
+    where
+        Self: 'exec,
+        Self::Output: 'exec,
+    {
+        Box::pin(async move {
+            debug!(
+                "Fetching work item query results for {} from in organization {}",
+                self.query_id,
+                self.org_url.name()
+            );
+            // We have to use REST instead of `az devops invoke` because of https://developercommunity.visualstudio.com/t/Its-impossible-to-use-az-devops-invoke/10880749
+            // There is also `az boards query --organization {} --id {}` but it has a different output format.
+            // We want to hit the API to get the fields as described in https://learn.microsoft.com/en-us/rest/api/azure/devops/wit/wiql/query-by-wiql?view=azure-devops-rest-7.1&tabs=HTTP
+            let url = format!(
+                "{org_url}/_apis/wit/wiql/{query_id}?api-version=7.1",
+                org_url = self.org_url,
+                query_id = self.query_id,
+            );
+            let request = RestRequest::new(Method::GET, url.as_str())?.cache(self.cache_key()?);
+            request
+                .azure_devops_auth_context(self.auth_context.as_ref())?
+                .receive_cached::<Option<WorkItemQueryResult>>(
+                    &executor,
+                    CacheOperationOwner::of::<WorkItemsForQueryRequest<'static>>(),
+                )
+                .await
+        })
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(WorkItemsForQueryRequest<'a>, 'a);
 cloud_terrastodon_registry::register_thing!(WorkItemsForQueryRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(WorkItemsForQueryRequest<'static>);
-cloud_terrastodon_registry_execution::register_into_future!(WorkItemsForQueryRequest<'static> => Option<WorkItemQueryResult>, effects = [Read]);
+cloud_terrastodon_registry_execution::register_executable_request!(WorkItemsForQueryRequest<'static> => Arc<Option<WorkItemQueryResult>>, effects = [Read]);
 
 #[cfg(test)]
 #[allow(deprecated)]
@@ -118,11 +128,13 @@ mod test {
                     &auth_context,
                     crate::test_tenant_id::test_tenant_id()?,
                 )?;
+                let executor =
+                    crate::test_executor::test_executor(&azure_devops_auth_context, &cancellation)?;
                 let org_url = get_default_organization_url(&cancellation).await?;
                 let mut projects = fetch_all_azure_devops_projects(
                     &org_url,
                     &azure_devops_auth_context,
-                    &cancellation,
+                    &executor,
                 )
                 .await?;
                 while let Some(project) = projects.pop() {
@@ -131,12 +143,12 @@ mod test {
                         &org_url,
                         &project.name,
                         &azure_devops_auth_context,
-                        &cancellation,
+                        &executor,
                     )
                     .await?;
 
                     // get query we can run
-                    let query = AzureDevOpsWorkItemQuery::flatten_many(&queries)
+                    let query = AzureDevOpsWorkItemQuery::flatten_many(queries.iter())
                         .into_iter()
                         .find(|x| !x.child.is_folder)
                         .map(|x| x.child)
@@ -150,7 +162,7 @@ mod test {
                         &org_url,
                         &query.id,
                         &azure_devops_auth_context,
-                        &cancellation,
+                        &executor,
                     )
                     .await
                     .wrap_err(format!(
@@ -160,7 +172,7 @@ mod test {
                     ))?;
 
                     // success if found some items
-                    if let Some(items) = items {
+                    if let Some(items) = items.as_ref() {
                         if items.work_items.is_empty() {
                             continue;
                         } else {

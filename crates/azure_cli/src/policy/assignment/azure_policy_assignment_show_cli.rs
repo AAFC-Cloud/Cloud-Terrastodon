@@ -3,7 +3,7 @@ use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::fetch_all_policy_assignments;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use eyre::bail;
 use std::io::Write;
@@ -25,15 +25,17 @@ impl AzurePolicyAssignmentShowArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let tenant_auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
         info!(needle = %self.policy_assignment, tenant_id = %tenant_auth_context.tenant_id, "Fetching Azure policy assignments");
         let policy_assignments =
-            fetch_all_policy_assignments(&tenant_auth_context, cancellation).await?;
+            fetch_all_policy_assignments(&tenant_auth_context, executor).await?;
         info!(
             count = policy_assignments.len(),
             "Fetched Azure policy assignments"

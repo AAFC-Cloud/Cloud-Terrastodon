@@ -3,6 +3,7 @@ use crate::ExecutionFuture;
 use cloud_terrastodon_auth_types::AuthenticationSelection;
 use cloud_terrastodon_auth_types::Authorization;
 use cloud_terrastodon_auth_types::AzureCredentialResource;
+use cloud_terrastodon_auth_types::ContainerRegistryBearerChallenge;
 use cloud_terrastodon_cache::AuthPartition;
 use eyre::Result;
 
@@ -27,4 +28,21 @@ pub trait AuthenticationProvider: Send + Sync {
         resource: AzureCredentialResource,
         executor: &'a CloudTerrastodonExecutor,
     ) -> ExecutionFuture<'a, Authorization>;
+
+    /// Exchange a validated registry challenge using this provider's admitted
+    /// bearer identity. Credential forms and responses never enter work artifacts.
+    /// Providers without registry exchange support reject this capability.
+    fn container_registry_authorization<'a>(
+        &'a self,
+        selection: &'a AuthenticationSelection,
+        _challenge: &'a ContainerRegistryBearerChallenge,
+        _executor: &'a CloudTerrastodonExecutor,
+    ) -> ExecutionFuture<'a, Authorization> {
+        Box::pin(async move {
+            self.admit(selection)?;
+            eyre::bail!(
+                "this authentication provider does not support Container Registry exchange"
+            );
+        })
+    }
 }

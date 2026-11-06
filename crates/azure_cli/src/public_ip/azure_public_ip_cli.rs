@@ -1,7 +1,7 @@
 use super::AzurePublicIpListArgs;
 use super::AzurePublicIpShowArgs;
 use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
 /// Subcommands for Azure public IP addresses.
@@ -18,11 +18,11 @@ impl AzurePublicIpCommand {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
         match self {
-            AzurePublicIpCommand::List(args) => args.invoke(auth_context, cancellation).await,
-            AzurePublicIpCommand::Show(args) => args.invoke(auth_context, cancellation).await,
+            AzurePublicIpCommand::List(args) => args.invoke(auth_context, executor).await,
+            AzurePublicIpCommand::Show(args) => args.invoke(auth_context, executor).await,
         }
     }
 }

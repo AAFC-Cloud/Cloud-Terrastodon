@@ -5,7 +5,8 @@ use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemQueryCreateRequest;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemQueryPath;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
 use std::borrow::Cow;
 
@@ -32,10 +33,15 @@ pub struct AzureDevOpsWorkItemQueryCreateArgs {
 }
 
 impl AzureDevOpsWorkItemQueryCreateArgs {
-    pub async fn invoke(self, auth: &AuthContext, cancellation: &CancellationScope) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth: &AuthContext,
+        executor: &CloudTerrastodonExecutor,
+    ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let auth_context = self.tenant.bind_auth_context(auth, cancellation).await?;
+        let executor = &auth_context.bind_executor(executor)?;
         let query = AzureDevOpsWorkItemQueryCreateRequest {
-            cancellation: cancellation.clone(),
             org_url: Cow::Borrowed(&self.org),
             project: self.project,
             auth_context: Cow::Borrowed(&auth_context),
@@ -45,6 +51,7 @@ impl AzureDevOpsWorkItemQueryCreateArgs {
                 .await?
                 .ok_or_else(|| eyre::eyre!("Missing text input"))?,
         }
+        .execute(executor)
         .await?;
         facet_json::to_writer_std_pretty(std::io::stdout(), &query)
             .map_err(|error| eyre::eyre!("{error:?}"))?;

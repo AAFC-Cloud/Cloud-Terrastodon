@@ -10,7 +10,7 @@ use cloud_terrastodon_azure::fetch_oauth2_permission_grants;
 use cloud_terrastodon_azure::merge_oauth2_permission_grant_scopes;
 use cloud_terrastodon_azure::remove_oauth2_permission_grant;
 use cloud_terrastodon_azure::update_oauth2_permission_grant;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::ContextCompat;
 use eyre::Result;
 use std::io::Write;
@@ -47,8 +47,9 @@ impl AzureEntraOAuth2PermissionGrantUpdateArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         if self.id.is_some() && (self.preset.is_some() || self.principal.is_some()) {
             eyre::bail!("--id cannot be used with --preset or --principal");
         }
@@ -57,6 +58,7 @@ impl AzureEntraOAuth2PermissionGrantUpdateArgs {
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
         let tenant_id = tenant_auth_context.tenant_id;
         let add_scope = split_scope_csv(&self.add_scope);
         let remove_scope = split_scope_csv(&self.remove_scope);
@@ -64,7 +66,12 @@ impl AzureEntraOAuth2PermissionGrantUpdateArgs {
             eyre::bail!("Specify at least one of --add-scope or --remove-scope");
         }
 
-        let grants = fetch_oauth2_permission_grants(tenant_id, cancellation).await?;
+        let grants = fetch_oauth2_permission_grants(
+            tenant_id,
+            tenant_auth_context.auth_context.azure_bearer_source()?,
+            executor,
+        )
+        .await?;
         let grant = match self.id {
             Some(id) => grants
                 .into_iter()
@@ -77,7 +84,7 @@ impl AzureEntraOAuth2PermissionGrantUpdateArgs {
                 let principal = self
                     .principal
                     .wrap_err("--principal is required when using --preset")?;
-                let principals = fetch_all_principals(&tenant_auth_context, cancellation).await?;
+                let principals = fetch_all_principals(&tenant_auth_context, executor).await?;
                 let principal = principal.resolve(&principals).wrap_err_with(|| {
                     format!(
                         "Could not resolve principal '{}' in tenant {tenant_id}",
@@ -95,8 +102,8 @@ impl AzureEntraOAuth2PermissionGrantUpdateArgs {
                 let (client_id, resource_id) = resolve_preset_service_principals(
                     tenant_id,
                     preset,
-                    auth_context,
-                    cancellation,
+                    &tenant_auth_context.auth_context,
+                    executor,
                 )
                 .await?;
                 grants
@@ -127,13 +134,13 @@ impl AzureEntraOAuth2PermissionGrantUpdateArgs {
                 id: cloud_terrastodon_azure::OAuth2PermissionGrantId,
             }
 
-            remove_oauth2_permission_grant(&tenant_auth_context, grant.id.clone(), cancellation)
+            remove_oauth2_permission_grant(&tenant_auth_context, grant.id.clone(), executor)
                 .await?;
             facet_json::to_writer_std_pretty(
                 &mut handle,
                 &DeletedResponse {
                     deleted: true,
-                    id: grant.id,
+                    id: grant.id.clone(),
                 },
             )
             .map_err(|error| eyre::eyre!("{error:?}"))?;
@@ -152,14 +159,15 @@ impl AzureEntraOAuth2PermissionGrantUpdateArgs {
             tenant_id,
             grant.id.clone(),
             merged_scope.clone(),
-            cancellation,
+            tenant_auth_context.auth_context.azure_bearer_source()?,
+            executor,
         )
         .await?;
         facet_json::to_writer_std_pretty(
             &mut handle,
             &UpdatedResponse {
                 deleted: false,
-                id: grant.id,
+                id: grant.id.clone(),
                 scope: merged_scope,
             },
         )

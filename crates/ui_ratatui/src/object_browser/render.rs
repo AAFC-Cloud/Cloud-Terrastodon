@@ -905,11 +905,10 @@ mod tests {
 
     #[test]
     fn request_card_separates_fields_and_actions_and_filters_whole_sections() -> eyre::Result<()> {
-        CancellationToken::new().with_scope(|cancellation| {
+        CancellationToken::new().with_scope(|_cancellation| {
             let mut arena = Arena::default();
             let root = arena
                 .insert_ready(runtime(AzureDevOpsProjectsListRequest {
-                    cancellation: cancellation.clone(),
                     org_url: Cow::Owned("example-org".parse().unwrap()),
                     auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
                 }))

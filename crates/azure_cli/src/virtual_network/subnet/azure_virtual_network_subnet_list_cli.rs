@@ -5,8 +5,7 @@ use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::AzureVirtualNetworkArgument;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::fetch_all_virtual_networks;
-use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
 /// List modeled subnets from the tenant's cached virtual-network inventory.
@@ -33,25 +32,29 @@ impl AzureVirtualNetworkSubnetListArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<CliOutput> {
+        let cancellation = executor.cancellation();
         let tenant_auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
-        let networks = fetch_all_virtual_networks(&tenant_auth_context, cancellation)
+        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
+        let networks = fetch_all_virtual_networks(&tenant_auth_context, executor)
             .with_invalidation(self.no_cache)
             .await?;
         let mut subnets = networks
-            .into_iter()
+            .iter()
             .filter(|network| {
                 self.vnet
                     .as_ref()
                     .is_none_or(|vnet| vnet.matches_id(&network.id))
             })
-            .flat_map(|network| network.properties.subnets)
+            .flat_map(|network| network.properties.subnets.iter())
             .collect::<Vec<_>>();
         subnets.sort_by_key(|subnet| subnet.id.expanded_form());
-        Ok(CliOutput::facet(subnets))
+        Ok(CliOutput::facet(
+            subnets.into_iter().cloned().collect::<Vec<_>>(),
+        ))
     }
 }

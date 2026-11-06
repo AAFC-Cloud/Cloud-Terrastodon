@@ -2,7 +2,7 @@ use super::AzureEntraSpBrowseArgs;
 use super::AzureEntraSpListArgs;
 use super::AzureEntraSpShowArgs;
 use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
 /// Service principal-related Entra (Azure AD) commands.
@@ -21,12 +21,12 @@ impl AzureEntraSpCommand {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
         match self {
-            AzureEntraSpCommand::List(args) => args.invoke(auth_context, cancellation).await,
-            AzureEntraSpCommand::Show(args) => args.invoke(auth_context, cancellation).await,
-            AzureEntraSpCommand::Browse(args) => args.invoke(auth_context, cancellation).await,
+            AzureEntraSpCommand::List(args) => args.invoke(auth_context, executor).await,
+            AzureEntraSpCommand::Show(args) => args.invoke(auth_context, executor).await,
+            AzureEntraSpCommand::Browse(args) => args.invoke(auth_context, executor).await,
         }
     }
 }

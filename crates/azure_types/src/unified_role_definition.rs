@@ -2,6 +2,7 @@ use crate::RolePermissionAction;
 use crate::UnifiedRoleDefinitionId;
 use arbitrary::Arbitrary;
 use std::collections::HashMap;
+use std::sync::Arc;
 use tracing::warn;
 
 /// An Entra role definition.
@@ -27,12 +28,12 @@ pub struct UnifiedRoleDefinition {
 impl UnifiedRoleDefinition {
     pub fn canonicalize(
         &mut self,
-        role_definitions: &HashMap<UnifiedRoleDefinitionId, UnifiedRoleDefinition>,
+        role_definitions: &HashMap<UnifiedRoleDefinitionId, Arc<UnifiedRoleDefinition>>,
     ) {
         let mut remaining_parents = std::mem::take(&mut self.inherits_permissions_from);
         while let Some(parent_id) = remaining_parents.pop() {
             let parent = match role_definitions.get(&parent_id.id) {
-                Some(r) => r.clone(),
+                Some(r) => r,
                 None => {
                     warn!(
                         "Role definition {} not found in our collection of {} roles",
@@ -43,8 +44,9 @@ impl UnifiedRoleDefinition {
                 }
             };
             self.inherits_permissions_from.push(parent_id);
-            self.role_permissions.extend(parent.role_permissions);
-            remaining_parents.extend(parent.inherits_permissions_from);
+            self.role_permissions
+                .extend(parent.role_permissions.iter().cloned());
+            remaining_parents.extend(parent.inherits_permissions_from.iter().cloned());
         }
     }
 }
@@ -159,3 +161,5 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(UnifiedRoleDefinition);
 cloud_terrastodon_registry::register_arbitrary!(UnifiedRoleDefinition);
+
+cloud_terrastodon_registry::register_arbitrary!(Arc<UnifiedRoleDefinition>);

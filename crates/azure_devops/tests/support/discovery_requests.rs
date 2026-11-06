@@ -1,7 +1,7 @@
 //! Synthetic data-only contracts for offline registry integration.
 //!
-//! The SDK's legacy `IntoFuture` request schemas remain covered by the explicitly
-//! labeled metadata tests. These requests exercise the new executor boundary and
+//! The SDK's transitional auth-context schemas remain covered by its metadata
+//! tests. These requests exercise data-only executor inputs and
 //! shared domain collections without implementing a second service transport.
 
 use arbitrary::Arbitrary;
@@ -40,6 +40,7 @@ pub struct ProjectSelectionRequest {
 macro_rules! offline_request {
     ($request:ty => $output:ty) => {
         impl ExecutableRequest for $request {
+            type Error = eyre::Report;
             type Output = $output;
 
             fn run<'a>(self, _: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>

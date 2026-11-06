@@ -1,11 +1,17 @@
+use cloud_terrastodon_auth_types::AuthenticationSelection;
+use cloud_terrastodon_auth_types::AzureBearerAuthSource;
 use cloud_terrastodon_azure_types::AzureApplicationGatewayResourceBackendHealthResponse;
 use cloud_terrastodon_azure_types::AzureApplicationGatewayResourceId;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::Scope;
-use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CacheableCommand;
-use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_cache::CacheKey;
+use cloud_terrastodon_cache::CacheScope;
+use cloud_terrastodon_cache::HasCacheKey;
+use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
+use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_rest::RequestHeaders;
 use cloud_terrastodon_rest::RestRequest;
 use cloud_terrastodon_rest::SerializableRestResponse;
@@ -25,35 +31,36 @@ const APPLICATION_GATEWAY_BACKEND_HEALTH_HEADERS: &str =
 const MAX_POLL_ATTEMPTS: usize = 10;
 
 /// <https://learn.microsoft.com/en-us/rest/api/application-gateway/application-gateways/backend-health?view=rest-application-gateway-2025-05-01&tabs=HTTP>
-#[must_use = "This is a future request, you must .await it"]
+#[must_use = "This is a future request, you must .execute it"]
 #[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct AzureApplicationGatewayResourceBackendHealthRequest {
-    #[facet(skip_serializing)]
-    pub cancellation: CancellationScope,
+    pub auth_source: AzureBearerAuthSource,
 
     pub tenant_id: AzureTenantId,
     pub application_gateway_id: AzureApplicationGatewayResourceId,
 }
 
-pub fn fetch_application_gateway_backend_health(
+#[track_caller]
+pub fn fetch_application_gateway_backend_health<'exec>(
     tenant_id: AzureTenantId,
     application_gateway_id: AzureApplicationGatewayResourceId,
-    cancellation: &CancellationScope,
-) -> AzureApplicationGatewayResourceBackendHealthRequest {
-    AzureApplicationGatewayResourceBackendHealthRequest {
-        cancellation: cancellation.clone(),
+    auth_source: AzureBearerAuthSource,
+    executor: &'exec CloudTerrastodonExecutor,
+) -> RequestExecution<'exec, AzureApplicationGatewayResourceBackendHealthRequest> {
+    executor.execute(AzureApplicationGatewayResourceBackendHealthRequest {
+        auth_source,
+
         tenant_id,
         application_gateway_id,
-    }
+    })
 }
 
-#[async_trait]
-impl CacheableCommand for AzureApplicationGatewayResourceBackendHealthRequest {
-    type Output = AzureApplicationGatewayResourceBackendHealthResponse;
+impl InvalidatesOwnCacheKey for AzureApplicationGatewayResourceBackendHealthRequest {}
 
-    fn cache_key(&self) -> CacheKey {
-        CacheKey {
-            path: PathBuf::from_iter([
+impl HasCacheKey for AzureApplicationGatewayResourceBackendHealthRequest {
+    fn cache_key(&self) -> eyre::Result<CacheKey> {
+        Ok(CacheKey {
+            scope: CacheScope::try_from_relative_path(PathBuf::from_iter([
                 "az",
                 "application_gateway",
                 "backend_health",
@@ -70,112 +77,124 @@ impl CacheableCommand for AzureApplicationGatewayResourceBackendHealthRequest {
                 self.application_gateway_id
                     .azure_application_gateway_resource_name
                     .as_ref(),
-            ]),
+            ]))?,
             valid_for: APPLICATION_GATEWAY_BACKEND_HEALTH_CACHE_DURATION,
-        }
+        })
     }
+}
 
-    async fn run(self) -> Result<Self::Output> {
-        info!(
-            tenant_id = %self.tenant_id,
-            application_gateway_id = %self.application_gateway_id.expanded_form(),
-            "Fetching Azure application gateway backend health"
-        );
-
-        let backend_health_url = build_backend_health_url(&self.application_gateway_id);
-        let initial_response = {
-            RestRequest::new(http::Method::POST, &backend_health_url, &self.cancellation)?
-                .cancellation_safe()
-                .tenant(self.tenant_id)
-                .headers(RequestHeaders::from_json_str(
-                    APPLICATION_GATEWAY_BACKEND_HEALTH_HEADERS,
-                )?)
-                .body("{}")
-                .receive_raw()
-                .await?
-        };
-
-        if !initial_response.ok {
-            bail!(
-                "Backend health request failed with status {} ({})",
-                initial_response.status.as_u16(),
-                initial_response
-                    .reason_phrase
-                    .as_deref()
-                    .unwrap_or("Unknown error")
+impl ExecutableRequest for AzureApplicationGatewayResourceBackendHealthRequest {
+    type Error = eyre::Report;
+    type Output = AzureApplicationGatewayResourceBackendHealthResponse;
+    fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
+    where
+        Self: 'exec,
+        Self::Output: 'exec,
+    {
+        Box::pin(async move {
+            info!(
+                tenant_id = %self.tenant_id,
+                application_gateway_id = %self.application_gateway_id.expanded_form(),
+                "Fetching Azure application gateway backend health"
             );
-        }
 
-        match initial_response.status {
-            StatusCode::OK => parse_backend_health_response(initial_response),
-            StatusCode::ACCEPTED => {
-                let mut next_url = initial_response
-                    .header("location")
-                    .map(str::to_owned)
-                    .ok_or_eyre(
-                        "Backend health request returned 202 Accepted without a Location header",
-                    )?;
+            let backend_health_url = build_backend_health_url(&self.application_gateway_id);
+            let initial_response = {
+                RestRequest::new(http::Method::POST, &backend_health_url)?
+                    .cancellation_safe()
+                    .authentication(AuthenticationSelection::AzureBearer {
+                        auth_source: self.auth_source,
+                        tenant_id: self.tenant_id,
+                    })
+                    .headers(RequestHeaders::from_json_str(
+                        APPLICATION_GATEWAY_BACKEND_HEALTH_HEADERS,
+                    )?)
+                    .body("{}")
+                    .receive_raw(&executor)
+                    .await?
+            };
 
-                for attempt in 0..MAX_POLL_ATTEMPTS {
-                    let response = {
-                        RestRequest::new(http::Method::GET, &next_url, &self.cancellation)?
-                            .tenant(self.tenant_id)
-                            .receive_raw()
-                            .await?
-                    };
-
-                    if !response.ok {
-                        bail!(
-                            "Backend health poll failed with status {} ({})",
-                            response.status.as_u16(),
-                            response.reason_phrase.as_deref().unwrap_or("Unknown error")
-                        );
-                    }
-
-                    match response.status {
-                        StatusCode::OK => return parse_backend_health_response(response),
-                        StatusCode::ACCEPTED => {
-                            next_url = response
-                                .header("location")
-                                .map(str::to_owned)
-                                .ok_or_eyre("Backend health poll returned 202 Accepted without a Location header")?;
-                            info!(
-                                attempt = attempt + 1,
-                                "Backend health still pending, polling again"
-                            );
-                        }
-                        status => {
-                            bail!(
-                                "Unexpected backend health poll status {} ({})",
-                                status.as_u16(),
-                                response.reason_phrase.as_deref().unwrap_or("Unknown error")
-                            );
-                        }
-                    }
-                }
-
+            if !initial_response.ok {
                 bail!(
-                    "Backend health polling did not complete after {} attempts",
-                    MAX_POLL_ATTEMPTS
-                );
-            }
-            status => {
-                bail!(
-                    "Unexpected backend health response status {} ({})",
-                    status.as_u16(),
+                    "Backend health request failed with status {} ({})",
+                    initial_response.status.as_u16(),
                     initial_response
                         .reason_phrase
                         .as_deref()
                         .unwrap_or("Unknown error")
                 );
             }
-        }
+
+            match initial_response.status {
+                StatusCode::OK => parse_backend_health_response(initial_response),
+                StatusCode::ACCEPTED => {
+                    let mut next_url = initial_response
+                    .header("location")
+                    .map(str::to_owned)
+                    .ok_or_eyre(
+                        "Backend health request returned 202 Accepted without a Location header",
+                    )?;
+
+                    for attempt in 0..MAX_POLL_ATTEMPTS {
+                        let response = {
+                            RestRequest::new(http::Method::GET, &next_url)?
+                                .authentication(AuthenticationSelection::AzureBearer {
+                                    auth_source: self.auth_source,
+                                    tenant_id: self.tenant_id,
+                                })
+                                .receive_raw(&executor)
+                                .await?
+                        };
+
+                        if !response.ok {
+                            bail!(
+                                "Backend health poll failed with status {} ({})",
+                                response.status.as_u16(),
+                                response.reason_phrase.as_deref().unwrap_or("Unknown error")
+                            );
+                        }
+
+                        match response.status {
+                            StatusCode::OK => return parse_backend_health_response(response),
+                            StatusCode::ACCEPTED => {
+                                next_url = response
+                                .header("location")
+                                .map(str::to_owned)
+                                .ok_or_eyre("Backend health poll returned 202 Accepted without a Location header")?;
+                                info!(
+                                    attempt = attempt + 1,
+                                    "Backend health still pending, polling again"
+                                );
+                            }
+                            status => {
+                                bail!(
+                                    "Unexpected backend health poll status {} ({})",
+                                    status.as_u16(),
+                                    response.reason_phrase.as_deref().unwrap_or("Unknown error")
+                                );
+                            }
+                        }
+                    }
+
+                    bail!(
+                        "Backend health polling did not complete after {} attempts",
+                        MAX_POLL_ATTEMPTS
+                    );
+                }
+                status => {
+                    bail!(
+                        "Unexpected backend health response status {} ({})",
+                        status.as_u16(),
+                        initial_response
+                            .reason_phrase
+                            .as_deref()
+                            .unwrap_or("Unknown error")
+                    );
+                }
+            }
+        })
     }
 }
-
-cloud_terrastodon_command::impl_cacheable_into_future!(
-    AzureApplicationGatewayResourceBackendHealthRequest
-);
 
 fn build_backend_health_url(application_gateway_id: &AzureApplicationGatewayResourceId) -> String {
     format!(
@@ -304,4 +323,4 @@ cloud_terrastodon_registry::register_thing!(AzureApplicationGatewayResourceBacke
 cloud_terrastodon_registry::register_arbitrary!(
     AzureApplicationGatewayResourceBackendHealthRequest
 );
-cloud_terrastodon_registry_execution::register_into_future!(AzureApplicationGatewayResourceBackendHealthRequest => AzureApplicationGatewayResourceBackendHealthResponse, effects = [Read]);
+cloud_terrastodon_registry_execution::register_executable_request!(AzureApplicationGatewayResourceBackendHealthRequest => AzureApplicationGatewayResourceBackendHealthResponse, effects = [Read]);

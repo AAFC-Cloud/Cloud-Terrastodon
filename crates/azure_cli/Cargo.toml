@@ -11,6 +11,8 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
+cloud_terrastodon_cache.workspace = true
+cloud_terrastodon_execution.workspace = true
 cloud_terrastodon_auth_types.workspace = true
 arbitrary.workspace = true
 chrono.workspace = true

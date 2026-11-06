@@ -4,8 +4,7 @@ use cloud_terrastodon_azure::SubscriptionName;
 use cloud_terrastodon_azure::fetch_all_storage_accounts;
 use cloud_terrastodon_azure::fetch_all_subscriptions;
 use cloud_terrastodon_azure::fetch_storage_account_blob_container_names;
-use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
@@ -16,7 +15,7 @@ use tracing::info;
 
 pub async fn copy_azurerm_backend_menu(
     auth_context: &AzureTenantAuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
     info!("Picking storage account");
     let chosen_storage_account = PickerTui::<_>::new()
@@ -27,10 +26,9 @@ pub async fn copy_azurerm_backend_menu(
                 info!("Fetching storage accounts");
                 info!("Fetching subscriptions");
                 let (storage_accounts, subscriptions) = join!(
-                    fetch_all_storage_accounts(&auth_context, cancellation)
+                    fetch_all_storage_accounts(&auth_context, executor)
                         .with_invalidation(invalidate),
-                    fetch_all_subscriptions(&auth_context, cancellation)
-                        .with_invalidation(invalidate)
+                    fetch_all_subscriptions(&auth_context, executor).with_invalidation(invalidate)
                 );
                 let storage_accounts = storage_accounts?;
                 let subscriptions = subscriptions?
@@ -67,7 +65,7 @@ pub async fn copy_azurerm_backend_menu(
                 let blob_container_names = fetch_storage_account_blob_container_names(
                     &chosen_storage_account.0.id,
                     auth_context,
-                    cancellation,
+                    executor,
                 )
                 .with_invalidation(invalidate)
                 .await?;

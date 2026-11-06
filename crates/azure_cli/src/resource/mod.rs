@@ -1,3 +1,4 @@
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 pub mod azure_resource_browse_cli;
 pub mod azure_resource_cli;
 pub mod azure_resource_list_cli;
@@ -8,7 +9,6 @@ pub use azure_resource_cli::AzureResourceCommand;
 pub use azure_resource_list_cli::AzureResourceListArgs;
 pub use azure_resource_show_cli::AzureResourceShowArgs;
 use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 
 /// Manage Azure resources.
@@ -22,8 +22,8 @@ impl AzureResourceArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
-        self.command.invoke(auth_context, cancellation).await
+        self.command.invoke(auth_context, executor).await
     }
 }

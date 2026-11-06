@@ -6,31 +6,34 @@ use crate::fetch_all_entra_users;
 use crate::fetch_all_role_assignments;
 use crate::fetch_all_role_definitions;
 use cloud_terrastodon_auth::AzureTenantAuthContext;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_user_input::Choice;
 use std::collections::HashMap;
 use std::future::IntoFuture;
+use std::sync::Arc;
 use tokio::try_join;
 use tracing::warn;
 
 pub async fn get_role_assignment_choices(
     auth_context: &AzureTenantAuthContext,
-    cancellation: &CancellationScope,
-) -> eyre::Result<Vec<Choice<RoleAssignment>>> {
+    executor: &CloudTerrastodonExecutor,
+) -> eyre::Result<Vec<Choice<Arc<RoleAssignment>>>> {
     let (role_assignments, role_definitions, users) = try_join!(
-        fetch_all_role_assignments(auth_context, cancellation),
-        fetch_all_role_definitions(auth_context, cancellation),
-        fetch_all_entra_users(auth_context, cancellation).into_future()
+        fetch_all_role_assignments(auth_context, executor),
+        fetch_all_role_definitions(auth_context, executor),
+        fetch_all_entra_users(auth_context, executor).into_future()
     )?;
 
-    let role_definition_lookup: HashMap<&RoleDefinitionId, &RoleDefinition> =
-        role_definitions.iter().map(|ra| (&ra.id, ra)).collect();
+    let role_definition_lookup: HashMap<&RoleDefinitionId, &RoleDefinition> = role_definitions
+        .iter()
+        .map(|ra| (&ra.id, ra.as_ref()))
+        .collect();
     let user_lookup = users
         .iter()
         .map(|u| (u.id.into(), u))
         .collect::<HashMap<EntraPrincipalId, _>>();
 
-    let mut choices: Vec<Choice<RoleAssignment>> = Vec::new();
+    let mut choices: Vec<Choice<Arc<RoleAssignment>>> = Vec::new();
     for ra in role_assignments {
         let Some(rd) = role_definition_lookup.get(&ra.role_definition_id) else {
             warn!("Could not identify role definition for {ra:?}");

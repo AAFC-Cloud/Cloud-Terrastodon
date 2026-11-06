@@ -1,748 +1,1001 @@
 use crate::MicrosoftContinuationToken;
 use crate::RequestHeaders;
+use crate::RestOutputFormat;
 use crate::RestResponseBody;
 use crate::RestService;
 use crate::SerializableRestResponse;
+use crate::decoded_rest_response::DecodedRestResponse;
 use crate::execute_rest_request;
-use cloud_terrastodon_auth::AuthContext;
+use crate::rest_request_fingerprint::RestRequestFingerprint;
 use cloud_terrastodon_auth::AzureDevOpsAuthContext;
 use cloud_terrastodon_auth::AzureTenantAuthContext;
-use cloud_terrastodon_azure_types::AzureTenantId;
-use cloud_terrastodon_command::ArtifactMetadata;
-use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CacheableWorkRequest;
-use cloud_terrastodon_command::CachedWorkSpec;
-use cloud_terrastodon_command::CancellationReportExt;
-use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::CommandOutput;
-use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_command::run_cached_work;
-use cloud_terrastodon_command::write_failure_with_extra_files;
+use cloud_terrastodon_auth_types::AuthenticationSelection;
+use cloud_terrastodon_auth_types::AzureBearerAuthSource;
+use cloud_terrastodon_cache::ArtifactEntry;
+use cloud_terrastodon_cache::ArtifactFilePath;
+use cloud_terrastodon_cache::ArtifactObservation;
+use cloud_terrastodon_cache::ArtifactRetention;
+use cloud_terrastodon_cache::ArtifactSet;
+use cloud_terrastodon_cache::CacheKey;
+use cloud_terrastodon_cache::CacheOperationOwner;
+use cloud_terrastodon_cache::CacheScope;
+use cloud_terrastodon_cache::ExecutorKind;
+use cloud_terrastodon_cache::HasCacheKey;
+use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
+use cloud_terrastodon_cache::NonEmptyString;
+use cloud_terrastodon_cache::WorkOutput;
+use cloud_terrastodon_cache::WorkReuse;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_relative_location::RelativeLocation;
 use eyre::Context;
-use eyre::ContextCompat;
+use eyre::Report;
 use eyre::Result;
-use eyre::bail;
+use eyre::ensure;
 use facet::Facet;
 use http::Method;
 use reqwest::Url;
 use std::collections::BTreeMap;
 use std::future::Future;
+use std::marker::PhantomData;
 use std::panic::Location;
 use std::path::PathBuf;
-use std::pin::Pin;
+use std::sync::Arc;
 use std::time::Duration;
-use std::time::Instant;
+use teamy_cancellation::CancellationReportExt;
 use tracing::Instrument;
-use tracing::debug;
+use tracing::Span;
 use tracing::info_span;
 
-type ResponseExtraFiles = fn(&SerializableRestResponse) -> BTreeMap<PathBuf, bstr::BString>;
-type ResponseFailureExtraFiles = fn(&eyre::Report) -> BTreeMap<PathBuf, bstr::BString>;
+type ResponseFailureExtraFiles = fn(&Report) -> BTreeMap<PathBuf, bstr::BString>;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum RestOutputFormat {
-    #[default]
-    Text,
-    Json,
-}
-
+/// A transport request containing authentication selection rather than credentials.
+/// Owned receives execute independently; explicit cached receives share decoded values.
 #[derive(Clone)]
 pub struct RestRequest {
-    /// Cancellation belongs to the caller's operation and is shared by nested requests.
-    pub cancellation: CancellationScope,
-    /// Whether execution must retain a mutation's outcome before stopping.
-    /// Defaults to true for methods other than GET, HEAD, and OPTIONS.
-    /// Read-only POST operations can explicitly opt into [`Self::cancellation_safe`].
     pub complete_on_cancellation: bool,
-    /// Authentication is request-scoped. Requests acquiring credentials must
-    /// provide an invocation context through
-    /// [`RestRequest::auth_context`], [`RestRequest::azure_auth_context`], or
-    /// [`RestRequest::azure_devops_auth_context`].
-    pub auth_context: Option<AuthContext>,
+    pub authentication: AuthenticationSelection,
     pub service: RestService,
     pub method: Method,
     pub url: Url,
     pub body: Option<String>,
     pub headers: Option<RequestHeaders>,
-    pub tenant: Option<AzureTenantId>,
-    pub bearer_token: Option<String>,
     pub cache_key: Option<CacheKey>,
     pub output_format: RestOutputFormat,
     pub failure_extra_files: Option<ResponseFailureExtraFiles>,
+    pub artifact_retention: ArtifactRetention,
 }
 
 impl std::fmt::Debug for RestRequest {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter
             .debug_struct("RestRequest")
-            .field("auth_context", &self.auth_context)
+            .field("authentication", &self.authentication)
             .field("service", &self.service)
             .field("method", &self.method)
-            .field("url", &self.url)
-            .field("body", &self.body)
-            .field("headers", &self.headers)
-            .field("tenant", &self.tenant)
-            .field(
-                "bearer_token",
-                &self.bearer_token.as_ref().map(|_| "***redacted***"),
-            )
+            .field("summary", &self.context())
             .field("cache_key", &self.cache_key)
-            .field("output_format", &self.output_format)
-            .field("failure_extra_files", &self.failure_extra_files.is_some())
-            .finish()
+            .field("artifact_retention", &self.artifact_retention)
+            .finish_non_exhaustive()
     }
 }
 
 impl RestRequest {
-    /// Parse a URL and construct a request for a supported REST service.
-    ///
-    /// Use [`Self::from_method_and_url`] when the URL is already parsed.
+    /// Parse an absolute service URL without acquiring execution resources.
     #[track_caller]
-    pub fn new(
-        method: Method,
-        url: impl AsRef<str>,
-        cancellation: &CancellationScope,
-    ) -> Result<Self> {
-        let url_text = url.as_ref();
-        let url = Url::parse(url_text).with_context(|| format!("parsing URL '{url_text}'"))?;
-        Self::from_method_and_url(method, url, cancellation)
+    pub fn new(method: Method, url: impl AsRef<str>) -> Result<Self> {
+        Self::from_method_and_url(
+            method,
+            Url::parse(url.as_ref()).wrap_err("parsing REST URL")?,
+        )
     }
-
-    /// Construct a request using an already parsed URL without reparsing it.
-    ///
-    /// Takes ownership of the URL and infers its REST service. Unsupported hosts
-    /// are rejected, as they are by [`Self::new`].
+    /// Construct from an already parsed URL and infer its service family.
     #[track_caller]
-    pub fn from_method_and_url(
-        method: Method,
-        url: Url,
-        cancellation: &CancellationScope,
-    ) -> Result<Self> {
-        let service = RestService::infer(&url).wrap_err_with(|| {
-            format!("unsupported REST host '{}'", url.host_str().unwrap_or(""))
-        })?;
-        Self::from_method_and_url_for_service(method, url, service, cancellation)
+    pub fn from_method_and_url(method: Method, url: Url) -> Result<Self> {
+        let service =
+            RestService::infer(&url).ok_or_else(|| eyre::eyre!("unsupported REST host"))?;
+        Self::from_method_and_url_for_service(method, url, service)
     }
-
-    /// Construct a request for a service selected by a trusted SDK domain boundary.
-    ///
-    /// This supports validated Azure DevOps Server collection URLs whose host
-    /// cannot be inferred from a public service suffix. The caller owns selecting
-    /// the authentication family for the intended destination. Embedded URL
-    /// credentials and non-HTTP(S) destinations are rejected.
+    /// A trusted SDK boundary may select the service for a validated Server URL.
     #[track_caller]
     pub fn from_method_and_url_for_service(
         method: Method,
         url: Url,
         service: RestService,
-        cancellation: &CancellationScope,
     ) -> Result<Self> {
-        eyre::ensure!(
+        ensure!(
             matches!(url.scheme(), "http" | "https") && url.host_str().is_some(),
             "REST destinations must be absolute HTTP(S) URLs"
         );
-        eyre::ensure!(
+        ensure!(
             url.username().is_empty() && url.password().is_none(),
             "REST destinations must not contain embedded credentials"
         );
         Ok(Self {
-            cancellation: cancellation.clone(),
             complete_on_cancellation: !matches!(
                 method,
                 Method::GET | Method::HEAD | Method::OPTIONS
             ),
-            auth_context: None,
+            authentication: AuthenticationSelection::Anonymous,
             service,
             method,
             url,
             body: None,
             headers: None,
-            tenant: None,
-            bearer_token: None,
             cache_key: None,
             output_format: RestOutputFormat::default(),
             failure_extra_files: None,
+            artifact_retention: ArtifactRetention::Full,
         })
     }
-
-    /// Attach authentication policy without acquiring credentials.
-    ///
-    /// This context is not bound to a tenant. Callers with a tenant-bound context
-    /// should use [`Self::azure_auth_context`] or [`Self::azure_devops_auth_context`]
-    /// to preserve the authentication source and selected tenant together.
-    pub fn auth_context(mut self, auth_context: &AuthContext) -> Self {
-        self.auth_context = Some(auth_context.clone());
+    /// Select non-secret authentication intent; the executor supplies credentials.
+    pub fn authentication(mut self, selection: AuthenticationSelection) -> Self {
+        self.authentication = selection;
         self
     }
-
-    /// Attach Azure authentication policy and its explicitly selected tenant.
-    ///
-    /// This only configures the request; credentials are acquired during execution,
-    /// after any cache lookup. Cloning the context preserves its shared token caches.
-    pub fn azure_auth_context(self, auth_context: &AzureTenantAuthContext) -> Self {
-        self.auth_context(&auth_context.auth_context)
-            .tenant(auth_context.tenant_id)
+    /// Extract explicit source and tenant without retaining runtime authentication state.
+    pub fn azure_auth_context(self, context: &AzureTenantAuthContext) -> Result<Self> {
+        Ok(self.authentication(AuthenticationSelection::AzureBearer {
+            auth_source: AzureBearerAuthSource::try_from(
+                context
+                    .auth_context
+                    .source()
+                    .ok_or_else(|| eyre::eyre!("authentication source is unresolved"))?,
+            )?,
+            tenant_id: context.tenant_id,
+        }))
     }
-
-    /// Attach Azure DevOps authentication policy and its selected bearer tenant.
-    ///
-    /// Bearer authentication always includes its explicit tenant; personal access
-    /// tokens are tenant-independent. This only configures the request: credentials
-    /// are acquired during execution, after any cache lookup. A missing context
-    /// is rejected locally and attributed to the caller.
-    #[track_caller]
-    pub fn azure_devops_auth_context(self, auth_context: &AzureDevOpsAuthContext) -> Result<Self> {
-        Ok(match auth_context {
-            AzureDevOpsAuthContext::None => {
-                bail!("Azure DevOps authentication is not configured for this request");
-            }
-            AzureDevOpsAuthContext::Bearer(context) => self.azure_auth_context(context),
-            AzureDevOpsAuthContext::PersonalAccessToken(context) => self.auth_context(context),
-        })
+    /// Extract bearer tenant/source or PAT selection without retaining its secret.
+    pub fn azure_devops_auth_context(self, context: &AzureDevOpsAuthContext) -> Result<Self> {
+        Ok(self.authentication(context.selection()?.into()))
     }
-
     pub fn body(mut self, body: impl Into<String>) -> Self {
         self.body = Some(body.into());
         self
     }
-
-    /// Permit this request to be abandoned while waiting for its response.
-    ///
-    /// Use for a documented read-only operation that uses a non-GET method,
-    /// such as a resource-graph query. A mutation must retain its deferral
-    /// through outcome processing and affected cache invalidation instead.
+    pub fn headers(mut self, headers: RequestHeaders) -> Self {
+        self.headers = Some(headers);
+        self
+    }
+    pub fn cache(mut self, key: CacheKey) -> Self {
+        self.cache_key = Some(key);
+        self
+    }
+    pub fn use_cache(mut self, key: Option<CacheKey>) -> Self {
+        self.cache_key = key;
+        self
+    }
+    pub fn output_format(mut self, format: RestOutputFormat) -> Self {
+        self.output_format = format;
+        self
+    }
+    pub fn failure_extra_files(mut self, files: ResponseFailureExtraFiles) -> Self {
+        self.failure_extra_files = Some(files);
+        self
+    }
+    pub fn artifact_retention(mut self, retention: ArtifactRetention) -> Self {
+        self.artifact_retention = retention;
+        self
+    }
+    /// Mark a documented read-only operation as safely interruptible.
     pub fn cancellation_safe(mut self) -> Self {
         self.complete_on_cancellation = false;
         self
     }
 
-    pub fn headers(mut self, headers: RequestHeaders) -> Self {
-        self.headers = Some(headers);
-        self
-    }
-
-    pub fn tenant(mut self, tenant: AzureTenantId) -> Self {
-        self.tenant = Some(tenant);
-        self
-    }
-
-    pub fn bearer_token(mut self, bearer_token: impl Into<String>) -> Self {
-        self.bearer_token = Some(bearer_token.into());
-        self
-    }
-
-    pub fn cache(mut self, cache_key: CacheKey) -> Self {
-        self.cache_key = Some(cache_key);
-        self
-    }
-
-    pub fn use_cache(mut self, cache_key: Option<CacheKey>) -> Self {
-        self.cache_key = cache_key;
-        self
-    }
-
-    pub fn output_format(mut self, output_format: RestOutputFormat) -> Self {
-        self.output_format = output_format;
-        self
-    }
-
-    pub fn failure_extra_files(
-        mut self,
-        extra_files: fn(&eyre::Report) -> BTreeMap<PathBuf, bstr::BString>,
-    ) -> Self {
-        self.failure_extra_files = Some(extra_files);
-        self
-    }
-
     fn context(&self) -> String {
-        format!("rest {} {}", self.method, self.url)
-    }
-
-    fn debug_inputs(&self) -> BTreeMap<PathBuf, bstr::BString> {
-        let mut inputs = BTreeMap::new();
-        if let Some(body) = &self.body {
-            inputs.insert(PathBuf::from("body.json"), body.clone().into());
-        }
-        if let Some(headers) = &self.headers
-            && let Ok(json) = headers.to_json_pretty()
-        {
-            inputs.insert(PathBuf::from("headers.json"), json.into());
-        }
-        inputs
-    }
-
-    #[track_caller]
-    pub fn execute_without_cache(
-        self,
-    ) -> impl Future<Output = Result<SerializableRestResponse>> + Send {
-        self.execute_without_cache_from(Location::caller())
-    }
-
-    fn execute_without_cache_from(
-        self,
-        caller: &'static Location<'static>,
-    ) -> impl Future<Output = Result<SerializableRestResponse>> + Send {
-        let context = self.context();
-        let location = RelativeLocation::from(caller).to_string();
-        async move {
-            self.execute_without_cache_inner()
-                .await
-                .map_err(|mut error| {
-                    error.handler_mut().track_caller(caller);
-                    error
-                })
-                .wrap_err(format!(
-                    "RestRequest::execute_without_cache failed, called from {location}"
-                ))
-                .wrap_err(format!("Invoking REST request failed: {context}"))
+        if self.artifact_retention == ArtifactRetention::Disabled {
+            "REST request with suppressed sensitive diagnostics".to_owned()
+        } else {
+            format!("rest {} {}", self.method, self.url)
         }
     }
-
-    async fn execute_without_cache_inner(self) -> Result<SerializableRestResponse> {
-        let cancellation = self.cancellation.clone();
-        let complete_on_cancellation = self.complete_on_cancellation;
-        let execute = |scope| async move {
-            let request = Self {
-                cancellation: scope,
-                ..self
-            };
-            let start = Instant::now();
-            // Explicit token callers need no credential discovery. Requests
-            // acquiring credentials must already carry resolved source policy.
-            let auth_context = request.auth_context.unwrap_or_default();
-            let response = execute_rest_request(
-                &auth_context,
-                request.service,
-                request.method,
-                request.url,
-                request.body,
-                request.headers,
-                request.tenant,
-                request.bearer_token,
-                &request.cancellation,
+    fn validate(&self) -> Result<()> {
+        ensure!(
+            matches!(self.url.scheme(), "http" | "https")
+                && self.url.host_str().is_some()
+                && self.url.username().is_empty()
+                && self.url.password().is_none(),
+            "REST destination must be an absolute HTTP(S) URL without credentials"
+        );
+        let compatible = matches!(
+            (self.service, self.authentication),
+            (
+                RestService::AzureRetailPrices,
+                AuthenticationSelection::Anonymous
+            ) | (
+                RestService::AzureDevOps,
+                AuthenticationSelection::AzureDevOpsPersonalAccessToken
+            ) | (
+                RestService::AzureDevOps
+                    | RestService::MicrosoftGraph
+                    | RestService::AzureResourceManager
+                    | RestService::AzureKeyVault
+                    | RestService::AzureContainerRegistry,
+                AuthenticationSelection::AzureBearer { .. }
             )
-            .await?;
-            let serialized = request
-                .cancellation
-                .cancellable_scope(|_| SerializableRestResponse::from_response(response))
-                .await?;
-            let elapsed = start.elapsed();
-            debug!(
-                elapsed_ms = elapsed.as_millis(),
-                "REST request completed in {}",
-                humantime::format_duration(elapsed)
+        );
+        ensure!(
+            compatible,
+            "REST service requires an explicit compatible authentication selection"
+        );
+        if let Some(headers) = &self.headers {
+            let headers = headers.to_header_map()?;
+            ensure!(
+                !headers.contains_key(http::header::AUTHORIZATION)
+                    && !headers.contains_key(http::header::PROXY_AUTHORIZATION),
+                "REST authorization must come from the executor, not request headers"
             );
-            Ok(serialized)
+        }
+        Ok(())
+    }
+    fn fingerprint(&self) -> Result<NonEmptyString> {
+        let mut headers = BTreeMap::<String, Vec<String>>::new();
+        if let Some(values) = &self.headers {
+            for (name, value) in &values.to_header_map()? {
+                headers
+                    .entry(name.as_str().to_owned())
+                    .or_default()
+                    .push(value.to_str()?.to_owned());
+            }
+        }
+        let value = RestRequestFingerprint {
+            service: format!("{:?}", self.service),
+            method: self.method.to_string(),
+            url: self.url.to_string(),
+            body: self.body.clone(),
+            headers,
         };
-        if complete_on_cancellation {
-            cancellation
-                .deferred(
-                    "completing a REST mutation and retaining its response",
-                    execute,
-                )
+        let bytes = facet_json::to_vec(&value).map_err(|error| eyre::eyre!("{error:?}"))?;
+        NonEmptyString::new(blake3::hash(&bytes).to_hex().to_string())
+    }
+    fn artifact_key(&self, caller: &'static Location<'static>) -> Result<CacheKey> {
+        match &self.cache_key {
+            Some(key) => Ok(key.clone()),
+            None => Ok(CacheKey {
+                scope: CacheScope::try_from_components([
+                    "uncached".to_owned(),
+                    caller.file().to_owned(),
+                    caller.line().to_string(),
+                    caller.column().to_string(),
+                ])?,
+                valid_for: Duration::ZERO,
+            }),
+        }
+    }
+    fn inputs(&self) -> Result<BTreeMap<ArtifactFilePath, Vec<u8>>> {
+        let mut inputs = BTreeMap::new();
+        if self.artifact_retention == ArtifactRetention::Disabled {
+            return Ok(inputs);
+        }
+        if let Some(body) = &self.body {
+            inputs.insert(
+                ArtifactFilePath::new("body.json")?,
+                body.as_bytes().to_vec(),
+            );
+        }
+        if let Some(headers) = &self.headers {
+            inputs.insert(
+                ArtifactFilePath::new("headers.json")?,
+                headers.to_json_pretty()?.into_bytes(),
+            );
+        }
+        Ok(inputs)
+    }
+    fn diagnostics(
+        &self,
+        response: Option<&SerializableRestResponse>,
+        error: Option<&Report>,
+    ) -> Result<BTreeMap<ArtifactFilePath, Vec<u8>>> {
+        let mut files = BTreeMap::new();
+        if self.artifact_retention == ArtifactRetention::Disabled {
+            return Ok(files);
+        }
+        files.insert(
+            ArtifactFilePath::new("context.txt")?,
+            self.context().into_bytes(),
+        );
+        if let Some(response) = response {
+            files.insert(
+                ArtifactFilePath::new("response.headers.json")?,
+                facet_json::to_vec_pretty(&response.headers)
+                    .map_err(|error| eyre::eyre!("{error:?}"))?,
+            );
+            files.insert(
+                ArtifactFilePath::new("status.txt")?,
+                response.status.as_u16().to_string().into_bytes(),
+            );
+            let (name, body) = match &response.body {
+                RestResponseBody::Json(body) => ("response.body.json", body.as_str()),
+                RestResponseBody::Text(body) => ("response.body.txt", body.as_str()),
+            };
+            files.insert(ArtifactFilePath::new(name)?, body.as_bytes().to_vec());
+        }
+        if let Some(error) = error {
+            files.insert(
+                ArtifactFilePath::new("error.txt")?,
+                format!("{error:?}").into_bytes(),
+            );
+            if let Some(extra) = self.failure_extra_files {
+                for (path, bytes) in extra(error) {
+                    let path = path
+                        .to_str()
+                        .ok_or_else(|| eyre::eyre!("REST diagnostic filename is not Unicode"))?;
+                    files.insert(
+                        ArtifactFilePath::new(path.replace('\\', "/"))?,
+                        bytes.to_vec(),
+                    );
+                }
+            }
+        }
+        Ok(files)
+    }
+    async fn with_policy<C, F, T>(
+        executor: &CloudTerrastodonExecutor,
+        protected: bool,
+        callback: C,
+    ) -> Result<T>
+    where
+        C: FnOnce(CloudTerrastodonExecutor) -> F,
+        F: Future<Output = Result<T>>,
+    {
+        if protected {
+            executor
+                .deferred("complete REST response, decoding, and artifacts", callback)
                 .await
         } else {
-            cancellation.cancellable_scope(execute).await
+            executor.cancellable_scope(callback).await
         }
     }
-
-    #[track_caller]
-    pub fn receive_raw_with_decoder<T, Decode>(
-        self,
-        decode: Decode,
-    ) -> impl Future<Output = Result<T>> + Send
-    where
-        T: Send + 'static,
-        Decode: FnOnce(SerializableRestResponse) -> Result<T> + Send + 'static,
-    {
-        self.receive_raw_with_decoder_from(decode, Location::caller())
-    }
-
-    fn receive_raw_with_decoder_from<T, Decode>(
-        mut self,
-        decode: Decode,
-        caller: &'static Location<'static>,
-    ) -> impl Future<Output = Result<T>> + Send
-    where
-        T: Send + 'static,
-        Decode: FnOnce(SerializableRestResponse) -> Result<T> + Send + 'static,
-    {
-        let context = self.context();
-        let location = RelativeLocation::from(caller).to_string();
-        let span = info_span!(
-            "rest_receive",
-            summary = %context,
-            ?self.cache_key,
-            location = %location,
+    async fn execute_transport(
+        &self,
+        executor: &CloudTerrastodonExecutor,
+    ) -> Result<SerializableRestResponse> {
+        let response = execute_rest_request(
+            self.service,
+            self.method.clone(),
+            self.url.clone(),
+            self.body.clone(),
+            self.headers.clone(),
+            &self.authentication,
+            executor,
         )
-        .or_current();
-
-        async move {
-            let cancellation = self.cancellation.clone();
-            let complete_on_cancellation = self.complete_on_cancellation;
-            let receive = move |scope| async move {
-                self.cancellation = scope;
-                let cancellation = self.cancellation.clone();
-                // Decode runs on a blocking thread. Preserve the request span and
-                // originating call site for both cached and uncached failures.
-                let decode_span = tracing::Span::current();
-                let decode_dispatch = tracing::dispatcher::get_default(Clone::clone);
-                let decode = move |response| {
-                    tracing::dispatcher::with_default(&decode_dispatch, || {
-                        decode_span.in_scope(|| {
-                            decode(response).map_err(|mut error| {
-                                error.handler_mut().track_caller(caller);
-                                error
-                            })
-                        })
-                    })
-                };
-                let Some(cache_key) = self.cache_key.clone() else {
-                    let debug_inputs = self.debug_inputs();
-                    let failure_extra_files = self.failure_extra_files;
-                    let response = self.execute_without_cache_from(caller).await?;
-                    let response_for_failure = response.clone();
-                    let decoded = tokio::task::spawn_blocking(move || decode(response)).await?;
-                    return match decoded {
-                        Ok(result) => Ok(result),
-                        Err(error) if error.is_cancellation() => Err(error),
-                        Err(error) => {
-                            let output = rest_response_output(&response_for_failure)?;
-                            let extra_files = rest_response_extra_files(&response_for_failure);
-                            let dump_dir = write_rest_decode_failure(
-                                None,
-                                &context,
-                                &debug_inputs,
-                                &output,
-                                extra_files,
-                                failure_extra_files,
-                                &error,
-                                std::any::type_name::<T>(),
-                            )
-                            .await?;
-                            Err(error).wrap_err(format!(
-                                "Decoded REST response failed, dumped to {:?}",
-                                dump_dir
-                            ))
+        .await?;
+        SerializableRestResponse::from_response(response).await
+    }
+    fn decode_owned<T: Facet<'static>>(
+        response: &SerializableRestResponse,
+    ) -> Result<DecodedRestResponse<T>> {
+        response.error_for_status()?;
+        Ok(DecodedRestResponse {
+            value: response.decode_json_body()?,
+            response: response.clone(),
+        })
+    }
+    fn decode_shared<T: Facet<'static>>(
+        response: &SerializableRestResponse,
+    ) -> Result<DecodedRestResponse<Arc<T>>> {
+        response.error_for_status()?;
+        Ok(DecodedRestResponse {
+            value: Arc::new(response.decode_json_body()?),
+            response: response.clone(),
+        })
+    }
+    async fn decode<T: Send + 'static>(
+        &self,
+        response: SerializableRestResponse,
+        decoder: fn(&SerializableRestResponse) -> Result<T>,
+        caller: &'static Location<'static>,
+    ) -> Result<(SerializableRestResponse, Result<T>)> {
+        let span = Span::current();
+        let dispatch = tracing::dispatcher::get_default(Clone::clone);
+        let sensitive = self.artifact_retention == ArtifactRetention::Disabled;
+        tokio::task::spawn_blocking(move || {
+            tracing::dispatcher::with_default(&dispatch, || {
+                span.in_scope(|| {
+                    let decoded = decoder(&response).map_err(|mut error| {
+                        if sensitive {
+                            return eyre::eyre!(
+                                "sensitive REST response could not be decoded as {}",
+                                std::any::type_name::<T>()
+                            );
                         }
+                        error.handler_mut().track_caller(caller);
+                        error
+                    });
+                    (response, decoded)
+                })
+            })
+        })
+        .await
+        .wrap_err("REST decoding worker failed")
+    }
+    async fn canonical<T: Send + 'static>(
+        &self,
+        executor: &CloudTerrastodonExecutor,
+        entry: ArtifactEntry,
+        reusable: bool,
+        decoder: fn(&SerializableRestResponse) -> Result<T>,
+        caller: &'static Location<'static>,
+    ) -> Result<WorkOutput<T>> {
+        if reusable && let Some(loaded) = entry.load(executor.cancellation()).await? {
+            let span = Span::current();
+            let dispatch = tracing::dispatcher::get_default(Clone::clone);
+            let (loaded, decoded) = tokio::task::spawn_blocking(move || {
+                tracing::dispatcher::with_default(&dispatch, || {
+                    span.in_scope(|| {
+                        let decoded = facet_json::from_slice::<SerializableRestResponse>(
+                            &loaded.artifacts.payload,
+                        )
+                        .map_err(|error| eyre::eyre!("{error:?}"))
+                        .and_then(|response| decoder(&response))
+                        .map_err(|mut error| {
+                            error.handler_mut().track_caller(caller);
+                            error
+                        });
+                        (loaded, decoded)
+                    })
+                })
+            })
+            .await
+            .wrap_err("cached REST decoding worker failed")?;
+            return match decoded {
+                Ok(value) => Ok(loaded.decoded(value)),
+                Err(error) => executor.cancellation().finish_required("reject invalid REST artifact and retain diagnostics", |scope| async move {
+                    let retained = async {
+                        entry.reject(&scope).await?;
+                        let mut artifacts = loaded.artifacts;
+                        artifacts.diagnostics.extend(self.diagnostics(None, Some(&error))?);
+                        if let Some(attempt) = entry.begin_attempt(self.inputs()?, &scope).await? { attempt.finish(artifacts, ArtifactObservation::now(), &scope).await?; }
+                        Ok::<_,Report>(())
+                    }.await;
+                    let error = match retained {
+                        Ok(()) => error,
+                        Err(retention) => error.wrap_err(format!("Rejecting or retaining the failed REST artifact also failed: {retention:#}")),
                     };
-                };
-
-                let debug_inputs = self.debug_inputs();
-                let failure_extra_files = self.failure_extra_files;
-                run_cached_work(CachedWorkSpec {
-                    cache_key,
-                    context: context.clone(),
-                    debug_inputs,
-                    extra_files: Some(rest_response_extra_files as ResponseExtraFiles),
-                    failure_extra_files,
-                    executor_kind: "rest".to_string(),
-                    output_type: std::any::type_name::<T>().to_string(),
-                    execute_raw: move || Box::pin(self.execute_without_cache_from(caller)),
-                    decode,
-                }, &cancellation)
-                .await
-                .wrap_err(format!(
-                    "RestRequest::receive_raw_with_decoder failed, called from {location}"
-                ))
-                .wrap_err(format!("Invoking REST request failed: {context}"))
+                    Err(error).wrap_err_with(|| format!("Canonical REST cache decoding failed; called from {}", RelativeLocation::from(caller)))
+                }).await,
             };
-            // Mutations retain their outcome through decoding and artifacts.
-            // SDK mutation scopes additionally retain affected cache invalidation.
-            if complete_on_cancellation {
-                cancellation
-                    .deferred("completing a REST mutation, decoding its outcome, and retaining its execution artifacts", receive)
-                    .await
-            } else {
-                cancellation.cancellable_scope(receive).await
+        }
+        let attempt = entry
+            .begin_attempt(self.inputs()?, executor.cancellation())
+            .await?;
+        let outcome = self.execute_transport(executor).await;
+        let observed = ArtifactObservation::now();
+        executor.cancellation().finish_required("decode and retain observed REST outcome", |scope| async move {
+            let (response, decoded) = match outcome {
+                Ok(response) => { let (response, decoded) = self.decode(response, decoder, caller).await?; (Some(response), decoded) }
+                Err(error) => (None, Err(error)),
+            };
+            let diagnostics = self.diagnostics(response.as_ref(), decoded.as_ref().err());
+            let stored = async {
+                if let Some(attempt) = attempt {
+                    let payload = response.as_ref().map(facet_json::to_vec).transpose().map_err(|error| eyre::eyre!("{error:?}"))?.unwrap_or_default();
+                    Ok::<_,Report>(Some(attempt.finish(ArtifactSet { payload, diagnostics: diagnostics? }, observed, &scope).await?))
+                } else { Ok(None) }
+            }.await;
+            match decoded {
+                Ok(value) => {
+                    let stored = stored?;
+                    if reusable && let Some(stored) = &stored { entry.publish(stored, &scope).await?; }
+                    Ok(WorkOutput::new(value, observed))
+                }
+                Err(error) => {
+                    let error = if self.artifact_retention == ArtifactRetention::Disabled && !error.is_cancellation() { eyre::eyre!("sensitive REST execution failed") } else { error };
+                    match stored {
+                        Ok(stored) => Err(error).wrap_err_with(|| format!("REST execution or decoding failed; called from {}; artifacts: {:?}", RelativeLocation::from(caller), stored.as_ref().map(|value| value.directory()))),
+                        Err(retention) => Err(error).wrap_err_with(|| format!("REST execution or decoding failed; called from {}; retaining its artifacts also failed: {retention:#}", RelativeLocation::from(caller))),
+                    }
+                }
             }
+        }).await
+    }
+    fn receive_owned_from<'a, T: Send + 'static>(
+        self,
+        executor: &'a CloudTerrastodonExecutor,
+        decoder: fn(&SerializableRestResponse) -> Result<T>,
+        caller: &'static Location<'static>,
+    ) -> impl Future<Output = Result<T>> + Send + 'a {
+        let span = info_span!("rest_receive", summary=%self.context(), location=%RelativeLocation::from(caller));
+        async move {
+            Self::with_policy(
+                executor,
+                self.complete_on_cancellation,
+                move |child| async move {
+                    self.validate()?;
+                    let selection = self.authentication;
+                    child
+                        .uncached_work_with_artifacts(
+                            ExecutorKind::Rest,
+                            self.artifact_key(caller)?,
+                            CacheOperationOwner::of::<Self>(),
+                            &selection,
+                            self.fingerprint()?,
+                            self.artifact_retention,
+                            |attempt, entry| async move {
+                                Ok(self
+                                    .canonical(&attempt, entry, false, decoder, caller)
+                                    .await?
+                                    .value)
+                            },
+                        )?
+                        .await
+                },
+            )
+            .await
         }
         .instrument(span)
     }
-
-    #[track_caller]
-    pub fn receive_raw(self) -> impl Future<Output = Result<SerializableRestResponse>> + Send {
-        self.receive_raw_from(Location::caller())
-    }
-
-    fn receive_raw_from(
+    fn receive_shared_from<'a, T: Send + Sync + 'static>(
         self,
+        executor: &'a CloudTerrastodonExecutor,
+        owner: CacheOperationOwner,
+        decoder: fn(&SerializableRestResponse) -> Result<T>,
         caller: &'static Location<'static>,
-    ) -> impl Future<Output = Result<SerializableRestResponse>> + Send {
-        self.receive_raw_with_decoder_from(Ok, caller)
+    ) -> impl Future<Output = Result<Arc<T>>> + Send + 'a {
+        let span = info_span!("rest_receive_cached", summary=%self.context(), location=%RelativeLocation::from(caller));
+        async move {
+            Self::with_policy(
+                executor,
+                self.complete_on_cancellation,
+                move |child| async move {
+                    self.validate()?;
+                    ensure!(
+                        !self.complete_on_cancellation,
+                        "mutating REST requests must use owned receives and cannot share execution"
+                    );
+                    let key = self.cache_key.clone().ok_or_else(|| {
+                        eyre::eyre!("cached REST receive requires an explicit cache key")
+                    })?;
+                    let selection = self.authentication;
+                    child
+                        .cached_work_with_artifacts(
+                            ExecutorKind::Rest,
+                            key,
+                            owner,
+                            &selection,
+                            self.fingerprint()?,
+                            WorkReuse::ReusableRead,
+                            self.artifact_retention,
+                            |attempt, entry| async move {
+                                self.canonical(&attempt, entry, true, decoder, caller).await
+                            },
+                        )?
+                        .await
+                },
+            )
+            .await
+        }
+        .instrument(span)
     }
-
+    /// Execute independently and return an owned decoded body, even when a key is supplied.
     #[track_caller]
-    pub fn receive<T>(self) -> impl Future<Output = Result<T>> + Send
-    where
-        T: Facet<'static> + Send + 'static,
-    {
-        self.receive_with_validator_from(Ok, Location::caller())
-    }
-
-    #[track_caller]
-    pub fn receive_with_validator<T, F>(
+    pub fn receive<'a, T: Facet<'static> + Send + 'static>(
         self,
-        validator: F,
-    ) -> impl Future<Output = Result<T>> + Send
-    where
-        T: Facet<'static> + Send + 'static,
-        F: FnOnce(T) -> Result<T> + Send + 'static,
-    {
-        self.receive_with_validator_from(validator, Location::caller())
+        executor: &'a CloudTerrastodonExecutor,
+    ) -> impl Future<Output = Result<T>> + Send + 'a {
+        let result = self.receive_owned_from(executor, Self::decode_owned::<T>, Location::caller());
+        async move { Ok(result.await?.value) }
     }
-
-    /// Deserialize the JSON body, then map the value with response metadata.
+    /// Return an independently observed response, including unsuccessful HTTP statuses.
+    #[track_caller]
+    pub fn receive_raw<'a>(
+        self,
+        executor: &'a CloudTerrastodonExecutor,
+    ) -> impl Future<Output = Result<SerializableRestResponse>> + Send + 'a {
+        self.receive_owned_from(
+            executor,
+            |response| Ok(response.clone()),
+            Location::caller(),
+        )
+    }
+    /// Share one accepted JSON body. Warm hits perform no token lookup or decoding.
+    #[track_caller]
+    pub fn receive_cached<'a, T: Facet<'static> + Send + Sync + 'static>(
+        self,
+        executor: &'a CloudTerrastodonExecutor,
+        owner: CacheOperationOwner,
+    ) -> impl Future<Output = Result<Arc<T>>> + Send + 'a {
+        let result = self.receive_shared_from(
+            executor,
+            owner,
+            Self::decode_shared::<T>,
+            Location::caller(),
+        );
+        async move { Ok(Arc::clone(&result.await?.value)) }
+    }
+    /// Decode and convert one independently executed response inside artifact handling.
+    /// Use this when the wire format needs a canonical domain conversion.
+    #[track_caller]
+    pub fn receive_converted<'a, Wire, T>(
+        self,
+        executor: &'a CloudTerrastodonExecutor,
+    ) -> impl Future<Output = Result<T>> + Send + 'a
+    where
+        Wire: Facet<'static> + 'static,
+        T: TryFrom<Wire> + Send + 'static,
+        T::Error: Into<Report>,
+    {
+        let result = self.receive_owned_from(
+            executor,
+            |response| {
+                let decoded = Self::decode_owned::<Wire>(response)?;
+                Ok(DecodedRestResponse {
+                    value: T::try_from(decoded.value).map_err(Into::into)?,
+                    response: decoded.response,
+                })
+            },
+            Location::caller(),
+        );
+        async move { Ok(result.await?.value) }
+    }
+    /// Share the converted domain value, without repeating conversion on memory hits.
     ///
-    /// The mapper can validate or adjust the value and return additional data,
-    /// such as a continuation token from the headers. The extra value does not
-    /// need to implement `Facet`; caches and diagnostic artifacts retain the
-    /// original response. HTTP status, decoding, and mapping failures use the same
-    /// diagnostic path as [`Self::receive`], attributed to this call site.
+    /// The operation owner identifies this canonical conversion. Unlike the
+    /// mapper/validator APIs, conversion runs only on decode, so it must not
+    /// contain caller-specific policy checks. Conversion failures retain response
+    /// artifacts just like JSON decoding failures.
+    /// Both wire and domain types participate in the in-memory cache contract.
     #[track_caller]
-    pub fn receive_with_mapper<T, H, F>(
+    pub fn receive_converted_cached<'a, Wire, T>(
         self,
-        mapper: F,
-    ) -> impl Future<Output = Result<(T, H)>> + Send
+        executor: &'a CloudTerrastodonExecutor,
+        owner: CacheOperationOwner,
+    ) -> impl Future<Output = Result<Arc<T>>> + Send + 'a
     where
-        T: Facet<'static> + Send + 'static,
-        H: Send + 'static,
-        F: FnOnce(T, &SerializableRestResponse) -> Result<(T, H)> + Send + 'static,
+        Wire: Facet<'static> + 'static,
+        T: TryFrom<Wire> + Send + Sync + 'static,
+        T::Error: Into<Report>,
     {
-        self.receive_with_mapper_from(mapper, Location::caller())
+        let result = self.receive_shared_from(
+            executor,
+            owner,
+            |response| {
+                let decoded = Self::decode_owned::<Wire>(response)?;
+                Ok((
+                    PhantomData::<fn() -> Wire>,
+                    DecodedRestResponse {
+                        value: Arc::new(T::try_from(decoded.value).map_err(Into::into)?),
+                        response: decoded.response,
+                    },
+                ))
+            },
+            Location::caller(),
+        );
+        async move { Ok(Arc::clone(&result.await?.1.value)) }
     }
-
-    /// Deserialize the body and return its Microsoft continuation header.
-    ///
-    /// Reads `x-ms-continuationtoken`, documented by [Azure DevOps Test Plans
-    /// List](https://learn.microsoft.com/en-us/rest/api/azure/devops/testplan/test-plans/list?view=azure-devops-rest-7.1#uri-parameters).
-    /// Falls back to `x-ms-continuation-token`, documented by [Durable Functions'
-    /// Get all instances status](https://learn.microsoft.com/en-us/azure/durable-task/durable-functions/durable-functions-http-api#get-all-instances-status).
-    /// Header lookup is case-insensitive. An absent header returns `None`; a
-    /// present blank token is an error. Nonblank token text is retained unchanged.
-    /// Decoding uses the same cache, failure artifacts, and caller attribution as
-    /// [`Self::receive`]. Each SDK request remains responsible for following pages.
+    /// Share successful raw responses. HTTP failures retain artifacts and return RestHttpError.
     #[track_caller]
-    pub fn receive_with_ms_continuation_token<T>(
+    pub fn receive_raw_cached<'a>(
         self,
-    ) -> impl Future<Output = Result<(T, Option<MicrosoftContinuationToken>)>> + Send
-    where
-        T: Facet<'static> + Send + 'static,
-    {
-        self.receive_with_mapper_from(
-            |value, response| {
-                let token = response
-                    .header("x-ms-continuationtoken")
-                    .or_else(|| response.header("x-ms-continuation-token"))
-                    .map(MicrosoftContinuationToken::try_new)
-                    .transpose()?;
-                Ok((value, token))
+        executor: &'a CloudTerrastodonExecutor,
+        owner: CacheOperationOwner,
+    ) -> impl Future<Output = Result<Arc<SerializableRestResponse>>> + Send + 'a {
+        self.receive_shared_from(
+            executor,
+            owner,
+            |response| {
+                response.error_for_status()?;
+                Ok(response.clone())
             },
             Location::caller(),
         )
     }
-
-    fn receive_with_validator_from<T, F>(
-        self,
-        validator: F,
+    async fn policy_failure<T: 'static>(
+        &self,
+        executor: &CloudTerrastodonExecutor,
+        owner: CacheOperationOwner,
         caller: &'static Location<'static>,
-    ) -> impl Future<Output = Result<T>> + Send
-    where
-        T: Facet<'static> + Send + 'static,
-        F: FnOnce(T) -> Result<T> + Send + 'static,
-    {
-        let response = self.receive_with_mapper_from(
-            move |value, _response| validator(value).map(|value| (value, ())),
-            caller,
-        );
-        async move { response.await.map(|(value, ())| value) }
-    }
-
-    fn receive_with_mapper_from<T, H, F>(
-        self,
-        mapper: F,
-        caller: &'static Location<'static>,
-    ) -> impl Future<Output = Result<(T, H)>> + Send
-    where
-        T: Facet<'static> + Send + 'static,
-        H: Send + 'static,
-        F: FnOnce(T, &SerializableRestResponse) -> Result<(T, H)> + Send + 'static,
-    {
-        self.receive_raw_with_decoder_from(
-            move |response| {
-                response
-                    .error_for_status()
-                    .wrap_err_with(|| format!("Called from {caller}"))?;
-                let parsed = response.decode_json_body::<T>()?;
-                mapper(parsed, &response)
-            },
-            caller,
-        )
-    }
-}
-
-fn rest_response_extra_files(
-    response: &SerializableRestResponse,
-) -> BTreeMap<PathBuf, bstr::BString> {
-    let mut files = BTreeMap::new();
-    if let Ok(headers) = facet_json::to_string_pretty(&response.headers) {
-        files.insert(PathBuf::from("response.headers.json"), headers.into());
-    }
-    match &response.body {
-        RestResponseBody::Json(body) => {
-            files.insert(
-                PathBuf::from("response.body.json"),
-                facet_json::from_str::<facet_value::Value>(body.as_str())
-                    .ok()
-                    .and_then(|value| facet_json::to_string_pretty(&value).ok())
-                    .unwrap_or_else(|| body.as_str().to_string())
-                    .into(),
-            );
+        response: &SerializableRestResponse,
+        error: Report,
+    ) -> Report {
+        if error.is_cancellation() {
+            return error;
         }
-        RestResponseBody::Text(body) => {
-            files.insert(PathBuf::from("response.body.txt"), body.as_str().into());
+        if self.artifact_retention == ArtifactRetention::Disabled {
+            return eyre::eyre!("sensitive REST caller policy rejected its result");
         }
-    }
-    files
-}
-
-fn rest_response_output(response: &SerializableRestResponse) -> Result<CommandOutput> {
-    Ok(CommandOutput {
-        stdout: facet_json::to_vec_pretty(response)
-            .map_err(|error| eyre::eyre!("{error:?}"))
-            .wrap_err("serializing failed REST response to JSON")?
-            .into(),
-        stderr: bstr::BString::default(),
-        status: response.status.as_u16().into(),
-    })
-}
-
-#[expect(
-    clippy::too_many_arguments,
-    reason = "The decode failure dump path threads contextual artifacts through one helper"
-)]
-async fn write_rest_decode_failure(
-    cache_key: Option<&CacheKey>,
-    context: &str,
-    debug_inputs: &BTreeMap<PathBuf, bstr::BString>,
-    output: &CommandOutput,
-    mut extra_files: BTreeMap<PathBuf, bstr::BString>,
-    failure_extra_files: Option<ResponseFailureExtraFiles>,
-    error: &eyre::Report,
-    output_type: &str,
-) -> Result<PathBuf> {
-    if let Some(failure_extra_files) = failure_extra_files {
-        extra_files.extend(failure_extra_files(error));
-    }
-    let metadata = ArtifactMetadata::new("uncached-rest-response", "rest", output_type);
-    let error_message = format!("{error:?}");
-    write_failure_with_extra_files(
-        cache_key,
-        context,
-        debug_inputs,
-        output,
-        &metadata,
-        Some(&error_message),
-        &extra_files,
-    )
-    .await
-}
-
-#[async_trait]
-impl CacheableWorkRequest for RestRequest {
-    type Raw = SerializableRestResponse;
-    type Output = SerializableRestResponse;
-
-    fn cache_key(&self) -> CacheKey {
-        self.cache_key.clone().unwrap_or(CacheKey {
-            path: PathBuf::from_iter(["rest", "uncached"]),
-            valid_for: Duration::ZERO,
-        })
-    }
-
-    fn context(&self) -> String {
-        RestRequest::context(self)
-    }
-
-    fn debug_inputs(&self) -> BTreeMap<PathBuf, bstr::BString> {
-        RestRequest::debug_inputs(self)
-    }
-
-    async fn execute_raw(self) -> Result<Self::Raw> {
-        self.execute_without_cache().await
-    }
-
-    fn decode(raw: Self::Raw) -> Result<Self::Output> {
-        Ok(raw)
-    }
-}
-
-impl std::future::IntoFuture for RestRequest {
-    type Output = Result<SerializableRestResponse>;
-    type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + Send>>;
-
-    #[track_caller]
-    fn into_future(self) -> Self::IntoFuture {
-        let caller = Location::caller();
-        Box::pin(async move { self.receive_raw_from(caller).await })
-    }
-}
-
-impl cloud_terrastodon_command::CacheInvalidatableIntoFuture for RestRequest {
-    type WithInvalidation =
-        Pin<Box<dyn Future<Output = <Self as std::future::IntoFuture>::Output> + Send>>;
-
-    #[track_caller]
-    fn with_invalidation(self, invalidate_cache: bool) -> Self::WithInvalidation {
-        let caller = Location::caller();
-        Box::pin(async move {
-            if invalidate_cache {
-                self.cancellation
-                    .deferred(
-                        "finishing filesystem and memory cache invalidation",
-                        |_| async {
-                            <RestRequest as CacheableWorkRequest>::cache_key(&self)
-                                .invalidate()
-                                .await
+        let retained = async {
+            let mut key = self.artifact_key(caller)?;
+            key.valid_for = Duration::ZERO;
+            let entry = executor.cache()?.artifacts::<T>(
+                ExecutorKind::Rest,
+                key,
+                owner,
+                executor.admit(&self.authentication)?,
+                self.fingerprint()?,
+                self.artifact_retention,
+            )?;
+            if let Some(attempt) = entry
+                .begin_attempt(self.inputs()?, executor.cancellation())
+                .await?
+            {
+                attempt
+                    .finish(
+                        ArtifactSet {
+                            payload: facet_json::to_vec(response)
+                                .map_err(|error| eyre::eyre!("{error:?}"))?,
+                            diagnostics: self.diagnostics(Some(response), Some(&error))?,
                         },
+                        ArtifactObservation::now(),
+                        executor.cancellation(),
                     )
                     .await?;
             }
-            self.receive_raw_from(caller).await
-        })
+            Ok::<_, Report>(())
+        }
+        .await;
+        match retained {
+            Ok(()) => error.wrap_err(format!(
+                "REST caller policy failed; called from {}",
+                RelativeLocation::from(caller)
+            )),
+            Err(retention) => error.wrap_err(format!(
+                "REST caller policy failed; retaining diagnostics failed: {retention:#}"
+            )),
+        }
+    }
+    /// Apply caller-specific decoding to an independently observed raw response.
+    #[track_caller]
+    pub fn receive_raw_with_decoder<'a, T, F>(
+        self,
+        decode: F,
+        executor: &'a CloudTerrastodonExecutor,
+    ) -> impl Future<Output = Result<T>> + 'a
+    where
+        T: 'a,
+        F: FnOnce(SerializableRestResponse) -> Result<T> + 'a,
+    {
+        let caller = Location::caller();
+        Self::with_policy(
+            executor,
+            self.complete_on_cancellation,
+            move |child| async move {
+                let response = self
+                    .clone()
+                    .receive_owned_from(&child, |response| Ok(response.clone()), caller)
+                    .await?;
+                match decode(response.clone()) {
+                    Ok(value) => Ok(value),
+                    Err(error) => Err(self
+                        .policy_failure::<SerializableRestResponse>(
+                            &child,
+                            CacheOperationOwner::of::<Self>(),
+                            caller,
+                            &response,
+                            error,
+                        )
+                        .await),
+                }
+            },
+        )
+        .instrument(info_span!("rest_response_policy",location=%RelativeLocation::from(caller)))
+    }
+    #[track_caller]
+    pub fn receive_with_mapper<'a, T, H, F>(
+        self,
+        mapper: F,
+        executor: &'a CloudTerrastodonExecutor,
+    ) -> impl Future<Output = Result<(T, H)>> + 'a
+    where
+        T: Facet<'static> + Send + 'static,
+        H: 'a,
+        F: FnOnce(T, &SerializableRestResponse) -> Result<(T, H)> + 'a,
+    {
+        self.receive_with_mapper_from(mapper, executor, Location::caller())
+    }
+    fn receive_with_mapper_from<'a, T, H, F>(
+        self,
+        mapper: F,
+        executor: &'a CloudTerrastodonExecutor,
+        caller: &'static Location<'static>,
+    ) -> impl Future<Output = Result<(T, H)>> + 'a
+    where
+        T: Facet<'static> + Send + 'static,
+        H: 'a,
+        F: FnOnce(T, &SerializableRestResponse) -> Result<(T, H)> + 'a,
+    {
+        Self::with_policy(
+            executor,
+            self.complete_on_cancellation,
+            move |child| async move {
+                let decoded = self
+                    .clone()
+                    .receive_owned_from(&child, Self::decode_owned::<T>, caller)
+                    .await?;
+                match mapper(decoded.value, &decoded.response) {
+                    Ok(value) => Ok(value),
+                    Err(error) => Err(self
+                        .policy_failure::<DecodedRestResponse<T>>(
+                            &child,
+                            CacheOperationOwner::of::<Self>(),
+                            caller,
+                            &decoded.response,
+                            error,
+                        )
+                        .await),
+                }
+            },
+        )
+        .instrument(info_span!("rest_response_policy",location=%RelativeLocation::from(caller)))
+    }
+    #[track_caller]
+    pub fn receive_with_validator<'a, T, F>(
+        self,
+        validator: F,
+        executor: &'a CloudTerrastodonExecutor,
+    ) -> impl Future<Output = Result<T>> + 'a
+    where
+        T: Facet<'static> + Send + 'static,
+        F: FnOnce(T) -> Result<T> + 'a,
+    {
+        let result = self.receive_with_mapper_from(
+            move |value, _| validator(value).map(|value| (value, ())),
+            executor,
+            Location::caller(),
+        );
+        async move { Ok(result.await?.0) }
+    }
+    #[track_caller]
+    pub fn receive_with_mapper_cached<'a, T, H, F>(
+        self,
+        mapper: F,
+        executor: &'a CloudTerrastodonExecutor,
+        owner: CacheOperationOwner,
+    ) -> impl Future<Output = Result<(Arc<T>, H)>> + 'a
+    where
+        T: Facet<'static> + Send + Sync + 'static,
+        H: 'a,
+        F: FnOnce(Arc<T>, &SerializableRestResponse) -> Result<(Arc<T>, H)> + 'a,
+    {
+        self.receive_with_mapper_cached_from(mapper, executor, owner, Location::caller())
+    }
+    fn receive_with_mapper_cached_from<'a, T, H, F>(
+        self,
+        mapper: F,
+        executor: &'a CloudTerrastodonExecutor,
+        owner: CacheOperationOwner,
+        caller: &'static Location<'static>,
+    ) -> impl Future<Output = Result<(Arc<T>, H)>> + 'a
+    where
+        T: Facet<'static> + Send + Sync + 'static,
+        H: 'a,
+        F: FnOnce(Arc<T>, &SerializableRestResponse) -> Result<(Arc<T>, H)> + 'a,
+    {
+        Self::with_policy(
+            executor,
+            self.complete_on_cancellation,
+            move |child| async move {
+                let decoded = self
+                    .clone()
+                    .receive_shared_from(&child, owner, Self::decode_shared::<T>, caller)
+                    .await?;
+                match mapper(Arc::clone(&decoded.value), &decoded.response) {
+                    Ok(value) => Ok(value),
+                    Err(error) => Err(self
+                        .policy_failure::<DecodedRestResponse<Arc<T>>>(
+                            &child,
+                            owner,
+                            caller,
+                            &decoded.response,
+                            error,
+                        )
+                        .await),
+                }
+            },
+        )
+        .instrument(info_span!("rest_response_policy",location=%RelativeLocation::from(caller)))
+    }
+    #[track_caller]
+    pub fn receive_with_validator_cached<'a, T, F>(
+        self,
+        validator: F,
+        executor: &'a CloudTerrastodonExecutor,
+        owner: CacheOperationOwner,
+    ) -> impl Future<Output = Result<Arc<T>>> + 'a
+    where
+        T: Facet<'static> + Send + Sync + 'static,
+        F: FnOnce(&T) -> Result<()> + 'a,
+    {
+        let result = self.receive_with_mapper_cached_from(
+            move |value: Arc<T>, _| {
+                validator(&value)?;
+                Ok((value, ()))
+            },
+            executor,
+            owner,
+            Location::caller(),
+        );
+        async move { Ok(result.await?.0) }
+    }
+    #[track_caller]
+    pub fn receive_with_ms_continuation_token<'a, T: Facet<'static> + Send + 'static>(
+        self,
+        executor: &'a CloudTerrastodonExecutor,
+    ) -> impl Future<Output = Result<(T, Option<MicrosoftContinuationToken>)>> + 'a {
+        self.receive_with_mapper_from(
+            |value, response| Ok((value, Self::continuation(response)?)),
+            executor,
+            Location::caller(),
+        )
+    }
+    #[track_caller]
+    pub fn receive_with_ms_continuation_token_cached<
+        'a,
+        T: Facet<'static> + Send + Sync + 'static,
+    >(
+        self,
+        executor: &'a CloudTerrastodonExecutor,
+        owner: CacheOperationOwner,
+    ) -> impl Future<Output = Result<(Arc<T>, Option<MicrosoftContinuationToken>)>> + 'a {
+        self.receive_with_mapper_cached_from(
+            |value, response| Ok((value, Self::continuation(response)?)),
+            executor,
+            owner,
+            Location::caller(),
+        )
+    }
+    fn continuation(
+        response: &SerializableRestResponse,
+    ) -> Result<Option<MicrosoftContinuationToken>> {
+        response
+            .header("x-ms-continuationtoken")
+            .or_else(|| response.header("x-ms-continuation-token"))
+            .map(MicrosoftContinuationToken::try_new)
+            .transpose()
+    }
+}
+
+impl HasCacheKey for RestRequest {
+    fn cache_key(&self) -> Result<CacheKey> {
+        self.cache_key
+            .clone()
+            .ok_or_else(|| eyre::eyre!("REST invalidation requires an explicit cache key"))
+    }
+}
+impl InvalidatesOwnCacheKey for RestRequest {}
+impl ExecutableRequest for RestRequest {
+    type Error = eyre::Report;
+    type Output = SerializableRestResponse;
+    fn run<'a>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>
+    where
+        Self: 'a,
+    {
+        Box::pin(async move { self.receive_raw(&executor).await })
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use reqwest::header::HeaderMap;
-    use reqwest::header::HeaderValue;
+    use http::HeaderMap;
+    use http::HeaderValue;
+    use http::StatusCode;
 
     #[test]
-    fn explicit_service_accepts_server_hosts_without_inferring_unknown_destinations()
-    -> eyre::Result<()> {
-        let scope = CancellationScope::unbound();
-        let server = Url::parse("https://server.example.invalid/tfs/Collection/_apis/projects")?;
-        assert!(RestRequest::from_method_and_url(Method::GET, server.clone(), &scope).is_err());
+    fn explicit_service_accepts_server_hosts_without_inferencing_credentials() -> Result<()> {
+        let url = Url::parse("https://server.example.invalid/tfs/Collection/_apis/projects")?;
+        assert!(RestRequest::from_method_and_url(Method::GET, url.clone()).is_err());
         let request = RestRequest::from_method_and_url_for_service(
             Method::GET,
-            server,
+            url,
             RestService::AzureDevOps,
-            &scope,
         )?;
         assert_eq!(request.service, RestService::AzureDevOps);
-        for invalid in [
+        assert!(
+            request.validate().is_err(),
+            "service selection cannot imply authentication"
+        );
+        for url in [
             "ftp://server.example.invalid/file",
             "https://user:secret@server.example.invalid/path",
         ] {
             assert!(
                 RestRequest::from_method_and_url_for_service(
                     Method::GET,
-                    Url::parse(invalid)?,
-                    RestService::AzureDevOps,
-                    &scope,
+                    Url::parse(url)?,
+                    RestService::AzureDevOps
                 )
                 .is_err()
             );
@@ -750,58 +1003,32 @@ mod tests {
         Ok(())
     }
 
-    fn pretty_json(input: &str) -> String {
-        facet_json::to_string_pretty(&facet_json::from_str::<facet_value::Value>(input).unwrap())
-            .unwrap()
-    }
-
     #[test]
-    fn rest_response_extra_files_include_json_body() {
+    fn artifacts_retain_headers_and_distinguish_json_and_text_outcomes() -> Result<()> {
+        let request = RestRequest::new(Method::GET, "https://prices.azure.com/api/retail/prices")?;
         let mut headers = HeaderMap::new();
         headers.insert("content-type", HeaderValue::from_static("application/json"));
-        headers.insert("x-ms-retry-after-ms", HeaderValue::from_static("1000"));
         let response = SerializableRestResponse::new(
-            http::StatusCode::OK,
+            StatusCode::OK,
             &headers,
-            "{\"hello\":\"world\"}".to_string(),
+            facet_json::to_string(&vec![1u64, 2])?,
         );
-
-        let files = rest_response_extra_files(&response);
-        let expected = pretty_json(r#"{"hello":"world"}"#);
-        let expected_headers =
-            pretty_json(r#"{"content-type":["application/json"],"x-ms-retry-after-ms":["1000"]}"#);
-
-        assert_eq!(
-            files
-                .get(&PathBuf::from("response.body.json"))
-                .map(|value| value.as_ref()),
-            Some(expected.as_bytes())
-        );
-        assert_eq!(
-            files
-                .get(&PathBuf::from("response.headers.json"))
-                .map(|value| value.as_ref()),
-            Some(expected_headers.as_bytes())
-        );
-    }
-
-    #[test]
-    fn rest_response_extra_files_include_text_body() {
-        let headers = HeaderMap::new();
+        let files = request.diagnostics(Some(&response), None)?;
+        assert!(files.contains_key(&ArtifactFilePath::new("response.body.json")?));
+        assert!(files.contains_key(&ArtifactFilePath::new("response.headers.json")?));
         let response = SerializableRestResponse::new(
-            http::StatusCode::TOO_MANY_REQUESTS,
-            &headers,
-            "slow down".to_string(),
+            StatusCode::TOO_MANY_REQUESTS,
+            &HeaderMap::new(),
+            "synthetic text".to_owned(),
         );
-
-        let files = rest_response_extra_files(&response);
-
+        let files = request.diagnostics(Some(&response), None)?;
         assert_eq!(
             files
-                .get(&PathBuf::from("response.body.txt"))
-                .map(|value| value.as_ref()),
-            Some("slow down".as_bytes())
+                .get(&ArtifactFilePath::new("response.body.txt")?)
+                .map(Vec::as_slice),
+            Some(b"synthetic text".as_slice())
         );
-        assert!(!files.contains_key(&PathBuf::from("response.body.json")));
+        assert!(!files.contains_key(&ArtifactFilePath::new("response.body.json")?));
+        Ok(())
     }
 }

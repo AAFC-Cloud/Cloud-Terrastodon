@@ -1,19 +1,27 @@
+use cloud_terrastodon_auth_types::AuthenticationSelection;
+use cloud_terrastodon_auth_types::AzureBearerAuthSource;
 use cloud_terrastodon_azure_types::AzureLocationName;
+use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::ComputePublisherName;
 use cloud_terrastodon_azure_types::ComputePublisherVmImageOfferName;
 use cloud_terrastodon_azure_types::ComputePublisherVmImageOfferSkuId;
+use cloud_terrastodon_azure_types::ComputePublisherVmImageOfferSkuReference;
 use cloud_terrastodon_azure_types::SubscriptionId;
-use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CacheableCommand;
-use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_cache::CacheKey;
+use cloud_terrastodon_cache::CacheOperationOwner;
+use cloud_terrastodon_cache::HasCacheKey;
+use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
+use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_rest::RestRequest;
 use std::path::PathBuf;
 
 #[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct ComputePublisherImageOfferSkuListRequest {
-    #[facet(skip_serializing)]
-    pub cancellation: CancellationScope,
+    pub auth_source: AzureBearerAuthSource,
+    pub tenant_id: AzureTenantId,
 
     pub subscription_id: SubscriptionId,
     pub location: AzureLocationName,
@@ -21,28 +29,32 @@ pub struct ComputePublisherImageOfferSkuListRequest {
     pub offer_name: ComputePublisherVmImageOfferName,
 }
 
-pub fn fetch_compute_publisher_image_offer_skus(
+#[track_caller]
+pub fn fetch_compute_publisher_image_offer_skus<'exec>(
     subscription_id: SubscriptionId,
     location: AzureLocationName,
     publisher_name: ComputePublisherName,
     offer_name: ComputePublisherVmImageOfferName,
-    cancellation: &CancellationScope,
-) -> ComputePublisherImageOfferSkuListRequest {
-    ComputePublisherImageOfferSkuListRequest {
-        cancellation: cancellation.clone(),
+    auth_source: AzureBearerAuthSource,
+    tenant_id: AzureTenantId,
+    executor: &'exec CloudTerrastodonExecutor,
+) -> RequestExecution<'exec, ComputePublisherImageOfferSkuListRequest> {
+    executor.execute(ComputePublisherImageOfferSkuListRequest {
+        auth_source,
+        tenant_id,
+
         subscription_id,
         location,
         publisher_name,
         offer_name,
-    }
+    })
 }
 
-#[async_trait]
-impl CacheableCommand for ComputePublisherImageOfferSkuListRequest {
-    type Output = Vec<ComputePublisherVmImageOfferSkuId>;
+impl InvalidatesOwnCacheKey for ComputePublisherImageOfferSkuListRequest {}
 
-    fn cache_key(&self) -> CacheKey {
-        CacheKey::new(PathBuf::from_iter([
+impl HasCacheKey for ComputePublisherImageOfferSkuListRequest {
+    fn cache_key(&self) -> eyre::Result<CacheKey> {
+        CacheKey::from_relative_path(PathBuf::from_iter([
             "az",
             "vm",
             "list-publishers-offers-skus",
@@ -52,31 +64,42 @@ impl CacheableCommand for ComputePublisherImageOfferSkuListRequest {
             self.offer_name.to_string().as_str(),
         ]))
     }
-
-    async fn run(self) -> eyre::Result<Self::Output> {
-        let url = format!(
-            "https://management.azure.com/subscriptions/{subscription_id}/providers/Microsoft.Compute/locations/{location}/publishers/{publisher_name}/artifacttypes/vmimage/offers/{offer_name}/skus?api-version=2024-07-01",
-            subscription_id = self.subscription_id,
-            location = self.location,
-            publisher_name = self.publisher_name,
-            offer_name = self.offer_name
-        );
-        #[derive(facet::Facet)]
-        struct Row {
-            id: ComputePublisherVmImageOfferSkuId,
-        }
-        let rtn = RestRequest::new(http::Method::GET, &url, &self.cancellation)?
-            .cache(self.cache_key())
-            .receive::<Vec<Row>>()
-            .await?
-            .into_iter()
-            .map(|row| row.id)
-            .collect();
-        Ok(rtn)
-    }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(ComputePublisherImageOfferSkuListRequest);
+impl ExecutableRequest for ComputePublisherImageOfferSkuListRequest {
+    type Error = eyre::Report;
+    type Output = Vec<ComputePublisherVmImageOfferSkuId>;
+    fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
+    where
+        Self: 'exec,
+        Self::Output: 'exec,
+    {
+        Box::pin(async move {
+            let url = format!(
+                "https://management.azure.com/subscriptions/{subscription_id}/providers/Microsoft.Compute/locations/{location}/publishers/{publisher_name}/artifacttypes/vmimage/offers/{offer_name}/skus?api-version=2024-07-01",
+                subscription_id = self.subscription_id,
+                location = self.location,
+                publisher_name = self.publisher_name,
+                offer_name = self.offer_name
+            );
+            let rtn = RestRequest::new(http::Method::GET, &url)?
+                .authentication(AuthenticationSelection::AzureBearer {
+                    auth_source: self.auth_source,
+                    tenant_id: self.tenant_id,
+                })
+                .cache(self.cache_key()?)
+                .receive_cached::<Vec<ComputePublisherVmImageOfferSkuReference>>(
+                    &executor,
+                    CacheOperationOwner::of::<ComputePublisherImageOfferSkuListRequest>(),
+                )
+                .await?
+                .iter()
+                .map(|row| row.id.clone())
+                .collect();
+            Ok(rtn)
+        })
+    }
+}
 
 #[cfg(test)]
 mod test {
@@ -91,10 +114,14 @@ mod test {
     pub async fn it_works() -> eyre::Result<()> {
         CancellationToken::new()
             .cancellable_scope(|cancellation| async move {
+                let executor = crate::test_executor::test_executor(
+                    &cloud_terrastodon_auth::AuthContext::explicit_azure_cli(),
+                    &cancellation,
+                )?;
                 let tenant_id = get_test_tenant_id(&cancellation).await?;
                 let subscription_id = fetch_all_subscriptions(
                     &AuthContext::explicit_azure_cli().bind_to_azure_tenant(tenant_id)?,
-                    &cancellation,
+                    &executor,
                 )
                 .await?
                 .first()
@@ -107,7 +134,9 @@ mod test {
                     AzureLocationName::CanadaCentral,
                     publisher,
                     offer,
-                    &cancellation,
+                    cloud_terrastodon_auth_types::AzureBearerAuthSource::AzureCli,
+                    tenant_id,
+                    &executor,
                 )
                 .await?;
                 assert!(!sku_versions.is_empty());
@@ -119,4 +148,4 @@ mod test {
 
 cloud_terrastodon_registry::register_thing!(ComputePublisherImageOfferSkuListRequest);
 cloud_terrastodon_registry::register_arbitrary!(ComputePublisherImageOfferSkuListRequest);
-cloud_terrastodon_registry_execution::register_into_future!(ComputePublisherImageOfferSkuListRequest => Vec<ComputePublisherVmImageOfferSkuId>, effects = [Read]);
+cloud_terrastodon_registry_execution::register_executable_request!(ComputePublisherImageOfferSkuListRequest => Vec<ComputePublisherVmImageOfferSkuId>, effects = [Read]);

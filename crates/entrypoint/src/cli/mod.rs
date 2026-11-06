@@ -62,7 +62,7 @@ impl Cli {
                 .await?
             }
             None => {
-                Box::pin(menu_loop(auth_context, cancellation)).await?;
+                Box::pin(menu_loop(auth_context, executor)).await?;
                 output::CliOutput::none()
             }
         };
@@ -189,7 +189,7 @@ mod tests {
                 assert!(error.chain().any(|cause| {
                     cause
                         .to_string()
-                        .contains("Azure DevOps authentication is not configured for this request")
+                        .contains("the placeholder Azure DevOps context cannot bind an executor")
                 }));
             })?
             .join()

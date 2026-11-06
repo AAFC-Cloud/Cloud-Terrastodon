@@ -3,7 +3,7 @@ use cloud_terrastodon_azure::AzureDevOpsTenantArgumentExt;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_agent_pools;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use std::io::stdout;
 
@@ -26,20 +26,20 @@ impl AzureDevOpsAgentPoolListArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let azure_devops_auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &azure_devops_auth_context.bind_executor(executor)?;
         let pools =
-            fetch_azure_devops_agent_pools(&self.org, &azure_devops_auth_context, cancellation)
-                .await?;
-        let pools: Vec<_> = if self.all {
-            pools
-        } else {
-            pools.into_iter().filter(|pool| !pool.is_hosted).collect()
-        };
+            fetch_azure_devops_agent_pools(&self.org, &azure_devops_auth_context, executor).await?;
+        let pools: Vec<_> = pools
+            .iter()
+            .filter(|pool| self.all || !pool.is_hosted)
+            .collect();
 
         facet_json::to_writer_std_pretty(stdout(), &pools)
             .map_err(|error| eyre::eyre!("{error:?}"))?;

@@ -1,4 +1,5 @@
 use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_auth_types::AzureBearerAuthSource;
 use cloud_terrastodon_azure::AzureApplicationGatewayResourceBackendHealthResponse;
 use cloud_terrastodon_azure::AzureApplicationGatewayResourceBackendHealthServer;
 use cloud_terrastodon_azure::AzureApplicationGatewayResourceBackendHealthServerHealth;
@@ -18,7 +19,7 @@ use cloud_terrastodon_azure::fetch_all_private_endpoints;
 use cloud_terrastodon_azure::fetch_all_public_ips;
 use cloud_terrastodon_azure::fetch_all_virtual_networks;
 use cloud_terrastodon_azure::fetch_application_gateway_backend_health;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use color_eyre::owo_colors::OwoColorize;
 use eyre::Context;
 use eyre::ContextCompat;
@@ -37,6 +38,7 @@ use std::collections::HashSet;
 use std::net::IpAddr;
 use std::path::Path;
 use std::path::PathBuf;
+use std::sync::Arc;
 use tracing::info;
 
 /// Investigate a URL or host by resolving DNS and correlating it with Azure public IPs.
@@ -59,18 +61,20 @@ impl OutageInvestigateArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let tenant_auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
         let tenant_id = tenant_auth_context.tenant_id;
         let target_host = extract_target_host(&self.target)?;
         let dns = resolve_target(&target_host).await?;
 
         info!(%tenant_id, host = %target_host, "Fetching Azure public IP addresses for outage investigation");
-        let public_ips = fetch_all_public_ips(&tenant_auth_context, cancellation).await?;
+        let public_ips = fetch_all_public_ips(&tenant_auth_context, executor).await?;
         info!(
             count = public_ips.len(),
             "Fetched Azure public IP addresses"
@@ -92,14 +96,15 @@ impl OutageInvestigateArgs {
         let matches = enrich_matches_with_application_gateway_backend_health(
             tenant_id,
             matches,
-            cancellation,
+            tenant_auth_context.auth_context.azure_bearer_source()?,
+            executor,
         )
         .await?;
         let matches = enrich_matches_with_backend_resource_discovery(
             tenant_id,
             matches,
-            auth_context,
-            cancellation,
+            &tenant_auth_context.auth_context,
+            executor,
         )
         .await?;
 
@@ -138,7 +143,7 @@ struct DnsResolution {
 
 #[derive(Debug, facet::Facet)]
 struct OutagePublicIpMatch {
-    public_ip: AzurePublicIpResource,
+    public_ip: Arc<AzurePublicIpResource>,
     application_gateway_id: Option<String>,
     application_gateway_frontend_ip_configuration_id: Option<String>,
     application_gateway_backend_health:
@@ -153,18 +158,18 @@ struct BackendProbeInvestigation {
     backend_address_pool_id: String,
     backend_http_settings_id: String,
     server: AzureApplicationGatewayResourceBackendHealthServer,
-    matching_network_interfaces: Vec<AzureNetworkInterfaceResource>,
-    matching_container_instances: Vec<AzureContainerInstanceResource>,
-    matching_private_endpoints: Vec<AzurePrivateEndpointResource>,
+    matching_network_interfaces: Vec<Arc<AzureNetworkInterfaceResource>>,
+    matching_container_instances: Vec<Arc<AzureContainerInstanceResource>>,
+    matching_private_endpoints: Vec<Arc<AzurePrivateEndpointResource>>,
     private_link_service_ids: Vec<String>,
 }
 
 #[derive(Debug, facet::Facet, Clone)]
 struct VirtualNetworkBackendInvestigation {
-    virtual_network: VirtualNetwork,
+    virtual_network: Arc<VirtualNetwork>,
     backend_entries: Vec<VirtualNetworkBackendEntry>,
-    devices: Vec<AzureNetworkInterfaceResource>,
-    container_instances: Vec<AzureContainerInstanceResource>,
+    devices: Vec<Arc<AzureNetworkInterfaceResource>>,
+    container_instances: Vec<Arc<AzureContainerInstanceResource>>,
 }
 
 #[derive(Debug, facet::Facet, Clone)]
@@ -297,7 +302,7 @@ async fn resolve_cname_chain(
 }
 
 fn match_public_ip(
-    public_ip: AzurePublicIpResource,
+    public_ip: Arc<AzurePublicIpResource>,
     normalized_hosts: &HashSet<String>,
     resolved_addresses: &HashSet<IpAddr>,
 ) -> Option<OutagePublicIpMatch> {
@@ -342,11 +347,16 @@ fn match_public_ip(
 async fn enrich_matches_with_application_gateway_backend_health(
     tenant_id: cloud_terrastodon_azure::AzureTenantId,
     mut matches: Vec<OutagePublicIpMatch>,
-    cancellation: &CancellationScope,
+    auth_source: AzureBearerAuthSource,
+    executor: &CloudTerrastodonExecutor,
 ) -> Result<Vec<OutagePublicIpMatch>> {
-    let backend_health_by_gateway_id =
-        fetch_application_gateway_backend_health_for_matches(tenant_id, &matches, cancellation)
-            .await;
+    let backend_health_by_gateway_id = fetch_application_gateway_backend_health_for_matches(
+        tenant_id,
+        &matches,
+        auth_source,
+        executor,
+    )
+    .await;
 
     for matched_public_ip in &mut matches {
         let Some(application_gateway_id) = matched_public_ip.application_gateway_id.as_deref()
@@ -369,7 +379,7 @@ async fn enrich_matches_with_backend_resource_discovery(
     tenant_id: cloud_terrastodon_azure::AzureTenantId,
     mut matches: Vec<OutagePublicIpMatch>,
     auth_context: &AuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> Result<Vec<OutagePublicIpMatch>> {
     let tenant_auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
     let backend_candidates = matches
@@ -390,21 +400,21 @@ async fn enrich_matches_with_backend_resource_discovery(
             count = backend_candidates.len(),
             "Fetching network interfaces for backend probe investigation"
         );
-        fetch_all_network_interfaces(&tenant_auth_context, cancellation).await?
+        fetch_all_network_interfaces(&tenant_auth_context, executor).await?
     };
 
     let virtual_networks = if backend_candidates.is_empty() {
         Vec::new()
     } else {
         info!("Fetching virtual networks for backend probe investigation");
-        fetch_all_virtual_networks(&tenant_auth_context, cancellation).await?
+        fetch_all_virtual_networks(&tenant_auth_context, executor).await?
     };
 
     let container_instances = if backend_candidates.is_empty() {
         Vec::new()
     } else {
         info!("Fetching container instances for backend probe investigation");
-        fetch_all_container_instances(&tenant_auth_context, cancellation).await?
+        fetch_all_container_instances(&tenant_auth_context, executor).await?
     };
 
     let relevant_private_endpoint_ids = backend_candidates
@@ -423,7 +433,7 @@ async fn enrich_matches_with_backend_resource_discovery(
             count = relevant_private_endpoint_ids.len(),
             "Fetching private endpoints for backend probe investigation"
         );
-        fetch_all_private_endpoints(&tenant_auth_context, cancellation)
+        fetch_all_private_endpoints(&tenant_auth_context, executor)
             .await?
             .into_iter()
             .filter(|private_endpoint| {
@@ -469,7 +479,7 @@ async fn enrich_matches_with_backend_resource_discovery(
                     .collect::<Vec<_>>();
                 let private_link_service_ids = matching_private_endpoints
                     .iter()
-                    .flat_map(private_link_service_ids)
+                    .flat_map(|endpoint| private_link_service_ids(endpoint))
                     .collect::<BTreeSet<_>>()
                     .into_iter()
                     .collect::<Vec<_>>();
@@ -500,7 +510,8 @@ async fn enrich_matches_with_backend_resource_discovery(
 async fn fetch_application_gateway_backend_health_for_matches(
     tenant_id: cloud_terrastodon_azure::AzureTenantId,
     matches: &[OutagePublicIpMatch],
-    cancellation: &CancellationScope,
+    auth_source: AzureBearerAuthSource,
+    executor: &CloudTerrastodonExecutor,
 ) -> BTreeMap<String, ApplicationGatewayBackendHealthLookup> {
     let application_gateway_ids = matches
         .iter()
@@ -523,7 +534,8 @@ async fn fetch_application_gateway_backend_health_for_matches(
                 match fetch_application_gateway_backend_health(
                     tenant_id,
                     application_gateway_id,
-                    cancellation,
+                    auth_source,
+                    executor,
                 )
                 .await
                 {
@@ -586,10 +598,10 @@ fn collect_backend_servers(
 }
 
 fn collect_virtual_network_backend_investigations(
-    virtual_networks: &[VirtualNetwork],
+    virtual_networks: &[Arc<VirtualNetwork>],
     backend_candidates: &[BackendServerCandidate],
-    network_interfaces: &[AzureNetworkInterfaceResource],
-    container_instances: &[AzureContainerInstanceResource],
+    network_interfaces: &[Arc<AzureNetworkInterfaceResource>],
+    container_instances: &[Arc<AzureContainerInstanceResource>],
 ) -> Vec<VirtualNetworkBackendInvestigation> {
     virtual_networks
         .iter()
@@ -663,9 +675,9 @@ fn virtual_network_contains_backend_address(
 }
 
 fn network_interfaces_for_virtual_network(
-    network_interfaces: &[AzureNetworkInterfaceResource],
+    network_interfaces: &[Arc<AzureNetworkInterfaceResource>],
     virtual_network: &VirtualNetwork,
-) -> Vec<AzureNetworkInterfaceResource> {
+) -> Vec<Arc<AzureNetworkInterfaceResource>> {
     let subnet_ids = virtual_network
         .properties
         .subnets
@@ -719,9 +731,9 @@ fn virtual_network_contains_backend_ip(
 }
 
 fn container_instances_for_virtual_network(
-    container_instances: &[AzureContainerInstanceResource],
+    container_instances: &[Arc<AzureContainerInstanceResource>],
     virtual_network: &VirtualNetwork,
-) -> Vec<AzureContainerInstanceResource> {
+) -> Vec<Arc<AzureContainerInstanceResource>> {
     let virtual_network_id = virtual_network.id.expanded_form().to_ascii_lowercase();
     container_instances
         .iter()
@@ -750,9 +762,9 @@ fn container_instances_for_virtual_network(
 }
 
 fn container_instances_for_backend_address(
-    container_instances: &[AzureContainerInstanceResource],
+    container_instances: &[Arc<AzureContainerInstanceResource>],
     backend_address: &str,
-) -> Vec<AzureContainerInstanceResource> {
+) -> Vec<Arc<AzureContainerInstanceResource>> {
     container_instances
         .iter()
         .filter(|container_instance| {
@@ -833,9 +845,9 @@ fn format_backend_health_text(
 }
 
 fn network_interfaces_for_backend_address(
-    network_interfaces: &[AzureNetworkInterfaceResource],
+    network_interfaces: &[Arc<AzureNetworkInterfaceResource>],
     backend_address: &str,
-) -> Vec<AzureNetworkInterfaceResource> {
+) -> Vec<Arc<AzureNetworkInterfaceResource>> {
     network_interfaces
         .iter()
         .filter(|network_interface| {
@@ -1752,10 +1764,10 @@ mod tests {
             "10.1.0.5"
         ));
         let investigations = collect_virtual_network_backend_investigations(
-            &[virtual_network],
+            &[Arc::new(virtual_network)],
             &candidates,
-            &[network_interface],
-            &[container_instance],
+            &[Arc::new(network_interface)],
+            &[Arc::new(container_instance)],
         );
 
         assert_eq!(investigations.len(), 1);

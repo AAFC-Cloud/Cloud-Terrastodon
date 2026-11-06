@@ -8,21 +8,22 @@ use cloud_terrastodon_azure_types::PolicyRemediationCreateProperties;
 use cloud_terrastodon_azure_types::PolicyRemediationId;
 use cloud_terrastodon_azure_types::PolicyRemediationScope;
 use cloud_terrastodon_azure_types::Scope;
-use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::HasCacheKey;
+use cloud_terrastodon_cache::CacheKey;
+use cloud_terrastodon_cache::CacheScope;
+use cloud_terrastodon_cache::HasCacheKey;
+use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
+use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_pathing::sanitize_windows_path_component;
 use cloud_terrastodon_rest::RestRequest;
-use eyre::Result;
 use eyre::WrapErr;
 use eyre::eyre;
 use facet::Facet;
 use http::Method;
 use std::borrow::Cow;
-use std::future::Future;
-use std::future::IntoFuture;
 use std::path::PathBuf;
-use std::pin::Pin;
 use std::time::Duration;
 use url::Url;
 
@@ -41,12 +42,10 @@ const REMEDIATIONS_API_VERSION: &str = "2024-10-01";
 /// Success acknowledges submission; it does not wait for deployment completion.
 /// No remediation read cache currently exists to invalidate. Resource/compliance
 /// inventories must be refreshed after the asynchronous work actually completes.
-#[must_use = "This is a future request, you must .await it"]
+#[must_use = "This is a future request, you must .execute it"]
 #[derive(Debug, Clone, Facet)]
 #[facet(traits(Clone))]
 pub struct PolicyRemediationCreateRequest<'a> {
-    #[facet(skip_serializing)]
-    pub cancellation: CancellationScope,
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
     pub id: PolicyRemediationId,
     pub policy_assignment_id: PolicyAssignmentId,
@@ -57,26 +56,25 @@ pub struct PolicyRemediationCreateRequest<'a> {
 /// Submit a remediation task using an explicit authentication tenant.
 ///
 /// See [`PolicyRemediationCreateRequest`] for scope and asynchronous completion behavior.
+#[track_caller]
 pub fn create_policy_remediation<'a>(
     id: PolicyRemediationId,
     policy_assignment_id: PolicyAssignmentId,
     policy_definition_reference_id: Option<PolicyDefinitionReferenceId>,
     auth_context: &'a AzureTenantAuthContext,
-    cancellation: &CancellationScope,
-) -> PolicyRemediationCreateRequest<'a> {
-    PolicyRemediationCreateRequest {
-        cancellation: cancellation.clone(),
+    executor: &'a CloudTerrastodonExecutor,
+) -> RequestExecution<'a, PolicyRemediationCreateRequest<'a>> {
+    executor.execute(PolicyRemediationCreateRequest {
         auth_context: Cow::Borrowed(auth_context),
         id,
         policy_assignment_id,
         policy_definition_reference_id,
-    }
+    })
 }
 
 impl<'a> Arbitrary<'a> for PolicyRemediationCreateRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
-            cancellation: u.arbitrary()?,
             auth_context: Cow::Owned(u.arbitrary()?),
             id: u.arbitrary()?,
             policy_assignment_id: u.arbitrary()?,
@@ -86,7 +84,7 @@ impl<'a> Arbitrary<'a> for PolicyRemediationCreateRequest<'static> {
 }
 
 impl HasCacheKey for PolicyRemediationCreateRequest<'_> {
-    fn cache_key(&self) -> CacheKey {
+    fn cache_key(&self) -> eyre::Result<CacheKey> {
         let mut path = PathBuf::from("az/arm/tenants")
             .join(self.auth_context.tenant_id.to_string())
             .join("policy-remediations");
@@ -112,25 +110,31 @@ impl HasCacheKey for PolicyRemediationCreateRequest<'_> {
         if let Some(reference_id) = &self.policy_definition_reference_id {
             identity.update(reference_id.as_str().as_bytes());
         }
-        CacheKey {
-            path: path
-                .join("names")
-                .join(sanitize_windows_path_component(self.id.name.as_str()))
-                .join("create/rest/api-version")
-                .join(REMEDIATIONS_API_VERSION)
-                .join(identity.finalize().to_hex().as_str()),
+        Ok(CacheKey {
+            scope: CacheScope::try_from_relative_path(
+                path.join("names")
+                    .join(sanitize_windows_path_component(self.id.name.as_str()))
+                    .join("create/rest/api-version")
+                    .join(REMEDIATIONS_API_VERSION)
+                    .join(identity.finalize().to_hex().as_str()),
+            )?,
             valid_for: Duration::ZERO,
-        }
+        })
     }
 }
 
-impl<'a> IntoFuture for PolicyRemediationCreateRequest<'a> {
-    type Output = Result<PolicyRemediation>;
-    type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + Send + 'a>>;
+impl<'a> InvalidatesOwnCacheKey for PolicyRemediationCreateRequest<'a> {}
 
-    fn into_future(self) -> Self::IntoFuture {
+impl<'a> ExecutableRequest for PolicyRemediationCreateRequest<'a> {
+    type Error = eyre::Report;
+    type Output = PolicyRemediation;
+
+    fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
+    where
+        Self: 'exec,
+    {
         Box::pin(async move {
-            let cache_key = self.cache_key();
+            let cache_key = self.cache_key()?;
             let mut url = Url::parse("https://management.azure.com")
                 .wrap_err("constructing the remediation endpoint")?;
             {
@@ -172,11 +176,11 @@ impl<'a> IntoFuture for PolicyRemediationCreateRequest<'a> {
             };
             // RestRequest's PUT deferral retains the response, decoded task,
             // and artifacts even when cancellation arrives after submission.
-            RestRequest::from_method_and_url(Method::PUT, url, &self.cancellation)?
-                .azure_auth_context(&self.auth_context)
+            RestRequest::from_method_and_url(Method::PUT, url)?
+                .azure_auth_context(&self.auth_context)?
                 .cache(cache_key)
                 .body(facet_json::to_string(&body).wrap_err("encoding the remediation request")?)
-                .receive::<PolicyRemediation>()
+                .receive::<PolicyRemediation>(&executor)
                 .await
         })
     }
@@ -184,7 +188,7 @@ impl<'a> IntoFuture for PolicyRemediationCreateRequest<'a> {
 
 cloud_terrastodon_registry::register_thing!(PolicyRemediationCreateRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(PolicyRemediationCreateRequest<'static>);
-cloud_terrastodon_registry_execution::register_into_future!(
+cloud_terrastodon_registry_execution::register_executable_request!(
     PolicyRemediationCreateRequest<'static> => PolicyRemediation,
     effects = [Write]
 );

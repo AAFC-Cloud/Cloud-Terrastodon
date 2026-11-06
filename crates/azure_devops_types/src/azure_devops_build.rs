@@ -9,6 +9,7 @@ use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
 use cloud_terrastodon_azure_types::ArbitraryJson;
+use std::sync::Arc;
 
 /// A build returned by Azure DevOps. Typed response status/result vocabularies
 /// preserve unknown server values without losing their wire spelling.
@@ -43,3 +44,4 @@ pub struct AzureDevOpsBuild {
 cloud_terrastodon_registry::register_thing!(AzureDevOpsBuild);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsBuild);
 cloud_terrastodon_registry::register_arbitrary!(Vec<AzureDevOpsBuild>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<AzureDevOpsBuild>>);

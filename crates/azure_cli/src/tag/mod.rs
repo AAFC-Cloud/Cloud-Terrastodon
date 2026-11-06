@@ -1,10 +1,10 @@
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 pub mod azure_tag_cli;
 pub mod azure_tag_for_cleanup_cli;
 
 pub use azure_tag_cli::AzureTagCommand;
 pub use azure_tag_for_cleanup_cli::AzureTagForCleanupArgs;
 use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 
 /// Manage Azure tag operations.
@@ -18,8 +18,8 @@ impl AzureTagArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
-        self.command.invoke(auth_context, cancellation).await
+        self.command.invoke(auth_context, executor).await
     }
 }

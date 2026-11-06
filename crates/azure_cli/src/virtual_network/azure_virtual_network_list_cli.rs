@@ -4,8 +4,7 @@ use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::fetch_all_virtual_networks;
-use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
 /// List virtual networks from the tenant's cached Azure Resource Graph inventory.
@@ -28,13 +27,15 @@ impl AzureVirtualNetworkListArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<CliOutput> {
+        let cancellation = executor.cancellation();
         let tenant_auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
-        let mut networks = fetch_all_virtual_networks(&tenant_auth_context, cancellation)
+        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
+        let mut networks = fetch_all_virtual_networks(&tenant_auth_context, executor)
             .with_invalidation(self.no_cache)
             .await?;
         networks.sort_by_cached_key(|network| {

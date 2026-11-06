@@ -33,6 +33,7 @@ impl DiscoveryPlanBuildRequest {
 }
 
 impl ExecutableRequest for DiscoveryPlanBuildRequest {
+    type Error = eyre::Report;
     type Output = DiscoveryPlan;
 
     fn run<'a>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>
@@ -86,6 +87,7 @@ mod tests {
     }
 
     impl ExecutableRequest for InventoryRequest {
+        type Error = eyre::Report;
         type Output = Output;
 
         fn run<'a>(self, _: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>

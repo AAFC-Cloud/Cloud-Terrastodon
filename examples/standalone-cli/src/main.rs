@@ -10,6 +10,7 @@ use cloud_terrastodon::azure::AzureTenantArgumentExt;
 use cloud_terrastodon::azure::ResourceGroup;
 use cloud_terrastodon::azure::ResourceGroupName;
 use cloud_terrastodon::azure::fetch_all_resource_groups;
+use std::sync::Arc;
 
 /// Audit Azure resource groups with shared application startup.
 /// The commands and their data belong to this consumer, not Cloud Terrastodon.
@@ -50,9 +51,9 @@ pub struct AuditArgs {
 #[derive(facet::Facet)]
 pub struct ResourceGroupAudit {
     /// Groups whose names have exactly five ASCII vowels (`a`, `e`, `i`, `o`, `u`), ignoring case.
-    pub with_five_vowels: Vec<ResourceGroup>,
+    pub with_five_vowels: Vec<Arc<ResourceGroup>>,
     /// All other resource groups, including names with more than five vowels.
-    pub without_five_vowels: Vec<ResourceGroup>,
+    pub without_five_vowels: Vec<Arc<ResourceGroup>>,
 }
 
 fn has_five_vowels(name: &ResourceGroupName) -> bool {
@@ -70,7 +71,8 @@ fn main() -> Result<()> {
             .tenant
             .bind_auth_context(&context.auth, &context.cancellation)
             .await?;
-        let resource_groups = fetch_all_resource_groups(&auth, &context.cancellation).await?;
+        let executor = auth.auth_context.bind_executor(&context.executor())?;
+        let resource_groups = fetch_all_resource_groups(&auth, &executor).await?;
 
         let mut audit = ResourceGroupAudit {
             with_five_vowels: Vec::new(),

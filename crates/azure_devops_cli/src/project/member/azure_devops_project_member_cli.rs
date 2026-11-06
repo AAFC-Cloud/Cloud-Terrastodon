@@ -1,6 +1,6 @@
 use crate::project::member::list::AzureDevOpsProjectMemberListArgs;
 use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
 /// Azure DevOps project member-related commands.
@@ -21,11 +21,11 @@ impl AzureDevOpsProjectMemberArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
         match self.command {
             AzureDevOpsProjectMemberCommand::List(args) => {
-                args.invoke(auth_context, cancellation).await?
+                args.invoke(auth_context, executor).await?
             }
         }
 

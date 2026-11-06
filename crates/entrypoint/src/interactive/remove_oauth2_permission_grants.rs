@@ -1,7 +1,7 @@
 use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure::pick_oauth2_permission_grants;
 use cloud_terrastodon_azure::remove_oauth2_permission_grant;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::are_you_sure;
 use eyre::Result;
@@ -10,9 +10,9 @@ use tracing::info;
 
 pub async fn remove_oauth2_permission_grants(
     auth_context: &AzureTenantAuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
-    let (to_remove, maybe_error) = pick_oauth2_permission_grants(auth_context, cancellation)
+    let (to_remove, maybe_error) = pick_oauth2_permission_grants(auth_context, executor)
         .await
         .into_chosen_and_maybe_error()?;
     info!(
@@ -39,7 +39,7 @@ pub async fn remove_oauth2_permission_grants(
 
     for grant in to_remove {
         info!("Removing {grant:#?}");
-        remove_oauth2_permission_grant(auth_context, grant.grant.id, cancellation).await?;
+        remove_oauth2_permission_grant(auth_context, grant.grant.id.clone(), executor).await?;
     }
 
     Ok(())

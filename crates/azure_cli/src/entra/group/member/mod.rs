@@ -1,3 +1,4 @@
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 pub mod azure_entra_group_member_add_cli;
 pub mod azure_entra_group_member_list_cli;
 pub mod azure_entra_group_member_remove_cli;
@@ -6,7 +7,6 @@ pub use azure_entra_group_member_add_cli::AzureEntraGroupMemberAddArgs;
 pub use azure_entra_group_member_list_cli::AzureEntraGroupMemberListArgs;
 pub use azure_entra_group_member_remove_cli::AzureEntraGroupMemberRemoveArgs;
 use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 
 /// Group member operations (add/remove)
@@ -31,12 +31,12 @@ impl AzureEntraGroupMemberArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
         match self.command {
-            AzureEntraGroupMemberCommand::Add(a) => a.invoke(auth_context, cancellation).await?,
-            AzureEntraGroupMemberCommand::List(a) => a.invoke(auth_context, cancellation).await?,
-            AzureEntraGroupMemberCommand::Remove(a) => a.invoke(auth_context, cancellation).await?,
+            AzureEntraGroupMemberCommand::Add(a) => a.invoke(auth_context, executor).await?,
+            AzureEntraGroupMemberCommand::List(a) => a.invoke(auth_context, executor).await?,
+            AzureEntraGroupMemberCommand::Remove(a) => a.invoke(auth_context, executor).await?,
         }
         Ok(())
     }

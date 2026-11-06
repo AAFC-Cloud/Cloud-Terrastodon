@@ -1,5 +1,6 @@
 use crate::RolePermissionAction;
 use arbitrary::Arbitrary;
+use std::sync::Arc;
 
 #[derive(Debug, Eq, PartialEq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
@@ -382,3 +383,4 @@ mod tests {
 cloud_terrastodon_registry::register_thing!(AzureProviderOperationsMetadata);
 cloud_terrastodon_registry::register_arbitrary!(AzureProviderOperationsMetadata);
 cloud_terrastodon_registry::register_arbitrary!(Vec<AzureProviderOperationsMetadata>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<AzureProviderOperationsMetadata>>);

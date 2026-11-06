@@ -2,6 +2,7 @@ use super::azure_devops_test_plan::AzureDevOpsTestPlanIdentityRef;
 use crate::AzureDevOpsTestCaseWorkItemReference;
 use crate::AzureDevOpsTestPlanShallowReference;
 use arbitrary::Arbitrary;
+use std::sync::Arc;
 
 #[derive(Debug, Eq, PartialEq, Clone, Arbitrary, facet::Facet)]
 pub struct AzureDevOpsTestCasePointAssignment {
@@ -19,3 +20,4 @@ pub struct SuiteTestCase {
 cloud_terrastodon_registry::register_thing!(SuiteTestCase);
 cloud_terrastodon_registry::register_arbitrary!(SuiteTestCase);
 cloud_terrastodon_registry::register_arbitrary!(Vec<SuiteTestCase>);
+cloud_terrastodon_registry::register_arbitrary!(Arc<Vec<SuiteTestCase>>);

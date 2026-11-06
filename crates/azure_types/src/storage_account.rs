@@ -10,6 +10,7 @@ use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 #[derive(Debug, PartialEq, Eq, Arbitrary, facet::Facet)]
 pub struct StorageAccountSKU {
@@ -107,3 +108,4 @@ mod tests {
 cloud_terrastodon_registry::register_thing!(StorageAccount);
 cloud_terrastodon_registry::register_arbitrary!(StorageAccount);
 cloud_terrastodon_registry::register_arbitrary!(Vec<StorageAccount>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<StorageAccount>>);

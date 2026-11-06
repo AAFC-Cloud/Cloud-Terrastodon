@@ -318,6 +318,8 @@ impl RuntimeFunction {
 /// invoked through `executor.execute(request)`. No input field is inspected or
 /// replaced to supply cancellation. The erased boundary requires owned, `Send`
 /// inputs and outputs, but neither `Sync` outputs nor a static executor borrow.
+/// Request errors must be `'static` and convertible into `eyre::Report` for
+/// registry consumers. Direct execution preserves the request's own error type.
 ///
 /// Declare nonempty effects, including `Write` for mutations and `Solicit` for
 /// user input. `Request::REGISTERED_EXECUTABLE_REQUEST` references this exact

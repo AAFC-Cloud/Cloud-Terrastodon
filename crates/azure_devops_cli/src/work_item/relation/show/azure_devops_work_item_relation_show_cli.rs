@@ -8,7 +8,8 @@ use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemGetRequest;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemId;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemRelationSelector;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemRelationTypeName;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
 use std::borrow::Cow;
 
@@ -33,11 +34,16 @@ pub struct AzureDevOpsWorkItemRelationShowArgs {
 }
 
 impl AzureDevOpsWorkItemRelationShowArgs {
-    pub async fn invoke(self, auth: &AuthContext, cancellation: &CancellationScope) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth: &AuthContext,
+        executor: &CloudTerrastodonExecutor,
+    ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let target = self.target.into_relation_url(&self.org).into_work_item()?;
         let auth_context = self.tenant.bind_auth_context(auth, cancellation).await?;
+        let executor = &auth_context.bind_executor(executor)?;
         let item = AzureDevOpsWorkItemGetRequest {
-            cancellation: cancellation.clone(),
             org_url: Cow::Borrowed(&self.org),
             project: Some(self.project),
             auth_context: Cow::Owned(auth_context),
@@ -46,6 +52,7 @@ impl AzureDevOpsWorkItemRelationShowArgs {
             fields: Vec::new(),
             as_of: None,
         }
+        .execute(executor)
         .await?;
         let index = AzureDevOpsWorkItemRelationSelector {
             rel: self.relation_type,

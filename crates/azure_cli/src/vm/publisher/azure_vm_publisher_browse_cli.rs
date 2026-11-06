@@ -13,7 +13,7 @@ use cloud_terrastodon_azure::fetch_compute_publisher_image_offer_sku_versions;
 use cloud_terrastodon_azure::fetch_compute_publisher_image_offer_skus;
 use cloud_terrastodon_azure::fetch_compute_publisher_image_offers;
 use cloud_terrastodon_azure::fetch_compute_publishers;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::PickerTui;
@@ -33,8 +33,9 @@ impl AzureVmPublisherBrowseArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         #[derive(Debug, Clone, Copy, PartialEq, Eq)]
         enum Decision {
             Print,
@@ -46,7 +47,8 @@ impl AzureVmPublisherBrowseArgs {
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
-        let subs = fetch_all_subscriptions(&tenant_auth_context, cancellation).await?;
+        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
+        let subs = fetch_all_subscriptions(&tenant_auth_context, executor).await?;
         let (chosen_subs, maybe_error) = PickerTui::<_>::new()
             .set_header("Select one or more subscriptions (Tab to mark multiple)")
             .pick_many(subs)
@@ -58,12 +60,18 @@ impl AzureVmPublisherBrowseArgs {
         let mut location_choices: Vec<Choice<(SubscriptionId, AzureLocationName)>> = Vec::new();
         for sub in &chosen_subs {
             info!(subscription_id = %sub.id, subscription_name = %sub.name, "Fetching locations for subscription");
-            let locations = fetch_all_locations(sub.id, cancellation).await?;
+            let locations = fetch_all_locations(
+                sub.id,
+                tenant_auth_context.auth_context.azure_bearer_source()?,
+                tenant_auth_context.tenant_id,
+                executor,
+            )
+            .await?;
             for loc in locations {
                 let key = format!("{} - {} ({})", sub.name, loc.display_name, loc.name);
                 location_choices.push(Choice {
                     key,
-                    value: (sub.id, loc.name),
+                    value: (sub.id, loc.name.clone()),
                 });
             }
         }
@@ -80,7 +88,14 @@ impl AzureVmPublisherBrowseArgs {
         let mut publisher_set: HashSet<ComputePublisherId> = HashSet::new();
         for (sub_id, loc_name) in &chosen_locations {
             info!(subscription_id = %sub_id, location = %loc_name, "Fetching publishers for subscription and location");
-            let pubs = fetch_compute_publishers(*sub_id, loc_name.clone(), cancellation).await?;
+            let pubs = fetch_compute_publishers(
+                *sub_id,
+                loc_name.clone(),
+                tenant_auth_context.auth_context.azure_bearer_source()?,
+                tenant_auth_context.tenant_id,
+                executor,
+            )
+            .await?;
             for p in pubs {
                 publisher_set.insert(p);
             }
@@ -128,7 +143,9 @@ impl AzureVmPublisherBrowseArgs {
                 p.subscription_id,
                 p.location_name.clone(),
                 p.publisher_name.clone(),
-                cancellation,
+                tenant_auth_context.auth_context.azure_bearer_source()?,
+                tenant_auth_context.tenant_id,
+                executor,
             )
             .await?;
             for o in offers {
@@ -192,7 +209,9 @@ impl AzureVmPublisherBrowseArgs {
                 o.location_name.clone(),
                 o.publisher_name.clone(),
                 o.offer_name.clone(),
-                cancellation,
+                tenant_auth_context.auth_context.azure_bearer_source()?,
+                tenant_auth_context.tenant_id,
+                executor,
             )
             .await?;
             for s in skus {
@@ -256,7 +275,9 @@ impl AzureVmPublisherBrowseArgs {
                 s.publisher_name.clone(),
                 s.offer_name.clone(),
                 s.sku_name.clone(),
-                cancellation,
+                tenant_auth_context.auth_context.azure_bearer_source()?,
+                tenant_auth_context.tenant_id,
+                executor,
             )
             .await?;
             version_ids.extend(versions);

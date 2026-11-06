@@ -4,7 +4,7 @@ use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsAgentPackage;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_agent_packages;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use std::collections::HashMap;
 use std::io::stdout;
@@ -25,21 +25,23 @@ impl AzureDevOpsAgentPackageShowNewestArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let azure_devops_auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &azure_devops_auth_context.bind_executor(executor)?;
         let pkgs =
-            fetch_azure_devops_agent_packages(&self.org, &azure_devops_auth_context, cancellation)
+            fetch_azure_devops_agent_packages(&self.org, &azure_devops_auth_context, executor)
                 .await?;
 
         // Group by platform and keep the package with the most recent created_on per platform
-        let mut newest_by_platform: HashMap<String, AzureDevOpsAgentPackage> = HashMap::new();
-        for pkg in pkgs.into_iter() {
+        let mut newest_by_platform: HashMap<&str, &AzureDevOpsAgentPackage> = HashMap::new();
+        for pkg in pkgs.iter() {
             use std::collections::hash_map::Entry;
-            match newest_by_platform.entry(pkg.platform.clone()) {
+            match newest_by_platform.entry(&pkg.platform) {
                 Entry::Vacant(e) => {
                     e.insert(pkg);
                 }

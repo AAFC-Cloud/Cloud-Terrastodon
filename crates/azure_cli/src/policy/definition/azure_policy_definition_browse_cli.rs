@@ -3,12 +3,13 @@ use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::PolicyDefinition;
 use cloud_terrastodon_azure::fetch_all_policy_definitions;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use std::io::Write;
+use std::sync::Arc;
 use tracing::info;
 
 /// Arguments for browsing Azure policy definitions interactively.
@@ -23,15 +24,17 @@ impl AzurePolicyDefinitionBrowseArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let tenant_auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
         info!("Fetching Azure policy definitions...");
         let policy_definitions =
-            fetch_all_policy_definitions(&tenant_auth_context, cancellation).await?;
+            fetch_all_policy_definitions(&tenant_auth_context, executor).await?;
         info!(
             count = policy_definitions.len(),
             "Fetched Azure policy definitions",
@@ -45,7 +48,7 @@ impl AzurePolicyDefinitionBrowseArgs {
             value: definition,
         });
 
-        let (chosen, maybe_error): (Vec<PolicyDefinition>, _) = PickerTui::<_>::new()
+        let (chosen, maybe_error): (Vec<Arc<PolicyDefinition>>, _) = PickerTui::<_>::new()
             .set_header("Select Azure policy definitions")
             .pick_many(choices)
             .await

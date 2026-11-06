@@ -3,67 +3,82 @@ use crate::fetch_all_azure_devops_projects;
 use cloud_terrastodon_auth::AzureDevOpsAuthContext;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsAgentPoolArgument;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
-use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CacheInvalidatableRequest;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
+use cloud_terrastodon_execution::RequestExecution;
 use std::borrow::Cow;
-use std::pin::Pin;
+use std::sync::Arc;
 
 pub struct AzureDevOpsAgentPoolEntitlementListForPoolRequest<'a> {
-    pub cancellation: CancellationScope,
-
     pub org_url: &'a AzureDevOpsOrganizationUrl,
     pub pool: AzureDevOpsAgentPoolArgument<'a>,
-    pub invalidate_cache: bool,
     pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
 }
 
+#[track_caller]
 pub fn fetch_azure_devops_agent_pool_entitlements_for_pool<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     pool: impl Into<AzureDevOpsAgentPoolArgument<'a>>,
     auth_context: &'a AzureDevOpsAuthContext,
-    cancellation: &CancellationScope,
-) -> AzureDevOpsAgentPoolEntitlementListForPoolRequest<'a> {
-    AzureDevOpsAgentPoolEntitlementListForPoolRequest {
-        cancellation: cancellation.clone(),
+    executor: &'a CloudTerrastodonExecutor,
+) -> RequestExecution<'a, AzureDevOpsAgentPoolEntitlementListForPoolRequest<'a>> {
+    executor.execute(AzureDevOpsAgentPoolEntitlementListForPoolRequest {
         org_url,
         pool: pool.into(),
-        invalidate_cache: false,
         auth_context: Cow::Borrowed(auth_context),
+    })
+}
+
+impl CacheInvalidatableRequest for AzureDevOpsAgentPoolEntitlementListForPoolRequest<'_> {
+    fn invalidate<'a>(&'a self, executor: &'a CloudTerrastodonExecutor) -> ExecutionFuture<'a, ()> {
+        Box::pin(async move {
+            let projects =
+                fetch_all_azure_devops_projects(self.org_url, self.auth_context.as_ref(), executor)
+                    .with_invalidation(true)
+                    .await?;
+            for project in projects {
+                executor.cancellation().bail_if_cancelled()?;
+                fetch_azure_devops_agent_pool_entitlements_for_project(
+                    self.org_url,
+                    project.as_ref(),
+                    self.auth_context.as_ref(),
+                    executor,
+                )
+                .invalidate()
+                .await?;
+            }
+            Ok(())
+        })
     }
 }
 
-impl<'a> CacheInvalidatableIntoFuture for AzureDevOpsAgentPoolEntitlementListForPoolRequest<'a> {
-    type WithInvalidation = Self;
-    fn with_invalidation(mut self, invalidate_cache: bool) -> Self {
-        self.invalidate_cache = invalidate_cache;
-        self
-    }
-}
+impl<'a> ExecutableRequest for AzureDevOpsAgentPoolEntitlementListForPoolRequest<'a> {
+    type Error = eyre::Report;
+    type Output = Vec<Arc<crate::AzureDevOpsAgentPoolEntitlement>>;
 
-impl<'a> IntoFuture for AzureDevOpsAgentPoolEntitlementListForPoolRequest<'a> {
-    type Output = eyre::Result<Vec<crate::AzureDevOpsAgentPoolEntitlement>>;
-
-    type IntoFuture = Pin<Box<dyn std::future::Future<Output = Self::Output> + 'a>>;
-
-    fn into_future(self) -> Self::IntoFuture {
+    fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
+    where
+        Self: 'exec,
+        Self::Output: 'exec,
+    {
         Box::pin(async move {
             let projects = fetch_all_azure_devops_projects(
                 self.org_url,
                 self.auth_context.as_ref(),
-                &self.cancellation,
+                &executor,
             )
-            .with_invalidation(self.invalidate_cache)
             .await?;
             let mut all_entitlements = Vec::new();
             for project in projects {
-                self.cancellation.bail_if_cancelled()?;
+                executor.cancellation().bail_if_cancelled()?;
                 let entitlements = fetch_azure_devops_agent_pool_entitlements_for_project(
                     self.org_url,
-                    &project,
+                    project.as_ref(),
                     self.auth_context.as_ref(),
-                    &self.cancellation,
+                    &executor,
                 )
-                .with_invalidation(self.invalidate_cache)
                 .await?;
                 for entitlement in entitlements {
                     if self.pool.matches_entitlement(&entitlement) {
@@ -95,13 +110,12 @@ mod test {
                     &auth_context,
                     crate::test_tenant_id::test_tenant_id()?,
                 )?;
+                let executor =
+                    crate::test_executor::test_executor(&azure_devops_auth_context, &cancellation)?;
                 let org_url = get_default_organization_url(&cancellation).await?;
-                let agent_pools = fetch_azure_devops_agent_pools(
-                    &org_url,
-                    &azure_devops_auth_context,
-                    &cancellation,
-                )
-                .await?;
+                let agent_pools =
+                    fetch_azure_devops_agent_pools(&org_url, &azure_devops_auth_context, &executor)
+                        .await?;
                 let our_agent_pools = agent_pools
                     .iter()
                     .filter(|pool| !pool.is_hosted)
@@ -115,7 +129,7 @@ mod test {
                         &org_url,
                         pool,
                         &azure_devops_auth_context,
-                        &cancellation,
+                        &executor,
                     )
                     .await?;
                     if !entitlements.is_empty() {

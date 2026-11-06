@@ -1,13 +1,11 @@
 use cloud_terrastodon_auth::AzureTenantAuthContext;
-use cloud_terrastodon_azure::Resource;
-use cloud_terrastodon_azure::ResourceGroup;
 use cloud_terrastodon_azure::ResourceTagsId;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::fetch_all_resource_groups;
 use cloud_terrastodon_azure::fetch_all_resources;
 use cloud_terrastodon_azure::get_tags_for_resources;
 use cloud_terrastodon_azure::replace_tags_for_resources;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use cloud_terrastodon_user_input::prompt_line;
@@ -16,17 +14,17 @@ use tracing::info;
 
 pub async fn tag_resources_menu(
     auth_context: &AzureTenantAuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> eyre::Result<()> {
-    let resource_groups = fetch_all_resource_groups(auth_context, cancellation).await?;
-    let resource_group: ResourceGroup = PickerTui::<_>::new()
+    let resource_groups = fetch_all_resource_groups(auth_context, executor).await?;
+    let resource_group = PickerTui::<_>::new()
         .set_header("Choose a resource group")
         .pick_one(resource_groups.into_iter().map(|rg| Choice {
             key: rg.id.expanded_form().to_string(),
             value: rg,
         }))
         .await?;
-    let resources = fetch_all_resources(auth_context, cancellation)
+    let resources = fetch_all_resources(auth_context, executor)
         .await?
         .into_iter()
         .filter(|res| {
@@ -45,9 +43,9 @@ pub async fn tag_resources_menu(
         auth_context,
         resources
             .into_iter()
-            .map(|r: Resource| ResourceTagsId::from_scope(&r))
+            .map(|r| ResourceTagsId::from_scope(r.as_ref()))
             .collect_vec(),
-        cancellation,
+        executor,
     )
     .await?;
     let tag_key = prompt_line("Enter tag key: ").await?;
@@ -61,7 +59,7 @@ pub async fn tag_resources_menu(
                 (id, tags)
             })
             .collect(),
-        cancellation,
+        executor,
     )
     .await?;
     for tags in result.values() {

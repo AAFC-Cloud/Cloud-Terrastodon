@@ -6,7 +6,7 @@ use cloud_terrastodon_azure_devops::AzureDevOpsLicenseType;
 use cloud_terrastodon_azure_devops::AzureDevOpsMsdnLicenseType;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlements;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use color_eyre::owo_colors::OwoColorize;
 use eyre::Result;
 use std::collections::HashMap;
@@ -35,16 +35,18 @@ impl AzureDevOpsLicenseEntitlementUserSummaryArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let azure_devops_auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &azure_devops_auth_context.bind_executor(executor)?;
         let entitlements = fetch_azure_devops_user_license_entitlements(
             &self.org,
             &azure_devops_auth_context,
-            cancellation,
+            executor,
         )
         .await?;
         let rows = summarize_licenses(entitlements.iter().map(|entitlement| &entitlement.license));

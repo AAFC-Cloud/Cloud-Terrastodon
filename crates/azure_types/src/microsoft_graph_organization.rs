@@ -2,6 +2,7 @@ use crate::AzureTenantId;
 use crate::MicrosoftGraphDirectoryObject;
 use crate::MicrosoftGraphEntity;
 use arbitrary::Arbitrary;
+use std::sync::Arc;
 
 #[derive(Debug, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
@@ -15,3 +16,5 @@ pub struct MicrosoftGraphOrganization {
 
 cloud_terrastodon_registry::register_thing!(MicrosoftGraphOrganization);
 cloud_terrastodon_registry::register_arbitrary!(MicrosoftGraphOrganization);
+
+cloud_terrastodon_registry::register_arbitrary!(Arc<MicrosoftGraphOrganization>);

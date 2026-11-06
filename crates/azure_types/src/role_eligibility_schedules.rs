@@ -6,6 +6,7 @@ use crate::scopes::Scope;
 use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
+use std::sync::Arc;
 use uuid::Uuid;
 
 #[derive(Debug, PartialEq, facet::Facet, Arbitrary)]
@@ -126,3 +127,4 @@ impl std::fmt::Display for RoleEligibilitySchedule {
 cloud_terrastodon_registry::register_thing!(RoleEligibilitySchedule);
 cloud_terrastodon_registry::register_arbitrary!(RoleEligibilitySchedule);
 cloud_terrastodon_registry::register_arbitrary!(Vec<RoleEligibilitySchedule>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<RoleEligibilitySchedule>>);

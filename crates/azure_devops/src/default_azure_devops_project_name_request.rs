@@ -41,6 +41,7 @@ impl CacheInvalidationKeys for DefaultAzureDevOpsProjectNameRequest {
 }
 
 impl ExecutableRequest for DefaultAzureDevOpsProjectNameRequest {
+    type Error = eyre::Report;
     type Output = AzureDevOpsProjectName;
     fn run<'a>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>
     where

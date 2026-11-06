@@ -1,8 +1,7 @@
 use cloud_terrastodon_auth::AzureTenantAuthContext;
-use cloud_terrastodon_azure::Resource;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::fetch_all_resources;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::PickerTui;
@@ -11,17 +10,17 @@ use tracing::info;
 
 pub async fn browse_resources_menu(
     auth_context: &AzureTenantAuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
     info!("Fetching resources");
-    let choices = fetch_all_resources(auth_context, cancellation)
+    let choices = fetch_all_resources(auth_context, executor)
         .await?
         .into_iter()
         .map(|x| Choice {
             key: x.id.expanded_form().to_owned(),
             value: x,
         });
-    let (chosen, maybe_error): (Vec<Resource>, _) = PickerTui::<_>::new()
+    let (chosen, maybe_error) = PickerTui::<_>::new()
         .set_header("Resources")
         .pick_many(choices)
         .await

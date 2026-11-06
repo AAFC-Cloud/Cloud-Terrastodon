@@ -16,9 +16,7 @@ use cloud_terrastodon_azure_devops::AzureDevOpsUserArgument;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_group_license_entitlements;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlements;
 use cloud_terrastodon_azure_devops::update_azure_devops_user_license_entitlement;
-use cloud_terrastodon_command::CacheInvalidatable;
-use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Context;
 use eyre::ContextCompat;
 use eyre::Result;
@@ -43,21 +41,22 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let tenant_auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
-        let tenant_id = tenant_auth_context.tenant_id;
+        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
         let user_predicate = self.user.as_predicate()?;
 
         let azure_devops_auth_context =
-            AzureDevOpsAuthContext::for_tenant(auth_context, tenant_id)?;
+            AzureDevOpsAuthContext::for_azure_tenant(&tenant_auth_context);
         let entitlements = fetch_azure_devops_user_license_entitlements(
             &self.org,
             &azure_devops_auth_context,
-            cancellation,
+            executor,
         )
         .await?;
 
@@ -67,7 +66,7 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
             .wrap_err_with(|| format!("No license entitlement found matching {self:?}"))?;
 
         debug!(?user_entitlement, "Found entitlement");
-        let user_principal_name = user_entitlement.user.unique_name;
+        let user_principal_name = &user_entitlement.user.unique_name;
 
         if matches!(
             &user_entitlement.license,
@@ -90,7 +89,7 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
             let entra_user_id = fetch_entra_user(
                 EntraUserArgument::try_from(user_principal_name.as_str())?,
                 &tenant_auth_context,
-                cancellation,
+                executor,
             )
             .with_invalidation(true)
             .await
@@ -102,12 +101,12 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
             let group_entitlements = fetch_azure_devops_group_license_entitlements(
                 &self.org,
                 &azure_devops_auth_context,
-                cancellation,
+                executor,
             )
             .await?;
 
             // Identify groups which grant the license that the user has
-            for group_license_entitlement in group_entitlements {
+            for group_license_entitlement in group_entitlements.iter() {
                 let matches = group_license_entitlement
                     .license_rule
                     .matches_license(&user_entitlement.license);
@@ -129,7 +128,7 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
                     .origin_id
                     .parse::<EntraGroupId>()?;
                 let group_entra_members =
-                    fetch_group_members(group_entra_id, &tenant_auth_context, cancellation)
+                    fetch_group_members(group_entra_id, &tenant_auth_context, executor)
                         .with_invalidation(true)
                         .await?;
                 let user_in_group = group_entra_members
@@ -153,7 +152,7 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
                         "User is granted license via this group - removing the user from this group to revoke the license"
                     );
 
-                    cancellation
+                    executor
                         .deferred(
                             "finishing group-member removal and invalidating its inventory",
                             |protected| {
@@ -186,7 +185,7 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
                 user_entitlement.user_id,
                 AzureDevOpsLicenseType::Account(AzureDevOpsAccountLicenseType::Stakeholder),
                 &azure_devops_auth_context,
-                cancellation,
+                executor,
             )
             .await?;
         }

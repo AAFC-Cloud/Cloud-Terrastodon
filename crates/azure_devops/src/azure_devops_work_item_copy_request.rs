@@ -15,7 +15,9 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemRelationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemUrl;
 use cloud_terrastodon_azure_devops_types::WORK_ITEM_CHILD_RELATION;
 use cloud_terrastodon_azure_devops_types::WORK_ITEM_PARENT_RELATION;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
 use eyre::Result;
 use eyre::WrapErr;
 use eyre::ensure;
@@ -23,16 +25,10 @@ use facet::Facet;
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
-use std::future::Future;
-use std::future::IntoFuture;
 use std::path::PathBuf;
-use std::pin::Pin;
 #[derive(Debug, Clone, Facet)]
 #[facet(traits(Clone))]
 pub struct AzureDevOpsWorkItemCopyRequest<'a> {
-    /// Caller-owned cancellation scope, excluded from serialized request input.
-    #[facet(skip_serializing)]
-    pub cancellation: CancellationScope,
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub project: AzureDevOpsProjectArgument<'a>,
     pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
@@ -46,7 +42,6 @@ pub struct AzureDevOpsWorkItemCopyRequest<'a> {
 impl<'a> Arbitrary<'a> for AzureDevOpsWorkItemCopyRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
-            cancellation: CancellationScope::arbitrary(u)?,
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
             auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
@@ -62,6 +57,7 @@ impl<'a> AzureDevOpsWorkItemCopyRequest<'a> {
     pub(crate) async fn execute_with(
         self,
         writer: &impl WorkItemCopyWriter,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<AzureDevOpsWorkItemCopyJournal> {
         ensure!(
             self.plan.organization == *self.org_url.as_ref()
@@ -125,7 +121,7 @@ impl<'a> AzureDevOpsWorkItemCopyRequest<'a> {
         let mut mapping = BTreeMap::new();
         let mut new_ids = BTreeSet::new();
         for (node, created) in journal.plan.nodes.iter().zip(&journal.created) {
-            self.cancellation.bail_if_cancelled()?;
+            executor.cancellation().bail_if_cancelled()?;
             ensure!(
                 node.source_id == created.source_id && new_ids.insert(created.new_id),
                 "Copy journal mappings are inconsistent"
@@ -141,7 +137,7 @@ impl<'a> AzureDevOpsWorkItemCopyRequest<'a> {
         }
         let mut visited = BTreeSet::new();
         for node in &journal.plan.nodes {
-            self.cancellation.bail_if_cancelled()?;
+            executor.cancellation().bail_if_cancelled()?;
             ensure!(
                 (node.source_id == journal.plan.root) == node.parent.is_none(),
                 "Copy plan must have exactly one root"
@@ -173,7 +169,7 @@ impl<'a> AzureDevOpsWorkItemCopyRequest<'a> {
             "Copy journal reuses source IDs as destinations"
         );
         for edge in &journal.plan.deferred_relations {
-            self.cancellation.bail_if_cancelled()?;
+            executor.cancellation().bail_if_cancelled()?;
             ensure!(
                 visited.contains(&edge.source)
                     && visited.contains(&edge.target)
@@ -197,7 +193,7 @@ impl<'a> AzureDevOpsWorkItemCopyRequest<'a> {
         }
         journal.save(&self.journal_path)?;
         for index in journal.created.len()..journal.plan.nodes.len() {
-            self.cancellation.bail_if_cancelled()?;
+            executor.cancellation().bail_if_cancelled()?;
             let node = &journal.plan.nodes[index];
             let mut relations = node.external_relations.clone();
             if let Some(parent) = node.parent {
@@ -223,14 +219,14 @@ impl<'a> AzureDevOpsWorkItemCopyRequest<'a> {
             let visited = &visited;
             let journal_path = &self.journal_path;
             let org_url = self.org_url.as_ref();
-            self.cancellation
+            executor
                 .deferred(
                     "creating a copied work item and recording its result",
-                    |cancellation| async move {
+                    |executor| async move {
                         journal.in_flight = Some(format!("create:{source_id}"));
                         journal.save(journal_path)?;
                         let created = writer
-                            .create(work_item_type, patch, &cancellation)
+                            .create(work_item_type, patch, &executor)
                             .await
                             .wrap_err(
                                 "Copy stopped during creation; inspect the journal before retrying",
@@ -262,7 +258,7 @@ impl<'a> AzureDevOpsWorkItemCopyRequest<'a> {
                 .await?;
         }
         for index in journal.completed_relations..journal.plan.deferred_relations.len() {
-            self.cancellation.bail_if_cancelled()?;
+            executor.cancellation().bail_if_cancelled()?;
             let edge = &journal.plan.deferred_relations[index];
             let source = mapping
                 .get(&edge.source)
@@ -278,13 +274,13 @@ impl<'a> AzureDevOpsWorkItemCopyRequest<'a> {
             let source_id = source.new_id;
             let journal = &mut journal;
             let journal_path = &self.journal_path;
-            self.cancellation
+            executor
                 .deferred(
                     "linking copied work items and recording the completed link",
-                    |cancellation| async move {
+                    |executor| async move {
                         journal.in_flight = Some(format!("relation:{index}"));
                         journal.save(journal_path)?;
-                        writer.relate(source_id, relation, &cancellation).await.wrap_err(
+                        writer.relate(source_id, relation, &executor).await.wrap_err(
                             "Copy stopped while linking items; inspect the journal before retrying",
                         )?;
                         journal.completed_relations += 1;
@@ -294,12 +290,12 @@ impl<'a> AzureDevOpsWorkItemCopyRequest<'a> {
                 )
                 .await?;
         }
-        self.cancellation.bail_if_cancelled()?;
+        executor.cancellation().bail_if_cancelled()?;
         // Verification is read-only and may safely be retried on resume.
         let verified = writer
             .read(
                 journal.created.iter().map(|entry| entry.new_id).collect(),
-                &self.cancellation,
+                executor,
             )
             .await?;
         ensure!(
@@ -308,7 +304,7 @@ impl<'a> AzureDevOpsWorkItemCopyRequest<'a> {
         );
         let verified: BTreeMap<_, _> = verified.into_iter().map(|item| (item.id, item)).collect();
         for node in &journal.plan.nodes {
-            self.cancellation.bail_if_cancelled()?;
+            executor.cancellation().bail_if_cancelled()?;
             let item = verified
                 .get(&mapping[&node.source_id].new_id)
                 .ok_or_else(|| eyre::eyre!("A copied item could not be verified"))?;
@@ -347,7 +343,7 @@ impl<'a> AzureDevOpsWorkItemCopyRequest<'a> {
             }
         }
         for edge in &journal.plan.deferred_relations {
-            self.cancellation.bail_if_cancelled()?;
+            executor.cancellation().bail_if_cancelled()?;
             let item = &verified[&mapping[&edge.source].new_id];
             AzureDevOpsWorkItemRelationSelector {
                 rel: edge.rel.clone(),
@@ -356,7 +352,8 @@ impl<'a> AzureDevOpsWorkItemCopyRequest<'a> {
             .index(self.org_url.as_ref(), item)
             .wrap_err("Copied link verification failed")?;
         }
-        self.cancellation
+        executor
+            .cancellation()
             .with_deferral("saving verified copy progress", |_completion| {
                 journal.complete = true;
                 journal.save(&self.journal_path)?;
@@ -365,11 +362,15 @@ impl<'a> AzureDevOpsWorkItemCopyRequest<'a> {
     }
 }
 
-impl<'a> IntoFuture for AzureDevOpsWorkItemCopyRequest<'a> {
-    type Output = Result<AzureDevOpsWorkItemCopyJournal>;
-    type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + Send + 'a>>;
+impl<'a> ExecutableRequest for AzureDevOpsWorkItemCopyRequest<'a> {
+    type Error = eyre::Report;
+    type Output = AzureDevOpsWorkItemCopyJournal;
 
-    fn into_future(self) -> Self::IntoFuture {
+    fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
+    where
+        Self: 'exec,
+        Self::Output: 'exec,
+    {
         Box::pin(async move {
             let writer = RestWorkItemCopyWriter {
                 org_url: self.org_url.as_ref().clone(),
@@ -377,14 +378,14 @@ impl<'a> IntoFuture for AzureDevOpsWorkItemCopyRequest<'a> {
                 auth_context: self.auth_context.as_ref().clone(),
                 suppress_notifications: self.suppress_notifications,
             };
-            self.execute_with(&writer).await
+            self.execute_with(&writer, &executor).await
         })
     }
 }
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsWorkItemCopyRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsWorkItemCopyRequest<'static>);
-cloud_terrastodon_registry_execution::register_into_future!(
+cloud_terrastodon_registry_execution::register_executable_request!(
     AzureDevOpsWorkItemCopyRequest<'static> => AzureDevOpsWorkItemCopyJournal,
     effects = [Read, Write]
 );

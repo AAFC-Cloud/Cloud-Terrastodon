@@ -3,7 +3,8 @@ use cloud_terrastodon_azure::AzureDevOpsTenantArgumentExt;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemRelationTypeListRequest;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
 use std::borrow::Cow;
 
@@ -16,13 +17,19 @@ pub struct AzureDevOpsWorkItemRelationTypeListArgs {
 }
 
 impl AzureDevOpsWorkItemRelationTypeListArgs {
-    pub async fn invoke(self, auth: &AuthContext, cancellation: &CancellationScope) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth: &AuthContext,
+        executor: &CloudTerrastodonExecutor,
+    ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let auth_context = self.tenant.bind_auth_context(auth, cancellation).await?;
+        let executor = &auth_context.bind_executor(executor)?;
         let values = AzureDevOpsWorkItemRelationTypeListRequest {
-            cancellation: cancellation.clone(),
             org_url: Cow::Owned(self.org),
             auth_context: Cow::Owned(auth_context),
         }
+        .execute(executor)
         .await?;
         facet_json::to_writer_std_pretty(std::io::stdout(), &values)
             .map_err(|error| eyre::eyre!("{error:?}"))?;

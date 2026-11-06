@@ -16,6 +16,7 @@ use cloud_terrastodon_azure::fetch_group_owners;
 use cloud_terrastodon_azure::fetch_groups_by_id;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use color_eyre::owo_colors::OwoColorize;
 use color_eyre::owo_colors::Stream;
 use color_eyre::owo_colors::Style;
@@ -26,6 +27,7 @@ use std::collections::HashMap;
 use std::io::BufRead;
 use std::io::Write;
 use std::io::stdin;
+use std::sync::Arc;
 use tracing::info;
 
 /// Show one or more Entra (Azure AD) groups by id.
@@ -42,9 +44,9 @@ pub struct AzureEntraGroupShowArgs {
 
 #[derive(Debug, facet::Facet)]
 struct GroupData {
-    group: EntraGroup,
-    members: Vec<EntraDirectoryObject>,
-    owners: Vec<EntraDirectoryObject>,
+    group: Arc<EntraGroup>,
+    members: Vec<Arc<EntraDirectoryObject>>,
+    owners: Vec<Arc<EntraDirectoryObject>>,
     role_assignments: Vec<(RoleAssignment, RoleDefinition)>,
 }
 
@@ -57,8 +59,9 @@ impl AzureEntraGroupShowArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<CliOutput> {
+        let cancellation = executor.cancellation();
         // Determine requested IDs. Support `-` as stdin source when a single `-` is provided.
         let id_strings: Vec<String> = if self.group_id.len() == 1 && self.group_id[0] == "-" {
             let mut v = Vec::new();
@@ -89,11 +92,12 @@ impl AzureEntraGroupShowArgs {
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
         info!(count = ids.len(), tenant_id = %tenant_auth_context.tenant_id, "Fetching Entra groups");
-        let groups = fetch_groups_by_id(ids.clone(), &tenant_auth_context, cancellation).await?;
+        let groups = fetch_groups_by_id(ids.clone(), &tenant_auth_context, executor).await?;
 
         // Map by id for fast lookup
-        let mut map: HashMap<EntraGroupId, EntraGroup> =
+        let mut map: HashMap<EntraGroupId, Arc<EntraGroup>> =
             groups.into_iter().map(|g| (g.id, g)).collect();
 
         // Emit each requested group in the order requested
@@ -112,11 +116,11 @@ impl AzureEntraGroupShowArgs {
         enum Resp {
             Members {
                 group_id: EntraGroupId,
-                members: Vec<EntraDirectoryObject>,
+                members: Vec<Arc<EntraDirectoryObject>>,
             },
             Owners {
                 group_id: EntraGroupId,
-                owners: Vec<EntraDirectoryObject>,
+                owners: Vec<Arc<EntraDirectoryObject>>,
             },
             Rbac(RoleDefinitionsAndAssignments),
         }
@@ -125,28 +129,25 @@ impl AzureEntraGroupShowArgs {
         for group in &chosen_groups {
             let group_id = group.id;
             let members_auth_context = tenant_auth_context.clone();
-            let members_cancellation = cancellation.clone();
+            let members_executor = executor.clone();
             work.enqueue(async move {
                 let members =
-                    fetch_group_members(group_id, &members_auth_context, &members_cancellation)
-                        .await?;
+                    fetch_group_members(group_id, &members_auth_context, &members_executor).await?;
                 eyre::Ok(Resp::Members { group_id, members })
             });
             let owners_auth_context = tenant_auth_context.clone();
-            let owners_cancellation = cancellation.clone();
+            let owners_executor = executor.clone();
             work.enqueue(async move {
                 let owners =
-                    fetch_group_owners(group_id, &owners_auth_context, &owners_cancellation)
-                        .await?;
+                    fetch_group_owners(group_id, &owners_auth_context, &owners_executor).await?;
                 eyre::Ok(Resp::Owners { group_id, owners })
             });
         }
         let auth_context = tenant_auth_context;
-        let rbac_cancellation = cancellation.clone();
+        let rbac_executor = executor.clone();
         work.enqueue(async move {
             let rbac =
-                fetch_all_role_definitions_and_assignments(&auth_context, &rbac_cancellation)
-                    .await?;
+                fetch_all_role_definitions_and_assignments(&auth_context, &rbac_executor).await?;
             eyre::Ok(Resp::Rbac(rbac))
         });
         let work_results = work.join().await?;
@@ -413,9 +414,9 @@ mod tests {
             "kind": "BuiltInRole"
         }"#).unwrap();
         GroupShowOutput(vec![GroupData {
-            group,
-            members: vec![member.clone()],
-            owners: vec![member],
+            group: Arc::new(group),
+            members: vec![Arc::new(member.clone())],
+            owners: vec![Arc::new(member)],
             role_assignments: vec![(role_assignment, role_definition)],
         }])
     }
@@ -466,12 +467,14 @@ mod tests {
         CancellationToken::new()
             .with_scope(|cancellation| {
                 let mut report = example_report();
-                report.0[0].members = vec![EntraDirectoryObject::User(EntraDirectoryObjectUser {
-                    id: "22222222-2222-2222-2222-222222222222".parse().unwrap(),
-                    display_name: None,
-                    user_principal_name: None,
-                    mail: None,
-                })];
+                report.0[0].members = vec![Arc::new(EntraDirectoryObject::User(
+                    EntraDirectoryObjectUser {
+                        id: "22222222-2222-2222-2222-222222222222".parse().unwrap(),
+                        display_name: None,
+                        user_principal_name: None,
+                        mail: None,
+                    },
+                ))];
                 let output = CliOutput::facet_with_text(report, GroupShowOutput::write_text);
                 let text = output
                     .render(Some(OutputFormat::Text), false, &cancellation)?

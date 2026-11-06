@@ -1,5 +1,21 @@
 # Unreleased
 
+- Serialize ARM batch entries directly from borrowed request slices, removing duplicate wire records and request-body `Clone` requirements.
+
+- Make domain-specific Azure list responses concrete, retaining shared `Arc` records without allowing unrelated item types. Keep generics on reusable multi-domain response envelopes.
+
+- Preserve shared cached SDK results through callers: singleton and single-page responses return `Arc` values, while paginated inventories retain shared record handles. Decode fixed wire-to-domain conversions once inside the REST cache, including Resource Graph rows, and remove response `Clone` requirements used only to detach cached values. Consumers borrow or retain shared handles; aggregate memoization remains separate.
+
+- Preserve request-specific errors through direct executor calls, including recoverable partial results. Registry invocation converts errors to reports only at its erased boundary; cancellation retains the request's chosen error type.
+
+- Route REST execution through the caller-owned executor and shared cache. Explicit cached receives share canonical decoded `Arc` values; owned receives execute every call, and existing uncached Work Item Tracking reads retain that policy. Preserve caller validation, continuation metadata, failure artifacts, and cancellation through mutations and invalidation. Migrate SDK, CLI, UI, tools, and example callers; aggregate memoization and the remaining concrete principal-batch decode remain the next phase.
+
+- Keep REST authentication as explicit source/tenant selection. Credential providers own token acquisition, including isolated Container Registry challenge exchanges and invocation-owned PIM Graph credentials; requests no longer retain runtime credentials or cancellation scopes.
+
+- Bind each selected tenant's authentication provider to its executor, preserving tracked authentication overrides, cache ownership, cancellation, and execution lineage across CLI and UI callers.
+
+- Remove the Command-owned global cache and legacy request-cache APIs. Cache listing and cleanup use the explicit `WorkCache` owner and a metadata-only inventory that never reads cached payloads or credential inputs.
+
 - Acquire the first browser Container Registry token through a consented Graph session followed by an ACR refresh exchange. Preserve the established session if the second exchange fails or is cancelled.
 
 - Invalidate cached local DevOps configuration after attempting a defaults change, including when command artifact persistence fails after the CLI has already changed the configuration.
@@ -8,23 +24,23 @@
 
 - Reuse `ArbitraryJson` for opaque Azure/DevOps values and preserve their generator constraints. Add a workspace Clippy reminder for direct `RawJson` usage, with documented codec and transport exceptions.
 
-- Add a tenant-bound REST authentication setter that transfers the Azure authentication context and tenant together; reuse it in Azure SDK callers and Azure DevOps bearer authentication.
+- Add a tenant-bound REST authentication setter that extracts the selected source and tenant together; reuse it in Azure SDK callers and Azure DevOps bearer authentication without retaining runtime credentials.
 
 - Share Azure DevOps account/MSDN license types between combined selections, REST responses, and updates. Preserve existing license strings and aliases; match group rules by licensing source and reject unknown update selections before authentication.
 
 - Keep local Command execution and HCL/file workflows cancellation-only. Explicit artifact and cached Command APIs use the caller-owned executor; shared reads return one decoded `Arc` per canonical owner/type. Preserve cancellation, retries, caller validation, and managed failure artifacts; reject bad disk values without clearing unrelated pages. Remove implicit Azure CLI login retries.
 
-- Replace remaining Azure/DevOps service CLI operations with explicit-context REST, including Key Vault metadata and ACR repository/tag reads with isolated token exchanges. Pass cancellation scopes through local Terraform, menu, and GUI workflows; retain executors for managed requests. Local configuration inspection supports fresh scope-only reads and explicit cached requests. Gitea selects an explicit tea profile and executes independently until external credential generations can partition reuse. REST's executor-cache migration follows separately.
+- Replace remaining Azure/DevOps service CLI operations with explicit-context REST, including Key Vault metadata and ACR repository/tag reads with isolated token exchanges. Pass cancellation scopes through local Terraform, menu, and GUI workflows; retain executors for managed requests. Local configuration inspection supports fresh scope-only reads and explicit cached requests. Gitea selects an explicit tea profile and executes independently until external credential generations can partition reuse.
 
 - Add admitted, owned executor work without a `Sync` requirement or result sharing. Optional execution artifacts retain canonical owner/type checks with zero reuse; reusable parents reject uncached child work even when callers catch the error.
 
-- Bind raw artifacts to the executor's admitted work identity and active initializer, preserving disk freshness and invalidation when importing decoded results. Execute-every-time work cannot substitute disk results even with a positive cache lifetime; REST integration remains pending.
+- Bind raw artifacts to the executor's admitted work identity and active initializer, preserving disk freshness and invalidation when importing decoded results. Execute-every-time work cannot substitute disk results even with a positive cache lifetime.
 
 - Keep Command retries below cache lookup and isolate each subprocess attempt's adjacent input files. Own stdin writing alongside output collection and timeout.
 
 - Let `WorkCache` own temporary directories through `temporary()` and `from_tempdir()`. Cleanup follows the last shared cache or artifact owner; path-only caches retain caller-managed storage.
 
-- Add `cloud_terrastodon_execution` with explicitly bound request execution, shared cache/authentication handles, linked cancellation scopes, and an injected credential-provider interface. `AppContext::executor()` binds the current app context without credential discovery or cache I/O; existing auth/cancellation fields remain available. The REST cache cutover remains a later migration step.
+- Add `cloud_terrastodon_execution` with explicitly bound request execution, shared cache/authentication handles, linked cancellation scopes, and an injected credential-provider interface. `AppContext::executor()` binds the current app context without credential discovery or cache I/O; existing auth/cancellation fields remain available.
 
 - Bind registry invocation and UI jobs to the explicit executor. `register_executable_request!` supports data-only requests and shared outputs; offline discovery does not acquire credentials or execute requests. Each UI job retains independent cancellation. The separately tagged legacy `IntoFuture` callback remains until its SDK and local request callers migrate.
 
@@ -42,13 +58,13 @@
 
 - Prohibit production `unwrap` and `expect` with workspace Clippy checks, retaining test exemptions. Fallible initialization, conversions, and execution helpers return errors through their callers. Callers must now handle `Result` from command program/summary resolution, authorization-header conversion, Graph consistency-header setup, organization URL and cost-query constructors, terminal startup, and diagram generation.
 
-- Add hierarchical generation invalidation and transitive dependency tracking to the explicit cache owner, including disk quarantine after failed invalidation and original-freshness proofs for decoded artifacts. REST adapter cutover remains pending.
+- Add hierarchical generation invalidation and transitive dependency tracking to the explicit cache owner, including disk quarantine after failed invalidation and original-freshness proofs for decoded artifacts.
 
-- Add per-entry initialization and decoded `Arc` reuse to the explicit cache owner, with caller-owned cancellation, retry, and wait-cycle detection. REST adapter cutover remains pending.
+- Add per-entry initialization and decoded `Arc` reuse to the explicit cache owner, with caller-owned cancellation, retry, and wait-cycle detection.
 
-- Add isolated raw artifact storage to the explicit cache owner: unique input workspaces, verified immutable payloads, guarded publication, sensitive-output exclusion, and freshness preserved through disk reloads. REST cutover remains pending.
+- Add isolated raw artifact storage to the explicit cache owner: unique input workspaces, verified immutable payloads, guarded publication, sensitive-output exclusion, and freshness preserved through disk reloads.
 
-- Add `cloud_terrastodon_cache` foundations with explicit roots, validated logical scopes, and operation/output ownership checks. REST continues using its existing cache until its coordinated lifecycle migration.
+- Add `cloud_terrastodon_cache` foundations with explicit roots, validated logical scopes, and operation/output ownership checks.
 
 - Make `cloud_terrastodon_registry` the pure reflection, constructor, conversion, and planning foundation; move request registration and invocation to `cloud_terrastodon_registry_execution`. Remove `cloud_terrastodon_registry_values` and compatibility re-exports. Copyable `Function` enum handles reference runtime, pure, or arbitrary registrations directly, preserving identity without adapter allocation or lookup.
 
@@ -63,7 +79,7 @@
 
 - Add the multi-file `group-management` consumer example with tenant-qualified `groupId` input, local validation, explicit exact/additive relationship policies, workload-identity preflight, and read-only saved plans with completeness blockers.
 
-- Require caller-supplied `CancellationScope` values on SDK requests and fetch helpers, including tenant resolution, pagination, and command/REST execution.
+- Require caller-owned execution scopes: managed SDK/REST operations receive an executor; local helpers and plain Command execution receive `CancellationScope` directly.
 - Adopt Teamy Cancellation's execution-scope API with linked `cancellable_scope` and `with_async_scope` execution and bounded `deferred`/`with_deferral` protection; deeply nested mutation, cache-invalidation, and copy-journal completion retain their owning scopes while independent work remains cancellable.
 - Enable automatic cooperative cancellation by default in `App`, with `automatic_cancellation(false)` for handlers that own asynchronous cleanup; the main Cloud Terrastodon CLI selects that mode to preserve interactive UI restoration and draining.
 - Update the standalone CLI example to audit resource group names and share the parent workspace's dependencies.

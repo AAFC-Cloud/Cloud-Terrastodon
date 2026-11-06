@@ -3,6 +3,7 @@ use crate::AzureDevOpsAgentPoolId;
 use crate::AzureDevOpsAgentPoolName;
 use crate::AzureDevOpsProjectId;
 use arbitrary::Arbitrary;
+use std::sync::Arc;
 
 /// In Azure DevOps documentation, the grant for a given [`AzureDevOpsProject`] to use an [`AzureDevOpsAgentPool`] is called a "queue" but that's silly so we will call it an entitlement instead.
 /// <https://learn.microsoft.com/en-us/rest/api/azure/devops/distributedtask/queues/get?view=azure-devops-rest-7.1>
@@ -32,3 +33,4 @@ pub struct AzureDevOpsAgentPoolEntitlementPoolReference {
 cloud_terrastodon_registry::register_thing!(AzureDevOpsAgentPoolEntitlement);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsAgentPoolEntitlement);
 cloud_terrastodon_registry::register_arbitrary!(Vec<AzureDevOpsAgentPoolEntitlement>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<AzureDevOpsAgentPoolEntitlement>>);

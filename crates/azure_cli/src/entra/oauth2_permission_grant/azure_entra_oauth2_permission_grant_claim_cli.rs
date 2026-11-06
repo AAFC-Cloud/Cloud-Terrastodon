@@ -1,6 +1,6 @@
 use super::AzureEntraOAuth2PermissionGrantClaimListArgs;
 use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
 /// OAuth2 delegated permission claim operations.
@@ -21,9 +21,9 @@ impl AzureEntraOAuth2PermissionGrantClaimArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
-        self.command.invoke(auth_context, cancellation).await
+        self.command.invoke(auth_context, executor).await
     }
 }
 
@@ -31,10 +31,10 @@ impl AzureEntraOAuth2PermissionGrantClaimCommand {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
         match self {
-            Self::List(args) => args.invoke(auth_context, cancellation).await,
+            Self::List(args) => args.invoke(auth_context, executor).await,
         }
     }
 }

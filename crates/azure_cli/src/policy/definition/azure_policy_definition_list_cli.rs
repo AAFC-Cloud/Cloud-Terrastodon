@@ -2,7 +2,7 @@ use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::fetch_all_policy_definitions;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use eyre::ensure;
 use nucleo::Config;
@@ -32,15 +32,17 @@ impl AzurePolicyDefinitionListArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let tenant_auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
         info!("Fetching Azure policy definitions...");
         let mut policy_definitions =
-            fetch_all_policy_definitions(&tenant_auth_context, cancellation).await?;
+            fetch_all_policy_definitions(&tenant_auth_context, executor).await?;
         info!(
             count = policy_definitions.len(),
             "Fetched Azure policy definitions",
@@ -74,20 +76,18 @@ impl AzurePolicyDefinitionListArgs {
             }
             ensure!(!patterns.is_empty(), "At least one pattern is required");
             let mut matcher = Matcher::new(Config::DEFAULT);
-            policy_definitions.retain(
-                |policy_definition: &cloud_terrastodon_azure::PolicyDefinition| {
-                    let Some(parameters) = &policy_definition.parameters else {
+            policy_definitions.retain(|policy_definition| {
+                let Some(parameters) = &policy_definition.parameters else {
+                    return false;
+                };
+                for pattern in &patterns {
+                    let matches = pattern.match_list(parameters.keys(), &mut matcher);
+                    if matches.is_empty() {
                         return false;
-                    };
-                    for pattern in &patterns {
-                        let matches = pattern.match_list(parameters.keys(), &mut matcher);
-                        if matches.is_empty() {
-                            return false;
-                        }
                     }
-                    true
-                },
-            );
+                }
+                true
+            });
         }
 
         let stdout = std::io::stdout();

@@ -2,7 +2,7 @@ use super::definition::AzureDevOpsBuildDefinitionArgs;
 use super::list::AzureDevOpsBuildListArgs;
 use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
 /// Build runs, pipeline definitions, and definition folders.
@@ -16,9 +16,9 @@ impl AzureDevOpsBuildArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<CliOutput> {
-        self.command.invoke(auth_context, cancellation).await
+        self.command.invoke(auth_context, executor).await
     }
 }
 
@@ -36,11 +36,11 @@ impl AzureDevOpsBuildCommand {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<CliOutput> {
         match self {
-            Self::List(args) => args.invoke(auth_context, cancellation).await,
-            Self::Definition(args) => args.invoke(auth_context, cancellation).await,
+            Self::List(args) => args.invoke(auth_context, executor).await,
+            Self::Definition(args) => args.invoke(auth_context, executor).await,
         }
     }
 }

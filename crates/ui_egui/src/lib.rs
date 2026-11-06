@@ -17,16 +17,16 @@ pub mod workers;
 
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::AzureTenantId;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use tracing::info;
 
 pub async fn egui_main(
     app_info: String,
     tenant_id: AzureTenantId,
     auth_context: AuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> eyre::Result<()> {
     info!("Hello from egui!");
-    run_app::run_app(app_info, tenant_id, auth_context, cancellation).await?;
+    run_app::run_app(app_info, tenant_id, auth_context, executor).await?;
     Ok(())
 }

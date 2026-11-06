@@ -127,6 +127,7 @@ impl SerializableRestResponse {
             Err(RestHttpError {
                 status: self.status,
                 reason_phrase: self.reason_phrase.clone(),
+                headers: self.headers.clone(),
             })
         }
     }

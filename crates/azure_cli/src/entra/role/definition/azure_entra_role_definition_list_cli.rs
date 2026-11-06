@@ -2,7 +2,7 @@ use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::fetch_all_entra_role_definitions;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use std::io::Write;
 use tracing::info;
@@ -19,18 +19,19 @@ impl AzureEntraRoleDefinitionListArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let tenant_auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
         info!(tenant_id = %tenant_auth_context.tenant_id, "Fetching Entra role definitions");
-        let mut role_definitions =
-            fetch_all_entra_role_definitions(&tenant_auth_context, cancellation)
-                .await?
-                .into_iter()
-                .collect::<Vec<_>>();
+        let mut role_definitions = fetch_all_entra_role_definitions(&tenant_auth_context, executor)
+            .await?
+            .into_iter()
+            .collect::<Vec<_>>();
         role_definitions.sort_unstable_by(|left, right| {
             left.display_name.cmp(&right.display_name).then_with(|| {
                 left.template_id

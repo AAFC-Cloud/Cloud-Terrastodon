@@ -1,34 +1,38 @@
 use crate::ResourceGraphHelper;
 use crate::fetch_all_policy_assignments;
+use crate::policy_noncompliance_reference_row::PolicyNoncomplianceReferenceRow;
+use crate::policy_noncompliant_resource_row::PolicyNoncompliantResourceRow;
 use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure_types::DistinctByScope;
 use cloud_terrastodon_azure_types::PolicyAssignment;
 use cloud_terrastodon_azure_types::Scope;
-use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_cache::CacheKey;
+use cloud_terrastodon_cache::CacheScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_hcl_types::Sanitizable;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use indoc::formatdoc;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Duration;
 use tracing::info;
 
 pub async fn evaluate_policy_assignment_compliance(
     auth_context: &AzureTenantAuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
     info!("Fetching policy assignments");
-    let policy_assignments = fetch_all_policy_assignments(auth_context, cancellation).await?;
+    let policy_assignments = fetch_all_policy_assignments(auth_context, executor).await?;
 
-    let policy_assignment: PolicyAssignment = PickerTui::<_>::new()
+    let policy_assignment: Arc<PolicyAssignment> = PickerTui::<_>::new()
         .set_header("Choose policy to evaluate")
         .pick_one(
             policy_assignments
                 .into_iter()
                 .distinct_by_scope()
-                .map(|ass| Choice::<PolicyAssignment> {
+                .map(|ass| Choice::<Arc<PolicyAssignment>> {
                     key: format!(
                         "{} {:?}",
                         ass.name,
@@ -65,16 +69,10 @@ policyResources
         "#,
         policy_assignment.id.expanded_form()
     };
-    #[derive(facet::Facet)]
-    struct ReferenceIdRow {
-        policy_definition_reference_id: String,
-        resource_type: String,
-        found: u32,
-    }
     let reference_ids = ResourceGraphHelper::new(
         query,
         Some(CacheKey {
-            path: PathBuf::from_iter([
+            scope: CacheScope::try_from_relative_path(PathBuf::from_iter([
                 "az",
                 "resource_graph",
                 format!(
@@ -82,16 +80,15 @@ policyResources
                     policy_assignment.name.sanitize()
                 )
                 .as_str(),
-            ]),
+            ]))?,
             valid_for: Duration::from_secs(15 * 60),
         }),
         auth_context,
-        cancellation,
     )
-    .collect_all::<ReferenceIdRow>()
+    .collect_all::<PolicyNoncomplianceReferenceRow>(executor)
     .await?;
 
-    let chosen_reference_id: ReferenceIdRow = PickerTui::<_>::new()
+    let chosen_reference_id: Arc<PolicyNoncomplianceReferenceRow> = PickerTui::<_>::new()
         .set_header("Choose an inner policy to review")
         .pick_one(reference_ids.into_iter().map(|row| Choice {
             key: format!(
@@ -130,13 +127,6 @@ policyResources
         chosen_reference_id.policy_definition_reference_id,
         chosen_reference_id.resource_type
     };
-    #[derive(facet::Facet)]
-    struct ResourceRow {
-        resource_group_name: String,
-        subscription_id: String,
-        subscription_name: String,
-        resource_id: String,
-    }
     let resource_cache_key = format!(
         "policy-compliance-for-{}-{}",
         policy_assignment.name.sanitize(),
@@ -147,41 +137,50 @@ policyResources
     let resource_ids = ResourceGraphHelper::new(
         query,
         Some(CacheKey {
-            path: PathBuf::from_iter([
+            scope: CacheScope::try_from_relative_path(PathBuf::from_iter([
                 "az".to_string(),
                 "resource_graph".to_string(),
                 resource_cache_key,
-            ]),
+            ]))?,
             valid_for: Duration::from_secs(15 * 60),
         }),
         auth_context,
-        cancellation,
     )
-    .collect_all::<ResourceRow>()
+    .collect_all::<PolicyNoncompliantResourceRow>(executor)
     .await?;
 
-    let chosen_resource_id: ResourceRow = PickerTui::<_>::new()
+    let chosen_resource_id: Arc<PolicyNoncompliantResourceRow> = PickerTui::<_>::new()
         .set_header(format!(
             "{} - {}",
             chosen_reference_id.policy_definition_reference_id, chosen_reference_id.resource_type,
         ))
-        .pick_one(resource_ids.into_iter().map(|row| Choice {
-            key: format!(
-                "{:16} - {:64} - {}",
-                row.subscription_name,
-                row.resource_group_name,
-                row.resource_id
-                    .rsplit_once("/")
-                    .map(|x| x.1)
-                    .unwrap_or(row.resource_id.as_str())
-            ),
-            value: row,
+        .pick_one(resource_ids.into_iter().map(|row| {
+            let resource_id = row.resource_id.expanded_form();
+            Choice {
+                key: format!(
+                    "{:16} - {:64} - {}",
+                    row.subscription_name
+                        .as_ref()
+                        .map(|name| name.as_str())
+                        .unwrap_or(""),
+                    row.resource_group_name
+                        .as_ref()
+                        .map(|name| name.as_str())
+                        .unwrap_or(""),
+                    resource_id
+                        .rsplit_once('/')
+                        .map(|x| x.1)
+                        .unwrap_or(&resource_id)
+                ),
+                value: row,
+            }
         }))
         .await?;
 
     info!(
         "You chose: {} - {}",
-        chosen_resource_id.subscription_id, chosen_resource_id.resource_id
+        chosen_resource_id.subscription_id,
+        chosen_resource_id.resource_id.expanded_form()
     );
 
     Ok(())

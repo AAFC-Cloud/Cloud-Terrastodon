@@ -4,8 +4,8 @@ use cloud_terrastodon_azure::ResourceGroupId;
 use cloud_terrastodon_azure::ResourceTagsId;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::replace_tags_for_resources;
-use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_cache::CacheKey;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -14,7 +14,7 @@ use tracing::info;
 
 pub async fn tag_empty_resource_group_menu(
     auth_context: &AzureTenantAuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
     info!("Fetching empty resource groups");
     let query = r#"
@@ -37,13 +37,17 @@ ResourceContainers
     let empty_resource_groups = ResourceGraphHelper::new(
         query,
         Some(CacheKey {
-            path: PathBuf::from_iter(["az", "resource_graph", "empty-resource-groups"]),
+            scope: CacheKey::from_relative_path(PathBuf::from_iter([
+                "az",
+                "resource_graph",
+                "empty-resource-groups",
+            ]))?
+            .scope,
             valid_for: Duration::ZERO,
         }),
         auth_context,
-        cancellation,
     )
-    .collect_all::<Row>()
+    .collect_all::<Row>(executor)
     .await?;
     info!(
         "Found {} empty resource groups",
@@ -60,12 +64,13 @@ ResourceContainers
         auth_context,
         empty_resource_groups
             .into_iter()
-            .map(|mut rg| {
-                rg.tags.insert(tag_key.to_owned(), tag_value.to_owned());
-                (ResourceTagsId::from_scope(&rg.id), rg.tags)
+            .map(|rg| {
+                let mut tags = rg.tags.clone();
+                tags.insert(tag_key.to_owned(), tag_value.to_owned());
+                (ResourceTagsId::from_scope(&rg.id), tags)
             })
             .collect(),
-        cancellation,
+        executor,
     )
     .await?;
 

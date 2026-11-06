@@ -4,6 +4,7 @@ use crate::AzureResourceProviderRegistrationState;
 use crate::azure_resource_provider_authorization_consent_state::AzureResourceProviderAuthorizationConsentState;
 use crate::azure_resource_provider_resource_type::AzureResourceProviderResourceType;
 use arbitrary::Arbitrary;
+use std::sync::Arc;
 
 /// Provider identity and advertised resource types.
 ///
@@ -26,3 +27,4 @@ cloud_terrastodon_registry::register_thing!(AzureResourceProvider);
 cloud_terrastodon_registry::register_arbitrary!(AzureResourceProvider);
 cloud_terrastodon_registry::register_thing!(Vec<AzureResourceProvider>);
 cloud_terrastodon_registry::register_arbitrary!(Vec<AzureResourceProvider>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<AzureResourceProvider>>);

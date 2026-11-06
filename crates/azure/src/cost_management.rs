@@ -1,9 +1,10 @@
+use crate::cost_management_response::CostManagementResponse;
 use crate::fetch_root_management_group;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::CostManagementQueryDefinition;
 use cloud_terrastodon_azure_types::CostManagementQueryResult;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_rest::RestRequest;
 use cloud_terrastodon_rest::RestResponseBody;
 use cloud_terrastodon_rest::SerializableRestResponse;
@@ -19,30 +20,26 @@ pub async fn fetch_cost_query_results(
     tenant_id: AzureTenantId,
     query: &CostManagementQueryDefinition,
     auth_context: &AuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> eyre::Result<CostManagementQueryResult> {
     let tenant_auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
-    let root = fetch_root_management_group(&tenant_auth_context, cancellation).await?;
+    let root = fetch_root_management_group(&tenant_auth_context, executor).await?;
     let url = format!(
         "https://management.azure.com/providers/Microsoft.Management/managementGroups/{}/providers/Microsoft.CostManagement/query?api-version=2021-10-01",
         root.tenant_id
     );
-    let request = RestRequest::new(http::Method::POST, url.as_str(), cancellation)?
+    let request = RestRequest::new(http::Method::POST, url.as_str())?
         .cancellation_safe()
-        .azure_auth_context(&tenant_auth_context)
+        .azure_auth_context(&tenant_auth_context)?
         .body(facet_json::to_string_pretty(query).map_err(|error| eyre::eyre!("{error:?}"))?);
-    receive_cost_management_response(request).await
+    receive_cost_management_response(request, executor).await
 }
 
 async fn receive_cost_management_response(
     request: RestRequest,
+    executor: &CloudTerrastodonExecutor,
 ) -> eyre::Result<CostManagementQueryResult> {
-    enum CostManagementResponse {
-        Parsed(CostManagementQueryResult),
-        Raw(SerializableRestResponse),
-    }
-
-    let cancellation = request.cancellation.clone();
+    let cancellation = executor.cancellation();
     let mut retries = 0usize;
 
     loop {
@@ -50,23 +47,26 @@ async fn receive_cost_management_response(
         let cache_key = request.cache_key.clone();
         let outcome = request
             .clone()
-            .receive_raw_with_decoder(|response| {
-                if response.ok {
-                    let parsed = facet_json::from_str::<CostManagementQueryResult>(
-                        response.into_json_body()?.as_str(),
-                    )
-                    .map_err(|error| eyre::eyre!("{error:?}"))
-                    .wrap_err_with(|| {
-                        format!(
-                            "Deserializing REST response into {}",
-                            std::any::type_name::<CostManagementQueryResult>()
+            .receive_raw_with_decoder(
+                |response| {
+                    if response.ok {
+                        let parsed = facet_json::from_str::<CostManagementQueryResult>(
+                            response.into_json_body()?.as_str(),
                         )
-                    })?;
-                    Ok(CostManagementResponse::Parsed(parsed))
-                } else {
-                    Ok(CostManagementResponse::Raw(response))
-                }
-            })
+                        .map_err(|error| eyre::eyre!("{error:?}"))
+                        .wrap_err_with(|| {
+                            format!(
+                                "Deserializing REST response into {}",
+                                std::any::type_name::<CostManagementQueryResult>()
+                            )
+                        })?;
+                        Ok(CostManagementResponse::Parsed(parsed))
+                    } else {
+                        Ok(CostManagementResponse::Raw(response))
+                    }
+                },
+                executor,
+            )
             .await?;
 
         let response = match outcome {
@@ -78,7 +78,10 @@ async fn receive_cost_management_response(
         {
             retries += 1;
             if let Some(cache_key) = cache_key {
-                cache_key.invalidate().await?;
+                executor
+                    .cache()?
+                    .invalidate(&cache_key.scope, executor.cancellation())
+                    .await?;
             }
             let delay = response
                 .headers
@@ -163,12 +166,16 @@ mod tests {
     async fn it_works1() -> eyre::Result<()> {
         CancellationToken::new()
             .cancellable_scope(|cancellation| async move {
+                let executor = crate::test_executor::test_executor(
+                    &cloud_terrastodon_auth::AuthContext::explicit_azure_cli(),
+                    &cancellation,
+                )?;
                 let query = CostManagementQueryDefinition::new_cost_total_this_month()?;
                 let resp = fetch_cost_query_results(
                     get_test_tenant_id(&cancellation).await?,
                     &query,
                     &AuthContext::explicit_azure_cli(),
-                    &cancellation,
+                    &executor,
                 )
                 .await?;
                 assert_eq!(resp.properties.next_link, None);
@@ -181,12 +188,16 @@ mod tests {
     async fn it_works2() -> eyre::Result<()> {
         CancellationToken::new()
             .cancellable_scope(|cancellation| async move {
+                let executor = crate::test_executor::test_executor(
+                    &cloud_terrastodon_auth::AuthContext::explicit_azure_cli(),
+                    &cancellation,
+                )?;
                 let query = CostManagementQueryDefinition::new_cost_by_day_this_month()?;
                 let resp = fetch_cost_query_results(
                     get_test_tenant_id(&cancellation).await?,
                     &query,
                     &AuthContext::explicit_azure_cli(),
-                    &cancellation,
+                    &executor,
                 )
                 .await?;
                 assert_eq!(resp.properties.next_link, None);
@@ -199,12 +210,16 @@ mod tests {
     async fn it_works3() -> eyre::Result<()> {
         CancellationToken::new()
             .cancellable_scope(|cancellation| async move {
+                let executor = crate::test_executor::test_executor(
+                    &cloud_terrastodon_auth::AuthContext::explicit_azure_cli(),
+                    &cancellation,
+                )?;
                 let query = CostManagementQueryDefinition::new_cost_by_resource_group_this_month()?;
                 let resp = fetch_cost_query_results(
                     get_test_tenant_id(&cancellation).await?,
                     &query,
                     &AuthContext::explicit_azure_cli(),
-                    &cancellation,
+                    &executor,
                 )
                 .await?;
                 assert_eq!(resp.properties.next_link, None);

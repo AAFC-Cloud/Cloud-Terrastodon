@@ -5,7 +5,7 @@ use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_repos_for_project;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use eyre::bail;
 use std::io::stdout;
@@ -33,15 +33,17 @@ impl AzureDevOpsRepoShowArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         // Find a project matching the provided identifier (id or name).
         let azure_devops_auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &azure_devops_auth_context.bind_executor(executor)?;
         let projects =
-            fetch_all_azure_devops_projects(&self.org, &azure_devops_auth_context, cancellation)
+            fetch_all_azure_devops_projects(&self.org, &azure_devops_auth_context, executor)
                 .await?;
         let maybe = projects.into_iter().find(|p| self.project.matches(p));
 
@@ -50,11 +52,11 @@ impl AzureDevOpsRepoShowArgs {
                 &self.org,
                 &project.id,
                 &azure_devops_auth_context,
-                cancellation,
+                executor,
             )
             .await?;
             if let Some(repo) = repos
-                .into_iter()
+                .iter()
                 .find(|r| r.name == self.repo || r.id.to_string() == self.repo)
             {
                 facet_json::to_writer_std_pretty(stdout(), &repo)

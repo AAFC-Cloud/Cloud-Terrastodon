@@ -1,7 +1,7 @@
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure::fetch_all_application_registrations;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::PickerTui;
@@ -11,12 +11,11 @@ use tracing::info;
 pub async fn browse_application_registrations(
     tenant_id: AzureTenantId,
     auth_context: &AuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
     let tenant_auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
     info!(%tenant_id, "Fetching application registrations");
-    let applications =
-        fetch_all_application_registrations(&tenant_auth_context, cancellation).await?;
+    let applications = fetch_all_application_registrations(&tenant_auth_context, executor).await?;
     let (applications, maybe_error) = PickerTui::<_>::new()
         .set_header("Application Registrations")
         .pick_many(applications.into_iter().map(|application| Choice {

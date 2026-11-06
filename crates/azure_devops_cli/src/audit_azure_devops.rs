@@ -15,8 +15,8 @@ use cloud_terrastodon_azure_devops::fetch_azure_devops_groups_for_project;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_test_plans;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_test_suites;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlements;
-use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::time::Duration;
@@ -28,7 +28,7 @@ pub async fn audit_azure_devops(
     test_license_inactivity_threshold: Duration,
     paid_license_inactivity_threshold: Duration,
     auth_context: &AzureTenantAuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> eyre::Result<()> {
     let test_license_inactivity_threshold =
         chrono::Duration::from_std(test_license_inactivity_threshold)?;
@@ -46,10 +46,10 @@ pub async fn audit_azure_devops(
     let entitlements = fetch_azure_devops_user_license_entitlements(
         &org_url,
         &azure_devops_auth_context,
-        cancellation,
+        executor,
     )
     .await?;
-    let users_by_principal_name = fetch_all_entra_users(auth_context, cancellation)
+    let users_by_principal_name = fetch_all_entra_users(auth_context, executor)
         .await?
         .into_iter()
         .map(|user| (user.user_principal_name.to_lowercase(), user))
@@ -150,20 +150,20 @@ pub async fn audit_azure_devops(
     );
 
     let projects =
-        fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context, cancellation).await?;
+        fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context, executor).await?;
     let project_test_plans = projects
         .iter()
         .map(|project| {
             let org_url = org_url.clone();
             let project_id = project.id.clone();
             let azure_devops_auth_context = azure_devops_auth_context.clone();
-            cancellation.cancellable_scope(move |cancellation| async move {
-                let cancellation = &cancellation;
+            executor.cancellable_scope(move |executor| async move {
+                let executor = &executor;
                 let plans = fetch_azure_devops_test_plans(
                     &org_url,
                     &project_id,
                     &azure_devops_auth_context,
-                    cancellation,
+                    executor,
                 )
                 .await?;
                 Ok((project_id, plans))
@@ -188,14 +188,14 @@ pub async fn audit_azure_devops(
             let org_url = org_url.clone();
             let plan_id = test_plan.id;
             let azure_devops_auth_context = azure_devops_auth_context.clone();
-            cancellation.cancellable_scope(move |cancellation| async move {
-                let cancellation = &cancellation;
+            executor.cancellable_scope(move |executor| async move {
+                let executor = &executor;
                 let suites = fetch_azure_devops_test_suites(
                     &org_url,
                     &project_id,
                     plan_id.to_string(),
                     &azure_devops_auth_context,
-                    cancellation,
+                    executor,
                 )
                 .await?;
                 Ok((project_id, plan_id, suites))
@@ -224,13 +224,13 @@ pub async fn audit_azure_devops(
             let org_url = org_url.clone();
             let azure_devops_auth_context = azure_devops_auth_context.clone();
             {
-                cancellation.cancellable_scope(move |cancellation| async move {
-                    let cancellation = &cancellation;
+                executor.cancellable_scope(move |executor| async move {
+                    let executor = &executor;
                     let groups = fetch_azure_devops_groups_for_member(
                         &org_url,
                         &member_id,
                         &azure_devops_auth_context,
-                        cancellation,
+                        executor,
                     )
                     .await?;
                     Ok((member_id, groups))
@@ -256,13 +256,13 @@ pub async fn audit_azure_devops(
             let project_id = project.id.clone();
             let azure_devops_auth_context = azure_devops_auth_context.clone();
             {
-                cancellation.cancellable_scope(move |cancellation| async move {
-                    let cancellation = &cancellation;
+                executor.cancellable_scope(move |executor| async move {
+                    let executor = &executor;
                     let groups = fetch_azure_devops_groups_for_project(
                         &org_url,
                         &project_id,
                         &azure_devops_auth_context,
-                        cancellation,
+                        executor,
                     )
                     .await?;
                     Ok((project_id, groups))

@@ -1,7 +1,7 @@
 use crate::repo::list::AzureDevOpsRepoListArgs;
 use crate::repo::show::AzureDevOpsRepoShowArgs;
 use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
 /// Azure DevOps repository-related commands.
@@ -24,11 +24,11 @@ impl AzureDevOpsRepoArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
         match self.command {
-            AzureDevOpsRepoCommand::List(args) => args.invoke(auth_context, cancellation).await?,
-            AzureDevOpsRepoCommand::Show(args) => args.invoke(auth_context, cancellation).await?,
+            AzureDevOpsRepoCommand::List(args) => args.invoke(auth_context, executor).await?,
+            AzureDevOpsRepoCommand::Show(args) => args.invoke(auth_context, executor).await?,
         }
 
         Ok(())

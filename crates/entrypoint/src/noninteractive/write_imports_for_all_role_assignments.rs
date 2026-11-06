@@ -1,12 +1,10 @@
 use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure::RoleAssignmentId;
 use cloud_terrastodon_azure::Scope;
-use cloud_terrastodon_azure::Subscription;
-use cloud_terrastodon_azure::SubscriptionId;
 use cloud_terrastodon_azure::SubscriptionScoped;
 use cloud_terrastodon_azure::fetch_all_role_assignments;
 use cloud_terrastodon_azure::fetch_all_subscriptions;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_hcl::HclImportBlock;
 use cloud_terrastodon_hcl::HclProviderBlock;
 use cloud_terrastodon_hcl::HclProviderReference;
@@ -22,15 +20,16 @@ use tracing::info;
 
 pub async fn write_imports_for_all_role_assignments(
     auth_context: &AzureTenantAuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
+    let cancellation = executor.cancellation();
     info!("Fetching role assignments");
-    let subscriptions = fetch_all_subscriptions(auth_context, cancellation)
+    let subscriptions = fetch_all_subscriptions(auth_context, executor)
         .await?
         .into_iter()
         .map(|sub| (sub.id, sub))
-        .collect::<HashMap<SubscriptionId, Subscription>>();
-    let role_assignments = fetch_all_role_assignments(auth_context, cancellation).await?;
+        .collect::<HashMap<_, _>>();
+    let role_assignments = fetch_all_role_assignments(auth_context, executor).await?;
 
     info!("Building import blocks");
     let mut providers: HashSet<HclProviderBlock> = HashSet::new();
@@ -51,7 +50,7 @@ pub async fn write_imports_for_all_role_assignments(
                 bail!("could not find subscription for role assignment {ra:?}");
             };
             let sanitized_name = sub.name.sanitize();
-            let mut import_block: HclImportBlock = ra.into();
+            let mut import_block: HclImportBlock = ra.as_ref().into();
             import_block.provider = HclProviderReference::Alias {
                 kind: ProviderKind::AzureRM,
                 name: sanitized_name.to_owned(),
@@ -62,7 +61,7 @@ pub async fn write_imports_for_all_role_assignments(
                 subscription_id: Some(subscription_id.short_form().to_owned()),
             });
         } else {
-            let import_block: HclImportBlock = ra.into();
+            let import_block: HclImportBlock = ra.as_ref().into();
             imports.push(import_block);
             providers.insert(HclProviderBlock::AzureRM {
                 alias: None,

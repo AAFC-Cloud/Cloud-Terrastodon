@@ -1,7 +1,7 @@
 use crate::team::list::AzureDevOpsTeamListArgs;
 use crate::team::show::AzureDevOpsTeamShowArgs;
 use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
 /// Azure DevOps team-related commands.
@@ -24,11 +24,11 @@ impl AzureDevOpsTeamArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
         match self.command {
-            AzureDevOpsTeamCommand::List(args) => args.invoke(auth_context, cancellation).await?,
-            AzureDevOpsTeamCommand::Show(args) => args.invoke(auth_context, cancellation).await?,
+            AzureDevOpsTeamCommand::List(args) => args.invoke(auth_context, executor).await?,
+            AzureDevOpsTeamCommand::Show(args) => args.invoke(auth_context, executor).await?,
         }
 
         Ok(())

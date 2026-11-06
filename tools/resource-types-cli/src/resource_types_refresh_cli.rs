@@ -1,6 +1,5 @@
 use crate::ResourceTypeCatalogue;
 use crate::ResourceTypesRefreshAuthSourceArgument;
-use cloud_terrastodon_app::CancellationScope;
 use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_app::Result;
 use cloud_terrastodon_app::facet;
@@ -9,7 +8,7 @@ use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::fetch_all_resource_providers;
 use cloud_terrastodon_azure_types::AzureTenantArgument;
-use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::WrapErr;
 use eyre::ensure;
 use std::fs;
@@ -37,7 +36,8 @@ pub struct ResourceTypesRefreshArgs {
 }
 
 impl ResourceTypesRefreshArgs {
-    pub async fn invoke(&self, cancellation: &CancellationScope) -> Result<CliOutput> {
+    pub async fn invoke(&self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        let cancellation = executor.cancellation();
         Self::validate_catalogue_destination(&self.catalogue)?;
         cancellation.bail_if_cancelled()?;
         // App disables host authentication even when other workspace packages
@@ -47,7 +47,8 @@ impl ResourceTypesRefreshArgs {
         cancellation.bail_if_cancelled()?;
         let auth =
             AuthContext::resolve(self.auth_source.into())?.bind_to_azure_tenant(tenant_id)?;
-        let request = fetch_all_resource_providers(&auth, cancellation);
+        let executor = auth.auth_context.bind_executor(executor)?;
+        let request = fetch_all_resource_providers(&auth, &executor);
         let catalogue = ResourceTypeCatalogue::from_providers(
             request.with_invalidation(true).await?,
             cancellation,

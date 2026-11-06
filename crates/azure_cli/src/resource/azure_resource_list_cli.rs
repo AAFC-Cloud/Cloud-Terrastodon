@@ -2,7 +2,7 @@ use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::fetch_all_resources;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use std::io::Write;
 use tracing::info;
@@ -19,14 +19,16 @@ impl AzureResourceListArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let tenant_auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
         info!("Fetching all Azure resources");
-        let resources = fetch_all_resources(&tenant_auth_context, cancellation).await?;
+        let resources = fetch_all_resources(&tenant_auth_context, executor).await?;
         info!(count = resources.len(), "Fetched Azure resources");
 
         let stdout = std::io::stdout();

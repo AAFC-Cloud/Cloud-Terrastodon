@@ -1,9 +1,7 @@
 use cloud_terrastodon_auth::AzureTenantAuthContext;
-use cloud_terrastodon_azure::Subscription;
-use cloud_terrastodon_azure::SubscriptionId;
 use cloud_terrastodon_azure::fetch_all_resource_groups;
 use cloud_terrastodon_azure::fetch_all_subscriptions;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_hcl::HclImportBlock;
 use cloud_terrastodon_hcl::HclProviderReference;
 use cloud_terrastodon_hcl::HclWriter;
@@ -19,18 +17,19 @@ use tracing::info;
 
 pub async fn write_imports_for_all_resource_groups(
     auth_context: &AzureTenantAuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
+    let cancellation = executor.cancellation();
     info!("Writing imports for all resource groups");
 
     info!("Fetching resource groups");
-    let subscriptions = fetch_all_subscriptions(auth_context, cancellation)
+    let subscriptions = fetch_all_subscriptions(auth_context, executor)
         .await?
         .into_iter()
         .map(|sub| (sub.id, sub))
-        .collect::<HashMap<SubscriptionId, Subscription>>();
+        .collect::<HashMap<_, _>>();
 
-    let resource_groups = fetch_all_resource_groups(auth_context, cancellation).await?;
+    let resource_groups = fetch_all_resource_groups(auth_context, executor).await?;
 
     info!("Building import blocks");
     let mut used_subscriptions = HashSet::new();
@@ -39,7 +38,7 @@ pub async fn write_imports_for_all_resource_groups(
         let sub = subscriptions
             .get(&rg.id.subscription_id)
             .wrap_err_with(|| format!("could not find subscription for resource group {rg:?}"))?;
-        let mut block: HclImportBlock = rg.into();
+        let mut block: HclImportBlock = rg.as_ref().into();
         block.provider = HclProviderReference::Alias {
             kind: ProviderKind::AzureRM,
             name: sub.name.sanitize(),
@@ -62,7 +61,7 @@ pub async fn write_imports_for_all_resource_groups(
     info!("Writing provider blocks");
     let mut providers = Vec::new();
     for sub in used_subscriptions {
-        let provider = sub.clone().into_provider_block();
+        let provider = sub.into_provider_block();
         providers.push(provider);
     }
     HclWriter::new(AppDir::Imports.join("boilerplate.tf"))

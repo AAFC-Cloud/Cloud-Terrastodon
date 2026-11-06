@@ -3,10 +3,14 @@ use arbitrary::Arbitrary;
 use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure_types::EntraUser;
 use cloud_terrastodon_azure_types::EntraUserArgument;
-use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CacheableCommand;
-use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_cache::CacheKey;
+use cloud_terrastodon_cache::CacheOperationOwner;
+use cloud_terrastodon_cache::HasCacheKey;
+use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
+use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_pathing::sanitize_windows_path_component;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
@@ -14,6 +18,7 @@ use facet::Facet;
 use http::Method;
 use std::borrow::Cow;
 use std::path::PathBuf;
+use std::sync::Arc;
 use tracing::debug;
 use url::Url;
 
@@ -24,12 +29,9 @@ use url::Url;
 /// parenthesized key syntax, with embedded apostrophes escaped as OData string
 /// literals. An absent user returns a typed [`cloud_terrastodon_rest::RestHttpError`]
 /// with status 404; authentication, transport, and decoding failures remain errors.
-#[must_use = "This is a future request, you must .await it"]
+#[must_use = "This is a future request, you must .execute it"]
 #[derive(Facet)]
 pub struct EntraUserGetRequest<'a> {
-    #[facet(skip_serializing)]
-    pub cancellation: CancellationScope,
-
     pub lookup: EntraUserArgument<'a>,
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
@@ -37,7 +39,6 @@ pub struct EntraUserGetRequest<'a> {
 impl<'a> Arbitrary<'a> for EntraUserGetRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
-            cancellation: Arbitrary::arbitrary(u)?,
             lookup: Arbitrary::arbitrary(u)?,
             auth_context: Cow::Owned(Arbitrary::arbitrary(u)?),
         })
@@ -46,19 +47,19 @@ impl<'a> Arbitrary<'a> for EntraUserGetRequest<'static> {
 
 /// Construct a user lookup from an `EntraUserId`, `UserPrincipalName`, or
 /// [`EntraUserArgument`]. Parse raw text as `EntraUserArgument` before calling.
+#[track_caller]
 pub fn fetch_entra_user<'a, T>(
     lookup: T,
     auth_context: &'a AzureTenantAuthContext,
-    cancellation: &CancellationScope,
-) -> EntraUserGetRequest<'a>
+    executor: &'a CloudTerrastodonExecutor,
+) -> RequestExecution<'a, EntraUserGetRequest<'a>>
 where
     T: Into<EntraUserArgument<'a>>,
 {
-    EntraUserGetRequest {
-        cancellation: cancellation.clone(),
+    executor.execute(EntraUserGetRequest {
         lookup: lookup.into(),
         auth_context: Cow::Borrowed(auth_context),
-    }
+    })
 }
 
 impl EntraUserGetRequest<'_> {
@@ -90,17 +91,16 @@ impl EntraUserGetRequest<'_> {
     }
 }
 
-#[async_trait]
-impl CacheableCommand for EntraUserGetRequest<'_> {
-    type Output = EntraUser;
+impl InvalidatesOwnCacheKey for EntraUserGetRequest<'_> {}
 
-    fn cache_key(&self) -> CacheKey {
+impl HasCacheKey for EntraUserGetRequest<'_> {
+    fn cache_key(&self) -> eyre::Result<CacheKey> {
         let tenant_id = self.auth_context.tenant_id.to_string();
 
         match &self.lookup {
             EntraUserArgument::ObjectId(user_id) => {
                 let user_id = user_id.to_string();
-                CacheKey::new(PathBuf::from_iter([
+                CacheKey::from_relative_path(PathBuf::from_iter([
                     "ms",
                     "graph",
                     "GET",
@@ -118,7 +118,7 @@ impl CacheableCommand for EntraUserGetRequest<'_> {
                     blake3::hash(user_principal_name.as_str().as_bytes())
                         .to_hex()
                         .to_string();
-                CacheKey::new(PathBuf::from_iter([
+                CacheKey::from_relative_path(PathBuf::from_iter([
                     "ms",
                     "graph",
                     "GET",
@@ -131,37 +131,50 @@ impl CacheableCommand for EntraUserGetRequest<'_> {
             }
         }
     }
+}
 
-    async fn run(self) -> Result<Self::Output> {
-        match &self.lookup {
-            EntraUserArgument::ObjectId(user_id) => {
-                debug!(
-                    tenant_id = %self.auth_context.tenant_id,
-                    user_id = %user_id,
-                    "Fetching user by object id"
-                );
+impl ExecutableRequest for EntraUserGetRequest<'_> {
+    type Error = eyre::Report;
+    type Output = Arc<EntraUser>;
+    fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
+    where
+        Self: 'exec,
+        Self::Output: 'exec,
+    {
+        Box::pin(async move {
+            match &self.lookup {
+                EntraUserArgument::ObjectId(user_id) => {
+                    debug!(
+                        tenant_id = %self.auth_context.tenant_id,
+                        user_id = %user_id,
+                        "Fetching user by object id"
+                    );
+                }
+                EntraUserArgument::UserPrincipalName(user_principal_name) => {
+                    debug!(
+                        tenant_id = %self.auth_context.tenant_id,
+                        user_principal_name = %user_principal_name,
+                        "Fetching Entra user by user principal name"
+                    );
+                }
             }
-            EntraUserArgument::UserPrincipalName(user_principal_name) => {
-                debug!(
-                    tenant_id = %self.auth_context.tenant_id,
-                    user_principal_name = %user_principal_name,
-                    "Fetching Entra user by user principal name"
-                );
-            }
-        }
 
-        let mut request =
-            RestRequest::from_method_and_url(Method::GET, self.url()?, &self.cancellation)?
-                .azure_auth_context(&self.auth_context);
-        request.cache_key = Some(self.cache_key());
-        request.receive::<EntraUser>().await
+            let mut request = RestRequest::from_method_and_url(Method::GET, self.url()?)?
+                .azure_auth_context(&self.auth_context)?;
+            request.cache_key = Some(self.cache_key()?);
+            request
+                .receive_cached::<EntraUser>(
+                    &executor,
+                    CacheOperationOwner::of::<EntraUserGetRequest<'static>>(),
+                )
+                .await
+        })
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(EntraUserGetRequest<'a>, 'a);
 cloud_terrastodon_registry::register_thing!(EntraUserGetRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(EntraUserGetRequest<'static>);
-cloud_terrastodon_registry_execution::register_into_future!(EntraUserGetRequest<'static> => EntraUser, effects = [Read]);
+cloud_terrastodon_registry_execution::register_executable_request!(EntraUserGetRequest<'static> => Arc<EntraUser>, effects = [Read]);
 
 #[cfg(test)]
 mod tests {
@@ -173,7 +186,7 @@ mod tests {
     #[test]
     fn url_keeps_special_upns_in_the_user_key() {
         CancellationToken::new()
-            .with_scope(|cancellation| {
+            .with_scope(|_cancellation| {
                 let auth = AuthContext::explicit_azure_cli().bind_to_azure_tenant(
                     AzureTenantId::new(cloud_terrastodon_azure_types::uuid::Uuid::nil()),
                 )?;
@@ -193,7 +206,6 @@ mod tests {
                     ),
                 ] {
                     let request = EntraUserGetRequest {
-                        cancellation: cancellation.clone(),
                         lookup: upn.parse()?,
                         auth_context: Cow::Borrowed(&auth),
                     };

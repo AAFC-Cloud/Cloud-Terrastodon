@@ -1,8 +1,9 @@
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::EntraApplicationClientId;
 use cloud_terrastodon_azure::fetch_application_roles;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use std::io::Write;
 use tracing::info;
@@ -20,15 +21,30 @@ pub struct AzureEntraApplicationRegistrationRoleListArgs {
 }
 
 impl AzureEntraApplicationRegistrationRoleListArgs {
-    pub async fn invoke(self, cancellation: &CancellationScope) -> Result<()> {
-        let tenant_id = self.tenant.resolve(cancellation).await?;
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        executor: &CloudTerrastodonExecutor,
+    ) -> Result<()> {
+        let cancellation = executor.cancellation();
+        let tenant_auth_context = self
+            .tenant
+            .bind_auth_context(auth_context, cancellation)
+            .await?;
+        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
+        let tenant_id = tenant_auth_context.tenant_id;
         info!(
             %tenant_id,
             application_id = %self.application_id,
             "Fetching application roles"
         );
-        let permissions =
-            fetch_application_roles(tenant_id, self.application_id, cancellation).await?;
+        let permissions = fetch_application_roles(
+            tenant_id,
+            self.application_id,
+            tenant_auth_context.auth_context.azure_bearer_source()?,
+            executor,
+        )
+        .await?;
 
         let stdout: std::io::Stdout = std::io::stdout();
         let mut handle = stdout.lock();

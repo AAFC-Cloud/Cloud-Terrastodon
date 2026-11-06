@@ -4,7 +4,7 @@ use super::terraform_show_cli::TerraformShowArgs;
 use super::terraform_source_cli::TerraformSourceArgs;
 use crate::cli::terraform::terraform_apply_cli::TerraformApplyArgs;
 use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
 /// Terraform-specific commands.
@@ -32,14 +32,15 @@ impl TerraformCommand {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         match self {
             TerraformCommand::Audit(args) => args.invoke(cancellation).await,
-            TerraformCommand::Source(args) => args.invoke(auth_context, cancellation).await,
-            TerraformCommand::Reflow(args) => args.invoke(auth_context, cancellation).await,
-            TerraformCommand::Show(args) => args.invoke(auth_context, cancellation).await,
-            TerraformCommand::Apply(args) => args.invoke(auth_context, cancellation).await,
+            TerraformCommand::Source(args) => args.invoke(auth_context, executor).await,
+            TerraformCommand::Reflow(args) => args.invoke(auth_context, executor).await,
+            TerraformCommand::Show(args) => args.invoke(auth_context, executor).await,
+            TerraformCommand::Apply(args) => args.invoke(auth_context, executor).await,
         }
     }
 }

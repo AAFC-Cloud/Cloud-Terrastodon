@@ -7,31 +7,32 @@ use crate::Scope;
 use arbitrary::Arbitrary;
 use eyre::bail;
 use std::collections::HashMap;
+use std::sync::Arc;
 use uuid::Uuid;
 
 #[derive(Clone, facet::Facet)]
 pub struct RoleDefinitionsAndAssignments {
-    pub role_definitions: HashMap<RoleDefinitionId, RoleDefinition>,
-    pub role_assignments: HashMap<RoleAssignmentId, RoleAssignment>,
+    pub role_definitions: HashMap<RoleDefinitionId, Arc<RoleDefinition>>,
+    pub role_assignments: HashMap<RoleAssignmentId, Arc<RoleAssignment>>,
 }
 impl<'a> Arbitrary<'a> for RoleDefinitionsAndAssignments {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
             role_definitions: Vec::<RoleDefinition>::arbitrary(u)?
                 .into_iter()
-                .map(|role_definition| (role_definition.id.clone(), role_definition))
+                .map(|role_definition| (role_definition.id.clone(), Arc::new(role_definition)))
                 .collect(),
             role_assignments: Vec::<RoleAssignment>::arbitrary(u)?
                 .into_iter()
-                .map(|role_assignment| (role_assignment.id.clone(), role_assignment))
+                .map(|role_assignment| (role_assignment.id.clone(), Arc::new(role_assignment)))
                 .collect(),
         })
     }
 }
 impl RoleDefinitionsAndAssignments {
     pub fn try_new(
-        role_definitions: impl IntoIterator<Item = RoleDefinition>,
-        role_assignments: impl IntoIterator<Item = RoleAssignment>,
+        role_definitions: impl IntoIterator<Item = Arc<RoleDefinition>>,
+        role_assignments: impl IntoIterator<Item = Arc<RoleAssignment>>,
     ) -> eyre::Result<Self> {
         let role_definitions = role_definitions
             .into_iter()
@@ -74,7 +75,7 @@ impl RoleDefinitionsAndAssignments {
         self.role_assignments.values().filter_map(move |ra| {
             self.role_definitions
                 .get(&ra.role_definition_id)
-                .map(|rd| (ra, rd))
+                .map(|rd| (ra.as_ref(), rd.as_ref()))
         })
     }
 }

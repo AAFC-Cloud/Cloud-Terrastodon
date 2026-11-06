@@ -4,12 +4,13 @@ use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::Resource;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::fetch_all_resources;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use std::io::Write;
+use std::sync::Arc;
 use tracing::info;
 
 /// Arguments for browsing Azure resources interactively.
@@ -24,14 +25,16 @@ impl AzureResourceBrowseArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let tenant_auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
         info!("Fetching Azure resources...");
-        let resources = fetch_all_resources(&tenant_auth_context, cancellation).await?;
+        let resources = fetch_all_resources(&tenant_auth_context, executor).await?;
         info!(count = resources.len(), "Fetched Azure resources");
 
         let choices = resources.into_iter().map(|resource| Choice {
@@ -39,7 +42,7 @@ impl AzureResourceBrowseArgs {
             value: resource,
         });
 
-        let (chosen, maybe_error): (Vec<Resource>, _) = PickerTui::<_>::new()
+        let (chosen, maybe_error): (Vec<Arc<Resource>>, _) = PickerTui::<_>::new()
             .set_header("Select Azure resources")
             .pick_many(choices)
             .await

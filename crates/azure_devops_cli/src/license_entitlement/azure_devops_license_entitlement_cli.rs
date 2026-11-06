@@ -6,7 +6,7 @@ use crate::license_entitlement::user::AzureDevOpsLicenseEntitlementUserSummaryAr
 use crate::license_entitlement::user::AzureDevOpsLicenseEntitlementUserUpdateArgs;
 use crate::license_entitlement::user::AzureDevOpsLicenseEntitlementUserUpdateTuiArgs;
 use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
 /// Azure DevOps license entitlement-related commands.
@@ -65,32 +65,32 @@ impl AzureDevOpsLicenseEntitlementArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
         match self.command {
             AzureDevOpsLicenseEntitlementCommand::User(args) => match args.command {
                 AzureDevOpsLicenseEntitlementUserCommand::List(a) => {
-                    a.invoke(auth_context, cancellation).await?
+                    a.invoke(auth_context, executor).await?
                 }
                 AzureDevOpsLicenseEntitlementUserCommand::Summary(a) => {
-                    a.invoke(auth_context, cancellation).await?
+                    a.invoke(auth_context, executor).await?
                 }
                 AzureDevOpsLicenseEntitlementUserCommand::Update(a) => {
-                    a.invoke(auth_context, cancellation).await?
+                    a.invoke(auth_context, executor).await?
                 }
                 AzureDevOpsLicenseEntitlementUserCommand::UpdateTui(a) => {
-                    a.invoke(auth_context, cancellation).await?
+                    a.invoke(auth_context, executor).await?
                 }
                 AzureDevOpsLicenseEntitlementUserCommand::Show(a) => {
-                    a.invoke(auth_context, cancellation).await?
+                    a.invoke(auth_context, executor).await?
                 }
                 AzureDevOpsLicenseEntitlementUserCommand::Revoke(a) => {
-                    a.invoke(auth_context, cancellation).await?
+                    a.invoke(auth_context, executor).await?
                 }
             },
             AzureDevOpsLicenseEntitlementCommand::Group(args) => match args.command {
                 AzureDevOpsLicenseEntitlementGroupCommand::List(a) => {
-                    a.invoke(auth_context, cancellation).await?
+                    a.invoke(auth_context, executor).await?
                 }
             },
         }

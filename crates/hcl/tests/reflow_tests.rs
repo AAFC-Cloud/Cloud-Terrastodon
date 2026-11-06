@@ -1,6 +1,10 @@
 #![cfg(test)]
 
+use cloud_terrastodon_cache::WorkCache;
 use cloud_terrastodon_command::CancellationToken;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::UnreachableAuthenticationProvider;
 use cloud_terrastodon_hcl::HclProject;
 use cloud_terrastodon_hcl::reflow::HclReflower;
 use cloud_terrastodon_hcl::reflow::ReflowAzureDevOpsGitRepositoryInitializationAttributes;
@@ -12,6 +16,7 @@ use cloud_terrastodon_hcl::reflow::ReflowRemoveDefaultAttributes;
 use hcl::edit::structure::Body;
 use indoc::indoc;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 fn parse_body(input: &str) -> eyre::Result<Body> {
     Ok(input.parse()?)
@@ -80,10 +85,16 @@ async fn reflow_preserves_modules_and_moved_blocks_sharing_a_source_file() -> ey
     for (single_file, mixed) in [(None, false), (None, true), (Some("merged.tf"), false)] {
         CancellationToken::new()
             .with_async_scope(|cancellation| async move {
+                let executor = CloudTerrastodonExecutor::new(
+                    WorkCache::temporary()?,
+                    Arc::new(UnreachableAuthenticationProvider),
+                    cancellation.clone(),
+                );
                 let project = HclProject::from([(PathBuf::from("main.tf"), parse_body(input)?)]);
-                let reflowed = ReflowHclRequest::new(project, None, &cancellation)
+                let reflowed = ReflowHclRequest::new(project, None)
                     .single_file_path(single_file.map(PathBuf::from))
                     .mixed(mixed)
+                    .execute(&executor)
                     .await?;
                 assert_eq!(reflowed.len(), 1);
                 let output = reflowed.values().next().unwrap().to_string();
@@ -110,10 +121,10 @@ async fn reflow_preserves_modules_and_moved_blocks_sharing_a_source_file() -> ey
                 let second = ReflowHclRequest::new(
                     HclProject::from([(reflowed.keys().next().unwrap().clone(), reparsed)]),
                     None,
-                    &cancellation,
                 )
                 .single_file_path(single_file.map(PathBuf::from))
                 .mixed(mixed)
+                .execute(&executor)
                 .await?;
                 assert_eq!(second.values().next().unwrap().to_string(), output);
                 eyre::Ok(())

@@ -1,3 +1,5 @@
+use teamy_cancellation::CancellationError;
+
 pub type PickResult<T, S = T> = Result<T, PickError<S>>;
 pub type PickManyResult<T> = Result<Vec<T>, PickError<T>>;
 
@@ -55,6 +57,14 @@ impl<S> From<eyre::Error> for PickError<S> {
     #[track_caller]
     fn from(value: eyre::Error) -> Self {
         PickError::Eyre(value, Vec::new())
+    }
+}
+impl<S> From<CancellationError> for PickError<S> {
+    #[track_caller]
+    fn from(value: CancellationError) -> Self {
+        // Scope cancellation has an execution cause; `Cancelled` describes a
+        // picker keypress. Retain that cause even when no choices were returned.
+        PickError::Eyre(value.into(), Vec::new())
     }
 }
 impl<S> From<std::io::Error> for PickError<S> {

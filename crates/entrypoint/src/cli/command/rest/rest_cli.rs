@@ -1,11 +1,14 @@
 use arbitrary::Arbitrary;
 use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_auth::AzureDevOpsAuthContext;
+use cloud_terrastodon_auth_types::AuthSource;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::SubscriptionIdExt;
 use cloud_terrastodon_cli_types::HttpMethodCli;
 use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_rest::RequestHeaders;
 use cloud_terrastodon_rest::RestRequest;
 use cloud_terrastodon_rest::RestResponseBody;
@@ -72,42 +75,65 @@ impl RestArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<CliOutput> {
-        let response = self.fetch_response(auth_context, cancellation).await?;
+        let response = self.fetch_response(auth_context, executor).await?;
         Ok(response_output(response))
     }
 
     async fn fetch_response(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<SerializableRestResponse> {
         let url = Url::parse(&self.url).with_context(|| format!("parsing URL '{}'", self.url))?;
         let service = RestService::infer(&url).wrap_err_with(|| {
             format!("unsupported REST host '{}'", url.host_str().unwrap_or(""))
         })?;
-        let tenant_inference_url = url.clone();
-        let requested_tenant = match self.tenant {
-            Some(tenant) => Some(tenant.resolve(cancellation).await?),
-            None => None,
-        };
-        let tenant = match requested_tenant.or(auth_context.tenant_id()) {
-            Some(tenant) => Some(tenant),
-            None => {
-                infer_tenant_id_for_request(service, &url, |subscription_id| async move {
-                    subscription_id
-                        .resolve_tenant_id(auth_context, cancellation)
-                        .await
-                        .with_context(|| {
-                        format!(
-                            "Failed to infer tracked tenant for subscription '{}' from '{}'. If the Azure CLI default tenant is intended, specify '--tenant default'.",
-                            subscription_id, tenant_inference_url
-                        )
-                        })
-                })
-                .await?
-            }
+        let mut request = RestRequest::from_method_and_url(self.method.0, url.clone())?;
+        let executor = if service == RestService::AzureRetailPrices {
+            // This public service never resolves tenants or acquires credentials.
+            executor.clone()
+        } else if service == RestService::AzureDevOps
+            && auth_context.source() == Some(AuthSource::PersonalAccessToken)
+        {
+            let selected = AzureDevOpsAuthContext::new(auth_context)?;
+            request = request.azure_devops_auth_context(&selected)?;
+            selected.bind_executor(executor)?
+        } else {
+            // Reject disabled or unresolved authentication before tenant discovery.
+            auth_context.azure_bearer_source()?;
+            let selected = match self.tenant {
+                Some(tenant) => {
+                    tenant
+                        .bind_auth_context(auth_context, executor.cancellation())
+                        .await?
+                }
+                None => {
+                    let tenant = match auth_context.tenant_id() {
+                        Some(tenant) => Some(tenant),
+                        None => {
+                            let tenant_inference_url = url.clone();
+                            infer_tenant_id_for_request(service, &url, |subscription_id| async move {
+                                subscription_id
+                                    .resolve_tenant_id(auth_context, executor)
+                                    .await
+                                    .with_context(|| {
+                                        format!(
+                                            "Failed to infer tracked tenant for subscription '{}' from '{}'. Specify '--tenant' with an ID, alias, or the explicit 'default' selector.",
+                                            subscription_id, tenant_inference_url
+                                        )
+                                    })
+                            })
+                            .await?
+                        }
+                    }
+                    .wrap_err("this REST service requires a tenant; specify '--tenant' with an ID, alias, or the explicit 'default' selector")?;
+                    auth_context.bind_to_azure_tenant(tenant)?
+                }
+            };
+            request = request.azure_auth_context(&selected)?;
+            selected.auth_context.bind_executor(executor)?
         };
         let body = read_optional_body(self.body).await?;
         let headers = read_optional_headers(self.headers).await?;
@@ -117,13 +143,9 @@ impl RestArgs {
             (Some(headers), None) | (None, Some(headers)) => Some(headers),
             (None, None) => None,
         };
-        let mut request = RestRequest::from_method_and_url(self.method.0, url, cancellation)?
-            .auth_context(auth_context);
-        request.service = service;
         request.body = body;
         request.headers = headers;
-        request.tenant = tenant;
-        request.receive_raw().await
+        request.receive_raw(&executor).await
     }
 }
 
@@ -166,7 +188,11 @@ mod test {
     use super::response_output;
     use cloud_terrastodon_app::GlobalArgs;
     use cloud_terrastodon_app::OutputFormat;
+    use cloud_terrastodon_auth::AuthContext;
+    use cloud_terrastodon_cache::WorkCache;
     use cloud_terrastodon_command::CancellationToken;
+    use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+    use cloud_terrastodon_execution::UnreachableAuthenticationProvider;
     use cloud_terrastodon_rest::RestResponseBody;
     use cloud_terrastodon_rest::RestResponseHeaders;
     use cloud_terrastodon_rest::parse_response_body;
@@ -175,6 +201,7 @@ mod test {
     use reqwest::Url;
     use reqwest::header::HeaderMap;
     use reqwest::header::HeaderValue;
+    use std::sync::Arc;
 
     #[derive(facet::Facet, Debug)]
     struct ParseArgs {
@@ -183,6 +210,34 @@ mod test {
 
         #[facet(flatten)]
         args: RestArgs,
+    }
+
+    #[tokio::test]
+    async fn disabled_authentication_rejects_before_tenant_or_body_file_resolution() {
+        CancellationToken::new()
+            .cancellable_scope(|cancellation| async move {
+                let executor = CloudTerrastodonExecutor::new(
+                    WorkCache::temporary()?,
+                    Arc::new(UnreachableAuthenticationProvider),
+                    cancellation,
+                );
+                let args = RestArgs {
+                    method: cloud_terrastodon_cli_types::HttpMethodCli(http::Method::GET),
+                    url: "https://graph.microsoft.com/v1.0/users".to_owned(),
+                    body: Some("@must-not-read-body.json".to_owned()),
+                    headers: None,
+                    header: Vec::new(),
+                    tenant: Some("must-not-resolve-tenant".parse()?),
+                };
+                let error = args
+                    .fetch_response(&AuthContext::None, &executor)
+                    .await
+                    .expect_err("disabled authentication must precede local or service lookups");
+                assert!(error.to_string().contains("authentication source none"));
+                Ok::<_, eyre::Report>(())
+            })
+            .await
+            .unwrap();
     }
 
     #[test]

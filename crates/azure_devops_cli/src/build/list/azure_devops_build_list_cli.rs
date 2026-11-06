@@ -11,13 +11,14 @@ use cloud_terrastodon_azure_devops::AzureDevOpsBuildStatus;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_builds;
-use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use color_eyre::owo_colors::OwoColorize;
 use color_eyre::owo_colors::Stream;
 use color_eyre::owo_colors::Style;
 use eyre::Result;
 use std::io::Write;
+use std::sync::Arc;
 
 /// List the latest build runs matching the supplied filters.
 #[derive(Debug, Clone, facet::Facet)]
@@ -60,12 +61,14 @@ impl AzureDevOpsBuildListArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<CliOutput> {
+        let cancellation = executor.cancellation();
         let auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &auth_context.bind_executor(executor)?;
         let builds = fetch_azure_devops_builds(
             &self.org,
             self.project,
@@ -75,7 +78,7 @@ impl AzureDevOpsBuildListArgs {
             self.result,
             self.branch,
             Some(self.limit),
-            cancellation,
+            executor,
         )
         .with_invalidation(self.no_cache)
         .await?;
@@ -87,7 +90,7 @@ impl AzureDevOpsBuildListArgs {
 }
 
 fn write_builds(
-    builds: &[AzureDevOpsBuild],
+    builds: &[Arc<AzureDevOpsBuild>],
     writer: &mut dyn Write,
     cancellation: &CancellationScope,
 ) -> Result<()> {

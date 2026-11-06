@@ -4,7 +4,7 @@ use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::fetch_all_application_gateways;
 use cloud_terrastodon_azure::fetch_application_gateway_backend_health;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use eyre::bail;
 use std::io::Write;
@@ -26,16 +26,18 @@ impl AzureApplicationGatewayShowBackendHealthArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let tenant_auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
         let tenant_id = tenant_auth_context.tenant_id;
         info!(needle = %self.application_gateway, %tenant_id, "Resolving Azure application gateway for backend health");
         let application_gateways =
-            fetch_all_application_gateways(&tenant_auth_context, cancellation).await?;
+            fetch_all_application_gateways(&tenant_auth_context, executor).await?;
 
         let needle = self.application_gateway.trim();
         let mut matches = application_gateways
@@ -54,8 +56,9 @@ impl AzureApplicationGatewayShowBackendHealthArgs {
                 let application_gateway = matches.remove(0);
                 let backend_health = fetch_application_gateway_backend_health(
                     tenant_id,
-                    application_gateway.id,
-                    cancellation,
+                    application_gateway.id.clone(),
+                    tenant_auth_context.auth_context.azure_bearer_source()?,
+                    executor,
                 )
                 .await?;
                 let stdout = std::io::stdout();

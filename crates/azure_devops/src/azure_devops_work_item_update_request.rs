@@ -6,25 +6,20 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemId;
 use cloud_terrastodon_azure_types::ArbitraryJson;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_rest::RequestHeaders;
 use cloud_terrastodon_rest::RestRequest;
-use eyre::Result;
 use eyre::ensure;
 use facet::Facet;
 use reqwest::Method;
 use reqwest::Url;
 use std::borrow::Cow;
-use std::future::Future;
-use std::future::IntoFuture;
-use std::pin::Pin;
 
 #[derive(Debug, Clone, Facet)]
 #[facet(traits(Clone))]
 pub struct AzureDevOpsWorkItemUpdateRequest<'a> {
-    #[facet(skip_serializing)]
-    pub cancellation: CancellationScope,
-
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub project: Option<AzureDevOpsProjectArgument<'a>>,
     pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
@@ -40,7 +35,6 @@ pub struct AzureDevOpsWorkItemUpdateRequest<'a> {
 impl<'a> Arbitrary<'a> for AzureDevOpsWorkItemUpdateRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
-            cancellation: CancellationScope::arbitrary(u)?,
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: Some(AzureDevOpsProjectArgument::arbitrary(u)?.into_owned()),
             auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
@@ -53,11 +47,15 @@ impl<'a> Arbitrary<'a> for AzureDevOpsWorkItemUpdateRequest<'static> {
     }
 }
 
-impl<'a> IntoFuture for AzureDevOpsWorkItemUpdateRequest<'a> {
-    type Output = Result<cloud_terrastodon_azure_types::ArbitraryJson>;
-    type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + Send + 'a>>;
+impl<'a> ExecutableRequest for AzureDevOpsWorkItemUpdateRequest<'a> {
+    type Error = eyre::Report;
+    type Output = cloud_terrastodon_azure_types::ArbitraryJson;
 
-    fn into_future(self) -> Self::IntoFuture {
+    fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
+    where
+        Self: 'exec,
+        Self::Output: 'exec,
+    {
         Box::pin(async move {
             let mut patch = self.patch;
             if let Some(revision) = self.if_rev {
@@ -97,7 +95,7 @@ impl<'a> IntoFuture for AzureDevOpsWorkItemUpdateRequest<'a> {
                     },
                 )
                 .append_pair("$expand", "all");
-            let request = RestRequest::from_method_and_url(Method::PATCH, url, &self.cancellation)?
+            let request = RestRequest::from_method_and_url(Method::PATCH, url)?
                 .headers(RequestHeaders::from_header(
                     "Content-Type",
                     "application/json-patch+json",
@@ -105,7 +103,7 @@ impl<'a> IntoFuture for AzureDevOpsWorkItemUpdateRequest<'a> {
                 .body(facet_json::to_string(&patch)?);
             request
                 .azure_devops_auth_context(self.auth_context.as_ref())?
-                .receive()
+                .receive(&executor)
                 .await
         })
     }
@@ -113,7 +111,7 @@ impl<'a> IntoFuture for AzureDevOpsWorkItemUpdateRequest<'a> {
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsWorkItemUpdateRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsWorkItemUpdateRequest<'static>);
-cloud_terrastodon_registry_execution::register_into_future!(
+cloud_terrastodon_registry_execution::register_executable_request!(
     AzureDevOpsWorkItemUpdateRequest<'static> => cloud_terrastodon_azure_types::ArbitraryJson,
     effects = [Write]
 );

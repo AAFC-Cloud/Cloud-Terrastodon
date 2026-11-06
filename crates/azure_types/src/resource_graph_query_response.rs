@@ -3,7 +3,7 @@ use eyre::Context;
 use eyre::Result;
 use facet::Facet;
 
-/// One Resource Graph response with table rows converted to owned records.
+/// One Resource Graph response with table rows converted to typed records.
 ///
 /// This is the library's decoded form of the
 /// [Resource Graph query response](https://learn.microsoft.com/en-us/rest/api/azureresourcegraph/resourcegraph/resources/resources?view=rest-azureresourcegraph-resourcegraph-2022-10-01#queryresponse).

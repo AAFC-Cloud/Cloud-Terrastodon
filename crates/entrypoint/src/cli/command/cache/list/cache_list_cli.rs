@@ -1,37 +1,23 @@
-use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::discover_caches;
-use cloud_terrastodon_pathing::AppDir;
+use cloud_terrastodon_cache::CacheInventorySelection;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
-use itertools::Itertools;
 
+/// List execution artifact identities and their selected observation timestamps.
 #[derive(facet::Facet, Debug, Clone)]
 pub struct CacheListArgs {}
 
-#[derive(Debug, facet::Facet)]
-struct CacheListEntry {
-    path: String,
-    last_used: String,
-}
-
 impl CacheListArgs {
-    pub async fn invoke(self, _cancellation: &CancellationScope) -> Result<()> {
-        // Discover caches under AppDir::Commands
-        let root = AppDir::Commands.as_path_buf();
-        let caches = discover_caches(&root).await?;
-
-        // Convert to a serializable form (path string and rfc2822 string)
-        let payload: Vec<CacheListEntry> = caches
-            .into_iter()
-            .sorted_by(|a, b| b.1.cmp(&a.1)) // sort by last_used desc
-            .map(|(cache_key, dt)| CacheListEntry {
-                path: cache_key.path_on_disk().to_string_lossy().into_owned(),
-                last_used: dt.to_rfc2822(),
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<()> {
+        let mut entries = executor.cache()?.inventory(executor.cancellation()).await?;
+        entries.sort_by_key(|entry| {
+            std::cmp::Reverse(match &entry.selection {
+                CacheInventorySelection::Selected(freshness) => Some(freshness.observed_at),
+                CacheInventorySelection::Absent | CacheInventorySelection::Invalid { .. } => None,
             })
-            .collect();
-
+        });
         println!(
             "{}",
-            facet_json::to_string_pretty(&payload).map_err(|error| eyre::eyre!("{error:?}"))?
+            facet_json::to_string_pretty(&entries).map_err(|error| eyre::eyre!("{error:?}"))?
         );
         Ok(())
     }

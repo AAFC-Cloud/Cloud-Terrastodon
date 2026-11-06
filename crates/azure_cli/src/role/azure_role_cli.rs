@@ -2,7 +2,7 @@ use super::assignment::AzureRoleAssignmentArgs;
 use super::definition::AzureRoleDefinitionArgs;
 use super::operation::AzureRoleOperationArgs;
 use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
 /// Subcommands for Azure RBAC operations.
@@ -22,12 +22,12 @@ impl AzureRoleCommand {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
         match self {
-            AzureRoleCommand::Definition(args) => args.invoke(auth_context, cancellation).await,
-            AzureRoleCommand::Assignment(args) => args.invoke(auth_context, cancellation).await,
-            AzureRoleCommand::Operation(args) => args.invoke(cancellation).await,
+            AzureRoleCommand::Definition(args) => args.invoke(auth_context, executor).await,
+            AzureRoleCommand::Assignment(args) => args.invoke(auth_context, executor).await,
+            AzureRoleCommand::Operation(args) => args.invoke(auth_context, executor).await,
         }
     }
 }

@@ -5,22 +5,23 @@ use cloud_terrastodon_azure::fetch_all_policy_definitions;
 use cloud_terrastodon_azure::fetch_all_policy_set_definitions;
 use cloud_terrastodon_azure::fetch_all_resource_groups;
 use cloud_terrastodon_azure::fetch_all_role_assignments;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use indicatif::ProgressBar;
 use tokio::task::JoinSet;
 pub async fn populate_cache(
     auth_context: &AzureTenantAuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
+    let cancellation = executor.cancellation();
     let mut work: JoinSet<Result<(&str, bool)>> = JoinSet::new();
     let auth_context_for_policy_assignments = auth_context.clone();
     work.spawn({
-        cancellation.cancellable_scope(move |cancellation| async move {
-            let cancellation = &cancellation;
+        executor.cancellable_scope(move |executor| async move {
+            let executor = &executor;
             eyre::Ok((
                 "fetch_all_policy_assignments",
-                fetch_all_policy_assignments(&auth_context_for_policy_assignments, cancellation)
+                fetch_all_policy_assignments(&auth_context_for_policy_assignments, executor)
                     .await
                     .is_ok(),
             ))
@@ -28,11 +29,11 @@ pub async fn populate_cache(
     });
     let auth_context_for_policy_definitions = auth_context.clone();
     work.spawn({
-        cancellation.cancellable_scope(move |cancellation| async move {
-            let cancellation = &cancellation;
+        executor.cancellable_scope(move |executor| async move {
+            let executor = &executor;
             eyre::Ok((
                 "fetch_all_policy_definitions",
-                fetch_all_policy_definitions(&auth_context_for_policy_definitions, cancellation)
+                fetch_all_policy_definitions(&auth_context_for_policy_definitions, executor)
                     .await
                     .is_ok(),
             ))
@@ -40,13 +41,13 @@ pub async fn populate_cache(
     });
     let auth_context_for_policy_set_definitions = auth_context.clone();
     work.spawn({
-        cancellation.cancellable_scope(move |cancellation| async move {
-            let cancellation = &cancellation;
+        executor.cancellable_scope(move |executor| async move {
+            let executor = &executor;
             eyre::Ok((
                 "fetch_all_policy_set_definitions",
                 fetch_all_policy_set_definitions(
                     &auth_context_for_policy_set_definitions,
-                    cancellation,
+                    executor,
                 )
                 .await
                 .is_ok(),
@@ -55,11 +56,11 @@ pub async fn populate_cache(
     });
     let auth_context_for_resource_groups = auth_context.clone();
     work.spawn({
-        cancellation.cancellable_scope(move |cancellation| async move {
-            let cancellation = &cancellation;
+        executor.cancellable_scope(move |executor| async move {
+            let executor = &executor;
             eyre::Ok((
                 "fetch_all_resource_groups",
-                fetch_all_resource_groups(&auth_context_for_resource_groups, cancellation)
+                fetch_all_resource_groups(&auth_context_for_resource_groups, executor)
                     .await
                     .is_ok(),
             ))
@@ -67,11 +68,11 @@ pub async fn populate_cache(
     });
     let auth_context_for_role_assignments = auth_context.clone();
     work.spawn({
-        cancellation.cancellable_scope(move |cancellation| async move {
-            let cancellation = &cancellation;
+        executor.cancellable_scope(move |executor| async move {
+            let executor = &executor;
             eyre::Ok((
                 "fetch_all_role_assignments",
-                fetch_all_role_assignments(&auth_context_for_role_assignments, cancellation)
+                fetch_all_role_assignments(&auth_context_for_role_assignments, executor)
                     .await
                     .is_ok(),
             ))
@@ -79,11 +80,11 @@ pub async fn populate_cache(
     });
     let auth_context_for_users = auth_context.clone();
     work.spawn({
-        cancellation.cancellable_scope(move |cancellation| async move {
-            let cancellation = &cancellation;
+        executor.cancellable_scope(move |executor| async move {
+            let executor = &executor;
             eyre::Ok((
                 "fetch_all_users",
-                fetch_all_entra_users(&auth_context_for_users, cancellation)
+                fetch_all_entra_users(&auth_context_for_users, executor)
                     .await
                     .is_ok(),
             ))
@@ -125,7 +126,16 @@ mod test {
             .with_async_scope(|cancellation| async move {
                 let auth_context = AuthContext::explicit_azure_cli()
                     .bind_to_azure_tenant(get_test_tenant_id(&cancellation).await?)?;
-                populate_cache(&auth_context, &cancellation).await?;
+                let executor = CloudTerrastodonExecutor::new(
+                    cloud_terrastodon_cache::WorkCache::temporary()?,
+                    std::sync::Arc::new(
+                        cloud_terrastodon_auth::CredentialAuthenticationProvider::new(
+                            auth_context.auth_context.clone(),
+                        ),
+                    ),
+                    cancellation.clone(),
+                );
+                populate_cache(&auth_context, &executor).await?;
                 Ok(())
             })
             .await

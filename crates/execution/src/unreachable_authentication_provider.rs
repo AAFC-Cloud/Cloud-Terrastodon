@@ -4,6 +4,7 @@ use crate::ExecutionFuture;
 use cloud_terrastodon_auth_types::AuthenticationSelection;
 use cloud_terrastodon_auth_types::Authorization;
 use cloud_terrastodon_auth_types::AzureCredentialResource;
+use cloud_terrastodon_auth_types::ContainerRegistryBearerChallenge;
 use cloud_terrastodon_cache::AuthPartition;
 use eyre::Result;
 
@@ -30,5 +31,14 @@ impl AuthenticationProvider for UnreachableAuthenticationProvider {
         _executor: &'a CloudTerrastodonExecutor,
     ) -> ExecutionFuture<'a, Authorization> {
         panic!("authorization must not be reached in this test")
+    }
+
+    fn container_registry_authorization<'a>(
+        &'a self,
+        _selection: &'a AuthenticationSelection,
+        _challenge: &'a ContainerRegistryBearerChallenge,
+        _executor: &'a CloudTerrastodonExecutor,
+    ) -> ExecutionFuture<'a, Authorization> {
+        panic!("registry authorization must not be reached in this test")
     }
 }

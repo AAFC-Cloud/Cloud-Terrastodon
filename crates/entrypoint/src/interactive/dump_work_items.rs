@@ -3,7 +3,7 @@ use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemQuery;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::fetch_queries_for_project;
 use cloud_terrastodon_azure_devops::get_default_organization_url;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use itertools::Itertools;
@@ -11,10 +11,11 @@ use tracing::info;
 
 pub async fn dump_work_items(
     auth_context: &AzureDevOpsAuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> eyre::Result<()> {
+    let cancellation = executor.cancellation();
     let org_url = get_default_organization_url(cancellation).await?;
-    let projects = fetch_all_azure_devops_projects(&org_url, auth_context, cancellation).await?;
+    let projects = fetch_all_azure_devops_projects(&org_url, auth_context, executor).await?;
     let projects = PickerTui::<_>::new()
         .set_header("Pick the projects to export from")
         .pick_many(projects.into_iter().map(|p| Choice {
@@ -24,11 +25,11 @@ pub async fn dump_work_items(
         .await?;
     let mut queries = Vec::new();
     for proj in &projects {
-        let found =
-            fetch_queries_for_project(&org_url, &proj.name, auth_context, cancellation).await?;
-        queries.extend(found);
+        let found = fetch_queries_for_project(&org_url, &proj.name, auth_context, executor).await?;
+        queries.push(found);
     }
-    let queries = AzureDevOpsWorkItemQuery::flatten_many(&queries);
+    let queries =
+        AzureDevOpsWorkItemQuery::flatten_many(queries.iter().flat_map(|page| page.iter()));
     let queries = PickerTui::<_>::new()
         .set_header("Pick the queries that return the items to export")
         .pick_many(

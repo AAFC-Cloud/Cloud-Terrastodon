@@ -1,19 +1,21 @@
 use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure::ArbitraryJson;
 use cloud_terrastodon_azure::ResourceGraphHelper;
-use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_pathing::AppDir;
 use cloud_terrastodon_pathing::Existy;
 use cloud_terrastodon_user_input::PickerTui;
+use std::sync::Arc;
 use tracing::debug;
 use tracing::info;
 
 pub async fn run_query_menu(
     auth_context: &AzureTenantAuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> eyre::Result<()> {
+    let cancellation = executor.cancellation();
     let mut query = r#"
 resources 
 | union resourcecontainers
@@ -51,9 +53,9 @@ resources
         debug!("Received query:\n{}", query);
 
         info!("Running query");
-        let rows: Vec<ArbitraryJson> =
-            ResourceGraphHelper::new(query.clone(), None, auth_context, cancellation)
-                .collect_all()
+        let rows: Vec<Arc<ArbitraryJson>> =
+            ResourceGraphHelper::new(query.clone(), None, auth_context)
+                .collect_all(executor)
                 .await?;
         let rows_json =
             facet_json::to_string_pretty(&rows).map_err(|error| eyre::eyre!("{error:?}"))?;

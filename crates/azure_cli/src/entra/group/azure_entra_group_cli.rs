@@ -3,7 +3,7 @@ use super::azure_entra_group_show_cli::AzureEntraGroupShowArgs;
 use super::member::AzureEntraGroupMemberArgs;
 use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
 /// Entra group top-level subcommands.
@@ -22,14 +22,14 @@ impl AzureEntraGroupCommand {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<CliOutput> {
         match self {
-            AzureEntraGroupCommand::List(args) => args.invoke(auth_context, cancellation).await?,
+            AzureEntraGroupCommand::List(args) => args.invoke(auth_context, executor).await?,
             AzureEntraGroupCommand::Show(args) => {
-                return args.invoke(auth_context, cancellation).await;
+                return args.invoke(auth_context, executor).await;
             }
-            AzureEntraGroupCommand::Member(args) => args.invoke(auth_context, cancellation).await?,
+            AzureEntraGroupCommand::Member(args) => args.invoke(auth_context, executor).await?,
         }
         Ok(CliOutput::none())
     }

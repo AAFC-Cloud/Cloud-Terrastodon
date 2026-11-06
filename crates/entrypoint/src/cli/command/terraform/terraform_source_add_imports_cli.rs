@@ -7,7 +7,7 @@ use cloud_terrastodon_azure::ScopeImpl;
 use cloud_terrastodon_azure::SubnetId;
 use cloud_terrastodon_azure::VirtualNetworkId;
 use cloud_terrastodon_azure::fetch_all_resources;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_hcl::AsHclString;
 use cloud_terrastodon_hcl::DataBlockReference;
 use cloud_terrastodon_hcl::HclBlock;
@@ -24,6 +24,7 @@ use eyre::Result;
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::Arc;
 use tracing::info;
 use tracing::warn;
 
@@ -42,14 +43,16 @@ impl TerraformSourceAddImportsArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let tenant_auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
         info!("Fetching resources from Azure...");
-        let resources = fetch_all_resources(&tenant_auth_context, cancellation)
+        let resources = fetch_all_resources(&tenant_auth_context, executor)
             .await?
             .into_iter()
             .into_group_map_by(|res| res.name.clone());
@@ -151,7 +154,7 @@ fn find_candidate_import_ids(
     resource_ref: &ResourceBlockReference,
     resource_block: &HclResourceBlock,
     name: &str,
-    resources_by_name: &HashMap<String, Vec<Resource>>,
+    resources_by_name: &HashMap<String, Vec<Arc<Resource>>>,
     data_blocks: &HashMap<DataBlockReference, &HclDataBlock>,
 ) -> Option<Vec<String>> {
     if !is_azapi_subnet_resource(resource_ref, resource_block) {
@@ -290,7 +293,7 @@ fn subnet_matches_context(
 }
 
 fn find_matching_virtual_network_resource<'a>(
-    resources_by_name: &'a HashMap<String, Vec<Resource>>,
+    resources_by_name: &'a HashMap<String, Vec<Arc<Resource>>>,
     expected_parent: &ExpectedSubnetParentContext,
 ) -> Option<&'a Resource> {
     resources_by_name
@@ -304,6 +307,7 @@ fn find_matching_virtual_network_resource<'a>(
                 .eq_ignore_ascii_case(&expected_parent.resource_group_name),
             _ => false,
         })
+        .map(Arc::as_ref)
 }
 
 fn string_attribute<'a>(
@@ -428,9 +432,12 @@ mod tests {
         let resources = HashMap::from([
             (
                 "other-vnet/my-subnet".to_owned(),
-                vec![wrong_parent_resource],
+                vec![Arc::new(wrong_parent_resource)],
             ),
-            ("my-vnet/my-subnet".to_owned(), vec![subnet_resource]),
+            (
+                "my-vnet/my-subnet".to_owned(),
+                vec![Arc::new(subnet_resource)],
+            ),
         ]);
 
         let import_ids = find_candidate_import_ids(
@@ -534,7 +541,7 @@ mod tests {
             tags: HashMap::new(),
             properties: HashMap::new(),
         };
-        let resources = HashMap::from([("my-vnet".to_owned(), vec![vnet_resource])]);
+        let resources = HashMap::from([("my-vnet".to_owned(), vec![Arc::new(vnet_resource)])]);
 
         let import_ids = find_candidate_import_ids(
             &resource_ref,

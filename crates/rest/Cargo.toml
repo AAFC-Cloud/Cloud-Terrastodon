@@ -12,9 +12,10 @@ categories.workspace = true
 
 [dependencies]
 cloud_terrastodon_azure_types.workspace = true
-cloud_terrastodon_command.workspace = true
 cloud_terrastodon_auth.workspace = true
 cloud_terrastodon_auth_types.workspace = true
+cloud_terrastodon_cache.workspace = true
+cloud_terrastodon_execution.workspace = true
 cloud_terrastodon_relative_location.workspace = true
 cloud_terrastodon_registry.workspace = true
 linkme.workspace = true
@@ -23,12 +24,18 @@ http.workspace = true
 reqwest.workspace = true
 tokio.workspace = true
 tracing.workspace = true
+teamy-cancellation.workspace = true
 bstr.workspace = true
 humantime.workspace = true
 arbitrary.workspace = true
 facet.workspace = true
 facet-json.workspace = true
 facet-value.workspace = true
+blake3.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+tracing-subscriber.workspace = true
 
 [lints]
 workspace = true

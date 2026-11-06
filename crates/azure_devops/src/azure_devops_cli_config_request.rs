@@ -56,6 +56,7 @@ impl HasCacheKey for AzureDevOpsCliConfigRequest {
 impl InvalidatesOwnCacheKey for AzureDevOpsCliConfigRequest {}
 
 impl ExecutableRequest for AzureDevOpsCliConfigRequest {
+    type Error = eyre::Report;
     type Output = String;
     fn run<'a>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>
     where

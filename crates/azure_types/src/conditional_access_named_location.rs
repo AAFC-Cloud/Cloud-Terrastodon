@@ -5,6 +5,7 @@ use chrono::Utc;
 use compact_str::CompactString;
 use ipnetwork::Ipv4Network;
 use std::str::FromStr;
+use std::sync::Arc;
 
 #[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
 #[repr(C)]
@@ -94,4 +95,4 @@ pub struct ConditionalAccessCountryNamedLocation {
 
 cloud_terrastodon_registry::register_thing!(ConditionalAccessNamedLocation);
 cloud_terrastodon_registry::register_arbitrary!(ConditionalAccessNamedLocation);
-cloud_terrastodon_registry::register_arbitrary!(Vec<ConditionalAccessNamedLocation>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<ConditionalAccessNamedLocation>>);

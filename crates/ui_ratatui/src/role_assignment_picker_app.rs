@@ -8,10 +8,10 @@ use cloud_terrastodon_azure::RoleDefinitionsAndAssignments;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::fetch_all_principals;
 use cloud_terrastodon_azure::fetch_all_role_definitions_and_assignments;
-use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::app_work::AppWorkState;
 use cloud_terrastodon_command::app_work::Loadable;
 use cloud_terrastodon_command::app_work::LoadableWorkBuilder;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use ratatui::crossterm::event;
 use ratatui::crossterm::event::Event;
@@ -61,7 +61,7 @@ impl fmt::Debug for RoleAssignmentPickerAppResult {
 
 /// Entrypoint for the interactive role assignment picker.
 pub struct RoleAssignmentPickerApp {
-    cancellation: CancellationScope,
+    executor: CloudTerrastodonExecutor,
     auth_context: AzureTenantAuthContext,
     data: AppData,
     work: AppWorkState<AppData>,
@@ -71,9 +71,9 @@ pub struct RoleAssignmentPickerApp {
 
 impl RoleAssignmentPickerApp {
     /// Creates a new app instance.
-    pub fn new(auth_context: &AzureTenantAuthContext, cancellation: &CancellationScope) -> Self {
+    pub fn new(auth_context: &AzureTenantAuthContext, executor: &CloudTerrastodonExecutor) -> Self {
         Self {
-            cancellation: cancellation.clone(),
+            executor: executor.clone(),
             auth_context: auth_context.clone(),
             data: AppData::default(),
             work: AppWorkState::new(),
@@ -85,10 +85,10 @@ impl RoleAssignmentPickerApp {
     /// Runs the interactive picker. Returns the user's selection or cancellation.
     pub async fn run(mut self) -> Result<RoleAssignmentPickerAppResult> {
         let (_shutdown, run) =
-            self.cancellation
+            self.executor
                 .clone()
-                .with_async_child_scope(move |cancellation| async move {
-                    self.cancellation = cancellation;
+                .with_async_child_scope(move |executor| async move {
+                    self.executor = executor;
                     self.enqueue_initial_work()?;
 
                     let mut terminal = ratatui::init();
@@ -97,7 +97,7 @@ impl RoleAssignmentPickerApp {
                         "Loading role assignments and principals...".to_string();
 
                     let result = 'outer: loop {
-                        if self.cancellation.is_cancelled() {
+                        if self.executor.cancellation().is_cancelled() {
                             break RoleAssignmentPickerAppResult::Cancelled;
                         }
                         // 1. Handle background work completion
@@ -124,7 +124,8 @@ impl RoleAssignmentPickerApp {
                     };
 
                     ratatui::restore();
-                    self.cancellation
+                    self.executor
+                        .cancellation()
                         .request_cancel("role assignment picker closed");
                     self.work.work_tracker.finish().await?;
                     Ok(result)
@@ -140,17 +141,13 @@ impl RoleAssignmentPickerApp {
                 state.role_definitions_and_assignments = value;
                 state.changed = true;
             })
-            .work(
-                self.cancellation
-                    .cancellable_scope(move |role_cancellation| async move {
-                        let data = fetch_all_role_definitions_and_assignments(
-                            &role_auth_context,
-                            &role_cancellation,
-                        )
+            .work(self.executor.cancellable_scope(move |executor| async move {
+                let executor = role_auth_context.auth_context.bind_executor(&executor)?;
+                let data =
+                    fetch_all_role_definitions_and_assignments(&role_auth_context, &executor)
                         .await?;
-                        Ok(RoleDefinitionsHolder(data))
-                    }),
-            )
+                Ok(RoleDefinitionsHolder(data))
+            }))
             .build()?;
         role_work.enqueue(&self.work, &mut self.data)?;
 
@@ -161,17 +158,13 @@ impl RoleAssignmentPickerApp {
                 state.principals = value;
                 state.changed = true;
             })
-            .work(
-                self.cancellation
-                    .cancellable_scope(move |principals_cancellation| async move {
-                        let data = fetch_all_principals(
-                            &principals_auth_context,
-                            &principals_cancellation,
-                        )
-                        .await?;
-                        Ok(PrincipalCollectionHolder(data))
-                    }),
-            )
+            .work(self.executor.cancellable_scope(move |executor| async move {
+                let executor = principals_auth_context
+                    .auth_context
+                    .bind_executor(&executor)?;
+                let data = fetch_all_principals(&principals_auth_context, &executor).await?;
+                Ok(PrincipalCollectionHolder(data))
+            }))
             .build()?;
         principals_work.enqueue(&self.work, &mut self.data)?;
 
@@ -618,7 +611,16 @@ mod test {
                 let auth_context = AuthContext::explicit_azure_cli();
                 let auth_context =
                     auth_context.bind_to_azure_tenant(get_test_tenant_id(&cancellation).await?)?;
-                let app = RoleAssignmentPickerApp::new(&auth_context, &cancellation);
+                let executor = cloud_terrastodon_execution::CloudTerrastodonExecutor::new(
+                    cloud_terrastodon_cache::WorkCache::temporary()?,
+                    std::sync::Arc::new(
+                        cloud_terrastodon_auth::CredentialAuthenticationProvider::new(
+                            auth_context.auth_context.clone(),
+                        ),
+                    ),
+                    cancellation.clone(),
+                );
+                let app = RoleAssignmentPickerApp::new(&auth_context, &executor);
                 let _result: RoleAssignmentPickerAppResult = app.run().await?;
                 Ok(())
             })

@@ -34,7 +34,8 @@ fn main() -> Result<()> {
             .tenant
             .bind_auth_context(&context.auth, &context.cancellation)
             .await?;
-        let resource_groups = fetch_all_resource_groups(&auth, &context.cancellation).await?;
+        let executor = auth.auth_context.bind_executor(&context.executor())?;
+        let resource_groups = fetch_all_resource_groups(&auth, &executor).await?;
 
         for resource_group in resource_groups {
             // Suspend so App's wrapper can check cancellation before this row.

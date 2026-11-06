@@ -15,54 +15,54 @@ pub struct ObservedPrincipal {
     pub user_principal_name: Option<UserPrincipalName>,
 }
 
-impl From<EntraDirectoryObjectUser> for ObservedPrincipal {
-    fn from(user: EntraDirectoryObjectUser) -> Self {
+impl From<&EntraDirectoryObjectUser> for ObservedPrincipal {
+    fn from(user: &EntraDirectoryObjectUser) -> Self {
         Self {
             id: user.id.into(),
             kind: EntraDirectoryObjectType::User,
-            display_name: user.display_name,
-            user_principal_name: user.user_principal_name,
+            display_name: user.display_name.clone(),
+            user_principal_name: user.user_principal_name.clone(),
         }
     }
 }
 
-impl From<EntraUser> for ObservedPrincipal {
-    fn from(user: EntraUser) -> Self {
+impl From<&EntraUser> for ObservedPrincipal {
+    fn from(user: &EntraUser) -> Self {
         Self {
             id: user.id.into(),
             kind: EntraDirectoryObjectType::User,
-            display_name: Some(user.display_name),
-            user_principal_name: Some(user.user_principal_name),
+            display_name: Some(user.display_name.clone()),
+            user_principal_name: Some(user.user_principal_name.clone()),
         }
     }
 }
 
-impl From<EntraDirectoryObject> for ObservedPrincipal {
-    fn from(object: EntraDirectoryObject) -> Self {
+impl From<&EntraDirectoryObject> for ObservedPrincipal {
+    fn from(object: &EntraDirectoryObject) -> Self {
         match object {
             EntraDirectoryObject::User(user) => user.into(),
             EntraDirectoryObject::Group(group) => Self {
                 id: group.id.into(),
                 kind: EntraDirectoryObjectType::Group,
-                display_name: group.display_name.map(String::from),
+                display_name: group.display_name.as_ref().map(String::from),
                 user_principal_name: None,
             },
             EntraDirectoryObject::ServicePrincipal(service_principal) => Self {
                 id: service_principal.id.into(),
                 kind: EntraDirectoryObjectType::ServicePrincipal,
-                display_name: service_principal.display_name,
+                display_name: service_principal.display_name.clone(),
                 user_principal_name: None,
             },
             EntraDirectoryObject::Device(device) => Self {
                 id: EntraPrincipalId::new(*device.id.as_ref()),
                 kind: EntraDirectoryObjectType::Device,
-                display_name: device.display_name,
+                display_name: device.display_name.clone(),
                 user_principal_name: None,
             },
             EntraDirectoryObject::OrganizationalContact(contact) => Self {
                 id: EntraPrincipalId::new(*contact.id.as_ref()),
                 kind: EntraDirectoryObjectType::OrganizationalContact,
-                display_name: contact.display_name,
+                display_name: contact.display_name.clone(),
                 user_principal_name: None,
             },
         }

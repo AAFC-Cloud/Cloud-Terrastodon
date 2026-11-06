@@ -13,6 +13,7 @@ use compact_str::CompactString;
 use eyre::Result;
 use std::collections::HashMap;
 use std::str::FromStr;
+use std::sync::Arc;
 
 /// This is the ID for an ill-defined resource that is specifically the child of a resource group.
 /// Some things are children of things that are children of resource groups, which this would not apply to.
@@ -188,6 +189,7 @@ impl std::fmt::Display for Resource {
 cloud_terrastodon_registry::register_thing!(Resource);
 cloud_terrastodon_registry::register_arbitrary!(Resource);
 cloud_terrastodon_registry::register_arbitrary!(Vec<Resource>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<Resource>>);
 
 #[cfg(test)]
 mod test {

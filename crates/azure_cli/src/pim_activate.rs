@@ -1,21 +1,24 @@
 use crate::pim_kind::PimKind;
 use cloud_terrastodon_auth::AzureTenantAuthContext;
+use cloud_terrastodon_auth::MicrosoftGraphTokenAuthenticationProvider;
 use cloud_terrastodon_auth::fetch_pim_graph_access_token;
-use cloud_terrastodon_azure::AzureTenantId;
+use cloud_terrastodon_auth_types::AuthSource;
+use cloud_terrastodon_auth_types::AzureBearerAuthSource;
+use cloud_terrastodon_azure::CurrentEntraUserRequest;
 use cloud_terrastodon_azure::GovernanceRoleAssignmentState;
 use cloud_terrastodon_azure::Scope;
-use cloud_terrastodon_azure::activate_pim_entra_role_with_graph_access_token;
+use cloud_terrastodon_azure::activate_pim_entra_role;
 use cloud_terrastodon_azure::activate_pim_role;
-use cloud_terrastodon_azure::fetch_all_entra_pim_role_definitions_with_graph_access_token;
+use cloud_terrastodon_azure::fetch_all_entra_pim_role_definitions;
 use cloud_terrastodon_azure::fetch_all_resources;
 use cloud_terrastodon_azure::fetch_current_user;
-use cloud_terrastodon_azure::fetch_current_user_with_graph_access_token;
-use cloud_terrastodon_azure::fetch_entra_pim_role_settings_with_graph_access_token;
-use cloud_terrastodon_azure::fetch_my_entra_pim_role_assignments_with_graph_access_token;
+use cloud_terrastodon_azure::fetch_entra_pim_role_settings;
+use cloud_terrastodon_azure::fetch_my_entra_pim_role_assignments;
 use cloud_terrastodon_azure::fetch_my_role_eligibility_schedules;
 use cloud_terrastodon_azure::fetch_role_management_policy_assignments;
-use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CacheInvalidatableRequest;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use cloud_terrastodon_user_input::prompt_line;
@@ -29,21 +32,21 @@ use tracing::info;
 
 pub async fn pim_activate(
     auth_context: &AzureTenantAuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
     match PickerTui::<_>::new()
         .set_header("Choose the kind of role to activate")
         .pick_one(vec![PimKind::Entra, PimKind::AzureRM])
         .await?
     {
-        PimKind::Entra => pim_activate_entra(auth_context.tenant_id, cancellation).await,
-        PimKind::AzureRM => pim_activate_azurerm(auth_context, cancellation).await,
+        PimKind::Entra => pim_activate_entra(auth_context, executor).await,
+        PimKind::AzureRM => pim_activate_azurerm(auth_context, executor).await,
     }
 }
 
 pub async fn pim_activate_entra(
-    tenant_id: AzureTenantId,
-    cancellation: &CancellationScope,
+    auth_context: &AzureTenantAuthContext,
+    executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
     // https://learn.microsoft.com/en-us/graph/api/resources/unifiedroleassignmentschedulerequest?view=graph-rest-beta
     // https://learn.microsoft.com/en-us/graph/api/governancerolesetting-list?view=graph-rest-beta
@@ -52,39 +55,62 @@ pub async fn pim_activate_entra(
     // https://learn.microsoft.com/en-us/graph/api/resources/privilegedidentitymanagementv3-overview?view=graph-rest-1.0
     // https://github.com/Azure/azure-cli/issues/28854
 
-    let access_token =
-        Arc::new(Box::pin(fetch_pim_graph_access_token(tenant_id, cancellation)).await?);
-    let principal_id =
-        fetch_current_user_with_graph_access_token(tenant_id, access_token.as_str(), cancellation)
-            .await?
-            .id;
+    eyre::ensure!(
+        auth_context
+            .auth_context
+            .source()
+            .is_some_and(|source| source != AuthSource::None),
+        "PIM delegated authentication requires an explicitly enabled authentication context"
+    );
+    let tenant_id = auth_context.tenant_id;
+    let auth_source = AzureBearerAuthSource::Browser;
+    // The CLI owns this explicit delegated sign-in and its new credential
+    // partition. SDK requests receive only the selected source and tenant.
+    let provider = Arc::new(MicrosoftGraphTokenAuthenticationProvider::new(
+        auth_source,
+        tenant_id,
+        Box::pin(fetch_pim_graph_access_token(
+            tenant_id,
+            executor.cancellation(),
+        ))
+        .await?,
+    )?);
+    let pim_executor = executor.with_authentication(provider)?;
+    let principal_id = CurrentEntraUserRequest {
+        tenant_id,
+        auth_source,
+    }
+    .execute(&pim_executor)
+    .await?
+    .id;
 
     info!("Prompting user choice");
     let chosen_roles = PickerTui::<_>::new()
         .set_header("Choose roles to activate")
-        .pick_many_reloadable(|_invalidate| {
-            let access_token = &access_token;
+        .pick_many_reloadable(|invalidate| {
+            let pim_executor = &pim_executor;
             async move {
                 info!("Fetching role definitions");
-                let role_definitions =
-                    fetch_all_entra_pim_role_definitions_with_graph_access_token(
-                        tenant_id,
-                        access_token.as_str(),
-                        cancellation,
-                    )
+                let definitions_request =
+                    fetch_all_entra_pim_role_definitions(tenant_id, auth_source);
+                if invalidate {
+                    definitions_request.invalidate(pim_executor).await?;
+                }
+                let role_definitions = definitions_request
+                    .execute(pim_executor)
                     .await?
                     .into_iter()
-                    .map(|role_definition| (role_definition.id, role_definition))
+                    .map(|definition| (definition.id, definition))
                     .collect::<HashMap<_, _>>();
 
                 info!("Fetching role assignments");
-                let activatable_assignments =
-                    fetch_my_entra_pim_role_assignments_with_graph_access_token(
-                        tenant_id,
-                        principal_id,
-                        access_token.as_str(),
-                        cancellation,
-                    )
+                let assignments_request =
+                    fetch_my_entra_pim_role_assignments(tenant_id, auth_source);
+                if invalidate {
+                    assignments_request.invalidate(pim_executor).await?;
+                }
+                let activatable_assignments = assignments_request
+                    .execute(pim_executor)
                     .await?
                     .into_iter()
                     .filter_map(move |role_assignment| {
@@ -95,7 +121,7 @@ pub async fn pim_activate_entra(
                             key: format!(
                                 "{definition} ({state})",
                                 definition = role_definition.display_name,
-                                state = match role_assignment.assignment_state {
+                                state = match &role_assignment.assignment_state {
                                     GovernanceRoleAssignmentState::Active => "already activated",
                                     GovernanceRoleAssignmentState::Eligible => "eligible",
                                 }
@@ -112,21 +138,25 @@ pub async fn pim_activate_entra(
 
     let chosen_duration: Duration = PickerTui::<_>::new()
         .set_header("Duration to activate PIM for")
-        .pick_one_reloadable(|_invalidate| {
+        .pick_one_reloadable(|invalidate| {
             let chosen_roles = &chosen_roles;
-            let access_token = &access_token;
+            let pim_executor = &pim_executor;
             async move {
                 info!("Fetching maximum activation durations");
                 let mut max_duration = Duration::MAX;
                 for (role_assignment, _role_definition) in chosen_roles.iter() {
-                    let duration = fetch_entra_pim_role_settings_with_graph_access_token(
+                    let settings_request = fetch_entra_pim_role_settings(
                         tenant_id,
+                        auth_source,
                         role_assignment.role_definition_id,
-                        access_token.as_str(),
-                        cancellation,
-                    )
-                    .await?
-                    .get_maximum_grant_period()?;
+                    );
+                    if invalidate {
+                        settings_request.invalidate(pim_executor).await?;
+                    }
+                    let duration = settings_request
+                        .execute(pim_executor)
+                        .await?
+                        .get_maximum_grant_period()?;
                     if duration < max_duration {
                         max_duration = duration;
                     }
@@ -154,14 +184,14 @@ pub async fn pim_activate_entra(
             duration=%format_duration(chosen_duration),
             "Activating entra role",
         );
-        activate_pim_entra_role_with_graph_access_token(
+        activate_pim_entra_role(
             tenant_id,
+            auth_source,
             principal_id,
             role_assignment,
             justification.clone(),
             chosen_duration,
-            access_token.as_str(),
-            cancellation,
+            &pim_executor,
         )
         .await?;
     }
@@ -170,15 +200,22 @@ pub async fn pim_activate_entra(
 }
 pub async fn pim_activate_azurerm(
     auth_context: &AzureTenantAuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
+    let auth_source = AzureBearerAuthSource::try_from(
+        auth_context
+            .auth_context
+            .source()
+            .ok_or_else(|| eyre::eyre!("authentication source is unresolved"))?,
+    )?;
     let chosen_roles = PickerTui::<_>::new()
         .set_header("Choose roles to activate")
         .pick_many_reloadable(|invalidate| async move {
             info!("Fetching role eligibility schedules");
-            let possible_roles = fetch_my_role_eligibility_schedules(cancellation)
-                .with_invalidation(invalidate)
-                .await?;
+            let possible_roles =
+                fetch_my_role_eligibility_schedules(auth_source, auth_context.tenant_id, executor)
+                    .with_invalidation(invalidate)
+                    .await?;
             let choices = possible_roles.into_iter().map(|x| Choice {
                 key: x.to_string(),
                 value: x,
@@ -202,7 +239,7 @@ pub async fn pim_activate_azurerm(
         .set_header(format!("Activating {chosen_roles_display}"))
         .pick_many_reloadable(|invalidate| async move {
             info!("Fetching eligible scopes");
-            let possible_scopes = fetch_all_resources(auth_context, cancellation)
+            let possible_scopes = fetch_all_resources(auth_context, executor)
                 .with_invalidation(invalidate)
                 .await?
                 .into_iter()
@@ -232,7 +269,9 @@ pub async fn pim_activate_azurerm(
                     let policies = fetch_role_management_policy_assignments(
                         scope.id.clone(),
                         role.properties.role_definition_id.clone(),
-                        cancellation,
+                        auth_source,
+                        auth_context.tenant_id,
+                        executor,
                     )
                     .with_invalidation(invalidate)
                     .await?;
@@ -261,7 +300,7 @@ pub async fn pim_activate_azurerm(
 
     let justification = prompt_line("Justification: ").await?;
 
-    let principal_id = fetch_current_user(auth_context, cancellation).await?.id;
+    let principal_id = fetch_current_user(auth_context, executor).await?.id;
     for role in chosen_roles.iter() {
         info!(
             "Activating {role} for {} at: ",
@@ -276,7 +315,8 @@ pub async fn pim_activate_azurerm(
                 role.id.clone(),
                 justification.clone(),
                 chosen_duration,
-                cancellation,
+                auth_context,
+                executor,
             )
             .await?;
         }

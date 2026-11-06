@@ -5,6 +5,7 @@ use crate::AzureTenantId;
 use arbitrary::Arbitrary;
 use std::collections::HashMap;
 use std::net::IpAddr;
+use std::sync::Arc;
 
 #[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
@@ -202,3 +203,4 @@ mod tests {
 cloud_terrastodon_registry::register_thing!(AzureNetworkInterfaceResource);
 cloud_terrastodon_registry::register_arbitrary!(AzureNetworkInterfaceResource);
 cloud_terrastodon_registry::register_arbitrary!(Vec<AzureNetworkInterfaceResource>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<AzureNetworkInterfaceResource>>);

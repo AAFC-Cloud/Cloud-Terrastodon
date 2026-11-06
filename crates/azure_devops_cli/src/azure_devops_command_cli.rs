@@ -12,7 +12,7 @@ use crate::test::AzureDevOpsTestArgs;
 use crate::work_item::AzureDevOpsWorkItemArgs;
 use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
 /// Arguments for Azure DevOps-specific operations.
@@ -26,9 +26,9 @@ impl AzureDevOpsArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<CliOutput> {
-        self.command.invoke(auth_context, cancellation).await
+        self.command.invoke(auth_context, executor).await
     }
 }
 
@@ -66,44 +66,38 @@ impl AzureDevOpsCommand {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<CliOutput> {
         // Box child futures so large commands do not enlarge every dispatcher stack frame.
         match self {
             AzureDevOpsCommand::Build(args) => {
-                return Box::pin(args.invoke(auth_context, cancellation)).await;
+                return Box::pin(args.invoke(auth_context, executor)).await;
             }
             AzureDevOpsCommand::Project(args) => {
-                Box::pin(args.invoke(auth_context, cancellation)).await?
+                Box::pin(args.invoke(auth_context, executor)).await?
             }
             AzureDevOpsCommand::Audit(args) => {
-                Box::pin(args.invoke(auth_context, cancellation)).await?
+                Box::pin(args.invoke(auth_context, executor)).await?
             }
-            AzureDevOpsCommand::Rest(args) => Box::pin(args.invoke(cancellation)).await?,
+            AzureDevOpsCommand::Rest(args) => Box::pin(args.invoke(auth_context, executor)).await?,
             AzureDevOpsCommand::Group(args) => {
-                Box::pin(args.invoke(auth_context, cancellation)).await?
+                Box::pin(args.invoke(auth_context, executor)).await?
             }
-            AzureDevOpsCommand::Team(args) => {
-                Box::pin(args.invoke(auth_context, cancellation)).await?
-            }
-            AzureDevOpsCommand::Repo(args) => {
-                Box::pin(args.invoke(auth_context, cancellation)).await?
-            }
+            AzureDevOpsCommand::Team(args) => Box::pin(args.invoke(auth_context, executor)).await?,
+            AzureDevOpsCommand::Repo(args) => Box::pin(args.invoke(auth_context, executor)).await?,
             AzureDevOpsCommand::ServiceEndpoint(args) => {
-                Box::pin(args.invoke(auth_context, cancellation)).await?
+                Box::pin(args.invoke(auth_context, executor)).await?
             }
             AzureDevOpsCommand::LicenseEntitlement(args) => {
-                Box::pin(args.invoke(auth_context, cancellation)).await?
+                Box::pin(args.invoke(auth_context, executor)).await?
             }
             AzureDevOpsCommand::Agent(args) => {
-                Box::pin(args.invoke(auth_context, cancellation)).await?
+                Box::pin(args.invoke(auth_context, executor)).await?
             }
             AzureDevOpsCommand::WorkItem(args) => {
-                Box::pin(args.invoke(auth_context, cancellation)).await?
+                Box::pin(args.invoke(auth_context, executor)).await?
             }
-            AzureDevOpsCommand::Test(args) => {
-                Box::pin(args.invoke(auth_context, cancellation)).await?
-            }
+            AzureDevOpsCommand::Test(args) => Box::pin(args.invoke(auth_context, executor)).await?,
         }
 
         Ok(CliOutput::none())

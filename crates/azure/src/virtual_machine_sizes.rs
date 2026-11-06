@@ -1,35 +1,23 @@
+use crate::VirtualMachineSizeListRequest;
+use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure_types::AzureLocationName;
 use cloud_terrastodon_azure_types::SubscriptionId;
-use cloud_terrastodon_azure_types::VirtualMachineSize;
-use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_rest::RestRequest;
-use std::path::PathBuf;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::RequestExecution;
+use std::borrow::Cow;
 
-pub async fn fetch_virtual_machine_sizes(
+#[track_caller]
+pub fn fetch_virtual_machine_sizes<'a>(
     subscription_id: &SubscriptionId,
     location: &AzureLocationName,
-    cancellation: &CancellationScope,
-) -> eyre::Result<Vec<VirtualMachineSize>> {
-    let url = format!(
-        "https://management.azure.com/subscriptions/{subscription_id}/providers/Microsoft.Compute/locations/{location}/vmSizes?api-version=2022-11-01"
-    );
-    #[derive(facet::Facet)]
-    struct Response {
-        value: Vec<VirtualMachineSize>,
-    }
-    let rtn = RestRequest::new(http::Method::GET, &url, cancellation)?
-        .cache(CacheKey::new(PathBuf::from_iter([
-            "az",
-            "vm",
-            "list-sizes",
-            subscription_id.to_string().as_str(),
-            location.to_string().as_str(),
-        ])))
-        .receive::<Response>()
-        .await?
-        .value;
-    Ok(rtn)
+    auth_context: &'a AzureTenantAuthContext,
+    executor: &'a CloudTerrastodonExecutor,
+) -> RequestExecution<'a, VirtualMachineSizeListRequest<'a>> {
+    executor.execute(VirtualMachineSizeListRequest {
+        subscription_id: *subscription_id,
+        location: location.clone(),
+        auth_context: Cow::Borrowed(auth_context),
+    })
 }
 
 #[cfg(test)]
@@ -44,17 +32,22 @@ mod test {
     pub async fn it_works() -> eyre::Result<()> {
         CancellationToken::new()
             .cancellable_scope(|cancellation| async move {
+                let executor = crate::test_executor::test_executor(
+                    &cloud_terrastodon_auth::AuthContext::explicit_azure_cli(),
+                    &cancellation,
+                )?;
                 let tenant_id = get_test_tenant_id(&cancellation).await?;
                 let subs = fetch_all_subscriptions(
                     &AuthContext::explicit_azure_cli().bind_to_azure_tenant(tenant_id)?,
-                    &cancellation,
+                    &executor,
                 )
                 .await?;
                 let sub = subs.first().unwrap();
                 let sizes = crate::fetch_virtual_machine_sizes(
                     &sub.id,
                     &AzureLocationName::CanadaCentral,
-                    &cancellation,
+                    &AuthContext::explicit_azure_cli().bind_to_azure_tenant(tenant_id)?,
+                    &executor,
                 )
                 .await?;
                 assert!(!sizes.is_empty());

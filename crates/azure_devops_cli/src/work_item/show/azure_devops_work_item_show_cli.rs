@@ -8,7 +8,8 @@ use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemExpand;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemGetRequest;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemId;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
 use std::borrow::Cow;
 
@@ -36,10 +37,15 @@ pub struct AzureDevOpsWorkItemShowArgs {
 }
 
 impl AzureDevOpsWorkItemShowArgs {
-    pub async fn invoke(self, auth: &AuthContext, cancellation: &CancellationScope) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth: &AuthContext,
+        executor: &CloudTerrastodonExecutor,
+    ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let auth_context = self.tenant.bind_auth_context(auth, cancellation).await?;
+        let executor = &auth_context.bind_executor(executor)?;
         let item = AzureDevOpsWorkItemGetRequest {
-            cancellation: cancellation.clone(),
             org_url: Cow::Owned(self.org),
             project: Some(self.project),
             auth_context: Cow::Owned(auth_context),
@@ -56,6 +62,7 @@ impl AzureDevOpsWorkItemShowArgs {
                 .unwrap_or_default(),
             as_of: self.as_of,
         }
+        .execute(executor)
         .await?;
         facet_json::to_writer_std_pretty(std::io::stdout(), &item)
             .map_err(|error| eyre::eyre!("{error:?}"))?;

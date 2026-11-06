@@ -8,6 +8,7 @@ use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
 use compact_str::CompactString;
+use std::sync::Arc;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
@@ -126,4 +127,4 @@ pub enum ConditionalAccessPolicyGrantControlBuiltInControl {
 
 cloud_terrastodon_registry::register_thing!(ConditionalAccessPolicy);
 cloud_terrastodon_registry::register_arbitrary!(ConditionalAccessPolicy);
-cloud_terrastodon_registry::register_arbitrary!(Vec<ConditionalAccessPolicy>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<ConditionalAccessPolicy>>);

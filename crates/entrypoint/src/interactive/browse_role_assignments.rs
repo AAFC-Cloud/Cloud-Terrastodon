@@ -1,20 +1,21 @@
 use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure::RoleAssignment;
 use cloud_terrastodon_azure::get_role_assignment_choices;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
+use std::sync::Arc;
 use tracing::info;
 
 pub async fn browse_role_assignments(
     auth_context: &AzureTenantAuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
-    let choices = get_role_assignment_choices(auth_context, cancellation).await?;
+    let choices = get_role_assignment_choices(auth_context, executor).await?;
 
     info!("Picking");
-    let (chosen, maybe_error): (Vec<RoleAssignment>, _) = PickerTui::<_>::new()
+    let (chosen, maybe_error): (Vec<Arc<RoleAssignment>>, _) = PickerTui::<_>::new()
         .set_header("Role assignments")
         .pick_many(choices)
         .await

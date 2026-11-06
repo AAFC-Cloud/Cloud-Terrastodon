@@ -9,6 +9,7 @@ use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
+use std::sync::Arc;
 
 #[derive(Debug, Eq, PartialEq, Clone, Arbitrary, facet::Facet)]
 #[repr(C)]
@@ -41,8 +42,8 @@ pub struct AzureDevOpsProject {
     pub visibility: AzureDevOpsProjectVisibility,
 }
 
-impl From<AzureDevOpsProject> for HclImportBlock {
-    fn from(project: AzureDevOpsProject) -> Self {
+impl From<&AzureDevOpsProject> for HclImportBlock {
+    fn from(project: &AzureDevOpsProject) -> Self {
         HclImportBlock {
             provider: HclProviderReference::Inherited,
             id: project.id.to_string(),
@@ -61,6 +62,7 @@ cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsProjectVisibility);
 cloud_terrastodon_registry::register_thing!(AzureDevOpsProject);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsProject);
 cloud_terrastodon_registry::register_arbitrary!(Vec<AzureDevOpsProject>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<AzureDevOpsProject>>);
 cloud_terrastodon_registry::register_from!(
     AzureDevOpsProject => AzureDevOpsProjectArgument<'static>,
     associated = REGISTERED_INTO_PROJECT_ARGUMENT

@@ -4,7 +4,7 @@ use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::fetch_all_private_endpoints;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use eyre::bail;
 use std::io::Write;
@@ -26,15 +26,16 @@ impl AzurePrivateEndpointShowArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let tenant_auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
         info!(needle = %self.private_endpoint, tenant_id = %tenant_auth_context.tenant_id, "Fetching Azure private endpoints");
-        let private_endpoints =
-            fetch_all_private_endpoints(&tenant_auth_context, cancellation).await?;
+        let private_endpoints = fetch_all_private_endpoints(&tenant_auth_context, executor).await?;
         info!(
             count = private_endpoints.len(),
             "Fetched Azure private endpoints"

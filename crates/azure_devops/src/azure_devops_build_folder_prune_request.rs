@@ -10,14 +10,12 @@ use cloud_terrastodon_auth::AzureDevOpsAuthContext;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsBuildFolderPath;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
-use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
+use cloud_terrastodon_execution::RequestExecution;
 use eyre::Context;
-use eyre::Result;
 use std::borrow::Cow;
-use std::future::Future;
-use std::future::IntoFuture;
-use std::pin::Pin;
 
 /// Folder pruning invalidates and refreshes project-wide list caches before
 /// planning and before each deletion, including during dry-run planning.
@@ -25,13 +23,10 @@ use std::pin::Pin;
 /// be able to see all definitions and coordinate concurrent definition changes.
 ///
 /// See the [folder-delete API](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/folders/delete?view=azure-devops-rest-7.1).
-#[must_use = "This is a future request, you must .await it"]
+#[must_use = "This is a future request, you must .execute it"]
 #[derive(Debug, Clone, facet::Facet)]
 #[facet(traits(Clone))]
 pub struct AzureDevOpsBuildFolderPruneRequest<'a> {
-    #[facet(skip_serializing)]
-    pub cancellation: CancellationScope,
-
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub project: AzureDevOpsProjectArgument<'a>,
     pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
@@ -44,28 +39,27 @@ pub struct AzureDevOpsBuildFolderPruneRequest<'a> {
 ///
 /// See the [folder-delete API](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/folders/delete?view=azure-devops-rest-7.1)
 /// for its cascade behavior and the request type for caller preconditions.
+#[track_caller]
 pub fn prune_azure_devops_build_definition_folders<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     project: impl Into<AzureDevOpsProjectArgument<'a>>,
     auth_context: &'a AzureDevOpsAuthContext,
     path: Option<AzureDevOpsBuildFolderPath>,
     dry_run: bool,
-    cancellation: &CancellationScope,
-) -> AzureDevOpsBuildFolderPruneRequest<'a> {
-    AzureDevOpsBuildFolderPruneRequest {
-        cancellation: cancellation.clone(),
+    executor: &'a CloudTerrastodonExecutor,
+) -> RequestExecution<'a, AzureDevOpsBuildFolderPruneRequest<'a>> {
+    executor.execute(AzureDevOpsBuildFolderPruneRequest {
         org_url: Cow::Borrowed(org_url),
         project: project.into(),
         auth_context: Cow::Borrowed(auth_context),
         path,
         dry_run,
-    }
+    })
 }
 
 impl<'a> Arbitrary<'a> for AzureDevOpsBuildFolderPruneRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
-            cancellation: CancellationScope::arbitrary(u)?,
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
             auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
@@ -75,11 +69,15 @@ impl<'a> Arbitrary<'a> for AzureDevOpsBuildFolderPruneRequest<'static> {
     }
 }
 
-impl<'a> IntoFuture for AzureDevOpsBuildFolderPruneRequest<'a> {
-    type Output = Result<AzureDevOpsBuildFolderPruneReport>;
-    type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + Send + 'a>>;
+impl<'a> ExecutableRequest for AzureDevOpsBuildFolderPruneRequest<'a> {
+    type Error = eyre::Report;
+    type Output = AzureDevOpsBuildFolderPruneReport;
 
-    fn into_future(self) -> Self::IntoFuture {
+    fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
+    where
+        Self: 'exec,
+        Self::Output: 'exec,
+    {
         Box::pin(async move {
             let scope = self.path.unwrap_or_else(AzureDevOpsBuildFolderPath::root);
             // Always inspect the complete project. User scope restricts deletion
@@ -89,7 +87,7 @@ impl<'a> IntoFuture for AzureDevOpsBuildFolderPruneRequest<'a> {
                 self.project.clone(),
                 &self.auth_context,
                 None,
-                &self.cancellation,
+                &executor,
             )
             .with_invalidation(true)
             .await?;
@@ -99,7 +97,7 @@ impl<'a> IntoFuture for AzureDevOpsBuildFolderPruneRequest<'a> {
                 &self.auth_context,
                 None,
                 None,
-                &self.cancellation,
+                &executor,
             )
             .with_invalidation(true)
             .await?;
@@ -119,7 +117,7 @@ impl<'a> IntoFuture for AzureDevOpsBuildFolderPruneRequest<'a> {
                 return Ok(report);
             }
             for candidate in candidates {
-                self.cancellation.bail_if_cancelled()?;
+                executor.cancellation().bail_if_cancelled()?;
                 // A definition may have been created since planning, and a child
                 // may remain after an earlier candidate was skipped. Recheck
                 // both inventories before invoking the cascading delete API.
@@ -129,7 +127,7 @@ impl<'a> IntoFuture for AzureDevOpsBuildFolderPruneRequest<'a> {
                         self.project.clone(),
                         &self.auth_context,
                         None,
-                        &self.cancellation,
+                        &executor,
                     )
                     .with_invalidation(true)
                     .await?;
@@ -139,7 +137,7 @@ impl<'a> IntoFuture for AzureDevOpsBuildFolderPruneRequest<'a> {
                         &self.auth_context,
                         None,
                         None,
-                        &self.cancellation,
+                        &executor,
                     )
                     .with_invalidation(true)
                     .await?;
@@ -163,12 +161,12 @@ impl<'a> IntoFuture for AzureDevOpsBuildFolderPruneRequest<'a> {
                     continue;
                 }
                 AzureDevOpsBuildFolderDeleteRequest {
-                    cancellation: self.cancellation.clone(),
                     org_url: Cow::Borrowed(&self.org_url),
                     project: self.project.clone(),
                     auth_context: Cow::Borrowed(&self.auth_context),
                     path: candidate.clone(),
                 }
+                .execute(&executor)
                 .await
                 .wrap_err_with(|| {
                     format!(
@@ -185,7 +183,7 @@ impl<'a> IntoFuture for AzureDevOpsBuildFolderPruneRequest<'a> {
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsBuildFolderPruneRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsBuildFolderPruneRequest<'static>);
-cloud_terrastodon_registry_execution::register_into_future!(
+cloud_terrastodon_registry_execution::register_executable_request!(
     AzureDevOpsBuildFolderPruneRequest<'static> => AzureDevOpsBuildFolderPruneReport,
     effects = [Read, Write]
 );

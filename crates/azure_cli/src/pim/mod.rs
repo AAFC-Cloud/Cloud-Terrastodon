@@ -1,10 +1,10 @@
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 pub mod azure_pim_activate_cli;
 pub mod azure_pim_setup_cli;
 
 pub use azure_pim_activate_cli::AzurePimActivateArgs;
 pub use azure_pim_setup_cli::AzurePimSetupArgs;
 use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 
 /// Arguments for Azure Privileged Identity Management operations.
@@ -28,9 +28,9 @@ impl AzurePimArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
-        self.command.invoke(auth_context, cancellation).await
+        self.command.invoke(auth_context, executor).await
     }
 }
 
@@ -38,11 +38,11 @@ impl AzurePimCommand {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
         match self {
-            AzurePimCommand::Activate(args) => args.invoke(auth_context, cancellation).await,
-            AzurePimCommand::Setup(args) => args.invoke(auth_context, cancellation).await,
+            AzurePimCommand::Activate(args) => args.invoke(auth_context, executor).await,
+            AzurePimCommand::Setup(args) => args.invoke(auth_context, executor).await,
         }
     }
 }

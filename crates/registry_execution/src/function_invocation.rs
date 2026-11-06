@@ -6,6 +6,8 @@ use std::any::Any;
 use std::any::type_name;
 use std::future::IntoFuture;
 
+/// Reflection erases request-specific failures into reports at this boundary.
+/// Direct `ExecutableRequest` execution retains its associated error type.
 pub type InvocationFuture<'a> = ExecutionFuture<'a, Box<dyn Any + Send>>;
 
 /// An erased result or pending operation that cannot outlive its bound executor.
@@ -36,6 +38,8 @@ where
 ///
 /// Reflection owns its boxed input and output, so those values are static. This
 /// boundary does not impose `Sync` or static resource lifetimes on execution.
+/// Its error conversion is required only for registry invocation; the request's
+/// `Into<eyre::Report>` implementation owns preserving domain context and sources.
 #[track_caller]
 pub fn invoke_executable_request<'a, R, O>(
     input: Box<dyn Any + Send>,
@@ -43,13 +47,14 @@ pub fn invoke_executable_request<'a, R, O>(
 ) -> InvocationFuture<'a>
 where
     R: ExecutableRequest<Output = O> + Any + Send + 'static,
+    R::Error: Into<eyre::Report> + 'static,
     O: Facet<'static> + Any + Send + 'static,
 {
     match input.downcast::<R>() {
         Ok(request) => {
             let execution = executor.execute(*request);
             Box::pin(async move {
-                let output = execution.await?;
+                let output = execution.await.map_err(Into::into)?;
                 Ok(Box::new(output) as Box<dyn Any + Send>)
             })
         }

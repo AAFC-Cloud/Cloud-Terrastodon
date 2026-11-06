@@ -9,10 +9,10 @@ use cloud_terrastodon_azure_devops::AzureDevOpsUserArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsUserLicenseEntitlement;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlement;
 use cloud_terrastodon_azure_devops::update_azure_devops_user_license_entitlement;
-use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use color_eyre::owo_colors::OwoColorize;
 use eyre::Result;
+use std::sync::Arc;
 use tracing::error;
 use tracing::info;
 
@@ -52,34 +52,32 @@ impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         AzureDevOpsLicenseAccessLevelUpdate::try_from(&self.license)?;
         let azure_devops_auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &azure_devops_auth_context.bind_executor(executor)?;
 
         #[derive(Default)]
-        #[expect(
-            clippy::large_enum_variant,
-            reason = "This local outcome enum favors readable post-processing over compact layout"
-        )]
         enum Outcome {
             NoChangeNeeded(AzureDevOpsUserArgument<'static>),
             SkippedDueToLicenseMatchFailureDueToMissingLicense(AzureDevOpsUserArgument<'static>),
             SkippedDueToLicenseMatchFailure {
                 user: AzureDevOpsUserArgument<'static>,
-                was: AzureDevOpsUserLicenseEntitlement,
+                was: Arc<AzureDevOpsUserLicenseEntitlement>,
             },
             Updated {
                 user: AzureDevOpsUserArgument<'static>,
-                was: Option<AzureDevOpsUserLicenseEntitlement>,
+                was: Option<Arc<AzureDevOpsUserLicenseEntitlement>>,
             },
             UpdateDidntTakeEffect {
                 user: AzureDevOpsUserArgument<'static>,
-                was: Option<AzureDevOpsUserLicenseEntitlement>,
-                now: AzureDevOpsUserLicenseEntitlement,
+                was: Option<Arc<AzureDevOpsUserLicenseEntitlement>>,
+                now: Arc<AzureDevOpsUserLicenseEntitlement>,
             },
             #[default]
             None,
@@ -91,7 +89,7 @@ impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
                     &self.org,
                     &user,
                     &azure_devops_auth_context,
-                    cancellation,
+                    executor,
                 )
                 .with_invalidation(i == 0 && self.no_cache)
                 .await
@@ -162,7 +160,7 @@ impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
                 &user,
                 self.license.clone(),
                 &azure_devops_auth_context,
-                cancellation,
+                executor,
             )
             .await?;
             outcomes.push(Outcome::Updated { user, was });
@@ -195,7 +193,7 @@ impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
                 &self.org,
                 &user,
                 &azure_devops_auth_context,
-                cancellation,
+                executor,
             )
             // underlying cache is shared for all users, so only invalidate on the first check
             .with_invalidation(i == 0)
@@ -218,39 +216,33 @@ impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
         }
 
         // pretty print a final report
-        for outcome in outcomes {
+        for outcome in &outcomes {
             let (user, was, now) = match outcome {
-                Outcome::NoChangeNeeded(user) => {
-                    (user, Some(self.license.clone()), Some(self.license.clone()))
-                }
+                Outcome::NoChangeNeeded(user) => (user, Some(&self.license), Some(&self.license)),
                 Outcome::SkippedDueToLicenseMatchFailureDueToMissingLicense(user) => {
                     (user, None, None)
                 }
                 Outcome::SkippedDueToLicenseMatchFailure {
                     user,
                     was: entitlement,
-                } => (
-                    user,
-                    Some(entitlement.license.clone()),
-                    Some(entitlement.license),
-                ),
+                } => (user, Some(&entitlement.license), Some(&entitlement.license)),
                 Outcome::Updated { user, was } => {
-                    (user, was.map(|x| x.license), Some(self.license.clone()))
+                    (user, was.as_ref().map(|x| &x.license), Some(&self.license))
                 }
                 Outcome::UpdateDidntTakeEffect { user, was, now } => {
-                    (user, was.map(|x| x.license), Some(now.license))
+                    (user, was.as_ref().map(|x| &x.license), Some(&now.license))
                 }
                 Outcome::None => unreachable!(),
             };
             print!("{:64} was ", user.cyan());
             match was {
-                Some(x) if x == self.license => print!("{} (as desired)", x.green()),
+                Some(x) if x == &self.license => print!("{} (as desired)", x.green()),
                 Some(x) => print!("{}", x.yellow()),
                 None => print!("{}", "None".yellow()),
             };
             print!(" now ");
             match now {
-                Some(x) if x == self.license => print!("{} (as desired)", x.green()),
+                Some(x) if x == &self.license => print!("{} (as desired)", x.green()),
                 Some(x) => print!("{}", x.red()),
                 None => print!("{}", "None".red()),
             };

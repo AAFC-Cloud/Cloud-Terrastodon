@@ -1,18 +1,8 @@
-use crate::AuthContext;
-use crate::container_registry_access_token_response::ContainerRegistryAccessTokenResponse;
-use crate::container_registry_refresh_token_response::ContainerRegistryRefreshTokenResponse;
-use crate::fetch_azure_bearer_access_token;
-use cloud_terrastodon_auth_types::Authorization;
-use cloud_terrastodon_auth_types::AzureCredentialResource;
-use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::ContainerRegistryLoginServer;
-use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 use eyre::ensure;
-use reqwest::Client;
-use reqwest::Url;
 use std::collections::HashMap;
-use std::time::Duration;
+use url::Url;
 
 /// A registry bearer challenge bound to the contacted registry, never a caller-supplied token endpoint.
 /// [ACR authentication exchange](https://learn.microsoft.com/en-us/rest/api/registry-dataplane/authentication/exchange-aad-access-token-for-acr-refresh-token?view=rest-registry-dataplane-2021-07-01).
@@ -110,61 +100,14 @@ impl ContainerRegistryBearerChallenge {
         Ok(Self { server, scope })
     }
 
-    /// Exchange Entra -> ACR refresh -> scoped ACR access token without execution artifacts.
-    /// Forms follow the [official SDK implementation](https://github.com/Azure/azure-sdk-for-python/blob/main/sdk/containerregistry/azure-containerregistry/azure/containerregistry/_generated/operations/_patch.py).
-    /// Redirects are disabled so credential forms cannot leave the bound registry.
-    pub async fn authorize(
-        &self,
-        auth_context: &AuthContext,
-        tenant: AzureTenantId,
-        cancellation: &CancellationScope,
-    ) -> Result<Authorization> {
-        cancellation
-            .cancellable_scope(|scope| async move {
-                let token = fetch_azure_bearer_access_token(
-                    auth_context,
-                    tenant,
-                    AzureCredentialResource::AzureContainerRegistry,
-                    &scope,
-                )
-                .await?;
-                let client = Client::builder()
-                    .https_only(true)
-                    .redirect(reqwest::redirect::Policy::none())
-                    .connect_timeout(Duration::from_secs(30))
-                    .timeout(Duration::from_secs(120))
-                    .build()?;
-                let origin = self.server.endpoint()?;
-                let response = client
-                    .post(origin.join("/oauth2/exchange?api-version=2021-07-01")?)
-                    .form(&[
-                        ("grant_type", "access_token"),
-                        ("service", self.server.as_str()),
-                        ("tenant", tenant.to_string().as_str()),
-                        ("access_token", token.access_token.as_str()),
-                    ])
-                    .send()
-                    .await?
-                    .error_for_status()?;
-                let refresh =
-                    ContainerRegistryRefreshTokenResponse::decode(&response.text().await?)?;
-                scope.bail_if_cancelled()?;
-                let response = client
-                    .post(origin.join("/oauth2/token?api-version=2021-07-01")?)
-                    .form(&[
-                        ("grant_type", "refresh_token"),
-                        ("service", self.server.as_str()),
-                        ("scope", self.scope.as_str()),
-                        ("refresh_token", refresh.refresh_token.as_str()),
-                    ])
-                    .send()
-                    .await?
-                    .error_for_status()?;
-                let access = ContainerRegistryAccessTokenResponse::decode(&response.text().await?)?;
-                scope.bail_if_cancelled()?;
-                Authorization::bearer(&access.access_token)
-            })
-            .await
+    /// The registry whose token endpoint was validated by parsing the challenge.
+    pub fn server(&self) -> &ContainerRegistryLoginServer {
+        &self.server
+    }
+
+    /// The access scope supplied by the bound registry challenge.
+    pub fn scope(&self) -> &str {
+        &self.scope
     }
 }
 

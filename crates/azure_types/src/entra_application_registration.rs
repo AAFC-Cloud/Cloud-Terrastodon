@@ -5,6 +5,7 @@ use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
 use std::collections::HashMap;
+use std::sync::Arc;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Eq, PartialEq, Arbitrary, facet::Facet)]
@@ -59,4 +60,6 @@ impl std::fmt::Display for EntraApplicationRegistration {
 
 cloud_terrastodon_registry::register_thing!(EntraApplicationRegistration);
 cloud_terrastodon_registry::register_arbitrary!(EntraApplicationRegistration);
-cloud_terrastodon_registry::register_arbitrary!(Vec<EntraApplicationRegistration>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<EntraApplicationRegistration>>);
+
+cloud_terrastodon_registry::register_arbitrary!(Arc<EntraApplicationRegistration>);

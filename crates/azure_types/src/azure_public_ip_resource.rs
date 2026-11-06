@@ -6,6 +6,7 @@ use crate::AzureTenantId;
 use arbitrary::Arbitrary;
 use std::collections::HashMap;
 use std::net::IpAddr;
+use std::sync::Arc;
 
 #[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
@@ -76,3 +77,4 @@ pub struct AzurePublicIpDdosSettings {
 cloud_terrastodon_registry::register_thing!(AzurePublicIpResource);
 cloud_terrastodon_registry::register_arbitrary!(AzurePublicIpResource);
 cloud_terrastodon_registry::register_arbitrary!(Vec<AzurePublicIpResource>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<AzurePublicIpResource>>);

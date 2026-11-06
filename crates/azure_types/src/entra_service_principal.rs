@@ -4,6 +4,7 @@ use crate::EntraServicePrincipalObjectId;
 use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
+use std::sync::Arc;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Eq, PartialEq, Arbitrary, facet::Facet)]
@@ -76,4 +77,6 @@ pub struct ServicePrincipalKeyCredential {
 
 cloud_terrastodon_registry::register_thing!(EntraServicePrincipal);
 cloud_terrastodon_registry::register_arbitrary!(EntraServicePrincipal);
-cloud_terrastodon_registry::register_arbitrary!(Vec<EntraServicePrincipal>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<EntraServicePrincipal>>);
+
+cloud_terrastodon_registry::register_arbitrary!(Arc<EntraServicePrincipal>);

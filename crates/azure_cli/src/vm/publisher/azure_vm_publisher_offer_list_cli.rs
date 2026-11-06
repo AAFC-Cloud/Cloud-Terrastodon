@@ -6,7 +6,7 @@ use cloud_terrastodon_azure::ComputePublisherName;
 use cloud_terrastodon_azure::fetch_all_subscriptions;
 use cloud_terrastodon_azure::fetch_compute_publisher_image_offers;
 use cloud_terrastodon_azure::get_active_subscription_id;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use std::io::Write;
 use tracing::info;
@@ -37,12 +37,14 @@ impl AzureVmPublisherOfferListArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let tenant_auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
         // Resolve the subscription argument (string) into a SubscriptionId.
         let subscription = match self.subscription {
             Some(s) => {
@@ -52,8 +54,7 @@ impl AzureVmPublisherOfferListArgs {
                     Ok(id) => id,
                     Err(_) => {
                         // Try to match by subscription name (case-insensitive).
-                        let subs =
-                            fetch_all_subscriptions(&tenant_auth_context, cancellation).await?;
+                        let subs = fetch_all_subscriptions(&tenant_auth_context, executor).await?;
                         let target = s.to_lowercase();
                         if let Some(found) = subs
                             .into_iter()
@@ -74,9 +75,15 @@ impl AzureVmPublisherOfferListArgs {
         let publisher = self.publisher.parse::<ComputePublisherName>()?;
 
         info!(subscription = %subscription, location = %location, publisher = %publisher, "Fetching VM publisher offers");
-        let offers =
-            fetch_compute_publisher_image_offers(subscription, location, publisher, cancellation)
-                .await?;
+        let offers = fetch_compute_publisher_image_offers(
+            subscription,
+            location,
+            publisher,
+            tenant_auth_context.auth_context.azure_bearer_source()?,
+            tenant_auth_context.tenant_id,
+            executor,
+        )
+        .await?;
 
         let stdout = std::io::stdout();
         let mut out = stdout.lock();

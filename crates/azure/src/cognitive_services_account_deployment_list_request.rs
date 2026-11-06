@@ -1,49 +1,54 @@
+use cloud_terrastodon_auth_types::AuthenticationSelection;
+use cloud_terrastodon_auth_types::AzureBearerAuthSource;
 use cloud_terrastodon_azure_types::AzureCognitiveServicesAccountDeployment;
 use cloud_terrastodon_azure_types::AzureCognitiveServicesAccountDeploymentListResult;
 use cloud_terrastodon_azure_types::AzureCognitiveServicesAccountResourceId;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::Scope;
-use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CacheableCommand;
-use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_cache::CacheKey;
+use cloud_terrastodon_cache::CacheOperationOwner;
+use cloud_terrastodon_cache::HasCacheKey;
+use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
+use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_rest::RestRequest;
-use eyre::Result;
-use eyre::WrapErr;
-use eyre::bail;
 use std::path::PathBuf;
+use std::sync::Arc;
 use tracing::info;
 
 const COGNITIVE_SERVICES_ACCOUNT_DEPLOYMENTS_API_VERSION: &str = "2025-06-01";
 
-#[must_use = "This is a future request, you must .await it"]
+#[must_use = "This is a future request, you must .execute it"]
 #[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct CognitiveServicesAccountDeploymentListRequest {
-    #[facet(skip_serializing)]
-    pub cancellation: CancellationScope,
+    pub auth_source: AzureBearerAuthSource,
 
     pub tenant_id: AzureTenantId,
     pub account_id: AzureCognitiveServicesAccountResourceId,
 }
 
-pub fn fetch_cognitive_services_account_deployments(
+#[track_caller]
+pub fn fetch_cognitive_services_account_deployments<'exec>(
     tenant_id: AzureTenantId,
     account_id: AzureCognitiveServicesAccountResourceId,
-    cancellation: &CancellationScope,
-) -> CognitiveServicesAccountDeploymentListRequest {
-    CognitiveServicesAccountDeploymentListRequest {
-        cancellation: cancellation.clone(),
+    auth_source: AzureBearerAuthSource,
+    executor: &'exec CloudTerrastodonExecutor,
+) -> RequestExecution<'exec, CognitiveServicesAccountDeploymentListRequest> {
+    executor.execute(CognitiveServicesAccountDeploymentListRequest {
+        auth_source,
+
         tenant_id,
         account_id,
-    }
+    })
 }
 
-#[async_trait]
-impl CacheableCommand for CognitiveServicesAccountDeploymentListRequest {
-    type Output = Vec<AzureCognitiveServicesAccountDeployment>;
+impl InvalidatesOwnCacheKey for CognitiveServicesAccountDeploymentListRequest {}
 
-    fn cache_key(&self) -> CacheKey {
-        CacheKey::new(PathBuf::from_iter([
+impl HasCacheKey for CognitiveServicesAccountDeploymentListRequest {
+    fn cache_key(&self) -> eyre::Result<CacheKey> {
+        CacheKey::from_relative_path(PathBuf::from_iter([
             "az",
             "cognitive_services",
             "deployments",
@@ -62,53 +67,48 @@ impl CacheableCommand for CognitiveServicesAccountDeploymentListRequest {
                 .as_ref(),
         ]))
     }
-
-    async fn run(self) -> Result<Self::Output> {
-        info!(
-            tenant_id = %self.tenant_id,
-            account_id = %self.account_id.expanded_form(),
-            "Fetching Cognitive Services account deployments"
-        );
-
-        let url = format!(
-            "https://management.azure.com{}/deployments?api-version={}",
-            self.account_id.expanded_form(),
-            COGNITIVE_SERVICES_ACCOUNT_DEPLOYMENTS_API_VERSION
-        );
-        let response = RestRequest::new(http::Method::GET, &url, &self.cancellation)?
-            .tenant(self.tenant_id)
-            .cache(self.cache_key())
-            .receive_raw()
-            .await?;
-        if !response.ok {
-            bail!(
-                "Cognitive Services account deployment list request failed with status {} ({})",
-                response.status.as_u16(),
-                response.reason_phrase.as_deref().unwrap_or("Unknown error")
-            );
-        }
-
-        let body = response
-            .into_json_body()
-            .wrap_err("Expected deployment list response body to contain JSON")?;
-        let deployments: AzureCognitiveServicesAccountDeploymentListResult =
-            facet_json::from_str(body.as_str())
-                .map_err(|error| eyre::eyre!("{error:?}"))
-                .wrap_err(
-                    "Failed to deserialize Cognitive Services account deployment list response",
-                )?;
-        info!(
-            count = deployments.value.len(),
-            account_id = %self.account_id.expanded_form(),
-            "Fetched Cognitive Services account deployments"
-        );
-        Ok(deployments.value)
-    }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(
-    CognitiveServicesAccountDeploymentListRequest
-);
+impl ExecutableRequest for CognitiveServicesAccountDeploymentListRequest {
+    type Error = eyre::Report;
+    type Output = Vec<Arc<AzureCognitiveServicesAccountDeployment>>;
+    fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
+    where
+        Self: 'exec,
+        Self::Output: 'exec,
+    {
+        Box::pin(async move {
+            info!(
+                tenant_id = %self.tenant_id,
+                account_id = %self.account_id.expanded_form(),
+                "Fetching Cognitive Services account deployments"
+            );
+
+            let url = format!(
+                "https://management.azure.com{}/deployments?api-version={}",
+                self.account_id.expanded_form(),
+                COGNITIVE_SERVICES_ACCOUNT_DEPLOYMENTS_API_VERSION
+            );
+            let deployments = RestRequest::new(http::Method::GET, &url)?
+                .authentication(AuthenticationSelection::AzureBearer {
+                    auth_source: self.auth_source,
+                    tenant_id: self.tenant_id,
+                })
+                .cache(self.cache_key()?)
+                .receive_cached::<AzureCognitiveServicesAccountDeploymentListResult>(
+                    &executor,
+                    CacheOperationOwner::of::<Self>(),
+                )
+                .await?;
+            info!(
+                count = deployments.value.len(),
+                account_id = %self.account_id.expanded_form(),
+                "Fetched Cognitive Services account deployments"
+            );
+            Ok(deployments.value.clone())
+        })
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -138,4 +138,4 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(CognitiveServicesAccountDeploymentListRequest);
 cloud_terrastodon_registry::register_arbitrary!(CognitiveServicesAccountDeploymentListRequest);
-cloud_terrastodon_registry_execution::register_into_future!(CognitiveServicesAccountDeploymentListRequest => Vec<AzureCognitiveServicesAccountDeployment>, effects = [Read]);
+cloud_terrastodon_registry_execution::register_executable_request!(CognitiveServicesAccountDeploymentListRequest => Vec<Arc<AzureCognitiveServicesAccountDeployment>>, effects = [Read]);

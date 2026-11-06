@@ -1,7 +1,7 @@
 use chrono::Local;
 use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure::fetch_all_security_groups;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use std::path::PathBuf;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
@@ -9,10 +9,10 @@ use tracing::info;
 
 pub async fn dump_security_groups_as_json(
     auth_context: &AzureTenantAuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> eyre::Result<()> {
     info!("Fetching security_groups");
-    let mut security_groups = fetch_all_security_groups(auth_context, cancellation).await?;
+    let mut security_groups = fetch_all_security_groups(auth_context, executor).await?;
     security_groups.sort_by(|x, y| x.display_name.cmp(&y.display_name));
     let content =
         facet_json::to_string_pretty(&security_groups).map_err(|error| eyre::eyre!("{error:?}"))?;

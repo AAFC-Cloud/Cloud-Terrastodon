@@ -1,7 +1,7 @@
 #![cfg(test)]
 
-// Keep the actual SDK metadata checks explicitly legacy until its requests
-// migrate. New executor discovery uses data-only offline requests below.
+// SDK metadata checks retain their current explicit auth-context inputs while
+// data-only discovery contracts exercise the final selection shape below.
 
 #[path = "support/discovery_requests.rs"]
 mod discovery_requests;
@@ -55,7 +55,7 @@ fn plan(
 }
 
 #[test]
-fn legacy_linked_catalog_connects_projects_to_service_connections_and_full_build_definitions() {
+fn sdk_linked_catalog_connects_projects_to_service_connections_and_full_build_definitions() {
     let plan = plan(
         known_functions().iter().map(Function::descriptor),
         &[
@@ -71,10 +71,10 @@ fn legacy_linked_catalog_connects_projects_to_service_connections_and_full_build
     assert!(plan.diagnostics.is_empty(), "{:?}", plan.diagnostics);
     assert!(plan.nodes.iter().all(|node| node.reachable));
     for request in [
-        AzureDevOpsProjectsListRequest::REGISTERED_INTO_FUTURE,
-        AzureDevOpsServiceEndpointsListRequest::REGISTERED_INTO_FUTURE,
-        AzureDevOpsBuildDefinitionListRequest::REGISTERED_INTO_FUTURE,
-        AzureDevOpsBuildDefinitionGetRequest::REGISTERED_INTO_FUTURE,
+        AzureDevOpsProjectsListRequest::REGISTERED_EXECUTABLE_REQUEST,
+        AzureDevOpsServiceEndpointsListRequest::REGISTERED_EXECUTABLE_REQUEST,
+        AzureDevOpsBuildDefinitionListRequest::REGISTERED_EXECUTABLE_REQUEST,
+        AzureDevOpsBuildDefinitionGetRequest::REGISTERED_EXECUTABLE_REQUEST,
     ] {
         assert!(
             plan.nodes.iter().any(|node| {
@@ -94,7 +94,7 @@ fn legacy_linked_catalog_connects_projects_to_service_connections_and_full_build
 }
 
 #[test]
-fn legacy_an_organization_without_authentication_cannot_unlock_project_inventories() {
+fn sdk_an_organization_without_authentication_cannot_unlock_project_inventories() {
     let plan = plan(
         known_functions().iter().map(Function::descriptor),
         &[AzureDevOpsOrganizationUrl::SHAPE],
@@ -121,13 +121,13 @@ fn legacy_an_organization_without_authentication_cannot_unlock_project_inventori
 }
 
 #[test]
-fn legacy_project_argument_conversion_is_required_even_when_request_arbitrary_is_registered() {
+fn sdk_project_argument_conversion_is_required_even_when_request_arbitrary_is_registered() {
     // The curated catalog intentionally omits the alternate project ID/name
     // conversions. Their registrations in the linked global registry cannot
     // fill a gap in the catalog supplied to this planner.
     let catalog = [
-        AzureDevOpsProjectsListRequest::REGISTERED_INTO_FUTURE.descriptor(),
-        AzureDevOpsServiceEndpointsListRequest::REGISTERED_INTO_FUTURE.descriptor(),
+        AzureDevOpsProjectsListRequest::REGISTERED_EXECUTABLE_REQUEST.descriptor(),
+        AzureDevOpsServiceEndpointsListRequest::REGISTERED_EXECUTABLE_REQUEST.descriptor(),
     ];
     let seeds = [
         AzureDevOpsOrganizationUrl::SHAPE,
@@ -164,13 +164,13 @@ fn legacy_project_argument_conversion_is_required_even_when_request_arbitrary_is
 }
 
 #[test]
-fn legacy_yaml_filename_is_a_conditional_descendant_of_a_full_build_definition() {
+fn sdk_yaml_filename_is_a_conditional_descendant_of_a_full_build_definition() {
     let plan = plan(
         [
-            AzureDevOpsProjectsListRequest::REGISTERED_INTO_FUTURE.descriptor(),
+            AzureDevOpsProjectsListRequest::REGISTERED_EXECUTABLE_REQUEST.descriptor(),
             AzureDevOpsProject::REGISTERED_INTO_PROJECT_ARGUMENT.descriptor(),
-            AzureDevOpsBuildDefinitionListRequest::REGISTERED_INTO_FUTURE.descriptor(),
-            AzureDevOpsBuildDefinitionGetRequest::REGISTERED_INTO_FUTURE.descriptor(),
+            AzureDevOpsBuildDefinitionListRequest::REGISTERED_EXECUTABLE_REQUEST.descriptor(),
+            AzureDevOpsBuildDefinitionGetRequest::REGISTERED_EXECUTABLE_REQUEST.descriptor(),
         ],
         &[
             AzureDevOpsOrganizationUrl::SHAPE,
@@ -190,7 +190,7 @@ fn legacy_yaml_filename_is_a_conditional_descendant_of_a_full_build_definition()
 }
 
 #[test]
-fn legacy_devops_auth_does_not_supply_the_tenant_context_from_its_bearer_variant() {
+fn sdk_devops_auth_does_not_supply_the_tenant_context_from_its_bearer_variant() {
     let plan = plan(
         known_functions().iter().map(Function::descriptor),
         &[

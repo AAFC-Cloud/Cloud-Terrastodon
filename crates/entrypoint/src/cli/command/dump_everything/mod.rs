@@ -2,7 +2,7 @@ use crate::noninteractive::dump_everything;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
 /// Dump all collected metadata to disk.
@@ -17,13 +17,15 @@ impl DumpEverythingArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
-        dump_everything(&auth_context, cancellation).await?;
+        let executor = &auth_context.auth_context.bind_executor(executor)?;
+        dump_everything(&auth_context, executor).await?;
         Ok(())
     }
 }

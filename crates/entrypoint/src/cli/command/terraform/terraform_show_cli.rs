@@ -4,9 +4,9 @@ use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::EntraPrincipalCollection;
 use cloud_terrastodon_azure::EntraPrincipalId;
 use cloud_terrastodon_azure::fetch_all_principals;
-use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_hcl::TerraformChangeAction;
 use cloud_terrastodon_hcl::TerraformPlan;
 use eyre::ContextCompat;
@@ -40,12 +40,14 @@ impl TerraformShowArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let tenant_auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
         // Determine whether the given file is JSON
         let is_json = self.plan_file.extension().and_then(|s| s.to_str()) == Some("json");
 
@@ -80,7 +82,7 @@ impl TerraformShowArgs {
                     }
 
                     // Slow path: fetch, store in cache, and return
-                    let fetched = fetch_all_principals(&tenant_auth_context, cancellation).await?;
+                    let fetched = fetch_all_principals(&tenant_auth_context, executor).await?;
                     let arc = Arc::new(fetched);
                     *cache.borrow_mut() = Some(arc.clone());
                     eyre::Ok(arc)

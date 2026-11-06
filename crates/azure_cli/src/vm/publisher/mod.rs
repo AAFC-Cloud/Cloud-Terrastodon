@@ -1,3 +1,4 @@
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 pub mod azure_vm_publisher_browse_cli;
 pub mod azure_vm_publisher_list_cli;
 pub mod azure_vm_publisher_offer_list_cli;
@@ -10,7 +11,6 @@ pub use azure_vm_publisher_offer_list_cli::AzureVmPublisherOfferListArgs;
 pub use azure_vm_publisher_offer_sku_list_cli::AzureVmPublisherOfferSkuListArgs;
 pub use azure_vm_publisher_offer_sku_version_list_cli::AzureVmPublisherOfferSkuVersionListArgs;
 use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 
 #[derive(facet::Facet, Debug, Clone)]
@@ -23,9 +23,9 @@ impl AzureVmPublisherArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
-        self.command.invoke(auth_context, cancellation).await
+        self.command.invoke(auth_context, executor).await
     }
 }
 
@@ -39,9 +39,9 @@ impl AzureVmPublisherOfferArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
-        self.command.invoke(auth_context, cancellation).await
+        self.command.invoke(auth_context, executor).await
     }
 }
 
@@ -58,15 +58,11 @@ impl AzureVmPublisherOfferCommand {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
         match self {
-            AzureVmPublisherOfferCommand::List(args) => {
-                args.invoke(auth_context, cancellation).await
-            }
-            AzureVmPublisherOfferCommand::Sku(args) => {
-                args.invoke(auth_context, cancellation).await
-            }
+            AzureVmPublisherOfferCommand::List(args) => args.invoke(auth_context, executor).await,
+            AzureVmPublisherOfferCommand::Sku(args) => args.invoke(auth_context, executor).await,
         }
     }
 }
@@ -81,9 +77,9 @@ impl AzureVmPublisherOfferSkuArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
-        self.command.invoke(auth_context, cancellation).await
+        self.command.invoke(auth_context, executor).await
     }
 }
 
@@ -100,14 +96,14 @@ impl AzureVmPublisherOfferSkuCommand {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
         match self {
             AzureVmPublisherOfferSkuCommand::List(args) => {
-                args.invoke(auth_context, cancellation).await
+                args.invoke(auth_context, executor).await
             }
             AzureVmPublisherOfferSkuCommand::Version(args) => {
-                args.invoke(auth_context, cancellation).await
+                args.invoke(auth_context, executor).await
             }
         }
     }
@@ -123,9 +119,9 @@ impl AzureVmPublisherOfferSkuVersionArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
-        self.command.invoke(auth_context, cancellation).await
+        self.command.invoke(auth_context, executor).await
     }
 }
 
@@ -140,11 +136,11 @@ impl AzureVmPublisherOfferSkuVersionCommand {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
         match self {
             AzureVmPublisherOfferSkuVersionCommand::List(args) => {
-                args.invoke(auth_context, cancellation).await
+                args.invoke(auth_context, executor).await
             }
         }
     }
@@ -166,12 +162,12 @@ impl AzureVmPublisherCommand {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
         match self {
-            AzureVmPublisherCommand::List(args) => args.invoke(auth_context, cancellation).await,
-            AzureVmPublisherCommand::Browse(args) => args.invoke(auth_context, cancellation).await,
-            AzureVmPublisherCommand::Offer(args) => args.invoke(auth_context, cancellation).await,
+            AzureVmPublisherCommand::List(args) => args.invoke(auth_context, executor).await,
+            AzureVmPublisherCommand::Browse(args) => args.invoke(auth_context, executor).await,
+            AzureVmPublisherCommand::Offer(args) => args.invoke(auth_context, executor).await,
         }
     }
 }

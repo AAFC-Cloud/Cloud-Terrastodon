@@ -1,4 +1,5 @@
 use arbitrary::Arbitrary;
+use std::sync::Arc;
 use uuid::Uuid;
 
 #[derive(Debug, Hash, Eq, PartialEq, Arbitrary, facet::Facet)]
@@ -31,4 +32,4 @@ cloud_terrastodon_registry::register_thing!(OAuth2PermissionScopeKind);
 cloud_terrastodon_registry::register_arbitrary!(OAuth2PermissionScopeKind);
 cloud_terrastodon_registry::register_thing!(OAuth2PermissionScope);
 cloud_terrastodon_registry::register_arbitrary!(OAuth2PermissionScope);
-cloud_terrastodon_registry::register_arbitrary!(Vec<OAuth2PermissionScope>);
+cloud_terrastodon_registry::register_arbitrary!(Arc<Vec<OAuth2PermissionScope>>);

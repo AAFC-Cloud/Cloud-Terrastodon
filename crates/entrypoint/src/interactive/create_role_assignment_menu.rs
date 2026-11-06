@@ -3,7 +3,7 @@ use cloud_terrastodon_azure::create_role_assignment;
 use cloud_terrastodon_azure::fetch_all_entra_users;
 use cloud_terrastodon_azure::fetch_all_resources;
 use cloud_terrastodon_azure::fetch_all_role_definitions;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
@@ -12,10 +12,10 @@ use tracing::info;
 
 pub async fn create_role_assignment_menu(
     auth_context: &AzureTenantAuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
     info!("Fetching role definition list");
-    let role_definitions = fetch_all_role_definitions(auth_context, cancellation).await?;
+    let role_definitions = fetch_all_role_definitions(auth_context, executor).await?;
     let role_definitions = PickerTui::<_>::new()
         .set_header("Roles to assign")
         .pick_many(role_definitions.into_iter().map(|r| Choice {
@@ -25,7 +25,7 @@ pub async fn create_role_assignment_menu(
         .await?;
 
     info!("Fetching principals");
-    let users = fetch_all_entra_users(auth_context, cancellation).await?;
+    let users = fetch_all_entra_users(auth_context, executor).await?;
     let principals = PickerTui::<_>::new()
         .set_header(format!(
             "Assigning {}",
@@ -38,7 +38,7 @@ pub async fn create_role_assignment_menu(
         .await?;
 
     info!("Fetching resources");
-    let resources = fetch_all_resources(auth_context, cancellation).await?;
+    let resources = fetch_all_resources(auth_context, executor).await?;
     let resources = PickerTui::<_>::new()
         .set_header(format!(
             "Assigning: {} TO {}",
@@ -59,14 +59,8 @@ pub async fn create_role_assignment_menu(
                     "Assigning {} to {} on {}",
                     role.display_name, principal.user_principal_name, res.id
                 );
-                create_role_assignment(
-                    &res.id,
-                    &role.id,
-                    &principal.id,
-                    auth_context,
-                    cancellation,
-                )
-                .await?;
+                create_role_assignment(&res.id, &role.id, &principal.id, auth_context, executor)
+                    .await?;
                 total += 1;
             }
         }

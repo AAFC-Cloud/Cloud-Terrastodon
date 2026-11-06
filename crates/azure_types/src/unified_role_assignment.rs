@@ -3,6 +3,7 @@ use crate::UnifiedRoleAssignmentId;
 use crate::UnifiedRoleDefinitionId;
 use crate::tenant_id::AzureTenantId;
 use arbitrary::Arbitrary;
+use std::sync::Arc;
 
 /// An Entra role assignment.
 ///
@@ -46,4 +47,4 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(UnifiedRoleAssignment);
 cloud_terrastodon_registry::register_arbitrary!(UnifiedRoleAssignment);
-cloud_terrastodon_registry::register_arbitrary!(Vec<UnifiedRoleAssignment>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<UnifiedRoleAssignment>>);

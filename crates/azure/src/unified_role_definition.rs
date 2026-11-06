@@ -2,18 +2,20 @@ use crate::MicrosoftGraphHelper;
 use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure_types::UnifiedRoleDefinition;
 use cloud_terrastodon_azure_types::UnifiedRoleDefinitionId;
-use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_cache::CacheKey;
+use cloud_terrastodon_cache::HasCacheKey;
+use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
+use cloud_terrastodon_execution::RequestExecution;
 use std::borrow::Cow;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 /// Fetch an individual Entra role assignment
 #[derive(facet::Facet)]
 pub struct UnifiedRoleDefinitionRequest<'a> {
-    #[facet(skip_serializing)]
-    pub cancellation: CancellationScope,
-
     pub role_definition_id: UnifiedRoleDefinitionId,
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
@@ -21,31 +23,29 @@ pub struct UnifiedRoleDefinitionRequest<'a> {
 impl<'a> arbitrary::Arbitrary<'a> for UnifiedRoleDefinitionRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
-            cancellation: arbitrary::Arbitrary::arbitrary(u)?,
             role_definition_id: arbitrary::Arbitrary::arbitrary(u)?,
             auth_context: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
         })
     }
 }
 
+#[track_caller]
 pub fn fetch_unified_role_definition<'a>(
     role_definition_id: UnifiedRoleDefinitionId,
     auth_context: &'a AzureTenantAuthContext,
-    cancellation: &CancellationScope,
-) -> UnifiedRoleDefinitionRequest<'a> {
-    UnifiedRoleDefinitionRequest {
-        cancellation: cancellation.clone(),
+    executor: &'a CloudTerrastodonExecutor,
+) -> RequestExecution<'a, UnifiedRoleDefinitionRequest<'a>> {
+    executor.execute(UnifiedRoleDefinitionRequest {
         role_definition_id,
         auth_context: Cow::Borrowed(auth_context),
-    }
+    })
 }
 
-#[async_trait]
-impl cloud_terrastodon_command::CacheableCommand for UnifiedRoleDefinitionRequest<'_> {
-    type Output = UnifiedRoleDefinition;
+impl InvalidatesOwnCacheKey for UnifiedRoleDefinitionRequest<'_> {}
 
-    fn cache_key(&self) -> CacheKey {
-        CacheKey::new(PathBuf::from_iter([
+impl HasCacheKey for UnifiedRoleDefinitionRequest<'_> {
+    fn cache_key(&self) -> eyre::Result<CacheKey> {
+        CacheKey::from_relative_path(PathBuf::from_iter([
             "ms",
             "graph",
             "GET",
@@ -54,49 +54,58 @@ impl cloud_terrastodon_command::CacheableCommand for UnifiedRoleDefinitionReques
             self.role_definition_id.to_string().as_ref(),
         ]))
     }
-
-    async fn run(self) -> eyre::Result<Self::Output> {
-        let role_definition_id = self.role_definition_id.as_ref();
-        let url = format!(
-            "https://graph.microsoft.com/beta/roleManagement/directory/roleDefinitions/{role_definition_id}?$expand=inheritsPermissionsFrom"
-        );
-        let query = MicrosoftGraphHelper::new(
-            url,
-            Some(CacheKey::new(PathBuf::from_iter([
-                "ms",
-                "graph",
-                "GET",
-                "unified_role_definition",
-                self.auth_context.tenant_id.to_string().as_ref(),
-                role_definition_id.to_string().as_ref(),
-            ]))),
-            self.auth_context.as_ref(),
-            &self.cancellation,
-        );
-
-        let found = query.fetch_one(&self.cancellation).await?;
-        Ok(found)
-    }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(UnifiedRoleDefinitionRequest<'a>, 'a);
+impl ExecutableRequest for UnifiedRoleDefinitionRequest<'_> {
+    type Error = eyre::Report;
+    type Output = Arc<UnifiedRoleDefinition>;
+    fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
+    where
+        Self: 'exec,
+        Self::Output: 'exec,
+    {
+        Box::pin(async move {
+            let role_definition_id = self.role_definition_id.as_ref();
+            let url = format!(
+                "https://graph.microsoft.com/beta/roleManagement/directory/roleDefinitions/{role_definition_id}?$expand=inheritsPermissionsFrom"
+            );
+            let query = MicrosoftGraphHelper::new(
+                url,
+                Some(CacheKey::from_relative_path(PathBuf::from_iter([
+                    "ms",
+                    "graph",
+                    "GET",
+                    "unified_role_definition",
+                    self.auth_context.tenant_id.to_string().as_ref(),
+                    role_definition_id.to_string().as_ref(),
+                ]))?),
+                self.auth_context.as_ref(),
+            );
+
+            let found = query.fetch_one(&executor).await?;
+            Ok(found)
+        })
+    }
+}
 
 /// Unravels the [`UnifiedRoleDefinition::inherits_permissions_from`] chain
 /// into the top-level [`UnifiedRoleDefinition::role_permissions`]
 pub async fn fetch_unified_role_definition_deep(
     role_definition_id: UnifiedRoleDefinitionId,
     auth_context: &AzureTenantAuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> eyre::Result<UnifiedRoleDefinition> {
-    let mut this =
-        fetch_unified_role_definition(role_definition_id, auth_context, cancellation).await?;
+    // Expanding inherited permissions creates an independent, mutable definition.
+    let mut this = Arc::unwrap_or_clone(
+        fetch_unified_role_definition(role_definition_id, auth_context, executor).await?,
+    );
     let mut next = std::mem::take(&mut this.inherits_permissions_from);
     while let Some(parent_id) = next.pop() {
-        let parent =
-            fetch_unified_role_definition(parent_id.id, auth_context, cancellation).await?;
+        let parent = fetch_unified_role_definition(parent_id.id, auth_context, executor).await?;
         this.inherits_permissions_from.push(parent_id);
-        this.role_permissions.extend(parent.role_permissions);
-        next.extend(parent.inherits_permissions_from);
+        this.role_permissions
+            .extend(parent.role_permissions.iter().cloned());
+        next.extend(parent.inherits_permissions_from.iter().cloned());
     }
 
     Ok(this)
@@ -115,6 +124,9 @@ mod test {
     pub async fn it_works_single() -> eyre::Result<()> {
         CancellationToken::new()
             .cancellable_scope(|cancellation| async move {
+                let executor = crate::test_executor::test_executor(
+                    &cloud_terrastodon_auth::AuthContext::explicit_azure_cli(), &cancellation,
+                )?;
             let tenant_id = get_test_tenant_id(&cancellation).await?;
             let application_developer_role_id: UnifiedRoleDefinitionId =
                 "cf1c38e5-3621-4004-a7cb-879624dced7c".parse()?;
@@ -124,7 +136,7 @@ mod test {
             let found = fetch_unified_role_definition(
                 application_developer_role_id,
                 &auth_context,
-                &cancellation,
+                &executor,
             )
             .await?;
             assert!(
@@ -139,6 +151,10 @@ mod test {
     pub async fn it_works_single_deep() -> eyre::Result<()> {
         CancellationToken::new()
             .cancellable_scope(|cancellation| async move {
+                let executor = crate::test_executor::test_executor(
+                    &cloud_terrastodon_auth::AuthContext::explicit_azure_cli(),
+                    &cancellation,
+                )?;
                 let tenant_id = get_test_tenant_id(&cancellation).await?;
                 let application_developer_role_id: UnifiedRoleDefinitionId =
                     "cf1c38e5-3621-4004-a7cb-879624dced7c".parse()?;
@@ -147,7 +163,7 @@ mod test {
                 let found = fetch_unified_role_definition_deep(
                     application_developer_role_id,
                     &auth_context,
-                    &cancellation,
+                    &executor,
                 )
                 .await?;
                 assert!(!found.role_permissions.is_empty());
@@ -159,4 +175,4 @@ mod test {
 
 cloud_terrastodon_registry::register_thing!(UnifiedRoleDefinitionRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(UnifiedRoleDefinitionRequest<'static>);
-cloud_terrastodon_registry_execution::register_into_future!(UnifiedRoleDefinitionRequest<'static> => UnifiedRoleDefinition, effects = [Read]);
+cloud_terrastodon_registry_execution::register_executable_request!(UnifiedRoleDefinitionRequest<'static> => Arc<UnifiedRoleDefinition>, effects = [Read]);

@@ -4,6 +4,7 @@ use crate::get_security_group_choices;
 use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure_types::Scope;
 use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
@@ -33,12 +34,12 @@ impl HclImportable {
     pub async fn try_into_import_blocks(
         &self,
         auth_context: &AzureTenantAuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> eyre::Result<Vec<Choice<(HclImportBlock, Option<HclProviderBlock>)>>> {
         let rtn: Vec<Choice<(HclImportBlock, Option<HclProviderBlock>)>> = match self {
             HclImportable::ResourceGroup => {
                 info!("Fetching resource groups");
-                get_resource_group_choices(auth_context, cancellation)
+                get_resource_group_choices(auth_context, executor)
                     .await?
                     .into_iter()
                     .map(|Choice { key, value: rg }| {
@@ -48,7 +49,7 @@ impl HclImportable {
                         });
                         let import_block = {
                             let name = rg.subscription_name.to_string();
-                            let mut import_block: HclImportBlock = rg.into();
+                            let mut import_block: HclImportBlock = rg.as_ref().into();
                             import_block.provider = HclProviderReference::Alias {
                                 kind: ProviderKind::AzureRM,
                                 name,
@@ -62,24 +63,22 @@ impl HclImportable {
                     })
                     .collect()
             }
-            HclImportable::SecurityGroup => get_security_group_choices(auth_context, cancellation)
+            HclImportable::SecurityGroup => get_security_group_choices(auth_context, executor)
                 .await?
                 .into_iter()
                 .map(|choice| Choice {
                     key: choice.key,
-                    value: (choice.value.into(), None),
+                    value: (choice.value.as_ref().into(), None),
                 })
                 .collect(),
-            HclImportable::RoleAssignment => {
-                get_role_assignment_choices(auth_context, cancellation)
-                    .await?
-                    .into_iter()
-                    .map(|choice| Choice {
-                        key: choice.key,
-                        value: (choice.value.into(), None),
-                    })
-                    .collect()
-            }
+            HclImportable::RoleAssignment => get_role_assignment_choices(auth_context, executor)
+                .await?
+                .into_iter()
+                .map(|choice| Choice {
+                    key: choice.key,
+                    value: (choice.value.as_ref().into(), None),
+                })
+                .collect(),
         };
         Ok(rtn)
     }
@@ -99,14 +98,11 @@ impl HclImportable {
     pub async fn pick_into_body(
         self,
         auth_context: &AzureTenantAuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> eyre::Result<Body> {
-        cancellation
-            .cancellable_scope(|cancellation| async move {
-                let cancellation = &cancellation;
-                let import_blocks = self
-                    .try_into_import_blocks(auth_context, cancellation)
-                    .await?;
+        executor
+            .cancellable_scope(|executor| async move {
+                let import_blocks = self.try_into_import_blocks(auth_context, &executor).await?;
                 let import_blocks = PickerTui::<_>::new()
                     .set_header("Pick the resources to import")
                     .pick_many(import_blocks)

@@ -1,6 +1,7 @@
 use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
+use std::sync::Arc;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, facet::Facet)]
 pub struct AzureDevOpsAgentPackageVersion {
@@ -28,6 +29,7 @@ cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsAgentPackageVersion);
 cloud_terrastodon_registry::register_thing!(AzureDevOpsAgentPackage);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsAgentPackage);
 cloud_terrastodon_registry::register_arbitrary!(Vec<AzureDevOpsAgentPackage>);
+cloud_terrastodon_registry::register_arbitrary!(Arc<Vec<AzureDevOpsAgentPackage>>);
 
 #[cfg(test)]
 mod test {

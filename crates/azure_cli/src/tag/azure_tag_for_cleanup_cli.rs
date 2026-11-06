@@ -6,7 +6,7 @@ use cloud_terrastodon_azure::ResourceTagsId;
 use cloud_terrastodon_azure::fetch_all_resources;
 use cloud_terrastodon_azure::fetch_current_user;
 use cloud_terrastodon_azure::merge_tags_for_resources;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_user_input::PickerTui;
 use cloud_terrastodon_user_input::prompt_line;
 use eyre::Result;
@@ -25,16 +25,19 @@ impl AzureTagForCleanupArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let tenant_auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
         let cleanup_tagged_date = Local::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
-        let cleanup_tagged_by = fetch_current_user(&tenant_auth_context, cancellation)
+        let cleanup_tagged_by = fetch_current_user(&tenant_auth_context, executor)
             .await?
-            .user_principal_name;
+            .user_principal_name
+            .clone();
 
         let cleanup_policy = {
             match PickerTui::<_>::new()
@@ -46,7 +49,7 @@ impl AzureTagForCleanupArgs {
             }
         };
 
-        let resources = fetch_all_resources(&tenant_auth_context, cancellation).await?;
+        let resources = fetch_all_resources(&tenant_auth_context, executor).await?;
 
         let chosen_resources = PickerTui::<_>::new().pick_many(resources).await?;
 
@@ -76,7 +79,7 @@ impl AzureTagForCleanupArgs {
         }
 
         info!(?tags_to_merge, "Executing tag modifications");
-        merge_tags_for_resources(&tenant_auth_context, updates, cancellation).await?;
+        merge_tags_for_resources(&tenant_auth_context, updates, executor).await?;
 
         Ok(())
     }

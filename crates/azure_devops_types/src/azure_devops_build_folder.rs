@@ -4,6 +4,7 @@ use crate::AzureDevOpsProjectReference;
 use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
+use std::sync::Arc;
 
 /// A build-definition folder. The required path identifies the folder;
 /// Azure DevOps uses backslash-separated paths, with `\` representing root.
@@ -29,3 +30,4 @@ pub struct AzureDevOpsBuildFolder {
 cloud_terrastodon_registry::register_thing!(AzureDevOpsBuildFolder);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsBuildFolder);
 cloud_terrastodon_registry::register_arbitrary!(Vec<AzureDevOpsBuildFolder>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<AzureDevOpsBuildFolder>>);

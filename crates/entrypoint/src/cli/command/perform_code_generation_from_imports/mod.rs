@@ -3,7 +3,7 @@ use crate::noninteractive::process_generated;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
 /// Perform code-generation from existing import definitions.
@@ -18,14 +18,16 @@ impl PerformCodeGenerationFromImportsArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &auth_context.auth_context.bind_executor(executor)?;
         perform_import(cancellation).await?;
-        process_generated(&auth_context, cancellation).await?;
+        process_generated(&auth_context, executor).await?;
         Ok(())
     }
 }

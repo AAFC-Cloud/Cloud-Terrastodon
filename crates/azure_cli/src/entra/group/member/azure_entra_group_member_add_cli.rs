@@ -4,7 +4,7 @@ use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::EntraGroupId;
 use cloud_terrastodon_azure::EntraPrincipalId;
 use cloud_terrastodon_azure::add_group_member;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use tracing::info;
 
@@ -27,17 +27,19 @@ impl AzureEntraGroupMemberAddArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let tenant_auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
         add_group_member(
             self.group_id,
             self.member_id,
             &tenant_auth_context,
-            cancellation,
+            executor,
         )
         .await?;
         info!(group_id=%self.group_id, member_id=%self.member_id, "Added member to group");

@@ -4,6 +4,8 @@ use eyre::Report;
 use eyre::Result;
 use eyre::ensure;
 use facet::Facet;
+use std::path::Component;
+use std::path::Path;
 
 /// A nonempty hierarchy of exact logical cache identity components.
 ///
@@ -20,6 +22,25 @@ pub struct CacheScope {
 }
 
 impl CacheScope {
+    /// Interpret an existing relative hierarchy without allowing filesystem roots
+    /// or traversal. Each normal path component becomes one logical component.
+    pub fn try_from_relative_path(path: impl AsRef<Path>) -> Result<Self> {
+        let components = path
+            .as_ref()
+            .components()
+            .map(|component| match component {
+                Component::Normal(value) => value
+                    .to_str()
+                    .map(str::to_owned)
+                    .ok_or_else(|| eyre::eyre!("cache hierarchy must be Unicode")),
+                _ => {
+                    eyre::bail!("cache hierarchy must be relative and contain no traversal");
+                }
+            })
+            .collect::<Result<Vec<_>>>()?;
+        Self::try_from(components)
+    }
+
     /// Validate explicit components without interpreting any of them as paths.
     pub fn try_from_components<I, S>(components: I) -> Result<Self>
     where
@@ -99,6 +120,26 @@ cloud_terrastodon_registry::register_arbitrary!(CacheScope);
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn relative_hierarchies_cannot_escape_their_logical_scope() -> Result<()> {
+        let scope = CacheScope::try_from_relative_path("tenant/readable name/pages")?;
+        assert_eq!(scope.components(), ["tenant", "readable name", "pages"]);
+        for invalid in ["", ".", "..", "tenant/../other", "/rooted"] {
+            assert!(
+                CacheScope::try_from_relative_path(invalid).is_err(),
+                "{invalid}"
+            );
+        }
+        #[cfg(windows)]
+        for invalid in [r"C:\absolute", r"C:relative", r"\rooted", r"\\server\share"] {
+            assert!(
+                CacheScope::try_from_relative_path(invalid).is_err(),
+                "{invalid}"
+            );
+        }
+        Ok(())
+    }
 
     #[test]
     fn rejects_empty_hierarchies_and_traversal_markers() {

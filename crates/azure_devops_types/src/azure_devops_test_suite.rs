@@ -4,6 +4,7 @@ use crate::AzureDevOpsWorkItemId;
 use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
+use std::sync::Arc;
 
 #[derive(Debug, Eq, PartialEq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
@@ -38,3 +39,4 @@ pub struct AzureDevOpsTestSuite {
 cloud_terrastodon_registry::register_thing!(AzureDevOpsTestSuite);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsTestSuite);
 cloud_terrastodon_registry::register_arbitrary!(Vec<AzureDevOpsTestSuite>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<AzureDevOpsTestSuite>>);

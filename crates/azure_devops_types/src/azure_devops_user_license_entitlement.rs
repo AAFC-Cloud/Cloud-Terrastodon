@@ -6,6 +6,7 @@ use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
 use std::str::FromStr;
+use std::sync::Arc;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, facet::Facet)]
 #[facet(rename_all = "lowercase")]
@@ -114,7 +115,9 @@ pub struct AzureDevOpsLicenseEntitlementUserReference {
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsUserLicenseEntitlement);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsUserLicenseEntitlement);
+cloud_terrastodon_registry::register_arbitrary!(Arc<AzureDevOpsUserLicenseEntitlement>);
 cloud_terrastodon_registry::register_arbitrary!(Vec<AzureDevOpsUserLicenseEntitlement>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<AzureDevOpsUserLicenseEntitlement>>);
 
 #[cfg(test)]
 mod test {

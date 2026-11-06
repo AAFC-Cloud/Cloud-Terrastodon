@@ -8,20 +8,22 @@ use cloud_terrastodon_azure::find_matching_oauth2_permission_grant;
 use cloud_terrastodon_azure::join_oauth2_permission_grant_scopes;
 use cloud_terrastodon_azure::merge_oauth2_permission_grant_scopes;
 use cloud_terrastodon_azure::update_oauth2_permission_grant;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use std::collections::HashSet;
+use std::sync::Arc;
 use tracing::info;
 
 pub async fn create_oauth2_permission_grants(
     auth_context: &AzureTenantAuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
+    let auth_source = auth_context.auth_context.azure_bearer_source()?;
     let tenant_id = auth_context.tenant_id;
     info!("Fetching all service principals");
-    let service_principals = fetch_all_service_principals(auth_context, cancellation).await?;
+    let service_principals = fetch_all_service_principals(auth_context, executor).await?;
     let resource = PickerTui::<_>::new()
         .set_header("Pick the underlying resource being granted access to")
         .set_query("'Microsoft\\ Graph")
@@ -42,10 +44,8 @@ pub async fn create_oauth2_permission_grants(
         .await?;
     info!("You chose: {} - {}", client.display_name, client.id);
 
-    let scopes = fetch_oauth2_permission_scopes(resource.id, auth_context, cancellation)
-        .await?
-        .into_iter()
-        .collect::<HashSet<_>>();
+    let scopes = fetch_oauth2_permission_scopes(resource.id, auth_context, executor).await?;
+    let scopes = scopes.iter().collect::<HashSet<_>>();
 
     let scopes_to_add = PickerTui::<_>::new()
         .set_header("Select the scopes you want to grant")
@@ -55,7 +55,7 @@ pub async fn create_oauth2_permission_grants(
         }))
         .await?;
 
-    let users = fetch_all_entra_users(auth_context, cancellation).await?;
+    let users = fetch_all_entra_users(auth_context, executor).await?;
     let users_to_add = PickerTui::<_>::new()
         .set_header(format!(
             "Select the users to add {} grants to",
@@ -67,7 +67,8 @@ pub async fn create_oauth2_permission_grants(
         }))
         .await?;
 
-    let mut existing_grants = fetch_oauth2_permission_grants(tenant_id, cancellation).await?;
+    let mut existing_grants =
+        fetch_oauth2_permission_grants(tenant_id, auth_source, executor).await?;
     let requested_scope =
         join_oauth2_permission_grant_scopes(scopes_to_add.iter().map(|scope| scope.value.as_str()));
 
@@ -93,10 +94,12 @@ pub async fn create_oauth2_permission_grants(
                 tenant_id,
                 existing.id.clone(),
                 new_scope.clone(),
-                cancellation,
+                auth_source,
+                executor,
             )
             .await?;
-            existing.scope = new_scope;
+            // Keep unchanged inventory records shared; only copy a record we update locally.
+            Arc::make_mut(existing).scope = new_scope;
         } else {
             println!("Creating grant for {}", user);
             let created = create_oauth2_permission_grant(
@@ -105,10 +108,11 @@ pub async fn create_oauth2_permission_grants(
                 client.id,
                 user.id,
                 requested_scope.clone(),
-                cancellation,
+                auth_source,
+                executor,
             )
             .await?;
-            existing_grants.push(created);
+            existing_grants.push(Arc::new(created));
         }
     }
 

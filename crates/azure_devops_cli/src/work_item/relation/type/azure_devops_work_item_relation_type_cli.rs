@@ -1,7 +1,7 @@
 use crate::work_item::relation::r#type::list::AzureDevOpsWorkItemRelationTypeListArgs;
 use crate::work_item::relation::r#type::show::AzureDevOpsWorkItemRelationTypeShowArgs;
 use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
 /// Inspect relation type definitions.
@@ -21,14 +21,14 @@ pub enum AzureDevOpsWorkItemRelationTypeCommand {
 }
 
 impl AzureDevOpsWorkItemRelationTypeArgs {
-    pub async fn invoke(self, auth: &AuthContext, cancellation: &CancellationScope) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth: &AuthContext,
+        executor: &CloudTerrastodonExecutor,
+    ) -> Result<()> {
         match self.command {
-            AzureDevOpsWorkItemRelationTypeCommand::List(args) => {
-                args.invoke(auth, cancellation).await
-            }
-            AzureDevOpsWorkItemRelationTypeCommand::Show(args) => {
-                args.invoke(auth, cancellation).await
-            }
+            AzureDevOpsWorkItemRelationTypeCommand::List(args) => args.invoke(auth, executor).await,
+            AzureDevOpsWorkItemRelationTypeCommand::Show(args) => args.invoke(auth, executor).await,
         }
     }
 }

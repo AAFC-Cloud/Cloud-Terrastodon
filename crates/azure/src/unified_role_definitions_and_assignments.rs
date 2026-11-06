@@ -1,82 +1,82 @@
+use crate::UnifiedRoleAssignmentListRequest;
+use crate::UnifiedRoleDefinitionListRequest;
 use crate::fetch_all_unified_role_assignments;
 use crate::fetch_all_unified_role_definitions;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure_types::UnifiedRoleDefinitionsAndAssignments;
-use cloud_terrastodon_command::CacheInvalidatable;
-use cloud_terrastodon_command::CacheableCommand;
-use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_cache::CacheInvalidationKeys;
+use cloud_terrastodon_cache::CacheKey;
+use cloud_terrastodon_cache::HasCacheKey;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
+use cloud_terrastodon_execution::RequestExecution;
 use std::borrow::Cow;
-use std::pin::Pin;
 use tokio::try_join;
 
-/// Fetches Entra role assignments and role definitions.
-///
-/// Not to be confused with Azure RBAC role assignments and role definitions.
-#[must_use = "This is a future request, you must .await it"]
+/// Combine Azure Resource Manager role definitions and assignments for a tenant.
+#[must_use = "Bind this request to an executor and await its execution"]
 #[derive(Debug, Clone, facet::Facet)]
+#[facet(traits(Clone))]
 pub struct UnifiedRoleDefinitionsAndAssignmentsListRequest<'a> {
-    #[facet(skip_serializing)]
-    pub cancellation: CancellationScope,
-
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
-
-impl<'a> arbitrary::Arbitrary<'a> for UnifiedRoleDefinitionsAndAssignmentsListRequest<'static> {
+impl<'a> Arbitrary<'a> for UnifiedRoleDefinitionsAndAssignmentsListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
-            cancellation: arbitrary::Arbitrary::arbitrary(u)?,
-            auth_context: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
+            auth_context: Cow::Owned(AzureTenantAuthContext::arbitrary(u)?),
         })
     }
 }
-
+#[track_caller]
 pub fn fetch_all_unified_role_definitions_and_assignments<'a>(
     auth_context: &'a AzureTenantAuthContext,
-    cancellation: &CancellationScope,
-) -> UnifiedRoleDefinitionsAndAssignmentsListRequest<'a> {
-    UnifiedRoleDefinitionsAndAssignmentsListRequest {
-        cancellation: cancellation.clone(),
+    executor: &'a CloudTerrastodonExecutor,
+) -> RequestExecution<'a, UnifiedRoleDefinitionsAndAssignmentsListRequest<'a>> {
+    executor.execute(UnifiedRoleDefinitionsAndAssignmentsListRequest {
         auth_context: Cow::Borrowed(auth_context),
+    })
+}
+impl CacheInvalidationKeys for UnifiedRoleDefinitionsAndAssignmentsListRequest<'_> {
+    fn cache_keys_to_invalidate(&self) -> eyre::Result<Vec<CacheKey>> {
+        Ok(vec![
+            UnifiedRoleDefinitionListRequest {
+                auth_context: Cow::Borrowed(&self.auth_context),
+            }
+            .cache_key()?,
+            UnifiedRoleAssignmentListRequest {
+                auth_context: Cow::Borrowed(&self.auth_context),
+            }
+            .cache_key()?,
+        ])
     }
 }
-
-#[async_trait]
-impl<'a> CacheInvalidatable for UnifiedRoleDefinitionsAndAssignmentsListRequest<'a> {
-    async fn invalidate(&self) -> eyre::Result<()> {
-        let definitions =
-            fetch_all_unified_role_definitions(self.auth_context.as_ref(), &self.cancellation)
-                .cache_key();
-        let assignments =
-            fetch_all_unified_role_assignments(self.auth_context.as_ref(), &self.cancellation)
-                .cache_key();
-        try_join!(definitions.invalidate(), assignments.invalidate())?;
-        Ok(())
-    }
-}
-
-impl<'a> IntoFuture for UnifiedRoleDefinitionsAndAssignmentsListRequest<'a> {
-    type Output = eyre::Result<UnifiedRoleDefinitionsAndAssignments>;
-    type IntoFuture = Pin<Box<dyn std::future::Future<Output = Self::Output> + Send + 'a>>;
-
-    fn into_future(self) -> Self::IntoFuture {
-        let cancellation = self.cancellation.clone();
-        Box::pin(cancellation.cancellable_scope(move |scope| async move {
-            let request = Self {
-                cancellation: scope,
-                ..self
-            };
-            let auth_context = request.auth_context;
-            let (role_definitions, role_assignments) = try_join!(
-                fetch_all_unified_role_definitions(auth_context.as_ref(), &request.cancellation),
-                fetch_all_unified_role_assignments(auth_context.as_ref(), &request.cancellation)
+impl ExecutableRequest for UnifiedRoleDefinitionsAndAssignmentsListRequest<'_> {
+    type Error = eyre::Report;
+    type Output = UnifiedRoleDefinitionsAndAssignments;
+    fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
+    where
+        Self: 'exec,
+    {
+        Box::pin(async move {
+            let (definitions, assignments) = try_join!(
+                fetch_all_unified_role_definitions(&self.auth_context, &executor),
+                fetch_all_unified_role_assignments(&self.auth_context, &executor),
             )?;
-
-            UnifiedRoleDefinitionsAndAssignments::try_new(role_definitions, role_assignments)
-        }))
+            UnifiedRoleDefinitionsAndAssignments::try_new(definitions, assignments)
+        })
     }
 }
-
+cloud_terrastodon_registry::register_thing!(
+    UnifiedRoleDefinitionsAndAssignmentsListRequest<'static>
+);
+cloud_terrastodon_registry::register_arbitrary!(
+    UnifiedRoleDefinitionsAndAssignmentsListRequest<'static>
+);
+cloud_terrastodon_registry_execution::register_executable_request!(
+    UnifiedRoleDefinitionsAndAssignmentsListRequest<'static> => UnifiedRoleDefinitionsAndAssignments, effects = [Read]
+);
 #[cfg(test)]
 mod test {
     use crate::fetch_all_principals;
@@ -91,15 +91,19 @@ mod test {
     pub async fn it_works() -> eyre::Result<()> {
         CancellationToken::new()
             .cancellable_scope(|cancellation| async move {
+                let executor = crate::test_executor::test_executor(
+                    &cloud_terrastodon_auth::AuthContext::explicit_azure_cli(),
+                    &cancellation,
+                )?;
                 let tenant_id = get_test_tenant_id(&cancellation).await?;
                 let auth_context = AuthContext::explicit_azure_cli();
                 let tenant_auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
                 let rbac = fetch_all_unified_role_definitions_and_assignments(
                     &tenant_auth_context,
-                    &cancellation,
+                    &executor,
                 )
                 .await?;
-                let principals = fetch_all_principals(&tenant_auth_context, &cancellation).await?;
+                let principals = fetch_all_principals(&tenant_auth_context, &executor).await?;
                 let permissions = &[RolePermissionAction::new(
                     "microsoft.directory/users/standard/read",
                 )];

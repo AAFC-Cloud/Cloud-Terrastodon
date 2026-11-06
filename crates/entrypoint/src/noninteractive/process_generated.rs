@@ -1,7 +1,8 @@
 use cloud_terrastodon_auth::AzureTenantAuthContext;
-use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_hcl::HclWriter;
 use cloud_terrastodon_hcl::discovery::DiscoveryDepth;
 use cloud_terrastodon_hcl::discovery::discover_hcl;
@@ -14,11 +15,12 @@ use tokio::fs::{self};
 use tracing::info;
 use tracing::instrument;
 
-#[instrument(level = "debug", skip(cancellation))]
+#[instrument(level = "debug", skip(executor))]
 pub async fn process_generated(
     auth_context: &AzureTenantAuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
+    let cancellation = executor.cancellation();
     // Determine output directory
     let out_dir: PathBuf = AppDir::Processed.into();
 
@@ -35,8 +37,9 @@ pub async fn process_generated(
 
     // Determine output files
     let hcl = discover_hcl(&workspace_path, DiscoveryDepth::Shallow).await?;
-    let hcl = ReflowHclRequest::new(hcl, Some(auth_context), cancellation)
+    let hcl = ReflowHclRequest::new(hcl, Some(auth_context))
         .include_principal_id_comments(true)
+        .execute(executor)
         .await?;
 
     // Write files

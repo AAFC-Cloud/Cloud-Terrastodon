@@ -11,6 +11,7 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
+url.workspace = true
 cloud_terrastodon_azure_types.workspace = true
 cloud_terrastodon_registry.workspace = true
 arbitrary.workspace = true

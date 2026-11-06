@@ -1,10 +1,10 @@
 use cloud_terrastodon_auth::AzureDevOpsAuthContext;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::get_default_organization_url;
-use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::OutputBehaviour;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_hcl::HclImportBlock;
 use cloud_terrastodon_hcl::HclWriter;
 use cloud_terrastodon_pathing::AppDir;
@@ -17,8 +17,9 @@ use tracing::info;
 
 pub async fn azure_devops_project_import_wizard_menu(
     auth_context: &AzureDevOpsAuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
+    let cancellation = executor.cancellation();
     info!("Confirming remove existing imports");
     let start_from_scratch = "start from scratch";
     let keep_existing_imports = "keep existing imports";
@@ -37,8 +38,8 @@ pub async fn azure_devops_project_import_wizard_menu(
     }
 
     let org_url = get_default_organization_url(cancellation).await?;
-    let projects = fetch_all_azure_devops_projects(&org_url, auth_context, cancellation).await?;
-    let projects: Vec<cloud_terrastodon_azure_devops::AzureDevOpsProject> = PickerTui::<_>::new()
+    let projects = fetch_all_azure_devops_projects(&org_url, auth_context, executor).await?;
+    let projects = PickerTui::<_>::new()
         .set_header("Choose the projects to import")
         .pick_many(projects.into_iter().map(|project| Choice {
             key: project.name.to_string(),
@@ -48,7 +49,7 @@ pub async fn azure_devops_project_import_wizard_menu(
 
     let mut project_import_blocks = Vec::new();
     for project in projects {
-        let import_block: HclImportBlock = project.into();
+        let import_block: HclImportBlock = project.as_ref().into();
         project_import_blocks.push(import_block);
     }
 

@@ -8,7 +8,7 @@ use cloud_terrastodon_azure::fetch_all_security_groups;
 use cloud_terrastodon_azure::fetch_all_subscriptions;
 use cloud_terrastodon_azure::get_resource_group_choices;
 use cloud_terrastodon_azure::uuid::Uuid;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_hcl::HclImportBlock;
 use cloud_terrastodon_hcl::HclProviderBlock;
 use cloud_terrastodon_hcl::HclProviderReference;
@@ -27,8 +27,9 @@ use tracing::info;
 
 pub async fn resource_group_import_wizard_menu(
     auth_context: &AzureTenantAuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
+    let cancellation = executor.cancellation();
     info!("Confirming remove existing imports");
     let start_from_scratch = "start from scratch";
     let keep_existing_imports = "keep existing imports";
@@ -56,13 +57,13 @@ pub async fn resource_group_import_wizard_menu(
         // users,
         resource_group_choices,
     ) = join!(
-        fetch_all_subscriptions(auth_context, cancellation),
+        fetch_all_subscriptions(auth_context, executor),
         // fetch_all_resource_groups(tenant_id),
-        fetch_all_role_assignments(auth_context, cancellation),
+        fetch_all_role_assignments(auth_context, executor),
         // fetch_all_role_definitions(),
-        fetch_all_security_groups(auth_context, cancellation),
+        fetch_all_security_groups(auth_context, executor),
         // fetch_all_users(),
-        get_resource_group_choices(auth_context, cancellation),
+        get_resource_group_choices(auth_context, executor),
     );
     let subscriptions = subscriptions?
         .into_iter()
@@ -94,7 +95,7 @@ pub async fn resource_group_import_wizard_menu(
 
         // Create the import block
         let provider_name = rg.subscription_name.sanitize();
-        let mut import_block: HclImportBlock = rg.into();
+        let mut import_block: HclImportBlock = rg.as_ref().into();
 
         // Update the provider to use the subscription alias
         import_block.provider = HclProviderReference::Alias {
@@ -140,7 +141,7 @@ pub async fn resource_group_import_wizard_menu(
         used_principals.insert(*ra.principal_id);
 
         // Create the import block
-        let mut import_block: HclImportBlock = ra.into();
+        let mut import_block: HclImportBlock = ra.as_ref().into();
 
         // Update the provider to use the subscription alias
         import_block.provider = HclProviderReference::Alias {
@@ -168,7 +169,7 @@ pub async fn resource_group_import_wizard_menu(
         }
 
         // Create the import block
-        let import_block: HclImportBlock = sg.into();
+        let import_block: HclImportBlock = sg.as_ref().into();
 
         // Add to results
         sg_imports.push(import_block);

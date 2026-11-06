@@ -13,7 +13,7 @@ use cloud_terrastodon_execution::RequestExecution;
 use std::borrow::Cow;
 use std::time::Duration;
 
-#[must_use = "This is a future request, you must .await it"]
+#[must_use = "This is a future request, you must .execute it"]
 #[derive(Debug, Clone, facet::Facet)]
 #[facet(traits(Clone))]
 pub struct GiteaRepoSearchRequest<'a> {
@@ -51,6 +51,7 @@ impl HasCacheKey for GiteaRepoSearchRequest<'_> {
 }
 
 impl ExecutableRequest for GiteaRepoSearchRequest<'_> {
+    type Error = eyre::Report;
     type Output = Vec<GiteaRepo>;
     fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
     where

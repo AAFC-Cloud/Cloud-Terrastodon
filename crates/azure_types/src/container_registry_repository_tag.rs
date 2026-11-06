@@ -2,6 +2,7 @@ use crate::ContainerRegistryTagChangeableAttributes;
 use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
+use std::sync::Arc;
 
 /// [TagAttributesBase, API 2021-07-01](https://learn.microsoft.com/en-us/rest/api/registry-dataplane/container-registry/get-tags?view=rest-registry-dataplane-2021-07-01#tagattributesbase).
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Arbitrary, facet::Facet)]
@@ -21,3 +22,4 @@ cloud_terrastodon_registry::register_thing!(ContainerRegistryRepositoryTag);
 cloud_terrastodon_registry::register_arbitrary!(ContainerRegistryRepositoryTag);
 
 cloud_terrastodon_registry::register_arbitrary!(Vec<ContainerRegistryRepositoryTag>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<ContainerRegistryRepositoryTag>>);

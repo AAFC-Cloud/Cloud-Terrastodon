@@ -2,8 +2,7 @@ use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::fetch_all_role_definitions;
-use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
@@ -22,19 +21,21 @@ impl AzureRoleDefinitionBrowseArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let tenant_auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
         let (chosen, maybe_error) = PickerTui::<_>::new()
             .pick_many_reloadable(|invalidate| {
                 let tenant_auth_context = tenant_auth_context.clone();
                 async move {
                     info!("Fetching Azure role definitions");
                     let role_definitions =
-                        fetch_all_role_definitions(&tenant_auth_context, cancellation)
+                        fetch_all_role_definitions(&tenant_auth_context, executor)
                             .with_invalidation(invalidate)
                             .await?;
                     info!(

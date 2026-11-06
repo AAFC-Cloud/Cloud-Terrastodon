@@ -4,7 +4,7 @@ use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_cli_types::HumantimeDurationCli;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use std::time::Duration;
 
@@ -34,18 +34,20 @@ impl AzureDevOpsAuditArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &auth_context.auth_context.bind_executor(executor)?;
         audit_azure_devops(
             self.org,
             self.test_license_inactivity_threshold.0.into(),
             self.paid_license_inactivity_threshold.0.into(),
             &auth_context,
-            cancellation,
+            executor,
         )
         .await
     }

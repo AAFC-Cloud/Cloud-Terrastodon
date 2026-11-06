@@ -1,11 +1,15 @@
 #![cfg(test)]
 
+use cloud_terrastodon_auth::CredentialAuthenticationProvider;
 use cloud_terrastodon_azure::fetch_all_key_vaults;
 use cloud_terrastodon_azure::fetch_all_role_definitions_and_assignments;
 use cloud_terrastodon_azure::fetch_current_user;
 use cloud_terrastodon_azure::get_test_tenant_id;
+use cloud_terrastodon_cache::WorkCache;
 use cloud_terrastodon_command::CancellationToken;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use itertools::Itertools;
+use std::sync::Arc;
 use tokio::try_join;
 
 #[tokio::test]
@@ -16,10 +20,15 @@ pub async fn predict_would_secret_list_succeed() -> eyre::Result<()> {
             let tenant_id = get_test_tenant_id(&cancellation).await?;
             let auth_context = cloud_terrastodon_auth::AuthContext::explicit_azure_cli();
             let tenant_auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
-            let current_user = fetch_current_user(&tenant_auth_context, &cancellation).await?;
+            let executor = CloudTerrastodonExecutor::new(
+                WorkCache::temporary()?,
+                Arc::new(CredentialAuthenticationProvider::new(auth_context)),
+                cancellation,
+            );
+            let current_user = fetch_current_user(&tenant_auth_context, &executor).await?;
             let (key_vaults, rbac) = try_join!(
-                fetch_all_key_vaults(&tenant_auth_context, &cancellation),
-                fetch_all_role_definitions_and_assignments(&tenant_auth_context, &cancellation),
+                fetch_all_key_vaults(&tenant_auth_context, &executor),
+                fetch_all_role_definitions_and_assignments(&tenant_auth_context, &executor),
             )?;
 
             let key_vaults = key_vaults

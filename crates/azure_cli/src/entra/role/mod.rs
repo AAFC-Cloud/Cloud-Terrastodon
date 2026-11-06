@@ -1,3 +1,4 @@
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 pub mod assignment;
 pub mod azure_entra_role_cli;
 pub mod definition;
@@ -5,7 +6,6 @@ pub mod definition;
 pub use assignment::AzureEntraRoleAssignmentArgs;
 pub use azure_entra_role_cli::AzureEntraRoleCommand;
 use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_command::CancellationScope;
 pub use definition::AzureEntraRoleDefinitionArgs;
 use eyre::Result;
 
@@ -20,8 +20,8 @@ impl AzureEntraRoleArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
-        self.command.invoke(auth_context, cancellation).await
+        self.command.invoke(auth_context, executor).await
     }
 }

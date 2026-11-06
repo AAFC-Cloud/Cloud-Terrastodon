@@ -1,7 +1,7 @@
 use super::AzureNetworkInterfaceListArgs;
 use super::AzureNetworkInterfaceShowArgs;
 use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
 /// Subcommands for Azure network interfaces.
@@ -18,15 +18,11 @@ impl AzureNetworkInterfaceCommand {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
         match self {
-            AzureNetworkInterfaceCommand::List(args) => {
-                args.invoke(auth_context, cancellation).await
-            }
-            AzureNetworkInterfaceCommand::Show(args) => {
-                args.invoke(auth_context, cancellation).await
-            }
+            AzureNetworkInterfaceCommand::List(args) => args.invoke(auth_context, executor).await,
+            AzureNetworkInterfaceCommand::Show(args) => args.invoke(auth_context, executor).await,
         }
     }
 }

@@ -5,6 +5,7 @@ use crate::AzureLocationName;
 use crate::AzureTenantId;
 use arbitrary::Arbitrary;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 #[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
@@ -127,3 +128,4 @@ pub struct AzureCognitiveServicesRequestMatchPattern {
 cloud_terrastodon_registry::register_thing!(AzureCognitiveServicesAccountResource);
 cloud_terrastodon_registry::register_arbitrary!(AzureCognitiveServicesAccountResource);
 cloud_terrastodon_registry::register_arbitrary!(Vec<AzureCognitiveServicesAccountResource>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<AzureCognitiveServicesAccountResource>>);

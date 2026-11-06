@@ -3,7 +3,8 @@ use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::HclImportable;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_hcl::GenerateConfigOutHelper;
 use cloud_terrastodon_hcl::HclWriter;
 use cloud_terrastodon_hcl::discovery::DiscoveryDepth;
@@ -30,17 +31,19 @@ impl TerraformSourceGenerateArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let tenant_auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
         let work_dir = self.work_dir;
 
         let kind_to_import = HclImportable::pick(cancellation).await?;
         let imports = kind_to_import
-            .pick_into_body(&tenant_auth_context, cancellation)
+            .pick_into_body(&tenant_auth_context, executor)
             .await?;
 
         work_dir.ensure_dir_exists().await?;
@@ -65,8 +68,9 @@ impl TerraformSourceGenerateArgs {
 
         info!("Reflowing content");
         let hcl = discover_hcl(import_dir, DiscoveryDepth::Shallow).await?;
-        let hcl = ReflowHclRequest::new(hcl, Some(&tenant_auth_context), cancellation)
+        let hcl = ReflowHclRequest::new(hcl, Some(&tenant_auth_context))
             .include_principal_id_comments(true)
+            .execute(executor)
             .await?;
         for (path, contents) in hcl {
             HclWriter::new(path)

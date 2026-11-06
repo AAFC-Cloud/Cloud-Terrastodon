@@ -1,130 +1,126 @@
+use crate::EligibleChildResourcesAtScopeRequest;
+use crate::FetchChildrenBehaviour;
+use crate::ManagementGroupListRequest;
+use crate::ResourceGroupListRequest;
 use crate::management_groups::fetch_root_management_group;
 use crate::resource_group_list_request::fetch_all_resource_groups;
 use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure_types::AsScope;
 use cloud_terrastodon_azure_types::EligibleChildResource;
 use cloud_terrastodon_azure_types::EligibleChildResourceKind;
+use cloud_terrastodon_azure_types::ManagementGroupId;
 use cloud_terrastodon_azure_types::Scope;
-use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CacheableCommand;
-use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::async_trait;
-use cloud_terrastodon_rest::RestRequest;
+use cloud_terrastodon_cache::CacheInvalidationKeys;
+use cloud_terrastodon_cache::CacheKey;
+use cloud_terrastodon_cache::HasCacheKey;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
+use cloud_terrastodon_execution::RequestExecution;
 use eyre::Result;
 use std::borrow::Cow;
-use std::path::PathBuf;
+use std::sync::Arc;
 
-#[derive(Eq, PartialEq, Debug, Default)]
-pub enum FetchChildrenBehaviour {
-    #[default]
-    Unspecified,
-    GetAllChildren,
-}
-
-// https://learn.microsoft.com/en-us/rest/api/authorization/eligible-child-resources/get?view=rest-authorization-2020-10-01&tabs=HTTP
-pub async fn fetch_eligible_child_resources(
+#[track_caller]
+pub fn fetch_eligible_child_resources<'a>(
     scope: &impl Scope,
     behaviour: FetchChildrenBehaviour,
-    auth_context: &AzureTenantAuthContext,
-    cancellation: &CancellationScope,
-) -> Result<Vec<EligibleChildResource>> {
-    let scope = scope.expanded_form();
-    let scope = scope.strip_prefix('/').unwrap_or(&scope);
-    let mut url = format!(
-        "https://management.azure.com/{scope}/providers/Microsoft.Authorization/eligibleChildResources?api-version=2020-10-01"
-    );
-    if behaviour == FetchChildrenBehaviour::GetAllChildren {
-        url.push_str("&getAllChildren=true");
-    }
-    let mut cache_chunks = PathBuf::from_iter(["az", "rest", "GET", "eligibleChildResources"]);
-    scope
-        .split("/")
-        .filter(|x| !x.is_empty())
-        .for_each(|x| cache_chunks.push(x));
-
-    #[derive(facet::Facet)]
-    struct Response {
-        value: Vec<EligibleChildResource>,
-    }
-
-    let resp = RestRequest::new(http::Method::GET, &url, cancellation)?
-        .azure_auth_context(auth_context)
-        .cache(CacheKey::new(cache_chunks))
-        .receive::<Response>()
-        .await?;
-    Ok(resp.value)
+    auth_context: &'a AzureTenantAuthContext,
+    executor: &'a CloudTerrastodonExecutor,
+) -> RequestExecution<'a, EligibleChildResourcesAtScopeRequest<'a>> {
+    executor.execute(EligibleChildResourcesAtScopeRequest {
+        scope: scope.as_scope_impl(),
+        behaviour,
+        auth_context: Cow::Borrowed(auth_context),
+    })
 }
 
-#[must_use = "This is a future request, you must .await it"]
+#[must_use = "This is a future request, you must .execute it"]
 #[derive(Debug, Clone, facet::Facet)]
 #[facet(traits(Clone))]
 pub struct EligibleChildResourceListRequest<'a> {
-    #[facet(skip_serializing)]
-    pub cancellation: CancellationScope,
-
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
 
+#[track_caller]
 pub fn fetch_all_eligible_resource_containers<'a>(
     auth_context: &'a AzureTenantAuthContext,
-    cancellation: &CancellationScope,
-) -> EligibleChildResourceListRequest<'a> {
-    EligibleChildResourceListRequest {
-        cancellation: cancellation.clone(),
+    executor: &'a CloudTerrastodonExecutor,
+) -> RequestExecution<'a, EligibleChildResourceListRequest<'a>> {
+    executor.execute(EligibleChildResourceListRequest {
         auth_context: Cow::Borrowed(auth_context),
-    }
+    })
 }
 
 impl<'a> arbitrary::Arbitrary<'a> for EligibleChildResourceListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
-            cancellation: arbitrary::Arbitrary::arbitrary(u)?,
             auth_context: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
         })
     }
 }
 
-#[async_trait]
-impl<'a> CacheableCommand for EligibleChildResourceListRequest<'a> {
-    type Output = Vec<EligibleChildResource>;
-
-    fn cache_key(&self) -> CacheKey {
-        CacheKey::new(PathBuf::from_iter([
-            "az",
-            "management",
-            "eligible_child_resources",
-        ]))
-    }
-
-    async fn run(self) -> Result<Self::Output> {
-        let root_mg =
-            fetch_root_management_group(self.auth_context.as_ref(), &self.cancellation).await?;
-        let scope = root_mg.as_scope();
-        let mut resource_containers = fetch_eligible_child_resources(
-            scope,
-            FetchChildrenBehaviour::GetAllChildren,
-            self.auth_context.as_ref(),
-            &self.cancellation,
-        )
-        .await?;
-        // this contains management groups and subscriptions
-
-        let rgs = fetch_all_resource_groups(self.auth_context.as_ref(), &self.cancellation)
-            .await?
-            .into_iter()
-            .map(|x| EligibleChildResource {
-                name: x.name.to_string(),
-                kind: EligibleChildResourceKind::ResourceGroup,
-                id: x.as_scope().as_scope_impl(),
-            });
-        resource_containers.extend(rgs);
-        // extend to include resource groups
-
-        Ok(resource_containers)
+impl CacheInvalidationKeys for EligibleChildResourceListRequest<'_> {
+    fn cache_keys_to_invalidate(&self) -> Result<Vec<CacheKey>> {
+        // The root-group lookup and both inventory reads contribute to this composition.
+        Ok(vec![
+            ManagementGroupListRequest {
+                auth_context: self.auth_context.clone(),
+            }
+            .cache_key()?,
+            EligibleChildResourcesAtScopeRequest {
+                scope: ManagementGroupId::from_name(&self.auth_context.tenant_id.to_string())
+                    .as_scope_impl(),
+                behaviour: FetchChildrenBehaviour::GetAllChildren,
+                auth_context: self.auth_context.clone(),
+            }
+            .cache_key()?,
+            ResourceGroupListRequest {
+                auth_context: self.auth_context.clone(),
+            }
+            .cache_key()?,
+        ])
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(EligibleChildResourceListRequest<'a>, 'a);
+impl<'a> ExecutableRequest for EligibleChildResourceListRequest<'a> {
+    type Error = eyre::Report;
+    type Output = Vec<Arc<EligibleChildResource>>;
+    fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
+    where
+        Self: 'exec,
+        Self::Output: 'exec,
+    {
+        Box::pin(async move {
+            let root_mg =
+                fetch_root_management_group(self.auth_context.as_ref(), &executor).await?;
+            let scope = root_mg.as_scope();
+            let mut resource_containers = fetch_eligible_child_resources(
+                scope,
+                FetchChildrenBehaviour::GetAllChildren,
+                self.auth_context.as_ref(),
+                &executor,
+            )
+            .await?;
+            // this contains management groups and subscriptions
+
+            let rgs = fetch_all_resource_groups(self.auth_context.as_ref(), &executor)
+                .await?
+                .into_iter()
+                .map(|x| {
+                    Arc::new(EligibleChildResource {
+                        name: x.name.to_string(),
+                        kind: EligibleChildResourceKind::ResourceGroup,
+                        id: x.as_scope().as_scope_impl(),
+                    })
+                });
+            resource_containers.extend(rgs);
+            // extend to include resource groups
+
+            Ok(resource_containers)
+        })
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -144,19 +140,26 @@ mod tests {
     async fn it_works() -> Result<()> {
         CancellationToken::new()
             .cancellable_scope(|cancellation| async move {
+                let executor = crate::test_executor::test_executor(
+                    &cloud_terrastodon_auth::AuthContext::explicit_azure_cli(),
+                    &cancellation,
+                )?;
                 let auth_context = AuthContext::explicit_azure_cli();
                 let tenant_auth_context =
                     auth_context.bind_to_azure_tenant(get_test_tenant_id(&cancellation).await?)?;
-                let mg = fetch_root_management_group(&tenant_auth_context, &cancellation).await?;
+                let mg = fetch_root_management_group(&tenant_auth_context, &executor).await?;
                 let scope = mg.as_scope();
                 let Some(found) = expect_aad_premium_p2_license(
                     fetch_eligible_child_resources(
                         scope,
                         FetchChildrenBehaviour::GetAllChildren,
                         &tenant_auth_context,
-                        &cancellation,
+                        &executor,
                     )
                     .await,
+                    cloud_terrastodon_auth_types::AzureBearerAuthSource::AzureCli,
+                    tenant_auth_context.tenant_id,
+                    &executor,
                 )
                 .await?
                 else {
@@ -172,10 +175,17 @@ mod tests {
     async fn it_works2() -> Result<()> {
         CancellationToken::new()
             .cancellable_scope(|cancellation| async move {
+                let executor = crate::test_executor::test_executor(
+                    &cloud_terrastodon_auth::AuthContext::explicit_azure_cli(),
+                    &cancellation,
+                )?;
                 let auth_context = AuthContext::explicit_azure_cli()
                     .bind_to_azure_tenant(get_test_tenant_id(&cancellation).await?)?;
                 let Some(found) = expect_aad_premium_p2_license(
-                    fetch_all_eligible_resource_containers(&auth_context, &cancellation).await,
+                    fetch_all_eligible_resource_containers(&auth_context, &executor).await,
+                    cloud_terrastodon_auth_types::AzureBearerAuthSource::AzureCli,
+                    auth_context.tenant_id,
+                    &executor,
                 )
                 .await?
                 else {
@@ -191,10 +201,13 @@ mod tests {
     async fn it_works3() -> Result<()> {
         CancellationToken::new()
             .cancellable_scope(|cancellation| async move {
+                let executor = crate::test_executor::test_executor(
+                    &cloud_terrastodon_auth::AuthContext::explicit_azure_cli(), &cancellation,
+                )?;
             let tenant_id = get_test_tenant_id(&cancellation).await?;
             let auth_context = AuthContext::explicit_azure_cli();
             let tenant_auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
-            let rg = fetch_all_resource_groups(&tenant_auth_context, &cancellation)
+            let rg = fetch_all_resource_groups(&tenant_auth_context, &executor)
                 .await?
                 .into_iter()
                 .next()
@@ -204,10 +217,9 @@ mod tests {
                     rg.as_scope(),
                     FetchChildrenBehaviour::GetAllChildren,
                     &tenant_auth_context,
-                    &cancellation,
+                    &executor,
                 )
-                .await,
-            )
+                .await, cloud_terrastodon_auth_types::AzureBearerAuthSource::AzureCli, tenant_id, &executor)
             .await;
             match result {
                 Ok(_) => {
@@ -225,20 +237,22 @@ mod tests {
     async fn it_works4() -> Result<()> {
         CancellationToken::new()
             .cancellable_scope(|cancellation| async move {
+                let executor = crate::test_executor::test_executor(
+                    &cloud_terrastodon_auth::AuthContext::explicit_azure_cli(), &cancellation,
+                )?;
             let tenant_id = get_test_tenant_id(&cancellation).await?;
             let auth_context = AuthContext::explicit_azure_cli();
             let tenant_auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
-            let subs = fetch_all_subscriptions(&tenant_auth_context, &cancellation).await?;
+            let subs = fetch_all_subscriptions(&tenant_auth_context, &executor).await?;
             let sub = subs.first().unwrap();
             let result = expect_aad_premium_p2_license(
                 fetch_eligible_child_resources(
                     sub.as_scope(),
                     FetchChildrenBehaviour::GetAllChildren,
                     &tenant_auth_context,
-                    &cancellation,
+                    &executor,
                 )
-                .await,
-            )
+                .await, cloud_terrastodon_auth_types::AzureBearerAuthSource::AzureCli, tenant_id, &executor)
             .await;
             match result {
                 Ok(_) => {
@@ -257,10 +271,14 @@ mod tests {
     async fn it_works_interactive() -> Result<()> {
         CancellationToken::new()
             .cancellable_scope(|cancellation| async move {
+                let executor = crate::test_executor::test_executor(
+                    &cloud_terrastodon_auth::AuthContext::explicit_azure_cli(),
+                    &cancellation,
+                )?;
                 let auth_context = AuthContext::explicit_azure_cli();
                 let tenant_auth_context =
                     auth_context.bind_to_azure_tenant(get_test_tenant_id(&cancellation).await?)?;
-                let mg = fetch_root_management_group(&tenant_auth_context, &cancellation).await?;
+                let mg = fetch_root_management_group(&tenant_auth_context, &executor).await?;
                 let mut scope = mg.as_scope().as_scope_impl().to_owned();
                 loop {
                     let Some(resources) = expect_aad_premium_p2_license(
@@ -268,22 +286,25 @@ mod tests {
                             &scope,
                             FetchChildrenBehaviour::default(),
                             &tenant_auth_context,
-                            &cancellation,
+                            &executor,
                         )
                         .await,
+                        cloud_terrastodon_auth_types::AzureBearerAuthSource::AzureCli,
+                        tenant_auth_context.tenant_id,
+                        &executor,
                     )
                     .await?
                     else {
                         return Ok(());
                     };
-                    let next_scope: EligibleChildResource = PickerTui::<_>::new()
+                    let next_scope: Arc<EligibleChildResource> = PickerTui::<_>::new()
                         .set_header("Choose a scope")
                         .pick_one(resources.into_iter().map(|x| Choice {
                             key: x.name.to_owned(),
                             value: x,
                         }))
                         .await?;
-                    scope = next_scope.id;
+                    scope = next_scope.id.clone();
                 }
             })
             .await
@@ -293,16 +314,23 @@ mod tests {
     async fn it_works_interactive2() -> Result<()> {
         CancellationToken::new()
             .cancellable_scope(|cancellation| async move {
+                let executor = crate::test_executor::test_executor(
+                    &cloud_terrastodon_auth::AuthContext::explicit_azure_cli(),
+                    &cancellation,
+                )?;
                 let auth_context = AuthContext::explicit_azure_cli()
                     .bind_to_azure_tenant(get_test_tenant_id(&cancellation).await?)?;
                 let Some(resources) = expect_aad_premium_p2_license(
-                    fetch_all_eligible_resource_containers(&auth_context, &cancellation).await,
+                    fetch_all_eligible_resource_containers(&auth_context, &executor).await,
+                    cloud_terrastodon_auth_types::AzureBearerAuthSource::AzureCli,
+                    auth_context.tenant_id,
+                    &executor,
                 )
                 .await?
                 else {
                     return Ok(());
                 };
-                let chosen: Vec<EligibleChildResource> = PickerTui::<_>::new()
+                let chosen: Vec<Arc<EligibleChildResource>> = PickerTui::<_>::new()
                     .pick_many(resources.into_iter().map(|x| Choice {
                         key: x.to_string(),
                         value: x,
@@ -317,4 +345,4 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(EligibleChildResourceListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(EligibleChildResourceListRequest<'static>);
-cloud_terrastodon_registry_execution::register_into_future!(EligibleChildResourceListRequest<'static> => Vec<EligibleChildResource>, effects = [Read]);
+cloud_terrastodon_registry_execution::register_executable_request!(EligibleChildResourceListRequest<'static> => Vec<Arc<EligibleChildResource>>, effects = [Read]);

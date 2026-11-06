@@ -124,6 +124,7 @@ struct CatalogRequestEnvelopeRequest {
 }
 
 impl ExecutableRequest for CatalogRequest {
+    type Error = eyre::Report;
     type Output = CatalogItem;
 
     fn run<'a>(self, _: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>
@@ -136,6 +137,7 @@ impl ExecutableRequest for CatalogRequest {
 }
 
 impl ExecutableRequest for ItemDetailsRequest {
+    type Error = eyre::Report;
     type Output = ItemDetails;
 
     fn run<'a>(self, _: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>
@@ -148,6 +150,7 @@ impl ExecutableRequest for ItemDetailsRequest {
 }
 
 impl ExecutableRequest for CatalogRequestEnvelopeRequest {
+    type Error = eyre::Report;
     type Output = CatalogRequestEnvelope;
 
     fn run<'a>(self, _: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>

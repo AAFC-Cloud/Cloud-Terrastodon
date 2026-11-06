@@ -9,7 +9,7 @@ use super::AzureTenantSetAuthSourceArgs;
 use super::AzureTenantShowArgs;
 use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
 /// Tenant-related commands for tracked tenant configuration.
@@ -46,8 +46,9 @@ impl AzureTenantArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<CliOutput> {
+        let cancellation = executor.cancellation();
         match self.command {
             AzureTenantCommand::Login(args) => {
                 Box::pin(args.invoke(auth_context, cancellation)).await?
@@ -57,9 +58,7 @@ impl AzureTenantArgs {
             AzureTenantCommand::Discover(args) => Box::pin(args.invoke(cancellation)).await?,
             AzureTenantCommand::Alias(args) => Box::pin(args.invoke(cancellation)).await?,
             AzureTenantCommand::Add(args) => Box::pin(args.invoke(cancellation)).await?,
-            AzureTenantCommand::Show(args) => {
-                Box::pin(args.invoke(auth_context, cancellation)).await?
-            }
+            AzureTenantCommand::Show(args) => Box::pin(args.invoke(auth_context, executor)).await?,
             AzureTenantCommand::Forget(args) => Box::pin(args.invoke(cancellation)).await?,
             AzureTenantCommand::SetAuthSource(args) => Box::pin(args.invoke(cancellation)).await?,
         }

@@ -1,11 +1,11 @@
 use crate::DesireDocument;
 use cloud_terrastodon::app::AuthContext;
-use cloud_terrastodon::app::CancellationScope;
 use cloud_terrastodon::app::CliOutput;
 use cloud_terrastodon::app::Result;
 use cloud_terrastodon::app::facet;
 use cloud_terrastodon::app::figue;
 use cloud_terrastodon::azure::AzureTenantId;
+use cloud_terrastodon::execution::CloudTerrastodonExecutor;
 use std::path::PathBuf;
 
 /// Compare desired relationships with fresh directory reads without applying changes.
@@ -30,15 +30,13 @@ impl GroupManagementPlanArgs {
     pub async fn invoke(
         self,
         auth: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<CliOutput> {
         let document = DesireDocument::try_from_path(&self.desired)?;
-        let plan = document
-            .try_plan(self.only_tenant, auth, cancellation)
-            .await?;
+        let plan = document.try_plan(self.only_tenant, auth, executor).await?;
         if let Some(path) = self.out {
-            cancellation.bail_if_cancelled()?;
-            plan.save(&path, cancellation)?;
+            executor.cancellation().bail_if_cancelled()?;
+            plan.save(&path, executor.cancellation())?;
         }
         let result = if plan.has_blockers() {
             Err(eyre::eyre!("Plan has blockers; no changes were made"))

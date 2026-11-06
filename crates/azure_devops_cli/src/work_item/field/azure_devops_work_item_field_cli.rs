@@ -4,7 +4,7 @@ use crate::work_item::field::remove::AzureDevOpsWorkItemFieldRemoveArgs;
 use crate::work_item::field::set::AzureDevOpsWorkItemFieldSetArgs;
 use crate::work_item::field::show::AzureDevOpsWorkItemFieldShowArgs;
 use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
 /// Read and write work item fields.
@@ -30,15 +30,17 @@ pub enum AzureDevOpsWorkItemFieldCommand {
 }
 
 impl AzureDevOpsWorkItemFieldArgs {
-    pub async fn invoke(self, auth: &AuthContext, cancellation: &CancellationScope) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth: &AuthContext,
+        executor: &CloudTerrastodonExecutor,
+    ) -> Result<()> {
         match self.command {
-            AzureDevOpsWorkItemFieldCommand::List(args) => args.invoke(auth, cancellation).await,
-            AzureDevOpsWorkItemFieldCommand::Show(args) => args.invoke(auth, cancellation).await,
-            AzureDevOpsWorkItemFieldCommand::Set(args) => args.invoke(auth, cancellation).await,
-            AzureDevOpsWorkItemFieldCommand::Remove(args) => args.invoke(auth, cancellation).await,
-            AzureDevOpsWorkItemFieldCommand::Definition(args) => {
-                args.invoke(auth, cancellation).await
-            }
+            AzureDevOpsWorkItemFieldCommand::List(args) => args.invoke(auth, executor).await,
+            AzureDevOpsWorkItemFieldCommand::Show(args) => args.invoke(auth, executor).await,
+            AzureDevOpsWorkItemFieldCommand::Set(args) => args.invoke(auth, executor).await,
+            AzureDevOpsWorkItemFieldCommand::Remove(args) => args.invoke(auth, executor).await,
+            AzureDevOpsWorkItemFieldCommand::Definition(args) => args.invoke(auth, executor).await,
         }
     }
 }

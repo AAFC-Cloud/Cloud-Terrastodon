@@ -2,7 +2,7 @@ use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::fetch_all_application_gateways;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use std::io::Write;
 use tracing::info;
@@ -19,15 +19,17 @@ impl AzureApplicationGatewayListArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let tenant_auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
         info!(tenant_id = %tenant_auth_context.tenant_id, "Fetching Azure application gateways");
         let application_gateways =
-            fetch_all_application_gateways(&tenant_auth_context, cancellation).await?;
+            fetch_all_application_gateways(&tenant_auth_context, executor).await?;
         info!(
             count = application_gateways.len(),
             "Fetched Azure application gateways"

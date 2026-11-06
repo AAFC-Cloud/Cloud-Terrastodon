@@ -1,3 +1,4 @@
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 pub mod application_registration;
 pub mod azure_entra_cli;
 pub mod group;
@@ -11,7 +12,6 @@ pub use application_registration::AzureEntraApplicationRegistrationArgs;
 pub use azure_entra_cli::AzureEntraCommand;
 use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 pub use group::AzureEntraGroupArgs;
 pub use oauth2_permission_grant::AzureEntraOAuth2PermissionGrantArgs;
@@ -31,8 +31,8 @@ impl AzureEntraArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<CliOutput> {
-        self.command.invoke(auth_context, cancellation).await
+        self.command.invoke(auth_context, executor).await
     }
 }

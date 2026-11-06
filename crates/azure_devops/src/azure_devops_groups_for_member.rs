@@ -3,34 +3,37 @@ use cloud_terrastodon_auth::AzureDevOpsAuthContext;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsDescriptor;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_types::ArbitraryJson;
-use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_cache::CacheKey;
+use cloud_terrastodon_cache::CacheOperationOwner;
+use cloud_terrastodon_cache::HasCacheKey;
+use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
+use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_rest::RestRequest;
 use reqwest::Method;
 use std::borrow::Cow;
 use std::path::PathBuf;
+use std::sync::Arc;
 
+#[track_caller]
 pub fn fetch_azure_devops_groups_for_member<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     member_id: &'a AzureDevOpsDescriptor,
     auth_context: &'a AzureDevOpsAuthContext,
-    cancellation: &CancellationScope,
-) -> AzureDevOpsGroupsForMemberRequest<'a> {
-    AzureDevOpsGroupsForMemberRequest {
-        cancellation: cancellation.clone(),
+    executor: &'a CloudTerrastodonExecutor,
+) -> RequestExecution<'a, AzureDevOpsGroupsForMemberRequest<'a>> {
+    executor.execute(AzureDevOpsGroupsForMemberRequest {
         org_url: Cow::Borrowed(org_url),
         member_id: Cow::Borrowed(member_id),
         auth_context: Cow::Borrowed(auth_context),
-    }
+    })
 }
 
 #[derive(Debug, Clone, facet::Facet)]
 #[facet(traits(Clone))]
 pub struct AzureDevOpsGroupsForMemberRequest<'a> {
-    #[facet(skip_serializing)]
-    pub cancellation: CancellationScope,
-
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub member_id: Cow<'a, AzureDevOpsDescriptor>,
     pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
@@ -39,7 +42,6 @@ pub struct AzureDevOpsGroupsForMemberRequest<'a> {
 impl<'a> Arbitrary<'a> for AzureDevOpsGroupsForMemberRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
-            cancellation: CancellationScope::arbitrary(u)?,
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             member_id: Cow::Owned(AzureDevOpsDescriptor::arbitrary(u)?),
             auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
@@ -50,7 +52,7 @@ impl<'a> Arbitrary<'a> for AzureDevOpsGroupsForMemberRequest<'static> {
 #[derive(Debug, facet::Facet)]
 pub struct AzureDevOpsGroupsForMemberResponse {
     pub count: usize,
-    pub value: Vec<AzureDevOpsGroupsForMemberResponseEntry>,
+    pub value: Arc<Vec<AzureDevOpsGroupsForMemberResponseEntry>>,
 }
 #[derive(Debug, facet::Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
@@ -60,45 +62,56 @@ pub struct AzureDevOpsGroupsForMemberResponseEntry {
     #[facet(rename = "_links")]
     pub links: ArbitraryJson,
 }
-
-#[async_trait]
-impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsGroupsForMemberRequest<'a> {
-    type Output = Vec<AzureDevOpsGroupsForMemberResponseEntry>;
-
-    fn cache_key(&self) -> CacheKey {
-        CacheKey::new(PathBuf::from_iter([
+impl<'a> HasCacheKey for AzureDevOpsGroupsForMemberRequest<'a> {
+    fn cache_key(&self) -> eyre::Result<CacheKey> {
+        CacheKey::from_relative_path(PathBuf::from_iter([
             "az",
             "devops",
             self.org_url.name(),
             "graph",
             "memberships",
             self.member_id.to_string().as_ref(),
+            "up",
         ]))
-    }
-
-    async fn run(self) -> eyre::Result<Self::Output> {
-        let organization = self.org_url.organization_name()?;
-        let subject_descriptor = &self.member_id;
-        let url = format!(
-            "https://vssps.dev.azure.com/{organization}/_apis/graph/Memberships/{subject_descriptor}?api-version=7.1-preview.1&direction=up",
-            organization = organization,
-            subject_descriptor = subject_descriptor
-        );
-        let request = RestRequest::new(Method::GET, url.as_str(), &self.cancellation)?
-            .cache(self.cache_key())
-            .azure_devops_auth_context(self.auth_context.as_ref())?;
-        Ok(request
-            .receive::<AzureDevOpsGroupsForMemberResponse>()
-            .await?
-            .value)
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsGroupsForMemberRequest<'a>, 'a);
+impl<'a> InvalidatesOwnCacheKey for AzureDevOpsGroupsForMemberRequest<'a> {}
+
+impl<'a> ExecutableRequest for AzureDevOpsGroupsForMemberRequest<'a> {
+    type Error = eyre::Report;
+    type Output = Arc<Vec<AzureDevOpsGroupsForMemberResponseEntry>>;
+    fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
+    where
+        Self: 'exec,
+        Self::Output: 'exec,
+    {
+        Box::pin(async move {
+            let organization = self.org_url.organization_name()?;
+            let subject_descriptor = &self.member_id;
+            let url = format!(
+                "https://vssps.dev.azure.com/{organization}/_apis/graph/Memberships/{subject_descriptor}?api-version=7.1-preview.1&direction=up",
+                organization = organization,
+                subject_descriptor = subject_descriptor
+            );
+            let request = RestRequest::new(Method::GET, url.as_str())?
+                .cache(self.cache_key()?)
+                .azure_devops_auth_context(self.auth_context.as_ref())?;
+            let response = request
+                .receive_cached::<AzureDevOpsGroupsForMemberResponse>(
+                    &executor,
+                    CacheOperationOwner::of::<AzureDevOpsGroupsForMemberRequest<'static>>(),
+                )
+                .await?;
+            Ok(Arc::clone(&response.value))
+        })
+    }
+}
+
 cloud_terrastodon_registry::register_thing!(AzureDevOpsGroupsForMemberRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsGroupsForMemberRequest<'static>);
-cloud_terrastodon_registry::register_arbitrary!(Vec<AzureDevOpsGroupsForMemberResponseEntry>);
-cloud_terrastodon_registry_execution::register_into_future!(AzureDevOpsGroupsForMemberRequest<'static> => Vec<AzureDevOpsGroupsForMemberResponseEntry>, effects = [Read]);
+cloud_terrastodon_registry::register_arbitrary!(Arc<Vec<AzureDevOpsGroupsForMemberResponseEntry>>);
+cloud_terrastodon_registry_execution::register_executable_request!(AzureDevOpsGroupsForMemberRequest<'static> => Arc<Vec<AzureDevOpsGroupsForMemberResponseEntry>>, effects = [Read]);
 
 #[cfg(test)]
 mod test {
@@ -118,11 +131,13 @@ mod test {
                     &auth_context,
                     crate::test_tenant_id::test_tenant_id()?,
                 )?;
+                let executor =
+                    crate::test_executor::test_executor(&azure_devops_auth_context, &cancellation)?;
                 let org_url = get_default_organization_url(&cancellation).await?;
                 let users = fetch_azure_devops_user_license_entitlements(
                     &org_url,
                     &azure_devops_auth_context,
-                    &cancellation,
+                    &executor,
                 )
                 .await?;
                 for user in users.iter().take(2) {
@@ -130,7 +145,7 @@ mod test {
                         &org_url,
                         &user.user.descriptor,
                         &azure_devops_auth_context,
-                        &cancellation,
+                        &executor,
                     )
                     .await?;
                     assert!(

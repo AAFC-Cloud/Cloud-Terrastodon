@@ -7,7 +7,7 @@ use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::fetch_all_policy_assignments;
 use cloud_terrastodon_azure::fetch_all_policy_definitions;
 use cloud_terrastodon_azure::fetch_all_policy_set_definitions;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Context;
@@ -23,34 +23,18 @@ use tracing::warn;
 /// This is a new function that merges “search assigned policies” with a compliance query.
 pub async fn browse_policy_assignments(
     auth_context: &AzureTenantAuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> eyre::Result<()> {
     info!("Fetching a bunch of data...");
-    let (policy_assignments, policy_definitions, mut policy_set_definitions, mut policy_compliance) =
-        match try_join!(
-            fetch_all_policy_assignments(auth_context, cancellation),
-            fetch_all_policy_definitions(auth_context, cancellation),
-            fetch_all_policy_set_definitions(auth_context, cancellation),
-            fetch_all_policy_compliance(auth_context, cancellation),
-        ) {
-            Ok(x) => x,
-            Err(e) => return Err(e).context("failed to fetch policy data"),
-        };
-
-    // make the policy definition reference IDs lowercase for equality sanity
-    for ele in policy_set_definitions
-        .iter_mut()
-        .flat_map(|policy_set_definition| &mut policy_set_definition.policy_definitions)
-        .flatten()
-    {
-        ele.policy_definition_reference_id.make_ascii_lowercase();
-    }
-    for ele in policy_compliance
-        .iter_mut()
-        .filter_map(|x| x.policy_definition_reference_id.as_mut())
-    {
-        ele.make_ascii_lowercase();
-    }
+    let (policy_assignments, policy_definitions, policy_set_definitions, policy_compliance) = match try_join!(
+        fetch_all_policy_assignments(auth_context, executor),
+        fetch_all_policy_definitions(auth_context, executor),
+        fetch_all_policy_set_definitions(auth_context, executor),
+        fetch_all_policy_compliance(auth_context, executor),
+    ) {
+        Ok(x) => x,
+        Err(e) => return Err(e).context("failed to fetch policy data"),
+    };
 
     let policy_definition_map = policy_definitions
         .iter()
@@ -62,14 +46,18 @@ pub async fn browse_policy_assignments(
         .collect::<HashMap<_, _>>();
     let policy_compliance_map: HashMap<
         &PolicyAssignmentId,
-        HashMap<Option<&str>, &PolicyComplianceRow>,
+        HashMap<Option<String>, &PolicyComplianceRow>,
     > = policy_compliance
         .iter()
         .fold(HashMap::new(), |mut acc, elem| {
             acc.entry(&elem.policy_assignment_id)
                 .or_default()
-                .entry(elem.policy_definition_reference_id.as_deref())
-                .or_insert(elem);
+                .entry(
+                    elem.policy_definition_reference_id
+                        .as_ref()
+                        .map(|id| id.to_ascii_lowercase()),
+                )
+                .or_insert(elem.as_ref());
             acc
         });
 
@@ -205,11 +193,15 @@ pub async fn browse_policy_assignments(
                     }
                     row.insert(
                         "pol reference id",
-                        inner_definition.policy_definition_reference_id.to_owned(),
+                        inner_definition
+                            .policy_definition_reference_id
+                            .to_ascii_lowercase(),
                     );
                     if let Some(compliance) = policy_compliance_map.get(&ass.id) {
                         if let Some(compliance) = compliance.get(&Some(
-                            inner_definition.policy_definition_reference_id.as_str(),
+                            inner_definition
+                                .policy_definition_reference_id
+                                .to_ascii_lowercase(),
                         )) {
                             row.insert(
                                 "pol compliance",

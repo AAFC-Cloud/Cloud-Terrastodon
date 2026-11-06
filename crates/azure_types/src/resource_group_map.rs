@@ -5,14 +5,15 @@ use itertools::Itertools;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::ops::DerefMut;
+use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct ResourceGroupMap {
-    resource_groups: HashMap<ResourceGroupId, ResourceGroup>,
+    resource_groups: HashMap<ResourceGroupId, Arc<ResourceGroup>>,
     resource_groups_by_subscription: HashMap<SubscriptionId, Vec<ResourceGroupId>>,
 }
 impl Deref for ResourceGroupMap {
-    type Target = HashMap<ResourceGroupId, ResourceGroup>;
+    type Target = HashMap<ResourceGroupId, Arc<ResourceGroup>>;
 
     fn deref(&self) -> &Self::Target {
         &self.resource_groups
@@ -23,9 +24,9 @@ impl DerefMut for ResourceGroupMap {
         &mut self.resource_groups
     }
 }
-impl From<Vec<ResourceGroup>> for ResourceGroupMap {
-    fn from(resource_groups: Vec<ResourceGroup>) -> Self {
-        let resource_groups: HashMap<ResourceGroupId, ResourceGroup> = resource_groups
+impl From<Vec<Arc<ResourceGroup>>> for ResourceGroupMap {
+    fn from(resource_groups: Vec<Arc<ResourceGroup>>) -> Self {
+        let resource_groups: HashMap<ResourceGroupId, Arc<ResourceGroup>> = resource_groups
             .into_iter()
             .map(|rg| (rg.id.clone(), rg))
             .collect();
@@ -45,7 +46,7 @@ impl ResourceGroupMap {
         if let Some(resource_group_ids) = self.resource_groups_by_subscription.get(subscription_id)
         {
             for resource_group_id in resource_group_ids {
-                rtn.push(&self[resource_group_id]);
+                rtn.push(self[resource_group_id].as_ref());
             }
         }
         rtn

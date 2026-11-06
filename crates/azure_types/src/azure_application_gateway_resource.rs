@@ -5,6 +5,7 @@ use crate::AzureLocationName;
 use crate::AzureTenantId;
 use arbitrary::Arbitrary;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 #[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
@@ -451,3 +452,4 @@ pub struct AzureApplicationGatewayResourceReference {
 cloud_terrastodon_registry::register_thing!(AzureApplicationGatewayResource);
 cloud_terrastodon_registry::register_arbitrary!(AzureApplicationGatewayResource);
 cloud_terrastodon_registry::register_arbitrary!(Vec<AzureApplicationGatewayResource>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<AzureApplicationGatewayResource>>);

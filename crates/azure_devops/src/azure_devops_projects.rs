@@ -2,56 +2,55 @@ use arbitrary::Arbitrary;
 use cloud_terrastodon_auth::AzureDevOpsAuthContext;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProject;
-use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_cache::CacheKey;
+use cloud_terrastodon_cache::CacheOperationOwner;
+use cloud_terrastodon_cache::HasCacheKey;
+use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
+use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_rest::RestRequest;
+#[cfg(test)]
 use eyre::Result;
 use facet::Facet;
 use reqwest::Method;
 use std::borrow::Cow;
 use std::path::PathBuf;
+use std::sync::Arc;
 use tracing::debug;
 
 #[derive(Debug, Clone, facet::Facet)]
 // Facet's pinned derive cannot autodetect Clone on lifetime-generic types.
 #[facet(traits(Clone))]
 pub struct AzureDevOpsProjectsListRequest<'a> {
-    #[facet(skip_serializing)]
-    pub cancellation: CancellationScope,
-
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
 }
 
+#[track_caller]
 pub fn fetch_all_azure_devops_projects<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     auth_context: &'a AzureDevOpsAuthContext,
-    cancellation: &CancellationScope,
-) -> AzureDevOpsProjectsListRequest<'a> {
-    AzureDevOpsProjectsListRequest {
-        cancellation: cancellation.clone(),
+    executor: &'a CloudTerrastodonExecutor,
+) -> RequestExecution<'a, AzureDevOpsProjectsListRequest<'a>> {
+    executor.execute(AzureDevOpsProjectsListRequest {
         org_url: Cow::Borrowed(org_url),
         auth_context: Cow::Borrowed(auth_context),
-    }
+    })
 }
 
 impl<'a> Arbitrary<'a> for AzureDevOpsProjectsListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
-            cancellation: CancellationScope::arbitrary(u)?,
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
         })
     }
 }
-
-#[async_trait]
-impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsProjectsListRequest<'a> {
-    type Output = Vec<AzureDevOpsProject>;
-
-    fn cache_key(&self) -> CacheKey {
-        CacheKey::new(PathBuf::from_iter([
+impl<'a> HasCacheKey for AzureDevOpsProjectsListRequest<'a> {
+    fn cache_key(&self) -> eyre::Result<CacheKey> {
+        CacheKey::from_relative_path(PathBuf::from_iter([
             "az",
             "devops",
             self.org_url.name(),
@@ -59,63 +58,81 @@ impl<'a> cloud_terrastodon_command::CacheableCommand for AzureDevOpsProjectsList
             "list",
         ]))
     }
+}
 
-    async fn run(self) -> Result<Self::Output> {
-        debug!("Fetching Azure DevOps projects");
-        #[derive(Facet)]
-        #[facet(rename_all = "camelCase")]
-        pub struct Response {
-            value: Vec<AzureDevOpsProject>,
-        }
+impl<'a> InvalidatesOwnCacheKey for AzureDevOpsProjectsListRequest<'a> {}
 
-        let mut projects = Vec::new();
-        let cache_key = self.cache_key();
-        let mut page_index = 0;
-        let query = [("api-version", "7.1")];
-        let url = self
-            .org_url
-            .api_url("dev.azure.com", "_apis/projects", &query)?;
-        // Attaching authentication only records request policy. RestRequest
-        // resolves credentials after its cache lookup, so healthy cached pages
-        // remain usable when the selected authentication source has expired.
-        let request = RestRequest::from_method_and_url(Method::GET, url, &self.cancellation)?
-            .cache(cache_key.join(page_index.to_string()))
-            .azure_devops_auth_context(self.auth_context.as_ref())?;
-        let (mut response, mut continuation) = request
-            .receive_with_ms_continuation_token::<Response>()
-            .await?;
-        projects.extend(response.value);
-        page_index += 1;
+impl<'a> ExecutableRequest for AzureDevOpsProjectsListRequest<'a> {
+    type Error = eyre::Report;
+    type Output = Vec<Arc<AzureDevOpsProject>>;
+    fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
+    where
+        Self: 'exec,
+        Self::Output: 'exec,
+    {
+        Box::pin(async move {
+            debug!("Fetching Azure DevOps projects");
+            #[derive(Facet)]
+            #[facet(rename_all = "camelCase")]
+            pub struct Response {
+                value: Vec<Arc<AzureDevOpsProject>>,
+            }
 
-        while let Some(next_continuation) = continuation.take() {
-            self.cancellation.bail_if_cancelled()?;
-            debug!("Fetching the next page of projects");
-            let query = [
-                ("api-version", "7.1"),
-                ("continuationToken", next_continuation.as_str()),
-            ];
+            let mut projects = Vec::new();
+            let cache_key = self.cache_key()?;
+            let mut page_index = 0;
+            let query = [("api-version", "7.1")];
             let url = self
                 .org_url
                 .api_url("dev.azure.com", "_apis/projects", &query)?;
-            let request = RestRequest::from_method_and_url(Method::GET, url, &self.cancellation)?
-                .cache(cache_key.join(page_index.to_string()))
+            // Attaching authentication only records request policy. RestRequest
+            // resolves credentials after its cache lookup, so healthy cached pages
+            // remain usable when the selected authentication source has expired.
+            let request = RestRequest::from_method_and_url(Method::GET, url)?
+                .cache(cache_key.join(page_index.to_string())?)
                 .azure_devops_auth_context(self.auth_context.as_ref())?;
-            (response, continuation) = request.receive_with_ms_continuation_token().await?;
-            projects.extend(response.value);
+            let (mut response, mut continuation) = request
+                .receive_with_ms_continuation_token_cached::<Response>(
+                    &executor,
+                    CacheOperationOwner::of::<AzureDevOpsProjectsListRequest<'static>>(),
+                )
+                .await?;
+            projects.extend(response.value.iter().cloned());
             page_index += 1;
-        }
 
-        debug!("Found {} Azure DevOps projects", projects.len());
-        Ok(projects)
+            while let Some(next_continuation) = continuation.take() {
+                executor.cancellation().bail_if_cancelled()?;
+                debug!("Fetching the next page of projects");
+                let query = [
+                    ("api-version", "7.1"),
+                    ("continuationToken", next_continuation.as_str()),
+                ];
+                let url = self
+                    .org_url
+                    .api_url("dev.azure.com", "_apis/projects", &query)?;
+                let request = RestRequest::from_method_and_url(Method::GET, url)?
+                    .cache(cache_key.join(page_index.to_string())?)
+                    .azure_devops_auth_context(self.auth_context.as_ref())?;
+                (response, continuation) = request
+                    .receive_with_ms_continuation_token_cached::<Response>(
+                        &executor,
+                        CacheOperationOwner::of::<AzureDevOpsProjectsListRequest<'static>>(),
+                    )
+                    .await?;
+                projects.extend(response.value.iter().cloned());
+                page_index += 1;
+            }
+
+            debug!("Found {} Azure DevOps projects", projects.len());
+            Ok(projects)
+        })
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsProjectsListRequest<'a>, 'a);
-
 cloud_terrastodon_registry::register_thing!(AzureDevOpsProjectsListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsProjectsListRequest<'static>);
-cloud_terrastodon_registry_execution::register_into_future!(
-    AzureDevOpsProjectsListRequest<'static> => Vec<AzureDevOpsProject>,
+cloud_terrastodon_registry_execution::register_executable_request!(
+    AzureDevOpsProjectsListRequest<'static> => Vec<Arc<AzureDevOpsProject>>,
     effects = [Read]
 );
 
@@ -138,9 +155,8 @@ mod tests {
         static AUTH: AzureDevOpsAuthContext = AzureDevOpsAuthContext::None;
 
         for borrowed in [false, true] {
-            CancellationToken::new().with_scope(|scope| {
+            CancellationToken::new().with_scope(|_scope| {
                 let original = RuntimeValue::from_box(Box::new(AzureDevOpsProjectsListRequest {
-                    cancellation: scope.clone(),
                     org_url: if borrowed {
                         Cow::Borrowed(&*ORG)
                     } else {
@@ -166,8 +182,6 @@ mod tests {
                 ));
                 assert_eq!(matches!(cloned.org_url, Cow::Borrowed(_)), borrowed);
                 assert_eq!(matches!(cloned.auth_context, Cow::Borrowed(_)), borrowed);
-                scope.request_cancel("verify reflected clones share cancellation intent");
-                assert!(cloned.cancellation.is_cancelled());
                 Ok::<_, eyre::Report>(())
             })?;
         }
@@ -183,11 +197,13 @@ mod tests {
                     &auth_context,
                     crate::test_tenant_id::test_tenant_id()?,
                 )?;
+                let executor =
+                    crate::test_executor::test_executor(&azure_devops_auth_context, &cancellation)?;
                 let org_url = get_default_organization_url(&cancellation).await?;
                 let projects = fetch_all_azure_devops_projects(
                     &org_url,
                     &azure_devops_auth_context,
-                    &cancellation,
+                    &executor,
                 )
                 .await?;
                 assert!(!projects.is_empty());

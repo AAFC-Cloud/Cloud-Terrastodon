@@ -14,6 +14,7 @@ use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
 use cloud_terrastodon_azure_types::ArbitraryJson;
+use std::sync::Arc;
 
 /// A definition reference returned by the build definitions list endpoint.
 ///
@@ -48,3 +49,4 @@ pub struct AzureDevOpsBuildDefinitionReference {
 cloud_terrastodon_registry::register_thing!(AzureDevOpsBuildDefinitionReference);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsBuildDefinitionReference);
 cloud_terrastodon_registry::register_arbitrary!(Vec<AzureDevOpsBuildDefinitionReference>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<AzureDevOpsBuildDefinitionReference>>);

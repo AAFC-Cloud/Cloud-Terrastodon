@@ -2,7 +2,7 @@ use crate::work_item::r#type::field::AzureDevOpsWorkItemTypeFieldArgs;
 use crate::work_item::r#type::list::AzureDevOpsWorkItemTypeListArgs;
 use crate::work_item::r#type::show::AzureDevOpsWorkItemTypeShowArgs;
 use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
 /// Inspect project work item types.
@@ -24,11 +24,15 @@ pub enum AzureDevOpsWorkItemTypeCommand {
 }
 
 impl AzureDevOpsWorkItemTypeArgs {
-    pub async fn invoke(self, auth: &AuthContext, cancellation: &CancellationScope) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth: &AuthContext,
+        executor: &CloudTerrastodonExecutor,
+    ) -> Result<()> {
         match self.command {
-            AzureDevOpsWorkItemTypeCommand::List(args) => args.invoke(auth, cancellation).await,
-            AzureDevOpsWorkItemTypeCommand::Show(args) => args.invoke(auth, cancellation).await,
-            AzureDevOpsWorkItemTypeCommand::Field(args) => args.invoke(auth, cancellation).await,
+            AzureDevOpsWorkItemTypeCommand::List(args) => args.invoke(auth, executor).await,
+            AzureDevOpsWorkItemTypeCommand::Show(args) => args.invoke(auth, executor).await,
+            AzureDevOpsWorkItemTypeCommand::Field(args) => args.invoke(auth, executor).await,
         }
     }
 }

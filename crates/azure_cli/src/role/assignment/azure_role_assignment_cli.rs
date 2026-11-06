@@ -2,7 +2,7 @@ use super::AzureRoleAssignmentBrowseArgs;
 use super::AzureRoleAssignmentListArgs;
 use super::azure_role_assignment_create_cli::AzureRoleAssignmentCreateArgs;
 use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
 /// Subcommands for Azure role assignment operations.
@@ -22,16 +22,12 @@ impl AzureRoleAssignmentCommand {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
         match self {
-            AzureRoleAssignmentCommand::List(args) => args.invoke(auth_context, cancellation).await,
-            AzureRoleAssignmentCommand::Browse(args) => {
-                args.invoke(auth_context, cancellation).await
-            }
-            AzureRoleAssignmentCommand::Create(args) => {
-                args.invoke(auth_context, cancellation).await
-            }
+            AzureRoleAssignmentCommand::List(args) => args.invoke(auth_context, executor).await,
+            AzureRoleAssignmentCommand::Browse(args) => args.invoke(auth_context, executor).await,
+            AzureRoleAssignmentCommand::Create(args) => args.invoke(auth_context, executor).await,
         }
     }
 }

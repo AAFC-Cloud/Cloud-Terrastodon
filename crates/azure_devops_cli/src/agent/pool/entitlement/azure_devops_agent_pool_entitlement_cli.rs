@@ -1,6 +1,6 @@
 use crate::agent::pool::entitlement::list::AzureDevOpsAgentPoolEntitlementListArgs;
 use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
 /// Azure DevOps agent pool entitlement-related commands (grouping for entitlement subcommands).
@@ -21,11 +21,11 @@ impl AzureDevOpsAgentPoolEntitlementArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
         match self.command {
             AzureDevOpsAgentPoolEntitlementCommand::List(args) => {
-                args.invoke(auth_context, cancellation).await?
+                args.invoke(auth_context, executor).await?
             }
         }
 

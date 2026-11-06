@@ -1,10 +1,10 @@
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 pub mod browse;
 pub mod publisher;
 
 use crate::vm::browse::AzureVmBrowseArgs;
 use crate::vm::publisher::AzureVmPublisherArgs;
 use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 
 /// Virtual machine related subcommands.
@@ -28,11 +28,11 @@ impl AzureVmArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
         match self.command {
-            AzureVmCommand::Publisher(args) => args.invoke(auth_context, cancellation).await,
-            AzureVmCommand::Browse(args) => args.invoke(auth_context, cancellation).await,
+            AzureVmCommand::Publisher(args) => args.invoke(auth_context, executor).await,
+            AzureVmCommand::Browse(args) => args.invoke(auth_context, executor).await,
         }
     }
 }

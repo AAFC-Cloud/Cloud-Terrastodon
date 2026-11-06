@@ -10,11 +10,13 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsUserArgument;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsUserEntitlementsPatchResponse;
 use cloud_terrastodon_azure_types::ArbitraryJson;
-use cloud_terrastodon_command::CacheInvalidatable;
-use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CacheableCommand;
-use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_cache::CacheKey;
+use cloud_terrastodon_cache::HasCacheKey;
+use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
+use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_rest::RequestHeaders;
 use cloud_terrastodon_rest::RestRequest;
 use reqwest::Method;
@@ -23,39 +25,35 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 /// <https://learn.microsoft.com/en-us/rest/api/azure/devops/memberentitlementmanagement/user-entitlements/update-user-entitlement?view=azure-devops-rest-7.1>
-#[must_use = "This is an unsent request, you must .await it"]
+#[must_use = "This is an unsent request, you must .execute it"]
 #[derive(Debug, Clone, facet::Facet)]
 #[facet(traits(Clone))]
 pub struct AzureDevOpsUserLicenseEntitlementUpdateRequest<'a> {
-    #[facet(skip_serializing)]
-    pub cancellation: CancellationScope,
-
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
     pub user: AzureDevOpsUserArgument<'a>,
     pub license_kind: AzureDevOpsLicenseType,
 }
 
+#[track_caller]
 pub fn update_azure_devops_user_license_entitlement<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     user: impl Into<AzureDevOpsUserArgument<'a>>,
     license_kind: AzureDevOpsLicenseType,
     auth_context: &'a AzureDevOpsAuthContext,
-    cancellation: &CancellationScope,
-) -> AzureDevOpsUserLicenseEntitlementUpdateRequest<'a> {
-    AzureDevOpsUserLicenseEntitlementUpdateRequest {
-        cancellation: cancellation.clone(),
+    executor: &'a CloudTerrastodonExecutor,
+) -> RequestExecution<'a, AzureDevOpsUserLicenseEntitlementUpdateRequest<'a>> {
+    executor.execute(AzureDevOpsUserLicenseEntitlementUpdateRequest {
         org_url: Cow::Borrowed(org_url),
         auth_context: Cow::Borrowed(auth_context),
         user: user.into(),
         license_kind,
-    }
+    })
 }
 
 impl<'a> Arbitrary<'a> for AzureDevOpsUserLicenseEntitlementUpdateRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
-            cancellation: CancellationScope::arbitrary(u)?,
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
             user: AzureDevOpsUserArgument::arbitrary(u)?.into_owned(),
@@ -63,14 +61,10 @@ impl<'a> Arbitrary<'a> for AzureDevOpsUserLicenseEntitlementUpdateRequest<'stati
         })
     }
 }
-
-#[async_trait]
-impl<'a> CacheableCommand for AzureDevOpsUserLicenseEntitlementUpdateRequest<'a> {
-    type Output = AzureDevOpsLicenseEntitlementUpdateResponse;
-
-    fn cache_key(&self) -> CacheKey {
-        CacheKey {
-            path: PathBuf::from_iter([
+impl<'a> HasCacheKey for AzureDevOpsUserLicenseEntitlementUpdateRequest<'a> {
+    fn cache_key(&self) -> eyre::Result<CacheKey> {
+        {
+            let mut key = CacheKey::from_relative_path(PathBuf::from_iter([
                 "az",
                 "devops",
                 self.org_url.name(),
@@ -78,55 +72,67 @@ impl<'a> CacheableCommand for AzureDevOpsUserLicenseEntitlementUpdateRequest<'a>
                 "entitlement",
                 "update-user",
                 &self.user.to_string(),
-            ]),
-            valid_for: Duration::ZERO, // this is an update operation, so no caching
+            ]))?;
+            key.valid_for = Duration::ZERO;
+            Ok(key)
         }
     }
-    async fn run(self) -> eyre::Result<Self::Output> {
-        let access_level = AzureDevOpsLicenseAccessLevelUpdate::try_from(&self.license_kind)?;
-        let user_id = match &self.user {
-            AzureDevOpsUserArgument::Id(id) => *id.as_ref(),
-            AzureDevOpsUserArgument::Email(_) => {
-                let listing = fetch_azure_devops_user_license_entitlements(
-                    self.org_url.as_ref(),
-                    self.auth_context.as_ref(),
-                    &self.cancellation,
-                );
-                listing.invalidate().await?;
-                let users = listing.await?;
-                let mut matches = users
-                    .into_iter()
-                    .filter(|entry| self.user.matches(&entry.user));
-                let user = matches
-                    .next()
-                    .ok_or_else(|| eyre::eyre!("no entitlement matches the selected user"))?;
-                eyre::ensure!(
-                    matches.next().is_none(),
-                    "the user selection matches multiple entitlements"
-                );
-                user.user_id
-            }
-        };
-        let patch = AzureDevOpsJsonPatch::new(vec![AzureDevOpsJsonPatchOperation::Replace {
-            path: "/accessLevel".to_owned(),
-            value: ArbitraryJson::try_from_facet(&access_level)?,
-        }])?;
-        let mut url = self
-            .org_url
-            .api_url("vsaex.dev.azure.com", "", &[("api-version", "7.1")])?;
-        url.path_segments_mut()
-            .map_err(|()| eyre::eyre!("organization URL must have a hierarchical path"))?
-            .pop_if_empty()
-            .extend(["_apis", "userentitlements", &user_id.to_string()]);
-        let cache_key = self.cache_key();
-        // Retain the mutation result and invalidate its affected inventory as
-        // one completion unit. A decoded partial failure can have side effects.
-        self.cancellation
-            .deferred(
-                "updating a user license and invalidating entitlements",
-                |cancellation| async move {
-                    let response =
-                        RestRequest::from_method_and_url(Method::PATCH, url, &cancellation)?
+}
+
+impl<'a> InvalidatesOwnCacheKey for AzureDevOpsUserLicenseEntitlementUpdateRequest<'a> {}
+
+impl<'a> ExecutableRequest for AzureDevOpsUserLicenseEntitlementUpdateRequest<'a> {
+    type Error = eyre::Report;
+    type Output = AzureDevOpsLicenseEntitlementUpdateResponse;
+    fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
+    where
+        Self: 'exec,
+        Self::Output: 'exec,
+    {
+        Box::pin(async move {
+            let access_level = AzureDevOpsLicenseAccessLevelUpdate::try_from(&self.license_kind)?;
+            let user_id = match &self.user {
+                AzureDevOpsUserArgument::Id(id) => *id.as_ref(),
+                AzureDevOpsUserArgument::Email(_) => {
+                    let listing = fetch_azure_devops_user_license_entitlements(
+                        self.org_url.as_ref(),
+                        self.auth_context.as_ref(),
+                        &executor,
+                    );
+                    listing.invalidate().await?;
+                    let users = listing.await?;
+                    let mut matches = users
+                        .into_iter()
+                        .filter(|entry| self.user.matches(&entry.user));
+                    let user = matches
+                        .next()
+                        .ok_or_else(|| eyre::eyre!("no entitlement matches the selected user"))?;
+                    eyre::ensure!(
+                        matches.next().is_none(),
+                        "the user selection matches multiple entitlements"
+                    );
+                    user.user_id
+                }
+            };
+            let patch = AzureDevOpsJsonPatch::new(vec![AzureDevOpsJsonPatchOperation::Replace {
+                path: "/accessLevel".to_owned(),
+                value: ArbitraryJson::try_from_facet(&access_level)?,
+            }])?;
+            let mut url =
+                self.org_url
+                    .api_url("vsaex.dev.azure.com", "", &[("api-version", "7.1")])?;
+            url.path_segments_mut()
+                .map_err(|()| eyre::eyre!("organization URL must have a hierarchical path"))?
+                .pop_if_empty()
+                .extend(["_apis", "userentitlements", &user_id.to_string()]);
+            let cache_key = self.cache_key()?;
+            // Retain the mutation result and invalidate its affected inventory as
+            // one completion unit. A decoded partial failure can have side effects.
+            executor
+                .deferred(
+                    "updating a user license and invalidating entitlements",
+                    |executor| async move {
+                        let response = RestRequest::from_method_and_url(Method::PATCH, url)?
                             .headers(RequestHeaders::from_header(
                                 "Content-Type",
                                 "application/json-patch+json",
@@ -134,53 +140,53 @@ impl<'a> CacheableCommand for AzureDevOpsUserLicenseEntitlementUpdateRequest<'a>
                             .body(facet_json::to_string(&patch)?)
                             .cache(cache_key)
                             .azure_devops_auth_context(self.auth_context.as_ref())?
-                            .receive::<AzureDevOpsUserEntitlementsPatchResponse>()
+                            .receive::<AzureDevOpsUserEntitlementsPatchResponse>(&executor)
                             .await;
-                    // A response-decoding failure cannot prove that PATCH had no effect.
-                    let invalidation = fetch_azure_devops_user_license_entitlements(
-                        self.org_url.as_ref(),
-                        self.auth_context.as_ref(),
-                        &cancellation,
-                    )
-                    .invalidate()
-                    .await;
-                    let response = match (response, invalidation) {
-                        (Ok(response), Ok(())) => response,
-                        (Err(error), Ok(())) | (Ok(_), Err(error)) => return Err(error),
-                        (Err(error), Err(invalidation)) => {
-                            return Err(error.wrap_err(format!(
+                        // A response-decoding failure cannot prove that PATCH had no effect.
+                        let invalidation = fetch_azure_devops_user_license_entitlements(
+                            self.org_url.as_ref(),
+                            self.auth_context.as_ref(),
+                            &executor,
+                        )
+                        .invalidate()
+                        .await;
+                        let response = match (response, invalidation) {
+                            (Ok(response), Ok(())) => response,
+                            (Err(error), Ok(())) | (Ok(_), Err(error)) => return Err(error),
+                            (Err(error), Err(invalidation)) => {
+                                return Err(error.wrap_err(format!(
                                 "entitlement inventory invalidation also failed: {invalidation:#}"
                             )));
-                        }
-                    };
-                    eyre::ensure!(
-                        response.is_success
-                            && response
-                                .operation_results
-                                .iter()
-                                .all(|operation| operation.is_success),
-                        "Azure DevOps rejected one or more license changes: {:?}",
-                        response.operation_results,
-                    );
-                    eyre::ensure!(
-                        response.user_entitlement.id == user_id,
-                        "license update returned a different user"
-                    );
-                    Ok(response.user_entitlement)
-                },
-            )
-            .await
+                            }
+                        };
+                        eyre::ensure!(
+                            response.is_success
+                                && response
+                                    .operation_results
+                                    .iter()
+                                    .all(|operation| operation.is_success),
+                            "Azure DevOps rejected one or more license changes: {:?}",
+                            response.operation_results,
+                        );
+                        eyre::ensure!(
+                            response.user_entitlement.id == user_id,
+                            "license update returned a different user"
+                        );
+                        Ok(response.user_entitlement)
+                    },
+                )
+                .await
+        })
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsUserLicenseEntitlementUpdateRequest<'a>, 'a);
 cloud_terrastodon_registry::register_thing!(
     AzureDevOpsUserLicenseEntitlementUpdateRequest<'static>
 );
 cloud_terrastodon_registry::register_arbitrary!(
     AzureDevOpsUserLicenseEntitlementUpdateRequest<'static>
 );
-cloud_terrastodon_registry_execution::register_into_future!(AzureDevOpsUserLicenseEntitlementUpdateRequest<'static> => AzureDevOpsLicenseEntitlementUpdateResponse, effects = [Write]);
+cloud_terrastodon_registry_execution::register_executable_request!(AzureDevOpsUserLicenseEntitlementUpdateRequest<'static> => AzureDevOpsLicenseEntitlementUpdateResponse, effects = [Write]);
 
 #[cfg(test)]
 mod tests {

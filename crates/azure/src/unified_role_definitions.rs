@@ -1,10 +1,13 @@
 use crate::MicrosoftGraphHelper;
 use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure_types::UnifiedRoleDefinitionCollection;
-use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CacheableCommand;
-use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_cache::CacheKey;
+use cloud_terrastodon_cache::HasCacheKey;
+use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
+use cloud_terrastodon_execution::RequestExecution;
 use std::borrow::Cow;
 use std::path::PathBuf;
 
@@ -13,46 +16,41 @@ use std::path::PathBuf;
 /// Not to be confused with Azure RBAC role assignments.
 #[derive(facet::Facet)]
 pub struct UnifiedRoleDefinitionListRequest<'a> {
-    #[facet(skip_serializing)]
-    pub cancellation: CancellationScope,
-
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
 
 impl<'a> arbitrary::Arbitrary<'a> for UnifiedRoleDefinitionListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
-            cancellation: arbitrary::Arbitrary::arbitrary(u)?,
             auth_context: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
         })
     }
 }
 
+#[track_caller]
 pub fn fetch_all_unified_role_definitions<'a>(
     auth_context: &'a AzureTenantAuthContext,
-    cancellation: &CancellationScope,
-) -> UnifiedRoleDefinitionListRequest<'a> {
-    UnifiedRoleDefinitionListRequest {
-        cancellation: cancellation.clone(),
+    executor: &'a CloudTerrastodonExecutor,
+) -> RequestExecution<'a, UnifiedRoleDefinitionListRequest<'a>> {
+    executor.execute(UnifiedRoleDefinitionListRequest {
         auth_context: Cow::Borrowed(auth_context),
-    }
+    })
 }
+#[track_caller]
 pub fn fetch_all_entra_role_definitions<'a>(
     auth_context: &'a AzureTenantAuthContext,
-    cancellation: &CancellationScope,
-) -> UnifiedRoleDefinitionListRequest<'a> {
-    UnifiedRoleDefinitionListRequest {
-        cancellation: cancellation.clone(),
+    executor: &'a CloudTerrastodonExecutor,
+) -> RequestExecution<'a, UnifiedRoleDefinitionListRequest<'a>> {
+    executor.execute(UnifiedRoleDefinitionListRequest {
         auth_context: Cow::Borrowed(auth_context),
-    }
+    })
 }
 
-#[async_trait]
-impl CacheableCommand for UnifiedRoleDefinitionListRequest<'_> {
-    type Output = UnifiedRoleDefinitionCollection;
+impl InvalidatesOwnCacheKey for UnifiedRoleDefinitionListRequest<'_> {}
 
-    fn cache_key(&self) -> CacheKey {
-        CacheKey::new(PathBuf::from_iter([
+impl HasCacheKey for UnifiedRoleDefinitionListRequest<'_> {
+    fn cache_key(&self) -> eyre::Result<CacheKey> {
+        CacheKey::from_relative_path(PathBuf::from_iter([
             "ms",
             "graph",
             "GET",
@@ -60,23 +58,28 @@ impl CacheableCommand for UnifiedRoleDefinitionListRequest<'_> {
             self.auth_context.tenant_id.to_string().as_str(),
         ]))
     }
+}
 
-    async fn run(self) -> eyre::Result<Self::Output> {
-        let url = "https://graph.microsoft.com/beta/roleManagement/directory/roleDefinitions"; // ?$top=500
-        let query = MicrosoftGraphHelper::new(
-            url,
-            Some(self.cache_key()),
-            self.auth_context.as_ref(),
-            &self.cancellation,
-        );
-        query
-            .fetch_all(&self.cancellation)
-            .await
-            .map(UnifiedRoleDefinitionCollection::new)
+impl ExecutableRequest for UnifiedRoleDefinitionListRequest<'_> {
+    type Error = eyre::Report;
+    type Output = UnifiedRoleDefinitionCollection;
+    fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
+    where
+        Self: 'exec,
+        Self::Output: 'exec,
+    {
+        Box::pin(async move {
+            let url = "https://graph.microsoft.com/beta/roleManagement/directory/roleDefinitions"; // ?$top=500
+            let query =
+                MicrosoftGraphHelper::new(url, Some(self.cache_key()?), self.auth_context.as_ref());
+            query
+                .fetch_all(&executor)
+                .await
+                .map(UnifiedRoleDefinitionCollection::new)
+        })
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(UnifiedRoleDefinitionListRequest<'a>, 'a);
 #[cfg(test)]
 mod test {
     use crate::fetch_all_unified_role_definitions;
@@ -88,10 +91,14 @@ mod test {
     pub async fn it_works() -> eyre::Result<()> {
         CancellationToken::new()
             .cancellable_scope(|cancellation| async move {
+                let executor = crate::test_executor::test_executor(
+                    &cloud_terrastodon_auth::AuthContext::explicit_azure_cli(),
+                    &cancellation,
+                )?;
                 let auth_context = AuthContext::explicit_azure_cli()
                     .bind_to_azure_tenant(get_test_tenant_id(&cancellation).await?)?;
                 let role_definitions =
-                    fetch_all_unified_role_definitions(&auth_context, &cancellation).await?;
+                    fetch_all_unified_role_definitions(&auth_context, &executor).await?;
                 assert!(!role_definitions.is_empty());
                 assert!(
                     role_definitions
@@ -107,4 +114,4 @@ mod test {
 cloud_terrastodon_registry::register_thing!(UnifiedRoleDefinitionListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(UnifiedRoleDefinitionListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(UnifiedRoleDefinitionCollection);
-cloud_terrastodon_registry_execution::register_into_future!(UnifiedRoleDefinitionListRequest<'static> => UnifiedRoleDefinitionCollection, effects = [Read]);
+cloud_terrastodon_registry_execution::register_executable_request!(UnifiedRoleDefinitionListRequest<'static> => UnifiedRoleDefinitionCollection, effects = [Read]);

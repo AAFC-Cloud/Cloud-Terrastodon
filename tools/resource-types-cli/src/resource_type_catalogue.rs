@@ -7,6 +7,7 @@ use eyre::WrapErr;
 use eyre::ensure;
 use eyre::eyre;
 use quote::quote;
+use std::borrow::Borrow;
 use std::collections::BTreeMap;
 use std::fs;
 use std::io::ErrorKind;
@@ -48,23 +49,27 @@ impl ResourceTypeCatalogue {
     /// the generated enum. Do not round-trip through `ResourceType`: known enum
     /// variants would replace new service spelling with the old catalogue spelling.
     pub fn from_providers(
-        providers: Vec<AzureResourceProvider>,
+        providers: impl IntoIterator<Item = impl Borrow<AzureResourceProvider>>,
         cancellation: &CancellationScope,
     ) -> Result<Self> {
         let mut names = Vec::new();
         for provider in providers {
+            let provider = provider.borrow();
             cancellation.bail_if_cancelled()?;
             let namespace = provider
                 .namespace
+                .as_ref()
                 .ok_or_else(|| eyre!("provider metadata omitted a provider namespace"))?;
             for resource_type in provider
                 .resource_types
+                .as_ref()
                 .ok_or_else(|| eyre!("provider metadata omitted a provider's resource-type list"))?
             {
                 names.push(format!(
                     "{namespace}/{}",
                     resource_type
                         .resource_type
+                        .as_ref()
                         .ok_or_else(|| eyre!("provider metadata omitted a resource-type name"))?
                 ));
             }

@@ -2,6 +2,7 @@ use crate::location::AzureLocationName;
 use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
+use std::sync::Arc;
 use uuid::Uuid;
 /// https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices
 #[derive(Debug, Clone, PartialEq, Arbitrary, facet::Facet)]
@@ -37,3 +38,4 @@ pub struct Price {
 cloud_terrastodon_registry::register_thing!(Price);
 cloud_terrastodon_registry::register_arbitrary!(Price);
 cloud_terrastodon_registry::register_arbitrary!(Vec<Price>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<Price>>);

@@ -2,6 +2,7 @@ use crate::ComputeSkuName;
 use crate::location::AzureLocationName;
 use arbitrary::Arbitrary;
 use std::fmt;
+use std::sync::Arc;
 
 #[derive(Debug, Clone, PartialEq, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
@@ -152,3 +153,4 @@ cloud_terrastodon_registry::register_arbitrary!(ComputeSkuResourceType);
 cloud_terrastodon_registry::register_thing!(ComputeSku);
 cloud_terrastodon_registry::register_arbitrary!(ComputeSku);
 cloud_terrastodon_registry::register_arbitrary!(Vec<ComputeSku>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<ComputeSku>>);

@@ -1,10 +1,12 @@
 use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure::PolicyAssignmentId;
 use cloud_terrastodon_azure::ResourceGraphHelper;
-use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_cache::CacheKey;
+use cloud_terrastodon_cache::CacheScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use indoc::indoc;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Duration;
 use tracing::info;
 
@@ -18,8 +20,8 @@ pub(crate) struct PolicyComplianceRow {
 
 pub(crate) async fn fetch_all_policy_compliance(
     auth_context: &AzureTenantAuthContext,
-    cancellation: &CancellationScope,
-) -> eyre::Result<Vec<PolicyComplianceRow>> {
+    executor: &CloudTerrastodonExecutor,
+) -> eyre::Result<Vec<Arc<PolicyComplianceRow>>> {
     info!("Fetching all policy compliance information");
     let query = indoc! {r#"
 policyResources
@@ -40,13 +42,16 @@ policyResources
     let rtn = ResourceGraphHelper::new(
         query,
         Some(CacheKey {
-            path: PathBuf::from_iter(["az", "resource_graph", "policy-compliance"]),
+            scope: CacheScope::try_from_relative_path(PathBuf::from_iter([
+                "az",
+                "resource_graph",
+                "policy-compliance",
+            ]))?,
             valid_for: Duration::from_mins(15),
         }),
         auth_context,
-        cancellation,
     )
-    .collect_all::<PolicyComplianceRow>()
+    .collect_all::<PolicyComplianceRow>(executor)
     .await?;
     info!("Found {} policy compliance records", rtn.len());
     Ok(rtn)

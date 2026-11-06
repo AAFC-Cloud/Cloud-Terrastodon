@@ -3,6 +3,7 @@ use arbitrary::Arbitrary;
 use compact_str::CompactString;
 use std::ops::Deref;
 use std::str::FromStr;
+use std::sync::Arc;
 
 // https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftcontainerregistry
 // https://docs.docker.com/docker-hub/repos/create/
@@ -102,3 +103,4 @@ mod test {
 }
 
 cloud_terrastodon_registry::register_arbitrary!(Vec<ContainerRegistryRepositoryName>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<ContainerRegistryRepositoryName>>);

@@ -1,9 +1,10 @@
 use crate::SubscriptionId;
 use crate::tenant_id::AzureTenantId;
+use std::sync::Arc;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, arbitrary::Arbitrary, facet::Facet)]
-pub struct TenantLicenseCollection(pub Vec<TenantLicense>);
+pub struct TenantLicenseCollection(pub Vec<Arc<TenantLicense>>);
 impl TenantLicenseCollection {
     pub fn has_aad_premium_p2(&self) -> bool {
         self.0

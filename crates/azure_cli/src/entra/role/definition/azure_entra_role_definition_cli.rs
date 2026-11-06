@@ -2,7 +2,7 @@ use super::AzureEntraRoleDefinitionBrowseArgs;
 use super::AzureEntraRoleDefinitionFindArgs;
 use super::AzureEntraRoleDefinitionListArgs;
 use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
 /// Subcommands for Entra role definition operations.
@@ -21,17 +21,17 @@ impl AzureEntraRoleDefinitionCommand {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
         match self {
             AzureEntraRoleDefinitionCommand::List(args) => {
-                args.invoke(auth_context, cancellation).await
+                args.invoke(auth_context, executor).await
             }
             AzureEntraRoleDefinitionCommand::Browse(args) => {
-                args.invoke(auth_context, cancellation).await
+                args.invoke(auth_context, executor).await
             }
             AzureEntraRoleDefinitionCommand::Find(args) => {
-                args.invoke(auth_context, cancellation).await
+                args.invoke(auth_context, executor).await
             }
         }
     }

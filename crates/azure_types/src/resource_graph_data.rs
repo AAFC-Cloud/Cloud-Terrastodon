@@ -15,7 +15,7 @@ use tracing::debug_span;
 /// This models the table form of the
 /// [query response's data property](https://learn.microsoft.com/en-us/rest/api/azureresourcegraph/resourcegraph/resources/resources?view=rest-azureresourcegraph-resourcegraph-2022-10-01#queryresponse).
 /// Row reconstruction and decoding are local operations without a transport.
-#[derive(Debug, Clone, PartialEq, Eq, Facet)]
+#[derive(Debug, PartialEq, Eq, Facet)]
 pub struct ResourceGraphData {
     pub columns: Vec<ResourceGraphColumn>,
     pub rows: Vec<Vec<ArbitraryJson>>,

@@ -3,11 +3,14 @@ use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure_types::StorageAccountBlobContainerListResponse;
 use cloud_terrastodon_azure_types::StorageAccountBlobContainerName;
 use cloud_terrastodon_azure_types::StorageAccountId;
-use cloud_terrastodon_command::CacheInvalidatable;
-use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
-use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::HasCacheKey;
+use cloud_terrastodon_cache::CacheKey;
+use cloud_terrastodon_cache::CacheOperationOwner;
+use cloud_terrastodon_cache::HasCacheKey;
+use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
+use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_pathing::sanitize_windows_path_component;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
@@ -17,10 +20,7 @@ use eyre::eyre;
 use http::Method;
 use std::borrow::Cow;
 use std::collections::HashSet;
-use std::future::Future;
-use std::future::IntoFuture;
 use std::path::PathBuf;
-use std::pin::Pin;
 use url::Url;
 
 const CONTAINERS_API_VERSION: &str = "2025-06-01";
@@ -35,12 +35,10 @@ const CONTAINERS_API_VERSION: &str = "2025-06-01";
 /// Although the API's introduction says continuation is unsupported, its response
 /// schema and official `x-ms-pageable` contract define `nextLink`; this request
 /// follows it when present.
-#[must_use = "This is a future request, you must .await it"]
+#[must_use = "This is a future request, you must .execute it"]
 #[derive(Debug, Clone, facet::Facet)]
 #[facet(traits(Clone))]
 pub struct StorageAccountBlobContainerNamesListRequest<'a> {
-    #[facet(skip_serializing)]
-    pub cancellation: CancellationScope,
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
     pub storage_account_id: Cow<'a, StorageAccountId>,
 }
@@ -48,22 +46,21 @@ pub struct StorageAccountBlobContainerNamesListRequest<'a> {
 /// List management-plane container names using the explicitly selected tenant.
 ///
 /// See [Blob Containers - List, 2025-06-01](https://learn.microsoft.com/en-us/rest/api/storagerp/blob-containers/list?view=rest-storagerp-2025-06-01).
+#[track_caller]
 pub fn fetch_storage_account_blob_container_names<'a>(
     storage_account_id: &'a StorageAccountId,
     auth_context: &'a AzureTenantAuthContext,
-    cancellation: &CancellationScope,
-) -> StorageAccountBlobContainerNamesListRequest<'a> {
-    StorageAccountBlobContainerNamesListRequest {
-        cancellation: cancellation.clone(),
+    executor: &'a CloudTerrastodonExecutor,
+) -> RequestExecution<'a, StorageAccountBlobContainerNamesListRequest<'a>> {
+    executor.execute(StorageAccountBlobContainerNamesListRequest {
         auth_context: Cow::Borrowed(auth_context),
         storage_account_id: Cow::Borrowed(storage_account_id),
-    }
+    })
 }
 
 impl<'a> Arbitrary<'a> for StorageAccountBlobContainerNamesListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
-            cancellation: Arbitrary::arbitrary(u)?,
             auth_context: Cow::Owned(Arbitrary::arbitrary(u)?),
             storage_account_id: Cow::Owned(StorageAccountId::arbitrary(u)?),
         })
@@ -71,8 +68,8 @@ impl<'a> Arbitrary<'a> for StorageAccountBlobContainerNamesListRequest<'static> 
 }
 
 impl HasCacheKey for StorageAccountBlobContainerNamesListRequest<'_> {
-    fn cache_key(&self) -> CacheKey {
-        CacheKey::new(
+    fn cache_key(&self) -> eyre::Result<CacheKey> {
+        CacheKey::from_relative_path(
             PathBuf::from("az/arm/tenant")
                 .join(self.auth_context.tenant_id.to_string())
                 .join("auth-source")
@@ -108,36 +105,23 @@ impl HasCacheKey for StorageAccountBlobContainerNamesListRequest<'_> {
     }
 }
 
-impl<'a> CacheInvalidatableIntoFuture for StorageAccountBlobContainerNamesListRequest<'a> {
-    type WithInvalidation = <Self as IntoFuture>::IntoFuture;
+impl<'a> InvalidatesOwnCacheKey for StorageAccountBlobContainerNamesListRequest<'a> {}
 
-    fn with_invalidation(self, invalidate_cache: bool) -> Self::WithInvalidation {
-        Box::pin(async move {
-            if invalidate_cache {
-                self.cancellation
-                    .deferred(
-                        "finishing filesystem and memory cache invalidation",
-                        |_invalidation| async { self.invalidate().await },
-                    )
-                    .await?;
-            }
-            self.into_future().await
-        })
-    }
-}
+impl<'a> ExecutableRequest for StorageAccountBlobContainerNamesListRequest<'a> {
+    type Error = eyre::Report;
+    type Output = HashSet<StorageAccountBlobContainerName>;
 
-impl<'a> IntoFuture for StorageAccountBlobContainerNamesListRequest<'a> {
-    type Output = Result<HashSet<StorageAccountBlobContainerName>>;
-    type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + Send + 'a>>;
-
-    fn into_future(self) -> Self::IntoFuture {
+    fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
+    where
+        Self: 'exec,
+    {
         Box::pin(async move {
             // Keep REST page entries distinct from any future aggregate entry.
             let page_cache = self
-                .cache_key()
-                .join("rest/api-version")
-                .join(CONTAINERS_API_VERSION)
-                .join("pages");
+                .cache_key()?
+                .join("rest/api-version")?
+                .join(CONTAINERS_API_VERSION)?
+                .join("pages")?;
             let mut url = Url::parse("https://management.azure.com")
                 .wrap_err("constructing the ARM container collection endpoint")?;
             url.path_segments_mut()
@@ -170,25 +154,30 @@ impl<'a> IntoFuture for StorageAccountBlobContainerNamesListRequest<'a> {
             let mut visited = HashSet::new();
             let mut names = HashSet::new();
             while let Some(url) = next {
-                self.cancellation.bail_if_cancelled()?;
+                executor.cancellation().bail_if_cancelled()?;
                 Self::validate_page_url(&url, &collection_path)?;
                 ensure!(
                     visited.insert(url.clone()),
                     "container inventory pagination repeated a previously requested URL"
                 );
                 let page_key =
-                    page_cache.join(blake3::hash(url.as_str().as_bytes()).to_hex().as_str());
-                let page = RestRequest::from_method_and_url(Method::GET, url, &self.cancellation)?
-                    .azure_auth_context(&self.auth_context)
+                    page_cache.join(blake3::hash(url.as_str().as_bytes()).to_hex().as_str())?;
+                let page = RestRequest::from_method_and_url(Method::GET, url)?
+                    .azure_auth_context(&self.auth_context)?
                     .cache(page_key)
-                    .receive::<StorageAccountBlobContainerListResponse>()
+                    .receive_cached::<StorageAccountBlobContainerListResponse>(
+                        &executor,
+                        CacheOperationOwner::of::<
+                            StorageAccountBlobContainerNamesListRequest<'static>,
+                        >(),
+                    )
                     .await?;
-                self.cancellation.bail_if_cancelled()?;
-                for container in page.value {
-                    self.cancellation.bail_if_cancelled()?;
-                    names.insert(container.name);
+                executor.cancellation().bail_if_cancelled()?;
+                for container in &page.value {
+                    executor.cancellation().bail_if_cancelled()?;
+                    names.insert(container.name.clone());
                 }
-                next = page.next_link;
+                next = page.next_link.clone();
             }
             Ok(names)
         })
@@ -217,7 +206,7 @@ cloud_terrastodon_registry::register_thing!(StorageAccountBlobContainerNamesList
 cloud_terrastodon_registry::register_arbitrary!(
     StorageAccountBlobContainerNamesListRequest<'static>
 );
-cloud_terrastodon_registry_execution::register_into_future!(
+cloud_terrastodon_registry_execution::register_executable_request!(
     StorageAccountBlobContainerNamesListRequest<'static> => HashSet<StorageAccountBlobContainerName>,
     effects = [Read]
 );
@@ -228,8 +217,8 @@ mod tests {
     use super::fetch_storage_account_blob_container_names;
     use cloud_terrastodon_auth::AuthContext;
     use cloud_terrastodon_auth_types::AuthSource;
+    use cloud_terrastodon_cache::HasCacheKey;
     use cloud_terrastodon_command::CancellationToken;
-    use cloud_terrastodon_command::HasCacheKey;
     use eyre::Result;
 
     #[test]
@@ -262,6 +251,9 @@ mod tests {
     async fn cache_identity_separates_tenant_source_and_account() -> Result<()> {
         CancellationToken::new()
             .cancellable_scope(|cancellation| async move {
+                let executor = crate::test_executor::test_executor(
+                    &cloud_terrastodon_auth::AuthContext::explicit_azure_cli(), &cancellation,
+                )?;
                 let first_tenant = "11111111-1111-1111-1111-111111111111".parse()?;
                 let second_tenant = "22222222-2222-2222-2222-222222222222".parse()?;
                 let first_cli = AuthContext::explicit(AuthSource::AzureCli).bind_to_azure_tenant(first_tenant)?;
@@ -269,12 +261,12 @@ mod tests {
                 let first_browser = AuthContext::explicit(AuthSource::Browser).bind_to_azure_tenant(first_tenant)?;
                 let account = "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/synthetic/providers/Microsoft.Storage/storageAccounts/syntheticaccount".parse()?;
                 let other = "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/synthetic/providers/Microsoft.Storage/storageAccounts/otheraccount".parse()?;
-                let key = fetch_storage_account_blob_container_names(&account, &first_cli, &cancellation).cache_key();
+                let key = fetch_storage_account_blob_container_names(&account, &first_cli, &executor).cache_key()?;
                 for (account, context) in [(&account, &second_cli), (&account, &first_browser), (&other, &first_cli)] {
-                    let distinct = fetch_storage_account_blob_container_names(account, context, &cancellation).cache_key();
-                    assert_ne!(key.path, distinct.path);
-                    assert!(!key.path.starts_with(&distinct.path));
-                    assert!(!distinct.path.starts_with(&key.path));
+                    let distinct = fetch_storage_account_blob_container_names(account, context, &executor).cache_key()?;
+                    assert_ne!(key.scope, distinct.scope);
+                    assert!(!key.scope.starts_with(&distinct.scope));
+                    assert!(!distinct.scope.starts_with(&key.scope));
                 }
                 Ok(())
             })

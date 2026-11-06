@@ -2,7 +2,7 @@ use crate::app::MyApp;
 use crate::work_tracker::WorkTracker;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::AzureTenantId;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_pathing::AppDir;
 use eframe::NativeOptions;
 use eyre::bail;
@@ -16,9 +16,9 @@ pub async fn run_app(
     app_info: String,
     tenant_id: AzureTenantId,
     auth_context: AuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> eyre::Result<()> {
-    let (_shutdown, run) = cancellation.with_async_child_scope(move |cancellation| async move {
+    let (_shutdown, run) = executor.with_async_child_scope(move |executor| async move {
         let native_options = NativeOptions {
             persist_window: true,
             persistence_path: Some(AppDir::Config.join("egui_window_state.ron")),
@@ -30,7 +30,7 @@ pub async fn run_app(
 
         {
             let work_tracker2 = work_tracker.clone();
-            let app_cancellation = cancellation.clone();
+            let app_executor = executor.clone();
             if let Err(e) = block_in_place(move || {
                 eframe::run_native(
                     "MyApp",
@@ -45,7 +45,7 @@ pub async fn run_app(
                                 auth_context,
                                 work_tracker2,
                                 app_info,
-                                &app_cancellation,
+                                &app_executor,
                             )
                             .await
                         })?;
@@ -53,13 +53,15 @@ pub async fn run_app(
                     }),
                 )
             }) {
-                cancellation.request_cancel("GUI stopped after an error");
+                executor
+                    .cancellation()
+                    .request_cancel("GUI stopped after an error");
                 let work_tracker = Rc::try_unwrap(work_tracker)
                     .map_err(|_| eyre!("Failed to take work_tracker"))?;
                 work_tracker.finish().await?;
                 bail!("Failed to run app: {e:#?}");
             } else {
-                cancellation.request_cancel("GUI window closed");
+                executor.cancellation().request_cancel("GUI window closed");
                 let work_tracker = Rc::try_unwrap(work_tracker)
                     .map_err(|_| eyre!("Failed to take work_tracker"))?;
                 work_tracker.finish().await?;

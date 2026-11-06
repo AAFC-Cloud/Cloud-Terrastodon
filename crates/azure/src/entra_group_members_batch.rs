@@ -4,14 +4,18 @@ use crate::MicrosoftGraphResponse;
 use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure_types::EntraDirectoryObject;
 use cloud_terrastodon_azure_types::EntraGroupId;
-use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CacheableCommand;
-use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_cache::CacheKey;
+use cloud_terrastodon_cache::HasCacheKey;
+use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
+use cloud_terrastodon_execution::RequestExecution;
 use eyre::Context;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 /// Fetch first-page member inventories for several groups as shallow objects.
 ///
@@ -20,9 +24,6 @@ use std::path::PathBuf;
 /// [list members](https://learn.microsoft.com/en-us/graph/api/group-list-members?view=graph-rest-1.0).
 #[derive(facet::Facet)]
 pub struct EntraGroupMembersListBatchRequest<'a> {
-    #[facet(skip_serializing)]
-    pub cancellation: CancellationScope,
-
     pub group_ids: Vec<EntraGroupId>,
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
@@ -30,7 +31,6 @@ pub struct EntraGroupMembersListBatchRequest<'a> {
 impl<'a> arbitrary::Arbitrary<'a> for EntraGroupMembersListBatchRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
-            cancellation: arbitrary::Arbitrary::arbitrary(u)?,
             group_ids: arbitrary::Arbitrary::arbitrary(u)?,
             auth_context: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
         })
@@ -39,24 +39,23 @@ impl<'a> arbitrary::Arbitrary<'a> for EntraGroupMembersListBatchRequest<'static>
 
 /// TODO! This does n't auto fetch nextLink stuff :(
 #[deprecated = "This function does not handle pagination yet."]
+#[track_caller]
 pub fn fetch_group_members_batch<'a>(
     group_ids: impl IntoIterator<Item = EntraGroupId>,
     auth_context: &'a AzureTenantAuthContext,
-    cancellation: &CancellationScope,
-) -> EntraGroupMembersListBatchRequest<'a> {
-    EntraGroupMembersListBatchRequest {
-        cancellation: cancellation.clone(),
+    executor: &'a CloudTerrastodonExecutor,
+) -> RequestExecution<'a, EntraGroupMembersListBatchRequest<'a>> {
+    executor.execute(EntraGroupMembersListBatchRequest {
         group_ids: group_ids.into_iter().collect(),
         auth_context: Cow::Borrowed(auth_context),
-    }
+    })
 }
 
-#[async_trait]
-impl CacheableCommand for EntraGroupMembersListBatchRequest<'_> {
-    type Output = HashMap<EntraGroupId, Vec<EntraDirectoryObject>>;
+impl InvalidatesOwnCacheKey for EntraGroupMembersListBatchRequest<'_> {}
 
-    fn cache_key(&self) -> CacheKey {
-        CacheKey::new(PathBuf::from_iter([
+impl HasCacheKey for EntraGroupMembersListBatchRequest<'_> {
+    fn cache_key(&self) -> eyre::Result<CacheKey> {
+        CacheKey::from_relative_path(PathBuf::from_iter([
             "ms".to_string(),
             "graph".to_string(),
             "v1.0".to_string(),
@@ -75,56 +74,62 @@ impl CacheableCommand for EntraGroupMembersListBatchRequest<'_> {
             "directory_objects".to_string(),
         ]))
     }
+}
 
-    async fn run(self) -> eyre::Result<Self::Output> {
-        let cache_key = self.cache_key();
-        let EntraGroupMembersListBatchRequest {
-            cancellation,
-            group_ids,
-            auth_context,
-        } = self;
-        // Construct the request
-        let mut batch_request: MicrosoftGraphBatchRequest<'_, Vec<EntraDirectoryObject>> =
-            MicrosoftGraphBatchRequest::new(auth_context.as_ref(), &cancellation)
-                .cancellation_safe();
+impl ExecutableRequest for EntraGroupMembersListBatchRequest<'_> {
+    type Error = eyre::Report;
+    type Output = HashMap<EntraGroupId, Vec<Arc<EntraDirectoryObject>>>;
+    fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
+    where
+        Self: 'exec,
+        Self::Output: 'exec,
+    {
+        Box::pin(async move {
+            let cache_key = self.cache_key()?;
+            let EntraGroupMembersListBatchRequest {
+                group_ids,
+                auth_context,
+            } = self;
+            // Construct the request
+            let mut batch_request: MicrosoftGraphBatchRequest<'_, Vec<Arc<EntraDirectoryObject>>> =
+                MicrosoftGraphBatchRequest::new(auth_context.as_ref()).cancellation_safe();
 
-        // Enable caching since it's a GET request
-        batch_request.cache(cache_key);
+            // Enable caching since it's a GET request
+            batch_request.cache(cache_key);
 
-        // Add the request for each group
-        for group_id in &group_ids {
-            batch_request.add(EntraGroupMembersListRequest {
-                cancellation: cancellation.clone(),
-                group_id: *group_id,
-                auth_context: Cow::Borrowed(auth_context.as_ref()),
-            });
-        }
+            // Add the request for each group
+            for group_id in &group_ids {
+                batch_request.add(EntraGroupMembersListRequest {
+                    group_id: *group_id,
+                    auth_context: Cow::Borrowed(auth_context.as_ref()),
+                });
+            }
 
-        // Send the request
-        let batch_response = batch_request
-            .send::<MicrosoftGraphResponse<EntraDirectoryObject>>()
-            .await?;
+            // Send the request
+            let batch_response = batch_request
+                .send::<MicrosoftGraphResponse<Arc<EntraDirectoryObject>>>(&executor)
+                .await?;
 
-        // Extract the members from the response
-        let mut rtn = HashMap::new();
-        for (group_id, response) in group_ids.into_iter().zip(batch_response.responses)
-        // Responses are ordered to match requests
-        {
-            let members = response
-                .into_body()
-                .wrap_err_with(|| format!("Failed to fetch members for group {group_id}"))?
-                .value;
-            rtn.insert(group_id, members);
-        }
+            // Extract the members from the response
+            let mut rtn = HashMap::new();
+            for (group_id, response) in group_ids.into_iter().zip(batch_response.responses)
+            // Responses are ordered to match requests
+            {
+                let members = response
+                    .body()
+                    .wrap_err_with(|| format!("Failed to fetch members for group {group_id}"))?
+                    .value
+                    .clone();
+                rtn.insert(group_id, members);
+            }
 
-        // Return the results
-        Ok(rtn)
+            // Return the results
+            Ok(rtn)
+        })
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(EntraGroupMembersListBatchRequest<'a>, 'a);
-
 cloud_terrastodon_registry::register_thing!(EntraGroupMembersListBatchRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(EntraGroupMembersListBatchRequest<'static>);
-cloud_terrastodon_registry::register_arbitrary!(HashMap<EntraGroupId, Vec<EntraDirectoryObject>>);
-cloud_terrastodon_registry_execution::register_into_future!(EntraGroupMembersListBatchRequest<'static> => HashMap<EntraGroupId, Vec<EntraDirectoryObject>>, effects = [Read]);
+cloud_terrastodon_registry::register_arbitrary!(HashMap<EntraGroupId, Vec<Arc<EntraDirectoryObject>>>);
+cloud_terrastodon_registry_execution::register_executable_request!(EntraGroupMembersListBatchRequest<'static> => HashMap<EntraGroupId, Vec<Arc<EntraDirectoryObject>>>, effects = [Read]);

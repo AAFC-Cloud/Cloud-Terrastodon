@@ -11,23 +11,20 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemId;
 use cloud_terrastodon_azure_devops_types::WORK_ITEM_CHILD_RELATION;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
 use eyre::Result;
 use eyre::ensure;
 use facet::Facet;
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
-use std::future::Future;
-use std::future::IntoFuture;
-use std::pin::Pin;
 
 #[derive(Debug, Clone, Facet)]
 #[facet(traits(Clone))]
 pub struct AzureDevOpsWorkItemCopyPlanRequest<'a> {
     /// Caller-owned cancellation scope, excluded from serialized request input.
-    #[facet(skip_serializing)]
-    pub cancellation: CancellationScope,
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub project: AzureDevOpsProjectArgument<'a>,
     pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
@@ -38,7 +35,6 @@ pub struct AzureDevOpsWorkItemCopyPlanRequest<'a> {
 impl<'a> Arbitrary<'a> for AzureDevOpsWorkItemCopyPlanRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
-            cancellation: CancellationScope::arbitrary(u)?,
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
             auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
@@ -48,25 +44,28 @@ impl<'a> Arbitrary<'a> for AzureDevOpsWorkItemCopyPlanRequest<'static> {
     }
 }
 
-impl<'a> IntoFuture for AzureDevOpsWorkItemCopyPlanRequest<'a> {
-    type Output = Result<AzureDevOpsWorkItemCopyPlan>;
-    type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + Send + 'a>>;
+impl<'a> ExecutableRequest for AzureDevOpsWorkItemCopyPlanRequest<'a> {
+    type Error = eyre::Report;
+    type Output = AzureDevOpsWorkItemCopyPlan;
 
-    fn into_future(self) -> Self::IntoFuture {
+    fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
+    where
+        Self: 'exec,
+        Self::Output: 'exec,
+    {
         Box::pin(async move {
             let as_of = self.options.as_of.unwrap_or_else(chrono::Utc::now);
             let allowed: BTreeSet<_> = self.options.allowed_ids.iter().copied().collect();
             let mut frontier = vec![self.root];
             let mut items = BTreeMap::new();
             while !frontier.is_empty() {
-                self.cancellation.bail_if_cancelled()?;
+                executor.cancellation().bail_if_cancelled()?;
                 // Check every ID before constructing a request, including the root.
                 ensure!(
                     allowed.is_empty() || frontier.iter().all(|id| allowed.contains(id)),
                     "Copy discovery reached an item outside --allowed-ids; no changes were made"
                 );
                 let fetched = AzureDevOpsWorkItemsGetRequest {
-                    cancellation: self.cancellation.clone(),
                     org_url: Cow::Borrowed(self.org_url.as_ref()),
                     project: Some(self.project.clone()),
                     auth_context: Cow::Borrowed(self.auth_context.as_ref()),
@@ -75,13 +74,14 @@ impl<'a> IntoFuture for AzureDevOpsWorkItemCopyPlanRequest<'a> {
                     fields: Vec::new(),
                     as_of: Some(as_of),
                 }
+                .execute(&executor)
                 .await?;
                 let mut next = BTreeSet::new();
                 for item in fetched {
-                    self.cancellation.bail_if_cancelled()?;
+                    executor.cancellation().bail_if_cancelled()?;
                     if self.options.deep {
                         for relation in item.relations.as_deref().unwrap_or_default() {
-                            self.cancellation.bail_if_cancelled()?;
+                            executor.cancellation().bail_if_cancelled()?;
                             if relation.rel.as_ref() == WORK_ITEM_CHILD_RELATION {
                                 next.insert(
                                     relation
@@ -102,16 +102,16 @@ impl<'a> IntoFuture for AzureDevOpsWorkItemCopyPlanRequest<'a> {
                     .collect();
             }
             let fields = AzureDevOpsWorkItemFieldDefinitionListRequest {
-                cancellation: self.cancellation.clone(),
                 org_url: Cow::Borrowed(self.org_url.as_ref()),
                 auth_context: Cow::Borrowed(self.auth_context.as_ref()),
             }
+            .execute(&executor)
             .await?;
             let relations = AzureDevOpsWorkItemRelationTypeListRequest {
-                cancellation: self.cancellation.clone(),
                 org_url: Cow::Borrowed(self.org_url.as_ref()),
                 auth_context: Cow::Borrowed(self.auth_context.as_ref()),
             }
+            .execute(&executor)
             .await?;
             let types: BTreeSet<_> = items
                 .values()
@@ -124,18 +124,18 @@ impl<'a> IntoFuture for AzureDevOpsWorkItemCopyPlanRequest<'a> {
                 .collect::<Result<_>>()?;
             let mut type_fields = BTreeMap::new();
             for work_item_type in types {
-                self.cancellation.bail_if_cancelled()?;
+                executor.cancellation().bail_if_cancelled()?;
                 let metadata = AzureDevOpsWorkItemTypeFieldListRequest {
-                    cancellation: self.cancellation.clone(),
                     org_url: Cow::Borrowed(self.org_url.as_ref()),
                     project: self.project.clone(),
                     auth_context: Cow::Borrowed(self.auth_context.as_ref()),
                     work_item_type: work_item_type.clone(),
                 }
+                .execute(&executor)
                 .await?;
                 type_fields.insert(work_item_type, metadata);
             }
-            self.cancellation.bail_if_cancelled()?;
+            executor.cancellation().bail_if_cancelled()?;
             let plan = build_work_item_copy_plan(
                 self.org_url.as_ref(),
                 &self.project,
@@ -147,7 +147,7 @@ impl<'a> IntoFuture for AzureDevOpsWorkItemCopyPlanRequest<'a> {
                 &type_fields,
                 &relations,
             )?;
-            self.cancellation.bail_if_cancelled()?;
+            executor.cancellation().bail_if_cancelled()?;
             Ok(plan)
         })
     }
@@ -155,7 +155,7 @@ impl<'a> IntoFuture for AzureDevOpsWorkItemCopyPlanRequest<'a> {
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsWorkItemCopyPlanRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsWorkItemCopyPlanRequest<'static>);
-cloud_terrastodon_registry_execution::register_into_future!(
+cloud_terrastodon_registry_execution::register_executable_request!(
     AzureDevOpsWorkItemCopyPlanRequest<'static> => AzureDevOpsWorkItemCopyPlan,
     effects = [Read]
 );

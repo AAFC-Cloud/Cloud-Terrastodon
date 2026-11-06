@@ -12,15 +12,12 @@ pub fn load_resource_groups(app: &mut MyApp) {
     let work = LoadableWorkBuilder::new()
         .description("Loading Resource Groups")
         .setter(|app, data| app.resource_groups = data.map(Rc::new))
-        .work(
-            app.cancellation
-                .cancellable_scope(move |cancellation| async move {
-                    let auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
-                    let resource_groups =
-                        fetch_all_resource_groups(&auth_context, &cancellation).await?;
-                    Ok(resource_groups.into())
-                }),
-        )
+        .work(app.executor.cancellable_scope(move |executor| async move {
+            let auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
+            let executor = auth_context.auth_context.bind_executor(&executor)?;
+            let resource_groups = fetch_all_resource_groups(&auth_context, &executor).await?;
+            Ok(resource_groups.into())
+        }))
         .build();
     match work {
         Ok(work) => work.enqueue(app),

@@ -1,6 +1,7 @@
 use crate::scopes::ScopeImpl;
 use arbitrary::Arbitrary;
 use std::fmt;
+use std::sync::Arc;
 
 // TODO: this should be converted to an enum to prevent states where `kind` doesn't match `id`
 #[derive(Debug, Arbitrary, facet::Facet, PartialEq)]
@@ -142,3 +143,4 @@ cloud_terrastodon_registry::register_arbitrary!(EligibleChildResourceKind);
 cloud_terrastodon_registry::register_thing!(EligibleChildResource);
 cloud_terrastodon_registry::register_arbitrary!(EligibleChildResource);
 cloud_terrastodon_registry::register_arbitrary!(Vec<EligibleChildResource>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<EligibleChildResource>>);

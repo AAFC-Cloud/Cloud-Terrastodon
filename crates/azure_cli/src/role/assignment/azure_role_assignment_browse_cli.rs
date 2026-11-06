@@ -7,7 +7,7 @@ use cloud_terrastodon_azure::RoleDefinition;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::fetch_all_principals;
 use cloud_terrastodon_azure::fetch_all_role_definitions_and_assignments;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::PickerTui;
@@ -37,16 +37,18 @@ impl AzureRoleAssignmentBrowseArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         info!("Fetching Azure role assignments and principals");
         let tenant_auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
         let (rbac, principals) = try_join!(
-            fetch_all_role_definitions_and_assignments(&tenant_auth_context, cancellation),
-            fetch_all_principals(&tenant_auth_context, cancellation)
+            fetch_all_role_definitions_and_assignments(&tenant_auth_context, executor),
+            fetch_all_principals(&tenant_auth_context, executor)
         )?;
 
         info!(

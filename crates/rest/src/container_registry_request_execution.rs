@@ -1,11 +1,9 @@
 use crate::RequestHeaders;
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_auth::ContainerRegistryBearerChallenge;
 use cloud_terrastodon_auth_types::AuthenticationSelection;
-use cloud_terrastodon_auth_types::AzureBearerAuthSource;
-use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_auth_types::Authorization;
+use cloud_terrastodon_auth_types::ContainerRegistryBearerChallenge;
 use cloud_terrastodon_azure_types::ContainerRegistryLoginServer;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use eyre::ensure;
 use http::Method;
@@ -19,28 +17,22 @@ use std::time::Duration;
 
 /// Metadata GETs follow the registry's scoped bearer challenge; token exchanges stay out of artifacts.
 pub(crate) async fn execute_container_registry_request(
-    auth_context: &AuthContext,
     method: Method,
     url: Url,
     body: Option<String>,
     headers: Option<RequestHeaders>,
-    tenant: Option<AzureTenantId>,
-    cancellation: &CancellationScope,
+    selection: &AuthenticationSelection,
+    executor: &CloudTerrastodonExecutor,
 ) -> Result<Response> {
     ensure!(
         method == Method::GET && body.is_none(),
         "registry metadata transport currently supports bodyless GET requests"
     );
-    let tenant = tenant.ok_or_else(|| {
-        eyre::eyre!("Container Registry authentication requires an explicit tenant")
-    })?;
-    let source = AzureBearerAuthSource::try_from(auth_context.source().ok_or_else(|| {
-        eyre::eyre!("Container Registry authentication requires an explicit credential source")
-    })?)?;
-    auth_context.admit(&AuthenticationSelection::AzureBearer {
-        auth_source: source,
-        tenant_id: tenant,
-    })?;
+    ensure!(
+        matches!(selection, AuthenticationSelection::AzureBearer { .. }),
+        "Container Registry requires an explicitly tenant-bound bearer selection"
+    );
+    executor.admit(selection)?;
     ensure!(
         url.scheme() == "https"
             && url.username().is_empty()
@@ -60,8 +52,8 @@ pub(crate) async fn execute_container_registry_request(
         !headers.contains_key(AUTHORIZATION),
         "registry authorization must come from its selected credential source"
     );
-    cancellation
-        .cancellable_scope(|scope| async move {
+    executor
+        .cancellable_scope(|child| async move {
             let client = Client::builder()
                 .https_only(true)
                 .redirect(reqwest::redirect::Policy::none())
@@ -84,45 +76,21 @@ pub(crate) async fn execute_container_registry_request(
                 })?
                 .to_str()?;
             let challenge = ContainerRegistryBearerChallenge::parse(&url, challenge)?;
-            let authorization = challenge.authorize(auth_context, tenant, &scope).await?;
-            scope.bail_if_cancelled()?;
-            let header = authorization
-                .header()
-                .ok_or_else(|| eyre::eyre!("registry exchange returned anonymous authorization"))?;
+            let authorization = child
+                .container_registry_authorization(selection, &challenge)
+                .await?;
+            let Authorization::Bearer(authorization) = authorization else {
+                eyre::bail!(
+                    "registry exchange returned authorization other than a bearer credential"
+                );
+            };
+            child.cancellation().bail_if_cancelled()?;
             Ok(client
                 .get(url)
                 .headers(headers)
-                .header(AUTHORIZATION, header)
+                .header(AUTHORIZATION, authorization.header())
                 .send()
                 .await?)
         })
         .await
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use cloud_terrastodon_auth_types::AuthSource;
-    use cloud_terrastodon_command::CancellationToken;
-
-    #[tokio::test]
-    async fn disabled_authentication_rejects_before_registry_contact() -> Result<()> {
-        CancellationToken::new()
-            .cancellable_scope(|scope| async move {
-                let error = execute_container_registry_request(
-                    &AuthContext::explicit(AuthSource::None),
-                    Method::GET,
-                    Url::parse("https://synthetic-unused.azurecr.io/acr/v1/_catalog")?,
-                    None,
-                    None,
-                    Some("00000000-0000-0000-0000-000000000001".parse()?),
-                    &scope,
-                )
-                .await
-                .expect_err("none authentication must fail before transport");
-                assert!(error.to_string().contains("none"));
-                Ok(())
-            })
-            .await
-    }
 }

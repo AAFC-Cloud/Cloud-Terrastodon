@@ -13,6 +13,7 @@ use cloud_terrastodon_azure::list_tracked_tenant_aliases_for;
 use cloud_terrastodon_azure::list_tracked_tenants;
 use cloud_terrastodon_azure::resolve_tenant_auth_context;
 use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use color_eyre::owo_colors::OwoColorize;
 use color_eyre::owo_colors::Stream;
 use color_eyre::owo_colors::Style;
@@ -20,6 +21,7 @@ use eyre::Result;
 use std::future::Future;
 use std::io::IsTerminal;
 use std::io::Write;
+use std::sync::Arc;
 use tokio::task::JoinSet;
 use tracing::debug;
 
@@ -48,7 +50,7 @@ struct TenantSubscriptions {
 #[derive(Debug, facet::Facet)]
 struct ListedSubscription {
     #[facet(flatten)]
-    subscription: Subscription,
+    subscription: Arc<Subscription>,
     portal_url: String,
 }
 
@@ -60,8 +62,9 @@ impl AzureSubscriptionListArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<CliOutput> {
+        let cancellation = executor.cancellation();
         let tenant_ids = match self.tenant {
             Some(tenant) => {
                 let tenant_id = match (&tenant, auth_context.tenant_id()) {
@@ -76,13 +79,13 @@ impl AzureSubscriptionListArgs {
             count = tenant_ids.len(),
             "Fetching subscriptions across Azure tenants"
         );
-        let tenants = cancellation
-            .cancellable_scope(|cancellation| async move {
+        let tenants = executor
+            .cancellable_scope(|executor| async move {
                 collect_tenants(tenant_ids, |tenant_id| {
                     let auth_context = auth_context.clone();
-                    let cancellation = cancellation.clone();
+                    let executor = executor.clone();
                     async move {
-                        fetch_tenant_subscriptions(tenant_id, &auth_context, &cancellation).await
+                        fetch_tenant_subscriptions(tenant_id, &auth_context, &executor).await
                     }
                 })
                 .await
@@ -121,8 +124,9 @@ where
 async fn fetch_tenant_subscriptions(
     tenant_id: AzureTenantId,
     auth_context: &AuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> TenantSubscriptions {
+    let cancellation = executor.cancellation();
     let aliases = async {
         // An explicit `--tenant default` may select an untracked Azure CLI tenant.
         if get_tracked_tenant(tenant_id).await?.is_none() {
@@ -142,14 +146,20 @@ async fn fetch_tenant_subscriptions(
             return tenant_output(tenant_id, aliases.await, Ok(None), Err(error));
         }
     };
+    let executor = match tenant_auth_context.auth_context.bind_executor(executor) {
+        Ok(executor) => executor,
+        Err(error) => {
+            return tenant_output(tenant_id, aliases.await, Ok(None), Err(error));
+        }
+    };
     let (aliases, details, subscriptions) = tokio::join!(
         aliases,
         async {
-            fetch_azure_tenant_details(&tenant_auth_context, cancellation)
+            fetch_azure_tenant_details(&tenant_auth_context, &executor)
                 .await
-                .map(|details| Some(details.display_name))
+                .map(|details| Some(details.display_name.clone()))
         },
-        async { fetch_all_subscriptions(&tenant_auth_context, cancellation).await },
+        async { fetch_all_subscriptions(&tenant_auth_context, &executor).await },
     );
     tenant_output(tenant_id, aliases, details, subscriptions)
 }
@@ -158,7 +168,7 @@ fn tenant_output(
     tenant_id: AzureTenantId,
     aliases: Result<Vec<AzureTenantAlias>>,
     name: Result<Option<String>>,
-    subscriptions: Result<Vec<Subscription>>,
+    subscriptions: Result<Vec<Arc<Subscription>>>,
 ) -> TenantSubscriptions {
     let mut metadata_errors = Vec::new();
     let mut tenant_aliases = match aliases {
@@ -344,7 +354,7 @@ mod tests {
             .unwrap()
     }
 
-    fn subscription(tenant_id: AzureTenantId, name: &str, id: &str) -> Subscription {
+    fn subscription(tenant_id: AzureTenantId, name: &str, id: &str) -> Arc<Subscription> {
         facet_json::from_str(&format!(
             r#"{{"id":"{id}","name":"{name}","tenant_id":"{tenant_id}","management_group_ancestors_chain":[],"tags":{{"team":"cloud"}}}}"#
         )).unwrap()

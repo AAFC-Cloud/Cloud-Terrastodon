@@ -1,6 +1,6 @@
 use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure::fetch_all_security_groups;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_hcl::HclImportBlock;
 use cloud_terrastodon_hcl::HclProviderBlock;
 use cloud_terrastodon_hcl::HclWriter;
@@ -10,15 +10,16 @@ use tracing::info;
 
 pub async fn write_imports_for_all_security_groups(
     auth_context: &AzureTenantAuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
+    let cancellation = executor.cancellation();
     info!("Fetching security groups");
-    let security_groups = fetch_all_security_groups(auth_context, cancellation).await?;
+    let security_groups = fetch_all_security_groups(auth_context, executor).await?;
 
     info!("Building import blocks");
     let mut imports: Vec<HclImportBlock> = Vec::with_capacity(security_groups.len());
     for sg in security_groups {
-        imports.push(sg.into())
+        imports.push(sg.as_ref().into())
     }
 
     info!("Writing import blocks");

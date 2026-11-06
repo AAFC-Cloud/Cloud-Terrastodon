@@ -1,6 +1,6 @@
 use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure::fetch_all_groups;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_hcl::HclImportBlock;
 use cloud_terrastodon_hcl::HclWriter;
 use cloud_terrastodon_pathing::AppDir;
@@ -12,10 +12,11 @@ use tracing::info;
 
 pub async fn build_group_imports(
     auth_context: &AzureTenantAuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
+    let cancellation = executor.cancellation();
     info!("Fetching groups");
-    let groups = fetch_all_groups(auth_context, cancellation)
+    let groups = fetch_all_groups(auth_context, executor)
         .await?
         .into_iter()
         .filter(|def| def.security_enabled)
@@ -26,7 +27,10 @@ pub async fn build_group_imports(
         .pick_many(groups)
         .await?;
 
-    let imports: Vec<HclImportBlock> = chosen.into_iter().map(|x| x.into()).collect_vec();
+    let imports: Vec<HclImportBlock> = chosen
+        .iter()
+        .map(|group| group.as_ref().into())
+        .collect_vec();
 
     if imports.is_empty() {
         return Err(eyre!("Imports should not be empty"));

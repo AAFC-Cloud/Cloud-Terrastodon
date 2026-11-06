@@ -7,6 +7,7 @@ use chrono::DateTime;
 use chrono::Utc;
 use std::collections::HashMap;
 use std::net::IpAddr;
+use std::sync::Arc;
 
 #[derive(Debug, Clone, Arbitrary, facet::Facet)]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
@@ -305,6 +306,7 @@ pub struct AzureContainerInstanceSubnetReference {
 cloud_terrastodon_registry::register_thing!(AzureContainerInstanceResource);
 cloud_terrastodon_registry::register_arbitrary!(AzureContainerInstanceResource);
 cloud_terrastodon_registry::register_arbitrary!(Vec<AzureContainerInstanceResource>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<AzureContainerInstanceResource>>);
 
 #[cfg(test)]
 mod tests {

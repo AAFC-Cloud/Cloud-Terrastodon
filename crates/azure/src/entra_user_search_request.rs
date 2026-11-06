@@ -3,25 +3,26 @@ use crate::PercentEncodeExt;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure_types::EntraUser;
-use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CacheableCommand;
-use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_cache::CacheKey;
+use cloud_terrastodon_cache::CacheScope;
+use cloud_terrastodon_cache::HasCacheKey;
+use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
+use cloud_terrastodon_execution::RequestExecution;
 use eyre::Result;
 use facet::Facet;
 use std::borrow::Cow;
-use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Duration;
 use tracing::debug;
 
 const USER_SEARCH_CACHE_DURATION: Duration = Duration::from_secs(60);
 
-#[must_use = "This is a future request, you must .await it"]
+#[must_use = "This is a future request, you must .execute it"]
 #[derive(Facet)]
 pub struct EntraUserSearchRequest<'a> {
-    #[facet(skip_serializing)]
-    pub cancellation: CancellationScope,
-
     pub search_term: String,
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
@@ -29,26 +30,40 @@ pub struct EntraUserSearchRequest<'a> {
 impl<'a> Arbitrary<'a> for EntraUserSearchRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
-            cancellation: Arbitrary::arbitrary(u)?,
             search_term: Arbitrary::arbitrary(u)?,
             auth_context: Cow::Owned(Arbitrary::arbitrary(u)?),
         })
     }
 }
 
+#[track_caller]
 pub fn search_entra_users<'a>(
     search_term: impl Into<String>,
     auth_context: &'a AzureTenantAuthContext,
-    cancellation: &CancellationScope,
-) -> EntraUserSearchRequest<'a> {
-    EntraUserSearchRequest {
-        cancellation: cancellation.clone(),
+    executor: &'a CloudTerrastodonExecutor,
+) -> RequestExecution<'a, EntraUserSearchRequest<'a>> {
+    executor.execute(EntraUserSearchRequest {
         search_term: search_term.into(),
         auth_context: Cow::Borrowed(auth_context),
-    }
+    })
 }
 
 impl EntraUserSearchRequest<'_> {
+    /// The invalidation root shared by all search terms in this tenant.
+    pub(crate) fn tenant_cache_key(&self) -> Result<CacheKey> {
+        Ok(CacheKey {
+            scope: CacheScope::try_from_components([
+                "ms",
+                "graph",
+                "GET",
+                "users",
+                "search",
+                &self.auth_context.tenant_id.to_string(),
+            ])?,
+            valid_for: USER_SEARCH_CACHE_DURATION,
+        })
+    }
+
     fn url(&self) -> String {
         let search_term = escape_odata_string(self.search_term.trim());
         let filter = format!(
@@ -63,50 +78,47 @@ impl EntraUserSearchRequest<'_> {
     }
 }
 
-#[async_trait]
-impl CacheableCommand for EntraUserSearchRequest<'_> {
-    type Output = Vec<EntraUser>;
+impl InvalidatesOwnCacheKey for EntraUserSearchRequest<'_> {}
 
-    fn cache_key(&self) -> CacheKey {
+impl HasCacheKey for EntraUserSearchRequest<'_> {
+    fn cache_key(&self) -> eyre::Result<CacheKey> {
         let search_hash = blake3::hash(self.search_term.trim().as_bytes())
             .to_hex()
             .to_string();
-        CacheKey {
-            path: PathBuf::from_iter([
-                "ms",
-                "graph",
-                "GET",
-                "users",
-                "search",
-                self.auth_context.tenant_id.to_string().as_str(),
-                search_hash.as_str(),
-            ]),
-            valid_for: USER_SEARCH_CACHE_DURATION,
-        }
+        self.tenant_cache_key()?.join(search_hash)
     }
+}
 
-    async fn run(self) -> Result<Self::Output> {
-        let search_term = self.search_term.trim();
-        if search_term.is_empty() {
-            debug!(tenant_id = %self.auth_context.tenant_id, "Skipping empty Entra user search");
-            return Ok(Vec::new());
-        }
+impl ExecutableRequest for EntraUserSearchRequest<'_> {
+    type Error = eyre::Report;
+    type Output = Vec<Arc<EntraUser>>;
+    fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
+    where
+        Self: 'exec,
+        Self::Output: 'exec,
+    {
+        Box::pin(async move {
+            let search_term = self.search_term.trim();
+            if search_term.is_empty() {
+                debug!(tenant_id = %self.auth_context.tenant_id, "Skipping empty Entra user search");
+                return Ok(Vec::new());
+            }
 
-        debug!(
-            tenant_id = %self.auth_context.tenant_id,
-            search_term,
-            "Searching Entra users"
-        );
-        let users: Vec<EntraUser> = MicrosoftGraphHelper::new(
-            self.url(),
-            Some(self.cache_key()),
-            self.auth_context.as_ref(),
-            &self.cancellation,
-        )
-        .fetch_all(&self.cancellation)
-        .await?;
-        debug!(tenant_id = %self.auth_context.tenant_id, count = users.len(), "Found Entra users");
-        Ok(users)
+            debug!(
+                tenant_id = %self.auth_context.tenant_id,
+                search_term,
+                "Searching Entra users"
+            );
+            let users: Vec<Arc<EntraUser>> = MicrosoftGraphHelper::new(
+                self.url(),
+                Some(self.cache_key()?),
+                self.auth_context.as_ref(),
+            )
+            .fetch_all(&executor)
+            .await?;
+            debug!(tenant_id = %self.auth_context.tenant_id, count = users.len(), "Found Entra users");
+            Ok(users)
+        })
     }
 }
 
@@ -114,10 +126,9 @@ fn escape_odata_string(value: &str) -> String {
     value.replace('\'', "''")
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(EntraUserSearchRequest<'a>, 'a);
 cloud_terrastodon_registry::register_thing!(EntraUserSearchRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(EntraUserSearchRequest<'static>);
-cloud_terrastodon_registry_execution::register_into_future!(EntraUserSearchRequest<'static> => Vec<EntraUser>, effects = [Read]);
+cloud_terrastodon_registry_execution::register_executable_request!(EntraUserSearchRequest<'static> => Vec<Arc<EntraUser>>, effects = [Read]);
 
 #[cfg(test)]
 mod tests {
@@ -139,9 +150,12 @@ mod tests {
     #[test]
     fn url_escapes_search_terms_as_odata_query_values() {
         CancellationToken::new()
-            .with_scope(|cancellation| {
+            .with_scope(|_cancellation| {
                 let auth_context = test_auth_context();
-                let request = search_entra_users("O'Neil & Smith", &auth_context, &cancellation);
+                let request = EntraUserSearchRequest {
+                    search_term: "O'Neil & Smith".to_owned(),
+                    auth_context: Cow::Borrowed(&auth_context),
+                };
 
                 assert!(request.url().contains("O%27%27Neil%20%26%20Smith"));
                 Ok::<_, eyre::Error>(())
@@ -152,11 +166,14 @@ mod tests {
     #[test]
     fn paginated_search_cache_expires() {
         CancellationToken::new()
-            .with_scope(|cancellation| {
+            .with_scope(|_cancellation| {
                 let auth_context = test_auth_context();
-                let request = search_entra_users("Smith", &auth_context, &cancellation);
+                let request = EntraUserSearchRequest {
+                    search_term: "Smith".to_owned(),
+                    auth_context: Cow::Borrowed(&auth_context),
+                };
 
-                assert_eq!(request.cache_key().valid_for, Duration::from_secs(60));
+                assert_eq!(request.cache_key()?.valid_for, Duration::from_secs(60));
                 Ok::<_, eyre::Error>(())
             })
             .expect("uncancelled test scope");
@@ -166,14 +183,18 @@ mod tests {
     async fn it_finds_the_current_user_by_user_principal_name() -> Result<()> {
         CancellationToken::new()
             .cancellable_scope(|cancellation| async move {
+                let executor = crate::test_executor::test_executor(
+                    &cloud_terrastodon_auth::AuthContext::explicit_azure_cli(),
+                    &cancellation,
+                )?;
                 let auth_context = AuthContext::explicit_azure_cli();
                 let auth_context =
                     auth_context.bind_to_azure_tenant(get_test_tenant_id(&cancellation).await?)?;
-                let current_user = fetch_current_user(&auth_context, &cancellation).await?;
+                let current_user = fetch_current_user(&auth_context, &executor).await?;
                 let users = search_entra_users(
                     current_user.user_principal_name.as_str(),
                     &auth_context,
-                    &cancellation,
+                    &executor,
                 )
                 .await?;
 

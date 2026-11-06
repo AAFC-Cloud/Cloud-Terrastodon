@@ -9,6 +9,7 @@ use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
+use std::sync::Arc;
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Arbitrary, facet::Facet)]
 #[repr(C)]
@@ -129,3 +130,4 @@ cloud_terrastodon_registry::register_thing!(RoleDefinition);
 cloud_terrastodon_registry::register_arbitrary!(RoleDefinition);
 
 cloud_terrastodon_registry::register_arbitrary!(Vec<RoleDefinition>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<RoleDefinition>>);

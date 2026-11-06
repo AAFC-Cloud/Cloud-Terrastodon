@@ -27,6 +27,7 @@ use chrono::DateTime;
 use chrono::Utc;
 use cloud_terrastodon_azure_types::ArbitraryJson;
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 /// A full build definition returned by the definitions GET endpoint.
 ///
@@ -83,3 +84,4 @@ pub struct AzureDevOpsBuildDefinition {
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsBuildDefinition);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsBuildDefinition);
+cloud_terrastodon_registry::register_arbitrary!(Arc<AzureDevOpsBuildDefinition>);

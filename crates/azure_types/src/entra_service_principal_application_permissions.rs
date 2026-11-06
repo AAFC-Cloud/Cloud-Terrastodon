@@ -1,6 +1,7 @@
 use crate::EntraServicePrincipalApplicationResourceSpecificPermission;
 use crate::EntraServicePrincipalApplicationRole;
 use arbitrary::Arbitrary;
+use std::sync::Arc;
 
 /// Application permissions exposed by an Entra service principal.
 ///
@@ -17,3 +18,5 @@ pub struct EntraServicePrincipalApplicationPermissions {
 
 cloud_terrastodon_registry::register_thing!(EntraServicePrincipalApplicationPermissions);
 cloud_terrastodon_registry::register_arbitrary!(EntraServicePrincipalApplicationPermissions);
+
+cloud_terrastodon_registry::register_arbitrary!(Arc<EntraServicePrincipalApplicationPermissions>);

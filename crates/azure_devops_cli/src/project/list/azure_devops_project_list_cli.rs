@@ -5,7 +5,7 @@ use cloud_terrastodon_azure::AzureDevOpsTenantArgumentExt;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use std::io::Write;
 use std::io::stdout;
@@ -26,14 +26,16 @@ impl AzureDevOpsProjectListArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let azure_devops_auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &azure_devops_auth_context.bind_executor(executor)?;
         let projects =
-            fetch_all_azure_devops_projects(&self.org, &azure_devops_auth_context, cancellation)
+            fetch_all_azure_devops_projects(&self.org, &azure_devops_auth_context, executor)
                 .await?;
         let mut out = stdout().lock();
         facet_json::to_writer_std_pretty(&mut out, &projects)
@@ -47,7 +49,10 @@ impl AzureDevOpsProjectListArgs {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cloud_terrastodon_cache::WorkCache;
     use cloud_terrastodon_command::CancellationToken;
+    use cloud_terrastodon_execution::UnreachableAuthenticationProvider;
+    use std::sync::Arc;
 
     #[derive(facet::Facet, Debug)]
     struct ParseArgs {
@@ -69,7 +74,11 @@ mod tests {
     async fn project_list_authenticates_before_reading_organization_or_cache() {
         CancellationToken::new()
             .with_async_scope(|cancellation| async move {
-                let cancellation = &cancellation;
+                let executor = CloudTerrastodonExecutor::new(
+                    WorkCache::temporary()?,
+                    Arc::new(UnreachableAuthenticationProvider),
+                    cancellation.clone(),
+                );
 
                 let args = AzureDevOpsProjectListArgs {
                     org: "offline-test-organization".parse().unwrap(),
@@ -78,7 +87,7 @@ mod tests {
                 let error = args
                     .invoke(
                         &AuthContext::explicit(AuthSource::WorkloadIdentity),
-                        cancellation,
+                        &executor,
                     )
                     .await
                     .expect_err("missing WIF configuration should fail before REST/cache work");
@@ -98,14 +107,18 @@ mod tests {
     async fn browser_project_list_requires_a_tenant_without_a_stored_session() {
         CancellationToken::new()
             .with_async_scope(|cancellation| async move {
-                let cancellation = &cancellation;
+                let executor = CloudTerrastodonExecutor::new(
+                    WorkCache::temporary()?,
+                    Arc::new(UnreachableAuthenticationProvider),
+                    cancellation.clone(),
+                );
 
                 let args = AzureDevOpsProjectListArgs {
                     org: "offline-test-organization".parse().unwrap(),
                     tenant: None,
                 };
                 let error = args
-                    .invoke(&AuthContext::explicit(AuthSource::Browser), cancellation)
+                    .invoke(&AuthContext::explicit(AuthSource::Browser), &executor)
                     .await
                     .expect_err("browser auth should fail locally without tenant/session context");
                 assert!(error.to_string().contains("explicit tenant"));
@@ -120,7 +133,11 @@ mod tests {
     async fn cli_project_list_requires_tenant_before_cli_or_rest_access() {
         CancellationToken::new()
             .with_async_scope(|cancellation| async move {
-                let cancellation = &cancellation;
+                let executor = CloudTerrastodonExecutor::new(
+                    WorkCache::temporary()?,
+                    Arc::new(UnreachableAuthenticationProvider),
+                    cancellation.clone(),
+                );
 
                 let auth_context = AuthContext::explicit(AuthSource::AzureCli);
                 // Cached project pages intentionally bypass fresh authentication. Use
@@ -131,7 +148,7 @@ mod tests {
                     tenant: None,
                 };
                 let error = args
-                    .invoke(&auth_context, cancellation)
+                    .invoke(&auth_context, &executor)
                     .await
                     .expect_err("missing tenant must fail before command or REST access");
                 assert!(

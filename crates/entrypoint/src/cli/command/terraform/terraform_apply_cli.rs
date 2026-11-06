@@ -7,10 +7,10 @@ use cloud_terrastodon_azure::RolePermissionAction;
 use cloud_terrastodon_azure::UnifiedRoleDefinitionsAndAssignmentsIterTools;
 use cloud_terrastodon_azure::fetch_all_unified_role_definitions_and_assignments;
 use cloud_terrastodon_azure::fetch_current_user;
-use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::OutputBehaviour;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_hcl::TerraformChangeAction;
 use cloud_terrastodon_hcl::TerraformPlan;
 use eyre::Result;
@@ -37,8 +37,9 @@ impl TerraformApplyArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let tenant_id = self.tenant.resolve(cancellation).await?;
         // Generate the plan file
         let plan_file = "apply.tfplan";
@@ -100,10 +101,11 @@ impl TerraformApplyArgs {
 
         // Identify RBAC roles for the current principal
         let tenant_auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
+        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
         let entra_rbac =
-            fetch_all_unified_role_definitions_and_assignments(&tenant_auth_context, cancellation)
+            fetch_all_unified_role_definitions_and_assignments(&tenant_auth_context, executor)
                 .await?;
-        let current_user = fetch_current_user(&tenant_auth_context, cancellation).await?;
+        let current_user = fetch_current_user(&tenant_auth_context, executor).await?;
         let current_user_rbac = entra_rbac
             .iter_role_assignments()
             .filter_principal(&current_user.id)
@@ -146,7 +148,7 @@ impl TerraformApplyArgs {
                 unsatisfied_requirements
             );
             press_enter_to_continue().await?;
-            pim_activate_entra(tenant_id, cancellation).await?;
+            pim_activate_entra(&tenant_auth_context, executor).await?;
         }
 
         // Apply the plan

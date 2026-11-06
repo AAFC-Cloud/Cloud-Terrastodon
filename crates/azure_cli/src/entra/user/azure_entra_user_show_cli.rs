@@ -3,7 +3,7 @@ use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::EntraUserArgument;
 use cloud_terrastodon_azure::fetch_entra_user;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use std::io::Write;
 use tracing::info;
@@ -24,15 +24,17 @@ impl AzureEntraUserShowArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let tenant_auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
         info!(needle = %self.user, tenant_id = %tenant_auth_context.tenant_id, "Fetching user");
 
-        let user = fetch_entra_user(self.user, &tenant_auth_context, cancellation).await?;
+        let user = fetch_entra_user(self.user, &tenant_auth_context, executor).await?;
 
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();

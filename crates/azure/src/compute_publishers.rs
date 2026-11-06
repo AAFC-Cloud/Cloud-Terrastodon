@@ -1,40 +1,52 @@
+use cloud_terrastodon_auth_types::AuthenticationSelection;
+use cloud_terrastodon_auth_types::AzureBearerAuthSource;
 use cloud_terrastodon_azure_types::AzureLocationName;
+use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::ComputePublisherId;
+use cloud_terrastodon_azure_types::ComputePublisherReference;
 use cloud_terrastodon_azure_types::SubscriptionId;
-use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CacheableCommand;
-use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_cache::CacheKey;
+use cloud_terrastodon_cache::CacheOperationOwner;
+use cloud_terrastodon_cache::HasCacheKey;
+use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
+use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_rest::RestRequest;
 use std::path::PathBuf;
 
 #[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct ComputePublishersListRequest {
-    #[facet(skip_serializing)]
-    pub cancellation: CancellationScope,
+    pub auth_source: AzureBearerAuthSource,
+    pub tenant_id: AzureTenantId,
 
     pub subscription_id: SubscriptionId,
     pub location: AzureLocationName,
 }
 
-pub fn fetch_compute_publishers(
+#[track_caller]
+pub fn fetch_compute_publishers<'exec>(
     subscription_id: SubscriptionId,
     location: AzureLocationName,
-    cancellation: &CancellationScope,
-) -> ComputePublishersListRequest {
-    ComputePublishersListRequest {
-        cancellation: cancellation.clone(),
+    auth_source: AzureBearerAuthSource,
+    tenant_id: AzureTenantId,
+    executor: &'exec CloudTerrastodonExecutor,
+) -> RequestExecution<'exec, ComputePublishersListRequest> {
+    executor.execute(ComputePublishersListRequest {
+        auth_source,
+        tenant_id,
+
         subscription_id,
         location,
-    }
+    })
 }
 
-#[async_trait]
-impl CacheableCommand for ComputePublishersListRequest {
-    type Output = Vec<ComputePublisherId>;
+impl InvalidatesOwnCacheKey for ComputePublishersListRequest {}
 
-    fn cache_key(&self) -> CacheKey {
-        CacheKey::new(PathBuf::from_iter([
+impl HasCacheKey for ComputePublishersListRequest {
+    fn cache_key(&self) -> eyre::Result<CacheKey> {
+        CacheKey::from_relative_path(PathBuf::from_iter([
             "az",
             "vm",
             "list-publishers",
@@ -42,30 +54,40 @@ impl CacheableCommand for ComputePublishersListRequest {
             self.location.to_string().as_str(),
         ]))
     }
-
-    async fn run(self) -> eyre::Result<Self::Output> {
-        let url = format!(
-            "https://management.azure.com/subscriptions/{subscription_id}/providers/Microsoft.Compute/locations/{location}/publishers?api-version=2024-11-01",
-            subscription_id = self.subscription_id,
-            location = self.location
-        );
-        #[derive(facet::Facet)]
-        struct Row {
-            id: ComputePublisherId,
-            // The location and name are also present but are contained within the ID so we ignore them.
-        }
-        let rtn = RestRequest::new(http::Method::GET, &url, &self.cancellation)?
-            .cache(self.cache_key())
-            .receive::<Vec<Row>>()
-            .await?
-            .into_iter()
-            .map(|row| row.id)
-            .collect();
-        Ok(rtn)
-    }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(ComputePublishersListRequest);
+impl ExecutableRequest for ComputePublishersListRequest {
+    type Error = eyre::Report;
+    type Output = Vec<ComputePublisherId>;
+    fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
+    where
+        Self: 'exec,
+        Self::Output: 'exec,
+    {
+        Box::pin(async move {
+            let url = format!(
+                "https://management.azure.com/subscriptions/{subscription_id}/providers/Microsoft.Compute/locations/{location}/publishers?api-version=2024-11-01",
+                subscription_id = self.subscription_id,
+                location = self.location
+            );
+            let rtn = RestRequest::new(http::Method::GET, &url)?
+                .authentication(AuthenticationSelection::AzureBearer {
+                    auth_source: self.auth_source,
+                    tenant_id: self.tenant_id,
+                })
+                .cache(self.cache_key()?)
+                .receive_cached::<Vec<ComputePublisherReference>>(
+                    &executor,
+                    CacheOperationOwner::of::<ComputePublishersListRequest>(),
+                )
+                .await?
+                .iter()
+                .map(|row| row.id.clone())
+                .collect();
+            Ok(rtn)
+        })
+    }
+}
 
 #[cfg(test)]
 mod test {
@@ -79,17 +101,23 @@ mod test {
     pub async fn it_works() -> eyre::Result<()> {
         CancellationToken::new()
             .cancellable_scope(|cancellation| async move {
+                let executor = crate::test_executor::test_executor(
+                    &cloud_terrastodon_auth::AuthContext::explicit_azure_cli(),
+                    &cancellation,
+                )?;
                 let tenant_id = get_test_tenant_id(&cancellation).await?;
                 let subs = fetch_all_subscriptions(
                     &AuthContext::explicit_azure_cli().bind_to_azure_tenant(tenant_id)?,
-                    &cancellation,
+                    &executor,
                 )
                 .await?;
                 let sub = subs.first().unwrap();
                 let publishers = crate::fetch_compute_publishers(
                     sub.id,
                     AzureLocationName::CanadaCentral,
-                    &cancellation,
+                    cloud_terrastodon_auth_types::AzureBearerAuthSource::AzureCli,
+                    tenant_id,
+                    &executor,
                 )
                 .await?;
                 assert!(!publishers.is_empty());
@@ -101,4 +129,4 @@ mod test {
 
 cloud_terrastodon_registry::register_thing!(ComputePublishersListRequest);
 cloud_terrastodon_registry::register_arbitrary!(ComputePublishersListRequest);
-cloud_terrastodon_registry_execution::register_into_future!(ComputePublishersListRequest => Vec<ComputePublisherId>, effects = [Read]);
+cloud_terrastodon_registry_execution::register_executable_request!(ComputePublishersListRequest => Vec<ComputePublisherId>, effects = [Read]);

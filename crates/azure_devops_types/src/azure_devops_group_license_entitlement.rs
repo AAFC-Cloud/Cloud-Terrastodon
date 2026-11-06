@@ -4,9 +4,10 @@ use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
 use cloud_terrastodon_azure_types::ArbitraryJson;
+use std::sync::Arc;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, facet::Facet, Arbitrary)]
+#[derive(Debug, facet::Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsGroupLicenseEntitlement {
     pub extension_rules: Vec<ArbitraryJson>,
@@ -19,7 +20,7 @@ pub struct AzureDevOpsGroupLicenseEntitlement {
     pub status: String,
 }
 
-#[derive(Debug, Clone, facet::Facet, Arbitrary)]
+#[derive(Debug, facet::Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsGroupLicenseEntitlementGroupReference {
     #[facet(rename = "_links")]
@@ -39,3 +40,4 @@ pub struct AzureDevOpsGroupLicenseEntitlementGroupReference {
 cloud_terrastodon_registry::register_thing!(AzureDevOpsGroupLicenseEntitlement);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsGroupLicenseEntitlement);
 cloud_terrastodon_registry::register_arbitrary!(Vec<AzureDevOpsGroupLicenseEntitlement>);
+cloud_terrastodon_registry::register_arbitrary!(Arc<Vec<AzureDevOpsGroupLicenseEntitlement>>);

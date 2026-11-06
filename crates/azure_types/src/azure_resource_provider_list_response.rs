@@ -1,4 +1,5 @@
 use crate::azure_resource_provider::AzureResourceProvider;
+use std::sync::Arc;
 use url::Url;
 
 /// One page of the tenant-scoped resource-provider catalogue.
@@ -9,7 +10,7 @@ use url::Url;
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct AzureResourceProviderListResponse {
-    pub value: Option<Vec<AzureResourceProvider>>,
+    pub value: Option<Vec<Arc<AzureResourceProvider>>>,
     pub next_link: Option<Url>,
 }
 

@@ -11,6 +11,7 @@ use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
+use std::sync::Arc;
 
 #[derive(Debug, PartialEq, Arbitrary, facet::Facet)]
 pub struct PolicySetDefinitionPolicyDefinitionGroup {
@@ -73,8 +74,8 @@ impl std::fmt::Display for PolicySetDefinition {
         Ok(())
     }
 }
-impl From<PolicySetDefinition> for HclImportBlock {
-    fn from(policy_set_definition: PolicySetDefinition) -> Self {
+impl From<&PolicySetDefinition> for HclImportBlock {
+    fn from(policy_set_definition: &PolicySetDefinition) -> Self {
         HclImportBlock {
             provider: HclProviderReference::Inherited,
             id: policy_set_definition.id.expanded_form().to_string(),
@@ -145,3 +146,4 @@ mod tests {
 cloud_terrastodon_registry::register_thing!(PolicySetDefinition);
 cloud_terrastodon_registry::register_arbitrary!(PolicySetDefinition);
 cloud_terrastodon_registry::register_arbitrary!(Vec<PolicySetDefinition>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<PolicySetDefinition>>);

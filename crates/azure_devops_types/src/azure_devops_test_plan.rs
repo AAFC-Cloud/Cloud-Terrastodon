@@ -2,6 +2,7 @@ use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
 use cloud_terrastodon_azure_types::ArbitraryJson;
+use std::sync::Arc;
 
 #[derive(Debug, Eq, PartialEq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
@@ -72,3 +73,4 @@ pub struct AzureDevOpsTestPlanTestOutcomeSettings {
 cloud_terrastodon_registry::register_thing!(AzureDevOpsTestPlan);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsTestPlan);
 cloud_terrastodon_registry::register_arbitrary!(Vec<AzureDevOpsTestPlan>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<AzureDevOpsTestPlan>>);

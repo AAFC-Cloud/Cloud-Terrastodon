@@ -23,6 +23,7 @@ mod azure_devops_project_member_list;
 mod azure_devops_project_pick_request;
 mod azure_devops_projects;
 mod azure_devops_repos;
+mod azure_devops_repositories_list_request;
 mod azure_devops_service_endpoint;
 mod azure_devops_team;
 mod azure_devops_team_member;
@@ -71,6 +72,8 @@ mod default_azure_devops_project_name_request;
 mod default_organization_tui;
 mod get_pat;
 mod rest_work_item_copy_writer;
+#[cfg(test)]
+mod test_executor;
 mod work_item_copy;
 mod work_item_copy_writer;
 #[cfg(test)]
@@ -98,6 +101,7 @@ pub use crate::azure_devops_project_member_list::*;
 pub use crate::azure_devops_project_pick_request::*;
 pub use crate::azure_devops_projects::*;
 pub use crate::azure_devops_repos::*;
+pub use crate::azure_devops_repositories_list_request::*;
 pub use crate::azure_devops_service_endpoint::*;
 pub use crate::azure_devops_team::*;
 pub use crate::azure_devops_team_member::*;

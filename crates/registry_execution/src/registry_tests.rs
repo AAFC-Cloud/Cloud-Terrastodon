@@ -35,6 +35,8 @@ use std::future::Future;
 use std::future::IntoFuture;
 use std::future::pending;
 use std::future::poll_fn;
+use std::io;
+use std::io::ErrorKind;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
@@ -605,6 +607,7 @@ impl Default for CachedRequest {
 }
 
 impl ExecutableRequest for CachedRequest {
+    type Error = eyre::Report;
     type Output = Arc<DummyOutput>;
 
     fn run<'a>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>
@@ -733,6 +736,7 @@ struct NonSyncOutput {
 struct NonSyncRequest;
 
 impl ExecutableRequest for NonSyncRequest {
+    type Error = eyre::Report;
     type Output = NonSyncOutput;
 
     fn run<'a>(self, _executor: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>
@@ -771,10 +775,98 @@ async fn executable_registration_returns_owned_non_sync_values() -> eyre::Result
         .await
 }
 
+#[derive(Debug)]
+enum CustomRequestFailure {
+    Partial {
+        completed: Cell<u32>,
+        source: io::Error,
+    },
+    Cancelled(CancellationError),
+}
+
+impl From<CancellationError> for CustomRequestFailure {
+    fn from(error: CancellationError) -> Self {
+        Self::Cancelled(error)
+    }
+}
+
+// A request's error need not implement Error or Sync. Its explicit conversion
+// decides which structured source and domain context reach erased consumers.
+impl From<CustomRequestFailure> for eyre::Report {
+    fn from(error: CustomRequestFailure) -> Self {
+        match error {
+            CustomRequestFailure::Partial { completed, source } => eyre::Report::new(source)
+                .wrap_err(format!(
+                    "completed {} synthetic items",
+                    completed.into_inner()
+                )),
+            CustomRequestFailure::Cancelled(error) => eyre::Report::new(error),
+        }
+    }
+}
+
+#[derive(Facet)]
+struct CustomErrorRequest;
+
+impl ExecutableRequest for CustomErrorRequest {
+    type Output = ();
+    type Error = CustomRequestFailure;
+
+    fn run<'a>(
+        self,
+        _executor: CloudTerrastodonExecutor,
+    ) -> ExecutionFuture<'a, Self::Output, Self::Error>
+    where
+        Self: 'a,
+        Self::Output: 'a,
+        Self::Error: 'a,
+    {
+        Box::pin(async {
+            Err(CustomRequestFailure::Partial {
+                completed: Cell::new(3),
+                source: io::Error::new(ErrorKind::ConnectionReset, "synthetic interrupted read"),
+            })
+        })
+    }
+}
+
+register_executable_request!(CustomErrorRequest => (), effects = [Read]);
+
+#[tokio::test]
+async fn registry_erases_custom_errors_only_at_invocation_and_preserves_their_source()
+-> eyre::Result<()> {
+    CancellationToken::new()
+        .with_async_scope(|scope| async move {
+            let executor = test_executor(scope)?;
+            let direct = executor.execute(CustomErrorRequest).await.unwrap_err();
+            let CustomRequestFailure::Partial { completed, source } = direct else {
+                panic!("direct execution must retain the custom partial-result error");
+            };
+            assert_eq!(completed.get(), 3);
+            assert_eq!(source.kind(), ErrorKind::ConnectionReset);
+
+            let FunctionInvocation::Pending(invocation) =
+                CustomErrorRequest::REGISTERED_EXECUTABLE_REQUEST
+                    .invoke_value_boxed(Box::new(CustomErrorRequest), &executor)?
+            else {
+                panic!("executable requests must produce pending invocations");
+            };
+            let report = invocation.await.unwrap_err();
+            assert_eq!(report.to_string(), "completed 3 synthetic items");
+            assert_eq!(
+                report.downcast_ref::<io::Error>().unwrap().kind(),
+                ErrorKind::ConnectionReset,
+            );
+            Ok(())
+        })
+        .await
+}
+
 #[derive(Facet)]
 struct PendingRequest;
 
 impl ExecutableRequest for PendingRequest {
+    type Error = eyre::Report;
     type Output = ();
 
     fn run<'a>(self, _executor: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>

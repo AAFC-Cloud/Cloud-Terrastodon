@@ -8,13 +8,14 @@ use cloud_terrastodon_azure_devops::AzureDevOpsBuildFolderPathArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_build_definitions;
-use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use color_eyre::owo_colors::OwoColorize;
 use color_eyre::owo_colors::Stream;
 use color_eyre::owo_colors::Style;
 use eyre::Result;
 use std::io::Write;
+use std::sync::Arc;
 
 /// List pipeline definitions matching the supplied filters.
 #[derive(Debug, Clone, facet::Facet)]
@@ -48,20 +49,22 @@ impl AzureDevOpsBuildDefinitionListArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<CliOutput> {
+        let cancellation = executor.cancellation();
         let path = self.path.map(AzureDevOpsBuildFolderPathArgument::into_path);
         let auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &auth_context.bind_executor(executor)?;
         let definitions = fetch_azure_devops_build_definitions(
             &self.org,
             self.project,
             &auth_context,
             self.name,
             path,
-            cancellation,
+            executor,
         )
         .with_invalidation(self.no_cache)
         .await?;
@@ -75,7 +78,7 @@ impl AzureDevOpsBuildDefinitionListArgs {
 }
 
 fn write_definitions(
-    definitions: &[AzureDevOpsBuildDefinitionReference],
+    definitions: &[Arc<AzureDevOpsBuildDefinitionReference>],
     writer: &mut dyn Write,
     cancellation: &CancellationScope,
 ) -> Result<()> {

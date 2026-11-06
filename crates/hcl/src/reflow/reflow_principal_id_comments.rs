@@ -32,7 +32,9 @@ impl ReflowPrincipalIdComments {
         Self { principals }
     }
 
-    pub fn from_directory_objects(objects: impl IntoIterator<Item = EntraDirectoryObject>) -> Self {
+    pub fn from_directory_objects<'a>(
+        objects: impl IntoIterator<Item = &'a EntraDirectoryObject>,
+    ) -> Self {
         let principals = objects
             .into_iter()
             .filter_map(|object| {
@@ -114,6 +116,7 @@ mod test {
     use indoc::formatdoc;
     use rand::RngExt;
     use std::path::PathBuf;
+    use std::sync::Arc;
 
     #[tokio::test]
     pub async fn it_works_with_directory_objects() -> eyre::Result<()> {
@@ -126,7 +129,7 @@ mod test {
             }"##,
         )?;
         let user_id = user.id();
-        let mut reflower = super::ReflowPrincipalIdComments::from_directory_objects([user]);
+        let mut reflower = super::ReflowPrincipalIdComments::from_directory_objects([&user]);
         let body = formatdoc! {
             r#"
                 resource "role_assignment" "example" {{
@@ -161,7 +164,7 @@ mod test {
 
         // Create principal collection
         let principal_collection =
-            EntraPrincipalCollection::new(vec![EntraPrincipal::User(Box::new(user))]);
+            EntraPrincipalCollection::new(vec![EntraPrincipal::User(Arc::new(user))]);
 
         // Create reflower
         let mut reflower = super::ReflowPrincipalIdComments::new(principal_collection);
@@ -214,8 +217,8 @@ mod test {
 
         // Create principal collection
         let principal_collection = EntraPrincipalCollection::new(vec![
-            EntraPrincipal::User(Box::new(user1)),
-            EntraPrincipal::User(Box::new(user2)),
+            EntraPrincipal::User(Arc::new(user1)),
+            EntraPrincipal::User(Arc::new(user2)),
         ]);
 
         // Create reflower
@@ -269,8 +272,8 @@ mod test {
 
         // Create principal collection
         let principal_collection = EntraPrincipalCollection::new(vec![
-            EntraPrincipal::User(Box::new(user1)),
-            EntraPrincipal::User(Box::new(user2)),
+            EntraPrincipal::User(Arc::new(user1)),
+            EntraPrincipal::User(Arc::new(user2)),
         ]);
 
         // Create reflower
@@ -326,7 +329,7 @@ mod test {
 
         // Create principal collection
         let principal_collection =
-            EntraPrincipalCollection::new(vec![EntraPrincipal::User(Box::new(user))]);
+            EntraPrincipalCollection::new(vec![EntraPrincipal::User(Arc::new(user))]);
 
         // Create reflower
         let mut reflower = super::ReflowPrincipalIdComments::new(principal_collection);
@@ -379,8 +382,8 @@ mod test {
 
         // Create principal collection
         let principal_collection = EntraPrincipalCollection::new(vec![
-            EntraPrincipal::User(Box::new(user1)),
-            EntraPrincipal::User(Box::new(user2)),
+            EntraPrincipal::User(Arc::new(user1)),
+            EntraPrincipal::User(Arc::new(user2)),
         ]);
 
         // Create reflower

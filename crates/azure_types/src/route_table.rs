@@ -3,6 +3,7 @@ use crate::RouteTableId;
 use crate::RouteTableProperties;
 use arbitrary::Arbitrary;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 #[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
 pub struct RouteTable {
@@ -23,3 +24,4 @@ impl RouteTable {
 cloud_terrastodon_registry::register_thing!(RouteTable);
 cloud_terrastodon_registry::register_arbitrary!(RouteTable);
 cloud_terrastodon_registry::register_arbitrary!(Vec<RouteTable>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<RouteTable>>);

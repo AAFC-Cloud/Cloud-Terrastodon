@@ -10,7 +10,8 @@ use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemId;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemPatchFields;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemRelationInput;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemType;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
 use eyre::ensure;
 use std::borrow::Cow;
@@ -47,7 +48,12 @@ pub struct AzureDevOpsWorkItemCreateArgs {
 }
 
 impl AzureDevOpsWorkItemCreateArgs {
-    pub async fn invoke(self, auth: &AuthContext, cancellation: &CancellationScope) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth: &AuthContext,
+        executor: &CloudTerrastodonExecutor,
+    ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let mut fields: AzureDevOpsWorkItemPatchFields = match self.fields {
             Some(input) => {
                 let body = cloud_terrastodon_rest::read_optional_body(Some(input))
@@ -79,12 +85,12 @@ impl AzureDevOpsWorkItemCreateArgs {
             None => Vec::new(),
         };
         let auth_context = self.tenant.bind_auth_context(auth, cancellation).await?;
+        let executor = &auth_context.bind_executor(executor)?;
         if let Some(parent) = self.parent {
             relations.push(AzureDevOpsWorkItemRelationInput::parent(&self.org, parent)?);
         }
         let patch = AzureDevOpsJsonPatch::work_item_create_patch(fields, &relations)?;
         let item = AzureDevOpsWorkItemCreateRequest {
-            cancellation: cancellation.clone(),
             org_url: Cow::Owned(self.org),
             project: self.project,
             auth_context: Cow::Owned(auth_context),
@@ -93,6 +99,7 @@ impl AzureDevOpsWorkItemCreateArgs {
             validate_only: self.validate_only,
             suppress_notifications: self.suppress_notifications,
         }
+        .execute(executor)
         .await?;
         facet_json::to_writer_std_pretty(std::io::stdout(), &item)
             .map_err(|error| eyre::eyre!("{error:?}"))?;

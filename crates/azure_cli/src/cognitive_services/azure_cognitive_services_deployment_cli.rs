@@ -1,7 +1,7 @@
 use super::AzureCognitiveServicesDeploymentListArgs;
 use super::AzureCognitiveServicesDeploymentShowArgs;
 use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
 /// Query Azure Cognitive Services deployments.
@@ -15,9 +15,9 @@ impl AzureCognitiveServicesDeploymentArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
-        self.command.invoke(auth_context, cancellation).await
+        self.command.invoke(auth_context, executor).await
     }
 }
 
@@ -34,14 +34,14 @@ impl AzureCognitiveServicesDeploymentCommand {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
         match self {
             AzureCognitiveServicesDeploymentCommand::List(args) => {
-                args.invoke(auth_context, cancellation).await
+                args.invoke(auth_context, executor).await
             }
             AzureCognitiveServicesDeploymentCommand::Show(args) => {
-                args.invoke(auth_context, cancellation).await
+                args.invoke(auth_context, executor).await
             }
         }
     }

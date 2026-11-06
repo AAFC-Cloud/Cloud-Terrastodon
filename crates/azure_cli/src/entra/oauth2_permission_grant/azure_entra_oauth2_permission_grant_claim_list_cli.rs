@@ -7,7 +7,7 @@ use cloud_terrastodon_azure::EntraServicePrincipalObjectId;
 use cloud_terrastodon_azure::fetch_all_service_principals;
 use cloud_terrastodon_azure::fetch_oauth2_permission_scopes;
 use cloud_terrastodon_azure::fetch_service_principal;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use eyre::bail;
 use std::io::Write;
@@ -29,16 +29,18 @@ impl AzureEntraOAuth2PermissionGrantClaimListArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let tenant_auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
         let service_principal_id = resolve_service_principal_id(
             &tenant_auth_context,
             self.service_principal.trim(),
-            cancellation,
+            executor,
         )
         .await?;
 
@@ -47,12 +49,10 @@ impl AzureEntraOAuth2PermissionGrantClaimListArgs {
             %service_principal_id,
             "Fetching delegated OAuth2 permission claims"
         );
-        let mut scopes = fetch_oauth2_permission_scopes(
-            service_principal_id,
-            &tenant_auth_context,
-            cancellation,
-        )
-        .await?;
+        let scopes =
+            fetch_oauth2_permission_scopes(service_principal_id, &tenant_auth_context, executor)
+                .await?;
+        let mut scopes = scopes.iter().collect::<Vec<_>>();
         scopes.sort_by(|left, right| left.value.cmp(&right.value));
 
         let stdout = std::io::stdout();
@@ -67,10 +67,10 @@ impl AzureEntraOAuth2PermissionGrantClaimListArgs {
 async fn resolve_service_principal_id(
     auth_context: &AzureTenantAuthContext,
     needle: &str,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> Result<EntraServicePrincipalObjectId> {
     if let Ok(service_principal_id) = needle.parse::<EntraServicePrincipalObjectId>() {
-        match fetch_service_principal(service_principal_id, auth_context, cancellation).await {
+        match fetch_service_principal(service_principal_id, auth_context, executor).await {
             Ok(_) => return Ok(service_principal_id),
             Err(error) => {
                 info!(
@@ -81,7 +81,7 @@ async fn resolve_service_principal_id(
         }
     }
 
-    let service_principals = fetch_all_service_principals(auth_context, cancellation).await?;
+    let service_principals = fetch_all_service_principals(auth_context, executor).await?;
     let mut matches = service_principals
         .iter()
         .filter(|service_principal| matches_service_principal(service_principal, needle))

@@ -2,7 +2,7 @@ use crate::AzureDevOpsDescriptor;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_types::ArbitraryJson;
 
-#[derive(Debug, Clone, facet::Facet, Arbitrary)]
+#[derive(Debug, facet::Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsGroupMember {
     pub description: Option<String>,

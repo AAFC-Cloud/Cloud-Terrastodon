@@ -6,7 +6,8 @@ use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemRelationChangeRequest;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemRelationInput;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemRelationInputAttributes;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemRelationSelector;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
 use eyre::ensure;
 use std::borrow::Cow;
@@ -37,7 +38,7 @@ impl AzureDevOpsWorkItemRelationWriteArgs {
         self,
         auth: &AuthContext,
         create: bool,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
         let mut attributes: AzureDevOpsWorkItemRelationInputAttributes = match self.attributes {
             Some(input) => {
@@ -60,8 +61,9 @@ impl AzureDevOpsWorkItemRelationWriteArgs {
         let auth_context = self
             .relation
             .tenant
-            .bind_auth_context(auth, cancellation)
+            .bind_auth_context(auth, executor.cancellation())
             .await?;
+        let executor = &auth_context.bind_executor(executor)?;
         let change = if create {
             AzureDevOpsWorkItemRelationChange::Create(AzureDevOpsWorkItemRelationInput {
                 rel: self.relation.relation_type,
@@ -78,7 +80,6 @@ impl AzureDevOpsWorkItemRelationWriteArgs {
             }
         };
         let item = AzureDevOpsWorkItemRelationChangeRequest {
-            cancellation: cancellation.clone(),
             org_url: Cow::Owned(self.relation.org),
             project: Some(self.relation.project),
             auth_context: Cow::Owned(auth_context),
@@ -88,6 +89,7 @@ impl AzureDevOpsWorkItemRelationWriteArgs {
             suppress_notifications: self.suppress_notifications,
             if_rev: self.if_rev,
         }
+        .execute(executor)
         .await?;
         facet_json::to_writer_std_pretty(std::io::stdout(), &item)
             .map_err(|error| eyre::eyre!("{error:?}"))?;

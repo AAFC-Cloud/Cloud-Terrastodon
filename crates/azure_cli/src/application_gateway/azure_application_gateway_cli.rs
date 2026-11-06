@@ -2,7 +2,7 @@ use super::AzureApplicationGatewayListArgs;
 use super::AzureApplicationGatewayShowArgs;
 use super::AzureApplicationGatewayShowBackendHealthArgs;
 use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
 /// Subcommands for Azure application gateways.
@@ -21,17 +21,13 @@ impl AzureApplicationGatewayCommand {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
         match self {
-            AzureApplicationGatewayCommand::List(args) => {
-                args.invoke(auth_context, cancellation).await
-            }
-            AzureApplicationGatewayCommand::Show(args) => {
-                args.invoke(auth_context, cancellation).await
-            }
+            AzureApplicationGatewayCommand::List(args) => args.invoke(auth_context, executor).await,
+            AzureApplicationGatewayCommand::Show(args) => args.invoke(auth_context, executor).await,
             AzureApplicationGatewayCommand::ShowBackendHealth(args) => {
-                args.invoke(auth_context, cancellation).await
+                args.invoke(auth_context, executor).await
             }
         }
     }

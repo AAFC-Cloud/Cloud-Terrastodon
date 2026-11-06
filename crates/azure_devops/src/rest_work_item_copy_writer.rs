@@ -11,8 +11,9 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItem;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemId;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemRelationInput;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemType;
-use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
 use std::borrow::Cow;
 
@@ -31,10 +32,9 @@ impl WorkItemCopyWriter for RestWorkItemCopyWriter {
         &self,
         work_item_type: AzureDevOpsWorkItemType,
         patch: AzureDevOpsJsonPatch,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<AzureDevOpsWorkItem> {
         let response = AzureDevOpsWorkItemCreateRequest {
-            cancellation: cancellation.clone(),
             org_url: Cow::Borrowed(&self.org_url),
             project: self.project.clone(),
             auth_context: Cow::Borrowed(&self.auth_context),
@@ -43,6 +43,7 @@ impl WorkItemCopyWriter for RestWorkItemCopyWriter {
             validate_only: false,
             suppress_notifications: self.suppress_notifications,
         }
+        .execute(executor)
         .await?;
         facet_json::from_str(response.as_ref())
             .map_err(|error| eyre::eyre!("Created item response could not be decoded: {error}"))
@@ -51,10 +52,9 @@ impl WorkItemCopyWriter for RestWorkItemCopyWriter {
         &self,
         source: AzureDevOpsWorkItemId,
         relation: AzureDevOpsWorkItemRelationInput,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
         AzureDevOpsWorkItemRelationChangeRequest {
-            cancellation: cancellation.clone(),
             org_url: Cow::Borrowed(&self.org_url),
             project: Some(self.project.clone()),
             auth_context: Cow::Borrowed(&self.auth_context),
@@ -64,16 +64,16 @@ impl WorkItemCopyWriter for RestWorkItemCopyWriter {
             suppress_notifications: self.suppress_notifications,
             if_rev: None,
         }
+        .execute(executor)
         .await?;
         Ok(())
     }
     async fn read(
         &self,
         ids: Vec<AzureDevOpsWorkItemId>,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<Vec<AzureDevOpsWorkItem>> {
         AzureDevOpsWorkItemsGetRequest {
-            cancellation: cancellation.clone(),
             org_url: Cow::Borrowed(&self.org_url),
             project: Some(self.project.clone()),
             auth_context: Cow::Borrowed(&self.auth_context),
@@ -82,6 +82,7 @@ impl WorkItemCopyWriter for RestWorkItemCopyWriter {
             fields: Vec::new(),
             as_of: None,
         }
+        .execute(executor)
         .await
     }
 }

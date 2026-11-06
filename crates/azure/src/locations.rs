@@ -1,36 +1,49 @@
+use cloud_terrastodon_auth_types::AuthenticationSelection;
+use cloud_terrastodon_auth_types::AzureBearerAuthSource;
 use cloud_terrastodon_azure_types::AzureLocation;
+use cloud_terrastodon_azure_types::AzureLocationListResponse;
+use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::SubscriptionId;
-use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CacheableCommand;
-use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_cache::CacheKey;
+use cloud_terrastodon_cache::CacheOperationOwner;
+use cloud_terrastodon_cache::HasCacheKey;
+use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
+use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_rest::RestRequest;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 #[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct LocationListRequest {
-    #[facet(skip_serializing)]
-    pub cancellation: CancellationScope,
+    pub auth_source: AzureBearerAuthSource,
+    pub tenant_id: AzureTenantId,
 
     pub subscription_id: SubscriptionId,
 }
 
-pub fn fetch_all_locations(
+#[track_caller]
+pub fn fetch_all_locations<'exec>(
     subscription_id: SubscriptionId,
-    cancellation: &CancellationScope,
-) -> LocationListRequest {
-    LocationListRequest {
-        cancellation: cancellation.clone(),
+    auth_source: AzureBearerAuthSource,
+    tenant_id: AzureTenantId,
+    executor: &'exec CloudTerrastodonExecutor,
+) -> RequestExecution<'exec, LocationListRequest> {
+    executor.execute(LocationListRequest {
+        auth_source,
+        tenant_id,
+
         subscription_id,
-    }
+    })
 }
 
-#[async_trait]
-impl CacheableCommand for LocationListRequest {
-    type Output = Vec<AzureLocation>;
+impl InvalidatesOwnCacheKey for LocationListRequest {}
 
-    fn cache_key(&self) -> CacheKey {
-        CacheKey::new(PathBuf::from_iter([
+impl HasCacheKey for LocationListRequest {
+    fn cache_key(&self) -> eyre::Result<CacheKey> {
+        CacheKey::from_relative_path(PathBuf::from_iter([
             "az",
             "account",
             "list-locations",
@@ -38,25 +51,36 @@ impl CacheableCommand for LocationListRequest {
             &self.subscription_id.to_string(),
         ]))
     }
-
-    async fn run(self) -> eyre::Result<Self::Output> {
-        let url = format!(
-            "https://management.azure.com/subscriptions/{}/locations?api-version=2022-12-01",
-            self.subscription_id
-        );
-        #[derive(facet::Facet)]
-        struct Response {
-            value: Vec<AzureLocation>,
-        }
-        let rtn = RestRequest::new(http::Method::GET, &url, &self.cancellation)?
-            .cache(self.cache_key())
-            .receive::<Response>()
-            .await?;
-        Ok(rtn.value)
-    }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(LocationListRequest);
+impl ExecutableRequest for LocationListRequest {
+    type Error = eyre::Report;
+    type Output = Vec<Arc<AzureLocation>>;
+    fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
+    where
+        Self: 'exec,
+        Self::Output: 'exec,
+    {
+        Box::pin(async move {
+            let url = format!(
+                "https://management.azure.com/subscriptions/{}/locations?api-version=2022-12-01",
+                self.subscription_id
+            );
+            let rtn = RestRequest::new(http::Method::GET, &url)?
+                .authentication(AuthenticationSelection::AzureBearer {
+                    auth_source: self.auth_source,
+                    tenant_id: self.tenant_id,
+                })
+                .cache(self.cache_key()?)
+                .receive_cached::<AzureLocationListResponse>(
+                    &executor,
+                    CacheOperationOwner::of::<LocationListRequest>(),
+                )
+                .await?;
+            Ok(rtn.value.clone())
+        })
+    }
+}
 
 #[cfg(test)]
 mod test {
@@ -70,15 +94,25 @@ mod test {
     pub async fn it_works() -> eyre::Result<()> {
         CancellationToken::new()
             .cancellable_scope(|cancellation| async move {
+                let executor = crate::test_executor::test_executor(
+                    &cloud_terrastodon_auth::AuthContext::explicit_azure_cli(),
+                    &cancellation,
+                )?;
                 let tenant_id = get_test_tenant_id(&cancellation).await?;
                 let subs = fetch_all_subscriptions(
                     &AuthContext::explicit_azure_cli().bind_to_azure_tenant(tenant_id)?,
-                    &cancellation,
+                    &executor,
                 )
                 .await?;
                 let mut found_unrecognized_location = false;
                 for sub in subs {
-                    let locations = fetch_all_locations(sub.id, &cancellation).await?;
+                    let locations = fetch_all_locations(
+                        sub.id,
+                        cloud_terrastodon_auth_types::AzureBearerAuthSource::AzureCli,
+                        tenant_id,
+                        &executor,
+                    )
+                    .await?;
                     found_unrecognized_location |= locations
                         .iter()
                         .any(|location| location.name.as_other().is_some());
@@ -94,4 +128,4 @@ mod test {
 
 cloud_terrastodon_registry::register_thing!(LocationListRequest);
 cloud_terrastodon_registry::register_arbitrary!(LocationListRequest);
-cloud_terrastodon_registry_execution::register_into_future!(LocationListRequest => Vec<AzureLocation>, effects = [Read]);
+cloud_terrastodon_registry_execution::register_executable_request!(LocationListRequest => Vec<Arc<AzureLocation>>, effects = [Read]);

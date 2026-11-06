@@ -1,7 +1,7 @@
 use super::AzureEntraPrincipalListArgs;
 use super::AzureEntraPrincipalShowArgs;
 use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
 /// Principal-related Entra (Azure AD) commands.
@@ -18,11 +18,11 @@ impl AzureEntraPrincipalCommand {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
         match self {
-            AzureEntraPrincipalCommand::List(args) => args.invoke(auth_context, cancellation).await,
-            AzureEntraPrincipalCommand::Show(args) => args.invoke(auth_context, cancellation).await,
+            AzureEntraPrincipalCommand::List(args) => args.invoke(auth_context, executor).await,
+            AzureEntraPrincipalCommand::Show(args) => args.invoke(auth_context, executor).await,
         }
     }
 }

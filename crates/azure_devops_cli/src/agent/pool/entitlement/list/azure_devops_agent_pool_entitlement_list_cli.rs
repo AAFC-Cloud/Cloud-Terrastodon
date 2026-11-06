@@ -5,7 +5,7 @@ use cloud_terrastodon_azure_devops::AzureDevOpsAgentPoolArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_agent_pool_entitlements_for_project;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use std::io::stdout;
 
@@ -30,17 +30,19 @@ impl AzureDevOpsAgentPoolEntitlementListArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let azure_devops_auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &azure_devops_auth_context.bind_executor(executor)?;
         let entitlements = fetch_azure_devops_agent_pool_entitlements_for_project(
             &self.org,
             self.project,
             &azure_devops_auth_context,
-            cancellation,
+            executor,
         )
         .await?;
         let entitlements: Vec<_> = entitlements

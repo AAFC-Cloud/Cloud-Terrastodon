@@ -5,7 +5,7 @@ use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemId;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_test_suite_cases;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use eyre::bail;
 use std::io::stdout;
@@ -41,23 +41,25 @@ impl AzureDevOpsTestSuiteCaseShowArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let case_id = self.case.parse::<AzureDevOpsWorkItemId>().ok();
         let azure_devops_auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &azure_devops_auth_context.bind_executor(executor)?;
         let cases = fetch_azure_devops_test_suite_cases(
             &self.org,
             self.project,
             self.plan,
             self.suite,
             &azure_devops_auth_context,
-            cancellation,
+            executor,
         )
         .await?;
-        if let Some(case) = cases.into_iter().find(|c| {
+        if let Some(case) = cases.iter().find(|c| {
             c.test_case
                 .name
                 .as_ref()

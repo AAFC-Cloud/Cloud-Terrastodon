@@ -4,7 +4,7 @@ use super::AzureEntraApplicationRegistrationRoleArgs;
 use super::AzureEntraApplicationRegistrationSearchArgs;
 use super::AzureEntraApplicationRegistrationShowArgs;
 use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
 /// Application registration-related Entra (Azure AD) commands.
@@ -27,21 +27,23 @@ impl AzureEntraApplicationRegistrationCommand {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
         match self {
             AzureEntraApplicationRegistrationCommand::List(args) => {
-                args.invoke(auth_context, cancellation).await
+                args.invoke(auth_context, executor).await
             }
             AzureEntraApplicationRegistrationCommand::Show(args) => {
-                args.invoke(auth_context, cancellation).await
+                args.invoke(auth_context, executor).await
             }
             AzureEntraApplicationRegistrationCommand::Browse(args) => {
-                args.invoke(auth_context, cancellation).await
+                args.invoke(auth_context, executor).await
             }
-            AzureEntraApplicationRegistrationCommand::Role(args) => args.invoke(cancellation).await,
+            AzureEntraApplicationRegistrationCommand::Role(args) => {
+                args.invoke(auth_context, executor).await
+            }
             AzureEntraApplicationRegistrationCommand::Search(args) => {
-                args.invoke(auth_context, cancellation).await
+                args.invoke(auth_context, executor).await
             }
         }
     }

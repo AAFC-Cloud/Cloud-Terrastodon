@@ -1,3 +1,5 @@
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use std::sync::Arc;
 pub mod azure_entra_oauth2_permission_grant_browse_cli;
 pub mod azure_entra_oauth2_permission_grant_claim_cli;
 pub mod azure_entra_oauth2_permission_grant_claim_list_cli;
@@ -18,7 +20,6 @@ use cloud_terrastodon_azure::EntraApplicationClientId;
 use cloud_terrastodon_azure::EntraServicePrincipal;
 use cloud_terrastodon_azure::EntraServicePrincipalObjectId;
 use cloud_terrastodon_azure::fetch_all_service_principals;
-use cloud_terrastodon_command::CancellationScope;
 use eyre::ContextCompat;
 use eyre::Result;
 
@@ -36,9 +37,9 @@ impl AzureEntraOAuth2PermissionGrantArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
-        self.command.invoke(auth_context, cancellation).await
+        self.command.invoke(auth_context, executor).await
     }
 }
 
@@ -61,13 +62,13 @@ pub async fn resolve_preset_service_principals(
     tenant_id: cloud_terrastodon_azure::AzureTenantId,
     preset: OAuth2PermissionGrantPreset,
     auth_context: &AuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> Result<(EntraServicePrincipalObjectId, EntraServicePrincipalObjectId)> {
     let tenant_auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
     match preset {
         OAuth2PermissionGrantPreset::GraphExplorer => {
             let service_principals =
-                fetch_all_service_principals(&tenant_auth_context, cancellation).await?;
+                fetch_all_service_principals(&tenant_auth_context, executor).await?;
             let client =
                 resolve_service_principal_by_app_id(&service_principals, GRAPH_EXPLORER_APP_ID)?;
             let resource =
@@ -78,12 +79,13 @@ pub async fn resolve_preset_service_principals(
 }
 
 fn resolve_service_principal_by_app_id<'a>(
-    service_principals: &'a [EntraServicePrincipal],
+    service_principals: &'a [Arc<EntraServicePrincipal>],
     app_id: &str,
 ) -> Result<&'a EntraServicePrincipal> {
     let app_id = app_id.parse::<EntraApplicationClientId>()?;
     service_principals
         .iter()
         .find(|sp| sp.app_id == app_id)
+        .map(Arc::as_ref)
         .wrap_err_with(|| format!("Could not find service principal for app id {app_id}"))
 }

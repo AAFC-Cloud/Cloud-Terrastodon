@@ -6,6 +6,7 @@ use crate::execution_mode::ExecutionMode;
 use cloud_terrastodon_auth_types::AuthenticationSelection;
 use cloud_terrastodon_auth_types::Authorization;
 use cloud_terrastodon_auth_types::AzureCredentialResource;
+use cloud_terrastodon_auth_types::ContainerRegistryBearerChallenge;
 use cloud_terrastodon_cache::ArtifactEntry;
 use cloud_terrastodon_cache::ArtifactRetention;
 use cloud_terrastodon_cache::AuthPartition;
@@ -65,6 +66,27 @@ impl CloudTerrastodonExecutor {
         }
     }
 
+    /// Explicitly select another provider while retaining this execution lifetime.
+    ///
+    /// Callers resolving an authentication override own this decision. Request
+    /// adapters must not replace an injected provider implicitly. The returned
+    /// handle shares the cache, cancellation scope, and semantic dependency
+    /// ancestry; the original handle keeps its provider. Credential infrastructure
+    /// cannot replace its provider to escape authorization reentry restrictions.
+    pub fn with_authentication(
+        &self,
+        authentication: Arc<dyn AuthenticationProvider>,
+    ) -> Result<Self> {
+        ensure!(
+            matches!(self.mode, ExecutionMode::Normal(_)),
+            "credential infrastructure cannot replace its authentication provider"
+        );
+        Ok(Self {
+            authentication,
+            ..self.clone()
+        })
+    }
+
     /// The bounded scope for checkpoints and lower transport operations.
     pub fn cancellation(&self) -> &CancellationScope {
         &self.cancellation
@@ -89,6 +111,7 @@ impl CloudTerrastodonExecutor {
     where
         R: ExecutableRequest + 'a,
         R::Output: 'a,
+        R::Error: 'a,
     {
         RequestExecution {
             executor: self,
@@ -127,6 +150,36 @@ impl CloudTerrastodonExecutor {
                 child
                     .authentication
                     .authorization(selection, resource, &child)
+                    .await
+            })
+            .in_current_span(),
+        )
+    }
+
+    /// Resolve a registry challenge in isolated credential infrastructure.
+    /// The provider cannot cache token exchanges as semantic work or recursively
+    /// request authorization through the restricted child executor.
+    #[track_caller]
+    pub fn container_registry_authorization<'a>(
+        &'a self,
+        selection: &'a AuthenticationSelection,
+        challenge: &'a ContainerRegistryBearerChallenge,
+    ) -> ExecutionFuture<'a, Authorization> {
+        Box::pin(
+            self.cancellable_scope(move |mut child| async move {
+                ensure!(
+                    matches!(child.mode, ExecutionMode::Normal(_)),
+                    "credential acquisition cannot recursively request authorization"
+                );
+                ensure!(
+                    matches!(selection, AuthenticationSelection::AzureBearer { .. }),
+                    "Container Registry requires an explicitly tenant-bound bearer selection"
+                );
+                child.admit(selection)?;
+                child.mode = ExecutionMode::NoWorkCacheOrAuthorizationReentry;
+                child
+                    .authentication
+                    .container_registry_authorization(selection, challenge, &child)
                     .await
             })
             .in_current_span(),

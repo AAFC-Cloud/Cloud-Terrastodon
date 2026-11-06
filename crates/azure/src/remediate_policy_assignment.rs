@@ -8,7 +8,7 @@ use cloud_terrastodon_azure_types::PolicyDefinitionIdReference;
 use cloud_terrastodon_azure_types::PolicyRemediationId;
 use cloud_terrastodon_azure_types::PolicyRemediationName;
 use cloud_terrastodon_azure_types::PolicyRemediationScope;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
@@ -16,6 +16,7 @@ use eyre::bail;
 use eyre::eyre;
 use itertools::Itertools;
 use rand::Rng;
+use std::sync::Arc;
 use tracing::info;
 
 /// Interactively select an assignment and submit its remediation tasks.
@@ -23,15 +24,15 @@ use tracing::info;
 /// Tasks run asynchronously in Azure; see [policy remediation](https://learn.microsoft.com/en-us/azure/governance/policy/how-to/remediate-resources).
 pub async fn remediate_policy_assignment(
     auth_context: &AzureTenantAuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
-    cancellation.cancellable_scope(|cancellation| async move {
+    executor.cancellable_scope(|executor| async move {
         info!("Fetching policy assignments");
-        let policy_assignments = fetch_all_policy_assignments(auth_context, &cancellation).await?;
+        let policy_assignments = fetch_all_policy_assignments(auth_context, &executor).await?;
         let choices = policy_assignments
             .into_iter()
             .distinct_by_scope()
-            .map(|assignment| Choice::<PolicyAssignment> {
+            .map(|assignment| Choice::<Arc<PolicyAssignment>> {
                 key: format!(
                     "{} {:?}",
                     assignment.name,
@@ -40,23 +41,23 @@ pub async fn remediate_policy_assignment(
                 ),
                 value: assignment,
             });
-        let policy_assignment: PolicyAssignment = PickerTui::<_>::new()
+        let policy_assignment: Arc<PolicyAssignment> = PickerTui::<_>::new()
             .set_header("Choose policy to remediate")
             .pick_one(choices)
             .await?;
-        cancellation.bail_if_cancelled()?;
+        executor.cancellation().bail_if_cancelled()?;
         let remediation_scope = PolicyRemediationScope::try_from(&policy_assignment.properties.scope)?;
 
-        let reference_ids = match policy_assignment.properties.policy_definition_id {
+        let reference_ids = match &policy_assignment.properties.policy_definition_id {
             PolicyDefinitionIdReference::PolicySetDefinitionId(policy_set_definition_id) => {
-                let Some(policy_set_definition) = fetch_all_policy_set_definitions(auth_context, &cancellation)
-                    .await?.into_iter().find(|definition| definition.id == policy_set_definition_id)
+                let Some(policy_set_definition) = fetch_all_policy_set_definitions(auth_context, &executor)
+                    .await?.into_iter().find(|definition| definition.id == *policy_set_definition_id)
                 else {
                     bail!("Could not find policy set definition with id {policy_set_definition_id:?}");
                 };
-                let choices = policy_set_definition.policy_definitions.ok_or_else(|| eyre!(
+                let choices = policy_set_definition.policy_definitions.as_ref().ok_or_else(|| eyre!(
                     "Expected {policy_set_definition_id:?} to have inner policy definitions"
-                ))?.into_iter().map(|definition| Choice {
+                ))?.iter().map(|definition| Choice {
                     key: definition.policy_definition_reference_id.to_owned(),
                     value: definition,
                 }).collect_vec();
@@ -73,7 +74,7 @@ pub async fn remediate_policy_assignment(
 
         info!("Launching remediation tasks");
         for reference_id in reference_ids {
-            cancellation.bail_if_cancelled()?;
+            executor.cancellation().bail_if_cancelled()?;
             let id = PolicyRemediationId {
                 scope: remediation_scope.clone(),
                 name: PolicyRemediationName::new(format!("myRemediation{:x}", rand::rng().next_u32()))?,
@@ -84,7 +85,7 @@ pub async fn remediate_policy_assignment(
                 policy_assignment.id.clone(),
                 reference_id,
                 auth_context,
-                &cancellation,
+                &executor,
             ).await?;
         }
         Ok(())

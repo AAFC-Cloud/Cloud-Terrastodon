@@ -10,6 +10,8 @@ use cloud_terrastodon_azure_devops::get_default_organization_url;
 use cloud_terrastodon_azure_devops::get_personal_access_token;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_hcl::FreshTFWorkDir;
 use cloud_terrastodon_hcl::GeneratedConfigOutTFWorkDir;
 use cloud_terrastodon_hcl::HclBlock;
@@ -66,13 +68,14 @@ where
 
 pub async fn dump_everything(
     auth_context: &AzureTenantAuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> eyre::Result<()> {
+    let cancellation = executor.cancellation();
     info!("Ensuring Azure DevOps PAT is set for future steps");
     _ = get_personal_access_token(cancellation).await?;
     let auth_context = auth_context.clone();
     let (rtn, took) =
-        measure(async move { dump_everything_inner(&auth_context, cancellation).await }).await?;
+        measure(async move { dump_everything_inner(&auth_context, executor).await }).await?;
     info!("Overall dump took {took}");
     Ok(rtn)
 }
@@ -109,8 +112,9 @@ impl Strategy {
 }
 pub async fn dump_everything_inner(
     auth_context: &AzureTenantAuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> eyre::Result<()> {
+    let cancellation = executor.cancellation();
     let strategy = *PickerTui::<_>::new()
         .set_header("Dump strategy")
         .pick_one(Strategy::VARIANTS)
@@ -181,7 +185,7 @@ pub async fn dump_everything_inner(
     let tf_work_dirs = match behaviour {
         Behaviour::CleanAndWriteImportsAndInitAndValidateAndGenerateAndProcess
         | Behaviour::WriteImportsAndInitAndValidateAndGenerateAndProcess => {
-            write_all_import_blocks(strategy, auth_context, cancellation).await?
+            write_all_import_blocks(strategy, auth_context, executor).await?
         }
         _ => discover_existing_dirs(strategy).await?,
     };
@@ -257,10 +261,8 @@ pub async fn dump_everything_inner(
 
     let auth_context = auth_context.clone();
     let (tf_work_dirs, duration) =
-        measure(
-            async move { process_generated_many(tf_work_dirs, auth_context, cancellation).await },
-        )
-        .await?;
+        measure(async move { process_generated_many(tf_work_dirs, auth_context, executor).await })
+            .await?;
     info!(
         "Processed generated terraform code in {} dirs in {duration}",
         tf_work_dirs.len()
@@ -275,8 +277,9 @@ pub async fn dump_everything_inner(
 async fn process_generated_many(
     tf_work_dirs: Vec<GeneratedConfigOutTFWorkDir>,
     auth_context: AzureTenantAuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> eyre::Result<Vec<ProcessedTFWorkDir>> {
+    let cancellation = executor.cancellation();
     let mut rtn: Vec<ProcessedTFWorkDir> = Default::default();
     let out_dir: PathBuf = AppDir::Processed.into();
     if out_dir.exists_async().await? {
@@ -302,7 +305,9 @@ async fn process_generated_many(
         let rate_limit = rate_limit.clone();
         let auth_context = auth_context.clone();
         reflow_jobs.spawn({
-            cancellation.cancellable_scope(move |cancellation| async move {
+            executor.cancellable_scope(move |executor| async move {
+                let executor = &executor;
+                let cancellation = executor.cancellation();
                 let permit = cancellation
                     .cancellable_scope(|_cancellation| async {
                         eyre::Ok(rate_limit.acquire().await?)
@@ -316,8 +321,9 @@ async fn process_generated_many(
                 );
 
                 let hcl = discover_hcl(work_dir, DiscoveryDepth::Shallow).await?;
-                let hcl = ReflowHclRequest::new(hcl, Some(&auth_context), &cancellation)
+                let hcl = ReflowHclRequest::new(hcl, Some(&auth_context))
                     .include_principal_id_comments(true)
+                    .execute(executor)
                     .await?;
                 drop(permit);
                 Ok(WorkOutcome {
@@ -608,15 +614,16 @@ async fn discover_existing_dirs(strategy: Strategy) -> eyre::Result<Vec<FreshTFW
 async fn write_all_import_blocks(
     strategy: Strategy,
     auth_context: &AzureTenantAuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> eyre::Result<Vec<FreshTFWorkDir>> {
+    let cancellation = executor.cancellation();
     info!("Writing all import blocks; fetching a lot of data");
     let org_url = get_default_organization_url(cancellation).await?;
     let azure_devops_auth_context = AzureDevOpsAuthContext::for_azure_tenant(auth_context);
     let (azure_devops_projects, subscriptions, resource_groups) = try_join!(
-        fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context, cancellation),
-        fetch_all_subscriptions(auth_context, cancellation),
-        fetch_all_resource_groups(auth_context, cancellation),
+        fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context, executor),
+        fetch_all_subscriptions(auth_context, executor),
+        fetch_all_resource_groups(auth_context, executor),
     )?;
 
     let mut tf_work_dirs: Vec<PathBuf> = Vec::new();
@@ -631,7 +638,7 @@ async fn write_all_import_blocks(
         &org_url,
         project_ids.clone(),
         &azure_devops_auth_context,
-        cancellation,
+        executor,
     )
     .await?;
 
@@ -642,12 +649,13 @@ async fn write_all_import_blocks(
                 let org_url = org_url.clone();
                 let azure_devops_auth_context = azure_devops_auth_context.clone();
                 work.enqueue({
-                    cancellation.cancellable_scope(move |cancellation| async move {
+                    executor.cancellable_scope(move |executor| async move {
+                        let executor = &executor;
                         let teams = fetch_azure_devops_teams_for_project(
                             &org_url,
                             &project_id,
                             &azure_devops_auth_context,
-                            &cancellation,
+                            executor,
                         );
                         teams.await.map(|teams| (project_id.clone(), teams))
                     })
@@ -764,7 +772,7 @@ async fn write_all_import_blocks(
                                     task_parent.cancellable_scope(move |cancellation| async move {
                                         write_import_blocks(
                                             project_tf_file,
-                                            vec![project],
+                                            [project.as_ref()],
                                             sender,
                                             strategy,
                                             &cancellation,
@@ -779,7 +787,7 @@ async fn write_all_import_blocks(
                                     task_parent.cancellable_scope(move |cancellation| async move {
                                         write_import_blocks(
                                             repos_tf_file,
-                                            repos,
+                                            repos.iter(),
                                             sender,
                                             strategy,
                                             &cancellation,
@@ -794,7 +802,7 @@ async fn write_all_import_blocks(
                                     task_parent.cancellable_scope(move |cancellation| async move {
                                         write_import_blocks(
                                             teams_tf_file,
-                                            teams,
+                                            teams.iter().map(Arc::as_ref),
                                             sender,
                                             strategy,
                                             &cancellation,
@@ -837,7 +845,8 @@ async fn write_all_import_blocks(
 
                                 let azurerm_provider_block = sub.into_provider_block();
                                 provider_blocks.insert(azurerm_provider_block.clone());
-                                let mut resource_group_import_block: HclImportBlock = rg.into();
+                                let mut resource_group_import_block: HclImportBlock =
+                                    rg.as_ref().into();
                                 resource_group_import_block.provider =
                                     azurerm_provider_block.as_reference();
 

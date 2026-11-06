@@ -93,6 +93,7 @@ struct AmbientProjectRequest {
 macro_rules! nonexecuting_request {
     ($request:ty => $output:ty) => {
         impl ExecutableRequest for $request {
+            type Error = eyre::Report;
             type Output = $output;
 
             fn run<'a>(self, _: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>

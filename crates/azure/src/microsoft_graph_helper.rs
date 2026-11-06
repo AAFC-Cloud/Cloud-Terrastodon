@@ -1,30 +1,19 @@
+use crate::MicrosoftGraphProgress;
+use crate::MicrosoftGraphProgressHook;
 use cloud_terrastodon_auth::AzureTenantAuthContext;
-use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_azure_types::MicrosoftGraphResponse;
+use cloud_terrastodon_cache::CacheKey;
+use cloud_terrastodon_cache::CacheOperationOwner;
 use cloud_terrastodon_command::FromCommandOutput;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_rest::RequestHeaders;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
+use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct MicrosoftGraphProgress {
-    pub total: Option<usize>,
-    pub accumulated: usize,
-    pub received_this_page: usize,
-    pub time_remaining: Duration,
-}
-
-pub type MicrosoftGraphProgressHook = Box<dyn Fn(MicrosoftGraphProgress) + Send + Sync + 'static>;
-
-enum NextLink {
-    Uninitialized,
-    Some(String),
-    StopIteration,
-}
+/// Fetch a resource or all pages of a [Microsoft Graph collection](https://learn.microsoft.com/graph/paging).
 pub struct MicrosoftGraphHelper<'a> {
-    cancellation: CancellationScope,
     pub url: String,
     pub cache_key: Option<CacheKey>,
     pub auth_context: &'a AzureTenantAuthContext,
@@ -36,10 +25,8 @@ impl<'a> MicrosoftGraphHelper<'a> {
         url: impl ToString,
         cache_key: Option<CacheKey>,
         auth_context: &'a AzureTenantAuthContext,
-        cancellation: &CancellationScope,
     ) -> Self {
         MicrosoftGraphHelper {
-            cancellation: cancellation.clone(),
             url: url.to_string(),
             cache_key,
             auth_context,
@@ -62,26 +49,38 @@ impl<'a> MicrosoftGraphHelper<'a> {
     }
 
     fn get_request(&self, url: &str) -> Result<RestRequest> {
-        let mut request = RestRequest::new(http::Method::GET, url, &self.cancellation)?
-            .azure_auth_context(self.auth_context);
+        let mut request =
+            RestRequest::new(http::Method::GET, url)?.azure_auth_context(self.auth_context)?;
         request.cache_key = self.cache_key.clone();
         request.headers = self.headers.clone();
         Ok(request)
     }
 
-    pub async fn fetch_one<T: FromCommandOutput>(
+    /// Share the decoded resource with the cache and other callers.
+    pub async fn fetch_one<T: FromCommandOutput + Sync>(
         self,
-        _cancellation: &CancellationScope,
-    ) -> Result<T> {
-        self.get_request(&self.url)?.receive::<T>().await
+        executor: &CloudTerrastodonExecutor,
+    ) -> Result<Arc<T>> {
+        let request = self.get_request(&self.url)?;
+        if request.cache_key.is_some() {
+            request
+                .receive_cached::<T>(
+                    executor,
+                    CacheOperationOwner::of::<MicrosoftGraphHelper<'static>>(),
+                )
+                .await
+        } else {
+            request.receive::<T>(executor).await.map(Arc::new)
+        }
     }
 
+    /// Share decoded items across callers while assembling each paginated inventory.
     /// This doesn't handle 'singleton' responses like https://graph.microsoft.com/v1.0/me
-    pub async fn fetch_all<T: FromCommandOutput>(
+    pub async fn fetch_all<T: FromCommandOutput + Sync>(
         &self,
-        cancellation: &CancellationScope,
-    ) -> Result<Vec<T>> {
-        match self.fetch_all_once(cancellation).await {
+        executor: &CloudTerrastodonExecutor,
+    ) -> Result<Vec<Arc<T>>> {
+        match self.fetch_all_once(executor).await {
             Ok(results) => Ok(results),
             Err((error, true)) => {
                 let Some(cache_key) = self.cache_key.as_ref() else {
@@ -90,12 +89,15 @@ impl<'a> MicrosoftGraphHelper<'a> {
 
                 tracing::debug!(
                     %error,
-                    path = %cache_key.path.display(),
+                    scope = ?cache_key.scope,
                     "Invalidating paginated Microsoft Graph cache before retry"
                 );
-                cancellation.bail_if_cancelled()?;
-                cache_key.invalidate().await?;
-                self.fetch_all_once(cancellation)
+                executor.cancellation().bail_if_cancelled()?;
+                executor
+                    .cache()?
+                    .invalidate(&cache_key.scope, executor.cancellation())
+                    .await?;
+                self.fetch_all_once(executor)
                     .await
                     .map_err(|(retry_error, _)| {
                         retry_error
@@ -106,50 +108,59 @@ impl<'a> MicrosoftGraphHelper<'a> {
         }
     }
 
-    async fn fetch_all_once<T: FromCommandOutput>(
+    async fn fetch_all_once<T: FromCommandOutput + Sync>(
         &self,
-        cancellation: &CancellationScope,
-    ) -> std::result::Result<Vec<T>, (eyre::Report, bool)> {
+        executor: &CloudTerrastodonExecutor,
+    ) -> std::result::Result<Vec<Arc<T>>, (eyre::Report, bool)> {
         let mut results = Vec::new();
-        let mut next_link = NextLink::Uninitialized;
+        let mut next_link = Some(self.url.clone());
         let mut request_index = 0;
         let mut total = None;
         let started_at = Instant::now();
         loop {
-            cancellation
+            executor
+                .cancellation()
                 .bail_if_cancelled()
                 .map_err(|error| (eyre::Report::from(error), false))?;
-            // Determine URL, considering pagination
-            let url = match &next_link {
-                NextLink::Uninitialized => &self.url,
-                NextLink::Some(x) => x,
-                NextLink::StopIteration => break,
+            let Some(url) = next_link.take() else {
+                break;
             };
 
             let mut request = self
-                .get_request(url)
+                .get_request(&url)
                 .map_err(|error| (error, request_index > 0))?;
             if let Some(ref cache_key) = self.cache_key {
-                request.cache_key = Some(cache_key.join(request_index.to_string()));
+                request.cache_key = Some(
+                    cache_key
+                        .join(request_index.to_string())
+                        .map_err(|error| (error, false))?,
+                );
             }
 
-            let mut response = request
-                .receive::<MicrosoftGraphResponse<T>>()
-                .await
-                .map_err(|error| (error, request_index > 0))?;
+            let response = if request.cache_key.is_some() {
+                request
+                    .receive_cached::<MicrosoftGraphResponse<Arc<T>>>(
+                        executor,
+                        CacheOperationOwner::of::<MicrosoftGraphHelper<'static>>(),
+                    )
+                    .await
+            } else {
+                request
+                    .receive::<MicrosoftGraphResponse<Arc<T>>>(executor)
+                    .await
+                    .map(Arc::new)
+            }
+            .map_err(|error| (error, request_index > 0))?;
             request_index += 1;
 
             let received_this_page = response.value.len();
             total = response.count.or(total);
 
             // Update next link for pagination
-            next_link = match response.next_link {
-                Some(url) => NextLink::Some(url),
-                None => NextLink::StopIteration,
-            };
+            next_link = response.next_link.clone();
 
             // Update results
-            results.append(&mut response.value);
+            results.extend(response.value.iter().cloned());
 
             if let Some(progress_hook) = self.progress_hook.as_ref() {
                 let time_remaining = total
@@ -173,15 +184,6 @@ impl<'a> MicrosoftGraphHelper<'a> {
     }
 }
 
-#[derive(Debug, facet::Facet)]
-pub struct MicrosoftGraphResponse<T> {
-    #[facet(rename = "@odata.count")]
-    pub count: Option<usize>,
-    #[facet(rename = "@odata.nextLink")]
-    pub next_link: Option<String>,
-    pub value: Vec<T>,
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -190,13 +192,12 @@ mod tests {
 
     #[test]
     fn consistency_level_eventual_adds_the_expected_header() -> Result<()> {
-        CancellationToken::new().with_scope(|cancellation| {
+        CancellationToken::new().with_scope(|_cancellation| {
             let auth_context = AzureTenantAuthContext::default();
             let helper = MicrosoftGraphHelper::new(
                 "https://graph.microsoft.com/v1.0/users",
                 None,
                 &auth_context,
-                &cancellation,
             )
             .add_headers(
                 RequestHeaders::from_header_lines(["X-Test: value"])

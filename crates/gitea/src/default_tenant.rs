@@ -11,7 +11,7 @@ use cloud_terrastodon_execution::RequestExecution;
 use eyre::OptionExt;
 use eyre::bail;
 
-#[must_use = "This is a future request, you must .await it"]
+#[must_use = "This is a future request, you must .execute it"]
 #[derive(Debug, Clone, arbitrary::Arbitrary, facet::Facet)]
 pub struct DefaultGiteaInstanceUrlRequest;
 
@@ -28,6 +28,7 @@ impl CacheInvalidationKeys for DefaultGiteaInstanceUrlRequest {
 }
 
 impl ExecutableRequest for DefaultGiteaInstanceUrlRequest {
+    type Error = eyre::Report;
     type Output = GiteaInstanceUrl;
 
     fn run<'a>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>

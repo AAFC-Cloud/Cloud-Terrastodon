@@ -7,15 +7,16 @@ use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::fetch_all_cognitive_services_accounts;
 use cloud_terrastodon_azure::fetch_cognitive_services_account_deployments;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use eyre::bail;
 use std::io::Write;
+use std::sync::Arc;
 
 #[derive(Debug, Clone, facet::Facet)]
 struct CognitiveServicesAccountDeploymentListEntry {
-    account: AzureCognitiveServicesAccountResource,
-    deployment: AzureCognitiveServicesAccountDeployment,
+    account: Arc<AzureCognitiveServicesAccountResource>,
+    deployment: Arc<AzureCognitiveServicesAccountDeployment>,
 }
 
 /// Arguments for listing deployments for Azure Cognitive Services accounts.
@@ -34,13 +35,15 @@ impl AzureCognitiveServicesDeploymentListArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let Self { tenant, account } = self;
         let tenant_auth_context = tenant.bind_auth_context(auth_context, cancellation).await?;
+        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
         let tenant_id = tenant_auth_context.tenant_id;
         let accounts =
-            fetch_all_cognitive_services_accounts(&tenant_auth_context, cancellation).await?;
+            fetch_all_cognitive_services_accounts(&tenant_auth_context, executor).await?;
 
         let deployments = if let Some(account_argument) = account {
             let mut matches = accounts
@@ -60,7 +63,8 @@ impl AzureCognitiveServicesDeploymentListArgs {
                     let deployments = fetch_cognitive_services_account_deployments(
                         tenant_id,
                         account.id.clone(),
-                        cancellation,
+                        tenant_auth_context.auth_context.azure_bearer_source()?,
+                        executor,
                     )
                     .await?;
                     deployments
@@ -91,7 +95,8 @@ impl AzureCognitiveServicesDeploymentListArgs {
                 let account_deployments = fetch_cognitive_services_account_deployments(
                     tenant_id,
                     account.id.clone(),
-                    cancellation,
+                    tenant_auth_context.auth_context.azure_bearer_source()?,
+                    executor,
                 )
                 .await?;
                 deployments.extend(account_deployments.into_iter().map(|deployment| {

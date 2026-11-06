@@ -1,25 +1,21 @@
 use crate::fetch_all_resource_groups;
 use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure_types::ResourceGroup;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_user_input::Choice;
+use std::sync::Arc;
 
 /// Returns (Resource group, Subscription name)
 pub async fn get_resource_group_choices(
     auth_context: &AzureTenantAuthContext,
-    cancellation: &CancellationScope,
-) -> eyre::Result<Vec<Choice<ResourceGroup>>> {
-    let resource_groups = fetch_all_resource_groups(auth_context, cancellation).await?;
+    executor: &CloudTerrastodonExecutor,
+) -> eyre::Result<Vec<Choice<Arc<ResourceGroup>>>> {
+    let resource_groups = fetch_all_resource_groups(auth_context, executor).await?;
 
     let mut choices = Vec::new();
     for rg in resource_groups {
         choices.push(Choice {
-            key: format!(
-                "{:90} - {:16} - {}",
-                rg.name.to_owned(),
-                rg.subscription_name,
-                rg.id
-            ),
+            key: format!("{:90} - {:16} - {}", rg.name, rg.subscription_name, rg.id),
             value: rg,
         });
     }

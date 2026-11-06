@@ -46,6 +46,7 @@ fn observation_key(name: &str) -> CacheKey {
 }
 
 impl ExecutableRequest for CachedObservation<'_> {
+    type Error = eyre::Report;
     type Output = Arc<usize>;
 
     fn run<'a>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>
@@ -146,6 +147,7 @@ impl CacheInvalidationKeys for ComposedObservation<'_> {
 }
 
 impl ExecutableRequest for ComposedObservation<'_> {
+    type Error = eyre::Report;
     type Output = (Arc<usize>, Arc<usize>);
 
     fn run<'a>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>
@@ -221,6 +223,7 @@ impl HasCacheKey for RejectedInvalidation<'_> {
 }
 
 impl ExecutableRequest for RejectedInvalidation<'_> {
+    type Error = eyre::Report;
     type Output = ();
 
     fn run<'a>(self, _executor: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>
@@ -274,6 +277,7 @@ struct CancellingInvalidation<'a> {
 }
 
 impl ExecutableRequest for CancellingInvalidation<'_> {
+    type Error = eyre::Report;
     type Output = ();
 
     fn run<'a>(self, _executor: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>
@@ -337,6 +341,7 @@ struct BorrowedCellRequest<'a> {
 }
 
 impl<'input> ExecutableRequest for BorrowedCellRequest<'input> {
+    type Error = eyre::Report;
     type Output = (&'input str, Cell<usize>, CancellationScope);
 
     fn run<'a>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>

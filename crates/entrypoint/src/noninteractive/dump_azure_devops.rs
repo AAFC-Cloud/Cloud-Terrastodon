@@ -1,47 +1,51 @@
 use cloud_terrastodon_auth::AzureDevOpsAuthContext;
+use cloud_terrastodon_azure_devops::AzureDevOpsDescriptor;
+use cloud_terrastodon_azure_devops::AzureDevOpsGroup;
+use cloud_terrastodon_azure_devops::AzureDevOpsGroupMember;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
+use cloud_terrastodon_azure_devops::AzureDevOpsProject;
+use cloud_terrastodon_azure_devops::AzureDevOpsProjectId;
+use cloud_terrastodon_azure_devops::AzureDevOpsUserLicenseEntitlement;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_group_members;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_groups_for_project;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlements;
-use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use std::sync::Arc;
 
 #[derive(facet::Facet)]
 struct AzureDevOpsDumpPayload {
-    projects: Vec<cloud_terrastodon_azure_devops::AzureDevOpsProject>,
-    users: Vec<cloud_terrastodon_azure_devops::AzureDevOpsUserLicenseEntitlement>,
+    projects: Vec<Arc<AzureDevOpsProject>>,
+    users: Vec<Arc<AzureDevOpsUserLicenseEntitlement>>,
     project_groups: Vec<AzureDevOpsDumpProjectGroups>,
     group_members: Vec<AzureDevOpsDumpGroupMembers>,
 }
 
 #[derive(facet::Facet)]
 struct AzureDevOpsDumpProjectGroups {
-    project_id: cloud_terrastodon_azure_devops::AzureDevOpsProjectId,
-    groups: Vec<cloud_terrastodon_azure_devops::AzureDevOpsGroup>,
+    project_id: AzureDevOpsProjectId,
+    groups: Vec<Arc<AzureDevOpsGroup>>,
 }
 
 #[derive(facet::Facet)]
 struct AzureDevOpsDumpGroupMembers {
-    group_descriptor: cloud_terrastodon_azure_devops::AzureDevOpsDescriptor,
-    members: Vec<cloud_terrastodon_azure_devops::AzureDevOpsGroupMember>,
+    group_descriptor: AzureDevOpsDescriptor,
+    members: Vec<Arc<AzureDevOpsGroupMember>>,
 }
 
 /// Write to stdout the json for a bunch of Azure DevOps info
 pub async fn dump_azure_devops(
     org_url: AzureDevOpsOrganizationUrl,
     azure_devops_auth_context: &AzureDevOpsAuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> eyre::Result<()> {
     let projects =
-        fetch_all_azure_devops_projects(&org_url, azure_devops_auth_context, cancellation).await?;
+        fetch_all_azure_devops_projects(&org_url, azure_devops_auth_context, executor).await?;
 
-    let users = fetch_azure_devops_user_license_entitlements(
-        &org_url,
-        azure_devops_auth_context,
-        cancellation,
-    )
-    .await?;
+    let users =
+        fetch_azure_devops_user_license_entitlements(&org_url, azure_devops_auth_context, executor)
+            .await?;
 
     let mut project_groups = ParallelFallibleWorkQueue::new("fetch_azure_devops_groups", 10);
     for project in projects.iter() {
@@ -49,13 +53,13 @@ pub async fn dump_azure_devops(
         let project_id = project.id.clone();
         let azure_devops_auth_context = azure_devops_auth_context.clone();
         project_groups.enqueue({
-            cancellation.cancellable_scope(move |cancellation| async move {
-                let cancellation = &cancellation;
+            executor.cancellable_scope(move |executor| async move {
+                let executor = &executor;
                 let groups = fetch_azure_devops_groups_for_project(
                     &org_url,
                     &project_id,
                     &azure_devops_auth_context,
-                    cancellation,
+                    executor,
                 )
                 .await?;
                 eyre::Ok((project_id, groups))
@@ -79,18 +83,18 @@ pub async fn dump_azure_devops(
         let org_url = org_url.clone();
         let azure_devops_auth_context = azure_devops_auth_context.clone();
         group_members.enqueue({
-            cancellation.cancellable_scope(move |cancellation| async move {
-                let cancellation = &cancellation;
+            executor.cancellable_scope(move |executor| async move {
+                let executor = &executor;
                 let members = fetch_azure_devops_group_members(
                     &org_url,
                     &group.descriptor,
                     &azure_devops_auth_context,
-                    cancellation,
+                    executor,
                 )
                 .await?;
                 eyre::Ok(AzureDevOpsDumpGroupMembers {
                     group_descriptor: group.descriptor.clone(),
-                    members: members.into_values().collect(),
+                    members: members.values().cloned().collect(),
                 })
             })
         });

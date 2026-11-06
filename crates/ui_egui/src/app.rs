@@ -8,10 +8,10 @@ use cloud_terrastodon_azure::Resource;
 use cloud_terrastodon_azure::ResourceGroupMap;
 use cloud_terrastodon_azure::Subscription;
 use cloud_terrastodon_azure_devops::AzureDevOpsProject;
-use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_config::Config;
 use cloud_terrastodon_config::EguiConfig;
 use cloud_terrastodon_config::WorkDirsConfig;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 // use cloud_terrastodon_tracing::event_collector; // TODO(EGUI-TRACING)
 use eframe::App;
 use eframe::egui::Align2;
@@ -28,15 +28,15 @@ use tokio::sync::mpsc::UnboundedSender;
 use tracing::info;
 
 pub struct MyApp {
-    pub cancellation: CancellationScope,
+    pub executor: CloudTerrastodonExecutor,
     pub tenant_id: AzureTenantId,
     pub auth_context: AuthContext,
     pub toggle_intents: HashSet<Id>,
     pub checkboxes: HashMap<Id, bool>,
-    pub subscriptions: Loadable<Rc<Vec<Subscription>>, eyre::ErrReport>,
-    pub azure_devops_projects: Loadable<Rc<Vec<AzureDevOpsProject>>, eyre::ErrReport>,
+    pub subscriptions: Loadable<Rc<Vec<Arc<Subscription>>>, eyre::ErrReport>,
+    pub azure_devops_projects: Loadable<Rc<Vec<Arc<AzureDevOpsProject>>>, eyre::ErrReport>,
     pub resource_groups: Loadable<Rc<ResourceGroupMap>, eyre::ErrReport>,
-    pub resources: Loadable<Arc<Vec<Resource>>, eyre::ErrReport>,
+    pub resources: Loadable<Arc<Vec<Arc<Resource>>>, eyre::ErrReport>,
     pub tx: UnboundedSender<AppMessage>,
     pub rx: UnboundedReceiver<AppMessage>,
     pub egui_config: EguiConfig,
@@ -67,11 +67,11 @@ impl MyApp {
         auth_context: AuthContext,
         work_tracker: Rc<WorkTracker>,
         app_info: String,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> eyre::Result<Self> {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<AppMessage>();
         Ok(Self {
-            cancellation: cancellation.clone(),
+            executor: executor.clone(),
             tenant_id,
             auth_context,
             toggle_intents: Default::default(),
@@ -120,7 +120,7 @@ impl MyApp {
 
 impl App for MyApp {
     fn update(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) {
-        if self.cancellation.is_cancelled() {
+        if self.executor.cancellation().is_cancelled() {
             ctx.send_viewport_cmd(eframe::egui::ViewportCommand::Close);
         }
         self.handle_messages();
@@ -131,6 +131,8 @@ impl App for MyApp {
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
         info!("Gracefully exiting");
         self.enqueue_auto_save();
-        self.cancellation.request_cancel("GUI window closed");
+        self.executor
+            .cancellation()
+            .request_cancel("GUI window closed");
     }
 }

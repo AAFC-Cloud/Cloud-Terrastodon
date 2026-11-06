@@ -9,6 +9,7 @@ use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
+use std::sync::Arc;
 
 /// A Microsoft Graph v1.0 [Entra user](https://learn.microsoft.com/en-us/graph/api/resources/user?view=graph-rest-1.0).
 #[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
@@ -85,3 +86,7 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(EntraUser);
 cloud_terrastodon_registry::register_arbitrary!(EntraUser);
+
+cloud_terrastodon_registry::register_arbitrary!(Arc<EntraUser>);
+
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<EntraUser>>);

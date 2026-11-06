@@ -9,6 +9,7 @@ use crate::SubnetId;
 use arbitrary::Arbitrary;
 use std::collections::HashMap;
 use std::net::IpAddr;
+use std::sync::Arc;
 
 #[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
@@ -146,3 +147,4 @@ mod tests {
 cloud_terrastodon_registry::register_thing!(AzurePrivateEndpointResource);
 cloud_terrastodon_registry::register_arbitrary!(AzurePrivateEndpointResource);
 cloud_terrastodon_registry::register_arbitrary!(Vec<AzurePrivateEndpointResource>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<AzurePrivateEndpointResource>>);

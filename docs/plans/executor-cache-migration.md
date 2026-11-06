@@ -40,9 +40,22 @@ cancellation scope. U92 audits raw JSON storage, reuses `ArbitraryJson`, and add
 a Clippy reminder with explained codec exceptions. U93 inlines the Command JSON
 helpers. U94–U96 restore bound-request invalidation chaining and separate key
 ownership from own-key, multiple-key, or custom async invalidation policies.
-REST task 4.2 is next.
-U97 requests reviewing and committing the completed Command migration and its
-refinements, then explaining REST task 4.2 without starting it.
+REST task 4.2 is complete under U98: the full transport and caller cutover,
+workspace all-target check/Clippy, and focused offline verification passed.
+U99's request-specific error refinement is complete in task 4.2a; all 63 focused
+offline tests and the workspace all-target check/Clippy passed.
+U100/U101's cached SDK ownership refinement is complete in task 4.2b: shared
+values reach consumers without cloning requirements introduced only to recover
+owned copies. All 46 selected offline tests and workspace all-target check/Clippy
+passed; existing unrelated Clippy warnings remain.
+U102's concrete domain-response refinement is complete; workspace all-target
+compilation and focused Azure types/SDK Clippy passed without warnings.
+Changes remain uncommitted for user review, with user staging preserved.
+Explicit SDK/CLI executor propagation removes the implicit REST cache path;
+phase 5 still owns aggregate caching, remaining request-data extraction, and
+domain collection ownership refinements. U97's preceding checkpoint requested
+the completed Command migration commit and a description of REST task 4.2;
+U98 subsequently authorizes its full implementation.
 U78 authorizes the local checkpoint titled
 `Add scoped executor with shared cache and injected authentication`, including
 U76's execution-mode names and U77's startup diagnostics.
@@ -93,7 +106,18 @@ that checkpoint; U82 begins task 4.1 below.
 
 **Planning method:** User-invoked `resumable-implementation-plans` skill.
 
-**Current authorization:** The user authorized proceeding with the migration on
+**Current authorization:** U98 authorizes the full REST task 4.2 and necessary
+caller migration; U99 refines execution to preserve request-specific errors.
+U100/U101 additionally authorize shared cached SDK results, their consumer
+cutover, and removal of cache-driven `Clone` requirements in task 4.2b.
+U102 refines that work by making the twelve identified domain-specific list
+responses concrete while retaining shared records and genuinely reusable generic
+envelopes.
+All retain offline verification and an uncommitted review checkpoint.
+Preserve existing staging and user edits; do not stage new work, commit, push,
+access production data, or begin phase 5 aggregate caching under this checkpoint.
+
+**Prior authorization history:** The user authorized proceeding with the migration on
 2026-10-30 and subsequently requested committing the completed foundation and
 proceeding. The reviewed foundation was committed as `3ebfe69b`, and the completed
 artifact-storage slice as `821acce9`. After that checkpoint and the next-phase
@@ -228,6 +252,24 @@ implementation task through its real callers and validation. The active scope
 is all of task 4.1b, including replacement of ambient authenticated service
 subprocesses, rather than another bounded prerequisite. New cutover work remains
 uncommitted. Production-data and credential access remain prohibited for validation.
+
+U98 is the current implementation authorization: complete task 4.2's REST
+transport and caller migration, validate offline, and stop before committing for
+review. Preserve existing staging and user edits; do not stage new work. The
+transport cutover includes the SDK, CLI, UI, tools, and example callers needed to
+remove the old Command-owned global cache. This does not authorize production
+data access or phase 5 aggregate-cache implementation.
+
+U99 additionally authorizes preserving custom errors across direct request
+execution and converting them only where registry reflection erases the result.
+It does not widen authentication, cache reuse, data access, or commit authority.
+
+U100/U101 correct cached SDK response ownership, including equivalent request
+paths beyond the agent-package example. Return shared records or collections
+without cloning decoded data for the caller, and remove `Clone` derives/bounds
+whose only purpose was that detachment. This brings the shared-record portion
+of phase 5 forward into task 4.2b; aggregate memoization, dependency freshness,
+remaining request-data extraction, and observer migration remain later work.
 
 ## How to update this plan
 
@@ -766,6 +808,56 @@ changes since the recorded baseline before starting.
   notes and dependency pins; no push, publication, production-data access, or
   next-phase implementation is requested. Review fixes remain in this checkpoint.
 
+- **REST cutover, pass 1 — extraction (U98):** The latest instruction authorizes
+  the complete next implementation phase and its callers, stopping before a
+  commit for review. Preserve explicit source/tenant selection, cancellation
+  ownership, full cutover without compatibility exports, and offline-only checks.
+- **Pass 2 — traceability:** Task 4.2 covers owned and shared REST execution,
+  canonical decoding, provider-owned Graph/ACR authorization, modern request
+  invalidation, removal of the global Command cache, and all affected consumers.
+  Workspace all-target check/Clippy and focused offline verification passed;
+  task 4.2 is complete at the uncommitted review checkpoint.
+- **Pass 3 — boundary audit:** Transport `Arc` reuse does not establish shared
+  assembled SDK inventories. Phase 5 retains aggregate dependency freshness,
+  remaining runtime-auth extraction, and domain record sharing. Existing live
+  tests were adapted for compilation only; no live service, real credential,
+  user-configuration, or production-cache access is evidence for this cutover. Historical ledger
+  entries retain their checkpoint authorization rather than becoming current
+  restrictions. This update uses the preserved ledger and available task
+  instructions; it does not claim to reread unavailable intervening conversation.
+
+- **Request errors, pass 1 — extraction (U99):** Preserve operation-specific
+  failures through ordinary execution rather than forcing every request to
+  return an erased report. Cancellation still needs a conversion into that error.
+- **Pass 2 — traceability:** Task 4.2a and contract G2 own the associated error,
+  generic execution future, existing-request cutover, picker handling, and the
+  registry adapter's explicit report conversion. Focused regressions cover
+  recoverable data, cancellation, and structured error sources at erasure.
+  All 63 selected offline tests and workspace all-target check/Clippy passed.
+- **Pass 3 — boundary audit:** Direct errors need only the execution lifetime,
+  `Send`, and cancellation conversion. Registry boxing separately requires
+  `'static` and `Into<eyre::Report>`; it must not impose `Sync` or
+  `std::error::Error` on all requests. Invalidation's report conversion belongs
+  only to the combinator that needs it. Cache sharing and phase 5 scope remain
+  unchanged. The refinement has its own verification evidence; prior task 4.2
+  results remain historical. User staging is preserved and work is uncommitted.
+
+- **Shared SDK values, pass 1 — extraction (U100/U101):** The agent-package
+  example exposes a cached response immediately cloned back to an owned value.
+  Return its shared value and audit equivalent paths; eliminate response
+  `Clone` requirements added solely to support that copy.
+- **Pass 2 — traceability:** Task 4.2b, G4, and the caller inventory cover
+  transport conversion, SDK collection shapes, consumer borrowing/sharing,
+  removed cloning bounds, and offline ownership regression checks. Verification
+  is pending for this refinement; earlier task results are not reused as proof.
+- **Pass 3 — boundary audit:** Preserve ordinary uncached execution, request
+  identity and wire JSON, failure artifacts, and intentional owned domain
+  projections. Do not replace a copied record with a freshly allocated `Arc`
+  on each hit, or impose `Clone` through a generic convenience path. Returning
+  shared page records does not finish aggregate caching or dependency tracking.
+  No production-data access, staging, or commit is authorized. Historical intent
+  continues to use the preserved ledger where original messages are unavailable.
+
 ## Authoritative user guidance ledger
 
 **U79 intent audit (2026-11-03):** Extraction preserves the latest instruction to
@@ -880,6 +972,11 @@ do not silently rewrite earlier guidance.
 | U95 | Use `HasCacheKey` to blanket-implement `CacheInvalidatableRequest` for executable requests. | Centralize the modern key contract in `cache`; the direct blanket is replaced by U96's selectable invalidation policies. | U96 |
 | U96 | Separate single-key, multiple-key, and arbitrary async invalidation so having a key does not prevent custom behavior. | Use explicit own-key opt-in, a key-list contract for compositions, and the async contract for custom procedures; avoid overlapping blanket implementations. | — |
 | U97 | Review and commit the completed changes, then identify what the next phase encompasses. | Review the staged Command migration/refinements, correct findings, validate offline, commit locally, and explain REST task 4.2 without beginning it. | — |
+| U98 | Proceed with the full implementation, stopping before committing for review. | Complete task 4.2, its SDK/CLI caller cutover, and offline validation; leave changes unstaged and uncommitted. | — |
+| U99 | Preserve custom errors through request execution, including recoverable result data. | Add an associated request error and generic execution future; convert to reports only at erased registry invocation, with focused cancellation and source-preservation checks. | — |
+| U100 | Return cached `Arc` values instead of cloning them back into owned request outputs; audit equivalent paths and leave copy decisions to consumers. | Task 4.2b updates cached SDK responses, pagination/composition, and downstream borrowing/sharing; fixed wire-to-domain conversion happens inside canonical decoding. | — |
+| U101 | Remove `Clone` derives and bounds introduced only to support copying cached response values. | Audit response envelopes and domain records alongside their callers; retain cloning only for a separate meaningful contract or intentional owned transformation. | — |
+| U102 | Remove unnecessary type parameters from domain-specific response wrappers, including provider operations and the other eleven identified wrappers. | Each response names its concrete shared domain records; update SDK decoders and preserve wire attributes, optionality, pagination, and reusable generic envelopes. | — |
 
 U18 supersedes the earlier assistant suggestion to preserve an Azure CLI
 active-tenant selection. That suggestion was not user approval. U13 rejects the
@@ -996,7 +1093,12 @@ not an implemented package; U61 selects `auth_types` paired with runtime `auth`.
 | U94 | 4.1c bound-request invalidation refinement | Lazy refresh/reuse, failure/cancellation handling, both execute spellings, updated Gitea browse callers |
 | U95 | 4.1c bound-request invalidation refinement; superseded by U96 for blanket selection | Shared key trait retained; invalidation now requires a selected policy |
 | U96 | 4.1c bound-request invalidation refinement | Own-key marker, custom key lists, custom async keyed requests, multi-key refresh isolation, borrowed/non-`Sync` proof |
-| U97 | 4.1b/4.1c local checkpoint; 4.2 next-phase scope | Reviewed local commit, corrected error/invalidation and first-login audience paths, offline validation; REST remains pending |
+| U97 | 4.1b/4.1c local checkpoint; 4.2 next-phase scope | Reviewed local commit, corrected error/invalidation and first-login audience paths, offline validation; U98 subsequently begins REST |
+| U98 | Current authorization; 4.2; phase 5 ownership boundary | Full REST/caller cutover, workspace all-target check/Clippy, focused offline tests, and final caller review passed; task complete, changes uncommitted for review with user staging preserved |
+| U99 | Current authorization; G2; 4.2a | Typed direct errors, narrowly bounded invalidation and registry conversion, picker recovery, 63 offline tests, and workspace all-target check/Clippy passed; complete and uncommitted with user staging preserved |
+| U100 | Current authorization; G4; 4.2b; phase 5 ownership foundation | Shared cached SDK outputs, canonical conversion, and caller cutover verified by 46 focused offline tests and workspace all-target check/Clippy |
+| U101 | G2/G4; 4.2b | Response/envelope `Clone` audit and non-`Clone` shared-value coverage passed |
+| U102 | Current authorization; G4; 4.2b refinement | Twelve domain-specific response envelopes and SDK decoders are concrete; workspace all-target compilation and focused Azure types/SDK Clippy passed |
 
 ## Purpose and scope
 
@@ -3535,10 +3637,97 @@ cargo +nightly fmt --all -- --check
 git -c core.whitespace=cr-at-eol diff --cached --check
 ```
 
-Task 4.2 below remains unstarted. U97 requests a local checkpoint and next-phase
-description, not a push or implementation of the REST migration.
+At the U97 checkpoint task 4.2 was unstarted; that request authorized a local
+checkpoint and next-phase description. U98 subsequently authorizes its
+implementation below, without a new commit or push.
 
-### [ ] 4.2 Route REST execution and decoding through shared work
+### [x] 4.2 Route REST execution and decoding through shared work
+
+**Completion notes — 2026-11-05:** Implementation and offline verification are
+complete; changes remain uncommitted for user review, with user staging preserved.
+
+- `RestRequest` contains nonsecret `AuthenticationSelection`, request data, and
+  artifact policy. Constructors do not take cancellation or runtime credentials;
+  execution receives the caller's executor. Context setters only extract the
+  explicit source and tenant. Implicit Auto resolution and raw bearer fields
+  are removed.
+- Owned `receive`/`receive_raw` paths execute each invocation. Explicit
+  `receive_cached`/`receive_raw_cached` paths require a canonical operation owner
+  and reuse decoded `Arc` values through `ExecutorKind::Rest`. Per-caller
+  validators/mappers remain outside canonical sharing. Continuation metadata,
+  typed HTTP errors, failure artifacts, original decoder errors, and method-based
+  cancellation remain at the REST boundary. Read-only POST operations opt in to
+  cancellation; mutations retain decoding and artifacts and their SDK procedures
+  retain affected-read invalidation.
+- Azure and Azure DevOps requests now bind execution explicitly; callers across
+  CLI, entrypoint, UI, HCL workflows, maintenance tooling, and both workspace
+  examples pass the executor. At this checkpoint shared transport pages still
+  fed owned SDK inventories and could clone their records. U100/U101 correct
+  that boundary in task 4.2b below. Aggregate memoization and dependency freshness
+  remain phase 5 responsibilities.
+  Existing uncached Azure DevOps Work Item Tracking reads remain uncached;
+  executor propagation does not silently opt an operation into reuse.
+  `PrincipalRequest`'s unknown-ID Graph batch shares its typed response envelope
+  with opaque `ArbitraryJson` success bodies. Its response ID still chooses the
+  concrete user/group/service-principal decoder on each SDK invocation. Phase 5
+  owns memoizing that assembled domain result and avoiding this remaining inner
+  decode; task 4.2 does not claim to eliminate all SDK deserialization.
+- Graph helpers retain explicit tenant/source intent and execute with the
+  supplied executor. PIM's captured Graph credential lives in
+  `MicrosoftGraphTokenAuthenticationProvider`, with a fresh partition and exact
+  tenant/source/audience admission. Container Registry uses a validated challenge
+  and provider capability through restricted credential execution; exchange
+  credentials and authorization headers never become ordinary cached artifacts.
+- Caller scope selection also binds the selected authentication context to the
+  executor. A tracked tenant's override of global Auto must change the provider
+  together with request selection, including each subscription-list tenant and
+  UI job. `AuthContext::bind_executor` and the DevOps counterpart preserve the
+  cache, cancellation, and execution lineage; restricted credential execution
+  cannot rebind a provider to escape its restrictions. SDK and REST procedures
+  retain the supplied provider, including injected test providers. PIM's captured
+  Graph provider uses the same lineage-preserving rebind boundary.
+- Isolated HCL testing exposed a test-provider feature that workspace feature
+  unification had supplied accidentally. HCL, Azure DevOps CLI, and entrypoint
+  now declare `execution/test-support` through explicit dev-dependencies.
+  Production dependencies do not rely on this fixture feature.
+- Removed the Command crate's global artifact cache, legacy cache key,
+  cacheable-request traits/macros, and their compatibility surfaces. Cached
+  request invalidation uses the explicit owner and modern key contracts.
+  `WorkCache::inventory` reads addresses and selected metadata under its artifact
+  gate without reading payloads or credential inputs; cache list/clean UI uses
+  this owner-bound inventory and invalidation.
+- Workspace all-target check and Clippy passed after the caller-auth binding
+  correction and isolated feature fixes. Both examples and test targets compile.
+  Only the pre-existing root `test-support` feature-name and `src/main.rs` bare
+  documentation URL warnings remain. Formatting, the post-binding CLI rerun,
+  and small-stack execution check passed. Final independent source review found
+  no blockers in subscription overrides, PIM, raw CLI, egui jobs, or preservation
+  of injected SDK providers.
+  Existing live SDK tests were compiled, not executed. No production service,
+  real credential, user configuration, or existing cache data was accessed.
+  Local fixtures establish lifecycle behavior, not remote API compatibility.
+
+U98 requires leaving this work uncommitted for review. Preserve existing user
+staging; do not stage the new changes.
+
+**Offline verification evidence:** Counts describe the named runs, not a sum of
+distinct tests; the 14-test execution-contract rerun overlaps the earlier core
+suite and includes the new provider-rebinding regression.
+
+| Boundary | Result |
+| --- | --- |
+| Cache/execution/REST core before final auth rebinding | 189 passed, including six HTTP loopback lifecycle tests |
+| Execution contract after auth rebinding | 14 passed; selected partitions, dependency lineage, cancellation, and restricted credential execution remain enforced |
+| Auth context rebinding | 1 passed; selected context and disabled policy preserved |
+| Auth-types registry challenge | 1 passed |
+| Captured Graph provider and Azure pure helper/invalidation checks | 1 + 5 passed |
+| DevOps work-item and scope tests | 16 passed, 1 live test ignored |
+| DevOps discovery plan and simulation | 7 + 4 passed |
+| Isolated HCL reflow target | 18 passed after explicit test-support dev-dependency fix |
+| DevOps CLI project admission and raw REST CLI | 4 + 13 passed again after final caller-auth binding |
+| Group-management consumer | 33 unit + 3 CLI tests passed using local validation or disabled authentication |
+| Workspace all-target check and Clippy after final binding/feature fixes | Passed; two unrelated pre-existing warnings retained |
+| Final small-stack execution check | 1 passed: build-folder dispatch reports unresolved authentication on a small stack |
 
 **Work:** Remove request-owned runtime auth/cancellation and implicit Auto fallback.
 Route both cached and uncached receive paths through the shared lifecycle while
@@ -3555,7 +3744,16 @@ the LocationListRequest pattern without service data or the live SDK test.
 
 ```powershell
 cargo test --offline --locked -p cloud_terrastodon_rest --lib
-cargo check --offline --locked -p cloud_terrastodon_rest -p cloud_terrastodon_azure -p cloud_terrastodon_azure_devops
+cargo test --offline --locked -p cloud_terrastodon_rest --test rest_lifecycle_tests
+cargo test --offline --locked -p cloud_terrastodon_execution --test execution_contract_tests
+cargo test --offline --locked -p cloud_terrastodon_auth --lib auth_context::tests::executor_binding_uses_the_selected_context_and_preserves_disabled_policy
+cargo test --offline --locked -p cloud_terrastodon_hcl --test reflow_tests
+cargo test --offline --locked -p cloud-terrastodon-group-management --lib --tests
+cargo test --offline --locked -p cloud_terrastodon_azure_devops_cli --lib project::list::azure_devops_project_list_cli::tests::
+cargo test --offline --locked -p cloud_terrastodon_entrypoint --lib cli::command::rest::rest_cli::test::
+cargo test --offline --locked -p cloud_terrastodon_entrypoint --lib build_folder_dispatch_reports_auth_error_on_a_small_stack
+cargo check --offline --locked --workspace --all-targets --message-format short
+cargo clippy --offline --locked --workspace --all-targets --message-format short
 ```
 
 **Completion criteria:** Local boundary tests prove typed hits avoid decode,
@@ -3563,7 +3761,162 @@ caller-specific validation still runs, cached reads do not acquire tokens solely
 to hit the cache, and writes retain outcome artifacts and never coalesce. Decode
 failures remain attributed to the owning operation and preserve the original error.
 
+### [x] 4.2a Preserve operation-specific request errors
+
+**Completion notes — 2026-11-05:** Implementation and offline verification are
+complete; changes remain uncommitted for review, with user staging preserved.
+`ExecutableRequest` now declares
+`Error: Send + From<CancellationError>`. `ExecutionFuture<'a, T, E = eyre::Report>`
+and the bound request preserve that error and its invocation lifetime. Existing
+report-returning requests declare their error explicitly. Direct execution can
+retain custom recovery data without a downcast, `Sync`, `std::error::Error`, or
+`'static` requirement. Cancellation remains part of the operation's typed result.
+
+The reflection adapter in
+[function_invocation.rs](../../crates/registry_execution/src/function_invocation.rs)
+requires `Into<eyre::Report> + 'static` only for registered requests and converts
+on invocation. The request owns that conversion, including source preservation.
+The bound invalidation combinator separately requires `From<eyre::Report>` for
+cache failures; ordinary execution does not inherit that requirement.
+
+**Verification evidence:** All 63 selected offline tests passed. The registry
+regression uses a custom error
+containing a non-`Sync` partial-progress value and an I/O source. Direct execution
+retains the typed error; registered invocation converts it while retaining the
+source and diagnostic context. Execution tests cover request-specific failures
+and cancellation; picker tests retain typed recovery behavior. No production
+data, user configuration, real credentials, or existing caches were accessed.
+These are the results for this refinement, separate from task 4.2's earlier runs.
+
+| Boundary | Result |
+| --- | --- |
+| Execution library and integration tests | 39 passed, including three typed-error tests |
+| Registry invocation and reflection module | 21 passed, including the custom-error conversion regression |
+| Picker result handling | 3 passed |
+| Workspace all-target check and Clippy | Passed; only the pre-existing redundant `test-support` feature suffix and `src/main.rs` bare documentation URL warnings remain |
+
+```powershell
+cargo test --offline --locked -p cloud_terrastodon_execution --lib --tests --message-format short
+cargo test --offline --locked -p cloud_terrastodon_registry_execution --lib registry_tests::
+cargo test --offline --locked -p cloud_terrastodon_user_input --lib pick_result::test::
+cargo check --offline --locked --workspace --all-targets --message-format short
+cargo clippy --offline --locked --workspace --all-targets --message-format short
+```
+
+**Completion criteria:** Direct calls and cancellation retain the declared error;
+the erased registry boundary preserves the custom conversion's source; existing
+request and picker callers compile; focused offline tests and workspace checks
+pass. Leave the changes uncommitted and preserve user staging under the current
+authorization.
+
+### [x] 4.2b Preserve shared cached SDK values through consumers
+
+**U102 refinement — 2026-11-05:** Removed ownership-only generic parameters from
+the twelve domain-specific list responses for locations, provider operations,
+resource providers, compute SKUs, registry repositories/tags, eligible child
+resources, Key Vault secrets, retail prices, role eligibility schedules, role
+management policy assignments, and VM sizes. Each contains the concrete
+`Arc<Domain>` item type and preserves its existing outer collection and
+optionality. SDK decoders now name the concrete envelope; public request outputs
+and pagination remain unchanged. Graph, Resource Graph, PIM, and Azure DevOps
+multi-domain envelopes remain generic. This refinement adds no decoding fixtures
+or runtime behavior. Workspace all-target compilation and focused Clippy passed
+without warnings; formatting, whitespace, and stale-generic-use checks passed.
+No service requests or live SDK tests ran. Verification commands:
+
+```powershell
+cargo check --offline --locked --workspace --all-targets --message-format short
+cargo clippy --offline --locked -p cloud_terrastodon_azure_types -p cloud_terrastodon_azure --all-targets --message-format short
+```
+
+**Completed — 2026-11-05:** Ownership changes are implemented across
+cached Azure and Azure DevOps requests, Graph/category collection helpers,
+Resource Graph conversion, and SDK/CLI/UI/example consumers. The checks below
+validate this refinement independently of prior task 4.2/4.2a results.
+This task shares known-type cached records and canonical Resource Graph row
+conversion. Unknown-ID principal batches still select a concrete principal type
+from each response ID and decode its opaque success body after the batch cache
+returns; moving that discrimination and decoding into a cached principal result
+remains task 5.1.
+
+**Work:**
+
+- Return `Arc<T>` for cached singleton values and `Arc<Vec<T>>` for an existing
+  single-page collection. Decode page entries as `Arc<T>` when pagination or
+  composition needs independent records, returning `Vec<Arc<T>>` without
+  duplicating the underlying records. Whole aggregate memoization is separate.
+- Update selectors, pickers, output payloads, and exports to borrow or retain
+  the shared handles. Keep owned ID/name/path projections and new validated
+  values where that transformation is the operation's actual responsibility.
+  Preserve existing uncached requests and mutation results as owned outputs.
+- Put fixed wire-to-domain conversion inside canonical REST decoding. Both
+  source and target type identities must participate in the memory contract;
+  conflicting interpretation fails rather than silently reusing another value.
+  Converted failures retain response artifacts and caller attribution. Resource
+  Graph row conversion must not repeat on cache hits. The heterogeneous
+  unknown-ID principal batch branch remains outside this conversion boundary.
+- Remove response/envelope `Clone` derives and generic bounds that existed
+  only to copy cached values out of their `Arc`. Keep request cloning for
+  reflected invocation and other independent ownership contracts where needed.
+- Register the actual shared output shapes beside existing domain arbitrary
+  generators so offline discovery exercises production request outputs. Do not
+  introduce new generators for domains that previously had none merely for
+  this ownership change. The group-member dictionary's shared output has
+  executable metadata but no exact arbitrary generator: independently generated
+  map keys would violate their required agreement with each member's descriptor.
+  A future offline constructor must derive keys from the generated members;
+  registering the generic map generator does not satisfy that invariant.
+- Preserve invalidation, cancellation, authentication partitioning, external
+  JSON shape, and existing user staging. Do not read production data or commit.
+
+**Validation:** Inspect the existing offline targets before running them. Verify
+non-`Clone` shared values, pointer identity across repeated cached reads,
+conversion count/type conflicts and failure artifacts, and affected pure
+consumer grouping/discovery behavior. Compile live SDK test targets without
+executing them.
+
+```powershell
+cargo test --offline --locked -p cloud_terrastodon_rest --test rest_lifecycle_tests
+cargo test --offline --locked -p cloud_terrastodon_azure_types --lib entra_principal::tests::it_works
+cargo test --offline --locked -p cloud_terrastodon_hcl --lib reflow_principal_id_comments
+cargo test --offline --locked -p cloud_terrastodon_registry_execution --lib registry_tests::
+cargo test --offline --locked -p cloud_terrastodon_azure_devops --test discovery_simulation
+cargo test --offline --locked -p cloud_terrastodon_azure_devops --lib azure_devops_build_folder_validated_snapshot::tests::
+cargo test --offline --locked -p cloud_terrastodon_azure_devops_cli --lib folder_listing_preserves_empty_folders_and_counts_direct_definitions
+cargo check --offline --locked --workspace --all-targets --message-format short
+cargo clippy --offline --locked --workspace --all-targets --message-format short
+```
+
+**Verification:** All 46 selected tests passed: eight REST lifecycle tests, one
+principal-sharing test, six HCL principal-comment tests, 21 registry tests, four
+offline discovery tests, five folder snapshot tests, and one folder-listing test.
+The new REST cases prove that a non-`Clone` converted value retains pointer
+identity and converts once, conflicting wire types fail before another request,
+and failed conversions preserve their source error and response artifacts without
+publishing a reusable result. Workspace all-target compilation and Clippy passed,
+including SDK, CLI, UI, tooling, and examples. Clippy retains only the existing
+generated `test-support` feature-name and application bare-URL warnings. Focused
+formatting and whitespace checks passed. Only synthetic local transport and
+offline domain/registry tests ran; live SDK tests were compiled but not executed.
+Changes remain uncommitted and user staging is preserved.
+
+**Completion criteria:** Known-type cached request outputs retain the cached
+allocation or its record handles without deep-cloning their payloads. Repeated
+Resource Graph reads reuse canonical row conversion. Consumers compile with the
+new ownership types, targeted offline tests pass, and any retained clone has a
+concrete ownership/transformation role. Unknown-ID principal batch discrimination
+and concrete-body decoding, aggregate memoization, and dependency freshness
+remain phase 5 work. Record actual commands and results here before marking the
+task complete.
+
 ## Phase 5 — SDK vertical slices and shared collections
+
+**Foundation from task 4.2:** Transport execution, SDK caller propagation, modern
+key/invalidation contracts, and explicit REST authentication are implemented.
+Task 4.2b brings forward shared record ownership and canonical wire-to-domain
+conversion across SDK consumers. The remaining tasks refine request data,
+observers, composed-result caching, and dependency freshness. Do not reintroduce
+an old transport adapter or mistake shared records for a memoized aggregate.
 
 ### [ ] 5.1 Migrate Graph users and the composed principal inventory
 
@@ -3575,6 +3928,12 @@ query/pagination behavior and recovery invalidation. Use recorded child dependen
 stamps so invalidating any input invalidates the principal result across prefixes.
 Use G6's aggregate persistence decision; a fresh cache owner must not restore an
 aggregate as reusable without authoritative dependency freshness.
+For unknown-ID principal lookups, retain the heterogeneous Graph batch envelope
+contract and move ID-selected concrete domain decoding into the canonical
+principal result when introducing memoization. Its current `ArbitraryJson` body
+is intentional transport data, not evidence that the assembled principal is
+already decoded and shared. Preserve operations explicitly left uncached unless
+their own cache contract is separately defined and verified.
 
 ```powershell
 cargo check --offline --locked -p cloud_terrastodon_azure -p cloud_terrastodon_azure_types -p cloud_terrastodon_azure_cli
@@ -3609,8 +3968,12 @@ cache even though keys differ. No live role or Resource Graph tests are executed
 
 ### [ ] 5.3 Migrate Azure DevOps projects and shared page records
 
-**Work:** Migrate project listing and auth-selection plumbing through its CLI.
-Evaluate/implement Vec<Arc<AzureDevOpsProject>> and shared aggregate storage per G4.
+**Foundation:** Task 4.2b carries project page entries and their SDK/CLI consumers
+as `Vec<Arc<AzureDevOpsProject>>`; its own verification establishes that ownership
+change. It does not add an outer cache for the assembled inventory.
+
+**Work:** Finish project request-data/auth-selection separation and add shared
+aggregate storage per G4, preserving the shared page records already introduced.
 Preserve continuation metadata, ordering, wire output, explicit org, and bearer
 tenant. Remove optional-tenant active-CLI fallback. Preserve PAT selection and
 scope-sensitive cache identity without token acquisition on a valid cache hit.
@@ -3654,6 +4017,11 @@ sharing principals/RBAC and asserts one canonical fill, without real service dat
 decoded inventories through the executor, and preserve existing audit results.
 
 ### [ ] 6.2 Construct and pass the executor from application startup
+
+**Foundation:** Tasks 3.2 and 4.2 now bind the application executor and propagate
+it through service callers, cache list/clean paths, and both examples. This item
+retains end-to-end ownership/feature validation and any remaining application
+cleanup; broad executor parameter propagation is no longer pending.
 
 **Work:** Create one explicit runtime/cache handle for an invocation inside the
 App handler's bounded scope. Migrate entrypoint/global argument wiring, service
@@ -3785,13 +4153,13 @@ evidence and documentation. This item remains deferred when phases 1–7 complet
 | --- | --- | --- | --- |
 | Shared cache handle and executor clones | Coordinated within one owner | Concurrent typed sharing, per-key ownership, generation/dependency races | Tasks 2.3–2.4 cache races and task 3.2's shared decoding, ancestry, admission, and caller-cancellation tests passed |
 | Independent handles/processes sharing disk | No single-flight/coherent invalidation guarantee yet | Document limits; phase 8 supplies stronger proof later | Deferred |
-| Command, REST, in-process reads | One lifecycle, canonical memoization | Local adapter + cache tests; different validators still run | Command task 4.1's typed sharing and caller-policy checks passed; REST integration remains 4.2 |
-| Raw artifact storage | Isolated complete attempts and guarded selection within one handle | Local storage/integrity, freshness, and worker-drop tests | Tasks 2.2–2.4 storage, generation, quarantine, and bound import checks passed; Command adapter passed in 4.1, REST remains 4.2 |
-| SDK/transport namespaces and ownership | Separate concrete entries; shared logical invalidation scope | Synthetic wrapper succeeds; same-namespace owner/type collisions bail before execution/reuse; invalidation covers all kinds | Pending |
-| Mutations, zero-duration and uncached work | Execute each invocation; retain required artifacts | Cancellation and artifact/invalidation tests | Executor and Command independent-execution/required-completion checks passed; REST integration remains 4.2 |
-| Graph principals, ARM RBAC, Azure DevOps projects | Explicit auth/scope; shared assembled results | Typed local composition/discovery tests and compile checks | Pending |
-| Azure CLI bearer, browser, workload identity | Explicit request tenant/source | Offline selection/command construction; no live credential tests | Pending |
-| PAT and local-only/disabled auth | PAT tenant-independent; local work credential-free | Selection/admission tests | Task 3.2's provider policy and no-auth app binding passed; production adapter integration remains phase 4 |
+| Command, REST, in-process reads | One lifecycle, canonical memoization | Local adapter + cache tests; different validators still run | Task 4.1 Command checks and task 4.2 REST typed-sharing/caller-policy loopback checks passed; all callers compile |
+| Raw artifact storage | Isolated complete attempts and guarded selection within one handle | Local storage/integrity, freshness, and worker-drop tests | Core storage and Command checks passed; task 4.2 REST failure/outcome/sensitive-retention tests passed |
+| SDK/transport namespaces and ownership | Separate concrete entries; shared logical invalidation scope | Synthetic wrapper succeeds; same-namespace owner/type collisions bail before execution/reuse; invalidation covers all kinds | Core namespace/claim/invalidation tests and REST wrapper/envelope loopback scenario passed; all callers compile |
+| Mutations, zero-duration and uncached work | Execute each invocation; retain required artifacts | Cancellation and artifact/invalidation tests | Executor/Command checks and REST independent-mutation/required-completion loopback checks passed |
+| Graph principals, ARM RBAC, Azure DevOps projects | Explicit auth/scope; shared assembled results | Typed local composition/discovery tests and compile checks | Explicit executor/auth binding and discovery checks passed in 4.2; shared aggregates and dependency freshness remain phase 5 |
+| Azure CLI bearer, browser, workload identity | Explicit request tenant/source | Offline selection/command construction; no live credential tests | Auth/runtime selection and task 4.2 caller-provider rebinding checks passed; no live credential validation |
+| PAT and local-only/disabled auth | PAT tenant-independent; local work credential-free | Selection/admission tests | Provider policy, CLI early admission, raw REST disabled-auth, group-management disabled-auth, and small-stack dispatch checks passed |
 | Registry, UI, discovery, CLI output | Explicit execution; offline planning preserved | Synthetic invocation/discovery and scoped UI/output checks | Task 3.3's registry, shared-output discovery, UI lifecycle/export, and entrypoint dispatch checks passed; broader service/output consumer migration remains phase 6 |
 | App with auth and without auth; workspace examples | Supported feature boundaries; no production inputs | Both process-suite feature configurations, `--auth-source none` local handler with isolated storage, and consumer compile checks | Task 3.2's no-auth library and auth-enabled binding tests plus workspace compilation passed; later consumer/process acceptance remains task 6.2 |
 | Windows | Primary local validation platform | Existing linker/toolchain; local PowerShell fixture suites | Command phase 4.1's 51 local tests and 16 focused policy tests passed; later migration phases remain open |

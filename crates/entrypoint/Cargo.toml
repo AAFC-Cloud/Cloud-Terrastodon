@@ -13,6 +13,7 @@ categories.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+cloud_terrastodon_cache.workspace = true
 cloud_terrastodon_execution.workspace = true
 cloud_terrastodon_auth_types.workspace = true
 cloud_terrastodon_registry_execution.workspace = true
@@ -79,7 +80,7 @@ teamy-cancellation.workspace = true
 arbitrary.workspace = true
 
 [dev-dependencies]
-cloud_terrastodon_cache.workspace = true
+cloud_terrastodon_execution = { workspace = true, features = ["test-support"] }
 arbitrary.workspace = true
 test-log.workspace = true
 

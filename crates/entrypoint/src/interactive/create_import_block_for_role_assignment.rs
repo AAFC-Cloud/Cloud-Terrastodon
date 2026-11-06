@@ -1,6 +1,6 @@
 use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure::Scope;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_hcl::AsHclString;
 use cloud_terrastodon_hcl::AzureRmResourceBlockKind;
 use cloud_terrastodon_hcl::HclImportBlock;
@@ -15,9 +15,9 @@ use tracing::info;
 
 pub async fn create_import_block_for_role_assignment(
     auth_context: &AzureTenantAuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
-    match RoleAssignmentPickerApp::new(auth_context, cancellation)
+    match RoleAssignmentPickerApp::new(auth_context, executor)
         .run()
         .await?
     {

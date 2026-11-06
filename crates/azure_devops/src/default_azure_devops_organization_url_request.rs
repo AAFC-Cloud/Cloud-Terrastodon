@@ -46,6 +46,7 @@ impl CacheInvalidationKeys for DefaultAzureDevOpsOrganizationUrlRequest {
 }
 
 impl ExecutableRequest for DefaultAzureDevOpsOrganizationUrlRequest {
+    type Error = eyre::Report;
     type Output = AzureDevOpsOrganizationUrl;
     fn run<'a>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>
     where

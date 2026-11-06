@@ -10,6 +10,7 @@ use crate::EntraUser;
 use arbitrary::Arbitrary;
 use facet_json::RawJson;
 use std::collections::HashMap;
+use std::sync::Arc;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Eq, PartialEq, strum::EnumDiscriminants, facet::Facet)]
@@ -18,17 +19,17 @@ use uuid::Uuid;
 #[facet(proxy = RawJson<'static>)]
 #[repr(C)]
 pub enum EntraPrincipal {
-    User(Box<EntraUser>),
-    Group(Box<EntraGroup>),
-    ServicePrincipal(Box<EntraServicePrincipal>),
+    User(Arc<EntraUser>),
+    Group(Arc<EntraGroup>),
+    ServicePrincipal(Arc<EntraServicePrincipal>),
 }
 
 impl<'a> Arbitrary<'a> for EntraPrincipal {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(match u.int_in_range(0..=2)? {
-            0 => Self::User(Box::new(EntraUser::arbitrary(u)?)),
-            1 => Self::Group(Box::new(EntraGroup::arbitrary(u)?)),
-            _ => Self::ServicePrincipal(Box::new(EntraServicePrincipal::arbitrary(u)?)),
+            0 => Self::User(Arc::new(EntraUser::arbitrary(u)?)),
+            1 => Self::Group(Arc::new(EntraGroup::arbitrary(u)?)),
+            _ => Self::ServicePrincipal(Arc::new(EntraServicePrincipal::arbitrary(u)?)),
         })
     }
 }
@@ -42,12 +43,12 @@ impl TryFrom<RawJson<'static>> for EntraPrincipal {
             .ok_or_else(|| eyre::eyre!("Principal missing @odata.type"))?;
         let odata_type = facet_json::from_str::<String>(odata_type.as_str())?;
         Ok(match odata_type.as_str() {
-            "#microsoft.graph.user" => Self::User(Box::new(facet_json::from_str(value.as_str())?)),
+            "#microsoft.graph.user" => Self::User(Arc::new(facet_json::from_str(value.as_str())?)),
             "#microsoft.graph.group" => {
-                Self::Group(Box::new(facet_json::from_str(value.as_str())?))
+                Self::Group(Arc::new(facet_json::from_str(value.as_str())?))
             }
             "#microsoft.graph.servicePrincipal" => {
-                Self::ServicePrincipal(Box::new(facet_json::from_str(value.as_str())?))
+                Self::ServicePrincipal(Arc::new(facet_json::from_str(value.as_str())?))
             }
             other => {
                 eyre::bail!("Unsupported principal @odata.type: {other}");
@@ -81,49 +82,49 @@ impl TryFrom<&EntraPrincipal> for RawJson<'static> {
 
 impl From<EntraUser> for EntraPrincipal {
     fn from(value: EntraUser) -> Self {
-        Self::User(Box::new(value))
+        Self::User(Arc::new(value))
     }
 }
 impl From<EntraGroup> for EntraPrincipal {
     fn from(value: EntraGroup) -> Self {
-        Self::Group(Box::new(value))
+        Self::Group(Arc::new(value))
     }
 }
 impl From<EntraServicePrincipal> for EntraPrincipal {
     fn from(value: EntraServicePrincipal) -> Self {
-        Self::ServicePrincipal(Box::new(value))
+        Self::ServicePrincipal(Arc::new(value))
     }
 }
-impl TryFrom<EntraPrincipal> for EntraUser {
+impl TryFrom<EntraPrincipal> for Arc<EntraUser> {
     type Error = eyre::Error;
 
     fn try_from(value: EntraPrincipal) -> Result<Self, Self::Error> {
         match value {
-            EntraPrincipal::User(user) => Ok(*user),
+            EntraPrincipal::User(user) => Ok(user),
             other => {
                 eyre::bail!("Expected user principal, got {}", other.kind());
             }
         }
     }
 }
-impl TryFrom<EntraPrincipal> for EntraGroup {
+impl TryFrom<EntraPrincipal> for Arc<EntraGroup> {
     type Error = eyre::Error;
 
     fn try_from(value: EntraPrincipal) -> Result<Self, Self::Error> {
         match value {
-            EntraPrincipal::Group(group) => Ok(*group),
+            EntraPrincipal::Group(group) => Ok(group),
             other => {
                 eyre::bail!("Expected group principal, got {}", other.kind());
             }
         }
     }
 }
-impl TryFrom<EntraPrincipal> for EntraServicePrincipal {
+impl TryFrom<EntraPrincipal> for Arc<EntraServicePrincipal> {
     type Error = eyre::Error;
 
     fn try_from(value: EntraPrincipal) -> Result<Self, Self::Error> {
         match value {
-            EntraPrincipal::ServicePrincipal(service_principal) => Ok(*service_principal),
+            EntraPrincipal::ServicePrincipal(service_principal) => Ok(service_principal),
             other => {
                 eyre::bail!("Expected service principal, got {}", other.kind());
             }
@@ -226,7 +227,12 @@ mod tests {
             surname: Some("Fake".to_string()),
             user_principal_name: "fake.user@example.com".parse().unwrap(),
         };
-        let principal = EntraPrincipal::from(user);
+        let user = Arc::new(user);
+        let principal = EntraPrincipal::from(Arc::clone(&user));
+        let EntraPrincipal::User(shared) = &principal else {
+            panic!("user conversion changed principal kind");
+        };
+        assert!(Arc::ptr_eq(&user, shared));
         let encoded = facet_json::to_string_pretty(&principal)?;
         assert!(encoded.contains(r##""@odata.type""##));
         assert!(encoded.contains(r##"#microsoft.graph.user"##));
@@ -243,6 +249,28 @@ cloud_terrastodon_registry::register_arbitrary!(Vec<EntraPrincipal>);
 cloud_terrastodon_registry::register_from!(EntraUser => EntraPrincipal);
 cloud_terrastodon_registry::register_from!(EntraGroup => EntraPrincipal);
 cloud_terrastodon_registry::register_from!(EntraServicePrincipal => EntraPrincipal);
-cloud_terrastodon_registry::register_try_from!(EntraPrincipal => EntraUser);
-cloud_terrastodon_registry::register_try_from!(EntraPrincipal => EntraGroup);
-cloud_terrastodon_registry::register_try_from!(EntraPrincipal => EntraServicePrincipal);
+cloud_terrastodon_registry::register_try_from!(EntraPrincipal => Arc<EntraUser>);
+cloud_terrastodon_registry::register_try_from!(EntraPrincipal => Arc<EntraGroup>);
+cloud_terrastodon_registry::register_try_from!(EntraPrincipal => Arc<EntraServicePrincipal>);
+
+impl From<Arc<EntraUser>> for EntraPrincipal {
+    fn from(value: Arc<EntraUser>) -> Self {
+        Self::User(value)
+    }
+}
+
+impl From<Arc<EntraGroup>> for EntraPrincipal {
+    fn from(value: Arc<EntraGroup>) -> Self {
+        Self::Group(value)
+    }
+}
+
+impl From<Arc<EntraServicePrincipal>> for EntraPrincipal {
+    fn from(value: Arc<EntraServicePrincipal>) -> Self {
+        Self::ServicePrincipal(value)
+    }
+}
+
+cloud_terrastodon_registry::register_from!(Arc<EntraUser> => EntraPrincipal);
+cloud_terrastodon_registry::register_from!(Arc<EntraGroup> => EntraPrincipal);
+cloud_terrastodon_registry::register_from!(Arc<EntraServicePrincipal> => EntraPrincipal);

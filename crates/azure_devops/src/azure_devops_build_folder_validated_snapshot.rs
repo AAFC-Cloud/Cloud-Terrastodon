@@ -16,7 +16,7 @@ impl AzureDevOpsBuildFolderValidatedSnapshot {
     pub(crate) fn new(snapshot: AzureDevOpsBuildFolderSnapshot) -> Result<Self> {
         let mut folders = BTreeMap::<String, AzureDevOpsBuildFolderPath>::new();
         for folder in snapshot.folders {
-            let path = folder.path;
+            let path = folder.path.clone();
             let key = path.case_insensitive_key();
             if let Some(previous) = folders.get(&key) {
                 ensure!(
@@ -126,6 +126,7 @@ mod tests {
     use cloud_terrastodon_azure_devops_types::AzureDevOpsBuildDefinitionSummary;
     use cloud_terrastodon_azure_devops_types::AzureDevOpsBuildDefinitionUri;
     use cloud_terrastodon_azure_devops_types::AzureDevOpsBuildFolder;
+    use std::sync::Arc;
 
     fn snapshot(
         folders: &[&str],
@@ -143,8 +144,9 @@ mod tests {
                     last_changed_by: None,
                     last_changed_date: None,
                 })
+                .map(Arc::new)
                 .collect(),
-            definitions,
+            definitions: definitions.into_iter().map(Arc::new).collect(),
         }
     }
 

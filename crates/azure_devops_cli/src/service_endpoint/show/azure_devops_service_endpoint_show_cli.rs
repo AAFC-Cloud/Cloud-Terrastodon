@@ -4,7 +4,7 @@ use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_service_endpoints;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use eyre::bail;
 use std::io::stdout;
@@ -32,21 +32,23 @@ impl AzureDevOpsServiceEndpointShowArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let azure_devops_auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &azure_devops_auth_context.bind_executor(executor)?;
         let endpoints = fetch_all_azure_devops_service_endpoints(
             &self.org,
             self.project,
             &azure_devops_auth_context,
-            cancellation,
+            executor,
         )
         .await?;
         if let Some(ep) = endpoints
-            .into_iter()
+            .iter()
             .find(|e| e.name.to_string() == self.endpoint || e.id.to_string() == self.endpoint)
         {
             facet_json::to_writer_std_pretty(stdout(), &ep)

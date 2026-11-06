@@ -1,3 +1,4 @@
+use crate::RestResponseHeaders;
 use http::StatusCode;
 use std::error::Error;
 use std::fmt::Display;
@@ -12,6 +13,8 @@ use std::fmt::Formatter;
 pub struct RestHttpError {
     pub status: StatusCode,
     pub reason_phrase: Option<String>,
+    /// Response metadata used by callers for throttling and retry decisions.
+    pub headers: RestResponseHeaders,
 }
 
 impl Display for RestHttpError {

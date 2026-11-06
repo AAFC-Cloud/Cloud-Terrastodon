@@ -4,7 +4,8 @@ use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemQueryListRequest;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
 use std::borrow::Cow;
 
@@ -22,15 +23,21 @@ pub struct AzureDevOpsWorkItemQueryListArgs {
 }
 
 impl AzureDevOpsWorkItemQueryListArgs {
-    pub async fn invoke(self, auth: &AuthContext, cancellation: &CancellationScope) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth: &AuthContext,
+        executor: &CloudTerrastodonExecutor,
+    ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let auth_context = self.tenant.bind_auth_context(auth, cancellation).await?;
+        let executor = &auth_context.bind_executor(executor)?;
         let queries = AzureDevOpsWorkItemQueryListRequest {
-            cancellation: cancellation.clone(),
             org_url: Cow::Owned(self.org),
             project: self.project,
             auth_context: Cow::Owned(auth_context),
             depth: self.depth,
         }
+        .execute(executor)
         .await?;
         facet_json::to_writer_std_pretty(std::io::stdout(), &queries)
             .map_err(|error| eyre::eyre!("{error:?}"))?;

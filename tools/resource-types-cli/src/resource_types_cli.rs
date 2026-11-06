@@ -2,12 +2,12 @@ use crate::ResourceTypesCheckArgs;
 use crate::ResourceTypesGenerateArgs;
 use crate::ResourceTypesRefreshArgs;
 use cloud_terrastodon_app::ApplicationCli;
-use cloud_terrastodon_app::CancellationScope;
 use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_app::GlobalArgs;
 use cloud_terrastodon_app::Result;
 use cloud_terrastodon_app::facet;
 use cloud_terrastodon_app::figue;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 
 /// Refresh tenant metadata or maintain source from a reviewed local catalogue.
 #[derive(facet::Facet)]
@@ -25,11 +25,12 @@ impl ApplicationCli for ResourceTypesArgs {
 }
 
 impl ResourceTypesArgs {
-    pub async fn invoke(&self, cancellation: &CancellationScope) -> Result<CliOutput> {
+    pub async fn invoke(&self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        let cancellation = executor.cancellation();
         match &self.command {
             ResourceTypesCommand::Generate(args) => args.invoke(cancellation),
             ResourceTypesCommand::Check(args) => args.invoke(cancellation),
-            ResourceTypesCommand::Refresh(args) => args.invoke(cancellation).await,
+            ResourceTypesCommand::Refresh(args) => args.invoke(executor).await,
         }
     }
 }

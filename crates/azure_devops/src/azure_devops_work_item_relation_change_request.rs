@@ -8,7 +8,9 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItem;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemId;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemUrl;
 use cloud_terrastodon_azure_types::ArbitraryJson;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_rest::RequestHeaders;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
@@ -16,16 +18,10 @@ use eyre::ensure;
 use reqwest::Method;
 use reqwest::Url;
 use std::borrow::Cow;
-use std::future::Future;
-use std::future::IntoFuture;
-use std::pin::Pin;
 
 #[derive(Debug, Clone, facet::Facet)]
 #[facet(traits(Clone))]
 pub struct AzureDevOpsWorkItemRelationChangeRequest<'a> {
-    #[facet(skip_serializing)]
-    pub cancellation: CancellationScope,
-
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub project: Option<AzureDevOpsProjectArgument<'a>>,
     pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
@@ -41,7 +37,6 @@ pub struct AzureDevOpsWorkItemRelationChangeRequest<'a> {
 impl<'a> Arbitrary<'a> for AzureDevOpsWorkItemRelationChangeRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
-            cancellation: CancellationScope::arbitrary(u)?,
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: Option::<AzureDevOpsProjectArgument<'static>>::arbitrary(u)?,
             auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
@@ -61,19 +56,22 @@ impl<'a> AzureDevOpsWorkItemRelationChangeRequest<'a> {
     }
 }
 
-impl<'a> IntoFuture for AzureDevOpsWorkItemRelationChangeRequest<'a> {
-    type Output = Result<ArbitraryJson>;
-    type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + Send + 'a>>;
+impl<'a> ExecutableRequest for AzureDevOpsWorkItemRelationChangeRequest<'a> {
+    type Error = eyre::Report;
+    type Output = ArbitraryJson;
 
-    fn into_future(self) -> Self::IntoFuture {
+    fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
+    where
+        Self: 'exec,
+        Self::Output: 'exec,
+    {
         Box::pin(async move {
             let mut get_url = self.item_url()?;
             get_url.query_pairs_mut().append_pair("$expand", "all");
-            let get_request =
-                RestRequest::from_method_and_url(Method::GET, get_url, &self.cancellation)?;
+            let get_request = RestRequest::from_method_and_url(Method::GET, get_url)?;
             let item: AzureDevOpsWorkItem = get_request
                 .azure_devops_auth_context(self.auth_context.as_ref())?
-                .receive()
+                .receive(&executor)
                 .await?;
             ensure!(
                 item.id == self.id,
@@ -111,16 +109,15 @@ impl<'a> IntoFuture for AzureDevOpsWorkItemRelationChangeRequest<'a> {
                     },
                 )
                 .append_pair("$expand", "all");
-            let patch_request =
-                RestRequest::from_method_and_url(Method::PATCH, patch_url, &self.cancellation)?
-                    .body(facet_json::to_string(&patch)?)
-                    .headers(RequestHeaders::from_header(
-                        "Content-Type",
-                        "application/json-patch+json",
-                    )?);
+            let patch_request = RestRequest::from_method_and_url(Method::PATCH, patch_url)?
+                .body(facet_json::to_string(&patch)?)
+                .headers(RequestHeaders::from_header(
+                    "Content-Type",
+                    "application/json-patch+json",
+                )?);
             patch_request
                 .azure_devops_auth_context(self.auth_context.as_ref())?
-                .receive()
+                .receive(&executor)
                 .await
         })
     }
@@ -128,7 +125,7 @@ impl<'a> IntoFuture for AzureDevOpsWorkItemRelationChangeRequest<'a> {
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsWorkItemRelationChangeRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsWorkItemRelationChangeRequest<'static>);
-cloud_terrastodon_registry_execution::register_into_future!(
+cloud_terrastodon_registry_execution::register_executable_request!(
     AzureDevOpsWorkItemRelationChangeRequest<'static> => ArbitraryJson,
     effects = [Read, Write]
 );

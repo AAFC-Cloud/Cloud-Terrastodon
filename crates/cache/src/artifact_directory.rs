@@ -1,5 +1,7 @@
 use crate::ArtifactFilePath;
 use crate::CacheEntryIdentity;
+use crate::CacheInventoryEntry;
+use crate::CacheInventorySelection;
 use crate::ExecutorKind;
 use crate::artifact_file::ArtifactFile;
 use crate::artifact_file_digest::ArtifactFileDigest;
@@ -15,6 +17,7 @@ use std::io::ErrorKind;
 use std::path::Component;
 use std::path::Path;
 use std::path::PathBuf;
+use teamy_cancellation::CancellationScope;
 
 /// A directory address confined to one explicit artifact-store root.
 ///
@@ -30,6 +33,55 @@ pub(crate) struct ArtifactDirectory {
 }
 
 impl ArtifactDirectory {
+    /// Enumerate identities and selected metadata without inspecting payloads.
+    pub fn inventory(
+        root: &Path,
+        cancellation: &CancellationScope,
+    ) -> Result<Vec<CacheInventoryEntry>> {
+        let mut pending = vec![Self::new(root, root.join("artifacts-v2/entries"))?];
+        let mut entries = Vec::new();
+        while let Some(directory) = pending.pop() {
+            cancellation.bail_if_cancelled()?;
+            if !directory.exists_checked()? {
+                continue;
+            }
+            if let Some(bytes) = directory
+                .file(&ArtifactFilePath::new("entry.json")?)?
+                .read()?
+            {
+                let identity: CacheEntryIdentity =
+                    facet_json::from_slice(&bytes).wrap_err("invalid cache inventory identity")?;
+                ensure!(
+                    Self::for_entry(root, &identity)?.path == directory.path,
+                    "cache inventory identity is outside its canonical directory"
+                );
+                let selection = CacheInventorySelection::inspect(&directory, &identity);
+                entries.push(CacheInventoryEntry {
+                    identity,
+                    selection,
+                });
+                continue;
+            }
+            for child in fs::read_dir(directory.path()).wrap_err("enumerating cache inventory")? {
+                cancellation.bail_if_cancelled()?;
+                let child = child.wrap_err("reading cache inventory directory child")?;
+                let kind = child
+                    .file_type()
+                    .wrap_err("inspecting cache inventory child")?;
+                ensure!(!kind.is_symlink(), "cache inventory cannot traverse a link");
+                if kind.is_dir() {
+                    pending.push(directory.child(child.file_name())?);
+                } else {
+                    ensure!(
+                        kind.is_file(),
+                        "cache inventory contains a nonregular entry"
+                    );
+                }
+            }
+        }
+        Ok(entries)
+    }
+
     /// Address the isolated physical entry while retaining its original owner root.
     pub fn for_entry(root: &Path, identity: &CacheEntryIdentity) -> Result<Self> {
         let mut directory = root.join("artifacts-v2").join("entries");

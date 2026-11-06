@@ -72,6 +72,12 @@ impl AuthenticationProvider for CredentialLineageProbe {
             executor
                 .with_async_scope(|child| async move {
                     assert!(child.cache().is_err());
+                    assert!(
+                        child
+                            .with_authentication(Arc::new(SyntheticAuthentication::default()))
+                            .is_err(),
+                        "credential infrastructure cannot escape its restrictions by rebinding"
+                    );
                     let recursive = child.authorization(selection, resource).await;
                     assert!(recursive.unwrap_err().to_string().contains("recursively"));
                     let cache_attempt = child.cached_work(
@@ -130,6 +136,7 @@ struct BorrowedLabel<'a> {
 }
 
 impl<'input> ExecutableRequest for BorrowedLabel<'input> {
+    type Error = eyre::Report;
     type Output = (&'input str, CancellationScope);
 
     fn run<'a>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>
@@ -144,6 +151,7 @@ impl<'input> ExecutableRequest for BorrowedLabel<'input> {
 struct OwnedCell;
 
 impl ExecutableRequest for OwnedCell {
+    type Error = eyre::Report;
     type Output = Cell<usize>;
 
     fn run<'a>(self, _executor: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>
@@ -186,6 +194,7 @@ impl<'a> CachedNumber<'a> {
 }
 
 impl ExecutableRequest for CachedNumber<'_> {
+    type Error = eyre::Report;
     type Output = Arc<u64>;
 
     fn run<'a>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>
@@ -225,6 +234,7 @@ struct ComposedNumber<'a> {
 }
 
 impl ExecutableRequest for ComposedNumber<'_> {
+    type Error = eyre::Report;
     type Output = Arc<u64>;
 
     fn run<'a>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>
@@ -536,6 +546,83 @@ async fn nested_execution_and_scope_helpers_preserve_dependencies_on_warm_child_
             assert!(!Arc::ptr_eq(&first, &refreshed));
             assert_eq!(decodes.load(Ordering::SeqCst), 2);
             assert_eq!(compositions.load(Ordering::SeqCst), 2);
+            Ok(())
+        })
+        .await
+}
+
+#[tokio::test]
+async fn authentication_rebinding_preserves_partitioned_reuse_dependencies_and_cancellation()
+-> Result<()> {
+    let token = CancellationToken::new();
+    token
+        .with_async_scope(|scope| async {
+            let original = Arc::new(SyntheticAuthentication::default());
+            let selected = Arc::new(SyntheticAuthentication {
+                partition_generation: AtomicUsize::new(1),
+                ..Default::default()
+            });
+            let executor =
+                CloudTerrastodonExecutor::new(WorkCache::temporary()?, original.clone(), scope);
+            let rebound = executor.with_authentication(selected.clone())?;
+            let decodes = AtomicUsize::new(0);
+            let original_value = executor.execute(CachedNumber::new("21", &decodes)).await?;
+            let selected_value = rebound.execute(CachedNumber::new("30", &decodes)).await?;
+            assert_eq!(*original_value, 21);
+            assert_eq!(*selected_value, 30);
+            assert!(!Arc::ptr_eq(&original_value, &selected_value));
+            assert!(Arc::ptr_eq(
+                &original_value,
+                &executor.execute(CachedNumber::new("99", &decodes)).await?
+            ));
+            let same_selection = executor.with_authentication(selected.clone())?;
+            assert!(Arc::ptr_eq(
+                &selected_value,
+                &same_selection
+                    .execute(CachedNumber::new("99", &decodes))
+                    .await?
+            ));
+
+            // A provider change inside a reusable parent must preserve the child's
+            // dependency edge, even when that child is already cached in another
+            // authentication partition and a different logical key branch.
+            let compositions = AtomicUsize::new(0);
+            for (text, expected) in [("99", 30), ("40", 40)] {
+                let selected = selected.clone();
+                let decodes = &decodes;
+                let compositions = &compositions;
+                let value = executor
+                    .cached_work(
+                        ExecutorKind::InProcess,
+                        key("rebound-composition"),
+                        CacheOperationOwner::of::<CompositionOperation>(),
+                        &AUTHENTICATION,
+                        NonEmptyString::new("synthetic-rebound-composition")?,
+                        WorkReuse::ReusableRead,
+                        move |child| async move {
+                            compositions.fetch_add(1, Ordering::SeqCst);
+                            let child = child.with_authentication(selected)?;
+                            let value = child.execute(CachedNumber::new(text, decodes)).await?;
+                            Ok(output(*value))
+                        },
+                    )?
+                    .await?;
+                assert_eq!(*value, expected);
+                if expected == 30 {
+                    executor
+                        .cache()?
+                        .invalidate(&key("numbers").scope, executor.cancellation())
+                        .await?;
+                }
+            }
+            assert_eq!(compositions.load(Ordering::SeqCst), 2);
+            assert_eq!(decodes.load(Ordering::SeqCst), 3);
+            assert_eq!(original.acquisitions.load(Ordering::SeqCst), 1);
+            assert_eq!(selected.acquisitions.load(Ordering::SeqCst), 2);
+
+            token.request_cancel("end the lifetime shared by both provider bindings");
+            assert!(executor.cancellation().bail_if_cancelled().is_err());
+            assert!(rebound.cancellation().bail_if_cancelled().is_err());
             Ok(())
         })
         .await

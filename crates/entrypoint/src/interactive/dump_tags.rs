@@ -1,7 +1,7 @@
 use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure::ArbitraryJson;
 use cloud_terrastodon_azure::ResourceGraphHelper;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_user_input::PickerTui;
 use std::path::PathBuf;
 use tokio::fs::OpenOptions;
@@ -12,7 +12,7 @@ use tracing::warn;
 
 pub async fn dump_tags(
     auth_context: &AzureTenantAuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> eyre::Result<()> {
     let path = PathBuf::from("resource_tags.json");
     if try_exists(&path).await.unwrap_or(false) {
@@ -45,9 +45,8 @@ resources
 "#,
         None,
         auth_context,
-        cancellation,
     )
-    .collect_all::<ArbitraryJson>()
+    .collect_all::<ArbitraryJson>(executor)
     .await?;
 
     let mut file = OpenOptions::new()

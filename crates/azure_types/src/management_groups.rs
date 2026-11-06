@@ -12,6 +12,7 @@ use arbitrary::Arbitrary;
 use eyre::Result;
 use std::hash::Hash;
 use std::str::FromStr;
+use std::sync::Arc;
 
 pub const MANAGEMENT_GROUP_ID_PREFIX: &str = "/providers/Microsoft.Management/managementGroups/";
 
@@ -155,3 +156,4 @@ cloud_terrastodon_registry::register_arbitrary!(ManagementGroupId);
 cloud_terrastodon_registry::register_thing!(ManagementGroup);
 cloud_terrastodon_registry::register_arbitrary!(ManagementGroup);
 cloud_terrastodon_registry::register_arbitrary!(Vec<ManagementGroup>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<ManagementGroup>>);

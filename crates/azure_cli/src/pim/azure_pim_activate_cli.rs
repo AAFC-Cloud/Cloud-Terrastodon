@@ -4,7 +4,7 @@ use crate::pim_activate_entra;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
 /// Arguments for activating Privileged Identity Management roles.
@@ -39,20 +39,21 @@ impl AzurePimActivateArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
         let auth_context = self
             .tenant
-            .bind_auth_context(auth_context, cancellation)
+            .bind_auth_context(auth_context, executor.cancellation())
             .await?;
+        let executor = &auth_context.auth_context.bind_executor(executor)?;
         match self.target {
             Some(AzurePimActivateTarget::AzureRm) => {
-                pim_activate_azurerm(&auth_context, cancellation).await
+                pim_activate_azurerm(&auth_context, executor).await
             }
             Some(AzurePimActivateTarget::AzureAd) => {
-                pim_activate_entra(auth_context.tenant_id, cancellation).await
+                pim_activate_entra(&auth_context, executor).await
             }
-            None => pim_activate(&auth_context, cancellation).await,
+            None => pim_activate(&auth_context, executor).await,
         }
     }
 }

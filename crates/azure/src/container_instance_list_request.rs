@@ -1,61 +1,68 @@
 use crate::ResourceGraphHelper;
 use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure_types::AzureContainerInstanceResource;
-use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CacheableCommand;
-use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::async_trait;
-use eyre::Result;
+use cloud_terrastodon_cache::CacheKey;
+use cloud_terrastodon_cache::HasCacheKey;
+use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
+use cloud_terrastodon_execution::RequestExecution;
 use indoc::indoc;
 use std::borrow::Cow;
 use std::path::PathBuf;
+use std::sync::Arc;
 use tracing::info;
 
-#[must_use = "This is a future request, you must .await it"]
+#[must_use = "This is a future request, you must .execute it"]
 #[derive(Debug, Clone, facet::Facet)]
 #[facet(traits(Clone))]
 pub struct ContainerInstanceListRequest<'a> {
-    #[facet(skip_serializing)]
-    pub cancellation: CancellationScope,
-
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
 
+#[track_caller]
 pub fn fetch_all_container_instances<'a>(
     auth_context: &'a AzureTenantAuthContext,
-    cancellation: &CancellationScope,
-) -> ContainerInstanceListRequest<'a> {
-    ContainerInstanceListRequest {
-        cancellation: cancellation.clone(),
+    executor: &'a CloudTerrastodonExecutor,
+) -> RequestExecution<'a, ContainerInstanceListRequest<'a>> {
+    executor.execute(ContainerInstanceListRequest {
         auth_context: Cow::Borrowed(auth_context),
-    }
+    })
 }
 
 impl<'a> arbitrary::Arbitrary<'a> for ContainerInstanceListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
-            cancellation: arbitrary::Arbitrary::arbitrary(u)?,
             auth_context: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
         })
     }
 }
 
-#[async_trait]
-impl<'a> CacheableCommand for ContainerInstanceListRequest<'a> {
-    type Output = Vec<AzureContainerInstanceResource>;
+impl<'a> InvalidatesOwnCacheKey for ContainerInstanceListRequest<'a> {}
 
-    fn cache_key(&self) -> CacheKey {
-        CacheKey::new(PathBuf::from_iter([
+impl<'a> HasCacheKey for ContainerInstanceListRequest<'a> {
+    fn cache_key(&self) -> eyre::Result<CacheKey> {
+        CacheKey::from_relative_path(PathBuf::from_iter([
             "az",
             "resource_graph",
             "container_instances",
             self.auth_context.tenant_id.to_string().as_str(),
         ]))
     }
+}
 
-    async fn run(self) -> Result<Self::Output> {
-        info!(%self.auth_context.tenant_id, "Fetching Azure container instances");
-        let query = indoc! {r#"
+impl<'a> ExecutableRequest for ContainerInstanceListRequest<'a> {
+    type Error = eyre::Report;
+    type Output = Vec<Arc<AzureContainerInstanceResource>>;
+    fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
+    where
+        Self: 'exec,
+        Self::Output: 'exec,
+    {
+        Box::pin(async move {
+            info!(%self.auth_context.tenant_id, "Fetching Azure container instances");
+            let query = indoc! {r#"
         Resources
         | where type == "microsoft.containerinstance/containergroups"
         | project
@@ -67,29 +74,28 @@ impl<'a> CacheableCommand for ContainerInstanceListRequest<'a> {
             identity,
             properties
         "#}
-        .to_owned();
+            .to_owned();
 
-        let container_instances = ResourceGraphHelper::new(
-            query,
-            Some(self.cache_key()),
-            self.auth_context.as_ref(),
-            &self.cancellation,
-        )
-        .collect_all::<AzureContainerInstanceResource>()
-        .await?;
-        info!(
-            count = container_instances.len(),
-            "Fetched Azure container instances"
-        );
-        Ok(container_instances)
+            let container_instances = ResourceGraphHelper::new(
+                query,
+                Some(self.cache_key()?),
+                self.auth_context.as_ref(),
+            )
+            .collect_all::<AzureContainerInstanceResource>(&executor)
+            .await?;
+            info!(
+                count = container_instances.len(),
+                "Fetched Azure container instances"
+            );
+            Ok(container_instances)
+        })
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(ContainerInstanceListRequest<'a>, 'a);
 cloud_terrastodon_registry::register_thing!(ContainerInstanceListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(ContainerInstanceListRequest<'static>);
-cloud_terrastodon_registry_execution::register_into_future!(
-    ContainerInstanceListRequest<'static> => Vec<AzureContainerInstanceResource>,
+cloud_terrastodon_registry_execution::register_executable_request!(
+    ContainerInstanceListRequest<'static> => Vec<Arc<AzureContainerInstanceResource>>,
     effects = [Read]
 );
 
@@ -104,10 +110,14 @@ mod tests {
     async fn it_works() -> eyre::Result<()> {
         CancellationToken::new()
             .cancellable_scope(|cancellation| async move {
+                let executor = crate::test_executor::test_executor(
+                    &cloud_terrastodon_auth::AuthContext::explicit_azure_cli(),
+                    &cancellation,
+                )?;
                 let result = fetch_all_container_instances(
                     &AuthContext::explicit_azure_cli()
                         .bind_to_azure_tenant(get_test_tenant_id(&cancellation).await?)?,
-                    &cancellation,
+                    &executor,
                 )
                 .await?;
                 for container_instance in &result {

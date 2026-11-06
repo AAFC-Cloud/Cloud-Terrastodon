@@ -5,6 +5,7 @@ use crate::scopes::AsScope;
 use crate::scopes::Scope;
 use arbitrary::Arbitrary;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 #[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
 pub struct ServiceGroup {
@@ -96,3 +97,4 @@ mod tests {
 cloud_terrastodon_registry::register_thing!(ServiceGroup);
 cloud_terrastodon_registry::register_arbitrary!(ServiceGroup);
 cloud_terrastodon_registry::register_arbitrary!(Vec<ServiceGroup>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<ServiceGroup>>);

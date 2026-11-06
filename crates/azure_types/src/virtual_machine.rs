@@ -3,6 +3,7 @@ use crate::VirtualMachineName;
 use crate::VirtualMachineProperties;
 use arbitrary::Arbitrary;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 #[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
 pub struct VirtualMachine {
@@ -23,3 +24,4 @@ impl VirtualMachine {
 cloud_terrastodon_registry::register_thing!(VirtualMachine);
 cloud_terrastodon_registry::register_arbitrary!(VirtualMachine);
 cloud_terrastodon_registry::register_arbitrary!(Vec<VirtualMachine>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<VirtualMachine>>);

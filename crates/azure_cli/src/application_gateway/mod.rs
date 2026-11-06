@@ -1,5 +1,5 @@
 use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 pub mod azure_application_gateway_cli;
 pub mod azure_application_gateway_list_cli;
 pub mod azure_application_gateway_show_backend_health_cli;
@@ -22,8 +22,8 @@ impl AzureApplicationGatewayArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
-        self.command.invoke(auth_context, cancellation).await
+        self.command.invoke(auth_context, executor).await
     }
 }

@@ -3,7 +3,7 @@ use crate::work_item::query::invoke::AzureDevOpsWorkItemQueryInvokeArgs;
 use crate::work_item::query::list::AzureDevOpsWorkItemQueryListArgs;
 use crate::work_item::query::show::AzureDevOpsWorkItemQueryShowArgs;
 use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
 /// List, inspect, execute, and create work item queries.
@@ -27,12 +27,16 @@ pub enum AzureDevOpsWorkItemQueryCommand {
 }
 
 impl AzureDevOpsWorkItemQueryArgs {
-    pub async fn invoke(self, auth: &AuthContext, cancellation: &CancellationScope) -> Result<()> {
+    pub async fn invoke(
+        self,
+        auth: &AuthContext,
+        executor: &CloudTerrastodonExecutor,
+    ) -> Result<()> {
         match self.command {
-            AzureDevOpsWorkItemQueryCommand::List(args) => args.invoke(auth, cancellation).await,
-            AzureDevOpsWorkItemQueryCommand::Show(args) => args.invoke(auth, cancellation).await,
-            AzureDevOpsWorkItemQueryCommand::Invoke(args) => args.invoke(auth, cancellation).await,
-            AzureDevOpsWorkItemQueryCommand::Create(args) => args.invoke(auth, cancellation).await,
+            AzureDevOpsWorkItemQueryCommand::List(args) => args.invoke(auth, executor).await,
+            AzureDevOpsWorkItemQueryCommand::Show(args) => args.invoke(auth, executor).await,
+            AzureDevOpsWorkItemQueryCommand::Invoke(args) => args.invoke(auth, executor).await,
+            AzureDevOpsWorkItemQueryCommand::Create(args) => args.invoke(auth, executor).await,
         }
     }
 }

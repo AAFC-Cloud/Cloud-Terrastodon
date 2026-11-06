@@ -3,9 +3,9 @@ use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::EntraServicePrincipalObjectId;
 use cloud_terrastodon_azure_types::EntraUserId;
 use cloud_terrastodon_azure_types::OAuth2PermissionGrant;
-use cloud_terrastodon_command::CacheKey;
 use std::collections::HashSet;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::sync::LazyLock;
 
 pub static FETCH_OAUTH2_PERMISSION_GRANTS_CACHE_DIR: LazyLock<PathBuf> =
@@ -13,13 +13,13 @@ pub static FETCH_OAUTH2_PERMISSION_GRANTS_CACHE_DIR: LazyLock<PathBuf> =
 
 pub(crate) async fn bust_oauth2_permission_grants_cache(
     tenant_id: AzureTenantId,
+    auth_source: cloud_terrastodon_auth_types::AzureBearerAuthSource,
+    executor: &cloud_terrastodon_execution::CloudTerrastodonExecutor,
 ) -> eyre::Result<()> {
-    CacheKey::new(FETCH_OAUTH2_PERMISSION_GRANTS_CACHE_DIR.join(tenant_id.to_string()))
+    crate::fetch_oauth2_permission_grants(tenant_id, auth_source, executor)
         .invalidate()
-        .await?;
-    Ok(())
+        .await
 }
-
 pub fn split_oauth2_permission_grant_scope(scope: &str) -> Vec<String> {
     scope
         .split_ascii_whitespace()
@@ -77,11 +77,11 @@ pub fn merge_oauth2_permission_grant_scopes<'a>(
 }
 
 pub fn find_matching_oauth2_permission_grant(
-    grants: &mut [OAuth2PermissionGrant],
+    grants: &mut [Arc<OAuth2PermissionGrant>],
     resource_id: EntraServicePrincipalObjectId,
     client_id: EntraServicePrincipalObjectId,
     principal_id: EntraUserId,
-) -> Option<&mut OAuth2PermissionGrant> {
+) -> Option<&mut Arc<OAuth2PermissionGrant>> {
     grants.iter_mut().find(|grant| {
         grant.resource_id == resource_id
             && grant.client_id == client_id
@@ -100,9 +100,14 @@ mod tests {
     async fn it_works() -> eyre::Result<()> {
         CancellationToken::new()
             .cancellable_scope(|cancellation| async move {
+                let executor = crate::test_executor::test_executor(
+                    &cloud_terrastodon_auth::AuthContext::explicit_azure_cli(),
+                    &cancellation,
+                )?;
                 let found = fetch_oauth2_permission_grants(
                     get_test_tenant_id(&cancellation).await?,
-                    &cancellation,
+                    cloud_terrastodon_auth_types::AzureBearerAuthSource::AzureCli,
+                    &executor,
                 )
                 .await?;
                 assert!(!found.is_empty());

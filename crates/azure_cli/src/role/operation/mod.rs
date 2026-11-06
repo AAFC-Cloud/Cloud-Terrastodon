@@ -1,3 +1,5 @@
+use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 pub mod azure_role_operation_browse_cli;
 pub mod azure_role_operation_cli;
 pub mod azure_role_operation_list_cli;
@@ -5,7 +7,6 @@ pub mod azure_role_operation_list_cli;
 pub use azure_role_operation_browse_cli::AzureRoleOperationBrowseArgs;
 pub use azure_role_operation_cli::AzureRoleOperationCommand;
 pub use azure_role_operation_list_cli::AzureRoleOperationListArgs;
-use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 
 /// Manage Azure provider operations.
@@ -16,7 +17,11 @@ pub struct AzureRoleOperationArgs {
 }
 
 impl AzureRoleOperationArgs {
-    pub async fn invoke(self, cancellation: &CancellationScope) -> Result<()> {
-        self.command.invoke(cancellation).await
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        executor: &CloudTerrastodonExecutor,
+    ) -> Result<()> {
+        self.command.invoke(auth_context, executor).await
     }
 }

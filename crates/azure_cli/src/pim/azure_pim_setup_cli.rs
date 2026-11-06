@@ -11,13 +11,14 @@ use cloud_terrastodon_azure::EntraApplicationRegistration;
 use cloud_terrastodon_azure::fetch_all_service_principals;
 use cloud_terrastodon_azure::fetch_oauth2_permission_scopes;
 use cloud_terrastodon_azure::search_application_registrations;
-use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_config::Config;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Context;
 use eyre::Result;
 use eyre::bail;
 use std::collections::HashSet;
 use std::io::Write;
+use std::sync::Arc;
 use tracing::info;
 use uuid::Uuid;
 
@@ -40,8 +41,9 @@ impl AzurePimSetupArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         if let Some(client_id) = self.client_id {
             let tenant_id = self.tenant.resolve(cancellation).await?;
             persist_client_id(&tenant_id, client_id).await?;
@@ -64,13 +66,14 @@ impl AzurePimSetupArgs {
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
         let tenant_id = tenant_auth_context.tenant_id;
         info!(%tenant_id, "Searching for the Cloud Terrastodon PIM app registration");
 
-        let application = find_pim_application(&tenant_auth_context, cancellation).await?;
+        let application = find_pim_application(&tenant_auth_context, executor).await?;
         let graph_app_id: EntraApplicationClientId = MICROSOFT_GRAPH_APP_ID.parse()?;
         let service_principals =
-            fetch_all_service_principals(&tenant_auth_context, cancellation).await?;
+            fetch_all_service_principals(&tenant_auth_context, executor).await?;
         let graph_service_principal = service_principals
             .iter()
             .find(|service_principal| service_principal.app_id == graph_app_id)
@@ -83,7 +86,7 @@ impl AzurePimSetupArgs {
         let graph_scopes = fetch_oauth2_permission_scopes(
             graph_service_principal.id,
             &tenant_auth_context,
-            cancellation,
+            executor,
         )
         .await?;
         let required_resource_access = parse_required_resource_access(&application)?;
@@ -135,7 +138,7 @@ impl AzurePimSetupArgs {
         persist_client_id(&tenant_id, application.app_id).await?;
         let output = PimSetupOutput {
             application_id: application.app_id,
-            application_display_name: application.display_name,
+            application_display_name: application.display_name.clone(),
             configured_graph_scopes: required_graph_claims
                 .iter()
                 .map(|claim| (*claim).to_string())
@@ -202,10 +205,10 @@ struct RequiredResourceAccessEntry {
 
 async fn find_pim_application(
     auth_context: &AzureTenantAuthContext,
-    cancellation: &CancellationScope,
-) -> Result<EntraApplicationRegistration> {
+    executor: &CloudTerrastodonExecutor,
+) -> Result<Arc<EntraApplicationRegistration>> {
     let applications =
-        search_application_registrations(PIM_APPLICATION_DISPLAY_NAME, auth_context, cancellation)
+        search_application_registrations(PIM_APPLICATION_DISPLAY_NAME, auth_context, executor)
             .await?;
     let matches = applications
         .into_iter()

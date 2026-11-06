@@ -4,7 +4,7 @@ use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::fetch_all_principals;
 use cloud_terrastodon_azure::fetch_principal;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use eyre::bail;
 use std::io::Write;
@@ -26,17 +26,18 @@ impl AzureEntraPrincipalShowArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let tenant_auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
         info!(needle = %self.principal, tenant_id = %tenant_auth_context.tenant_id, "Fetching Entra principal");
 
         if let Some(principal_id) = self.principal.as_id() {
-            let principal =
-                fetch_principal(*principal_id, &tenant_auth_context, cancellation).await?;
+            let principal = fetch_principal(*principal_id, &tenant_auth_context, executor).await?;
             let stdout = std::io::stdout();
             let mut handle = stdout.lock();
             facet_json::to_writer_std_pretty(&mut handle, &principal)
@@ -45,7 +46,7 @@ impl AzureEntraPrincipalShowArgs {
             return Ok(());
         }
 
-        let principals = fetch_all_principals(&tenant_auth_context, cancellation).await?;
+        let principals = fetch_all_principals(&tenant_auth_context, executor).await?;
         let mut matches = principals
             .values()
             .filter(|principal| self.principal.matches(*principal))

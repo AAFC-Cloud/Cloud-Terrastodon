@@ -1,9 +1,9 @@
+use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::fetch_all_role_operation_metadata;
 use cloud_terrastodon_azure::flatten_role_operations;
-use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
@@ -19,16 +19,27 @@ pub struct AzureRoleOperationBrowseArgs {
 }
 
 impl AzureRoleOperationBrowseArgs {
-    pub async fn invoke(self, cancellation: &CancellationScope) -> Result<()> {
-        let tenant_id = self.tenant.resolve(cancellation).await?;
+    pub async fn invoke(
+        self,
+        auth_context: &AuthContext,
+        executor: &CloudTerrastodonExecutor,
+    ) -> Result<()> {
+        let cancellation = executor.cancellation();
+        let tenant_auth_context = self
+            .tenant
+            .bind_auth_context(auth_context, cancellation)
+            .await?;
+        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
+        let tenant_id = tenant_auth_context.tenant_id;
+        let auth_source = tenant_auth_context.auth_context.azure_bearer_source()?;
         let (chosen, maybe_error) = PickerTui::<_>::new()
             .pick_many_reloadable(|invalidate| async move {
                 info!(%tenant_id, "Fetching Azure provider operations metadata");
                 let provider_operations =
-                    fetch_all_role_operation_metadata(tenant_id, cancellation)
+                    fetch_all_role_operation_metadata(tenant_id, auth_source, executor)
                         .with_invalidation(invalidate)
                         .await?;
-                let mut operations = flatten_role_operations(&provider_operations);
+                let mut operations = flatten_role_operations(provider_operations);
                 operations.sort_by(|left, right| {
                     left.name
                         .to_string()

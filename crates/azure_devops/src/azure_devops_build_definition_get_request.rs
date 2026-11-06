@@ -4,23 +4,25 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsBuildDefinition;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsBuildDefinitionId;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
-use cloud_terrastodon_command::CacheInvalidatable;
-use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
-use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::HasCacheKey;
+use cloud_terrastodon_cache::CacheKey;
+use cloud_terrastodon_cache::CacheOperationOwner;
+use cloud_terrastodon_cache::HasCacheKey;
+use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
+use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_pathing::sanitize_windows_path_component;
 use cloud_terrastodon_rest::RestRequest;
+#[cfg(test)]
 use eyre::Result;
 use eyre::ensure;
 use facet::Facet;
 use reqwest::Method;
 use reqwest::Url;
 use std::borrow::Cow;
-use std::future::Future;
-use std::future::IntoFuture;
 use std::path::PathBuf;
-use std::pin::Pin;
+use std::sync::Arc;
 
 /// A cached request for one complete build definition, optionally at a revision.
 ///
@@ -31,13 +33,10 @@ use std::pin::Pin;
 /// legacy cloud URL aliases. Project ID and name selectors remain distinct scopes.
 ///
 /// See Microsoft's [Definitions Get API](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/definitions/get?view=azure-devops-rest-7.1).
-#[must_use = "This is a future request, you must .await it"]
+#[must_use = "This is a future request, you must .execute it"]
 #[derive(Debug, Clone, Facet)]
 #[facet(traits(Clone))]
 pub struct AzureDevOpsBuildDefinitionGetRequest<'a> {
-    #[facet(skip_serializing)]
-    pub cancellation: CancellationScope,
-
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     /// Project ID or name.
     pub project: AzureDevOpsProjectArgument<'a>,
@@ -50,28 +49,27 @@ pub struct AzureDevOpsBuildDefinitionGetRequest<'a> {
 /// Retrieve a complete build definition using the Azure DevOps 7.1 API.
 ///
 /// See Microsoft's [Definitions Get API](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/definitions/get?view=azure-devops-rest-7.1).
+#[track_caller]
 pub fn fetch_azure_devops_build_definition<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     project: impl Into<AzureDevOpsProjectArgument<'a>>,
     auth_context: &'a AzureDevOpsAuthContext,
     definition_id: AzureDevOpsBuildDefinitionId,
     revision: Option<i32>,
-    cancellation: &CancellationScope,
-) -> AzureDevOpsBuildDefinitionGetRequest<'a> {
-    AzureDevOpsBuildDefinitionGetRequest {
-        cancellation: cancellation.clone(),
+    executor: &'a CloudTerrastodonExecutor,
+) -> RequestExecution<'a, AzureDevOpsBuildDefinitionGetRequest<'a>> {
+    executor.execute(AzureDevOpsBuildDefinitionGetRequest {
         org_url: Cow::Borrowed(org_url),
         project: project.into(),
         auth_context: Cow::Borrowed(auth_context),
         definition_id,
         revision,
-    }
+    })
 }
 
 impl<'a> Arbitrary<'a> for AzureDevOpsBuildDefinitionGetRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
-            cancellation: CancellationScope::arbitrary(u)?,
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
             auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
@@ -82,7 +80,7 @@ impl<'a> Arbitrary<'a> for AzureDevOpsBuildDefinitionGetRequest<'static> {
 }
 
 impl HasCacheKey for AzureDevOpsBuildDefinitionGetRequest<'_> {
-    fn cache_key(&self) -> CacheKey {
+    fn cache_key(&self) -> eyre::Result<CacheKey> {
         let mut path = PathBuf::from("az/devops");
         if self.org_url.collection_name().is_some() {
             // Preserve the Server instance scheme, authority and path prefix.
@@ -117,7 +115,7 @@ impl HasCacheKey for AzureDevOpsBuildDefinitionGetRequest<'_> {
                 }
             }
         };
-        CacheKey::new(
+        CacheKey::from_relative_path(
             path.join("project")
                 .join(project)
                 .join("build")
@@ -127,29 +125,15 @@ impl HasCacheKey for AzureDevOpsBuildDefinitionGetRequest<'_> {
     }
 }
 
-impl<'a> CacheInvalidatableIntoFuture for AzureDevOpsBuildDefinitionGetRequest<'a> {
-    type WithInvalidation = <Self as IntoFuture>::IntoFuture;
+impl<'a> ExecutableRequest for AzureDevOpsBuildDefinitionGetRequest<'a> {
+    type Error = eyre::Report;
+    type Output = Arc<AzureDevOpsBuildDefinition>;
 
-    fn with_invalidation(self, invalidate_cache: bool) -> Self::WithInvalidation {
-        Box::pin(async move {
-            if invalidate_cache {
-                self.cancellation
-                    .deferred(
-                        "finishing filesystem and memory cache invalidation",
-                        |_invalidation| async { self.invalidate().await },
-                    )
-                    .await?;
-            }
-            self.into_future().await
-        })
-    }
-}
-
-impl<'a> IntoFuture for AzureDevOpsBuildDefinitionGetRequest<'a> {
-    type Output = Result<AzureDevOpsBuildDefinition>;
-    type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + Send + 'a>>;
-
-    fn into_future(self) -> Self::IntoFuture {
+    fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
+    where
+        Self: 'exec,
+        Self::Output: 'exec,
+    {
         Box::pin(async move {
             let mut url = Url::parse(&self.org_url.to_string())?;
             url.path_segments_mut()
@@ -167,22 +151,28 @@ impl<'a> IntoFuture for AzureDevOpsBuildDefinitionGetRequest<'a> {
             let cache_key = if let Some(revision) = self.revision {
                 url.query_pairs_mut()
                     .append_pair("revision", &revision.to_string());
-                self.cache_key().join("revision").join(revision.to_string())
+                self.cache_key()?
+                    .join("revision")?
+                    .join(revision.to_string())?
             } else {
-                self.cache_key().join("latest")
+                self.cache_key()?.join("latest")?
             };
-            let request = RestRequest::from_method_and_url(Method::GET, url, &self.cancellation)?
+            let request = RestRequest::from_method_and_url(Method::GET, url)?
                 .cache(cache_key)
                 .azure_devops_auth_context(self.auth_context.as_ref())?;
             let definition_id = self.definition_id;
             request
-                .receive_with_validator(move |definition: AzureDevOpsBuildDefinition| {
-                    ensure!(
-                        definition.id == definition_id,
-                        "Build definition response did not match the requested ID"
-                    );
-                    Ok(definition)
-                })
+                .receive_with_validator_cached(
+                    move |definition: &AzureDevOpsBuildDefinition| {
+                        ensure!(
+                            definition.id == definition_id,
+                            "Build definition response did not match the requested ID"
+                        );
+                        Ok(())
+                    },
+                    &executor,
+                    CacheOperationOwner::of::<AzureDevOpsBuildDefinitionGetRequest<'static>>(),
+                )
                 .await
         })
     }
@@ -190,11 +180,12 @@ impl<'a> IntoFuture for AzureDevOpsBuildDefinitionGetRequest<'a> {
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsBuildDefinitionGetRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsBuildDefinitionGetRequest<'static>);
-cloud_terrastodon_registry_execution::register_into_future!(
-    AzureDevOpsBuildDefinitionGetRequest<'static> => AzureDevOpsBuildDefinition,
+cloud_terrastodon_registry_execution::register_executable_request!(
+    AzureDevOpsBuildDefinitionGetRequest<'static> => Arc<AzureDevOpsBuildDefinition>,
     effects = [Read]
 );
 
+impl InvalidatesOwnCacheKey for AzureDevOpsBuildDefinitionGetRequest<'_> {}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -203,34 +194,60 @@ mod tests {
     fn definition_refresh_scope_covers_revisions_and_url_aliases_but_isolates_resources()
     -> Result<()> {
         let mut request = AzureDevOpsBuildDefinitionGetRequest {
-            cancellation: CancellationScope::unbound(),
             org_url: Cow::Owned("https://dev.azure.com/synthetic".parse()?),
             project: "Synthetic project".parse()?,
             auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
             definition_id: AzureDevOpsBuildDefinitionId::new(42)?,
             revision: None,
         };
-        let key = request.cache_key();
+        let key = request.cache_key().unwrap();
         assert_eq!(
-            key.path,
+            key.scope.components().iter().collect::<PathBuf>(),
             PathBuf::from(
                 "az/devops/org/synthetic/project/synthetic%20project/build/definition/show/42"
             )
         );
 
         request.revision = Some(3);
-        assert_eq!(request.cache_key(), key);
+        assert_eq!(request.cache_key().unwrap(), key);
         request.org_url = Cow::Owned("https://synthetic.visualstudio.com".parse()?);
-        assert_eq!(request.cache_key(), key);
+        assert_eq!(request.cache_key().unwrap(), key);
 
         request.definition_id = AzureDevOpsBuildDefinitionId::new(43)?;
-        assert!(!request.cache_key().path.starts_with(&key.path));
+        assert!(
+            !request
+                .cache_key()
+                .unwrap()
+                .scope
+                .components()
+                .iter()
+                .collect::<PathBuf>()
+                .starts_with(key.scope.components().iter().collect::<PathBuf>())
+        );
         request.definition_id = AzureDevOpsBuildDefinitionId::new(42)?;
         request.project = "Other project".parse()?;
-        assert!(!request.cache_key().path.starts_with(&key.path));
+        assert!(
+            !request
+                .cache_key()
+                .unwrap()
+                .scope
+                .components()
+                .iter()
+                .collect::<PathBuf>()
+                .starts_with(key.scope.components().iter().collect::<PathBuf>())
+        );
         request.project = "Synthetic project".parse()?;
         request.org_url = Cow::Owned("https://dev.azure.com/other-synthetic".parse()?);
-        assert!(!request.cache_key().path.starts_with(&key.path));
+        assert!(
+            !request
+                .cache_key()
+                .unwrap()
+                .scope
+                .components()
+                .iter()
+                .collect::<PathBuf>()
+                .starts_with(key.scope.components().iter().collect::<PathBuf>())
+        );
         Ok(())
     }
 }

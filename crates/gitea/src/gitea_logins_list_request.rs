@@ -34,6 +34,7 @@ impl HasCacheKey for GiteaLoginsListRequest {
 }
 
 impl ExecutableRequest for GiteaLoginsListRequest {
+    type Error = eyre::Report;
     type Output = Vec<GiteaLogin>;
 
     fn run<'a>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>

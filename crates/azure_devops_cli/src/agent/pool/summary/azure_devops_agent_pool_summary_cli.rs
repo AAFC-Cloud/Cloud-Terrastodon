@@ -8,12 +8,13 @@ use cloud_terrastodon_azure_devops::AzureDevOpsProjectId;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_agent_pool_entitlements_for_project;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_agent_pools;
-use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use color_eyre::owo_colors::OwoColorize;
 use eyre::Result;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::sync::Arc;
 
 /// Print a summary of agent pools and projects that belong to each pool.
 #[derive(facet::Facet, Debug, Clone)]
@@ -31,18 +32,19 @@ impl AzureDevOpsAgentPoolSummaryArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         // Fetch pools and projects once
         let azure_devops_auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &azure_devops_auth_context.bind_executor(executor)?;
         let pools =
-            fetch_azure_devops_agent_pools(&self.org, &azure_devops_auth_context, cancellation)
-                .await?;
+            fetch_azure_devops_agent_pools(&self.org, &azure_devops_auth_context, executor).await?;
         let projects =
-            fetch_all_azure_devops_projects(&self.org, &azure_devops_auth_context, cancellation)
+            fetch_all_azure_devops_projects(&self.org, &azure_devops_auth_context, executor)
                 .await?;
 
         // Map project id -> project name and record project ids
@@ -50,7 +52,7 @@ impl AzureDevOpsAgentPoolSummaryArgs {
         let mut project_ids: Vec<AzureDevOpsProjectId> = Vec::with_capacity(projects.len());
         for p in projects {
             project_ids.push(p.id.clone());
-            project_map.insert(p.id, p.name.to_string());
+            project_map.insert(p.id.clone(), p.name.to_string());
         }
 
         // Build pool -> project ids map by fetching entitlements once per project in parallel
@@ -60,20 +62,20 @@ impl AzureDevOpsAgentPoolSummaryArgs {
         // Enqueue project entitlement fetches in parallel
         let mut work: ParallelFallibleWorkQueue<(
             AzureDevOpsProjectId,
-            Vec<AzureDevOpsAgentPoolEntitlement>,
+            Vec<Arc<AzureDevOpsAgentPoolEntitlement>>,
         )> = ParallelFallibleWorkQueue::new("fetching project agent pool entitlements", 8);
         for pid in project_ids.iter() {
             let pid = pid.clone();
             let org_clone = self.org.clone();
             let azure_devops_auth_context = azure_devops_auth_context.clone();
             work.enqueue({
-                cancellation.cancellable_scope(move |cancellation| async move {
-                    let cancellation = &cancellation;
+                executor.cancellable_scope(move |executor| async move {
+                    let executor = &executor;
                     let entitlements = fetch_azure_devops_agent_pool_entitlements_for_project(
                         &org_clone,
                         pid.clone(),
                         &azure_devops_auth_context,
-                        cancellation,
+                        executor,
                     )
                     .await?;
                     Ok((pid, entitlements))
@@ -95,7 +97,7 @@ impl AzureDevOpsAgentPoolSummaryArgs {
             format!("Found {} agent pools", pools.len()).yellow().bold()
         );
 
-        for pool in pools {
+        for pool in pools.iter() {
             println!("{}", "────────────────────────────────────────".dimmed());
             println!("{} {}", "Pool:".cyan().bold(), pool.name.cyan().bold());
             println!("{} {}", "Pool ID:".cyan().bold(), pool.id);

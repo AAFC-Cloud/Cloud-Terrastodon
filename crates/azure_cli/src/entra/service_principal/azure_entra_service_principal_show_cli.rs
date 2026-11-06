@@ -5,7 +5,7 @@ use cloud_terrastodon_azure::EntraServicePrincipal;
 use cloud_terrastodon_azure::EntraServicePrincipalObjectId;
 use cloud_terrastodon_azure::fetch_all_service_principals;
 use cloud_terrastodon_azure::fetch_service_principal;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use eyre::bail;
 use std::io::Write;
@@ -27,17 +27,19 @@ impl AzureEntraSpShowArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let tenant_auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
         info!(needle = %self.service_principal, tenant_id = %tenant_auth_context.tenant_id, "Fetching service principals");
         let needle = self.service_principal.trim();
 
         if let Ok(service_principal_id) = needle.parse::<EntraServicePrincipalObjectId>() {
-            match fetch_service_principal(service_principal_id, &tenant_auth_context, cancellation)
+            match fetch_service_principal(service_principal_id, &tenant_auth_context, executor)
                 .await
             {
                 Ok(service_principal) => {
@@ -58,7 +60,7 @@ impl AzureEntraSpShowArgs {
         }
 
         let service_principals =
-            fetch_all_service_principals(&tenant_auth_context, cancellation).await?;
+            fetch_all_service_principals(&tenant_auth_context, executor).await?;
         info!(
             count = service_principals.len(),
             "Fetched service principals"

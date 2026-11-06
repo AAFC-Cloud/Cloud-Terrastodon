@@ -5,6 +5,7 @@ use arbitrary::Arbitrary;
 use eyre::Result;
 use std::collections::HashMap;
 use std::fmt;
+use std::sync::Arc;
 
 #[derive(Debug, PartialEq, facet::Facet)]
 #[facet(proxy = String)]
@@ -299,3 +300,4 @@ mod tests {
         Ok(())
     }
 }
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<RoleManagementPolicyAssignment>>);

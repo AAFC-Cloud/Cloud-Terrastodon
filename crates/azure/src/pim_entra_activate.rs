@@ -1,74 +1,86 @@
+use crate::MyEntraPimRoleAssignmentsListRequest;
+use cloud_terrastodon_auth_types::AuthenticationSelection;
+use cloud_terrastodon_auth_types::AzureBearerAuthSource;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::EntraPrincipalId;
 use cloud_terrastodon_azure_types::GovernanceRoleAssignment;
 use cloud_terrastodon_azure_types::RoleAssignmentRequest;
-use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_cache::CacheKey;
+use cloud_terrastodon_cache::CacheScope;
+use cloud_terrastodon_execution::CacheInvalidatableRequest;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
 use http::Method;
-use std::path::PathBuf;
 use std::time::Duration;
+use url::Url;
 
+/// Activate an Entra role through the executor's delegated Graph credential.
+/// See [PIM role-assignment requests](https://learn.microsoft.com/graph/api/resources/governanceroleassignmentrequest?view=graph-rest-beta).
 pub async fn activate_pim_entra_role(
     tenant_id: AzureTenantId,
+    auth_source: AzureBearerAuthSource,
     principal_id: impl Into<EntraPrincipalId>,
     role_assignment: &GovernanceRoleAssignment,
     justification: String,
     duration: Duration,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
-    let url = "https://graph.microsoft.com/beta/privilegedAccess/aadroles/roleAssignmentRequests";
-    RestRequest::new(Method::POST, url, cancellation)?
-        .tenant(tenant_id)
-        .cache(CacheKey {
-            path: PathBuf::from_iter(["az", "rest", "POST", "roleAssignmentScheduleRequests"]),
-            valid_for: Duration::ZERO,
-        })
-        .body(
-            facet_json::to_string_pretty(&RoleAssignmentRequest::new_self_activation(
-                principal_id.into(),
-                tenant_id,
-                role_assignment,
-                justification,
-                duration,
-            ))
-            .map_err(|error| eyre::eyre!("{error:?}"))?,
+    let principal_id = principal_id.into();
+    let url = Url::parse(
+        "https://graph.microsoft.com/beta/privilegedAccess/aadroles/roleAssignmentRequests",
+    )?;
+    let body = facet_json::to_string_pretty(&RoleAssignmentRequest::new_self_activation(
+        principal_id,
+        tenant_id,
+        role_assignment,
+        justification,
+        duration,
+    ))?;
+    let key = CacheKey {
+        scope: CacheScope::try_from_components([
+            "graph",
+            "beta",
+            "tenants",
+            &tenant_id.to_string(),
+            "pim",
+            "principals",
+            &principal_id.to_string(),
+            "activate",
+            &role_assignment.id,
+        ])?,
+        valid_for: Duration::ZERO,
+    };
+    executor
+        .deferred(
+            "activating an Entra role and invalidating its assignment inventory",
+            |child| async move {
+                let execution = RestRequest::from_method_and_url(Method::POST, url)?
+                    .authentication(AuthenticationSelection::AzureBearer {
+                        auth_source,
+                        tenant_id,
+                    })
+                    .cache(key)
+                    .body(body)
+                    .receive_raw(&child)
+                    .await
+                    .and_then(|response| response.error_for_status().map_err(Into::into));
+                // A server-side mutation can succeed before response/artifact handling
+                // reports an error, so retain invalidation for either outcome.
+                let invalidation = MyEntraPimRoleAssignmentsListRequest {
+                    tenant_id,
+                    auth_source,
+                }
+                .invalidate(&child)
+                .await;
+                match (execution, invalidation) {
+                    (Ok(_), Ok(())) => Ok(()),
+                    (Err(error), Ok(())) | (Ok(_), Err(error)) => Err(error),
+                    (Err(error), Err(invalidation)) => Err(error.wrap_err(format!(
+                        "PIM assignment invalidation also failed: {invalidation:#}"
+                    ))),
+                }
+            },
         )
-        .receive_raw()
-        .await?;
-    Ok(())
-}
-
-/// Activate an Entra role using the delegated PIM app token.
-pub async fn activate_pim_entra_role_with_graph_access_token(
-    tenant_id: AzureTenantId,
-    principal_id: impl Into<EntraPrincipalId>,
-    role_assignment: &GovernanceRoleAssignment,
-    justification: String,
-    duration: Duration,
-    access_token: &str,
-    cancellation: &CancellationScope,
-) -> Result<()> {
-    let url = "https://graph.microsoft.com/beta/privilegedAccess/aadroles/roleAssignmentRequests";
-    RestRequest::new(Method::POST, url, cancellation)?
-        .tenant(tenant_id)
-        .bearer_token(access_token)
-        .cache(CacheKey {
-            path: PathBuf::from_iter(["az", "rest", "POST", "roleAssignmentRequests"]),
-            valid_for: Duration::ZERO,
-        })
-        .body(
-            facet_json::to_string_pretty(&RoleAssignmentRequest::new_self_activation(
-                principal_id.into(),
-                tenant_id,
-                role_assignment,
-                justification,
-                duration,
-            ))
-            .map_err(|error| eyre::eyre!("{error:?}"))?,
-        )
-        .receive_raw()
-        .await?;
-    Ok(())
+        .await
 }

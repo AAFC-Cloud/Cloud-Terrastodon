@@ -9,6 +9,7 @@ use cloud_terrastodon_hcl_types::HclProviderBlock;
 use cloud_terrastodon_hcl_types::Sanitizable;
 use std::collections::HashMap;
 use std::hash::Hash;
+use std::sync::Arc;
 
 #[derive(Debug, Clone, Arbitrary, facet::Facet)]
 pub struct Subscription {
@@ -64,3 +65,4 @@ impl From<Subscription> for HclProviderBlock {
 cloud_terrastodon_registry::register_thing!(Subscription);
 cloud_terrastodon_registry::register_arbitrary!(Subscription);
 cloud_terrastodon_registry::register_arbitrary!(Vec<Subscription>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<Subscription>>);

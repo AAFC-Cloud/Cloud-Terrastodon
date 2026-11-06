@@ -22,3 +22,6 @@ pub use azure_credential_resource::AzureCredentialResource;
 pub use azure_devops_auth_selection::AzureDevOpsAuthSelection;
 pub use bearer_authorization::BearerAuthorization;
 pub use personal_access_token_authorization::PersonalAccessTokenAuthorization;
+
+mod container_registry_bearer_challenge;
+pub use container_registry_bearer_challenge::ContainerRegistryBearerChallenge;

@@ -1,3 +1,4 @@
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 pub mod azure_entra_application_registration_browse_cli;
 pub mod azure_entra_application_registration_cli;
 pub mod azure_entra_application_registration_list_cli;
@@ -14,7 +15,6 @@ pub use azure_entra_application_registration_role_list_cli::AzureEntraApplicatio
 pub use azure_entra_application_registration_search_cli::AzureEntraApplicationRegistrationSearchArgs;
 pub use azure_entra_application_registration_show_cli::AzureEntraApplicationRegistrationShowArgs;
 use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 
 /// Entra application registration subcommands.
@@ -28,8 +28,8 @@ impl AzureEntraApplicationRegistrationArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
-        self.command.invoke(auth_context, cancellation).await
+        self.command.invoke(auth_context, executor).await
     }
 }

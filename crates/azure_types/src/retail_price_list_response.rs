@@ -1,4 +1,5 @@
 use crate::Price;
+use std::sync::Arc;
 use url::Url;
 
 /// A page of the anonymous Azure retail-price catalogue.
@@ -13,6 +14,6 @@ pub struct RetailPriceListResponse {
     pub customer_entity_id: String,
     pub customer_entity_type: String,
     pub count: usize,
-    pub items: Vec<Price>,
+    pub items: Vec<Arc<Price>>,
     pub next_page_link: Option<Url>,
 }

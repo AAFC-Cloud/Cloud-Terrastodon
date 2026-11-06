@@ -37,6 +37,7 @@ struct ParentRead;
 struct ManagedCommandRequest(CommandBuilder);
 
 impl ExecutableRequest for ManagedCommandRequest {
+    type Error = eyre::Report;
     type Output = CommandOutput;
 
     fn run<'a>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>

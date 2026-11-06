@@ -1,5 +1,6 @@
 use crate::ComputeSkuName;
 use arbitrary::Arbitrary;
+use std::sync::Arc;
 
 #[derive(Debug, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
@@ -17,3 +18,4 @@ pub struct VirtualMachineSize {
 
 cloud_terrastodon_registry::register_thing!(VirtualMachineSize);
 cloud_terrastodon_registry::register_arbitrary!(VirtualMachineSize);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<VirtualMachineSize>>);

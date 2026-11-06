@@ -1,40 +1,54 @@
-use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::discover_caches;
-use cloud_terrastodon_pathing::AppDir;
+use cloud_terrastodon_cache::CacheInventorySelection;
+use cloud_terrastodon_cache::CacheScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
+use std::collections::HashSet;
 
+/// Invalidate selected logical cache scopes across execution and authentication variants.
 #[derive(facet::Facet, Debug, Clone)]
 pub struct CacheCleanTuiArgs {}
 
 impl CacheCleanTuiArgs {
-    pub async fn invoke(self, _cancellation: &CancellationScope) -> Result<()> {
-        // Discover caches under AppDir::Commands
-        let root = AppDir::Commands.as_path_buf();
-        let caches = discover_caches(&root).await?;
-
-        // Build choices for the picker: show the disk path and last-used timestamp
-        let choices: Vec<Choice<CacheKey>> = caches
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<()> {
+        let cache = executor.cache()?;
+        let choices: Vec<Choice<CacheScope>> = cache
+            .inventory(executor.cancellation())
+            .await?
             .into_iter()
-            .map(|(cache_key, dt)| Choice {
-                key: format!("{} ({})", cache_key.path.display(), dt.to_rfc2822()),
-                value: cache_key,
+            .map(|entry| Choice {
+                key: format!(
+                    "{:?}: {} ({})",
+                    entry.identity.kind,
+                    entry.identity.scope.components().join("/"),
+                    match entry.selection {
+                        CacheInventorySelection::Absent => "no selected artifact".to_owned(),
+                        CacheInventorySelection::Selected(freshness) => {
+                            format!("observed {}", freshness.observed_at.to_rfc2822())
+                        }
+                        CacheInventorySelection::Invalid { message } => {
+                            format!("invalid metadata: {message}")
+                        }
+                    },
+                ),
+                value: entry.identity.scope,
             })
             .collect();
 
-        // Let the user pick multiple cache entries to invalidate
         let picked = PickerTui::<_>::new()
-            .set_header("Select cache entries to invalidate")
+            .set_header("Select cache scopes to invalidate across all variants")
             .pick_many(choices)
             .await?;
 
-        for key in picked {
-            key.invalidate().await?;
-            println!("Invalidated cache: {}", key.path_on_disk().display());
+        // Several physical variants can share one logical scope.
+        let mut invalidated = HashSet::new();
+        for scope in picked {
+            if invalidated.insert(scope.clone()) {
+                cache.invalidate(&scope, executor.cancellation()).await?;
+                println!("Invalidated cache scope: {}", scope.components().join("/"));
+            }
         }
-
         Ok(())
     }
 }

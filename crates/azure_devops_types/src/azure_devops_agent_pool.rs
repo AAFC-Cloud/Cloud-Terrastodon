@@ -4,6 +4,7 @@ use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
 use cloud_terrastodon_azure_types::ArbitraryJson;
+use std::sync::Arc;
 
 #[derive(Debug, Clone, facet::Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
@@ -55,3 +56,4 @@ pub struct AzureDevOpsAgentPoolOwner {
 cloud_terrastodon_registry::register_thing!(AzureDevOpsAgentPool);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsAgentPool);
 cloud_terrastodon_registry::register_arbitrary!(Vec<AzureDevOpsAgentPool>);
+cloud_terrastodon_registry::register_arbitrary!(Arc<Vec<AzureDevOpsAgentPool>>);

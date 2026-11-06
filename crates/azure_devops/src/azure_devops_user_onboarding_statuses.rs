@@ -1,7 +1,7 @@
 use crate::fetch_azure_devops_user_license_entitlements;
 use cloud_terrastodon_auth::AzureDevOpsAuthContext;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use std::collections::HashSet;
 
 pub enum UserOnboardingStatus {
@@ -13,18 +13,18 @@ pub async fn get_azure_devops_user_onboarding_statuses<T: AsRef<str>>(
     org_url: &AzureDevOpsOrganizationUrl,
     user_emails: impl IntoIterator<Item = T>,
     auth_context: &AzureDevOpsAuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> eyre::Result<Vec<(T, UserOnboardingStatus)>> {
-    let existing_users =
-        fetch_azure_devops_user_license_entitlements(org_url, auth_context, cancellation)
-            .await?
-            .into_iter()
-            .map(|user| user.user.unique_name)
-            .collect::<HashSet<_>>();
+    let entitlements =
+        fetch_azure_devops_user_license_entitlements(org_url, auth_context, executor).await?;
+    let existing_users = entitlements
+        .iter()
+        .map(|user| user.user.unique_name.as_str())
+        .collect::<HashSet<_>>();
 
     let mut rtn = Vec::new();
     for user in user_emails {
-        cancellation.bail_if_cancelled()?;
+        executor.cancellation().bail_if_cancelled()?;
         let status = match existing_users.contains(user.as_ref()) {
             true => UserOnboardingStatus::Onboarded,
             false => UserOnboardingStatus::NotOnboarded,

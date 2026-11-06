@@ -2,7 +2,7 @@ use super::AzurePolicySetDefinitionBrowseArgs;
 use super::AzurePolicySetDefinitionListArgs;
 use super::AzurePolicySetDefinitionShowArgs;
 use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
 /// Subcommands for managing Azure policy set definitions.
@@ -21,17 +21,17 @@ impl AzurePolicySetDefinitionCommand {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
         match self {
             AzurePolicySetDefinitionCommand::List(args) => {
-                args.invoke(auth_context, cancellation).await
+                args.invoke(auth_context, executor).await
             }
             AzurePolicySetDefinitionCommand::Browse(args) => {
-                args.invoke(auth_context, cancellation).await
+                args.invoke(auth_context, executor).await
             }
             AzurePolicySetDefinitionCommand::Show(args) => {
-                args.invoke(auth_context, cancellation).await
+                args.invoke(auth_context, executor).await
             }
         }
     }

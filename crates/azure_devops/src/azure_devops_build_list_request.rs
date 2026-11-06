@@ -8,25 +8,25 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsBuildResult;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsBuildStatus;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
-use cloud_terrastodon_command::CacheInvalidatable;
-use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
-use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::HasCacheKey;
+use cloud_terrastodon_cache::CacheKey;
+use cloud_terrastodon_cache::CacheOperationOwner;
+use cloud_terrastodon_cache::HasCacheKey;
+use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
+use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_pathing::sanitize_windows_path_component;
 use cloud_terrastodon_rest::MicrosoftContinuationToken;
 use cloud_terrastodon_rest::RestRequest;
-use eyre::Result;
 use eyre::ensure;
 use facet::Facet;
 use reqwest::Method;
 use reqwest::Url;
 use std::borrow::Cow;
 use std::collections::BTreeSet;
-use std::future::Future;
-use std::future::IntoFuture;
 use std::path::PathBuf;
-use std::pin::Pin;
+use std::sync::Arc;
 
 /// A cached request for build runs, newest queue time first.
 ///
@@ -36,13 +36,10 @@ use std::pin::Pin;
 /// distinct cache scopes; no project identity resolution is performed here.
 ///
 /// See Microsoft's [Builds List API](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/builds/list?view=azure-devops-rest-7.1).
-#[must_use = "This is a future request, you must .await it"]
+#[must_use = "This is a future request, you must .execute it"]
 #[derive(Debug, Clone, Facet)]
 #[facet(traits(Clone))]
 pub struct AzureDevOpsBuildListRequest<'a> {
-    #[facet(skip_serializing)]
-    pub cancellation: CancellationScope,
-
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     /// Project ID or name.
     pub project: AzureDevOpsProjectArgument<'a>,
@@ -62,6 +59,7 @@ pub struct AzureDevOpsBuildListRequest<'a> {
     clippy::too_many_arguments,
     reason = "Expose build-list filters directly instead of a convenience parameter wrapper"
 )]
+#[track_caller]
 pub fn fetch_azure_devops_builds<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     project: impl Into<AzureDevOpsProjectArgument<'a>>,
@@ -71,10 +69,9 @@ pub fn fetch_azure_devops_builds<'a>(
     result: Option<AzureDevOpsBuildResult>,
     branch: Option<String>,
     limit: Option<AzureDevOpsBuildListLimit>,
-    cancellation: &CancellationScope,
-) -> AzureDevOpsBuildListRequest<'a> {
-    AzureDevOpsBuildListRequest {
-        cancellation: cancellation.clone(),
+    executor: &'a CloudTerrastodonExecutor,
+) -> RequestExecution<'a, AzureDevOpsBuildListRequest<'a>> {
+    executor.execute(AzureDevOpsBuildListRequest {
         org_url: Cow::Borrowed(org_url),
         project: project.into(),
         auth_context: Cow::Borrowed(auth_context),
@@ -83,13 +80,12 @@ pub fn fetch_azure_devops_builds<'a>(
         result,
         branch,
         limit,
-    }
+    })
 }
 
 impl<'a> Arbitrary<'a> for AzureDevOpsBuildListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
-            cancellation: CancellationScope::arbitrary(u)?,
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
             auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
@@ -103,7 +99,7 @@ impl<'a> Arbitrary<'a> for AzureDevOpsBuildListRequest<'static> {
 }
 
 impl HasCacheKey for AzureDevOpsBuildListRequest<'_> {
-    fn cache_key(&self) -> CacheKey {
+    fn cache_key(&self) -> eyre::Result<CacheKey> {
         let mut path = PathBuf::from("az/devops");
         if self.org_url.collection_name().is_some() {
             // Server scopes preserve their instance authority and path prefix.
@@ -138,7 +134,7 @@ impl HasCacheKey for AzureDevOpsBuildListRequest<'_> {
                 }
             }
         };
-        CacheKey::new(
+        CacheKey::from_relative_path(
             path.join("project")
                 .join(project)
                 .join("build")
@@ -147,31 +143,17 @@ impl HasCacheKey for AzureDevOpsBuildListRequest<'_> {
     }
 }
 
-impl<'a> CacheInvalidatableIntoFuture for AzureDevOpsBuildListRequest<'a> {
-    type WithInvalidation = <Self as IntoFuture>::IntoFuture;
+impl<'a> ExecutableRequest for AzureDevOpsBuildListRequest<'a> {
+    type Error = eyre::Report;
+    type Output = Vec<Arc<AzureDevOpsBuild>>;
 
-    fn with_invalidation(self, invalidate_cache: bool) -> Self::WithInvalidation {
+    fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
+    where
+        Self: 'exec,
+        Self::Output: 'exec,
+    {
         Box::pin(async move {
-            if invalidate_cache {
-                self.cancellation
-                    .deferred(
-                        "finishing filesystem and memory cache invalidation",
-                        |_invalidation| async { self.invalidate().await },
-                    )
-                    .await?;
-            }
-            self.into_future().await
-        })
-    }
-}
-
-impl<'a> IntoFuture for AzureDevOpsBuildListRequest<'a> {
-    type Output = Result<Vec<AzureDevOpsBuild>>;
-    type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + Send + 'a>>;
-
-    fn into_future(self) -> Self::IntoFuture {
-        Box::pin(async move {
-            let cache_key = self.cache_key();
+            let cache_key = self.cache_key()?;
             let mut url = Url::parse(&self.org_url.to_string())?;
             url.path_segments_mut()
                 .map_err(|()| {
@@ -224,13 +206,13 @@ impl<'a> IntoFuture for AzureDevOpsBuildListRequest<'a> {
                 blake3::hash(cache_url.as_str().as_bytes())
                     .to_hex()
                     .as_str(),
-            );
+            )?;
             let mut builds = Vec::new();
             let mut continuation: Option<MicrosoftContinuationToken> = None;
             let mut seen = BTreeSet::new();
             let mut page_index = 0;
             loop {
-                self.cancellation.bail_if_cancelled()?;
+                executor.cancellation().bail_if_cancelled()?;
                 let mut page_url = url.clone();
                 if let Some(token) = &continuation {
                     page_url
@@ -245,13 +227,17 @@ impl<'a> IntoFuture for AzureDevOpsBuildListRequest<'a> {
                         .query_pairs_mut()
                         .append_pair("$top", &remaining.to_string());
                 }
-                let request =
-                    RestRequest::from_method_and_url(Method::GET, page_url, &self.cancellation)?
-                        .cache(cache_key.join(page_index.to_string()))
-                        .azure_devops_auth_context(self.auth_context.as_ref())?;
-                let (page, next): (AzureDevOpsBuildPage<AzureDevOpsBuild>, _) =
-                    request.receive_with_ms_continuation_token().await?;
-                builds.extend(page.value.into_iter().take(remaining.unwrap_or(usize::MAX)));
+                let request = RestRequest::from_method_and_url(Method::GET, page_url)?
+                    .cache(cache_key.join(page_index.to_string())?)
+                    .azure_devops_auth_context(self.auth_context.as_ref())?;
+                let (page, next) =
+                    request.receive_with_ms_continuation_token_cached::<AzureDevOpsBuildPage<Arc<AzureDevOpsBuild>>>(&executor, CacheOperationOwner::of::<AzureDevOpsBuildListRequest<'static>>()).await?;
+                builds.extend(
+                    page.value
+                        .iter()
+                        .take(remaining.unwrap_or(usize::MAX))
+                        .cloned(),
+                );
                 if limit.is_some_and(|limit| builds.len() == limit) {
                     break;
                 }
@@ -272,7 +258,9 @@ impl<'a> IntoFuture for AzureDevOpsBuildListRequest<'a> {
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsBuildListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsBuildListRequest<'static>);
-cloud_terrastodon_registry_execution::register_into_future!(
-    AzureDevOpsBuildListRequest<'static> => Vec<AzureDevOpsBuild>,
+cloud_terrastodon_registry_execution::register_executable_request!(
+    AzureDevOpsBuildListRequest<'static> => Vec<Arc<AzureDevOpsBuild>>,
     effects = [Read]
 );
+
+impl InvalidatesOwnCacheKey for AzureDevOpsBuildListRequest<'_> {}

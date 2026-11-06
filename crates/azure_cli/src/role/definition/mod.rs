@@ -1,3 +1,4 @@
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 pub mod azure_role_definition_browse_cli;
 pub mod azure_role_definition_cli;
 pub mod azure_role_definition_find_cli;
@@ -8,7 +9,6 @@ pub use azure_role_definition_cli::AzureRoleDefinitionCommand;
 pub use azure_role_definition_find_cli::AzureRoleDefinitionFindArgs;
 pub use azure_role_definition_list_cli::AzureRoleDefinitionListArgs;
 use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 
 /// Manage Azure role definitions.
@@ -22,8 +22,8 @@ impl AzureRoleDefinitionArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
-        self.command.invoke(auth_context, cancellation).await
+        self.command.invoke(auth_context, executor).await
     }
 }

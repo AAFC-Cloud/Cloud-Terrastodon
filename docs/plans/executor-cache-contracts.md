@@ -236,19 +236,21 @@ request.execute(&executor).await?;
 The selected trait shape is:
 
 ```rust
-pub type ExecutionFuture<'a, T> =
-    Pin<Box<dyn Future<Output = eyre::Result<T>> + Send + 'a>>;
+pub type ExecutionFuture<'a, T, E = eyre::Report> =
+    Pin<Box<dyn Future<Output = Result<T, E>> + Send + 'a>>;
 
 pub trait ExecutableRequest: Sized + Send {
     type Output: Send;
+    type Error: Send + From<CancellationError>;
 
     fn run<'a>(
         self,
         executor: CloudTerrastodonExecutor,
-    ) -> ExecutionFuture<'a, Self::Output>
+    ) -> ExecutionFuture<'a, Self::Output, Self::Error>
     where
         Self: 'a,
-        Self::Output: 'a;
+        Self::Output: 'a,
+        Self::Error: 'a;
 
     fn execute<'a>(
         self,
@@ -257,6 +259,7 @@ pub trait ExecutableRequest: Sized + Send {
     where
         Self: 'a,
         Self::Output: 'a,
+        Self::Error: 'a,
     {
         executor.execute(self)
     }
@@ -264,8 +267,15 @@ pub trait ExecutableRequest: Sized + Send {
 ```
 
 `RequestExecution<'a, R>` owns `R` and borrows the executor. Its `IntoFuture`
-output is `eyre::Result<R::Output>` and its future is
-`ExecutionFuture<'a, R::Output>`. On execution it clones the resource handles,
+output is `Result<R::Output, R::Error>` and its future is
+`ExecutionFuture<'a, R::Output, R::Error>`. Direct execution preserves the
+request's error, including recoverable partial output, without requiring that
+error to implement `std::error::Error`, `Sync`, or `'static`. Cancellation converts
+through `From<CancellationError>`. Infrastructure futures default to
+`eyre::Report`; existing requests can select that error explicitly. The optional
+`.with_invalidation(...)` combinator additionally requires `From<eyre::Report>`
+to represent invalidation failure without erasing the request's own failures.
+On execution the binding clones the resource handles,
 opens a linked child through the current scope's `cancellable_scope`, binds the
 factory's child scope into the child executor, and calls `request.run(child)`.
 Nested requests receive that child executor. No hidden current executor or
@@ -417,7 +427,32 @@ Azure/DevOps service subprocesses were replaced by explicit-context REST calls;
 credential acquisition and local logout remain isolated auth infrastructure.
 Tea receives an explicitly matched login profile and uses explicit managed owned
 execution because profile names do not establish credential generations. The
-REST executor/cache migration remains task 4.2.
+REST now follows the same explicit ownership boundary in task 4.2.
+`receive`/`receive_raw` execute independently and return owned values;
+`receive_cached`/`receive_raw_cached` require a canonical operation owner and
+return shared `Arc` values under `ExecutorKind::Rest`. Every receive takes the
+executor, while constructors retain nonsecret authentication selection and no
+cancellation or credential handle. Context setters only extract source/tenant.
+Cached mapper/validator APIs apply caller policy after obtaining the canonical
+result. Graph and ACR authorization remain provider-owned credential work, with
+the latter constrained by a validated challenge. U100/U101 and task 4.2b carry
+shared ownership through cached SDK outputs and their consumers. Singletons
+return `Arc<T>`; single-page collection envelopes can hold `Arc<Vec<T>>` and
+return that handle; paginated and composed lists retain decoded `Arc<T>` items
+in `Vec<Arc<T>>`. An outer aggregate cache remains a separate phase 5 concern.
+Do not detach the retained value with a deep clone or wrap a newly cloned record
+in an `Arc` on each invocation. No `Clone` bound is required for canonical shared
+results. Ordinary uncached receives and intentional domain projections retain
+owned outputs.
+
+`receive_converted` and `receive_converted_cached` execute a fixed
+`TryFrom<Wire>` conversion inside the decode/artifact boundary. The cached form
+retains the converted value, so a cache hit performs neither wire decode nor
+domain conversion. Both wire and domain type identities belong to its memory
+contract; a mismatched interpretation is rejected before reuse. Conversion
+errors retain the original response artifacts and owning request attribution.
+This contract covers Resource Graph row decoding without treating an arbitrary
+caller mapper as the operation's canonical conversion.
 An arbitrary validator/mapper is caller policy. It runs for every caller after
 obtaining the canonical result, including hits and joiners, and its output is
 not automatically memoized. Different callbacks returning the same Rust type
@@ -461,9 +496,12 @@ already-produced boxed value. Executable dispatch accepts
 `&'a CloudTerrastodonExecutor` and returns
 `Result<FunctionInvocation<'a>>`. Its generic adapter downcasts the request,
 awaits `executor.execute(request)`, and boxes the result. The erased registry
-boundary requires `R: ExecutableRequest + Any + Send + 'static` and
-`R::Output: Facet<'static> + Any + Send + 'static`, but does not require `Sync`.
-Those ownership requirements belong to boxed reflection, not every direct request.
+boundary requires `R: ExecutableRequest + Any + Send + 'static`,
+`R::Output: Facet<'static> + Any + Send + 'static`, and
+`R::Error: Into<eyre::Report> + 'static`, but does not require `Sync`. Only this
+adapter converts request errors into reports. A custom conversion owns retaining
+useful domain context and source errors for erased consumers. Those conversion
+and ownership requirements belong to boxed reflection, not every direct request.
 
 Keep the current async-value callback as a temporary separate executor variant
 for legacy requests/conversions. The new executable registration uses the new
@@ -644,7 +682,19 @@ participates in inventory dependency freshness.
 ## G4 — shared records, observation, and effect admission
 
 Canonical inventory results use an outer `Arc` so hits and joiners share the
-same allocation. Selected record ownership is:
+same allocation. Task 4.2b first preserves existing cached values and page-record
+handles through SDK consumers; its verification is tracked in the owning plan.
+Single-page collections use `Arc<Vec<T>>`; independently selectable page records
+use `Vec<Arc<T>>`. This does not memoize assembly of the combined list.
+
+Domain-specific response envelopes name their concrete shared item type, for
+example `Vec<Arc<AzureProviderOperationsMetadata>>`. Do not parameterize them
+solely to switch between owned and shared records: a default type argument does
+not constrain the envelope to its domain. Keep generics on reusable envelopes
+that serve different domain types, such as Graph, Resource Graph, PIM, and Azure
+DevOps collections.
+
+The remaining phase 5 aggregate cache targets are:
 
 | Inventory | Shared shape | Assembly/conversion consequence |
 | --- | --- | --- |
@@ -654,7 +704,10 @@ same allocation. Selected record ownership is:
 | Combined RBAC | `Arc<RoleDefinitionsAndAssignments>` | The first validated assembly is shared; internal role/assignment record sharing follows the invariant-preserving conversion work in its migration slice |
 
 These are targeted ownership changes, not a requirement to replace every nested
-domain field with `Arc`. Facet/Arbitrary support, external JSON/text behavior,
+domain field with `Arc`. Do not add `Clone` derives to response/domain records
+solely so the SDK can turn a shared cache hit into an owned copy. Retain cloning
+for a separately required domain edit, transformation, or invocation contract.
+Facet/Arbitrary support, external JSON/text behavior,
 registry collection projection, and CLI presentation must be verified through
 the focused application integration checks. No generated service response
 fixture is evidence of remote API compatibility.

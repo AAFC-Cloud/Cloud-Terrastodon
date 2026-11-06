@@ -2,7 +2,7 @@ use super::AzurePolicyAssignmentBrowseArgs;
 use super::AzurePolicyAssignmentListArgs;
 use super::AzurePolicyAssignmentShowArgs;
 use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 
 /// Subcommands for managing Azure policy assignments.
@@ -21,18 +21,12 @@ impl AzurePolicyAssignmentCommand {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
         match self {
-            AzurePolicyAssignmentCommand::List(args) => {
-                args.invoke(auth_context, cancellation).await
-            }
-            AzurePolicyAssignmentCommand::Browse(args) => {
-                args.invoke(auth_context, cancellation).await
-            }
-            AzurePolicyAssignmentCommand::Show(args) => {
-                args.invoke(auth_context, cancellation).await
-            }
+            AzurePolicyAssignmentCommand::List(args) => args.invoke(auth_context, executor).await,
+            AzurePolicyAssignmentCommand::Browse(args) => args.invoke(auth_context, executor).await,
+            AzurePolicyAssignmentCommand::Show(args) => args.invoke(auth_context, executor).await,
         }
     }
 }

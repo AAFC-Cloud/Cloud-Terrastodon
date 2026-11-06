@@ -1,110 +1,152 @@
-use crate::fetch_current_user;
-use cloud_terrastodon_auth::AzureTenantAuthContext;
+use crate::CurrentEntraUserRequest;
+use cloud_terrastodon_auth_types::AuthenticationSelection;
+use cloud_terrastodon_auth_types::AzureBearerAuthSource;
 use cloud_terrastodon_azure_types::AzureTenantId;
-use cloud_terrastodon_azure_types::EntraPrincipalId;
+use cloud_terrastodon_azure_types::EntraPimCollectionResponse;
 use cloud_terrastodon_azure_types::GovernanceRoleAssignment;
-use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_cache::CacheKey;
+use cloud_terrastodon_cache::CacheOperationOwner;
+use cloud_terrastodon_cache::CacheScope;
+use cloud_terrastodon_cache::HasCacheKey;
+use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
-use itertools::Itertools;
-use std::path::PathBuf;
+use http::Method;
+use std::sync::Arc;
+use std::time::Duration;
+use url::Url;
 
+/// List the current delegated user's eligible and active [PIM assignments](https://learn.microsoft.com/graph/api/resources/governanceroleassignment?view=graph-rest-beta).
 #[derive(arbitrary::Arbitrary, facet::Facet)]
 pub struct MyEntraPimRoleAssignmentsListRequest {
-    #[facet(skip_serializing)]
-    pub cancellation: CancellationScope,
-    pub auth_context: AzureTenantAuthContext,
+    pub tenant_id: AzureTenantId,
+    pub auth_source: AzureBearerAuthSource,
 }
-
 pub fn fetch_my_entra_pim_role_assignments(
-    auth_context: &AzureTenantAuthContext,
-    cancellation: &CancellationScope,
+    tenant_id: AzureTenantId,
+    auth_source: AzureBearerAuthSource,
 ) -> MyEntraPimRoleAssignmentsListRequest {
     MyEntraPimRoleAssignmentsListRequest {
-        cancellation: cancellation.clone(),
-        auth_context: auth_context.clone(),
+        tenant_id,
+        auth_source,
     }
 }
-
-#[async_trait]
-impl cloud_terrastodon_command::CacheableCommand for MyEntraPimRoleAssignmentsListRequest {
-    type Output = Vec<GovernanceRoleAssignment>;
-
-    fn cache_key(&self) -> CacheKey {
-        CacheKey::new(PathBuf::from_iter([
-            "az",
-            "rest",
-            "GET",
-            "pim_roleAssignments",
-            self.auth_context.tenant_id.to_string().as_str(),
-        ]))
-    }
-
-    async fn run(self) -> Result<Self::Output> {
-        let my_object_id = fetch_current_user(&self.auth_context, &self.cancellation)
-            .await?
-            .id;
-        let url = format!(
-            "{}{}{}{}",
-            "https://graph.microsoft.com/beta/",
-            "privilegedAccess/aadroles/roleAssignments",
-            format_args!(
-                "?$filter=(subject/id eq '{}') and (assignmentState in ('Eligible', 'Active'))",
-                my_object_id
-            ),
-            format_args!(
-                "&$select={}",
-                [
-                    "assignmentState",
-                    "endDateTime",
-                    "id",
-                    "linkedEligibleRoleAssignmentId",
-                    "memberType",
-                    "roleDefinitionId",
-                    "startDateTime",
-                    "status",
-                    "subjectId",
-                ]
-                .into_iter()
-                .join(",")
-            )
-        );
-        #[derive(facet::Facet)]
-        struct Response {
-            value: Vec<GovernanceRoleAssignment>,
-        }
-
-        let request = RestRequest::new(http::Method::GET, &url, &self.cancellation)?
-            .azure_auth_context(&self.auth_context)
-            .cache(self.cache_key());
-        let mut result: Result<Response, _> = request.clone().receive().await;
-        if result.is_err() {
-            self.cancellation.bail_if_cancelled()?;
-            // single retry - sometimes this returns a gateway error
-            result = request.receive().await;
-        }
-        Ok(result?.value)
+impl HasCacheKey for MyEntraPimRoleAssignmentsListRequest {
+    fn cache_key(&self) -> Result<CacheKey> {
+        Ok(CacheKey {
+            scope: CacheScope::try_from_components([
+                "graph",
+                "beta",
+                "tenants",
+                &self.tenant_id.to_string(),
+                "pim",
+                "me",
+                "role-assignments",
+            ])?,
+            valid_for: Duration::from_secs(3600),
+        })
     }
 }
-
-cloud_terrastodon_command::impl_cacheable_into_future!(MyEntraPimRoleAssignmentsListRequest);
+impl InvalidatesOwnCacheKey for MyEntraPimRoleAssignmentsListRequest {}
+impl ExecutableRequest for MyEntraPimRoleAssignmentsListRequest {
+    type Error = eyre::Report;
+    type Output = Vec<Arc<GovernanceRoleAssignment>>;
+    fn run<'a>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>
+    where
+        Self: 'a,
+    {
+        Box::pin(async move {
+            let principal = CurrentEntraUserRequest {
+                tenant_id: self.tenant_id,
+                auth_source: self.auth_source,
+            }
+            .execute(&executor)
+            .await?;
+            let initial_url = Url::parse(&format!(
+                "https://graph.microsoft.com/beta/privilegedAccess/aadroles/roleAssignments?$filter=(subject/id eq '{}') and (assignmentState in ('Eligible', 'Active'))&$select=assignmentState,endDateTime,id,linkedEligibleRoleAssignmentId,memberType,roleDefinitionId,startDateTime,status,subjectId",
+                principal.id,
+            ))?;
+            let mut next = Some(initial_url.clone());
+            let mut visited = std::collections::HashSet::new();
+            let mut values = Vec::new();
+            let mut page_index = 0usize;
+            while let Some(url) = next {
+                executor.cancellation().bail_if_cancelled()?;
+                eyre::ensure!(
+                    url.origin() == initial_url.origin()
+                        && url.path() == initial_url.path()
+                        && url.username().is_empty()
+                        && url.password().is_none()
+                        && url.fragment().is_none(),
+                    "Graph PIM continuation left the selected resource"
+                );
+                eyre::ensure!(
+                    visited.insert(url.clone()),
+                    "Graph PIM continuation repeated a page"
+                );
+                let request = RestRequest::from_method_and_url(Method::GET, url)?
+                    .authentication(AuthenticationSelection::AzureBearer {
+                        auth_source: self.auth_source,
+                        tenant_id: self.tenant_id,
+                    })
+                    .cache(self.cache_key()?.join(format!("pages/{page_index}"))?);
+                let mut result = request
+                    .clone()
+                    .receive_cached::<EntraPimCollectionResponse<GovernanceRoleAssignment>>(
+                        &executor,
+                        CacheOperationOwner::of::<Self>(),
+                    )
+                    .await;
+                if result.is_err() {
+                    executor.cancellation().bail_if_cancelled()?;
+                    // Preserve the existing single retry for transient gateway errors.
+                    result = request
+                        .receive_cached(&executor, CacheOperationOwner::of::<Self>())
+                        .await;
+                }
+                let response = result?;
+                values.extend(response.value.iter().cloned());
+                next = response.next_link.clone();
+                page_index += 1;
+            }
+            Ok(values)
+        })
+    }
+}
+cloud_terrastodon_registry::register_thing!(MyEntraPimRoleAssignmentsListRequest);
+cloud_terrastodon_registry::register_arbitrary!(MyEntraPimRoleAssignmentsListRequest);
+cloud_terrastodon_registry_execution::register_executable_request!(MyEntraPimRoleAssignmentsListRequest => Vec<Arc<GovernanceRoleAssignment>>, effects = [Read]);
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_helpers::expect_aad_premium_p2_license;
+    use cloud_terrastodon_auth::AuthContext;
+    use cloud_terrastodon_auth::CredentialAuthenticationProvider;
+    use cloud_terrastodon_cache::WorkCache;
     use cloud_terrastodon_command::CancellationToken;
-
     #[tokio::test]
+    #[ignore = "requires explicit tenant configuration, credentials and live Graph access"]
     async fn it_works() -> Result<()> {
         CancellationToken::new()
-            .cancellable_scope(|cancellation| async move {
-                let auth_context = cloud_terrastodon_auth::AuthContext::explicit_azure_cli()
-                    .bind_to_azure_tenant(crate::get_test_tenant_id(&cancellation).await?)?;
-                let Some(result) = expect_aad_premium_p2_license(
-                    fetch_my_entra_pim_role_assignments(&auth_context, &cancellation).await,
+            .cancellable_scope(|scope| async move {
+                let tenant_id = crate::get_test_tenant_id(&scope).await?;
+                let executor = CloudTerrastodonExecutor::new(
+                    WorkCache::temporary()?,
+                    Arc::new(CredentialAuthenticationProvider::new(
+                        AuthContext::explicit_azure_cli(),
+                    )),
+                    scope,
+                );
+                let Some(result) = crate::test_helpers::expect_aad_premium_p2_license(
+                    fetch_my_entra_pim_role_assignments(tenant_id, AzureBearerAuthSource::AzureCli)
+                        .execute(&executor)
+                        .await,
+                    cloud_terrastodon_auth_types::AzureBearerAuthSource::AzureCli,
+                    tenant_id,
+                    &executor,
                 )
                 .await?
                 else {
@@ -116,45 +158,3 @@ mod tests {
             .await
     }
 }
-
-/// Fetch the current user's eligible/active Entra PIM role assignments with an explicit token.
-pub async fn fetch_my_entra_pim_role_assignments_with_graph_access_token(
-    tenant_id: AzureTenantId,
-    principal_id: impl Into<EntraPrincipalId>,
-    access_token: &str,
-    cancellation: &CancellationScope,
-) -> Result<Vec<GovernanceRoleAssignment>> {
-    let principal_id: EntraPrincipalId = principal_id.into();
-    let url = format!(
-        "https://graph.microsoft.com/beta/privilegedAccess/aadroles/roleAssignments?$filter=(subject/id eq '{principal_id}') and (assignmentState in ('Eligible', 'Active'))&$select={}",
-        [
-            "assignmentState",
-            "endDateTime",
-            "id",
-            "linkedEligibleRoleAssignmentId",
-            "memberType",
-            "roleDefinitionId",
-            "startDateTime",
-            "status",
-            "subjectId",
-        ]
-        .join(",")
-    );
-    #[derive(facet::Facet)]
-    struct Response {
-        value: Vec<GovernanceRoleAssignment>,
-    }
-
-    let request = RestRequest::new(http::Method::GET, &url, cancellation)?
-        .tenant(tenant_id)
-        .bearer_token(access_token);
-    let mut result: Result<Response, _> = request.clone().receive().await;
-    if result.is_err() {
-        cancellation.bail_if_cancelled()?;
-        result = request.receive().await;
-    }
-    Ok(result?.value)
-}
-cloud_terrastodon_registry::register_thing!(MyEntraPimRoleAssignmentsListRequest);
-cloud_terrastodon_registry::register_arbitrary!(MyEntraPimRoleAssignmentsListRequest);
-cloud_terrastodon_registry_execution::register_into_future!(MyEntraPimRoleAssignmentsListRequest => Vec<GovernanceRoleAssignment>, effects = [Read]);

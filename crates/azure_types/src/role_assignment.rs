@@ -10,6 +10,7 @@ use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
+use std::sync::Arc;
 
 /// An Azure RBAC role assignment.
 ///
@@ -46,6 +47,11 @@ impl AsScope for &RoleAssignment {
 
 impl From<RoleAssignment> for HclImportBlock {
     fn from(role_assignment: RoleAssignment) -> Self {
+        Self::from(&role_assignment)
+    }
+}
+impl From<&RoleAssignment> for HclImportBlock {
+    fn from(role_assignment: &RoleAssignment) -> Self {
         HclImportBlock {
             provider: HclProviderReference::Inherited,
             // Terraform doesn't like the case variation, https://github.com/hashicorp/terraform-provider-azurerm/issues/26907
@@ -74,3 +80,4 @@ cloud_terrastodon_registry::register_thing!(RoleAssignment);
 cloud_terrastodon_registry::register_arbitrary!(RoleAssignment);
 
 cloud_terrastodon_registry::register_arbitrary!(Vec<RoleAssignment>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<RoleAssignment>>);

@@ -1,5 +1,6 @@
 use crate::location::AzureLocationName;
 use arbitrary::Arbitrary;
+use std::sync::Arc;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, facet::Facet)]
 #[facet(rename_all = "camelCase")]
@@ -82,3 +83,4 @@ cloud_terrastodon_registry::register_arbitrary!(AzureLocationMetadata);
 cloud_terrastodon_registry::register_thing!(AzureLocation);
 cloud_terrastodon_registry::register_arbitrary!(AzureLocation);
 cloud_terrastodon_registry::register_arbitrary!(Vec<AzureLocation>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<AzureLocation>>);

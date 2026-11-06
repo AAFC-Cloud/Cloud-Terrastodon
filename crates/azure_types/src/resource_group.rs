@@ -13,6 +13,7 @@ use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
 use std::collections::HashMap;
+use std::sync::Arc;
 #[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
 pub struct ResourceGroup {
     pub id: ResourceGroupId,
@@ -44,6 +45,11 @@ impl std::fmt::Display for ResourceGroup {
 }
 impl From<ResourceGroup> for HclImportBlock {
     fn from(resource_group: ResourceGroup) -> Self {
+        Self::from(&resource_group)
+    }
+}
+impl From<&ResourceGroup> for HclImportBlock {
+    fn from(resource_group: &ResourceGroup) -> Self {
         HclImportBlock {
             provider: HclProviderReference::Inherited,
             id: resource_group.id.to_string(),
@@ -117,3 +123,4 @@ cloud_terrastodon_registry::register_thing!(ResourceGroup);
 cloud_terrastodon_registry::register_arbitrary!(ResourceGroup);
 
 cloud_terrastodon_registry::register_arbitrary!(Vec<ResourceGroup>);
+cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<ResourceGroup>>);

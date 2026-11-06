@@ -2,59 +2,55 @@ use crate::AzureDevOpsProjectArgument;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_auth::AzureDevOpsAuthContext;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
-use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::async_trait;
+use cloud_terrastodon_cache::CacheKey;
+use cloud_terrastodon_cache::CacheOperationOwner;
+use cloud_terrastodon_cache::HasCacheKey;
+use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
+use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_rest::RestRequest;
 use reqwest::Method;
 use std::borrow::Cow;
 use std::path::PathBuf;
+use std::sync::Arc;
 use tracing::debug;
 
 #[derive(Debug, Clone, facet::Facet)]
 #[facet(traits(Clone))]
 pub struct AzureDevOpsAgentPoolEntitlementListForProjectRequest<'a> {
-    #[facet(skip_serializing)]
-    pub cancellation: CancellationScope,
-
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub project: AzureDevOpsProjectArgument<'a>,
     pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
 }
 
+#[track_caller]
 pub fn fetch_azure_devops_agent_pool_entitlements_for_project<'a>(
     org_url: &'a AzureDevOpsOrganizationUrl,
     project: impl Into<AzureDevOpsProjectArgument<'a>>,
     auth_context: &'a AzureDevOpsAuthContext,
-    cancellation: &CancellationScope,
-) -> AzureDevOpsAgentPoolEntitlementListForProjectRequest<'a> {
-    AzureDevOpsAgentPoolEntitlementListForProjectRequest {
-        cancellation: cancellation.clone(),
+    executor: &'a CloudTerrastodonExecutor,
+) -> RequestExecution<'a, AzureDevOpsAgentPoolEntitlementListForProjectRequest<'a>> {
+    executor.execute(AzureDevOpsAgentPoolEntitlementListForProjectRequest {
         org_url: Cow::Borrowed(org_url),
         project: project.into(),
         auth_context: Cow::Borrowed(auth_context),
-    }
+    })
 }
 
 impl<'a> Arbitrary<'a> for AzureDevOpsAgentPoolEntitlementListForProjectRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
-            cancellation: CancellationScope::arbitrary(u)?,
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
             auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
         })
     }
 }
-
-#[async_trait]
-impl<'a> cloud_terrastodon_command::CacheableCommand
-    for AzureDevOpsAgentPoolEntitlementListForProjectRequest<'a>
-{
-    type Output = Vec<crate::AzureDevOpsAgentPoolEntitlement>;
-
-    fn cache_key(&self) -> CacheKey {
-        CacheKey::new(PathBuf::from_iter([
+impl<'a> HasCacheKey for AzureDevOpsAgentPoolEntitlementListForProjectRequest<'a> {
+    fn cache_key(&self) -> eyre::Result<CacheKey> {
+        CacheKey::from_relative_path(PathBuf::from_iter([
             "az",
             "devops",
             self.org_url.name(),
@@ -65,47 +61,63 @@ impl<'a> cloud_terrastodon_command::CacheableCommand
             &self.project.to_string(),
         ]))
     }
+}
 
-    async fn run(self) -> eyre::Result<Self::Output> {
-        let project = &self.project;
-        debug!("Fetching Azure DevOps agent queues (pools) for project {project}");
+impl<'a> InvalidatesOwnCacheKey for AzureDevOpsAgentPoolEntitlementListForProjectRequest<'a> {}
 
-        #[derive(facet::Facet)]
-        struct Response {
-            count: u32,
-            value: Vec<crate::AzureDevOpsAgentPoolEntitlement>,
-        }
+impl<'a> ExecutableRequest for AzureDevOpsAgentPoolEntitlementListForProjectRequest<'a> {
+    type Error = eyre::Report;
+    type Output = Vec<Arc<crate::AzureDevOpsAgentPoolEntitlement>>;
+    fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
+    where
+        Self: 'exec,
+        Self::Output: 'exec,
+    {
+        Box::pin(async move {
+            let project = &self.project;
+            debug!("Fetching Azure DevOps agent queues (pools) for project {project}");
 
-        let project = project.to_string();
-        let url = self.org_url.api_url(
-            "dev.azure.com",
-            &format!("{project}/_apis/distributedtask/queues"),
-            &[("api-version", "7.1")],
-        )?;
-        let request = RestRequest::from_method_and_url(Method::GET, url, &self.cancellation)?
-            .cache(self.cache_key());
-        let response = request
-            .azure_devops_auth_context(self.auth_context.as_ref())?
-            .receive::<Response>()
-            .await?;
+            #[derive(facet::Facet)]
+            struct Response {
+                count: u32,
+                value: Vec<Arc<crate::AzureDevOpsAgentPoolEntitlement>>,
+            }
 
-        debug!(
-            "Found {} Azure DevOps agent queue entitlements for project {}",
-            response.count, project
-        );
+            let project = project.to_string();
+            let url = self.org_url.api_url(
+                "dev.azure.com",
+                &format!("{project}/_apis/distributedtask/queues"),
+                &[("api-version", "7.1")],
+            )?;
+            let request =
+                RestRequest::from_method_and_url(Method::GET, url)?.cache(self.cache_key()?);
+            let response = request
+                .azure_devops_auth_context(self.auth_context.as_ref())?
+                .receive_cached::<Response>(
+                    &executor,
+                    CacheOperationOwner::of::<
+                        AzureDevOpsAgentPoolEntitlementListForProjectRequest<'static>,
+                    >(),
+                )
+                .await?;
 
-        Ok(response.value)
+            debug!(
+                "Found {} Azure DevOps agent queue entitlements for project {}",
+                response.count, project
+            );
+
+            Ok(response.value.to_vec())
+        })
     }
 }
 
-cloud_terrastodon_command::impl_cacheable_into_future!(AzureDevOpsAgentPoolEntitlementListForProjectRequest<'a>, 'a);
 cloud_terrastodon_registry::register_thing!(
     AzureDevOpsAgentPoolEntitlementListForProjectRequest<'static>
 );
 cloud_terrastodon_registry::register_arbitrary!(
     AzureDevOpsAgentPoolEntitlementListForProjectRequest<'static>
 );
-cloud_terrastodon_registry_execution::register_into_future!(AzureDevOpsAgentPoolEntitlementListForProjectRequest<'static> => Vec<crate::AzureDevOpsAgentPoolEntitlement>, effects = [Read]);
+cloud_terrastodon_registry_execution::register_executable_request!(AzureDevOpsAgentPoolEntitlementListForProjectRequest<'static> => Vec<Arc<crate::AzureDevOpsAgentPoolEntitlement>>, effects = [Read]);
 
 #[cfg(test)]
 mod test {
@@ -124,11 +136,13 @@ mod test {
                     &auth_context,
                     crate::test_tenant_id::test_tenant_id()?,
                 )?;
+                let executor =
+                    crate::test_executor::test_executor(&azure_devops_auth_context, &cancellation)?;
                 let org_url = get_default_organization_url(&cancellation).await?;
                 let projects = fetch_all_azure_devops_projects(
                     &org_url,
                     &azure_devops_auth_context,
-                    &cancellation,
+                    &executor,
                 )
                 .await?;
 
@@ -139,7 +153,7 @@ mod test {
                         &org_url,
                         &project.name,
                         &azure_devops_auth_context,
-                        &cancellation,
+                        &executor,
                     )
                     .await?;
                     if !entitlements.is_empty() {

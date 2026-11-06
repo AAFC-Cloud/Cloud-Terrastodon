@@ -51,8 +51,8 @@ use cloud_terrastodon_auth::AzureDevOpsAuthContext;
 use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_azure::evaluate_policy_assignment_compliance;
 use cloud_terrastodon_azure::remediate_policy_assignment;
-use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::USE_TOFU_FLAG_KEY;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_pathing::AppDir;
 use eyre::Result;
 use itertools::Itertools;
@@ -192,57 +192,54 @@ impl MenuAction {
     pub async fn invoke(
         &self,
         auth_context: &AzureTenantAuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<MenuActionResult> {
+        let cancellation = executor.cancellation();
         match self {
             MenuAction::ResourceGroupImportWizard => {
-                resource_group_import_wizard_menu(auth_context, cancellation).await?
+                resource_group_import_wizard_menu(auth_context, executor).await?
             }
             MenuAction::CopyAzureRMBackend => {
-                copy_azurerm_backend_menu(auth_context, cancellation).await?
+                copy_azurerm_backend_menu(auth_context, executor).await?
             }
             MenuAction::BrowseResourceGroups => {
-                browse_resource_groups(auth_context, cancellation).await?
+                browse_resource_groups(auth_context, executor).await?
             }
             MenuAction::BrowseRoleAssignments => {
-                browse_role_assignments(auth_context, cancellation).await?
+                browse_role_assignments(auth_context, executor).await?
             }
             MenuAction::BuildAllImports => {
-                write_imports_for_all_resource_groups(auth_context, cancellation).await?;
-                write_imports_for_all_security_groups(auth_context, cancellation).await?;
-                write_imports_for_all_role_assignments(auth_context, cancellation).await?;
+                write_imports_for_all_resource_groups(auth_context, executor).await?;
+                write_imports_for_all_security_groups(auth_context, executor).await?;
+                write_imports_for_all_role_assignments(auth_context, executor).await?;
             }
-            MenuAction::BrowseUsers => browse_users(auth_context, cancellation).await?,
+            MenuAction::BrowseUsers => browse_users(auth_context, executor).await?,
             MenuAction::BrowseSecurityGroups => {
-                browse_security_groups(auth_context, cancellation).await?
+                browse_security_groups(auth_context, executor).await?
             }
-            MenuAction::BuildPolicyImports => {
-                build_policy_imports(auth_context, cancellation).await?
-            }
-            MenuAction::BuildGroupImports => {
-                build_group_imports(auth_context, cancellation).await?
-            }
+            MenuAction::BuildPolicyImports => build_policy_imports(auth_context, executor).await?,
+            MenuAction::BuildGroupImports => build_group_imports(auth_context, executor).await?,
             MenuAction::BuildResourceGroupImports => {
-                build_resource_group_imports(auth_context, cancellation).await?
+                build_resource_group_imports(auth_context, executor).await?
             }
             MenuAction::BuildRoleAssignmentImports => {
-                build_role_assignment_imports(auth_context, cancellation).await?
+                build_role_assignment_imports(auth_context, executor).await?
             }
             MenuAction::BuildImportsFromExisting => {
                 build_imports_from_existing(cancellation).await?
             }
             MenuAction::PerformImport => perform_import(cancellation).await?,
-            MenuAction::ProcessGenerated => process_generated(auth_context, cancellation).await?,
+            MenuAction::ProcessGenerated => process_generated(auth_context, executor).await?,
             MenuAction::Clean => clean_all_menu().await?,
             MenuAction::CreateRoleAssignment => {
-                create_role_assignment_menu(auth_context, cancellation).await?
+                create_role_assignment_menu(auth_context, executor).await?
             }
             MenuAction::CleanImports => clean_imports().await?,
             MenuAction::CleanProcessed => clean_processed().await?,
             MenuAction::InitProcessed => init_processed(cancellation).await?,
             MenuAction::ApplyProcessed => apply_processed(cancellation).await?,
             MenuAction::PlanProcessed => plan_processed(cancellation).await?,
-            MenuAction::PimActivate => pim_activate(auth_context, cancellation).await?,
+            MenuAction::PimActivate => pim_activate(auth_context, executor).await?,
             MenuAction::JumpToBlock => {
                 jump_to_block(AppDir::Processed.into(), cancellation).await?;
                 return Ok(MenuActionResult::Continue);
@@ -252,72 +249,70 @@ impl MenuAction {
                 return Ok(MenuActionResult::Continue);
             }
             MenuAction::RemediatePolicyAssignment => {
-                remediate_policy_assignment(auth_context, cancellation).await?
+                remediate_policy_assignment(auth_context, executor).await?
             }
             MenuAction::EvaluatePolicyAssignmentCompliance => {
-                evaluate_policy_assignment_compliance(auth_context, cancellation).await?
+                evaluate_policy_assignment_compliance(auth_context, executor).await?
             }
             MenuAction::UseTofu => unsafe { env::set_var(USE_TOFU_FLAG_KEY, "1") },
             MenuAction::UseTerraform => unsafe { env::remove_var(USE_TOFU_FLAG_KEY) },
-            MenuAction::PopulateCache => populate_cache(auth_context, cancellation).await?,
+            MenuAction::PopulateCache => populate_cache(auth_context, executor).await?,
             MenuAction::OpenDir => open_dir().await?,
             MenuAction::Quit => return Ok(MenuActionResult::QuitApplication),
             MenuAction::TagEmptyResourceGroups => {
-                tag_empty_resource_group_menu(auth_context, cancellation).await?
+                tag_empty_resource_group_menu(auth_context, executor).await?
             }
-            MenuAction::TagResources => tag_resources_menu(auth_context, cancellation).await?,
-            MenuAction::BrowseResources => {
-                browse_resources_menu(auth_context, cancellation).await?
-            }
-            MenuAction::DumpTags => dump_tags(auth_context, cancellation).await?,
-            MenuAction::ResourceGraphQuery => run_query_menu(auth_context, cancellation).await?,
+            MenuAction::TagResources => tag_resources_menu(auth_context, executor).await?,
+            MenuAction::BrowseResources => browse_resources_menu(auth_context, executor).await?,
+            MenuAction::DumpTags => dump_tags(auth_context, executor).await?,
+            MenuAction::ResourceGraphQuery => run_query_menu(auth_context, executor).await?,
             MenuAction::FindResourceOwners => {
-                find_resource_owners_menu(auth_context, cancellation).await?
+                find_resource_owners_menu(auth_context, executor).await?
             }
             MenuAction::CreateNewActionVariant => create_new_action_variant().await?,
             MenuAction::BrowsePolicyAssignments => {
-                browse_policy_assignments(auth_context, cancellation).await?
+                browse_policy_assignments(auth_context, executor).await?
             }
             MenuAction::DumpSecurityGroups => {
-                dump_security_groups_as_json(auth_context, cancellation).await?
+                dump_security_groups_as_json(auth_context, executor).await?
             }
             MenuAction::BrowsePolicyDefinitions => {
-                browse_policy_definitions(auth_context, cancellation).await?
+                browse_policy_definitions(auth_context, executor).await?
             }
-            MenuAction::BulkUserIdLookup => bulk_user_id_lookup(auth_context, cancellation).await?,
+            MenuAction::BulkUserIdLookup => bulk_user_id_lookup(auth_context, executor).await?,
             MenuAction::DumpWorkItems => {
                 let auth_context = AzureDevOpsAuthContext::for_azure_tenant(auth_context);
-                dump_work_items(&auth_context, cancellation).await?
+                dump_work_items(&auth_context, executor).await?
             }
             MenuAction::BrowseOAuth2PermissionGrants => {
-                browse_oauth2_permission_grants(auth_context, cancellation).await?
+                browse_oauth2_permission_grants(auth_context, executor).await?
             }
             MenuAction::RemoveOAuth2PermissionGrants => {
-                remove_oauth2_permission_grants(auth_context, cancellation).await?
+                remove_oauth2_permission_grants(auth_context, executor).await?
             }
             MenuAction::CreateOAuth2PermissionGrants => {
-                create_oauth2_permission_grants(auth_context, cancellation).await?
+                create_oauth2_permission_grants(auth_context, executor).await?
             }
             MenuAction::AzureDevOpsProjectImportWizard => {
                 let auth_context = AzureDevOpsAuthContext::for_azure_tenant(auth_context);
-                azure_devops_project_import_wizard_menu(&auth_context, cancellation).await?
+                azure_devops_project_import_wizard_menu(&auth_context, executor).await?
             }
             MenuAction::BrowseAzureDevOpsProjects => {
                 let auth_context = AzureDevOpsAuthContext::for_azure_tenant(auth_context);
-                browse_azure_devops_projects(&auth_context, cancellation).await?
+                browse_azure_devops_projects(&auth_context, executor).await?
             }
             MenuAction::BrowseAzureDevOpsProjectTeams => {
                 let auth_context = AzureDevOpsAuthContext::for_azure_tenant(auth_context);
-                browse_azure_devops_project_teams(&auth_context, cancellation).await?
+                browse_azure_devops_project_teams(&auth_context, executor).await?
             }
             MenuAction::BrowseServicePrincipals => {
-                browse_service_principals(auth_context, cancellation).await?
+                browse_service_principals(auth_context, executor).await?
             }
             MenuAction::BrowseStorageAccounts => {
-                browse_storage_accounts(auth_context, cancellation).await?
+                browse_storage_accounts(auth_context, executor).await?
             }
             MenuAction::CreateImportBlockForRoleAssignment => {
-                create_import_block_for_role_assignment(auth_context, cancellation).await?
+                create_import_block_for_role_assignment(auth_context, executor).await?
             }
         }
         Ok(MenuActionResult::PauseAndContinue)

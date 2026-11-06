@@ -3,12 +3,13 @@ use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::PolicySetDefinition;
 use cloud_terrastodon_azure::fetch_all_policy_set_definitions;
-use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use std::io::Write;
+use std::sync::Arc;
 use tracing::info;
 
 /// Arguments for browsing Azure policy set definitions interactively.
@@ -23,15 +24,17 @@ impl AzurePolicySetDefinitionBrowseArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<()> {
+        let cancellation = executor.cancellation();
         let tenant_auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
         info!("Fetching Azure policy set definitions...");
         let policy_set_definitions =
-            fetch_all_policy_set_definitions(&tenant_auth_context, cancellation).await?;
+            fetch_all_policy_set_definitions(&tenant_auth_context, executor).await?;
         info!(
             count = policy_set_definitions.len(),
             "Fetched Azure policy set definitions",
@@ -45,7 +48,7 @@ impl AzurePolicySetDefinitionBrowseArgs {
             value: definition,
         });
 
-        let (chosen, maybe_error): (Vec<PolicySetDefinition>, _) = PickerTui::<_>::new()
+        let (chosen, maybe_error): (Vec<Arc<PolicySetDefinition>>, _) = PickerTui::<_>::new()
             .set_header("Select Azure policy set definitions")
             .pick_many(choices)
             .await

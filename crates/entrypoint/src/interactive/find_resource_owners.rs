@@ -25,12 +25,11 @@ use cloud_terrastodon_azure_devops::AzureDevOpsServiceEndpoint;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_service_endpoints;
 use cloud_terrastodon_azure_devops::get_default_organization_url;
-use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::ParallelFallibleWorkQueue;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::bail;
-use itertools::Itertools;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::ops::Deref;
@@ -64,11 +63,11 @@ enum Clue<'a> {
     },
     GroupMember {
         group: &'a EntraGroup,
-        member: EntraDirectoryObject,
+        member: Arc<EntraDirectoryObject>,
     },
     GroupOwner {
         group: &'a EntraGroup,
-        owner: EntraDirectoryObject,
+        owner: Arc<EntraDirectoryObject>,
     },
     AzureDevOpsServiceEndpoint {
         service_principal: &'a EntraServicePrincipal,
@@ -225,7 +224,7 @@ impl Traversal {
         &self,
         clue: &ClueChain<'a>,
         context: &TraversalContext<'a>,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> eyre::Result<Vec<ClueChain<'a>>> {
         let mut rtn = Vec::new();
         match self {
@@ -282,7 +281,7 @@ impl Traversal {
                 } = clue.as_ref()
                 {
                     let members =
-                        fetch_group_members(group.id, context.auth_context, cancellation).await?;
+                        fetch_group_members(group.id, context.auth_context, executor).await?;
                     for member in members {
                         rtn.push(clue.join(Clue::GroupMember { group, member }));
                     }
@@ -294,7 +293,7 @@ impl Traversal {
                 } = clue.as_ref()
                 {
                     let owners =
-                        fetch_group_owners(group.id, context.auth_context, cancellation).await?;
+                        fetch_group_owners(group.id, context.auth_context, executor).await?;
                     for owner in owners {
                         rtn.push(clue.join(Clue::GroupOwner { group, owner }));
                     }
@@ -370,54 +369,59 @@ impl Traversal {
 
 pub async fn find_resource_owners_menu(
     auth_context: &AzureTenantAuthContext,
-    cancellation: &CancellationScope,
+    executor: &CloudTerrastodonExecutor,
 ) -> eyre::Result<()> {
+    let cancellation = executor.cancellation();
     info!(
         "Fetching a bunch of stuff (resources, role assignments, role definitions, and principals)"
     );
     let (resources, role_assignments, role_definitions, principals, org_url) = try_join!(
-        fetch_all_resources(auth_context, cancellation),
-        fetch_all_role_assignments(auth_context, cancellation),
-        fetch_all_role_definitions(auth_context, cancellation),
-        fetch_all_principals(auth_context, cancellation),
+        fetch_all_resources(auth_context, executor),
+        fetch_all_role_assignments(auth_context, executor),
+        fetch_all_role_definitions(auth_context, executor),
+        fetch_all_principals(auth_context, executor),
         get_default_organization_url(cancellation),
     )?;
     let azure_devops_auth_context = AzureDevOpsAuthContext::for_azure_tenant(auth_context);
     let projects =
-        fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context, cancellation).await?;
-    let azure_devops_service_endpoints = {
-        let mut work: ParallelFallibleWorkQueue<Vec<AzureDevOpsServiceEndpoint>> =
+        fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context, executor).await?;
+    let azure_devops_service_endpoint_inventories = {
+        let mut work: ParallelFallibleWorkQueue<Arc<Vec<AzureDevOpsServiceEndpoint>>> =
             ParallelFallibleWorkQueue::new("azure devops service endpoints", 8);
         for project in projects.iter() {
             let org_url = org_url.clone();
             let project_name = project.name.clone();
             let azure_devops_auth_context = azure_devops_auth_context.clone();
             work.enqueue({
-                cancellation.cancellable_scope(move |cancellation| async move {
+                executor.cancellable_scope(move |executor| async move {
+                    let executor = &executor;
                     fetch_all_azure_devops_service_endpoints(
                         &org_url,
                         &project_name,
                         &azure_devops_auth_context,
-                        &cancellation,
+                        executor,
                     )
                     .await
                 })
             });
         }
-        work.join().await?.into_iter().flatten().collect_vec()
+        work.join().await?
     };
     // we assume that the project references always contains the project we fetched the endpoint for
-    for endpoint in &azure_devops_service_endpoints {
+    for endpoint in azure_devops_service_endpoint_inventories
+        .iter()
+        .flat_map(|inventory| inventory.iter())
+    {
         assert!(!endpoint.service_endpoint_project_references.is_empty());
     }
 
     let resource_map = resources
         .iter()
-        .map(|r| (&r.id, r))
+        .map(|r| (&r.id, r.as_ref()))
         .collect::<HashMap<_, _>>();
     let role_definition_map: HashMap<&RoleDefinitionId, &RoleDefinition> = role_definitions
         .iter()
-        .map(|role_definition| (&role_definition.id, role_definition))
+        .map(|role_definition| (&role_definition.id, role_definition.as_ref()))
         .collect::<HashMap<_, _>>();
     let principal_map: HashMap<EntraPrincipalId, &EntraPrincipal> = principals
         .iter()
@@ -425,16 +429,16 @@ pub async fn find_resource_owners_menu(
         .collect::<HashMap<_, _>>();
     let role_assignments_by_scope: HashMap<&ScopeImpl, &RoleAssignment> = role_assignments
         .iter()
-        .map(|role_assignment| (&role_assignment.scope, role_assignment))
+        .map(|role_assignment| (&role_assignment.scope, role_assignment.as_ref()))
         .collect::<HashMap<_, _>>();
     let azure_devops_projects_by_name: HashMap<&AzureDevOpsProjectName, &AzureDevOpsProject> =
         projects
             .iter()
-            .map(|project| (&project.name, project))
+            .map(|project| (&project.name, project.as_ref()))
             .collect::<HashMap<_, _>>();
     let azure_devops_projects_by_id: HashMap<&AzureDevOpsProjectId, &AzureDevOpsProject> = projects
         .iter()
-        .map(|project| (&project.id, project))
+        .map(|project| (&project.id, project.as_ref()))
         .collect::<HashMap<_, _>>();
 
     let mut traversal_context = TraversalContext {
@@ -446,7 +450,10 @@ pub async fn find_resource_owners_menu(
         role_assignments_by_scope,
         azure_devops_projects_by_id,
         azure_devops_projects_by_name,
-        azure_devops_service_endpoints: azure_devops_service_endpoints.iter().collect(),
+        azure_devops_service_endpoints: azure_devops_service_endpoint_inventories
+            .iter()
+            .flat_map(|inventory| inventory.iter())
+            .collect(),
     };
 
     #[derive(Debug, Clone, VariantArray)]
@@ -477,7 +484,7 @@ pub async fn find_resource_owners_menu(
                         .filter(|resource| resource.kind.is_resource_group())
                         .map(|resource| Choice {
                             key: resource.id.expanded_form().to_string(),
-                            value: resource,
+                            value: resource.as_ref(),
                         }),
                 )
                 .await?
@@ -487,7 +494,7 @@ pub async fn find_resource_owners_menu(
                 .set_header("Pick the resources to find the owners for")
                 .pick_many(resources.iter().map(|resource| Choice {
                     key: resource.id.expanded_form().to_string(),
-                    value: resource,
+                    value: resource.as_ref(),
                 }))
                 .await?
         }
@@ -509,7 +516,7 @@ pub async fn find_resource_owners_menu(
     while let Some(clue) = to_visit.pop_front() {
         for traversal in Traversal::VARIANTS {
             let found = traversal
-                .gather_clues(&clue, &traversal_context, cancellation)
+                .gather_clues(&clue, &traversal_context, executor)
                 .await?;
             let found_count = found.len();
             if found_count > 0 {

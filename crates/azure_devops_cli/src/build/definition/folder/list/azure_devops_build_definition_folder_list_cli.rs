@@ -11,14 +11,15 @@ use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_build_definitions;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_build_folders;
-use cloud_terrastodon_command::CacheInvalidatableIntoFuture;
 use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use color_eyre::owo_colors::OwoColorize;
 use color_eyre::owo_colors::Stream;
 use color_eyre::owo_colors::Style;
 use eyre::Result;
 use std::collections::BTreeMap;
 use std::io::Write;
+use std::sync::Arc;
 
 /// List build definition folders and their definitions, including empty folders.
 #[derive(Debug, Clone, facet::Facet)]
@@ -49,19 +50,21 @@ impl AzureDevOpsBuildDefinitionFolderListArgs {
     pub async fn invoke(
         self,
         auth_context: &AuthContext,
-        cancellation: &CancellationScope,
+        executor: &CloudTerrastodonExecutor,
     ) -> Result<CliOutput> {
+        let cancellation = executor.cancellation();
         let path = self.path.map(AzureDevOpsBuildFolderPathArgument::into_path);
         let auth_context = self
             .tenant
             .bind_auth_context(auth_context, cancellation)
             .await?;
+        let executor = &auth_context.bind_executor(executor)?;
         let folders = fetch_azure_devops_build_folders(
             &self.org,
             self.project.clone(),
             &auth_context,
             path,
-            cancellation,
+            executor,
         )
         .with_invalidation(self.no_cache)
         .await?;
@@ -73,7 +76,7 @@ impl AzureDevOpsBuildDefinitionFolderListArgs {
             &auth_context,
             None,
             None,
-            cancellation,
+            executor,
         )
         .with_invalidation(self.no_cache)
         .await?;
@@ -86,8 +89,8 @@ impl AzureDevOpsBuildDefinitionFolderListArgs {
 }
 
 fn group_folders(
-    folders: Vec<AzureDevOpsBuildFolder>,
-    definitions: Vec<AzureDevOpsBuildDefinitionReference>,
+    folders: Vec<Arc<AzureDevOpsBuildFolder>>,
+    definitions: Vec<Arc<AzureDevOpsBuildDefinitionReference>>,
 ) -> Vec<AzureDevOpsBuildDefinitionFolderListEntry> {
     let mut definitions_by_path = BTreeMap::<_, Vec<_>>::new();
     for definition in definitions {
@@ -164,8 +167,8 @@ mod tests {
     use cloud_terrastodon_azure_devops::AzureDevOpsBuildDefinitionUri;
     use cloud_terrastodon_command::CancellationToken;
 
-    fn folder(path: &str) -> AzureDevOpsBuildFolder {
-        AzureDevOpsBuildFolder {
+    fn folder(path: &str) -> Arc<AzureDevOpsBuildFolder> {
+        Arc::new(AzureDevOpsBuildFolder {
             path: path.parse().unwrap(),
             description: None,
             project: None,
@@ -173,12 +176,12 @@ mod tests {
             created_on: None,
             last_changed_by: None,
             last_changed_date: None,
-        }
+        })
     }
 
-    fn definition(id: i32, path: &str) -> AzureDevOpsBuildDefinitionReference {
+    fn definition(id: i32, path: &str) -> Arc<AzureDevOpsBuildDefinitionReference> {
         let id = AzureDevOpsBuildDefinitionId::new(id).unwrap();
-        AzureDevOpsBuildDefinitionReference {
+        Arc::new(AzureDevOpsBuildDefinitionReference {
             id,
             name: format!("Synthetic pipeline {id}").parse().unwrap(),
             path: path.parse().unwrap(),
@@ -195,7 +198,7 @@ mod tests {
             url: None,
             project: None,
             links: None,
-        }
+        })
     }
 
     #[test]

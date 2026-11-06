@@ -6,22 +6,20 @@ use cloud_terrastodon_auth::AzureDevOpsAuthContext;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsBuildFolderPath;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
-use cloud_terrastodon_command::CacheInvalidatable;
-use cloud_terrastodon_command::CacheKey;
-use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::HasCacheKey;
+use cloud_terrastodon_cache::CacheKey;
+use cloud_terrastodon_cache::HasCacheKey;
+use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_pathing::sanitize_windows_path_component;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Context;
-use eyre::Result;
 use eyre::ensure;
 use reqwest::Method;
 use reqwest::Url;
 use std::borrow::Cow;
-use std::future::Future;
-use std::future::IntoFuture;
 use std::path::PathBuf;
-use std::pin::Pin;
 use std::time::Duration;
 
 /// Delete a nonroot build folder using its exact server path.
@@ -35,13 +33,10 @@ use std::time::Duration;
 ///
 /// See Microsoft's [Folders Delete API](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/folders/delete?view=azure-devops-rest-7.1)
 /// (7.1-preview.2).
-#[must_use = "This is a future request, you must .await it"]
+#[must_use = "This is a future request, you must .execute it"]
 #[derive(Debug, Clone, facet::Facet)]
 #[facet(traits(Clone))]
 pub struct AzureDevOpsBuildFolderDeleteRequest<'a> {
-    #[facet(skip_serializing)]
-    pub cancellation: CancellationScope,
-
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     /// Project ID or name.
     pub project: AzureDevOpsProjectArgument<'a>,
@@ -54,7 +49,6 @@ impl<'a> Arbitrary<'a> for AzureDevOpsBuildFolderDeleteRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         let path = AzureDevOpsBuildFolderPath::arbitrary(u)?;
         Ok(Self {
-            cancellation: CancellationScope::arbitrary(u)?,
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
             auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
@@ -69,7 +63,7 @@ impl<'a> Arbitrary<'a> for AzureDevOpsBuildFolderDeleteRequest<'static> {
 }
 
 impl HasCacheKey for AzureDevOpsBuildFolderDeleteRequest<'_> {
-    fn cache_key(&self) -> CacheKey {
+    fn cache_key(&self) -> eyre::Result<CacheKey> {
         let mut path = PathBuf::from("az/devops");
         if self.org_url.collection_name().is_some() {
             path.push("server");
@@ -104,19 +98,22 @@ impl HasCacheKey for AzureDevOpsBuildFolderDeleteRequest<'_> {
         path.push(project);
         path.extend(["build", "definition", "folder", "delete"]);
         path.push(sanitize_windows_path_component(self.path.as_str()));
-        CacheKey {
-            path,
-            // Keep inspectable artifacts, but execute every DELETE anew.
-            valid_for: Duration::ZERO,
-        }
+        let mut key = CacheKey::from_relative_path(path)?;
+        // Keep inspectable artifacts, but execute every DELETE anew.
+        key.valid_for = Duration::ZERO;
+        Ok(key)
     }
 }
 
-impl<'a> IntoFuture for AzureDevOpsBuildFolderDeleteRequest<'a> {
-    type Output = Result<()>;
-    type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + Send + 'a>>;
+impl<'a> ExecutableRequest for AzureDevOpsBuildFolderDeleteRequest<'a> {
+    type Error = eyre::Report;
+    type Output = ();
 
-    fn into_future(self) -> Self::IntoFuture {
+    fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
+    where
+        Self: 'exec,
+        Self::Output: 'exec,
+    {
         Box::pin(async move {
             ensure!(
                 !self.path.is_root(),
@@ -135,30 +132,30 @@ impl<'a> IntoFuture for AzureDevOpsBuildFolderDeleteRequest<'a> {
             url.query_pairs_mut()
                 .append_pair("api-version", "7.1-preview.2")
                 .append_pair("path", self.path.as_str());
-            self.cancellation
-                .clone()
-                .deferred(
+            executor.deferred(
                     "finishing folder deletion and invalidating affected build caches",
-                    |cancellation| async move {
+                    |executor| async move {
                 let request =
-                    RestRequest::from_method_and_url(Method::DELETE, url, &cancellation)?
-                        .cache(self.cache_key())
+                    RestRequest::from_method_and_url(Method::DELETE, url)?
+                        .cache(self.cache_key()?)
                         .azure_devops_auth_context(self.auth_context.as_ref())?;
-                let response = request.receive_raw().await?;
-                // A successful DELETE may return HTTP 204 with no JSON body.
-                ensure!(
-                    response.ok,
-                    "Deleting Azure DevOps build folder '{}' failed with status {}: {}",
-                    self.path,
-                    response.status.as_u16(),
-                    response.reason_phrase.as_deref().unwrap_or("Unknown error")
-                );
+                let result = request.receive_raw(&executor).await.and_then(|response| {
+                    // A successful DELETE may return HTTP 204 with no JSON body.
+                    ensure!(
+                        response.ok,
+                        "Deleting Azure DevOps build folder '{}' failed with status {}: {}",
+                        self.path,
+                        response.status.as_u16(),
+                        response.reason_phrase.as_deref().unwrap_or("Unknown error")
+                    );
+                    Ok(())
+                });
                 let folders = fetch_azure_devops_build_folders(
                     &self.org_url,
                     self.project.clone(),
                     &self.auth_context,
                     None,
-                    &cancellation,
+                    &executor,
                 );
                 let definitions = fetch_azure_devops_build_definitions(
                     &self.org_url,
@@ -166,7 +163,7 @@ impl<'a> IntoFuture for AzureDevOpsBuildFolderDeleteRequest<'a> {
                     &self.auth_context,
                     None,
                     None,
-                    &cancellation,
+                    &executor,
                 );
                 let builds = fetch_azure_devops_builds(
                     &self.org_url,
@@ -177,28 +174,34 @@ impl<'a> IntoFuture for AzureDevOpsBuildFolderDeleteRequest<'a> {
                     None,
                     None,
                     None,
-                    &cancellation,
+                    &executor,
                 );
-                // A successful delete affects all three inventories. Attempt each
-                // invalidation even if another fails, then preserve the source error.
+                // Transport or artifact completion can fail after DELETE took effect.
+                // Attempt each affected invalidation before returning either failure.
                 let (folders, definitions, builds) = tokio::join!(
                     folders.invalidate(),
                     definitions.invalidate(),
                     builds.invalidate()
                 );
-                for result in [
+                let invalidation = [
                     folders.wrap_err("Invalidating build folder listings failed"),
                     definitions.wrap_err("Invalidating build definition listings failed"),
                     builds.wrap_err("Invalidating build listings failed"),
-                ] {
+                ].into_iter().try_for_each(|result| {
                     result.wrap_err_with(|| {
                         format!(
-                            "Build folder '{}' was deleted, but invalidating project '{}' build caches failed",
-                            self.path, self.project
+                            "Invalidating project '{}' build caches after attempting to delete folder '{}' failed",
+                            self.project, self.path
                         )
-                    })?;
+                    })
+                });
+                match (result, invalidation) {
+                    (Ok(()), Ok(())) => Ok(()),
+                    (Err(error), Ok(())) | (Ok(()), Err(error)) => Err(error),
+                    (Err(error), Err(invalidation)) => Err(error.wrap_err(format!(
+                        "affected build cache invalidation also failed: {invalidation:#}"
+                    ))),
                 }
-                Ok(())
                     },
                 )
                 .await
@@ -208,11 +211,12 @@ impl<'a> IntoFuture for AzureDevOpsBuildFolderDeleteRequest<'a> {
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsBuildFolderDeleteRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsBuildFolderDeleteRequest<'static>);
-cloud_terrastodon_registry_execution::register_into_future!(
+cloud_terrastodon_registry_execution::register_executable_request!(
     AzureDevOpsBuildFolderDeleteRequest<'static> => (),
     effects = [Write]
 );
 
+impl InvalidatesOwnCacheKey for AzureDevOpsBuildFolderDeleteRequest<'_> {}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -221,16 +225,15 @@ mod tests {
     #[test]
     fn build_folder_delete_artifacts_never_supply_cached_results() {
         let request = AzureDevOpsBuildFolderDeleteRequest {
-            cancellation: CancellationScope::unbound(),
             org_url: Cow::Owned("https://dev.azure.com/fixture".parse().unwrap()),
             project: "Synthetic project".parse().unwrap(),
             auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
             path: AzureDevOpsBuildFolderPath::try_new(r"\Synthetic").unwrap(),
         };
-        let key = request.cache_key();
+        let key = request.cache_key().unwrap();
         assert!(key.valid_for.is_zero());
         assert_eq!(
-            key.path,
+            key.scope.components().iter().collect::<PathBuf>(),
             PathBuf::from(
                 "az/devops/org/fixture/project/synthetic%20project/build/definition/folder/delete/%5CSynthetic"
             )
@@ -241,8 +244,11 @@ mod tests {
     async fn build_folder_delete_rejects_root_before_authentication_or_network() {
         CancellationToken::new()
             .with_async_scope(|cancellation| async move {
+                let executor = crate::test_executor::test_executor(
+                    &cloud_terrastodon_auth::AzureDevOpsAuthContext::None,
+                    &cancellation,
+                )?;
                 let error = AzureDevOpsBuildFolderDeleteRequest {
-                    cancellation: cancellation.clone(),
                     org_url: Cow::Owned("https://dev.azure.com/fixture".parse().unwrap()),
                     project: "Synthetic project".parse().unwrap(),
                     // Missing auth also rejects locally if root protection regresses;
@@ -250,6 +256,7 @@ mod tests {
                     auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
                     path: AzureDevOpsBuildFolderPath::root(),
                 }
+                .execute(&executor)
                 .await
                 .expect_err("root deletion must be rejected");
                 assert!(error.to_string().contains("root build folder"));
