@@ -1,14 +1,15 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[repr(C)]
 pub enum PimEntraRoleDefinitionKind {
     BuiltInRole,
     CustomRole,
 }
 
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 pub struct PimEntraRoleDefinition {
     #[facet(rename = "displayName")]
     pub display_name: String,
@@ -19,4 +20,3 @@ pub struct PimEntraRoleDefinition {
 
 cloud_terrastodon_registry::register_thing!(PimEntraRoleDefinition);
 cloud_terrastodon_registry::register_arbitrary!(PimEntraRoleDefinition);
-cloud_terrastodon_registry::register_arbitrary!(Vec<PimEntraRoleDefinition>);

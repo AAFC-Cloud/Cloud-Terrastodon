@@ -11,14 +11,14 @@ use crate::slug::HasSlug;
 use arbitrary::Arbitrary;
 use compact_str::CompactString;
 use eyre::Result;
+use facet::Facet;
 use std::collections::HashMap;
 use std::str::FromStr;
-use std::sync::Arc;
 
 /// This is the ID for an ill-defined resource that is specifically the child of a resource group.
 /// Some things are children of things that are children of resource groups, which this would not apply to.
 /// At some point, this should be replaced with ScopeImpl or something in the fields where this type is used.
-#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet, Arbitrary)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Facet, Arbitrary)]
 #[facet(json::proxy = String)]
 pub struct ResourceId {
     pub resource_group_id: ResourceGroupId,
@@ -94,7 +94,7 @@ impl FromStr for ResourceId {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Facet)]
 #[facet(proxy = ArbitraryJson)]
 pub struct ResourcePropertyValue {
     raw: ArbitraryJson,
@@ -131,7 +131,7 @@ impl From<&ResourcePropertyValue> for ArbitraryJson {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Facet)]
 pub struct Resource {
     pub id: ScopeImpl,
     #[facet(proxy = crate::ResourceTypeProxy)]
@@ -188,8 +188,6 @@ impl std::fmt::Display for Resource {
 
 cloud_terrastodon_registry::register_thing!(Resource);
 cloud_terrastodon_registry::register_arbitrary!(Resource);
-cloud_terrastodon_registry::register_arbitrary!(Vec<Resource>);
-cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<Resource>>);
 
 #[cfg(test)]
 mod test {

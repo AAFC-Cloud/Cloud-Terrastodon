@@ -3,11 +3,11 @@ use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
 use compact_str::CompactString;
+use facet::Facet;
 use ipnetwork::Ipv4Network;
 use std::str::FromStr;
-use std::sync::Arc;
 
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[repr(C)]
 #[facet(tag = "@odata.type")]
 pub enum ConditionalAccessNamedLocation {
@@ -43,7 +43,7 @@ impl ConditionalAccessNamedLocation {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct ConditionalAccessIpNamedLocation {
     pub id: ConditionalAccessNamedLocationId,
@@ -59,7 +59,7 @@ pub struct ConditionalAccessIpNamedLocation {
     pub ip_ranges: Vec<CidrHolder>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct CidrHolder {
     #[facet(opaque, proxy = crate::Ipv4NetworkProxy)]
@@ -76,7 +76,7 @@ impl<'a> Arbitrary<'a> for CidrHolder {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct ConditionalAccessCountryNamedLocation {
     pub id: ConditionalAccessNamedLocationId,
@@ -95,4 +95,3 @@ pub struct ConditionalAccessCountryNamedLocation {
 
 cloud_terrastodon_registry::register_thing!(ConditionalAccessNamedLocation);
 cloud_terrastodon_registry::register_arbitrary!(ConditionalAccessNamedLocation);
-cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<ConditionalAccessNamedLocation>>);

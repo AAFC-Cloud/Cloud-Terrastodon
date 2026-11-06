@@ -12,6 +12,7 @@ use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_rest::RestRequest;
+use facet::Facet;
 use reqwest::Method;
 use std::borrow::Cow;
 use std::path::PathBuf;
@@ -31,7 +32,7 @@ pub fn fetch_azure_devops_groups_for_member<'a>(
     })
 }
 
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[facet(traits(Clone))]
 pub struct AzureDevOpsGroupsForMemberRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
@@ -49,12 +50,12 @@ impl<'a> Arbitrary<'a> for AzureDevOpsGroupsForMemberRequest<'static> {
     }
 }
 
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Facet)]
 pub struct AzureDevOpsGroupsForMemberResponse {
     pub count: usize,
     pub value: Arc<Vec<AzureDevOpsGroupsForMemberResponseEntry>>,
 }
-#[derive(Debug, facet::Facet, Arbitrary)]
+#[derive(Debug, Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsGroupsForMemberResponseEntry {
     pub container_descriptor: AzureDevOpsDescriptor,
@@ -110,7 +111,7 @@ impl<'a> ExecutableRequest for AzureDevOpsGroupsForMemberRequest<'a> {
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsGroupsForMemberRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsGroupsForMemberRequest<'static>);
-cloud_terrastodon_registry::register_arbitrary!(Arc<Vec<AzureDevOpsGroupsForMemberResponseEntry>>);
+cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsGroupsForMemberResponseEntry);
 cloud_terrastodon_registry_execution::register_executable_request!(AzureDevOpsGroupsForMemberRequest<'static> => Arc<Vec<AzureDevOpsGroupsForMemberResponseEntry>>, effects = [Read]);
 
 #[cfg(test)]

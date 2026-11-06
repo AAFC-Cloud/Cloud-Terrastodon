@@ -10,13 +10,13 @@ use crate::scopes::ScopeImplKind;
 use crate::strip_prefix_case_insensitive;
 use arbitrary::Arbitrary;
 use eyre::Result;
+use facet::Facet;
 use std::hash::Hash;
 use std::str::FromStr;
-use std::sync::Arc;
 
 pub const MANAGEMENT_GROUP_ID_PREFIX: &str = "/providers/Microsoft.Management/managementGroups/";
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Facet)]
 #[facet(json::proxy = String)]
 pub struct ManagementGroupId {
     expanded: String,
@@ -84,7 +84,7 @@ impl<'a> Arbitrary<'a> for ManagementGroupId {
         Ok(Self::from_name(&format!("mg{}", u32::arbitrary(u)?)))
     }
 }
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 pub struct ManagementGroup {
     pub display_name: String,
     pub id: ManagementGroupId,
@@ -155,5 +155,3 @@ cloud_terrastodon_registry::register_thing!(ManagementGroupId);
 cloud_terrastodon_registry::register_arbitrary!(ManagementGroupId);
 cloud_terrastodon_registry::register_thing!(ManagementGroup);
 cloud_terrastodon_registry::register_arbitrary!(ManagementGroup);
-cloud_terrastodon_registry::register_arbitrary!(Vec<ManagementGroup>);
-cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<ManagementGroup>>);

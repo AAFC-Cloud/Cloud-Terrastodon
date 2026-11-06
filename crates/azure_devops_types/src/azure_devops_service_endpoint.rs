@@ -9,9 +9,9 @@ use crate::AzureDevOpsServiceEndpointOwner;
 use crate::AzureDevOpsServiceEndpointProjectReference;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_types::ArbitraryJson;
-use std::sync::Arc;
+use facet::Facet;
 
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsServiceEndpoint {
     pub administrators_group: Option<ArbitraryJson>,
@@ -37,5 +37,3 @@ pub struct AzureDevOpsServiceEndpoint {
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsServiceEndpoint);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsServiceEndpoint);
-cloud_terrastodon_registry::register_arbitrary!(Vec<AzureDevOpsServiceEndpoint>);
-cloud_terrastodon_registry::register_arbitrary!(Arc<Vec<AzureDevOpsServiceEndpoint>>);

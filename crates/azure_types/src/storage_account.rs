@@ -9,16 +9,16 @@ use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
+use facet::Facet;
 use std::collections::HashMap;
-use std::sync::Arc;
 
-#[derive(Debug, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Arbitrary, Facet)]
 pub struct StorageAccountSKU {
     name: String,
     tier: String,
 }
 
-#[derive(Debug, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Arbitrary, Facet)]
 #[repr(C)]
 pub enum StorageAccountKind {
     BlockBlobStorage,
@@ -27,7 +27,7 @@ pub enum StorageAccountKind {
     StorageV2,
 }
 
-#[derive(Debug, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Arbitrary, Facet)]
 pub struct StorageAccount {
     pub id: StorageAccountId,
     pub name: StorageAccountName,
@@ -107,5 +107,3 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(StorageAccount);
 cloud_terrastodon_registry::register_arbitrary!(StorageAccount);
-cloud_terrastodon_registry::register_arbitrary!(Vec<StorageAccount>);
-cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<StorageAccount>>);

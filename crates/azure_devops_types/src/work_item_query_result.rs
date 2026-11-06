@@ -7,12 +7,12 @@ use crate::WorkItemReference;
 use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
-use std::sync::Arc;
+use facet::Facet;
 
 /// The result of a work item query.
 /// https://learn.microsoft.com/en-us/rest/api/azure/devops/wit/wiql/query-by-id?view=azure-devops-rest-7.1
 /// https://learn.microsoft.com/en-us/rest/api/azure/devops/wit/wiql/query-by-wiql?view=azure-devops-rest-7.1&tabs=HTTP#workitemqueryresult
-#[derive(Debug, Arbitrary, facet::Facet)]
+#[derive(Debug, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct WorkItemQueryResult {
     /// The date the query was run in the context of.
@@ -34,5 +34,4 @@ pub struct WorkItemQueryResult {
 
 cloud_terrastodon_registry::register_thing!(WorkItemQueryResult);
 cloud_terrastodon_registry::register_arbitrary!(WorkItemQueryResult);
-cloud_terrastodon_registry::register_arbitrary!(Arc<Option<WorkItemQueryResult>>);
 cloud_terrastodon_registry::register_arbitrary!(Option<WorkItemQueryResult>);

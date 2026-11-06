@@ -19,6 +19,7 @@ use cloud_terrastodon_execution::RequestExecution;
 use eyre::Result;
 use eyre::WrapErr;
 use eyre::bail;
+use facet::Facet;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -28,7 +29,7 @@ use std::sync::Arc;
 use tracing::info;
 
 /// Lists users that are transitively members of an Azure DevOps project.
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[facet(traits(Clone))]
 pub struct AzureDevOpsProjectMemberListRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
@@ -60,7 +61,7 @@ impl<'a> Arbitrary<'a> for AzureDevOpsProjectMemberListRequest<'static> {
     }
 }
 
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsProjectMember {
     pub descriptor: AzureDevOpsDescriptor,
@@ -73,7 +74,7 @@ pub struct AzureDevOpsProjectMember {
     pub permission_objects: Vec<AzureDevOpsProjectPermissionObject>,
 }
 
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsProjectPermissionObject {
     pub descriptor: AzureDevOpsDescriptor,
@@ -309,7 +310,7 @@ impl From<AzureDevOpsProjectMemberAccumulator> for AzureDevOpsProjectMember {
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsProjectMemberListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsProjectMemberListRequest<'static>);
-cloud_terrastodon_registry::register_arbitrary!(Vec<AzureDevOpsProjectMember>);
+cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsProjectMember);
 cloud_terrastodon_registry_execution::register_executable_request!(
     AzureDevOpsProjectMemberListRequest<'static> => Vec<AzureDevOpsProjectMember>,
     effects = [Read]

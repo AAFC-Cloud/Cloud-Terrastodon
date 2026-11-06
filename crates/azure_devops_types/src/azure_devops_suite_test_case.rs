@@ -2,15 +2,15 @@ use super::azure_devops_test_plan::AzureDevOpsTestPlanIdentityRef;
 use crate::AzureDevOpsTestCaseWorkItemReference;
 use crate::AzureDevOpsTestPlanShallowReference;
 use arbitrary::Arbitrary;
-use std::sync::Arc;
+use facet::Facet;
 
-#[derive(Debug, Eq, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Arbitrary, Facet)]
 pub struct AzureDevOpsTestCasePointAssignment {
     pub configuration: Option<AzureDevOpsTestPlanShallowReference>,
     pub tester: Option<AzureDevOpsTestPlanIdentityRef>,
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct SuiteTestCase {
     pub point_assignments: Option<Vec<AzureDevOpsTestCasePointAssignment>>,
@@ -19,5 +19,3 @@ pub struct SuiteTestCase {
 
 cloud_terrastodon_registry::register_thing!(SuiteTestCase);
 cloud_terrastodon_registry::register_arbitrary!(SuiteTestCase);
-cloud_terrastodon_registry::register_arbitrary!(Vec<SuiteTestCase>);
-cloud_terrastodon_registry::register_arbitrary!(Arc<Vec<SuiteTestCase>>);

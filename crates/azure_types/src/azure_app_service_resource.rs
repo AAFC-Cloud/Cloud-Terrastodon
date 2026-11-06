@@ -4,12 +4,12 @@ use crate::AzureAppServiceResourceName;
 use crate::AzureLocationName;
 use crate::AzureTenantId;
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::collections::HashMap;
 use std::convert::Infallible;
 use std::net::IpAddr;
-use std::sync::Arc;
 
-#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureAppServiceResource {
     pub id: AzureAppServiceResourceId,
@@ -23,7 +23,7 @@ pub struct AzureAppServiceResource {
     pub properties: AzureAppServiceResourceProperties,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum AzureAppServiceResourceKind {
@@ -67,7 +67,7 @@ impl From<&AzureAppServiceResourceKind> for String {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Facet)]
 #[facet(transparent)]
 pub struct AzureAppServiceResourceKindListProxy(Option<String>);
 
@@ -101,7 +101,7 @@ impl From<&Vec<AzureAppServiceResourceKind>> for AzureAppServiceResourceKindList
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureAppServiceResourceProperties {
     #[facet(default)]
@@ -147,7 +147,7 @@ pub struct AzureAppServiceResourceProperties {
     pub additional_properties: HashMap<String, ArbitraryJson>,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureAppServicePrivateEndpointConnection {
     pub name: String,
@@ -159,7 +159,7 @@ pub struct AzureAppServicePrivateEndpointConnection {
     pub properties: AzureAppServicePrivateEndpointConnectionProperties,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureAppServicePrivateEndpointConnectionProperties {
     #[facet(default)]
@@ -177,7 +177,7 @@ pub struct AzureAppServicePrivateEndpointConnectionProperties {
     pub additional_properties: HashMap<String, ArbitraryJson>,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureAppServicePrivateLinkServiceConnectionState {
     #[facet(default)]
@@ -188,12 +188,12 @@ pub struct AzureAppServicePrivateLinkServiceConnectionState {
     pub actions_required: Option<String>,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, Facet)]
 pub struct AzureAppServiceResourceReference {
     pub id: String,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureAppServiceSiteConfig {
     #[facet(default)]
@@ -264,5 +264,3 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(AzureAppServiceResource);
 cloud_terrastodon_registry::register_arbitrary!(AzureAppServiceResource);
-cloud_terrastodon_registry::register_arbitrary!(Vec<AzureAppServiceResource>);
-cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<AzureAppServiceResource>>);

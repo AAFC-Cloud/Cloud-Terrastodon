@@ -2,9 +2,9 @@ use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
 use cloud_terrastodon_azure_types::ArbitraryJson;
-use std::sync::Arc;
+use facet::Facet;
 
-#[derive(Debug, Eq, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsTestPlan {
     pub area: Option<AzureDevOpsTestPlanShallowReference>,
@@ -31,14 +31,14 @@ pub struct AzureDevOpsTestPlan {
     pub client_url: Option<String>,
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Arbitrary, Facet)]
 pub struct AzureDevOpsTestPlanShallowReference {
     pub id: Option<String>,
     pub name: Option<String>,
     pub url: Option<String>,
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, facet::Facet, Arbitrary)]
+#[derive(Debug, Eq, PartialEq, Clone, Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsTestPlanIdentityRef {
     #[facet(rename = "_links")]
@@ -57,14 +57,14 @@ pub struct AzureDevOpsTestPlanIdentityRef {
     pub url: Option<String>,
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsTestPlanReleaseEnvironmentDefinitionReference {
     pub definition_id: Option<u32>,
     pub environment_definition_id: Option<u32>,
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsTestPlanTestOutcomeSettings {
     pub sync_outcome_across_suites: Option<bool>,
@@ -72,5 +72,3 @@ pub struct AzureDevOpsTestPlanTestOutcomeSettings {
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsTestPlan);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsTestPlan);
-cloud_terrastodon_registry::register_arbitrary!(Vec<AzureDevOpsTestPlan>);
-cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<AzureDevOpsTestPlan>>);

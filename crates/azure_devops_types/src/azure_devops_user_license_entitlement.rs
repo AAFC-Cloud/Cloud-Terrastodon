@@ -5,10 +5,10 @@ use crate::azure_devops_user_id::AzureDevOpsUserId;
 use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
+use facet::Facet;
 use std::str::FromStr;
-use std::sync::Arc;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, Facet)]
 #[facet(rename_all = "lowercase")]
 #[repr(C)]
 pub enum AzureDevOpsLicenseEntitlementStatus {
@@ -17,14 +17,14 @@ pub enum AzureDevOpsLicenseEntitlementStatus {
     Disabled,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, Facet)]
 #[facet(rename_all = "lowercase")]
 #[repr(C)]
 pub enum AzureDevOpsLicenseEntitlementOrigin {
     None,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 #[repr(C)]
 pub enum AzureDevOpsLicenseAssignmentSource {
@@ -32,7 +32,7 @@ pub enum AzureDevOpsLicenseAssignmentSource {
     GroupRule,
 }
 
-#[derive(Debug, Clone, facet::Facet, Arbitrary)]
+#[derive(Debug, Clone, Facet, Arbitrary)]
 pub struct AzureDevOpsUserLicenseEntitlement {
     #[facet(rename = "accountId")]
     pub account_id: AzureDevOpsAccountId,
@@ -58,7 +58,7 @@ pub struct AzureDevOpsUserLicenseEntitlement {
     pub user_id: AzureDevOpsUserId,
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, facet::Facet, Arbitrary)]
+#[derive(Debug, Eq, PartialEq, Clone, Facet, Arbitrary)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum LastAccessedDate {
@@ -97,7 +97,7 @@ impl TryFrom<String> for LastAccessedDate {
     }
 }
 
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 pub struct AzureDevOpsLicenseEntitlementUserReference {
     #[facet(rename = "descriptor")]
     pub descriptor: AzureDevOpsDescriptor,
@@ -115,9 +115,6 @@ pub struct AzureDevOpsLicenseEntitlementUserReference {
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsUserLicenseEntitlement);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsUserLicenseEntitlement);
-cloud_terrastodon_registry::register_arbitrary!(Arc<AzureDevOpsUserLicenseEntitlement>);
-cloud_terrastodon_registry::register_arbitrary!(Vec<AzureDevOpsUserLicenseEntitlement>);
-cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<AzureDevOpsUserLicenseEntitlement>>);
 
 #[cfg(test)]
 mod test {

@@ -12,9 +12,8 @@ use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
 use facet::Facet;
-use std::sync::Arc;
 
-#[derive(Debug, PartialEq, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Arbitrary, Facet)]
 pub struct PolicyDefinition {
     pub id: PolicyDefinitionId,
     pub name: PolicyDefinitionName,
@@ -129,5 +128,3 @@ mod test {
 
 cloud_terrastodon_registry::register_thing!(PolicyDefinition);
 cloud_terrastodon_registry::register_arbitrary!(PolicyDefinition);
-cloud_terrastodon_registry::register_arbitrary!(Vec<PolicyDefinition>);
-cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<PolicyDefinition>>);

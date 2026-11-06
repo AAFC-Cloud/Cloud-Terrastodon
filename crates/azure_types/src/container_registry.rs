@@ -9,15 +9,15 @@ use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
-use std::sync::Arc;
+use facet::Facet;
 
-#[derive(Debug, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Arbitrary, Facet)]
 pub struct ContainerRegistrySKU {
     name: String,
     tier: String,
 }
 
-#[derive(Debug, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Arbitrary, Facet)]
 pub struct ContainerRegistry {
     pub id: ContainerRegistryId,
     pub name: ContainerRegistryName,
@@ -58,5 +58,3 @@ impl From<ContainerRegistry> for HclImportBlock {
 
 cloud_terrastodon_registry::register_thing!(ContainerRegistry);
 cloud_terrastodon_registry::register_arbitrary!(ContainerRegistry);
-cloud_terrastodon_registry::register_arbitrary!(Vec<ContainerRegistry>);
-cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<ContainerRegistry>>);

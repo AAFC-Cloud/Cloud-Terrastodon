@@ -11,9 +11,9 @@ use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
-use std::sync::Arc;
+use facet::Facet;
 
-#[derive(Debug, PartialEq, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Arbitrary, Facet)]
 pub struct PolicySetDefinitionPolicyDefinitionGroup {
     #[facet(rename = "additionalMetadataId")]
     pub additional_metadata_id: Option<String>,
@@ -23,7 +23,7 @@ pub struct PolicySetDefinitionPolicyDefinitionGroup {
     pub display_name: Option<String>,
     pub name: String,
 }
-#[derive(Debug, PartialEq, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Arbitrary, Facet)]
 pub struct PolicySetDefinitionPolicyDefinition {
     #[facet(rename = "groupNames")]
     pub group_names: Option<Vec<String>>,
@@ -36,7 +36,7 @@ pub struct PolicySetDefinitionPolicyDefinition {
     pub policy_definition_reference_id: String,
 }
 
-#[derive(Debug, PartialEq, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Arbitrary, Facet)]
 pub struct PolicySetDefinition {
     pub id: PolicySetDefinitionId,
     pub name: PolicySetDefinitionName,
@@ -145,5 +145,3 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(PolicySetDefinition);
 cloud_terrastodon_registry::register_arbitrary!(PolicySetDefinition);
-cloud_terrastodon_registry::register_arbitrary!(Vec<PolicySetDefinition>);
-cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<PolicySetDefinition>>);

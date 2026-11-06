@@ -9,14 +9,14 @@ use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
 use cloud_terrastodon_azure_types::ArbitraryJson;
-use std::sync::Arc;
+use facet::Facet;
 
 /// A build returned by Azure DevOps. Typed response status/result vocabularies
 /// preserve unknown server values without losing their wire spelling.
 /// Properties are required unless documented or observed to be omitted.
 ///
 /// See Microsoft's [Build schema](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/builds/list?view=azure-devops-rest-7.1#build).
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct AzureDevOpsBuild {
@@ -43,5 +43,3 @@ pub struct AzureDevOpsBuild {
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsBuild);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsBuild);
-cloud_terrastodon_registry::register_arbitrary!(Vec<AzureDevOpsBuild>);
-cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<AzureDevOpsBuild>>);

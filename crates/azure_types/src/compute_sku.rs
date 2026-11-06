@@ -1,10 +1,10 @@
 use crate::ComputeSkuName;
 use crate::location::AzureLocationName;
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::fmt;
-use std::sync::Arc;
 
-#[derive(Debug, Clone, PartialEq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct ComputeSku {
     #[facet(default)]
@@ -16,7 +16,7 @@ pub struct ComputeSku {
     pub restrictions: Vec<ComputeSkuRestriction>,
 }
 
-#[derive(Debug, Clone, PartialEq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum ComputeSkuResourceType {
@@ -118,21 +118,21 @@ mod tests {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct ComputeSkuCapability {
     pub name: String,
     pub value: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct ComputeSkuLocationInfo {
     pub location: AzureLocationName,
     pub zones: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct ComputeSkuRestriction {
     pub reason_code: String,
@@ -142,7 +142,7 @@ pub struct ComputeSkuRestriction {
     pub values: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct ComputeSkuRestrictionInfo {
     pub locations: Vec<String>,
@@ -152,5 +152,3 @@ cloud_terrastodon_registry::register_thing!(ComputeSkuResourceType);
 cloud_terrastodon_registry::register_arbitrary!(ComputeSkuResourceType);
 cloud_terrastodon_registry::register_thing!(ComputeSku);
 cloud_terrastodon_registry::register_arbitrary!(ComputeSku);
-cloud_terrastodon_registry::register_arbitrary!(Vec<ComputeSku>);
-cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<ComputeSku>>);

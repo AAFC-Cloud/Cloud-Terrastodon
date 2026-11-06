@@ -4,11 +4,11 @@ use crate::AzurePublicIpResourceId;
 use crate::AzurePublicIpResourceName;
 use crate::AzureTenantId;
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::collections::HashMap;
 use std::net::IpAddr;
-use std::sync::Arc;
 
-#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzurePublicIpResource {
     pub id: AzurePublicIpResourceId,
@@ -22,13 +22,13 @@ pub struct AzurePublicIpResource {
     pub properties: AzurePublicIpResourceProperties,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, Facet)]
 pub struct AzurePublicIpSku {
     pub name: String,
     pub tier: String,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzurePublicIpResourceProperties {
     #[facet(default)]
@@ -53,7 +53,7 @@ pub struct AzurePublicIpResourceProperties {
     pub ddos_settings: Option<AzurePublicIpDdosSettings>,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzurePublicIpDnsSettings {
     #[facet(default)]
@@ -62,12 +62,12 @@ pub struct AzurePublicIpDnsSettings {
     pub fqdn: Option<String>,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, Facet)]
 pub struct AzurePublicIpConfigurationReference {
     pub id: String,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzurePublicIpDdosSettings {
     #[facet(default)]
@@ -76,5 +76,3 @@ pub struct AzurePublicIpDdosSettings {
 
 cloud_terrastodon_registry::register_thing!(AzurePublicIpResource);
 cloud_terrastodon_registry::register_arbitrary!(AzurePublicIpResource);
-cloud_terrastodon_registry::register_arbitrary!(Vec<AzurePublicIpResource>);
-cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<AzurePublicIpResource>>);

@@ -4,10 +4,10 @@ use crate::AzureApplicationGatewayResourceName;
 use crate::AzureLocationName;
 use crate::AzureTenantId;
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::collections::HashMap;
-use std::sync::Arc;
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureApplicationGatewayResource {
     pub id: AzureApplicationGatewayResourceId,
@@ -21,7 +21,7 @@ pub struct AzureApplicationGatewayResource {
     pub properties: AzureApplicationGatewayResourceProperties,
 }
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureApplicationGatewayIdentity {
     #[facet(rename = "type")]
@@ -33,7 +33,7 @@ pub struct AzureApplicationGatewayIdentity {
     pub user_assigned_identities: HashMap<String, AzureApplicationGatewayUserAssignedIdentity>,
 }
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureApplicationGatewayUserAssignedIdentity {
     #[facet(default)]
@@ -42,7 +42,7 @@ pub struct AzureApplicationGatewayUserAssignedIdentity {
     pub client_id: Option<String>,
 }
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureApplicationGatewayResourceProperties {
     #[facet(default)]
@@ -196,7 +196,7 @@ pub struct AzureApplicationGatewayResourceProperties {
     pub custom_error_configurations: Vec<ArbitraryJson>,
 }
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureApplicationGatewaySku {
     #[facet(default)]
@@ -209,7 +209,7 @@ pub struct AzureApplicationGatewaySku {
     pub capacity: Option<u32>,
 }
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 pub struct AzureApplicationGatewaySubResource<T> {
     pub name: String,
     pub id: String,
@@ -220,7 +220,7 @@ pub struct AzureApplicationGatewaySubResource<T> {
     pub properties: T,
 }
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureApplicationGatewayGatewayIpConfigurationProperties {
     #[facet(default)]
@@ -229,7 +229,7 @@ pub struct AzureApplicationGatewayGatewayIpConfigurationProperties {
     pub subnet: Option<AzureApplicationGatewayResourceReference>,
 }
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureApplicationGatewaySslCertificateProperties {
     #[facet(default)]
@@ -243,7 +243,7 @@ pub struct AzureApplicationGatewaySslCertificateProperties {
     pub http_listeners: Vec<AzureApplicationGatewayResourceReference>,
 }
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureApplicationGatewayTrustedRootCertificateProperties {
     #[facet(default)]
@@ -257,7 +257,7 @@ pub struct AzureApplicationGatewayTrustedRootCertificateProperties {
     pub backend_http_settings: Vec<AzureApplicationGatewayResourceReference>,
 }
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureApplicationGatewayFrontendIpConfigurationProperties {
     #[facet(default)]
@@ -273,7 +273,7 @@ pub struct AzureApplicationGatewayFrontendIpConfigurationProperties {
     pub http_listeners: Vec<AzureApplicationGatewayResourceReference>,
 }
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureApplicationGatewayFrontendPortProperties {
     #[facet(default)]
@@ -287,7 +287,7 @@ pub struct AzureApplicationGatewayFrontendPortProperties {
     pub http_listeners: Vec<AzureApplicationGatewayResourceReference>,
 }
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureApplicationGatewayBackendAddressPoolProperties {
     #[facet(default)]
@@ -304,7 +304,7 @@ pub struct AzureApplicationGatewayBackendAddressPoolProperties {
     pub request_routing_rules: Vec<AzureApplicationGatewayResourceReference>,
 }
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureApplicationGatewayBackendAddress {
     #[facet(default)]
@@ -313,7 +313,7 @@ pub struct AzureApplicationGatewayBackendAddress {
     pub fqdn: Option<String>,
 }
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureApplicationGatewayBackendHttpSettingsProperties {
     #[facet(default)]
@@ -354,7 +354,7 @@ pub struct AzureApplicationGatewayBackendHttpSettingsProperties {
     pub request_routing_rules: Vec<AzureApplicationGatewayResourceReference>,
 }
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureApplicationGatewayHttpListenerProperties {
     #[facet(default)]
@@ -384,7 +384,7 @@ pub struct AzureApplicationGatewayHttpListenerProperties {
     pub request_routing_rules: Vec<AzureApplicationGatewayResourceReference>,
 }
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureApplicationGatewayRequestRoutingRuleProperties {
     #[facet(default)]
@@ -401,7 +401,7 @@ pub struct AzureApplicationGatewayRequestRoutingRuleProperties {
     pub backend_http_settings: Option<AzureApplicationGatewayResourceReference>,
 }
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureApplicationGatewayProbeProperties {
     #[facet(default)]
@@ -435,7 +435,7 @@ pub struct AzureApplicationGatewayProbeProperties {
     pub backend_http_settings: Vec<AzureApplicationGatewayResourceReference>,
 }
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureApplicationGatewayProbeMatch {
     #[facet(default)]
@@ -444,12 +444,10 @@ pub struct AzureApplicationGatewayProbeMatch {
     pub status_codes: Vec<String>,
 }
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 pub struct AzureApplicationGatewayResourceReference {
     pub id: String,
 }
 
 cloud_terrastodon_registry::register_thing!(AzureApplicationGatewayResource);
 cloud_terrastodon_registry::register_arbitrary!(AzureApplicationGatewayResource);
-cloud_terrastodon_registry::register_arbitrary!(Vec<AzureApplicationGatewayResource>);
-cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<AzureApplicationGatewayResource>>);

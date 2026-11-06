@@ -4,9 +4,9 @@ use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
 use cloud_terrastodon_azure_types::ArbitraryJson;
-use std::sync::Arc;
+use facet::Facet;
 
-#[derive(Debug, Clone, facet::Facet, Arbitrary)]
+#[derive(Debug, Clone, Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsAgentPool {
     pub agent_cloud_id: Option<usize>,
@@ -28,7 +28,7 @@ pub struct AzureDevOpsAgentPool {
     pub target_size: Option<usize>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, facet::Facet, Arbitrary)]
+#[derive(Debug, Clone, PartialEq, Eq, Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsAgentPoolCreatedBy {
     #[facet(rename = "_links")]
@@ -40,7 +40,7 @@ pub struct AzureDevOpsAgentPoolCreatedBy {
     pub unique_name: String,
     pub url: String,
 }
-#[derive(Debug, Clone, PartialEq, Eq, facet::Facet, Arbitrary)]
+#[derive(Debug, Clone, PartialEq, Eq, Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsAgentPoolOwner {
     #[facet(rename = "_links")]
@@ -55,5 +55,3 @@ pub struct AzureDevOpsAgentPoolOwner {
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsAgentPool);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsAgentPool);
-cloud_terrastodon_registry::register_arbitrary!(Vec<AzureDevOpsAgentPool>);
-cloud_terrastodon_registry::register_arbitrary!(Arc<Vec<AzureDevOpsAgentPool>>);

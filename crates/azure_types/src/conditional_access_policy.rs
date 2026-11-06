@@ -8,10 +8,10 @@ use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
 use compact_str::CompactString;
-use std::sync::Arc;
+use facet::Facet;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct ConditionalAccessPolicy {
     pub id: ConditionalAccessPolicyId,
@@ -27,7 +27,7 @@ pub struct ConditionalAccessPolicy {
     pub grant_controls: Option<ConditionalAccessPolicyGrantControls>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 #[repr(C)]
 pub enum ConditionalAccessPolicyState {
@@ -36,7 +36,7 @@ pub enum ConditionalAccessPolicyState {
     EnabledForReportingButNotEnforced,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct ConditionalAccessPolicyConditions {
     pub user_risk_levels: Vec<ArbitraryJson>,
@@ -52,7 +52,7 @@ pub struct ConditionalAccessPolicyConditions {
     pub locations: Option<ConditionalAccessPolicyConditionsLocations>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct ConditionalAccessPolicyConditionsApplications {
     #[facet(proxy = crate::AllOrVecProxy)]
@@ -64,7 +64,7 @@ pub struct ConditionalAccessPolicyConditionsApplications {
     pub application_filter: Option<ArbitraryJson>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct ConditionalAccessPolicyConditionsUsers {
     #[facet(proxy = crate::AllOrVecProxy)]
@@ -83,7 +83,7 @@ pub struct ConditionalAccessPolicyConditionsUsers {
     pub exclude_guests_or_external_users: Option<ArbitraryJson>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct ConditionalAccessPolicyConditionsLocations {
     #[facet(proxy = crate::AllOrVecProxy)]
@@ -92,7 +92,7 @@ pub struct ConditionalAccessPolicyConditionsLocations {
     pub exclude_locations: Vec<AllOr<ConditionalAccessNamedLocationId>>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct ConditionalAccessPolicyGrantControls {
     pub operator: ConditionalAccessPolicyGrantControlOperator,
@@ -104,14 +104,14 @@ pub struct ConditionalAccessPolicyGrantControls {
     pub authentication_strength: Option<ArbitraryJson>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "UPPERCASE")]
 #[repr(C)]
 pub enum ConditionalAccessPolicyGrantControlOperator {
     And,
     Or,
 }
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 #[repr(C)]
 pub enum ConditionalAccessPolicyGrantControlBuiltInControl {
@@ -127,4 +127,3 @@ pub enum ConditionalAccessPolicyGrantControlBuiltInControl {
 
 cloud_terrastodon_registry::register_thing!(ConditionalAccessPolicy);
 cloud_terrastodon_registry::register_arbitrary!(ConditionalAccessPolicy);
-cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<ConditionalAccessPolicy>>);

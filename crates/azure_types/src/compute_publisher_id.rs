@@ -5,10 +5,11 @@ use crate::slug::HasSlug;
 use arbitrary::Arbitrary;
 use eyre::Context;
 use eyre::bail;
+use facet::Facet;
 use std::any::type_name;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Arbitrary, Facet)]
 #[facet(json::proxy = String)]
 pub struct ComputePublisherId {
     pub subscription_id: SubscriptionId,
@@ -157,4 +158,3 @@ mod test {
 
 cloud_terrastodon_registry::register_thing!(ComputePublisherId);
 cloud_terrastodon_registry::register_arbitrary!(ComputePublisherId);
-cloud_terrastodon_registry::register_arbitrary!(Vec<ComputePublisherId>);

@@ -4,11 +4,11 @@ use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
 use cloud_terrastodon_azure_types::ArbitraryJson;
+use facet::Facet;
 use std::collections::VecDeque;
-use std::sync::Arc;
 
 /// Also known as: QueryHierarchyItem
-#[derive(Debug, Clone, facet::Facet, Arbitrary)]
+#[derive(Debug, Clone, Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsWorkItemQuery {
     #[facet(rename = "_links")]
@@ -64,5 +64,3 @@ impl AzureDevOpsWorkItemQuery {
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsWorkItemQuery);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsWorkItemQuery);
-cloud_terrastodon_registry::register_arbitrary!(Vec<AzureDevOpsWorkItemQuery>);
-cloud_terrastodon_registry::register_arbitrary!(Arc<Vec<AzureDevOpsWorkItemQuery>>);

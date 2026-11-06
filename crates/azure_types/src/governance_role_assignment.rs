@@ -1,33 +1,33 @@
 use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
+use facet::Facet;
 /// See the following:
 /// - https://graph.microsoft.com/v1.0/$metadata
 /// - https://graph.microsoft.com/beta/$metadata
-use std::sync::Arc;
 use uuid::Uuid;
 
-#[derive(Debug, Arbitrary, facet::Facet)]
+#[derive(Debug, Arbitrary, Facet)]
 #[repr(C)]
 pub enum GovernanceRoleAssignmentMemberType {
     Group,
     Direct,
 }
-#[derive(Debug, Arbitrary, facet::Facet)]
+#[derive(Debug, Arbitrary, Facet)]
 #[repr(C)]
 pub enum GovernanceRoleAssignmentStatus {
     Provisioned,
     Accepted,
 }
 
-#[derive(Debug, Arbitrary, facet::Facet)]
+#[derive(Debug, Arbitrary, Facet)]
 #[repr(C)]
 pub enum GovernanceRoleAssignmentState {
     Active,
     Eligible,
 }
 
-#[derive(Debug, Arbitrary, facet::Facet)]
+#[derive(Debug, Arbitrary, Facet)]
 pub struct GovernanceRoleAssignment {
     pub id: String,
     #[facet(rename = "linkedEligibleRoleAssignmentId", default)]
@@ -49,4 +49,3 @@ pub struct GovernanceRoleAssignment {
 
 cloud_terrastodon_registry::register_thing!(GovernanceRoleAssignment);
 cloud_terrastodon_registry::register_arbitrary!(GovernanceRoleAssignment);
-cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<GovernanceRoleAssignment>>);

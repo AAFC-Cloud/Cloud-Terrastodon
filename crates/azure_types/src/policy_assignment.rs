@@ -18,7 +18,6 @@ use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
 use compact_str::CompactString;
 use facet::Facet;
-use std::sync::Arc;
 
 #[derive(Debug, PartialEq, Eq, Arbitrary, Facet)]
 pub struct PolicyAssignment {
@@ -111,5 +110,3 @@ impl From<&PolicyAssignment> for HclImportBlock {
 
 cloud_terrastodon_registry::register_thing!(PolicyAssignment);
 cloud_terrastodon_registry::register_arbitrary!(PolicyAssignment);
-cloud_terrastodon_registry::register_arbitrary!(Vec<PolicyAssignment>);
-cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<PolicyAssignment>>);

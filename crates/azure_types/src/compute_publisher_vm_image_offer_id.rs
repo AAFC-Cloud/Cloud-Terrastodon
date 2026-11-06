@@ -6,10 +6,11 @@ use crate::slug::HasSlug;
 use arbitrary::Arbitrary;
 use eyre::Context;
 use eyre::bail;
+use facet::Facet;
 use std::any::type_name;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Arbitrary, Facet)]
 #[facet(json::proxy = String)]
 pub struct ComputePublisherVmImageOfferId {
     pub subscription_id: SubscriptionId,
@@ -193,4 +194,3 @@ mod test {
 
 cloud_terrastodon_registry::register_thing!(ComputePublisherVmImageOfferId);
 cloud_terrastodon_registry::register_arbitrary!(ComputePublisherVmImageOfferId);
-cloud_terrastodon_registry::register_arbitrary!(Vec<ComputePublisherVmImageOfferId>);

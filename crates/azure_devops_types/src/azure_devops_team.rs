@@ -6,9 +6,9 @@ use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
-use std::sync::Arc;
+use facet::Facet;
 
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsTeam {
     pub description: String,
@@ -35,5 +35,3 @@ impl From<&AzureDevOpsTeam> for HclImportBlock {
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsTeam);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsTeam);
-cloud_terrastodon_registry::register_arbitrary!(Vec<AzureDevOpsTeam>);
-cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<AzureDevOpsTeam>>);

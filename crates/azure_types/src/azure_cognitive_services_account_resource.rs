@@ -4,10 +4,10 @@ use crate::AzureCognitiveServicesAccountResourceName;
 use crate::AzureLocationName;
 use crate::AzureTenantId;
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::collections::HashMap;
-use std::sync::Arc;
 
-#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureCognitiveServicesAccountResource {
     pub id: AzureCognitiveServicesAccountResourceId,
@@ -23,7 +23,7 @@ pub struct AzureCognitiveServicesAccountResource {
     pub properties: AzureCognitiveServicesAccountResourceProperties,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureCognitiveServicesAccountResourceProperties {
     #[facet(default)]
@@ -62,7 +62,7 @@ pub struct AzureCognitiveServicesAccountResourceProperties {
     pub stored_completions_disabled: Option<bool>,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureCognitiveServicesSku {
     pub name: String,
@@ -76,7 +76,7 @@ pub struct AzureCognitiveServicesSku {
     pub capacity: Option<i32>,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureCognitiveServicesNetworkAcls {
     #[facet(default)]
@@ -87,20 +87,20 @@ pub struct AzureCognitiveServicesNetworkAcls {
     pub ip_rules: Vec<ArbitraryJson>,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, Facet)]
 pub struct AzureCognitiveServicesCapability {
     pub name: String,
     #[facet(default)]
     pub value: Option<String>,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, Facet)]
 pub struct AzureCognitiveServicesCallRateLimit {
     #[facet(default)]
     pub rules: Vec<AzureCognitiveServicesThrottlingRule>,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureCognitiveServicesThrottlingRule {
     #[facet(default)]
@@ -117,7 +117,7 @@ pub struct AzureCognitiveServicesThrottlingRule {
     pub dynamic_throttling_enabled: Option<bool>,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, Facet)]
 pub struct AzureCognitiveServicesRequestMatchPattern {
     #[facet(default)]
     pub method: Option<String>,
@@ -127,5 +127,3 @@ pub struct AzureCognitiveServicesRequestMatchPattern {
 
 cloud_terrastodon_registry::register_thing!(AzureCognitiveServicesAccountResource);
 cloud_terrastodon_registry::register_arbitrary!(AzureCognitiveServicesAccountResource);
-cloud_terrastodon_registry::register_arbitrary!(Vec<AzureCognitiveServicesAccountResource>);
-cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<AzureCognitiveServicesAccountResource>>);

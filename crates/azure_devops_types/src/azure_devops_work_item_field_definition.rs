@@ -1,7 +1,8 @@
 use crate::AzureDevOpsWorkItemFieldName;
 use arbitrary::Arbitrary;
+use facet::Facet;
 
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsWorkItemFieldDefinition {
     pub name: String,
@@ -18,4 +19,3 @@ pub struct AzureDevOpsWorkItemFieldDefinition {
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsWorkItemFieldDefinition);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsWorkItemFieldDefinition);
-cloud_terrastodon_registry::register_arbitrary!(Vec<AzureDevOpsWorkItemFieldDefinition>);

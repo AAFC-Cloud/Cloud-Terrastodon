@@ -8,12 +8,13 @@ use crate::EntraPrincipalId;
 use crate::EntraServicePrincipal;
 use crate::EntraUser;
 use arbitrary::Arbitrary;
+use facet::Facet;
 use facet_json::RawJson;
 use std::collections::HashMap;
 use std::sync::Arc;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Eq, PartialEq, strum::EnumDiscriminants, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, strum::EnumDiscriminants, Facet)]
 #[strum_discriminants(name(EntraPrincipalKind))]
 #[strum_discriminants(derive(strum::Display))]
 #[facet(proxy = RawJson<'static>)]
@@ -244,7 +245,6 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(EntraPrincipal);
 cloud_terrastodon_registry::register_arbitrary!(EntraPrincipal);
-cloud_terrastodon_registry::register_arbitrary!(Vec<EntraPrincipal>);
 
 cloud_terrastodon_registry::register_from!(EntraUser => EntraPrincipal);
 cloud_terrastodon_registry::register_from!(EntraGroup => EntraPrincipal);

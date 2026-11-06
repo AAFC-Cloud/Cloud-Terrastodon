@@ -4,7 +4,7 @@ use crate::AzureDevOpsProjectReference;
 use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
-use std::sync::Arc;
+use facet::Facet;
 
 /// A build-definition folder. The required path identifies the folder;
 /// Azure DevOps uses backslash-separated paths, with `\` representing root.
@@ -12,7 +12,7 @@ use std::sync::Arc;
 /// absent metadata remains unknown.
 ///
 /// Microsoft documentation: [Folder](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/folders/list?view=azure-devops-rest-7.1#folder).
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct AzureDevOpsBuildFolder {
@@ -29,5 +29,3 @@ pub struct AzureDevOpsBuildFolder {
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsBuildFolder);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsBuildFolder);
-cloud_terrastodon_registry::register_arbitrary!(Vec<AzureDevOpsBuildFolder>);
-cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<AzureDevOpsBuildFolder>>);

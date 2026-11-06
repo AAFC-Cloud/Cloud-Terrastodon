@@ -2,10 +2,10 @@ use crate::ResourceGroupId;
 use crate::RouteTableId;
 use crate::RouteTableProperties;
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::collections::HashMap;
-use std::sync::Arc;
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 pub struct RouteTable {
     pub id: RouteTableId,
     pub name: String, // This is the name from Azure, distinct from RouteTableName in ID
@@ -23,5 +23,3 @@ impl RouteTable {
 
 cloud_terrastodon_registry::register_thing!(RouteTable);
 cloud_terrastodon_registry::register_arbitrary!(RouteTable);
-cloud_terrastodon_registry::register_arbitrary!(Vec<RouteTable>);
-cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<RouteTable>>);

@@ -12,9 +12,9 @@ use crate::EntraDirectoryObjectUser;
 use crate::EntraPrincipalId;
 use arbitrary::Arbitrary;
 use arbitrary::Unstructured;
+use facet::Facet;
 use facet_json::RawJson;
 use std::collections::HashMap;
-use std::sync::Arc;
 
 /// A shallow typed Microsoft Graph v1.0 [directory object](https://learn.microsoft.com/en-us/graph/api/resources/directoryobject?view=graph-rest-1.0).
 ///
@@ -24,7 +24,7 @@ use std::sync::Arc;
 /// objects retain their IDs and types without manufacturing names. Other returned
 /// object types cause an explicit decoding error, rather than being discarded and
 /// mistaken for absent objects.
-#[derive(Debug, Clone, Eq, PartialEq, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Facet)]
 #[facet(proxy = RawJson<'static>)]
 #[repr(C)]
 pub enum EntraDirectoryObject {
@@ -149,7 +149,6 @@ impl EntraDirectoryObject {
 
 cloud_terrastodon_registry::register_thing!(EntraDirectoryObject);
 cloud_terrastodon_registry::register_arbitrary!(EntraDirectoryObject);
-cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<EntraDirectoryObject>>);
 
 #[cfg(test)]
 mod tests {

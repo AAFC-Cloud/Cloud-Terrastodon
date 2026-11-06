@@ -1,9 +1,10 @@
 use crate::AzureDevOpsWorkItemRelationTypeName;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_types::ArbitraryJson;
+use facet::Facet;
 use std::collections::BTreeMap;
 
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsWorkItemRelationType {
     pub name: String,
@@ -15,4 +16,3 @@ pub struct AzureDevOpsWorkItemRelationType {
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsWorkItemRelationType);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsWorkItemRelationType);
-cloud_terrastodon_registry::register_arbitrary!(Vec<AzureDevOpsWorkItemRelationType>);

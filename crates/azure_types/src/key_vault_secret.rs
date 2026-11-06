@@ -1,12 +1,12 @@
 use crate::KeyVaultSecretAttributes;
 use crate::KeyVaultSecretId;
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::collections::BTreeMap;
-use std::sync::Arc;
 
 /// Base secret metadata; listing never retrieves a secret value or its versions.
 /// [SecretItem, API 2025-07-01](https://learn.microsoft.com/en-us/rest/api/keyvault/secrets/get-secrets/get-secrets?view=rest-keyvault-secrets-2025-07-01#secretitem).
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct KeyVaultSecret {
@@ -19,5 +19,3 @@ pub struct KeyVaultSecret {
 
 cloud_terrastodon_registry::register_thing!(KeyVaultSecret);
 cloud_terrastodon_registry::register_arbitrary!(KeyVaultSecret);
-cloud_terrastodon_registry::register_arbitrary!(Vec<KeyVaultSecret>);
-cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<KeyVaultSecret>>);

@@ -26,13 +26,13 @@ use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
 use cloud_terrastodon_azure_types::ArbitraryJson;
+use facet::Facet;
 use std::collections::BTreeMap;
-use std::sync::Arc;
 
 /// A full build definition returned by the definitions GET endpoint.
 ///
 /// Microsoft documentation: [schema](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/definitions/get?view=azure-devops-rest-7.1#builddefinition).
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct AzureDevOpsBuildDefinition {
@@ -84,4 +84,3 @@ pub struct AzureDevOpsBuildDefinition {
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsBuildDefinition);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsBuildDefinition);
-cloud_terrastodon_registry::register_arbitrary!(Arc<AzureDevOpsBuildDefinition>);

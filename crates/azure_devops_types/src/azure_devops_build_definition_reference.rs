@@ -14,7 +14,7 @@ use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
 use cloud_terrastodon_azure_types::ArbitraryJson;
-use std::sync::Arc;
+use facet::Facet;
 
 /// A definition reference returned by the build definitions list endpoint.
 ///
@@ -22,7 +22,7 @@ use std::sync::Arc;
 /// as the root folder. Builds may embed a shallower definition summary instead.
 ///
 /// Microsoft documentation: [BuildDefinitionReference](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/definitions/list?view=azure-devops-rest-7.1#builddefinitionreference).
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct AzureDevOpsBuildDefinitionReference {
@@ -48,5 +48,3 @@ pub struct AzureDevOpsBuildDefinitionReference {
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsBuildDefinitionReference);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsBuildDefinitionReference);
-cloud_terrastodon_registry::register_arbitrary!(Vec<AzureDevOpsBuildDefinitionReference>);
-cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<AzureDevOpsBuildDefinitionReference>>);

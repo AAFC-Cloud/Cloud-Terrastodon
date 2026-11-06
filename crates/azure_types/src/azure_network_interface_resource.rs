@@ -3,11 +3,11 @@ use crate::AzureNetworkInterfaceResourceId;
 use crate::AzureNetworkInterfaceResourceName;
 use crate::AzureTenantId;
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::collections::HashMap;
 use std::net::IpAddr;
-use std::sync::Arc;
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureNetworkInterfaceResource {
     pub id: AzureNetworkInterfaceResourceId,
@@ -21,7 +21,7 @@ pub struct AzureNetworkInterfaceResource {
     pub properties: AzureNetworkInterfaceResourceProperties,
 }
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureNetworkInterfaceResourceProperties {
     #[facet(default)]
@@ -49,7 +49,7 @@ pub struct AzureNetworkInterfaceResourceProperties {
     pub ip_configurations: Vec<AzureNetworkInterfaceIpConfiguration>,
 }
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureNetworkInterfaceDnsSettings {
     #[facet(default, proxy = crate::VecDefaultNullProxy<String>)]
@@ -64,7 +64,7 @@ pub struct AzureNetworkInterfaceDnsSettings {
     pub internal_domain_name_suffix: Option<String>,
 }
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 pub struct AzureNetworkInterfaceIpConfiguration {
     pub name: String,
     pub id: String,
@@ -75,7 +75,7 @@ pub struct AzureNetworkInterfaceIpConfiguration {
     pub properties: AzureNetworkInterfaceIpConfigurationProperties,
 }
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureNetworkInterfaceIpConfigurationProperties {
     #[facet(default)]
@@ -114,7 +114,7 @@ pub struct AzureNetworkInterfaceIpConfigurationProperties {
     pub application_security_groups: Vec<AzureNetworkInterfaceResourceReference>,
 }
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 pub struct AzureNetworkInterfaceResourceReference {
     pub id: String,
 }
@@ -202,5 +202,3 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(AzureNetworkInterfaceResource);
 cloud_terrastodon_registry::register_arbitrary!(AzureNetworkInterfaceResource);
-cloud_terrastodon_registry::register_arbitrary!(Vec<AzureNetworkInterfaceResource>);
-cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<AzureNetworkInterfaceResource>>);

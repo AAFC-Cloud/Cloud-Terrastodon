@@ -4,10 +4,10 @@ use crate::ServiceGroupName;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::collections::HashMap;
-use std::sync::Arc;
 
-#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Arbitrary, Facet)]
 pub struct ServiceGroup {
     pub id: ServiceGroupId,
     pub name: ServiceGroupName,
@@ -32,7 +32,7 @@ impl std::fmt::Display for ServiceGroup {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Default, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Default, Arbitrary, Facet)]
 pub struct ServiceGroupProperties {
     #[facet(rename = "provisioningState")]
     pub provisioning_state: Option<String>,
@@ -43,7 +43,7 @@ pub struct ServiceGroupProperties {
     pub additional_properties: HashMap<String, ArbitraryJson>,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Default, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Clone, Default, Arbitrary, Facet)]
 pub struct ServiceGroupParent {
     #[facet(rename = "resourceId")]
     pub resource_id: Option<String>,
@@ -96,5 +96,3 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(ServiceGroup);
 cloud_terrastodon_registry::register_arbitrary!(ServiceGroup);
-cloud_terrastodon_registry::register_arbitrary!(Vec<ServiceGroup>);
-cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<ServiceGroup>>);

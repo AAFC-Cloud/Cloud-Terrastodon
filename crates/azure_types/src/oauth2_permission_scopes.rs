@@ -1,14 +1,14 @@
 use arbitrary::Arbitrary;
-use std::sync::Arc;
+use facet::Facet;
 use uuid::Uuid;
 
-#[derive(Debug, Hash, Eq, PartialEq, Arbitrary, facet::Facet)]
+#[derive(Debug, Hash, Eq, PartialEq, Arbitrary, Facet)]
 #[repr(C)]
 pub enum OAuth2PermissionScopeKind {
     Admin,
     User,
 }
-#[derive(Debug, Hash, Eq, PartialEq, Arbitrary, facet::Facet)]
+#[derive(Debug, Hash, Eq, PartialEq, Arbitrary, Facet)]
 pub struct OAuth2PermissionScope {
     #[facet(rename = "adminConsentDescription")]
     pub admin_consent_description: String,
@@ -32,4 +32,3 @@ cloud_terrastodon_registry::register_thing!(OAuth2PermissionScopeKind);
 cloud_terrastodon_registry::register_arbitrary!(OAuth2PermissionScopeKind);
 cloud_terrastodon_registry::register_thing!(OAuth2PermissionScope);
 cloud_terrastodon_registry::register_arbitrary!(OAuth2PermissionScope);
-cloud_terrastodon_registry::register_arbitrary!(Arc<Vec<OAuth2PermissionScope>>);

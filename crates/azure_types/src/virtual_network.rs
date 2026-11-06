@@ -3,10 +3,10 @@ use crate::VirtualNetworkId;
 use crate::VirtualNetworkName;
 use crate::VirtualNetworkProperties;
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::collections::HashMap;
-use std::sync::Arc;
 
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 pub struct VirtualNetwork {
     pub id: VirtualNetworkId,
     pub name: VirtualNetworkName,
@@ -24,5 +24,3 @@ impl VirtualNetwork {
 
 cloud_terrastodon_registry::register_thing!(VirtualNetwork);
 cloud_terrastodon_registry::register_arbitrary!(VirtualNetwork);
-cloud_terrastodon_registry::register_arbitrary!(Vec<VirtualNetwork>);
-cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<VirtualNetwork>>);

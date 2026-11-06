@@ -1,9 +1,9 @@
 use crate::AzureDevOpsDescriptor;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_types::ArbitraryJson;
-use std::sync::Arc;
+use facet::Facet;
 
-#[derive(Debug, facet::Facet, Arbitrary)]
+#[derive(Debug, Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsGroup {
     pub description: String,
@@ -31,5 +31,3 @@ pub struct AzureDevOpsGroup {
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsGroup);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsGroup);
-cloud_terrastodon_registry::register_arbitrary!(Vec<AzureDevOpsGroup>);
-cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<AzureDevOpsGroup>>);

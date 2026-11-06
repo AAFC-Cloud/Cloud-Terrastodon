@@ -17,6 +17,7 @@ use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_rest::RestRequest;
+use facet::Facet;
 use reqwest::Method;
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -24,7 +25,7 @@ use std::ops::Deref;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[facet(traits(Clone))]
 pub struct AzureDevOpsGroupMembersListRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
@@ -144,7 +145,7 @@ impl<'a> ExecutableRequest for AzureDevOpsGroupMembersListRequest<'a> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Facet)]
 #[facet(transparent)]
 pub struct AzureDevOpsGroupMembersV2Response(pub ArbitraryJson);
 
@@ -163,7 +164,7 @@ impl Deref for AzureDevOpsGroupMembersV2Response {
     }
 }
 
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[facet(traits(Clone))]
 pub struct AzureDevOpsGroupMembersV2Request<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
@@ -247,7 +248,6 @@ cloud_terrastodon_registry_execution::register_executable_request!(
 );
 cloud_terrastodon_registry::register_thing!(AzureDevOpsGroupMembersV2Response);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsGroupMembersV2Response);
-cloud_terrastodon_registry::register_arbitrary!(Arc<AzureDevOpsGroupMembersV2Response>);
 cloud_terrastodon_registry::register_thing!(AzureDevOpsGroupMembersV2Request<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsGroupMembersV2Request<'static>);
 cloud_terrastodon_registry_execution::register_executable_request!(
@@ -270,6 +270,7 @@ mod test {
     use cloud_terrastodon_azure_types::ArbitraryJson;
     use cloud_terrastodon_command::CancellationToken;
     use eyre::bail;
+    use facet::Facet;
     use std::collections::HashMap;
     use std::str::FromStr;
 
@@ -348,7 +349,7 @@ mod test {
     pub async fn it_works_v2() -> eyre::Result<()> {
         CancellationToken::new()
             .with_async_scope(|cancellation| async move {
-                #[derive(facet::Facet)]
+                #[derive(Facet)]
                 struct MembershipsResponse {
                     #[facet(default)]
                     value: Option<ArbitraryJson>,

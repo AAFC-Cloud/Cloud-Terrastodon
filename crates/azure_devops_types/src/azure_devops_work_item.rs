@@ -4,12 +4,13 @@ use crate::AzureDevOpsWorkItemRelation;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_types::ArbitraryJson;
 use eyre::Result;
+use facet::Facet;
 use std::collections::BTreeMap;
 use url::Url;
 
 /// Full item response. None for relations means the response was not expanded.
 /// https://learn.microsoft.com/rest/api/azure/devops/wit/work-items/get-work-item
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsWorkItem {
     pub id: AzureDevOpsWorkItemId,
@@ -54,4 +55,3 @@ impl AzureDevOpsWorkItem {
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsWorkItem);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsWorkItem);
-cloud_terrastodon_registry::register_arbitrary!(Vec<AzureDevOpsWorkItem>);

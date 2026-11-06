@@ -1,17 +1,17 @@
 use crate::AzureDevOpsDescriptor;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_types::ArbitraryJson;
-use std::sync::Arc;
+use facet::Facet;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsTeamMember {
     pub identity: AzureDevOpsTeamMemberIdentity,
     pub is_team_admin: Option<bool>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, facet::Facet, Arbitrary)]
+#[derive(Debug, Clone, PartialEq, Eq, Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsTeamMemberIdentity {
     pub descriptor: AzureDevOpsDescriptor,
@@ -30,5 +30,3 @@ pub struct AzureDevOpsTeamMemberIdentity {
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsTeamMember);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsTeamMember);
-cloud_terrastodon_registry::register_arbitrary!(Vec<AzureDevOpsTeamMember>);
-cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<AzureDevOpsTeamMember>>);

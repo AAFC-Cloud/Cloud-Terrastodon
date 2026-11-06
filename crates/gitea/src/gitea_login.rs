@@ -77,7 +77,6 @@ fn is_default_flag(value: &str) -> bool {
 
 cloud_terrastodon_registry::register_thing!(GiteaLogin);
 cloud_terrastodon_registry::register_arbitrary!(GiteaLogin);
-cloud_terrastodon_registry::register_arbitrary!(Vec<GiteaLogin>);
 
 #[cfg(test)]
 mod tests {

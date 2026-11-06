@@ -9,15 +9,15 @@ use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
-use std::sync::Arc;
+use facet::Facet;
 
-#[derive(Debug, Eq, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Arbitrary, Facet)]
 #[repr(C)]
 pub enum AzureDevOpsProjectState {
     #[facet(rename = "wellFormed")]
     WellFormed,
 }
-#[derive(Debug, Eq, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Arbitrary, Facet)]
 #[repr(C)]
 pub enum AzureDevOpsProjectVisibility {
     #[facet(rename = "private")]
@@ -27,7 +27,7 @@ pub enum AzureDevOpsProjectVisibility {
     Public,
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsProject {
     pub abbreviation: Option<String>,
@@ -61,9 +61,6 @@ cloud_terrastodon_registry::register_thing!(AzureDevOpsProjectVisibility);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsProjectVisibility);
 cloud_terrastodon_registry::register_thing!(AzureDevOpsProject);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsProject);
-cloud_terrastodon_registry::register_arbitrary!(Vec<AzureDevOpsProject>);
-cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<AzureDevOpsProject>>);
-cloud_terrastodon_registry::register_arbitrary!(Arc<Vec<Arc<AzureDevOpsProject>>>);
 cloud_terrastodon_registry::register_from!(
     AzureDevOpsProject => AzureDevOpsProjectArgument<'static>,
     associated = REGISTERED_INTO_PROJECT_ARGUMENT
