@@ -141,11 +141,11 @@ mod test {
                 let org_url = get_default_organization_url(&cancellation).await?;
                 let projects = fetch_all_azure_devops_projects(
                     &org_url,
-                    &azure_devops_auth_context,
+                    azure_devops_auth_context.selection()?,
                     &executor,
                 )
                 .await?;
-                for project in projects {
+                for project in projects.iter() {
                     let plans = crate::fetch_azure_devops_test_plans(
                         &org_url,
                         project.as_ref(),

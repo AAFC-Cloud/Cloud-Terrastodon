@@ -46,7 +46,11 @@ impl AzureEntraRoleAssignmentBrowseArgs {
         info!(tenant_id = %tenant_auth_context.tenant_id, "Fetching Entra role assignments, definitions, and principals");
         let (rbac, principals) = try_join!(
             fetch_all_unified_role_definitions_and_assignments(&tenant_auth_context, executor),
-            fetch_all_principals(&tenant_auth_context, executor)
+            fetch_all_principals(
+                tenant_auth_context.tenant_id,
+                tenant_auth_context.auth_source()?,
+                executor
+            )
         )?;
 
         let mut choices = rbac

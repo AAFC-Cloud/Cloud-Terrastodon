@@ -7,7 +7,7 @@ use arbitrary::Arbitrary;
 use facet::Facet;
 use facet_json::RawJson;
 
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[repr(C)]
 pub enum AllOr<T> {
     All,
@@ -17,7 +17,7 @@ pub enum AllOr<T> {
     Some(T),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Facet)]
 #[facet(transparent)]
 pub struct AllOrVecProxy(Vec<RawJson<'static>>);
 
@@ -96,6 +96,7 @@ where
 #[cfg(test)]
 mod test {
     use super::AllOr;
+    use facet::Facet;
 
     #[test]
     pub fn it_works() -> eyre::Result<()> {
@@ -119,7 +120,7 @@ mod test {
 
     #[test]
     fn json_matches_serde_through_proxy_field() -> eyre::Result<()> {
-        #[derive(Debug, PartialEq, facet::Facet)]
+        #[derive(Debug, PartialEq, Facet)]
         struct Fixture {
             #[facet(proxy = crate::AllOrVecProxy)]
             values: Vec<AllOr<String>>,

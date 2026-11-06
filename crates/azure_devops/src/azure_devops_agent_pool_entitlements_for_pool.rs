@@ -34,11 +34,14 @@ pub fn fetch_azure_devops_agent_pool_entitlements_for_pool<'a>(
 impl CacheInvalidatableRequest for AzureDevOpsAgentPoolEntitlementListForPoolRequest<'_> {
     fn invalidate<'a>(&'a self, executor: &'a CloudTerrastodonExecutor) -> ExecutionFuture<'a, ()> {
         Box::pin(async move {
-            let projects =
-                fetch_all_azure_devops_projects(self.org_url, self.auth_context.as_ref(), executor)
-                    .with_invalidation(true)
-                    .await?;
-            for project in projects {
+            let projects = fetch_all_azure_devops_projects(
+                self.org_url,
+                self.auth_context.selection()?,
+                executor,
+            )
+            .with_invalidation(true)
+            .await?;
+            for project in projects.iter() {
                 executor.cancellation().bail_if_cancelled()?;
                 fetch_azure_devops_agent_pool_entitlements_for_project(
                     self.org_url,
@@ -66,12 +69,12 @@ impl<'a> ExecutableRequest for AzureDevOpsAgentPoolEntitlementListForPoolRequest
         Box::pin(async move {
             let projects = fetch_all_azure_devops_projects(
                 self.org_url,
-                self.auth_context.as_ref(),
+                self.auth_context.selection()?,
                 &executor,
             )
             .await?;
             let mut all_entitlements = Vec::new();
-            for project in projects {
+            for project in projects.iter() {
                 executor.cancellation().bail_if_cancelled()?;
                 let entitlements = fetch_azure_devops_agent_pool_entitlements_for_project(
                     self.org_url,

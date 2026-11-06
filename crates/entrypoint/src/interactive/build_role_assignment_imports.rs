@@ -22,7 +22,12 @@ pub async fn build_role_assignment_imports(
 ) -> Result<()> {
     let cancellation = executor.cancellation();
     info!("Fetching role assignments");
-    let role_assignments = fetch_all_role_assignments(auth_context, executor).await?;
+    let role_assignments = fetch_all_role_assignments(
+        auth_context.tenant_id,
+        auth_context.auth_source()?,
+        executor,
+    )
+    .await?;
 
     info!("Building import blocks");
     let mut used_subscriptions = HashSet::new();
@@ -34,7 +39,7 @@ pub async fn build_role_assignment_imports(
         .map(|sub| (sub.id, sub))
         .collect::<HashMap<_, _>>();
 
-    for role_assignment in role_assignments {
+    for role_assignment in role_assignments.iter() {
         if !seen_ids.insert(role_assignment.id.clone()) {
             continue; // already did this one
         }

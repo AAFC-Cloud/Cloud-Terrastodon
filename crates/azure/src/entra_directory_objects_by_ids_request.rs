@@ -115,7 +115,8 @@ impl ExecutableRequest for EntraDirectoryObjectsByIdsRequest<'_> {
             let cache_key = self.cache_key()?;
             let mut batch =
                 MicrosoftGraphBatchRequest::<EntraDirectoryObjectsByIdsRequestBody>::new(
-                    self.auth_context.as_ref(),
+                    self.auth_context.tenant_id,
+                    self.auth_context.auth_source()?,
                 )
                 .cancellation_safe();
             batch.cache(cache_key);

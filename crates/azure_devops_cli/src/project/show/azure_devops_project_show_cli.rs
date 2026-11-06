@@ -36,12 +36,15 @@ impl AzureDevOpsProjectShowArgs {
             .bind_auth_context(auth_context, cancellation)
             .await?;
         let executor = &azure_devops_auth_context.bind_executor(executor)?;
-        let projects =
-            fetch_all_azure_devops_projects(&self.org, &azure_devops_auth_context, executor)
-                .await?;
+        let projects = fetch_all_azure_devops_projects(
+            &self.org,
+            azure_devops_auth_context.selection()?,
+            executor,
+        )
+        .await?;
 
         // Find the project matching the resolved ID or name.
-        let maybe = projects.into_iter().find(|p| self.project.matches(p));
+        let maybe = projects.iter().find(|p| self.project.matches(p));
 
         if let Some(project) = maybe {
             facet_json::to_writer_std_pretty(stdout(), &project)

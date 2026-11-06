@@ -1,12 +1,13 @@
 use crate::AddressPrefix;
+use facet::Facet;
 
-#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Facet)]
 #[facet(proxy = AddressPrefixesProxy)]
 pub struct AddressPrefixes {
     pub address_prefixes: Vec<AddressPrefix>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Facet)]
 pub struct AddressPrefixesProxy {
     #[facet(rename = "addressPrefix", default)]
     single: Option<AddressPrefix>,

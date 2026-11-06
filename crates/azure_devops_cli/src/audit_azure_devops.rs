@@ -49,11 +49,16 @@ pub async fn audit_azure_devops(
         executor,
     )
     .await?;
-    let users_by_principal_name = fetch_all_entra_users(auth_context, executor)
-        .await?
-        .into_iter()
-        .map(|user| (user.user_principal_name.to_lowercase(), user))
-        .collect::<HashMap<_, _>>();
+    let users_by_principal_name = fetch_all_entra_users(
+        auth_context.tenant_id,
+        auth_context.auth_source()?,
+        executor,
+    )
+    .await?
+    .iter()
+    .cloned()
+    .map(|user| (user.user_principal_name.to_lowercase(), user))
+    .collect::<HashMap<_, _>>();
 
     // Emit a warning for anyone who has not recently accessed azure devops and have greater than stakeholder license
     for entitlement in entitlements
@@ -150,7 +155,8 @@ pub async fn audit_azure_devops(
     );
 
     let projects =
-        fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context, executor).await?;
+        fetch_all_azure_devops_projects(&org_url, azure_devops_auth_context.selection()?, executor)
+            .await?;
     let project_test_plans = projects
         .iter()
         .map(|project| {
@@ -305,7 +311,7 @@ pub async fn audit_azure_devops(
         let mut test_plan_count = 0;
         let mut test_suite_count = 0;
 
-        for project in &projects {
+        for project in projects.iter() {
             // Get the groups for the project
             let Some(project_groups) = groups_for_projects.get(&project.id) else {
                 continue;

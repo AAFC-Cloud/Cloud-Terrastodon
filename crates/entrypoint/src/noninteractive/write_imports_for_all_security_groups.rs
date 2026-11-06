@@ -14,11 +14,16 @@ pub async fn write_imports_for_all_security_groups(
 ) -> Result<()> {
     let cancellation = executor.cancellation();
     info!("Fetching security groups");
-    let security_groups = fetch_all_security_groups(auth_context, executor).await?;
+    let security_groups = fetch_all_security_groups(
+        auth_context.tenant_id,
+        auth_context.auth_source()?,
+        executor,
+    )
+    .await?;
 
     info!("Building import blocks");
     let mut imports: Vec<HclImportBlock> = Vec::with_capacity(security_groups.len());
-    for sg in security_groups {
+    for sg in security_groups.iter() {
         imports.push(sg.as_ref().into())
     }
 

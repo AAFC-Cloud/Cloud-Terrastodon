@@ -62,18 +62,32 @@ impl AzureRoleAssignmentCreateArgs {
         // Resolve role definitions
         let role_defs = if let Some(role_arg) = self.role_definition {
             // If caller provided an argument, fetch list to resolve names if needed
-            let all = fetch_all_role_definitions(&tenant_auth_context, executor).await?;
-            let matched: Vec<_> = all.into_iter().filter(|r| role_arg.matches(r)).collect();
+            let all = fetch_all_role_definitions(
+                tenant_auth_context.tenant_id,
+                tenant_auth_context.auth_source()?,
+                executor,
+            )
+            .await?;
+            let matched: Vec<_> = all
+                .iter()
+                .filter(|r| role_arg.matches(r))
+                .cloned()
+                .collect();
             if matched.is_empty() {
                 eyre::bail!("No role definitions matched '{role_arg}'");
             }
             matched
         } else {
             info!("Fetching role definitions for interactive pick");
-            let all = fetch_all_role_definitions(&tenant_auth_context, executor).await?;
+            let all = fetch_all_role_definitions(
+                tenant_auth_context.tenant_id,
+                tenant_auth_context.auth_source()?,
+                executor,
+            )
+            .await?;
             PickerTui::<_>::new()
                 .set_header("Roles to assign")
-                .pick_many(all.into_iter().map(|r| Choice {
+                .pick_many(all.iter().cloned().map(|r| Choice {
                     key: r.display_name.clone(),
                     value: r,
                 }))
@@ -82,11 +96,16 @@ impl AzureRoleAssignmentCreateArgs {
 
         // Resolve principals
         let principals = if let Some(principal_arg) = self.principal {
-            let fetched = fetch_all_principals(&tenant_auth_context, executor).await?;
+            let fetched = fetch_all_principals(
+                tenant_auth_context.tenant_id,
+                tenant_auth_context.auth_source()?,
+                executor,
+            )
+            .await?;
             let matched: Vec<_> = fetched
-                .0
-                .into_values()
-                .filter(|p| principal_arg.matches(p))
+                .values()
+                .filter(|p| principal_arg.matches(*p))
+                .cloned()
                 .collect();
             if matched.is_empty() {
                 eyre::bail!("No principals matched '{principal_arg}'");
@@ -94,7 +113,12 @@ impl AzureRoleAssignmentCreateArgs {
             matched
         } else {
             info!("Fetching principals for interactive pick");
-            let fetched = fetch_all_principals(&tenant_auth_context, executor).await?;
+            let fetched = fetch_all_principals(
+                tenant_auth_context.tenant_id,
+                tenant_auth_context.auth_source()?,
+                executor,
+            )
+            .await?;
             PickerTui::<_>::new()
                 .set_header("Principals to assign")
                 .pick_many(fetched.values().map(|u| Choice {

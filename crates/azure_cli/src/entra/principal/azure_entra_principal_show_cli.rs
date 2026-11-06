@@ -37,7 +37,13 @@ impl AzureEntraPrincipalShowArgs {
         info!(needle = %self.principal, tenant_id = %tenant_auth_context.tenant_id, "Fetching Entra principal");
 
         if let Some(principal_id) = self.principal.as_id() {
-            let principal = fetch_principal(*principal_id, &tenant_auth_context, executor).await?;
+            let principal = fetch_principal(
+                *principal_id,
+                tenant_auth_context.tenant_id,
+                tenant_auth_context.auth_source()?,
+                executor,
+            )
+            .await?;
             let stdout = std::io::stdout();
             let mut handle = stdout.lock();
             facet_json::to_writer_std_pretty(&mut handle, &principal)
@@ -46,7 +52,12 @@ impl AzureEntraPrincipalShowArgs {
             return Ok(());
         }
 
-        let principals = fetch_all_principals(&tenant_auth_context, executor).await?;
+        let principals = fetch_all_principals(
+            tenant_auth_context.tenant_id,
+            tenant_auth_context.auth_source()?,
+            executor,
+        )
+        .await?;
         let mut matches = principals
             .values()
             .filter(|principal| self.principal.matches(*principal))

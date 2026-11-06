@@ -14,10 +14,11 @@ pub async fn browse_azure_devops_project_teams(
 ) -> Result<()> {
     let cancellation = executor.cancellation();
     let org_url = get_default_organization_url(cancellation).await?;
-    let projects = fetch_all_azure_devops_projects(&org_url, auth_context, executor).await?;
+    let projects =
+        fetch_all_azure_devops_projects(&org_url, auth_context.selection()?, executor).await?;
     let project = PickerTui::<_>::new()
         .set_header("Azure DevOps Projects")
-        .pick_one(projects.into_iter().map(|project| Choice {
+        .pick_one(projects.iter().cloned().map(|project| Choice {
             key: format!(
                 "{} {:64} - {}",
                 project.id,

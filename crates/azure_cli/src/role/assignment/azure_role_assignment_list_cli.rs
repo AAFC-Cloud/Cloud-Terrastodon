@@ -28,7 +28,12 @@ impl AzureRoleAssignmentListArgs {
             .await?;
         let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
         info!("Fetching Azure role assignments");
-        let role_assignments = fetch_all_role_assignments(&tenant_auth_context, executor).await?;
+        let role_assignments = fetch_all_role_assignments(
+            tenant_auth_context.tenant_id,
+            tenant_auth_context.auth_source()?,
+            executor,
+        )
+        .await?;
         info!(
             count = role_assignments.len(),
             "Fetched Azure role assignments"

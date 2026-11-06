@@ -36,8 +36,12 @@ impl AzureRoleDefinitionFindArgs {
             .bind_auth_context(auth_context, cancellation)
             .await?;
         let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
-        let rbac =
-            fetch_all_role_definitions_and_assignments(&tenant_auth_context, executor).await?;
+        let rbac = fetch_all_role_definitions_and_assignments(
+            tenant_auth_context.tenant_id,
+            tenant_auth_context.auth_source()?,
+            executor,
+        )
+        .await?;
 
         let fallback_chain = build_fallback_chain(&self.action);
         let literal_match_counts = fallback_chain

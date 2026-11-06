@@ -83,7 +83,8 @@ policyResources
             ]))?,
             valid_for: Duration::from_secs(15 * 60),
         }),
-        auth_context,
+        auth_context.tenant_id,
+        auth_context.auth_source()?,
     )
     .collect_all::<PolicyNoncomplianceReferenceRow>(executor)
     .await?;
@@ -144,7 +145,8 @@ policyResources
             ]))?,
             valid_for: Duration::from_secs(15 * 60),
         }),
-        auth_context,
+        auth_context.tenant_id,
+        auth_context.auth_source()?,
     )
     .collect_all::<PolicyNoncompliantResourceRow>(executor)
     .await?;

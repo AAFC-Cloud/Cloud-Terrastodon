@@ -28,10 +28,15 @@ impl AzureEntraSpListArgs {
             .await?;
         let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
         info!("Fetching service principals");
-        let sps = fetch_all_service_principals(&tenant_auth_context, executor).await?;
+        let sps = fetch_all_service_principals(
+            tenant_auth_context.tenant_id,
+            tenant_auth_context.auth_source()?,
+            executor,
+        )
+        .await?;
         let stdout = std::io::stdout();
         let mut out = stdout.lock();
-        for sp in sps {
+        for sp in sps.iter() {
             writeln!(
                 out,
                 "{} {:64} {} {}",

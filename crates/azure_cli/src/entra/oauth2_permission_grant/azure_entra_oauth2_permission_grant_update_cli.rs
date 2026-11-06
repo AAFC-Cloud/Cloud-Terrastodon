@@ -84,7 +84,12 @@ impl AzureEntraOAuth2PermissionGrantUpdateArgs {
                 let principal = self
                     .principal
                     .wrap_err("--principal is required when using --preset")?;
-                let principals = fetch_all_principals(&tenant_auth_context, executor).await?;
+                let principals = fetch_all_principals(
+                    tenant_auth_context.tenant_id,
+                    tenant_auth_context.auth_source()?,
+                    executor,
+                )
+                .await?;
                 let principal = principal.resolve(&principals).wrap_err_with(|| {
                     format!(
                         "Could not resolve principal '{}' in tenant {tenant_id}",

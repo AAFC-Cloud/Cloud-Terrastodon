@@ -37,12 +37,15 @@ impl AzureDevOpsRepoListArgs {
             .bind_auth_context(auth_context, cancellation)
             .await?;
         let executor = &azure_devops_auth_context.bind_executor(executor)?;
-        let projects =
-            fetch_all_azure_devops_projects(&self.org, &azure_devops_auth_context, executor)
-                .await?;
+        let projects = fetch_all_azure_devops_projects(
+            &self.org,
+            azure_devops_auth_context.selection()?,
+            executor,
+        )
+        .await?;
 
         let Some(project) = projects
-            .into_iter()
+            .iter()
             .find(|project| self.project.matches(project))
         else {
             eyre::bail!("No project found matching '{}'.", self.project);

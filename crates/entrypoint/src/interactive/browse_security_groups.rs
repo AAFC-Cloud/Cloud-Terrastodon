@@ -118,8 +118,16 @@ pub async fn browse_security_groups(
                     security_groups.len()
                 );
                 let (role_assignments, role_definitions) = try_join!(
-                    fetch_all_role_assignments(auth_context, executor),
-                    fetch_all_role_definitions(auth_context, executor),
+                    fetch_all_role_assignments(
+                        auth_context.tenant_id,
+                        auth_context.auth_source()?,
+                        executor
+                    ),
+                    fetch_all_role_definitions(
+                        auth_context.tenant_id,
+                        auth_context.auth_source()?,
+                        executor
+                    ),
                 )?;
                 let role_assignments_by_principal: HashMap<
                     &EntraPrincipalId,

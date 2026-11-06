@@ -12,7 +12,13 @@ pub async fn dump_security_groups_as_json(
     executor: &CloudTerrastodonExecutor,
 ) -> eyre::Result<()> {
     info!("Fetching security_groups");
-    let mut security_groups = fetch_all_security_groups(auth_context, executor).await?;
+    let security_groups = fetch_all_security_groups(
+        auth_context.tenant_id,
+        auth_context.auth_source()?,
+        executor,
+    )
+    .await?;
+    let mut security_groups = security_groups.iter().collect::<Vec<_>>();
     security_groups.sort_by(|x, y| x.display_name.cmp(&y.display_name));
     let content =
         facet_json::to_string_pretty(&security_groups).map_err(|error| eyre::eyre!("{error:?}"))?;

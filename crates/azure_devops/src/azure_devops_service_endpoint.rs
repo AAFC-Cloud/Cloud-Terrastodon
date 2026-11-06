@@ -169,7 +169,7 @@ mod test {
                 } else {
                     let projects = fetch_all_azure_devops_projects(
                         &org_url,
-                        &azure_devops_auth_context,
+                        azure_devops_auth_context.selection()?,
                         &executor,
                     )
                     .await?;

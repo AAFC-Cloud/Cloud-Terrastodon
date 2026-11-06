@@ -2,11 +2,10 @@ use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::EntraUserListRequest;
-use cloud_terrastodon_azure::MicrosoftGraphProgress;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionEvent;
 use eyre::Result;
-use std::borrow::Cow;
 use std::io::Write;
 use tracing::info;
 
@@ -32,19 +31,21 @@ impl AzureEntraUserListArgs {
             .await?;
         let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
         let users = EntraUserListRequest {
-            auth_context: Cow::Borrowed(&tenant_auth_context),
-            progress_hook: None,
+            tenant_id: tenant_auth_context.tenant_id,
+            auth_source: tenant_auth_context.auth_source()?,
         }
-        .progress_hook(|progress: MicrosoftGraphProgress| {
-            info!(
-                total = ?progress.total,
-                accumulated = progress.accumulated,
-                received_this_page = progress.received_this_page,
-                time_remaining = %humantime::format_duration(progress.time_remaining),
-                "Fetched Entra users page"
-            );
-        })
         .execute(executor)
+        .observe(|event| {
+            if let ExecutionEvent::Progress(progress) = event {
+                info!(
+                    total = ?progress.total,
+                    accumulated = progress.accumulated,
+                    received_this_page = progress.received_this_page,
+                    time_remaining = %humantime::format_duration(progress.time_remaining),
+                    "Fetched Entra users page"
+                );
+            }
+        })
         .await?;
 
         let stdout = std::io::stdout();

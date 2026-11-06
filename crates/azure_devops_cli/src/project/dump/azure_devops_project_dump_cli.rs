@@ -61,13 +61,16 @@ impl AzureDevOpsProjectDumpArgs {
             .bind_auth_context(auth_context, cancellation)
             .await?;
         let executor = &azure_devops_auth_context.bind_executor(executor)?;
-        let projects =
-            fetch_all_azure_devops_projects(&self.org, &azure_devops_auth_context, executor)
-                .into_future()
-                .instrument(span.clone())
-                .await?;
+        let projects = fetch_all_azure_devops_projects(
+            &self.org,
+            azure_devops_auth_context.selection()?,
+            executor,
+        )
+        .into_future()
+        .instrument(span.clone())
+        .await?;
 
-        let Some(project) = projects.into_iter().find(|p| self.project.matches(p)) else {
+        let Some(project) = projects.iter().find(|p| self.project.matches(p)).cloned() else {
             bail!("No project found matching '{}'.", self.project);
         };
 

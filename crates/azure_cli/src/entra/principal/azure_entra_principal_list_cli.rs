@@ -28,7 +28,12 @@ impl AzureEntraPrincipalListArgs {
             .await?;
         let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
         info!(tenant_id = %tenant_auth_context.tenant_id, "Fetching Entra principals");
-        let principals = fetch_all_principals(&tenant_auth_context, executor).await?;
+        let principals = fetch_all_principals(
+            tenant_auth_context.tenant_id,
+            tenant_auth_context.auth_source()?,
+            executor,
+        )
+        .await?;
         let mut principals = principals.values().collect::<Vec<_>>();
         principals.sort_unstable_by_key(|principal| principal.id().to_string());
 

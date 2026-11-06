@@ -131,13 +131,13 @@ mod test {
                 let executor =
                     crate::test_executor::test_executor(&azure_devops_auth_context, &cancellation)?;
                 let org_url = get_default_organization_url(&cancellation).await?;
-                let mut projects = fetch_all_azure_devops_projects(
+                let projects = fetch_all_azure_devops_projects(
                     &org_url,
-                    &azure_devops_auth_context,
+                    azure_devops_auth_context.selection()?,
                     &executor,
                 )
                 .await?;
-                while let Some(project) = projects.pop() {
+                for project in projects.iter().rev() {
                     // get queries for project
                     let queries = fetch_queries_for_project(
                         &org_url,

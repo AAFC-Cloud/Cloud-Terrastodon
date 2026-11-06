@@ -23,12 +23,17 @@ pub async fn bulk_user_id_lookup(
         }
     }
 
-    let users = fetch_all_entra_users(auth_context, executor)
-        .await?
-        .into_iter()
-        .filter(|x| user_ids.contains(&x.id))
-        .map(|x| (x.id, x))
-        .collect::<HashMap<_, _>>();
+    let users = fetch_all_entra_users(
+        auth_context.tenant_id,
+        auth_context.auth_source()?,
+        executor,
+    )
+    .await?
+    .iter()
+    .filter(|x| user_ids.contains(&x.id))
+    .cloned()
+    .map(|x| (x.id, x))
+    .collect::<HashMap<_, _>>();
 
     // we want to print in the order which the IDs were provided
     for user_id in user_ids {

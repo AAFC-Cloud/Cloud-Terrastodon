@@ -29,12 +29,17 @@ pub async fn write_imports_for_all_role_assignments(
         .into_iter()
         .map(|sub| (sub.id, sub))
         .collect::<HashMap<_, _>>();
-    let role_assignments = fetch_all_role_assignments(auth_context, executor).await?;
+    let role_assignments = fetch_all_role_assignments(
+        auth_context.tenant_id,
+        auth_context.auth_source()?,
+        executor,
+    )
+    .await?;
 
     info!("Building import blocks");
     let mut providers: HashSet<HclProviderBlock> = HashSet::new();
     let mut imports: Vec<HclImportBlock> = Vec::with_capacity(role_assignments.len());
-    for ra in role_assignments {
+    for ra in role_assignments.iter() {
         let subscription_id = match &ra.id {
             RoleAssignmentId::Unscoped(_) => None,
             RoleAssignmentId::PortalScoped(_) => None,

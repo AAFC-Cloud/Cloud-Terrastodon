@@ -32,7 +32,13 @@ impl AzureEntraUserSearchArgs {
             .await?;
         let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
         info!(tenant_id = %tenant_auth_context.tenant_id, search_term = %self.search_term, "Searching Entra users");
-        let users = search_entra_users(self.search_term, &tenant_auth_context, executor).await?;
+        let users = search_entra_users(
+            self.search_term,
+            tenant_auth_context.tenant_id,
+            tenant_auth_context.auth_source()?,
+            executor,
+        )
+        .await?;
 
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();

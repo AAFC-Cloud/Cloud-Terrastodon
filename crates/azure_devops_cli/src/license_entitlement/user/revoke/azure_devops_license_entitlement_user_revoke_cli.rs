@@ -88,7 +88,8 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
             // user once, rather than interpreting an unavailable UPN as absence.
             let entra_user_id = fetch_entra_user(
                 EntraUserArgument::try_from(user_principal_name.as_str())?,
-                &tenant_auth_context,
+                tenant_auth_context.tenant_id,
+                tenant_auth_context.auth_source()?,
                 executor,
             )
             .with_invalidation(true)

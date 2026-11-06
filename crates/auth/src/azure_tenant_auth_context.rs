@@ -40,6 +40,15 @@ impl<'a> arbitrary::Arbitrary<'a> for AzureTenantAuthContext {
 }
 
 impl AzureTenantAuthContext {
+    /// Extract the resolved, non-secret bearer source for request construction.
+    pub fn auth_source(&self) -> Result<AzureBearerAuthSource> {
+        AzureBearerAuthSource::try_from(
+            self.auth_context
+                .source()
+                .ok_or_else(|| eyre::eyre!("authentication source is unresolved"))?,
+        )
+    }
+
     pub fn new(auth_context: &AuthContext, tenant_id: AzureTenantId) -> Result<Self> {
         let source = auth_context.source().ok_or_else(|| {
             eyre::eyre!("the placeholder authentication context cannot be bound to an Azure tenant")

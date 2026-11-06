@@ -34,9 +34,12 @@ impl AzureDevOpsProjectListArgs {
             .bind_auth_context(auth_context, cancellation)
             .await?;
         let executor = &azure_devops_auth_context.bind_executor(executor)?;
-        let projects =
-            fetch_all_azure_devops_projects(&self.org, &azure_devops_auth_context, executor)
-                .await?;
+        let projects = fetch_all_azure_devops_projects(
+            &self.org,
+            azure_devops_auth_context.selection()?,
+            executor,
+        )
+        .await?;
         let mut out = stdout().lock();
         facet_json::to_writer_std_pretty(&mut out, &projects)
             .map_err(|error| eyre::eyre!("{error:?}"))?;

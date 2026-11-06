@@ -94,7 +94,13 @@ impl AzureEntraGroupShowArgs {
             .await?;
         let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
         info!(count = ids.len(), tenant_id = %tenant_auth_context.tenant_id, "Fetching Entra groups");
-        let groups = fetch_groups_by_id(ids.clone(), &tenant_auth_context, executor).await?;
+        let groups = fetch_groups_by_id(
+            ids.clone(),
+            tenant_auth_context.tenant_id,
+            tenant_auth_context.auth_source()?,
+            executor,
+        )
+        .await?;
 
         // Map by id for fast lookup
         let mut map: HashMap<EntraGroupId, Arc<EntraGroup>> =
@@ -122,7 +128,7 @@ impl AzureEntraGroupShowArgs {
                 group_id: EntraGroupId,
                 owners: Vec<Arc<EntraDirectoryObject>>,
             },
-            Rbac(RoleDefinitionsAndAssignments),
+            Rbac(Arc<RoleDefinitionsAndAssignments>),
         }
         let mut work =
             ParallelFallibleWorkQueue::new("group members, owners, and role assignments", 8);
@@ -146,8 +152,12 @@ impl AzureEntraGroupShowArgs {
         let auth_context = tenant_auth_context;
         let rbac_executor = executor.clone();
         work.enqueue(async move {
-            let rbac =
-                fetch_all_role_definitions_and_assignments(&auth_context, &rbac_executor).await?;
+            let rbac = fetch_all_role_definitions_and_assignments(
+                auth_context.tenant_id,
+                auth_context.auth_source()?,
+                &rbac_executor,
+            )
+            .await?;
             eyre::Ok(Resp::Rbac(rbac))
         });
         let work_results = work.join().await?;

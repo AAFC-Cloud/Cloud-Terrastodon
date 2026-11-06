@@ -25,8 +25,16 @@ pub async fn audit_azure(
     let total_cost_waste_cad = 0.00;
     let mut message_counts: HashMap<&'static str, usize> = HashMap::new();
     let (rbac, principals, resources) = try_join!(
-        fetch_all_role_definitions_and_assignments(auth_context, executor),
-        fetch_all_principals(auth_context, executor),
+        fetch_all_role_definitions_and_assignments(
+            auth_context.tenant_id,
+            auth_context.auth_source()?,
+            executor
+        ),
+        fetch_all_principals(
+            auth_context.tenant_id,
+            auth_context.auth_source()?,
+            executor
+        ),
         fetch_all_resources(auth_context, executor)
     )?;
     let elapsed = start.elapsed();

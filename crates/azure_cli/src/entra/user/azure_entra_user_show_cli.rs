@@ -34,7 +34,13 @@ impl AzureEntraUserShowArgs {
         let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
         info!(needle = %self.user, tenant_id = %tenant_auth_context.tenant_id, "Fetching user");
 
-        let user = fetch_entra_user(self.user, &tenant_auth_context, executor).await?;
+        let user = fetch_entra_user(
+            self.user,
+            tenant_auth_context.tenant_id,
+            tenant_auth_context.auth_source()?,
+            executor,
+        )
+        .await?;
 
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();

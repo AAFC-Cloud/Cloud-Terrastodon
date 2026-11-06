@@ -43,14 +43,17 @@ impl AzureDevOpsAgentPoolSummaryArgs {
         let executor = &azure_devops_auth_context.bind_executor(executor)?;
         let pools =
             fetch_azure_devops_agent_pools(&self.org, &azure_devops_auth_context, executor).await?;
-        let projects =
-            fetch_all_azure_devops_projects(&self.org, &azure_devops_auth_context, executor)
-                .await?;
+        let projects = fetch_all_azure_devops_projects(
+            &self.org,
+            azure_devops_auth_context.selection()?,
+            executor,
+        )
+        .await?;
 
         // Map project id -> project name and record project ids
         let mut project_map: HashMap<_, String> = HashMap::with_capacity(projects.len());
         let mut project_ids: Vec<AzureDevOpsProjectId> = Vec::with_capacity(projects.len());
-        for p in projects {
+        for p in projects.iter() {
             project_ids.push(p.id.clone());
             project_map.insert(p.id.clone(), p.name.to_string());
         }

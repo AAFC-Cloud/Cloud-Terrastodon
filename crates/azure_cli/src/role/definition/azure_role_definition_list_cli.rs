@@ -36,9 +36,12 @@ impl AzureRoleDefinitionListArgs {
             .bind_auth_context(auth_context, cancellation)
             .await?;
         let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
-        let mut role_definitions =
-            fetch_all_role_definitions(&tenant_auth_context, executor).await?;
-        role_definitions.sort_by_key(|definition| definition.polp_score());
+        let role_definitions = fetch_all_role_definitions(
+            tenant_auth_context.tenant_id,
+            tenant_auth_context.auth_source()?,
+            executor,
+        )
+        .await?;
         let total_count = role_definitions.len();
 
         let Self {
@@ -48,8 +51,8 @@ impl AzureRoleDefinitionListArgs {
         } = self;
         let filters_active = !actions.is_empty() || !data_actions.is_empty();
 
-        let filtered_role_definitions: Vec<_> = role_definitions
-            .into_iter()
+        let mut filtered_role_definitions: Vec<_> = role_definitions
+            .iter()
             .filter(|role_definition| {
                 if !filters_active {
                     return true;
@@ -57,6 +60,7 @@ impl AzureRoleDefinitionListArgs {
                 role_definition.satisfies(&actions, &data_actions)
             })
             .collect();
+        filtered_role_definitions.sort_by_key(|definition| definition.polp_score());
         info!(
             total_count,
             filtered_count = filtered_role_definitions.len(),

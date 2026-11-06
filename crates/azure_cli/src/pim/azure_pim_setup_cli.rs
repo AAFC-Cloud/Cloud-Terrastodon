@@ -72,8 +72,12 @@ impl AzurePimSetupArgs {
 
         let application = find_pim_application(&tenant_auth_context, executor).await?;
         let graph_app_id: EntraApplicationClientId = MICROSOFT_GRAPH_APP_ID.parse()?;
-        let service_principals =
-            fetch_all_service_principals(&tenant_auth_context, executor).await?;
+        let service_principals = fetch_all_service_principals(
+            tenant_auth_context.tenant_id,
+            tenant_auth_context.auth_source()?,
+            executor,
+        )
+        .await?;
         let graph_service_principal = service_principals
             .iter()
             .find(|service_principal| service_principal.app_id == graph_app_id)

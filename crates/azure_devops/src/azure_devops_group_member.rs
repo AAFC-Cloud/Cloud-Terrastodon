@@ -312,9 +312,9 @@ mod test {
                 let executor = crate::test_executor::test_executor(&azure_devops_auth_context, &cancellation)?;
                 let org_url = get_default_organization_url(&cancellation).await?;
                 let projects =
-                    fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context, &executor)
+                    fetch_all_azure_devops_projects(&org_url, azure_devops_auth_context.selection()?, &executor)
                         .await?;
-                for project in &projects {
+                for project in projects.iter() {
                     let groups = fetch_azure_devops_groups_for_project(
                         &org_url,
                         &project.name,

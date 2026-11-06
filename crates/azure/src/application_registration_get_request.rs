@@ -84,7 +84,8 @@ impl ExecutableRequest for ApplicationRegistrationGetRequest<'_> {
             MicrosoftGraphHelper::new(
                 self.url(),
                 Some(self.cache_key()?),
-                self.auth_context.as_ref(),
+                self.auth_context.tenant_id,
+                self.auth_context.auth_source()?,
             )
             .fetch_one(&executor)
             .await

@@ -39,8 +39,13 @@ impl AzureEntraSpShowArgs {
         let needle = self.service_principal.trim();
 
         if let Ok(service_principal_id) = needle.parse::<EntraServicePrincipalObjectId>() {
-            match fetch_service_principal(service_principal_id, &tenant_auth_context, executor)
-                .await
+            match fetch_service_principal(
+                service_principal_id,
+                tenant_auth_context.tenant_id,
+                tenant_auth_context.auth_source()?,
+                executor,
+            )
+            .await
             {
                 Ok(service_principal) => {
                     let stdout = std::io::stdout();
@@ -59,15 +64,19 @@ impl AzureEntraSpShowArgs {
             }
         }
 
-        let service_principals =
-            fetch_all_service_principals(&tenant_auth_context, executor).await?;
+        let service_principals = fetch_all_service_principals(
+            tenant_auth_context.tenant_id,
+            tenant_auth_context.auth_source()?,
+            executor,
+        )
+        .await?;
         info!(
             count = service_principals.len(),
             "Fetched service principals"
         );
 
         let mut matches = service_principals
-            .into_iter()
+            .iter()
             .filter(|service_principal| matches_service_principal(service_principal, needle))
             .collect::<Vec<_>>();
 

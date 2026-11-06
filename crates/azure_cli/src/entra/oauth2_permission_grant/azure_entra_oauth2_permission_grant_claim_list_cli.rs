@@ -70,7 +70,14 @@ async fn resolve_service_principal_id(
     executor: &CloudTerrastodonExecutor,
 ) -> Result<EntraServicePrincipalObjectId> {
     if let Ok(service_principal_id) = needle.parse::<EntraServicePrincipalObjectId>() {
-        match fetch_service_principal(service_principal_id, auth_context, executor).await {
+        match fetch_service_principal(
+            service_principal_id,
+            auth_context.tenant_id,
+            auth_context.auth_source()?,
+            executor,
+        )
+        .await
+        {
             Ok(_) => return Ok(service_principal_id),
             Err(error) => {
                 info!(
@@ -81,7 +88,12 @@ async fn resolve_service_principal_id(
         }
     }
 
-    let service_principals = fetch_all_service_principals(auth_context, executor).await?;
+    let service_principals = fetch_all_service_principals(
+        auth_context.tenant_id,
+        auth_context.auth_source()?,
+        executor,
+    )
+    .await?;
     let mut matches = service_principals
         .iter()
         .filter(|service_principal| matches_service_principal(service_principal, needle))

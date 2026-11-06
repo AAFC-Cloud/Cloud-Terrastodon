@@ -621,7 +621,7 @@ async fn write_all_import_blocks(
     let org_url = get_default_organization_url(cancellation).await?;
     let azure_devops_auth_context = AzureDevOpsAuthContext::for_azure_tenant(auth_context);
     let (azure_devops_projects, subscriptions, resource_groups) = try_join!(
-        fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context, executor),
+        fetch_all_azure_devops_projects(&org_url, azure_devops_auth_context.selection()?, executor),
         fetch_all_subscriptions(auth_context, executor),
         fetch_all_resource_groups(auth_context, executor),
     )?;
@@ -689,7 +689,7 @@ async fn write_all_import_blocks(
                     phase_cancellation
                         .cancellable_scope(move |cancellation| async move {
                             info!("Writing Azure DevOps tf files");
-                            for project in azure_devops_projects {
+                            for project in azure_devops_projects.iter().cloned() {
                                 cancellation.bail_if_cancelled()?;
                                 let Some(repos) = azure_devops_project_repos.remove(&project.id)
                                 else {

@@ -38,17 +38,18 @@ pub async fn azure_devops_project_import_wizard_menu(
     }
 
     let org_url = get_default_organization_url(cancellation).await?;
-    let projects = fetch_all_azure_devops_projects(&org_url, auth_context, executor).await?;
+    let projects =
+        fetch_all_azure_devops_projects(&org_url, auth_context.selection()?, executor).await?;
     let projects = PickerTui::<_>::new()
         .set_header("Choose the projects to import")
-        .pick_many(projects.into_iter().map(|project| Choice {
+        .pick_many(projects.iter().cloned().map(|project| Choice {
             key: project.name.to_string(),
             value: project,
         }))
         .await?;
 
     let mut project_import_blocks = Vec::new();
-    for project in projects {
+    for project in projects.iter() {
         let import_block: HclImportBlock = project.as_ref().into();
         project_import_blocks.push(import_block);
     }

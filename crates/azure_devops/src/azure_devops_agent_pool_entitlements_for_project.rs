@@ -141,14 +141,14 @@ mod test {
                 let org_url = get_default_organization_url(&cancellation).await?;
                 let projects = fetch_all_azure_devops_projects(
                     &org_url,
-                    &azure_devops_auth_context,
+                    azure_devops_auth_context.selection()?,
                     &executor,
                 )
                 .await?;
 
                 // Iterate projects, and stop when we find the first project with entitlements.
                 let mut found = false;
-                for project in projects {
+                for project in projects.iter() {
                     let entitlements = fetch_azure_devops_agent_pool_entitlements_for_project(
                         &org_url,
                         &project.name,

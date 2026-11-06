@@ -7,6 +7,7 @@ use cloud_terrastodon_azure::fetch_entra_groups_for_member;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use std::io::Write;
+use std::sync::Arc;
 use tracing::info;
 
 /// List Entra (Azure AD) groups.
@@ -36,11 +37,19 @@ impl AzureEntraGroupListArgs {
         let groups = match self.for_member {
             Some(principal_id) => {
                 info!(tenant_id = %tenant_auth_context.tenant_id, %principal_id, "Fetching Entra groups for principal");
-                fetch_entra_groups_for_member(principal_id, &tenant_auth_context, executor).await?
+                Arc::new(
+                    fetch_entra_groups_for_member(principal_id, &tenant_auth_context, executor)
+                        .await?,
+                )
             }
             None => {
                 info!(tenant_id = %tenant_auth_context.tenant_id, "Fetching Entra groups");
-                fetch_all_groups(&tenant_auth_context, executor).await?
+                fetch_all_groups(
+                    tenant_auth_context.tenant_id,
+                    tenant_auth_context.auth_source()?,
+                    executor,
+                )
+                .await?
             }
         };
 

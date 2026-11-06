@@ -34,7 +34,7 @@ pub struct MyApp {
     pub toggle_intents: HashSet<Id>,
     pub checkboxes: HashMap<Id, bool>,
     pub subscriptions: Loadable<Rc<Vec<Arc<Subscription>>>, eyre::ErrReport>,
-    pub azure_devops_projects: Loadable<Rc<Vec<Arc<AzureDevOpsProject>>>, eyre::ErrReport>,
+    pub azure_devops_projects: Loadable<Arc<Vec<Arc<AzureDevOpsProject>>>, eyre::ErrReport>,
     pub resource_groups: Loadable<Rc<ResourceGroupMap>, eyre::ErrReport>,
     pub resources: Loadable<Arc<Vec<Arc<Resource>>>, eyre::ErrReport>,
     pub tx: UnboundedSender<AppMessage>,

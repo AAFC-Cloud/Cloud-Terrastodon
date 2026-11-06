@@ -1,9 +1,10 @@
 use arbitrary::Arbitrary;
 use arbitrary::Unstructured;
+use facet::Facet;
 use std::any::Any;
 use std::any::type_name;
 
-#[derive(Debug, Clone, PartialEq, Eq, Default, arbitrary::Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Arbitrary, Facet)]
 #[facet(transparent)]
 pub struct ArbitraryBytes(pub Vec<u8>);
 

@@ -9,9 +9,13 @@ pub async fn browse_users(
     auth_context: &AzureTenantAuthContext,
     executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
-    let (chosen, maybe_error) = pick_entra_users(auth_context, executor)
-        .await
-        .into_chosen_and_maybe_error()?;
+    let (chosen, maybe_error) = pick_entra_users(
+        auth_context.tenant_id,
+        auth_context.auth_source()?,
+        executor,
+    )
+    .await
+    .into_chosen_and_maybe_error()?;
     if chosen.is_empty() {
         info!("You chose no users.");
     } else {

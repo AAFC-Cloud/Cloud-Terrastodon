@@ -15,10 +15,11 @@ pub async fn dump_work_items(
 ) -> eyre::Result<()> {
     let cancellation = executor.cancellation();
     let org_url = get_default_organization_url(cancellation).await?;
-    let projects = fetch_all_azure_devops_projects(&org_url, auth_context, executor).await?;
+    let projects =
+        fetch_all_azure_devops_projects(&org_url, auth_context.selection()?, executor).await?;
     let projects = PickerTui::<_>::new()
         .set_header("Pick the projects to export from")
-        .pick_many(projects.into_iter().map(|p| Choice {
+        .pick_many(projects.iter().cloned().map(|p| Choice {
             key: p.name.to_string(),
             value: p,
         }))

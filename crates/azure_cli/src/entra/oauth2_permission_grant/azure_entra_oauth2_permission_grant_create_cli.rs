@@ -82,7 +82,12 @@ impl AzureEntraOAuth2PermissionGrantCreateArgs {
             eyre::bail!("At least one --scope value is required");
         }
 
-        let principals = fetch_all_principals(&tenant_auth_context, executor).await?;
+        let principals = fetch_all_principals(
+            tenant_auth_context.tenant_id,
+            tenant_auth_context.auth_source()?,
+            executor,
+        )
+        .await?;
         let principal = self.principal.resolve(&principals).wrap_err_with(|| {
             format!(
                 "Could not resolve principal '{}' in tenant {tenant_id}",

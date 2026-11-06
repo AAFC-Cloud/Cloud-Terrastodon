@@ -103,7 +103,8 @@ impl ExecutableRequest for ApplicationRegistrationSearchRequest<'_> {
             let applications: Vec<Arc<EntraApplicationRegistration>> = MicrosoftGraphHelper::new(
                 self.url(),
                 Some(self.cache_key()?),
-                self.auth_context.as_ref(),
+                self.auth_context.tenant_id,
+                self.auth_context.auth_source()?,
             )
             .fetch_all(&executor)
             .await?;
@@ -220,10 +221,14 @@ mod tests {
                     // is not necessarily returned by /applications in the customer
                     // tenant. This smoke test therefore verifies that both generated
                     // requests are accepted by Graph rather than requiring a result.
-                    let _: Vec<Arc<EntraApplicationRegistration>> =
-                        MicrosoftGraphHelper::new(request.url(), None, &tenant_auth_context)
-                            .fetch_all(&executor)
-                            .await?;
+                    let _: Vec<Arc<EntraApplicationRegistration>> = MicrosoftGraphHelper::new(
+                        request.url(),
+                        None,
+                        tenant_auth_context.tenant_id,
+                        tenant_auth_context.auth_source()?,
+                    )
+                    .fetch_all(&executor)
+                    .await?;
                 }
 
                 Ok(())

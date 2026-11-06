@@ -47,8 +47,16 @@ impl AzureRoleAssignmentBrowseArgs {
             .await?;
         let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
         let (rbac, principals) = try_join!(
-            fetch_all_role_definitions_and_assignments(&tenant_auth_context, executor),
-            fetch_all_principals(&tenant_auth_context, executor)
+            fetch_all_role_definitions_and_assignments(
+                tenant_auth_context.tenant_id,
+                tenant_auth_context.auth_source()?,
+                executor
+            ),
+            fetch_all_principals(
+                tenant_auth_context.tenant_id,
+                tenant_auth_context.auth_source()?,
+                executor
+            )
         )?;
 
         info!(

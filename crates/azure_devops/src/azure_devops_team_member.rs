@@ -181,12 +181,12 @@ mod test {
                 let org_url = get_default_organization_url(&cancellation).await?;
                 let project = fetch_all_azure_devops_projects(
                     &org_url,
-                    &azure_devops_auth_context,
+                    azure_devops_auth_context.selection()?,
                     &executor,
                 )
                 .await?
-                .into_iter()
-                .next()
+                .first()
+                .cloned()
                 .unwrap();
                 let teams = fetch_azure_devops_teams_for_project(
                     &org_url,

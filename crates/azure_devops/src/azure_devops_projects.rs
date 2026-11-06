@@ -1,130 +1,151 @@
 use arbitrary::Arbitrary;
-use cloud_terrastodon_auth::AzureDevOpsAuthContext;
+use cloud_terrastodon_auth_types::AuthenticationSelection;
+use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsCollectionResponse;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProject;
+use cloud_terrastodon_cache::ArtifactObservation;
 use cloud_terrastodon_cache::CacheKey;
 use cloud_terrastodon_cache::CacheOperationOwner;
+use cloud_terrastodon_cache::ExecutorKind;
 use cloud_terrastodon_cache::HasCacheKey;
 use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
+use cloud_terrastodon_cache::NonEmptyString;
+use cloud_terrastodon_cache::WorkOutput;
+use cloud_terrastodon_cache::WorkReuse;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_execution::RequestExecution;
+use cloud_terrastodon_pathing::sanitize_windows_path_component;
+use cloud_terrastodon_rest::MicrosoftContinuationToken;
 use cloud_terrastodon_rest::RestRequest;
 #[cfg(test)]
 use eyre::Result;
-use facet::Facet;
 use reqwest::Method;
 use std::borrow::Cow;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tracing::debug;
 
+/// The complete ordered project inventory for an explicit organization and
+/// credential selection. The executor owns runtime credentials and shared results.
+///
+/// See [Projects List (7.1)](https://learn.microsoft.com/en-us/rest/api/azure/devops/core/projects/list?view=azure-devops-rest-7.1).
 #[derive(Debug, Clone, facet::Facet)]
-// Facet's pinned derive cannot autodetect Clone on lifetime-generic types.
 #[facet(traits(Clone))]
 pub struct AzureDevOpsProjectsListRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
-    pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
-}
-
-#[track_caller]
-pub fn fetch_all_azure_devops_projects<'a>(
-    org_url: &'a AzureDevOpsOrganizationUrl,
-    auth_context: &'a AzureDevOpsAuthContext,
-    executor: &'a CloudTerrastodonExecutor,
-) -> RequestExecution<'a, AzureDevOpsProjectsListRequest<'a>> {
-    executor.execute(AzureDevOpsProjectsListRequest {
-        org_url: Cow::Borrowed(org_url),
-        auth_context: Cow::Borrowed(auth_context),
-    })
+    pub auth_selection: AzureDevOpsAuthSelection,
 }
 
 impl<'a> Arbitrary<'a> for AzureDevOpsProjectsListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
-            auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
+            auth_selection: AzureDevOpsAuthSelection::arbitrary(u)?,
         })
     }
 }
-impl<'a> HasCacheKey for AzureDevOpsProjectsListRequest<'a> {
+
+/// Fetch shared project records in the service's page order.
+///
+/// See [Projects List (7.1)](https://learn.microsoft.com/en-us/rest/api/azure/devops/core/projects/list?view=azure-devops-rest-7.1).
+#[track_caller]
+pub fn fetch_all_azure_devops_projects<'a>(
+    org_url: &'a AzureDevOpsOrganizationUrl,
+    auth_selection: AzureDevOpsAuthSelection,
+    executor: &'a CloudTerrastodonExecutor,
+) -> RequestExecution<'a, AzureDevOpsProjectsListRequest<'a>> {
+    executor.execute(AzureDevOpsProjectsListRequest {
+        org_url: Cow::Borrowed(org_url),
+        auth_selection,
+    })
+}
+
+impl HasCacheKey for AzureDevOpsProjectsListRequest<'_> {
     fn cache_key(&self) -> eyre::Result<CacheKey> {
-        CacheKey::from_relative_path(PathBuf::from_iter([
-            "az",
-            "devops",
-            self.org_url.name(),
-            "project",
-            "list",
-        ]))
+        let mut path = PathBuf::from("az/devops");
+        if self.org_url.collection_name().is_some() {
+            path.push("server");
+            path.push(self.org_url.instance_scheme());
+            for segment in self.org_url.instance_authority_and_path().split('/') {
+                path.push(sanitize_windows_path_component(segment));
+            }
+            path.push("org");
+            path.push(sanitize_windows_path_component(self.org_url.name()));
+        } else {
+            path.push("org");
+            path.push(sanitize_windows_path_component(
+                &self.org_url.name().to_ascii_lowercase(),
+            ));
+        }
+        CacheKey::from_relative_path(path.join("project/list"))
     }
 }
 
-impl<'a> InvalidatesOwnCacheKey for AzureDevOpsProjectsListRequest<'a> {}
+impl InvalidatesOwnCacheKey for AzureDevOpsProjectsListRequest<'_> {}
 
-impl<'a> ExecutableRequest for AzureDevOpsProjectsListRequest<'a> {
+impl ExecutableRequest for AzureDevOpsProjectsListRequest<'_> {
     type Error = eyre::Report;
-    type Output = Vec<Arc<AzureDevOpsProject>>;
+    type Output = Arc<Vec<Arc<AzureDevOpsProject>>>;
     fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
     where
         Self: 'exec,
         Self::Output: 'exec,
     {
         Box::pin(async move {
-            debug!("Fetching Azure DevOps projects");
-            #[derive(Facet)]
-            #[facet(rename_all = "camelCase")]
-            pub struct Response {
-                value: Vec<Arc<AzureDevOpsProject>>,
-            }
-
-            let mut projects = Vec::new();
             let cache_key = self.cache_key()?;
-            let mut page_index = 0;
-            let query = [("api-version", "7.1")];
-            let url = self
-                .org_url
-                .api_url("dev.azure.com", "_apis/projects", &query)?;
-            // Attaching authentication only records request policy. RestRequest
-            // resolves credentials after its cache lookup, so healthy cached pages
-            // remain usable when the selected authentication source has expired.
-            let request = RestRequest::from_method_and_url(Method::GET, url)?
-                .cache(cache_key.join(page_index.to_string())?)
-                .azure_devops_auth_context(self.auth_context.as_ref())?;
-            let (mut response, mut continuation) = request
-                .receive_with_ms_continuation_token_cached::<Response>(
-                    &executor,
+            let selection = AuthenticationSelection::from(self.auth_selection);
+            let fingerprint = NonEmptyString::new(
+                blake3::hash(&facet_json::to_vec(&self)?)
+                    .to_hex()
+                    .to_string(),
+            )?;
+            executor
+                .cached_work(
+                    ExecutorKind::InProcess,
+                    cache_key.clone(),
                     CacheOperationOwner::of::<AzureDevOpsProjectsListRequest<'static>>(),
-                )
-                .await?;
-            projects.extend(response.value.iter().cloned());
-            page_index += 1;
-
-            while let Some(next_continuation) = continuation.take() {
-                executor.cancellation().bail_if_cancelled()?;
-                debug!("Fetching the next page of projects");
-                let query = [
-                    ("api-version", "7.1"),
-                    ("continuationToken", next_continuation.as_str()),
-                ];
-                let url = self
-                    .org_url
-                    .api_url("dev.azure.com", "_apis/projects", &query)?;
-                let request = RestRequest::from_method_and_url(Method::GET, url)?
-                    .cache(cache_key.join(page_index.to_string())?)
-                    .azure_devops_auth_context(self.auth_context.as_ref())?;
-                (response, continuation) = request
-                    .receive_with_ms_continuation_token_cached::<Response>(
-                        &executor,
-                        CacheOperationOwner::of::<AzureDevOpsProjectsListRequest<'static>>(),
-                    )
-                    .await?;
-                projects.extend(response.value.iter().cloned());
-                page_index += 1;
-            }
-
-            debug!("Found {} Azure DevOps projects", projects.len());
-            Ok(projects)
+                    &selection,
+                    fingerprint,
+                    WorkReuse::ReusableRead,
+                    move |executor| async move {
+                        debug!("Fetching Azure DevOps projects");
+                        let observation = ArtifactObservation::now();
+                        let mut projects = Vec::new();
+                        let mut page_index = 0;
+                        let mut continuation: Option<MicrosoftContinuationToken> = None;
+                        loop {
+                            let mut query = vec![("api-version", "7.1")];
+                            if let Some(token) = &continuation {
+                                query.push(("continuationToken", token.as_str()));
+                            }
+                            let url = self.org_url.api_url("dev.azure.com", "_apis/projects", &query)?;
+                            // The initializer executor records each page as a
+                            // dependency. Its age/invalidation also expires this
+                            // memory-only aggregate; no aggregate is restored from disk.
+                            let (response, next) = RestRequest::from_method_and_url(Method::GET, url)?
+                                .cache(cache_key.join(page_index.to_string())?)
+                                .authentication(selection)
+                                .receive_with_ms_continuation_token_cached::<AzureDevOpsCollectionResponse<Vec<Arc<AzureDevOpsProject>>>>(
+                                    &executor,
+                                    CacheOperationOwner::of::<AzureDevOpsProjectsListRequest<'static>>(),
+                                )
+                                .await?;
+                            projects.extend(response.value.iter().cloned());
+                            executor.cancellation().bail_if_cancelled()?;
+                            continuation = next;
+                            if continuation.is_none() {
+                                break;
+                            }
+                            page_index += 1;
+                        }
+                        debug!("Found {} Azure DevOps projects", projects.len());
+                        Ok(WorkOutput::new(projects, observation))
+                    },
+                )?
+                .await
         })
     }
 }
@@ -132,7 +153,7 @@ impl<'a> ExecutableRequest for AzureDevOpsProjectsListRequest<'a> {
 cloud_terrastodon_registry::register_thing!(AzureDevOpsProjectsListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsProjectsListRequest<'static>);
 cloud_terrastodon_registry_execution::register_executable_request!(
-    AzureDevOpsProjectsListRequest<'static> => Vec<Arc<AzureDevOpsProject>>,
+    AzureDevOpsProjectsListRequest<'static> => Arc<Vec<Arc<AzureDevOpsProject>>>,
     effects = [Read]
 );
 
@@ -141,49 +162,38 @@ mod tests {
     use super::*;
     use crate::get_default_organization_url;
     use cloud_terrastodon_auth::AuthContext;
+    use cloud_terrastodon_auth::AzureDevOpsAuthContext;
     use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_registry::RuntimeValue;
     use std::sync::LazyLock;
 
     #[test]
-    fn reflected_project_list_clone_preserves_owned_and_borrowed_inputs() -> Result<()> {
+    fn reflected_project_list_clone_preserves_request_data() -> Result<()> {
         static ORG: LazyLock<AzureDevOpsOrganizationUrl> = LazyLock::new(|| {
             "offline-clone-example"
                 .parse()
                 .expect("valid synthetic organization")
         });
-        static AUTH: AzureDevOpsAuthContext = AzureDevOpsAuthContext::None;
-
+        let auth_selection = AzureDevOpsAuthSelection::PersonalAccessToken;
         for borrowed in [false, true] {
-            CancellationToken::new().with_scope(|_scope| {
-                let original = RuntimeValue::from_box(Box::new(AzureDevOpsProjectsListRequest {
-                    org_url: if borrowed {
-                        Cow::Borrowed(&*ORG)
-                    } else {
-                        Cow::Owned((*ORG).clone())
-                    },
-                    auth_context: if borrowed {
-                        Cow::Borrowed(&AUTH)
-                    } else {
-                        Cow::Owned(AUTH.clone())
-                    },
-                }))?;
-                // This is the same reflected clone used before a clone-mode
-                // invocation. Do not invoke the request or resolve credentials.
-                let cloned = original
-                    .try_clone()?
-                    .into_box::<AzureDevOpsProjectsListRequest<'static>>()?
-                    .downcast::<AzureDevOpsProjectsListRequest<'static>>()
-                    .expect("runtime cloning preserves the request type");
-                assert_eq!(cloned.org_url.as_ref(), &*ORG);
-                assert!(matches!(
-                    cloned.auth_context.as_ref(),
-                    AzureDevOpsAuthContext::None
-                ));
-                assert_eq!(matches!(cloned.org_url, Cow::Borrowed(_)), borrowed);
-                assert_eq!(matches!(cloned.auth_context, Cow::Borrowed(_)), borrowed);
-                Ok::<_, eyre::Report>(())
-            })?;
+            let original = RuntimeValue::from_box(Box::new(AzureDevOpsProjectsListRequest {
+                org_url: if borrowed {
+                    Cow::Borrowed(&*ORG)
+                } else {
+                    Cow::Owned((*ORG).clone())
+                },
+                auth_selection,
+            }))?;
+            // This is the reflected clone used before a clone-mode invocation.
+            // Do not invoke the request or resolve credentials.
+            let cloned = original
+                .try_clone()?
+                .into_box::<AzureDevOpsProjectsListRequest<'static>>()?
+                .downcast::<AzureDevOpsProjectsListRequest<'static>>()
+                .expect("runtime cloning preserves the request type");
+            assert_eq!(cloned.org_url.as_ref(), &*ORG);
+            assert_eq!(matches!(cloned.org_url, Cow::Borrowed(_)), borrowed);
+            assert_eq!(cloned.auth_selection, auth_selection);
         }
         Ok(())
     }
@@ -202,7 +212,7 @@ mod tests {
                 let org_url = get_default_organization_url(&cancellation).await?;
                 let projects = fetch_all_azure_devops_projects(
                     &org_url,
-                    &azure_devops_auth_context,
+                    azure_devops_auth_context.selection()?,
                     &executor,
                 )
                 .await?;

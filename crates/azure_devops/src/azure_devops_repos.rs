@@ -77,12 +77,12 @@ mod tests {
                 let org_url = get_default_organization_url(&cancellation).await?;
                 let projects = fetch_all_azure_devops_projects(
                     &org_url,
-                    &azure_devops_auth_context,
+                    azure_devops_auth_context.selection()?,
                     &executor,
                 )
                 .await?;
                 let mut repo_counts = Vec::new();
-                for project in projects.into_iter().take(5) {
+                for project in projects.iter().take(5) {
                     let repos = fetch_all_azure_devops_repos_for_project(
                         &org_url,
                         &project.id,

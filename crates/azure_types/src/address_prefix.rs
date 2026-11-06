@@ -1,8 +1,9 @@
 use arbitrary::Arbitrary;
 use compact_str::CompactString;
+use facet::Facet;
 use ipnetwork::Ipv4Network;
 
-#[derive(Debug, PartialEq, Clone, Eq, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Eq, Facet)]
 #[facet(opaque, proxy = String)]
 #[repr(C)]
 pub enum AddressPrefix {

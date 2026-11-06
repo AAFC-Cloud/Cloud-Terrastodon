@@ -2,9 +2,10 @@ use crate::SubscriptionId;
 use crate::tenant_id::AzureTenantId;
 use chrono::DateTime;
 use chrono::Local;
+use facet::Facet;
 use std::fmt::Debug;
 
-#[derive(Clone, PartialEq, facet::Facet)]
+#[derive(Clone, PartialEq, Facet)]
 pub struct AzureAccessToken<T> {
     #[facet(rename = "accessToken")]
     #[facet(sensitive)]
@@ -29,7 +30,7 @@ impl<T> Debug for AzureAccessToken<T> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Facet)]
 #[repr(C)]
 pub enum TokenType {
     Bearer,

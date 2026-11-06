@@ -92,7 +92,7 @@ impl<'a> CacheInvalidationKeys for AzureDevOpsProjectMemberListRequest<'a> {
     fn cache_keys_to_invalidate(&self) -> Result<Vec<CacheKey>> {
         let projects = crate::AzureDevOpsProjectsListRequest {
             org_url: Cow::Borrowed(self.org_url.as_ref()),
-            auth_context: Cow::Borrowed(self.auth_context.as_ref()),
+            auth_selection: self.auth_context.selection()?,
         }
         .cache_key()?;
         let groups = crate::AzureDevOpsGroupsListRequest {
@@ -126,12 +126,12 @@ impl<'a> ExecutableRequest for AzureDevOpsProjectMemberListRequest<'a> {
         Box::pin(executor.cancellable_scope(move |executor| async move {
             let projects = fetch_all_azure_devops_projects(
                 self.org_url.as_ref(),
-                self.auth_context.as_ref(),
+                self.auth_context.selection()?,
                 &executor,
             )
             .await?;
             let Some(project) = projects
-                .into_iter()
+                .iter()
                 .find(|project| self.project.matches(project))
             else {
                 bail!("No project found matching '{}'.", self.project);

@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use cloud_terrastodon_auth_types::AuthenticationSelection;
 use cloud_terrastodon_auth_types::AzureBearerAuthSource;
 use cloud_terrastodon_azure_types::AzureApplicationGatewayResourceBackendHealthResponse;
@@ -19,6 +20,7 @@ use eyre::OptionExt;
 use eyre::Result;
 use eyre::WrapErr;
 use eyre::bail;
+use facet::Facet;
 use http::StatusCode;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -32,7 +34,7 @@ const MAX_POLL_ATTEMPTS: usize = 10;
 
 /// <https://learn.microsoft.com/en-us/rest/api/application-gateway/application-gateways/backend-health?view=rest-application-gateway-2025-05-01&tabs=HTTP>
 #[must_use = "This is a future request, you must .execute it"]
-#[derive(arbitrary::Arbitrary, facet::Facet)]
+#[derive(Arbitrary, Facet)]
 pub struct AzureApplicationGatewayResourceBackendHealthRequest {
     pub auth_source: AzureBearerAuthSource,
 

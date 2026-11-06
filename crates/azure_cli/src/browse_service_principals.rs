@@ -12,10 +12,15 @@ pub async fn browse_service_principals(
     executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
     info!("Fetching service principals");
-    let service_principals = fetch_all_service_principals(auth_context, executor).await?;
+    let service_principals = fetch_all_service_principals(
+        auth_context.tenant_id,
+        auth_context.auth_source()?,
+        executor,
+    )
+    .await?;
     let (service_principals, maybe_error) = PickerTui::<_>::new()
         .set_header("Service Principals")
-        .pick_many(service_principals.into_iter().map(|sp| Choice {
+        .pick_many(service_principals.iter().cloned().map(|sp| Choice {
             key: format!("{} {:64} {}", sp.id, sp.display_name, sp.app_id),
             value: sp,
         }))

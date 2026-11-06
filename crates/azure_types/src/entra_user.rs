@@ -90,3 +90,4 @@ cloud_terrastodon_registry::register_arbitrary!(EntraUser);
 cloud_terrastodon_registry::register_arbitrary!(Arc<EntraUser>);
 
 cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<EntraUser>>);
+cloud_terrastodon_registry::register_arbitrary!(Arc<Vec<Arc<EntraUser>>>);

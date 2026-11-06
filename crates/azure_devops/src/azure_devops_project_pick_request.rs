@@ -1,6 +1,6 @@
 use crate::fetch_all_azure_devops_projects;
 use arbitrary::Arbitrary;
-use cloud_terrastodon_auth::AzureDevOpsAuthContext;
+use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProject;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
@@ -20,46 +20,55 @@ use std::borrow::Cow;
 use std::sync::Arc;
 use tracing::info;
 
+/// Interactively select a project from an explicit organization's shared inventory.
+/// Credential resolution and cancellation belong to the supplied executor.
+/// The organization may be borrowed for direct execution or owned for replay.
+///
+/// See [Projects List (7.1)](https://learn.microsoft.com/en-us/rest/api/azure/devops/core/projects/list?view=azure-devops-rest-7.1).
 #[must_use = "This is an interactive future request, you must .execute it"]
-#[derive(Facet)]
+#[derive(Clone, Facet)]
+#[facet(traits(Clone))]
 pub struct AzureDevOpsProjectPickRequest<'a> {
-    pub org_url: AzureDevOpsOrganizationUrl,
-    pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
+    pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
+    pub auth_selection: AzureDevOpsAuthSelection,
 }
 
 impl<'a> Arbitrary<'a> for AzureDevOpsProjectPickRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
-            org_url: AzureDevOpsOrganizationUrl::arbitrary(u)?,
-            auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
+            org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
+            auth_selection: AzureDevOpsAuthSelection::arbitrary(u)?,
         })
     }
 }
 
+/// Select a project using the service inventory and the application's picker.
+///
+/// See [Projects List (7.1)](https://learn.microsoft.com/en-us/rest/api/azure/devops/core/projects/list?view=azure-devops-rest-7.1).
 #[track_caller]
 pub fn pick_azure_devops_project<'a>(
-    org_url: AzureDevOpsOrganizationUrl,
-    auth_context: &'a AzureDevOpsAuthContext,
+    org_url: &'a AzureDevOpsOrganizationUrl,
+    auth_selection: AzureDevOpsAuthSelection,
     executor: &'a CloudTerrastodonExecutor,
 ) -> RequestExecution<'a, AzureDevOpsProjectPickRequest<'a>> {
     executor.execute(AzureDevOpsProjectPickRequest {
-        org_url,
-        auth_context: Cow::Borrowed(auth_context),
+        org_url: Cow::Borrowed(org_url),
+        auth_selection,
     })
 }
-impl<'a> CacheInvalidationKeys for AzureDevOpsProjectPickRequest<'a> {
+impl CacheInvalidationKeys for AzureDevOpsProjectPickRequest<'_> {
     fn cache_keys_to_invalidate(&self) -> Result<Vec<CacheKey>> {
         Ok(vec![
             crate::AzureDevOpsProjectsListRequest {
-                org_url: Cow::Borrowed(&self.org_url),
-                auth_context: Cow::Borrowed(self.auth_context.as_ref()),
+                org_url: Cow::Borrowed(self.org_url.as_ref()),
+                auth_selection: self.auth_selection,
             }
             .cache_key()?,
         ])
     }
 }
 
-impl<'a> ExecutableRequest for AzureDevOpsProjectPickRequest<'a> {
+impl ExecutableRequest for AzureDevOpsProjectPickRequest<'_> {
     type Error = eyre::Report;
     type Output = AzureDevOpsProjectArgument<'static>;
 
@@ -69,27 +78,27 @@ impl<'a> ExecutableRequest for AzureDevOpsProjectPickRequest<'a> {
         Self::Output: 'exec,
     {
         Box::pin(async move {
-            let org_url = self.org_url;
-            let auth_context = self.auth_context;
             let projects = PickerTui::<Arc<AzureDevOpsProject>>::new()
                 .set_header("Azure DevOps Projects")
                 .add_event_handler(move |event, sink| {
-                    let org_url = org_url.clone();
-                    let auth_context = auth_context.clone();
+                    let org_url = self.org_url.clone();
                     let executor = executor.clone();
                     async move {
                         if matches!(event.as_ref(), PickerEvent::InitialLoad) {
                             info!(organization = %org_url, "Fetching Azure DevOps projects");
-                            let projects =
-                                fetch_all_azure_devops_projects(&org_url, auth_context.as_ref(), &executor)
-                                    .await?;
-                            sink.push(projects.into_iter().map(project_choice))?;
+                            let projects = fetch_all_azure_devops_projects(
+                                &org_url,
+                                self.auth_selection,
+                                &executor,
+                            )
+                            .await?;
+                            sink.push(projects.iter().cloned().map(project_choice))?;
                             info!(organization = %org_url, "Finished fetching Azure DevOps projects");
-                }
-                Ok(())
-            }
-        })
-        .pick_one_events()
+                        }
+                        Ok(())
+                    }
+                })
+                .pick_one_events()
                 .await?;
 
             Ok(AzureDevOpsProjectArgument::from(projects.as_ref()).into_owned())
@@ -114,13 +123,58 @@ cloud_terrastodon_registry_execution::register_executable_request!(
 #[cfg(test)]
 mod test {
     use super::AzureDevOpsProjectPickRequest;
+    use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
+    use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
+    use cloud_terrastodon_cache::CacheInvalidationKeys;
+    use cloud_terrastodon_registry::RuntimeValue;
     use cloud_terrastodon_registry_execution::shape_can_be_produced_from_defaults;
     use facet::Facet;
+    use std::borrow::Cow;
+    use std::sync::LazyLock;
+
+    #[test]
+    fn reflected_project_picker_clone_preserves_borrowing_and_invalidation() -> eyre::Result<()> {
+        static ORG: LazyLock<AzureDevOpsOrganizationUrl> = LazyLock::new(|| {
+            "offline-picker-clone-example"
+                .parse()
+                .expect("valid synthetic organization")
+        });
+        for borrowed in [false, true] {
+            let request = AzureDevOpsProjectPickRequest {
+                org_url: if borrowed {
+                    Cow::Borrowed(&*ORG)
+                } else {
+                    Cow::Owned((*ORG).clone())
+                },
+                auth_selection: AzureDevOpsAuthSelection::PersonalAccessToken,
+            };
+            let invalidation = request.cache_keys_to_invalidate()?;
+            let original = RuntimeValue::from_box(Box::new(request))?;
+            // Registry clone-mode invocation must preserve the borrowed URL
+            // and the selected refresh scope without opening a picker.
+            let cloned = original
+                .try_clone()?
+                .into_box::<AzureDevOpsProjectPickRequest<'static>>()?
+                .downcast::<AzureDevOpsProjectPickRequest<'static>>()
+                .expect("runtime cloning preserves the request type");
+            assert_eq!(cloned.org_url.as_ref(), &*ORG);
+            assert_eq!(matches!(cloned.org_url, Cow::Borrowed(_)), borrowed);
+            assert_eq!(
+                cloned.auth_selection,
+                AzureDevOpsAuthSelection::PersonalAccessToken
+            );
+            assert_eq!(cloned.cache_keys_to_invalidate()?, invalidation);
+            if borrowed {
+                assert!(std::ptr::eq(cloned.org_url.as_ref(), &*ORG));
+            }
+        }
+        Ok(())
+    }
 
     #[test]
     fn registry_discovers_default_organization_dependency() {
         assert!(shape_can_be_produced_from_defaults(
-            AzureDevOpsProjectPickRequest::<'static>::SHAPE
+            AzureDevOpsProjectPickRequest::SHAPE
         ));
     }
 }

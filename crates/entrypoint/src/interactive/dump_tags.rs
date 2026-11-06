@@ -44,7 +44,8 @@ resources
     tags
 "#,
         None,
-        auth_context,
+        auth_context.tenant_id,
+        auth_context.auth_source()?,
     )
     .collect_all::<ArbitraryJson>(executor)
     .await?;

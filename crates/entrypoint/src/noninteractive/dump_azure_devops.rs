@@ -16,7 +16,7 @@ use std::sync::Arc;
 
 #[derive(facet::Facet)]
 struct AzureDevOpsDumpPayload {
-    projects: Vec<Arc<AzureDevOpsProject>>,
+    projects: Arc<Vec<Arc<AzureDevOpsProject>>>,
     users: Vec<Arc<AzureDevOpsUserLicenseEntitlement>>,
     project_groups: Vec<AzureDevOpsDumpProjectGroups>,
     group_members: Vec<AzureDevOpsDumpGroupMembers>,
@@ -41,7 +41,8 @@ pub async fn dump_azure_devops(
     executor: &CloudTerrastodonExecutor,
 ) -> eyre::Result<()> {
     let projects =
-        fetch_all_azure_devops_projects(&org_url, azure_devops_auth_context, executor).await?;
+        fetch_all_azure_devops_projects(&org_url, azure_devops_auth_context.selection()?, executor)
+            .await?;
 
     let users =
         fetch_azure_devops_user_license_entitlements(&org_url, azure_devops_auth_context, executor)

@@ -63,6 +63,7 @@ cloud_terrastodon_registry::register_thing!(AzureDevOpsProject);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsProject);
 cloud_terrastodon_registry::register_arbitrary!(Vec<AzureDevOpsProject>);
 cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<AzureDevOpsProject>>);
+cloud_terrastodon_registry::register_arbitrary!(Arc<Vec<Arc<AzureDevOpsProject>>>);
 cloud_terrastodon_registry::register_from!(
     AzureDevOpsProject => AzureDevOpsProjectArgument<'static>,
     associated = REGISTERED_INTO_PROJECT_ARGUMENT

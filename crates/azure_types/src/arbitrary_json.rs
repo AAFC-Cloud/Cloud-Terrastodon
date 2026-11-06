@@ -4,6 +4,7 @@
 )]
 
 use arbitrary::Arbitrary;
+use facet::Facet;
 use facet_json::RawJson;
 use facet_reflect::Peek;
 
@@ -12,7 +13,7 @@ use facet_reflect::Peek;
 /// Serialization preserves the JSON value rather than escaping it as text.
 /// Prefer concrete records for modeled schemas; use this for intentionally
 /// opaque values and open property bags.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Facet)]
 #[facet(proxy = RawJson<'static>)]
 pub struct ArbitraryJson(RawJson<'static>);
 

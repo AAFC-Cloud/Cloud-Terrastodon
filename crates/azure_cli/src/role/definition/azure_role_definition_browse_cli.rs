@@ -34,15 +34,18 @@ impl AzureRoleDefinitionBrowseArgs {
                 let tenant_auth_context = tenant_auth_context.clone();
                 async move {
                     info!("Fetching Azure role definitions");
-                    let role_definitions =
-                        fetch_all_role_definitions(&tenant_auth_context, executor)
-                            .with_invalidation(invalidate)
-                            .await?;
+                    let role_definitions = fetch_all_role_definitions(
+                        tenant_auth_context.tenant_id,
+                        tenant_auth_context.auth_source()?,
+                        executor,
+                    )
+                    .with_invalidation(invalidate)
+                    .await?;
                     info!(
                         count = role_definitions.len(),
                         "Fetched Azure role definitions"
                     );
-                    Ok(role_definitions)
+                    Ok(role_definitions.to_vec())
                 }
             })
             .await

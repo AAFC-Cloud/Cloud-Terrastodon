@@ -16,11 +16,16 @@ pub async fn build_group_imports(
 ) -> Result<()> {
     let cancellation = executor.cancellation();
     info!("Fetching groups");
-    let groups = fetch_all_groups(auth_context, executor)
-        .await?
-        .into_iter()
-        .filter(|def| def.security_enabled)
-        .collect_vec();
+    let groups = fetch_all_groups(
+        auth_context.tenant_id,
+        auth_context.auth_source()?,
+        executor,
+    )
+    .await?
+    .iter()
+    .filter(|def| def.security_enabled)
+    .cloned()
+    .collect_vec();
 
     let chosen = PickerTui::<_>::new()
         .set_header("Groups to import")
