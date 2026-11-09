@@ -39,5 +39,3 @@ impl<'a> Arbitrary<'a> for SourceRepositoryAuthorSummary {
 
 cloud_terrastodon_registry::register_thing!(SourceRepositoryAuthorSummary);
 cloud_terrastodon_registry::register_arbitrary!(SourceRepositoryAuthorSummary);
-cloud_terrastodon_registry::register_thing!(Vec<SourceRepositoryAuthorSummary>);
-cloud_terrastodon_registry::register_arbitrary!(Vec<SourceRepositoryAuthorSummary>);

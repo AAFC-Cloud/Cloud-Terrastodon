@@ -15,23 +15,33 @@ pub async fn create_role_assignment_menu(
     executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
     info!("Fetching role definition list");
-    let role_definitions = fetch_all_role_definitions(auth_context, executor).await?;
+    let role_definitions = fetch_all_role_definitions(
+        auth_context.tenant_id,
+        auth_context.auth_source()?,
+        executor,
+    )
+    .await?;
     let role_definitions = PickerTui::<_>::new()
         .set_header("Roles to assign")
-        .pick_many(role_definitions.into_iter().map(|r| Choice {
+        .pick_many(role_definitions.iter().cloned().map(|r| Choice {
             key: r.display_name.to_owned(),
             value: r,
         }))
         .await?;
 
     info!("Fetching principals");
-    let users = fetch_all_entra_users(auth_context, executor).await?;
+    let users = fetch_all_entra_users(
+        auth_context.tenant_id,
+        auth_context.auth_source()?,
+        executor,
+    )
+    .await?;
     let principals = PickerTui::<_>::new()
         .set_header(format!(
             "Assigning {}",
             role_definitions.iter().map(|r| &r.display_name).join(", ")
         ))
-        .pick_many(users.into_iter().map(|u| Choice {
+        .pick_many(users.iter().cloned().map(|u| Choice {
             key: format!("{} {:64} {}", u.id, u.display_name, u.user_principal_name),
             value: u,
         }))

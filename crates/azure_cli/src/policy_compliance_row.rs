@@ -4,13 +4,14 @@ use cloud_terrastodon_azure::ResourceGraphHelper;
 use cloud_terrastodon_cache::CacheKey;
 use cloud_terrastodon_cache::CacheScope;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use facet::Facet;
 use indoc::indoc;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::info;
 
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Facet)]
 pub(crate) struct PolicyComplianceRow {
     pub policy_assignment_id: PolicyAssignmentId,
     pub policy_definition_reference_id: Option<String>,
@@ -49,7 +50,8 @@ policyResources
             ]))?,
             valid_for: Duration::from_mins(15),
         }),
-        auth_context,
+        auth_context.tenant_id,
+        auth_context.auth_source()?,
     )
     .collect_all::<PolicyComplianceRow>(executor)
     .await?;

@@ -8,12 +8,13 @@ use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_execution::RequestExecution;
+use facet::Facet;
 use std::borrow::Cow;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 #[must_use = "This is a future request, you must .execute it"]
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[facet(traits(Clone))]
 pub struct ContainerRegistryListRequest<'a> {
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
@@ -65,7 +66,8 @@ Resources
 | where type =~ "Microsoft.ContainerRegistry/registries"
         "#,
                 Some(self.cache_key()?),
-                self.auth_context.as_ref(),
+                self.auth_context.tenant_id,
+                self.auth_context.auth_source()?,
             );
             query.collect_all(&executor).await
         })

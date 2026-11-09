@@ -15,6 +15,7 @@ use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_rest::RestRequest;
+use facet::Facet;
 use http::Method;
 use std::borrow::Cow;
 use std::path::PathBuf;
@@ -23,7 +24,7 @@ use std::time::Duration;
 use url::Url;
 
 #[must_use = "This is a future request, you must .execute it"]
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[facet(traits(Clone))]
 pub struct KeyVaultListRequest<'a> {
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
@@ -76,7 +77,8 @@ resources
 | project id,name,location,properties,tags
         "#,
                 Some(self.cache_key()?),
-                self.auth_context.as_ref(),
+                self.auth_context.tenant_id,
+                self.auth_context.auth_source()?,
             );
             query.collect_all(&executor).await
         })

@@ -3,11 +3,11 @@ use crate::RoleManagementPolicyAssignmentId;
 use crate::iso8601_duration::IsoDuration;
 use arbitrary::Arbitrary;
 use eyre::Result;
+use facet::Facet;
 use std::collections::HashMap;
 use std::fmt;
-use std::sync::Arc;
 
-#[derive(Debug, PartialEq, facet::Facet)]
+#[derive(Debug, PartialEq, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum RoleManagementPolicyAssignmentPropertiesPolicyAssignmentPropertiesScopeKind {
@@ -57,7 +57,7 @@ impl std::str::FromStr
     }
 }
 
-#[derive(Debug, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, PartialEq, Eq, Facet)]
 #[repr(C)]
 pub enum RoleManagementPolicyAssignmentPropertiesEffectiveRuleId {
     #[facet(rename = "Enablement_Admin_Eligibility")]
@@ -96,7 +96,7 @@ pub enum RoleManagementPolicyAssignmentPropertiesEffectiveRuleId {
     NotificationApproverEnduserAssignment,
 }
 
-#[derive(Debug, PartialEq, facet::Facet)]
+#[derive(Debug, PartialEq, Facet)]
 pub struct RoleManagementPolicyAssignmentProperties {
     pub scope: String,
     #[facet(rename = "roleDefinitionId")]
@@ -113,7 +113,7 @@ pub struct RoleManagementPolicyAssignmentProperties {
     pub policy_assignment_properties: HashMap<String, ArbitraryJson>,
 }
 
-#[derive(Debug, PartialEq, facet::Facet)]
+#[derive(Debug, PartialEq, Facet)]
 pub struct RoleManagementPolicyAssignment {
     pub properties: RoleManagementPolicyAssignmentProperties,
     pub name: String,
@@ -167,9 +167,8 @@ impl<'a> Arbitrary<'a> for RoleManagementPolicyAssignment {
 }
 
 cloud_terrastodon_registry::register_arbitrary!(RoleManagementPolicyAssignment);
-cloud_terrastodon_registry::register_arbitrary!(Vec<RoleManagementPolicyAssignment>);
 
-#[derive(Debug, facet::Facet)]
+#[derive(Debug, Facet)]
 #[facet(rename_all = "camelCase")]
 struct RoleManagementPolicyExpirationRule {
     #[facet(rename = "ruleType")]
@@ -204,7 +203,7 @@ mod tests {
 
     #[test]
     fn registered_assignment_generator_can_produce_nonempty_coherent_json() -> Result<()> {
-        let constructor = cloud_terrastodon_registry::KNOWN_ARBITRARY_VALUES
+        let constructor = cloud_terrastodon_registry::known_arbitrary_values()
             .iter()
             .find(|function| {
                 function
@@ -300,4 +299,3 @@ mod tests {
         Ok(())
     }
 }
-cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<RoleManagementPolicyAssignment>>);

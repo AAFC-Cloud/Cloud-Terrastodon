@@ -1,7 +1,9 @@
 use crate::CacheInvalidatableRequest;
 use crate::CloudTerrastodonExecutor;
 use crate::ExecutableRequest;
+use crate::ExecutionEvent;
 use crate::ExecutionFuture;
+use crate::ObservedRequestExecution;
 use cloud_terrastodon_cache::CacheKey;
 use cloud_terrastodon_cache::HasCacheKey;
 use eyre::Result;
@@ -11,11 +13,18 @@ use tracing::Span;
 
 /// A request bound to its caller's executor and tracing context, ready to await.
 #[must_use = "A bound request does nothing until awaited"]
-pub struct RequestExecution<'a, R> {
+pub struct RequestExecution<'a, R: ExecutableRequest> {
     // Binding cannot be changed independently of the captured caller span.
     pub(crate) executor: &'a CloudTerrastodonExecutor,
     pub(crate) request: R,
     pub(crate) span: Span,
+    #[allow(
+        clippy::type_complexity,
+        reason = "Retain optional invalidation's trait witness without requiring every executable request to support it"
+    )]
+    pub(crate) invalidation: Option<
+        for<'b> fn(&'b R, &'b CloudTerrastodonExecutor) -> ExecutionFuture<'b, (), R::Error>,
+    >,
 }
 
 impl<'a, R> RequestExecution<'a, R>
@@ -35,32 +44,66 @@ where
     /// `false` executes without invoking the invalidation contract.
     /// Invalidation failures convert into the request's error without erasing
     /// errors returned by the request itself.
-    pub fn with_invalidation(
-        self,
-        invalidate_cache: bool,
-    ) -> ExecutionFuture<'a, R::Output, R::Error>
+    pub fn with_invalidation(mut self, invalidate_cache: bool) -> Self
     where
         R::Error: From<eyre::Report> + 'a,
     {
+        self.invalidation = invalidate_cache.then_some(|request, executor| {
+            let invalidation = request.invalidate(executor);
+            Box::pin(async move { invalidation.await.map_err(R::Error::from) })
+        });
+        self
+    }
+}
+
+impl<R: ExecutableRequest + HasCacheKey> HasCacheKey for RequestExecution<'_, R> {
+    fn cache_key(&self) -> Result<CacheKey> {
+        self.request.cache_key()
+    }
+}
+
+impl<'a, R> RequestExecution<'a, R>
+where
+    R: ExecutableRequest + 'a,
+    R::Output: 'a,
+    R::Error: 'a,
+{
+    /// Observe this caller's lifecycle and initializer progress in the caller's
+    /// task. The callback may borrow local state and need not be Send or Sync.
+    /// Notifications must return promptly without synchronously waiting for
+    /// execution or cache work. Dropping the bound future emits no terminal event.
+    pub fn observe<F>(self, observer: F) -> ObservedRequestExecution<'a, R::Output, R::Error, F>
+    where
+        F: FnMut(ExecutionEvent),
+    {
+        let (sender, events) = tokio::sync::mpsc::unbounded_channel();
+        let executor = self.executor.with_observer(sender);
+        ObservedRequestExecution {
+            work: self.run(executor, true),
+            events,
+            observer: Box::new(observer),
+        }
+    }
+
+    fn run(
+        self,
+        executor: CloudTerrastodonExecutor,
+        observe_admission: bool,
+    ) -> ExecutionFuture<'a, R::Output, R::Error> {
         Box::pin(
-            self.executor
+            executor
                 .cancellable_scope(move |child| async move {
-                    if invalidate_cache {
-                        self.request.invalidate(&child).await?;
-                        // Invalidation can finish protected cleanup after cancellation.
-                        // Starting the request is a separate work boundary.
+                    if observe_admission {
+                        child.report_event(ExecutionEvent::Admitted);
+                    }
+                    if let Some(invalidate) = self.invalidation {
+                        invalidate(&self.request, &child).await?;
                         child.cancellation().bail_if_cancelled()?;
                     }
                     self.request.run(child).await
                 })
                 .instrument(self.span),
         )
-    }
-}
-
-impl<R: HasCacheKey> HasCacheKey for RequestExecution<'_, R> {
-    fn cache_key(&self) -> Result<CacheKey> {
-        self.request.cache_key()
     }
 }
 
@@ -74,10 +117,7 @@ where
     type IntoFuture = ExecutionFuture<'a, R::Output, R::Error>;
 
     fn into_future(self) -> Self::IntoFuture {
-        Box::pin(
-            self.executor
-                .cancellable_scope(move |child| self.request.run(child))
-                .instrument(self.span),
-        )
+        let executor = self.executor.clone();
+        self.run(executor, false)
     }
 }

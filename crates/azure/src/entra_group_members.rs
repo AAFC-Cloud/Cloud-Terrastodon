@@ -10,6 +10,7 @@ use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_execution::RequestExecution;
+use facet::Facet;
 use std::borrow::Cow;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -21,7 +22,7 @@ use tracing::debug;
 /// cache key. Optional names retain limited-information responses. Graph v1.0
 /// [list members](https://learn.microsoft.com/en-us/graph/api/group-list-members?view=graph-rest-1.0)
 /// can omit service principals, so pagination alone does not prove completeness.
-#[derive(facet::Facet)]
+#[derive(Facet)]
 pub struct EntraGroupMembersListRequest<'a> {
     pub group_id: EntraGroupId,
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
@@ -101,7 +102,8 @@ impl ExecutableRequest for EntraGroupMembersListRequest<'_> {
                     self.group_id
                 ),
                 Some(self.cache_key()?),
-                self.auth_context.as_ref(),
+                self.auth_context.tenant_id,
+                self.auth_context.auth_source()?,
             );
             let members = query.fetch_all::<EntraDirectoryObject>(&executor).await?;
             debug!(
@@ -134,7 +136,12 @@ mod tests {
                 let tenant_id = get_test_tenant_id(&cancellation).await?;
                 let auth_context = AuthContext::explicit_azure_cli();
                 let auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
-                let groups = fetch_all_groups(&auth_context, &executor).await?;
+                let groups = fetch_all_groups(
+                    auth_context.tenant_id,
+                    auth_context.auth_source()?,
+                    &executor,
+                )
+                .await?;
                 assert!(!groups.is_empty());
                 // there's a chance that some groups just don't have members lol
                 // lets hope that we aren't unlucky many times in a row

@@ -1,4 +1,5 @@
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use facet::Facet;
 use std::sync::Arc;
 pub mod azure_entra_oauth2_permission_grant_browse_cli;
 pub mod azure_entra_oauth2_permission_grant_claim_cli;
@@ -27,7 +28,7 @@ const GRAPH_EXPLORER_APP_ID: &str = "de8bc8b5-d9f9-48b1-a8ad-b748da725064";
 const MICROSOFT_GRAPH_APP_ID: &str = "00000003-0000-0000-c000-000000000000";
 
 /// Entra OAuth2 permission grant subcommands.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct AzureEntraOAuth2PermissionGrantArgs {
     #[facet(figue::subcommand)]
     pub command: AzureEntraOAuth2PermissionGrantCommand,
@@ -43,7 +44,7 @@ impl AzureEntraOAuth2PermissionGrantArgs {
     }
 }
 
-#[derive(Debug, Clone, Copy, facet::Facet)]
+#[derive(Debug, Clone, Copy, Facet)]
 #[repr(u8)]
 pub enum OAuth2PermissionGrantPreset {
     GraphExplorer,
@@ -67,8 +68,12 @@ pub async fn resolve_preset_service_principals(
     let tenant_auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
     match preset {
         OAuth2PermissionGrantPreset::GraphExplorer => {
-            let service_principals =
-                fetch_all_service_principals(&tenant_auth_context, executor).await?;
+            let service_principals = fetch_all_service_principals(
+                tenant_auth_context.tenant_id,
+                tenant_auth_context.auth_source()?,
+                executor,
+            )
+            .await?;
             let client =
                 resolve_service_principal_by_app_id(&service_principals, GRAPH_EXPLORER_APP_ID)?;
             let resource =

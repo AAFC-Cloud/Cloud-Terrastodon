@@ -9,12 +9,13 @@ use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_execution::RequestExecution;
+use facet::Facet;
 use std::borrow::Cow;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 /// Fetch an individual Entra role assignment
-#[derive(facet::Facet)]
+#[derive(Facet)]
 pub struct UnifiedRoleDefinitionRequest<'a> {
     pub role_definition_id: UnifiedRoleDefinitionId,
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
@@ -79,7 +80,8 @@ impl ExecutableRequest for UnifiedRoleDefinitionRequest<'_> {
                     self.auth_context.tenant_id.to_string().as_ref(),
                     role_definition_id.to_string().as_ref(),
                 ]))?),
-                self.auth_context.as_ref(),
+                self.auth_context.tenant_id,
+                self.auth_context.auth_source()?,
             );
 
             let found = query.fetch_one(&executor).await?;

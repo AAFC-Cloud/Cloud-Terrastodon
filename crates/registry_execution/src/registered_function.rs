@@ -112,7 +112,6 @@ impl From<&RegisteredFunction> for String {
 }
 
 cloud_terrastodon_registry::register_thing!(RegisteredFunction);
-cloud_terrastodon_registry::register_thing!(Vec<RegisteredFunction>);
 
 #[cfg(test)]
 mod tests {

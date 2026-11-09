@@ -12,6 +12,7 @@ use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_rest::RestRequest;
+use facet::Facet;
 use http::Method;
 use std::borrow::Cow;
 use std::collections::HashSet;
@@ -20,7 +21,7 @@ use std::sync::Arc;
 use tracing::debug;
 
 #[must_use = "This is a future request, you must .execute it"]
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[facet(traits(Clone))]
 pub struct EntraGroupsForMemberRequest<'a> {
     pub principal_id: EntraPrincipalId,
@@ -48,7 +49,7 @@ pub fn fetch_entra_groups_for_member<'a>(
     })
 }
 
-#[derive(facet::Facet)]
+#[derive(Facet)]
 struct GetMemberGroupsResponse {
     value: Vec<EntraGroupId>,
 }
@@ -99,8 +100,13 @@ impl ExecutableRequest for EntraGroupsForMemberRequest<'_> {
             .await?;
 
             let group_ids: HashSet<_> = response.value.iter().copied().collect();
-            let groups =
-                fetch_groups_by_id(group_ids, self.auth_context.as_ref(), &executor).await?;
+            let groups = fetch_groups_by_id(
+                group_ids,
+                self.auth_context.tenant_id,
+                self.auth_context.auth_source()?,
+                &executor,
+            )
+            .await?;
             debug!(
                 tenant_id = %self.auth_context.tenant_id,
                 principal_id = %self.principal_id,

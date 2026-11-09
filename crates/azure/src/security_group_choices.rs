@@ -10,9 +10,15 @@ pub async fn get_security_group_choices(
     auth_context: &AzureTenantAuthContext,
     executor: &CloudTerrastodonExecutor,
 ) -> eyre::Result<Vec<Choice<Arc<EntraGroup>>>> {
-    let security_groups = fetch_all_security_groups(auth_context, executor).await?;
+    let security_groups = fetch_all_security_groups(
+        auth_context.tenant_id,
+        auth_context.auth_source()?,
+        executor,
+    )
+    .await?;
     let choices = security_groups
-        .into_iter()
+        .iter()
+        .cloned()
         .sorted_by(|x, y| x.display_name.cmp(&y.display_name))
         .map(|u| Choice {
             key: format!("{} {}", u.id, u.display_name),

@@ -99,6 +99,7 @@ impl WorkCache {
             child,
             cancellation,
             initialize,
+            observer: None,
             output: PhantomData,
         })
     }

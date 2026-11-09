@@ -1,10 +1,11 @@
 use crate::EntraOAuthScopeClaim;
+use facet::Facet;
 use std::collections::HashSet;
 use std::str::FromStr;
 
 /// The space-delimited collection represented by an Entra OAuth `scope`
 /// parameter or an `oauth2PermissionGrant.scope` property.
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Facet)]
 #[facet(json::proxy = String)]
 pub struct EntraOAuthScope(Vec<EntraOAuthScopeClaim>);
 
@@ -97,7 +98,7 @@ mod tests {
     use facet::Facet;
 
     fn generated<T: Facet<'static> + Send + 'static>(seed: u8) -> T {
-        let constructor = cloud_terrastodon_registry::KNOWN_ARBITRARY_VALUES
+        let constructor = cloud_terrastodon_registry::known_arbitrary_values()
             .iter()
             .find(|function| function.output_shape.is_shape(T::SHAPE))
             .expect("the exact arbitrary constructor is registered");

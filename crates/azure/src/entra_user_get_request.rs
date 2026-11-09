@@ -1,6 +1,8 @@
 use crate::PercentEncodeExt;
 use arbitrary::Arbitrary;
-use cloud_terrastodon_auth::AzureTenantAuthContext;
+use cloud_terrastodon_auth_types::AuthenticationSelection;
+use cloud_terrastodon_auth_types::AzureBearerAuthSource;
+use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::EntraUser;
 use cloud_terrastodon_azure_types::EntraUserArgument;
 use cloud_terrastodon_cache::CacheKey;
@@ -16,7 +18,6 @@ use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
 use facet::Facet;
 use http::Method;
-use std::borrow::Cow;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tracing::debug;
@@ -33,14 +34,16 @@ use url::Url;
 #[derive(Facet)]
 pub struct EntraUserGetRequest<'a> {
     pub lookup: EntraUserArgument<'a>,
-    pub auth_context: Cow<'a, AzureTenantAuthContext>,
+    pub tenant_id: AzureTenantId,
+    pub auth_source: AzureBearerAuthSource,
 }
 
 impl<'a> Arbitrary<'a> for EntraUserGetRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
             lookup: Arbitrary::arbitrary(u)?,
-            auth_context: Cow::Owned(Arbitrary::arbitrary(u)?),
+            tenant_id: arbitrary::Arbitrary::arbitrary(u)?,
+            auth_source: arbitrary::Arbitrary::arbitrary(u)?,
         })
     }
 }
@@ -50,7 +53,8 @@ impl<'a> Arbitrary<'a> for EntraUserGetRequest<'static> {
 #[track_caller]
 pub fn fetch_entra_user<'a, T>(
     lookup: T,
-    auth_context: &'a AzureTenantAuthContext,
+    tenant_id: AzureTenantId,
+    auth_source: AzureBearerAuthSource,
     executor: &'a CloudTerrastodonExecutor,
 ) -> RequestExecution<'a, EntraUserGetRequest<'a>>
 where
@@ -58,7 +62,8 @@ where
 {
     executor.execute(EntraUserGetRequest {
         lookup: lookup.into(),
-        auth_context: Cow::Borrowed(auth_context),
+        tenant_id,
+        auth_source,
     })
 }
 
@@ -95,7 +100,7 @@ impl InvalidatesOwnCacheKey for EntraUserGetRequest<'_> {}
 
 impl HasCacheKey for EntraUserGetRequest<'_> {
     fn cache_key(&self) -> eyre::Result<CacheKey> {
-        let tenant_id = self.auth_context.tenant_id.to_string();
+        let tenant_id = self.tenant_id.to_string();
 
         match &self.lookup {
             EntraUserArgument::ObjectId(user_id) => {
@@ -145,14 +150,14 @@ impl ExecutableRequest for EntraUserGetRequest<'_> {
             match &self.lookup {
                 EntraUserArgument::ObjectId(user_id) => {
                     debug!(
-                        tenant_id = %self.auth_context.tenant_id,
+                        tenant_id = %self.tenant_id,
                         user_id = %user_id,
                         "Fetching user by object id"
                     );
                 }
                 EntraUserArgument::UserPrincipalName(user_principal_name) => {
                     debug!(
-                        tenant_id = %self.auth_context.tenant_id,
+                        tenant_id = %self.tenant_id,
                         user_principal_name = %user_principal_name,
                         "Fetching Entra user by user principal name"
                     );
@@ -160,7 +165,10 @@ impl ExecutableRequest for EntraUserGetRequest<'_> {
             }
 
             let mut request = RestRequest::from_method_and_url(Method::GET, self.url()?)?
-                .azure_auth_context(&self.auth_context)?;
+                .authentication(AuthenticationSelection::AzureBearer {
+                    tenant_id: self.tenant_id,
+                    auth_source: self.auth_source,
+                });
             request.cache_key = Some(self.cache_key()?);
             request
                 .receive_cached::<EntraUser>(
@@ -182,6 +190,7 @@ mod tests {
     use cloud_terrastodon_auth::AuthContext;
     use cloud_terrastodon_azure_types::AzureTenantId;
     use cloud_terrastodon_command::CancellationToken;
+    use std::borrow::Cow;
 
     #[test]
     fn url_keeps_special_upns_in_the_user_key() {
@@ -207,7 +216,8 @@ mod tests {
                 ] {
                     let request = EntraUserGetRequest {
                         lookup: upn.parse()?,
-                        auth_context: Cow::Borrowed(&auth),
+                        tenant_id: auth.tenant_id,
+                        auth_source: auth.auth_source()?,
                     };
                     let url = request.url()?;
                     assert_eq!(url.path(), expected_path);

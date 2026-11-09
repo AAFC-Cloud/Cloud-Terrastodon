@@ -8,13 +8,14 @@ use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_execution::RequestExecution;
+use facet::Facet;
 use indoc::indoc;
 use std::borrow::Cow;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 #[must_use = "This is a future request, you must .execute it"]
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[facet(traits(Clone))]
 pub struct StorageAccountListRequest<'a> {
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
@@ -67,7 +68,8 @@ impl<'a> ExecutableRequest for StorageAccountListRequest<'a> {
                 | project id,name,kind,location,sku,properties,tags
             "#},
                 Some(self.cache_key()?),
-                self.auth_context.as_ref(),
+                self.auth_context.tenant_id,
+                self.auth_context.auth_source()?,
             )
             .collect_all::<StorageAccount>(&executor)
             .await

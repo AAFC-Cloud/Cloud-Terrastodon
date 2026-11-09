@@ -89,15 +89,20 @@ impl DesireDocument {
                     group.tenant_id
                 )
             })?;
-            let observed = fetch_group(group.group_id, binding, executor)
-                .with_invalidation(true)
-                .await
-                .wrap_err_with(|| {
-                    format!(
-                        "Reading group {} in tenant {}",
-                        group.group_id, group.tenant_id
-                    )
-                })?;
+            let observed = fetch_group(
+                group.group_id,
+                binding.tenant_id,
+                binding.auth_source()?,
+                executor,
+            )
+            .with_invalidation(true)
+            .await
+            .wrap_err_with(|| {
+                format!(
+                    "Reading group {} in tenant {}",
+                    group.group_id, group.tenant_id
+                )
+            })?;
             ensure!(
                 observed.id == group.group_id,
                 "Directory response identified a different group"
@@ -207,7 +212,7 @@ async fn resolve_principals(
                 let key = upn.comparison_key();
                 if !by_upn.contains_key(&key) {
                     let user = user_lookup_observation(
-                        fetch_entra_user(upn, binding, executor)
+                        fetch_entra_user(upn, binding.tenant_id, binding.auth_source()?, executor)
                             .with_invalidation(true)
                             .await,
                     )?;

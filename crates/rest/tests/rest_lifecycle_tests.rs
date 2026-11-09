@@ -3,10 +3,8 @@
 use cloud_terrastodon_auth_types::AuthenticationSelection;
 use cloud_terrastodon_auth_types::Authorization;
 use cloud_terrastodon_auth_types::AzureBearerAuthSource;
-use cloud_terrastodon_auth_types::AzureCredentialResource;
 use cloud_terrastodon_cache::ArtifactObservation;
 use cloud_terrastodon_cache::ArtifactRetention;
-use cloud_terrastodon_cache::AuthPartition;
 use cloud_terrastodon_cache::CacheKey;
 use cloud_terrastodon_cache::CacheOperationOwner;
 use cloud_terrastodon_cache::CacheScope;
@@ -15,20 +13,19 @@ use cloud_terrastodon_cache::NonEmptyString;
 use cloud_terrastodon_cache::WorkCache;
 use cloud_terrastodon_cache::WorkOutput;
 use cloud_terrastodon_cache::WorkReuse;
-use cloud_terrastodon_execution::AuthenticationProvider;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
-use cloud_terrastodon_execution::ExecutionFuture;
+use cloud_terrastodon_execution::TestAuthenticationProvider;
 use cloud_terrastodon_rest::RequestHeaders;
 use cloud_terrastodon_rest::RestHttpError;
 use cloud_terrastodon_rest::RestRequest;
 use cloud_terrastodon_rest::RestService;
 use eyre::Result;
+use facet::Facet;
 use http::Method;
 use std::cell::Cell;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
@@ -64,7 +61,7 @@ impl TryFrom<i64> for ConvertedNumber {
     }
 }
 
-#[derive(facet::Facet)]
+#[derive(Facet)]
 #[facet(proxy = u64)]
 struct CountedNumber(u64);
 impl TryFrom<u64> for CountedNumber {
@@ -77,33 +74,6 @@ impl TryFrom<u64> for CountedNumber {
 impl From<&CountedNumber> for u64 {
     fn from(value: &CountedNumber) -> Self {
         value.0
-    }
-}
-
-#[derive(Default)]
-struct SyntheticAuthentication {
-    authorizations: AtomicUsize,
-    denied: AtomicBool,
-}
-impl AuthenticationProvider for SyntheticAuthentication {
-    fn admit(&self, _selection: &AuthenticationSelection) -> Result<AuthPartition> {
-        eyre::ensure!(
-            !self.denied.load(Ordering::SeqCst),
-            "synthetic authentication revoked"
-        );
-        AuthPartition::new("synthetic-session")
-    }
-    fn authorization<'a>(
-        &'a self,
-        selection: &'a AuthenticationSelection,
-        _resource: AzureCredentialResource,
-        _executor: &'a CloudTerrastodonExecutor,
-    ) -> ExecutionFuture<'a, Authorization> {
-        Box::pin(async move {
-            self.admit(selection)?;
-            self.authorizations.fetch_add(1, Ordering::SeqCst);
-            Authorization::bearer("synthetic-test-credential")
-        })
     }
 }
 
@@ -204,7 +174,10 @@ async fn body_content_types_preserve_explicit_media_types_and_default_to_json() 
             let server = LocalServer::start(200, "7", None).await?;
             let executor = CloudTerrastodonExecutor::new(
                 WorkCache::temporary()?,
-                Arc::new(SyntheticAuthentication::default()),
+                Arc::new(TestAuthenticationProvider::new(
+                    "synthetic-test-session",
+                    Authorization::bearer("synthetic-test-credential")?,
+                )?),
                 scope,
             );
             server
@@ -267,7 +240,10 @@ async fn canonical_conversion_shares_non_clone_values_and_rejects_another_wire_c
             let server = LocalServer::start(200, "7", None).await?;
             let executor = CloudTerrastodonExecutor::new(
                 WorkCache::temporary()?,
-                Arc::new(SyntheticAuthentication::default()),
+                Arc::new(TestAuthenticationProvider::new(
+                    "synthetic-test-session",
+                    Authorization::bearer("synthetic-test-credential")?,
+                )?),
                 scope,
             );
             let owner = CacheOperationOwner::of::<ConvertedNumber>();
@@ -312,7 +288,10 @@ async fn rejected_domain_conversion_retains_artifacts_without_publishing_a_resul
             let server = LocalServer::start(200, "0", None).await?;
             let executor = CloudTerrastodonExecutor::new(
                 WorkCache::temporary()?,
-                Arc::new(SyntheticAuthentication::default()),
+                Arc::new(TestAuthenticationProvider::new(
+                    "synthetic-test-session",
+                    Authorization::bearer("synthetic-test-credential")?,
+                )?),
                 scope,
             );
             for _ in 0..2 {
@@ -345,7 +324,10 @@ async fn canonical_hits_share_decode_but_keep_metadata_and_every_callers_policy(
     CancellationToken::new()
         .with_async_scope(|scope| async move {
             let server = LocalServer::start(200, "7", None).await?;
-            let authentication = Arc::new(SyntheticAuthentication::default());
+            let authentication = Arc::new(TestAuthenticationProvider::new(
+                "synthetic-test-session",
+                Authorization::bearer("synthetic-test-credential")?,
+            )?);
             let executor = CloudTerrastodonExecutor::new(
                 WorkCache::temporary()?,
                 authentication.clone(),
@@ -406,7 +388,9 @@ async fn canonical_hits_share_decode_but_keep_metadata_and_every_callers_policy(
             assert_eq!(DECODES.load(Ordering::SeqCst), 1);
             assert_eq!(server.requests.load(Ordering::SeqCst), 1);
             assert_eq!(authentication.authorizations.load(Ordering::SeqCst), 1);
-            authentication.denied.store(true, Ordering::SeqCst);
+            authentication
+                .allow_authenticated
+                .store(false, Ordering::SeqCst);
             assert!(
                 request
                     .receive_cached::<CountedNumber>(&executor, owner)
@@ -425,7 +409,7 @@ async fn cancelling_the_transport_leader_releases_a_waiters_retry() -> Result<()
         .with_async_scope(|scope| async move {
             let gate = Arc::new(Notify::new());
             let server = LocalServer::start(200, "11", Some(gate.clone())).await?;
-            let authentication = Arc::new(SyntheticAuthentication::default());
+            let authentication = Arc::new(TestAuthenticationProvider::new("synthetic-test-session", Authorization::bearer("synthetic-test-credential")?)?);
             let cache = WorkCache::temporary()?;
             let executor = CloudTerrastodonExecutor::new(cache.clone(), authentication.clone(), scope);
             let owner = CacheOperationOwner::of::<Operation>();
@@ -488,7 +472,10 @@ async fn wrappers_and_rest_envelopes_share_a_scope_without_sharing_their_type_cl
             let server = LocalServer::start(200, "[1,2,3]", None).await?;
             let executor = CloudTerrastodonExecutor::new(
                 WorkCache::temporary()?,
-                Arc::new(SyntheticAuthentication::default()),
+                Arc::new(TestAuthenticationProvider::new(
+                    "synthetic-test-session",
+                    Authorization::bearer("synthetic-test-credential")?,
+                )?),
                 scope,
             );
             let request = server.request(Method::GET)?;
@@ -497,7 +484,7 @@ async fn wrappers_and_rest_envelopes_share_a_scope_without_sharing_their_type_cl
                     ExecutorKind::InProcess,
                     key(),
                     CacheOperationOwner::of::<Wrapper>(),
-                    &AuthenticationSelection::Anonymous,
+                    &request.authentication,
                     NonEmptyString::new("wrapper")?,
                     WorkReuse::ReusableRead,
                     |child| {
@@ -540,7 +527,10 @@ async fn owned_mutations_never_share_and_keep_their_outcome_after_cancellation()
             let server = LocalServer::start(200, "9", Some(gate.clone())).await?;
             let executor = CloudTerrastodonExecutor::new(
                 WorkCache::temporary()?,
-                Arc::new(SyntheticAuthentication::default()),
+                Arc::new(TestAuthenticationProvider::new(
+                    "synthetic-test-session",
+                    Authorization::bearer("synthetic-test-credential")?,
+                )?),
                 scope,
             );
             let request = server.request(Method::POST)?.body("synthetic input");
@@ -565,7 +555,10 @@ async fn owned_mutations_never_share_and_keep_their_outcome_after_cancellation()
             let server = LocalServer::start(200, "9", None).await?;
             let executor = CloudTerrastodonExecutor::new(
                 WorkCache::temporary()?,
-                Arc::new(SyntheticAuthentication::default()),
+                Arc::new(TestAuthenticationProvider::new(
+                    "synthetic-test-session",
+                    Authorization::bearer("synthetic-test-credential")?,
+                )?),
                 scope,
             );
             let request = server.request(Method::POST)?;
@@ -594,7 +587,10 @@ async fn failures_keep_http_metadata_and_raw_artifacts_without_becoming_hits() -
             let server = LocalServer::start(429, "{\"synthetic\":true}", None).await?;
             let executor = CloudTerrastodonExecutor::new(
                 WorkCache::temporary()?,
-                Arc::new(SyntheticAuthentication::default()),
+                Arc::new(TestAuthenticationProvider::new(
+                    "synthetic-test-session",
+                    Authorization::bearer("synthetic-test-credential")?,
+                )?),
                 scope,
             );
             for _ in 0..2 {
@@ -623,7 +619,10 @@ async fn sensitive_failures_and_credential_header_rejection_leave_no_artifacts()
     CancellationToken::new()
         .with_async_scope(|scope| async move {
             let server = LocalServer::start(200, "synthetic-private-body", None).await?;
-            let authentication = Arc::new(SyntheticAuthentication::default());
+            let authentication = Arc::new(TestAuthenticationProvider::new(
+                "synthetic-test-session",
+                Authorization::bearer("synthetic-test-credential")?,
+            )?);
             let executor = CloudTerrastodonExecutor::new(
                 WorkCache::temporary()?,
                 authentication.clone(),

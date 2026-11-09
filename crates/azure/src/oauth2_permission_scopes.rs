@@ -11,12 +11,13 @@ use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_rest::RestRequest;
+use facet::Facet;
 use std::borrow::Cow;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tracing::info;
 
-#[derive(facet::Facet)]
+#[derive(Facet)]
 pub struct OAuth2PermissionScopesListRequest<'a> {
     pub service_principal_id: EntraServicePrincipalObjectId,
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
@@ -113,8 +114,12 @@ mod tests {
                 let tenant_id = get_test_tenant_id(&cancellation).await?;
                 let auth_context = AuthContext::explicit_azure_cli();
                 let tenant_auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
-                let service_principals =
-                    fetch_all_service_principals(&tenant_auth_context, &executor).await?;
+                let service_principals = fetch_all_service_principals(
+                    tenant_auth_context.tenant_id,
+                    tenant_auth_context.auth_source()?,
+                    &executor,
+                )
+                .await?;
                 let graph = service_principals
                     .iter()
                     .find(|sp| sp.display_name == "Microsoft Graph")

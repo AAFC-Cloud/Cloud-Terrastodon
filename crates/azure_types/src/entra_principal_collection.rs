@@ -1,12 +1,23 @@
 use crate::EntraGroupId;
 use crate::EntraPrincipal;
 use crate::EntraPrincipalId;
+use arbitrary::Arbitrary;
+use facet::Facet;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::ops::DerefMut;
 
-#[derive(Debug, Clone, arbitrary::Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 pub struct EntraPrincipalCollection(pub HashMap<EntraPrincipalId, EntraPrincipal>);
+
+impl<'a> Arbitrary<'a> for EntraPrincipalCollection {
+    fn arbitrary(unstructured: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        // Keys identify their records, including when inventory discovery uses
+        // the shared collection output. Independent map-key generation breaks
+        // the same relationship maintained by normal inventory assembly.
+        Ok(Self::new(Vec::<EntraPrincipal>::arbitrary(unstructured)?))
+    }
+}
 
 impl EntraPrincipalCollection {
     pub fn new(principals: impl IntoIterator<Item = EntraPrincipal>) -> Self {
@@ -34,3 +45,5 @@ impl DerefMut for EntraPrincipalCollection {
 }
 
 cloud_terrastodon_registry::register_arbitrary!(std::collections::HashMap<EntraGroupId, Vec<EntraPrincipal>>);
+
+cloud_terrastodon_registry::register_arbitrary!(EntraPrincipalCollection);

@@ -1,5 +1,7 @@
 use crate::AuthenticationProvider;
+use crate::CollectionProgress;
 use crate::ExecutableRequest;
+use crate::ExecutionEvent;
 use crate::ExecutionFuture;
 use crate::RequestExecution;
 use crate::execution_mode::ExecutionMode;
@@ -21,6 +23,7 @@ use cloud_terrastodon_cache::WorkOutput;
 use cloud_terrastodon_cache::WorkReuse;
 use eyre::Result;
 use eyre::ensure;
+use tracing::warn;
 use std::future::Future;
 use std::future::IntoFuture;
 use std::panic::Location;
@@ -29,6 +32,7 @@ use std::time::Duration;
 use teamy_cancellation::CancellationError;
 use teamy_cancellation::CancellationScope;
 use teamy_cancellation::CancellationToken;
+use tokio::sync::mpsc::UnboundedSender;
 use tracing::Instrument;
 
 /// Shared execution resources bound to an already-owned invocation lifetime.
@@ -49,6 +53,7 @@ pub struct CloudTerrastodonExecutor {
     authentication: Arc<dyn AuthenticationProvider>,
     cancellation: CancellationScope,
     mode: ExecutionMode,
+    observer: Option<UnboundedSender<ExecutionEvent>>,
 }
 
 impl CloudTerrastodonExecutor {
@@ -63,6 +68,7 @@ impl CloudTerrastodonExecutor {
             authentication,
             cancellation,
             mode: ExecutionMode::Normal(None),
+            observer: None,
         }
     }
 
@@ -116,6 +122,7 @@ impl CloudTerrastodonExecutor {
         RequestExecution {
             executor: self,
             request,
+            invalidation: None,
             span: tracing::trace_span!(
                 "execute_request",
                 request = std::any::type_name::<R>(),
@@ -125,6 +132,29 @@ impl CloudTerrastodonExecutor {
             )
             .or_current(),
         }
+    }
+
+    pub(crate) fn with_observer(&self, observer: UnboundedSender<ExecutionEvent>) -> Self {
+        Self {
+            observer: Some(observer),
+            ..self.clone()
+        }
+    }
+
+    pub(crate) fn report_event(&self, event: ExecutionEvent) {
+        if let Some(observer) = &self.observer {
+            // A dropped observer is not an execution failure. The channel carries
+            // notifications only and never controls the lifetime of the work.
+            if let Err(e) = observer.send(event) {
+                warn!("failed to report execution event: {e:#}");
+            }
+        }
+    }
+
+    /// Report progress belonging to this initializer, without retaining a callback
+    /// in request data or a shared cache entry. Waiting callers do not inherit it.
+    pub fn report_progress(&self, progress: CollectionProgress) {
+        self.report_event(ExecutionEvent::Progress(progress));
     }
 
     /// Check owned authentication policy without acquiring credentials.
@@ -408,6 +438,10 @@ impl CloudTerrastodonExecutor {
             fingerprint,
         };
         let initialization_identity = identity.clone();
+        let observation = self
+            .observer
+            .clone()
+            .map(|observer| (observer, identity.clone()));
         let spec = self.cache.cached_work(
             identity,
             owner,
@@ -430,6 +464,18 @@ impl CloudTerrastodonExecutor {
                 Ok(output)
             },
         )?;
+        let spec = if let Some((observer, observed_identity)) = observation {
+            spec.observe(move |status| {
+                if let Err(e) = observer.send(ExecutionEvent::Cache {
+                    identity: observed_identity.clone(),
+                    status,
+                }) {
+                    warn!("failed to report execution event: {e:#}");
+                }
+            })
+        } else {
+            spec
+        };
         Ok(self.await_admitted_work(selection, partition, spec))
     }
 

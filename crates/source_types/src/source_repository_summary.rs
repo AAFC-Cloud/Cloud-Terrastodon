@@ -27,5 +27,3 @@ pub struct SourceRepositorySummary {
 
 cloud_terrastodon_registry::register_thing!(SourceRepositorySummary);
 cloud_terrastodon_registry::register_arbitrary!(SourceRepositorySummary);
-cloud_terrastodon_registry::register_thing!(Vec<SourceRepositorySummary>);
-cloud_terrastodon_registry::register_arbitrary!(Vec<SourceRepositorySummary>);

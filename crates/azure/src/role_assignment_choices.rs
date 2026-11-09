@@ -19,9 +19,22 @@ pub async fn get_role_assignment_choices(
     executor: &CloudTerrastodonExecutor,
 ) -> eyre::Result<Vec<Choice<Arc<RoleAssignment>>>> {
     let (role_assignments, role_definitions, users) = try_join!(
-        fetch_all_role_assignments(auth_context, executor),
-        fetch_all_role_definitions(auth_context, executor),
-        fetch_all_entra_users(auth_context, executor).into_future()
+        fetch_all_role_assignments(
+            auth_context.tenant_id,
+            auth_context.auth_source()?,
+            executor
+        ),
+        fetch_all_role_definitions(
+            auth_context.tenant_id,
+            auth_context.auth_source()?,
+            executor
+        ),
+        fetch_all_entra_users(
+            auth_context.tenant_id,
+            auth_context.auth_source()?,
+            executor
+        )
+        .into_future()
     )?;
 
     let role_definition_lookup: HashMap<&RoleDefinitionId, &RoleDefinition> = role_definitions
@@ -34,7 +47,7 @@ pub async fn get_role_assignment_choices(
         .collect::<HashMap<EntraPrincipalId, _>>();
 
     let mut choices: Vec<Choice<Arc<RoleAssignment>>> = Vec::new();
-    for ra in role_assignments {
+    for ra in role_assignments.iter() {
         let Some(rd) = role_definition_lookup.get(&ra.role_definition_id) else {
             warn!("Could not identify role definition for {ra:?}");
             continue;
@@ -46,7 +59,10 @@ pub async fn get_role_assignment_choices(
             .map(|u| u.display_name.to_string())
             .unwrap_or_else(|| ra.principal_id.to_string());
         let key = format!("{role_name:41} {principal_display_name:36} {scope}");
-        choices.push(Choice { key, value: ra });
+        choices.push(Choice {
+            key,
+            value: Arc::clone(ra),
+        });
     }
 
     Ok(choices)

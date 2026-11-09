@@ -34,6 +34,7 @@ facet-value.workspace = true
 blake3.workspace = true
 
 [dev-dependencies]
+cloud_terrastodon_execution = { workspace = true, features = ["test-support"] }
 tempfile.workspace = true
 tracing-subscriber.workspace = true
 

@@ -99,7 +99,9 @@ The lock rules are:
 3. An I/O-gate holder may acquire state, but must release state before any await.
 4. Never acquire or await an initializer mutex while holding the I/O gate.
 5. Never hold the I/O gate across HTTP/process execution, canonical decoding,
-   child requests, caller validators/projections, or observer callbacks.
+   child requests, or caller validators/projections. Do not call observers from
+   those protected procedures; send invocation events and deliver notifications
+   from the caller's outer execution wrapper.
 6. Invalidation acquires the I/O gate and state; it never acquires descendant
    initializer mutexes.
 
@@ -107,6 +109,15 @@ The gate may cover asynchronous filesystem work. That initial serialization is
 intentional. Unique attempt staging can happen outside it because staging is not
 visible as reusable storage. Replacing the gate with a more concurrent mechanism
 is a later optimization with the same correctness obligations.
+
+**Phase 5 observation refinement:** Delivering a queued notification after a
+request poll does not prove that its suspended filesystem future has released
+the gate or its initializer lock. Observers must return promptly and must not
+synchronously wait for cache/execution work. A gate acquire/release barrier would
+not establish that guarantee either: mutex fairness can reserve the next permit
+for the suspended producer. G4 therefore defines notification callbacks, without
+introducing detached work, quiescence waits, or callback reentrancy guarantees.
+State bookkeeping never calls user observers while holding its synchronous mutex.
 
 A memory hit linearizes while holding state: check ownership and the complete
 certificate, check the current caller's expiry bound, check dependency-cycle

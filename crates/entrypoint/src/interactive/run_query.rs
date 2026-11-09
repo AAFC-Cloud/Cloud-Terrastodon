@@ -53,10 +53,14 @@ resources
         debug!("Received query:\n{}", query);
 
         info!("Running query");
-        let rows: Vec<Arc<ArbitraryJson>> =
-            ResourceGraphHelper::new(query.clone(), None, auth_context)
-                .collect_all(executor)
-                .await?;
+        let rows: Vec<Arc<ArbitraryJson>> = ResourceGraphHelper::new(
+            query.clone(),
+            None,
+            auth_context.tenant_id,
+            auth_context.auth_source()?,
+        )
+        .collect_all(executor)
+        .await?;
         let rows_json =
             facet_json::to_string_pretty(&rows).map_err(|error| eyre::eyre!("{error:?}"))?;
 

@@ -28,7 +28,11 @@ pub async fn predict_would_secret_list_succeed() -> eyre::Result<()> {
             let current_user = fetch_current_user(&tenant_auth_context, &executor).await?;
             let (key_vaults, rbac) = try_join!(
                 fetch_all_key_vaults(&tenant_auth_context, &executor),
-                fetch_all_role_definitions_and_assignments(&tenant_auth_context, &executor),
+                fetch_all_role_definitions_and_assignments(
+                    tenant_auth_context.tenant_id,
+                    tenant_auth_context.auth_source()?,
+                    &executor
+                ),
             )?;
 
             let key_vaults = key_vaults

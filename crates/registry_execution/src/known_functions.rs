@@ -4,8 +4,9 @@ use facet::Shape;
 
 /// An immutable view of runtime and pure operation registrations.
 ///
-/// Iteration wraps references to the original registrations. No adapter table,
-/// lookup, metadata copy or operation execution is needed to obtain a handle.
+/// Iteration retains references to the original static registrations. The first
+/// iteration indexes arbitrary collection metadata once; it never constructs a
+/// value or invokes an operation. Direct associated handles need no lookup.
 #[derive(Clone, Copy)]
 pub struct KnownFunctions;
 
@@ -24,7 +25,8 @@ impl IntoIterator for KnownFunctions {
     }
 }
 
-/// Traverse all linked registrations without allocating or invoking operations.
+/// View all linked registrations. Iteration lazily initializes the shared
+/// arbitrary metadata index, without invoking any registered operation.
 pub const fn known_functions() -> KnownFunctions {
     KnownFunctions
 }

@@ -9,12 +9,13 @@ use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_execution::RequestExecution;
 use eyre::ensure;
+use facet::Facet;
 use std::borrow::Cow;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 #[must_use = "This is a future request, you must .execute it"]
-#[derive(facet::Facet)]
+#[derive(Facet)]
 pub struct AzureTenantDetailsRequest<'a> {
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
@@ -61,10 +62,14 @@ impl ExecutableRequest for AzureTenantDetailsRequest<'_> {
     {
         Box::pin(async move {
             let url = "https://graph.microsoft.com/v1.0/organization";
-            let resp =
-                MicrosoftGraphHelper::new(url, Some(self.cache_key()?), self.auth_context.as_ref())
-                    .fetch_all::<MicrosoftGraphOrganization>(&executor)
-                    .await?;
+            let resp = MicrosoftGraphHelper::new(
+                url,
+                Some(self.cache_key()?),
+                self.auth_context.tenant_id,
+                self.auth_context.auth_source()?,
+            )
+            .fetch_all::<MicrosoftGraphOrganization>(&executor)
+            .await?;
             ensure!(
                 resp.len() == 1,
                 "Expected exactly one organization in response, got {}",

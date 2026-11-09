@@ -12,6 +12,7 @@ use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_execution::RequestExecution;
 use eyre::Context;
+use facet::Facet;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -22,7 +23,7 @@ use std::sync::Arc;
 /// Prefer [`crate::fetch_group_members`] when every page is required; this legacy
 /// batch operation does not follow continuation links from
 /// [list members](https://learn.microsoft.com/en-us/graph/api/group-list-members?view=graph-rest-1.0).
-#[derive(facet::Facet)]
+#[derive(Facet)]
 pub struct EntraGroupMembersListBatchRequest<'a> {
     pub group_ids: Vec<EntraGroupId>,
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
@@ -91,8 +92,12 @@ impl ExecutableRequest for EntraGroupMembersListBatchRequest<'_> {
                 auth_context,
             } = self;
             // Construct the request
-            let mut batch_request: MicrosoftGraphBatchRequest<'_, Vec<Arc<EntraDirectoryObject>>> =
-                MicrosoftGraphBatchRequest::new(auth_context.as_ref()).cancellation_safe();
+            let mut batch_request: MicrosoftGraphBatchRequest<Vec<Arc<EntraDirectoryObject>>> =
+                MicrosoftGraphBatchRequest::new(
+                    auth_context.tenant_id,
+                    auth_context.auth_source()?,
+                )
+                .cancellation_safe();
 
             // Enable caching since it's a GET request
             batch_request.cache(cache_key);

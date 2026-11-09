@@ -1,70 +1,92 @@
 use crate::ResourceGraphHelper;
-use cloud_terrastodon_auth::AzureTenantAuthContext;
+use arbitrary::Arbitrary;
+use cloud_terrastodon_auth_types::AuthenticationSelection;
+use cloud_terrastodon_auth_types::AzureBearerAuthSource;
+use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::RoleAssignment;
+use cloud_terrastodon_cache::ArtifactObservation;
 use cloud_terrastodon_cache::CacheKey;
+use cloud_terrastodon_cache::CacheOperationOwner;
+use cloud_terrastodon_cache::ExecutorKind;
 use cloud_terrastodon_cache::HasCacheKey;
 use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
+use cloud_terrastodon_cache::NonEmptyString;
+use cloud_terrastodon_cache::WorkOutput;
+use cloud_terrastodon_cache::WorkReuse;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_execution::RequestExecution;
-use std::borrow::Cow;
+use facet::Facet;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tracing::debug;
 
 /// Fetches all AzureRM role assignments.
 ///
-/// Not to be confused with Entra role assignments.
-#[must_use = "This is a future request, you must .execute it"]
-#[derive(facet::Facet)]
-pub struct RoleAssignmentListRequest<'a> {
-    pub auth_context: Cow<'a, AzureTenantAuthContext>,
-}
-
-impl<'a> arbitrary::Arbitrary<'a> for RoleAssignmentListRequest<'static> {
-    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        Ok(Self {
-            auth_context: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
-        })
-    }
+/// Uses the authorization resources table in
+/// [Resource Graph 2022-10-01](https://learn.microsoft.com/rest/api/azureresourcegraph/resourcegraph/resources/resources?view=rest-azureresourcegraph-resourcegraph-2022-10-01).
+/// These are Azure RBAC assignments, distinct from Entra directory roles. The
+/// executor shares the assembled list and records its page dependencies in memory.
+#[must_use = "Bind this request to an executor and await its execution"]
+#[derive(Debug, Clone, Facet, Arbitrary)]
+#[facet(traits(Clone))]
+pub struct RoleAssignmentListRequest {
+    pub tenant_id: AzureTenantId,
+    pub auth_source: AzureBearerAuthSource,
 }
 
 #[track_caller]
-pub fn fetch_all_role_assignments<'a>(
-    auth_context: &'a AzureTenantAuthContext,
-    executor: &'a CloudTerrastodonExecutor,
-) -> RequestExecution<'a, RoleAssignmentListRequest<'a>> {
+pub fn fetch_all_role_assignments(
+    tenant_id: AzureTenantId,
+    auth_source: AzureBearerAuthSource,
+    executor: &CloudTerrastodonExecutor,
+) -> RequestExecution<'_, RoleAssignmentListRequest> {
     executor.execute(RoleAssignmentListRequest {
-        auth_context: Cow::Borrowed(auth_context),
+        tenant_id,
+        auth_source,
     })
 }
 
-impl<'a> InvalidatesOwnCacheKey for RoleAssignmentListRequest<'a> {}
+impl InvalidatesOwnCacheKey for RoleAssignmentListRequest {}
 
-impl<'a> HasCacheKey for RoleAssignmentListRequest<'a> {
+impl HasCacheKey for RoleAssignmentListRequest {
     fn cache_key(&self) -> eyre::Result<CacheKey> {
         CacheKey::from_relative_path(PathBuf::from_iter([
             "az",
             "resource_graph",
             "role_assignments",
-            self.auth_context.tenant_id.to_string().as_str(),
+            self.tenant_id.to_string().as_str(),
         ]))
     }
 }
 
-impl<'a> ExecutableRequest for RoleAssignmentListRequest<'a> {
+impl ExecutableRequest for RoleAssignmentListRequest {
     type Error = eyre::Report;
-    type Output = Vec<Arc<RoleAssignment>>;
+    type Output = Arc<Vec<Arc<RoleAssignment>>>;
     fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
     where
         Self: 'exec,
         Self::Output: 'exec,
     {
         Box::pin(async move {
-            debug!("Fetching role assignments");
-            let query = ResourceGraphHelper::new(
-                r#"
+            let selection = AuthenticationSelection::AzureBearer {
+                tenant_id: self.tenant_id,
+                auth_source: self.auth_source,
+            };
+            let fingerprint = NonEmptyString::new(facet_json::to_string(&self)?)?;
+            executor
+                .cached_work(
+                    ExecutorKind::InProcess,
+                    self.cache_key()?,
+                    CacheOperationOwner::of::<Self>(),
+                    &selection,
+                    fingerprint,
+                    WorkReuse::ReusableRead,
+                    move |child| async move {
+                        debug!("Fetching role assignments");
+                        let mut query = ResourceGraphHelper::new(
+                            r#"
 authorizationresources
 | where type =~ "microsoft.authorization/roleassignments"
 | project
@@ -73,13 +95,20 @@ authorizationresources
     role_definition_id=properties.roleDefinitionId,
     principal_id=properties.principalId
 "#,
-                Some(self.cache_key()?),
-                self.auth_context.as_ref(),
-            );
-            let mut query = query;
-            let role_assignments: Vec<Arc<RoleAssignment>> = query.collect_all(&executor).await?;
-            debug!("Found {} role assignments", role_assignments.len());
-            Ok(role_assignments)
+                            Some(self.cache_key()?),
+                            self.tenant_id,
+                            self.auth_source,
+                        );
+                        let role_assignments: Vec<Arc<RoleAssignment>> =
+                            query.collect_all(&child).await?;
+                        debug!("Found {} role assignments", role_assignments.len());
+                        Ok(WorkOutput::new(
+                            role_assignments,
+                            ArtifactObservation::now(),
+                        ))
+                    },
+                )?
+                .await
         })
     }
 }
@@ -104,10 +133,15 @@ mod tests {
                 let auth_context = AuthContext::explicit_azure_cli();
                 let auth_context =
                     auth_context.bind_to_azure_tenant(get_test_tenant_id(&cancellation).await?)?;
-                let result = fetch_all_role_assignments(&auth_context, &executor).await?;
+                let result = fetch_all_role_assignments(
+                    auth_context.tenant_id,
+                    auth_context.auth_source()?,
+                    &executor,
+                )
+                .await?;
                 assert!(result.len() > 2);
                 let _interesting_assignments = result
-                    .into_iter()
+                    .iter()
                     .filter(|role_assignment| {
                         matches!(
                             role_assignment.id,
@@ -121,6 +155,6 @@ mod tests {
     }
 }
 
-cloud_terrastodon_registry::register_thing!(RoleAssignmentListRequest<'static>);
-cloud_terrastodon_registry::register_arbitrary!(RoleAssignmentListRequest<'static>);
-cloud_terrastodon_registry_execution::register_executable_request!(RoleAssignmentListRequest<'static> => Vec<Arc<RoleAssignment>>, effects = [Read]);
+cloud_terrastodon_registry::register_thing!(RoleAssignmentListRequest);
+cloud_terrastodon_registry::register_arbitrary!(RoleAssignmentListRequest);
+cloud_terrastodon_registry_execution::register_executable_request!(RoleAssignmentListRequest => Arc<Vec<Arc<RoleAssignment>>>, effects = [Read]);

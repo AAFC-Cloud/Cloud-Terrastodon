@@ -11,6 +11,7 @@ use cloud_terrastodon_hcl::TerraformChangeAction;
 use cloud_terrastodon_hcl::TerraformPlan;
 use eyre::ContextCompat;
 use eyre::Result;
+use facet::Facet;
 #[allow(
     clippy::disallowed_types,
     reason = "Terraform plan values use hcl_types' raw representation to avoid an azure_types dependency cycle."
@@ -25,7 +26,7 @@ use tokio::fs;
 use tracing::info;
 
 /// Show a Terraform plan or plan JSON as a parsed `TerraformPlan`.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct TerraformShowArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
     #[facet(figue::named, default)]
@@ -82,10 +83,14 @@ impl TerraformShowArgs {
                     }
 
                     // Slow path: fetch, store in cache, and return
-                    let fetched = fetch_all_principals(&tenant_auth_context, executor).await?;
-                    let arc = Arc::new(fetched);
-                    *cache.borrow_mut() = Some(arc.clone());
-                    eyre::Ok(arc)
+                    let fetched = fetch_all_principals(
+                        tenant_auth_context.tenant_id,
+                        tenant_auth_context.auth_source()?,
+                        executor,
+                    )
+                    .await?;
+                    *cache.borrow_mut() = Some(Arc::clone(&fetched));
+                    eyre::Ok(fetched)
                 }
             }
         };
@@ -194,7 +199,7 @@ impl TerraformShowArgs {
 fn extract_members_and_owners(
     azuread_group_data: Option<&RawJson<'static>>,
 ) -> Result<(HashSet<EntraPrincipalId>, HashSet<EntraPrincipalId>), eyre::Error> {
-    #[derive(facet::Facet)]
+    #[derive(Facet)]
     struct AzureAdGroupMembersAndOwners {
         members: Vec<EntraPrincipalId>,
         owners: Vec<EntraPrincipalId>,

@@ -8,6 +8,7 @@ use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_execution::RequestExecution;
+use facet::Facet;
 use std::borrow::Cow;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -16,7 +17,7 @@ use tracing::debug;
 /// Fetches Entra role assignments.
 ///
 /// Not to be confused with Azure RBAC role assignments.
-#[derive(facet::Facet)]
+#[derive(Facet)]
 pub struct UnifiedRoleAssignmentListRequest<'a> {
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
@@ -64,8 +65,12 @@ impl ExecutableRequest for UnifiedRoleAssignmentListRequest<'_> {
         Box::pin(async move {
             debug!("Fetching all unified role assignments");
             let url = "https://graph.microsoft.com/beta/roleManagement/directory/roleAssignments";
-            let query =
-                MicrosoftGraphHelper::new(url, Some(self.cache_key()?), self.auth_context.as_ref());
+            let query = MicrosoftGraphHelper::new(
+                url,
+                Some(self.cache_key()?),
+                self.auth_context.tenant_id,
+                self.auth_context.auth_source()?,
+            );
             let rtn = query.fetch_all(&executor).await?;
             debug!("Fetched {} unified role assignments", rtn.len());
             Ok(rtn)

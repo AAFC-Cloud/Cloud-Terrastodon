@@ -45,7 +45,10 @@ fn pure_registrations_join_the_catalog_without_running_or_duplicating_them() -> 
         known_thing_for_shape(PureValue::SHAPE).unwrap()
     ));
 
-    let constructors = functions_from_to(ArbitraryBytes::SHAPE, PureValue::SHAPE);
+    let constructors = functions_from_to(ArbitraryBytes::SHAPE, PureValue::SHAPE)
+        .into_iter()
+        .filter(|function| function.output_shape.is_shape(PureValue::SHAPE))
+        .collect::<Vec<_>>();
     let [constructor] = constructors.as_slice() else {
         panic!("the low descriptor must have one catalog handle");
     };
@@ -61,7 +64,7 @@ fn pure_registrations_join_the_catalog_without_running_or_duplicating_them() -> 
         1,
         "the executable and pure catalogues must share one authoritative descriptor",
     );
-    assert!(*constructor == functions_to(PureValue::SHAPE)[0]);
+    assert!(functions_to(PureValue::SHAPE).contains(constructor));
 
     let handle = RegisteredFunction::from_function(*constructor);
     assert_eq!(handle.to_string().parse::<RegisteredFunction>()?, handle);
@@ -83,6 +86,46 @@ fn pure_registrations_join_the_catalog_without_running_or_duplicating_them() -> 
     assert!(runtime.shape().is_shape(PureValue::SHAPE));
     assert!(input.as_slice().len() < 4);
     assert_eq!(GENERATED.load(Ordering::SeqCst), 1);
-    assert!(*constructor == functions_to(PureValue::SHAPE)[0]);
+    assert!(functions_to(PureValue::SHAPE).contains(constructor));
+    Ok(())
+}
+
+#[derive(Facet, Arbitrary)]
+struct ExplicitCollectionValue(u8);
+
+type ExplicitCollectionAlias = ExplicitCollectionValue;
+
+cloud_terrastodon_registry::register_arbitrary!(ExplicitCollectionValue);
+cloud_terrastodon_registry::register_arbitrary!(static FIRST_COLLECTION: Vec<ExplicitCollectionValue>);
+cloud_terrastodon_registry::register_arbitrary!(static SECOND_COLLECTION: Vec<ExplicitCollectionAlias>);
+
+#[test]
+fn explicit_constructor_handles_survive_automatic_and_alias_overlap() -> eyre::Result<()> {
+    let constructors = known_functions()
+        .iter()
+        .filter(|function| {
+            function.input_shape.is_shape(ArbitraryBytes::SHAPE)
+                && function
+                    .output_shape
+                    .is_shape(Vec::<ExplicitCollectionValue>::SHAPE)
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        constructors.len(),
+        2,
+        "automatic forms must not add a third constructor"
+    );
+    for registration in [&FIRST_COLLECTION, &SECOND_COLLECTION] {
+        let function = Function::Arbitrary(registration);
+        assert!(constructors.contains(&function));
+        let handle = RegisteredFunction::from_function(function);
+        assert_eq!(handle.to_string().parse::<RegisteredFunction>()?, handle);
+        let generated = registration.generate(&mut ArbitraryBytes::new(vec![1; 8]))?;
+        let generated = generated
+            .downcast::<Vec<ExplicitCollectionValue>>()
+            .unwrap();
+        assert!(!generated.is_empty());
+        assert_eq!(generated[0].0, 1);
+    }
     Ok(())
 }

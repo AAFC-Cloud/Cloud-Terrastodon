@@ -1,7 +1,7 @@
 #![cfg(test)]
 
-// SDK metadata checks retain their current explicit auth-context inputs while
-// data-only discovery contracts exercise the final selection shape below.
+// The production project request is data-only; other request families still
+// require runtime contexts until their own migration slices complete.
 
 #[path = "support/discovery_requests.rs"]
 mod discovery_requests;
@@ -32,7 +32,6 @@ use cloud_terrastodon_registry_execution::DiscoverySimulation;
 use cloud_terrastodon_registry_execution::Function;
 use cloud_terrastodon_registry_execution::known_functions;
 use discovery_requests::ProjectFoldersRequest;
-use discovery_requests::ProjectInventoryRequest;
 use facet::Facet;
 use facet::Shape;
 use std::sync::Arc;
@@ -61,6 +60,7 @@ fn sdk_linked_catalog_connects_projects_to_service_connections_and_full_build_de
         &[
             AzureDevOpsOrganizationUrl::SHAPE,
             AzureDevOpsAuthContext::SHAPE,
+            AzureDevOpsAuthSelection::SHAPE,
         ],
         &[
             AzureDevOpsServiceEndpoint::SHAPE,
@@ -116,7 +116,7 @@ fn sdk_an_organization_without_authentication_cannot_unlock_project_inventories(
             && node
                 .missing_inputs
                 .iter()
-                .any(|input| input == "auth_context: AzureDevOpsAuthContext")
+                .any(|input| input == "auth_selection: AzureDevOpsAuthSelection")
     }));
 }
 
@@ -132,6 +132,7 @@ fn sdk_project_argument_conversion_is_required_even_when_request_arbitrary_is_re
     let seeds = [
         AzureDevOpsOrganizationUrl::SHAPE,
         AzureDevOpsAuthContext::SHAPE,
+        AzureDevOpsAuthSelection::SHAPE,
     ];
     let targets = [AzureDevOpsServiceEndpoint::SHAPE];
 
@@ -175,6 +176,7 @@ fn sdk_yaml_filename_is_a_conditional_descendant_of_a_full_build_definition() {
         &[
             AzureDevOpsOrganizationUrl::SHAPE,
             AzureDevOpsAuthContext::SHAPE,
+            AzureDevOpsAuthSelection::SHAPE,
         ],
         &[AzureDevOpsBuildYamlFilename::SHAPE],
     );
@@ -214,7 +216,7 @@ fn sdk_devops_auth_does_not_supply_the_tenant_context_from_its_bearer_variant() 
 #[test]
 fn structural_project_folder_plan_covers_the_arbitrary_simulation_requests() {
     let catalog = [
-        ProjectInventoryRequest::REGISTERED_EXECUTABLE_REQUEST,
+        AzureDevOpsProjectsListRequest::REGISTERED_EXECUTABLE_REQUEST,
         Function::Pure(AzureDevOpsProject::REGISTERED_INTO_PROJECT_ARGUMENT),
         ProjectFoldersRequest::REGISTERED_EXECUTABLE_REQUEST,
     ]
@@ -280,7 +282,7 @@ fn structural_project_folder_plan_covers_the_arbitrary_simulation_requests() {
 #[test]
 fn executable_discovery_requires_credential_selection_and_traverses_shared_records() {
     let catalog = [
-        ProjectInventoryRequest::REGISTERED_EXECUTABLE_REQUEST.descriptor(),
+        AzureDevOpsProjectsListRequest::REGISTERED_EXECUTABLE_REQUEST.descriptor(),
         AzureDevOpsProject::REGISTERED_INTO_PROJECT_ARGUMENT.descriptor(),
         ProjectFoldersRequest::REGISTERED_EXECUTABLE_REQUEST.descriptor(),
     ];

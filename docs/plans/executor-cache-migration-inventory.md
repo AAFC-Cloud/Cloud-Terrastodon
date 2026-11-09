@@ -66,8 +66,8 @@ credentials or cancellation. Cached receives use canonical operation owners and
 decoded `Arc` values; owned receives execute independently. SDK and consumer
 callers use bound execution and modern invalidation contracts. The old Command
 global cache, `CacheableCommand`, and its request macros are removed.
-Some SDK request objects still retain authentication contexts pending phase 5's
-request-data refinement. Task 4.2b now carries cached response ownership through
+Some SDK request objects still retain authentication contexts pending their
+remaining family migrations. Task 4.2b carries cached response ownership through
 SDK consumers: singleton reads return `Arc<T>`, single-page collections can
 return `Arc<Vec<T>>`, and paginated/composed inventories retain records as
 `Vec<Arc<T>>`. It removes deep-copy adapters and response `Clone` derives/bounds
@@ -75,12 +75,15 @@ used solely for those copies. Owned ID/name/path projections remain appropriate
 when they build a distinct domain value; consumers borrow or retain cached
 handles for ordinary selection and presentation. Task 4.2b records 46 passing
 offline tests and successful workspace all-target check/Clippy for this refinement.
-Sharing is not proof of aggregate memoization or
-dependency freshness. Existing uncached Work Item
-Tracking reads retain that policy. Unknown-ID `PrincipalRequest` batches share
-the typed envelope with opaque success bodies, then decode the ID-selected
-principal type on each invocation; that remaining concrete decode belongs to
-phase 5's canonical principal result.
+Phase 5 adds memory-only aggregate memoization and child dependency tracking for
+Graph user/group/service-principal lists, composed principals, role definition
+and assignment lists, composed RBAC, and Azure DevOps projects. These requests
+now contain explicit serializable authentication selections. The principal
+lookup's concrete batch-body decoding happens inside its canonical initializer;
+successful hits retain the decoded principal. Its `EntraPrincipalLookup` selector
+preserves the requested route through serialization. Existing uncached Work Item
+Tracking reads retain that policy. Execution-bound observation replaces the old
+Graph progress callback stored in request/helper data.
 The new local configuration files are `azure_devops_cli_config_request.rs`,
 `default_azure_devops_organization_url_request.rs`, and
 `default_azure_devops_project_name_request.rs`.
@@ -274,8 +277,8 @@ patch. No batch authorizes a new endpoint, live inventory, or unrelated policy.
 
 | Batch | Owning tasks | Bounded source family | Required migration behavior |
 | --- | --- | --- | --- |
-| B06 Graph principal vertical slice | 5.1 | [entra_user_list_request.rs](../../crates/azure/src/entra_user_list_request.rs), [security_groups.rs](../../crates/azure/src/security_groups.rs), [service_principals.rs](../../crates/azure/src/service_principals.rs), [principals.rs](../../crates/azure/src/principals.rs), [microsoft_graph.rs](../../crates/azure/src/microsoft_graph.rs) | Constructor data includes source/tenant; fetch receives executor; progress observation is bound separately; pages and aggregate have distinct owners; record all child dependencies. |
-| B07 ARM RBAC vertical slice | 5.2 | [role_definitions.rs](../../crates/azure/src/role_definitions.rs), [role_assignments.rs](../../crates/azure/src/role_assignments.rs), [role_definitions_and_assignments.rs](../../crates/azure/src/role_definitions_and_assignments.rs), [resource_graph.rs](../../crates/azure/src/resource_graph.rs) | Preserve read-only POST semantics, rate limits, query/page identity, combined validation, and cross-branch dependency invalidation. |
+| B06 Graph principal vertical slice | 5.1 | [entra_user_list_request.rs](../../crates/azure/src/entra_user_list_request.rs), [security_groups.rs](../../crates/azure/src/security_groups.rs), [service_principals.rs](../../crates/azure/src/service_principals.rs), [principals.rs](../../crates/azure/src/principals.rs), [microsoft_graph_helper.rs](../../crates/azure/src/microsoft_graph_helper.rs) | Source/tenant construction data, executor-taking fetch, bound progress, shared aggregate records, separate page/aggregate namespaces, and child dependencies implemented in 5.1. |
+| B07 ARM RBAC vertical slice | 5.2 | [role_definitions.rs](../../crates/azure/src/role_definitions.rs), [role_assignments.rs](../../crates/azure/src/role_assignments.rs), [role_definitions_and_assignments.rs](../../crates/azure/src/role_definitions_and_assignments.rs), [resource_graph_helper.rs](../../crates/azure/src/resource_graph_helper.rs) | Explicit selection and shared aggregate caching implemented in 5.2; preserve read-only POST semantics, rate limits, query/page identity, combined validation, and cross-branch dependency invalidation. |
 | B08 Azure DevOps project vertical slice | 5.3 | [azure_devops_projects.rs](../../crates/azure_devops/src/azure_devops_projects.rs), project-list CLI, project picker and direct project-list consumers | Preserve explicit organization, explicit bearer tenant, PAT selection, continuation metadata, cache-hit behavior, and chosen shared-record output shape. Picker interaction itself is not memoized. |
 | B09 Remaining Graph identity reads | 6.3, 7.1 | `entra_user_get/search`, `entra_group_get/list/members/members_batch/owners`, `entra_groups_for_member`, `entra_directory_objects_by_ids`, `principal_get`, `service_principal_get`, and `microsoft_graph_batch` under [Azure SDK](../../crates/azure/src) | Move runtime construction/fetching; preserve mixed known/unknown principal resolution, batching, absence semantics, and pagination. Revisit owned conversions only where the selected shared-record boundary requires it. |
 | B10 Graph application/tenant/security reads | 6.3, 7.1 | Azure `application_registration_*`, `application_role_list`, `oauth2_permission_grant_list`, `oauth2_permission_scopes`, `conditional_access_*`, `tenant_details/licenses`, `service_groups`, `unified_role_*`, and `pim_entra_role_*` | Migrate each subfamily independently; preserve bearer audience/tenant, child dependencies, and protected policy boundaries. Unified role aggregates require the same cross-branch invalidation treatment as RBAC. |
@@ -285,6 +288,17 @@ patch. No batch authorizes a new endpoint, live inventory, or unrelated policy.
 | B14 Azure DevOps work items | 6.3, 7.1 | `azure_devops_work_item*`, `work_item_copy*`, `rest_work_item_copy_writer.rs`, and corresponding work-item CLI | Migrate schema/query reads, mutations, copy planner, writer, and durable journal workflows in separate slices. Preserve effect declarations, journaling/required completion, and existing copy-plan decisions. |
 | B15 Other Azure DevOps inventories/projections | 6.3, 7.1 | `azure_devops_agent_*`, group/team/member families, service endpoints, test plans/suites/cases, user/group licensing, project members, onboarding statuses, and `azure_devops_repos.rs` | Include plain async repository helpers and non-Send projection futures. Reuse inventories without suppressing explicit invalidation or changing source policy. Licensing writes remain mutations. |
 | B16 Gitea requests | 4.1b; final audit 7.1 | [gitea_api_support.rs](../../crates/gitea/src/gitea_api_support.rs) and `gitea_*_request.rs` under [Gitea SDK](../../crates/gitea/src) | Task 4.1b completes data-only executable requests and explicit executor propagation, preserving command-backed pagination, uncached pacing, best-effort behavior, tenant identity, and scan/enumeration workflows. Tea receives exactly one matching profile explicitly; service reads execute independently because profile names do not establish credential generations. No Azure authentication is introduced. |
+
+**Phase 5 scope update:** B06–B08 implement their aggregate boundaries. B09's user
+get/search/pick, group get/list, service-principal get, principal get, and shared
+Graph batch helper now also carry data-only authentication selections because
+they participate in these slices. Their consumers retain shared records. Other
+membership/directory-object/application and ARM families receive the new helper
+signatures but still own their runtime-bearing request migrations in 6.3/7.1.
+Likewise B15 project-list consumers use explicit project-list selection without
+claiming their own request families have completed data separation. The real
+project list/picker registrations replace their synthetic discovery stand-ins;
+unmigrated discovery fixture families retain their separate tasks.
 
 The `B11` remainder is resolved by the complete request/constructor searches over
 `crates/azure/src`; any hit not named above must be assigned to a subfamily or an
@@ -296,9 +310,9 @@ serialization, or dependencies change, not their unrelated domain rules.
 Shared-record changes also reach [EntraPrincipal](../../crates/azure_types/src/entra_principal.rs),
 [EntraPrincipalCollection](../../crates/azure_types/src/entra_principal_collection.rs),
 and [RoleDefinitionsAndAssignments](../../crates/azure_types/src/role_definitions_and_assignments.rs).
-They currently contain boxed/owned records, consuming conversions, mutable
-collection access, or cross-record validation. Decide these contracts in G4;
-an `Arc<Vec<T>>` alone does not allow consuming the elements retained by the cache.
+Their shared-record conversions were implemented in 4.2b; phase 5 shares the
+assembled collections and retains RBAC cross-record validation. An `Arc<Vec<T>>`
+alone does not allow consuming the elements retained by the cache.
 Do not turn the optional `Vec<Arc<T>>` design into a blanket domain-model rewrite.
 
 ## Existing key reuse that must not become nested initialization
@@ -313,27 +327,27 @@ relationships, not failures reproduced against real caches:
 
 | Existing chain | Current key relationship | Required classification |
 | --- | --- | --- |
-| [EntraUserGetRequest](../../crates/azure/src/entra_user_get_request.rs) → REST receive | Shares its logical scope with canonical REST work; assembled SDK output remains owned | SDK aggregate and REST must have distinct execution owners/identities, even if they decode the same user type. |
+| [EntraUserGetRequest](../../crates/azure/src/entra_user_get_request.rs) → REST receive | Shares its logical scope with canonical REST work and returns its shared record | SDK aggregate and REST must have distinct execution owners/identities, even if they decode the same user type. |
 | [EntraGroupGetRequest](../../crates/azure/src/entra_group_get_request.rs), service-principal/application get → Graph `fetch_one` → REST | Graph forwards the caller key unchanged for singleton requests | A generic Graph location is not an owner identifier; classify all singleton helper callers. |
 | [PrincipalRequest](../../crates/azure/src/principal_get_request.rs) for unknown ID → Graph batch | Batch receives the principal request key but returns a different intermediate shape | Separate transport batch artifacts from canonical principal result; preserve dependencies for known-ID child requests too. |
 | [ComputeSkuPricesRequest](../../crates/azure/src/compute_sku_prices.rs) → REST pages | Task 4.1b replaces Command with anonymous pricing; 4.2 uses explicit shared REST work | Keep the canonical REST owner separate from the future memoized SDK result. |
 | Azure DevOps agent/group/team/service-endpoint/legacy query requests → REST | Task 4.2 uses modern keys, central REST namespace, and explicit canonical owners | Preserve scoped invalidation and child dependencies when phase 5 adds aggregate owners. |
 | [Gitea singleton get](../../crates/gitea/src/gitea_user_get_request.rs) → `gitea_api_get` → command | Task 4.1b uses independently executed commands with zero-validity artifacts | SDK requests remain nonreusable without credential-generation identity; best-effort raw parsing has a distinct artifact scope. |
-| Graph/Resource Graph/project lists → page requests | Child pages usually append a page index; aggregate is currently not memoized | Preserve logical subtree invalidation while separating namespaces/owners; absence of exact-key recursion does not supply aggregate dependency freshness. |
+| Graph/Resource Graph/project lists → page requests | Child pages append page identity; phase 5 inventories use separate InProcess aggregates | Preserve logical subtree invalidation and recorded dependency freshness across distinct namespaces/owners. |
 
 Reproduce the forwarding inventory, then inspect helper propagation rather than
 assuming every textual hit is a collision:
 
 ```powershell
 rg -n 'Some\(self\.cache_key\(\)\)|\.cache\(self\.cache_key\(\)\)|\.use_cache\(|cache_key = Some\(self\.cache_key\(\)\)' crates/azure/src crates/azure_devops/src crates/gitea/src
-rg -n 'cache_key|cache_root|page_cache_key|get_request|fetch_one|use_cache' crates/azure/src/microsoft_graph.rs crates/azure/src/resource_graph.rs crates/azure/src/microsoft_graph_batch.rs crates/gitea/src/gitea_api_support.rs
+rg -n 'cache_key|cache_root|page_cache_key|get_request|fetch_one|use_cache' crates/azure/src/microsoft_graph_helper.rs crates/azure/src/resource_graph_helper.rs crates/azure/src/microsoft_graph_batch_request.rs crates/gitea/src/gitea_api_support.rs
 ```
 
-An additional identity defect requires attention during B06/G3:
-`SecurityGroupListRequest::cache_key` currently includes `ms/graph/GET/security_groups`
-but no tenant. Preserve neither this omission nor account ambiguity when building
-the new logical identity. Transport fingerprints do not justify sharing a typed
-aggregate across different auth selections.
+The original B06/G3 identity defect is resolved: `SecurityGroupListRequest` includes
+the explicit tenant in its logical scope. Aggregate fingerprints also retain the
+selected source; admitted auth partitions continue to distinguish credential
+identities. Transport fingerprints alone never justify sharing a typed aggregate
+across authentication selections.
 
 Picker requests and projection wrappers also reuse child **invalidation scopes**
 without owning the child's execution identity. Examples are

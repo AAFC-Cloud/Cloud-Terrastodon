@@ -50,10 +50,38 @@ owned copies. All 46 selected offline tests and workspace all-target check/Clipp
 passed; existing unrelated Clippy warnings remain.
 U102's concrete domain-response refinement is complete; workspace all-target
 compilation and focused Azure types/SDK Clippy passed without warnings.
-Changes remain uncommitted for user review, with user staging preserved.
+The completed REST/shared-output work and batch-entry consolidation are now
+committed as `d2a5e4f2`, `Complete REST executor migration and preserve shared SDK results`.
+U104's phase 5 is complete from that clean checkpoint and remains uncommitted
+for review. Tasks 5.1, 5.2, and 5.3 implement the shared principal, RBAC, and project
+inventories, serializable request selections, and per-invocation observation.
+All 106 selected offline tests, workspace all-target compilation, and Clippy
+passed; only existing unrelated Clippy warnings remain. The next task is 6.1,
+separating audit activities so each obtains its own shared inventories.
+U105/U106 refine that review checkpoint: restore the project-list/picker URL
+`Cow` contracts and fix the exposed decoding/derive defects in the Facet forks.
+U107 authorizes the coordinated fork releases and consumer dependency updates.
+The Facet/Figue closure and Cancellation maintenance versions are published;
+both consumers now pin that registry graph and their all-target compilation
+checks pass. The required Tracing package is also published. The template passes
+all 13 selected registry tests and is committed/pushed as `58d94181` with a clean
+tree. Cloud Terrastodon's two reflected-clone tests and 14 inventory/discovery
+tests pass against the ordinary registry graph. Preserve user staging and leave
+Cloud Terrastodon uncommitted for review.
+U108 subsequently corrects release commit author metadata and merges the
+Cancellation/Tracing release branches into `main`. Both mainline merges are
+validated and pushed. The broader authorized Format history correction is
+complete, with source trees and published archives unchanged. Tracing's separately
+approved GitHub default-branch change to `main` is also complete.
+U109–U111 refine the review checkpoint with shared instrumented test
+authentication, imported derive names, and automatic collection registration.
+Implementation and verification are complete: 151 selected offline tests,
+workspace all-target compilation, targeted Clippy, and optional-feature checks
+passed. Changes remain uncommitted for review.
 Explicit SDK/CLI executor propagation removes the implicit REST cache path;
-phase 5 still owns aggregate caching, remaining request-data extraction, and
-domain collection ownership refinements. U97's preceding checkpoint requested
+phase 5 completes its targeted aggregate caching and request-data extraction.
+Other request families retain their explicit 6.3/7.1 migration batches.
+U97's preceding checkpoint requested
 the completed Command migration commit and a description of REST task 4.2;
 U98 subsequently authorizes its full implementation.
 U78 authorizes the local checkpoint titled
@@ -64,12 +92,12 @@ The registry checkpoint is `09d8bb11`.
 
 **Primary implementation root:** Repository root (`.`); no branch change prescribed.
 
-**Last updated:** 2026-11-05
+**Last updated:** 2026-11-06
 
 **Source baseline:** `26e14bcc`; tracked files were initially clean. Pre-existing
 untracked notes are preserved.
 
-**Intent audit:** Updated 2026-11-05 using the preserved ledger and available user
+**Intent audit:** Updated 2026-11-06 using the preserved ledger and available user
 instructions. The original audit covered the design discussion,
 subsequent corrections, plan request, three planning-question replies, and the
 latest review corrections about production data, validation, and key collisions,
@@ -106,16 +134,27 @@ that checkpoint; U82 begins task 4.1 below.
 
 **Planning method:** User-invoked `resumable-implementation-plans` skill.
 
-**Current authorization:** U98 authorizes the full REST task 4.2 and necessary
-caller migration; U99 refines execution to preserve request-specific errors.
-U100/U101 additionally authorize shared cached SDK results, their consumer
-cutover, and removal of cache-driven `Clone` requirements in task 4.2b.
-U102 refines that work by making the twelve identified domain-specific list
-responses concrete while retaining shared records and genuinely reusable generic
-envelopes.
-All retain offline verification and an uncommitted review checkpoint.
-Preserve existing staging and user edits; do not stage new work, commit, push,
-access production data, or begin phase 5 aggregate caching under this checkpoint.
+**Current authorization:** U104 authorizes completing all three phase 5 SDK
+vertical slices, their shared observation support, necessary consumers, and offline
+verification. Requests retain explicit tenant/source or DevOps auth selection;
+runtime providers remain executor-owned. Aggregate caches are memory-only and
+record child dependencies. Preserve existing staging and user edits; do not stage,
+commit, or push Cloud Terrastodon, access production data, or begin phase 6 audit
+reorganization under this checkpoint.
+
+U105 preserves borrowed organization fields. U106 directs the Facet fixes to the
+existing `teamy-main` forks and provides `docs/UPDATING_FACET.md` as guidance.
+Those instructions initially authorized local preparation and validation only.
+U107 subsequently authorizes committing/pushing the Facet, Format, Figue, and
+template repositories, publishing the fork packages, and updating both consumers
+to the published graph. Include necessary dependent-package releases to preserve
+one Facet identity. This release authorization does not include committing the
+Cloud Terrastodon review work or accessing production services.
+U108 authorizes applying the supplied Git identity, correcting release commit
+author metadata, and merging the Cancellation/Tracing release branches into
+`main`. Subsequent explicit approvals cover the seven affected older Format
+commits, the feature branch and annotated CSV tag, and Tracing's GitHub default
+branch. Do not record personal identity values in this plan.
 
 **Prior authorization history:** The user authorized proceeding with the migration on
 2026-10-30 and subsequently requested committing the completed foundation and
@@ -292,6 +331,20 @@ staging. A future implementation session must reread `AGENTS.md` and reconcile
 changes since the recorded baseline before starting.
 
 ## Intent audit evidence
+
+- **Phase 5 extraction — 2026-11-06:** U104 requests completion of the next phase,
+  preserving the earlier instruction that beginning implementation means finishing
+  the authorized scope. The next unchecked phase contains 5.1–5.3, all included.
+  U103 preserves the intervening approved batch-entry consolidation.
+- **Phase 5 traceability:** U104 maps to all three SDK slices, G4 observation,
+  G6 memory-only aggregate/dependency behavior, synthetic integration tests,
+  consumer compilation, and an uncommitted review checkpoint.
+- **Phase 5 adversarial omission:** Retain explicit bearer tenant, PAT selection,
+  admission before hits, no duplicate decoding or cache-driven record cloning,
+  independent caller notifications, continuation recovery, existing uncached
+  policies, and no production-data access. This audit uses available original
+  instructions and the preserved ledger; it does not claim access to unavailable
+  compacted assistant discussion. No endpoint behavior changes are intended.
 
 - **Pass 1 — extraction:** Reread the original user messages from the independent
   audit/cache-race discussion through executor/request shaping, disk typing,
@@ -858,6 +911,22 @@ changes since the recorded baseline before starting.
   No production-data access, staging, or commit is authorized. Historical intent
   continues to use the preserved ledger where original messages are unavailable.
 
+### U109–U111 refinement intent audit — 2026-11-06
+
+- **Extraction:** The latest request asks to consolidate repeated test
+  `AuthenticationProvider` implementations, add shared atomic call counting,
+  import `Facet`/`Arbitrary` derive names, and automatically register collection
+  forms with their underlying values. These remain three distinct requirements.
+- **Traceability:** The phase 5 review refinement below maps them to the shared
+  execution test provider, workspace/generator imports, and the two registry
+  registration macros, with offline behavioral verification.
+- **Adversarial omission:** Preserve the strict unreachable guard; keep only
+  credential-lineage probes whose operation is itself under test. Do not impose
+  `Clone` or `Sync` on owned registrations, recursively expand collections, lose
+  explicit named constructor identities, or reintroduce qualified derives when
+  generating resource types. Preserve staging and leave changes uncommitted.
+  Earlier intent uses the existing ledger; no new historical audit is claimed.
+
 ## Authoritative user guidance ledger
 
 **U79 intent audit (2026-11-03):** Extraction preserves the latest instruction to
@@ -977,6 +1046,15 @@ do not silently rewrite earlier guidance.
 | U100 | Return cached `Arc` values instead of cloning them back into owned request outputs; audit equivalent paths and leave copy decisions to consumers. | Task 4.2b updates cached SDK responses, pagination/composition, and downstream borrowing/sharing; fixed wire-to-domain conversion happens inside canonical decoding. | — |
 | U101 | Remove `Clone` derives and bounds introduced only to support copying cached response values. | Audit response envelopes and domain records alongside their callers; retain cloning only for a separate meaningful contract or intentional owned transformation. | — |
 | U102 | Remove unnecessary type parameters from domain-specific response wrappers, including provider operations and the other eleven identified wrappers. | Each response names its concrete shared domain records; update SDK decoders and preserve wire attributes, optionality, pagination, and reusable generic envelopes. | — |
+| U103 | Consolidate the duplicate ARM batch entry and serialization entry types. | Serialize the public entry directly through a borrowed outer body; remove body-copy `Clone` requirements. Completed in `d2a5e4f2`. | — |
+| U104 | Complete the next plan phase and leave changes uncommitted for review. | Complete 5.1–5.3 with explicit request data, shared aggregate caching/dependencies, observer semantics, consumer cutover, and offline verification. Do not stop at a prerequisite or stage/commit the result. | — |
+| U105 | Preserve the existing Cow organization-field strategy and explain why it changed. | Restore borrowed project-list construction and invalidation; serialization must not force callers to clone their URLs. | — |
+| U106 | Fix the field-level bug in the Facet fork; consult the update guide. | Correct generic field-proxy derivation and generic Cow decoding upstream in the owning forks; remove application workarounds and verify consumers with a single compatible core identity. | — |
+| U107 | Publish the corrected Facet/Figue families and required dependents; update Cloud Terrastodon and the CLI template without patches or duplicate Facet identities. Commits/pushes are authorized for the named fork/template repositories. | Release only the required compatible dependency closure, verify registry identities and consumers, preserve Cloud Terrastodon staging and uncommitted review changes. | Supersedes U106's local-only release boundary. |
+| U108 | Apply the supplied Git identity, correct release author metadata, and merge Cancellation/Tracing release branches into `main`; later explicit approvals include affected Format history/feature/tag refs and Tracing's GitHub default branch. | Preserve source contents, published archives, and unrelated history; verify the resulting trees and refs and retain Cloud Terrastodon staging. Do not include identity values in the plan. | — |
+| U109 | Reuse built-in authentication test support instead of repeating test providers; add shared atomic call counts where needed. | Consolidate counting, offline authorization, revocation, and partition fixtures; retain the strict unreachable guard and specialized credential-lineage probes. | — |
+| U110 | Use imported names rather than qualified `arbitrary::Arbitrary` or `facet::Facet` derives. | Normalize workspace derives and generator output while preserving conditional imports. | — |
+| U111 | Register `Arc<T>` and `Vec<T>` forms automatically with `T`, rather than registering them individually. | Supply a finite collection family from both value and arbitrary-constructor registrations; preserve owned-only bounds and explicit constructor identities. | — |
 
 U18 supersedes the earlier assistant suggestion to preserve an Azure CLI
 active-tenant selection. That suggestion was not user approval. U13 rejects the
@@ -1099,6 +1177,15 @@ not an implemented package; U61 selects `auth_types` paired with runtime `auth`.
 | U100 | Current authorization; G4; 4.2b; phase 5 ownership foundation | Shared cached SDK outputs, canonical conversion, and caller cutover verified by 46 focused offline tests and workspace all-target check/Clippy |
 | U101 | G2/G4; 4.2b | Response/envelope `Clone` audit and non-`Clone` shared-value coverage passed |
 | U102 | Current authorization; G4; 4.2b refinement | Twelve domain-specific response envelopes and SDK decoders are concrete; workspace all-target compilation and focused Azure types/SDK Clippy passed |
+| U103 | Batch-entry refinement following 4.2b | Direct Facet entry, borrowed outer envelope, no body-copy bounds; Azure/Azure CLI all-target check and Azure Clippy passed before `d2a5e4f2` |
+| U104 | Current authorization; G4/G6; 5.1–5.3 | All three SDK slices complete; 106 selected offline tests, workspace all-target check/Clippy, and independent review passed; changes uncommitted for review |
+| U105 | G4; 5.3 refinement | Borrowed/owned list and picker inputs, runtime reflection, replay and cache sharing |
+| U106 | 5.3 refinement; Facet update guide | Fork regressions and local consumer acceptance; U107 authorizes publication and consumer pin updates |
+| U107 | 5.3 release refinement; Facet update guide | Fourteen Facet/Format/Figue packages, two Cancellation maintenance versions, and Tracing 0.2.1 published; both consumers have registry-only graphs with one identity per package and passing all-target compilation. Template's 13 registry tests pass; committed/pushed as `58d94181`. All 16 selected Cloud Terrastodon registry tests pass. |
+| U108 | Release repository follow-up | Cancellation mainline merge `e4d96273` is pushed and retains 0.8.1. Tracing mainline merge `47bc18c5` is validated/pushed, retaining telemetry; GitHub default and local remote HEAD are `main`. Format history correction is pushed at `55dd7463`, with unchanged source trees and published archives. |
+| U109 | Phase 5 review refinement | Shared test provider replaces nine duplicates; execution, SDK, REST, and registry tests pass with explicit partitions and call counters. |
+| U110 | Phase 5 review refinement | Workspace and generator derive imports normalized; workspace all-target and feature-gated checks, generator tests, and qualified-derive audit pass. |
+| U111 | Phase 5 review refinement | Finite collection registration passes shared-allocation, owned non-Sync, duplicate/alias, named-handle, and discovery tests. |
 
 ## Purpose and scope
 
@@ -1377,6 +1464,18 @@ The updated G1 diagrams distinguish planned package dependencies from runtime
 provider calls. Earlier graph/sketch evidence below applies to the earlier
 contract and does not prove this revised workspace compiles; task 3.0 must
 validate the revised normal/build graph and task 3.1 its auth additions.
+
+**Phase 5 G4/G6 refinement — 2026-11-06:** Bound observation uses a per-invocation
+event channel and a caller-polled wrapper, preserving borrowed/non-`Send`
+callbacks and the request's typed error. Callbacks are prompt notifications, not
+a synchronous execution/reentrancy boundary. A suspended producer may retain an
+initializer or filesystem guard; acquiring and releasing the I/O gate cannot
+prove quiescence because its next permit may already belong to that producer.
+The coordination contract now distinguishes queued delivery outside state
+bookkeeping from directly invoking callbacks inside a protected operation.
+There is no extra cache barrier or detached task. Explicitly dropping an observed
+future produces no terminal notification. This resolves the implementation detail
+without changing request, cache, cancellation, or authentication ownership.
 
 The proposed normal/build graph was checked against offline Cargo metadata with
 the selected new edges: 36 packages, no cycles. This is architectural validation,
@@ -3918,7 +4017,34 @@ conversion across SDK consumers. The remaining tasks refine request data,
 observers, composed-result caching, and dependency freshness. Do not reintroduce
 an old transport adapter or mistake shared records for a memoized aggregate.
 
-### [ ] 5.1 Migrate Graph users and the composed principal inventory
+### [x] 5.1 Migrate Graph users and the composed principal inventory
+
+**Implementation notes — 2026-11-06:** Graph category requests cache their
+assembled `Arc<Vec<Arc<T>>>`; the principal inventory caches one
+`Arc<EntraPrincipalCollection>` assembled from those handles. Source/tenant are
+request data, and the Graph/batch helpers receive the executor for execution.
+Matching get/search/pick requests and all consumers use this explicit selection.
+`EntraPrincipalLookup` preserves a known entity route when a request is serialized
+and replayed, without changing the API UUID representation of `EntraPrincipalId`.
+Unknown-ID discrimination and concrete decoding run only inside the canonical
+principal initializer. Failed principal results are not retained; the existing
+successfully decoded opaque batch leaf remains reusable until invalidation or
+expiry, so retrying interpretation does not promise another HTTP request.
+
+Bound `.observe` replaces the request/helper's progress hook. Each invocation has
+its own admission/cache/result events; only the initializer reports assembly
+progress. Tests cover borrowed non-`Send` observers, separate waiter/hit events,
+cancellation retry, one lifecycle for nested requests, and draining a large event
+burst before completion. `.with_invalidation` retains lazy binding and composes
+with observation. Gitea picker consumers explicitly convert that binding into a
+future where their callback contract requires `Future` rather than `IntoFuture`.
+
+The offline principal inventory scenario seeds typed child operations through
+the established cache boundary, then executes the real composed request. It
+checks outer and record pointer sharing, warm-child/page dependencies, cross-key
+invalidation, retained old snapshots, and the absence of durable aggregate reuse.
+The unknown-principal scenario checks canonical decode failure/retry and shared
+known-route request replay. These tests do not establish remote API compatibility.
 
 **Work:** Migrate Entra user/group/service-principal requests, Graph helper, and
 PrincipalListRequest to explicit construction data and executor-taking execution.
@@ -3940,16 +4066,34 @@ cargo check --offline --locked -p cloud_terrastodon_azure -p cloud_terrastodon_a
 cargo test --offline --locked -p cloud_terrastodon_azure --test executor_inventory_tests
 ```
 
-**Validation:** The proposed executor_inventory_tests target uses typed synthetic
-values and the established execution boundary; it must never invoke real fetches.
-Cover shared principal assembly, child-hit dependencies, continuation recovery
-coordination, and observer semantics. Do not add assumed Graph JSON response fixtures.
+**Validation:** The implemented executor_inventory_tests target uses typed
+synthetic values and the established execution boundary. Shared principal
+assembly and child-hit dependencies pass. The existing cache self-invalidation
+scenario verifies the generation contract used by continuation recovery, without
+claiming to exercise a live Graph continuation. Bound observer scenarios and
+canonical principal lookup/replay pass. No assumed Graph response fixture is
+treated as evidence of service compatibility. Combined phase evidence is below.
 
 **Completion criteria:** Independent callers share a completed principal inventory
 without request runtime fields, repeated decoding, or stale aggregate reuse. Any
 assembly copying is explicit and bounded to the selected ownership design.
 
-### [ ] 5.2 Migrate Resource Graph and composed RBAC inventory
+### [x] 5.2 Migrate Resource Graph and composed RBAC inventory
+
+**Implementation notes — 2026-11-06:** Both role inventories and their combined
+request contain explicit tenant/source data and cache shared in-process results.
+The combined initializer validates the original cross-record relationship and
+records both children, including warm hits. Its refresh policy invalidates its
+own key and both input inventories. Resource Graph's helper contains no runtime
+auth context; callers supply its selection and execution owner separately while
+retaining the existing rate-limit and read-only POST policies. Consumer code
+borrows records or clones handles. Arbitrary combined inventories now preserve
+definition references instead of generating invalid relationships.
+
+Four typed offline integration scenarios pass: concurrent composition/record
+sharing, invalidation from either child, failure followed by corrected retry,
+and authentication-selection separation. They execute the production aggregate
+against seeded canonical children and reject attempted credential acquisition.
 
 **Work:** Migrate role-definition/assignment requests and their combined request,
 plus ResourceGraphHelper. Preserve page/query identity, rate-limit behavior,
@@ -3959,14 +4103,38 @@ identity and record both child dependencies; distinguish aggregate/page identiti
 
 ```powershell
 cargo check --offline --locked -p cloud_terrastodon_azure -p cloud_terrastodon_azure_types
-cargo test --offline --locked -p cloud_terrastodon_azure --test executor_inventory_tests
+cargo test --offline --locked -p cloud_terrastodon_azure --test rbac_executor_inventory_tests
 ```
 
 **Completion criteria:** Typed local scenarios show concurrent RBAC consumers share
 one valid combined result; invalidating either input invalidates the combined
 cache even though keys differ. No live role or Resource Graph tests are executed.
 
-### [ ] 5.3 Migrate Azure DevOps projects and shared page records
+### [x] 5.3 Migrate Azure DevOps projects and shared page records
+
+**Implementation notes — 2026-11-06:** Project list/pick requests carry a
+serializable organization URL and `AzureDevOpsAuthSelection`. The list retains
+ordered page record handles in one shared aggregate; picker solicitation remains
+outside that cache. Bearer tenant/source and PAT selections stay distinct, and
+all consumers retain or borrow the returned handles. U105 restores borrowed
+organization fields on list and picker requests after review rejected owned storage
+to work around a Facet replay failure. U106 fixes generic `Cow<T>` navigation in
+Facet Format and generic field-proxy callbacks in Facet's derive implementation.
+The requests have no additional wire/proxy types. U107 releases the corrected
+fork dependency closure; Cloud Terrastodon now selects it through ordinary
+registry pins. Source-override checks and ordinary-registry workspace all-target
+compilation passed. Both reflected-clone and all 14 inventory/discovery tests
+also pass against the ordinary registry graph.
+
+Three offline inventory scenarios exercise the real pagination procedure using
+typed synthetic leaf artifacts, with authorization rejected before any network
+request. They verify page order, shared records, page and parent invalidation,
+unrelated-organization isolation, Server scheme/authority/instance/collection
+identity, selected bearer tenants/PAT variants, request replay, admission on warm
+hits, and rebuilding from leaves under a new cache owner. The seven discovery
+plan and four simulation tests now use the real project list/pick registrations.
+Two inspected request metadata/reflection tests and two UI rendering checks
+validate those production shapes without invoking services.
 
 **Foundation:** Task 4.2b carries project page entries and their SDK/CLI consumers
 as `Vec<Arc<AzureDevOpsProject>>`; its own verification establishes that ownership
@@ -3984,14 +4152,217 @@ cargo test --offline --locked -p cloud_terrastodon_azure_devops --test discovery
 cargo test --offline --locked -p cloud_terrastodon_azure_devops --test discovery_simulation
 ```
 
-**Validation:** Add focused offline shared-record/selection checks using typed
-values; update command-family filters here after inspecting the selected tests.
-Verify Facet output and registry use as application integration, not derive-only
-fixtures. Do not run the existing live project-list test.
+**Validation:** Typed shared-record/selection tests, real production pagination
+over synthetic saved leaves, request replay, reflection/rendering, and registry
+discovery pass. The existing live project-list test was not run. Exact selected
+targets/filters and combined evidence follow.
 
 **Completion criteria:** Project records can be reused across pages/aggregate views
 without borrowed cache lifetimes; output remains compatible; every bearer path
 has an explicit tenant and every scoped CLI path keeps explicit org/project.
+
+### Phase 5 completion evidence — 2026-11-06
+
+Work remains uncommitted from `d2a5e4f2`; preserve the user's staged review selections.
+Independent reviews of
+Graph/RBAC, DevOps, and bound observation found and resolved request replay,
+consumer ownership, and completion-event delivery issues. In particular, the
+observer now drains the final queued burst without losing events to Tokio's
+cooperative polling budget. The large-burst regression passes.
+
+| Inspected offline targets | Passed |
+| --- | ---: |
+| Cache `work_cache_tests` and `cache_invalidation_tests` | 31 |
+| Execution `execution_contract_tests`, `request_invalidation_tests`, `observation_tests` | 23 |
+| Azure `executor_inventory_tests`, `rbac_executor_inventory_tests` | 5 |
+| DevOps `project_inventory_cache`, `discovery_plan`, `discovery_simulation` | 14 |
+| Selected Azure unit tests below | 8 |
+| Selected DevOps request metadata/reflection tests below | 2 |
+| Registry execution `registry_tests::` | 21 |
+| Selected Ratatui rendering tests below | 2 |
+| **Total distinct selected tests** | **106** |
+
+These commands record the phase 5 checkpoint before U105/U106. Cow request replay
+initially required local fork overrides; U107 now supplies published fixes.
+Do not treat the earlier registry graph as validation of that refinement.
+Commands were run from the repository root, using the then-existing locked dependencies:
+
+```powershell
+cargo test --offline --locked -p cloud_terrastodon_execution --test observation_tests --test request_invalidation_tests --test execution_contract_tests -p cloud_terrastodon_cache --test work_cache_tests --test cache_invalidation_tests --message-format short
+cargo test --offline --locked -p cloud_terrastodon_azure --test executor_inventory_tests --test rbac_executor_inventory_tests -p cloud_terrastodon_azure_devops --test project_inventory_cache --test discovery_plan --test discovery_simulation --message-format short
+
+$phase5UnitFilters = @(
+    'principal_get_request::tests::unknown_principal_decode_failures_retry_and_hits_share_the_typed_result'
+    'microsoft_graph_helper::tests::consistency_level_eventual_adds_the_expected_header'
+    'entra_user_get_request::tests::url_keeps_special_upns_in_the_user_key'
+    'entra_user_pick_request::tests::refresh_covers_all_selected_tenant_searches_without_crossing_tenants'
+    'entra_user_search_request::tests::url_escapes_search_terms_as_odata_query_values'
+    'entra_user_search_request::tests::paginated_search_cache_expires'
+    'resource_graph_helper::tests::reads_resource_graph_quota_headers'
+    'resource_graph_helper::tests::writes_only_failed_resource_graph_entry_extra_file'
+    'azure_devops_projects::tests::reflected_project_list_clone_preserves_request_data'
+    'azure_devops_project_pick_request::test::registry_discovers_default_organization_dependency'
+    'registry_tests::'
+    'request_card_separates_fields_and_actions_and_filters_whole_sections'
+    'owned_organization_url_slot_renders_its_value'
+)
+cargo test --offline --locked -p cloud_terrastodon_azure -p cloud_terrastodon_azure_devops -p cloud_terrastodon_ui_ratatui -p cloud_terrastodon_registry_execution --lib --message-format short -- @phase5UnitFilters
+cargo test --offline --locked -p cloud_terrastodon_execution --test observation_tests --message-format short
+cargo check --offline --locked --workspace --all-targets --message-format short
+cargo clippy --offline --locked --workspace --all-targets --message-format short
+```
+
+The final observation rerun includes the fourth, large-burst regression. Workspace
+compilation includes CLI/UI/tool/example consumers. Final Clippy succeeds with
+only the pre-existing root `test-support` feature-name and `src/main.rs` bare-URL
+documentation warnings. New iterator warnings were fixed by filtering before
+cloning handles or borrowing records directly. Formatting uses the repository's
+nightly rustfmt settings; whitespace checks pass. No lockfile change, production
+data, credentials, existing application cache, or live request was used.
+Generated incremental compiler files were cleared during validation to recover
+build space; source and completed build outputs were retained.
+
+**U105/U106 initial fork refinement evidence — 2026-11-06:** The project replay scenario
+reproduced the opaque-Cow failure against published dependencies. After fixing
+the forks, 214 Facet and 222 JSON integration tests pass, including six new
+regressions; both changed implementation crates pass Clippy with warnings denied.
+Cloud Terrastodon's 14 DevOps inventory/discovery tests plus its reflected-clone
+and request-card tests pass with the local overrides. Borrowed, owned and
+deserialized requests reuse the same aggregate; reflection retains each Cow
+variant. The Cloud Terrastodon workspace all-target check passes with the same
+local overrides. teamy-rust-cli's all-target check also passes, with two existing
+macro-semicolon warnings. No application wire/proxy workaround remains.
+At that checkpoint all changes remained uncommitted, published manifests/lockfiles
+were unchanged, and user staging was preserved. Production data and credential
+stores were not accessed.
+
+**U107 release refinement evidence — 2026-11-06:** Fourteen Facet/Format/Figue
+packages are published. Current release source checkpoints are core
+`2d6d06e1d9a0ab47cd68547f5a0a4dbb60d36afa`, Format
+`55dd746345382b81a8e9eb1652cddcd4b7cb2fda`, and Figue
+`85b3886592767bfe66cdf4588ee12d015efaf569`. The facade, macro implementation/macros,
+Error, and Default use rc.8; Format/JSON/Value/CSV use rc.10; DOM uses rc.7;
+XML/XML-node use rc.8; Figue uses 6.0.0-rc.6 and Attrs 6.0.0-rc.4. Unchanged
+Core/Reflect/Pretty and related packages remain at 0.50.0-rc.7. Cancellation
+0.7.2 and 0.8.1 are published separately to preserve each consumer's existing API
+line. Cloud Terrastodon uses 0.7.2, avoiding an unrelated cancellation API migration.
+
+Source suites passed 214 core, 222 JSON, 761 Figue, 312 XML/CSV, and 82/88
+Cancellation tests. Prepublication consumer checks passed the Cloud Terrastodon
+workspace/all targets, two list/picker reflected-clone tests, and 14 DevOps
+inventory/discovery tests. The template passed its all-target check and 13
+selected output/CLI tests. Cloud Terrastodon's normal manifest/lockfile now select
+the registry graph without patches; only ten targeted package versions changed,
+and metadata confirms one registry identity per participating Facet/Figue package.
+The ordinary-registry `cargo check --offline --locked --workspace --all-targets`
+passed, along with both list/picker reflected-clone tests and all 14
+inventory/discovery tests. This completes 16 selected registry tests.
+
+The template's required Tracing 0.2.1 is published; its current release source is
+committed/pushed as `d099c486804ae7fe18d2acf5d2e74a3e4c48ff10`
+on `release/0.2.1-facet`. Its 37 tests, two comparison checks, Clippy, documentation,
+and examples passed. Template registry pin/lock updates are complete with only
+eleven targeted package version/checksum changes and no unrelated updates.
+Its ordinary-registry `cargo check --offline --locked --all-targets` passed,
+retaining only two existing macro-semicolon warnings. Metadata confirms one
+registry identity for each of its seventeen Facet/Figue packages, with no
+upstream Facet/Figue packages or source overrides. All 13 selected template
+registry tests pass (11 library tests and two `cli_fuzzing` tests). The template
+is committed/pushed to `origin/main` as
+`58d94181a3fc11d99c8691254dbffe8258dcc311`; its working tree is clean and local/
+remote refs match.
+See [Updating Facet](../UPDATING_FACET.md#cow-request-refinement-2026-11-06) for the
+full version map, source baselines, historical override evidence, and current
+release state. Cloud Terrastodon changes remain uncommitted and user staging is
+preserved. No production data or credential stores were accessed for validation.
+
+**U108 repository follow-up — 2026-11-06:** Release author-metadata corrections
+are pushed for Format and Tracing at the current hashes above. The corrected
+commits have identical source trees; published archives and consumer checksums
+were not replaced. The separately approved Format history correction covers
+seven affected historical commits and reconstructs 15 commit objects while
+preserving trees, messages, dates, topology, and unrelated identities. Format's
+feature ref is `fd2af32fb2eb087d73237302c882742a9d313fc5`; its corrected annotated
+CSV rc.7 tag object is `6d814e24863f65463c6c94811e5a110e7aab14e1`, targeting
+`da65a4fe8ddcc391063c5b726c612fad43351247`. The tag message/date are preserved,
+remote refs are verified, and the working tree is clean.
+
+Cancellation's maintenance branch is merged into `main` at
+`e4d962738dce985632bdff37a196d2c3e14500ac` and pushed, with the existing 0.8.1
+source tree retained. Tracing's new `main` starts from the existing implementation
+history and merges the release branch while retaining telemetry support. It is
+committed/pushed at `47bc18c5738d62cdb471afee66e682e6c1ea851a`, with a clean tree
+and matching local/remote refs. The all-target/all-feature check, 43 tests
+(37 base including the doctest plus six telemetry tests), and default-feature
+all-target Clippy with warnings denied passed. The separately approved GitHub
+default-branch change is verified: both the default branch and local
+`origin/HEAD` point to `main`.
+
+### [x] Phase 5 review refinement — shared fixtures and registry collections
+
+**Completion notes — 2026-11-06:** All three refinements below are implemented
+and verified. Preserve existing staging and leave this review checkpoint
+uncommitted. Phase 6 remains the next separate implementation task.
+
+**Work:** U109 adds `execution::TestAuthenticationProvider` behind
+`test-support`, with explicit synthetic session identity, source/tenant-separated
+partitions, revocation/generation controls, and atomic invocation counts. Its
+offline constructor rejects authorization; its other constructor accepts supplied
+synthetic authorization for local transport tests. Nine duplicated providers now
+reuse it. `UnreachableAuthenticationProvider` remains an immediate panic guard;
+three credential-lineage probes remain specific to the restrictions they test.
+
+U110 replaces qualified derives across 1,024 Rust files, including the
+resource-type generator and generated enum. Conditional imports retain their
+feature/test guards.
+
+U111 makes `register_thing!(T)` and `register_arbitrary!(T)` supply `Vec<T>` and,
+when `T: Sync`, `Arc<T>`, `Vec<Arc<T>>`, `Arc<Vec<T>>`, and
+`Arc<Vec<Arc<T>>>`. The family is finite and adds no `Clone` requirement.
+Generated companions deduplicate by Facet shape; explicit arbitrary
+registrations retain their original static handles, including separately named
+constructors of the same shape. Complete catalog APIs include companions;
+distributed slices retain explicit registrations. Redundant wrapper registrations
+are removed.
+
+**Validation:** 151 selected offline tests passed: execution 45, registry 10,
+registry execution 57, REST lifecycle 9, Azure inventories 5, principal lookup 1,
+DevOps inventories/discovery 14, registered Azure type generators 3, and the
+resource-type generator 7. Workspace all-target compilation, targeted Clippy,
+and application checks with/without its optional `arbitrary` feature passed
+without warnings. The qualified-derive and whitespace audits passed.
+
+The catalog test now distinguishes exact output from list-element producers
+instead of assuming only one producer exists. The REST wrapper/leaf fixture
+uses the same authentication selection to continue proving executor-kind
+isolation within one scope and partition. Tests use synthetic data and local
+transports only; no production data or credential stores were accessed.
+
+Commands used `CARGO_INCREMENTAL=0`, `CARGO_PROFILE_DEV_DEBUG=0`, and
+`CARGO_PROFILE_TEST_DEBUG=0` to bound generated build storage:
+
+```powershell
+cargo check --offline --locked --workspace --all-targets
+cargo test --offline -p cloud_terrastodon_execution --tests
+cargo test --offline --locked -p cloud_terrastodon_registry --tests
+cargo test --offline --locked -p cloud_terrastodon_registry_execution --lib
+cargo test --offline --locked -p cloud_terrastodon_rest --test rest_lifecycle_tests
+cargo test --offline --locked -p cloud_terrastodon_azure --test executor_inventory_tests --test rbac_executor_inventory_tests
+cargo test --offline --locked -p cloud_terrastodon_azure --lib principal_get_request::tests::unknown_principal_decode_failures_retry_and_hits_share_the_typed_result -- --exact --test-threads=1
+cargo test --offline --locked -p cloud_terrastodon_azure_devops --test project_inventory_cache --test discovery_plan --test discovery_simulation
+cargo test --offline --locked -p cloud_terrastodon_azure_types --lib registered_
+cargo test --offline --locked -p cloud_terrastodon_resource_types_cli resource_type_catalogue::tests
+cargo check --offline --locked -p cloud_terrastodon_app --no-default-features
+cargo check --offline --locked -p cloud_terrastodon_app --no-default-features --features arbitrary
+cargo clippy --offline --locked -p cloud_terrastodon_registry -p cloud_terrastodon_registry_execution -p cloud_terrastodon_execution --all-targets
+```
+
+The next migration task is **6.1**, after review of the completed phase 5 changes.
+The coordinated package release and consumer verification are complete.
+Split the existing audit policies
+into independent activities which request principals/RBAC through the shared
+executor, preserve their findings, and verify shared fills with synthetic data.
+Phase 6 was not started as part of this review checkpoint.
 
 ## Phase 6 — audits, application ownership, and interactive consumers
 

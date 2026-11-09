@@ -12,12 +12,13 @@ use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_execution::RequestExecution;
+use facet::Facet;
 use std::borrow::Cow;
 use tokio::try_join;
 
 /// Combine Azure Resource Manager role definitions and assignments for a tenant.
 #[must_use = "Bind this request to an executor and await its execution"]
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[facet(traits(Clone))]
 pub struct UnifiedRoleDefinitionsAndAssignmentsListRequest<'a> {
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
@@ -103,7 +104,12 @@ mod test {
                     &executor,
                 )
                 .await?;
-                let principals = fetch_all_principals(&tenant_auth_context, &executor).await?;
+                let principals = fetch_all_principals(
+                    tenant_auth_context.tenant_id,
+                    tenant_auth_context.auth_source()?,
+                    &executor,
+                )
+                .await?;
                 let permissions = &[RolePermissionAction::new(
                     "microsoft.directory/users/standard/read",
                 )];

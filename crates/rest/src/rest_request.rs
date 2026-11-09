@@ -10,7 +10,6 @@ use crate::rest_request_fingerprint::RestRequestFingerprint;
 use cloud_terrastodon_auth::AzureDevOpsAuthContext;
 use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_auth_types::AuthenticationSelection;
-use cloud_terrastodon_auth_types::AzureBearerAuthSource;
 use cloud_terrastodon_cache::ArtifactEntry;
 use cloud_terrastodon_cache::ArtifactFilePath;
 use cloud_terrastodon_cache::ArtifactObservation;
@@ -137,12 +136,7 @@ impl RestRequest {
     /// Extract explicit source and tenant without retaining runtime authentication state.
     pub fn azure_auth_context(self, context: &AzureTenantAuthContext) -> Result<Self> {
         Ok(self.authentication(AuthenticationSelection::AzureBearer {
-            auth_source: AzureBearerAuthSource::try_from(
-                context
-                    .auth_context
-                    .source()
-                    .ok_or_else(|| eyre::eyre!("authentication source is unresolved"))?,
-            )?,
+            auth_source: context.auth_source()?,
             tenant_id: context.tenant_id,
         }))
     }

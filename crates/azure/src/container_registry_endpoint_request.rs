@@ -12,13 +12,14 @@ use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_pathing::sanitize_windows_path_component;
 use eyre::ensure;
+use facet::Facet;
 use std::borrow::Cow;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 /// Resolve the service-assigned login server, including registries with DNS-label hashing.
 /// [Registry loginServer](https://learn.microsoft.com/en-us/rest/api/container-registry/registries/get?view=rest-container-registry-2025-11-01#registry).
-#[derive(facet::Facet)]
+#[derive(Facet)]
 pub struct ContainerRegistryEndpointRequest<'a> {
     pub registry_id: Cow<'a, ContainerRegistryId>,
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
@@ -75,8 +76,12 @@ impl ExecutableRequest for ContainerRegistryEndpointRequest<'_> {
                 "Resources | where id =~ {} | project id, loginServer=tostring(properties.loginServer)",
                 facet_json::to_string(&self.registry_id.expanded_form())?
             );
-            let mut graph =
-                ResourceGraphHelper::new(query, Some(self.cache_key()?), &self.auth_context);
+            let mut graph = ResourceGraphHelper::new(
+                query,
+                Some(self.cache_key()?),
+                self.auth_context.tenant_id,
+                self.auth_context.auth_source()?,
+            );
             let mut endpoints: Vec<Arc<ContainerRegistryEndpoint>> =
                 graph.collect_all(&executor).await?;
             ensure!(

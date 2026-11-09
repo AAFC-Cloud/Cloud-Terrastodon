@@ -72,9 +72,13 @@ pub async fn populate_cache(
             let executor = &executor;
             eyre::Ok((
                 "fetch_all_role_assignments",
-                fetch_all_role_assignments(&auth_context_for_role_assignments, executor)
-                    .await
-                    .is_ok(),
+                fetch_all_role_assignments(
+                    auth_context_for_role_assignments.tenant_id,
+                    auth_context_for_role_assignments.auth_source()?,
+                    executor,
+                )
+                .await
+                .is_ok(),
             ))
         })
     });
@@ -84,9 +88,13 @@ pub async fn populate_cache(
             let executor = &executor;
             eyre::Ok((
                 "fetch_all_users",
-                fetch_all_entra_users(&auth_context_for_users, executor)
-                    .await
-                    .is_ok(),
+                fetch_all_entra_users(
+                    auth_context_for_users.tenant_id,
+                    auth_context_for_users.auth_source()?,
+                    executor,
+                )
+                .await
+                .is_ok(),
             ))
         })
     });

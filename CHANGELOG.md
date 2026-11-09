@@ -1,5 +1,15 @@
 # Unreleased
 
+- Automatically register owned and shared collection forms alongside registry values and arbitrary constructors. Preserve explicit constructor identities, support owned values without `Sync`, and remove redundant collection registrations.
+
+- Share an instrumented offline authentication provider across execution, SDK, REST, and registry tests. Retain the strict unreachable provider for tests that must never invoke authentication. Use imported `Facet` and `Arbitrary` derive names throughout the workspace and resource-type generator.
+
+- Update to the published Facet field-proxy and `Cow<T>` decoder fixes, preserving borrowed organization URLs on Azure DevOps list/picker requests without application wire proxies or local dependency patches. Retain one core/reflection identity and the existing Cancellation API through its maintenance release.
+
+- Cache assembled Graph principal inventories, ARM RBAC inventories, and Azure DevOps project lists as shared `Arc` results with transitive child invalidation. Their requests now carry serializable tenant/source or organization/authentication selections; raw leaf responses remain the durable cache boundary. Preserve the selected principal lookup route when serializing requests.
+
+- Observe bound requests with `.observe(callback)`, including `.with_invalidation(refresh)`, without putting callbacks in request data or cache entries. Each caller receives lifecycle/cache events; collection initializers report progress. Callbacks may borrow local state and must return promptly without synchronously waiting for execution or cache work.
+
 - Serialize ARM batch entries directly from borrowed request slices, removing duplicate wire records and request-body `Clone` requirements.
 
 - Make domain-specific Azure list responses concrete, retaining shared `Arc` records without allowing unrelated item types. Keep generics on reusable multi-domain response envelopes.
@@ -8,7 +18,7 @@
 
 - Preserve request-specific errors through direct executor calls, including recoverable partial results. Registry invocation converts errors to reports only at its erased boundary; cancellation retains the request's chosen error type.
 
-- Route REST execution through the caller-owned executor and shared cache. Explicit cached receives share canonical decoded `Arc` values; owned receives execute every call, and existing uncached Work Item Tracking reads retain that policy. Preserve caller validation, continuation metadata, failure artifacts, and cancellation through mutations and invalidation. Migrate SDK, CLI, UI, tools, and example callers; aggregate memoization and the remaining concrete principal-batch decode remain the next phase.
+- Route REST execution through the caller-owned executor and shared cache. Explicit cached receives share canonical decoded `Arc` values; owned receives execute every call, and existing uncached Work Item Tracking reads retain that policy. Preserve caller validation, continuation metadata, failure artifacts, and cancellation through mutations and invalidation. Migrate SDK, CLI, UI, tools, and example callers; the subsequent inventory phase adds aggregate memoization and canonical concrete principal-batch decoding.
 
 - Keep REST authentication as explicit source/tenant selection. Credential providers own token acquisition, including isolated Container Registry challenge exchanges and invocation-owned PIM Graph credentials; requests no longer retain runtime credentials or cancellation scopes.
 

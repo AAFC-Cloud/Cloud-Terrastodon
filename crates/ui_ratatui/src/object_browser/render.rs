@@ -671,10 +671,12 @@ mod tests {
     use crate::object_explorer::ValueAddress;
     use cloud_terrastodon_auth::AuthContext;
     use cloud_terrastodon_auth::AzureDevOpsAuthContext;
+    use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
     use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
     use cloud_terrastodon_azure_devops::AzureDevOpsProjectsListRequest;
     use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_registry::RuntimeValue;
+    use cloud_terrastodon_registry::describe_shape;
     use facet::Facet;
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
@@ -910,7 +912,7 @@ mod tests {
             let root = arena
                 .insert_ready(runtime(AzureDevOpsProjectsListRequest {
                     org_url: Cow::Owned("example-org".parse().unwrap()),
-                    auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
+                    auth_selection: AzureDevOpsAuthSelection::PersonalAccessToken,
                 }))
                 .unwrap();
             let source = ArenaAddressSource::new(&arena);
@@ -945,19 +947,22 @@ mod tests {
                     assert!(!rendered.contains("─ actions ─"));
                 } else {
                     assert!(rendered.contains("─ actions ─"));
-                    assert!(rendered.contains("Self(Clone) -> List<AzureDevOpsProject>"));
-                    assert!(rendered.contains("Self(Drop) -> List<AzureDevOpsProject>"));
-                    assert!(rendered.contains("Self -> List<AzureDevOpsProject>(Arbitrary)"));
+                    let output_type = describe_shape(
+                        AzureDevOpsProjectsListRequest::REGISTERED_EXECUTABLE_REQUEST.output_shape,
+                    );
+                    assert!(rendered.contains(&format!("Self(Clone) -> {output_type}")));
+                    assert!(rendered.contains(&format!("Self(Drop) -> {output_type}")));
+                    assert!(rendered.contains(&format!("Self -> {output_type}(Arbitrary)")));
                     assert!(!rendered.contains("action:"));
                 }
                 if visible.is_none() {
                     assert!(rendered.contains("─ fields ─"));
-                    assert!(rendered.contains("field \"cancellation\""));
-                    assert!(rendered.contains("value slot 0.cancellation"));
+                    assert!(!rendered.contains("field \"cancellation\""));
                     assert!(rendered.contains("field \"org_url\""));
-                    assert!(rendered.contains("type Cow<AzureDevOpsOrganizationUrl>"));
+                    assert!(rendered.contains("type Cow"));
                     assert!(rendered.contains("value https://dev.azure.com/example-org"));
-                    assert!(rendered.contains("field \"auth_context\""));
+                    assert!(rendered.contains("field \"auth_selection\""));
+                    assert!(!rendered.contains("field \"auth_context\""));
                 } else {
                     assert!(!rendered.contains("─ fields ─"));
                 }

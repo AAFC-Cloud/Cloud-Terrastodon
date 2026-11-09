@@ -120,7 +120,6 @@ impl From<&RegisteredShape> for String {
 }
 
 crate::register_thing!(RegisteredShape);
-crate::register_thing!(Vec<RegisteredShape>);
 
 #[cfg(test)]
 mod tests {
@@ -134,7 +133,9 @@ mod tests {
     crate::register_thing!(NestedOutput);
 
     mod first {
-        #[derive(facet::Facet)]
+        use facet::Facet;
+
+        #[derive(Facet)]
         pub struct Item;
     }
 

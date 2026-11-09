@@ -20,6 +20,7 @@ use cloud_terrastodon_cache::WorkReuse;
 use cloud_terrastodon_execution::AuthenticationProvider;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutionFuture;
+use cloud_terrastodon_execution::TestAuthenticationProvider;
 use eyre::Result;
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -37,31 +38,6 @@ const DEADLOCK_GUARD: Duration = Duration::from_secs(10);
 
 struct NumberOperation;
 struct CompositionOperation;
-
-#[derive(Default)]
-struct SyntheticAuthentication {
-    generation: AtomicUsize,
-}
-
-impl AuthenticationProvider for SyntheticAuthentication {
-    fn admit(&self, _selection: &AuthenticationSelection) -> Result<AuthPartition> {
-        AuthPartition::new(format!(
-            "synthetic-session-{}",
-            self.generation.load(Ordering::SeqCst)
-        ))
-    }
-
-    fn authorization<'a>(
-        &'a self,
-        _selection: &'a AuthenticationSelection,
-        _resource: AzureCredentialResource,
-        _executor: &'a CloudTerrastodonExecutor,
-    ) -> ExecutionFuture<'a, Authorization> {
-        Box::pin(async {
-            eyre::bail!("synthetic artifact work must not acquire credentials");
-        })
-    }
-}
 
 #[derive(Default)]
 struct CredentialArtifactProbe {
@@ -143,7 +119,9 @@ async fn execute_every_time_ignores_existing_disk_results_and_never_joins_or_sel
     CancellationToken::new()
         .with_async_scope(|scope| async move {
             let cache = WorkCache::temporary()?;
-            let authentication = Arc::new(SyntheticAuthentication::default());
+            let authentication = Arc::new(TestAuthenticationProvider::offline(
+                "synthetic-test-session",
+            )?);
             let prior = cache.artifacts::<u64>(
                 ExecutorKind::Command,
                 key("always-execute"),
@@ -214,7 +192,9 @@ async fn disabled_artifact_retention_keeps_decoded_memory_reuse_without_writing_
             let root = cache.root().to_path_buf();
             let executor = CloudTerrastodonExecutor::new(
                 cache,
-                Arc::new(SyntheticAuthentication::default()),
+                Arc::new(TestAuthenticationProvider::offline(
+                    "synthetic-test-session",
+                )?),
                 scope,
             );
             let starts = AtomicUsize::new(0);
@@ -281,7 +261,9 @@ async fn authentication_change_rejects_memory_fill_and_quarantines_already_publi
     CancellationToken::new()
         .with_async_scope(|scope| async move {
             let cache = WorkCache::temporary()?;
-            let authentication = Arc::new(SyntheticAuthentication::default());
+            let authentication = Arc::new(TestAuthenticationProvider::offline(
+                "synthetic-test-session",
+            )?);
             let original = cache.artifacts::<u64>(
                 ExecutorKind::Command,
                 key("changed-authentication"),
@@ -306,7 +288,9 @@ async fn authentication_change_rejects_memory_fill_and_quarantines_already_publi
                             let (selected, observation) =
                                 publish_number(&entry, 42, child.cancellation()).await?;
                             assert!(selected);
-                            authentication.generation.store(1, Ordering::SeqCst);
+                            authentication
+                                .partition_generation
+                                .store(1, Ordering::SeqCst);
                             Ok(WorkOutput::new(42_u64, observation))
                         }
                     },
@@ -321,7 +305,9 @@ async fn authentication_change_rejects_memory_fill_and_quarantines_already_publi
 
             // Restoring the original identity must not expose the rejected
             // outcome through either the original disk entry or a memory hit.
-            authentication.generation.store(0, Ordering::SeqCst);
+            authentication
+                .partition_generation
+                .store(0, Ordering::SeqCst);
             assert!(original.load(executor.cancellation()).await?.is_none());
             let starts = AtomicUsize::new(0);
             let recovered = executor
@@ -362,7 +348,9 @@ async fn rejected_nonreusable_artifact_child_prevents_parent_fallback_reuse() ->
                 let root = cache.root().to_path_buf();
                 let executor = CloudTerrastodonExecutor::new(
                     cache,
-                    Arc::new(SyntheticAuthentication::default()),
+                    Arc::new(TestAuthenticationProvider::offline(
+                        "synthetic-test-session",
+                    )?),
                     scope.clone(),
                 );
                 let parent_starts = AtomicUsize::new(0);

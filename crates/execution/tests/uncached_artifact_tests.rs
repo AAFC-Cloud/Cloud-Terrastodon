@@ -19,6 +19,7 @@ use cloud_terrastodon_cache::WorkReuse;
 use cloud_terrastodon_execution::AuthenticationProvider;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutionFuture;
+use cloud_terrastodon_execution::TestAuthenticationProvider;
 use eyre::Result;
 use std::cell::Cell;
 use std::collections::BTreeMap;
@@ -38,31 +39,6 @@ const DEADLOCK_GUARD: Duration = Duration::from_secs(10);
 struct NumberOperation;
 struct OtherOperation;
 struct CompositionOperation;
-
-#[derive(Default)]
-struct SyntheticAuthentication {
-    generation: AtomicUsize,
-}
-
-impl AuthenticationProvider for SyntheticAuthentication {
-    fn admit(&self, _selection: &AuthenticationSelection) -> Result<AuthPartition> {
-        AuthPartition::new(format!(
-            "synthetic-session-{}",
-            self.generation.load(Ordering::SeqCst)
-        ))
-    }
-
-    fn authorization<'a>(
-        &'a self,
-        _selection: &'a AuthenticationSelection,
-        _resource: AzureCredentialResource,
-        _executor: &'a CloudTerrastodonExecutor,
-    ) -> ExecutionFuture<'a, Authorization> {
-        Box::pin(async {
-            eyre::bail!("synthetic artifact work must not acquire credentials");
-        })
-    }
-}
 
 #[derive(Default)]
 struct CredentialWorkProbe {
@@ -156,7 +132,9 @@ async fn non_sync_outputs_execute_independently_without_reusing_or_selecting_dis
     CancellationToken::new()
         .with_async_scope(|scope| async move {
             let cache = WorkCache::temporary()?;
-            let authentication = Arc::new(SyntheticAuthentication::default());
+            let authentication = Arc::new(TestAuthenticationProvider::offline(
+                "synthetic-test-session",
+            )?);
             let prior = cache.artifacts::<Cell<u64>>(
                 ExecutorKind::Command,
                 key("independent-attempts"),
@@ -224,7 +202,9 @@ async fn artifact_contract_conflicts_fail_at_binding_before_execution_or_disk_ac
             let root = cache.root().to_path_buf();
             let executor = CloudTerrastodonExecutor::new(
                 cache,
-                Arc::new(SyntheticAuthentication::default()),
+                Arc::new(TestAuthenticationProvider::offline(
+                    "synthetic-test-session",
+                )?),
                 scope,
             );
             let starts = AtomicUsize::new(0);
@@ -291,7 +271,9 @@ async fn caught_uncached_child_rejection_quarantines_an_already_selected_parent(
     CancellationToken::new()
         .with_async_scope(|scope| async move {
             let cache = WorkCache::temporary()?;
-            let authentication = Arc::new(SyntheticAuthentication::default());
+            let authentication = Arc::new(TestAuthenticationProvider::offline(
+                "synthetic-test-session",
+            )?);
             let parent_artifacts = cache.artifacts::<u64>(
                 ExecutorKind::InProcess,
                 key("composition"),
@@ -368,7 +350,9 @@ async fn caught_uncached_child_rejection_quarantines_an_already_selected_parent(
 async fn authentication_changes_reject_bound_work_and_completed_owned_outputs() -> Result<()> {
     CancellationToken::new()
         .with_async_scope(|scope| async move {
-            let authentication = Arc::new(SyntheticAuthentication::default());
+            let authentication = Arc::new(TestAuthenticationProvider::offline(
+                "synthetic-test-session",
+            )?);
             let executor = CloudTerrastodonExecutor::new(
                 WorkCache::temporary()?,
                 authentication.clone(),
@@ -387,7 +371,9 @@ async fn authentication_changes_reject_bound_work_and_completed_owned_outputs() 
                     Ok(Cell::new(7_u64))
                 },
             )?;
-            authentication.generation.store(1, Ordering::SeqCst);
+            authentication
+                .partition_generation
+                .store(1, Ordering::SeqCst);
             assert!(
                 pending
                     .await
@@ -416,7 +402,9 @@ async fn authentication_changes_reject_bound_work_and_completed_owned_outputs() 
                         async move {
                             starts.fetch_add(1, Ordering::SeqCst);
                             assert!(!publish_number(&entry, 8, child.cancellation()).await?.0);
-                            authentication.generation.store(2, Ordering::SeqCst);
+                            authentication
+                                .partition_generation
+                                .store(2, Ordering::SeqCst);
                             Ok(Cell::new(8_u64))
                         }
                     },

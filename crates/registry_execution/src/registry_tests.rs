@@ -4,7 +4,6 @@ use cloud_terrastodon_auth_types::AuthenticationSelection;
 use cloud_terrastodon_auth_types::Authorization;
 use cloud_terrastodon_auth_types::AzureCredentialResource;
 use cloud_terrastodon_cache::ArtifactObservation;
-use cloud_terrastodon_cache::AuthPartition;
 use cloud_terrastodon_cache::CacheKey;
 use cloud_terrastodon_cache::CacheOperationOwner;
 use cloud_terrastodon_cache::CacheScope;
@@ -14,10 +13,10 @@ use cloud_terrastodon_cache::WorkCache;
 use cloud_terrastodon_cache::WorkOutput;
 use cloud_terrastodon_cache::WorkReuse;
 use cloud_terrastodon_execution::AnonymousAuthenticationProvider;
-use cloud_terrastodon_execution::AuthenticationProvider;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
+use cloud_terrastodon_execution::TestAuthenticationProvider;
 use cloud_terrastodon_registry::ArbitraryBytes;
 use cloud_terrastodon_registry::FunctionKind;
 use cloud_terrastodon_registry::KNOWN_BORROWED_POINTER_KINDS;
@@ -38,7 +37,6 @@ use std::future::poll_fn;
 use std::io;
 use std::io::ErrorKind;
 use std::sync::Arc;
-use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::task::Poll;
 use std::time::Duration;
@@ -513,7 +511,7 @@ fn by_mut_arbitrary_functions_consume_bytes() -> eyre::Result<()> {
     assert!(ending < starting);
     Ok(())
 }
-#[derive(facet::Facet)]
+#[derive(Facet)]
 struct CancellationProbeRequest {
     #[facet(skip_serializing)]
     stop_signal: CancellationScope,
@@ -563,34 +561,6 @@ fn test_executor(scope: CancellationScope) -> eyre::Result<CloudTerrastodonExecu
         Arc::new(AnonymousAuthenticationProvider),
         scope,
     ))
-}
-
-#[derive(Default)]
-struct ProbeAuthentication {
-    acquisitions: AtomicUsize,
-}
-
-impl AuthenticationProvider for ProbeAuthentication {
-    fn admit(&self, selection: &AuthenticationSelection) -> eyre::Result<AuthPartition> {
-        eyre::ensure!(
-            matches!(selection, AuthenticationSelection::Anonymous),
-            "the synthetic provider only admits local work"
-        );
-        AuthPartition::new("synthetic-registry-provider")
-    }
-
-    fn authorization<'a>(
-        &'a self,
-        selection: &'a AuthenticationSelection,
-        _resource: AzureCredentialResource,
-        _executor: &'a CloudTerrastodonExecutor,
-    ) -> ExecutionFuture<'a, Authorization> {
-        Box::pin(async move {
-            self.admit(selection)?;
-            self.acquisitions.fetch_add(1, Ordering::SeqCst);
-            Ok(Authorization::Anonymous)
-        })
-    }
 }
 
 #[derive(Facet)]
@@ -646,7 +616,6 @@ impl ExecutableRequest for CachedRequest {
 }
 
 cloud_terrastodon_registry::register_thing!(CachedRequest);
-cloud_terrastodon_registry::register_thing!(Arc<DummyOutput>);
 register_executable_request!(CachedRequest => Arc<DummyOutput>, effects = [Read]);
 
 #[tokio::test]
@@ -654,7 +623,13 @@ async fn executable_registration_uses_bound_authentication_and_shares_cached_out
 -> eyre::Result<()> {
     CancellationToken::new()
         .with_async_scope(|scope| async move {
-            let provider = Arc::new(ProbeAuthentication::default());
+            let provider = Arc::new(TestAuthenticationProvider {
+                allow_authenticated: false.into(),
+                ..TestAuthenticationProvider::new(
+                    "synthetic-test-session",
+                    Authorization::Anonymous,
+                )?
+            });
             let executor =
                 CloudTerrastodonExecutor::new(WorkCache::temporary()?, provider.clone(), scope);
             let direct = executor
@@ -681,7 +656,7 @@ async fn executable_registration_uses_bound_authentication_and_shares_cached_out
             };
             let erased = invocation.await?.downcast::<Arc<DummyOutput>>().unwrap();
             assert!(Arc::ptr_eq(&direct, &erased));
-            assert_eq!(provider.acquisitions.load(Ordering::SeqCst), 1);
+            assert_eq!(provider.authorizations.load(Ordering::SeqCst), 1);
 
             let FunctionInvocation::Pending(wrong_input) =
                 function.invoke_value_boxed(Box::new(DummyTenant), &executor)?
@@ -704,11 +679,17 @@ async fn default_production_executes_new_requests_with_the_callers_shared_resour
 -> eyre::Result<()> {
     CancellationToken::new()
         .with_async_scope(|scope| async move {
-            let provider = Arc::new(ProbeAuthentication::default());
+            let provider = Arc::new(TestAuthenticationProvider {
+                allow_authenticated: false.into(),
+                ..TestAuthenticationProvider::new(
+                    "synthetic-test-session",
+                    Authorization::Anonymous,
+                )?
+            });
             let executor =
                 CloudTerrastodonExecutor::new(WorkCache::temporary()?, provider.clone(), scope);
             assert!(default_production_plan(CachedRequest::SHAPE).is_some());
-            assert_eq!(provider.acquisitions.load(Ordering::SeqCst), 0);
+            assert_eq!(provider.authorizations.load(Ordering::SeqCst), 0);
 
             let produced =
                 invoke_with_default_input(CachedRequest::REGISTERED_EXECUTABLE_REQUEST, &executor)
@@ -716,11 +697,11 @@ async fn default_production_executes_new_requests_with_the_callers_shared_resour
                     .downcast::<Arc<DummyOutput>>()
                     .unwrap();
             assert_eq!(produced.value, CachedRequest::default().value);
-            assert_eq!(provider.acquisitions.load(Ordering::SeqCst), 1);
+            assert_eq!(provider.authorizations.load(Ordering::SeqCst), 1);
 
             let direct = executor.execute(CachedRequest::default()).await?;
             assert!(Arc::ptr_eq(&produced, &direct));
-            assert_eq!(provider.acquisitions.load(Ordering::SeqCst), 1);
+            assert_eq!(provider.authorizations.load(Ordering::SeqCst), 1);
             Ok(())
         })
         .await

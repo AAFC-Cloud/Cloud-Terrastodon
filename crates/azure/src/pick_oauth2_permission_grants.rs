@@ -85,8 +85,8 @@ pub async fn pick_oauth2_permission_grants(
     executor.cancellable_scope(|executor| async move {
             let executor = &executor;
             let grants = fetch_oauth2_permission_grants(auth_context.tenant_id, cloud_terrastodon_auth_types::AzureBearerAuthSource::try_from(auth_context.auth_context.source().ok_or_else(|| eyre::eyre!("authentication source is unresolved"))?)?, executor);
-            let service_principals = fetch_all_service_principals(auth_context, executor);
-            let users = fetch_all_entra_users(auth_context, executor).into_future();
+            let service_principals = fetch_all_service_principals(auth_context.tenant_id, auth_context.auth_source()?, executor);
+            let users = fetch_all_entra_users(auth_context.tenant_id, auth_context.auth_source()?, executor).into_future();
             let (grants, service_principals, users) = try_join!(grants, service_principals, users)?;
             let service_principals_map = service_principals
                 .iter()

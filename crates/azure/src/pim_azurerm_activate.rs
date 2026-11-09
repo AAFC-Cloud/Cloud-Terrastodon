@@ -12,7 +12,6 @@ use cloud_terrastodon_execution::CacheInvalidatableRequest;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
-use std::borrow::Cow;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -71,7 +70,8 @@ pub async fn activate_pim_role(
                     )
                     .await;
                 let invalidation = RoleAssignmentListRequest {
-                    auth_context: Cow::Borrowed(auth_context),
+                    tenant_id: auth_context.tenant_id,
+                    auth_source: auth_context.auth_source()?,
                 }
                 .invalidate(&child)
                 .await;

@@ -67,9 +67,13 @@ pub async fn create_role_assignment(
                     .await;
                 // A failed response or artifact write does not prove the remote
                 // mutation failed. Refresh the inventory after every attempt.
-                let invalidation = fetch_all_role_assignments(auth_context, &executor)
-                    .invalidate()
-                    .await;
+                let invalidation = fetch_all_role_assignments(
+                    auth_context.tenant_id,
+                    auth_context.auth_source()?,
+                    &executor,
+                )
+                .invalidate()
+                .await;
                 match (execution, invalidation) {
                     (Ok(response), Ok(())) => Ok(response.id),
                     (Err(error), Ok(())) | (Ok(_), Err(error)) => Err(error),

@@ -694,7 +694,7 @@ not constrain the envelope to its domain. Keep generics on reusable envelopes
 that serve different domain types, such as Graph, Resource Graph, PIM, and Azure
 DevOps collections.
 
-The remaining phase 5 aggregate cache targets are:
+Phase 5 implements these aggregate cache boundaries:
 
 | Inventory | Shared shape | Assembly/conversion consequence |
 | --- | --- | --- |
@@ -702,6 +702,22 @@ The remaining phase 5 aggregate cache targets are:
 | Principal inventory | `Arc<EntraPrincipalCollection>`; `EntraPrincipal` variants hold shared category records | Existing ID/name access remains borrowed; consuming conversions return shared records or explicitly clone owned records |
 | Azure DevOps projects | `Arc<Vec<Arc<AzureDevOpsProject>>>` | Pages and final ordered list share project records |
 | Combined RBAC | `Arc<RoleDefinitionsAndAssignments>` | The first validated assembly is shared; internal role/assignment record sharing follows the invariant-preserving conversion work in its migration slice |
+
+Each aggregate uses `InProcess` identity and records its actual child requests,
+including child memory hits. Only raw leaf responses persist; new cache owners
+reassemble aggregates from admitted leaves rather than restoring an unverified
+dependency certificate. The implementation and validation evidence belong to
+tasks 5.1–5.3 in the owning plan.
+
+Graph category/get/search/pick requests and RBAC inventory requests carry an
+explicit tenant and selected bearer source. Project list/pick requests carry an
+organization URL and `AzureDevOpsAuthSelection`. The list retains its
+`Cow<AzureDevOpsOrganizationUrl>` field: direct calls borrow existing URLs and
+deserialized requests own their values. Fix Facet decoding/derive defects in the
+forks instead of replacing borrowed request APIs or adding application wire proxies.
+A principal lookup uses
+`EntraPrincipalLookup` to preserve its known route across text serialization;
+the existing `EntraPrincipalId` UUID wire format remains an identity value.
 
 These are targeted ownership changes, not a requirement to replace every nested
 domain field with `Arc`. Do not add `Clone` derives to response/domain records
@@ -727,6 +743,25 @@ to re-fetch pages. Observer callbacks are not retained in shared entries and are
 not silently skipped on hits. A local wrapper may receive events from the `Send`
 execution future while invoking a borrowed, non-`Send` callback in the caller's
 task. It must not create detached fetch work to achieve that separation.
+
+The implemented spelling is
+`request.execute(&executor).with_invalidation(refresh).observe(callback).await`.
+`RequestExecution::observe` wraps the request future with a caller-owned event
+receiver. Descendants inherit the sender; cache events identify their concrete
+entry. Only the explicitly observed binding emits admission and a terminal event.
+Collection progress reports assembly work done by that initializer, including
+pages obtained from the leaf cache; it does not claim each page required network
+I/O. Concurrent child progress may interleave. A warm aggregate emits a cache hit
+without replaying earlier page progress.
+
+Callbacks are synchronous notifications and must return promptly. They may borrow
+local, non-`Send` state, but must not synchronously wait for cache or execution
+work: a suspended initializer or filesystem operation may still own an async
+lock. Event delivery occurs after the producer poll returns, outside synchronous
+cache bookkeeping. It is not a cache-quiescence boundary. No observer or callback
+is stored in shared cache values, and unobserved execution allocates no observer
+closure. Completion/failure describes a polled result; explicitly dropping the
+observed future drops its work and callback without fabricating a terminal event.
 
 The operation's cache policy and declared effects are known before parent cache
 lookup. A reusable operation may not conceal a domain mutation, solicitation,

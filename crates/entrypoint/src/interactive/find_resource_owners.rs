@@ -377,14 +377,27 @@ pub async fn find_resource_owners_menu(
     );
     let (resources, role_assignments, role_definitions, principals, org_url) = try_join!(
         fetch_all_resources(auth_context, executor),
-        fetch_all_role_assignments(auth_context, executor),
-        fetch_all_role_definitions(auth_context, executor),
-        fetch_all_principals(auth_context, executor),
+        fetch_all_role_assignments(
+            auth_context.tenant_id,
+            auth_context.auth_source()?,
+            executor
+        ),
+        fetch_all_role_definitions(
+            auth_context.tenant_id,
+            auth_context.auth_source()?,
+            executor
+        ),
+        fetch_all_principals(
+            auth_context.tenant_id,
+            auth_context.auth_source()?,
+            executor
+        ),
         get_default_organization_url(cancellation),
     )?;
     let azure_devops_auth_context = AzureDevOpsAuthContext::for_azure_tenant(auth_context);
     let projects =
-        fetch_all_azure_devops_projects(&org_url, &azure_devops_auth_context, executor).await?;
+        fetch_all_azure_devops_projects(&org_url, azure_devops_auth_context.selection()?, executor)
+            .await?;
     let azure_devops_service_endpoint_inventories = {
         let mut work: ParallelFallibleWorkQueue<Arc<Vec<AzureDevOpsServiceEndpoint>>> =
             ParallelFallibleWorkQueue::new("azure devops service endpoints", 8);

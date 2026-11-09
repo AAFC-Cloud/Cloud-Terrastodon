@@ -1,6 +1,7 @@
 use crate::CacheEntryIdentity;
 use crate::WorkAttempt;
 use crate::WorkCache;
+use crate::WorkCacheStatus;
 use crate::WorkOutput;
 use crate::artifact_io_guard::ArtifactIoGuard;
 use crate::cached_work_value::CachedWorkValue;
@@ -24,7 +25,6 @@ use teamy_cancellation::CancellationScope;
 /// before any lookup. Only successful fresh values are shared. The callback owns
 /// execution and canonical decoding; caller projections belong after this await.
 /// Reuse checks original generations and every semantic child's freshness.
-/// Production transport adapters remain a subsequent migration layer.
 #[must_use = "Cached work does nothing until awaited"]
 pub struct CachedWorkSpec<'a, T, F> {
     // Bound fields cannot be changed after the canonical ownership claim.
@@ -36,7 +36,26 @@ pub struct CachedWorkSpec<'a, T, F> {
     pub(crate) child: Option<WorkChildGuard>,
     pub(crate) cancellation: &'a CancellationScope,
     pub(crate) initialize: F,
+    pub(crate) observer: Option<Box<dyn Fn(WorkCacheStatus) + Send + 'a>>,
     pub(crate) output: PhantomData<fn() -> T>,
+}
+
+impl<'a, T, F> CachedWorkSpec<'a, T, F> {
+    /// Observe this invocation's coordination decisions. The callback is never
+    /// stored in the shared entry or invoked while holding the cache state lock.
+    /// It must return promptly without synchronously waiting on cache work;
+    /// initialization ownership may still be held. Execution adapters use this
+    /// hook to enqueue events for their caller's observation wrapper.
+    pub fn observe(mut self, observer: impl Fn(WorkCacheStatus) + Send + 'a) -> Self {
+        self.observer = Some(Box::new(observer));
+        self
+    }
+
+    fn notify(&self, status: WorkCacheStatus) {
+        if let Some(observer) = &self.observer {
+            observer(status);
+        }
+    }
 }
 
 impl<'a, T, F, Fut> IntoFuture for CachedWorkSpec<'a, T, F>
@@ -92,6 +111,8 @@ where
                     if let Some(child) = &mut self.child {
                         child.complete(&mut state, &certificate)?;
                     }
+                    drop(state);
+                    self.notify(WorkCacheStatus::Hit);
                     return Ok(value);
                 }
                 let waiting = parent
@@ -119,11 +140,18 @@ where
         drop(retired);
 
         let Some(coordination) = coordination else {
+            self.notify(WorkCacheStatus::Initializing);
             let output = (self.initialize)(self.parent.cloned(), scope.clone()).await?;
             scope.bail_if_cancelled()?;
             return Ok(Arc::new(output.value));
         };
-        let _initializer = coordination.initializer.lock().await;
+        let _initializer = match coordination.initializer.try_lock() {
+            Ok(guard) => guard,
+            Err(_) => {
+                self.notify(WorkCacheStatus::Waiting);
+                coordination.initializer.lock().await
+            }
+        };
         scope.bail_if_cancelled()?;
         let mut retired = None;
         {
@@ -145,11 +173,14 @@ where
                 if let Some(child) = &mut self.child {
                     child.complete(&mut state, &certificate)?;
                 }
+                drop(state);
+                self.notify(WorkCacheStatus::Hit);
                 return Ok(value);
             }
         }
         drop(retired);
         let attempt = WorkAttemptGuard::new(&self.cache, self.identity.clone(), self.parent)?;
+        self.notify(WorkCacheStatus::Initializing);
         let output = (self.initialize)(Some(attempt.attempt()), scope.clone()).await?;
         scope.bail_if_cancelled()?;
         let value = Arc::new(output.value);

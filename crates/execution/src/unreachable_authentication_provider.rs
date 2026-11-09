@@ -15,7 +15,8 @@ use eyre::Result;
 /// selections. Authorization panics when called, before returning a future,
 /// so an ignored result or unpolled future cannot hide an unexpected call.
 /// Use [`crate::AnonymousAuthenticationProvider`] when anonymous admission is
-/// expected instead.
+/// expected instead. Use [`crate::TestAuthenticationProvider`] for synthetic
+/// admission, revocation, and counted authorization attempts in cache/transport tests.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct UnreachableAuthenticationProvider;
 

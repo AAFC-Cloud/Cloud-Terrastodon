@@ -1,11 +1,12 @@
-use crate::MicrosoftGraphProgress;
-use crate::MicrosoftGraphProgressHook;
-use cloud_terrastodon_auth::AzureTenantAuthContext;
+use cloud_terrastodon_auth_types::AuthenticationSelection;
+use cloud_terrastodon_auth_types::AzureBearerAuthSource;
+use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::MicrosoftGraphResponse;
 use cloud_terrastodon_cache::CacheKey;
 use cloud_terrastodon_cache::CacheOperationOwner;
 use cloud_terrastodon_command::FromCommandOutput;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::CollectionProgress;
 use cloud_terrastodon_rest::RequestHeaders;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
@@ -13,25 +14,26 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
 /// Fetch a resource or all pages of a [Microsoft Graph collection](https://learn.microsoft.com/graph/paging).
-pub struct MicrosoftGraphHelper<'a> {
+pub struct MicrosoftGraphHelper {
     pub url: String,
     pub cache_key: Option<CacheKey>,
-    pub auth_context: &'a AzureTenantAuthContext,
+    pub tenant_id: AzureTenantId,
+    pub auth_source: AzureBearerAuthSource,
     pub headers: Option<RequestHeaders>,
-    pub progress_hook: Option<MicrosoftGraphProgressHook>,
 }
-impl<'a> MicrosoftGraphHelper<'a> {
+impl MicrosoftGraphHelper {
     pub fn new(
         url: impl ToString,
         cache_key: Option<CacheKey>,
-        auth_context: &'a AzureTenantAuthContext,
+        tenant_id: AzureTenantId,
+        auth_source: AzureBearerAuthSource,
     ) -> Self {
         MicrosoftGraphHelper {
             url: url.to_string(),
             cache_key,
-            auth_context,
+            tenant_id,
+            auth_source,
             headers: None,
-            progress_hook: None,
         }
     }
 
@@ -49,8 +51,12 @@ impl<'a> MicrosoftGraphHelper<'a> {
     }
 
     fn get_request(&self, url: &str) -> Result<RestRequest> {
-        let mut request =
-            RestRequest::new(http::Method::GET, url)?.azure_auth_context(self.auth_context)?;
+        let mut request = RestRequest::new(http::Method::GET, url)?.authentication(
+            AuthenticationSelection::AzureBearer {
+                tenant_id: self.tenant_id,
+                auth_source: self.auth_source,
+            },
+        );
         request.cache_key = self.cache_key.clone();
         request.headers = self.headers.clone();
         Ok(request)
@@ -64,10 +70,7 @@ impl<'a> MicrosoftGraphHelper<'a> {
         let request = self.get_request(&self.url)?;
         if request.cache_key.is_some() {
             request
-                .receive_cached::<T>(
-                    executor,
-                    CacheOperationOwner::of::<MicrosoftGraphHelper<'static>>(),
-                )
+                .receive_cached::<T>(executor, CacheOperationOwner::of::<MicrosoftGraphHelper>())
                 .await
         } else {
             request.receive::<T>(executor).await.map(Arc::new)
@@ -92,6 +95,10 @@ impl<'a> MicrosoftGraphHelper<'a> {
                     scope = ?cache_key.scope,
                     "Invalidating paginated Microsoft Graph cache before retry"
                 );
+                // Invalidation also advances any active aggregate's generation.
+                // A successful retry is usable by this caller but is not published
+                // under that obsolete generation. The next invocation can assemble
+                // a reusable aggregate from the fresh pages without another fetch.
                 executor.cancellation().bail_if_cancelled()?;
                 executor
                     .cache()?
@@ -141,7 +148,7 @@ impl<'a> MicrosoftGraphHelper<'a> {
                 request
                     .receive_cached::<MicrosoftGraphResponse<Arc<T>>>(
                         executor,
-                        CacheOperationOwner::of::<MicrosoftGraphHelper<'static>>(),
+                        CacheOperationOwner::of::<MicrosoftGraphHelper>(),
                     )
                     .await
             } else {
@@ -162,23 +169,21 @@ impl<'a> MicrosoftGraphHelper<'a> {
             // Update results
             results.extend(response.value.iter().cloned());
 
-            if let Some(progress_hook) = self.progress_hook.as_ref() {
-                let time_remaining = total
-                    .and_then(|total| total.checked_sub(results.len()))
-                    .filter(|remaining| *remaining > 0 && !results.is_empty())
-                    .map(|remaining| {
-                        started_at
-                            .elapsed()
-                            .mul_f64(remaining as f64 / results.len() as f64)
-                    })
-                    .unwrap_or(Duration::ZERO);
-                progress_hook(MicrosoftGraphProgress {
-                    total,
-                    accumulated: results.len(),
-                    received_this_page,
-                    time_remaining,
-                });
-            }
+            let time_remaining = total
+                .and_then(|total| total.checked_sub(results.len()))
+                .filter(|remaining| *remaining > 0 && !results.is_empty())
+                .map(|remaining| {
+                    started_at
+                        .elapsed()
+                        .mul_f64(remaining as f64 / results.len() as f64)
+                })
+                .unwrap_or(Duration::ZERO);
+            executor.report_progress(CollectionProgress {
+                total,
+                accumulated: results.len(),
+                received_this_page,
+                time_remaining,
+            });
         }
         Ok(results)
     }
@@ -187,17 +192,17 @@ impl<'a> MicrosoftGraphHelper<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cloud_terrastodon_auth::AzureTenantAuthContext;
+    use cloud_terrastodon_azure_types::uuid::Uuid;
     use cloud_terrastodon_command::CancellationToken;
 
     #[test]
     fn consistency_level_eventual_adds_the_expected_header() -> Result<()> {
         CancellationToken::new().with_scope(|_cancellation| {
-            let auth_context = AzureTenantAuthContext::default();
             let helper = MicrosoftGraphHelper::new(
                 "https://graph.microsoft.com/v1.0/users",
                 None,
-                &auth_context,
+                AzureTenantId::new(Uuid::nil()),
+                AzureBearerAuthSource::AzureCli,
             )
             .add_headers(
                 RequestHeaders::from_header_lines(["X-Test: value"])

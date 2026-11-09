@@ -17,6 +17,7 @@ use cloud_terrastodon_execution::AuthenticationProvider;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
+use cloud_terrastodon_execution::TestAuthenticationProvider;
 use eyre::Result;
 use eyre::ensure;
 use std::cell::Cell;
@@ -26,7 +27,6 @@ use std::future::poll_fn;
 use std::pin::Pin;
 use std::rc::Rc;
 use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::task::Poll;
@@ -39,13 +39,6 @@ use tokio::time::timeout;
 const AUTHENTICATION: AuthenticationSelection =
     AuthenticationSelection::AzureDevOpsPersonalAccessToken;
 const DEADLOCK_GUARD: Duration = Duration::from_secs(10);
-
-#[derive(Default)]
-struct SyntheticAuthentication {
-    denied: AtomicBool,
-    partition_generation: AtomicUsize,
-    acquisitions: AtomicUsize,
-}
 
 #[derive(Default)]
 struct CredentialLineageProbe {
@@ -74,7 +67,12 @@ impl AuthenticationProvider for CredentialLineageProbe {
                     assert!(child.cache().is_err());
                     assert!(
                         child
-                            .with_authentication(Arc::new(SyntheticAuthentication::default()))
+                            .with_authentication(Arc::new(TestAuthenticationProvider::new(
+                                "synthetic-test-session",
+                                Authorization::personal_access_token(
+                                    "synthetic-offline-credential"
+                                )?
+                            )?))
                             .is_err(),
                         "credential infrastructure cannot escape its restrictions by rebinding"
                     );
@@ -99,34 +97,6 @@ impl AuthenticationProvider for CredentialLineageProbe {
                     Authorization::personal_access_token("synthetic-offline-credential")
                 })
                 .await
-        })
-    }
-}
-
-impl AuthenticationProvider for SyntheticAuthentication {
-    fn admit(&self, selection: &AuthenticationSelection) -> Result<AuthPartition> {
-        if matches!(selection, AuthenticationSelection::Anonymous) {
-            return AuthPartition::new("synthetic-anonymous");
-        }
-        ensure!(
-            !self.denied.load(Ordering::SeqCst),
-            "synthetic policy denies selection"
-        );
-        AuthPartition::new(format!(
-            "synthetic-session-{}",
-            self.partition_generation.load(Ordering::SeqCst)
-        ))
-    }
-
-    fn authorization<'a>(
-        &'a self,
-        _selection: &'a AuthenticationSelection,
-        _resource: AzureCredentialResource,
-        _executor: &'a CloudTerrastodonExecutor,
-    ) -> ExecutionFuture<'a, Authorization> {
-        Box::pin(async move {
-            self.acquisitions.fetch_add(1, Ordering::SeqCst);
-            Authorization::personal_access_token("synthetic-offline-credential")
         })
     }
 }
@@ -286,7 +256,10 @@ async fn both_execution_spellings_accept_borrowed_outputs_and_owned_non_sync_out
             let temporary = tempfile::tempdir()?;
             let executor = CloudTerrastodonExecutor::new(
                 WorkCache::new(temporary.path())?,
-                Arc::new(SyntheticAuthentication::default()),
+                Arc::new(TestAuthenticationProvider::new(
+                    "synthetic-test-session",
+                    Authorization::personal_access_token("synthetic-offline-credential")?,
+                )?),
                 scope,
             );
             let text = String::from("borrowed request data");
@@ -318,7 +291,10 @@ async fn scope_helpers_accept_borrowed_non_send_callbacks_and_close_their_child(
             let temporary = tempfile::tempdir()?;
             let executor = CloudTerrastodonExecutor::new(
                 WorkCache::new(temporary.path())?,
-                Arc::new(SyntheticAuthentication::default()),
+                Arc::new(TestAuthenticationProvider::new(
+                    "synthetic-test-session",
+                    Authorization::personal_access_token("synthetic-offline-credential")?,
+                )?),
                 scope,
             );
             let observations = Rc::new(Cell::new(0));
@@ -369,7 +345,10 @@ async fn independent_jobs_share_resources_but_preserve_separate_cancellation() -
     let root = CancellationToken::new();
     root.with_async_scope(|scope| async {
         let temporary = tempfile::tempdir()?;
-        let authentication = Arc::new(SyntheticAuthentication::default());
+        let authentication = Arc::new(TestAuthenticationProvider::new(
+            "synthetic-test-session",
+            Authorization::personal_access_token("synthetic-offline-credential")?,
+        )?);
         let executor = CloudTerrastodonExecutor::new(
             WorkCache::new(temporary.path())?,
             authentication.clone(),
@@ -399,7 +378,7 @@ async fn independent_jobs_share_resources_but_preserve_separate_cancellation() -
         assert!(Arc::ptr_eq(&cached, &second.await?));
         executor.cancellation().bail_if_cancelled()?;
         assert_eq!(decodes.load(Ordering::SeqCst), 1);
-        assert_eq!(authentication.acquisitions.load(Ordering::SeqCst), 1);
+        assert_eq!(authentication.authorizations.load(Ordering::SeqCst), 1);
 
         // Creating the future through a temporary clone proves it owns its
         // resources rather than borrowing the executor handle used to bind it.
@@ -423,7 +402,10 @@ async fn cloned_executors_share_one_decoded_result_without_reacquiring_credentia
     CancellationToken::new()
         .with_async_scope(|scope| async move {
             let temporary = tempfile::tempdir()?;
-            let authentication = Arc::new(SyntheticAuthentication::default());
+            let authentication = Arc::new(TestAuthenticationProvider::new(
+                "synthetic-test-session",
+                Authorization::personal_access_token("synthetic-offline-credential")?,
+            )?);
             let executor = CloudTerrastodonExecutor::new(
                 WorkCache::new(temporary.path())?,
                 authentication.clone(),
@@ -455,7 +437,7 @@ async fn cloned_executors_share_one_decoded_result_without_reacquiring_credentia
             assert!(Arc::ptr_eq(&first, &second));
             assert!(Arc::ptr_eq(&first, &warm));
             assert_eq!(decodes.load(Ordering::SeqCst), 1);
-            assert_eq!(authentication.acquisitions.load(Ordering::SeqCst), 1);
+            assert_eq!(authentication.authorizations.load(Ordering::SeqCst), 1);
             Ok(())
         })
         .await
@@ -466,7 +448,10 @@ async fn warm_results_and_previously_bound_work_still_require_current_admission(
     CancellationToken::new()
         .with_async_scope(|scope| async move {
             let temporary = tempfile::tempdir()?;
-            let authentication = Arc::new(SyntheticAuthentication::default());
+            let authentication = Arc::new(TestAuthenticationProvider::new(
+                "synthetic-test-session",
+                Authorization::personal_access_token("synthetic-offline-credential")?,
+            )?);
             let executor = CloudTerrastodonExecutor::new(
                 WorkCache::new(temporary.path())?,
                 authentication.clone(),
@@ -474,11 +459,15 @@ async fn warm_results_and_previously_bound_work_still_require_current_admission(
             );
             let decodes = AtomicUsize::new(0);
             let original = executor.execute(CachedNumber::new("42", &decodes)).await?;
-            authentication.denied.store(true, Ordering::SeqCst);
+            authentication
+                .allow_authenticated
+                .store(false, Ordering::SeqCst);
             let denied = executor.execute(CachedNumber::new("99", &decodes)).await;
             assert!(denied.unwrap_err().to_string().contains("synthetic policy"));
 
-            authentication.denied.store(false, Ordering::SeqCst);
+            authentication
+                .allow_authenticated
+                .store(true, Ordering::SeqCst);
             let bound = executor.cached_work(
                 ExecutorKind::InProcess,
                 key("numbers"),
@@ -488,7 +477,9 @@ async fn warm_results_and_previously_bound_work_still_require_current_admission(
                 WorkReuse::ReusableRead,
                 |_| async { Ok(output(999_u64)) },
             )?;
-            authentication.denied.store(true, Ordering::SeqCst);
+            authentication
+                .allow_authenticated
+                .store(false, Ordering::SeqCst);
             assert!(
                 bound
                     .await
@@ -498,7 +489,7 @@ async fn warm_results_and_previously_bound_work_still_require_current_admission(
             );
             assert_eq!(*original, 42);
             assert_eq!(decodes.load(Ordering::SeqCst), 1);
-            assert_eq!(authentication.acquisitions.load(Ordering::SeqCst), 1);
+            assert_eq!(authentication.authorizations.load(Ordering::SeqCst), 1);
             Ok(())
         })
         .await
@@ -512,7 +503,10 @@ async fn nested_execution_and_scope_helpers_preserve_dependencies_on_warm_child_
             let temporary = tempfile::tempdir()?;
             let executor = CloudTerrastodonExecutor::new(
                 WorkCache::new(temporary.path())?,
-                Arc::new(SyntheticAuthentication::default()),
+                Arc::new(TestAuthenticationProvider::new(
+                    "synthetic-test-session",
+                    Authorization::personal_access_token("synthetic-offline-credential")?,
+                )?),
                 scope,
             );
             let decodes = AtomicUsize::new(0);
@@ -557,10 +551,16 @@ async fn authentication_rebinding_preserves_partitioned_reuse_dependencies_and_c
     let token = CancellationToken::new();
     token
         .with_async_scope(|scope| async {
-            let original = Arc::new(SyntheticAuthentication::default());
-            let selected = Arc::new(SyntheticAuthentication {
+            let original = Arc::new(TestAuthenticationProvider::new(
+                "synthetic-test-session",
+                Authorization::personal_access_token("synthetic-offline-credential")?,
+            )?);
+            let selected = Arc::new(TestAuthenticationProvider {
                 partition_generation: AtomicUsize::new(1),
-                ..Default::default()
+                ..TestAuthenticationProvider::new(
+                    "synthetic-test-session",
+                    Authorization::personal_access_token("synthetic-offline-credential")?,
+                )?
             });
             let executor =
                 CloudTerrastodonExecutor::new(WorkCache::temporary()?, original.clone(), scope);
@@ -617,8 +617,8 @@ async fn authentication_rebinding_preserves_partitioned_reuse_dependencies_and_c
             }
             assert_eq!(compositions.load(Ordering::SeqCst), 2);
             assert_eq!(decodes.load(Ordering::SeqCst), 3);
-            assert_eq!(original.acquisitions.load(Ordering::SeqCst), 1);
-            assert_eq!(selected.acquisitions.load(Ordering::SeqCst), 2);
+            assert_eq!(original.authorizations.load(Ordering::SeqCst), 1);
+            assert_eq!(selected.authorizations.load(Ordering::SeqCst), 2);
 
             token.request_cancel("end the lifetime shared by both provider bindings");
             assert!(executor.cancellation().bail_if_cancelled().is_err());
@@ -632,7 +632,10 @@ async fn authentication_rebinding_preserves_partitioned_reuse_dependencies_and_c
 async fn cancelling_the_owner_allows_an_independently_owned_waiter_to_retry() -> Result<()> {
     let temporary = tempfile::tempdir()?;
     let cache = WorkCache::new(temporary.path())?;
-    let authentication = Arc::new(SyntheticAuthentication::default());
+    let authentication = Arc::new(TestAuthenticationProvider::new(
+        "synthetic-test-session",
+        Authorization::personal_access_token("synthetic-offline-credential")?,
+    )?);
     let decodes = AtomicUsize::new(0);
     let owner_token = CancellationToken::new();
     let waiter_token = CancellationToken::new();
@@ -662,7 +665,7 @@ async fn cancelling_the_owner_allows_an_independently_owned_waiter_to_retry() ->
     assert_eq!(*result, 77);
     assert!(!waiter_token.is_cancelled());
     assert_eq!(decodes.load(Ordering::SeqCst), 1);
-    assert_eq!(authentication.acquisitions.load(Ordering::SeqCst), 2);
+    assert_eq!(authentication.authorizations.load(Ordering::SeqCst), 2);
     Ok(())
 }
 
@@ -674,7 +677,10 @@ async fn protected_descendants_finish_and_owed_cleanup_can_start_after_cancellat
             let temporary = tempfile::tempdir()?;
             let executor = CloudTerrastodonExecutor::new(
                 WorkCache::new(temporary.path())?,
-                Arc::new(SyntheticAuthentication::default()),
+                Arc::new(TestAuthenticationProvider::new(
+                    "synthetic-test-session",
+                    Authorization::personal_access_token("synthetic-offline-credential")?,
+                )?),
                 scope,
             );
             let (release, released) = oneshot::channel();
@@ -757,8 +763,14 @@ async fn assert_waiter_revocation_is_enforced(cancel_owner: bool) -> Result<()> 
     for change_partition in [false, true] {
         let temporary = tempfile::tempdir()?;
         let cache = WorkCache::new(temporary.path())?;
-        let owner_authentication = Arc::new(SyntheticAuthentication::default());
-        let waiter_authentication = Arc::new(SyntheticAuthentication::default());
+        let owner_authentication = Arc::new(TestAuthenticationProvider::new(
+            "synthetic-test-session",
+            Authorization::personal_access_token("synthetic-offline-credential")?,
+        )?);
+        let waiter_authentication = Arc::new(TestAuthenticationProvider::new(
+            "synthetic-test-session",
+            Authorization::personal_access_token("synthetic-offline-credential")?,
+        )?);
         let owner_token = CancellationToken::new();
         let waiter_token = CancellationToken::new();
         let owner_initializations = Arc::new(AtomicUsize::new(0));
@@ -814,7 +826,9 @@ async fn assert_waiter_revocation_is_enforced(cancel_owner: bool) -> Result<()> 
                 .partition_generation
                 .store(1, Ordering::SeqCst);
         } else {
-            waiter_authentication.denied.store(true, Ordering::SeqCst);
+            waiter_authentication
+                .allow_authenticated
+                .store(false, Ordering::SeqCst);
         }
         if cancel_owner {
             owner_token.request_cancel("synthetic owner abandoned its attempt");
@@ -831,7 +845,7 @@ async fn assert_waiter_revocation_is_enforced(cancel_owner: bool) -> Result<()> 
         let expected_reason = if change_partition {
             "authentication identity changed"
         } else {
-            "synthetic policy denies selection"
+            "synthetic policy denies authenticated selection"
         };
         assert!(error.to_string().contains(expected_reason), "{error:?}");
         assert_eq!(waiter_initializations.load(Ordering::SeqCst), 0);
@@ -856,7 +870,10 @@ async fn catching_child_admission_failure_cannot_publish_a_reusable_parent_fallb
     CancellationToken::new()
         .with_async_scope(|scope| async move {
             let temporary = tempfile::tempdir()?;
-            let authentication = Arc::new(SyntheticAuthentication::default());
+            let authentication = Arc::new(TestAuthenticationProvider::new(
+                "synthetic-test-session",
+                Authorization::personal_access_token("synthetic-offline-credential")?,
+            )?);
             let executor = CloudTerrastodonExecutor::new(
                 WorkCache::new(temporary.path())?,
                 authentication.clone(),
@@ -865,7 +882,9 @@ async fn catching_child_admission_failure_cannot_publish_a_reusable_parent_fallb
             let compositions = AtomicUsize::new(0);
             let decodes = AtomicUsize::new(0);
             for denied in [true, false] {
-                authentication.denied.store(denied, Ordering::SeqCst);
+                authentication
+                    .allow_authenticated
+                    .store(!denied, Ordering::SeqCst);
                 // Anonymous admission permits the composition itself. Its
                 // authenticated child is rejected before cache binding while
                 // denied, so the executor must mark the parent's lineage.
@@ -908,7 +927,10 @@ async fn admission_changes_during_initialization_prevent_publication_under_the_p
         CancellationToken::new()
             .with_async_scope(|scope| async move {
                 let temporary = tempfile::tempdir()?;
-                let authentication = Arc::new(SyntheticAuthentication::default());
+                let authentication = Arc::new(TestAuthenticationProvider::new(
+                    "synthetic-test-session",
+                    Authorization::personal_access_token("synthetic-offline-credential")?,
+                )?);
                 let executor = CloudTerrastodonExecutor::new(
                     WorkCache::new(temporary.path())?,
                     authentication.clone(),
@@ -930,7 +952,9 @@ async fn admission_changes_during_initialization_prevent_publication_under_the_p
                                     .partition_generation
                                     .store(1, Ordering::SeqCst);
                             } else {
-                                authentication.denied.store(true, Ordering::SeqCst);
+                                authentication
+                                    .allow_authenticated
+                                    .store(false, Ordering::SeqCst);
                             }
                             Ok(output(11_u64))
                         },
@@ -938,7 +962,9 @@ async fn admission_changes_during_initialization_prevent_publication_under_the_p
                     .await;
                 assert!(first.is_err());
 
-                authentication.denied.store(false, Ordering::SeqCst);
+                authentication
+                    .allow_authenticated
+                    .store(true, Ordering::SeqCst);
                 authentication
                     .partition_generation
                     .store(0, Ordering::SeqCst);

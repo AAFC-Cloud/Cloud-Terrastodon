@@ -28,7 +28,8 @@ pub async fn fetch_governance_role_assignments_for_principal(
             auth_context.tenant_id.to_string(),
             principal_id.to_string(),
         ]))?),
-        auth_context,
+        auth_context.tenant_id,
+        auth_context.auth_source()?,
     )
     .fetch_all(executor)
     .await

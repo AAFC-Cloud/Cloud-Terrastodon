@@ -5,11 +5,11 @@ use crate::AzureTenantId;
 use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
+use facet::Facet;
 use std::collections::HashMap;
 use std::net::IpAddr;
-use std::sync::Arc;
 
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 #[facet(rename_all = "camelCase")]
 pub struct AzureContainerInstanceResource {
@@ -29,7 +29,7 @@ pub struct AzureContainerInstanceResource {
     pub properties: AzureContainerInstanceResourceProperties,
 }
 
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 #[facet(rename_all = "camelCase")]
 pub struct AzureContainerInstanceIdentity {
@@ -39,7 +39,7 @@ pub struct AzureContainerInstanceIdentity {
     pub user_assigned_identities: Option<ArbitraryJson>,
 }
 
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 #[facet(rename_all = "camelCase")]
 pub struct AzureContainerInstanceResourceProperties {
@@ -78,7 +78,7 @@ pub struct AzureContainerInstanceResourceProperties {
     pub subnet_ids: Vec<AzureContainerInstanceSubnetReference>,
 }
 
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 #[facet(rename_all = "camelCase")]
 pub struct AzureContainerInstanceContainer {
@@ -86,7 +86,7 @@ pub struct AzureContainerInstanceContainer {
     pub properties: AzureContainerInstanceContainerProperties,
 }
 
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 #[facet(rename_all = "camelCase")]
 pub struct AzureContainerInstanceContainerProperties {
@@ -110,7 +110,7 @@ pub struct AzureContainerInstanceContainerProperties {
     pub volume_mounts: Vec<AzureContainerInstanceVolumeMount>,
 }
 
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 #[facet(rename_all = "camelCase")]
 pub struct AzureContainerInstancePort {
@@ -118,7 +118,7 @@ pub struct AzureContainerInstancePort {
     pub port: u16,
 }
 
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 #[facet(rename_all = "camelCase")]
 pub struct AzureContainerInstanceEnvironmentVariable {
@@ -129,7 +129,7 @@ pub struct AzureContainerInstanceEnvironmentVariable {
     pub secure_value: Option<String>,
 }
 
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 #[facet(rename_all = "camelCase")]
 pub struct AzureContainerInstanceConfigMap {
@@ -137,7 +137,7 @@ pub struct AzureContainerInstanceConfigMap {
     pub key_value_pairs: HashMap<String, String>,
 }
 
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 #[facet(rename_all = "camelCase")]
 pub struct AzureContainerInstanceContainerInstanceView {
@@ -149,7 +149,7 @@ pub struct AzureContainerInstanceContainerInstanceView {
     pub events: Vec<AzureContainerInstanceEvent>,
 }
 
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 #[facet(rename_all = "camelCase")]
 pub struct AzureContainerInstanceCurrentState {
@@ -165,7 +165,7 @@ pub struct AzureContainerInstanceCurrentState {
     pub finish_time: Option<DateTime<Utc>>,
 }
 
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 #[facet(rename_all = "camelCase")]
 pub struct AzureContainerInstanceEvent {
@@ -183,7 +183,7 @@ pub struct AzureContainerInstanceEvent {
     pub r#type: Option<String>,
 }
 
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 #[facet(rename_all = "camelCase")]
 pub struct AzureContainerInstanceResources {
@@ -193,7 +193,7 @@ pub struct AzureContainerInstanceResources {
     pub limits: Option<AzureContainerInstanceResourceRequests>,
 }
 
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 #[facet(rename_all = "camelCase")]
 pub struct AzureContainerInstanceResourceRequests {
@@ -203,7 +203,7 @@ pub struct AzureContainerInstanceResourceRequests {
     pub cpu: Option<f64>,
 }
 
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 #[facet(rename_all = "camelCase")]
 pub struct AzureContainerInstanceVolumeMount {
@@ -213,7 +213,7 @@ pub struct AzureContainerInstanceVolumeMount {
     pub read_only: Option<bool>,
 }
 
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 #[facet(rename_all = "camelCase")]
 pub struct AzureContainerInstanceImageRegistryCredential {
@@ -226,7 +226,7 @@ pub struct AzureContainerInstanceImageRegistryCredential {
     pub is_delegated_identity: Option<bool>,
 }
 
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 #[facet(rename_all = "camelCase")]
 pub struct AzureContainerInstanceIpAddress {
@@ -242,7 +242,7 @@ pub struct AzureContainerInstanceIpAddress {
     pub dns_name_label: Option<String>,
 }
 
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 #[facet(rename_all = "camelCase")]
 pub struct AzureContainerInstanceVolume {
@@ -257,7 +257,7 @@ pub struct AzureContainerInstanceVolume {
     pub secret: Option<ArbitraryJson>,
 }
 
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 #[facet(rename_all = "camelCase")]
 pub struct AzureContainerInstanceAzureFileVolume {
@@ -269,7 +269,7 @@ pub struct AzureContainerInstanceAzureFileVolume {
     pub storage_account_key: Option<String>,
 }
 
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 #[facet(rename_all = "camelCase")]
 pub struct AzureContainerInstanceInstanceView {
@@ -279,7 +279,7 @@ pub struct AzureContainerInstanceInstanceView {
     pub state: Option<String>,
 }
 
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 #[facet(rename_all = "camelCase")]
 pub struct AzureContainerInstanceDiagnostics {
@@ -287,14 +287,14 @@ pub struct AzureContainerInstanceDiagnostics {
     pub log_analytics: Option<AzureContainerInstanceLogAnalytics>,
 }
 
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 #[facet(rename_all = "camelCase")]
 pub struct AzureContainerInstanceLogAnalytics {
     pub workspace_id: String,
 }
 
-#[derive(Debug, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 #[facet(rename_all = "camelCase")]
 pub struct AzureContainerInstanceSubnetReference {
@@ -305,8 +305,6 @@ pub struct AzureContainerInstanceSubnetReference {
 
 cloud_terrastodon_registry::register_thing!(AzureContainerInstanceResource);
 cloud_terrastodon_registry::register_arbitrary!(AzureContainerInstanceResource);
-cloud_terrastodon_registry::register_arbitrary!(Vec<AzureContainerInstanceResource>);
-cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<AzureContainerInstanceResource>>);
 
 #[cfg(test)]
 mod tests {
@@ -316,7 +314,7 @@ mod tests {
 
     #[test]
     fn registered_container_generator_can_produce_nonempty_json() -> eyre::Result<()> {
-        let constructor = cloud_terrastodon_registry::KNOWN_ARBITRARY_VALUES
+        let constructor = cloud_terrastodon_registry::known_arbitrary_values()
             .iter()
             .find(|function| {
                 function

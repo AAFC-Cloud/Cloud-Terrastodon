@@ -9,10 +9,15 @@ mod anonymous_authentication_provider;
 mod authentication_provider;
 mod cache_invalidatable_request;
 mod cloud_terrastodon_executor;
+mod collection_progress;
 mod executable_request;
+mod execution_event;
 mod execution_future;
 mod execution_mode;
+mod observed_request_execution;
 mod request_execution;
+#[cfg(any(test, feature = "test-support"))]
+mod test_authentication_provider;
 #[cfg(any(test, feature = "test-support"))]
 mod unreachable_authentication_provider;
 
@@ -20,8 +25,13 @@ pub use anonymous_authentication_provider::AnonymousAuthenticationProvider;
 pub use authentication_provider::AuthenticationProvider;
 pub use cache_invalidatable_request::CacheInvalidatableRequest;
 pub use cloud_terrastodon_executor::CloudTerrastodonExecutor;
+pub use collection_progress::CollectionProgress;
 pub use executable_request::ExecutableRequest;
+pub use execution_event::ExecutionEvent;
 pub use execution_future::ExecutionFuture;
+pub use observed_request_execution::ObservedRequestExecution;
 pub use request_execution::RequestExecution;
+#[cfg(any(test, feature = "test-support"))]
+pub use test_authentication_provider::TestAuthenticationProvider;
 #[cfg(any(test, feature = "test-support"))]
 pub use unreachable_authentication_provider::UnreachableAuthenticationProvider;

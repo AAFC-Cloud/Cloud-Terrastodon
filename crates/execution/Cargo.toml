@@ -20,10 +20,11 @@ cloud_terrastodon_cache.workspace = true
 eyre.workspace = true
 teamy-cancellation = { workspace = true, features = ["inheritance"] }
 tracing.workspace = true
+tokio.workspace = true
 
 [dev-dependencies]
+cloud_terrastodon_execution = { workspace = true, features = ["test-support"] }
 tempfile.workspace = true
-tokio.workspace = true
 
 [lints]
 workspace = true

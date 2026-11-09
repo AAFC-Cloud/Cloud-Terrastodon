@@ -32,6 +32,7 @@ use rustc_hash::FxHashSet;
 use std::fmt;
 use std::mem;
 use std::ops::Deref;
+use std::sync::Arc;
 use std::time::Duration;
 
 /// Result of running the role assignment picker application.
@@ -39,8 +40,8 @@ pub enum RoleAssignmentPickerAppResult {
     Cancelled,
     Some {
         chosen_role_assignment_ids: Vec<RoleAssignmentId>,
-        role_definitions_and_assignments: RoleDefinitionsAndAssignments,
-        principals: EntraPrincipalCollection,
+        role_definitions_and_assignments: Arc<RoleDefinitionsAndAssignments>,
+        principals: Arc<EntraPrincipalCollection>,
     },
 }
 
@@ -143,9 +144,12 @@ impl RoleAssignmentPickerApp {
             })
             .work(self.executor.cancellable_scope(move |executor| async move {
                 let executor = role_auth_context.auth_context.bind_executor(&executor)?;
-                let data =
-                    fetch_all_role_definitions_and_assignments(&role_auth_context, &executor)
-                        .await?;
+                let data = fetch_all_role_definitions_and_assignments(
+                    role_auth_context.tenant_id,
+                    role_auth_context.auth_source()?,
+                    &executor,
+                )
+                .await?;
                 Ok(RoleDefinitionsHolder(data))
             }))
             .build()?;
@@ -162,7 +166,12 @@ impl RoleAssignmentPickerApp {
                 let executor = principals_auth_context
                     .auth_context
                     .bind_executor(&executor)?;
-                let data = fetch_all_principals(&principals_auth_context, &executor).await?;
+                let data = fetch_all_principals(
+                    principals_auth_context.tenant_id,
+                    principals_auth_context.auth_source()?,
+                    &executor,
+                )
+                .await?;
                 Ok(PrincipalCollectionHolder(data))
             }))
             .build()?;
@@ -550,10 +559,10 @@ fn principal_details(principal: &EntraPrincipal) -> (String, String) {
     }
 }
 
-struct RoleDefinitionsHolder(RoleDefinitionsAndAssignments);
+struct RoleDefinitionsHolder(Arc<RoleDefinitionsAndAssignments>);
 
 impl RoleDefinitionsHolder {
-    fn into_inner(self) -> RoleDefinitionsAndAssignments {
+    fn into_inner(self) -> Arc<RoleDefinitionsAndAssignments> {
         self.0
     }
 }
@@ -572,10 +581,10 @@ impl std::fmt::Debug for RoleDefinitionsHolder {
     }
 }
 
-struct PrincipalCollectionHolder(EntraPrincipalCollection);
+struct PrincipalCollectionHolder(Arc<EntraPrincipalCollection>);
 
 impl PrincipalCollectionHolder {
-    fn into_inner(self) -> EntraPrincipalCollection {
+    fn into_inner(self) -> Arc<EntraPrincipalCollection> {
         self.0
     }
 }

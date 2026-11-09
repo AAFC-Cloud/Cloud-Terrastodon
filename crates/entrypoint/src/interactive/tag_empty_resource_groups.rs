@@ -7,6 +7,7 @@ use cloud_terrastodon_azure::replace_tags_for_resources;
 use cloud_terrastodon_cache::CacheKey;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use facet::Facet;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -29,7 +30,7 @@ ResourceContainers
 | where isnull(count_)  
 | project id, tags
    "#;
-    #[derive(facet::Facet)]
+    #[derive(Facet)]
     struct Row {
         id: ResourceGroupId,
         tags: HashMap<String, String>,
@@ -45,7 +46,8 @@ ResourceContainers
             .scope,
             valid_for: Duration::ZERO,
         }),
-        auth_context,
+        auth_context.tenant_id,
+        auth_context.auth_source()?,
     )
     .collect_all::<Row>(executor)
     .await?;

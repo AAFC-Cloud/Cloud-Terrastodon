@@ -13,6 +13,126 @@ registry dependencies. Both graphs must keep interacting Facet traits and shapes
 on one compatible core package identity. Run checks with `--offline --locked`
 after resolving the graph being tested.
 
+## Cow request refinement (2026-11-06)
+
+The fixes are now published. Cloud Terrastodon's ordinary workspace manifest and
+lockfile consume the corrected Facet/Figue registry graph without local patches
+or Git dependencies. The release also includes format packages not used by
+Cloud Terrastodon, as listed below. `teamy-main` remains the integration branch
+for the three forks; applications select exact published versions rather than
+a moving branch.
+
+| Package group | Published version |
+| --- | --- |
+| Facet facade, Macros, Macros Impl, Error, Default | `0.50.0-rc.8` |
+| Format, JSON, Value, CSV | `0.50.0-rc.10` |
+| DOM (first Teamy release) | `0.50.0-rc.7` |
+| XML, XML Node | `0.50.0-rc.8` |
+| Figue | `6.0.0-rc.6` |
+| Figue Attrs | `6.0.0-rc.4` |
+| Cancellation maintenance releases | `0.7.2` and `0.8.1` |
+| Tracing compatibility release | `0.2.1` |
+
+These are 14 core/Format/Figue packages, two Cancellation releases, and one
+Tracing release. Unchanged
+Core, Reflect, Path, Pretty, Solver, macro parsing/types, test helpers, and Dessert
+remain at `0.50.0-rc.7`. Distinct packages need not share one version number;
+interacting code must share one source/version identity for each package.
+Cloud Terrastodon uses Cancellation `0.7.2`, retaining its existing error-helper
+API. The template's `0.8` API line has the separate `0.8.1` maintenance release.
+
+Current release source checkpoints:
+
+- Core: [`2d6d06e1d9a0ab47cd68547f5a0a4dbb60d36afa`](https://github.com/TeamDman/facet/commit/2d6d06e1d9a0ab47cd68547f5a0a4dbb60d36afa).
+- Format: [`55dd746345382b81a8e9eb1652cddcd4b7cb2fda`](https://github.com/TeamDman/facet-format/commit/55dd746345382b81a8e9eb1652cddcd4b7cb2fda).
+- Figue: [`85b3886592767bfe66cdf4588ee12d015efaf569`](https://github.com/TeamDman/figue/commit/85b3886592767bfe66cdf4588ee12d015efaf569).
+
+The project-list request exposed two separate defects:
+
+- Format's generic `Cow<T>` decoder selected an inner field from an opaque pointer
+  shape. It now uses smart-pointer initialization so the pointee's validating
+  proxy runs and the decoded Cow owns its value. Existing borrowed string and
+  byte fast paths are retained.
+- Derive's field-proxy conversion functions could not refer to enclosing lifetime,
+  type, or const parameters. Noncapturing closures now preserve those parameters while
+  coercing to the existing erased function-pointer contract. This applies to
+  ordinary and format-specific proxies, including opaque and enum fields.
+
+Both responsibilities are fixed in their owning forks. The project-list and
+project-picker requests retain ordinary `Cow` organization fields; no application
+wire/proxy workaround remains. Borrowed, owned, and deserialized inputs preserve
+request identity and shared aggregate reuse. The pulled Format changes also
+include bounded namespace-aware XML parsing and its read model; these packages
+are published without adding XML dependencies to Cloud Terrastodon.
+
+The prepublication source suites passed: 214 core Facet, 222 JSON, 761 Figue,
+312 XML/CSV, and 82/88 Cancellation tests for its two maintenance lines.
+The changed implementation crates passed Clippy. Prepublication consumer checks
+passed for the Cloud Terrastodon
+workspace/all targets, both reflected request-clone scenarios, and 14 DevOps
+inventory/discovery tests; the template passed its all-target check and 13
+selected output/CLI tests. These checks used synthetic/offline inputs.
+
+Ordinary registry compilation now passes for Cloud Terrastodon's
+`cargo check --offline --locked --workspace --all-targets` and the template's
+`cargo check --offline --locked --all-targets`. The template retains only its two
+existing macro-semicolon warnings. Their lockfiles update ten and eleven targeted
+package versions respectively, with no unrelated changes. Cargo metadata confirms
+one registry identity per participating Facet/Figue package in both graphs,
+without upstream Facet/Figue packages or source overrides. All 16 selected
+Cloud Terrastodon tests pass against this registry graph: both list/picker
+reflected-clone scenarios and the 14 inventory/discovery tests. Ordinary-registry
+verification is complete for both consumers.
+
+**Template dependency release:** `teamy-rust-cli` also uses `teamy-tracing`,
+whose Facet dependencies needed alignment with the new graph.
+`teamy-tracing 0.2.1` is published; its current release source is committed and
+pushed as [`d099c486804ae7fe18d2acf5d2e74a3e4c48ff10`](https://github.com/TeamDman/teamy-tracing/commit/d099c486804ae7fe18d2acf5d2e74a3e4c48ff10)
+on `release/0.2.1-facet`. Its 37 tests, two comparison checks, Clippy,
+documentation, and examples passed. Template registry pin/lock updates,
+compilation, and all 13 selected tests (11 library and two `cli_fuzzing`) are
+complete. The template is committed and pushed to `origin/main` as
+[`58d94181a3fc11d99c8691254dbffe8258dcc311`](https://github.com/TeamDman/teamy-rust-cli/commit/58d94181a3fc11d99c8691254dbffe8258dcc311),
+with a clean working tree and matching local/remote refs.
+
+Subsequent author-metadata corrections changed the Format and Tracing commit
+IDs without changing their source trees. The explicitly approved Format history
+correction preserves source trees, messages, dates, topology, and unrelated
+identities across all 15 reconstructed commit objects. Its `teamy-main` and
+`feature/domains-xml-safety` refs are pushed at `55dd746345382b81a8e9eb1652cddcd4b7cb2fda`
+and `fd2af32fb2eb087d73237302c882742a9d313fc5`, respectively. The corrected
+annotated CSV rc.7 tag object is `6d814e24863f65463c6c94811e5a110e7aab14e1`,
+targeting `da65a4fe8ddcc391063c5b726c612fad43351247`; its message and date are
+preserved. Remote refs were verified and the working tree is clean. Published
+package archives and consumer checksums remain unchanged.
+
+Cancellation's maintenance branch is merged into
+`main` and pushed at
+[`e4d962738dce985632bdff37a196d2c3e14500ac`](https://github.com/TeamDman/teamy-cancellation/commit/e4d962738dce985632bdff37a196d2c3e14500ac),
+retaining the existing `0.8.1` source tree. Tracing's new `main` starts from its
+existing implementation history and merges the release branch while preserving
+telemetry support. It is committed and pushed at
+[`47bc18c5738d62cdb471afee66e682e6c1ea851a`](https://github.com/TeamDman/teamy-tracing/commit/47bc18c5738d62cdb471afee66e682e6c1ea851a),
+with a clean working tree and matching local/remote refs. The all-target,
+all-feature check, 43 tests (37 base, including the doctest, plus six telemetry
+tests), and default-feature all-target Clippy with warnings denied passed.
+The separately approved GitHub default-branch change is complete: Tracing's
+default branch and local `origin/HEAD` both point to `main`.
+
+The initial local review began from core
+`74b1070dc1c889f429ba79ff458a38dae46209a5` and Format
+`0d490e34f13552a71a1493debb7ddba73ab787aa` (the identical baseline tree after
+the author-metadata correction). All three new Cow decoder scenarios
+failed before the fix. A temporary [`[patch.crates-io]` configuration](https://doc.rust-lang.org/cargo/reference/overriding-dependencies.html#the-patch-section)
+and separate lockfiles validated the unpublished source changes without changing
+the original registry lockfiles. That historical check passed 214 core and 222
+JSON tests, 14 DevOps inventory/discovery tests, two reflection/UI tests, and
+both application all-target checks. The application compiler was Rust 1.99.1;
+the fork suites used their pinned Rust 1.96.0 toolchain. The initial alternate
+Cloud Terrastodon lock changed only 15 Facet sources, with no version or unrelated
+dependency changes. Those temporary overrides are development evidence, not a
+requirement of the newly published dependency graph.
+
 ## Historical release preparation (0.37.0)
 
 The coordinated release contained 43 packages:

@@ -3,6 +3,8 @@
 use arbitrary::Arbitrary;
 use arbitrary::Unstructured;
 use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
+use cloud_terrastodon_azure_devops::AzureDevOpsProjectPickRequest;
+use cloud_terrastodon_azure_devops::AzureDevOpsProjectsListRequest;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsBuildFolder;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProject;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
@@ -16,17 +18,16 @@ use cloud_terrastodon_registry_execution::DiscoverySimulation;
 use cloud_terrastodon_registry_execution::Function;
 use cloud_terrastodon_registry_execution::known_functions;
 use discovery_requests::ProjectFoldersRequest;
-use discovery_requests::ProjectInventoryRequest;
-use discovery_requests::ProjectSelectionRequest;
 use facet::Facet;
 use std::sync::Arc;
 
 #[path = "support/discovery_requests.rs"]
 mod discovery_requests;
 
-fn fabricated_seed(seed: u64) -> ProjectInventoryRequest {
+fn fabricated_seed(seed: u64) -> AzureDevOpsProjectsListRequest<'static> {
     let bytes = vec![seed as u8; 16_384];
-    let mut request = ProjectInventoryRequest::arbitrary(&mut Unstructured::new(&bytes)).unwrap();
+    let mut request =
+        AzureDevOpsProjectsListRequest::arbitrary(&mut Unstructured::new(&bytes)).unwrap();
     // Discovery uses serializable credential selection without resolving credentials
     // or invoking requests.
     request.auth_selection = AzureDevOpsAuthSelection::PersonalAccessToken;
@@ -51,7 +52,7 @@ fn fabricated_project_inventory_unlocks_project_scoped_folder_discovery() {
                 let simulation = DiscoverySimulation::run(
                     vec![RuntimeValue::from_box(Box::new(request)).unwrap()],
                     [
-                        ProjectInventoryRequest::REGISTERED_EXECUTABLE_REQUEST,
+                        AzureDevOpsProjectsListRequest::REGISTERED_EXECUTABLE_REQUEST,
                         Function::Pure(AzureDevOpsProject::REGISTERED_INTO_PROJECT_ARGUMENT),
                         ProjectFoldersRequest::REGISTERED_EXECUTABLE_REQUEST,
                     ]
@@ -107,7 +108,7 @@ fn fabricated_project_inventory_unlocks_project_scoped_folder_discovery() {
                             simulation.diagnostics
                         )
                     });
-                assert_eq!(&folders_request.org_url, &organization);
+                assert_eq!(&folders_request.org_url, organization.as_ref());
                 assert_eq!(&folders_request.project, argument);
                 assert!(matches!(
                     folders_request.auth_selection,
@@ -123,7 +124,7 @@ fn fabricated_project_inventory_unlocks_project_scoped_folder_discovery() {
                 assert!(simulation.simulated_requests.iter().any(|function| {
                     function
                         .input_shape
-                        .is_shape(ProjectInventoryRequest::SHAPE)
+                        .is_shape(AzureDevOpsProjectsListRequest::SHAPE)
                 }));
                 assert!(simulation.simulated_requests.iter().any(|function| {
                     function.input_shape.is_shape(ProjectFoldersRequest::SHAPE)
@@ -141,7 +142,7 @@ fn missing_project_conversion_blocks_folder_discovery_without_arbitrary_shortcut
             let simulation = DiscoverySimulation::run(
                 vec![RuntimeValue::from_box(Box::new(fabricated_seed(7))).unwrap()],
                 [
-                    ProjectInventoryRequest::REGISTERED_EXECUTABLE_REQUEST,
+                    AzureDevOpsProjectsListRequest::REGISTERED_EXECUTABLE_REQUEST,
                     ProjectFoldersRequest::REGISTERED_EXECUTABLE_REQUEST,
                 ]
                 .into_iter()
@@ -183,7 +184,7 @@ fn bounded_simulation_reports_why_discovery_stopped_before_convergence() {
             let simulation = DiscoverySimulation::run(
                 vec![RuntimeValue::from_box(Box::new(fabricated_seed(7))).unwrap()],
                 [
-                    ProjectInventoryRequest::REGISTERED_EXECUTABLE_REQUEST,
+                    AzureDevOpsProjectsListRequest::REGISTERED_EXECUTABLE_REQUEST,
                     Function::Pure(AzureDevOpsProject::REGISTERED_INTO_PROJECT_ARGUMENT),
                     ProjectFoldersRequest::REGISTERED_EXECUTABLE_REQUEST,
                 ]
@@ -232,7 +233,7 @@ fn full_linked_catalog_reaches_project_scoped_folders_and_reports_type_coverage(
             assert!(simulation.converged, "{:?}", simulation.diagnostics);
             assert!(
                 !simulation.simulated_requests.iter().any(|function| {
-                    function.input_shape.is_shape(ProjectSelectionRequest::SHAPE)
+                    function.input_shape.is_shape(AzureDevOpsProjectPickRequest::SHAPE)
                 }),
                 "unattended discovery must obtain projects without soliciting a selection",
             );

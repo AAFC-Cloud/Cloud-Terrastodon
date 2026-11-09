@@ -3,7 +3,9 @@ use crate::ResourceGraphQueryRestBody;
 use crate::ResourceGraphQueryRestOptions;
 use crate::ResourceGraphQueryRestScopeFilterOption;
 use crate::resource_graph_rate_limit_state::ResourceGraphRateLimitState;
-use cloud_terrastodon_auth::AzureTenantAuthContext;
+use cloud_terrastodon_auth_types::AuthenticationSelection;
+use cloud_terrastodon_auth_types::AzureBearerAuthSource;
+use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::RawResourceGraphQueryResponse;
 use cloud_terrastodon_azure_types::ResourceGraphEntryDeserializeError;
 use cloud_terrastodon_azure_types::ResourceGraphQueryResponse;
@@ -44,25 +46,28 @@ static RESOURCE_GRAPH_RATE_LIMIT_STATE: LazyLock<Mutex<ResourceGraphRateLimitSta
 static RESOURCE_GRAPH_RECOVERY_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
 /// Fetch paginated [Resource Graph 2022-10-01 query results](https://learn.microsoft.com/rest/api/azureresourcegraph/resourcegraph/resources/resources?view=rest-azureresourcegraph-resourcegraph-2022-10-01).
-pub struct ResourceGraphHelper<'a> {
+pub struct ResourceGraphHelper {
     query: String,
     cache_behaviour: Option<CacheKey>,
-    auth_context: &'a AzureTenantAuthContext,
+    tenant_id: AzureTenantId,
+    auth_source: AzureBearerAuthSource,
     skip: Option<(u64, String)>,
     index: usize,
     #[cfg(debug_assertions)]
     seen_skip_tokens: HashSet<String>,
 }
-impl<'a> ResourceGraphHelper<'a> {
+impl ResourceGraphHelper {
     pub fn new(
         query: impl Into<String>,
         cache_behaviour: Option<CacheKey>,
-        auth_context: &'a AzureTenantAuthContext,
+        tenant_id: AzureTenantId,
+        auth_source: AzureBearerAuthSource,
     ) -> Self {
         Self {
             query: query.into(),
             cache_behaviour,
-            auth_context,
+            tenant_id,
+            auth_source,
             skip: None,
             index: 0,
             #[cfg(debug_assertions)]
@@ -72,7 +77,10 @@ impl<'a> ResourceGraphHelper<'a> {
 
     fn get_request(&self, body: String) -> Result<RestRequest> {
         let mut request = RestRequest::new(http::Method::POST, "https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2022-10-01")?.cancellation_safe()
-        .azure_auth_context(self.auth_context)?
+        .authentication(AuthenticationSelection::AzureBearer {
+            tenant_id: self.tenant_id,
+            auth_source: self.auth_source,
+        })
         .body(body);
         request.cache_key = self.cache_behaviour.clone();
         Ok(request)
@@ -136,7 +144,7 @@ impl<'a> ResourceGraphHelper<'a> {
                 batch_index=self.index,
                 batch_size=RESOURCE_GRAPH_BATCH_SIZE,
                 skip,
-                ?self.auth_context.tenant_id,
+                ?self.tenant_id,
                 ?self.cache_behaviour,
                 "Fetching resource graph batch",
             );
@@ -191,7 +199,7 @@ impl<'a> ResourceGraphHelper<'a> {
 
             debug!(
                 total_items=all_data.len(),
-                ?self.auth_context.tenant_id,
+                ?self.tenant_id,
                 ?self.cache_behaviour,
                 "Completed fetching all resource graph data",
             );
@@ -297,7 +305,7 @@ async fn receive_resource_graph_response<T: FromCommandOutput + Sync>(
         // retain decode-failure artifacts, and share records across page callers.
         let outcome = if request.cache_key.is_some() {
             request.clone().receive_converted_cached::<RawResourceGraphQueryResponse, ResourceGraphQueryResponse<Arc<T>>>(
-                executor, CacheOperationOwner::of::<ResourceGraphHelper<'static>>(),
+                executor, CacheOperationOwner::of::<ResourceGraphHelper>(),
             ).await
         } else {
             request.clone().receive_converted::<RawResourceGraphQueryResponse, ResourceGraphQueryResponse<Arc<T>>>(
@@ -348,6 +356,7 @@ mod tests {
     use cloud_terrastodon_cache::WorkCache;
     use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_rest::SerializableRestResponse;
+    use facet::Facet;
     use http::HeaderMap;
     use http::HeaderValue;
     use http::StatusCode;
@@ -363,7 +372,7 @@ mod tests {
     resourcecontainers
     | project name
     "#;
-                #[derive(facet::Facet)]
+                #[derive(Facet)]
                 struct Row {
                     name: String,
                 }
@@ -382,7 +391,8 @@ mod tests {
                         "resource_graph",
                         "resource-container-names",
                     ]))?),
-                    &auth_context,
+                    auth_context.tenant_id,
+                    auth_context.auth_source()?,
                 )
                 .collect_all::<Row>(&executor)
                 .await?;
@@ -428,13 +438,13 @@ mod tests {
             "resultTruncated": "false",
             "totalRecords": 2
         }"#;
-        #[derive(Debug, facet::Facet)]
+        #[derive(Debug, Facet)]
         struct Row {
             name: String,
             properties: TestProperties,
         }
 
-        #[derive(Debug, facet::Facet)]
+        #[derive(Debug, Facet)]
         struct TestProperties {
             description: u64,
         }

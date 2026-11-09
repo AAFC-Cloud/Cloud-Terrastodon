@@ -2,7 +2,9 @@ use crate::MicrosoftGraphBatchRequestEntry;
 use crate::MicrosoftGraphBatchResponse;
 use crate::microsoft_graph_batch_request_entry_wire::MicrosoftGraphBatchRequestEntryWire;
 use crate::microsoft_graph_batch_request_wire::MicrosoftGraphBatchRequestWire;
-use cloud_terrastodon_auth::AzureTenantAuthContext;
+use cloud_terrastodon_auth_types::AuthenticationSelection;
+use cloud_terrastodon_auth_types::AzureBearerAuthSource;
+use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_cache::CacheKey;
 use cloud_terrastodon_cache::CacheOperationOwner;
 use cloud_terrastodon_command::FromCommandOutput;
@@ -10,13 +12,12 @@ use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_rest::RestRequest;
 use facet::Facet;
 use http::Method;
-use std::borrow::Cow;
 use std::sync::Arc;
 
 const MAX_BATCH_REQUESTS: usize = 20;
 
 /// Send up to twenty operations per [Microsoft Graph JSON batch](https://learn.microsoft.com/graph/json-batching).
-pub struct MicrosoftGraphBatchRequest<'a, REQ> {
+pub struct MicrosoftGraphBatchRequest<REQ> {
     /// Allow interruption only when the caller guarantees every entry is read-only.
     /// False keeps generic batches running through completion.
     pub cancellation_safe: bool,
@@ -27,16 +28,18 @@ pub struct MicrosoftGraphBatchRequest<'a, REQ> {
     pub ids: Vec<String>,
     /// The key to use for caching the batch request
     pub cache_key: Option<CacheKey>,
-    pub auth_context: Cow<'a, AzureTenantAuthContext>,
+    pub tenant_id: AzureTenantId,
+    pub auth_source: AzureBearerAuthSource,
 }
-impl<'a, REQ> MicrosoftGraphBatchRequest<'a, REQ> {
-    pub fn new(auth_context: &'a AzureTenantAuthContext) -> Self {
+impl<REQ> MicrosoftGraphBatchRequest<REQ> {
+    pub fn new(tenant_id: AzureTenantId, auth_source: AzureBearerAuthSource) -> Self {
         MicrosoftGraphBatchRequest {
             cancellation_safe: false,
             requests: Vec::new(),
             ids: Vec::new(),
             cache_key: None,
-            auth_context: Cow::Borrowed(auth_context),
+            tenant_id,
+            auth_source,
         }
     }
     /// Allow cancellation to drop a batch whose entries the caller guarantees are read-only.
@@ -78,14 +81,14 @@ impl<'a, REQ> MicrosoftGraphBatchRequest<'a, REQ> {
             requests,
             ids,
             cache_key,
-            auth_context,
+            tenant_id,
+            auth_source,
         } = self;
         if requests.is_empty() {
             return Ok(MicrosoftGraphBatchResponse {
                 responses: Vec::new(),
             });
         }
-        let auth_context = auth_context.as_ref();
 
         let use_base_cache_key = requests.len() <= MAX_BATCH_REQUESTS;
         let mut responses = Vec::with_capacity(requests.len());
@@ -141,7 +144,10 @@ impl<'a, REQ> MicrosoftGraphBatchRequest<'a, REQ> {
             };
             let mut request =
                 RestRequest::new(Method::POST, "https://graph.microsoft.com/v1.0/$batch")?
-                    .azure_auth_context(auth_context)?
+                    .authentication(AuthenticationSelection::AzureBearer {
+                        tenant_id,
+                        auth_source,
+                    })
                     .body(
                         facet_json::to_string_pretty(&body)
                             .map_err(|error| eyre::eyre!("{error:?}"))?,
@@ -155,7 +161,7 @@ impl<'a, REQ> MicrosoftGraphBatchRequest<'a, REQ> {
                     .receive_with_validator_cached::<MicrosoftGraphBatchResponse<RESP>, _>(
                         |response| response.validate_request_ids(&batch_ids),
                         executor,
-                        CacheOperationOwner::of::<MicrosoftGraphBatchRequest<'static, ()>>(),
+                        CacheOperationOwner::of::<MicrosoftGraphBatchRequest<()>>(),
                     )
                     .await?
             } else {

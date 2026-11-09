@@ -6,27 +6,32 @@ use crate::RolePermissionAction;
 use crate::Scope;
 use arbitrary::Arbitrary;
 use eyre::bail;
+use facet::Facet;
 use std::collections::HashMap;
 use std::sync::Arc;
 use uuid::Uuid;
 
-#[derive(Clone, facet::Facet)]
+#[derive(Clone, Facet)]
 pub struct RoleDefinitionsAndAssignments {
     pub role_definitions: HashMap<RoleDefinitionId, Arc<RoleDefinition>>,
     pub role_assignments: HashMap<RoleAssignmentId, Arc<RoleAssignment>>,
 }
 impl<'a> Arbitrary<'a> for RoleDefinitionsAndAssignments {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        Ok(Self {
-            role_definitions: Vec::<RoleDefinition>::arbitrary(u)?
-                .into_iter()
-                .map(|role_definition| (role_definition.id.clone(), Arc::new(role_definition)))
-                .collect(),
-            role_assignments: Vec::<RoleAssignment>::arbitrary(u)?
-                .into_iter()
-                .map(|role_assignment| (role_assignment.id.clone(), Arc::new(role_assignment)))
-                .collect(),
-        })
+        let definitions = Vec::<RoleDefinition>::arbitrary(u)?;
+        let mut assignments = Vec::<RoleAssignment>::arbitrary(u)?;
+        if definitions.is_empty() {
+            assignments.clear();
+        } else {
+            for assignment in &mut assignments {
+                assignment.role_definition_id = u.choose(&definitions)?.id.clone();
+            }
+        }
+        Self::try_new(
+            definitions.into_iter().map(Arc::new),
+            assignments.into_iter().map(Arc::new),
+        )
+        .map_err(|_| arbitrary::Error::IncorrectFormat)
     }
 }
 impl RoleDefinitionsAndAssignments {

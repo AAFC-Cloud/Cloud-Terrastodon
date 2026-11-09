@@ -68,11 +68,17 @@ pub fn describe_function(function: &FunctionDescriptor) -> String {
     )
 }
 
-/// References to authoritative descriptors, including executable registrations
-/// linked by a higher layer. This collection never retains operation callbacks.
+/// Explicit pure/executable descriptors linked by registration macros.
+/// Use [`known_function_descriptors`] for the complete catalog, which also
+/// includes arbitrary constructors and their automatically registered forms.
 #[distributed_slice]
 pub static KNOWN_FUNCTION_DESCRIPTORS: [&'static FunctionDescriptor];
 
+/// Traverse the complete metadata catalog without invoking registered code.
 pub fn known_function_descriptors() -> impl Iterator<Item = &'static FunctionDescriptor> {
-    KNOWN_FUNCTION_DESCRIPTORS.iter().copied()
+    KNOWN_FUNCTION_DESCRIPTORS.iter().copied().chain(
+        crate::known_arbitrary_values()
+            .iter()
+            .map(|registration| registration.descriptor()),
+    )
 }

@@ -8,12 +8,13 @@ use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_execution::RequestExecution;
+use facet::Facet;
 use std::borrow::Cow;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 #[must_use = "This is a future request, you must .execute it"]
-#[derive(facet::Facet)]
+#[derive(Facet)]
 pub struct ConditionalAccessNamedLocationListRequest<'a> {
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
 }
@@ -62,7 +63,8 @@ impl ExecutableRequest for ConditionalAccessNamedLocationListRequest<'_> {
             let query = MicrosoftGraphHelper::new(
                 "https://graph.microsoft.com/beta/identity/conditionalAccess/namedLocations",
                 Some(self.cache_key()?),
-                self.auth_context.as_ref(),
+                self.auth_context.tenant_id,
+                self.auth_context.auth_source()?,
             );
 
             let found = query.fetch_all(&executor).await?;

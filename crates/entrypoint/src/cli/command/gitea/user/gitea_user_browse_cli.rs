@@ -5,9 +5,11 @@ use cloud_terrastodon_gitea::fetch_all_gitea_users;
 use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
+use facet::Facet;
+use std::future::IntoFuture;
 use std::io::Write;
 
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct GiteaUserBrowseArgs {
     /// Tracked tenant URL or alias to query. Defaults to the active `tea` login.
     #[facet(figue::named, default, proxy = String)]
@@ -19,7 +21,9 @@ impl GiteaUserBrowseArgs {
         let tenant = self.tenant.resolve(executor).await?;
         let (chosen, maybe_error) = PickerTui::<_>::new()
             .pick_many_reloadable(|invalidate| {
-                fetch_all_gitea_users(&tenant, executor).with_invalidation(invalidate)
+                fetch_all_gitea_users(&tenant, executor)
+                    .with_invalidation(invalidate)
+                    .into_future()
             })
             .await
             .into_chosen_and_maybe_error()?;

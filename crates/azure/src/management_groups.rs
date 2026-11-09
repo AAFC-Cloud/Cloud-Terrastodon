@@ -10,6 +10,7 @@ use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_execution::RequestExecution;
 use eyre::Result;
 use eyre::bail;
+use facet::Facet;
 use indoc::indoc;
 use std::borrow::Cow;
 use std::path::PathBuf;
@@ -40,7 +41,7 @@ pub async fn fetch_root_management_group(
 }
 
 #[must_use = "This is a future request, you must .execute it"]
-#[derive(Debug, Clone, facet::Facet)]
+#[derive(Debug, Clone, Facet)]
 #[facet(traits(Clone))]
 pub struct ManagementGroupListRequest<'a> {
     pub auth_context: Cow<'a, AzureTenantAuthContext>,
@@ -100,7 +101,8 @@ impl<'a> ExecutableRequest for ManagementGroupListRequest<'a> {
             let management_groups = ResourceGraphHelper::new(
                 query,
                 Some(self.cache_key()?),
-                self.auth_context.as_ref(),
+                self.auth_context.tenant_id,
+                self.auth_context.auth_source()?,
             )
             .collect_all::<ManagementGroup>(&executor)
             .await?;
