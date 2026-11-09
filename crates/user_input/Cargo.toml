@@ -25,7 +25,7 @@ nucleo.workspace = true
 compact_str.workspace = true
 rustc-hash.workspace = true
 tracing.workspace = true
-teamy-cancellation.workspace = true
+teamy-cancellation = { workspace = true, features = ["inheritance"] }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["test-util"] }

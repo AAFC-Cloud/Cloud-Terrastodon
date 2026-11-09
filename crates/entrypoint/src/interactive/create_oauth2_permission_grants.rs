@@ -32,20 +32,26 @@ pub async fn create_oauth2_permission_grants(
     let resource = PickerTui::<_>::new()
         .set_header("Pick the underlying resource being granted access to")
         .set_query("'Microsoft\\ Graph")
-        .pick_one(service_principals.iter().map(|sp| Choice {
-            key: format!("{} - {}", sp.id, sp.display_name),
-            value: sp,
-        }))
+        .pick_one(
+            service_principals.iter().map(|sp| Choice {
+                key: format!("{} - {}", sp.id, sp.display_name),
+                value: sp,
+            }),
+            executor.cancellation(),
+        )
         .await?;
     info!("You chose: {} - {}", resource.display_name, resource.id);
 
     let client = PickerTui::<_>::new()
         .set_header("Pick the client accessing the resource")
         .set_query("'Graph\\ Explorer")
-        .pick_one(service_principals.iter().map(|sp| Choice {
-            key: format!("{} - {}", sp.id, sp.display_name),
-            value: sp,
-        }))
+        .pick_one(
+            service_principals.iter().map(|sp| Choice {
+                key: format!("{} - {}", sp.id, sp.display_name),
+                value: sp,
+            }),
+            executor.cancellation(),
+        )
         .await?;
     info!("You chose: {} - {}", client.display_name, client.id);
 
@@ -54,10 +60,13 @@ pub async fn create_oauth2_permission_grants(
 
     let scopes_to_add = PickerTui::<_>::new()
         .set_header("Select the scopes you want to grant")
-        .pick_many(scopes.iter().map(|scope| Choice {
-            key: format!("{} - {}", scope.value, scope.user_consent_display_name),
-            value: scope,
-        }))
+        .pick_many(
+            scopes.iter().map(|scope| Choice {
+                key: format!("{} - {}", scope.value, scope.user_consent_display_name),
+                value: scope,
+            }),
+            executor.cancellation(),
+        )
         .await?;
 
     let users = fetch_all_entra_users(
@@ -71,10 +80,13 @@ pub async fn create_oauth2_permission_grants(
             "Select the users to add {} grants to",
             scopes_to_add.len()
         ))
-        .pick_many(users.iter().map(|user| Choice {
-            key: user.to_string(),
-            value: user,
-        }))
+        .pick_many(
+            users.iter().map(|user| Choice {
+                key: user.to_string(),
+                value: user,
+            }),
+            executor.cancellation(),
+        )
         .await?;
 
     let mut existing_grants =

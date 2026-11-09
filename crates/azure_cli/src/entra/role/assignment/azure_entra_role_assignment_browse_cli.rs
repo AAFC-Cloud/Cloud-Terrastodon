@@ -87,7 +87,7 @@ impl AzureEntraRoleAssignmentBrowseArgs {
 
         let (chosen, maybe_error) = PickerTui::<_>::new()
             .set_header("Entra role assignments")
-            .pick_many(choices)
+            .pick_many(choices, executor.cancellation())
             .await
             .into_chosen_and_maybe_error()?;
         let chosen = chosen

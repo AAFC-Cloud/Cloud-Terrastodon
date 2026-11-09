@@ -136,28 +136,60 @@ dynamic `FuturesUnordered` traversal with progress ticks and linked read scopes.
 It performs local discovery rather than a fixed batch. Its blocking reads have
 checkpoints and no mutation/artifact completion to preserve.
 
-**Required follow-up:** [Picker handlers](../../crates/user_input/src/picker/picker_tui.rs)
-are a different lifecycle. Reload replaces the handler collection, final exit
-drops it, and early errors can abandon it. Real Entra picker handlers call SDK
-requests and can owe response/artifact completion. This is not a safe read-only
-exception. Add handler-generation cancellation and draining on reload, acceptance,
-cancel, and error paths, retaining generation filtering and responsive rendering.
-That change needs its own synthetic handler-lifecycle tests and is recorded in
-the main plan before audit extraction. It is not implemented by this finite-batch
-rollout.
+**U118 lifecycle follow-up:** [Picker handlers](../../crates/user_input/src/picker/picker_tui.rs)
+now receive independently cancellable child scopes. Reload cancels retired
+generations while continuing to poll their required completion; generation-tagged
+messages, counts, and errors cannot change the new selection. Acceptance,
+cancellation, and terminal/input/handler failures reach a common drain. The
+terminal owner has a separate lifetime deferral so optional requests can stop
+while terminal restoration and nested-owner handoffs finish. Tab warnings remain
+inside the picker instead of creating an uninterruptible stdin reader.
 
-The same follow-up includes
-[`AppWorkTracker::finish`](../../crates/command/src/app_work/app_work_tracker.rs):
-it aborts discardable work, including principal/RBAC loads in the role-assignment
-picker. Its `JoinError` return can also leave other jobs undrained. Requesting
-cancellation before forcibly aborting a task does not preserve its required
-descendants. These interactive shutdown owners need a separate lifecycle change.
+[`AppWorkTracker::finish`](../../crates/command/src/app_work/app_work_tracker.rs)
+closes admission, requests each job's linked cancellation signal, and drains all
+admitted work, retaining task errors and panics even when normal pruning already
+observed them. The GUI tracker also observes pruned outcomes and finishes all
+jobs before reporting failure. Work factories use their supplied child scope;
+the executor's public scope binding preserves authentication, cache, observation,
+and execution restrictions. Nested Ratatui pickers are owned and drained on
+shutdown. A poisoned terminal coordinator retires nested frames without waiting
+for a backend resume that cannot succeed. These changes are separate from the
+finite-batch helpers; their final verification is recorded below.
 
 The object explorer's `TokioInvocationHost` already checks deferrals during normal
 cancellation, and normal browser shutdown drains pending invocations. Its hard
 shutdown/Drop path synchronously destroys futures to protect borrowed arena
 lifetimes. Exceptional engine/runtime teardown can therefore still abandon work;
 retain that lifetime-safety cleanup when reviewing shutdown ownership.
+
+## Interactive lifecycle verification
+
+U118 passes 86 focused offline tests: 64 user-input tests (one manual terminal
+test remains ignored), 14 execution contracts, four command task-lifecycle tests,
+one GUI tracker test, two Ratatui shutdown tests, and one filesystem traversal
+test. Coverage includes obsolete-generation isolation, required completion during
+reload/shutdown, factory/future/task panics, nested terminal handoffs, consumed
+poison and queued-resume races, closed admission, and preservation of executor
+restrictions after public scope rebinding. Tests use synthetic work, temporary
+storage, and fake terminal backends; native windows and live services were not
+exercised.
+
+Workspace all-target compilation, all-feature/all-target picker compilation, and
+all-target Clippy with warnings denied across the 11 affected crates pass.
+Formatting and whitespace checks pass. Work remains uncommitted for review.
+
+```powershell
+cargo test --offline --locked -p cloud_terrastodon_user_input --lib
+cargo test --offline --locked -p cloud_terrastodon_execution --test execution_contract_tests
+cargo test --offline --locked -p cloud_terrastodon_command --lib app_work_tracker_tests
+cargo test --offline --locked -p cloud_terrastodon_ui_egui --lib work_tracker::tests::panic_does_not_skip_another_background_write
+cargo test --offline --locked -p cloud_terrastodon_ui_ratatui --lib object_browser::value_picker_task::tests::close_retains_required_work_until_the_task_has_finished
+cargo test --offline --locked -p cloud_terrastodon_ui_ratatui --lib object_browser::run::tests::failed_terminal_handoff_waits_for_required_ui_cleanup
+cargo test --offline --locked -p cloud_terrastodon_entrypoint --lib visits_fs_entries_breadth_first
+cargo check --offline --locked --workspace --all-targets
+cargo check --offline --locked -p cloud_terrastodon_user_input --all-targets --all-features
+cargo clippy --offline --locked --all-targets -p cloud_terrastodon_user_input -p cloud_terrastodon_execution -p cloud_terrastodon_command -p cloud_terrastodon_azure -p cloud_terrastodon_azure_cli -p cloud_terrastodon_azure_devops -p cloud_terrastodon_azure_devops_cli -p cloud_terrastodon_entrypoint -p cloud_terrastodon_ui_egui -p cloud_terrastodon_ui_ratatui -p cloud_terrastodon_zombies -- -D warnings
+```
 
 ## Callback capture refinement
 
@@ -166,7 +198,7 @@ CLI/picker callbacks, HCL/dump workflows, and their local tests. Original fields
 are borrowed directly. Independently retained callbacks still clone the handles
 they own; mutable factory snapshots and synchronous caller capture retain their
 invocation-time behavior. Child scopes, result policies, and completion ordering
-are unchanged. The interactive shutdown follow-up above remains open.
+are unchanged. U118 separately implements the interactive shutdown follow-up above.
 
 Workspace all-target compilation and all-target Clippy with warnings denied pass
 for execution, cache, command, app, auth, REST, Azure/DevOps SDKs and CLIs, HCL,

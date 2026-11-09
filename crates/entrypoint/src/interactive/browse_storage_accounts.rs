@@ -13,10 +13,13 @@ pub async fn browse_storage_accounts(
 ) -> Result<()> {
     let storage_accounts = fetch_all_storage_accounts(auth_context, executor).await?;
     let (chosen, maybe_error) = PickerTui::<_>::new()
-        .pick_many(storage_accounts.into_iter().map(|storage_account| Choice {
-            key: storage_account.id.expanded_form(),
-            value: storage_account,
-        }))
+        .pick_many(
+            storage_accounts.into_iter().map(|storage_account| Choice {
+                key: storage_account.id.expanded_form(),
+                value: storage_account,
+            }),
+            executor.cancellation(),
+        )
         .await
         .into_chosen_and_maybe_error()?;
     println!(

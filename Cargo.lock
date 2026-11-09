@@ -1740,6 +1740,7 @@ dependencies = [
  "eyre",
  "itertools",
  "sysinfo",
+ "teamy-cancellation",
  "tokio",
  "tracing",
 ]

@@ -35,12 +35,13 @@ impl AzureVmBrowseArgs {
         let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
         let auth_source = tenant_auth_context.auth_context.azure_bearer_source()?;
         let chosen = PickerTui::<_>::new()
-            .pick_one(AzureVmBrowseOption::VARIANTS)
+            .pick_one(AzureVmBrowseOption::VARIANTS, executor.cancellation())
             .await?;
         match chosen {
             AzureVmBrowseOption::Resources => {
                 let (chosen_resources, maybe_error) = PickerTui::<_>::new()
-                    .pick_many_reloadable(async |invalidate| {
+                    .pick_many_reloadable(executor.cancellation(), async |child, invalidate| {
+                        let executor = &executor.with_cancellation_scope(child);
                         info!("Fetching virtual machines");
                         Ok(fetch_all_virtual_machines(&tenant_auth_context, executor)
                             .with_invalidation(invalidate)
@@ -66,7 +67,8 @@ impl AzureVmBrowseArgs {
             }
             AzureVmBrowseOption::Skus => {
                 let chosen_subscription = PickerTui::<_>::new()
-                    .pick_one_reloadable(async |invalidate| {
+                    .pick_one_reloadable(executor.cancellation(), async |child, invalidate| {
+                        let executor = &executor.with_cancellation_scope(child);
                         info!("Fetching subscriptions");
                         let subscriptions = fetch_all_subscriptions(&tenant_auth_context, executor)
                             .with_invalidation(invalidate)
@@ -75,7 +77,8 @@ impl AzureVmBrowseArgs {
                     })
                     .await?;
 
-                let (chosen_skus, maybe_error) = PickerTui::<_>::new().pick_many_reloadable(async |invalidate| {
+                let (chosen_skus, maybe_error) = PickerTui::<_>::new().pick_many_reloadable(executor.cancellation(), async |child, invalidate| {
+            let executor = &executor.with_cancellation_scope(child);
                         info!(%chosen_subscription.name, %chosen_subscription.id, "Fetching VM SKUs, this may take a while" );
                         let skus = fetch_virtual_machine_skus(chosen_subscription.id, auth_source, tenant_auth_context.tenant_id, executor).with_invalidation(invalidate).await?;
                         skus.into_iter().map(|sku| eyre::Ok(Choice {

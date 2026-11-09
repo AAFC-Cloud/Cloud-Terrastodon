@@ -20,18 +20,24 @@ pub async fn remove_oauth2_permission_grants(
         to_remove.iter().map(|x| x.to_string()).join("\n")
     );
     maybe_error?;
-    if !are_you_sure(format!(
-        "Are you sure you want to remove {} grants?",
-        to_remove.len()
-    ))
+    if !are_you_sure(
+        format!(
+            "Are you sure you want to remove {} grants?",
+            to_remove.len()
+        ),
+        executor.cancellation(),
+    )
     .await?
     {
         return Ok(());
     }
-    if !are_you_sure(format!(
-        "Are you super sure you want to remove {} grants?",
-        to_remove.len()
-    ))
+    if !are_you_sure(
+        format!(
+            "Are you super sure you want to remove {} grants?",
+            to_remove.len()
+        ),
+        executor.cancellation(),
+    )
     .await?
     {
         return Ok(());

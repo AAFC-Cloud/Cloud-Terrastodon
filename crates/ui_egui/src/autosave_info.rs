@@ -1,4 +1,4 @@
-use crate::work::WorkHandle;
+use crate::work_handle::WorkHandle;
 use crate::work_tracker::WorkTracker;
 use cloud_terrastodon_config::Config;
 use std::any::type_name;
@@ -44,7 +44,6 @@ where
                 work_tracker.track(WorkHandle {
                     join_handle,
                     description,
-                    is_err_if_discarded: true,
                 });
             }
         }

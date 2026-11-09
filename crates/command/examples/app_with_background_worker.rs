@@ -9,6 +9,8 @@ use ratatui::prelude::*;
 use std::any::type_name_of_val;
 use std::time::Duration;
 use std::time::Instant;
+use teamy_cancellation::CancellationScope;
+use teamy_cancellation::CancellationToken;
 use tracing::debug;
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::EnvFilter;
@@ -34,68 +36,84 @@ impl MyApp {
         Ok(Self::default())
     }
 
-    pub async fn run(mut self) -> eyre::Result<()> {
+    pub async fn run(mut self, cancellation: &CancellationScope) -> eyre::Result<()> {
         LoadableWorkBuilder::<MyAppData, Vec<u16>>::new()
             .description(type_name_of_val(&fetch_all_thingies))
             .setter(|state, value| state.thingies = value)
-            .work(async {
+            .work(async |_scope| {
                 let thingies = fetch_all_thingies().await?;
                 Ok(thingies)
             })
             .build()?
-            .enqueue(&self.work, &mut self.data)?;
+            .enqueue(&self.work, &mut self.data, cancellation)?;
 
         let mut terminal = ratatui::init();
-        terminal.clear()?;
+        let result = async {
+            terminal.clear()?;
 
-        'outer: loop {
-            // Handle any messages from background work
-            self.work.handle_messages(&mut self.data)?;
+            'outer: loop {
+                cancellation.bail_if_cancelled()?;
+                // Handle any messages from background work
+                self.work.handle_messages(&mut self.data)?;
 
-            // Handle any user input
-            while event::poll(Duration::from_millis(0))? {
-                if let Event::Key(key) = event::read()?
-                    && key.kind == KeyEventKind::Press
-                    && key.code == KeyCode::Esc
-                {
-                    break 'outer;
+                // Handle any user input
+                while event::poll(Duration::from_millis(0))? {
+                    if let Event::Key(key) = event::read()?
+                        && key.kind == KeyEventKind::Press
+                        && key.code == KeyCode::Esc
+                    {
+                        break 'outer;
+                    }
                 }
+
+                // Draw to the terminal
+                let thingy_display = match &self.data.thingies {
+                    Loadable::NotLoaded => "Not loaded".to_string(),
+                    Loadable::Loading { started_at } => format!(
+                        "Loading{}",
+                        ".".repeat(
+                            ((Instant::now() - *started_at).as_secs_f32() * 2.0) as usize % 4
+                        )
+                    ),
+                    Loadable::Loaded {
+                        value,
+                        started_at,
+                        finished_at,
+                    } => format!(
+                        "{} thingies loaded in {:?}",
+                        value.len(),
+                        *finished_at - *started_at
+                    ),
+                    Loadable::Failed { error, .. } => format!("Error: {error}"),
+                };
+                let work_display =
+                    format!("{} work items in progress", self.work.work_tracker.len()?);
+                terminal.draw(|f| {
+                    Text::from(format!(
+                        "Thingies: {thingy_display}\nPress Esc to exit\n{work_display}",
+                    ))
+                    .render(f.area(), f.buffer_mut());
+                })?;
+
+                // Sleep between iterations
+                tokio::time::sleep(Duration::from_millis(100)).await;
             }
-
-            // Draw to the terminal
-            let thingy_display = match &self.data.thingies {
-                Loadable::NotLoaded => "Not loaded".to_string(),
-                Loadable::Loading { started_at } => format!(
-                    "Loading{}",
-                    ".".repeat(((Instant::now() - *started_at).as_secs_f32() * 2.0) as usize % 4)
-                ),
-                Loadable::Loaded {
-                    value,
-                    started_at,
-                    finished_at,
-                } => format!(
-                    "{} thingies loaded in {:?}",
-                    value.len(),
-                    *finished_at - *started_at
-                ),
-                Loadable::Failed { error, .. } => format!("Error: {error}"),
-            };
-            let work_display = format!("{} work items in progress", self.work.work_tracker.len()?);
-            terminal.draw(|f| {
-                Text::from(format!(
-                    "Thingies: {thingy_display}\nPress Esc to exit\n{work_display}",
-                ))
-                .render(f.area(), f.buffer_mut());
-            })?;
-
-            // Sleep between iterations
-            tokio::time::sleep(Duration::from_millis(100)).await;
+            eyre::Ok(())
         }
+        .await;
         ratatui::restore();
         debug!("Pre-finish");
-        self.work.work_tracker.finish().await?;
+        let drained = self.work.work_tracker.finish(cancellation).await;
         debug!("Post-finish");
-        Ok(())
+        match (result, drained) {
+            (Err(error), drain) => {
+                if let Err(drain_error) = drain {
+                    tracing::error!(?drain_error, "Background shutdown also failed");
+                }
+                Err(error)
+            }
+            (Ok(()), drain) => drain,
+        }
     }
 }
 
@@ -114,6 +132,8 @@ pub async fn main() -> eyre::Result<()> {
         .without_time()
         .init();
     let app = MyApp::new().await?;
-    app.run().await?;
+    CancellationToken::new()
+        .with_async_scope(async |scope| app.run(&scope).await)
+        .await?;
     Ok(())
 }

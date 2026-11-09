@@ -17,7 +17,7 @@ impl GiteaRepoBrowseArgs {
         let tenant = self.list.tenant.resolve(executor).await?;
         let repositories = self.list.fetch_repositories(&tenant, executor).await?;
         let (chosen, maybe_error) = cloud_terrastodon_user_input::PickerTui::<_>::new()
-            .pick_many(repositories)
+            .pick_many(repositories, executor.cancellation())
             .await
             .into_chosen_and_maybe_error()?;
         let stdout = std::io::stdout();

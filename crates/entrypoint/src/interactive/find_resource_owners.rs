@@ -476,7 +476,7 @@ pub async fn find_resource_owners_menu(
 
     let beginning = PickerTui::<_>::new()
         .set_header("Where should the investigation start?")
-        .pick_one(MyChoice::VARIANTS)
+        .pick_one(MyChoice::VARIANTS, executor.cancellation())
         .await?;
     let chosen_resources: Vec<&Resource> = match beginning {
         MyChoice::ResourceGroups => {
@@ -490,16 +490,20 @@ pub async fn find_resource_owners_menu(
                             key: resource.id.expanded_form().to_string(),
                             value: resource.as_ref(),
                         }),
+                    executor.cancellation(),
                 )
                 .await?
         }
         MyChoice::AllResources => {
             PickerTui::<_>::new()
                 .set_header("Pick the resources to find the owners for")
-                .pick_many(resources.iter().map(|resource| Choice {
-                    key: resource.id.expanded_form().to_string(),
-                    value: resource.as_ref(),
-                }))
+                .pick_many(
+                    resources.iter().map(|resource| Choice {
+                        key: resource.id.expanded_form().to_string(),
+                        value: resource.as_ref(),
+                    }),
+                    executor.cancellation(),
+                )
                 .await?
         }
     };
@@ -551,16 +555,19 @@ pub async fn find_resource_owners_menu(
     loop {
         let clue_source = PickerTui::<_>::new()
             .set_header("What to search next?")
-            .pick_one(ClueAction::VARIANTS)
+            .pick_one(ClueAction::VARIANTS, executor.cancellation())
             .await?;
         match clue_source {
             ClueAction::PeekClueDetails => {
                 let clues = PickerTui::<_>::new()
                     .set_header("What clues do you want to see the details for?")
-                    .pick_many(traversal_context.clues.iter().map(|clue| Choice {
-                        key: clue.to_string(),
-                        value: clue,
-                    }))
+                    .pick_many(
+                        traversal_context.clues.iter().map(|clue| Choice {
+                            key: clue.to_string(),
+                            value: clue,
+                        }),
+                        executor.cancellation(),
+                    )
                     .await?;
                 info!("You chose:\n{clues:#?}");
                 press_enter_to_continue().await?;

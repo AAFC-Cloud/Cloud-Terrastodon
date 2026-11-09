@@ -59,7 +59,7 @@ pub async fn build_resource_group_imports(
     }
     let chosen = PickerTui::<_>::new()
         .set_header("Groups to import")
-        .pick_many(choices)
+        .pick_many(choices, executor.cancellation())
         .await?;
 
     info!("Building import blocks");

@@ -1,11 +1,12 @@
 use super::candidate_message::CandidateMessage;
 use super::candidate_sink::CandidateSink;
 use super::choice_pool::ChoicePool;
+use super::drain_picker_handlers::drain_picker_handlers;
 use super::event_handler::EventHandler;
-use super::handler_completion::HandlerCompletion;
-use super::handler_task::HandlerTask;
+use super::handler_tasks::HandlerTasks;
 use super::picker_event::PickerEvent;
 use super::picker_event_state::PickerEventState;
+use super::picker_session::run_picker_session;
 use super::preserved_selection::preserved_selection;
 use super::query_debouncer::QueryDebouncer;
 use super::query_event::QueryEvent;
@@ -33,7 +34,6 @@ use crossterm::event::KeyEventKind;
 use crossterm::event::KeyModifiers;
 use futures::FutureExt;
 use futures::StreamExt;
-use futures::stream::FuturesUnordered;
 use nucleo::Nucleo;
 use nucleo::pattern::CaseMatching;
 use nucleo::pattern::Normalization;
@@ -59,7 +59,6 @@ use ratatui::widgets::Widget;
 use ratatui_textarea::CursorMove;
 use ratatui_textarea::TextArea;
 use rustc_hash::FxHashSet;
-use std::collections::VecDeque;
 use std::future::Future;
 use std::future::pending;
 use std::io::BufWriter;
@@ -71,10 +70,9 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration;
 use std::time::Instant;
-use tokio::sync::mpsc;
-use tracing::Instrument;
+use teamy_cancellation::CancellationError;
+use teamy_cancellation::CancellationScope;
 use tracing::info_span;
-use tracing::trace_span;
 
 #[cfg(feature = "extended_observability")]
 macro_rules! extended_trace_span {
@@ -243,80 +241,108 @@ impl<'a, T> PickerTui<'a, T> {
         self
     }
 
+    /// Register event work owned by this picker generation.
+    ///
+    /// Use the supplied child scope for requests. Reload and shutdown request
+    /// cancellation and keep polling admitted handlers until their required
+    /// completion finishes; results from retired generations are ignored.
     pub fn add_event_handler<F, Fut>(self, handler: F) -> Self
     where
-        F: Fn(Arc<PickerEvent>, CandidateSink<T>) -> Fut + Send + 'a,
+        F: Fn(CancellationScope, Arc<PickerEvent>, CandidateSink<T>) -> Fut + Send + 'a,
         Fut: Future<Output = eyre::Result<()>> + Send + 'a,
     {
         let mut picker = self;
-        picker.handlers.push(EventHandler {
-            handler: Box::new(move |event, sink| Box::pin(handler(event, sink))),
-        });
+        picker.handlers.push(EventHandler::new(handler));
         picker
     }
 
-    pub async fn pick_one_events(self) -> PickResult<T>
+    pub async fn pick_one_events(self, cancellation: &CancellationScope) -> PickResult<T>
     where
         T: Send + 'a,
     {
-        self.run(false, false)
+        self.run(false, false, cancellation)
             .await
             .map(|mut items| items.remove(0))
     }
 
-    pub async fn pick_many_events(self) -> PickManyResult<T>
+    pub async fn pick_many_events(self, cancellation: &CancellationScope) -> PickManyResult<T>
     where
         T: Send + 'a,
     {
-        self.run(true, false).await
+        self.run(true, false, cancellation).await
     }
 
-    pub async fn pick_one(self, choices: impl IntoChoices<T>) -> PickResult<T>
+    pub async fn pick_one(
+        self,
+        choices: impl IntoChoices<T>,
+        cancellation: &CancellationScope,
+    ) -> PickResult<T>
     where
         T: Send + 'a,
     {
         self.with_initial_choices(choices)
-            .run(false, true)
+            .run(false, true, cancellation)
             .await
             .map(|mut items| items.remove(0))
     }
 
-    pub async fn pick_many(self, choices: impl IntoChoices<T>) -> PickManyResult<T>
+    pub async fn pick_many(
+        self,
+        choices: impl IntoChoices<T>,
+        cancellation: &CancellationScope,
+    ) -> PickManyResult<T>
     where
         T: Send + 'a,
     {
-        self.with_initial_choices(choices).run(true, true).await
+        self.with_initial_choices(choices)
+            .run(true, true, cancellation)
+            .await
     }
 
-    pub async fn pick_inner(self, many: bool, choices: impl IntoChoices<T>) -> PickManyResult<T>
+    pub async fn pick_inner(
+        self,
+        many: bool,
+        choices: impl IntoChoices<T>,
+        cancellation: &CancellationScope,
+    ) -> PickManyResult<T>
     where
         T: Send + 'a,
     {
-        self.with_initial_choices(choices).run(many, true).await
+        self.with_initial_choices(choices)
+            .run(many, true, cancellation)
+            .await
     }
 
-    pub async fn pick_one_reloadable<F, Fut, C>(self, choice_supplier: F) -> PickResult<T>
+    pub async fn pick_one_reloadable<F, Fut, C>(
+        self,
+        cancellation: &CancellationScope,
+        choice_supplier: F,
+    ) -> PickResult<T>
     where
         T: Send + 'a,
-        F: Fn(bool) -> Fut + Send + 'a,
+        F: Fn(CancellationScope, bool) -> Fut + Send + 'a,
         Fut: Future<Output = eyre::Result<C>> + Send + 'a,
         C: IntoChoices<T> + 'a,
     {
         self.with_reload_handler(choice_supplier)
-            .run(false, false)
+            .run(false, false, cancellation)
             .await
             .map(|mut items| items.remove(0))
     }
 
-    pub async fn pick_many_reloadable<F, Fut, C>(self, choice_supplier: F) -> PickManyResult<T>
+    pub async fn pick_many_reloadable<F, Fut, C>(
+        self,
+        cancellation: &CancellationScope,
+        choice_supplier: F,
+    ) -> PickManyResult<T>
     where
         T: Send + 'a,
-        F: Fn(bool) -> Fut + Send + 'a,
+        F: Fn(CancellationScope, bool) -> Fut + Send + 'a,
         Fut: Future<Output = eyre::Result<C>> + Send + 'a,
         C: IntoChoices<T> + 'a,
     {
         self.with_reload_handler(choice_supplier)
-            .run(true, false)
+            .run(true, false, cancellation)
             .await
     }
 
@@ -327,7 +353,7 @@ impl<'a, T> PickerTui<'a, T> {
         let choices =
             info_span!("picker_prepare_initial_choices").in_scope(|| choices.into_choices());
         let choices = Arc::new(Mutex::new(Some(choices)));
-        self.add_event_handler(move |event, sink| {
+        self.add_event_handler(move |_child, event, sink| {
             let choices = choices.clone();
             async move {
                 if matches!(event.as_ref(), PickerEvent::InitialLoad)
@@ -346,12 +372,12 @@ impl<'a, T> PickerTui<'a, T> {
     fn with_reload_handler<F, Fut, C>(self, choice_supplier: F) -> Self
     where
         T: Send + 'a,
-        F: Fn(bool) -> Fut + Send + 'a,
+        F: Fn(CancellationScope, bool) -> Fut + Send + 'a,
         Fut: Future<Output = eyre::Result<C>> + Send + 'a,
         C: IntoChoices<T> + 'a,
     {
         let choice_supplier = Arc::new(Mutex::new(choice_supplier));
-        self.add_event_handler(move |event, sink| {
+        self.add_event_handler(move |child, event, sink| {
             let choice_supplier = Arc::clone(&choice_supplier);
             let invalidate = matches!(event.as_ref(), PickerEvent::ReloadRequested(_));
             async move {
@@ -363,7 +389,7 @@ impl<'a, T> PickerTui<'a, T> {
                         let choice_supplier = choice_supplier
                             .lock()
                             .map_err(|_| eyre::eyre!("choice supplier mutex poisoned"))?;
-                        (choice_supplier)(invalidate)
+                        (choice_supplier)(child, invalidate)
                     };
                     let choices = future.await?;
                     sink.push(choices)?;
@@ -373,11 +399,19 @@ impl<'a, T> PickerTui<'a, T> {
         })
     }
 
-    async fn run(self, many: bool, static_empty_is_error: bool) -> PickManyResult<T>
+    async fn run(
+        self,
+        many: bool,
+        static_empty_is_error: bool,
+        cancellation: &CancellationScope,
+    ) -> PickManyResult<T>
     where
         T: Send + 'a,
     {
-        self.run_inner(many, static_empty_is_error).await
+        run_picker_session(cancellation, async |owner| {
+            self.run_inner(many, static_empty_is_error, &owner).await
+        })
+        .await
     }
 
     #[tracing::instrument(
@@ -385,7 +419,12 @@ impl<'a, T> PickerTui<'a, T> {
         skip_all,
         fields(many = many, static_empty_is_error = static_empty_is_error),
     )]
-    async fn run_inner(self, many: bool, static_empty_is_error: bool) -> PickManyResult<T>
+    async fn run_inner(
+        self,
+        many: bool,
+        static_empty_is_error: bool,
+        cancellation: &CancellationScope,
+    ) -> PickManyResult<T>
     where
         T: Send + 'a,
     {
@@ -415,6 +454,7 @@ impl<'a, T> PickerTui<'a, T> {
             log_buffer.clone(),
             many,
             static_empty_is_error,
+            cancellation,
         ));
         let scoped_run = coordinator.scope(picker_run);
         if let Some(log_buffer) = log_buffer {
@@ -430,11 +470,16 @@ impl<'a, T> PickerTui<'a, T> {
         log_buffer: Option<PickerLogBufferHandle>,
         many: bool,
         static_empty_is_error: bool,
+        cancellation: &CancellationScope,
     ) -> PickManyResult<T>
     where
         T: Send + 'a,
     {
-        let mut guard = coordinator.acquire().await?;
+        // No terminal cleanup is owed until acquisition succeeds. Cancellation
+        // can withdraw a queued handoff instead of opening a cancelled picker.
+        let mut guard = cancellation
+            .cancellable_scope(async |_scope| coordinator.acquire().await)
+            .await?;
         let mut terminal = None;
         if let Err(error) = (PickerTerminalBackend {
             terminal: &mut terminal,
@@ -451,14 +496,6 @@ impl<'a, T> PickerTui<'a, T> {
                 .into()),
             };
         }
-        let original_hook = Arc::new(std::panic::take_hook());
-        let panic_hook = original_hook.clone();
-        std::panic::set_hook(Box::new(move |info| {
-            if let Err(error) = restore_terminal() {
-                eprintln!("Failed to restore picker terminal during panic: {error}");
-            }
-            panic_hook(info);
-        }));
         // Do not embed the large event-loop future in the coordinator and panic-recovery
         // futures.  Besides reducing the outer future size, this gives the event loop an
         // explicit heap boundary when a picker is nested under another async application.
@@ -469,6 +506,7 @@ impl<'a, T> PickerTui<'a, T> {
             log_buffer,
             many,
             static_empty_is_error,
+            cancellation,
         ));
         let result = AssertUnwindSafe(picker_loop).catch_unwind().await;
         let restore_result = if terminal.take().is_some() {
@@ -483,8 +521,6 @@ impl<'a, T> PickerTui<'a, T> {
             coordinator.poison("picker owner panicked while holding a terminal frame");
         }
         let release_result = guard.release().await;
-        let hook_for_restore = original_hook.clone();
-        std::panic::set_hook(Box::new(move |info| hook_for_restore(info)));
         match result {
             Err(payload) => {
                 std::panic::resume_unwind(payload);
@@ -498,6 +534,10 @@ impl<'a, T> PickerTui<'a, T> {
         }
     }
 
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the picker loop uses its terminal owner, presentation state, and cancellation scope directly"
+    )]
     async fn run_loop(
         mut self,
         guard: &mut TerminalGuard,
@@ -506,6 +546,7 @@ impl<'a, T> PickerTui<'a, T> {
         log_buffer: Option<PickerLogBufferHandle>,
         many: bool,
         static_empty_is_error: bool,
+        owner: &CancellationScope,
     ) -> PickManyResult<T>
     where
         T: Send + 'a,
@@ -516,23 +557,12 @@ impl<'a, T> PickerTui<'a, T> {
             .unwrap_or_else(|| Box::pin(pending()));
         let (candidate_sender, mut candidate_receiver) =
             tokio::sync::mpsc::unbounded_channel::<CandidateMessage<T>>();
-        let mut handler_tasks = FuturesUnordered::<HandlerTask<'a>>::new();
-        let mut pending_handlers = 0usize;
-        let mut startup_handlers = 0usize;
+        let mut handler_tasks = HandlerTasks::new(owner.clone());
         let mut picker_state = PickerEventState::default();
         picker_state.marked.clone_from(&self.initial_marked);
 
         for event in startup_events(&self.default_query) {
-            spawn_handlers(
-                &self.handlers,
-                event,
-                true,
-                picker_state.generation,
-                &candidate_sender,
-                &mut handler_tasks,
-                &mut pending_handlers,
-                &mut startup_handlers,
-            );
+            handler_tasks.spawn(&self.handlers, event, true, &candidate_sender);
         }
 
         let mut nucleo = new_nucleo();
@@ -549,13 +579,15 @@ impl<'a, T> PickerTui<'a, T> {
         let mut ticker = tokio::time::interval(Duration::from_millis(16));
         let mut return_reason = None::<Result<(), PickError<T>>>;
         let mut render_dirty = true;
-        let mut pending_tab_warnings = VecDeque::<CompactString>::new();
         let mut log_cursor = usize::MAX;
         if let Some(log_buffer) = &log_buffer {
             log_buffer.records_since(&mut log_cursor);
         }
         let mut toasts = Vec::<PickerToast>::new();
 
+        // Every UI exit (including input, rendering, and coordinator failures)
+        // reaches the same drain. Catch UI panics while the tasks are still owned.
+        let outcome = AssertUnwindSafe(async {
         let return_reason = loop {
             let debounce = query_debouncer
                 .deadline()
@@ -577,10 +609,16 @@ impl<'a, T> PickerTui<'a, T> {
                     apply_terminal_control(control, guard, terminal)?;
                     render_dirty = true;
                 }
-                () = &mut cancellation, if terminal.is_some() => {
-                    // Wait for any nested owner to restore this frame before
-                    // dropping handlers or releasing the parent terminal guard.
+                () = &mut cancellation => {
                     return_reason = Some(Err(PickError::Cancelled));
+                }
+                () = owner.cancelled() => {
+                    // Intent closes the UI even while a handler is protected.
+                    // Preserve the execution cause; the common drain below
+                    // still finishes every admitted handler before returning it.
+                    return_reason = Some(Err(CancellationError::new(
+                        owner.cancellation_reason().unwrap_or_else(|| "Picker execution cancelled".to_owned()),
+                    ).into()));
                 }
                 input = event_stream.next(), if terminal.is_some() => {
                     keyboard_event_ready = true;
@@ -662,31 +700,20 @@ impl<'a, T> PickerTui<'a, T> {
                             &mut warned_tab_keys,
                         )
                     });
-                    pending_tab_warnings.extend(tab_warning_keys);
+                    show_tab_warnings(tab_warning_keys, &mut toasts);
                     render_dirty |= changed;
                     query_changed |= changed;
                 }
-                joined = handler_tasks.next(), if pending_handlers > 0 => {
-                    match joined {
-                        Some(completion) => {
-                            if let Err(error) = handle_handler_completion(
-                                completion,
-                                &mut pending_handlers,
-                                &mut startup_handlers,
-                            ) {
-                                return_reason = Some(Err(error.into()));
-                            }
-                            render_dirty = true;
-                        }
-                        None => {
-                            pending_handlers = 0;
-                        }
+                joined = handler_tasks.next(), if !handler_tasks.is_empty() => {
+                    if let Some(Err(error)) = joined {
+                        return_reason = Some(Err(error.into()));
                     }
+                    render_dirty = true;
                 }
                 _ = &mut debounce, if query_debouncer.deadline().is_some() => {
                     if let Some(query) = query_debouncer.take_due(Instant::now()) {
                         render_dirty = true;
-                        spawn_handlers(
+                        handler_tasks.spawn(
                             &self.handlers,
                             match query {
                                 QueryEvent::Cleared => PickerEvent::QueryCleared,
@@ -695,11 +722,7 @@ impl<'a, T> PickerTui<'a, T> {
                                 }
                             },
                             false,
-                            picker_state.generation,
                             &candidate_sender,
-                            &mut handler_tasks,
-                            &mut pending_handlers,
-                            &mut startup_handlers,
                         );
                     }
                 }
@@ -742,21 +765,16 @@ impl<'a, T> PickerTui<'a, T> {
                         }
                     }
 
-                    while pending_handlers > 0 {
+                    while !handler_tasks.is_empty() {
                         let Some(ready) = handler_tasks.next().now_or_never() else {
                             break;
                         };
                         let Some(completion) = ready else {
-                            pending_handlers = 0;
                             break;
                         };
                         progressed = true;
-                        if let Err(error) = handle_handler_completion(
-                            completion,
-                            &mut pending_handlers,
-                            &mut startup_handlers,
-                        ) {
-                            return_reason = Some(Err(error.into()));
+                        if let Err(error) = completion {
+                            return_reason.get_or_insert(Err(error.into()));
                         }
                         render_dirty = true;
                         if coalesce_deadline.is_some_and(|deadline| Instant::now() >= deadline) {
@@ -770,7 +788,7 @@ impl<'a, T> PickerTui<'a, T> {
                         && let Some(query) = query_debouncer.take_due(Instant::now())
                     {
                         progressed = true;
-                        spawn_handlers(
+                        handler_tasks.spawn(
                             &self.handlers,
                             match query {
                                 QueryEvent::Cleared => PickerEvent::QueryCleared,
@@ -779,11 +797,7 @@ impl<'a, T> PickerTui<'a, T> {
                                 }
                             },
                             false,
-                            picker_state.generation,
                             &candidate_sender,
-                            &mut handler_tasks,
-                            &mut pending_handlers,
-                            &mut startup_handlers,
                         );
                         render_dirty = true;
                     }
@@ -801,30 +815,7 @@ impl<'a, T> PickerTui<'a, T> {
                     }
                 }
 
-                pending_tab_warnings.extend(tab_warning_keys);
-            }
-
-            while terminal.is_some()
-                && return_reason.is_none()
-                && let Some(key) = pending_tab_warnings.pop_front()
-            {
-                wait_for_tab_warning(
-                    terminal,
-                    &key,
-                    guard,
-                    &mut candidate_receiver,
-                    &mut handler_tasks,
-                    &mut pending_handlers,
-                    &mut startup_handlers,
-                    picker_state.generation,
-                    &mut picker_state,
-                    &mut nucleo,
-                    &mut warned_tab_keys,
-                    &mut pending_tab_warnings,
-                )
-                .instrument(extended_trace_span!("picker_tab_warning"))
-                .await?;
-                render_dirty = true;
+                show_tab_warnings(tab_warning_keys, &mut toasts);
             }
 
             if let Some(log_buffer) = &log_buffer {
@@ -842,10 +833,9 @@ impl<'a, T> PickerTui<'a, T> {
             render_dirty |= advance_toasts(&mut toasts, now);
 
             if matches!(return_reason, Some(Err(PickError::ReloadRequested))) {
-                handler_tasks = FuturesUnordered::new();
-                pending_handlers = 0;
-                startup_handlers = 0;
+                handler_tasks.restart();
                 picker_state.reload();
+                debug_assert_eq!(handler_tasks.generation(), picker_state.generation);
                 nucleo = new_nucleo();
                 search_results_keys.clear();
                 search_results_heights.clear();
@@ -856,17 +846,13 @@ impl<'a, T> PickerTui<'a, T> {
                 query_debouncer.clear();
                 return_reason = None;
                 render_dirty = true;
-                spawn_handlers(
+                handler_tasks.spawn(
                     &self.handlers,
                     PickerEvent::ReloadRequested(Arc::<str>::from(
                         query_text_area.lines().join("\n"),
                     )),
                     true,
-                    picker_state.generation,
                     &candidate_sender,
-                    &mut handler_tasks,
-                    &mut pending_handlers,
-                    &mut startup_handlers,
                 );
             } else if let Some(return_reason) = return_reason.take() {
                 break return_reason;
@@ -908,15 +894,15 @@ impl<'a, T> PickerTui<'a, T> {
             }
 
             if self.auto_accept
-                && startup_handlers == 0
+                && handler_tasks.startup() == 0
                 && picker_state.candidates.len() == 1
                 && !many
             {
                 return_reason = Some(Ok(()));
             }
             if static_empty_is_error
-                && startup_handlers == 0
-                && pending_handlers == 0
+                && handler_tasks.startup() == 0
+                && handler_tasks.pending() == 0
                 && candidate_receiver.is_empty()
                 && picker_state.candidates.is_empty()
             {
@@ -939,7 +925,7 @@ impl<'a, T> PickerTui<'a, T> {
                     )
                 };
                 let mut query_block = Block::bordered().title(counts_title);
-                if let Some(pending_title) = pending_title(pending_handlers) {
+                if let Some(pending_title) = pending_title(handler_tasks.pending()) {
                     query_block =
                         query_block.title_bottom(Line::from(pending_title).left_aligned());
                 }
@@ -1011,7 +997,34 @@ impl<'a, T> PickerTui<'a, T> {
             );
         }
 
-        drop(handler_tasks);
+        return_reason
+        }).catch_unwind().await;
+
+        // Even a suspended parent must service handoffs: a nested picker cannot
+        // finish releasing its frame until its parent acknowledges the resume.
+        let drain_result = drain_picker_handlers(
+            &mut handler_tasks,
+            guard,
+            &mut PickerTerminalBackend { terminal },
+        )
+        .await;
+        let return_reason = match outcome {
+            Ok(result) => result,
+            Err(payload) => std::panic::resume_unwind(payload),
+        };
+        if let Err(error) = drain_result {
+            let cancelled = match &return_reason {
+                Err(PickError::Cancelled) => true,
+                Err(PickError::Eyre(error, _)) => {
+                    error.downcast_ref::<CancellationError>().is_some()
+                }
+                _ => false,
+            };
+            if return_reason.is_ok() || cancelled {
+                return Err(PickError::Eyre(error, picker_state.selected_values()));
+            }
+            tracing::warn!(%error, "picker handler also failed during shutdown");
+        }
         match return_reason {
             Ok(()) => Ok(picker_state.selected_values()),
             Err(PickError::Eyre(error, _)) => {
@@ -1028,48 +1041,6 @@ pub(super) fn startup_events(default_query: &str) -> Vec<PickerEvent> {
         events.push(PickerEvent::QueryChanged(Arc::<str>::from(default_query)));
     }
     events
-}
-
-#[expect(
-    clippy::too_many_arguments,
-    reason = "handler spawning updates several independent picker counters and channels"
-)]
-fn spawn_handlers<'a, T>(
-    handlers: &[EventHandler<'a, T>],
-    event: PickerEvent,
-    is_startup: bool,
-    generation: u64,
-    sender: &mpsc::UnboundedSender<CandidateMessage<T>>,
-    tasks: &mut FuturesUnordered<HandlerTask<'a>>,
-    pending_handlers: &mut usize,
-    startup_handlers: &mut usize,
-) {
-    let event_kind = match &event {
-        PickerEvent::InitialLoad => "initial_load",
-        PickerEvent::QueryChanged(_) => "query_changed",
-        PickerEvent::QueryCleared => "query_cleared",
-        PickerEvent::ReloadRequested(_) => "reload_requested",
-    };
-    let handler_span = trace_span!("picker_handler", event = event_kind, startup = is_startup,);
-    let event = Arc::new(event);
-    for handler in handlers {
-        let future = (handler.handler)(
-            event.clone(),
-            CandidateSink {
-                sender: sender.clone(),
-                generation,
-            },
-        );
-        let handler_span = handler_span.clone();
-        tasks.push(Box::pin(async move {
-            let result = future.instrument(handler_span).await;
-            HandlerCompletion { is_startup, result }
-        }));
-        *pending_handlers += 1;
-        if is_startup {
-            *startup_handlers += 1;
-        }
-    }
 }
 
 pub(super) fn process_candidate_message<T>(
@@ -1097,16 +1068,25 @@ pub(super) fn process_candidate_message<T>(
     (changed, tab_warning_keys)
 }
 
-pub(super) fn handle_handler_completion(
-    completion: HandlerCompletion,
-    pending_handlers: &mut usize,
-    startup_handlers: &mut usize,
-) -> eyre::Result<()> {
-    *pending_handlers = pending_handlers.saturating_sub(1);
-    if completion.is_startup {
-        *startup_handlers = startup_handlers.saturating_sub(1);
+// Keep warnings in the picker. A blocking stdin prompt would outlive cancellation
+// and prevent a nested terminal owner from completing its handoff.
+fn show_tab_warnings(keys: Vec<CompactString>, toasts: &mut Vec<PickerToast>) {
+    for key in keys {
+        tracing::warn!(%key, "A picker candidate contains a tab character and may render poorly");
+        toasts.push(PickerToast {
+            record: PickerLogRecord {
+                timestamp: std::time::SystemTime::now(),
+                level: PickerLogLevel::Warn,
+                message: Arc::from(format!("Candidate contains a tab: {key:?}")),
+                target: Arc::from(module_path!()),
+                fields: Vec::new(),
+                spans: Vec::new(),
+                file: Some(Arc::from(file!())),
+                line: Some(line!()),
+            },
+            expires_at: Instant::now() + Duration::from_secs(4),
+        });
     }
-    completion.result
 }
 
 fn apply_terminal_control(
@@ -1537,127 +1517,6 @@ fn rebuild_results<T>(
             .count(),
         search_results_keys.len()
     );
-}
-
-#[expect(
-    clippy::too_many_arguments,
-    reason = "tab-warning handling temporarily coordinates all active picker streams"
-)]
-async fn wait_for_tab_warning<'a, T>(
-    terminal: &mut Option<PickerTerminal>,
-    key: &CompactString,
-    guard: &mut TerminalGuard,
-    candidate_receiver: &mut mpsc::UnboundedReceiver<CandidateMessage<T>>,
-    handler_tasks: &mut FuturesUnordered<HandlerTask<'a>>,
-    pending_handlers: &mut usize,
-    startup_handlers: &mut usize,
-    generation: u64,
-    picker_state: &mut PickerEventState<T>,
-    nucleo: &mut Nucleo<Arc<CompactString>>,
-    warned_tab_keys: &mut FxHashSet<CompactString>,
-    pending_tab_warnings: &mut VecDeque<CompactString>,
-) -> eyre::Result<()>
-where
-    T: Send + 'a,
-{
-    {
-        let mut backend = PickerTerminalBackend { terminal };
-        if !backend.is_active() {
-            return Ok(());
-        }
-        backend.suspend().map_err(|error| {
-            guard.poison(format!("picker tab-warning suspension failed: {error}"));
-            error
-        })?;
-    }
-    tracing::warn!(
-        key = %key,
-        "A picker candidate contains a tab character and may render poorly"
-    );
-    eprintln!("A picker candidate contains a tab character: {key:?}\nPress Enter to continue...");
-
-    let mut enter = tokio::task::spawn_blocking(|| {
-        let mut input = String::new();
-        std::io::stdin().read_line(&mut input)
-    });
-    let mut deferred_control = None;
-    loop {
-        tokio::select! {
-            biased;
-
-            result = &mut enter => {
-                result??;
-                break;
-            }
-            control = guard.next_control() => {
-                let Some(control) = control else {
-                    enter.abort();
-                    eyre::bail!("terminal coordinator owner channel closed while showing a tab warning");
-                };
-                match control {
-                    TerminalControl::Suspend { .. } | TerminalControl::Resume { .. } => {
-                        // The prompt is using the restored terminal outside the alternate
-                        // screen. Do not acknowledge a handoff while stdin is still owned by
-                        // this prompt; an inner owner must not initialize its terminal until
-                        // the prompt has completed.
-                        deferred_control = Some(control);
-                    }
-                    TerminalControl::Poisoned { message } => {
-                        enter.abort();
-                        eyre::bail!("terminal coordinator poisoned: {message}");
-                    }
-                }
-            }
-            Some(message) = candidate_receiver.recv() => {
-                let (changed, warning_keys) = process_candidate_message(
-                    message,
-                    generation,
-                    picker_state,
-                    nucleo,
-                    warned_tab_keys,
-                );
-                pending_tab_warnings.extend(warning_keys);
-                let _ = changed;
-            }
-            joined = handler_tasks.next(), if *pending_handlers > 0 => {
-                match joined {
-                    Some(completion) => {
-                        handle_handler_completion(
-                            completion,
-                            pending_handlers,
-                            startup_handlers,
-                        )?;
-                    }
-                    None => *pending_handlers = 0,
-                }
-            }
-        }
-    }
-
-    match deferred_control {
-        Some(control @ TerminalControl::Suspend { .. }) => {
-            // The terminal is already restored, so acknowledge suspension without re-entering
-            // the backend. The waiting child may now take ownership safely.
-            guard.acknowledge(&control)?;
-        }
-        Some(control @ TerminalControl::Resume { .. }) => {
-            let mut backend = PickerTerminalBackend { terminal };
-            backend.resume().map_err(|error| {
-                guard.poison(format!("picker tab-warning resume failed: {error}"));
-                error
-            })?;
-            guard.acknowledge(&control)?;
-        }
-        Some(TerminalControl::Poisoned { .. }) => unreachable!("poisoned controls return above"),
-        None => {
-            let mut backend = PickerTerminalBackend { terminal };
-            backend.resume().map_err(|error| {
-                guard.poison(format!("picker tab-warning resume failed: {error}"));
-                error
-            })?;
-        }
-    }
-    Ok(())
 }
 
 type PickerTerminal = Terminal<CrosstermBackend<BufWriter<Stderr>>>;

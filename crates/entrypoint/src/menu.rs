@@ -41,12 +41,9 @@ pub async fn menu(
         } else {
             "Actions (some unavailable items omitted)"
         })
-        .pick_many(choices);
+        .pick_many(choices, executor.cancellation());
 
-    let mut chosen = match cancellation
-        .cancellable_scope(|_cancellation| async { eyre::Ok(chosen.await) })
-        .await?
-    {
+    let mut chosen = match chosen.await {
         Ok(c) => c,
         Err(PickError::Cancelled) => {
             info!("Operation cancelled by user");

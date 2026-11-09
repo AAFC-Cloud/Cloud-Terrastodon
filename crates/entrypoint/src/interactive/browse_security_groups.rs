@@ -51,7 +51,10 @@ pub async fn browse_security_groups(
 ) -> Result<()> {
     let (security_groups, maybe_error) = PickerTui::<_>::new()
         .set_header("security groups")
-        .pick_many(get_security_group_choices(auth_context, executor).await?)
+        .pick_many(
+            get_security_group_choices(auth_context, executor).await?,
+            executor.cancellation(),
+        )
         .await
         .into_chosen_and_maybe_error()?;
 
@@ -71,15 +74,19 @@ pub async fn browse_security_groups(
                     key: format!("{action:?}"),
                     value: action,
                 }),
+            executor.cancellation(),
         )
         .await?;
 
     if !actions.is_empty()
         && security_groups.len() > 10
-        && !are_you_sure(format!(
-            "You selected {} groups, fetching additional details will perform O(n) requests",
-            security_groups.len()
-        ))
+        && !are_you_sure(
+            format!(
+                "You selected {} groups, fetching additional details will perform O(n) requests",
+                security_groups.len()
+            ),
+            executor.cancellation(),
+        )
         .await?
     {
         return Ok(());

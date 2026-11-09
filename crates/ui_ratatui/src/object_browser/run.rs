@@ -34,8 +34,20 @@ pub(crate) async fn run_object_browser(
         None => TerminalCoordinator::new()?,
     };
     let scoped_coordinator = coordinator.clone();
-    coordinator
-        .scope(async move { run_with_terminal(scoped_coordinator, excalidraw, executor).await })
+    // Create the work owner before the terminal-lifetime deferral. Optional
+    // jobs remain descendants of this cooperative sibling, while automatic
+    // ancestors must keep polling until the backend and guard are released.
+    let session = executor.with_async_scope(async |owner| {
+        coordinator
+            .scope(async move { run_with_terminal(scoped_coordinator, excalidraw, &owner).await })
+            .await
+    });
+    executor
+        .cancellation()
+        .deferred(
+            "restore object browser terminal and drain its owned work",
+            async |_terminal| session.await,
+        )
         .await
 }
 
@@ -47,7 +59,12 @@ async fn run_with_terminal(
     tracing::info!("Starting arena-backed object browser");
     let logs = try_current_picker_log_buffer()
         .ok_or_else(|| eyre::eyre!("the object browser requires application log capture"))?;
-    let mut guard = coordinator.acquire().await?;
+    // No backend has been opened yet, so cancellation may withdraw a queued
+    // terminal handoff without leaving terminal cleanup behind.
+    let mut guard = executor
+        .cancellation()
+        .cancellable_scope(async |_scope| coordinator.acquire().await)
+        .await?;
     let mut terminal = match ObjectBrowserTerminal::new(logs) {
         Ok(terminal) => terminal,
         Err(error) => {

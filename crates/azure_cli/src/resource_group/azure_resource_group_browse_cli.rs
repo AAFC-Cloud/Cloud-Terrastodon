@@ -40,7 +40,8 @@ pub async fn browse_resource_groups(
     executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
     let (chosen, maybe_error) = PickerTui::<_>::new()
-        .pick_many_reloadable(async |invalidate| {
+        .pick_many_reloadable(executor.cancellation(), async |child, invalidate| {
+            let executor = &executor.with_cancellation_scope(child);
             info!(tenant_id = %auth_context.tenant_id, "Fetching all Azure resource groups");
 
             fetch_all_resource_groups(auth_context, executor)

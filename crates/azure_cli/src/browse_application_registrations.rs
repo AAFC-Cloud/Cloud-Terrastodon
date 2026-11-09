@@ -18,13 +18,16 @@ pub async fn browse_application_registrations(
     let applications = fetch_all_application_registrations(&tenant_auth_context, executor).await?;
     let (applications, maybe_error) = PickerTui::<_>::new()
         .set_header("Application Registrations")
-        .pick_many(applications.into_iter().map(|application| Choice {
-            key: format!(
-                "{} {:64} {}",
-                application.id, application.display_name, application.app_id
-            ),
-            value: application,
-        }))
+        .pick_many(
+            applications.into_iter().map(|application| Choice {
+                key: format!(
+                    "{} {:64} {}",
+                    application.id, application.display_name, application.app_id
+                ),
+                value: application,
+            }),
+            executor.cancellation(),
+        )
         .await
         .into_chosen_and_maybe_error()?;
     info!(

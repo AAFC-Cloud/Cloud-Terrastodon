@@ -19,10 +19,13 @@ pub async fn tag_resources_menu(
     let resource_groups = fetch_all_resource_groups(auth_context, executor).await?;
     let resource_group = PickerTui::<_>::new()
         .set_header("Choose a resource group")
-        .pick_one(resource_groups.into_iter().map(|rg| Choice {
-            key: rg.id.expanded_form().to_string(),
-            value: rg,
-        }))
+        .pick_one(
+            resource_groups.into_iter().map(|rg| Choice {
+                key: rg.id.expanded_form().to_string(),
+                value: rg,
+            }),
+            executor.cancellation(),
+        )
         .await?;
     let resources = fetch_all_resources(auth_context, executor)
         .await?
@@ -34,10 +37,13 @@ pub async fn tag_resources_menu(
         });
     let resources = PickerTui::<_>::new()
         .set_header("Choose resources to tag")
-        .pick_many(resources.map(|r| Choice {
-            key: r.id.expanded_form().to_string(),
-            value: r,
-        }))
+        .pick_many(
+            resources.map(|r| Choice {
+                key: r.id.expanded_form().to_string(),
+                value: r,
+            }),
+            executor.cancellation(),
+        )
         .await?;
     let resource_tags = get_tags_for_resources(
         auth_context,

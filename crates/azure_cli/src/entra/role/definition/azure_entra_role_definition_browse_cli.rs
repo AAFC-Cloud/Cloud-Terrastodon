@@ -33,7 +33,8 @@ impl AzureEntraRoleDefinitionBrowseArgs {
         let executor = &auth_context.auth_context.bind_executor(executor)?;
         let (chosen, maybe_error) = PickerTui::<_>::new()
             .set_header("Entra role definitions")
-            .pick_many_reloadable(async |invalidate| {
+            .pick_many_reloadable(executor.cancellation(), async |child, invalidate| {
+                let executor = &executor.with_cancellation_scope(child);
                 info!(tenant_id = %auth_context.tenant_id, "Fetching Entra role definitions");
                 let mut role_definitions =
                     fetch_all_entra_role_definitions(&auth_context, executor)

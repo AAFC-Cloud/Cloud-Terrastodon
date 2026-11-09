@@ -52,7 +52,7 @@ impl AzureVmPublisherBrowseArgs {
         let subs = fetch_all_subscriptions(&tenant_auth_context, executor).await?;
         let (chosen_subs, maybe_error) = PickerTui::<_>::new()
             .set_header("Select one or more subscriptions (Tab to mark multiple)")
-            .pick_many(subs)
+            .pick_many(subs, executor.cancellation())
             .await
             .into_chosen_and_maybe_error()?;
         maybe_error?;
@@ -79,7 +79,7 @@ impl AzureVmPublisherBrowseArgs {
 
         let (chosen_locations, maybe_error) = PickerTui::<_>::new()
             .set_header("Select one or more locations (Tab to mark multiple)")
-            .pick_many(location_choices)
+            .pick_many(location_choices, executor.cancellation())
             .await
             .into_chosen_and_maybe_error()?;
         maybe_error?;
@@ -107,7 +107,7 @@ impl AzureVmPublisherBrowseArgs {
 
         let (chosen_publishers, maybe_error) = PickerTui::<_>::new()
             .set_header("Select one or more publishers (Tab to mark multiple)")
-            .pick_many(publisher_choices)
+            .pick_many(publisher_choices, executor.cancellation())
             .await
             .into_chosen_and_maybe_error()?;
         maybe_error?;
@@ -115,16 +115,19 @@ impl AzureVmPublisherBrowseArgs {
         // 4) Decide to print or continue diving
         let decision = PickerTui::<_>::new()
             .set_header("Publishers: print or continue?")
-            .pick_one([
-                Choice {
-                    key: "Print selected publishers".into(),
-                    value: Decision::Print,
-                },
-                Choice {
-                    key: "Continue to offers".into(),
-                    value: Decision::Continue,
-                },
-            ])
+            .pick_one(
+                [
+                    Choice {
+                        key: "Print selected publishers".into(),
+                        value: Decision::Print,
+                    },
+                    Choice {
+                        key: "Continue to offers".into(),
+                        value: Decision::Continue,
+                    },
+                ],
+                executor.cancellation(),
+            )
             .await?;
 
         if decision == Decision::Print {
@@ -172,7 +175,7 @@ impl AzureVmPublisherBrowseArgs {
         let (chosen_offers, maybe_error): (Vec<ComputePublisherVmImageOfferId>, _) =
             PickerTui::<_>::new()
                 .set_header("Select one or more offers (Tab to mark multiple)")
-                .pick_many(offer_display_choices)
+                .pick_many(offer_display_choices, executor.cancellation())
                 .await
                 .into_chosen_and_maybe_error()?;
         maybe_error?;
@@ -180,16 +183,19 @@ impl AzureVmPublisherBrowseArgs {
         // 6) Decide to print or continue diving
         let decision = PickerTui::<_>::new()
             .set_header("Offers: print or continue?")
-            .pick_one([
-                Choice {
-                    key: "Print selected offers".into(),
-                    value: Decision::Print,
-                },
-                Choice {
-                    key: "Continue to SKUs".into(),
-                    value: Decision::Continue,
-                },
-            ])
+            .pick_one(
+                [
+                    Choice {
+                        key: "Print selected offers".into(),
+                        value: Decision::Print,
+                    },
+                    Choice {
+                        key: "Continue to SKUs".into(),
+                        value: Decision::Continue,
+                    },
+                ],
+                executor.cancellation(),
+            )
             .await?;
 
         if decision == Decision::Print {
@@ -237,7 +243,7 @@ impl AzureVmPublisherBrowseArgs {
         let (chosen_skus, maybe_error): (Vec<ComputePublisherVmImageOfferSkuId>, _) =
             PickerTui::<_>::new()
                 .set_header("Select one or more SKUs (Tab to mark multiple)")
-                .pick_many(sku_display_choices)
+                .pick_many(sku_display_choices, executor.cancellation())
                 .await
                 .into_chosen_and_maybe_error()?;
         maybe_error?;
@@ -245,16 +251,19 @@ impl AzureVmPublisherBrowseArgs {
         // 8) Decide to print or continue diving
         let decision = PickerTui::<_>::new()
             .set_header("SKUs: print or continue?")
-            .pick_one([
-                Choice {
-                    key: "Print selected SKUs".into(),
-                    value: Decision::Print,
-                },
-                Choice {
-                    key: "Continue to versions".into(),
-                    value: Decision::Continue,
-                },
-            ])
+            .pick_one(
+                [
+                    Choice {
+                        key: "Print selected SKUs".into(),
+                        value: Decision::Print,
+                    },
+                    Choice {
+                        key: "Continue to versions".into(),
+                        value: Decision::Continue,
+                    },
+                ],
+                executor.cancellation(),
+            )
             .await?;
 
         if decision == Decision::Print {

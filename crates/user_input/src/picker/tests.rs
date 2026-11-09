@@ -1,12 +1,10 @@
 use super::candidate_message::CandidateMessage;
 use super::choice_pool::ChoicePool;
-use super::handler_completion::HandlerCompletion;
 use super::picker_event_state::PickerEventState;
 use super::picker_tui::PickerToast;
 use super::picker_tui::PickerTui;
 use super::picker_tui::advance_toasts;
 use super::picker_tui::empty_picker_message;
-use super::picker_tui::handle_handler_completion;
 use super::picker_tui::handle_key;
 use super::picker_tui::new_nucleo;
 use super::picker_tui::process_candidate_message;
@@ -208,23 +206,6 @@ fn stale_query_results_remain_discarded_after_reload() {
     );
     assert!(changed);
     assert_eq!(state.candidates.get("fresh"), Some(&3));
-}
-
-#[test]
-fn handler_errors_are_returned_and_counts_are_released() {
-    let mut pending = 1;
-    let mut startup = 1;
-    let result = handle_handler_completion(
-        HandlerCompletion {
-            is_startup: true,
-            result: Err(eyre::eyre!("handler failed")),
-        },
-        &mut pending,
-        &mut startup,
-    );
-    assert!(result.is_err());
-    assert_eq!(pending, 0);
-    assert_eq!(startup, 0);
 }
 
 #[test]

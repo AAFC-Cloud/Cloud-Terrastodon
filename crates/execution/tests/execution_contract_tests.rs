@@ -99,6 +99,13 @@ impl AuthenticationProvider for CredentialLineageProbe {
                         eyre::Ok(())
                     };
                     assert_restricted(child.clone()).await?;
+                    // Picker callbacks supply a scope independently of the
+                    // executor adapters. Public rebinding must not turn the
+                    // credential executor into unrestricted application work.
+                    let (_, rebound) = child.cancellation().with_async_child_scope(|scope| {
+                        assert_restricted(child.with_cancellation_scope(scope))
+                    });
+                    rebound.await?;
                     // Rebinding cancellation for a join branch must retain the
                     // provider's restricted mode in every executor adapter.
                     child.join2(assert_restricted, assert_restricted).await?;

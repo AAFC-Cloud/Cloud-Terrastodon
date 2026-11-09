@@ -393,6 +393,35 @@ impl ObjectBrowserApp {
     }
 
     pub(crate) async fn close(mut self) -> Result<(), ObjectBrowserControllerError> {
+        if let Some(cancellation) = &self.cancellation {
+            cancellation.request_cancel("object browser closed");
+        }
+        // Every picker owns a linked task and may still be returning terminal
+        // ownership. Retain all handles even if an earlier task failed.
+        if let Some(picker) = self.shape_picker_task.take() {
+            picker.close().await;
+        }
+        if let Some(picker) = self.variant_picker_task.take() {
+            picker.close().await;
+        }
+        if let Some(picker) = self.value_picker_task.take() {
+            picker.close().await;
+        }
+        if let Some(picker) = self.link_action_picker_task.take() {
+            picker.close().await;
+        }
+        if let Some(picker) = self.breadcrumb_menu_task.take() {
+            picker.close().await;
+        }
+        if let Some(picker) = self.breadcrumb_filter_field_picker_task.take() {
+            picker.close().await;
+        }
+        if let Some(picker) = self.breadcrumb_picker_task.take() {
+            picker.close().await;
+        }
+        if let Some(picker) = self.breadcrumb_value_picker_task.take() {
+            picker.close().await;
+        }
         if let Some(picker) = self.registry_selection_picker.take() {
             picker.close().await;
         }

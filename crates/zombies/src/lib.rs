@@ -4,6 +4,7 @@ use eyre::Context;
 use eyre::bail;
 use std::collections::HashSet;
 use std::path::Path;
+use teamy_cancellation::CancellationScope;
 use tracing::debug;
 use tracing::info;
 
@@ -12,6 +13,7 @@ use tracing::info;
 pub async fn prompt_kill_processes_using_dirs(
     dirs: impl IntoIterator<Item = impl AsRef<Path>>,
     header: String,
+    cancellation: &CancellationScope,
 ) -> eyre::Result<()> {
     let mut system = sysinfo::System::new_all();
     system.refresh_all();
@@ -58,7 +60,7 @@ pub async fn prompt_kill_processes_using_dirs(
     }
     let selected_to_kill = PickerTui::<(String, sysinfo::Pid, &sysinfo::Process)>::new()
         .set_header(header)
-        .pick_many(to_kill)
+        .pick_many(to_kill, cancellation)
         .await?;
     for (key, pid, process) in selected_to_kill {
         debug!(
@@ -81,6 +83,7 @@ pub async fn prompt_kill_processes_using_dirs(
 mod test {
     use crate::prompt_kill_processes_using_dirs;
     use cloud_terrastodon_pathing::AppDir;
+    use teamy_cancellation::CancellationToken;
 
     #[test]
     fn main() {
@@ -105,14 +108,20 @@ mod test {
     #[tokio::test]
     #[ignore]
     async fn kill() {
-        prompt_kill_processes_using_dirs(
-            [
-                AppDir::Imports.as_path_buf(),
-                AppDir::Processed.as_path_buf(),
-            ],
-            "Found the following processes, select the ones you want to kill".to_string(),
-        )
-        .await
-        .unwrap();
+        CancellationToken::new()
+            .with_async_scope(async |cancellation| {
+                prompt_kill_processes_using_dirs(
+                    [
+                        AppDir::Imports.as_path_buf(),
+                        AppDir::Processed.as_path_buf(),
+                    ],
+                    "Found the following processes, select the ones you want to kill".to_string(),
+                    &cancellation,
+                )
+                .await?;
+                eyre::Ok(())
+            })
+            .await
+            .unwrap();
     }
 }

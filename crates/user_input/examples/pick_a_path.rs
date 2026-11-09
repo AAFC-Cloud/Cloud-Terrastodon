@@ -1,24 +1,32 @@
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
+use teamy_cancellation::CancellationToken;
 
 #[tokio::main]
 pub async fn main() -> eyre::Result<()> {
-    let mut choices = Vec::new();
-    let dir = std::fs::read_dir(".")?;
-    for entry in dir {
-        let entry = entry?;
-        choices.push(entry);
-    }
+    CancellationToken::new()
+        .with_async_scope(async |scope| {
+            let mut choices = Vec::new();
+            let dir = std::fs::read_dir(".")?;
+            for entry in dir {
+                let entry = entry?;
+                choices.push(entry);
+            }
 
-    let chosen = PickerTui::<std::fs::DirEntry>::new()
-        .set_header("Pick a path")
-        .pick_one(choices.into_iter().map(|entry| Choice {
-            key: entry.path().display().to_string(), // the value shown to the user
-            value: entry, // the inner value we want to have after the user picks
-        }))
-        .await?;
+            let chosen = PickerTui::<std::fs::DirEntry>::new()
+                .set_header("Pick a path")
+                .pick_one(
+                    choices.into_iter().map(|entry| Choice {
+                        key: entry.path().display().to_string(), // the value shown to the user
+                        value: entry, // the inner value we want to have after the user picks
+                    }),
+                    &scope,
+                )
+                .await?;
 
-    println!("You chose {}", chosen.file_name().to_string_lossy());
+            println!("You chose {}", chosen.file_name().to_string_lossy());
 
-    Ok(())
+            Ok(())
+        })
+        .await
 }

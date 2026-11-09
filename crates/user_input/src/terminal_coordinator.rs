@@ -343,6 +343,11 @@ pub fn apply_terminal_control<B: TerminalBackend>(
     guard: &mut TerminalGuard,
     backend: &mut B,
 ) -> Result<()> {
+    // Handoffs queued before poisoning are no longer permission to touch the
+    // backend. Keep the poison diagnostic below when that control is available.
+    if guard.is_poisoned() && !matches!(control, TerminalControl::Poisoned { .. }) {
+        eyre::bail!("terminal coordinator was poisoned before applying its handoff");
+    }
     match &control {
         TerminalControl::Suspend { .. } => {
             if backend.is_active()
@@ -424,6 +429,14 @@ impl TerminalGuard {
 
     pub fn caller(&self) -> &'static Location<'static> {
         self.caller
+    }
+
+    /// Whether terminal ownership has failed and further backend handoffs are unsafe.
+    ///
+    /// Unlike receiving a `Poisoned` control, this remains observable after the
+    /// owner has already consumed that notification while handling an error.
+    pub fn is_poisoned(&self) -> bool {
+        self.coordinator.state.poisoned.load(Ordering::Acquire)
     }
 
     /// Poison the coordinator when the owner's backend cannot safely continue.
@@ -730,6 +743,26 @@ impl Actor {
                 .fetch_sub(1, Ordering::AcqRel);
             if let Some(response) = response {
                 let _ = response.send(Ok(()));
+            }
+            return;
+        }
+
+        if self.state.poisoned.load(Ordering::Acquire) {
+            // Failed backends cannot safely acknowledge another resume. Retire
+            // the nested frame in LIFO order so its owner can finish draining
+            // without waiting for a physical handoff that will never succeed.
+            self.frames.pop();
+            self.state
+                .activity
+                .active_frames
+                .fetch_sub(1, Ordering::AcqRel);
+            if let Some(parent) = self.frames.last() {
+                parent.drop_allowed.store(true, Ordering::Release);
+            }
+            if let Some(response) = response {
+                let _ = response.send(Err(
+                    "terminal coordinator was poisoned before frame release".to_owned(),
+                ));
             }
             return;
         }

@@ -22,7 +22,7 @@ pub async fn browse_resources_menu(
         });
     let (chosen, maybe_error) = PickerTui::<_>::new()
         .set_header("Resources")
-        .pick_many(choices)
+        .pick_many(choices, executor.cancellation())
         .await
         .into_chosen_and_maybe_error()?;
     info!("You chose:");

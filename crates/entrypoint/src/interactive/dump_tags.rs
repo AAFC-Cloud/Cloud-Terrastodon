@@ -23,7 +23,7 @@ pub async fn dump_tags(
                 "Output path {} already exists, overwrite?",
                 path.display()
             ))
-            .pick_one(vec![yes, no])
+            .pick_one(vec![yes, no], executor.cancellation())
             .await?
             == no
         {

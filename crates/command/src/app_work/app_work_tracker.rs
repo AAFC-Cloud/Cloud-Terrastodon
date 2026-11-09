@@ -1,122 +1,141 @@
+use super::TrackedAppWork;
 use super::WorkHandle;
-use crate::CancellationReportExt;
-use eyre::bail;
+use eyre::Result;
 use eyre::eyre;
-use std::cell::RefCell;
+use std::future::Future;
+use std::marker::PhantomData;
 use std::sync::Arc;
 use std::sync::Mutex;
-use tracing::error;
+use teamy_cancellation::CancellationScope;
+use tokio::runtime::Handle;
 use tracing::info;
 
+/// Owns admitted background tasks until their outcomes have been observed.
+///
+/// Shutdown closes admission for every clone, requests each task's linked
+/// cancellation signal, and drains all tasks, including after a task panics.
+/// Call `finish` while the supplied parent execution scope is still alive.
 #[derive(Debug)]
 pub struct AppWorkTracker<State> {
-    // We use interior mutability here to avoid annoyances when passing around context when doing immediate mode UI stuff
-    remaining_work: Arc<Mutex<RefCell<Vec<WorkHandle>>>>,
-    _marker: std::marker::PhantomData<State>,
+    // The lock makes admission and closing atomic. None means shutdown owns
+    // the tasks; clones cannot enqueue more work behind the drain.
+    work: Arc<Mutex<Option<TrackedAppWork>>>,
+    _marker: PhantomData<State>,
 }
-impl<T> Clone for AppWorkTracker<T> {
+
+impl<State> Clone for AppWorkTracker<State> {
     fn clone(&self) -> Self {
         Self {
-            remaining_work: Arc::clone(&self.remaining_work),
-            _marker: std::marker::PhantomData,
+            work: Arc::clone(&self.work),
+            _marker: PhantomData,
         }
     }
 }
-impl<T> Default for AppWorkTracker<T> {
+
+impl<State> Default for AppWorkTracker<State> {
     fn default() -> Self {
         Self::new()
     }
 }
+
 impl<State> AppWorkTracker<State> {
     pub fn new() -> Self {
         Self {
-            remaining_work: Default::default(),
-            _marker: std::marker::PhantomData,
+            work: Arc::new(Mutex::new(Some(TrackedAppWork::default()))),
+            _marker: PhantomData,
         }
     }
-    pub fn track(&self, work: WorkHandle) -> eyre::Result<()> {
-        let remaining_work = self
-            .remaining_work
-            .lock()
-            .map_err(|e| eyre!("Failed to get lock: {e:?}"))?;
-        let mut remaining_work = remaining_work.borrow_mut();
-        remaining_work.push(work);
-        Ok(())
-    }
-    pub fn len(&self) -> eyre::Result<usize> {
-        let remaining_work = self
-            .remaining_work
-            .lock()
-            .map_err(|e| eyre!("Failed to get lock: {e:?}"))?;
-        let remaining_work = remaining_work.borrow();
-        Ok(remaining_work.len())
-    }
-    pub fn is_empty(&self) -> eyre::Result<bool> {
-        let remaining_work = self
-            .remaining_work
-            .lock()
-            .map_err(|e| eyre!("Failed to get lock: {e:?}"))?;
-        let remaining_work = remaining_work.borrow();
-        Ok(remaining_work.is_empty())
-    }
-    pub fn prune(&self) -> eyre::Result<()> {
-        let remaining_work = self
-            .remaining_work
-            .lock()
-            .map_err(|e| eyre!("Failed to get lock: {e:?}"))?;
-        let mut remaining_work = remaining_work.borrow_mut();
-        remaining_work.retain(|work| !work.join_handle.is_finished());
-        Ok(())
-    }
-    pub async fn finish(self) -> eyre::Result<()> {
-        let mut remaining_work = {
-            let guard = self
-                .remaining_work
-                .lock()
-                .map_err(|e| eyre!("Failed to get lock: {e:?}"))?;
-            guard.take()
-        };
 
-        if remaining_work.is_empty() {
-            return Ok(());
-        }
-        let mut pass = true;
-        while let Some(work) = remaining_work.pop() {
-            match work.is_err_if_discarded {
-                true => {
-                    info!(
-                        "Waiting for task {:?} to finish, {} remain...",
-                        work.description,
-                        remaining_work.len()
-                    );
-                    match work.join_handle.await? {
-                        Ok(()) => {}
-                        Err(e) => {
-                            if e.is_cancellation() {
-                                info!(description = %work.description, "Background work acknowledged cancellation");
-                                continue;
-                            }
-                            pass = false;
-                            error!(
-                                "Error encountered when waiting for background work to finish: {e:?}"
-                            );
-                        }
-                    }
-                }
-                false => {
-                    info!(
-                        "Discarding work {:?} because it is not marked as important, {} remain...",
-                        work.description,
-                        remaining_work.len()
-                    );
-                    work.join_handle.abort();
-                }
+    #[track_caller]
+    pub(crate) fn spawn<C, F>(
+        &self,
+        cancellation: &CancellationScope,
+        runtime: &Handle,
+        description: String,
+        factory: C,
+    ) -> Result<()>
+    where
+        C: FnOnce(CancellationScope) -> F + Send + 'static,
+        F: Future<Output = Result<()>> + Send + 'static,
+    {
+        let mut work = self
+            .work
+            .lock()
+            .map_err(|error| eyre!("Failed to lock background work: {error}"))?;
+        let work = work
+            .as_mut()
+            .ok_or_else(|| eyre!("Cannot enqueue background work after shutdown has begun"))?;
+        // Scheduling owns admission; the factory itself receives the child
+        // scope and needs no redundant entry cancellation check.
+        cancellation.bail_if_cancelled()?;
+        let (cancellation, future) = cancellation.cancellable_child_scope(factory);
+        let task = work.tasks.spawn_on(future, runtime);
+        work.handles.insert(
+            task.id(),
+            WorkHandle {
+                description,
+                cancellation,
+            },
+        );
+        Ok(())
+    }
+
+    pub fn len(&self) -> Result<usize> {
+        let work = self
+            .work
+            .lock()
+            .map_err(|error| eyre!("Failed to lock background work: {error}"))?;
+        Ok(work.as_ref().map_or(0, |work| work.tasks.len()))
+    }
+
+    pub fn is_empty(&self) -> Result<bool> {
+        Ok(self.len()? == 0)
+    }
+
+    /// Reap completed tasks without losing errors or panics before shutdown.
+    pub fn prune(&self) -> Result<()> {
+        let mut work = self
+            .work
+            .lock()
+            .map_err(|error| eyre!("Failed to lock background work: {error}"))?;
+        if let Some(work) = work.as_mut() {
+            while let Some(result) = work.tasks.try_join_next_with_id() {
+                work.record_completion(result);
             }
         }
-        if pass {
-            Ok(())
-        } else {
-            bail!("Failed to complete all work. See above for details.");
-        }
+        Ok(())
+    }
+
+    /// Cancel pending work and await every admitted task before reporting errors.
+    ///
+    /// A task's own deferrals protect required completion. The drain is itself
+    /// required cleanup so an automatic ancestor cannot drop it mid-shutdown.
+    pub async fn finish(self, cancellation: &CancellationScope) -> Result<()> {
+        cancellation
+            .finish_required("drain admitted background work", async move |_cleanup| {
+                let work = self
+                    .work
+                    .lock()
+                    .map_err(|error| eyre!("Failed to lock background work: {error}"))?
+                    .take();
+                let Some(mut work) = work else {
+                    return Ok(());
+                };
+
+                for handle in work.handles.values() {
+                    handle
+                        .cancellation
+                        .request_cancel("background work shutdown");
+                }
+                info!(remaining = work.tasks.len(), "Draining background work");
+                while let Some(result) = work.tasks.join_next_with_id().await {
+                    work.record_completion(result);
+                }
+                match work.first_error {
+                    Some(error) => Err(error),
+                    None => Ok(()),
+                }
+            })
+            .await
     }
 }

@@ -1,11 +1,11 @@
 use crate::app::MyApp;
 use crate::app_message::AppMessage;
 use crate::state_mutator::StateMutator;
+use crate::work_handle::WorkHandle;
 use cloud_terrastodon_command::CancellationReportExt;
 use cloud_terrastodon_relative_location::RelativeLocation;
 use eyre::eyre;
 use std::panic::Location;
-use tokio::task::JoinHandle;
 use tracing::error;
 
 pub struct Work<OnEnqueue, OnWork, WorkSuccess, WorkFailureMutator, OnFailure>
@@ -23,13 +23,6 @@ where
     pub on_failure: OnFailure,
     pub is_err_if_discarded: bool,
     pub description: String,
-}
-
-#[derive(Debug)]
-pub struct WorkHandle {
-    pub join_handle: JoinHandle<eyre::Result<()>>,
-    pub description: String,
-    pub is_err_if_discarded: bool,
 }
 
 impl<OnEnqueue, OnWork, WorkSuccess, WorkFailureMutator, OnFailure>
@@ -86,11 +79,12 @@ where
             }
             Ok(())
         });
-        (work.on_enqueue)(app);
         app.work_tracker.track(WorkHandle {
             description,
             join_handle,
-            is_err_if_discarded: work.is_err_if_discarded,
         });
+        // Register ownership before application callbacks can panic, so the
+        // outer GUI shutdown still finds and drains this task.
+        (work.on_enqueue)(app);
     }
 }

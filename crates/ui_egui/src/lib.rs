@@ -12,6 +12,7 @@ pub mod tiles;
 pub mod widgets;
 pub mod windows;
 pub mod work;
+pub mod work_handle;
 pub mod work_tracker;
 pub mod workers;
 

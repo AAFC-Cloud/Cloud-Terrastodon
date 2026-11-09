@@ -43,7 +43,7 @@ pub async fn remediate_policy_assignment(
             });
         let policy_assignment: Arc<PolicyAssignment> = PickerTui::<_>::new()
             .set_header("Choose policy to remediate")
-            .pick_one(choices)
+            .pick_one(choices, executor.cancellation())
             .await?;
         executor.cancellation().bail_if_cancelled()?;
         let remediation_scope = PolicyRemediationScope::try_from(&policy_assignment.properties.scope)?;
@@ -63,7 +63,7 @@ pub async fn remediate_policy_assignment(
                 }).collect_vec();
                 PickerTui::<_>::new()
                     .set_header("Pick the inner definitions to remediate")
-                    .pick_many(choices)
+                    .pick_many(choices, executor.cancellation())
                     .await?
                     .into_iter()
                     .map(|definition| definition.policy_definition_reference_id.parse().map(Some))

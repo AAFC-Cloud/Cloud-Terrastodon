@@ -20,10 +20,13 @@ pub async fn browse_service_principals(
     .await?;
     let (service_principals, maybe_error) = PickerTui::<_>::new()
         .set_header("Service Principals")
-        .pick_many(service_principals.iter().cloned().map(|sp| Choice {
-            key: format!("{} {:64} {}", sp.id, sp.display_name, sp.app_id),
-            value: sp,
-        }))
+        .pick_many(
+            service_principals.iter().cloned().map(|sp| Choice {
+                key: format!("{} {:64} {}", sp.id, sp.display_name, sp.app_id),
+                value: sp,
+            }),
+            executor.cancellation(),
+        )
         .await
         .into_chosen_and_maybe_error()?;
     info!("You chose:");

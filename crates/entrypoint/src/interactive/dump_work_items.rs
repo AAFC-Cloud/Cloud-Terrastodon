@@ -19,10 +19,13 @@ pub async fn dump_work_items(
         fetch_all_azure_devops_projects(&org_url, auth_context.selection()?, executor).await?;
     let projects = PickerTui::<_>::new()
         .set_header("Pick the projects to export from")
-        .pick_many(projects.iter().cloned().map(|p| Choice {
-            key: p.name.to_string(),
-            value: p,
-        }))
+        .pick_many(
+            projects.iter().cloned().map(|p| Choice {
+                key: p.name.to_string(),
+                value: p,
+            }),
+            executor.cancellation(),
+        )
         .await?;
     let mut queries = Vec::new();
     for proj in &projects {
@@ -46,6 +49,7 @@ pub async fn dump_work_items(
                         .join("/"),
                     value: &entry.child,
                 }),
+            executor.cancellation(),
         )
         .await?;
     info!("You chose {} queries", queries.len());

@@ -300,10 +300,13 @@ mod tests {
                     };
                     let next_scope: Arc<EligibleChildResource> = PickerTui::<_>::new()
                         .set_header("Choose a scope")
-                        .pick_one(resources.into_iter().map(|x| Choice {
-                            key: x.name.to_owned(),
-                            value: x,
-                        }))
+                        .pick_one(
+                            resources.into_iter().map(|x| Choice {
+                                key: x.name.to_owned(),
+                                value: x,
+                            }),
+                            executor.cancellation(),
+                        )
                         .await?;
                     scope = next_scope.id.clone();
                 }
@@ -332,10 +335,13 @@ mod tests {
                     return Ok(());
                 };
                 let chosen: Vec<Arc<EligibleChildResource>> = PickerTui::<_>::new()
-                    .pick_many(resources.into_iter().map(|x| Choice {
-                        key: x.to_string(),
-                        value: x,
-                    }))
+                    .pick_many(
+                        resources.into_iter().map(|x| Choice {
+                            key: x.to_string(),
+                            value: x,
+                        }),
+                        executor.cancellation(),
+                    )
                     .await?;
                 assert!(!chosen.is_empty());
                 Ok(())

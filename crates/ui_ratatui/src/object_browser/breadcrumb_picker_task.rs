@@ -1,6 +1,8 @@
 use crate::object_explorer::BreadcrumbContextSnapshot;
 use crate::object_explorer::ProjectFieldsMode;
 use crate::object_explorer::ProjectedField;
+use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_command::CancellationToken;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickError;
 use cloud_terrastodon_user_input::PickerTui;
@@ -36,7 +38,8 @@ pub(super) enum BreadcrumbPickerOutcome {
 pub(super) struct BreadcrumbPickerTask {
     target: BreadcrumbPickerTarget,
     context_complete: bool,
-    handle: JoinHandle<BreadcrumbPickerOutcome>,
+    handle: JoinHandle<eyre::Result<BreadcrumbPickerOutcome>>,
+    cancellation: CancellationToken,
 }
 
 impl BreadcrumbPickerTask {
@@ -44,6 +47,7 @@ impl BreadcrumbPickerTask {
         snapshot: &BreadcrumbContextSnapshot,
         edit_index: Option<usize>,
         initially_included: &[String],
+        cancellation: &CancellationScope,
     ) -> Result<Self, String> {
         let mut labels = snapshot.shapes().iter().cloned().collect::<BTreeSet<_>>();
         labels.extend(initially_included.iter().cloned());
@@ -60,6 +64,7 @@ impl BreadcrumbPickerTask {
             "Filter shapes",
             choices,
             initially_included.to_vec(),
+            cancellation,
         )
     }
 
@@ -68,6 +73,7 @@ impl BreadcrumbPickerTask {
         edit_index: Option<usize>,
         mode: ProjectFieldsMode,
         initially_included: &[ProjectedField],
+        cancellation: &CancellationScope,
     ) -> Result<Self, String> {
         let mut labels = snapshot
             .fields()
@@ -97,6 +103,7 @@ impl BreadcrumbPickerTask {
             mode.label(),
             choices,
             initial_keys,
+            cancellation,
         )
     }
 
@@ -106,6 +113,7 @@ impl BreadcrumbPickerTask {
         header: &str,
         choices: Vec<Choice<BreadcrumbPickerValue>>,
         initially_selected: Vec<String>,
+        cancellation: &CancellationScope,
     ) -> Result<Self, String> {
         if choices.is_empty() {
             return Err("the breadcrumb prefix has no matching reflected choices".to_owned());
@@ -114,24 +122,28 @@ impl BreadcrumbPickerTask {
             "a nested PickerTui needs the object browser's TerminalCoordinator".to_owned()
         })?;
         let header = header.to_owned();
-        let handle = tokio::spawn(async move {
-            match PickerTui::new()
-                .set_header(header)
-                .set_auto_accept(false)
-                .set_initial_selected(initially_selected)
-                .terminal_coordinator(coordinator)
-                .pick_many(choices)
-                .await
-            {
-                Ok(selected) => BreadcrumbPickerOutcome::Selected(selected),
-                Err(PickError::Cancelled) => BreadcrumbPickerOutcome::Cancelled,
-                Err(error) => BreadcrumbPickerOutcome::Failed(error.to_string()),
-            }
+        let (cancellation, future) = cancellation.with_async_child_scope(move |scope| async move {
+            eyre::Ok(
+                match PickerTui::new()
+                    .set_header(header)
+                    .set_auto_accept(false)
+                    .set_initial_selected(initially_selected)
+                    .terminal_coordinator(coordinator)
+                    .pick_many(choices, &scope)
+                    .await
+                {
+                    Ok(selected) => BreadcrumbPickerOutcome::Selected(selected),
+                    Err(PickError::Cancelled) => BreadcrumbPickerOutcome::Cancelled,
+                    Err(error) => BreadcrumbPickerOutcome::Failed(error.to_string()),
+                },
+            )
         });
+        let handle = tokio::spawn(future);
         Ok(Self {
             target,
             context_complete,
             handle,
+            cancellation,
         })
     }
 
@@ -143,6 +155,15 @@ impl BreadcrumbPickerTask {
         self.context_complete
     }
 
+    pub(super) async fn close(self) {
+        self.cancellation.request_cancel("object browser closed");
+        match self.finish().await {
+            Ok(BreadcrumbPickerOutcome::Failed(error)) | Err(error) => {
+                tracing::warn!(%error, "Nested picker failed during shutdown");
+            }
+            Ok(_) => {}
+        }
+    }
     pub(super) fn is_finished(&self) -> bool {
         self.handle.is_finished()
     }
@@ -150,7 +171,8 @@ impl BreadcrumbPickerTask {
     pub(super) async fn finish(self) -> Result<BreadcrumbPickerOutcome, String> {
         self.handle
             .await
-            .map_err(|error| format!("breadcrumb PickerTui task failed: {error}"))
+            .map_err(|error| format!("breadcrumb PickerTui task failed: {error}"))?
+            .map_err(|error| error.to_string())
     }
 }
 

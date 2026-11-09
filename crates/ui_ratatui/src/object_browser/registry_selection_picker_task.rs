@@ -46,9 +46,8 @@ impl RegistrySelectionPickerTask {
                     .set_auto_accept(false)
                     .set_allow_empty_selection(true)
                     .set_include_focused_on_enter(true)
-                    .cancel_on(scope.cancelled())
                     .terminal_coordinator(coordinator)
-                    .pick_many(choices)
+                    .pick_many(choices, &scope)
                     .await {
                         Ok(shapes) => Ok(Some(RegistrySelection::Shapes(shapes))),
                         Err(PickError::Cancelled) => Ok(None),
@@ -70,9 +69,8 @@ impl RegistrySelectionPickerTask {
                     .set_auto_accept(false)
                     .set_allow_empty_selection(true)
                     .set_initial_selected(selected)
-                    .cancel_on(scope.cancelled())
                     .terminal_coordinator(coordinator)
-                    .pick_many(choices)
+                    .pick_many(choices, &scope)
                     .await {
                         Ok(functions) => Ok(Some(RegistrySelection::Functions(functions))),
                         Err(PickError::Cancelled) => Ok(None),

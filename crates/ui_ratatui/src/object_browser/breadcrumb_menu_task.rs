@@ -1,5 +1,7 @@
 use super::pickers::BreadcrumbPicker;
 use super::pickers::BreadcrumbPickerChoice;
+use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_command::CancellationToken;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickError;
 use cloud_terrastodon_user_input::PickerTui;
@@ -19,11 +21,15 @@ pub(super) enum BreadcrumbMenuOutcome {
 /// the explorer engine while TerminalCoordinator temporarily hands the
 /// terminal to PickerTui.
 pub(super) struct BreadcrumbMenuTask {
-    handle: JoinHandle<BreadcrumbMenuOutcome>,
+    handle: JoinHandle<eyre::Result<BreadcrumbMenuOutcome>>,
+    cancellation: CancellationToken,
 }
 
 impl BreadcrumbMenuTask {
-    pub(super) fn spawn(picker: &BreadcrumbPicker) -> Result<Self, String> {
+    pub(super) fn spawn(
+        picker: &BreadcrumbPicker,
+        cancellation: &CancellationScope,
+    ) -> Result<Self, String> {
         let choices = picker
             .rows()
             .iter()
@@ -35,22 +41,37 @@ impl BreadcrumbMenuTask {
         let coordinator = TerminalCoordinator::try_current().ok_or_else(|| {
             "a nested PickerTui needs the object browser's TerminalCoordinator".to_owned()
         })?;
-        let handle = tokio::spawn(async move {
-            match PickerTui::new()
-                .set_header("Add Breadcrumb")
-                .set_auto_accept(false)
-                .terminal_coordinator(coordinator)
-                .pick_one(choices)
-                .await
-            {
-                Ok(selected) => BreadcrumbMenuOutcome::Selected(selected),
-                Err(PickError::Cancelled) => BreadcrumbMenuOutcome::Cancelled,
-                Err(error) => BreadcrumbMenuOutcome::Failed(error.to_string()),
-            }
+        let (cancellation, future) = cancellation.with_async_child_scope(move |scope| async move {
+            eyre::Ok(
+                match PickerTui::new()
+                    .set_header("Add Breadcrumb")
+                    .set_auto_accept(false)
+                    .terminal_coordinator(coordinator)
+                    .pick_one(choices, &scope)
+                    .await
+                {
+                    Ok(selected) => BreadcrumbMenuOutcome::Selected(selected),
+                    Err(PickError::Cancelled) => BreadcrumbMenuOutcome::Cancelled,
+                    Err(error) => BreadcrumbMenuOutcome::Failed(error.to_string()),
+                },
+            )
         });
-        Ok(Self { handle })
+        let handle = tokio::spawn(future);
+        Ok(Self {
+            handle,
+            cancellation,
+        })
     }
 
+    pub(super) async fn close(self) {
+        self.cancellation.request_cancel("object browser closed");
+        match self.finish().await {
+            Ok(BreadcrumbMenuOutcome::Failed(error)) | Err(error) => {
+                tracing::warn!(%error, "Nested picker failed during shutdown");
+            }
+            Ok(_) => {}
+        }
+    }
     pub(super) fn is_finished(&self) -> bool {
         self.handle.is_finished()
     }
@@ -58,6 +79,7 @@ impl BreadcrumbMenuTask {
     pub(super) async fn finish(self) -> Result<BreadcrumbMenuOutcome, String> {
         self.handle
             .await
-            .map_err(|error| format!("breadcrumb menu PickerTui task failed: {error}"))
+            .map_err(|error| format!("breadcrumb menu PickerTui task failed: {error}"))?
+            .map_err(|error| error.to_string())
     }
 }

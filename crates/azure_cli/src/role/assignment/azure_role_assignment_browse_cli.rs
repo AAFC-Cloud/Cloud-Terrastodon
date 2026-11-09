@@ -95,7 +95,7 @@ impl AzureRoleAssignmentBrowseArgs {
         }
 
         let (chosen, maybe_error) = PickerTui::<_>::new()
-            .pick_many(choices)
+            .pick_many(choices, executor.cancellation())
             .await
             .into_chosen_and_maybe_error()?;
         let chosen = chosen

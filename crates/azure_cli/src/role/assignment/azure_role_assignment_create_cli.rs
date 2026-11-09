@@ -88,10 +88,13 @@ impl AzureRoleAssignmentCreateArgs {
             .await?;
             PickerTui::<_>::new()
                 .set_header("Roles to assign")
-                .pick_many(all.iter().cloned().map(|r| Choice {
-                    key: r.display_name.clone(),
-                    value: r,
-                }))
+                .pick_many(
+                    all.iter().cloned().map(|r| Choice {
+                        key: r.display_name.clone(),
+                        value: r,
+                    }),
+                    executor.cancellation(),
+                )
                 .await?
         };
 
@@ -122,10 +125,13 @@ impl AzureRoleAssignmentCreateArgs {
             .await?;
             PickerTui::<_>::new()
                 .set_header("Principals to assign")
-                .pick_many(fetched.values().map(|u| Choice {
-                    key: format!("{} {:64} {}", u.id(), u.display_name(), u.name()),
-                    value: u.clone(),
-                }))
+                .pick_many(
+                    fetched.values().map(|u| Choice {
+                        key: format!("{} {:64} {}", u.id(), u.display_name(), u.name()),
+                        value: u.clone(),
+                    }),
+                    executor.cancellation(),
+                )
                 .await?
         };
 
@@ -141,10 +147,13 @@ impl AzureRoleAssignmentCreateArgs {
                     role_defs.iter().map(|r| &r.display_name).join(", "),
                     principals.iter().map(|p| p.display_name()).join(", ")
                 ))
-                .pick_many(resources.into_iter().map(|resource| Choice {
-                    key: resource.id.to_string(),
-                    value: resource.id.clone(),
-                }))
+                .pick_many(
+                    resources.into_iter().map(|resource| Choice {
+                        key: resource.id.to_string(),
+                        value: resource.id.clone(),
+                    }),
+                    executor.cancellation(),
+                )
                 .await?
         };
 

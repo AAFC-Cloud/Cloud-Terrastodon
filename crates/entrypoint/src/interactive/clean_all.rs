@@ -1,13 +1,14 @@
 use crate::noninteractive::clean_dirs;
+use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_pathing::AppDir;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use eyre::bail;
-pub async fn clean_all_menu() -> Result<()> {
+pub async fn clean_all_menu(cancellation: &CancellationScope) -> Result<()> {
     let choices = vec!["keep command cache (recommended)", "purge command cache"];
     let chosen = PickerTui::<_>::new()
         .set_header("Cleaning")
-        .pick_one(choices)
+        .pick_one(choices, cancellation)
         .await?;
     match chosen {
         "keep command cache (recommended)" => {

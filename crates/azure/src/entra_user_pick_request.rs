@@ -25,7 +25,7 @@ use tracing::info;
 /// Select users from the tenant inventory or an interactive Graph search.
 ///
 /// Refreshing invalidates both the complete inventory and every search for the
-/// selected tenant. The executor owns each event handler's cancellation scope.
+/// selected tenant. Each event handler uses the picker's linked cancellation scope.
 #[must_use = "This is an interactive request; execute it with an executor"]
 #[derive(Arbitrary, Facet)]
 pub struct EntraUserPickRequest {
@@ -78,46 +78,40 @@ impl ExecutableRequest for EntraUserPickRequest {
         Box::pin(async move {
             PickerTui::<Arc<EntraUser>>::new()
                 .set_header("Users")
-                .add_event_handler(async |event, sink| {
+                .add_event_handler(async |child, event, sink| {
                     if matches!(event.as_ref(), PickerEvent::InitialLoad) {
-                        executor
-                            .cancellable_scope(|child| async move {
-                                info!("Fetching all Entra users");
-                                let users =
-                                    fetch_all_entra_users(self.tenant_id, self.auth_source, &child)
-                                        .await?;
-                                sink.push(users.iter().cloned().map(user_choice))?;
-                                info!("Finished fetching all Entra users");
-                                eyre::Ok(())
-                            })
-                            .await?;
+                        info!("Fetching all Entra users");
+                        let users = fetch_all_entra_users(
+                            self.tenant_id,
+                            self.auth_source,
+                            &executor.with_cancellation_scope(child),
+                        )
+                        .await?;
+                        sink.push(users.iter().cloned().map(user_choice))?;
+                        info!("Finished fetching all Entra users");
                     }
                     Ok(())
                 })
-                .add_event_handler(async |event, sink| {
+                .add_event_handler(async |child, event, sink| {
                     let query = match event.as_ref() {
                         PickerEvent::QueryChanged(query) | PickerEvent::ReloadRequested(query) => {
                             query
                         }
                         PickerEvent::InitialLoad | PickerEvent::QueryCleared => return Ok(()),
                     };
-                    executor
-                        .cancellable_scope(|child| async move {
-                            info!(query = %query, "Searching Entra users");
-                            let users = search_entra_users(
-                                query.as_ref(),
-                                self.tenant_id,
-                                self.auth_source,
-                                &child,
-                            )
-                            .await?;
-                            sink.push(users.into_iter().map(user_choice))?;
-                            info!(query = %query, "Finished searching Entra users");
-                            Ok(())
-                        })
-                        .await
+                    info!(query = %query, "Searching Entra users");
+                    let users = search_entra_users(
+                        query.as_ref(),
+                        self.tenant_id,
+                        self.auth_source,
+                        &executor.with_cancellation_scope(child),
+                    )
+                    .await?;
+                    sink.push(users.into_iter().map(user_choice))?;
+                    info!(query = %query, "Finished searching Entra users");
+                    Ok(())
                 })
-                .pick_many_events()
+                .pick_many_events(executor.cancellation())
                 .await
         })
     }

@@ -23,7 +23,7 @@ pub async fn browse_policy_definitions(
             value: def,
         });
     let (chosen, maybe_error) = PickerTui::<_>::new()
-        .pick_many(policy_definitions)
+        .pick_many(policy_definitions, executor.cancellation())
         .await
         .into_chosen_and_maybe_error()?;
     let msg = format!(

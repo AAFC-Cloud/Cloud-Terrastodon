@@ -1,5 +1,7 @@
 use super::pickers::VariantPicker;
 use crate::object_explorer::SlotId;
+use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_command::CancellationToken;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickError;
 use cloud_terrastodon_user_input::PickerTui;
@@ -14,11 +16,15 @@ pub(super) enum VariantPickerOutcome {
 }
 
 pub(super) struct VariantPickerTask {
-    handle: JoinHandle<VariantPickerOutcome>,
+    handle: JoinHandle<eyre::Result<VariantPickerOutcome>>,
+    cancellation: CancellationToken,
 }
 
 impl VariantPickerTask {
-    pub(super) fn spawn(picker: &VariantPicker) -> Result<Self, String> {
+    pub(super) fn spawn(
+        picker: &VariantPicker,
+        cancellation: &CancellationScope,
+    ) -> Result<Self, String> {
         let choices = picker
             .matches()
             .map(|(variant, label)| Choice {
@@ -36,7 +42,7 @@ impl VariantPickerTask {
         let coordinator = TerminalCoordinator::try_current().ok_or_else(|| {
             "a nested PickerTui needs the object browser's TerminalCoordinator".to_owned()
         })?;
-        let handle = tokio::spawn(async move {
+        let (cancellation, future) = cancellation.with_async_child_scope(move |scope| async move {
             let mut picker = PickerTui::new()
                 .set_header("Pick Variant")
                 .set_auto_accept(false)
@@ -44,15 +50,28 @@ impl VariantPickerTask {
             if let Some(key) = initial_focused {
                 picker = picker.set_initial_focused(key);
             }
-            match picker.pick_one(choices).await {
+            eyre::Ok(match picker.pick_one(choices, &scope).await {
                 Ok(variant) => VariantPickerOutcome::Selected { slot, variant },
                 Err(PickError::Cancelled) => VariantPickerOutcome::Cancelled,
                 Err(error) => VariantPickerOutcome::Failed(error.to_string()),
-            }
+            })
         });
-        Ok(Self { handle })
+        let handle = tokio::spawn(future);
+        Ok(Self {
+            handle,
+            cancellation,
+        })
     }
 
+    pub(super) async fn close(self) {
+        self.cancellation.request_cancel("object browser closed");
+        match self.finish().await {
+            Ok(VariantPickerOutcome::Failed(error)) | Err(error) => {
+                tracing::warn!(%error, "Nested picker failed during shutdown");
+            }
+            Ok(_) => {}
+        }
+    }
     pub(super) fn is_finished(&self) -> bool {
         self.handle.is_finished()
     }
@@ -60,6 +79,7 @@ impl VariantPickerTask {
     pub(super) async fn finish(self) -> Result<VariantPickerOutcome, String> {
         self.handle
             .await
-            .map_err(|error| format!("variant PickerTui task failed: {error}"))
+            .map_err(|error| format!("variant PickerTui task failed: {error}"))?
+            .map_err(|error| error.to_string())
     }
 }

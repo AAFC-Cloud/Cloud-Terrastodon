@@ -13,6 +13,7 @@ use cloud_terrastodon_command::app_work::Loadable;
 use cloud_terrastodon_command::app_work::LoadableWorkBuilder;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use futures::FutureExt;
 use ratatui::crossterm::event;
 use ratatui::crossterm::event::Event;
 use ratatui::crossterm::event::KeyCode;
@@ -32,6 +33,8 @@ use rustc_hash::FxHashSet;
 use std::fmt;
 use std::mem;
 use std::ops::Deref;
+use std::panic::AssertUnwindSafe;
+use std::panic::resume_unwind;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -85,64 +88,105 @@ impl RoleAssignmentPickerApp {
 
     /// Runs the interactive picker. Returns the user's selection or cancellation.
     pub async fn run(mut self) -> Result<RoleAssignmentPickerAppResult> {
-        let (_shutdown, run) =
+        let owner = self.executor.clone();
+        let (_shutdown, run) = owner.with_async_child_scope(move |executor| async move {
+            self.executor = executor;
+            let mut terminal = ratatui::init();
+            // Keep fallible UI work inside this result so every exit
+            // cancels and drains tasks before the execution owner closes.
+            let result = AssertUnwindSafe(async {
+                self.enqueue_initial_work()?;
+                terminal.clear()?;
+                self.ui.status_message = "Loading role assignments and principals...".to_string();
+
+                let result = 'outer: loop {
+                    if self.executor.cancellation().is_cancelled() {
+                        break RoleAssignmentPickerAppResult::Cancelled;
+                    }
+                    // 1. Handle background work completion
+                    self.work.handle_messages(&mut self.data)?;
+
+                    // 2. Handle keyboard input
+                    while event::poll(Duration::from_millis(0))? {
+                        let evt = event::read()?;
+                        if let Some(result) = self.handle_event(evt)? {
+                            break 'outer result;
+                        }
+                    }
+
+                    // 3. Rebuild rows if data changed
+                    if self.data.changed {
+                        self.rebuild_rows_if_ready();
+                    }
+
+                    // 4. Draw the UI
+                    terminal.draw(|frame| self.draw(frame))?;
+
+                    // 5. Throttle loop to avoid busy waiting
+                    tokio::time::sleep(Duration::from_millis(10)).await;
+                };
+
+                eyre::Ok(result)
+            })
+            .catch_unwind()
+            .await;
+            ratatui::restore();
             self.executor
-                .clone()
-                .with_async_child_scope(move |executor| async move {
-                    self.executor = executor;
-                    self.enqueue_initial_work()?;
-
-                    let mut terminal = ratatui::init();
-                    terminal.clear()?;
-                    self.ui.status_message =
-                        "Loading role assignments and principals...".to_string();
-
-                    let result = 'outer: loop {
-                        if self.executor.cancellation().is_cancelled() {
-                            break RoleAssignmentPickerAppResult::Cancelled;
-                        }
-                        // 1. Handle background work completion
-                        self.work.handle_messages(&mut self.data)?;
-
-                        // 2. Handle keyboard input
-                        while event::poll(Duration::from_millis(0))? {
-                            let evt = event::read()?;
-                            if let Some(result) = self.handle_event(evt)? {
-                                break 'outer result;
-                            }
-                        }
-
-                        // 3. Rebuild rows if data changed
-                        if self.data.changed {
-                            self.rebuild_rows_if_ready();
-                        }
-
-                        // 4. Draw the UI
-                        terminal.draw(|frame| self.draw(frame))?;
-
-                        // 5. Throttle loop to avoid busy waiting
-                        tokio::time::sleep(Duration::from_millis(10)).await;
-                    };
-
-                    ratatui::restore();
-                    self.executor
-                        .cancellation()
-                        .request_cancel("role assignment picker closed");
-                    self.work.work_tracker.finish().await?;
+                .cancellation()
+                .request_cancel("role assignment picker closed");
+            let drained = self
+                .work
+                .work_tracker
+                .finish(self.executor.cancellation())
+                .await;
+            match (result, drained) {
+                (Err(panic), drain) => {
+                    if let Err(drain_error) = drain {
+                        tracing::error!(
+                            ?drain_error,
+                            "Background work failed while draining after a picker panic"
+                        );
+                    }
+                    resume_unwind(panic);
+                }
+                (Ok(Err(error)), drain) => {
+                    if let Err(drain_error) = drain {
+                        tracing::error!(
+                            ?drain_error,
+                            "Background work also failed during picker shutdown"
+                        );
+                    }
+                    Err(error)
+                }
+                (Ok(Ok(result)), drain) => {
+                    drain?;
                     Ok(result)
-                });
-        run.await
+                }
+            }
+        });
+        // Construct the interactive child before acquiring this sibling lease:
+        // background reads remain cancellable while an automatic ancestor must
+        // retain the UI long enough to restore the terminal and drain its jobs.
+        owner
+            .cancellation()
+            .deferred(
+                "restore role picker and drain background work",
+                async move |_lifetime| run.await,
+            )
+            .await
     }
 
     fn enqueue_initial_work(&mut self) -> Result<()> {
         let role_auth_context = self.auth_context.clone();
+        let role_executor = self.executor.clone();
         let role_work = LoadableWorkBuilder::<AppData, RoleDefinitionsHolder>::new()
             .description("fetch_all_role_definitions_and_assignments")
             .setter(|state, value| {
                 state.role_definitions_and_assignments = value;
                 state.changed = true;
             })
-            .work(self.executor.cancellable_scope(move |executor| async move {
+            .work(async move |scope| {
+                let executor = role_executor.with_cancellation_scope(scope);
                 let executor = role_auth_context.auth_context.bind_executor(&executor)?;
                 let data = fetch_all_role_definitions_and_assignments(
                     role_auth_context.tenant_id,
@@ -151,18 +195,20 @@ impl RoleAssignmentPickerApp {
                 )
                 .await?;
                 Ok(RoleDefinitionsHolder(data))
-            }))
+            })
             .build()?;
-        role_work.enqueue(&self.work, &mut self.data)?;
+        role_work.enqueue(&self.work, &mut self.data, self.executor.cancellation())?;
 
         let principals_auth_context = self.auth_context.clone();
+        let principals_executor = self.executor.clone();
         let principals_work = LoadableWorkBuilder::<AppData, PrincipalCollectionHolder>::new()
             .description("fetch_all_principals")
             .setter(|state, value| {
                 state.principals = value;
                 state.changed = true;
             })
-            .work(self.executor.cancellable_scope(move |executor| async move {
+            .work(async move |scope| {
+                let executor = principals_executor.with_cancellation_scope(scope);
                 let executor = principals_auth_context
                     .auth_context
                     .bind_executor(&executor)?;
@@ -173,9 +219,9 @@ impl RoleAssignmentPickerApp {
                 )
                 .await?;
                 Ok(PrincipalCollectionHolder(data))
-            }))
+            })
             .build()?;
-        principals_work.enqueue(&self.work, &mut self.data)?;
+        principals_work.enqueue(&self.work, &mut self.data, self.executor.cancellation())?;
 
         Ok(())
     }

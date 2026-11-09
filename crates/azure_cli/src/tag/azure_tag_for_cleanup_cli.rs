@@ -42,7 +42,10 @@ impl AzureTagForCleanupArgs {
 
         let cleanup_policy = {
             match PickerTui::<_>::new()
-                .pick_one(["CandidateForDeletion", "CandidateForReduction", "Other"])
+                .pick_one(
+                    ["CandidateForDeletion", "CandidateForReduction", "Other"],
+                    executor.cancellation(),
+                )
                 .await?
             {
                 "Other" => prompt_line("Please specify the cleanup policy: ").await?,
@@ -52,7 +55,9 @@ impl AzureTagForCleanupArgs {
 
         let resources = fetch_all_resources(&tenant_auth_context, executor).await?;
 
-        let chosen_resources = PickerTui::<_>::new().pick_many(resources).await?;
+        let chosen_resources = PickerTui::<_>::new()
+            .pick_many(resources, executor.cancellation())
+            .await?;
 
         let cleanup_comments = prompt_line("CleanupComments: ").await?;
 

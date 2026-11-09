@@ -455,7 +455,7 @@ impl CloudTerrastodonExecutor {
                     self.admit(selection)? == initialization_partition,
                     "authentication identity changed before cached work initialization"
                 );
-                let mut child = self.with_scope(scope);
+                let mut child = self.with_cancellation_scope(scope);
                 child.mode = ExecutionMode::Normal(attempt);
                 let output = initialize(child, initialization_identity).await?;
                 ensure!(
@@ -566,8 +566,8 @@ impl CloudTerrastodonExecutor {
         let second = self.clone();
         scoped_join::join2(
             &self.cancellation,
-            move |scope| a(first.with_scope(scope)),
-            move |scope| b(second.with_scope(scope)),
+            move |scope| a(first.with_cancellation_scope(scope)),
+            move |scope| b(second.with_cancellation_scope(scope)),
         )
     }
 
@@ -598,9 +598,9 @@ impl CloudTerrastodonExecutor {
         let third = self.clone();
         scoped_join::join3(
             &self.cancellation,
-            move |scope| a(first.with_scope(scope)),
-            move |scope| b(second.with_scope(scope)),
-            move |scope| c(third.with_scope(scope)),
+            move |scope| a(first.with_cancellation_scope(scope)),
+            move |scope| b(second.with_cancellation_scope(scope)),
+            move |scope| c(third.with_cancellation_scope(scope)),
         )
     }
 
@@ -659,10 +659,10 @@ impl CloudTerrastodonExecutor {
         let d_parent = self.clone();
         scoped_join::join4(
             &self.cancellation,
-            move |scope| a(a_parent.with_scope(scope)),
-            move |scope| b(b_parent.with_scope(scope)),
-            move |scope| c(c_parent.with_scope(scope)),
-            move |scope| d(d_parent.with_scope(scope)),
+            move |scope| a(a_parent.with_cancellation_scope(scope)),
+            move |scope| b(b_parent.with_cancellation_scope(scope)),
+            move |scope| c(c_parent.with_cancellation_scope(scope)),
+            move |scope| d(d_parent.with_cancellation_scope(scope)),
         )
     }
 
@@ -731,11 +731,11 @@ impl CloudTerrastodonExecutor {
         let e_parent = self.clone();
         scoped_join::join5(
             &self.cancellation,
-            move |scope| a(a_parent.with_scope(scope)),
-            move |scope| b(b_parent.with_scope(scope)),
-            move |scope| c(c_parent.with_scope(scope)),
-            move |scope| d(d_parent.with_scope(scope)),
-            move |scope| e(e_parent.with_scope(scope)),
+            move |scope| a(a_parent.with_cancellation_scope(scope)),
+            move |scope| b(b_parent.with_cancellation_scope(scope)),
+            move |scope| c(c_parent.with_cancellation_scope(scope)),
+            move |scope| d(d_parent.with_cancellation_scope(scope)),
+            move |scope| e(e_parent.with_cancellation_scope(scope)),
         )
     }
 
@@ -752,7 +752,7 @@ impl CloudTerrastodonExecutor {
     {
         let parent = self.clone();
         self.cancellation
-            .cancellable_scope(move |scope| factory(parent.with_scope(scope)))
+            .cancellable_scope(move |scope| factory(parent.with_cancellation_scope(scope)))
     }
 
     /// Linked child work with its own cancellation signal.
@@ -775,7 +775,7 @@ impl CloudTerrastodonExecutor {
     {
         let parent = self.clone();
         self.cancellation
-            .cancellable_child_scope(move |scope| factory(parent.with_scope(scope)))
+            .cancellable_child_scope(move |scope| factory(parent.with_cancellation_scope(scope)))
     }
 
     /// Cooperative child work whose owner must run checkpoints and shutdown.
@@ -791,7 +791,7 @@ impl CloudTerrastodonExecutor {
     {
         let parent = self.clone();
         self.cancellation
-            .with_async_scope(move |scope| factory(parent.with_scope(scope)))
+            .with_async_scope(move |scope| factory(parent.with_cancellation_scope(scope)))
     }
 
     /// Cooperative child work with an independent cancellation signal.
@@ -813,7 +813,7 @@ impl CloudTerrastodonExecutor {
     {
         let parent = self.clone();
         self.cancellation
-            .with_async_child_scope(move |scope| factory(parent.with_scope(scope)))
+            .with_async_child_scope(move |scope| factory(parent.with_cancellation_scope(scope)))
     }
 
     /// Protected new work; cancellation admission is owned by the supplied scope.
@@ -829,8 +829,9 @@ impl CloudTerrastodonExecutor {
         E: From<CancellationError>,
     {
         let parent = self.clone();
-        self.cancellation
-            .deferred(explanation, move |scope| factory(parent.with_scope(scope)))
+        self.cancellation.deferred(explanation, move |scope| {
+            factory(parent.with_cancellation_scope(scope))
+        })
     }
 
     /// Cleanup already owed, admitted even after cancellation was requested.
@@ -847,12 +848,17 @@ impl CloudTerrastodonExecutor {
     {
         let parent = self.clone();
         self.cancellation
-            .finish_required(explanation, move |scope| factory(parent.with_scope(scope)))
+            .finish_required(explanation, move |scope| {
+                factory(parent.with_cancellation_scope(scope))
+            })
     }
 
-    // Internal coordinators rebind only to their owned child scopes, preserving
-    // execution ancestry and restrictions without exposing arbitrary rebinding.
-    pub(crate) fn with_scope(&self, cancellation: CancellationScope) -> Self {
+    /// Bind execution to a child scope supplied by an owning coordinator.
+    ///
+    /// Authentication, cache ownership, observation, and execution restrictions
+    /// are preserved. Keep the returned executor within the callback or future
+    /// that owns the supplied scope; cloning a scope does not extend its lifetime.
+    pub fn with_cancellation_scope(&self, cancellation: CancellationScope) -> Self {
         Self {
             cancellation,
             ..self.clone()

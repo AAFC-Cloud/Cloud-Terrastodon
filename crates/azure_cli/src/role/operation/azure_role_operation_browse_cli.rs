@@ -34,7 +34,8 @@ impl AzureRoleOperationBrowseArgs {
         let tenant_id = tenant_auth_context.tenant_id;
         let auth_source = tenant_auth_context.auth_context.azure_bearer_source()?;
         let (chosen, maybe_error) = PickerTui::<_>::new()
-            .pick_many_reloadable(|invalidate| async move {
+            .pick_many_reloadable(executor.cancellation(), async |child, invalidate| {
+                let executor = &executor.with_cancellation_scope(child);
                 info!(%tenant_id, "Fetching Azure provider operations metadata");
                 let provider_operations =
                     fetch_all_role_operation_metadata(tenant_id, auth_source, executor)

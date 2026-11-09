@@ -768,7 +768,10 @@ impl ObjectBrowserApp {
         let Some(picker) = self.value_picker.as_ref() else {
             return false;
         };
-        match ValuePickerTask::spawn(picker) {
+        let Some(cancellation) = &self.cancellation else {
+            return false;
+        };
+        match ValuePickerTask::spawn(picker, cancellation) {
             Ok(task) => {
                 self.value_picker_task = Some(task);
                 self.mode = BrowserMode::NestedPicker;
@@ -783,7 +786,10 @@ impl ObjectBrowserApp {
         let Some(picker) = self.variant_picker.as_ref() else {
             return false;
         };
-        match VariantPickerTask::spawn(picker) {
+        let Some(cancellation) = &self.cancellation else {
+            return false;
+        };
+        match VariantPickerTask::spawn(picker, cancellation) {
             Ok(task) => {
                 self.variant_picker_task = Some(task);
                 self.mode = BrowserMode::NestedPicker;
@@ -798,7 +804,10 @@ impl ObjectBrowserApp {
         let Some(picker) = self.link_action_picker.as_ref() else {
             return false;
         };
-        match LinkActionPickerTask::spawn(picker) {
+        let Some(cancellation) = &self.cancellation else {
+            return false;
+        };
+        match LinkActionPickerTask::spawn(picker, cancellation) {
             Ok(task) => {
                 self.link_action_picker_task = Some(task);
                 self.mode = BrowserMode::NestedPicker;
@@ -942,7 +951,12 @@ impl ObjectBrowserApp {
     }
 
     fn start_shape_picker(&mut self) -> Result<(), ObjectBrowserControllerError> {
-        match ShapePickerTask::spawn() {
+        match self
+            .cancellation
+            .as_ref()
+            .ok_or_else(|| "Object browser has no cancellation scope".to_owned())
+            .and_then(ShapePickerTask::spawn)
+        {
             Ok(task) => {
                 self.shape_picker_task = Some(task);
                 self.mode = BrowserMode::NestedPicker;
@@ -1360,7 +1374,12 @@ impl ObjectBrowserApp {
             breadcrumbs.operations(),
             Some(&context),
         );
-        match BreadcrumbMenuTask::spawn(&picker) {
+        match self
+            .cancellation
+            .as_ref()
+            .ok_or_else(|| "Object browser has no cancellation scope".to_owned())
+            .and_then(|cancellation| BreadcrumbMenuTask::spawn(&picker, cancellation))
+        {
             Ok(task) => {
                 self.breadcrumb_menu_task = Some(task);
                 self.mode = BrowserMode::NestedPicker;
@@ -1446,14 +1465,21 @@ impl ObjectBrowserApp {
             )
             .await?;
         let inspected = snapshot.inspected();
-        match BreadcrumbValuePickerTask::spawn(
-            edit_index,
-            field_shape.clone(),
-            field_name.clone(),
-            operator,
-            snapshot,
-            initial_value.clone(),
-        ) {
+        match self
+            .cancellation
+            .as_ref()
+            .ok_or_else(|| "Object browser has no cancellation scope".to_owned())
+            .and_then(|cancellation| {
+                BreadcrumbValuePickerTask::spawn(
+                    edit_index,
+                    field_shape.clone(),
+                    field_name.clone(),
+                    operator,
+                    snapshot,
+                    initial_value.clone(),
+                    cancellation,
+                )
+            }) {
             Ok(task) => {
                 self.breadcrumb_value_picker_task = Some(task);
                 self.mode = BrowserMode::NestedPicker;
@@ -1585,7 +1611,18 @@ impl ObjectBrowserApp {
             .inspect_breadcrumb_context(prefix_len, Self::FRAME_WORK, 2_048)
             .await?;
         let inspected = snapshot.inspected();
-        match BreadcrumbPickerTask::shapes(&snapshot, edit_index, &initially_included) {
+        match self
+            .cancellation
+            .as_ref()
+            .ok_or_else(|| "Object browser has no cancellation scope".to_owned())
+            .and_then(|cancellation| {
+                BreadcrumbPickerTask::shapes(
+                    &snapshot,
+                    edit_index,
+                    &initially_included,
+                    cancellation,
+                )
+            }) {
             Ok(task) => {
                 self.breadcrumb_picker_task = Some(task);
                 self.mode = BrowserMode::NestedPicker;
@@ -1611,7 +1648,13 @@ impl ObjectBrowserApp {
             .inspect_breadcrumb_context(prefix_len, Self::FRAME_WORK, 2_048)
             .await?;
         let inspected = snapshot.inspected();
-        match BreadcrumbFilterFieldPickerTask::spawn(&snapshot) {
+        match self
+            .cancellation
+            .as_ref()
+            .ok_or_else(|| "Object browser has no cancellation scope".to_owned())
+            .and_then(|cancellation| {
+                BreadcrumbFilterFieldPickerTask::spawn(&snapshot, cancellation)
+            }) {
             Ok(task) => {
                 self.breadcrumb_filter_field_picker_task = Some(task);
                 self.mode = BrowserMode::NestedPicker;
@@ -1642,7 +1685,19 @@ impl ObjectBrowserApp {
             .inspect_breadcrumb_context(prefix_len, Self::FRAME_WORK, 2_048)
             .await?;
         let inspected = snapshot.inspected();
-        match BreadcrumbPickerTask::fields(&snapshot, edit_index, mode, &initially_included) {
+        match self
+            .cancellation
+            .as_ref()
+            .ok_or_else(|| "Object browser has no cancellation scope".to_owned())
+            .and_then(|cancellation| {
+                BreadcrumbPickerTask::fields(
+                    &snapshot,
+                    edit_index,
+                    mode,
+                    &initially_included,
+                    cancellation,
+                )
+            }) {
             Ok(task) => {
                 self.breadcrumb_picker_task = Some(task);
                 self.mode = BrowserMode::NestedPicker;

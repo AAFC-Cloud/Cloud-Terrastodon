@@ -23,10 +23,13 @@ pub async fn create_role_assignment_menu(
     .await?;
     let role_definitions = PickerTui::<_>::new()
         .set_header("Roles to assign")
-        .pick_many(role_definitions.iter().cloned().map(|r| Choice {
-            key: r.display_name.to_owned(),
-            value: r,
-        }))
+        .pick_many(
+            role_definitions.iter().cloned().map(|r| Choice {
+                key: r.display_name.to_owned(),
+                value: r,
+            }),
+            executor.cancellation(),
+        )
         .await?;
 
     info!("Fetching principals");
@@ -41,10 +44,13 @@ pub async fn create_role_assignment_menu(
             "Assigning {}",
             role_definitions.iter().map(|r| &r.display_name).join(", ")
         ))
-        .pick_many(users.iter().cloned().map(|u| Choice {
-            key: format!("{} {:64} {}", u.id, u.display_name, u.user_principal_name),
-            value: u,
-        }))
+        .pick_many(
+            users.iter().cloned().map(|u| Choice {
+                key: format!("{} {:64} {}", u.id, u.display_name, u.user_principal_name),
+                value: u,
+            }),
+            executor.cancellation(),
+        )
         .await?;
 
     info!("Fetching resources");
@@ -55,10 +61,13 @@ pub async fn create_role_assignment_menu(
             role_definitions.iter().map(|r| &r.display_name).join(", "),
             principals.iter().map(|p| &p.display_name).join(", ")
         ))
-        .pick_many(resources.into_iter().map(|resource| Choice {
-            key: resource.id.to_string(),
-            value: resource,
-        }))
+        .pick_many(
+            resources.into_iter().map(|resource| Choice {
+                key: resource.id.to_string(),
+                value: resource,
+            }),
+            executor.cancellation(),
+        )
         .await?;
 
     let mut total = 0;

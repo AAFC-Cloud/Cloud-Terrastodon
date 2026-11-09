@@ -227,7 +227,7 @@ impl MenuAction {
             }
             MenuAction::PerformImport => perform_import(cancellation).await?,
             MenuAction::ProcessGenerated => process_generated(auth_context, executor).await?,
-            MenuAction::Clean => clean_all_menu().await?,
+            MenuAction::Clean => clean_all_menu(cancellation).await?,
             MenuAction::CreateRoleAssignment => {
                 create_role_assignment_menu(auth_context, executor).await?
             }
@@ -253,7 +253,7 @@ impl MenuAction {
             }
             MenuAction::UseTofu => unsafe { env::set_var(USE_TOFU_FLAG_KEY, "1") },
             MenuAction::UseTerraform => unsafe { env::remove_var(USE_TOFU_FLAG_KEY) },
-            MenuAction::OpenDir => open_dir().await?,
+            MenuAction::OpenDir => open_dir(cancellation).await?,
             MenuAction::Quit => return Ok(MenuActionResult::QuitApplication),
             MenuAction::TagEmptyResourceGroups => {
                 tag_empty_resource_group_menu(auth_context, executor).await?

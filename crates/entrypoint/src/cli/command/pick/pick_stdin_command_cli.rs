@@ -51,12 +51,16 @@ impl PickStdinArgs {
     pub(crate) async fn invoke(
         self,
         common: PickCommonArgs,
-        _cancellation: &CancellationScope,
+        cancellation: &CancellationScope,
     ) -> Result<()> {
-        self.invoke_inner(common).await
+        self.invoke_inner(common, cancellation).await
     }
 
-    async fn invoke_inner(self, common: PickCommonArgs) -> Result<()> {
+    async fn invoke_inner(
+        self,
+        common: PickCommonArgs,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         let stdin_buf = trace_span!("pick_stdin_read").in_scope(|| {
             let mut stdin_buf = String::new();
             std::io::stdin().read_to_string(&mut stdin_buf)?;
@@ -84,7 +88,7 @@ impl PickStdinArgs {
                 let rtn = PickerTui::<_>::new()
                     .set_auto_accept(common.auto_accept)
                     .set_query(common.default_query.unwrap_or_default())
-                    .pick_inner(!common.single, choices)
+                    .pick_inner(!common.single, choices, cancellation)
                     .await?;
 
                 crate::serde_json_isolation::to_writer_pretty(std::io::stdout(), &rtn)?;
@@ -104,7 +108,7 @@ impl PickStdinArgs {
                 let rtn = PickerTui::<_>::new()
                     .set_auto_accept(common.auto_accept)
                     .set_query(common.default_query.unwrap_or_default())
-                    .pick_inner(!common.single, choices)
+                    .pick_inner(!common.single, choices, cancellation)
                     .await?;
 
                 write_selected_lines(&rtn)?;

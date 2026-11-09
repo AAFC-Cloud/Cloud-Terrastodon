@@ -17,7 +17,7 @@ pub async fn browse_role_assignments(
     info!("Picking");
     let (chosen, maybe_error): (Vec<Arc<RoleAssignment>>, _) = PickerTui::<_>::new()
         .set_header("Role assignments")
-        .pick_many(choices)
+        .pick_many(choices, executor.cancellation())
         .await
         .into_chosen_and_maybe_error()?;
 

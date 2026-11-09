@@ -16,7 +16,7 @@ pub async fn jump_to_block(dir: PathBuf, cancellation: &CancellationScope) -> Re
 
     let chosen = PickerTui::<_>::new()
         .set_header("Blocks")
-        .pick_one(choices)
+        .pick_one(choices, cancellation)
         .await?;
     CommandBuilder::new(CommandKind::VSCode)
         .cancellation_safe()

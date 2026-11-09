@@ -43,7 +43,7 @@ pub trait ConcurrentIteratorExt: Iterator + Sized {
     {
         let parent = executor.clone();
         self.map_concurrent_scoped(executor.cancellation(), limit, move |scope, item| {
-            factory(parent.with_scope(scope), item)
+            factory(parent.with_cancellation_scope(scope), item)
         })
     }
 

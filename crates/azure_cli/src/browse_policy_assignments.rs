@@ -233,7 +233,7 @@ pub async fn browse_policy_assignments(
         }
     }
     let (chosen, maybe_error) = PickerTui::<_>::new()
-        .pick_many(choices)
+        .pick_many(choices, executor.cancellation())
         .await
         .into_chosen_and_maybe_error()?;
     info!("You chose:\n{}", chosen.iter().join("\n=====\n"));

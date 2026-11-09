@@ -20,7 +20,8 @@ pub async fn copy_azurerm_backend_menu(
     info!("Picking storage account");
     let chosen_storage_account = PickerTui::<_>::new()
         .set_header("Picking the storage account for the state file")
-        .pick_one_reloadable(async |invalidate| {
+        .pick_one_reloadable(executor.cancellation(), async |child, invalidate| {
+            let executor = &executor.with_cancellation_scope(child);
             info!("Fetching storage accounts");
             info!("Fetching subscriptions");
             let (storage_accounts, subscriptions) = join!(
@@ -55,7 +56,8 @@ pub async fn copy_azurerm_backend_menu(
     info!("Fetching blob containers for {}", chosen_storage_account.1);
     let chosen_blob_container = PickerTui::<_>::new()
         .set_header("Blob Container Name")
-        .pick_one_reloadable(async |invalidate| {
+        .pick_one_reloadable(executor.cancellation(), async |child, invalidate| {
+            let executor = &executor.with_cancellation_scope(child);
             let blob_container_names = fetch_storage_account_blob_container_names(
                 &chosen_storage_account.0.id,
                 auth_context,

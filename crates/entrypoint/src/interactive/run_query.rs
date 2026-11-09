@@ -81,7 +81,10 @@ resources
         let run_another_query = "run another query";
         let return_to_menu = "return to menu";
         let next = PickerTui::<_>::new()
-            .pick_one(vec![run_another_query, return_to_menu])
+            .pick_one(
+                vec![run_another_query, return_to_menu],
+                executor.cancellation(),
+            )
             .await?;
         match next {
             x if x == run_another_query => continue,

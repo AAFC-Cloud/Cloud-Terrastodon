@@ -51,7 +51,7 @@ impl AzurePolicySetDefinitionBrowseArgs {
 
         let (chosen, maybe_error): (Vec<Arc<PolicySetDefinition>>, _) = PickerTui::<_>::new()
             .set_header("Select Azure policy set definitions")
-            .pick_many(choices)
+            .pick_many(choices, executor.cancellation())
             .await
             .into_chosen_and_maybe_error()?;
 

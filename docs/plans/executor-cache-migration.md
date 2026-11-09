@@ -88,6 +88,11 @@ of the unused interactive cache-population workflow. The audit identified picker
 handler reload/exit draining and background-task shutdown as a separate lifecycle
 follow-up before task 6.1. See
 [scoped join review](scoped-join-review.md) for the remaining coordinators.
+U117's checkpoint is `8af2d188`, `Coordinate concurrent work with scoped cancellation and draining`.
+U118 authorizes the interactive handler/background shutdown follow-up from that
+checkpoint. Implementation and offline validation are complete: 86 focused tests,
+workspace all-target compilation, picker feature compilation, and affected-crate
+Clippy pass. Changes remain uncommitted for review. Audit extraction (6.1) is next.
 U115 approves iterator-owned mapping through `ConcurrentIteratorExt`, with
 explicit executor/scope methods and no redundant executor mapping method. Callers
 are migrated; 23 focused tests, two documentation examples, workspace compilation,
@@ -148,7 +153,24 @@ that checkpoint; U82 begins task 4.1 below.
 
 **Planning method:** User-invoked `resumable-implementation-plans` skill.
 
-**Current authorization:** U104 authorizes completing all three phase 5 SDK
+**U118 intent audit — 2026-11-09:** Reconciled the latest request to proceed with
+the preceding next-task description, the preserved user ledger, and the current
+development conventions. The scope is interactive cancellation ownership, with
+scope-only UI APIs, explicit child-executor binding where SDK work needs it,
+synthetic validation, and an uncommitted review boundary. Independent review
+identified terminal-poison handoff races, nested-picker lifetime retention, GUI
+admission-before-callback ordering, and idle cancellation wakeup; these fixes
+belong to this ownership task. Audit policies and service behavior are unchanged.
+Earlier historical mappings remain the preserved ledger rather than a claimed
+fresh reconstruction of unavailable assistant turns.
+
+**Current authorization:** U118 authorizes completing the interactive handler and
+background-task shutdown follow-up, including the necessary scope API/caller
+cutover and offline lifecycle tests. Leave this work uncommitted for review;
+audit extraction (6.1) remains the next distinct implementation task. No live
+credential or production-data access is authorized.
+
+**Phase 5 authorization history:** U104 authorized completing all three phase 5 SDK
 vertical slices, their shared observation support, necessary consumers, and offline
 verification. Requests retain explicit tenant/source or DevOps auth selection;
 runtime providers remain executor-owned. Aggregate caches are memory-only and
@@ -1109,6 +1131,7 @@ do not silently rewrite earlier guidance.
 | U115 | Make concurrent mapping an iterator extension with an explicit executor argument; approve the proposed scope-only variant and removal of the executor mapping method. | Add `ConcurrentIteratorExt::map_concurrent` and `map_concurrent_scoped`, migrate all callers, and keep one private coordination implementation. Preserve cancellation, error policies, borrowing, and staging without compatibility exports. | — |
 | U116 | Implement `Copy` for UUID newtypes and remove redundant ID clones. | Audit UUID wrappers, add missing derives, and update affected callers using compiler diagnostics. Preserve non-UUID ownership and validate offline. | — |
 | U117 | Commit the accumulated changes after the approved concurrency refinements and removal of the unused cache-population workflow. | Create a local checkpoint of the reviewed staged changes; retain the separate interactive shutdown follow-up. No push requested. | Supersedes the checkpoint's no-commit boundary |
+| U118 | Proceed with the next planned interactive cancellation follow-up. | Complete picker generation cancellation/draining and background shutdown ownership, propagate explicit child scopes, and validate without production data. Leave changes uncommitted. | Complete; awaiting review |
 
 U18 supersedes the earlier assistant suggestion to preserve an Azure CLI
 active-tenant selection. That suggestion was not user approval. U13 rejects the
@@ -1246,6 +1269,7 @@ not an implemented package; U61 selects `auth_types` paired with runtime `auth`.
 | U115 | Iterator mapping refinement below | Iterator extension and caller migration complete; 23 focused tests, two documentation examples, workspace compilation, and affected-crate Clippy pass. Existing staging preserved. |
 | U116 | UUID value semantics refinement below | All 25 direct UUID wrappers implement `Copy`; eight missing derives added. Redundant caller clones removed; workspace all-target Clippy with `clone_on_copy` denied passes. |
 | U117 | Scoped concurrency review and local checkpoint | Prior workspace/affected-crate checks and selected local tests passed; final mapping tests and execution/entrypoint all-target Clippy passed after preallocated paired-vector ordering and cache-population removal. |
+| U118 | Interactive handler/background ownership follow-up; scoped join review | 86 focused offline tests, workspace all-target compilation, all-feature picker compilation, and warnings-denied all-target Clippy across 11 affected crates pass. Independent reviews resolved nested terminal/poison races and GUI shutdown gaps. Changes remain uncommitted. |
 
 ## Purpose and scope
 
@@ -4568,14 +4592,15 @@ Formatting and whitespace checks pass. Existing staging is preserved; changes
 remain uncommitted. No live-service or Terraform tests ran. Reproduction commands
 are recorded in [scoped join review](scoped-join-review.md).
 
-### [ ] Interactive handler and background-task ownership follow-up
+### [x] Interactive handler and background-task ownership follow-up
 
-**Finding:** `picker_tui.rs` replaces its `FuturesUnordered` handler collection on
-reload and drops it on exit; early errors can also abandon handlers. Entra picker
+**Finding before implementation:** `picker_tui.rs` replaced its `FuturesUnordered`
+handler collection on reload and dropped it on exit; early errors could also
+abandon handlers. Entra picker
 handlers call real SDK requests, which can owe response decoding/artifact
 completion. These are event-driven handlers, not a finite input batch.
 
-`AppWorkTracker::finish` also aborts work marked discardable, including the role
+`AppWorkTracker::finish` also aborted work marked discardable, including the role
 assignment picker's principal/RBAC loads. A cancellation request before that
 abort does not preserve required descendants. Its `JoinError` path can return
 before retaining all remaining jobs. Include this shutdown owner in the follow-up.
@@ -4592,6 +4617,30 @@ jobs, and retain all started jobs when another job fails or panics.
 **Validation:** Use synthetic pending handlers with required completion and a fake
 candidate channel to verify reload/exit/error draining and obsolete-generation
 isolation. Do not resolve credentials or read service inventories.
+
+**Completed work — 2026-11-09:** Implemented picker session/handler ownership,
+explicit caller scopes (including nested terminal pickers), and application
+background shutdown. Picker
+callbacks receive their own scope; SDK callbacks rebind the executor while
+preserving its execution restrictions. Terminal restoration retains the owner
+without shielding optional handler work. The tab warning becomes an in-picker
+notification so a blocking stdin reader cannot survive cancellation. Background
+shutdown closes admission and drains every started job even after errors/panics.
+GUI shutdown wakes idle windows and retains jobs before invoking application
+callbacks. Poisoned terminal owners retire nested frames without attempting
+unsafe resume handoffs. The final intent audit and independent reviews found no
+remaining required work in this slice.
+
+**Completion evidence — 2026-11-09:** All 86 focused tests pass: 64 user-input
+tests, 14 execution contracts, four command background-work tests, one GUI tracker
+test, two Ratatui shutdown tests, and one temporary-filesystem picker test. The
+manual terminal test remains ignored. Workspace all-target compilation,
+all-feature/all-target picker compilation, and all-target Clippy with warnings
+denied across 11 affected crates pass. Formatting and whitespace checks pass.
+No native UI was manually exercised, and no production services, credentials,
+configuration, or caches were accessed. Staging remains empty and changes are
+uncommitted. Reproduction commands are in the
+[scoped join review](scoped-join-review.md#interactive-lifecycle-verification).
 
 ## Phase 6 — audits, application ownership, and interactive consumers
 

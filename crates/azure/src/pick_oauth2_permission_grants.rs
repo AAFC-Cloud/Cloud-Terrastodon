@@ -143,7 +143,7 @@ pub async fn pick_oauth2_permission_grants(
             });
             let chosen = PickerTui::<_>::new()
                 .set_header("Pick the items to browse")
-                .pick_many(choices)
+                .pick_many(choices, executor.cancellation())
                 .await;
             eyre::Ok(chosen)
         })

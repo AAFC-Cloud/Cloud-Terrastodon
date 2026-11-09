@@ -153,8 +153,9 @@ mod tests {
                     &cancellation,
                 )?;
                 let chosen = PickerTui::<_>::new()
-                    .pick_many_reloadable(async |invalidate| {
-                        let tenant_id = get_test_tenant_id(&cancellation).await?;
+                    .pick_many_reloadable(executor.cancellation(), async |child, invalidate| {
+                        let executor = executor.with_cancellation_scope(child);
+                        let tenant_id = get_test_tenant_id(executor.cancellation()).await?;
                         if invalidate {
                             fetch_all_resource_groups(
                                 &AuthContext::explicit_azure_cli()

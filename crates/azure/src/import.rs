@@ -83,17 +83,16 @@ impl HclImportable {
         Ok(rtn)
     }
     pub async fn pick(cancellation: &CancellationScope) -> eyre::Result<HclImportable> {
-        cancellation
-            .cancellable_scope(|_| async move {
-                Ok(PickerTui::<_>::new()
-                    .set_header("Pick the kind of thing to import")
-                    .pick_one(HclImportable::VARIANTS.iter().copied().map(|x| Choice {
-                        key: x.to_string(),
-                        value: x,
-                    }))
-                    .await?)
-            })
-            .await
+        Ok(PickerTui::<_>::new()
+            .set_header("Pick the kind of thing to import")
+            .pick_one(
+                HclImportable::VARIANTS.iter().copied().map(|x| Choice {
+                    key: x.to_string(),
+                    value: x,
+                }),
+                cancellation,
+            )
+            .await?)
     }
     pub async fn pick_into_body(
         self,
@@ -105,7 +104,7 @@ impl HclImportable {
                 let import_blocks = self.try_into_import_blocks(auth_context, &executor).await?;
                 let import_blocks = PickerTui::<_>::new()
                     .set_header("Pick the resources to import")
-                    .pick_many(import_blocks)
+                    .pick_many(import_blocks, executor.cancellation())
                     .await?;
                 let providers = import_blocks
                     .iter()

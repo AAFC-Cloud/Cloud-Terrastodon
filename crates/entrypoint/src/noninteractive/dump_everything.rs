@@ -119,7 +119,7 @@ pub async fn dump_everything_inner(
     let cancellation = executor.cancellation();
     let strategy = *PickerTui::<_>::new()
         .set_header("Dump strategy")
-        .pick_one(Strategy::VARIANTS)
+        .pick_one(Strategy::VARIANTS, executor.cancellation())
         .await?;
 
     #[derive(VariantArray, Debug)]
@@ -160,7 +160,7 @@ pub async fn dump_everything_inner(
     }
     let behaviour = PickerTui::<_>::new()
         .set_header("What do you want to run?")
-        .pick_one(Behaviour::VARIANTS)
+        .pick_one(Behaviour::VARIANTS, executor.cancellation())
         .await?;
 
     let should_clean = matches!(
@@ -174,7 +174,8 @@ pub async fn dump_everything_inner(
                 .into_iter()
                 .map(|x| x.as_path_buf())
                 .filter(|x| x.exists()),
-                "Previous runs can leave dangling processes if aborted. Select the ones you want to kill".to_string()
+                "Previous runs can leave dangling processes if aborted. Select the ones you want to kill".to_string(),
+            cancellation,
         )
         .await?;
         for dir in [AppDir::Imports, AppDir::Processed] {

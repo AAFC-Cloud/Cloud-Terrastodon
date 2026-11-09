@@ -1,5 +1,7 @@
 use crate::object_explorer::BreadcrumbContextSnapshot;
 use crate::object_explorer::ValueFilterOperator;
+use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_command::CancellationToken;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickError;
 use cloud_terrastodon_user_input::PickerTui;
@@ -18,11 +20,15 @@ pub(super) enum BreadcrumbFilterFieldPickerOutcome {
 }
 
 pub(super) struct BreadcrumbFilterFieldPickerTask {
-    handle: JoinHandle<BreadcrumbFilterFieldPickerOutcome>,
+    handle: JoinHandle<eyre::Result<BreadcrumbFilterFieldPickerOutcome>>,
+    cancellation: CancellationToken,
 }
 
 impl BreadcrumbFilterFieldPickerTask {
-    pub(super) fn spawn(snapshot: &BreadcrumbContextSnapshot) -> Result<Self, String> {
+    pub(super) fn spawn(
+        snapshot: &BreadcrumbContextSnapshot,
+        cancellation: &CancellationScope,
+    ) -> Result<Self, String> {
         let choices = snapshot
             .fields()
             .iter()
@@ -49,28 +55,43 @@ impl BreadcrumbFilterFieldPickerTask {
         let coordinator = TerminalCoordinator::try_current().ok_or_else(|| {
             "a nested PickerTui needs the object browser's TerminalCoordinator".to_owned()
         })?;
-        let handle = tokio::spawn(async move {
-            match PickerTui::new()
-                .set_header("Filter fields")
-                .set_auto_accept(false)
-                .terminal_coordinator(coordinator)
-                .pick_one(choices)
-                .await
-            {
-                Ok((field_shape, field_name, operator)) => {
-                    BreadcrumbFilterFieldPickerOutcome::Selected {
-                        field_shape,
-                        field_name,
-                        operator,
+        let (cancellation, future) = cancellation.with_async_child_scope(move |scope| async move {
+            eyre::Ok(
+                match PickerTui::new()
+                    .set_header("Filter fields")
+                    .set_auto_accept(false)
+                    .terminal_coordinator(coordinator)
+                    .pick_one(choices, &scope)
+                    .await
+                {
+                    Ok((field_shape, field_name, operator)) => {
+                        BreadcrumbFilterFieldPickerOutcome::Selected {
+                            field_shape,
+                            field_name,
+                            operator,
+                        }
                     }
-                }
-                Err(PickError::Cancelled) => BreadcrumbFilterFieldPickerOutcome::Cancelled,
-                Err(error) => BreadcrumbFilterFieldPickerOutcome::Failed(error.to_string()),
-            }
+                    Err(PickError::Cancelled) => BreadcrumbFilterFieldPickerOutcome::Cancelled,
+                    Err(error) => BreadcrumbFilterFieldPickerOutcome::Failed(error.to_string()),
+                },
+            )
         });
-        Ok(Self { handle })
+        let handle = tokio::spawn(future);
+        Ok(Self {
+            handle,
+            cancellation,
+        })
     }
 
+    pub(super) async fn close(self) {
+        self.cancellation.request_cancel("object browser closed");
+        match self.finish().await {
+            Ok(BreadcrumbFilterFieldPickerOutcome::Failed(error)) | Err(error) => {
+                tracing::warn!(%error, "Nested picker failed during shutdown");
+            }
+            Ok(_) => {}
+        }
+    }
     pub(super) fn is_finished(&self) -> bool {
         self.handle.is_finished()
     }
@@ -78,6 +99,7 @@ impl BreadcrumbFilterFieldPickerTask {
     pub(super) async fn finish(self) -> Result<BreadcrumbFilterFieldPickerOutcome, String> {
         self.handle
             .await
-            .map_err(|error| format!("breadcrumb filter field PickerTui task failed: {error}"))
+            .map_err(|error| format!("breadcrumb filter field PickerTui task failed: {error}"))?
+            .map_err(|error| error.to_string())
     }
 }

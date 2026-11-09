@@ -45,7 +45,7 @@ impl AzureResourceBrowseArgs {
 
         let (chosen, maybe_error): (Vec<Arc<Resource>>, _) = PickerTui::<_>::new()
             .set_header("Select Azure resources")
-            .pick_many(choices)
+            .pick_many(choices, executor.cancellation())
             .await
             .into_chosen_and_maybe_error()?;
 

@@ -6,7 +6,7 @@ use eyre::Result;
 use opener::open;
 use tokio::fs::try_exists;
 
-pub async fn open_dir() -> Result<()> {
+pub async fn open_dir(cancellation: &CancellationScope) -> Result<()> {
     let mut choices = Vec::new();
     for dir in AppDir::variants() {
         let exists = try_exists(dir.as_path_buf()).await?;
@@ -22,7 +22,7 @@ pub async fn open_dir() -> Result<()> {
     }
     let dirs_to_open = PickerTui::<_>::new()
         .set_header("Choose directories to open")
-        .pick_many(choices)
+        .pick_many(choices, cancellation)
         .await?;
     for v in dirs_to_open {
         let (dir, exists) = v;
@@ -34,3 +34,4 @@ pub async fn open_dir() -> Result<()> {
 
     Ok(())
 }
+use cloud_terrastodon_command::CancellationScope;

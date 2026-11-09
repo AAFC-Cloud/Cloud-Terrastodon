@@ -43,6 +43,7 @@ pub async fn evaluate_policy_assignment_compliance(
                     ),
                     value: ass,
                 }),
+            executor.cancellation(),
         )
         .await?;
 
@@ -91,13 +92,16 @@ policyResources
 
     let chosen_reference_id: Arc<PolicyNoncomplianceReferenceRow> = PickerTui::<_>::new()
         .set_header("Choose an inner policy to review")
-        .pick_one(reference_ids.into_iter().map(|row| Choice {
-            key: format!(
-                "{:64} - {:64} - {} non-compliant resources",
-                row.policy_definition_reference_id, row.resource_type, row.found
-            ),
-            value: row,
-        }))
+        .pick_one(
+            reference_ids.into_iter().map(|row| Choice {
+                key: format!(
+                    "{:64} - {:64} - {} non-compliant resources",
+                    row.policy_definition_reference_id, row.resource_type, row.found
+                ),
+                value: row,
+            }),
+            executor.cancellation(),
+        )
         .await?;
 
     info!(
@@ -156,27 +160,30 @@ policyResources
             "{} - {}",
             chosen_reference_id.policy_definition_reference_id, chosen_reference_id.resource_type,
         ))
-        .pick_one(resource_ids.into_iter().map(|row| {
-            let resource_id = row.resource_id.expanded_form();
-            Choice {
-                key: format!(
-                    "{:16} - {:64} - {}",
-                    row.subscription_name
-                        .as_ref()
-                        .map(|name| name.as_str())
-                        .unwrap_or(""),
-                    row.resource_group_name
-                        .as_ref()
-                        .map(|name| name.as_str())
-                        .unwrap_or(""),
-                    resource_id
-                        .rsplit_once('/')
-                        .map(|x| x.1)
-                        .unwrap_or(&resource_id)
-                ),
-                value: row,
-            }
-        }))
+        .pick_one(
+            resource_ids.into_iter().map(|row| {
+                let resource_id = row.resource_id.expanded_form();
+                Choice {
+                    key: format!(
+                        "{:16} - {:64} - {}",
+                        row.subscription_name
+                            .as_ref()
+                            .map(|name| name.as_str())
+                            .unwrap_or(""),
+                        row.resource_group_name
+                            .as_ref()
+                            .map(|name| name.as_str())
+                            .unwrap_or(""),
+                        resource_id
+                            .rsplit_once('/')
+                            .map(|x| x.1)
+                            .unwrap_or(&resource_id)
+                    ),
+                    value: row,
+                }
+            }),
+            executor.cancellation(),
+        )
         .await?;
 
     info!(

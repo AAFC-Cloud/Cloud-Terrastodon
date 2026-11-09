@@ -1,5 +1,7 @@
 use super::pickers::LinkActionPicker;
 use crate::object_explorer::FieldCandidateAction;
+use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_command::CancellationToken;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickError;
 use cloud_terrastodon_user_input::PickerTui;
@@ -14,11 +16,15 @@ pub(super) enum LinkActionPickerOutcome {
 }
 
 pub(super) struct LinkActionPickerTask {
-    handle: JoinHandle<LinkActionPickerOutcome>,
+    handle: JoinHandle<eyre::Result<LinkActionPickerOutcome>>,
+    cancellation: CancellationToken,
 }
 
 impl LinkActionPickerTask {
-    pub(super) fn spawn(picker: &LinkActionPicker) -> Result<Self, String> {
+    pub(super) fn spawn(
+        picker: &LinkActionPicker,
+        cancellation: &CancellationScope,
+    ) -> Result<Self, String> {
         let choices = picker
             .consequences()
             .iter()
@@ -33,22 +39,37 @@ impl LinkActionPickerTask {
         let coordinator = TerminalCoordinator::try_current().ok_or_else(|| {
             "a nested PickerTui needs the object browser's TerminalCoordinator".to_owned()
         })?;
-        let handle = tokio::spawn(async move {
-            match PickerTui::new()
-                .set_header("Move or Clone")
-                .set_auto_accept(false)
-                .terminal_coordinator(coordinator)
-                .pick_one(choices)
-                .await
-            {
-                Ok(action) => LinkActionPickerOutcome::Selected(action),
-                Err(PickError::Cancelled) => LinkActionPickerOutcome::Cancelled,
-                Err(error) => LinkActionPickerOutcome::Failed(error.to_string()),
-            }
+        let (cancellation, future) = cancellation.with_async_child_scope(move |scope| async move {
+            eyre::Ok(
+                match PickerTui::new()
+                    .set_header("Move or Clone")
+                    .set_auto_accept(false)
+                    .terminal_coordinator(coordinator)
+                    .pick_one(choices, &scope)
+                    .await
+                {
+                    Ok(action) => LinkActionPickerOutcome::Selected(action),
+                    Err(PickError::Cancelled) => LinkActionPickerOutcome::Cancelled,
+                    Err(error) => LinkActionPickerOutcome::Failed(error.to_string()),
+                },
+            )
         });
-        Ok(Self { handle })
+        let handle = tokio::spawn(future);
+        Ok(Self {
+            handle,
+            cancellation,
+        })
     }
 
+    pub(super) async fn close(self) {
+        self.cancellation.request_cancel("object browser closed");
+        match self.finish().await {
+            Ok(LinkActionPickerOutcome::Failed(error)) | Err(error) => {
+                tracing::warn!(%error, "Nested picker failed during shutdown");
+            }
+            Ok(_) => {}
+        }
+    }
     pub(super) fn is_finished(&self) -> bool {
         self.handle.is_finished()
     }
@@ -56,6 +77,7 @@ impl LinkActionPickerTask {
     pub(super) async fn finish(self) -> Result<LinkActionPickerOutcome, String> {
         self.handle
             .await
-            .map_err(|error| format!("link action PickerTui task failed: {error}"))
+            .map_err(|error| format!("link action PickerTui task failed: {error}"))?
+            .map_err(|error| error.to_string())
     }
 }

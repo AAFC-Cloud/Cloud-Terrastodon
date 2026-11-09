@@ -1,34 +1,33 @@
-use crate::app_work::Loadable;
-use crate::app_work::StateMutator;
-use crate::app_work::Work;
+use super::FieldUpdaterWorkFailureMutator;
+use super::FieldUpdaterWorkSuccessMutator;
+use super::Loadable;
+use super::Work;
+use cloud_terrastodon_execution::ExecutionFuture;
 use eyre::bail;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::future::Future;
 use std::panic::Location;
-use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Instant;
+use teamy_cancellation::CancellationScope;
 
 pub type Setter<State, FinishedWorkData> =
     Arc<dyn Fn(&mut State, Loadable<FinishedWorkData, eyre::Error>) + Send + Sync>;
-/// A small helper that builds a `Work` for "fetch data -> store in app field".
+type LoadableWorkFactory<T> =
+    Box<dyn FnOnce(CancellationScope) -> ExecutionFuture<'static, T> + Send>;
+
+/// Builds background work that publishes its result to an application field.
 pub struct LoadableWorkBuilder<State, FinishedWorkData>
 where
     FinishedWorkData: Debug + Send,
 {
-    /// A function that, given `&mut State`, updates the `&mut Loadable<T,E>` that corresponds to this work.
     setter: Option<Setter<State, FinishedWorkData>>,
-    /// The async work that fetches a `T` or errors with `E`.
-    #[allow(clippy::type_complexity)]
     on_work: Option<(
         &'static Location<'static>,
-        Pin<Box<dyn Future<Output = eyre::Result<FinishedWorkData>> + Send>>,
+        LoadableWorkFactory<FinishedWorkData>,
     )>,
-    /// If true, then the app will try and wait for this to finish when the app is closed.
-    /// Useful for autosave operations.
-    is_err_if_discarded: bool,
-    /// A brief identifier, similar to naming a thread.
+    require_delivery: bool,
     description: String,
 }
 
@@ -49,7 +48,7 @@ where
         Self {
             setter: None,
             on_work: None,
-            is_err_if_discarded: false,
+            require_delivery: false,
             description: String::new(),
         }
     }
@@ -59,8 +58,10 @@ where
         self
     }
 
-    pub fn is_err_if_discarded(mut self, is_err_if_discarded: bool) -> Self {
-        self.is_err_if_discarded = is_err_if_discarded;
+    /// Report success-delivery failure when the application receiver has closed.
+    /// This does not determine cancellation safety; the work's scope does that.
+    pub fn require_delivery(mut self, require_delivery: bool) -> Self {
+        self.require_delivery = require_delivery;
         self
     }
 
@@ -72,35 +73,34 @@ where
         self
     }
 
-    /// Provide the actual future that fetches a T (or errors with E).
-    /// For example: `.work(async { fetch_all_subscriptions(tenant_id).await })`
+    /// Supply a factory that uses the task's own linked cancellation scope.
     #[track_caller]
-    pub fn work<F>(mut self, future: F) -> Self
+    pub fn work<C, F>(mut self, factory: C) -> Self
     where
+        C: FnOnce(CancellationScope) -> F + Send + 'static,
         F: Future<Output = eyre::Result<FinishedWorkData>> + Send + 'static,
     {
-        self.on_work = Some((std::panic::Location::caller(), Box::pin(future)));
+        self.on_work = Some((
+            Location::caller(),
+            Box::new(|scope| Box::pin(factory(scope))),
+        ));
         self
     }
 
-    /// Build a `Work` that, when enqueued, sets the chosen field to Loading,
-    /// calls the async future, then sets the field to Loaded or Failed.
     #[allow(clippy::type_complexity)]
     pub fn build(
         self,
     ) -> eyre::Result<
         Work<
             State,
-            // on_enqueue
             impl Fn(&mut State),
-            // on_work
-            impl Future<Output = eyre::Result<FieldUpdaterWorkSuccessMutator<State, FinishedWorkData>>>
-            + Send,
-            // WorkSuccess
-            FieldUpdaterWorkSuccessMutator<State, FinishedWorkData>,
-            // WorkFailureMutator
+            impl FnOnce(
+                CancellationScope,
+            ) -> ExecutionFuture<
+                'static,
+                FieldUpdaterWorkSuccessMutator<State, FinishedWorkData>,
+            > + Send,
             FieldUpdaterWorkFailureMutator<State, FinishedWorkData>,
-            // on_failure
             impl Fn(eyre::Error) -> FieldUpdaterWorkFailureMutator<State, FinishedWorkData> + Send,
         >,
     > {
@@ -108,101 +108,34 @@ where
             bail!("Setter was not set!");
         };
         let Some((location, on_work)) = self.on_work else {
-            bail!("Work future was not set!");
+            bail!("Work factory was not set!");
         };
-
-        // We'll clone the `Arc` so the future closure and the on_enqueue closure can both own it.
-        let setter_for_enqueue = setter.clone();
-        let setter_for_failure = setter.clone();
-
-        // Build the final `Work`:
+        let setter_for_enqueue = Arc::clone(&setter);
+        let setter_for_failure = Arc::clone(&setter);
         let started_at = Instant::now();
-        let work = Work {
+        Ok(Work {
             location,
-            on_enqueue: move |app: &mut State| {
-                (setter_for_enqueue)(app, Loadable::Loading { started_at });
+            on_enqueue: move |state: &mut State| {
+                (setter_for_enqueue)(state, Loadable::Loading { started_at });
             },
-            on_work: async move {
-                let data = on_work.await?;
-                Ok(FieldUpdaterWorkSuccessMutator {
-                    data,
-                    setter,
-                    started_at,
+            on_work: move |scope| -> ExecutionFuture<'static, _> {
+                Box::pin(async move {
+                    let data = on_work(scope).await?;
+                    Ok(FieldUpdaterWorkSuccessMutator {
+                        data,
+                        setter,
+                        started_at,
+                    })
                 })
             },
             on_failure: move |err| FieldUpdaterWorkFailureMutator {
                 err,
-                setter: setter_for_failure.clone(),
+                setter: Arc::clone(&setter_for_failure),
                 started_at,
             },
-            is_err_if_discarded: self.is_err_if_discarded,
+            require_delivery: self.require_delivery,
             description: self.description,
             _marker: std::marker::PhantomData,
-        };
-        Ok(work)
-    }
-}
-
-/// A success mutator that just sets the chosen field to Loaded(data).
-pub struct FieldUpdaterWorkSuccessMutator<State, FinishedWorkData> {
-    pub data: FinishedWorkData,
-    pub setter: Setter<State, FinishedWorkData>,
-    pub started_at: Instant,
-}
-impl<State, FinishedWorkData> Debug for FieldUpdaterWorkSuccessMutator<State, FinishedWorkData> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("FieldUpdaterWorkSuccessMutator")
-            // .field("data", &self.data)
-            // .field("getter", &self.getter)
-            .finish()
-    }
-}
-
-/// A failure mutator that sets the chosen field to Failed(err).
-pub struct FieldUpdaterWorkFailureMutator<State, FinishedWorkData> {
-    pub err: eyre::Error,
-    pub setter: Setter<State, FinishedWorkData>,
-    pub started_at: Instant,
-}
-impl<State, FinishedWorkData> Debug for FieldUpdaterWorkFailureMutator<State, FinishedWorkData> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("FieldUpdaterWorkSuccessMutator")
-            // .field("data", &self.data)
-            // .field("getter", &self.getter)
-            .finish()
-    }
-}
-
-impl<State: 'static, FinishedWorkData> StateMutator<State>
-    for FieldUpdaterWorkSuccessMutator<State, FinishedWorkData>
-where
-    FinishedWorkData: std::fmt::Debug + Send + 'static,
-{
-    fn mutate_state(self: Box<Self>, state: &mut State) {
-        (self.setter)(
-            state,
-            Loadable::Loaded {
-                started_at: self.started_at,
-                finished_at: Instant::now(),
-                value: self.data,
-            },
-        )
-    }
-}
-
-impl<State: 'static, FinishedWorkData> StateMutator<State>
-    for FieldUpdaterWorkFailureMutator<State, FinishedWorkData>
-where
-    FinishedWorkData: std::fmt::Debug + Send + 'static,
-{
-    fn mutate_state(self: Box<Self>, state: &mut State) {
-        (self.setter)(
-            state,
-            Loadable::Failed {
-                error: self.err,
-                started_at: self.started_at,
-                finished_at: Instant::now(),
-            },
-        )
+        })
     }
 }

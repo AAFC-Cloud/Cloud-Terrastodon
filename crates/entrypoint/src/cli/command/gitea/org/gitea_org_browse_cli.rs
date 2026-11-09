@@ -6,7 +6,6 @@ use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use facet::Facet;
-use std::future::IntoFuture;
 use std::io::Write;
 
 #[derive(Facet, Debug, Clone)]
@@ -20,10 +19,11 @@ impl GiteaOrgBrowseArgs {
     pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<()> {
         let tenant = self.tenant.resolve(executor).await?;
         let (chosen, maybe_error) = PickerTui::<_>::new()
-            .pick_many_reloadable(|invalidate| {
+            .pick_many_reloadable(executor.cancellation(), async |child, invalidate| {
+                let executor = &executor.with_cancellation_scope(child);
                 fetch_all_gitea_organizations(&tenant, executor)
                     .with_invalidation(invalidate)
-                    .into_future()
+                    .await
             })
             .await
             .into_chosen_and_maybe_error()?;

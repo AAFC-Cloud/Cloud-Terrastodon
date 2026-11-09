@@ -29,7 +29,7 @@ pub async fn build_group_imports(
 
     let chosen = PickerTui::<_>::new()
         .set_header("Groups to import")
-        .pick_many(groups)
+        .pick_many(groups, executor.cancellation())
         .await?;
 
     let imports: Vec<HclImportBlock> = chosen

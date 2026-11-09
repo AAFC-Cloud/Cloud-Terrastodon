@@ -39,24 +39,28 @@ pub struct PickFsArgs {
 async fn visit_fs_entries(
     root: &Path,
     recursive: bool,
+    cancellation: &CancellationScope,
     mut visit: impl FnMut(Vec<FsPickEntry>) -> Result<()>,
 ) -> Result<()> {
     let mut directories = VecDeque::from([(root.to_path_buf(), 0)]);
     while let Some((dir, depth)) = directories.pop_front() {
+        cancellation.bail_if_cancelled()?;
         let dir_entries = async {
             let mut read_dir = tokio::fs::read_dir(&dir).await?;
             let mut dir_entries = Vec::new();
             while let Some(entry) = read_dir.next_entry().await? {
+                cancellation.bail_if_cancelled()?;
                 dir_entries.push(entry);
             }
             dir_entries.sort_by_key(|entry| entry.path());
-            Ok::<_, std::io::Error>(dir_entries)
+            eyre::Ok(dir_entries)
         }
         .instrument(trace_span!("pick_fs_read_directory"))
         .await?;
 
         let mut batch = Vec::with_capacity(dir_entries.len());
         for entry in dir_entries {
+            cancellation.bail_if_cancelled()?;
             let file_type = entry.file_type().await?;
             let path = entry.path();
             let relative_path = path
@@ -109,7 +113,7 @@ impl PickFsArgs {
     pub(crate) async fn invoke(
         self,
         common: PickCommonArgs,
-        _cancellation: &CancellationScope,
+        cancellation: &CancellationScope,
     ) -> Result<()> {
         let cwd = std::env::current_dir()?;
         let empty_choices = Vec::<Choice<String>>::new();
@@ -117,7 +121,7 @@ impl PickFsArgs {
         let rtn = PickerTui::<_>::new()
             .set_auto_accept(common.auto_accept)
             .set_query(common.default_query.unwrap_or_default())
-            .add_event_handler(async |event, sink| {
+            .add_event_handler(async |child, event, sink| {
                 if matches!(event.as_ref(), PickerEvent::InitialLoad) {
                     info!("Walking filesystem for picker choices");
                     stream_fs_choices(
@@ -126,13 +130,14 @@ impl PickFsArgs {
                         &common.query_engine,
                         &common.query,
                         &sink,
+                        &child,
                     )
                     .await?;
                     info!("Finished walking filesystem for picker choices");
                 }
                 Ok(())
             })
-            .pick_inner(!common.single, empty_choices)
+            .pick_inner(!common.single, empty_choices, cancellation)
             .await?;
 
         write_selected_lines(&rtn)?;
@@ -151,8 +156,9 @@ async fn stream_fs_choices(
     query_engine: &QueryEngine,
     query: &str,
     sink: &CandidateSink<String>,
+    cancellation: &CancellationScope,
 ) -> Result<()> {
-    visit_fs_entries(root, recursive, |entries| {
+    visit_fs_entries(root, recursive, cancellation, |entries| {
         trace_span!("pick_fs_build_choice_batch").in_scope(|| {
             let mut choices = Vec::with_capacity(entries.len());
             for entry in entries {
@@ -173,53 +179,60 @@ mod test {
     use crate::cli::pick::pick_fs_command_cli::visit_fs_entries;
     use std::fs;
     use std::path::MAIN_SEPARATOR;
+    use teamy_cancellation::CancellationToken;
     use tempfile::tempdir;
 
     #[tokio::test]
     async fn visits_fs_entries_breadth_first() -> eyre::Result<()> {
-        let dir = tempdir()?;
-        let nested_file_path = format!("nested{MAIN_SEPARATOR}beta.txt");
-        fs::write(dir.path().join("alpha.txt"), "alpha")?;
-        fs::create_dir(dir.path().join("nested"))?;
-        fs::write(dir.path().join("nested").join("beta.txt"), "beta")?;
+        CancellationToken::new()
+            .with_async_scope(async |cancellation| {
+                let dir = tempdir()?;
+                let nested_file_path = format!("nested{MAIN_SEPARATOR}beta.txt");
+                fs::write(dir.path().join("alpha.txt"), "alpha")?;
+                fs::create_dir(dir.path().join("nested"))?;
+                fs::write(dir.path().join("nested").join("beta.txt"), "beta")?;
 
-        let mut top_level = Vec::new();
-        visit_fs_entries(dir.path(), false, |batch| {
-            top_level.extend(batch);
-            Ok(())
-        })
-        .await?;
-        let mut recursive = Vec::new();
-        visit_fs_entries(dir.path(), true, |batch| {
-            recursive.extend(batch);
-            Ok(())
-        })
-        .await?;
+                let mut top_level = Vec::new();
+                visit_fs_entries(dir.path(), false, &cancellation, |batch| {
+                    top_level.extend(batch);
+                    Ok(())
+                })
+                .await?;
+                let mut recursive = Vec::new();
+                visit_fs_entries(dir.path(), true, &cancellation, |batch| {
+                    recursive.extend(batch);
+                    Ok(())
+                })
+                .await?;
 
-        let top_level_paths: Vec<_> = top_level.iter().map(|entry| entry.path.as_str()).collect();
-        assert_eq!(top_level_paths, vec!["alpha.txt", "nested"]);
+                let top_level_paths: Vec<_> =
+                    top_level.iter().map(|entry| entry.path.as_str()).collect();
+                assert_eq!(top_level_paths, vec!["alpha.txt", "nested"]);
 
-        let recursive_paths: Vec<_> = recursive.iter().map(|entry| entry.path.as_str()).collect();
-        assert_eq!(
-            recursive_paths,
-            vec!["alpha.txt", "nested", nested_file_path.as_str()]
-        );
+                let recursive_paths: Vec<_> =
+                    recursive.iter().map(|entry| entry.path.as_str()).collect();
+                assert_eq!(
+                    recursive_paths,
+                    vec!["alpha.txt", "nested", nested_file_path.as_str()]
+                );
 
-        let nested_dir = recursive
-            .iter()
-            .find(|entry| entry.path == "nested")
-            .unwrap();
-        assert_eq!(nested_dir.value["type"], "dir");
-        assert_eq!(nested_dir.value["depth"], 0);
+                let nested_dir = recursive
+                    .iter()
+                    .find(|entry| entry.path == "nested")
+                    .unwrap();
+                assert_eq!(nested_dir.value["type"], "dir");
+                assert_eq!(nested_dir.value["depth"], 0);
 
-        let nested_file = recursive
-            .iter()
-            .find(|entry| entry.path == nested_file_path)
-            .unwrap();
-        assert_eq!(nested_file.value["name"], "beta.txt");
-        assert_eq!(nested_file.value["extension"], "txt");
-        assert_eq!(nested_file.value["depth"], 1);
+                let nested_file = recursive
+                    .iter()
+                    .find(|entry| entry.path == nested_file_path)
+                    .unwrap();
+                assert_eq!(nested_file.value["name"], "beta.txt");
+                assert_eq!(nested_file.value["extension"], "txt");
+                assert_eq!(nested_file.value["depth"], 1);
 
-        Ok(())
+                Ok(())
+            })
+            .await
     }
 }

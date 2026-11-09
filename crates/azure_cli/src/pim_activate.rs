@@ -36,7 +36,10 @@ pub async fn pim_activate(
 ) -> Result<()> {
     match PickerTui::<_>::new()
         .set_header("Choose the kind of role to activate")
-        .pick_one(vec![PimKind::Entra, PimKind::AzureRM])
+        .pick_one(
+            vec![PimKind::Entra, PimKind::AzureRM],
+            executor.cancellation(),
+        )
         .await?
     {
         PimKind::Entra => pim_activate_entra(auth_context, executor).await,
@@ -87,7 +90,8 @@ pub async fn pim_activate_entra(
     info!("Prompting user choice");
     let chosen_roles = PickerTui::<_>::new()
         .set_header("Choose roles to activate")
-        .pick_many_reloadable(async |invalidate| {
+        .pick_many_reloadable(pim_executor.cancellation(), async |child, invalidate| {
+            let pim_executor = pim_executor.with_cancellation_scope(child);
             info!("Fetching role definitions");
             let definitions_request = fetch_all_entra_pim_role_definitions(tenant_id, auth_source);
             if invalidate {
@@ -133,7 +137,8 @@ pub async fn pim_activate_entra(
 
     let chosen_duration: Duration = PickerTui::<_>::new()
         .set_header("Duration to activate PIM for")
-        .pick_one_reloadable(async |invalidate| {
+        .pick_one_reloadable(pim_executor.cancellation(), async |child, invalidate| {
+            let pim_executor = pim_executor.with_cancellation_scope(child);
             info!("Fetching maximum activation durations");
             let mut max_duration = Duration::MAX;
             for (role_assignment, _role_definition) in chosen_roles.iter() {
@@ -201,7 +206,8 @@ pub async fn pim_activate_azurerm(
     )?;
     let chosen_roles = PickerTui::<_>::new()
         .set_header("Choose roles to activate")
-        .pick_many_reloadable(|invalidate| async move {
+        .pick_many_reloadable(executor.cancellation(), async |child, invalidate| {
+            let executor = &executor.with_cancellation_scope(child);
             info!("Fetching role eligibility schedules");
             let possible_roles =
                 fetch_my_role_eligibility_schedules(auth_source, auth_context.tenant_id, executor)
@@ -228,7 +234,8 @@ pub async fn pim_activate_azurerm(
 
     let chosen_scopes = PickerTui::<_>::new()
         .set_header(format!("Activating {chosen_roles_display}"))
-        .pick_many_reloadable(|invalidate| async move {
+        .pick_many_reloadable(executor.cancellation(), async |child, invalidate| {
+            let executor = &executor.with_cancellation_scope(child);
             info!("Fetching eligible scopes");
             let possible_scopes = fetch_all_resources(auth_context, executor)
                 .with_invalidation(invalidate)
@@ -250,7 +257,8 @@ pub async fn pim_activate_azurerm(
 
     let chosen_duration: Duration = PickerTui::<_>::new()
         .set_header("Duration to activate PIM for")
-        .pick_one_reloadable(async |invalidate| {
+        .pick_one_reloadable(executor.cancellation(), async |child, invalidate| {
+            let executor = &executor.with_cancellation_scope(child);
             info!("Fetching maximum eligible duration");
             let mut maximum_duration = Duration::MAX;
             for (role, scope) in chosen_roles.iter().zip(chosen_scopes.iter()) {

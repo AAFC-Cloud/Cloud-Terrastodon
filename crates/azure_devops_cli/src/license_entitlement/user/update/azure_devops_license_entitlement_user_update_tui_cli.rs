@@ -39,7 +39,8 @@ impl AzureDevOpsLicenseEntitlementUserUpdateTuiArgs {
 
         let chosen_entitlements = PickerTui::<_>::new()
             .set_header("Azure DevOps License Entitlements")
-            .pick_many_reloadable(async |invalidate| {
+            .pick_many_reloadable(executor.cancellation(), async |child, invalidate| {
+                let executor = &executor.with_cancellation_scope(child);
                 fetch_azure_devops_user_license_entitlements(
                     &self.org,
                     &azure_devops_auth_context,
@@ -64,7 +65,7 @@ impl AzureDevOpsLicenseEntitlementUserUpdateTuiArgs {
         // Choose a single license kind
         let license = PickerTui::<_>::new()
             .set_header("Azure DevOps License Kind")
-            .pick_one(AzureDevOpsLicenseType::VARIANTS)
+            .pick_one(AzureDevOpsLicenseType::VARIANTS, executor.cancellation())
             .await?;
 
         for entitlement in chosen_entitlements {

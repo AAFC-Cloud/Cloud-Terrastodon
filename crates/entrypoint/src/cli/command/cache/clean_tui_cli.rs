@@ -39,7 +39,7 @@ impl CacheCleanTuiArgs {
 
         let picked = PickerTui::<_>::new()
             .set_header("Select cache scopes to invalidate across all variants")
-            .pick_many(choices)
+            .pick_many(choices, executor.cancellation())
             .await?;
 
         // Several physical variants can share one logical scope.
