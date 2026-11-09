@@ -211,7 +211,7 @@ mod test {
                 .await
                 .expect_err("headless CLI authentication should fail locally");
                 assert!(error.to_string().contains("headless"));
-                Ok::<_, eyre::Error>(())
+                eyre::Ok(())
             })
             .await
             .expect("test execution scope remains valid");
@@ -230,7 +230,7 @@ mod test {
                 .await
                 .expect_err("placeholder authentication must not execute");
                 assert!(error.to_string().contains("placeholder"));
-                Ok::<_, eyre::Error>(())
+                eyre::Ok(())
             })
             .await
             .expect("test execution scope remains valid");
@@ -250,7 +250,7 @@ mod test {
                 .await
                 .expect_err("disabled authentication must not acquire a token");
                 assert!(error.to_string().contains("auth source none"));
-                Ok::<_, eyre::Error>(())
+                eyre::Ok(())
             })
             .await
             .expect("test execution scope remains valid");

@@ -14,7 +14,7 @@ async fn echo_works() {
             let x = cmd.run_raw(&cancellation).await.unwrap();
             assert_eq!(x.stdout.trim(), "ahoy world".as_bytes());
 
-            Ok::<_, eyre::Report>(())
+            eyre::Ok(())
         })
         .await
         .unwrap();
@@ -29,7 +29,7 @@ async fn echo_works2() {
             let x = cmd.run_raw(&cancellation).await.unwrap();
             assert_eq!(x.stdout.trim(), "a\"ho\"y w'or\nl'd".as_bytes());
 
-            Ok::<_, eyre::Report>(())
+            eyre::Ok(())
         })
         .await
         .unwrap();

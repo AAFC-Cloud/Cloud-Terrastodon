@@ -81,7 +81,7 @@ impl IntoFuture for ProduceExcalidrawDumpPlanRequest {
                         self.cancellation
                             .cancellable_scope(|_scope| async {
                                 tokio::time::sleep(Duration::from_millis(100)).await;
-                                Ok::<_, eyre::Report>(())
+                                eyre::Ok(())
                             })
                             .await?;
                     }

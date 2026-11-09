@@ -173,7 +173,7 @@ mod tests {
                     "unexpected headless tenant-login error: {error}"
                 );
 
-                Ok::<_, eyre::Report>(())
+                eyre::Ok(())
             })
             .await
             .unwrap();

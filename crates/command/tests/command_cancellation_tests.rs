@@ -447,7 +447,7 @@ async fn rejected_output_preserves_source_caller_and_failure_artifacts_after_can
                         .contains("synthetic child output rejected")
                 );
                 assert_fixture_artifacts(&root).await?;
-                Ok::<_, eyre::Report>(())
+                eyre::Ok(())
             })
             .await?;
     }

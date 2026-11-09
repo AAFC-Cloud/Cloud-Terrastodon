@@ -8,7 +8,7 @@ use std::str::FromStr;
 use uuid::Uuid;
 
 /// https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftauthorization
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Arbitrary, Facet)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Arbitrary, Facet)]
 #[facet(json::proxy = String)]
 pub struct RoleDefinitionName {
     inner: Uuid,

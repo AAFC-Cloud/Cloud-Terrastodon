@@ -518,7 +518,7 @@ mod tests {
                 };
                 assert_eq!(*outcome.downcast::<u8>().unwrap(), 42);
                 assert_eq!(host.pending_count(), 0);
-                Ok::<_, eyre::Report>(())
+                eyre::Ok(())
             })
             .await
             .unwrap();

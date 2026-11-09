@@ -334,7 +334,7 @@ mod tests {
                     error.downcast_ref::<ProduceJsonError>(),
                     Some(ProduceJsonError::Query(ArenaQueryContextError::Missing))
                 ));
-                Ok::<_, eyre::Report>(())
+                eyre::Ok(())
             })
             .await
             .expect("test execution scope remains valid");
@@ -407,7 +407,7 @@ mod tests {
                         "serialization caller must survive the engine channel: {diagnostic}"
                     );
                 }
-                Ok::<_, eyre::Report>(())
+                eyre::Ok(())
             })
             .await
             .expect("test execution scope remains valid");
@@ -466,7 +466,7 @@ mod tests {
                 assert!(document.starts_with('['));
                 assert!(document.trim_end().ends_with(']'));
                 assert!(document.contains("streamed-value"));
-                Ok::<_, eyre::Report>(())
+                eyre::Ok(())
             })
             .await
             .expect("test execution scope remains valid");
@@ -515,7 +515,7 @@ mod tests {
                     client
                 );
                 assert!(document.contains("explicit-run"));
-                Ok::<_, eyre::Report>(())
+                eyre::Ok(())
             })
             .await
             .expect("test execution scope remains valid");
@@ -578,7 +578,7 @@ mod tests {
                     1,
                     "only matched addresses cross the explicit JSON boundary"
                 );
-                Ok::<_, eyre::Report>(())
+                eyre::Ok(())
             })
             .await
             .expect("test execution scope remains valid");
@@ -636,7 +636,7 @@ mod tests {
                     "[\n  {\n    \"name\": \"Ada\",\n    \"enabled\": true\n  }\n]\n"
                 );
                 assert_eq!(engine.json_serialization_count(), 1);
-                Ok::<_, eyre::Report>(())
+                eyre::Ok(())
             })
             .await
             .expect("test execution scope remains valid");
@@ -727,7 +727,7 @@ mod tests {
                         .and_then(|value| value.peek().as_str()),
                     Some("after coherent export")
                 );
-                Ok::<_, eyre::Report>(())
+                eyre::Ok(())
             })
             .await
             .expect("test execution scope remains valid");
@@ -909,7 +909,7 @@ mod tests {
                         Some("ingested-after-cancel")
                     );
                 }
-                Ok::<_, eyre::Report>(())
+                eyre::Ok(())
             })
             .await
             .expect("test execution scope remains valid");

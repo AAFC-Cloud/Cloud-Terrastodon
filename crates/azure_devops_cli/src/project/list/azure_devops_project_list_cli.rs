@@ -102,7 +102,7 @@ mod tests {
                         .contains("workload identity authentication requires")
                 );
 
-                Ok::<_, eyre::Report>(())
+                eyre::Ok(())
             })
             .await
             .unwrap();
@@ -128,7 +128,7 @@ mod tests {
                     .expect_err("browser auth should fail locally without tenant/session context");
                 assert!(error.to_string().contains("explicit tenant"));
 
-                Ok::<_, eyre::Report>(())
+                eyre::Ok(())
             })
             .await
             .unwrap();
@@ -163,7 +163,7 @@ mod tests {
                     "{error:#}"
                 );
 
-                Ok::<_, eyre::Report>(())
+                eyre::Ok(())
             })
             .await
             .unwrap();

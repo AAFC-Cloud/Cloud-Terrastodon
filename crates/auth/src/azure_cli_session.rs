@@ -60,7 +60,7 @@ impl AzureCliSession {
                     cancellation
                         .cancellable_scope(|_| async {
                             tokio::time::sleep(Duration::from_millis(25)).await;
-                            Ok::<_, eyre::Report>(())
+                            eyre::Ok(())
                         })
                         .await?;
                 }

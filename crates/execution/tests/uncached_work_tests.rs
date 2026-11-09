@@ -152,7 +152,7 @@ async fn cancellation_prevents_unpolled_work_and_drops_an_inflight_attempt() -> 
                 if let Some(child_scope) = child_scope {
                     assert!(child_scope.bail_if_cancelled().is_err());
                 }
-                Ok::<_, eyre::Report>(())
+                eyre::Ok(())
             })
             .await?;
     }

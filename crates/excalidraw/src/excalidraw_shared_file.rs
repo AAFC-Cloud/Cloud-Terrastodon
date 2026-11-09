@@ -198,7 +198,7 @@ mod tests {
             for writer in writers {
                 writer.join().unwrap()?;
             }
-            Ok::<_, eyre::Report>(())
+            eyre::Ok(())
         })?;
         assert_eq!(file.read()?.as_deref(), Some("100"));
         Ok(())

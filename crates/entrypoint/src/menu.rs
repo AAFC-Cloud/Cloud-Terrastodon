@@ -44,7 +44,7 @@ pub async fn menu(
         .pick_many(choices);
 
     let mut chosen = match cancellation
-        .cancellable_scope(|_cancellation| async { Ok::<_, eyre::Report>(chosen.await) })
+        .cancellable_scope(|_cancellation| async { eyre::Ok(chosen.await) })
         .await?
     {
         Ok(c) => c,

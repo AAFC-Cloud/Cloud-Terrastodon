@@ -338,7 +338,7 @@ async fn project_admin_query_composes_and_exports_without_azure() {
             assert!(!json.contains("\"Ben\""));
             assert_eq!(engine.json_serialization_count(), 2);
             assert_eq!(engine.arena().allocated_slot_count(), 5);
-            Ok::<_, eyre::Report>(())
+            eyre::Ok(())
         })
         .await
         .expect("export completes inside its execution scope");

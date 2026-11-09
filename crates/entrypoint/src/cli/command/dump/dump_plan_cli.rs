@@ -125,7 +125,7 @@ impl DumpPlanArgs {
                     .persist(path)
                     .map_err(|error| error.error)
                     .wrap_err_with(|| format!("Publishing diagram {}", path.display()))?;
-                Ok::<_, eyre::Report>(())
+                eyre::Ok(())
             })?;
         }
         Ok(CliOutput::facet_with_text(report, write_dump_plan))

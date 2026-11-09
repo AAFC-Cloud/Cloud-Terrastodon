@@ -172,7 +172,7 @@ async fn plain_decoding_keeps_the_parent_trace_and_caller_policy_error() -> Resu
             assert_eq!(calls.get(), 1);
             assert_eq!(error.downcast_ref::<IoError>().unwrap().kind(), ErrorKind::InvalidData);
             assert!(format!("{error:#}").contains(&format!("plain_command_tests.rs:{}:", caller.line())));
-            Ok::<_, eyre::Report>(())
+            eyre::Ok(())
         })
         .with_subscriber(subscriber)
         .await?;

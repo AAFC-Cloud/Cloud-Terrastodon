@@ -236,7 +236,7 @@ async fn run_event_loop(
                 }
             }
         }
-        Ok::<_, eyre::Report>(())
+        eyre::Ok(())
     }
     .await;
 
@@ -365,7 +365,7 @@ mod tests {
                 assert_eq!(error.downcast_ref::<io::Error>().unwrap().kind(), io::ErrorKind::BrokenPipe);
                 assert_eq!(error.to_string(), "terminal suspension failed");
                 guard.release().await?;
-                Ok::<_, eyre::Report>(())
+                eyre::Ok(())
             }),
         )
         .await

@@ -139,7 +139,7 @@ mod tests {
                     Some("existing second token")
                 );
 
-                Ok::<_, eyre::Report>(())
+                eyre::Ok(())
             })
             .unwrap();
     }

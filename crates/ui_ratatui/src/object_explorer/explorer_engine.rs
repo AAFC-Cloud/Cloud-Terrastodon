@@ -1850,7 +1850,7 @@ mod tests {
         };
         let (engine, ()) = tokio::join!(async { engine.run(inbox).await.expect("synthetic engine should finish") }, client);
         assert_eq!(engine.pending_invocation_count(), 0);
-        Ok::<_, eyre::Report>(())
+        eyre::Ok(())
         }).await.unwrap();
     }
 

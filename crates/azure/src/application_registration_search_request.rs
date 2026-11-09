@@ -153,7 +153,7 @@ mod tests {
                 };
 
                 assert!(request.url().contains("Cloud%20Terrastodon%27%27s%20PIM"));
-                Ok::<_, eyre::Error>(())
+                eyre::Ok(())
             })
             .expect("uncancelled test scope");
     }
@@ -172,7 +172,7 @@ mod tests {
                 assert!(url.contains("startswith%28displayName%2C%27pim%27%29"));
                 assert!(!url.contains("appId"));
                 assert!(!url.contains("id%20eq"));
-                Ok::<_, eyre::Error>(())
+                eyre::Ok(())
             })
             .expect("uncancelled test scope");
     }
@@ -191,7 +191,7 @@ mod tests {
                 assert!(url.contains("appId%20eq%20%2700000003-0000-0000-c000-000000000000%27"));
                 assert!(url.contains("id%20eq%20%2700000003-0000-0000-c000-000000000000%27"));
                 assert!(!url.contains("startswith%28displayName"));
-                Ok::<_, eyre::Error>(())
+                eyre::Ok(())
             })
             .expect("uncancelled test scope");
     }

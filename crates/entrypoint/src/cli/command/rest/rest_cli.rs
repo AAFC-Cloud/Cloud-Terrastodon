@@ -236,7 +236,7 @@ mod test {
                     .await
                     .expect_err("disabled authentication must precede local or service lookups");
                 assert!(error.to_string().contains("authentication source none"));
-                Ok::<_, eyre::Report>(())
+                eyre::Ok(())
             })
             .await
             .unwrap();
@@ -265,7 +265,7 @@ mod test {
                 assert!(output.contains("200"));
                 assert!(output.contains("synthetic response body"));
                 assert!(output.ends_with('\n'));
-                Ok::<_, eyre::Report>(())
+                eyre::Ok(())
             })
             .unwrap();
     }
@@ -292,7 +292,7 @@ mod test {
                     assert!(output.contains("synthetic access denied"));
                     assert!(error.to_string().contains("403"));
                 }
-                Ok::<_, eyre::Report>(())
+                eyre::Ok(())
             })
             .unwrap();
     }
@@ -320,7 +320,7 @@ mod test {
                 assert_eq!(json["status"], 200);
                 assert_eq!(json["ok"], true);
                 assert!(json.get("headers").is_some());
-                Ok::<_, eyre::Report>(())
+                eyre::Ok(())
             })
             .unwrap();
     }

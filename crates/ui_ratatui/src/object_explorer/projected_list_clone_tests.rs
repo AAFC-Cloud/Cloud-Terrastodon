@@ -97,7 +97,7 @@ async fn cloning_a_tabs_projected_operations_builds_an_independent_populated_que
         );
         drop(handle);
         drop(context);
-        Ok::<_, eyre::Report>((source, destination))
+        eyre::Ok((source, destination))
     };
     let (engine, result) = tokio::time::timeout(Duration::from_secs(5), async {
         tokio::join!(

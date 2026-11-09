@@ -227,7 +227,7 @@ mod tests {
                         vec![(Cow::Borrowed("$select"), Cow::Borrowed(EntraUser::SELECT))]
                     );
                 }
-                Ok::<_, eyre::Error>(())
+                eyre::Ok(())
             })
             .expect("uncancelled test scope");
     }

@@ -230,7 +230,7 @@ pub(crate) async fn fetch_browser_access_token(
                                     refresh_token: refresh_token.to_owned(),
                                 })?;
                             }
-                            Ok::<_, eyre::Report>(access_token)
+                            eyre::Ok(access_token)
                         },
                     )
                     .await?;

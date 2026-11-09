@@ -192,7 +192,7 @@ mod tests {
 
                 assert_eq!(first.normalized_ids(), vec![first_id, second_id]);
                 assert_eq!(first.cache_key()?.scope, second.cache_key()?.scope);
-                Ok::<_, eyre::Error>(())
+                eyre::Ok(())
             })
             .expect("uncancelled test scope");
     }

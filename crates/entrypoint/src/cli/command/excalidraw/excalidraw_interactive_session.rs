@@ -429,7 +429,7 @@ impl ExcalidrawInteractiveSession {
                             Ok(None)
                         }
                     })?;
-                    Ok::<_, eyre::Report>((changed, planning))
+                    eyre::Ok((changed, planning))
                 })
                 .await
                 .wrap_err("publishing Excalidraw file worker")?

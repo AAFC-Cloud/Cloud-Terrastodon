@@ -119,7 +119,7 @@ impl AzureCliSessionStore {
                     .persist(self.root.join("tenants").join(tenant.to_string()))
                     .map_err(|error| error.error)
                     .wrap_err("publishing the Azure CLI session selector")?;
-                Ok::<_, eyre::Report>(())
+                eyre::Ok(())
             })
             .await?;
         Ok(AzureCliSession::new(directory, identity))

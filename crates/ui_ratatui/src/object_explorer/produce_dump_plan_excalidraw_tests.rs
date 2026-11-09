@@ -207,7 +207,7 @@ async fn export_plan_through_explorer(cancellation: CancellationScope) -> eyre::
         }
         drop(handle);
         drop(context);
-        Ok::<_, eyre::Report>((source_plan, path_slot, request, output))
+        eyre::Ok((source_plan, path_slot, request, output))
     };
     let (engine, result) = tokio::time::timeout(Duration::from_secs(10), async {
         tokio::join!(

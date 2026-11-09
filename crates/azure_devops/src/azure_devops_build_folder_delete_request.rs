@@ -261,7 +261,7 @@ mod tests {
                 .await
                 .expect_err("root deletion must be rejected");
                 assert!(error.to_string().contains("root build folder"));
-                Ok::<_, eyre::Report>(())
+                eyre::Ok(())
             })
             .await
             .unwrap();

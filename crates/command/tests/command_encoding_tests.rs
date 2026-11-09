@@ -34,7 +34,7 @@ async fn encoding_2() {
             // assert_eq!(x.stdout.trim(), "aéa".as_bytes());
             assert_eq!(x.stdout.trim().to_str().unwrap(), "aéa");
 
-            Ok::<_, eyre::Report>(())
+            eyre::Ok(())
         })
         .await
         .unwrap();

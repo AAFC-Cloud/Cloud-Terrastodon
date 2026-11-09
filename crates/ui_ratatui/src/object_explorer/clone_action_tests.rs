@@ -80,7 +80,7 @@ async fn preview_actions<T: Facet<'static> + Send + 'static>(
             .collect::<Vec<_>>();
         drop(handle);
         drop(context);
-        Ok::<_, eyre::Report>((source, destination, actions, modes))
+        eyre::Ok((source, destination, actions, modes))
     };
     let (engine, result) = tokio::time::timeout(Duration::from_secs(5), async {
         tokio::join!(

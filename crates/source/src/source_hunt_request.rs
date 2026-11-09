@@ -129,7 +129,7 @@ impl IntoFuture for SourceHuntRequest {
                         .await
                         .wrap_err("Joining source-hunt directory job")??;
                         directory.bail_if_cancelled()?;
-                        Ok::<_, eyre::Report>(result)
+                        eyre::Ok(result)
                     }));
                 }
                 tokio::select! {

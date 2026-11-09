@@ -156,7 +156,7 @@ mod tests {
                 };
 
                 assert!(request.url().contains("O%27%27Neil%20%26%20Smith"));
-                Ok::<_, eyre::Error>(())
+                eyre::Ok(())
             })
             .expect("uncancelled test scope");
     }
@@ -173,7 +173,7 @@ mod tests {
                 };
 
                 assert_eq!(request.cache_key()?.valid_for, Duration::from_secs(60));
-                Ok::<_, eyre::Error>(())
+                eyre::Ok(())
             })
             .expect("uncancelled test scope");
     }

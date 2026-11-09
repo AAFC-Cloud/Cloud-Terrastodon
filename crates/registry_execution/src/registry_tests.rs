@@ -910,7 +910,7 @@ async fn pending_new_and_legacy_invocations_obey_the_supplied_executor_scope() -
                     error.downcast_ref::<CancellationError>().unwrap().reason,
                     "synthetic registry owner cancelled"
                 );
-                Ok::<_, eyre::Report>(())
+                eyre::Ok(())
             })
             .await?;
     }
