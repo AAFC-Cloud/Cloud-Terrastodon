@@ -2,9 +2,10 @@ use crate::AzureDevOpsDescriptor;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_types::ArbitraryJson;
 use compact_str::CompactString;
+use facet::Facet;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsServiceEndpointCreatedBy {
     pub descriptor: AzureDevOpsDescriptor,

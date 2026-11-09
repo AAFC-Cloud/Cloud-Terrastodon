@@ -21,33 +21,34 @@ use crate::scopes::TryFromResourceScoped;
 use crate::scopes::TryFromSubscriptionScoped;
 use crate::scopes::TryFromUnscoped;
 use crate::slug::HasSlug;
+use facet::Facet;
 use std::str::FromStr;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Facet)]
 #[facet(json::proxy = String)]
 pub struct UnscopedRoleManagementPolicyAssignmentId {
     pub name: RoleManagementPolicyAssignmentName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Facet)]
 #[facet(json::proxy = String)]
 pub struct ManagementGroupScopedRoleManagementPolicyAssignmentId {
     pub management_group_id: ManagementGroupId,
     pub name: RoleManagementPolicyAssignmentName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Facet)]
 #[facet(json::proxy = String)]
 pub struct SubscriptionScopedRoleManagementPolicyAssignmentId {
     pub subscription_id: SubscriptionId,
     pub name: RoleManagementPolicyAssignmentName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Facet)]
 #[facet(json::proxy = String)]
 pub struct ResourceGroupScopedRoleManagementPolicyAssignmentId {
     pub resource_group_id: ResourceGroupId,
     pub name: RoleManagementPolicyAssignmentName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Facet)]
 #[facet(json::proxy = String)]
 pub struct ResourceScopedRoleManagementPolicyAssignmentId {
     pub resource_id: ResourceId,

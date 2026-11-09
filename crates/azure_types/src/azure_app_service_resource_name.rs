@@ -4,13 +4,14 @@ use arbitrary::Unstructured;
 use compact_str::CompactString;
 use eyre::Context;
 use eyre::bail;
+use facet::Facet;
 use std::ops::Deref;
 use std::str::FromStr;
 
 /// Length 2-60.
 /// Alphanumeric or hyphen characters, including Unicode alphanumerics.
 /// Cannot start or end with a hyphen.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Facet)]
 #[facet(json::proxy = String)]
 pub struct AzureAppServiceResourceName {
     inner: CompactString,

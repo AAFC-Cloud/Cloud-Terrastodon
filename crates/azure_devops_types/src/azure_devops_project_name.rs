@@ -2,11 +2,12 @@ use arbitrary::Arbitrary;
 use compact_str::CompactString;
 use eyre::Context;
 use eyre::bail;
+use facet::Facet;
 use std::ops::Deref;
 use std::str::FromStr;
 
 /// https://learn.microsoft.com/en-us/azure/devops/organizations/settings/naming-restrictions?view=azure-devops#project-names
-#[derive(Debug, Eq, PartialEq, Clone, Hash, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash, Facet)]
 #[facet(transparent)]
 pub struct AzureDevOpsProjectName(CompactString);
 impl AzureDevOpsProjectName {

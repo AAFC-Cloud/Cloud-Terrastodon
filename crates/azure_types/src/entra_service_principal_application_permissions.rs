@@ -1,14 +1,14 @@
 use crate::EntraServicePrincipalApplicationResourceSpecificPermission;
 use crate::EntraServicePrincipalApplicationRole;
 use arbitrary::Arbitrary;
-use std::sync::Arc;
+use facet::Facet;
 
 /// Application permissions exposed by an Entra service principal.
 ///
 /// The entries are intentionally retained as raw Facet JSON for now because
 /// Microsoft Graph uses different shapes for app roles and resource-specific
 /// application permissions.
-#[derive(Debug, Clone, Eq, PartialEq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct EntraServicePrincipalApplicationPermissions {
     pub app_roles: Vec<EntraServicePrincipalApplicationRole>,
@@ -18,5 +18,3 @@ pub struct EntraServicePrincipalApplicationPermissions {
 
 cloud_terrastodon_registry::register_thing!(EntraServicePrincipalApplicationPermissions);
 cloud_terrastodon_registry::register_arbitrary!(EntraServicePrincipalApplicationPermissions);
-
-cloud_terrastodon_registry::register_arbitrary!(Arc<EntraServicePrincipalApplicationPermissions>);

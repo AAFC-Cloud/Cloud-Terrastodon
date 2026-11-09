@@ -3,6 +3,7 @@ use arbitrary::Arbitrary;
 use compact_str::CompactString;
 use eyre::WrapErr;
 use eyre::bail;
+use facet::Facet;
 use std::ops::Deref;
 use std::str::FromStr;
 
@@ -12,7 +13,7 @@ use std::str::FromStr;
 // - Can contain letters, numbers, underscores, periods, and hyphens.
 // - Must start with a letter or number.
 // - Must end with a letter, number, or underscore.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Facet)]
 #[facet(json::proxy = String)]
 pub struct VirtualNetworkName {
     inner: CompactString,

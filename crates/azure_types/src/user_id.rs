@@ -1,6 +1,7 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Arbitrary, Facet)]
 #[facet(json::proxy = String)]
 pub struct EntraUserId(uuid::Uuid);
 

@@ -22,33 +22,34 @@ use crate::scopes::TryFromSubscriptionScoped;
 use crate::scopes::TryFromUnscoped;
 use crate::slug::HasSlug;
 use eyre::Result;
+use facet::Facet;
 use std::str::FromStr;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Facet)]
 #[facet(json::proxy = String)]
 pub struct UnscopedPolicySetDefinitionId {
     pub name: PolicySetDefinitionName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Facet)]
 #[facet(json::proxy = String)]
 pub struct ManagementGroupScopedPolicySetDefinitionId {
     pub management_group_id: ManagementGroupId,
     pub name: PolicySetDefinitionName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Facet)]
 #[facet(json::proxy = String)]
 pub struct SubscriptionScopedPolicySetDefinitionId {
     pub subscription_id: SubscriptionId,
     pub name: PolicySetDefinitionName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Facet)]
 #[facet(json::proxy = String)]
 pub struct ResourceGroupScopedPolicySetDefinitionId {
     pub resource_group_id: ResourceGroupId,
     pub name: PolicySetDefinitionName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Facet)]
 #[facet(json::proxy = String)]
 pub struct ResourceScopedPolicySetDefinitionId {
     pub resource_id: ResourceId,

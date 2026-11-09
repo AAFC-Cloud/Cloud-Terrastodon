@@ -11,11 +11,12 @@ use arbitrary::Arbitrary;
 use compact_str::ToCompactString;
 use eyre::Context;
 use eyre::Result;
+use facet::Facet;
 use std::str::FromStr;
 
 pub const VIRTUAL_MACHINE_ID_PREFIX: &str = "/providers/Microsoft.Compute/virtualMachines/";
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Arbitrary, Facet)]
 #[facet(json::proxy = String)]
 pub struct VirtualMachineId {
     pub resource_group_id: ResourceGroupId,

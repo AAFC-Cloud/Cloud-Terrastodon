@@ -3,13 +3,14 @@ use arbitrary::Unstructured;
 use compact_str::CompactString;
 use eyre::WrapErr;
 use eyre::bail;
+use facet::Facet;
 use std::ops::Deref;
 use std::str::FromStr;
 
 /// TODO: find documentation on the real limit, I made up this value.
 pub const GOVERNANCE_ROLE_DEFINITION_NAME_MAX_LENGTH: usize = 128;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Facet)]
 #[facet(json::proxy = String)]
 pub struct GovernanceRoleDefinitionName {
     inner: CompactString,

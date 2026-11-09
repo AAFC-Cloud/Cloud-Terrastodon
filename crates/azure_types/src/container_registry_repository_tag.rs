@@ -2,10 +2,10 @@ use crate::ContainerRegistryTagChangeableAttributes;
 use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
-use std::sync::Arc;
+use facet::Facet;
 
 /// [TagAttributesBase, API 2021-07-01](https://learn.microsoft.com/en-us/rest/api/registry-dataplane/container-registry/get-tags?view=rest-registry-dataplane-2021-07-01#tagattributesbase).
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct ContainerRegistryRepositoryTag {
@@ -20,6 +20,3 @@ pub struct ContainerRegistryRepositoryTag {
 
 cloud_terrastodon_registry::register_thing!(ContainerRegistryRepositoryTag);
 cloud_terrastodon_registry::register_arbitrary!(ContainerRegistryRepositoryTag);
-
-cloud_terrastodon_registry::register_arbitrary!(Vec<ContainerRegistryRepositoryTag>);
-cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<ContainerRegistryRepositoryTag>>);

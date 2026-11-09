@@ -9,9 +9,9 @@ use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
-use std::sync::Arc;
+use facet::Facet;
 
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Arbitrary, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Arbitrary, Facet)]
 #[repr(C)]
 pub enum RoleDefinitionKind {
     BuiltInRole,
@@ -21,7 +21,7 @@ pub enum RoleDefinitionKind {
 /// An Azure RBAC role definition.
 ///
 /// Not to be confused with an Entra role definition.
-#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Facet)]
 pub struct RoleDefinition {
     pub id: RoleDefinitionId,
     pub display_name: String,
@@ -128,6 +128,3 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(RoleDefinition);
 cloud_terrastodon_registry::register_arbitrary!(RoleDefinition);
-
-cloud_terrastodon_registry::register_arbitrary!(Vec<RoleDefinition>);
-cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<RoleDefinition>>);

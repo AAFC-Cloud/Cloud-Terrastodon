@@ -4,13 +4,14 @@ use arbitrary::Unstructured;
 use compact_str::CompactString;
 use eyre::Context;
 use eyre::bail;
+use facet::Facet;
 use std::ops::Deref;
 use std::str::FromStr;
 
 /// Length 2-64.
 /// Alphanumerics, underscores, periods, and hyphens.
 /// Start with alphanumeric. End with alphanumeric or underscore.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Facet)]
 #[facet(json::proxy = String)]
 pub struct AzurePrivateEndpointResourceName {
     inner: CompactString,

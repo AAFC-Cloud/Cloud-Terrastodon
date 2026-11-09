@@ -1,9 +1,10 @@
 use crate::ArbitraryJson;
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::collections::HashMap;
 use std::ops::Deref;
 
-#[derive(Debug, Eq, PartialEq, Default, Arbitrary, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Default, Arbitrary, Facet)]
 #[facet(transparent)]
 pub struct AzurePolicyDefinitionParametersDefinition(
     pub HashMap<String, AzurePolicyDefinitionParametersDefinitionValue>,
@@ -17,7 +18,7 @@ impl Deref for AzurePolicyDefinitionParametersDefinition {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Arbitrary, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct AzurePolicyDefinitionParametersDefinitionValue {
     pub allowed_values: Option<ArbitraryJson>,

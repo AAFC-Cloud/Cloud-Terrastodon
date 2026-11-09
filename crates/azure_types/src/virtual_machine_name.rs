@@ -3,12 +3,13 @@ use arbitrary::Arbitrary;
 use compact_str::CompactString;
 use eyre::ContextCompat;
 use eyre::bail;
+use facet::Facet;
 use std::ops::Deref;
 use std::str::FromStr;
 
 // TODO: update to conform more closely to <https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftcompute>
 // Simple VM name validation: 1-64 characters, allow alphanumeric, '-', '_' and '.'
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Facet)]
 #[facet(json::proxy = String)]
 pub struct VirtualMachineName {
     inner: CompactString,

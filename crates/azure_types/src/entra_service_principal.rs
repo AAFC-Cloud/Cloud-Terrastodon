@@ -4,10 +4,10 @@ use crate::EntraServicePrincipalObjectId;
 use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
-use std::sync::Arc;
+use facet::Facet;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Eq, PartialEq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct EntraServicePrincipal {
     pub account_enabled: bool,
@@ -48,7 +48,7 @@ pub struct EntraServicePrincipal {
     pub verified_publisher: Option<ArbitraryJson>,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct ServicePrincipalPasswordCredential {
     pub custom_key_identifier: Option<ArbitraryJson>,
@@ -60,7 +60,7 @@ pub struct ServicePrincipalPasswordCredential {
     pub display_name: Option<String>,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct ServicePrincipalKeyCredential {
     pub custom_key_identifier: Option<String>,
@@ -77,6 +77,3 @@ pub struct ServicePrincipalKeyCredential {
 
 cloud_terrastodon_registry::register_thing!(EntraServicePrincipal);
 cloud_terrastodon_registry::register_arbitrary!(EntraServicePrincipal);
-cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<EntraServicePrincipal>>);
-
-cloud_terrastodon_registry::register_arbitrary!(Arc<EntraServicePrincipal>);

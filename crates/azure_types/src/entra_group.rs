@@ -9,11 +9,11 @@ use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
-use std::sync::Arc;
+use facet::Facet;
 
 /// An Entra [group](https://learn.microsoft.com/en-us/graph/api/resources/group?view=graph-rest-1.0)
 /// returned by Microsoft Graph v1.0.
-#[derive(Debug, Clone, PartialEq, Eq, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Facet)]
 #[facet(rename_all = "camelCase")]
 pub struct EntraGroup {
     pub classification: Option<ArbitraryJson>,
@@ -151,6 +151,3 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(EntraGroup);
 cloud_terrastodon_registry::register_arbitrary!(EntraGroup);
-cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<EntraGroup>>);
-
-cloud_terrastodon_registry::register_arbitrary!(Arc<EntraGroup>);

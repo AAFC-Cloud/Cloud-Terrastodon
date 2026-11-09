@@ -1,9 +1,9 @@
 use crate::slug::Slug;
 use arbitrary::Arbitrary;
 use compact_str::CompactString;
+use facet::Facet;
 use std::ops::Deref;
 use std::str::FromStr;
-use std::sync::Arc;
 
 // https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftcontainerregistry
 // https://docs.docker.com/docker-hub/repos/create/
@@ -16,7 +16,7 @@ use std::sync::Arc;
 /// I was unable to find a definitive source for the rules governing container registry repository names.
 ///
 /// For now, this type will always successfully validate.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Arbitrary, Facet)]
 #[facet(json::proxy = String)]
 pub struct ContainerRegistryRepositoryName {
     inner: CompactString,
@@ -101,6 +101,3 @@ mod test {
         Ok(())
     }
 }
-
-cloud_terrastodon_registry::register_arbitrary!(Vec<ContainerRegistryRepositoryName>);
-cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<ContainerRegistryRepositoryName>>);

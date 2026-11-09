@@ -11,11 +11,12 @@ use crate::slug::Slug;
 use arbitrary::Arbitrary;
 use eyre::Context;
 use eyre::Result;
+use facet::Facet;
 use std::str::FromStr;
 
 pub const AZURE_APP_SERVICE_RESOURCE_ID_PREFIX: &str = "/providers/Microsoft.Web/sites/";
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, Facet)]
 #[facet(json::proxy = String)]
 pub struct AzureAppServiceResourceId {
     pub resource_group_id: ResourceGroupId,

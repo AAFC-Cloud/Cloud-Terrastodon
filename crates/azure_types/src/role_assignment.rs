@@ -10,12 +10,12 @@ use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
-use std::sync::Arc;
+use facet::Facet;
 
 /// An Azure RBAC role assignment.
 ///
 /// Not to be confused with an Entra role assignment.
-#[derive(Debug, Eq, PartialEq, Clone, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Facet)]
 pub struct RoleAssignment {
     pub id: RoleAssignmentId,
     pub scope: ScopeImpl,
@@ -78,6 +78,3 @@ impl RoleAssignment {
 
 cloud_terrastodon_registry::register_thing!(RoleAssignment);
 cloud_terrastodon_registry::register_arbitrary!(RoleAssignment);
-
-cloud_terrastodon_registry::register_arbitrary!(Vec<RoleAssignment>);
-cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<RoleAssignment>>);

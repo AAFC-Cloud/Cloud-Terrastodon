@@ -21,6 +21,7 @@ use cloud_terrastodon_hcl::edit::expr::Expression;
 use cloud_terrastodon_hcl::edit::expr::TraversalOperator;
 use cloud_terrastodon_hcl::list_blocks_for_dir;
 use eyre::Result;
+use facet::Facet;
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -29,7 +30,7 @@ use tracing::info;
 use tracing::warn;
 
 /// Add Terraform import blocks for existing resource blocks.
-#[derive(facet::Facet, Debug, Clone)]
+#[derive(Facet, Debug, Clone)]
 pub struct TerraformSourceAddImportsArgs {
     /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
     #[facet(figue::named, default)]

@@ -2,11 +2,12 @@ use crate::AzureTenantAlias;
 use crate::AzureTenantId;
 use arbitrary::Arbitrary;
 use eyre::bail;
+use facet::Facet;
 use std::borrow::Cow;
 use std::str::FromStr;
 
 /// Tenant can be specified as the default tenant, a tenant id, or a Cloud Terrastodon tenant alias.
-#[derive(Debug, Clone, Default, Eq, PartialEq, Hash, facet::Facet)]
+#[derive(Debug, Clone, Default, Eq, PartialEq, Hash, Facet)]
 #[facet(proxy = String)]
 #[facet(default)]
 #[repr(C)]

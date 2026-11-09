@@ -27,44 +27,45 @@ use crate::scopes::TryFromSubscriptionScoped;
 use crate::scopes::TryFromUnscoped;
 use crate::slug::HasSlug;
 use eyre::Result;
+use facet::Facet;
 use std::str::FromStr;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Facet)]
 #[facet(json::proxy = String)]
 pub struct UnscopedRoleAssignmentId {
     pub role_assignment_name: RoleAssignmentName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Facet)]
 #[facet(json::proxy = String)]
 pub struct PortalScopedRoleAssignmentId {
     pub role_assignment_name: RoleAssignmentName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Facet)]
 #[facet(json::proxy = String)]
 pub struct ServiceGroupScopedRoleAssignmentId {
     pub service_group_id: ServiceGroupId,
     pub role_assignment_name: RoleAssignmentName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Facet)]
 #[facet(json::proxy = String)]
 pub struct ManagementGroupScopedRoleAssignmentId {
     pub management_group_id: ManagementGroupId,
     pub role_assignment_name: RoleAssignmentName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Facet)]
 #[facet(json::proxy = String)]
 pub struct SubscriptionScopedRoleAssignmentId {
     pub subscription_id: SubscriptionId,
     pub role_assignment_name: RoleAssignmentName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Facet)]
 #[facet(json::proxy = String)]
 pub struct ResourceGroupScopedRoleAssignmentId {
     pub resource_group_id: ResourceGroupId,
     pub role_assignment_name: RoleAssignmentName,
 }
-#[derive(Debug, Clone, Eq, PartialEq, Hash, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Facet)]
 #[facet(json::proxy = String)]
 pub struct ResourceScopedRoleAssignmentId {
     pub resource_id: ResourceId,

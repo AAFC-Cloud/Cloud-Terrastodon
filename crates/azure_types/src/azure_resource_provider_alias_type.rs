@@ -1,10 +1,11 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 
 /// The policy-alias value's sensitivity classification.
 ///
 /// [Resource Management 2021-04-01 vocabulary](https://learn.microsoft.com/en-us/rest/api/resources/providers/list-at-tenant-scope?view=rest-resources-2021-04-01#aliastype).
 /// Debug builds expose unmodeled values; release builds retain their wire spelling.
-#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum AzureResourceProviderAliasType {

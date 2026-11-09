@@ -1,9 +1,10 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 use std::ops::Deref;
 use std::str::FromStr;
 use uuid::Uuid;
 
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Arbitrary, Hash, PartialOrd, Ord, facet::Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Arbitrary, Hash, PartialOrd, Ord, Facet)]
 #[facet(proxy = String)]
 pub struct AzureTenantId(Uuid);
 crate::impl_facet_string_proxy!(AzureTenantId, value => value.to_string());

@@ -12,9 +12,9 @@ use cloud_terrastodon_hcl_types::HclImportBlock;
 use cloud_terrastodon_hcl_types::HclProviderReference;
 use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
+use facet::Facet;
 use std::collections::HashMap;
-use std::sync::Arc;
-#[derive(Debug, PartialEq, Clone, Arbitrary, facet::Facet)]
+#[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
 pub struct ResourceGroup {
     pub id: ResourceGroupId,
     pub subscription_name: SubscriptionName,
@@ -121,6 +121,3 @@ mod tests {
 
 cloud_terrastodon_registry::register_thing!(ResourceGroup);
 cloud_terrastodon_registry::register_arbitrary!(ResourceGroup);
-
-cloud_terrastodon_registry::register_arbitrary!(Vec<ResourceGroup>);
-cloud_terrastodon_registry::register_arbitrary!(Vec<Arc<ResourceGroup>>);

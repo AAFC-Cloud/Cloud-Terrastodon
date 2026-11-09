@@ -1,9 +1,10 @@
 use arbitrary::Arbitrary;
+use facet::Facet;
 /// Extended-location metadata advertised for an Azure location.
 ///
 /// [Resource Management 2021-04-01 schema](https://learn.microsoft.com/en-us/rest/api/resources/providers/list-at-tenant-scope?view=rest-resources-2021-04-01#providerextendedlocation).
 /// The API schema does not require these fields; missing values remain explicit.
-#[derive(Debug, Clone, PartialEq, Eq, Default, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct AzureResourceProviderExtendedLocation {

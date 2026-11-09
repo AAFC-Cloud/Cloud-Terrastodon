@@ -10,11 +10,12 @@ use crate::slug::Slug;
 use arbitrary::Arbitrary;
 use eyre::Context;
 use eyre::Result;
+use facet::Facet;
 use std::str::FromStr;
 
 pub const VIRTUAL_NETWORK_ID_PREFIX: &str = "/providers/Microsoft.Network/virtualNetworks/";
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Arbitrary, facet::Facet)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Arbitrary, Facet)]
 #[facet(json::proxy = String)]
 pub struct VirtualNetworkId {
     pub resource_group_id: ResourceGroupId,
