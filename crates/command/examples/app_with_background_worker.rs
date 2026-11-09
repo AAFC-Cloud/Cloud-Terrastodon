@@ -45,7 +45,12 @@ impl MyApp {
                 Ok(thingies)
             })
             .build()?
-            .enqueue(&self.work, &mut self.data, cancellation)?;
+            .enqueue(
+                &self.work.work_tracker,
+                self.work.work_response_sender.clone(),
+                &mut self.data,
+                cancellation,
+            )?;
 
         let mut terminal = ratatui::init();
         let result = async {

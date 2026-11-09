@@ -1,14 +1,12 @@
-use crate::app_work::AcceptsWork;
 use crate::app_work::AppWorkTracker;
 use crate::app_work::AppboundWorkFinishedMessage;
-use crate::app_work::UnboundedWorkFinishedMessageSender;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::mpsc::UnboundedSender;
 
 pub struct AppWorkState<State: 'static> {
     pub work_response_sender: UnboundedSender<AppboundWorkFinishedMessage<State>>,
     pub work_response_receiver: UnboundedReceiver<AppboundWorkFinishedMessage<State>>,
-    pub work_tracker: AppWorkTracker<State>,
+    pub work_tracker: AppWorkTracker,
 }
 impl<State: 'static> Default for AppWorkState<State> {
     fn default() -> Self {
@@ -35,17 +33,5 @@ impl<State: 'static> AppWorkState<State> {
         }
         self.work_tracker.prune()?;
         Ok(())
-    }
-}
-
-impl<State: 'static> AcceptsWork<State> for AppWorkState<State> {
-    fn work_tracker(&self) -> AppWorkTracker<State> {
-        self.work_tracker.clone()
-    }
-
-    fn work_finished_message_sender(
-        &self,
-    ) -> impl crate::app_work::AppboundWorkFinishedMessageSender<State> {
-        UnboundedWorkFinishedMessageSender::new(self.work_response_sender.clone())
     }
 }

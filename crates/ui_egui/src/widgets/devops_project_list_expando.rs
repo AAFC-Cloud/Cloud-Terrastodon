@@ -1,8 +1,8 @@
 use crate::app::MyApp;
 use crate::icons::DEVOPS_ICON;
-use crate::loadable::Loadable;
 use crate::workers::load_azure_devops_projects::load_azure_devops_projects;
 use cloud_terrastodon_azure_devops::AzureDevOpsProject;
+use cloud_terrastodon_command::app_work::Loadable;
 use eframe::egui::Checkbox;
 use eframe::egui::Id;
 use eframe::egui::Ui;
@@ -29,7 +29,9 @@ pub fn draw_devops_project_list_expando(app: &mut MyApp, ui: &mut Ui) {
 
 fn draw_expando_header(app: &mut MyApp, ui: &mut Ui, toggle_key: Id) {
     match &app.azure_devops_projects {
-        Loadable::Loaded(projects) => {
+        Loadable::Loaded {
+            value: projects, ..
+        } => {
             let projects = projects.clone();
             if ui.image(DEVOPS_ICON).clicked() {
                 app.toggle_intents.insert(toggle_key);
@@ -66,16 +68,16 @@ fn draw_expando_body(app: &mut MyApp, ui: &mut Ui) {
         Loadable::NotLoaded => {
             ui.label("Not loaded");
         }
-        Loadable::Loading => {
+        Loadable::Loading { .. } => {
             ui.label("Loading...");
         }
-        Loadable::Loaded(subs) => {
+        Loadable::Loaded { value: subs, .. } => {
             let projects = subs.clone();
             for project in projects.iter() {
                 draw_entry(app, ui, project);
             }
         }
-        Loadable::Failed(err) => {
+        Loadable::Failed { error: err, .. } => {
             ui.label(format!("Error: {err}"));
         }
     });

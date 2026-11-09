@@ -1,13 +1,13 @@
-use crate::app_message::AppMessage;
 use crate::autosave_info::AutoSaveBehaviour;
-use crate::loadable::Loadable;
-use crate::work_tracker::WorkTracker;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure::Resource;
 use cloud_terrastodon_azure::ResourceGroupMap;
 use cloud_terrastodon_azure::Subscription;
 use cloud_terrastodon_azure_devops::AzureDevOpsProject;
+use cloud_terrastodon_command::app_work::AppWorkTracker;
+use cloud_terrastodon_command::app_work::AppboundWorkFinishedMessage;
+use cloud_terrastodon_command::app_work::Loadable;
 use cloud_terrastodon_config::Config;
 use cloud_terrastodon_config::EguiConfig;
 use cloud_terrastodon_config::WorkDirsConfig;
@@ -23,8 +23,10 @@ use std::collections::HashSet;
 use std::hash::Hash;
 use std::rc::Rc;
 use std::sync::Arc;
+use std::sync::mpsc::SyncSender;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::mpsc::UnboundedSender;
+use tracing::error;
 use tracing::info;
 
 pub struct MyApp {
@@ -37,8 +39,8 @@ pub struct MyApp {
     pub azure_devops_projects: Loadable<Arc<Vec<Arc<AzureDevOpsProject>>>, eyre::ErrReport>,
     pub resource_groups: Loadable<Rc<ResourceGroupMap>, eyre::ErrReport>,
     pub resources: Loadable<Arc<Vec<Arc<Resource>>>, eyre::ErrReport>,
-    pub tx: UnboundedSender<AppMessage>,
-    pub rx: UnboundedReceiver<AppMessage>,
+    pub tx: UnboundedSender<AppboundWorkFinishedMessage<MyApp>>,
+    pub rx: UnboundedReceiver<AppboundWorkFinishedMessage<MyApp>>,
     pub egui_config: EguiConfig,
     pub egui_config_auto_save: AutoSaveBehaviour<EguiConfig>,
     pub work_dirs_config: WorkDirsConfig,
@@ -51,7 +53,9 @@ pub struct MyApp {
     pub toasts: Toasts,
     /// Number of events we've already processed for toasts
     pub last_seen_event_count: usize,
-    pub work_tracker: Rc<WorkTracker>,
+    pub work_tracker: AppWorkTracker,
+    /// Transfers final settings to the owner for saving after earlier jobs drain.
+    pub shutdown_settings: SyncSender<(EguiConfig, WorkDirsConfig)>,
     /// Formatted application info (version + revision) shown in About window
     pub app_info: String,
 
@@ -62,14 +66,14 @@ pub struct MyApp {
 
 impl MyApp {
     pub async fn new(
-        _cc: &eframe::CreationContext<'_>,
         tenant_id: AzureTenantId,
         auth_context: AuthContext,
-        work_tracker: Rc<WorkTracker>,
+        work_tracker: AppWorkTracker,
+        shutdown_settings: SyncSender<(EguiConfig, WorkDirsConfig)>,
         app_info: String,
         executor: &CloudTerrastodonExecutor,
     ) -> eyre::Result<Self> {
-        let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<AppMessage>();
+        let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<AppboundWorkFinishedMessage<MyApp>>();
         Ok(Self {
             executor: executor.clone(),
             tenant_id,
@@ -93,6 +97,7 @@ impl MyApp {
                 .direction(Direction::BottomUp),
             last_seen_event_count: 0, //event_collector().events().len(), // TODO(EGUI-TRACING)
             work_tracker,
+            shutdown_settings,
             app_info,
             tiles: crate::tiles::create_tree(),
             tiles_behavior: Default::default(),
@@ -101,16 +106,23 @@ impl MyApp {
     pub fn checkbox_for(&mut self, key: impl Hash) -> &mut bool {
         self.checkboxes.entry(Id::new(key)).or_default()
     }
-    pub fn enqueue_auto_save(&mut self) {
-        self.egui_config_auto_save
-            .apply(&self.egui_config, self.work_tracker.clone());
-        self.work_dirs_config_auto_save
-            .apply(&self.work_dirs_config, self.work_tracker.clone());
+    pub fn enqueue_auto_save(&mut self) -> eyre::Result<()> {
+        self.egui_config_auto_save.apply(
+            &self.egui_config,
+            &self.work_tracker,
+            self.executor.cancellation(),
+        )?;
+        self.work_dirs_config_auto_save.apply(
+            &self.work_dirs_config,
+            &self.work_tracker,
+            self.executor.cancellation(),
+        )?;
+        Ok(())
     }
     pub fn handle_messages(&mut self) {
         while let Ok(msg) = self.rx.try_recv() {
             match msg {
-                AppMessage::StateChange(state_mutator) => {
+                AppboundWorkFinishedMessage::StateChange(state_mutator) => {
                     state_mutator.mutate_state(self);
                 }
             }
@@ -125,12 +137,21 @@ impl App for MyApp {
         }
         self.handle_messages();
         self.draw_app(ctx);
-        self.enqueue_auto_save();
-        self.work_tracker.prune();
+        if let Err(error) = self.enqueue_auto_save() {
+            error!(?error, "Could not enqueue configuration autosave");
+        }
+        if let Err(error) = self.work_tracker.prune() {
+            error!(?error, "Could not inspect background work");
+        }
     }
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
         info!("Gracefully exiting");
-        self.enqueue_auto_save();
+        if let Err(error) = self
+            .shutdown_settings
+            .send((self.egui_config.clone(), self.work_dirs_config.clone()))
+        {
+            error!(?error, "Could not hand off final configuration for saving");
+        }
         self.executor
             .cancellation()
             .request_cancel("GUI window closed");

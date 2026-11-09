@@ -1,7 +1,7 @@
 use crate::app::MyApp;
 use crate::icons::RESOURCE_GROUP_ICON;
 use crate::icons::SUBSCRIPTION_ICON;
-use crate::loadable::Loadable;
+use cloud_terrastodon_command::app_work::Loadable;
 use eframe::egui;
 use eframe::egui::Context;
 use eframe::egui::Window;
@@ -19,7 +19,11 @@ pub fn selected_items_ui(app: &mut MyApp, ui: &mut egui::Ui) {
     use tracing::debug;
 
     ScrollArea::both().show(ui, |ui| {
-        if let Loadable::Loaded(subscriptions) = &app.subscriptions {
+        if let Loadable::Loaded {
+            value: subscriptions,
+            ..
+        } = &app.subscriptions
+        {
             for subscription in subscriptions.clone().iter() {
                 let checked = app.checkbox_for(subscription.id);
                 if !*checked {
@@ -34,7 +38,11 @@ pub fn selected_items_ui(app: &mut MyApp, ui: &mut egui::Ui) {
                 });
             }
         }
-        if let Loadable::Loaded(resource_groups) = &app.resource_groups {
+        if let Loadable::Loaded {
+            value: resource_groups,
+            ..
+        } = &app.resource_groups
+        {
             for resource_group in resource_groups.clone().values() {
                 let checked = app.checkbox_for(&resource_group.id);
                 if !*checked {
@@ -48,7 +56,10 @@ pub fn selected_items_ui(app: &mut MyApp, ui: &mut egui::Ui) {
                 });
             }
         }
-        if let Loadable::Loaded(projects) = &app.azure_devops_projects {
+        if let Loadable::Loaded {
+            value: projects, ..
+        } = &app.azure_devops_projects
+        {
             for project in projects.clone().iter() {
                 let checked = app.checkbox_for(project.id);
                 if !*checked {

@@ -19,7 +19,6 @@ cloud_terrastodon_config.workspace = true
 cloud_terrastodon_auth.workspace = true
 cloud_terrastodon_hcl.workspace = true
 cloud_terrastodon_pathing.workspace = true
-cloud_terrastodon_relative_location.workspace = true
 cloud_terrastodon_tracing.workspace = true
 cloud_terrastodon_user_input.workspace = true
 cloud_terrastodon_zombies.workspace = true
@@ -31,11 +30,14 @@ egui_tiles.workspace = true
 egui-toast.workspace = true
 eyre.workspace = true
 facet.workspace = true
-futures.workspace = true
 indexmap.workspace = true
 itertools.workspace = true
 tokio.workspace = true
+teamy-cancellation.workspace = true
 tracing.workspace = true
+
+[dev-dependencies]
+async-trait.workspace = true
 
 [lints]
 workspace = true

@@ -27,7 +27,6 @@ where
         &'static Location<'static>,
         LoadableWorkFactory<FinishedWorkData>,
     )>,
-    require_delivery: bool,
     description: String,
 }
 
@@ -48,20 +47,12 @@ where
         Self {
             setter: None,
             on_work: None,
-            require_delivery: false,
             description: String::new(),
         }
     }
 
     pub fn description(mut self, description: impl Display) -> Self {
         self.description = description.to_string();
-        self
-    }
-
-    /// Report success-delivery failure when the application receiver has closed.
-    /// This does not determine cancellation safety; the work's scope does that.
-    pub fn require_delivery(mut self, require_delivery: bool) -> Self {
-        self.require_delivery = require_delivery;
         self
     }
 
@@ -133,7 +124,6 @@ where
                 setter: Arc::clone(&setter_for_failure),
                 started_at,
             },
-            require_delivery: self.require_delivery,
             description: self.description,
             _marker: std::marker::PhantomData,
         })

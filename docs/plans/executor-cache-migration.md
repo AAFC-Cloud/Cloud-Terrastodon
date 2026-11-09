@@ -92,7 +92,14 @@ U117's checkpoint is `8af2d188`, `Coordinate concurrent work with scoped cancell
 U118 authorizes the interactive handler/background shutdown follow-up from that
 checkpoint. Implementation and offline validation are complete: 86 focused tests,
 workspace all-target compilation, picker feature compilation, and affected-crate
-Clippy pass. Changes remain uncommitted for review. Audit extraction (6.1) is next.
+Clippy pass. U120 commits that checkpoint as `58f454e4`,
+`Drain interactive and background work through cancellation`, then authorizes
+consolidating the UI loading/background adapters and removing unused delivery
+policy flags. This cleanup is complete: six focused offline tests,
+workspace all-target compilation, and affected-crate Clippy pass. Audit extraction
+(6.1) starts the next comprehensive phase, covering tasks 6.1–6.3. U122 records
+the cleanup in the local checkpoint titled
+`Consolidate UI background work and scoped autosaves`.
 U115 approves iterator-owned mapping through `ConcurrentIteratorExt`, with
 explicit executor/scope methods and no redundant executor mapping method. Callers
 are migrated; 23 focused tests, two documentation examples, workspace compilation,
@@ -164,11 +171,40 @@ belong to this ownership task. Audit policies and service behavior are unchanged
 Earlier historical mappings remain the preserved ledger rather than a claimed
 fresh reconstruction of unavailable assistant turns.
 
-**Current authorization:** U118 authorizes completing the interactive handler and
-background-task shutdown follow-up, including the necessary scope API/caller
-cutover and offline lifecycle tests. Leave this work uncommitted for review;
-audit extraction (6.1) remains the next distinct implementation task. No live
-credential or production-data access is authorized.
+**U119–U120 intent audit — 2026-11-09:**
+- **Extraction:** The latest discussion distinguishes UI loading/error state,
+  cached result reuse, and task lifetime ownership. The user requests committing
+  the existing work before implementing the recommended consolidation and flag
+  removal. Memory-only caching already exists; no cache-policy redesign is needed.
+- **Traceability:** U120's checkpoint is `58f454e4`. The UI background-work cleanup
+  below owns the shared adapter/tracker cutover, cancellation semantics, offline
+  validation, and uncommitted review boundary.
+- **Adversarial review:** Preserve useful loading/error presentation and drain
+  required completion; do not turn this into audit extraction or remove the task
+  owner. Final settings must survive removal of the old raw-spawn autosaves, so
+  GUI shutdown flushes the latest settings after earlier saves drain.
+- **Source limit:** Earlier historical mappings use the preserved ledger; this
+  audit covers the available latest user messages and verified source.
+
+**U121–U122 intent audit — 2026-11-09:**
+- **Extraction:** U121 asks why the direct work enqueue API requires a static state
+  type; it does not request another API change. U122 requests committing the
+  reviewed cleanup and identifying the next comprehensive implementation phase.
+- **Traceability:** The static-bound explanation is recorded in the guidance
+  ledger. The local cleanup checkpoint preserves its validation evidence. The
+  Phase 6 completion boundary below covers audits, startup evidence, and remaining
+  consumers, with completed foundations identified separately.
+- **Adversarial review:** Preserve commit-before-next-work sequencing, scope-only
+  cancellation helpers, independent audit data access, and offline-only validation.
+  Do not equate already-completed UI propagation with full Phase 6 completion or
+  restart its completed foundations. Earlier historical intent uses the preserved
+  ledger; this audit covers the available latest messages and current source.
+
+**Current authorization:** U122 authorizes committing the reviewed UI background
+cleanup and identifying the next comprehensive phase. The next implementation
+boundary is Phase 6 (tasks 6.1–6.3), starting with audit extraction. This request
+does not begin that implementation or authorize a push. No live credential or
+production-data access is authorized.
 
 **Phase 5 authorization history:** U104 authorized completing all three phase 5 SDK
 vertical slices, their shared observation support, necessary consumers, and offline
@@ -1131,7 +1167,11 @@ do not silently rewrite earlier guidance.
 | U115 | Make concurrent mapping an iterator extension with an explicit executor argument; approve the proposed scope-only variant and removal of the executor mapping method. | Add `ConcurrentIteratorExt::map_concurrent` and `map_concurrent_scoped`, migrate all callers, and keep one private coordination implementation. Preserve cancellation, error policies, borrowing, and staging without compatibility exports. | — |
 | U116 | Implement `Copy` for UUID newtypes and remove redundant ID clones. | Audit UUID wrappers, add missing derives, and update affected callers using compiler diagnostics. Preserve non-UUID ownership and validate offline. | — |
 | U117 | Commit the accumulated changes after the approved concurrency refinements and removal of the unused cache-population workflow. | Create a local checkpoint of the reviewed staged changes; retain the separate interactive shutdown follow-up. No push requested. | Supersedes the checkpoint's no-commit boundary |
-| U118 | Proceed with the next planned interactive cancellation follow-up. | Complete picker generation cancellation/draining and background shutdown ownership, propagate explicit child scopes, and validate without production data. Leave changes uncommitted. | Complete; awaiting review |
+| U118 | Proceed with the next planned interactive cancellation follow-up. | Complete picker generation cancellation/draining and background shutdown ownership, propagate explicit child scopes, and validate without production data. Leave changes uncommitted. | U120 authorizes its checkpoint |
+| U119 | Review whether UI loadable work is superseded by the cache, whether deferrals remove required-work classification, and whether memory-only caching is supported and useful. | Distinguish loading/error presentation, task ownership, and successful-result reuse. Confirm existing memory-only aggregate caching; recommend sharing UI adapters and removing unused delivery flags. | — |
+| U120 | Commit the existing work, then perform the recommended cleanup. | Commit U118 first; consolidate command/egui loading and task implementations, remove unused delivery-policy flags, preserve scoped completion and final settings, validate offline, and leave cleanup uncommitted. | — |
+| U121 | Explain the introduced `State: 'static` bound on the shared work API. | Explain that direct typed channel capture exposes the bound previously supplied by the sender adapter; it constrains borrowed fields, not the state instance's allocation lifetime. No code change requested. | — |
+| U122 | Commit changes and identify the next comprehensive phase to complete. | Commit the reviewed UI cleanup, then describe all remaining Phase 6 responsibilities and acceptance criteria, recognizing completed foundations. Do not start implementation or push. | — |
 
 U18 supersedes the earlier assistant suggestion to preserve an Azure CLI
 active-tenant selection. That suggestion was not user approval. U13 rejects the
@@ -1269,7 +1309,11 @@ not an implemented package; U61 selects `auth_types` paired with runtime `auth`.
 | U115 | Iterator mapping refinement below | Iterator extension and caller migration complete; 23 focused tests, two documentation examples, workspace compilation, and affected-crate Clippy pass. Existing staging preserved. |
 | U116 | UUID value semantics refinement below | All 25 direct UUID wrappers implement `Copy`; eight missing derives added. Redundant caller clones removed; workspace all-target Clippy with `clone_on_copy` denied passes. |
 | U117 | Scoped concurrency review and local checkpoint | Prior workspace/affected-crate checks and selected local tests passed; final mapping tests and execution/entrypoint all-target Clippy passed after preallocated paired-vector ordering and cache-population removal. |
-| U118 | Interactive handler/background ownership follow-up; scoped join review | 86 focused offline tests, workspace all-target compilation, all-feature picker compilation, and warnings-denied all-target Clippy across 11 affected crates pass. Independent reviews resolved nested terminal/poison races and GUI shutdown gaps. Changes remain uncommitted. |
+| U118 | Interactive handler/background ownership follow-up; scoped join review | 86 focused offline tests, workspace all-target compilation, all-feature picker compilation, and warnings-denied all-target Clippy across 11 affected crates pass. Independent reviews resolved nested terminal/poison races and GUI shutdown gaps. Committed under U120 as `58f454e4`. |
+| U119 | UI background-work cleanup; existing memory-only inventories | Source review confirms `cached_work` retains decoded aggregates without aggregate disk artifacts; principals/RBAC and DevOps projects already use it. |
+| U120 | UI background-work cleanup below | Existing work committed as `58f454e4`. Cleanup complete; six focused offline tests, workspace all-target compilation, and warnings-denied all-target Clippy for command and both UIs pass. U122 records the cleanup checkpoint. |
+| U121 | Shared `Work::enqueue` lifetime contract | Source review and an isolated compiler check confirm the typed sender needs the bound when captured in the independently owned background task; the UI state borrow stays synchronous. |
+| U122 | UI cleanup checkpoint; Phase 6 completion boundary | Local checkpoint titled `Consolidate UI background work and scoped autosaves`; remaining Phase 6 scope verified against source. |
 
 ## Purpose and scope
 
@@ -4638,11 +4682,61 @@ manual terminal test remains ignored. Workspace all-target compilation,
 all-feature/all-target picker compilation, and all-target Clippy with warnings
 denied across 11 affected crates pass. Formatting and whitespace checks pass.
 No native UI was manually exercised, and no production services, credentials,
-configuration, or caches were accessed. Staging remains empty and changes are
-uncommitted. Reproduction commands are in the
+configuration, or caches were accessed. U120 committed this completed checkpoint
+as `58f454e4`. Reproduction commands are in the
 [scoped join review](scoped-join-review.md#interactive-lifecycle-verification).
 
+### [x] Follow-up: consolidate UI background work
+
+**Scope:** U120 follows the completed interactive ownership checkpoint. Reuse the
+generic command `Loadable`, `LoadableWorkBuilder`, work messages, and tracker from
+egui; remove its duplicate implementations without compatibility exports. Keep
+UI presentation state separate from memory/disk cache reuse. Remove the unused
+success-delivery toggle: a closed UI may discard a successful snapshot, while
+operation failures remain observable. Deferrals, not task flags, protect writes.
+
+**Work:** Make the tracker independent of application state and pass the tracker,
+message channel, mutable UI state, and scope directly when enqueueing. Remove
+the sender/acceptor indirection. Register autosaves as scoped jobs with protected
+write bodies; a queued job can cancel before starting. Transfer final GUI settings
+to the owning shutdown procedure, drain older jobs, then flush both settings
+under required completion so cancellation cannot lose the final snapshot.
+
+**Completion evidence — 2026-11-09:** Egui now uses the generic loading adapter,
+messages, and tracker; seven duplicate modules and three sender/acceptor types
+are removed. The tracker no longer carries an unused application-state type.
+Autosaves use protected writes and shutdown saves the final snapshot after older
+jobs drain. Six focused offline tests pass: five shared tracker tests, including
+cancellation before first polling and closed-receiver handling, and one synthetic
+autosave test covering protected completion and rejected admission. Workspace
+all-target compilation, affected-crate all-target Clippy with warnings denied,
+formatting, and whitespace checks pass. Dependency changes only remove the
+deleted adapters' direct dependencies and add the existing cancellation/test
+dependencies to egui; no versions changed. Independent reviews found no blocking
+issues. U122 records this cleanup in the local checkpoint titled
+`Consolidate UI background work and scoped autosaves`. Native UI and real configuration
+were not exercised. A native panic before `on_exit` cannot hand off unsaved final
+settings, but already-started protected saves still drain.
+
+Reproduction commands are in the
+[scoped join review](scoped-join-review.md#ui-adapter-consolidation).
+
 ## Phase 6 — audits, application ownership, and interactive consumers
+
+**Next comprehensive completion boundary:** Complete tasks 6.1–6.3 together,
+beginning with independent Azure audit activities. Task 6.2 closes isolated
+startup/runtime evidence around the already-installed executor; task 6.3
+reconciles and finishes remaining consumer batches. Registry invocation, picker
+child scopes, and the shared UI work lifecycle are established foundations and
+should not be reimplemented. Audit extraction stays in the Azure CLI scope
+described by 6.1; Azure DevOps audit extraction is not silently added to that task.
+
+Phase 6 is complete when existing audit policies return typed findings through
+one output boundary and share decoded inventories, startup with authentication
+disabled has isolated runtime evidence, and every inventoried consumer has a
+verified execution contract or an explicitly documented Phase 7 removal item.
+Keep scope-only helpers independent of the executor, preserve existing audit
+behavior, and use synthetic data only.
 
 ### [ ] 6.1 Separate audit activities without centralizing their input data
 
@@ -4704,6 +4798,14 @@ invalidation targets the same memory/storage owner as execution. Both feature
 configurations have runtime evidence without accessing production data.
 
 ### [ ] 6.3 Migrate UI, discovery execution, and remaining consumer batches
+
+**Verified foundation:** Task 3.3 already supplies executors to registry invocation;
+U118 and U120 now supply child scopes to UI workers and share background-task
+ownership. Reconcile those completed changes against the inventory rather than
+repeat them. Remaining request-owned runtime fields still need classification;
+for example, `crates/hcl/src/reflow/reflow_new.rs` retains an optional borrowed
+Azure tenant auth context. Preserve legitimate execution contexts and scope-only
+operations while closing the actual remaining consumer gaps.
 
 **Work:** Update object-explorer invocation/value construction, dump planning and
 simulation admission, menus, source/HCL consumers, and the inventory from 1.2.

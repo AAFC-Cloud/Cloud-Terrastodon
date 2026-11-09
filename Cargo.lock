@@ -1649,6 +1649,7 @@ dependencies = [
 name = "cloud_terrastodon_ui_egui"
 version = "0.37.0"
 dependencies = [
+ "async-trait",
  "cloud_terrastodon_auth",
  "cloud_terrastodon_azure",
  "cloud_terrastodon_azure_devops",
@@ -1657,7 +1658,6 @@ dependencies = [
  "cloud_terrastodon_execution",
  "cloud_terrastodon_hcl",
  "cloud_terrastodon_pathing",
- "cloud_terrastodon_relative_location",
  "cloud_terrastodon_tracing",
  "cloud_terrastodon_user_input",
  "cloud_terrastodon_zombies",
@@ -1667,9 +1667,9 @@ dependencies = [
  "egui_extras",
  "egui_tiles",
  "eyre",
- "futures",
  "indexmap",
  "itertools",
+ "teamy-cancellation",
  "teamy-facet",
  "tokio",
  "tracing",

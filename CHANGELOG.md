@@ -1,5 +1,7 @@
 # Unreleased
 
+- Share the loading-state adapter and background task tracker between egui and Ratatui. Remove duplicate UI work types and delivery-policy flags; cancellation scopes determine required completion. Drain earlier jobs before saving final GUI settings.
+
 - Give picker callbacks linked cancellation scopes and retain required completion across reload, exit, and failure. Drain background jobs and nested pickers during application shutdown, including after task panics; keep terminal cleanup alive without shielding optional reads. Replace blocking tab-warning prompts with in-picker notifications.
 
 - Remove the unused interactive "populate cache" action and its inventory-refresh workflow.

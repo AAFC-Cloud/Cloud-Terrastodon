@@ -1,7 +1,8 @@
 use crate::app::MyApp;
-use crate::work_tracker::WorkTracker;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::AzureTenantId;
+use cloud_terrastodon_command::app_work::AppWorkTracker;
+use cloud_terrastodon_config::Config;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_pathing::AppDir;
 use eframe::NativeOptions;
@@ -11,7 +12,7 @@ use eyre::eyre;
 use std::panic::AssertUnwindSafe;
 use std::panic::catch_unwind;
 use std::panic::resume_unwind;
-use std::rc::Rc;
+use std::sync::mpsc::sync_channel;
 use tokio::runtime;
 use tokio::task::block_in_place;
 use tracing::info;
@@ -30,7 +31,8 @@ pub async fn run_app(
             ..Default::default()
         };
 
-        let work_tracker = Rc::new(WorkTracker::new());
+        let work_tracker = AppWorkTracker::new();
+        let (shutdown_settings, settings_receiver) = sync_channel(1);
 
         {
             let work_tracker2 = work_tracker.clone();
@@ -58,10 +60,10 @@ pub async fn run_app(
                             egui_extras::install_image_loaders(&cc.egui_ctx);
                             let app = runtime::Handle::current().block_on(async move {
                                 MyApp::new(
-                                    cc,
                                     tenant_id,
                                     auth_context,
                                     work_tracker2,
+                                    shutdown_settings,
                                     app_info,
                                     &app_executor,
                                 )
@@ -73,12 +75,30 @@ pub async fn run_app(
                 })
             }));
             executor.cancellation().request_cancel("GUI window closed");
-            let drained = executor
+            let drained = work_tracker.finish(executor.cancellation()).await;
+            // A queued periodic save can be cancelled before it starts. The
+            // native app transfers its final settings on exit, and these writes
+            // run after earlier jobs so an older snapshot cannot overwrite them.
+            let saved = executor
                 .cancellation()
-                .finish_required("drain GUI background work", async |_cleanup| {
-                    work_tracker.finish().await
+                .finish_required("save final GUI settings", async |_cleanup| {
+                    if let Ok((egui_config, work_dirs_config)) = settings_receiver.try_recv() {
+                        // Attempt both saves even if one fails.
+                        let egui_saved = egui_config.save().await;
+                        let work_dirs_saved = work_dirs_config.save().await;
+                        if let Err(error) = &work_dirs_saved {
+                            tracing::error!(?error, "Failed to save final work-directory settings");
+                        }
+                        egui_saved?;
+                        work_dirs_saved?;
+                    }
+                    eyre::Ok(())
                 })
                 .await;
+            if let Err(error) = &saved {
+                tracing::error!(?error, "Failed to save final GUI settings");
+            }
+            let drained = drained.and(saved);
             match (result, drained) {
                 (Err(panic), drain) => {
                     if let Err(drain_error) = drain {

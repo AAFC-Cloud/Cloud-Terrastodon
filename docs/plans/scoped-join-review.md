@@ -3,8 +3,11 @@
 **Status:** U114 authorizes the full fixed-join and finite-batch rollout after the
 U113 three-caller preview. U115 moves mapping onto `ConcurrentIteratorExt` while
 retaining executor joins. Iterator migration and callback refinement are
-implemented; focused checks pass. U117 authorizes the local checkpoint. The
-interactive shutdown follow-up below remains open.
+implemented; focused checks pass. U117's checkpoint is `8af2d188`. The interactive
+shutdown follow-up is complete and committed under U120 as `58f454e4`. U120 now
+authorizes sharing the loading/background adapter and removing unused delivery
+policy flags; U122 records that completed cleanup in the local checkpoint titled
+`Consolidate UI background work and scoped autosaves`.
 
 **Audit date:** 2026-11-09.
 
@@ -148,8 +151,8 @@ inside the picker instead of creating an uninterruptible stdin reader.
 [`AppWorkTracker::finish`](../../crates/command/src/app_work/app_work_tracker.rs)
 closes admission, requests each job's linked cancellation signal, and drains all
 admitted work, retaining task errors and panics even when normal pruning already
-observed them. The GUI tracker also observes pruned outcomes and finishes all
-jobs before reporting failure. Work factories use their supplied child scope;
+observed them. U120 replaces the separate GUI tracker with this same owner and
+the same loading-state adapter. Work factories use their supplied child scope;
 the executor's public scope binding preserves authentication, cache, observation,
 and execution restrictions. Nested Ratatui pickers are owned and drained on
 shutdown. A poisoned terminal coordinator retires nested frames without waiting
@@ -176,7 +179,10 @@ exercised.
 
 Workspace all-target compilation, all-feature/all-target picker compilation, and
 all-target Clippy with warnings denied across the 11 affected crates pass.
-Formatting and whitespace checks pass. Work remains uncommitted for review.
+Formatting and whitespace checks pass. This verification belongs to checkpoint
+`58f454e4`; U120's adapter cleanup is validated separately below. The former
+GUI-specific tracker test in this historical command list was subsequently
+removed with the duplicate tracker; the shared tracker covers its shutdown cases.
 
 ```powershell
 cargo test --offline --locked -p cloud_terrastodon_user_input --lib
@@ -189,6 +195,35 @@ cargo test --offline --locked -p cloud_terrastodon_entrypoint --lib visits_fs_en
 cargo check --offline --locked --workspace --all-targets
 cargo check --offline --locked -p cloud_terrastodon_user_input --all-targets --all-features
 cargo clippy --offline --locked --all-targets -p cloud_terrastodon_user_input -p cloud_terrastodon_execution -p cloud_terrastodon_command -p cloud_terrastodon_azure -p cloud_terrastodon_azure_cli -p cloud_terrastodon_azure_devops -p cloud_terrastodon_azure_devops_cli -p cloud_terrastodon_entrypoint -p cloud_terrastodon_ui_egui -p cloud_terrastodon_ui_ratatui -p cloud_terrastodon_zombies -- -D warnings
+```
+
+## UI adapter consolidation
+
+U120 keeps the UI's loading/error state and shared decoded cache values separate.
+Egui and Ratatui use one `LoadableWorkBuilder` and `AppWorkTracker`; enqueueing
+receives the tracker, channel, mutable state, and cancellation scope directly.
+The tracker has no application-state type parameter. Successful delivery after
+the UI receiver closes is benign; actual failures remain logged and tracked.
+No task-delivery or required-work flag decides cancellation behavior.
+
+Periodic GUI saves use the tracker and defer their actual write. A queued save
+can cancel before first polling. On native exit the UI hands off its latest
+settings; shutdown drains older jobs before saving that snapshot under required
+completion. This avoids losing final settings or allowing an older periodic
+snapshot to overwrite them. Six focused offline tests pass: five shared tracker
+tests and one autosave test using an in-memory `Config::save` implementation.
+Workspace all-target compilation and warnings-denied all-target Clippy for
+command, egui, and Ratatui pass. Formatting and whitespace checks pass. No native
+UI, credentials, or production configuration were used for validation. A panic
+before native `on_exit` still cannot transfer the final settings; already-started
+protected writes are drained. U122 records this cleanup in the local checkpoint
+titled `Consolidate UI background work and scoped autosaves`.
+
+```powershell
+cargo test --offline --locked -p cloud_terrastodon_command --lib app_work_tracker_tests
+cargo test --offline --locked -p cloud_terrastodon_ui_egui --lib autosave_info::tests
+cargo check --offline --locked --workspace --all-targets
+cargo clippy --offline --locked --all-targets -p cloud_terrastodon_command -p cloud_terrastodon_ui_egui -p cloud_terrastodon_ui_ratatui -- -D warnings
 ```
 
 ## Callback capture refinement

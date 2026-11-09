@@ -3,7 +3,6 @@ use super::WorkHandle;
 use eyre::Result;
 use eyre::eyre;
 use std::future::Future;
-use std::marker::PhantomData;
 use std::sync::Arc;
 use std::sync::Mutex;
 use teamy_cancellation::CancellationScope;
@@ -15,39 +14,37 @@ use tracing::info;
 /// Shutdown closes admission for every clone, requests each task's linked
 /// cancellation signal, and drains all tasks, including after a task panics.
 /// Call `finish` while the supplied parent execution scope is still alive.
-#[derive(Debug)]
-pub struct AppWorkTracker<State> {
+#[derive(Clone, Debug)]
+pub struct AppWorkTracker {
     // The lock makes admission and closing atomic. None means shutdown owns
     // the tasks; clones cannot enqueue more work behind the drain.
     work: Arc<Mutex<Option<TrackedAppWork>>>,
-    _marker: PhantomData<State>,
 }
 
-impl<State> Clone for AppWorkTracker<State> {
-    fn clone(&self) -> Self {
-        Self {
-            work: Arc::clone(&self.work),
-            _marker: PhantomData,
-        }
-    }
-}
-
-impl<State> Default for AppWorkTracker<State> {
+impl Default for AppWorkTracker {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<State> AppWorkTracker<State> {
+impl AppWorkTracker {
     pub fn new() -> Self {
         Self {
             work: Arc::new(Mutex::new(Some(TrackedAppWork::default()))),
-            _marker: PhantomData,
         }
     }
 
+    /// Admit a task on the supplied runtime and retain it until its outcome is observed.
+    ///
+    /// The factory receives an automatically cancellable child of `cancellation`.
+    /// Deferrals within that child protect required completion during shutdown.
+    /// Shutdown closes scheduling admission. Cancellation is checked against the
+    /// supplied scope before scheduling and again by the child on its first
+    /// poll; a cancelled child never invokes the factory. Existing deferrals
+    /// retain their normal scope semantics. Keep the parent scope alive until
+    /// [`Self::finish`] has drained every admitted task.
     #[track_caller]
-    pub(crate) fn spawn<C, F>(
+    pub fn spawn<C, F>(
         &self,
         cancellation: &CancellationScope,
         runtime: &Handle,

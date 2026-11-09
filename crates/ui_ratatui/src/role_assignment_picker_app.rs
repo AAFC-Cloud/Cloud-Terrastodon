@@ -197,7 +197,12 @@ impl RoleAssignmentPickerApp {
                 Ok(RoleDefinitionsHolder(data))
             })
             .build()?;
-        role_work.enqueue(&self.work, &mut self.data, self.executor.cancellation())?;
+        role_work.enqueue(
+            &self.work.work_tracker,
+            self.work.work_response_sender.clone(),
+            &mut self.data,
+            self.executor.cancellation(),
+        )?;
 
         let principals_auth_context = self.auth_context.clone();
         let principals_executor = self.executor.clone();
@@ -221,7 +226,12 @@ impl RoleAssignmentPickerApp {
                 Ok(PrincipalCollectionHolder(data))
             })
             .build()?;
-        principals_work.enqueue(&self.work, &mut self.data, self.executor.cancellation())?;
+        principals_work.enqueue(
+            &self.work.work_tracker,
+            self.work.work_response_sender.clone(),
+            &mut self.data,
+            self.executor.cancellation(),
+        )?;
 
         Ok(())
     }

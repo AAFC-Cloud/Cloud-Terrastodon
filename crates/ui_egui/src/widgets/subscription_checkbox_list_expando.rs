@@ -1,8 +1,8 @@
 use super::subscription_checkbox_list::draw_subscription_checkbox_list;
 use crate::app::MyApp;
 use crate::icons::SUBSCRIPTION_ICON;
-use crate::loadable::Loadable;
 use crate::workers::load_subscriptions::load_subscriptions;
+use cloud_terrastodon_command::app_work::Loadable;
 use eframe::egui::Checkbox;
 use eframe::egui::Id;
 use eframe::egui::Ui;
@@ -27,7 +27,7 @@ pub fn draw_subscription_list_expando(app: &mut MyApp, ui: &mut Ui) {
 
 fn draw_header(app: &mut MyApp, ui: &mut Ui, toggle_key: Id) {
     match &app.subscriptions {
-        Loadable::Loaded(subs) => {
+        Loadable::Loaded { value: subs, .. } => {
             let subs = subs.clone();
             if ui.image(SUBSCRIPTION_ICON).clicked() {
                 app.toggle_intents.insert(toggle_key);

@@ -1,17 +1,24 @@
-use super::AcceptsWork;
+use super::AppWorkTracker;
 use super::AppboundWorkFinishedMessage;
-use super::AppboundWorkFinishedMessageSender;
 use super::StateMutator;
 use crate::CancellationReportExt;
 use cloud_terrastodon_relative_location::RelativeLocation;
-use eyre::WrapErr;
+use eyre::eyre;
 use std::future::Future;
 use std::marker::PhantomData;
 use std::panic::Location;
 use teamy_cancellation::CancellationScope;
+use tokio::runtime::Handle;
+use tokio::sync::mpsc::UnboundedSender;
+use tracing::debug;
 use tracing::error;
 
 /// Background work whose factory receives its own linked execution scope.
+///
+/// Successful results are UI snapshots, so a closed receiver may discard them.
+/// Failures are logged and sent to the UI; failure-delivery errors are retained
+/// by the task tracker. Required completion is determined by scope deferrals,
+/// independently of whether the UI still needs the result.
 pub struct Work<State, OnEnqueue, OnWork, WorkFailureMutator, OnFailure>
 where
     OnEnqueue: Fn(&mut State),
@@ -22,15 +29,11 @@ where
     pub on_enqueue: OnEnqueue,
     pub on_work: OnWork,
     pub on_failure: OnFailure,
-    /// Treat a closed UI receiver as an error when delivering success.
-    /// All work is drained regardless of this setting; required completion is
-    /// expressed by deferrals inside the work's supplied cancellation scope.
-    pub require_delivery: bool,
     pub description: String,
     pub _marker: PhantomData<State>,
 }
 
-impl<State, OnEnqueue, OnWork, WorkFuture, WorkSuccess, WorkFailureMutator, OnFailure>
+impl<State: 'static, OnEnqueue, OnWork, WorkFuture, WorkSuccess, WorkFailureMutator, OnFailure>
     Work<State, OnEnqueue, OnWork, WorkFailureMutator, OnFailure>
 where
     OnEnqueue: Fn(&mut State),
@@ -43,26 +46,24 @@ where
     #[track_caller]
     pub fn enqueue(
         self,
-        work_acceptor: &impl AcceptsWork<State>,
+        tracker: &AppWorkTracker,
+        sender: UnboundedSender<AppboundWorkFinishedMessage<State>>,
         state: &mut State,
         cancellation: &CancellationScope,
     ) -> eyre::Result<()> {
-        let runtime = work_acceptor.runtime();
-        let tx = work_acceptor.work_finished_message_sender();
-        work_acceptor.work_tracker().spawn(
+        tracker.spawn(
             cancellation,
-            &runtime,
+            &Handle::current(),
             self.description,
             async move |scope| {
                 match (self.on_work)(scope).await {
                     Ok(result) => {
                         let msg =
                             AppboundWorkFinishedMessage::<State>::StateChange(Box::new(result));
-                        if let Err(error) = tx.send(msg)
-                            && self.require_delivery
-                        {
-                            return Err(error)
-                                .wrap_err("Failed to deliver background work success");
+                        if sender.send(msg).is_err() {
+                            debug!(
+                                "UI receiver closed before background work success delivery"
+                            );
                         }
                     }
                     Err(error) => {
@@ -77,10 +78,10 @@ where
                             .wrap_err("Error encountered in worker thread");
                         error!(?error);
                         let state_mutator = (self.on_failure)(error);
-                        tx.send(AppboundWorkFinishedMessage::<State>::StateChange(Box::new(
+                        sender.send(AppboundWorkFinishedMessage::<State>::StateChange(Box::new(
                             state_mutator,
                         )))
-                        .wrap_err("Failed to deliver background work failure")?;
+                        .map_err(|_| eyre!("Cannot deliver background work failure because its UI receiver closed"))?;
                     }
                 }
                 Ok(())

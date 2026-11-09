@@ -1,9 +1,9 @@
 use super::resource_group_checkbox::draw_resource_group_checkbox;
 use crate::app::MyApp;
 use crate::icons::SUBSCRIPTION_ICON;
-use crate::loadable::Loadable;
 use crate::workers::load_resource_groups::load_resource_groups;
 use cloud_terrastodon_azure::Subscription;
+use cloud_terrastodon_command::app_work::Loadable;
 use eframe::egui::Id;
 use eframe::egui::Ui;
 use eframe::egui::collapsing_header::CollapsingState;
@@ -57,10 +57,13 @@ fn draw_body(app: &mut MyApp, subscription: &Subscription, ui: &mut Ui) {
         Loadable::NotLoaded => {
             ui.label("Not loaded");
         }
-        Loadable::Loading => {
+        Loadable::Loading { .. } => {
             ui.label("Loading...");
         }
-        Loadable::Loaded(resource_groups) => {
+        Loadable::Loaded {
+            value: resource_groups,
+            ..
+        } => {
             let resource_groups = resource_groups.clone();
             let resource_groups = resource_groups.get_for_subscription(&subscription.id);
             ui.vertical(|ui| {
@@ -73,7 +76,7 @@ fn draw_body(app: &mut MyApp, subscription: &Subscription, ui: &mut Ui) {
                 }
             });
         }
-        Loadable::Failed(err) => {
+        Loadable::Failed { error: err, .. } => {
             ui.label(format!("Error: {err}"));
         }
     }
