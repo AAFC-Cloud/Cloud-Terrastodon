@@ -115,11 +115,10 @@ async fn default_command_finishes_process_mapping_and_artifacts_after_cancellati
             let started = directory.path().join("started");
             let command = fixture_command(directory.path())?;
             let mapped = std::cell::Cell::new(false);
-            let mapped = &mapped;
-            let mut running = Box::pin(executor.cancellable_scope(move |child| async move {
+            let mut running = Box::pin(executor.cancellable_scope(async |child| {
                 command
                     .run_with_artifacts_and_mapper::<ChildOutput, String, _>(
-                        move |output| {
+                        |output| {
                             mapped.set(true);
                             Ok(output.value)
                         },
@@ -160,11 +159,10 @@ async fn plain_default_command_finishes_process_and_mapping_after_cancellation()
             let started = directory.path().join("started");
             let command = fixture_command(directory.path())?;
             let mapped = std::cell::Cell::new(false);
-            let mapped = &mapped;
-            let mut running = Box::pin(cancellation.cancellable_scope(move |child| async move {
+            let mut running = Box::pin(cancellation.cancellable_scope(async |child| {
                 command
                     .run_with_mapper::<ChildOutput, String, _>(
-                        move |output| {
+                        |output| {
                             mapped.set(true);
                             Ok(output.value)
                         },

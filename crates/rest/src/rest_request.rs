@@ -442,7 +442,7 @@ impl RestRequest {
                         let mut artifacts = loaded.artifacts;
                         artifacts.diagnostics.extend(self.diagnostics(None, Some(&error))?);
                         if let Some(attempt) = entry.begin_attempt(self.inputs()?, &scope).await? { attempt.finish(artifacts, ArtifactObservation::now(), &scope).await?; }
-                        Ok::<_,Report>(())
+                        eyre::Ok(())
                     }.await;
                     let error = match retained {
                         Ok(()) => error,
@@ -466,7 +466,7 @@ impl RestRequest {
             let stored = async {
                 if let Some(attempt) = attempt {
                     let payload = response.as_ref().map(facet_json::to_vec).transpose().map_err(|error| eyre::eyre!("{error:?}"))?.unwrap_or_default();
-                    Ok::<_,Report>(Some(attempt.finish(ArtifactSet { payload, diagnostics: diagnostics? }, observed, &scope).await?))
+                    eyre::Ok(Some(attempt.finish(ArtifactSet { payload, diagnostics: diagnostics? }, observed, &scope).await?))
                 } else { Ok(None) }
             }.await;
             match decoded {
@@ -717,7 +717,7 @@ impl RestRequest {
                     )
                     .await?;
             }
-            Ok::<_, Report>(())
+            eyre::Ok(())
         }
         .await;
         match retained {

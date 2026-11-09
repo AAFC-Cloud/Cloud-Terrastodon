@@ -10,7 +10,6 @@ use cloud_terrastodon_command::CancellationToken;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use itertools::Itertools;
 use std::sync::Arc;
-use tokio::try_join;
 
 #[tokio::test]
 #[ignore]
@@ -26,14 +25,20 @@ pub async fn predict_would_secret_list_succeed() -> eyre::Result<()> {
                 cancellation,
             );
             let current_user = fetch_current_user(&tenant_auth_context, &executor).await?;
-            let (key_vaults, rbac) = try_join!(
-                fetch_all_key_vaults(&tenant_auth_context, &executor),
-                fetch_all_role_definitions_and_assignments(
-                    tenant_auth_context.tenant_id,
-                    tenant_auth_context.auth_source()?,
-                    &executor
-                ),
-            )?;
+            let auth_source = tenant_auth_context.auth_source()?;
+            let (key_vaults, rbac) = executor
+                .join2(
+                    async |child| fetch_all_key_vaults(&tenant_auth_context, &child).await,
+                    async |child| {
+                        fetch_all_role_definitions_and_assignments(
+                            tenant_auth_context.tenant_id,
+                            auth_source,
+                            &child,
+                        )
+                        .await
+                    },
+                )
+                .await?;
 
             let key_vaults = key_vaults
                 .into_iter()

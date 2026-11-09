@@ -269,7 +269,6 @@ pub async fn login_browser_session(
 ) -> Result<()> {
     cancellation
         .cancellable_scope(|cancellation| async move {
-            let cancellation = &cancellation;
             // Request consent for every delegated resource during the one browser
             // handoff. Entra can then redeem the resulting refresh token for one
             // resource at a time without forcing a second browser prompt when the
@@ -280,7 +279,7 @@ pub async fn login_browser_session(
                 client_id,
                 AzureCredentialResource::MicrosoftGraph,
                 &scopes,
-                cancellation,
+                &cancellation,
             )
             .await?;
             let refresh_token = token
@@ -322,8 +321,7 @@ pub(crate) async fn fetch_browser_access_token_with_scopes(
 ) -> Result<BrowserAccessToken> {
     cancellation
         .cancellable_scope(|cancellation| async move {
-            let cancellation = &cancellation;
-            request_with_authorization_code(tenant_id, client_id, resource, scopes, cancellation)
+            request_with_authorization_code(tenant_id, client_id, resource, scopes, &cancellation)
                 .await
         })
         .await

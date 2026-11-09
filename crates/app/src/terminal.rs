@@ -182,7 +182,7 @@ mod tests {
                 counter.set(counter.get() + 1);
                 guard.release().await?;
                 assert!(!active());
-                Result::<_>::Ok(counter.get())
+                eyre::Ok(counter.get())
             },
             false,
         )??;

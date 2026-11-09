@@ -42,9 +42,8 @@ async fn outputs_can_borrow_and_remain_owned_without_sync_or_send_observers() ->
             );
             let text = String::from("borrowed uncached result");
             let (borrowed, closed) = executor
-                .uncached_work(&AUTHENTICATION, |child| {
-                    let text = &text;
-                    async move { Ok((text.as_str(), child.cancellation().clone())) }
+                .uncached_work(&AUTHENTICATION, async |child| {
+                    Ok((text.as_str(), child.cancellation().clone()))
                 })?
                 .await?;
             assert!(std::ptr::eq(borrowed.as_ptr(), text.as_ptr()));
@@ -81,16 +80,12 @@ async fn simultaneous_calls_execute_independently_and_close_each_child_scope() -
             let starts = AtomicUsize::new(0);
             let simultaneous = Barrier::new(2);
             let execute = || {
-                executor.uncached_work(&AUTHENTICATION, |child| {
-                    let starts = &starts;
-                    let simultaneous = &simultaneous;
-                    async move {
-                        let number = starts.fetch_add(1, Ordering::SeqCst);
-                        // Joining or serializing these calls would strand the
-                        // first invocation at this barrier.
-                        simultaneous.wait().await;
-                        Ok((Cell::new(number), child.cancellation().clone()))
-                    }
+                executor.uncached_work(&AUTHENTICATION, async |child| {
+                    let number = starts.fetch_add(1, Ordering::SeqCst);
+                    // Joining or serializing these calls would strand the
+                    // first invocation at this barrier.
+                    simultaneous.wait().await;
+                    Ok((Cell::new(number), child.cancellation().clone()))
                 })
             };
             let first = execute()?;
@@ -123,14 +118,11 @@ async fn cancellation_prevents_unpolled_work_and_drops_an_inflight_attempt() -> 
                 let starts = AtomicUsize::new(0);
                 let (started, started_scope) = oneshot::channel();
                 let (release, released) = oneshot::channel();
-                let mut operation = executor.uncached_work(&AUTHENTICATION, |child| {
-                    let starts = &starts;
-                    async move {
-                        starts.fetch_add(1, Ordering::SeqCst);
-                        started.send(child.cancellation().clone()).unwrap();
-                        released.await?;
-                        Ok(Cell::new(42))
-                    }
+                let mut operation = executor.uncached_work(&AUTHENTICATION, async |child| {
+                    starts.fetch_add(1, Ordering::SeqCst);
+                    started.send(child.cancellation().clone()).unwrap();
+                    released.await?;
+                    Ok(Cell::new(42))
                 })?;
                 let child_scope = if cancel_before_poll {
                     None

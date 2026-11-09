@@ -14,6 +14,7 @@ use cloud_terrastodon_azure::list_tracked_tenants;
 use cloud_terrastodon_azure::resolve_tenant_auth_context;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ConcurrentIteratorExt;
 use color_eyre::owo_colors::OwoColorize;
 use color_eyre::owo_colors::Stream;
 use color_eyre::owo_colors::Style;
@@ -23,7 +24,6 @@ use std::future::Future;
 use std::io::IsTerminal;
 use std::io::Write;
 use std::sync::Arc;
-use tokio::task::JoinSet;
 use tracing::debug;
 
 const MAX_CONCURRENT_TENANTS: usize = 4;
@@ -80,18 +80,10 @@ impl AzureSubscriptionListArgs {
             count = tenant_ids.len(),
             "Fetching subscriptions across Azure tenants"
         );
-        let tenants = executor
-            .cancellable_scope(|executor| async move {
-                collect_tenants(tenant_ids, |tenant_id| {
-                    let auth_context = auth_context.clone();
-                    let executor = executor.clone();
-                    async move {
-                        fetch_tenant_subscriptions(tenant_id, &auth_context, &executor).await
-                    }
-                })
-                .await
-            })
-            .await?;
+        let tenants = collect_tenants(tenant_ids, executor, |child, tenant_id| async move {
+            fetch_tenant_subscriptions(tenant_id, auth_context, &child).await
+        })
+        .await?;
         Ok(SubscriptionListOutput(tenants).into_cli_output())
     }
 }
@@ -100,24 +92,26 @@ impl AzureSubscriptionListArgs {
 /// of which tenant finishes first.
 async fn collect_tenants<F, Fut>(
     tenant_ids: Vec<AzureTenantId>,
-    fetch: F,
+    executor: &CloudTerrastodonExecutor,
+    mut fetch: F,
 ) -> Result<Vec<TenantSubscriptions>>
 where
-    F: Fn(AzureTenantId) -> Fut,
-    Fut: Future<Output = TenantSubscriptions> + Send + 'static,
+    F: FnMut(CloudTerrastodonExecutor, AzureTenantId) -> Fut,
+    Fut: Future<Output = TenantSubscriptions>,
 {
-    let mut pending = tenant_ids.into_iter();
-    let mut requests = JoinSet::new();
-    for tenant_id in pending.by_ref().take(MAX_CONCURRENT_TENANTS) {
-        requests.spawn(fetch(tenant_id));
-    }
-    let mut tenants = Vec::new();
-    while let Some(result) = requests.join_next().await {
-        tenants.push(result?);
-        if let Some(tenant_id) = pending.next() {
-            requests.spawn(fetch(tenant_id));
-        }
-    }
+    let mut tenants = tenant_ids
+        .into_iter()
+        .map_concurrent(
+            executor,
+            MAX_CONCURRENT_TENANTS.try_into()?,
+            |child, tenant_id| {
+                let request = fetch(child, tenant_id);
+                // Per-tenant service errors are report data and must not cancel
+                // other tenants. Scope cancellation still stops the collection.
+                async move { eyre::Ok(request.await) }
+            },
+        )
+        .await?;
     tenants.sort_by_key(|tenant| tenant.tenant_id);
     Ok(tenants)
 }
@@ -345,8 +339,12 @@ fn terminal_link(label: &str, url: &str) -> String {
 mod tests {
     use super::*;
     use cloud_terrastodon_app::OutputFormat;
+    use cloud_terrastodon_cache::WorkCache;
     use cloud_terrastodon_command::CancellationToken;
+    use cloud_terrastodon_execution::UnreachableAuthenticationProvider;
     use facet::Facet;
+    use std::sync::atomic::AtomicUsize;
+    use std::sync::atomic::Ordering;
 
     fn render_text(output: SubscriptionListOutput, cancellation: &CancellationScope) -> String {
         output
@@ -432,7 +430,7 @@ mod tests {
             assert!(output.contains("Production"));
             let destination = "https://portal.azure.com/#@11111111-1111-1111-1111-111111111111/resource/subscriptions/22222222-2222-2222-2222-222222222222/overview";
             assert!(output.contains(destination));
-            Ok::<_, eyre::Report>(())
+            eyre::Ok(())
         }).unwrap();
     }
 
@@ -447,7 +445,7 @@ mod tests {
                     .unwrap();
                 assert!(output.contains("https://portal.azure.com/#@"));
                 assert!(!output.contains("\x1b]8;;"));
-                Ok::<_, eyre::Report>(())
+                eyre::Ok(())
             })
             .unwrap();
     }
@@ -469,7 +467,7 @@ mod tests {
                     assert!(output.contains("Production"), "{output}");
                     assert!(!output.contains("\x1b]8;;"), "{output}");
                 }
-                Ok::<_, eyre::Report>(())
+                eyre::Ok(())
             })
             .unwrap();
     }
@@ -501,7 +499,7 @@ mod tests {
                         .unwrap()
                         .ends_with("/overview")
                 );
-                Ok::<_, eyre::Report>(())
+                eyre::Ok(())
             })
             .unwrap();
     }
@@ -529,7 +527,7 @@ mod tests {
                 assert!(text.contains("Tenant aliases unavailable: aliases file unreadable"));
                 assert!(text.contains("Tenant name unavailable: Graph access denied"));
                 assert!(text.contains("Production"));
-                Ok::<_, eyre::Report>(())
+                eyre::Ok(())
             })
             .unwrap();
     }
@@ -583,7 +581,7 @@ mod tests {
                 json[0]["metadata_errors"][0],
                 format!("Tenant name unavailable: {message}")
             );
-            Ok::<_, eyre::Report>(())
+            eyre::Ok(())
         }).unwrap();
     }
 
@@ -607,7 +605,7 @@ mod tests {
                 );
                 assert!(!text.contains("Fetching tenant name"));
                 assert!(!text.contains("Querying ARM"));
-                Ok::<_, eyre::Report>(())
+                eyre::Ok(())
             })
             .unwrap();
     }
@@ -628,27 +626,45 @@ mod tests {
         .collect();
         let failed_id = ids[0];
         let empty_id = ids[1];
-        let tenants = collect_tenants(ids, move |tenant_id| async move {
-            let subscriptions = if tenant_id == failed_id {
-                Err(eyre::eyre!("Authentication expired; run az login"))
-            } else if tenant_id == empty_id {
-                Ok(Vec::new())
-            } else {
-                Ok(vec![subscription(
-                    tenant_id,
-                    "Production",
-                    "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
-                )])
-            };
-            tenant_output(
-                tenant_id,
-                Ok(Vec::new()),
-                Ok(Some("Contoso".to_owned())),
-                subscriptions,
-            )
-        })
-        .await
-        .unwrap();
+        let tenants = CancellationToken::new()
+            .with_async_scope(|cancellation| async move {
+                let executor = CloudTerrastodonExecutor::new(
+                    WorkCache::temporary()?,
+                    Arc::new(UnreachableAuthenticationProvider),
+                    cancellation,
+                );
+                let active = AtomicUsize::new(0);
+                let peak = AtomicUsize::new(0);
+                let tenants = collect_tenants(ids, &executor, async |_, tenant_id| {
+                    let concurrent = active.fetch_add(1, Ordering::Relaxed) + 1;
+                    peak.fetch_max(concurrent, Ordering::Relaxed);
+                    tokio::task::yield_now().await;
+                    let subscriptions = if tenant_id == failed_id {
+                        Err(eyre::eyre!("Authentication expired; run az login"))
+                    } else if tenant_id == empty_id {
+                        Ok(Vec::new())
+                    } else {
+                        Ok(vec![subscription(
+                            tenant_id,
+                            "Production",
+                            "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+                        )])
+                    };
+                    active.fetch_sub(1, Ordering::Relaxed);
+                    tenant_output(
+                        tenant_id,
+                        Ok(Vec::new()),
+                        Ok(Some("Contoso".to_owned())),
+                        subscriptions,
+                    )
+                })
+                .await?;
+                assert_eq!(active.load(Ordering::Relaxed), 0);
+                assert_eq!(peak.load(Ordering::Relaxed), 4);
+                eyre::Ok(tenants)
+            })
+            .await
+            .unwrap();
         assert_eq!(tenants.len(), 7);
         assert_eq!(tenants[0].subscriptions.len(), 1);
         assert_eq!(tenants[6].subscriptions.len(), 1);
@@ -686,7 +702,7 @@ mod tests {
                 assert!(text.contains("Production"));
                 assert!(text.contains("No subscriptions found."));
                 assert!(text.contains("Unable to list subscriptions: Authentication expired"));
-                Ok::<_, eyre::Report>(())
+                eyre::Ok(())
             })
             .unwrap();
     }
@@ -704,7 +720,7 @@ mod tests {
                 assert!(!text.contains("\x1b]8;;bad"));
                 assert!(!text.contains('\x07'));
                 assert_eq!(text.lines().count(), 2);
-                Ok::<_, eyre::Report>(())
+                eyre::Ok(())
             })
             .unwrap();
     }

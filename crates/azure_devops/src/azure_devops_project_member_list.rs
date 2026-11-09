@@ -11,11 +11,12 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
 use cloud_terrastodon_cache::CacheInvalidationKeys;
 use cloud_terrastodon_cache::CacheKey;
 use cloud_terrastodon_cache::HasCacheKey;
-use cloud_terrastodon_command::ParallelFallibleWorkQueue;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ConcurrentIteratorExt;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_execution::RequestExecution;
+use eyre::OptionExt;
 use eyre::Result;
 use eyre::WrapErr;
 use eyre::bail;
@@ -24,8 +25,11 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::VecDeque;
+use std::num::NonZeroUsize;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
 use tracing::info;
 
 /// Lists users that are transitively members of an Azure DevOps project.
@@ -147,30 +151,39 @@ impl<'a> ExecutableRequest for AzureDevOpsProjectMemberListRequest<'a> {
             )
             .await?;
 
-            let mut work = ParallelFallibleWorkQueue::new("fetching transitive project members", 4);
-            for permission_object in permission_objects {
-                executor.cancellation().bail_if_cancelled()?;
-                let org_url = self.org_url.as_ref().clone();
-                let auth_context = self.auth_context.as_ref().clone();
-                work.enqueue(executor.cancellable_scope(move |executor| async move {
-                    let members = collect_transitive_user_members(
-                        &org_url,
-                        &permission_object.descriptor,
-                        &auth_context,
-                        &executor,
-                    )
-                    .await
-                    .wrap_err_with(|| {
-                        format!(
-                            "Failed to collect members for permission object {} ({})",
-                            permission_object.display_name, permission_object.descriptor
+            let remaining = AtomicUsize::new(permission_objects.len());
+            // Retain complete-all behavior for independent permission-object
+            // failures, while caller cancellation stops optional membership reads.
+            let members = permission_objects
+                .into_iter()
+                .map_concurrent(
+                    &executor,
+                    NonZeroUsize::new(4).ok_or_eyre("membership concurrency must be nonzero")?,
+                    async |executor, permission_object| {
+                        let result = collect_transitive_user_members(
+                            self.org_url.as_ref(),
+                            &permission_object.descriptor,
+                            self.auth_context.as_ref(),
+                            &executor,
                         )
-                    })?;
-                    Ok((permission_object, members))
-                }));
-            }
-
-            let members = work.join().await?;
+                        .await
+                        .wrap_err_with(|| {
+                            format!(
+                                "Failed to collect members for permission object {} ({})",
+                                permission_object.display_name, permission_object.descriptor
+                            )
+                        })
+                        .map(|members| (permission_object, members));
+                        info!(
+                            "Fetching transitive project members, {} permission objects remain",
+                            remaining.fetch_sub(1, Ordering::Relaxed) - 1
+                        );
+                        eyre::Ok(result)
+                    },
+                )
+                .await?
+                .into_iter()
+                .collect::<Result<Vec<_>>>()?;
             let mut members_by_descriptor =
                 HashMap::<AzureDevOpsDescriptor, AzureDevOpsProjectMemberAccumulator>::new();
             for (permission_object, members) in members {

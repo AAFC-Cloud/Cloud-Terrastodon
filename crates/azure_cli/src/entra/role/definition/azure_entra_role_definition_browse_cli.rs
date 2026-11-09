@@ -33,36 +33,33 @@ impl AzureEntraRoleDefinitionBrowseArgs {
         let executor = &auth_context.auth_context.bind_executor(executor)?;
         let (chosen, maybe_error) = PickerTui::<_>::new()
             .set_header("Entra role definitions")
-            .pick_many_reloadable(move |invalidate| {
-                let auth_context = auth_context.clone();
-                async move {
-                    info!(tenant_id = %auth_context.tenant_id, "Fetching Entra role definitions");
-                    let mut role_definitions =
-                        fetch_all_entra_role_definitions(&auth_context, executor)
-                            .with_invalidation(invalidate)
-                            .await?
-                            .into_iter()
-                            .collect::<Vec<_>>();
-                    role_definitions.sort_unstable_by(|left, right| {
-                        left.display_name.cmp(&right.display_name).then_with(|| {
-                            left.template_id
-                                .to_string()
-                                .cmp(&right.template_id.to_string())
-                        })
-                    });
-                    let choices = role_definitions.into_iter().map(|definition| Choice {
-                        key: format!(
-                            "{}\nrole definition id: {}\nbuilt in: {}\nprivileged: {}\nenabled: {}",
-                            definition.display_name,
-                            definition.template_id,
-                            definition.is_built_in,
-                            definition.is_privileged,
-                            definition.is_enabled
-                        ),
-                        value: definition,
-                    });
-                    Ok(choices)
-                }
+            .pick_many_reloadable(async |invalidate| {
+                info!(tenant_id = %auth_context.tenant_id, "Fetching Entra role definitions");
+                let mut role_definitions =
+                    fetch_all_entra_role_definitions(&auth_context, executor)
+                        .with_invalidation(invalidate)
+                        .await?
+                        .into_iter()
+                        .collect::<Vec<_>>();
+                role_definitions.sort_unstable_by(|left, right| {
+                    left.display_name.cmp(&right.display_name).then_with(|| {
+                        left.template_id
+                            .to_string()
+                            .cmp(&right.template_id.to_string())
+                    })
+                });
+                let choices = role_definitions.into_iter().map(|definition| Choice {
+                    key: format!(
+                        "{}\nrole definition id: {}\nbuilt in: {}\nprivileged: {}\nenabled: {}",
+                        definition.display_name,
+                        definition.template_id,
+                        definition.is_built_in,
+                        definition.is_privileged,
+                        definition.is_enabled
+                    ),
+                    value: definition,
+                });
+                Ok(choices)
             })
             .await
             .into_chosen_and_maybe_error()?;

@@ -7,6 +7,7 @@ members = ["crates/*", "examples/standalone-cli", "examples/group-management", "
 expect_used = "deny"
 unwrap_used = "deny"
 disallowed_types = "warn"
+disallowed_macros = "deny"
 
 [workspace.package]
 edition = "2024"
@@ -36,7 +37,6 @@ serde = "1.0.197"
 serde_json = "1.0.116"
 tokio = { version = "1.44.2", features = ["full"] }
 tempfile = "3.10.1"
-indicatif = "0.18.0"
 async-recursion = "1.1.0"
 indoc = "2.0.5"
 hcl-rs = "0.19.4"
@@ -435,6 +435,7 @@ unused_lifetimes = "warn"
 expect_used = "deny"
 unwrap_used = "deny"
 disallowed_types = "warn"
+disallowed_macros = "deny"
 cargo = { level = "warn", priority = -1 }
 complexity = { level = "warn", priority = -1 }
 correctness = { level = "warn", priority = -1 }

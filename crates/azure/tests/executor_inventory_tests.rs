@@ -134,8 +134,12 @@ async fn principal_assembly_shares_records_and_tracks_warm_child_page_dependenci
                 tenant_id,
                 auth_source,
             };
-            let (first, second) =
-                tokio::try_join!(request().execute(&executor), request().execute(&executor),)?;
+            let (first, second) = executor
+                .join2(
+                    |child| async move { request().execute(&child).await },
+                    |child| async move { request().execute(&child).await },
+                )
+                .await?;
             assert!(Arc::ptr_eq(&first, &second));
             let id = EntraPrincipalId::UserId(original.id);
             let Some(EntraPrincipal::User(record)) = first.get(&id) else {

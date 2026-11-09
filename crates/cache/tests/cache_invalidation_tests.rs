@@ -246,14 +246,10 @@ async fn new_descendants_after_invalidation_do_not_refresh_an_older_parent_stamp
                     VALID_FOR,
                     None,
                     &scope,
-                    |parent, child| {
-                        let cache = &cache;
-                        let page = page.clone();
-                        async move {
-                            released.await?;
-                            let value = read(cache, page, parent.as_ref(), &child, 7).await?;
-                            Ok(output(*value))
-                        }
+                    async |parent, child| {
+                        released.await?;
+                        let value = read(&cache, page.clone(), parent.as_ref(), &child, 7).await?;
+                        Ok(output(*value))
                     },
                 )?
                 .into_future();
@@ -291,18 +287,14 @@ async fn self_invalidation_can_recover_without_publishing_under_its_original_gen
                     VALID_FOR,
                     None,
                     &scope,
-                    |parent, child| {
-                        let cache = &cache;
-                        let key = key.clone();
-                        async move {
-                            assert_eq!(
-                                *read(cache, page.clone(), parent.as_ref(), &child, 1).await?,
-                                1
-                            );
-                            cache.invalidate(&key.scope, &child).await?;
-                            let retry = read(cache, page, parent.as_ref(), &child, 2).await?;
-                            Ok(output(*retry))
-                        }
+                    async |parent, child| {
+                        assert_eq!(
+                            *read(&cache, page.clone(), parent.as_ref(), &child, 1).await?,
+                            1
+                        );
+                        cache.invalidate(&key.scope, &child).await?;
+                        let retry = read(&cache, page, parent.as_ref(), &child, 2).await?;
+                        Ok(output(*retry))
                     },
                 )?
                 .into_future();
@@ -339,15 +331,12 @@ async fn a_new_child_generation_cannot_replace_an_earlier_consumed_observation()
                     VALID_FOR,
                     None,
                     &scope,
-                    |parent, child| {
-                        let cache = &cache;
-                        async move {
-                            let earlier =
-                                read(cache, child_key.clone(), parent.as_ref(), &child, 1).await?;
-                            cache.invalidate(&child_key.scope, &child).await?;
-                            let later = read(cache, child_key, parent.as_ref(), &child, 2).await?;
-                            Ok(output(*earlier + *later))
-                        }
+                    async |parent, child| {
+                        let earlier =
+                            read(&cache, child_key.clone(), parent.as_ref(), &child, 1).await?;
+                        cache.invalidate(&child_key.scope, &child).await?;
+                        let later = read(&cache, child_key, parent.as_ref(), &child, 2).await?;
+                        Ok(output(*earlier + *later))
                     },
                 )?
                 .await?;
@@ -377,80 +366,75 @@ async fn caught_child_failure(exit: ChildExit) -> eyre::Result<()> {
                     VALID_FOR,
                     None,
                     &scope,
-                    |grandparent, child| {
-                        let cache = &cache;
-                        let parent_key = parent_key.clone();
-                        async move {
-                            let parent = cache
-                                .cached_work(
-                                    parent_key,
-                                    CacheOperationOwner::of::<SyntheticRead>(),
-                                    WorkReuse::ReusableRead,
-                                    VALID_FOR,
-                                    grandparent.as_ref(),
-                                    &child,
-                                    |parent, child| async move {
-                                        match exit {
-                                            ChildExit::ClaimConflict => {
-                                                let conflict = cache.cached_work::<u64, _, _>(
-                                                    child_key,
-                                                    CacheOperationOwner::of::<ConflictingRead>(),
-                                                    WorkReuse::ReusableRead,
-                                                    VALID_FOR,
-                                                    parent.as_ref(),
-                                                    &child,
-                                                    |_, _| async {
-                                                        panic!("conflicting child executed")
-                                                    },
-                                                );
-                                                assert!(conflict.is_err());
-                                            }
-                                            ChildExit::Error => {
-                                                let result = cache
-                                                    .cached_work::<u64, _, _>(
-                                                        child_key,
-                                                        CacheOperationOwner::of::<SyntheticRead>(),
-                                                        WorkReuse::ReusableRead,
-                                                        VALID_FOR,
-                                                        parent.as_ref(),
-                                                        &child,
-                                                        |_, _| async {
-                                                            Err(eyre::eyre!(
-                                                                "synthetic child failure"
-                                                            ))
-                                                        },
-                                                    )?
-                                                    .await;
-                                                assert!(result.is_err());
-                                            }
-                                            ChildExit::DropPending | ChildExit::DropUnpolled => {
-                                                let spec = cache.cached_work::<u64, _, _>(
+                    async |grandparent, child| {
+                        let parent = cache
+                            .cached_work(
+                                parent_key.clone(),
+                                CacheOperationOwner::of::<SyntheticRead>(),
+                                WorkReuse::ReusableRead,
+                                VALID_FOR,
+                                grandparent.as_ref(),
+                                &child,
+                                async |parent, child| {
+                                    match exit {
+                                        ChildExit::ClaimConflict => {
+                                            let conflict = cache.cached_work::<u64, _, _>(
+                                                child_key,
+                                                CacheOperationOwner::of::<ConflictingRead>(),
+                                                WorkReuse::ReusableRead,
+                                                VALID_FOR,
+                                                parent.as_ref(),
+                                                &child,
+                                                |_, _| async {
+                                                    panic!("conflicting child executed")
+                                                },
+                                            );
+                                            assert!(conflict.is_err());
+                                        }
+                                        ChildExit::Error => {
+                                            let result = cache
+                                                .cached_work::<u64, _, _>(
                                                     child_key,
                                                     CacheOperationOwner::of::<SyntheticRead>(),
                                                     WorkReuse::ReusableRead,
                                                     VALID_FOR,
                                                     parent.as_ref(),
                                                     &child,
-                                                    |_, _| {
-                                                        std::future::pending::<
-                                                            eyre::Result<WorkOutput<u64>>,
-                                                        >(
-                                                        )
+                                                    |_, _| async {
+                                                        Err(eyre::eyre!("synthetic child failure"))
                                                     },
-                                                )?;
-                                                if matches!(exit, ChildExit::DropUnpolled) {
-                                                    drop(spec);
-                                                } else {
-                                                    let mut future = spec.into_future();
-                                                    assert_pending(future.as_mut()).await;
-                                                    drop(future);
-                                                }
+                                                )?
+                                                .await;
+                                            assert!(result.is_err());
+                                        }
+                                        ChildExit::DropPending | ChildExit::DropUnpolled => {
+                                            let spec = cache.cached_work::<u64, _, _>(
+                                                child_key,
+                                                CacheOperationOwner::of::<SyntheticRead>(),
+                                                WorkReuse::ReusableRead,
+                                                VALID_FOR,
+                                                parent.as_ref(),
+                                                &child,
+                                                |_, _| {
+                                                    std::future::pending::<
+                                                        eyre::Result<WorkOutput<u64>>,
+                                                    >(
+                                                    )
+                                                },
+                                            )?;
+                                            if matches!(exit, ChildExit::DropUnpolled) {
+                                                drop(spec);
+                                            } else {
+                                                let mut future = spec.into_future();
+                                                assert_pending(future.as_mut()).await;
+                                                drop(future);
                                             }
-                                            ChildExit::Cancel => {
-                                                let token = CancellationToken::new();
-                                                let future = token
-                                                    .with_async_scope(|cancel_scope| async move {
-                                                        cache
+                                        }
+                                        ChildExit::Cancel => {
+                                            let token = CancellationToken::new();
+                                            let future = token
+                                                .with_async_scope(async |cancel_scope| {
+                                                    cache
                                                             .cached_work::<u64, _, _>(
                                                                 child_key,
                                                                 CacheOperationOwner::of::<
@@ -471,24 +455,23 @@ async fn caught_child_failure(exit: ChildExit) -> eyre::Result<()> {
                                                                 },
                                                             )?
                                                             .await
-                                                    })
-                                                    .into_future();
-                                                tokio::pin!(future);
-                                                assert_pending(future.as_mut()).await;
-                                                token.request_cancel(
-                                                    "cancel only the synthetic semantic child",
-                                                );
-                                                assert!(
-                                                    timeout(DEADLOCK_GUARD, future).await?.is_err()
-                                                );
-                                            }
+                                                })
+                                                .into_future();
+                                            tokio::pin!(future);
+                                            assert_pending(future.as_mut()).await;
+                                            token.request_cancel(
+                                                "cancel only the synthetic semantic child",
+                                            );
+                                            assert!(
+                                                timeout(DEADLOCK_GUARD, future).await?.is_err()
+                                            );
                                         }
-                                        Ok(output(10_u64))
-                                    },
-                                )?
-                                .await?;
-                            Ok(output(*parent + 1))
-                        }
+                                    }
+                                    Ok(output(10_u64))
+                                },
+                            )?
+                            .await?;
+                        Ok(output(*parent + 1))
                     },
                 )?
                 .await?;
@@ -545,13 +528,10 @@ async fn a_refilling_child_cannot_consume_a_warm_ancestor_certificate() -> eyre:
                     Duration::from_nanos(1),
                     None,
                     &scope,
-                    |parent, child| {
-                        let cache = &cache;
-                        async move {
-                            let cycle = read(cache, parent_key, parent.as_ref(), &child, 99).await;
-                            assert!(cycle.is_err());
-                            Ok(output(3_u64))
-                        }
+                    async |parent, child| {
+                        let cycle = read(&cache, parent_key, parent.as_ref(), &child, 99).await;
+                        assert!(cycle.is_err());
+                        Ok(output(3_u64))
                     },
                 )?
                 .into_future();
@@ -594,21 +574,18 @@ async fn explicit_nonreuse_bypasses_a_warm_hit_and_is_rejected_under_a_reusable_
                     VALID_FOR,
                     None,
                     &scope,
-                    |parent, child| {
-                        let cache = &cache;
-                        async move {
-                            let rejected = cache.cached_work::<u64, _, _>(
-                                key,
-                                CacheOperationOwner::of::<SyntheticRead>(),
-                                WorkReuse::ExecuteEveryTime,
-                                VALID_FOR,
-                                parent.as_ref(),
-                                &child,
-                                |_, _| async { panic!("incompatible semantic child executed") },
-                            );
-                            assert!(rejected.is_err());
-                            Ok(output(4_u64))
-                        }
+                    async |parent, child| {
+                        let rejected = cache.cached_work::<u64, _, _>(
+                            key,
+                            CacheOperationOwner::of::<SyntheticRead>(),
+                            WorkReuse::ExecuteEveryTime,
+                            VALID_FOR,
+                            parent.as_ref(),
+                            &child,
+                            |_, _| async { panic!("incompatible semantic child executed") },
+                        );
+                        assert!(rejected.is_err());
+                        Ok(output(4_u64))
                     },
                 )?
                 .await?;

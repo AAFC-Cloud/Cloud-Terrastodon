@@ -10,12 +10,15 @@ mod authentication_provider;
 mod cache_invalidatable_request;
 mod cloud_terrastodon_executor;
 mod collection_progress;
+mod concurrent_iterator_ext;
 mod executable_request;
 mod execution_event;
 mod execution_future;
 mod execution_mode;
+mod map_concurrent;
 mod observed_request_execution;
 mod request_execution;
+mod scoped_join;
 #[cfg(any(test, feature = "test-support"))]
 mod test_authentication_provider;
 #[cfg(any(test, feature = "test-support"))]
@@ -26,11 +29,16 @@ pub use authentication_provider::AuthenticationProvider;
 pub use cache_invalidatable_request::CacheInvalidatableRequest;
 pub use cloud_terrastodon_executor::CloudTerrastodonExecutor;
 pub use collection_progress::CollectionProgress;
+pub use concurrent_iterator_ext::ConcurrentIteratorExt;
 pub use executable_request::ExecutableRequest;
 pub use execution_event::ExecutionEvent;
 pub use execution_future::ExecutionFuture;
 pub use observed_request_execution::ObservedRequestExecution;
 pub use request_execution::RequestExecution;
+pub use scoped_join::join2;
+pub use scoped_join::join3;
+pub use scoped_join::join4;
+pub use scoped_join::join5;
 #[cfg(any(test, feature = "test-support"))]
 pub use test_authentication_provider::TestAuthenticationProvider;
 #[cfg(any(test, feature = "test-support"))]

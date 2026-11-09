@@ -26,7 +26,6 @@ use cloud_terrastodon_execution::RequestExecution;
 use facet::Facet;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::try_join;
 use tracing::debug;
 
 /// Shared user, security-group, and service-principal inventory for an explicit tenant.
@@ -107,15 +106,30 @@ impl ExecutableRequest for PrincipalListRequest {
                         debug!(
                             "Fetching principals (users, security groups, and service principals)"
                         );
-                        let (users, security_groups, service_principals) = try_join!(
-                            fetch_all_entra_users(self.tenant_id, self.auth_source, &executor),
-                            fetch_all_security_groups(self.tenant_id, self.auth_source, &executor),
-                            fetch_all_service_principals(
-                                self.tenant_id,
-                                self.auth_source,
-                                &executor
+                        let (users, security_groups, service_principals) = executor
+                            .join3(
+                                |child| async move {
+                                    fetch_all_entra_users(self.tenant_id, self.auth_source, &child)
+                                        .await
+                                },
+                                |child| async move {
+                                    fetch_all_security_groups(
+                                        self.tenant_id,
+                                        self.auth_source,
+                                        &child,
+                                    )
+                                    .await
+                                },
+                                |child| async move {
+                                    fetch_all_service_principals(
+                                        self.tenant_id,
+                                        self.auth_source,
+                                        &child,
+                                    )
+                                    .await
+                                },
                             )
-                        )?;
+                            .await?;
                         let principals = EntraPrincipalCollection::new(
                             users
                                 .iter()

@@ -112,26 +112,25 @@ impl PickFsArgs {
         _cancellation: &CancellationScope,
     ) -> Result<()> {
         let cwd = std::env::current_dir()?;
-        let recursive = self.recursive;
-        let query = common.query.clone();
-        let query_engine = common.query_engine.clone();
         let empty_choices = Vec::<Choice<String>>::new();
 
         let rtn = PickerTui::<_>::new()
             .set_auto_accept(common.auto_accept)
             .set_query(common.default_query.unwrap_or_default())
-            .add_event_handler(move |event, sink| {
-                let cwd = cwd.clone();
-                let query = query.clone();
-                let query_engine = query_engine.clone();
-                async move {
-                    if matches!(event.as_ref(), PickerEvent::InitialLoad) {
-                        info!("Walking filesystem for picker choices");
-                        stream_fs_choices(&cwd, recursive, &query_engine, &query, &sink).await?;
-                        info!("Finished walking filesystem for picker choices");
-                    }
-                    Ok(())
+            .add_event_handler(async |event, sink| {
+                if matches!(event.as_ref(), PickerEvent::InitialLoad) {
+                    info!("Walking filesystem for picker choices");
+                    stream_fs_choices(
+                        &cwd,
+                        self.recursive,
+                        &common.query_engine,
+                        &common.query,
+                        &sink,
+                    )
+                    .await?;
+                    info!("Finished walking filesystem for picker choices");
                 }
+                Ok(())
             })
             .pick_inner(!common.single, empty_choices)
             .await?;

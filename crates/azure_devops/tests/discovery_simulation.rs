@@ -96,10 +96,7 @@ fn fabricated_project_inventory_unlocks_project_scoped_folder_discovery() {
                             simulation.diagnostics
                         )
                     });
-                assert_eq!(
-                    argument,
-                    &AzureDevOpsProjectArgument::from(project.id.clone())
-                );
+                assert_eq!(argument, &AzureDevOpsProjectArgument::from(project.id));
 
                 let folders_request = discovered::<ProjectFoldersRequest>(&simulation)
                     .unwrap_or_else(|| {
@@ -130,7 +127,7 @@ fn fabricated_project_inventory_unlocks_project_scoped_folder_discovery() {
                     function.input_shape.is_shape(ProjectFoldersRequest::SHAPE)
                 }));
             }
-            Ok::<_, eyre::Report>(())
+            eyre::Ok(())
         })
         .unwrap();
 }
@@ -172,7 +169,7 @@ fn missing_project_conversion_blocks_folder_discovery_without_arbitrary_shortcut
             assert!(discovered::<ProjectFoldersRequest>(&simulation).is_none());
             assert!(discovered::<AzureDevOpsBuildFolder>(&simulation).is_none());
             assert_eq!(simulation.simulated_requests.len(), 1);
-            Ok::<_, eyre::Report>(())
+            eyre::Ok(())
         })
         .unwrap();
 }
@@ -212,7 +209,7 @@ fn bounded_simulation_reports_why_discovery_stopped_before_convergence() {
             assert!(!simulation.converged);
             assert_eq!(simulation.rounds, 1);
             assert!(!simulation.diagnostics.is_empty());
-            Ok::<_, eyre::Report>(())
+            eyre::Ok(())
         })
         .unwrap();
 }
@@ -271,7 +268,7 @@ fn full_linked_catalog_reaches_project_scoped_folders_and_reports_type_coverage(
             for diagnostic in &simulation.diagnostics {
                 println!("Diagnostic: {diagnostic}");
             }
-            Ok::<_, eyre::Report>(())
+            eyre::Ok(())
         })
         .unwrap();
 }

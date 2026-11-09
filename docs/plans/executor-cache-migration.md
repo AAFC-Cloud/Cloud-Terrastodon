@@ -52,8 +52,9 @@ U102's concrete domain-response refinement is complete; workspace all-target
 compilation and focused Azure types/SDK Clippy passed without warnings.
 The completed REST/shared-output work and batch-entry consolidation are now
 committed as `d2a5e4f2`, `Complete REST executor migration and preserve shared SDK results`.
-U104's phase 5 is complete from that clean checkpoint and remains uncommitted
-for review. Tasks 5.1, 5.2, and 5.3 implement the shared principal, RBAC, and project
+U104's phase 5 is complete from that clean checkpoint and was left uncommitted
+for review; U113 records the subsequent commit. Tasks 5.1, 5.2, and 5.3 implement
+the shared principal, RBAC, and project
 inventories, serializable request selections, and per-invocation observation.
 All 106 selected offline tests, workspace all-target compilation, and Clippy
 passed; only existing unrelated Clippy warnings remain. The next task is 6.1,
@@ -66,8 +67,8 @@ both consumers now pin that registry graph and their all-target compilation
 checks pass. The required Tracing package is also published. The template passes
 all 13 selected registry tests and is committed/pushed as `58d94181` with a clean
 tree. Cloud Terrastodon's two reflected-clone tests and 14 inventory/discovery
-tests pass against the ordinary registry graph. Preserve user staging and leave
-Cloud Terrastodon uncommitted for review.
+tests pass against the ordinary registry graph. That checkpoint preserved user
+staging and remained uncommitted until U113.
 U108 subsequently corrects release commit author metadata and merges the
 Cancellation/Tracing release branches into `main`. Both mainline merges are
 validated and pushed. The broader authorized Format history correction is
@@ -77,7 +78,20 @@ U109–U111 refine the review checkpoint with shared instrumented test
 authentication, imported derive names, and automatic collection registration.
 Implementation and verification are complete: 151 selected offline tests,
 workspace all-target compilation, targeted Clippy, and optional-feature checks
-passed. Changes remain uncommitted for review.
+passed. U112 clarifies raw registry registration-point names and audits fail-fast
+joins. U113 commits the completed checkpoint as `1e63a553`, then authorizes a
+limited scoped-join helper and three initial Azure callers for interface review.
+U114 approves bounded concurrent mapping and rollout across fixed joins and finite
+batches. Implementation and offline verification are complete; U117 authorizes
+the local checkpoint after callback and result-buffer refinements and removal
+of the unused interactive cache-population workflow. The audit identified picker
+handler reload/exit draining and background-task shutdown as a separate lifecycle
+follow-up before task 6.1. See
+[scoped join review](scoped-join-review.md) for the remaining coordinators.
+U115 approves iterator-owned mapping through `ConcurrentIteratorExt`, with
+explicit executor/scope methods and no redundant executor mapping method. Callers
+are migrated; 23 focused tests, two documentation examples, workspace compilation,
+and affected-crate Clippy pass. Existing staging is preserved.
 Explicit SDK/CLI executor propagation removes the implicit REST cache path;
 phase 5 completes its targeted aggregate caching and request-data extraction.
 Other request families retain their explicit 6.3/7.1 migration batches.
@@ -92,7 +106,7 @@ The registry checkpoint is `09d8bb11`.
 
 **Primary implementation root:** Repository root (`.`); no branch change prescribed.
 
-**Last updated:** 2026-11-06
+**Last updated:** 2026-11-09
 
 **Source baseline:** `26e14bcc`; tracked files were initially clean. Pre-existing
 untracked notes are preserved.
@@ -927,7 +941,41 @@ changes since the recorded baseline before starting.
   generating resource types. Preserve staging and leave changes uncommitted.
   Earlier intent uses the existing ledger; no new historical audit is claimed.
 
+### U112–U113 scoped-join intent audit — 2026-11-09
+
+- **Extraction:** The two latest requests ask about fail-fast joins bypassing
+  deferrals, scoped sibling cancellation, possible lint enforcement, clearer
+  registry registration-point names, committing current work first, and a helper
+  with only a few migrated callers before reviewing a broader rollout.
+- **Traceability:** U112's registry names are in checkpoint `1e63a553`; the scoped
+  join preview below implements U113. The linked review records the JoinSet audit
+  and future scheduling/error-policy requirements.
+- **Adversarial omission:** Keep the prototype uncommitted, retain custom errors
+  and borrowed results, avoid unnecessary executor coupling, and do not migrate
+  all joins or enable a workspace ban before interface review. Existing data-access
+  restrictions continue to apply. Earlier guidance uses the preserved ledger;
+  this is not a new audit of unavailable historical messages.
+
+### U115 iterator mapping intent audit — 2026-11-09
+
+- **Extraction:** The latest design request and approval move mapping onto
+  iterators, retaining a visible executor argument and iterator composition.
+- **Traceability:** The iterator refinement below adds `ConcurrentIteratorExt`,
+  migrates all mapping callers/tests, and removes the executor mapping method.
+- **Adversarial omission:** Keep scope-only use independent of executor resources,
+  retain child-first callbacks and complete-all policies, share coordination, and
+  preserve borrowed futures, custom errors, staging, and the no-commit boundary.
+  Earlier guidance relies on the existing ledger rather than a new historical audit.
+
 ## Authoritative user guidance ledger
+
+**U116 intent audit (2026-11-09):** Make all UUID newtypes consistently `Copy`
+and remove redundant clones, including project IDs in concurrent audit mapping.
+Audit both tuple and named-field UUID wrappers across the workspace; keep
+string-backed identities, resource records, and shared `Arc` ownership unchanged.
+Validate callers by compilation and Clippy without running service tests or
+adding tests of standard derive behavior. Preserve staging and leave edits
+uncommitted. Earlier guidance remains recorded in the existing ledger.
 
 **U79 intent audit (2026-11-03):** Extraction preserves the latest instruction to
 proceed after the task 3.2 checkpoint. Traceability maps it to task 3.3, G2's
@@ -1047,7 +1095,7 @@ do not silently rewrite earlier guidance.
 | U101 | Remove `Clone` derives and bounds introduced only to support copying cached response values. | Audit response envelopes and domain records alongside their callers; retain cloning only for a separate meaningful contract or intentional owned transformation. | — |
 | U102 | Remove unnecessary type parameters from domain-specific response wrappers, including provider operations and the other eleven identified wrappers. | Each response names its concrete shared domain records; update SDK decoders and preserve wire attributes, optionality, pagination, and reusable generic envelopes. | — |
 | U103 | Consolidate the duplicate ARM batch entry and serialization entry types. | Serialize the public entry directly through a borrowed outer body; remove body-copy `Clone` requirements. Completed in `d2a5e4f2`. | — |
-| U104 | Complete the next plan phase and leave changes uncommitted for review. | Complete 5.1–5.3 with explicit request data, shared aggregate caching/dependencies, observer semantics, consumer cutover, and offline verification. Do not stop at a prerequisite or stage/commit the result. | — |
+| U104 | Complete the next plan phase and leave changes uncommitted for review. | Complete 5.1–5.3 with explicit request data, shared aggregate caching/dependencies, observer semantics, consumer cutover, and offline verification. Do not stop at a prerequisite or stage/commit the result. | U113 supersedes the commit restriction for the completed checkpoint only |
 | U105 | Preserve the existing Cow organization-field strategy and explain why it changed. | Restore borrowed project-list construction and invalidation; serialization must not force callers to clone their URLs. | — |
 | U106 | Fix the field-level bug in the Facet fork; consult the update guide. | Correct generic field-proxy derivation and generic Cow decoding upstream in the owning forks; remove application workarounds and verify consumers with a single compatible core identity. | — |
 | U107 | Publish the corrected Facet/Figue families and required dependents; update Cloud Terrastodon and the CLI template without patches or duplicate Facet identities. Commits/pushes are authorized for the named fork/template repositories. | Release only the required compatible dependency closure, verify registry identities and consumers, preserve Cloud Terrastodon staging and uncommitted review changes. | Supersedes U106's local-only release boundary. |
@@ -1055,6 +1103,12 @@ do not silently rewrite earlier guidance.
 | U109 | Reuse built-in authentication test support instead of repeating test providers; add shared atomic call counts where needed. | Consolidate counting, offline authorization, revocation, and partition fixtures; retain the strict unreachable guard and specialized credential-lineage probes. | — |
 | U110 | Use imported names rather than qualified `arbitrary::Arbitrary` or `facet::Facet` derives. | Normalize workspace derives and generator output while preserving conditional imports. | — |
 | U111 | Register `Arc<T>` and `Vec<T>` forms automatically with `T`, rather than registering them individually. | Supply a finite collection family from both value and arbitrary-constructor registrations; preserve owned-only bounds and explicit constructor identities. | — |
+| U112 | Investigate whether fail-fast joins drop required completion, consider scoped sibling cancellation and enforcement, and distinguish registry registration points from the expanded catalog. | Rename raw registry slices and audit tuple/JoinSet completion behavior; treat linting as a proposed follow-up. | — |
+| U113 | Commit current changes first, then implement the helper and a few call sites for review before migrating all callers; investigate JoinSet use too. | Checkpoint `1e63a553`; scope-only joins and executor adapters at three Azure sites, offline completion tests, and a dynamic-set audit. Leave this preview uncommitted. | U114 supersedes the limited rollout boundary |
+| U114 | Implement bounded concurrent mapping, apply the join/map helpers throughout suitable callers, and identify what remains. | Extend scope-only/executor helpers, migrate fixed joins and finite batches including queue wrappers, preserve complete-all policies, enforce fail-fast macro prohibition, and audit remaining coordinators. Keep changes uncommitted. | U117 authorizes the completed checkpoint |
+| U115 | Make concurrent mapping an iterator extension with an explicit executor argument; approve the proposed scope-only variant and removal of the executor mapping method. | Add `ConcurrentIteratorExt::map_concurrent` and `map_concurrent_scoped`, migrate all callers, and keep one private coordination implementation. Preserve cancellation, error policies, borrowing, and staging without compatibility exports. | — |
+| U116 | Implement `Copy` for UUID newtypes and remove redundant ID clones. | Audit UUID wrappers, add missing derives, and update affected callers using compiler diagnostics. Preserve non-UUID ownership and validate offline. | — |
+| U117 | Commit the accumulated changes after the approved concurrency refinements and removal of the unused cache-population workflow. | Create a local checkpoint of the reviewed staged changes; retain the separate interactive shutdown follow-up. No push requested. | Supersedes the checkpoint's no-commit boundary |
 
 U18 supersedes the earlier assistant suggestion to preserve an Azure CLI
 active-tenant selection. That suggestion was not user approval. U13 rejects the
@@ -1186,6 +1240,12 @@ not an implemented package; U61 selects `auth_types` paired with runtime `auth`.
 | U109 | Phase 5 review refinement | Shared test provider replaces nine duplicates; execution, SDK, REST, and registry tests pass with explicit partitions and call counters. |
 | U110 | Phase 5 review refinement | Workspace and generator derive imports normalized; workspace all-target and feature-gated checks, generator tests, and qualified-derive audit pass. |
 | U111 | Phase 5 review refinement | Finite collection registration passes shared-allocation, owned non-Sync, duplicate/alias, named-handle, and discovery tests. |
+| U112 | Registry naming checkpoint; scoped join review | Explicit registration-point/catalog names committed; 14 production tuple joins and 14 JoinSets audited. |
+| U113 | Scoped join preview below | Existing work committed as `1e63a553`; helper, three callers, focused completion tests, and task-set audit prepared for review. |
+| U114 | Scoped concurrency rollout below | Bounded mapping and fixed joins replace finite task batches; 89 focused tests plus one documentation example, affected-crate Clippy, and workspace compilation pass. Interactive handler/shutdown ownership remains a separate lifecycle task. |
+| U115 | Iterator mapping refinement below | Iterator extension and caller migration complete; 23 focused tests, two documentation examples, workspace compilation, and affected-crate Clippy pass. Existing staging preserved. |
+| U116 | UUID value semantics refinement below | All 25 direct UUID wrappers implement `Copy`; eight missing derives added. Redundant caller clones removed; workspace all-target Clippy with `clone_on_copy` denied passes. |
+| U117 | Scoped concurrency review and local checkpoint | Prior workspace/affected-crate checks and selected local tests passed; final mapping tests and execution/entrypoint all-target Clippy passed after preallocated paired-vector ordering and cache-population removal. |
 
 ## Purpose and scope
 
@@ -4301,8 +4361,8 @@ default-branch change is verified: both the default branch and local
 ### [x] Phase 5 review refinement — shared fixtures and registry collections
 
 **Completion notes — 2026-11-06:** All three refinements below are implemented
-and verified. Preserve existing staging and leave this review checkpoint
-uncommitted. Phase 6 remains the next separate implementation task.
+and verified. This review checkpoint preserved staging and remained uncommitted
+until U113's `1e63a553` checkpoint. The scoped concurrency rollout now precedes phase 6.
 
 **Work:** U109 adds `execution::TestAuthenticationProvider` behind
 `test-support`, with explicit synthetic session identity, source/tenant-separated
@@ -4357,12 +4417,181 @@ cargo check --offline --locked -p cloud_terrastodon_app --no-default-features --
 cargo clippy --offline --locked -p cloud_terrastodon_registry -p cloud_terrastodon_registry_execution -p cloud_terrastodon_execution --all-targets
 ```
 
-The next migration task is **6.1**, after review of the completed phase 5 changes.
+The next migration task is **6.1**, after scoped concurrency rollout/review and the
+picker handler ownership follow-up below.
 The coordinated package release and consumer verification are complete.
 Split the existing audit policies
 into independent activities which request principals/RBAC through the shared
 executor, preserve their findings, and verify shared fills with synthetic data.
 Phase 6 was not started as part of this review checkpoint.
+
+### [x] Scoped join preview before phase 6
+
+**Completion notes — 2026-11-09:** The completed phase 5/refinement checkpoint is
+committed as `1e63a553`, `Complete shared inventory caching and execution observation`.
+At that checkpoint, the helper and three-call-site preview were implemented and
+verified, and left uncommitted for interface review. Broader caller migration and
+lint enforcement were deferred until U114 authorized the rollout below.
+
+**Work:** Implement scope-only `execution::join2`/`join3` using an isolated
+cooperative group and linked cancellable branch scopes. Small executor adapters
+preserve authentication restrictions, cache lineage, and observation. Return the
+first observed error after siblings stop or finish required work. Keep borrowed,
+heterogeneous results and request-specific errors without adding Clone/Send bounds.
+Migrate only principal assembly, RBAC assembly, and role-assignment choices.
+
+**Validation:** Synthetic completion tests cover sibling errors, group isolation,
+automatic ancestor cancellation, pre-admission cancellation, and borrowed results.
+Existing credential-lineage and typed principal/RBAC inventory tests verify the
+executor adapters. Run focused Clippy, formatting, and compilation for affected
+crates. No live service calls or production fixtures are permitted.
+
+**Evidence:** All 50 execution tests plus one documentation example pass; the five
+typed principal/RBAC inventory tests pass with the new joins. The execution suite
+includes five new scoped-join tests and the existing credential probe extended
+through both executor adapters. Validation uses the pinned registry dependencies,
+synthetic data, and the existing bounded build-storage environment variables.
+The affected crates pass all-target Clippy with warnings denied. Formatting and
+whitespace checks pass. This does not claim full-workspace or live-service testing
+for the preview.
+
+```powershell
+cargo test --offline --locked -p cloud_terrastodon_execution
+cargo test --offline --locked -p cloud_terrastodon_azure --test executor_inventory_tests --test rbac_executor_inventory_tests
+cargo clippy --offline --locked -p cloud_terrastodon_execution -p cloud_terrastodon_azure --all-targets -- -D warnings
+```
+
+**Historical review boundary:** U113 initially limited migration to three callers.
+U114 now authorizes the broader rollout below. The original preview evidence above
+remains historical; [scoped join review](scoped-join-review.md) records the current
+implementation and remaining ownership cases.
+
+**Completion criteria:** The helper and three callers pass the focused checks;
+the remaining callers and interface decision are explicit, and changes remain
+uncommitted. The subsequent rollout supersedes the initial interface-review gate.
+
+### [x] Scoped concurrency rollout before phase 6
+
+**Work — 2026-11-09, U114:** Extend scope-only joins through five branches and add
+`map_concurrent(scope, items, NonZeroUsize, factory)` with an executor adapter.
+Run borrowed futures inline, limit admitted work, preserve input order, and keep
+the first observed error while cancelling/draining the group's active children.
+Preserve credential restrictions, cache lineage, and inherited deferrals. Do not
+protect an entire batch merely to keep its required children alive.
+
+Migrate all production `try_join!` calls and finite service/command/file batches,
+including callers hidden behind `ParallelFallibleWorkQueue`. Remove that obsolete
+queue after its callers migrate. Keep complete-all errors as data until all jobs
+drain; document that parent cancellation returns a batch error rather than partial
+results. Add a Clippy prohibition for Tokio/Futures fail-fast join macros.
+
+**Validation:** Synthetic join/map tests exercise borrowed outputs, bounded work,
+ordering, lazy admission, original errors, isolated cancellation, automatic
+ancestors, required completion, and nested maps. Run the execution suite, selected
+inventory/Command/REST lifecycle tests, workspace all-target compilation, and
+focused Clippy. Live service and Terraform integration tests are not authorized.
+
+**Completion evidence — 2026-11-09:** Helpers and caller migrations are implemented.
+All 89 focused tests plus one documentation example pass, including nine map tests
+and five join tests. The final changed-target rerun verifies nested writes,
+inherited deferrals, and credential restrictions across every adapter. All
+workspace targets compile; all nine affected crates pass all-target Clippy with
+warnings denied. Formatting and whitespace checks pass. No live service tests
+were run. See [scoped join review](scoped-join-review.md) for reproducible commands,
+retained coordinators, policy differences, and the separate interactive follow-up.
+
+**Completion criteria:** Applicable joins and finite queues use the shared helpers;
+required completion and complete-all policies survive the migration; focused
+offline checks pass; exceptional coordinators and follow-ups are explicit. Leave
+changes uncommitted for review.
+
+### [x] Iterator mapping refinement
+
+**Work — 2026-11-09, U115:** Make `ConcurrentIteratorExt` the public mapping
+interface. `ConcurrentIteratorExt::map_concurrent` accepts an executor;
+`map_concurrent_scoped` accepts a cancellation scope. Keep bounded concurrency, input-order results,
+child-first factories, lazy admission, first-error draining, complete-all error
+data, and borrowed futures. Remove the executor method and free-function export;
+retain one private coordinator and internal executor scope rebinding. Migrate SDK,
+CLI, HCL, entrypoint, and test callers without compatibility aliases.
+
+**Validation:** Rerun the nine map behavior tests, fourteen execution contract
+tests, documentation examples, workspace all-target compilation, and affected
+Clippy. Existing tests cover borrowed/non-Clone/non-Send outputs, mutable non-Sync
+mappers, nested required writes, inherited deferrals, cancellation, ordering, and
+executor credential restrictions. No service or Terraform tests need to run for
+this interface-only refinement.
+
+**Completion evidence — 2026-11-09:** All 23 focused tests and two documentation
+examples pass. All workspace targets compile; the seven affected crates pass
+all-target Clippy with warnings denied. Formatting and whitespace checks pass.
+The original map coordinator is unchanged except for crate-private visibility.
+All callers use the iterator extension, the executor mapping method is removed,
+and its internal scope rebinding preserves credential restrictions. No live
+service tests ran. Existing staged changes are preserved and the refactor remains
+uncommitted. See [scoped join review](scoped-join-review.md) for commands.
+
+### [x] UUID value semantics refinement
+
+**Work — 2026-11-09, U116:** Add missing `Copy` derives to the five UUID-backed
+Azure DevOps account/project/repository/team/query IDs and the three UUID-backed
+role names. Existing direct UUID wrappers already implement `Copy`. Remove
+redundant clones in callers, retaining shared handles and string-backed values.
+
+**Validation:** Compile all workspace targets with Clippy to cover SDK, CLI,
+tests, and example callers. Check formatting and whitespace. No live requests,
+credential discovery, or new derive-only tests are needed.
+
+**Completion evidence — 2026-11-09:** Audited all 25 direct UUID wrappers;
+eight needed `Copy`. Removed 13 redundant ID clones and nine now-unnecessary
+borrows across SDK, CLI, UI, and tests. Nightly formatting and whitespace checks
+pass. `cargo clippy --offline --locked --workspace --all-targets -- -D clippy::clone_on_copy`
+passes, compiling test and example targets; existing unrelated feature-name and
+documentation warnings remain. No tests or live requests ran. Existing staging
+is preserved and changes remain uncommitted.
+
+### [x] Async callback capture refinement
+
+**Work — 2026-11-09:** Apply the reviewed async-closure capture style throughout
+SDK requests, CLI/picker callbacks, HCL/dump workflows, and synthetic tests.
+Borrow original fields directly instead of creating capture-only aliases or
+clones before `async move`. Keep per-call ownership needed by retained futures,
+mutable factory admission snapshots, synchronous caller capture, child scopes,
+complete-all results, and deferred completion ordering. Record the convention in
+`AGENTS.md`; do not change the callback APIs or interactive shutdown contract.
+
+**Completion evidence — 2026-11-09:** Workspace all-target compilation and
+all-target Clippy with warnings denied across the 12 affected crates pass.
+All 180 selected local tests pass: 46 execution, 105 cache, nine loopback REST,
+15 command fixture, and five app cancellation process tests without auth features.
+Formatting and whitespace checks pass. Existing staging is preserved; changes
+remain uncommitted. No live-service or Terraform tests ran. Reproduction commands
+are recorded in [scoped join review](scoped-join-review.md).
+
+### [ ] Interactive handler and background-task ownership follow-up
+
+**Finding:** `picker_tui.rs` replaces its `FuturesUnordered` handler collection on
+reload and drops it on exit; early errors can also abandon handlers. Entra picker
+handlers call real SDK requests, which can owe response decoding/artifact
+completion. These are event-driven handlers, not a finite input batch.
+
+`AppWorkTracker::finish` also aborts work marked discardable, including the role
+assignment picker's principal/RBAC loads. A cancellation request before that
+abort does not preserve required descendants. Its `JoinError` path can return
+before retaining all remaining jobs. Include this shutdown owner in the follow-up.
+
+**Work:** Introduce a linked handler-generation cancellation owner and drain started
+handlers on reload, accept, cancellation, and terminal/handler errors. Preserve
+generation filtering and responsiveness while preventing old handlers from
+publishing into the new selection. Keep the coordinator alive through required
+completion without deferring every handler. Scope this separately from the finite
+join/map rollout; do not mark it safe merely because its requests are reads.
+Replace discardable-task aborts with cancellation and draining for SDK-backed
+jobs, and retain all started jobs when another job fails or panics.
+
+**Validation:** Use synthetic pending handlers with required completion and a fake
+candidate channel to verify reload/exit/error draining and obsolete-generation
+isolation. Do not resolve credentials or read service inventories.
 
 ## Phase 6 — audits, application ownership, and interactive consumers
 

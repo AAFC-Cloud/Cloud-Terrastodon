@@ -123,8 +123,10 @@ async fn concurrent_processes_keep_their_own_staged_input_until_the_child_finish
                 ready = wait_for_file(&second_started) => ready?,
             }
             fs::write(&release.0, b"release").await?;
+            // Preserve the already-running invocation owners and drain both.
             let (first_output, second_output) =
-                timeout(LIMIT, async { tokio::try_join!(first_run, second_run) }).await??;
+                timeout(LIMIT, async { tokio::join!(first_run, second_run) }).await?;
+            let (first_output, second_output) = (first_output?, second_output?);
             let first_text = first_output.stdout.to_str()?;
             let second_text = second_output.stdout.to_str()?;
             let (first_path, first_payload) = first_text.split_once('\n').expect("staged path output");
@@ -184,8 +186,9 @@ if (-not [IO.File]::Exists($attempt)) {
             // the leader's own initializer lock and hang both callers.
             let waiting = command.run_raw_cached(&executor, owner);
             fs::write(&release.0, b"release").await?;
-            let (output, joined) =
-                timeout(LIMIT, async { tokio::try_join!(running, waiting) }).await??;
+            // The leader was polled above; keep its original owner while draining.
+            let (output, joined) = timeout(LIMIT, async { tokio::join!(running, waiting) }).await?;
+            let (output, joined) = (output?, joined?);
             assert!(Arc::ptr_eq(&output, &joined));
             assert_eq!(output.stdout.as_bytes(), b"retry executed");
             assert_eq!(

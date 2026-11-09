@@ -9,6 +9,7 @@ use cloud_terrastodon_command::CommandOutput;
 use cloud_terrastodon_command::bstr::BString;
 use cloud_terrastodon_command::bstr::ByteSlice;
 use cloud_terrastodon_command::bstr::io::BufReadExt;
+use cloud_terrastodon_execution::ConcurrentIteratorExt;
 use cloud_terrastodon_hcl_types::FreshTFWorkDir;
 use cloud_terrastodon_hcl_types::GeneratedConfigOutTFWorkDir;
 use cloud_terrastodon_hcl_types::HclBlock;
@@ -26,9 +27,10 @@ use hcl::edit::structure::Body;
 use itertools::Itertools;
 use rand::seq::SliceRandom;
 use std::collections::HashSet;
+use std::num::NonZeroUsize;
 use std::path::Path;
-use std::sync::Arc;
-use tokio::sync::Semaphore;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
 use tokio::task::JoinSet;
 use tracing::debug;
 use tracing::info;
@@ -102,6 +104,8 @@ pub async fn identify_required_providers(
 pub async fn identify_required_providers_bulk(
     dirs: impl IntoIterator<Item = impl AsRef<Path>>,
 ) -> eyre::Result<TerraformRequiredProvidersBlock> {
+    // These jobs only read and parse local HCL, with no commands, cache writes,
+    // or required completion. Abandoning remaining reads on failure is safe.
     let mut join_set: JoinSet<eyre::Result<TerraformRequiredProvidersBlock>> = JoinSet::new();
     for dir in dirs {
         let dir = dir.as_ref().to_path_buf();
@@ -131,59 +135,38 @@ pub async fn initialize_work_dirs(
         .populate_provider_cache(&required_providers, cancellation)
         .await?;
 
-    cancellation
-        .with_async_scope(|cancellation| async move {
-            let mut join_set: JoinSet<eyre::Result<()>> = JoinSet::new();
-            let parallism = Arc::new(Semaphore::new(5));
-            for dir in &dirs {
-                let plugin_dir = provider_manager.local_mirror_dir.clone();
-                let dir = dir.clone();
-                let parallelism = parallism.clone();
-                join_set.spawn(
-                    cancellation.cancellable_scope(move |cancellation| async move {
-                        let permit = cancellation
-                            .cancellable_scope(|_cancellation| async {
-                                eyre::Ok(parallelism.acquire().await?)
-                            })
-                            .await?;
-                        let mut init_cmd = CommandBuilder::new(CommandKind::Terraform);
-                        init_cmd.use_run_dir(dir);
-                        init_cmd.args(["init", "-input=false"]);
-                        init_cmd.arg(format!(
-                            "-plugin-dir={}",
-                            plugin_dir.display().to_string().replace("\\", "/")
-                        ));
-                        init_cmd
-                            .run_raw(&cancellation)
-                            .await
-                            .wrap_err("If you get a \"file in use\" warning it may be that a previous run has crashed but failed to kill child processes.\n```pwsh\nget-process -Name \"*terraform-provider*\" | Stop-Process\n```")?;
-                        drop(permit);
-                        Ok(())
-                    }),
-                );
-            }
-
-            let mut first_error: Option<eyre::Report> = None;
-            while let Some(result) = join_set.join_next().await {
-                match result {
-                    Ok(Ok(())) => {}
-                    Ok(Err(error)) => {
-                        first_error.get_or_insert(error);
-                    }
-                    Err(error) => {
-                        first_error.get_or_insert(error.into());
-                    }
+    let remaining = AtomicUsize::new(dirs.len());
+    // Operation errors are data so initialization still attempts every directory.
+    // Parent cancellation can stop optional work while started commands finish.
+    dirs.into_iter().map_concurrent_scoped(
+        cancellation,
+        NonZeroUsize::new(5).ok_or_eyre("initialization concurrency must be nonzero")?,
+        async |cancellation, dir| {
+                let result = async {
+                    let mut init_cmd = CommandBuilder::new(CommandKind::Terraform);
+                    init_cmd.use_run_dir(&dir);
+                    init_cmd.args(["init", "-input=false"]);
+                    init_cmd.arg(format!(
+                        "-plugin-dir={}",
+                        provider_manager.local_mirror_dir.display().to_string().replace("\\", "/")
+                    ));
+                    init_cmd
+                        .run_raw(&cancellation)
+                        .await
+                        .wrap_err("If you get a \"file in use\" warning it may be that a previous run has crashed but failed to kill child processes.\n```pwsh\nget-process -Name \"*terraform-provider*\" | Stop-Process\n```")?;
+                    eyre::Ok(InitializedTFWorkDir::from(dir))
                 }
-                info!("Initializing tf work dirs, {} remain...", join_set.len());
-            }
-
-            if let Some(error) = first_error {
-                return Err(error);
-            }
-
-            Ok(dirs.into_iter().map(InitializedTFWorkDir::from).collect())
-        })
-        .await
+                .await;
+                info!(
+                    "Initializing tf work dirs, {} remain...",
+                    remaining.fetch_sub(1, Ordering::Relaxed) - 1
+                );
+                eyre::Ok(result)
+        },
+    )
+    .await?
+    .into_iter()
+    .collect()
 }
 
 pub async fn validate_work_dirs(
@@ -192,42 +175,28 @@ pub async fn validate_work_dirs(
 ) -> eyre::Result<Vec<ValidatedTFWorkDir>> {
     let dirs: Vec<InitializedTFWorkDir> = dirs.into_iter().collect();
     info!("Validating {} tf work dirs", dirs.len());
-    cancellation
-        .with_async_scope(|cancellation| async move {
-            let mut join_set: JoinSet<eyre::Result<()>> = JoinSet::new();
-            let rate_limit = Arc::new(Semaphore::new(16));
-            for dir in &dirs {
-                let dir = dir.clone();
-                let rate_limit = rate_limit.clone();
-                join_set.spawn(
-                    cancellation.cancellable_scope(move |cancellation| async move {
-                        let mut validate_cmd = CommandBuilder::new(CommandKind::Terraform);
-                        validate_cmd.cancellation_safe();
-                        // validate_cmd.should_announce(true);
-                        validate_cmd.use_run_dir(&dir);
-                        validate_cmd.arg("validate");
-                        let permit = cancellation
-                            .cancellable_scope(|_cancellation| async {
-                                eyre::Ok(rate_limit.acquire().await?)
-                            })
-                            .await?;
-                        validate_cmd
-                            .run_raw(&cancellation)
-                            .await
-                            .wrap_err(format!("Validating dir: {}", dir.display()))?;
-                        drop(permit);
-                        Ok(())
-                    }),
+    let remaining = AtomicUsize::new(dirs.len());
+    dirs.into_iter()
+        .map_concurrent_scoped(
+            cancellation,
+            NonZeroUsize::new(16).ok_or_eyre("validation concurrency must be nonzero")?,
+            async |cancellation, dir| {
+                let mut validate_cmd = CommandBuilder::new(CommandKind::Terraform);
+                validate_cmd.cancellation_safe();
+                validate_cmd.use_run_dir(&dir);
+                validate_cmd.arg("validate");
+                let result = validate_cmd
+                    .run_raw(&cancellation)
+                    .await
+                    .wrap_err_with(|| format!("Validating dir: {}", dir.display()));
+                info!(
+                    "Validating tf work dirs, {} remain...",
+                    remaining.fetch_sub(1, Ordering::Relaxed) - 1
                 );
-            }
-
-            while let Some(result) = join_set.join_next().await {
-                result??;
-                info!("Validating tf work dirs, {} remain...", join_set.len());
-            }
-
-            Ok(dirs.into_iter().map(ValidatedTFWorkDir::from).collect())
-        })
+                result?;
+                eyre::Ok(ValidatedTFWorkDir::from(dir))
+            },
+        )
         .await
 }
 
@@ -320,50 +289,27 @@ pub async fn generate_config_out_bulk(
     let mut dirs = work_dirs.into_iter().collect_vec();
     dirs.shuffle(&mut rand::rng()); // try and hit errors earlier than if we had a consistent iteration order
     info!("Performing tf code generation for {} dirs", dirs.len());
-    cancellation
-        .with_async_scope(|cancellation| async move {
-            let mut join_set: JoinSet<eyre::Result<()>> = JoinSet::new();
-            let rate_limit = Arc::new(Semaphore::new(10));
-            for dir in &dirs {
-                let rate_limit = rate_limit.clone();
-                let dir = dir.clone();
-                join_set.spawn(
-                    cancellation.cancellable_scope(move |cancellation| async move {
-                        let permit = cancellation
-                            .cancellable_scope(|_cancellation| async {
-                                eyre::Ok(rate_limit.acquire().await?)
-                            })
-                            .await?;
-                        generate_config_out(&dir, &cancellation).await?;
-                        drop(permit);
-                        Ok(())
-                    }),
-                );
-            }
-
-            let mut first_error: Option<eyre::Report> = None;
-            while let Some(result) = join_set.join_next().await {
-                match result {
-                    Ok(Ok(())) => {}
-                    Ok(Err(error)) => {
-                        first_error.get_or_insert(error);
-                    }
-                    Err(error) => {
-                        first_error.get_or_insert(error.into());
-                    }
-                }
+    let remaining = AtomicUsize::new(dirs.len());
+    // Preserve complete-all behavior for generation failures. Parent cancellation
+    // still stops optional work and lets started commands retain their results.
+    dirs.into_iter()
+        .map_concurrent_scoped(
+            cancellation,
+            NonZeroUsize::new(10).ok_or_eyre("generation concurrency must be nonzero")?,
+            async |cancellation, dir| {
+                let result = generate_config_out(&dir, &cancellation)
+                    .await
+                    .map(|()| GeneratedConfigOutTFWorkDir::from(dir));
                 info!(
                     "Performing tf code generation, {} dirs remain...",
-                    join_set.len()
+                    remaining.fetch_sub(1, Ordering::Relaxed) - 1
                 );
-            }
-            if let Some(error) = first_error {
-                return Err(error);
-            }
-
-            Ok(dirs.into_iter().map(|x| x.into()).collect())
-        })
-        .await
+                eyre::Ok(result)
+            },
+        )
+        .await?
+        .into_iter()
+        .collect()
 }
 
 #[cfg(test)]
@@ -385,7 +331,6 @@ mod test {
     use cloud_terrastodon_pathing::AppDir;
     use cloud_terrastodon_pathing::Existy;
     use indoc::indoc;
-    use tokio::try_join;
 
     fn init_logging() -> eyre::Result<()> {
         let env_filter = tracing_subscriber::EnvFilter::builder()
@@ -489,11 +434,9 @@ mod test {
         let work_dir_1 = temp_dir.path().join("work_dir_1");
         let work_dir_2 = temp_dir.path().join("work_dir_2");
         let work_dir_3 = temp_dir.path().join("work_dir_3");
-        try_join!(
-            work_dir_1.ensure_dir_exists(),
-            work_dir_2.ensure_dir_exists(),
-            work_dir_3.ensure_dir_exists(),
-        )?;
+        for work_dir in [&work_dir_1, &work_dir_2, &work_dir_3] {
+            work_dir.ensure_dir_exists().await?;
+        }
         let content_1 = indoc! {r#"
             import {
                 id = "123,0,1000"
@@ -515,11 +458,13 @@ mod test {
                 to = azuread_group.bruh
             }
         "#};
-        try_join!(
-            tokio::fs::write(work_dir_1.join("main.tf"), content_1),
-            tokio::fs::write(work_dir_2.join("main.tf"), content_2),
-            tokio::fs::write(work_dir_3.join("main.tf"), content_3),
-        )?;
+        for (work_dir, content) in [
+            (&work_dir_1, content_1),
+            (&work_dir_2, content_2),
+            (&work_dir_3, content_3),
+        ] {
+            tokio::fs::write(work_dir.join("main.tf"), content).await?;
+        }
         let required_providers =
             identify_required_providers_bulk([work_dir_1, work_dir_2, work_dir_3]).await?;
         dbg!(&required_providers);

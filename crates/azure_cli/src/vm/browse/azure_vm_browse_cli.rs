@@ -40,23 +40,20 @@ impl AzureVmBrowseArgs {
         match chosen {
             AzureVmBrowseOption::Resources => {
                 let (chosen_resources, maybe_error) = PickerTui::<_>::new()
-                    .pick_many_reloadable(|invalidate| {
-                        let tenant_auth_context = tenant_auth_context.clone();
-                        async move {
-                            info!("Fetching virtual machines");
-                            Ok(fetch_all_virtual_machines(&tenant_auth_context, executor)
-                                .with_invalidation(invalidate)
-                                .await?
-                                .into_iter()
-                                .map(|vm| Choice {
-                                    key: format!(
-                                        "{vm_name} - {vm_id}",
-                                        vm_name = vm.name,
-                                        vm_id = vm.id
-                                    ),
-                                    value: vm,
-                                }))
-                        }
+                    .pick_many_reloadable(async |invalidate| {
+                        info!("Fetching virtual machines");
+                        Ok(fetch_all_virtual_machines(&tenant_auth_context, executor)
+                            .with_invalidation(invalidate)
+                            .await?
+                            .into_iter()
+                            .map(|vm| Choice {
+                                key: format!(
+                                    "{vm_name} - {vm_id}",
+                                    vm_name = vm.name,
+                                    vm_id = vm.id
+                                ),
+                                value: vm,
+                            }))
                     })
                     .await
                     .into_chosen_and_maybe_error()?;
@@ -69,29 +66,22 @@ impl AzureVmBrowseArgs {
             }
             AzureVmBrowseOption::Skus => {
                 let chosen_subscription = PickerTui::<_>::new()
-                    .pick_one_reloadable(|invalidate| {
-                        let tenant_auth_context = tenant_auth_context.clone();
-                        async move {
-                            info!("Fetching subscriptions");
-                            let subscriptions =
-                                fetch_all_subscriptions(&tenant_auth_context, executor)
-                                    .with_invalidation(invalidate)
-                                    .await?;
-                            Ok(subscriptions)
-                        }
+                    .pick_one_reloadable(async |invalidate| {
+                        info!("Fetching subscriptions");
+                        let subscriptions = fetch_all_subscriptions(&tenant_auth_context, executor)
+                            .with_invalidation(invalidate)
+                            .await?;
+                        Ok(subscriptions)
                     })
                     .await?;
 
-                let (chosen_skus, maybe_error) = PickerTui::<_>::new().pick_many_reloadable(|invalidate| {
-                    let chosen_subscription = &chosen_subscription;
-                    async move {
+                let (chosen_skus, maybe_error) = PickerTui::<_>::new().pick_many_reloadable(async |invalidate| {
                         info!(%chosen_subscription.name, %chosen_subscription.id, "Fetching VM SKUs, this may take a while" );
                         let skus = fetch_virtual_machine_skus(chosen_subscription.id, auth_source, tenant_auth_context.tenant_id, executor).with_invalidation(invalidate).await?;
                         skus.into_iter().map(|sku| eyre::Ok(Choice {
                             key: format!("{} - {} - {}", sku.resource_type, sku.name, facet_json::to_string(&sku.locations).map_err(|error| eyre::eyre!("{error:?}"))?),
                             value: sku,
                         })).collect::<eyre::Result<Vec<_>>>()
-                    }
                 }).await.into_chosen_and_maybe_error()?;
                 println!(
                     "{}",

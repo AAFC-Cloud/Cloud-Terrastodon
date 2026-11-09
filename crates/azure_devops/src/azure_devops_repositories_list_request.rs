@@ -40,7 +40,7 @@ pub fn fetch_all_azure_devops_repos_for_project<'a>(
 ) -> RequestExecution<'a, AzureDevOpsRepositoriesListRequest<'a>> {
     executor.execute(AzureDevOpsRepositoriesListRequest {
         org_url: Cow::Borrowed(org_url),
-        project_id: project_id.clone(),
+        project_id: *project_id,
         auth_context: Cow::Borrowed(auth_context),
     })
 }

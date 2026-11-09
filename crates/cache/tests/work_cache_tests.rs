@@ -366,10 +366,7 @@ async fn cancelling_a_waiter_leaves_the_active_initializer_running() -> eyre::Re
             assert_pending(leader.as_mut()).await;
             let waiter_token = CancellationToken::new();
             let waiter = waiter_token
-                .with_async_scope(|child| {
-                    let cache = &cache;
-                    async move { read(cache, "waiter-cancel", &child, 9).await }
-                })
+                .with_async_scope(async |child| read(&cache, "waiter-cancel", &child, 9).await)
                 .into_future();
             tokio::pin!(waiter);
             assert_pending(waiter.as_mut()).await;
@@ -391,33 +388,30 @@ async fn cancelling_a_waiter_leaves_the_active_initializer_running() -> eyre::Re
 #[tokio::test]
 async fn common_root_cancellation_stops_the_initializer_and_waiter() -> eyre::Result<()> {
     let root = CancellationToken::new();
-    root.with_async_scope(|scope| {
-        let root = &root;
-        async move {
-            let temporary = tempfile::tempdir()?;
-            let cache = WorkCache::new(temporary.path())?;
-            let leader = cache
-                .cached_work::<u64, _, _>(
-                    identity("root-cancel"),
-                    CacheOperationOwner::of::<SyntheticRead>(),
-                    WorkReuse::ReusableRead,
-                    VALID_FOR,
-                    None,
-                    &scope,
-                    |_, _| std::future::pending::<eyre::Result<WorkOutput<u64>>>(),
-                )?
-                .into_future();
-            let waiter = read(&cache, "root-cancel", &scope, 10);
-            tokio::pin!(leader, waiter);
-            assert_pending(leader.as_mut()).await;
-            assert_pending(waiter.as_mut()).await;
-            root.request_cancel("stop the whole synthetic operation");
-            let (first, second) =
-                timeout(DEADLOCK_GUARD, async { tokio::join!(leader, waiter) }).await?;
-            assert!(first.is_err());
-            assert!(second.is_err());
-            Ok(())
-        }
+    root.with_async_scope(async |scope| {
+        let temporary = tempfile::tempdir()?;
+        let cache = WorkCache::new(temporary.path())?;
+        let leader = cache
+            .cached_work::<u64, _, _>(
+                identity("root-cancel"),
+                CacheOperationOwner::of::<SyntheticRead>(),
+                WorkReuse::ReusableRead,
+                VALID_FOR,
+                None,
+                &scope,
+                |_, _| std::future::pending::<eyre::Result<WorkOutput<u64>>>(),
+            )?
+            .into_future();
+        let waiter = read(&cache, "root-cancel", &scope, 10);
+        tokio::pin!(leader, waiter);
+        assert_pending(leader.as_mut()).await;
+        assert_pending(waiter.as_mut()).await;
+        root.request_cancel("stop the whole synthetic operation");
+        let (first, second) =
+            timeout(DEADLOCK_GUARD, async { tokio::join!(leader, waiter) }).await?;
+        assert!(first.is_err());
+        assert!(second.is_err());
+        Ok(())
     })
     .await
 }
@@ -436,22 +430,19 @@ async fn direct_recursion_returns_an_error_instead_of_waiting_for_itself() -> ey
                     VALID_FOR,
                     None,
                     &scope,
-                    |parent, child| {
-                        let cache = &cache;
-                        async move {
-                            let nested = cache
-                                .cached_work(
-                                    identity("recursive"),
-                                    CacheOperationOwner::of::<SyntheticRead>(),
-                                    WorkReuse::ReusableRead,
-                                    VALID_FOR,
-                                    parent.as_ref(),
-                                    &child,
-                                    |_, _| async { Ok(output(1_u64)) },
-                                )?
-                                .await?;
-                            Ok(output(*nested))
-                        }
+                    async |parent, child| {
+                        let nested = cache
+                            .cached_work(
+                                identity("recursive"),
+                                CacheOperationOwner::of::<SyntheticRead>(),
+                                WorkReuse::ReusableRead,
+                                VALID_FOR,
+                                parent.as_ref(),
+                                &child,
+                                |_, _| async { Ok(output(1_u64)) },
+                            )?
+                            .await?;
+                        Ok(output(*nested))
                     },
                 )?
                 .into_future();
@@ -544,13 +535,10 @@ async fn zero_validity_executes_each_call_without_replacing_a_reusable_result() 
                         Duration::ZERO,
                         None,
                         &scope,
-                        |parent, _| {
-                            let executions = &executions;
-                            async move {
-                                assert!(parent.is_none());
-                                executions.fetch_add(1, Ordering::SeqCst);
-                                Ok(output(value))
-                            }
+                        async |parent, _| {
+                            assert!(parent.is_none());
+                            executions.fetch_add(1, Ordering::SeqCst);
+                            Ok(output(value))
                         },
                     )?
                     .await?;
@@ -582,21 +570,18 @@ async fn zero_validity_child_is_rejected_before_execution_and_prevents_parent_re
                     VALID_FOR,
                     None,
                     &scope,
-                    |parent, child| {
-                        let cache = &cache;
-                        async move {
-                            let intermediary = cache.cached_work::<u64, _, _>(
-                                identity("uncached-intermediary"),
-                                CacheOperationOwner::of::<SyntheticRead>(),
-                                WorkReuse::ReusableRead,
-                                Duration::ZERO,
-                                parent.as_ref(),
-                                &child,
-                                |_, _| async { panic!("an incompatible child must not execute") },
-                            );
-                            assert!(intermediary.is_err());
-                            Ok(output(1_u64))
-                        }
+                    async |parent, child| {
+                        let intermediary = cache.cached_work::<u64, _, _>(
+                            identity("uncached-intermediary"),
+                            CacheOperationOwner::of::<SyntheticRead>(),
+                            WorkReuse::ReusableRead,
+                            Duration::ZERO,
+                            parent.as_ref(),
+                            &child,
+                            |_, _| async { panic!("an incompatible child must not execute") },
+                        );
+                        assert!(intermediary.is_err());
+                        Ok(output(1_u64))
                     },
                 )?
                 .into_future();
@@ -746,25 +731,22 @@ async fn wrapper_and_transport_can_nest_under_the_same_scope_in_separate_namespa
                     VALID_FOR,
                     None,
                     &scope,
-                    |parent, child| {
-                        let cache = &cache;
-                        async move {
-                            let transport = cache
-                                .cached_work(
-                                    CacheEntryIdentity {
-                                        kind: ExecutorKind::Rest,
-                                        ..identity("wrapper-transport")
-                                    },
-                                    CacheOperationOwner::of::<ConflictingRead>(),
-                                    WorkReuse::ReusableRead,
-                                    VALID_FOR,
-                                    parent.as_ref(),
-                                    &child,
-                                    |_, _| async { Ok(output(7_u64)) },
-                                )?
-                                .await?;
-                            Ok(output(format!("items={transport}")))
-                        }
+                    async |parent, child| {
+                        let transport = cache
+                            .cached_work(
+                                CacheEntryIdentity {
+                                    kind: ExecutorKind::Rest,
+                                    ..identity("wrapper-transport")
+                                },
+                                CacheOperationOwner::of::<ConflictingRead>(),
+                                WorkReuse::ReusableRead,
+                                VALID_FOR,
+                                parent.as_ref(),
+                                &child,
+                                |_, _| async { Ok(output(7_u64)) },
+                            )?
+                            .await?;
+                        Ok(output(format!("items={transport}")))
                     },
                 )?
                 .await?;
@@ -797,34 +779,30 @@ async fn cancellation_waits_for_required_completion_before_a_waiter_retries() ->
             let (started, ready) = oneshot::channel();
             let (release, released) = oneshot::channel();
             let leader = leader_token
-                .with_async_scope(|child| {
-                    let cache = &cache;
-                    let completed = completed.clone();
-                    async move {
-                        cache
-                            .cached_work(
-                                identity("required-completion"),
-                                CacheOperationOwner::of::<SyntheticRead>(),
-                                WorkReuse::ReusableRead,
-                                VALID_FOR,
-                                None,
-                                &child,
-                                |_, execution| async move {
-                                    execution
-                                        .deferred(
-                                            "finish a synthetic observed outcome",
-                                            |_protected| async move {
-                                                started.send(()).unwrap();
-                                                released.await?;
-                                                completed.fetch_add(1, Ordering::SeqCst);
-                                                Ok(output(1_u64))
-                                            },
-                                        )
-                                        .await
-                                },
-                            )?
-                            .await
-                    }
+                .with_async_scope(async |child| {
+                    cache
+                        .cached_work(
+                            identity("required-completion"),
+                            CacheOperationOwner::of::<SyntheticRead>(),
+                            WorkReuse::ReusableRead,
+                            VALID_FOR,
+                            None,
+                            &child,
+                            async |_, execution| {
+                                execution
+                                    .deferred(
+                                        "finish a synthetic observed outcome",
+                                        async |_protected| {
+                                            started.send(()).unwrap();
+                                            released.await?;
+                                            completed.fetch_add(1, Ordering::SeqCst);
+                                            Ok(output(1_u64))
+                                        },
+                                    )
+                                    .await
+                            },
+                        )?
+                        .await
                 })
                 .into_future();
             tokio::pin!(leader);

@@ -48,8 +48,7 @@ pub async fn fetch_pim_graph_access_token(
     cancellation: &CancellationScope,
 ) -> Result<MicrosoftGraphAccessToken> {
     cancellation.cancellable_scope(|cancellation| async move {
-                let cancellation = &cancellation;
-    let client_id = pim_client_id(&tenant_id, cancellation).await?;
+    let client_id = pim_client_id(&tenant_id, &cancellation).await?;
     let scopes = pim_graph_scopes();
 
     if let Some(refresh_token) = load_pim_refresh_token(&tenant_id, &client_id)? {
@@ -59,7 +58,7 @@ pub async fn fetch_pim_graph_access_token(
             AzureCredentialResource::MicrosoftGraph,
             &scopes,
             &refresh_token,
-            cancellation,
+            &cancellation,
         )
         .await
         {
@@ -80,9 +79,9 @@ pub async fn fetch_pim_graph_access_token(
     }
 
     if std::env::var(PIM_AUTH_FLOW_ENV).as_deref() == Ok("device_code") {
-        fetch_pim_graph_access_token_device_code(tenant_id, cancellation).await
+        fetch_pim_graph_access_token_device_code(tenant_id, &cancellation).await
     } else {
-        fetch_pim_graph_access_token_interactive(tenant_id, cancellation).await
+        fetch_pim_graph_access_token_interactive(tenant_id, &cancellation).await
     }
 
     }).await
@@ -96,15 +95,14 @@ pub async fn fetch_pim_graph_access_token_interactive(
 ) -> Result<MicrosoftGraphAccessToken> {
     cancellation
         .cancellable_scope(|cancellation| async move {
-            let cancellation = &cancellation;
-            let client_id = pim_client_id(&tenant_id, cancellation).await?;
+            let client_id = pim_client_id(&tenant_id, &cancellation).await?;
             let scopes = pim_graph_scopes();
             let token = fetch_browser_access_token_with_scopes(
                 tenant_id,
                 client_id,
                 AzureCredentialResource::MicrosoftGraph,
                 &scopes,
-                cancellation,
+                &cancellation,
             )
             .await?;
             if let Some(refresh_token) = token.refresh_token {
@@ -124,8 +122,7 @@ pub async fn fetch_pim_graph_access_token_device_code(
     cancellation: &CancellationScope,
 ) -> Result<MicrosoftGraphAccessToken> {
     cancellation.cancellable_scope(|cancellation| async move {
-                let cancellation = &cancellation;
-    let client_id = pim_client_id(&tenant_id, cancellation).await?;
+    let client_id = pim_client_id(&tenant_id, &cancellation).await?;
     let scopes = pim_graph_scopes();
     let authority = format!("https://login.microsoftonline.com/{tenant_id}");
     let client = Client::new();

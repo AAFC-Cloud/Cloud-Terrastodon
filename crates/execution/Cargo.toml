@@ -18,6 +18,7 @@ test-support = []
 cloud_terrastodon_auth_types.workspace = true
 cloud_terrastodon_cache.workspace = true
 eyre.workspace = true
+futures.workspace = true
 teamy-cancellation = { workspace = true, features = ["inheritance"] }
 tracing.workspace = true
 tokio.workspace = true

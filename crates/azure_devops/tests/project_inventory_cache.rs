@@ -179,10 +179,12 @@ async fn assembled_projects_share_records_and_track_page_invalidation() -> Resul
 
             // Both calls use the production request, including pagination and the
             // real REST artifact decoder. Authorization fails before any network use.
-            let (initial, joined) = tokio::try_join!(
-                request.clone().execute(&executor),
-                request.clone().execute(&executor)
-            )?;
+            let (initial, joined) = executor
+                .join2(
+                    async |child| request.clone().execute(&child).await,
+                    async |child| request.clone().execute(&child).await,
+                )
+                .await?;
             assert!(Arc::ptr_eq(&initial, &joined));
             assert_eq!(initial.as_ref(), &vec![first, second]);
             let warm = request.clone().execute(&executor).await?;

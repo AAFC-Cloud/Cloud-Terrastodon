@@ -879,9 +879,7 @@ mod tests {
                     |_| async move {
                         request.completion.entered.notify_one();
                         request.completion.finish.notified().await;
-                        Ok::<_, eyre::Report>(
-                            Box::new(request.source.value.clone()) as Box<dyn Any + Send>
-                        )
+                        eyre::Ok(Box::new(request.source.value.clone()) as Box<dyn Any + Send>)
                     },
                 )
                 .await?;

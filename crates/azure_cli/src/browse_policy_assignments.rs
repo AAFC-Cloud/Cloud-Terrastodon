@@ -15,7 +15,6 @@ use indexmap::IndexMap;
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use tokio::try_join;
 use tracing::info;
 use tracing::trace;
 use tracing::warn;
@@ -26,15 +25,16 @@ pub async fn browse_policy_assignments(
     executor: &CloudTerrastodonExecutor,
 ) -> eyre::Result<()> {
     info!("Fetching a bunch of data...");
-    let (policy_assignments, policy_definitions, policy_set_definitions, policy_compliance) = match try_join!(
-        fetch_all_policy_assignments(auth_context, executor),
-        fetch_all_policy_definitions(auth_context, executor),
-        fetch_all_policy_set_definitions(auth_context, executor),
-        fetch_all_policy_compliance(auth_context, executor),
-    ) {
-        Ok(x) => x,
-        Err(e) => return Err(e).context("failed to fetch policy data"),
-    };
+    let (policy_assignments, policy_definitions, policy_set_definitions, policy_compliance) =
+        executor
+            .join4(
+                |child| async move { fetch_all_policy_assignments(auth_context, &child).await },
+                |child| async move { fetch_all_policy_definitions(auth_context, &child).await },
+                |child| async move { fetch_all_policy_set_definitions(auth_context, &child).await },
+                |child| async move { fetch_all_policy_compliance(auth_context, &child).await },
+            )
+            .await
+            .context("failed to fetch policy data")?;
 
     let policy_definition_map = policy_definitions
         .iter()

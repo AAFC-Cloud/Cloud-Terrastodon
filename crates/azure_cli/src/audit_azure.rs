@@ -6,7 +6,6 @@ use cloud_terrastodon_azure::fetch_all_role_definitions_and_assignments;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use itertools::Itertools;
 use std::collections::HashMap;
-use tokio::try_join;
 use tracing::info;
 use tracing::warn;
 
@@ -24,19 +23,23 @@ pub async fn audit_azure(
     let mut total_problems = 0;
     let total_cost_waste_cad = 0.00;
     let mut message_counts: HashMap<&'static str, usize> = HashMap::new();
-    let (rbac, principals, resources) = try_join!(
-        fetch_all_role_definitions_and_assignments(
-            auth_context.tenant_id,
-            auth_context.auth_source()?,
-            executor
-        ),
-        fetch_all_principals(
-            auth_context.tenant_id,
-            auth_context.auth_source()?,
-            executor
-        ),
-        fetch_all_resources(auth_context, executor)
-    )?;
+    let auth_source = auth_context.auth_source()?;
+    let (rbac, principals, resources) = executor
+        .join3(
+            |child| async move {
+                fetch_all_role_definitions_and_assignments(
+                    auth_context.tenant_id,
+                    auth_source,
+                    &child,
+                )
+                .await
+            },
+            |child| async move {
+                fetch_all_principals(auth_context.tenant_id, auth_source, &child).await
+            },
+            |child| async move { fetch_all_resources(auth_context, &child).await },
+        )
+        .await?;
     let elapsed = start.elapsed();
     info!(
         elapsed_ms = elapsed.as_millis(),

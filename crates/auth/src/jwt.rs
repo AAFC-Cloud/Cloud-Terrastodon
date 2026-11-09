@@ -22,12 +22,11 @@ pub async fn get_azure_access_token_jwt(
 ) -> eyre::Result<()> {
     cancellation
         .cancellable_scope(|cancellation| async move {
-            let cancellation = &cancellation;
             let access_token = fetch_azure_access_token(
                 auth_context,
                 tenant,
                 AzureCredentialResource::AzureResourceManager,
-                cancellation,
+                &cancellation,
             )
             .await?;
             let claims = decode_azure_claims(access_token.access_token.as_str())?;

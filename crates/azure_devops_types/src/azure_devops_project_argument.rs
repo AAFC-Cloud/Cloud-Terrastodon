@@ -161,7 +161,7 @@ mod tests {
             abbreviation: None,
             default_team_image_url: None,
             description: None,
-            id: id.clone(),
+            id,
             last_update_time: DateTime::UNIX_EPOCH,
             name: AzureDevOpsProjectName::try_new("Synthetic project").unwrap(),
             revision: 1,
@@ -183,7 +183,7 @@ mod tests {
         let name = AzureDevOpsProjectName::try_new(text).unwrap();
 
         assert!(matches!(
-            registered_project_argument(id.clone()),
+            registered_project_argument(id),
             AzureDevOpsProjectArgument::Id(actual) if actual.as_ref() == &id
         ));
         assert!(matches!(

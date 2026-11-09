@@ -271,8 +271,6 @@ async fn a_bound_leaf_with_semantic_children_cannot_publish_aggregate_artifacts(
             let parent = identity(ExecutorKind::Rest, &["synthetic", "aggregate"], "query");
             let child = identity(ExecutorKind::InProcess, &["synthetic", "child"], "query");
             let artifact = entry(&cache, &parent)?;
-            let cache = &cache;
-            let artifact = &artifact;
             let value = cache
                 .cached_work(
                     parent,
@@ -281,7 +279,7 @@ async fn a_bound_leaf_with_semantic_children_cannot_publish_aggregate_artifacts(
                     Duration::from_secs(3600),
                     None,
                     &scope,
-                    |attempt, child_scope| async move {
+                    async |attempt, child_scope| {
                         let attempt = attempt.unwrap();
                         cache
                             .cached_work(
@@ -325,8 +323,6 @@ async fn binding_artifacts_after_invalidation_keeps_the_work_attempts_original_g
             let cache = WorkCache::new(temporary.path())?;
             let identity = identity(ExecutorKind::Rest, &["synthetic", "late-artifact"], "query");
             let artifact = entry(&cache, &identity)?;
-            let cache = &cache;
-            let artifact = &artifact;
             let value = cache
                 .cached_work(
                     identity.clone(),
@@ -335,7 +331,7 @@ async fn binding_artifacts_after_invalidation_keeps_the_work_attempts_original_g
                     Duration::from_secs(3600),
                     None,
                     &scope,
-                    |attempt, child_scope| async move {
+                    async |attempt, child_scope| {
                         cache.invalidate(&identity.scope, &child_scope).await?;
                         let bound = artifact.clone().for_work(&attempt.unwrap())?;
                         let stored = finish(&bound, &child_scope).await?;
@@ -369,10 +365,6 @@ async fn a_child_rejected_after_leaf_commit_prevents_both_memory_and_disk_reuse(
             );
             let artifact = entry(&cache, &parent)?;
             let executions = AtomicUsize::new(0);
-            let cache = &cache;
-            let artifact = &artifact;
-            let child = &child;
-            let executions = &executions;
             for _ in 0..2 {
                 cache
                     .cached_work(
@@ -382,7 +374,7 @@ async fn a_child_rejected_after_leaf_commit_prevents_both_memory_and_disk_reuse(
                         Duration::from_secs(3600),
                         None,
                         &scope,
-                        |attempt, child_scope| async move {
+                        async |attempt, child_scope| {
                             executions.fetch_add(1, Ordering::SeqCst);
                             let attempt = attempt.unwrap();
                             let bound = artifact.clone().for_work(&attempt)?;
@@ -425,7 +417,6 @@ async fn failure_after_a_bound_leaf_commit_keeps_the_selection_quarantined() -> 
             let cache = WorkCache::new(temporary.path())?;
             let identity = identity(ExecutorKind::Rest, &["synthetic", "failed-leaf"], "query");
             let artifact = entry(&cache, &identity)?;
-            let artifact = &artifact;
             let outcome = cache
                 .cached_work(
                     identity,
@@ -434,7 +425,7 @@ async fn failure_after_a_bound_leaf_commit_keeps_the_selection_quarantined() -> 
                     Duration::from_secs(3600),
                     None,
                     &scope,
-                    |attempt, child_scope| async move {
+                    async |attempt, child_scope| {
                         let bound = artifact.clone().for_work(&attempt.unwrap())?;
                         let stored = finish(&bound, &child_scope).await?;
                         assert!(bound.publish(&stored, &child_scope).await?);
@@ -466,11 +457,9 @@ async fn a_loaded_proof_cannot_outlive_its_successful_or_failed_initializer() ->
             let identity = identity(ExecutorKind::Rest, &["synthetic", "bound-proof"], "query");
             let artifact = entry(&cache, &identity)?;
             let retained = Mutex::new(None);
-            let retained = &retained;
-            let artifact = &artifact;
             let first = cache.cached_work(identity.clone(), CacheOperationOwner::of::<SyntheticRead>(),
                 WorkReuse::ReusableRead, Duration::from_secs(3600), None, &scope,
-                |attempt, child_scope| async move {
+                async |attempt, child_scope| {
                     let bound = artifact.clone().for_work(&attempt.unwrap())?;
                     let stored = finish(&bound, &child_scope).await?;
                     assert!(bound.publish(&stored, &child_scope).await?);

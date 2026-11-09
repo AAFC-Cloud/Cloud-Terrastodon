@@ -35,7 +35,6 @@ use crate::interactive::list_imports;
 use crate::interactive::open_dir;
 use crate::interactive::pim_activate;
 use crate::interactive::plan_processed;
-use crate::interactive::populate_cache;
 use crate::interactive::remove_oauth2_permission_grants;
 use crate::interactive::resource_group_import_wizard_menu;
 use crate::interactive::run_query_menu;
@@ -95,7 +94,6 @@ pub enum MenuAction {
     EvaluatePolicyAssignmentCompliance,
     UseTerraform,
     UseTofu,
-    PopulateCache,
     PimActivate,
     OpenDir,
     TagEmptyResourceGroups,
@@ -158,7 +156,6 @@ impl MenuAction {
             MenuAction::CreateRoleAssignment => "create role assignment",
             MenuAction::UseTerraform => "use terraform",
             MenuAction::UseTofu => "use tofu",
-            MenuAction::PopulateCache => "populate cache",
             MenuAction::PimActivate => "pim activate",
             MenuAction::OpenDir => "open dir",
             MenuAction::Quit => "quit",
@@ -256,7 +253,6 @@ impl MenuAction {
             }
             MenuAction::UseTofu => unsafe { env::set_var(USE_TOFU_FLAG_KEY, "1") },
             MenuAction::UseTerraform => unsafe { env::remove_var(USE_TOFU_FLAG_KEY) },
-            MenuAction::PopulateCache => populate_cache(auth_context, executor).await?,
             MenuAction::OpenDir => open_dir().await?,
             MenuAction::Quit => return Ok(MenuActionResult::QuitApplication),
             MenuAction::TagEmptyResourceGroups => {

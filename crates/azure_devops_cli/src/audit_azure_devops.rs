@@ -15,10 +15,11 @@ use cloud_terrastodon_azure_devops::fetch_azure_devops_groups_for_project;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_test_plans;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_test_suites;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlements;
-use cloud_terrastodon_command::ParallelFallibleWorkQueue;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ConcurrentIteratorExt;
 use itertools::Itertools;
 use std::collections::HashMap;
+use std::num::NonZeroUsize;
 use std::time::Duration;
 use tracing::info;
 use tracing::warn;
@@ -157,135 +158,93 @@ pub async fn audit_azure_devops(
     let projects =
         fetch_all_azure_devops_projects(&org_url, azure_devops_auth_context.selection()?, executor)
             .await?;
+    // Complete each inventory batch before reporting its ordinary service
+    // errors. Scope cancellation still stops admission and drains active work.
     let project_test_plans = projects
         .iter()
-        .map(|project| {
-            let org_url = org_url.clone();
-            let project_id = project.id.clone();
-            let azure_devops_auth_context = azure_devops_auth_context.clone();
-            executor.cancellable_scope(move |executor| async move {
-                let executor = &executor;
+        .map_concurrent(
+            executor,
+            NonZeroUsize::MIN.saturating_add(3),
+            async |child, project| {
                 let plans = fetch_azure_devops_test_plans(
                     &org_url,
-                    &project_id,
+                    project.id,
                     &azure_devops_auth_context,
-                    executor,
+                    &child,
                 )
-                .await?;
-                Ok((project_id, plans))
-            })
-        })
-        .fold(
-            ParallelFallibleWorkQueue::new("fetching azure devops test plans for projects", 4),
-            |mut queue, fut| {
-                queue.enqueue(fut);
-                queue
+                .await;
+                info!(project_id = %project.id, "Finished fetching project test plans");
+                eyre::Ok(plans.map(|plans| (project.id, plans)))
             },
         )
-        .join()
         .await?
         .into_iter()
-        .collect::<HashMap<_, _>>();
+        .collect::<eyre::Result<HashMap<_, _>>>()?;
 
     let test_suites = project_test_plans
         .iter()
-        .flat_map(|(project, plans)| plans.iter().map(|plan| (project.clone(), plan)))
-        .map(|(project_id, test_plan)| {
-            let org_url = org_url.clone();
-            let plan_id = test_plan.id;
-            let azure_devops_auth_context = azure_devops_auth_context.clone();
-            executor.cancellable_scope(move |executor| async move {
-                let executor = &executor;
+        .flat_map(|(project, plans)| plans.iter().map(move |plan| (project, plan.id)))
+        .map_concurrent(
+            executor,
+            NonZeroUsize::MIN.saturating_add(3),
+            async |child, (project_id, plan_id)| {
                 let suites = fetch_azure_devops_test_suites(
                     &org_url,
-                    &project_id,
+                    project_id,
                     plan_id.to_string(),
                     &azure_devops_auth_context,
-                    executor,
+                    &child,
                 )
-                .await?;
-                Ok((project_id, plan_id, suites))
-            })
-        })
-        .fold(
-            ParallelFallibleWorkQueue::new(
-                "fetching azure devops test suites for project test plans",
-                4,
-            ),
-            |mut queue, fut| {
-                queue.enqueue(fut);
-                queue
+                .await;
+                info!(%project_id, %plan_id, "Finished fetching project test suites");
+                eyre::Ok(suites.map(|suites| ((*project_id, plan_id), suites)))
             },
         )
-        .join()
         .await?
         .into_iter()
-        .map(|(project_id, plan_id, suites)| ((project_id, plan_id), suites))
-        .collect::<HashMap<_, _>>();
+        .collect::<eyre::Result<HashMap<_, _>>>()?;
 
     let groups_for_test_plan_licensed_users = test_plan_licenses
         .iter()
-        .map(|entitlement| {
-            let member_id = entitlement.user.descriptor.clone();
-            let org_url = org_url.clone();
-            let azure_devops_auth_context = azure_devops_auth_context.clone();
-            {
-                executor.cancellable_scope(move |executor| async move {
-                    let executor = &executor;
-                    let groups = fetch_azure_devops_groups_for_member(
-                        &org_url,
-                        &member_id,
-                        &azure_devops_auth_context,
-                        executor,
-                    )
-                    .await?;
-                    Ok((member_id, groups))
-                })
-            }
-        })
-        .fold(
-            ParallelFallibleWorkQueue::new("fetching groups for test plan licensed users", 4),
-            |mut queue, fut| {
-                queue.enqueue(fut);
-                queue
+        .map_concurrent(
+            executor,
+            NonZeroUsize::MIN.saturating_add(3),
+            async |child, entitlement| {
+                let groups = fetch_azure_devops_groups_for_member(
+                    &org_url,
+                    &entitlement.user.descriptor,
+                    &azure_devops_auth_context,
+                    &child,
+                )
+                .await;
+                info!("Finished fetching groups for a test plan licensed user");
+                eyre::Ok(groups.map(|groups| (entitlement.user.descriptor.clone(), groups)))
             },
         )
-        .join()
         .await?
         .into_iter()
-        .collect::<HashMap<_, _>>();
+        .collect::<eyre::Result<HashMap<_, _>>>()?;
 
     let groups_for_projects = projects
         .iter()
-        .map(|project| {
-            let org_url = org_url.clone();
-            let project_id = project.id.clone();
-            let azure_devops_auth_context = azure_devops_auth_context.clone();
-            {
-                executor.cancellable_scope(move |executor| async move {
-                    let executor = &executor;
-                    let groups = fetch_azure_devops_groups_for_project(
-                        &org_url,
-                        &project_id,
-                        &azure_devops_auth_context,
-                        executor,
-                    )
-                    .await?;
-                    Ok((project_id, groups))
-                })
-            }
-        })
-        .fold(
-            ParallelFallibleWorkQueue::new("fetching groups for projects", 4),
-            |mut queue, fut| {
-                queue.enqueue(fut);
-                queue
+        .map_concurrent(
+            executor,
+            NonZeroUsize::MIN.saturating_add(3),
+            async |child, project| {
+                let groups = fetch_azure_devops_groups_for_project(
+                    &org_url,
+                    project.id,
+                    &azure_devops_auth_context,
+                    &child,
+                )
+                .await;
+                info!(project_id = %project.id, "Finished fetching project groups");
+                eyre::Ok(groups.map(|groups| (project.id, groups)))
             },
         )
-        .join()
         .await?
         .into_iter()
-        .collect::<HashMap<_, _>>();
+        .collect::<eyre::Result<HashMap<_, _>>>()?;
 
     // for each license haver, print their projects and the test plans in those projects (plan name, last date)
     let now = Local::now();
@@ -335,7 +294,7 @@ pub async fn audit_azure_devops(
                 last_used =
                     last_used.max(plan.start_date.max(plan.end_date).max(plan.updated_date));
                 for suite in test_suites
-                    .get(&(project.id.clone(), plan.id))
+                    .get(&(project.id, plan.id))
                     .into_iter()
                     .flatten()
                 {

@@ -200,13 +200,12 @@ mod test {
     use crate::GenerateConfigOutHelper;
     use crate::ProviderManager;
     use cloud_terrastodon_command::CancellationToken;
+    use cloud_terrastodon_execution::ConcurrentIteratorExt;
     use cloud_terrastodon_hcl_types::TerraformRequiredProvidersBlock;
     use cloud_terrastodon_pathing::AppDir;
     use cloud_terrastodon_pathing::Existy;
-    use std::sync::Arc;
+    use std::num::NonZeroUsize;
     use tempfile::Builder;
-    use tokio::sync::Semaphore;
-    use tokio::task::JoinSet;
 
     #[tokio::test]
     #[ignore]
@@ -219,21 +218,22 @@ mod test {
         );
         let temp_dir = Builder::new().tempdir_in(AppDir::Temp.as_path_buf())?;
         let num_workspaces = 25;
-        let mut join_set: JoinSet<eyre::Result<()>> = JoinSet::new();
-        for i in 0..num_workspaces {
-            let workspace_dir = temp_dir.path().join(format!("workspace_{i:03}"));
-            join_set.spawn(cancellation.cancellable_scope(move |cancellation| async move {
-                workspace_dir.ensure_dir_exists().await?;
-                GenerateConfigOutHelper::new()
-                    .with_run_dir(&workspace_dir)
-                    .run(&cancellation)
-                    .await?;
-                Ok(())
-            }));
-        }
-        while let Some(x) = join_set.join_next().await {
-            x??;
-        }
+        (0..num_workspaces).map_concurrent_scoped(
+            &cancellation,
+            NonZeroUsize::new(num_workspaces).unwrap(),
+            |cancellation, i| {
+                let workspace_dir = temp_dir.path().join(format!("workspace_{i:03}"));
+                async move {
+                    workspace_dir.ensure_dir_exists().await?;
+                    GenerateConfigOutHelper::new()
+                        .with_run_dir(&workspace_dir)
+                        .run(&cancellation)
+                        .await?;
+                    eyre::Ok(())
+                }
+            },
+        )
+        .await?;
         Ok(())
             }).await
     }
@@ -245,7 +245,6 @@ mod test {
             .with_async_scope(|cancellation| async move {
                 let temp_dir = Builder::new().tempdir_in(AppDir::Temp.as_path_buf())?;
                 let num_workspaces = 25;
-                let mut join_set: JoinSet<eyre::Result<()>> = JoinSet::new();
 
                 let provider_manager = ProviderManager::try_new()?;
                 provider_manager
@@ -255,34 +254,24 @@ mod test {
                     )
                     .await?;
 
-                // let limit = Arc::new(Semaphore::new(1));
-                let limit = Arc::new(Semaphore::new(num_workspaces));
-
                 let cache_dir = provider_manager.local_mirror_dir;
-                for i in 0..num_workspaces {
-                    let workspace_dir = temp_dir.path().join(format!("workspace_{i:03}"));
-                    let cache_dir = cache_dir.clone();
-                    let limit = limit.clone();
-                    join_set.spawn(cancellation.cancellable_scope(
-                        move |cancellation| async move {
+                let temp_dir = temp_dir.keep(); // Keep it around for manual inspection.
+                (0..num_workspaces)
+                    .map_concurrent_scoped(
+                        &cancellation,
+                        NonZeroUsize::new(num_workspaces).unwrap(),
+                        async |cancellation, i| {
+                            let workspace_dir = temp_dir.join(format!("workspace_{i:03}"));
                             workspace_dir.ensure_dir_exists().await?;
-                            let permit = limit.acquire().await?;
                             GenerateConfigOutHelper::new()
                                 .with_run_dir(&workspace_dir)
-                                .with_plugin_dir(cache_dir)
+                                .with_plugin_dir(&cache_dir)
                                 .run(&cancellation)
                                 .await?;
-                            drop(permit);
-                            Ok(())
+                            eyre::Ok(())
                         },
-                    ));
-                }
-
-                _ = temp_dir.keep(); // keep it around
-
-                while let Some(x) = join_set.join_next().await {
-                    x??;
-                }
+                    )
+                    .await?;
                 Ok(())
             })
             .await

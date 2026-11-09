@@ -152,13 +152,15 @@ async fn canonical_cache_shares_decode_and_runs_each_callers_policy() -> Result<
                 Arc::new(AnonymousAuthenticationProvider),
                 scope,
             );
-            let command = command(directory.path(), "41");
+            let command = &command(directory.path(), "41");
             let owner = CacheOperationOwner::of::<SyntheticNumber>();
             DECODES.store(0, Ordering::SeqCst);
-            let (first, second) = tokio::try_join!(
-                command.run_cached::<CountedNumber>(&executor, owner),
-                command.run_cached::<CountedNumber>(&executor, owner),
-            )?;
+            let (first, second) = executor
+                .join2(
+                    |child| async move { command.run_cached::<CountedNumber>(&child, owner).await },
+                    |child| async move { command.run_cached::<CountedNumber>(&child, owner).await },
+                )
+                .await?;
             assert!(Arc::ptr_eq(&first, &second));
             assert_eq!(first.0, 41);
             assert_eq!(DECODES.load(Ordering::SeqCst), 1);
@@ -274,8 +276,6 @@ async fn managed_command_request_cannot_hide_nonreusable_work_beneath_a_cached_p
             let command = command(directory.path(), "9");
             let starts = AtomicUsize::new(0);
             for expected in 0..2 {
-                let starts = &starts;
-                let command = &command;
                 let output = executor
                     .cached_work(
                         ExecutorKind::InProcess,
@@ -290,7 +290,7 @@ async fn managed_command_request_cannot_hide_nonreusable_work_beneath_a_cached_p
                         &AuthenticationSelection::Anonymous,
                         NonEmptyString::new("synthetic-parent-input")?,
                         WorkReuse::ReusableRead,
-                        move |parent| async move {
+                        async |parent| {
                             let fallback = starts.fetch_add(1, Ordering::SeqCst);
                             let error = parent
                                 .execute(ManagedCommandRequest(command.clone()))

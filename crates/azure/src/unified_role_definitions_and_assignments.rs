@@ -14,7 +14,6 @@ use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_execution::RequestExecution;
 use facet::Facet;
 use std::borrow::Cow;
-use tokio::try_join;
 
 /// Combine Azure Resource Manager role definitions and assignments for a tenant.
 #[must_use = "Bind this request to an executor and await its execution"]
@@ -61,10 +60,17 @@ impl ExecutableRequest for UnifiedRoleDefinitionsAndAssignmentsListRequest<'_> {
         Self: 'exec,
     {
         Box::pin(async move {
-            let (definitions, assignments) = try_join!(
-                fetch_all_unified_role_definitions(&self.auth_context, &executor),
-                fetch_all_unified_role_assignments(&self.auth_context, &executor),
-            )?;
+            let auth_context = &self.auth_context;
+            let (definitions, assignments) = executor
+                .join2(
+                    |child| async move {
+                        fetch_all_unified_role_definitions(auth_context, &child).await
+                    },
+                    |child| async move {
+                        fetch_all_unified_role_assignments(auth_context, &child).await
+                    },
+                )
+                .await?;
             UnifiedRoleDefinitionsAndAssignments::try_new(definitions, assignments)
         })
     }

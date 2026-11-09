@@ -2,6 +2,13 @@
 # Its generated 'ʄ lifetime (U+0284) is already covered by Latin.
 allowed-scripts = ["Latin", "Common"]
 
+# Fail-fast joins can abandon cancellation deferrals in sibling operations.
+# https://doc.rust-lang.org/clippy/lint_configuration.html#disallowed-macros
+disallowed-macros = [
+    { path = "tokio::try_join", reason = "Use execution::join2 through join5 or map_concurrent to cancel and drain sibling operations before returning an error." },
+    { path = "futures::try_join", reason = "Use execution::join2 through join5 or map_concurrent to cancel and drain sibling operations before returning an error." },
+]
+
 # Prefer the shared domain wrapper for opaque JSON; known schemas remain typed.
 disallowed-types = [
     { path = "facet_json::RawJson", reason = "Use cloud_terrastodon_azure_types::ArbitraryJson for opaque JSON and typed records for known schemas. Reserve RawJson for explicit serialization or transport boundaries with a narrow lint exception." },

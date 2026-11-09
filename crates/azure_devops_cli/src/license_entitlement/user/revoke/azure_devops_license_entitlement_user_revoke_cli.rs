@@ -157,24 +157,21 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
                     executor
                         .deferred(
                             "finishing group-member removal and invalidating its inventory",
-                            |protected| {
-                                let tenant_auth_context = &tenant_auth_context;
-                                async move {
-                                    remove_group_member(
-                                        group_entra_id,
-                                        entra_user_id,
-                                        tenant_auth_context,
-                                        &protected,
-                                    )
-                                    .await?;
-                                    fetch_group_members(
-                                        group_entra_id,
-                                        tenant_auth_context,
-                                        &protected,
-                                    )
-                                    .invalidate()
-                                    .await
-                                }
+                            async |protected| {
+                                remove_group_member(
+                                    group_entra_id,
+                                    entra_user_id,
+                                    &tenant_auth_context,
+                                    &protected,
+                                )
+                                .await?;
+                                fetch_group_members(
+                                    group_entra_id,
+                                    &tenant_auth_context,
+                                    &protected,
+                                )
+                                .invalidate()
+                                .await
                             },
                         )
                         .await?;

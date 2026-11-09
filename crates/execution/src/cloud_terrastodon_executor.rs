@@ -5,6 +5,7 @@ use crate::ExecutionEvent;
 use crate::ExecutionFuture;
 use crate::RequestExecution;
 use crate::execution_mode::ExecutionMode;
+use crate::scoped_join;
 use cloud_terrastodon_auth_types::AuthenticationSelection;
 use cloud_terrastodon_auth_types::Authorization;
 use cloud_terrastodon_auth_types::AzureCredentialResource;
@@ -23,7 +24,6 @@ use cloud_terrastodon_cache::WorkOutput;
 use cloud_terrastodon_cache::WorkReuse;
 use eyre::Result;
 use eyre::ensure;
-use tracing::warn;
 use std::future::Future;
 use std::future::IntoFuture;
 use std::panic::Location;
@@ -34,6 +34,7 @@ use teamy_cancellation::CancellationScope;
 use teamy_cancellation::CancellationToken;
 use tokio::sync::mpsc::UnboundedSender;
 use tracing::Instrument;
+use tracing::warn;
 
 /// Shared execution resources bound to an already-owned invocation lifetime.
 ///
@@ -538,6 +539,206 @@ impl CloudTerrastodonExecutor {
         )
     }
 
+    /// Run two operations with linked child executors and drain them on failure.
+    ///
+    /// Each factory must use its supplied executor, which retains authentication
+    /// and cache ancestry while receiving its own cancellation scope. The first
+    /// observed error cancels only this group; the original error returns after
+    /// every branch has stopped or finished its required completion.
+    ///
+    /// See [`crate::join2`] for parent cancellation and explicit-drop limitations.
+    /// Use that scope-only function when execution resources are unnecessary.
+    #[track_caller]
+    pub fn join2<A, FutureA, OutputA, B, FutureB, OutputB, E>(
+        &self,
+        a: A,
+        b: B,
+    ) -> impl Future<Output = Result<(OutputA, OutputB), E>>
+    + use<A, FutureA, OutputA, B, FutureB, OutputB, E>
+    where
+        A: FnOnce(Self) -> FutureA,
+        FutureA: IntoFuture<Output = Result<OutputA, E>>,
+        B: FnOnce(Self) -> FutureB,
+        FutureB: IntoFuture<Output = Result<OutputB, E>>,
+        E: From<CancellationError>,
+    {
+        let first = self.clone();
+        let second = self.clone();
+        scoped_join::join2(
+            &self.cancellation,
+            move |scope| a(first.with_scope(scope)),
+            move |scope| b(second.with_scope(scope)),
+        )
+    }
+
+    /// Run three operations with linked child executors and drain them on failure.
+    ///
+    /// This follows [`Self::join2`]'s cancellation and ownership contract. Each
+    /// operation must use its supplied child executor; callers must retain the
+    /// returned future until it finishes draining required completion.
+    #[track_caller]
+    pub fn join3<A, FutureA, OutputA, B, FutureB, OutputB, C, FutureC, OutputC, E>(
+        &self,
+        a: A,
+        b: B,
+        c: C,
+    ) -> impl Future<Output = Result<(OutputA, OutputB, OutputC), E>>
+    + use<A, FutureA, OutputA, B, FutureB, OutputB, C, FutureC, OutputC, E>
+    where
+        A: FnOnce(Self) -> FutureA,
+        FutureA: IntoFuture<Output = Result<OutputA, E>>,
+        B: FnOnce(Self) -> FutureB,
+        FutureB: IntoFuture<Output = Result<OutputB, E>>,
+        C: FnOnce(Self) -> FutureC,
+        FutureC: IntoFuture<Output = Result<OutputC, E>>,
+        E: From<CancellationError>,
+    {
+        let first = self.clone();
+        let second = self.clone();
+        let third = self.clone();
+        scoped_join::join3(
+            &self.cancellation,
+            move |scope| a(first.with_scope(scope)),
+            move |scope| b(second.with_scope(scope)),
+            move |scope| c(third.with_scope(scope)),
+        )
+    }
+
+    /// Run 4 operations under [`Self::join2`]'s cancellation and draining contract.
+    #[track_caller]
+    pub fn join4<
+        A,
+        Future1,
+        Output1,
+        B,
+        Future2,
+        Output2,
+        C,
+        Future3,
+        Output3,
+        D,
+        Future4,
+        Output4,
+        E,
+    >(
+        &self,
+        a: A,
+        b: B,
+        c: C,
+        d: D,
+    ) -> impl Future<Output = Result<(Output1, Output2, Output3, Output4), E>>
+    + use<
+        A,
+        Future1,
+        Output1,
+        B,
+        Future2,
+        Output2,
+        C,
+        Future3,
+        Output3,
+        D,
+        Future4,
+        Output4,
+        E,
+    >
+    where
+        A: FnOnce(Self) -> Future1,
+        Future1: IntoFuture<Output = Result<Output1, E>>,
+        B: FnOnce(Self) -> Future2,
+        Future2: IntoFuture<Output = Result<Output2, E>>,
+        C: FnOnce(Self) -> Future3,
+        Future3: IntoFuture<Output = Result<Output3, E>>,
+        D: FnOnce(Self) -> Future4,
+        Future4: IntoFuture<Output = Result<Output4, E>>,
+        E: From<CancellationError>,
+    {
+        let a_parent = self.clone();
+        let b_parent = self.clone();
+        let c_parent = self.clone();
+        let d_parent = self.clone();
+        scoped_join::join4(
+            &self.cancellation,
+            move |scope| a(a_parent.with_scope(scope)),
+            move |scope| b(b_parent.with_scope(scope)),
+            move |scope| c(c_parent.with_scope(scope)),
+            move |scope| d(d_parent.with_scope(scope)),
+        )
+    }
+
+    /// Run 5 operations under [`Self::join2`]'s cancellation and draining contract.
+    #[track_caller]
+    pub fn join5<
+        A,
+        Future1,
+        Output1,
+        B,
+        Future2,
+        Output2,
+        C,
+        Future3,
+        Output3,
+        D,
+        Future4,
+        Output4,
+        F,
+        Future5,
+        Output5,
+        E,
+    >(
+        &self,
+        a: A,
+        b: B,
+        c: C,
+        d: D,
+        e: F,
+    ) -> impl Future<Output = Result<(Output1, Output2, Output3, Output4, Output5), E>>
+    + use<
+        A,
+        Future1,
+        Output1,
+        B,
+        Future2,
+        Output2,
+        C,
+        Future3,
+        Output3,
+        D,
+        Future4,
+        Output4,
+        F,
+        Future5,
+        Output5,
+        E,
+    >
+    where
+        A: FnOnce(Self) -> Future1,
+        Future1: IntoFuture<Output = Result<Output1, E>>,
+        B: FnOnce(Self) -> Future2,
+        Future2: IntoFuture<Output = Result<Output2, E>>,
+        C: FnOnce(Self) -> Future3,
+        Future3: IntoFuture<Output = Result<Output3, E>>,
+        D: FnOnce(Self) -> Future4,
+        Future4: IntoFuture<Output = Result<Output4, E>>,
+        F: FnOnce(Self) -> Future5,
+        Future5: IntoFuture<Output = Result<Output5, E>>,
+        E: From<CancellationError>,
+    {
+        let a_parent = self.clone();
+        let b_parent = self.clone();
+        let c_parent = self.clone();
+        let d_parent = self.clone();
+        let e_parent = self.clone();
+        scoped_join::join5(
+            &self.cancellation,
+            move |scope| a(a_parent.with_scope(scope)),
+            move |scope| b(b_parent.with_scope(scope)),
+            move |scope| c(c_parent.with_scope(scope)),
+            move |scope| d(d_parent.with_scope(scope)),
+            move |scope| e(e_parent.with_scope(scope)),
+        )
+    }
+
     /// Automatically cancellable child work sharing the parent's cancellation intent.
     #[track_caller]
     pub fn cancellable_scope<C, F, T, E>(
@@ -649,7 +850,9 @@ impl CloudTerrastodonExecutor {
             .finish_required(explanation, move |scope| factory(parent.with_scope(scope)))
     }
 
-    fn with_scope(&self, cancellation: CancellationScope) -> Self {
+    // Internal coordinators rebind only to their owned child scopes, preserving
+    // execution ancestry and restrictions without exposing arbitrary rebinding.
+    pub(crate) fn with_scope(&self, cancellation: CancellationScope) -> Self {
         Self {
             cancellation,
             ..self.clone()

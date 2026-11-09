@@ -153,27 +153,22 @@ mod tests {
                     &cancellation,
                 )?;
                 let chosen = PickerTui::<_>::new()
-                    .pick_many_reloadable(|invalidate| {
-                        let cancellation = cancellation.clone();
-                        let executor = executor.clone();
-                        async move {
-                            let tenant_id = get_test_tenant_id(&cancellation).await?;
-                            if invalidate {
-                                fetch_all_resource_groups(
-                                    &AuthContext::explicit_azure_cli()
-                                        .bind_to_azure_tenant(tenant_id)?,
-                                    &executor,
-                                )
-                                .invalidate()
-                                .await?;
-                            }
+                    .pick_many_reloadable(async |invalidate| {
+                        let tenant_id = get_test_tenant_id(&cancellation).await?;
+                        if invalidate {
                             fetch_all_resource_groups(
                                 &AuthContext::explicit_azure_cli()
                                     .bind_to_azure_tenant(tenant_id)?,
                                 &executor,
                             )
-                            .await
+                            .invalidate()
+                            .await?;
                         }
+                        fetch_all_resource_groups(
+                            &AuthContext::explicit_azure_cli().bind_to_azure_tenant(tenant_id)?,
+                            &executor,
+                        )
+                        .await
                     })
                     .await?;
                 assert!(!chosen.is_empty());

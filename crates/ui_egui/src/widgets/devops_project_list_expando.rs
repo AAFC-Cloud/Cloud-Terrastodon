@@ -35,15 +35,15 @@ fn draw_expando_header(app: &mut MyApp, ui: &mut Ui, toggle_key: Id) {
                 app.toggle_intents.insert(toggle_key);
             }
 
-            let mut all = projects.iter().all(|sub| *app.checkbox_for(&sub.id));
-            let any = projects.iter().any(|sub| *app.checkbox_for(&sub.id));
+            let mut all = projects.iter().all(|sub| *app.checkbox_for(sub.id));
+            let any = projects.iter().any(|sub| *app.checkbox_for(sub.id));
             let indeterminate = any && !all;
             let elem = Checkbox::new(&mut all, "Azure DevOps Projects")
                 .indeterminate(indeterminate)
                 .ui(ui);
             if elem.changed() {
                 for project in projects.iter() {
-                    *app.checkbox_for(&project.id) = all
+                    *app.checkbox_for(project.id) = all
                 }
             }
         }
@@ -84,7 +84,7 @@ fn draw_expando_body(app: &mut MyApp, ui: &mut Ui) {
 fn draw_entry(app: &mut MyApp, ui: &mut Ui, project: &AzureDevOpsProject) {
     ui.horizontal(|ui| {
         let label = format!("{}", project.name);
-        let checked = app.checkbox_for(&project.id);
+        let checked = app.checkbox_for(project.id);
         if ui.image(DEVOPS_ICON).clicked() {
             debug!("Clicked on Azure DevOps Project icon");
             *checked ^= true;

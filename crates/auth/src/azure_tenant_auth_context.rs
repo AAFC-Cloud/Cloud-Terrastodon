@@ -83,12 +83,11 @@ impl AzureTenantAuthContext {
     ) -> Result<AzureAccessToken<AzureBearerToken>> {
         cancellation
             .cancellable_scope(|cancellation| async move {
-                let cancellation = &cancellation;
                 crate::fetch_azure_bearer_access_token(
                     &self.auth_context,
                     self.tenant_id,
                     resource,
-                    cancellation,
+                    &cancellation,
                 )
                 .await
             })

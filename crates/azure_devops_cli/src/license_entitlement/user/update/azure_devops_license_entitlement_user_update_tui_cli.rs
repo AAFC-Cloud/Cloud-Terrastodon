@@ -39,26 +39,25 @@ impl AzureDevOpsLicenseEntitlementUserUpdateTuiArgs {
 
         let chosen_entitlements = PickerTui::<_>::new()
             .set_header("Azure DevOps License Entitlements")
-            .pick_many_reloadable(|invalidate| {
-                let future = fetch_azure_devops_user_license_entitlements(
+            .pick_many_reloadable(async |invalidate| {
+                fetch_azure_devops_user_license_entitlements(
                     &self.org,
                     &azure_devops_auth_context,
                     executor,
                 )
-                .with_invalidation(invalidate);
-                async move {
-                    future.await.map(|ents| {
-                        ents.into_iter()
-                            .map(|e| Choice {
-                                key: format!(
-                                    "{} <{}> ({})",
-                                    e.user.display_name, e.user.unique_name, e.user.id
-                                ),
-                                value: e,
-                            })
-                            .collect::<Vec<_>>()
-                    })
-                }
+                .with_invalidation(invalidate)
+                .await
+                .map(|ents| {
+                    ents.into_iter()
+                        .map(|e| Choice {
+                            key: format!(
+                                "{} <{}> ({})",
+                                e.user.display_name, e.user.unique_name, e.user.id
+                            ),
+                            value: e,
+                        })
+                        .collect::<Vec<_>>()
+                })
             })
             .await?;
 

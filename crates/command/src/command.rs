@@ -1043,7 +1043,7 @@ impl CommandBuilder {
                         executor.cancellation(),
                     )
                     .await?;
-                Ok::<_, Report>(Some(stored.directory().to_path_buf()))
+                eyre::Ok(Some(stored.directory().to_path_buf()))
             } else {
                 Ok(None)
             }

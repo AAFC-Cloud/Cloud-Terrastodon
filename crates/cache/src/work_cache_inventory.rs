@@ -2,7 +2,6 @@ use crate::CacheInventoryEntry;
 use crate::WorkCache;
 use crate::artifact_directory::ArtifactDirectory;
 use crate::artifact_io_guard::ArtifactIoGuard;
-use eyre::Report;
 use eyre::Result;
 use teamy_cancellation::CancellationScope;
 
@@ -17,7 +16,7 @@ impl WorkCache {
     ) -> Result<Vec<CacheInventoryEntry>> {
         let gate = cancellation
             .cancellable_scope(|_child| async {
-                Ok::<_, Report>(ArtifactIoGuard::acquire(&self.state.artifact_gate).await)
+                eyre::Ok(ArtifactIoGuard::acquire(&self.state.artifact_gate).await)
             })
             .await?;
         let cache = self.clone();
@@ -47,10 +46,7 @@ mod tests {
         let gate = ArtifactIoGuard::acquire(&cache.state.artifact_gate).await;
         let token = CancellationToken::new();
         let inventory = token
-            .with_async_scope(|scope| {
-                let cache = &cache;
-                async move { cache.inventory(&scope).await }
-            })
+            .with_async_scope(async |scope| cache.inventory(&scope).await)
             .into_future();
         tokio::pin!(inventory);
         poll_fn(|context| {
@@ -64,12 +60,9 @@ mod tests {
         drop(gate);
 
         CancellationToken::new()
-            .with_async_scope(|scope| {
-                let cache = &cache;
-                async move {
-                    assert!(cache.inventory(&scope).await?.is_empty());
-                    Ok(())
-                }
+            .with_async_scope(async |scope| {
+                assert!(cache.inventory(&scope).await?.is_empty());
+                Ok(())
             })
             .await
     }

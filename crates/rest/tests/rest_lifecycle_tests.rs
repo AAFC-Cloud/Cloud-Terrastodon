@@ -336,14 +336,22 @@ async fn canonical_hits_share_decode_but_keep_metadata_and_every_callers_policy(
             DECODES.store(0, Ordering::SeqCst);
             let request = server.request(Method::GET)?;
             let owner = CacheOperationOwner::of::<Operation>();
-            let (first, joined) = tokio::try_join!(
-                request
-                    .clone()
-                    .receive_cached::<CountedNumber>(&executor, owner),
-                request
-                    .clone()
-                    .receive_cached::<CountedNumber>(&executor, owner)
-            )?;
+            let (first, joined) = executor
+                .join2(
+                    async |child| {
+                        request
+                            .clone()
+                            .receive_cached::<CountedNumber>(&child, owner)
+                            .await
+                    },
+                    async |child| {
+                        request
+                            .clone()
+                            .receive_cached::<CountedNumber>(&child, owner)
+                            .await
+                    },
+                )
+                .await?;
             assert!(Arc::ptr_eq(&first, &joined));
             let calls = Cell::new(0);
             let label = String::from("borrowed policy output");
@@ -487,20 +495,18 @@ async fn wrappers_and_rest_envelopes_share_a_scope_without_sharing_their_type_cl
                     &request.authentication,
                     NonEmptyString::new("wrapper")?,
                     WorkReuse::ReusableRead,
-                    |child| {
-                        let request = request.clone();
-                        async move {
-                            Ok(WorkOutput::new(
-                                request
-                                    .receive_cached::<Vec<u64>>(
-                                        &child,
-                                        CacheOperationOwner::of::<Operation>(),
-                                    )
-                                    .await?
-                                    .len(),
-                                ArtifactObservation::now(),
-                            ))
-                        }
+                    async |child| {
+                        Ok(WorkOutput::new(
+                            request
+                                .clone()
+                                .receive_cached::<Vec<u64>>(
+                                    &child,
+                                    CacheOperationOwner::of::<Operation>(),
+                                )
+                                .await?
+                                .len(),
+                            ArtifactObservation::now(),
+                        ))
                     },
                 )
             };
@@ -547,7 +553,7 @@ async fn owned_mutations_never_share_and_keep_their_outcome_after_cancellation()
                 1
             );
             assert!(files_named(executor.cache()?.root(), "selection.json")?.is_empty());
-            Ok::<_, eyre::Report>(())
+            eyre::Ok(())
         })
         .await?;
     CancellationToken::new()
@@ -562,10 +568,12 @@ async fn owned_mutations_never_share_and_keep_their_outcome_after_cancellation()
                 scope,
             );
             let request = server.request(Method::POST)?;
-            let (first, second) = tokio::try_join!(
-                request.clone().receive::<u64>(&executor),
-                request.clone().receive::<u64>(&executor)
-            )?;
+            let (first, second) = executor
+                .join2(
+                    async |child| request.clone().receive::<u64>(&child).await,
+                    async |child| request.clone().receive::<u64>(&child).await,
+                )
+                .await?;
             assert_eq!((first, second), (9, 9));
             assert_eq!(server.requests.load(Ordering::SeqCst), 2);
             assert!(

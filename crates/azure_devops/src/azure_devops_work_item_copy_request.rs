@@ -213,18 +213,12 @@ impl<'a> AzureDevOpsWorkItemCopyRequest<'a> {
             let source_id = node.source_id;
             // Observe the mutation, SDK cache invalidation, and durable journal
             // update as one completion phase before accepting the next stop.
-            let journal = &mut journal;
-            let mapping = &mut mapping;
-            let new_ids = &mut new_ids;
-            let visited = &visited;
-            let journal_path = &self.journal_path;
-            let org_url = self.org_url.as_ref();
             executor
                 .deferred(
                     "creating a copied work item and recording its result",
-                    |executor| async move {
+                    async |executor| {
                         journal.in_flight = Some(format!("create:{source_id}"));
-                        journal.save(journal_path)?;
+                        journal.save(&self.journal_path)?;
                         let created = writer
                             .create(work_item_type, patch, &executor)
                             .await
@@ -237,7 +231,7 @@ impl<'a> AzureDevOpsWorkItemCopyRequest<'a> {
                         );
                         ensure!(
                             AzureDevOpsWorkItemUrl::try_from(&created.url)?
-                                .work_item_id_for_organization(org_url)?
+                                .work_item_id_for_organization(self.org_url.as_ref())?
                                 == created.id,
                             "Create returned an invalid destination URL"
                         );
@@ -245,14 +239,14 @@ impl<'a> AzureDevOpsWorkItemCopyRequest<'a> {
                             source_id,
                             new_id: created.id,
                             new_url: AzureDevOpsWorkItemUrl::new(
-                                Cow::Owned(org_url.clone()),
+                                Cow::Owned(self.org_url.as_ref().clone()),
                                 created.id,
                             ),
                         };
                         mapping.insert(source_id, entry.clone());
                         journal.created.push(entry);
                         journal.in_flight = None;
-                        journal.save(journal_path)
+                        journal.save(&self.journal_path)
                     },
                 )
                 .await?;
@@ -272,20 +266,18 @@ impl<'a> AzureDevOpsWorkItemCopyRequest<'a> {
                 attributes: edge.attributes.clone(),
             };
             let source_id = source.new_id;
-            let journal = &mut journal;
-            let journal_path = &self.journal_path;
             executor
                 .deferred(
                     "linking copied work items and recording the completed link",
-                    |executor| async move {
+                    async |executor| {
                         journal.in_flight = Some(format!("relation:{index}"));
-                        journal.save(journal_path)?;
+                        journal.save(&self.journal_path)?;
                         writer.relate(source_id, relation, &executor).await.wrap_err(
                             "Copy stopped while linking items; inspect the journal before retrying",
                         )?;
                         journal.completed_relations += 1;
                         journal.in_flight = None;
-                        journal.save(journal_path)
+                        journal.save(&self.journal_path)
                     },
                 )
                 .await?;

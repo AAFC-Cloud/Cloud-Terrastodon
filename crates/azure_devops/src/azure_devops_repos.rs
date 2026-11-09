@@ -4,12 +4,16 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectId;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsRepo;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ConcurrentIteratorExt;
 use eyre::Result;
 use eyre::WrapErr;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::task::JoinSet;
 use tracing::info;
+
+// Keep organization-wide discovery bounded instead of starting one request
+// per project. This is a local scheduling policy, not a service quota.
+const MAX_CONCURRENT_PROJECTS: usize = 8;
 
 pub async fn fetch_azure_devops_repos_batch(
     org_url: &AzureDevOpsOrganizationUrl,
@@ -17,41 +21,34 @@ pub async fn fetch_azure_devops_repos_batch(
     auth_context: &AzureDevOpsAuthContext,
     executor: &CloudTerrastodonExecutor,
 ) -> Result<HashMap<AzureDevOpsProjectId, Arc<Vec<AzureDevOpsRepo>>>> {
-    executor
-        .cancellable_scope(|batch| async move {
-            info!("Fetching repos for {} projects", project_ids.len());
-            let mut rtn: HashMap<AzureDevOpsProjectId, Arc<Vec<AzureDevOpsRepo>>> = HashMap::new();
-            let mut set = JoinSet::new();
-            let project_count = project_ids.len();
-            for project_id in project_ids {
-                batch.cancellation().bail_if_cancelled()?;
-                let org_url = org_url.clone();
-                let auth_context = auth_context.clone();
-                set.spawn(batch.cancellable_scope(move |job| async move {
-                    let repos = fetch_all_azure_devops_repos_for_project(
-                        &org_url,
-                        &project_id,
-                        &auth_context,
-                        &job,
-                    )
-                    .await
-                    .wrap_err_with(|| format!("Fetching repos for project {project_id:?}"))?;
-                    Ok::<_, eyre::Report>((project_id, repos))
-                }));
-            }
-            // These jobs only list repositories, so an error can abandon the remaining reads.
-            while let Some(res) = set.join_next().await {
-                let (project_id, repos) = res??;
-                rtn.insert(project_id, repos);
-            }
-            info!(
-                "Found {} repos across {} projects",
-                rtn.values().map(|x| x.len()).sum::<usize>(),
-                project_count
-            );
-            Ok(rtn)
-        })
-        .await
+    info!("Fetching repos for {} projects", project_ids.len());
+    let project_count = project_ids.len();
+    let repos: HashMap<AzureDevOpsProjectId, Arc<Vec<AzureDevOpsRepo>>> = project_ids
+        .into_iter()
+        .map_concurrent(
+            executor,
+            MAX_CONCURRENT_PROJECTS.try_into()?,
+            |job, project_id| async move {
+                let repos = fetch_all_azure_devops_repos_for_project(
+                    org_url,
+                    &project_id,
+                    auth_context,
+                    &job,
+                )
+                .await
+                .wrap_err_with(|| format!("Fetching repos for project {project_id:?}"))?;
+                eyre::Ok((project_id, repos))
+            },
+        )
+        .await?
+        .into_iter()
+        .collect();
+    info!(
+        "Found {} repos across {} projects",
+        repos.values().map(|repos| repos.len()).sum::<usize>(),
+        project_count
+    );
+    Ok(repos)
 }
 
 #[cfg(test)]

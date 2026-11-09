@@ -136,10 +136,10 @@ mod test {
     use crate::get_default_project_name;
     use cloud_terrastodon_auth::AuthContext;
     use cloud_terrastodon_auth::AzureDevOpsAuthContext;
-    use cloud_terrastodon_azure_devops_types::AzureDevOpsServiceEndpoint;
+    use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
     use cloud_terrastodon_command::CancellationToken;
-    use cloud_terrastodon_command::ParallelFallibleWorkQueue;
-    use std::sync::Arc;
+    use cloud_terrastodon_execution::ConcurrentIteratorExt;
+    use std::num::NonZeroUsize;
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
@@ -174,45 +174,33 @@ mod test {
                         &executor,
                     )
                     .await?;
-                    let azure_devops_service_endpoints = {
-                        let mut work: ParallelFallibleWorkQueue<
-                            Arc<Vec<AzureDevOpsServiceEndpoint>>,
-                        > = ParallelFallibleWorkQueue::new("azure devops service endpoints", 8);
-                        for project in projects.iter() {
-                            // We will queue using project name and project ID to ensure the endpoint allows both
-                            {
-                                let project_name = project.name.clone();
-                                let org_url = org_url.clone();
-                                let azure_devops_auth_context = azure_devops_auth_context.clone();
-                                let executor = executor.clone();
-                                work.enqueue(async move {
+                    // Exercise both accepted selectors without cloning their fields
+                    // merely to satisfy spawned-task lifetime requirements.
+                    let selectors = projects.iter().flat_map(|project| {
+                        [
+                            AzureDevOpsProjectArgument::from(&project.name),
+                            AzureDevOpsProjectArgument::from(&project.id),
+                        ]
+                    });
+                    let azure_devops_service_endpoints = selectors
+                        .map_concurrent(
+                            &executor,
+                            NonZeroUsize::new(8).unwrap(),
+                            async |executor, project| {
+                                eyre::Ok(
                                     fetch_all_azure_devops_service_endpoints(
                                         &org_url,
-                                        &project_name,
+                                        project,
                                         &azure_devops_auth_context,
                                         &executor,
                                     )
-                                    .await
-                                });
-                            }
-                            {
-                                let project_id = project.id.clone();
-                                let org_url = org_url.clone();
-                                let azure_devops_auth_context = azure_devops_auth_context.clone();
-                                let executor = executor.clone();
-                                work.enqueue(async move {
-                                    fetch_all_azure_devops_service_endpoints(
-                                        &org_url,
-                                        &project_id,
-                                        &azure_devops_auth_context,
-                                        &executor,
-                                    )
-                                    .await
-                                });
-                            }
-                        }
-                        work.join().await?
-                    };
+                                    .await,
+                                )
+                            },
+                        )
+                        .await?
+                        .into_iter()
+                        .collect::<eyre::Result<Vec<_>>>()?;
                     assert!(
                         azure_devops_service_endpoints
                             .iter()

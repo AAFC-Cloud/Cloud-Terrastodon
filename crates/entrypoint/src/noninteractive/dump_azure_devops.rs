@@ -10,10 +10,15 @@ use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_group_members;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_groups_for_project;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlements;
-use cloud_terrastodon_command::ParallelFallibleWorkQueue;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ConcurrentIteratorExt;
+use eyre::OptionExt;
 use facet::Facet;
+use std::num::NonZeroUsize;
 use std::sync::Arc;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
+use tracing::info;
 
 #[derive(Facet)]
 struct AzureDevOpsDumpPayload {
@@ -49,60 +54,71 @@ pub async fn dump_azure_devops(
         fetch_azure_devops_user_license_entitlements(&org_url, azure_devops_auth_context, executor)
             .await?;
 
-    let mut project_groups = ParallelFallibleWorkQueue::new("fetch_azure_devops_groups", 10);
-    for project in projects.iter() {
-        let org_url = org_url.clone();
-        let project_id = project.id.clone();
-        let azure_devops_auth_context = azure_devops_auth_context.clone();
-        project_groups.enqueue({
-            executor.cancellable_scope(move |executor| async move {
-                let executor = &executor;
-                let groups = fetch_azure_devops_groups_for_project(
+    let remaining = AtomicUsize::new(projects.len());
+    // Preserve complete-all collection: operation errors are inspected only
+    // after the scoped map has drained every admitted read.
+    let project_groups = projects
+        .iter()
+        .map_concurrent(
+            executor,
+            NonZeroUsize::new(10).ok_or_eyre("project group concurrency must be nonzero")?,
+            async |executor, project| {
+                let result = fetch_azure_devops_groups_for_project(
                     &org_url,
-                    &project_id,
-                    &azure_devops_auth_context,
-                    executor,
+                    project.id,
+                    azure_devops_auth_context,
+                    &executor,
                 )
-                .await?;
-                eyre::Ok((project_id, groups))
-            })
-        });
-    }
-
-    let project_groups = project_groups
-        .join()
+                .await
+                .map(|groups| AzureDevOpsDumpProjectGroups {
+                    project_id: project.id,
+                    groups,
+                });
+                info!(
+                    "Fetching Azure DevOps groups, {} projects remain",
+                    remaining.fetch_sub(1, Ordering::Relaxed) - 1
+                );
+                eyre::Ok(result)
+            },
+        )
         .await?
         .into_iter()
-        .map(|(project_id, groups)| AzureDevOpsDumpProjectGroups { project_id, groups })
-        .collect::<Vec<_>>();
+        .collect::<eyre::Result<Vec<_>>>()?;
 
-    let mut group_members = ParallelFallibleWorkQueue::new("group_members", 10);
-    for group in project_groups
+    let remaining = AtomicUsize::new(
+        project_groups
+            .iter()
+            .map(|project| project.groups.len())
+            .sum(),
+    );
+    let group_members = project_groups
         .iter()
-        .flat_map(|project_group| project_group.groups.iter())
-        .cloned()
-    {
-        let org_url = org_url.clone();
-        let azure_devops_auth_context = azure_devops_auth_context.clone();
-        group_members.enqueue({
-            executor.cancellable_scope(move |executor| async move {
-                let executor = &executor;
-                let members = fetch_azure_devops_group_members(
+        .flat_map(|project| &project.groups)
+        .map_concurrent(
+            executor,
+            NonZeroUsize::new(10).ok_or_eyre("group membership concurrency must be nonzero")?,
+            async |executor, group| {
+                let result = fetch_azure_devops_group_members(
                     &org_url,
                     &group.descriptor,
-                    &azure_devops_auth_context,
-                    executor,
+                    azure_devops_auth_context,
+                    &executor,
                 )
-                .await?;
-                eyre::Ok(AzureDevOpsDumpGroupMembers {
+                .await
+                .map(|members| AzureDevOpsDumpGroupMembers {
                     group_descriptor: group.descriptor.clone(),
                     members: members.values().cloned().collect(),
-                })
-            })
-        });
-    }
-    let group_members = group_members.join().await?;
-
+                });
+                info!(
+                    "Fetching Azure DevOps group members, {} groups remain",
+                    remaining.fetch_sub(1, Ordering::Relaxed) - 1
+                );
+                eyre::Ok(result)
+            },
+        )
+        .await?
+        .into_iter()
+        .collect::<eyre::Result<Vec<_>>>()?;
     let payload = AzureDevOpsDumpPayload {
         projects,
         users,

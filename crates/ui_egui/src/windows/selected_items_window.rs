@@ -50,7 +50,7 @@ pub fn selected_items_ui(app: &mut MyApp, ui: &mut egui::Ui) {
         }
         if let Loadable::Loaded(projects) = &app.azure_devops_projects {
             for project in projects.clone().iter() {
-                let checked = app.checkbox_for(&project.id);
+                let checked = app.checkbox_for(project.id);
                 if !*checked {
                     continue;
                 }

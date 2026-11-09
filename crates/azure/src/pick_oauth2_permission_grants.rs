@@ -16,9 +16,7 @@ use itertools::Itertools;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt;
-use std::future::IntoFuture;
 use std::sync::Arc;
-use tokio::try_join;
 
 #[derive(Debug)]
 pub struct Grant {
@@ -83,11 +81,20 @@ pub async fn pick_oauth2_permission_grants(
     executor: &CloudTerrastodonExecutor,
 ) -> PickManyResult<Grant> {
     executor.cancellable_scope(|executor| async move {
-            let executor = &executor;
-            let grants = fetch_oauth2_permission_grants(auth_context.tenant_id, cloud_terrastodon_auth_types::AzureBearerAuthSource::try_from(auth_context.auth_context.source().ok_or_else(|| eyre::eyre!("authentication source is unresolved"))?)?, executor);
-            let service_principals = fetch_all_service_principals(auth_context.tenant_id, auth_context.auth_source()?, executor);
-            let users = fetch_all_entra_users(auth_context.tenant_id, auth_context.auth_source()?, executor).into_future();
-            let (grants, service_principals, users) = try_join!(grants, service_principals, users)?;
+            let auth_source = auth_context.auth_source()?;
+            let (grants, service_principals, users) = executor
+                .join3(
+                    |child| async move {
+                        fetch_oauth2_permission_grants(auth_context.tenant_id, auth_source, &child).await
+                    },
+                    |child| async move {
+                        fetch_all_service_principals(auth_context.tenant_id, auth_source, &child).await
+                    },
+                    |child| async move {
+                        fetch_all_entra_users(auth_context.tenant_id, auth_source, &child).await
+                    },
+                )
+                .await?;
             let service_principals_map = service_principals
                 .iter()
                 .map(|x| (&x.id, x))

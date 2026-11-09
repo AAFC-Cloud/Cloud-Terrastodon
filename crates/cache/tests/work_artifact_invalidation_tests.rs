@@ -121,16 +121,13 @@ async fn invalidation_during_disk_decoding_returns_the_snapshot_without_publishi
                     VALID_FOR,
                     None,
                     &scope,
-                    |attempt, child| {
-                        let cache = &cache;
-                        async move {
-                            let artifact = entry(cache)?.for_work(&attempt.unwrap())?;
-                            let loaded = artifact.load(&child).await?.unwrap();
-                            loaded_sender.send(()).unwrap();
-                            released.await?;
-                            let value = std::str::from_utf8(&loaded.artifacts.payload)?.to_owned();
-                            Ok(loaded.decoded(value))
-                        }
+                    async |attempt, child| {
+                        let artifact = entry(&cache)?.for_work(&attempt.unwrap())?;
+                        let loaded = artifact.load(&child).await?.unwrap();
+                        loaded_sender.send(()).unwrap();
+                        released.await?;
+                        let value = std::str::from_utf8(&loaded.artifacts.payload)?.to_owned();
+                        Ok(loaded.decoded(value))
                     },
                 )?
                 .into_future();
@@ -230,48 +227,40 @@ async fn a_fresh_owner_rebuilds_aggregates_with_current_decoding_of_valid_raw_ch
                         VALID_FOR,
                         None,
                         &scope,
-                        |parent, child| {
-                            let cache = &cache;
-                            let assemblies = &assemblies;
-                            let decodes = &decodes;
-                            let executions = &executions;
-                            async move {
-                                let assembly = assemblies.fetch_add(1, Ordering::SeqCst) + 1;
-                                let leaf = cache
-                                    .cached_work(
-                                        identity(),
-                                        CacheOperationOwner::of::<SyntheticRead>(),
-                                        WorkReuse::ReusableRead,
-                                        VALID_FOR,
-                                        parent.as_ref(),
-                                        &child,
-                                        |attempt, leaf_scope| async move {
-                                            let artifact =
-                                                entry(cache)?.for_work(&attempt.unwrap())?;
-                                            let Some(loaded) = artifact.load(&leaf_scope).await?
-                                            else {
-                                                executions.fetch_add(1, Ordering::SeqCst);
-                                                return Ok(WorkOutput::new(
-                                                    "fresh execution was unexpectedly required"
-                                                        .to_owned(),
-                                                    ArtifactObservation::now(),
-                                                ));
-                                            };
-                                            let decoder =
-                                                decodes.fetch_add(1, Ordering::SeqCst) + 1;
-                                            let value = format!(
-                                                "decoder {decoder}: {}",
-                                                std::str::from_utf8(&loaded.artifacts.payload)?
-                                            );
-                                            Ok(loaded.decoded(value))
-                                        },
-                                    )?
-                                    .await?;
-                                Ok(WorkOutput::new(
-                                    format!("assembly {assembly}: {leaf}"),
-                                    ArtifactObservation::now(),
-                                ))
-                            }
+                        async |parent, child| {
+                            let assembly = assemblies.fetch_add(1, Ordering::SeqCst) + 1;
+                            let leaf = cache
+                                .cached_work(
+                                    identity(),
+                                    CacheOperationOwner::of::<SyntheticRead>(),
+                                    WorkReuse::ReusableRead,
+                                    VALID_FOR,
+                                    parent.as_ref(),
+                                    &child,
+                                    async |attempt, leaf_scope| {
+                                        let artifact =
+                                            entry(&cache)?.for_work(&attempt.unwrap())?;
+                                        let Some(loaded) = artifact.load(&leaf_scope).await? else {
+                                            executions.fetch_add(1, Ordering::SeqCst);
+                                            return Ok(WorkOutput::new(
+                                                "fresh execution was unexpectedly required"
+                                                    .to_owned(),
+                                                ArtifactObservation::now(),
+                                            ));
+                                        };
+                                        let decoder = decodes.fetch_add(1, Ordering::SeqCst) + 1;
+                                        let value = format!(
+                                            "decoder {decoder}: {}",
+                                            std::str::from_utf8(&loaded.artifacts.payload)?
+                                        );
+                                        Ok(loaded.decoded(value))
+                                    },
+                                )?
+                                .await?;
+                            Ok(WorkOutput::new(
+                                format!("assembly {assembly}: {leaf}"),
+                                ArtifactObservation::now(),
+                            ))
                         },
                     )?
                     .await?;

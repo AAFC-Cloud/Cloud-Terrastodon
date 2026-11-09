@@ -224,17 +224,17 @@ async fn simultaneous_attempts_have_separate_input_workspaces_and_diagnostic_fil
             let cache = WorkCache::new(temporary.path())?;
             let entry = read_entry(&cache, "same-input-name")?;
             let input_name = ArtifactFilePath::new("nested/input.txt")?;
-            let stage = |contents: &'static [u8]| {
-                let entry = &entry;
-                let input_name = &input_name;
-                scope.cancellable_scope(move |child| async move {
-                    entry
-                        .begin_attempt(
-                            BTreeMap::from([(input_name.clone(), contents.to_vec())]),
-                            &child,
-                        )
-                        .await
-                })
+            let stage = async |contents: &'static [u8]| {
+                scope
+                    .cancellable_scope(async |child| {
+                        entry
+                            .begin_attempt(
+                                BTreeMap::from([(input_name.clone(), contents.to_vec())]),
+                                &child,
+                            )
+                            .await
+                    })
+                    .await
             };
             let (first, second) = tokio::join!(
                 stage(b"first synthetic input"),

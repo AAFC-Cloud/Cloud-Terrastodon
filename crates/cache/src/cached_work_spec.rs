@@ -339,13 +339,10 @@ mod tests {
                         stored_validity,
                         None,
                         &scope,
-                        |_, _| {
-                            let executions = &executions;
-                            async move {
-                                executions.fetch_add(1, Ordering::SeqCst);
-                                released.await?;
-                                Ok(WorkOutput::new(1_u64, observation))
-                            }
+                        async |_, _| {
+                            executions.fetch_add(1, Ordering::SeqCst);
+                            released.await?;
+                            Ok(WorkOutput::new(1_u64, observation))
                         },
                     )?
                     .into_future();

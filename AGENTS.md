@@ -64,6 +64,8 @@ Standalone examples may remain self-contained, as described in
 
 - Use `use` imports for unambiguous type names in signatures and bodies instead
   of repeating fully qualified paths.
+- Use `eyre::Ok(value)` when a success expression needs an explicit eyre error
+  type, rather than annotating `Ok` with an eyre error type argument.
 - Use `CancellationToken` for shared cancellation intent and notifications;
   executing operations receive a `CancellationScope` owned by a bounded callback
   or future. Do not manufacture an independent root inside an SDK operation.
@@ -98,6 +100,18 @@ Standalone examples may remain self-contained, as described in
   protection beyond the owning callback/future. Explicit drops, ordinary errors,
   and fail-fast combinators can still abandon protected work; coordinators must
   deliberately retain and drain required children.
+- Coordinate fixed concurrent operations with `execution::join2` through `join5`
+  and finite batches with `execution::ConcurrentIteratorExt`. Use iterator
+  `.map_concurrent(executor, limit, mapper)` for executor-backed work and
+  `.map_concurrent_scoped(scope, limit, mapper)` for scope-only work. Use each
+  supplied child scope or executor. These helpers cancel siblings after a failure
+  and drain admitted required work. Clippy rejects `tokio::try_join!` and
+  `futures::try_join!`, which abandon unfinished siblings on error.
+- Preserve complete-all batch policies by returning individual operation errors
+  as data and inspecting them after the helper drains. Raw task sets still suit
+  recursive discovery or incremental scheduling, but document why abandonment is
+  safe or retain and drain started jobs on every error path. Explicit drops,
+  aborts, and panics remain outside cooperative completion guarantees.
 - Rely on `RestRequest` for cancellation policy around a single HTTP exchange:
   GET, HEAD, and OPTIONS are cancellable by default; other methods retain their
   response, decoding, and execution artifacts. Use `.cancellation_safe()` for
@@ -304,6 +318,10 @@ Standalone examples may remain self-contained, as described in
   instead of writing `let org_url = self.org;`. Keep locals for computed values,
   mutable state, or a concrete ownership or lifetime need; do not add clones
   solely to make an unnecessary local work.
+- Prefer `async |args| { ... }` callbacks when they can borrow existing values
+  directly, avoiding capture-only aliases before an `async move` block. Retain
+  owned captures when independently retained futures require them, and preserve
+  work that must happen synchronously when a callback is invoked.
 - Do not introduce a feature `Client` intermediary solely to hold organization,
   project, or auth fields and hide operations already represented by request
   types. Compose workflows by awaiting those request types directly. A client

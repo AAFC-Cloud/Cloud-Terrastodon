@@ -14,7 +14,6 @@ use eyre::Result;
 use eyre::eyre;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use tokio::try_join;
 use tracing::info;
 
 pub async fn build_policy_imports(
@@ -23,12 +22,14 @@ pub async fn build_policy_imports(
 ) -> Result<()> {
     let cancellation = executor.cancellation();
     info!("Fetching information");
-    let (policy_definitions, policy_set_definitions, policy_assignments, subscriptions) = try_join!(
-        fetch_all_policy_definitions(auth_context, executor),
-        fetch_all_policy_set_definitions(auth_context, executor),
-        fetch_all_policy_assignments(auth_context, executor),
-        fetch_all_subscriptions(auth_context, executor),
-    )?;
+    let (policy_definitions, policy_set_definitions, policy_assignments, subscriptions) = executor
+        .join4(
+            |child| async move { fetch_all_policy_definitions(auth_context, &child).await },
+            |child| async move { fetch_all_policy_set_definitions(auth_context, &child).await },
+            |child| async move { fetch_all_policy_assignments(auth_context, &child).await },
+            |child| async move { fetch_all_subscriptions(auth_context, &child).await },
+        )
+        .await?;
 
     let subscriptions = subscriptions
         .into_iter()

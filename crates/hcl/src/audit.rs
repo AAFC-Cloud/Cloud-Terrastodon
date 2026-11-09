@@ -349,9 +349,8 @@ pub async fn audit_with_fix(
         .await?;
     problems.extend(
         cancellation
-            .cancellable_scope(|cancellation| {
-                let audited_project = &audited_project;
-                async move { audit_latest_provider_versions(audited_project, &cancellation).await }
+            .cancellable_scope(async |cancellation| {
+                audit_latest_provider_versions(&audited_project, &cancellation).await
             })
             .await?,
     );

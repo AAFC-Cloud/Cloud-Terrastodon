@@ -1,21 +1,21 @@
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::AzureDevOpsTenantArgumentExt;
 use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure_devops::AzureDevOpsAgentPoolEntitlement;
 use cloud_terrastodon_azure_devops::AzureDevOpsAgentPoolId;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectId;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_agent_pool_entitlements_for_project;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_agent_pools;
-use cloud_terrastodon_command::ParallelFallibleWorkQueue;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ConcurrentIteratorExt;
 use color_eyre::owo_colors::OwoColorize;
 use eyre::Result;
 use facet::Facet;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::sync::Arc;
+use std::num::NonZeroUsize;
+use tracing::info;
 
 /// Print a summary of agent pools and projects that belong to each pool.
 #[derive(Facet, Debug, Clone)]
@@ -55,44 +55,40 @@ impl AzureDevOpsAgentPoolSummaryArgs {
         let mut project_map: HashMap<_, String> = HashMap::with_capacity(projects.len());
         let mut project_ids: Vec<AzureDevOpsProjectId> = Vec::with_capacity(projects.len());
         for p in projects.iter() {
-            project_ids.push(p.id.clone());
-            project_map.insert(p.id.clone(), p.name.to_string());
+            project_ids.push(p.id);
+            project_map.insert(p.id, p.name.to_string());
         }
 
         // Build pool -> project ids map by fetching entitlements once per project in parallel
         let mut pool_projects: HashMap<AzureDevOpsAgentPoolId, HashSet<AzureDevOpsProjectId>> =
             HashMap::new();
 
-        // Enqueue project entitlement fetches in parallel
-        let mut work: ParallelFallibleWorkQueue<(
-            AzureDevOpsProjectId,
-            Vec<Arc<AzureDevOpsAgentPoolEntitlement>>,
-        )> = ParallelFallibleWorkQueue::new("fetching project agent pool entitlements", 8);
-        for pid in project_ids.iter() {
-            let pid = pid.clone();
-            let org_clone = self.org.clone();
-            let azure_devops_auth_context = azure_devops_auth_context.clone();
-            work.enqueue({
-                executor.cancellable_scope(move |executor| async move {
-                    let executor = &executor;
+        // Keep ordinary service failures as results until the complete batch
+        // drains; cancellation still stops admission and active optional work.
+        let entitlements = project_ids
+            .iter()
+            .map_concurrent(
+                executor,
+                NonZeroUsize::MIN.saturating_add(7),
+                async |child, pid| {
                     let entitlements = fetch_azure_devops_agent_pool_entitlements_for_project(
-                        &org_clone,
-                        pid.clone(),
+                        &self.org,
+                        pid,
                         &azure_devops_auth_context,
-                        executor,
+                        &child,
                     )
-                    .await?;
-                    Ok((pid, entitlements))
-                })
-            });
-        }
+                    .await;
+                    info!(project_id = %pid, "Finished fetching project agent pool entitlements");
+                    eyre::Ok(entitlements.map(|entitlements| (pid, entitlements)))
+                },
+            )
+            .await?
+            .into_iter()
+            .collect::<Result<Vec<_>>>()?;
 
-        for (pid, entitlements) in work.join().await?.into_iter() {
+        for (pid, entitlements) in entitlements {
             for e in entitlements.into_iter() {
-                pool_projects
-                    .entry(e.pool.id)
-                    .or_default()
-                    .insert(pid.clone());
+                pool_projects.entry(e.pool.id).or_default().insert(*pid);
             }
         }
 

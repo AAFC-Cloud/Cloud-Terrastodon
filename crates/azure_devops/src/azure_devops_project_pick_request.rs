@@ -80,23 +80,19 @@ impl ExecutableRequest for AzureDevOpsProjectPickRequest<'_> {
         Box::pin(async move {
             let projects = PickerTui::<Arc<AzureDevOpsProject>>::new()
                 .set_header("Azure DevOps Projects")
-                .add_event_handler(move |event, sink| {
-                    let org_url = self.org_url.clone();
-                    let executor = executor.clone();
-                    async move {
+                .add_event_handler(async |event, sink| {
                         if matches!(event.as_ref(), PickerEvent::InitialLoad) {
-                            info!(organization = %org_url, "Fetching Azure DevOps projects");
+                            info!(organization = %self.org_url, "Fetching Azure DevOps projects");
                             let projects = fetch_all_azure_devops_projects(
-                                &org_url,
+                                &self.org_url,
                                 self.auth_selection,
                                 &executor,
                             )
                             .await?;
                             sink.push(projects.iter().cloned().map(project_choice))?;
-                            info!(organization = %org_url, "Finished fetching Azure DevOps projects");
+                            info!(organization = %self.org_url, "Finished fetching Azure DevOps projects");
                         }
                         Ok(())
-                    }
                 })
                 .pick_one_events()
                 .await?;

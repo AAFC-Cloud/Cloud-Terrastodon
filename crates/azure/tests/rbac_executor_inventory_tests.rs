@@ -142,10 +142,12 @@ async fn concurrent_composition_shares_one_validated_inventory_and_child_records
             seed_definitions(&executor, &request, vec![Arc::clone(&role)]).await?;
             seed_assignments(&executor, &request, vec![Arc::clone(&assigned)]).await?;
 
-            let (first, concurrent) = tokio::try_join!(
-                executor.execute(request.clone()),
-                executor.execute(request.clone()),
-            )?;
+            let (first, concurrent) = executor
+                .join2(
+                    async |child| child.execute(request.clone()).await,
+                    async |child| child.execute(request.clone()).await,
+                )
+                .await?;
             let warm = executor.execute(request).await?;
             assert!(Arc::ptr_eq(&first, &concurrent));
             assert!(Arc::ptr_eq(&first, &warm));

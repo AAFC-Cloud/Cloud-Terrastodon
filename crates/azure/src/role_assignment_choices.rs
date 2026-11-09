@@ -9,33 +9,27 @@ use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_user_input::Choice;
 use std::collections::HashMap;
-use std::future::IntoFuture;
 use std::sync::Arc;
-use tokio::try_join;
 use tracing::warn;
 
 pub async fn get_role_assignment_choices(
     auth_context: &AzureTenantAuthContext,
     executor: &CloudTerrastodonExecutor,
 ) -> eyre::Result<Vec<Choice<Arc<RoleAssignment>>>> {
-    let (role_assignments, role_definitions, users) = try_join!(
-        fetch_all_role_assignments(
-            auth_context.tenant_id,
-            auth_context.auth_source()?,
-            executor
-        ),
-        fetch_all_role_definitions(
-            auth_context.tenant_id,
-            auth_context.auth_source()?,
-            executor
-        ),
-        fetch_all_entra_users(
-            auth_context.tenant_id,
-            auth_context.auth_source()?,
-            executor
+    let auth_source = auth_context.auth_source()?;
+    let (role_assignments, role_definitions, users) = executor
+        .join3(
+            |child| async move {
+                fetch_all_role_assignments(auth_context.tenant_id, auth_source, &child).await
+            },
+            |child| async move {
+                fetch_all_role_definitions(auth_context.tenant_id, auth_source, &child).await
+            },
+            |child| async move {
+                fetch_all_entra_users(auth_context.tenant_id, auth_source, &child).await
+            },
         )
-        .into_future()
-    )?;
+        .await?;
 
     let role_definition_lookup: HashMap<&RoleDefinitionId, &RoleDefinition> = role_definitions
         .iter()

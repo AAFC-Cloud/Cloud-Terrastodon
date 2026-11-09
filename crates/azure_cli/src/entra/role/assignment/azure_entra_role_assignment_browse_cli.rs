@@ -14,7 +14,6 @@ use eyre::Result;
 use facet::Facet;
 use std::borrow::Cow;
 use std::io::Write;
-use tokio::try_join;
 use tracing::info;
 
 /// Arguments for browsing Entra role assignments.
@@ -45,14 +44,18 @@ impl AzureEntraRoleAssignmentBrowseArgs {
             .await?;
         let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
         info!(tenant_id = %tenant_auth_context.tenant_id, "Fetching Entra role assignments, definitions, and principals");
-        let (rbac, principals) = try_join!(
-            fetch_all_unified_role_definitions_and_assignments(&tenant_auth_context, executor),
-            fetch_all_principals(
-                tenant_auth_context.tenant_id,
-                tenant_auth_context.auth_source()?,
-                executor
+        let auth_source = tenant_auth_context.auth_source()?;
+        let (rbac, principals) = executor
+            .join2(
+                async |child| {
+                    fetch_all_unified_role_definitions_and_assignments(&tenant_auth_context, &child)
+                        .await
+                },
+                async |child| {
+                    fetch_all_principals(tenant_auth_context.tenant_id, auth_source, &child).await
+                },
             )
-        )?;
+            .await?;
 
         let mut choices = rbac
             .iter_role_assignments()

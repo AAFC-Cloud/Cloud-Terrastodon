@@ -202,15 +202,13 @@ async fn cancelled_initializer_reports_failure_and_waiter_retries() -> Result<()
             let starts = AtomicUsize::new(0);
             let (_release, released) = oneshot::channel();
             let events = RefCell::new(Vec::new());
-            let starts_ref = &starts;
-            let events_ref = &events;
-            let (cancel, leader) = executor.with_async_child_scope(|child| async move {
+            let (cancel, leader) = executor.with_async_child_scope(async |child| {
                 child
                     .execute(CollectionRead {
-                        starts: starts_ref,
+                        starts: &starts,
                         release: Some(released),
                     })
-                    .observe(|event| events_ref.borrow_mut().push(event))
+                    .observe(|event| events.borrow_mut().push(event))
                     .await
             });
             let mut leader = Box::pin(leader);

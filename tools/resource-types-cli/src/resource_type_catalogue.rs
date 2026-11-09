@@ -1,7 +1,6 @@
 use crate::ResourceTypeGenerationReport;
 use cloud_terrastodon_app::CancellationScope;
 use cloud_terrastodon_azure_types::AzureResourceProvider;
-use eyre::Report;
 use eyre::Result;
 use eyre::WrapErr;
 use eyre::ensure;
@@ -240,7 +239,7 @@ impl ResourceTypeCatalogue {
                 temporary.persist(output).wrap_err_with(|| {
                     format!("publishing resource-type output {}", output.display())
                 })?;
-                Ok::<_, Report>(())
+                eyre::Ok(())
             })?;
         }
         report.changed = changed;

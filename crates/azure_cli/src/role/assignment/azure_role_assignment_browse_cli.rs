@@ -16,7 +16,6 @@ use facet::Facet;
 use itertools::Itertools;
 use std::borrow::Cow;
 use std::io::Write;
-use tokio::try_join;
 use tracing::info;
 
 /// Arguments for browsing Azure role assignments.
@@ -47,18 +46,22 @@ impl AzureRoleAssignmentBrowseArgs {
             .bind_auth_context(auth_context, cancellation)
             .await?;
         let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
-        let (rbac, principals) = try_join!(
-            fetch_all_role_definitions_and_assignments(
-                tenant_auth_context.tenant_id,
-                tenant_auth_context.auth_source()?,
-                executor
-            ),
-            fetch_all_principals(
-                tenant_auth_context.tenant_id,
-                tenant_auth_context.auth_source()?,
-                executor
+        let auth_source = tenant_auth_context.auth_source()?;
+        let (rbac, principals) = executor
+            .join2(
+                |child| async move {
+                    fetch_all_role_definitions_and_assignments(
+                        tenant_auth_context.tenant_id,
+                        auth_source,
+                        &child,
+                    )
+                    .await
+                },
+                |child| async move {
+                    fetch_all_principals(tenant_auth_context.tenant_id, auth_source, &child).await
+                },
             )
-        )?;
+            .await?;
 
         info!(
             count = rbac.role_assignments.len(),

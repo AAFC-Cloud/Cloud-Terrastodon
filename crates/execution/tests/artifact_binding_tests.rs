@@ -203,12 +203,13 @@ async fn invalidation_while_decoding_a_disk_hit_prevents_republishing_it() -> Re
                     .invalidate(&key("number")?.scope, executor.cancellation())
                     .await?;
                 release.send(()).expect("the decoder is waiting");
-                Ok::<_, eyre::Report>(())
+                eyre::Ok(())
             };
-            let (decoded, ()) = timeout(DEADLOCK_GUARD, async {
-                tokio::try_join!(decode, invalidate)
-            })
-            .await??;
+            // Both futures retain their existing artifact/invalidation owners.
+            let (decoded, invalidated) =
+                timeout(DEADLOCK_GUARD, async { tokio::join!(decode, invalidate) }).await?;
+            let decoded = decoded?;
+            invalidated?;
             // Its caller can use the observed result, but another call must run.
             assert_eq!(*decoded, 41);
             assert_eq!(*number(&executor, &executions, &decodes)?.await?, 42);

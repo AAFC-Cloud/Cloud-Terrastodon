@@ -135,8 +135,6 @@ async fn execute_every_time_ignores_existing_disk_results_and_never_joins_or_sel
             let starts = AtomicUsize::new(0);
             let simultaneous = Barrier::new(2);
             let execute = || {
-                let starts = &starts;
-                let simultaneous = &simultaneous;
                 executor.cached_work_with_artifacts(
                     ExecutorKind::Command,
                     key("always-execute"),
@@ -145,7 +143,7 @@ async fn execute_every_time_ignores_existing_disk_results_and_never_joins_or_sel
                     fingerprint(),
                     WorkReuse::ExecuteEveryTime,
                     ArtifactRetention::Full,
-                    move |child, entry| async move {
+                    async |child, entry| {
                         assert!(entry.load(child.cancellation()).await?.is_none());
                         let number = starts.fetch_add(1, Ordering::SeqCst) as u64 + 10;
                         // Joining or serializing these executions would prevent
@@ -199,7 +197,6 @@ async fn disabled_artifact_retention_keeps_decoded_memory_reuse_without_writing_
             );
             let starts = AtomicUsize::new(0);
             let execute = || {
-                let starts = &starts;
                 executor.cached_work_with_artifacts(
                     ExecutorKind::Command,
                     key("memory-only"),
@@ -208,7 +205,7 @@ async fn disabled_artifact_retention_keeps_decoded_memory_reuse_without_writing_
                     fingerprint(),
                     WorkReuse::ReusableRead,
                     ArtifactRetention::Disabled,
-                    move |child, entry| async move {
+                    async |child, entry| {
                         starts.fetch_add(1, Ordering::SeqCst);
                         assert!(entry.load(child.cancellation()).await?.is_none());
                         assert!(
@@ -282,17 +279,14 @@ async fn authentication_change_rejects_memory_fill_and_quarantines_already_publi
                     fingerprint(),
                     WorkReuse::ReusableRead,
                     ArtifactRetention::Full,
-                    |child, entry| {
-                        let authentication = &authentication;
-                        async move {
-                            let (selected, observation) =
-                                publish_number(&entry, 42, child.cancellation()).await?;
-                            assert!(selected);
-                            authentication
-                                .partition_generation
-                                .store(1, Ordering::SeqCst);
-                            Ok(WorkOutput::new(42_u64, observation))
-                        }
+                    async |child, entry| {
+                        let (selected, observation) =
+                            publish_number(&entry, 42, child.cancellation()).await?;
+                        assert!(selected);
+                        authentication
+                            .partition_generation
+                            .store(1, Ordering::SeqCst);
+                        Ok(WorkOutput::new(42_u64, observation))
                     },
                 )?
                 .await;
@@ -319,13 +313,10 @@ async fn authentication_change_rejects_memory_fill_and_quarantines_already_publi
                     fingerprint(),
                     WorkReuse::ReusableRead,
                     ArtifactRetention::Full,
-                    |child, entry| {
-                        let starts = &starts;
-                        async move {
-                            assert!(entry.load(child.cancellation()).await?.is_none());
-                            starts.fetch_add(1, Ordering::SeqCst);
-                            Ok(WorkOutput::new(99_u64, ArtifactObservation::now()))
-                        }
+                    async |child, entry| {
+                        assert!(entry.load(child.cancellation()).await?.is_none());
+                        starts.fetch_add(1, Ordering::SeqCst);
+                        Ok(WorkOutput::new(99_u64, ArtifactObservation::now()))
                     },
                 )?
                 .await?;
@@ -356,8 +347,6 @@ async fn rejected_nonreusable_artifact_child_prevents_parent_fallback_reuse() ->
                 let parent_starts = AtomicUsize::new(0);
                 let child_starts = AtomicUsize::new(0);
                 let execute = || {
-                    let parent_starts = &parent_starts;
-                    let child_starts = &child_starts;
                     executor.cached_work(
                         ExecutorKind::InProcess,
                         key("composition"),
@@ -365,7 +354,7 @@ async fn rejected_nonreusable_artifact_child_prevents_parent_fallback_reuse() ->
                         &AUTHENTICATION,
                         fingerprint(),
                         WorkReuse::ReusableRead,
-                        move |parent| async move {
+                        async |parent| {
                             let fallback = parent_starts.fetch_add(1, Ordering::SeqCst) as u64;
                             let rejected = parent.cached_work_with_artifacts(
                                 ExecutorKind::Command,
@@ -378,7 +367,7 @@ async fn rejected_nonreusable_artifact_child_prevents_parent_fallback_reuse() ->
                                 fingerprint(),
                                 reuse,
                                 ArtifactRetention::Full,
-                                |_, _| async move {
+                                async |_, _| {
                                     child_starts.fetch_add(1, Ordering::SeqCst);
                                     Ok(WorkOutput::new(42_u64, ArtifactObservation::now()))
                                 },

@@ -3,6 +3,8 @@ use facet::Facet;
 pub mod azure_entra_group_cli;
 pub mod azure_entra_group_list_cli;
 pub mod azure_entra_group_show_cli;
+mod azure_entra_group_show_lookup;
+mod azure_entra_group_show_lookup_result;
 pub mod member;
 
 pub use azure_entra_group_cli::AzureEntraGroupCommand;

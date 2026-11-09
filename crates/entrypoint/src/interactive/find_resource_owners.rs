@@ -25,8 +25,8 @@ use cloud_terrastodon_azure_devops::AzureDevOpsServiceEndpoint;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::fetch_all_azure_devops_service_endpoints;
 use cloud_terrastodon_azure_devops::get_default_organization_url;
-use cloud_terrastodon_command::ParallelFallibleWorkQueue;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ConcurrentIteratorExt;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::bail;
@@ -35,7 +35,6 @@ use std::collections::VecDeque;
 use std::ops::Deref;
 use std::sync::Arc;
 use strum::VariantArray;
-use tokio::try_join;
 use tracing::info;
 
 #[derive(Debug, Eq, PartialEq)]
@@ -371,55 +370,47 @@ pub async fn find_resource_owners_menu(
     auth_context: &AzureTenantAuthContext,
     executor: &CloudTerrastodonExecutor,
 ) -> eyre::Result<()> {
-    let cancellation = executor.cancellation();
     info!(
         "Fetching a bunch of stuff (resources, role assignments, role definitions, and principals)"
     );
-    let (resources, role_assignments, role_definitions, principals, org_url) = try_join!(
-        fetch_all_resources(auth_context, executor),
-        fetch_all_role_assignments(
-            auth_context.tenant_id,
-            auth_context.auth_source()?,
-            executor
-        ),
-        fetch_all_role_definitions(
-            auth_context.tenant_id,
-            auth_context.auth_source()?,
-            executor
-        ),
-        fetch_all_principals(
-            auth_context.tenant_id,
-            auth_context.auth_source()?,
-            executor
-        ),
-        get_default_organization_url(cancellation),
-    )?;
+    let auth_source = auth_context.auth_source()?;
+    let (resources, role_assignments, role_definitions, principals, org_url) = executor
+        .join5(
+            |child| async move { fetch_all_resources(auth_context, &child).await },
+            |child| async move {
+                fetch_all_role_assignments(auth_context.tenant_id, auth_source, &child).await
+            },
+            |child| async move {
+                fetch_all_role_definitions(auth_context.tenant_id, auth_source, &child).await
+            },
+            |child| async move {
+                fetch_all_principals(auth_context.tenant_id, auth_source, &child).await
+            },
+            |child| async move { get_default_organization_url(child.cancellation()).await },
+        )
+        .await?;
     let azure_devops_auth_context = AzureDevOpsAuthContext::for_azure_tenant(auth_context);
     let projects =
         fetch_all_azure_devops_projects(&org_url, azure_devops_auth_context.selection()?, executor)
             .await?;
-    let azure_devops_service_endpoint_inventories = {
-        let mut work: ParallelFallibleWorkQueue<Arc<Vec<AzureDevOpsServiceEndpoint>>> =
-            ParallelFallibleWorkQueue::new("azure devops service endpoints", 8);
-        for project in projects.iter() {
-            let org_url = org_url.clone();
-            let project_name = project.name.clone();
-            let azure_devops_auth_context = azure_devops_auth_context.clone();
-            work.enqueue({
-                executor.cancellable_scope(move |executor| async move {
-                    let executor = &executor;
-                    fetch_all_azure_devops_service_endpoints(
-                        &org_url,
-                        &project_name,
-                        &azure_devops_auth_context,
-                        executor,
-                    )
-                    .await
-                })
-            });
-        }
-        work.join().await?
-    };
+    let azure_devops_service_endpoint_inventories = projects
+        .iter()
+        .map_concurrent(executor, 8.try_into()?, async |child, project| {
+            // Preserve the complete-all policy: an individual inventory
+            // failure is collected, rather than cancelling other projects.
+            let result = fetch_all_azure_devops_service_endpoints(
+                &org_url,
+                &project.name,
+                &azure_devops_auth_context,
+                &child,
+            )
+            .await;
+            info!(project = %project.name, "Finished fetching service endpoints");
+            eyre::Ok(result)
+        })
+        .await?
+        .into_iter()
+        .collect::<eyre::Result<Vec<_>>>()?;
     // we assume that the project references always contains the project we fetched the endpoint for
     for endpoint in azure_devops_service_endpoint_inventories
         .iter()

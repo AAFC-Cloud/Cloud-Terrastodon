@@ -15,6 +15,7 @@ use cloud_terrastodon_cache::WorkOutput;
 use cloud_terrastodon_cache::WorkReuse;
 use cloud_terrastodon_execution::AuthenticationProvider;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ConcurrentIteratorExt;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_execution::TestAuthenticationProvider;
@@ -64,36 +65,70 @@ impl AuthenticationProvider for CredentialLineageProbe {
             );
             executor
                 .with_async_scope(|child| async move {
-                    assert!(child.cache().is_err());
-                    assert!(
-                        child
-                            .with_authentication(Arc::new(TestAuthenticationProvider::new(
-                                "synthetic-test-session",
-                                Authorization::personal_access_token(
-                                    "synthetic-offline-credential"
-                                )?
-                            )?))
-                            .is_err(),
-                        "credential infrastructure cannot escape its restrictions by rebinding"
-                    );
-                    let recursive = child.authorization(selection, resource).await;
-                    assert!(recursive.unwrap_err().to_string().contains("recursively"));
-                    let cache_attempt = child.cached_work(
-                        ExecutorKind::InProcess,
-                        key("credential-infrastructure"),
-                        CacheOperationOwner::of::<CredentialLineageProbe>(),
-                        selection,
-                        NonEmptyString::new("synthetic-credential-input")?,
-                        WorkReuse::ReusableRead,
-                        |_| async { Ok(output(1_u64)) },
-                    );
-                    assert!(
-                        cache_attempt
-                            .err()
-                            .expect("credential work must be rejected before cache lookup")
-                            .to_string()
-                            .contains("credential infrastructure")
-                    );
+                    let assert_restricted = |branch: CloudTerrastodonExecutor| async move {
+                        assert!(branch.cache().is_err());
+                        assert!(
+                            branch
+                                .with_authentication(Arc::new(TestAuthenticationProvider::new(
+                                    "synthetic-test-session",
+                                    Authorization::personal_access_token(
+                                        "synthetic-offline-credential"
+                                    )?
+                                )?))
+                                .is_err(),
+                            "credential infrastructure cannot escape its restrictions by rebinding"
+                        );
+                        let recursive = branch.authorization(selection, resource).await;
+                        assert!(recursive.unwrap_err().to_string().contains("recursively"));
+                        let cache_attempt = branch.cached_work(
+                            ExecutorKind::InProcess,
+                            key("credential-infrastructure"),
+                            CacheOperationOwner::of::<CredentialLineageProbe>(),
+                            selection,
+                            NonEmptyString::new("synthetic-credential-input")?,
+                            WorkReuse::ReusableRead,
+                            |_| async { Ok(output(1_u64)) },
+                        );
+                        assert!(
+                            cache_attempt
+                                .err()
+                                .expect("credential work must be rejected before cache lookup")
+                                .to_string()
+                                .contains("credential infrastructure")
+                        );
+                        eyre::Ok(())
+                    };
+                    assert_restricted(child.clone()).await?;
+                    // Rebinding cancellation for a join branch must retain the
+                    // provider's restricted mode in every executor adapter.
+                    child.join2(assert_restricted, assert_restricted).await?;
+                    child
+                        .join3(assert_restricted, assert_restricted, assert_restricted)
+                        .await?;
+                    child
+                        .join4(
+                            assert_restricted,
+                            assert_restricted,
+                            assert_restricted,
+                            assert_restricted,
+                        )
+                        .await?;
+                    child
+                        .join5(
+                            assert_restricted,
+                            assert_restricted,
+                            assert_restricted,
+                            assert_restricted,
+                            assert_restricted,
+                        )
+                        .await?;
+                    [(), ()]
+                        .into_iter()
+                        .map_concurrent(&child, 2.try_into()?, |branch, ()| {
+                            assert_restricted(branch)
+                        })
+                        .await?;
+                    child.cancellation().bail_if_cancelled()?;
                     Authorization::personal_access_token("synthetic-offline-credential")
                 })
                 .await
@@ -299,17 +334,14 @@ async fn scope_helpers_accept_borrowed_non_send_callbacks_and_close_their_child(
             );
             let observations = Rc::new(Cell::new(0));
             let label = String::from("scoped borrowed data");
-            let callback = |child: CloudTerrastodonExecutor| {
-                let observations = &observations;
-                let label = &label;
-                async move {
-                    observations.set(observations.get() + 1);
-                    let (borrowed, request_scope) = BorrowedLabel { label }.execute(&child).await?;
-                    assert_eq!(borrowed, label);
-                    assert!(request_scope.bail_if_cancelled().is_err());
-                    child.cancellation().bail_if_cancelled()?;
-                    Ok::<_, eyre::Report>(child.cancellation().clone())
-                }
+            let callback = async |child: CloudTerrastodonExecutor| {
+                observations.set(observations.get() + 1);
+                let (borrowed, request_scope) =
+                    BorrowedLabel { label: &label }.execute(&child).await?;
+                assert_eq!(borrowed, label);
+                assert!(request_scope.bail_if_cancelled().is_err());
+                child.cancellation().bail_if_cancelled()?;
+                eyre::Ok(child.cancellation().clone())
             };
             let cancellable = executor.cancellable_scope(callback).await?;
             let (_, child) = executor.cancellable_child_scope(callback);
@@ -358,22 +390,19 @@ async fn independent_jobs_share_resources_but_preserve_separate_cancellation() -
         let cached = executor.execute(CachedNumber::new("42", &decodes)).await?;
         let (cancel_first, first) = executor.cancellable_child_scope(|child| async move {
             child.cancellation().cancelled().await;
-            Ok::<_, eyre::Report>(())
+            eyre::Ok(())
         });
         tokio::pin!(first);
         assert_pending(first.as_mut()).await;
         cancel_first.request_cancel("cancel one synthetic job");
         assert!(first.await.is_err());
         executor.cancellation().bail_if_cancelled()?;
-        let (_, second) = executor.with_async_child_scope(|child| {
-            let decodes = &decodes;
-            async move {
-                let result = child.execute(CachedNumber::new("99", decodes)).await?;
-                child
-                    .cancellation()
-                    .request_cancel("cooperative child shutdown");
-                Ok::<_, eyre::Report>(result)
-            }
+        let (_, second) = executor.with_async_child_scope(async |child| {
+            let result = child.execute(CachedNumber::new("99", &decodes)).await?;
+            child
+                .cancellation()
+                .request_cancel("cooperative child shutdown");
+            eyre::Ok(result)
         });
         assert!(Arc::ptr_eq(&cached, &second.await?));
         executor.cancellation().bail_if_cancelled()?;
@@ -386,7 +415,7 @@ async fn independent_jobs_share_resources_but_preserve_separate_cancellation() -
             .clone()
             .cancellable_child_scope(|child| async move {
                 child.cancellation().cancelled().await;
-                Ok::<_, eyre::Report>(())
+                eyre::Ok(())
             });
         tokio::pin!(last);
         assert_pending(last.as_mut()).await;
@@ -588,9 +617,6 @@ async fn authentication_rebinding_preserves_partitioned_reuse_dependencies_and_c
             // authentication partition and a different logical key branch.
             let compositions = AtomicUsize::new(0);
             for (text, expected) in [("99", 30), ("40", 40)] {
-                let selected = selected.clone();
-                let decodes = &decodes;
-                let compositions = &compositions;
                 let value = executor
                     .cached_work(
                         ExecutorKind::InProcess,
@@ -599,10 +625,10 @@ async fn authentication_rebinding_preserves_partitioned_reuse_dependencies_and_c
                         &AUTHENTICATION,
                         NonEmptyString::new("synthetic-rebound-composition")?,
                         WorkReuse::ReusableRead,
-                        move |child| async move {
+                        async |child| {
                             compositions.fetch_add(1, Ordering::SeqCst);
-                            let child = child.with_authentication(selected)?;
-                            let value = child.execute(CachedNumber::new(text, decodes)).await?;
+                            let child = child.with_authentication(selected.clone())?;
+                            let value = child.execute(CachedNumber::new(text, &decodes)).await?;
                             Ok(output(*value))
                         },
                     )?
@@ -693,7 +719,7 @@ async fn protected_descendants_finish_and_owed_cleanup_can_start_after_cancellat
                             let (value, _) = BorrowedLabel { label: "completed" }
                                 .execute(&protected)
                                 .await?;
-                            Ok::<_, eyre::Report>((value, protected.cancellation().clone()))
+                            eyre::Ok((value, protected.cancellation().clone()))
                         },
                     )
                     .await
@@ -711,7 +737,7 @@ async fn protected_descendants_finish_and_owed_cleanup_can_start_after_cancellat
             let optional = executor
                 .deferred("new optional work", |_| async {
                     optional_started.set(true);
-                    Ok::<_, eyre::Report>(())
+                    eyre::Ok(())
                 })
                 .await;
             assert!(optional.is_err());
@@ -719,14 +745,11 @@ async fn protected_descendants_finish_and_owed_cleanup_can_start_after_cancellat
 
             let cleanup = Rc::new(Cell::new(false));
             let closed = executor
-                .finish_required("complete synthetic owed cleanup", |required| {
-                    let cleanup = &cleanup;
-                    async move {
-                        assert!(required.cancellation().is_cancelled());
-                        let value = required.execute(OwnedCell).await?;
-                        cleanup.set(value.get() == 7);
-                        Ok::<_, eyre::Report>(required.cancellation().clone())
-                    }
+                .finish_required("complete synthetic owed cleanup", async |required| {
+                    assert!(required.cancellation().is_cancelled());
+                    let value = required.execute(OwnedCell).await?;
+                    cleanup.set(value.get() == 7);
+                    eyre::Ok(required.cancellation().clone())
                 })
                 .await?;
             assert!(cleanup.get());
@@ -737,7 +760,7 @@ async fn protected_descendants_finish_and_owed_cleanup_can_start_after_cancellat
 }
 
 #[tokio::test]
-async fn provider_scope_helpers_cannot_enter_semantic_cache_or_recursive_authorization()
+async fn provider_scope_and_join_helpers_cannot_enter_semantic_cache_or_recursive_authorization()
 -> Result<()> {
     CancellationToken::new()
         .with_async_scope(|scope| async move {
@@ -896,18 +919,14 @@ async fn catching_child_admission_failure_cannot_publish_a_reusable_parent_fallb
                         &AuthenticationSelection::Anonymous,
                         NonEmptyString::new("synthetic-fallback-input")?,
                         WorkReuse::ReusableRead,
-                        |child| {
-                            let compositions = &compositions;
-                            let decodes = &decodes;
-                            async move {
-                                compositions.fetch_add(1, Ordering::SeqCst);
-                                let value =
-                                    match child.execute(CachedNumber::new("21", decodes)).await {
-                                        Ok(value) => *value,
-                                        Err(_) => 0,
-                                    };
-                                Ok(output(value))
-                            }
+                        async |child| {
+                            compositions.fetch_add(1, Ordering::SeqCst);
+                            let value = match child.execute(CachedNumber::new("21", &decodes)).await
+                            {
+                                Ok(value) => *value,
+                                Err(_) => 0,
+                            };
+                            Ok(output(value))
                         },
                     )?
                     .await?;
@@ -986,7 +1005,7 @@ async fn admission_changes_during_initialization_prevent_publication_under_the_p
                 // after publishing 11, allowing this call to reuse that value.
                 assert_eq!(*second, 22);
                 assert_eq!(initializations.load(Ordering::SeqCst), 2);
-                Ok::<_, eyre::Report>(())
+                eyre::Ok(())
             })
             .await?;
     }

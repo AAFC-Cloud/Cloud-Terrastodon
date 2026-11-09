@@ -21,7 +21,6 @@ mod output_behaviour;
 mod path_mapper;
 mod process_fingerprint;
 mod retry_behaviour;
-mod work;
 
 pub use crate::command::*;
 pub use crate::command_argument::*;
@@ -32,7 +31,6 @@ pub use crate::from_command_output::FromCommandOutput;
 pub use crate::output_behaviour::OutputBehaviour;
 pub use crate::path_mapper::*;
 pub use crate::retry_behaviour::RetryBehaviour;
-pub use crate::work::*;
 // Re-export async_trait for use in command implementations
 pub use async_trait::async_trait;
 pub use teamy_cancellation::CancellationError;

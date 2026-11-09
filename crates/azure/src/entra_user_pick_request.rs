@@ -76,55 +76,46 @@ impl ExecutableRequest for EntraUserPickRequest {
         Self::Output: 'exec,
     {
         Box::pin(async move {
-            let list_executor = executor.clone();
             PickerTui::<Arc<EntraUser>>::new()
                 .set_header("Users")
-                .add_event_handler(move |event, sink| {
-                    let executor = list_executor.clone();
-                    async move {
-                        if matches!(event.as_ref(), PickerEvent::InitialLoad) {
-                            executor
-                                .cancellable_scope(|child| async move {
-                                    info!("Fetching all Entra users");
-                                    let users = fetch_all_entra_users(
-                                        self.tenant_id,
-                                        self.auth_source,
-                                        &child,
-                                    )
-                                    .await?;
-                                    sink.push(users.iter().cloned().map(user_choice))?;
-                                    info!("Finished fetching all Entra users");
-                                    Ok::<(), eyre::Report>(())
-                                })
-                                .await?;
-                        }
-                        Ok(())
-                    }
-                })
-                .add_event_handler(move |event, sink| {
-                    let executor = executor.clone();
-                    async move {
-                        let query = match event.as_ref() {
-                            PickerEvent::QueryChanged(query)
-                            | PickerEvent::ReloadRequested(query) => query,
-                            PickerEvent::InitialLoad | PickerEvent::QueryCleared => return Ok(()),
-                        };
+                .add_event_handler(async |event, sink| {
+                    if matches!(event.as_ref(), PickerEvent::InitialLoad) {
                         executor
                             .cancellable_scope(|child| async move {
-                                info!(query = %query, "Searching Entra users");
-                                let users = search_entra_users(
-                                    query.as_ref(),
-                                    self.tenant_id,
-                                    self.auth_source,
-                                    &child,
-                                )
-                                .await?;
-                                sink.push(users.into_iter().map(user_choice))?;
-                                info!(query = %query, "Finished searching Entra users");
-                                Ok(())
+                                info!("Fetching all Entra users");
+                                let users =
+                                    fetch_all_entra_users(self.tenant_id, self.auth_source, &child)
+                                        .await?;
+                                sink.push(users.iter().cloned().map(user_choice))?;
+                                info!("Finished fetching all Entra users");
+                                eyre::Ok(())
                             })
-                            .await
+                            .await?;
                     }
+                    Ok(())
+                })
+                .add_event_handler(async |event, sink| {
+                    let query = match event.as_ref() {
+                        PickerEvent::QueryChanged(query) | PickerEvent::ReloadRequested(query) => {
+                            query
+                        }
+                        PickerEvent::InitialLoad | PickerEvent::QueryCleared => return Ok(()),
+                    };
+                    executor
+                        .cancellable_scope(|child| async move {
+                            info!(query = %query, "Searching Entra users");
+                            let users = search_entra_users(
+                                query.as_ref(),
+                                self.tenant_id,
+                                self.auth_source,
+                                &child,
+                            )
+                            .await?;
+                            sink.push(users.into_iter().map(user_choice))?;
+                            info!(query = %query, "Finished searching Entra users");
+                            Ok(())
+                        })
+                        .await
                 })
                 .pick_many_events()
                 .await

@@ -1,3 +1,5 @@
+use super::azure_entra_group_show_lookup::AzureEntraGroupShowLookup;
+use super::azure_entra_group_show_lookup_result::AzureEntraGroupShowLookupResult;
 use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::AzureTenantArgument;
@@ -7,7 +9,6 @@ use cloud_terrastodon_azure::EntraGroup;
 use cloud_terrastodon_azure::EntraGroupId;
 use cloud_terrastodon_azure::RoleAssignment;
 use cloud_terrastodon_azure::RoleDefinition;
-use cloud_terrastodon_azure::RoleDefinitionsAndAssignments;
 use cloud_terrastodon_azure::RoleDefinitionsAndAssignmentsIterTools;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::fetch_all_role_definitions_and_assignments;
@@ -15,8 +16,8 @@ use cloud_terrastodon_azure::fetch_group_members;
 use cloud_terrastodon_azure::fetch_group_owners;
 use cloud_terrastodon_azure::fetch_groups_by_id;
 use cloud_terrastodon_command::CancellationScope;
-use cloud_terrastodon_command::ParallelFallibleWorkQueue;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ConcurrentIteratorExt;
 use color_eyre::owo_colors::OwoColorize;
 use color_eyre::owo_colors::Stream;
 use color_eyre::owo_colors::Style;
@@ -117,69 +118,68 @@ impl AzureEntraGroupShowArgs {
             }
         }
 
+        let auth_source = tenant_auth_context.auth_source()?;
+        let work = chosen_groups
+            .iter()
+            .flat_map(|group| {
+                [
+                    AzureEntraGroupShowLookup::Members(group.id),
+                    AzureEntraGroupShowLookup::Owners(group.id),
+                ]
+            })
+            .chain([AzureEntraGroupShowLookup::RoleAssignments]);
+        let work_results = work
+            .map_concurrent(executor, 8.try_into()?, async |child, lookup| {
+                // Preserve complete-all behavior: service errors are collected
+                // as data, then propagated after every inventory has finished.
+                eyre::Ok(match lookup {
+                    AzureEntraGroupShowLookup::Members(group_id) => {
+                        fetch_group_members(group_id, &tenant_auth_context, &child)
+                            .await
+                            .map(|members| AzureEntraGroupShowLookupResult::Members {
+                                group_id,
+                                members,
+                            })
+                    }
+                    AzureEntraGroupShowLookup::Owners(group_id) => {
+                        fetch_group_owners(group_id, &tenant_auth_context, &child)
+                            .await
+                            .map(|owners| AzureEntraGroupShowLookupResult::Owners {
+                                group_id,
+                                owners,
+                            })
+                    }
+                    AzureEntraGroupShowLookup::RoleAssignments => {
+                        fetch_all_role_definitions_and_assignments(
+                            tenant_auth_context.tenant_id,
+                            auth_source,
+                            &child,
+                        )
+                        .await
+                        .map(AzureEntraGroupShowLookupResult::RoleAssignments)
+                    }
+                })
+            })
+            .await?
+            .into_iter()
+            .collect::<Result<Vec<_>>>()?;
         let mut chosen_group_members = HashMap::with_capacity(chosen_groups.len());
         let mut chosen_group_owners = HashMap::with_capacity(chosen_groups.len());
-
-        enum Resp {
-            Members {
-                group_id: EntraGroupId,
-                members: Vec<Arc<EntraDirectoryObject>>,
-            },
-            Owners {
-                group_id: EntraGroupId,
-                owners: Vec<Arc<EntraDirectoryObject>>,
-            },
-            Rbac(Arc<RoleDefinitionsAndAssignments>),
-        }
-        let mut work =
-            ParallelFallibleWorkQueue::new("group members, owners, and role assignments", 8);
-        for group in &chosen_groups {
-            let group_id = group.id;
-            let members_auth_context = tenant_auth_context.clone();
-            let members_executor = executor.clone();
-            work.enqueue(async move {
-                let members =
-                    fetch_group_members(group_id, &members_auth_context, &members_executor).await?;
-                eyre::Ok(Resp::Members { group_id, members })
-            });
-            let owners_auth_context = tenant_auth_context.clone();
-            let owners_executor = executor.clone();
-            work.enqueue(async move {
-                let owners =
-                    fetch_group_owners(group_id, &owners_auth_context, &owners_executor).await?;
-                eyre::Ok(Resp::Owners { group_id, owners })
-            });
-        }
-        let auth_context = tenant_auth_context;
-        let rbac_executor = executor.clone();
-        work.enqueue(async move {
-            let rbac = fetch_all_role_definitions_and_assignments(
-                auth_context.tenant_id,
-                auth_context.auth_source()?,
-                &rbac_executor,
-            )
-            .await?;
-            eyre::Ok(Resp::Rbac(rbac))
-        });
-        let work_results = work.join().await?;
         let mut rbac = None;
         for result in work_results {
             match result {
-                Resp::Members { group_id, members } => {
+                AzureEntraGroupShowLookupResult::Members { group_id, members } => {
                     chosen_group_members.insert(group_id, members);
                 }
-                Resp::Owners { group_id, owners } => {
+                AzureEntraGroupShowLookupResult::Owners { group_id, owners } => {
                     chosen_group_owners.insert(group_id, owners);
                 }
-                Resp::Rbac(r) => {
-                    assert!(rbac.is_none());
-                    rbac = Some(r);
+                AzureEntraGroupShowLookupResult::RoleAssignments(inventory) => {
+                    rbac = Some(inventory)
                 }
             }
         }
-        let Some(rbac) = rbac else {
-            bail!("Failed to fetch role definitions and assignments");
-        };
+        let rbac = rbac.ok_or_eyre("Failed to fetch role definitions and assignments")?;
 
         let mut rtn = Vec::with_capacity(chosen_groups.len());
         for group in chosen_groups {
@@ -468,7 +468,7 @@ mod tests {
                         "missing fixture field: {expected}"
                     );
                 }
-                Ok::<_, eyre::Report>(())
+                eyre::Ok(())
             })
             .unwrap();
     }
@@ -498,7 +498,7 @@ mod tests {
                 let json: serde_json::Value = serde_json::from_str(&json)?;
                 assert!(json[0]["members"][0]["displayName"].is_null());
                 assert!(json[0]["members"][0]["userPrincipalName"].is_null());
-                Ok::<_, eyre::Report>(())
+                eyre::Ok(())
             })
             .unwrap();
     }
@@ -531,7 +531,7 @@ mod tests {
                     json[0]["role_assignments"][0][1]["display_name"],
                     "Synthetic Reader"
                 );
-                Ok::<_, eyre::Report>(())
+                eyre::Ok(())
             })
             .unwrap();
     }

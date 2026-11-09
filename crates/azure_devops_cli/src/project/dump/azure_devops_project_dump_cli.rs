@@ -11,12 +11,13 @@ use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_group_members_v2;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_groups_for_project;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_teams_for_project;
-use cloud_terrastodon_command::ParallelFallibleWorkQueue;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ConcurrentIteratorExt;
 use eyre::Result;
 use eyre::bail;
 use facet::Facet;
 use std::io::stdout;
+use std::num::NonZeroUsize;
 use std::sync::Arc;
 use tracing::Instrument;
 use tracing::info;
@@ -95,28 +96,29 @@ impl AzureDevOpsProjectDumpArgs {
         .instrument(span.clone())
         .await?;
 
-        let mut group_members = ParallelFallibleWorkQueue::new("fetching group members", 4);
-        for group in groups.iter() {
-            let org_url = self.org.clone();
-            let group_descriptor = group.descriptor.clone();
-            let azure_devops_auth_context = azure_devops_auth_context.clone();
-            let span = span.clone();
-            group_members.enqueue({
-                executor.cancellable_scope(move |executor| async move {
-                    let executor = &executor;
-                    fetch_azure_devops_group_members_v2(
-                        &org_url,
-                        &group_descriptor,
+        // Drain the complete batch before reporting an ordinary service error.
+        let group_members = groups
+            .iter()
+            .map_concurrent(
+                executor,
+                NonZeroUsize::MIN.saturating_add(3),
+                async |child, group| {
+                    let members = fetch_azure_devops_group_members_v2(
+                        &self.org,
+                        &group.descriptor,
                         &azure_devops_auth_context,
-                        executor,
+                        &child,
                     )
                     .into_future()
                     .instrument(span.clone())
-                    .await
-                })
-            });
-        }
-        let group_members = group_members.join().await?;
+                    .await;
+                    info!("Finished fetching group members");
+                    eyre::Ok(members)
+                },
+            )
+            .await?
+            .into_iter()
+            .collect::<Result<Vec<_>>>()?;
 
         let payload = AzureDevOpsProjectDumpPayload {
             project,

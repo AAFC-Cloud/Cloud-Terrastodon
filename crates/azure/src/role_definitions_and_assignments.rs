@@ -23,7 +23,6 @@ use cloud_terrastodon_execution::RequestExecution;
 use facet::Facet;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::try_join;
 
 /// Combine Azure Resource Manager role definitions and assignments for a tenant.
 ///
@@ -99,10 +98,26 @@ impl ExecutableRequest for RoleDefinitionsAndAssignmentsListRequest {
                     fingerprint,
                     WorkReuse::ReusableRead,
                     move |child| async move {
-                        let (definitions, assignments) = try_join!(
-                            fetch_all_role_definitions(self.tenant_id, self.auth_source, &child),
-                            fetch_all_role_assignments(self.tenant_id, self.auth_source, &child),
-                        )?;
+                        let (definitions, assignments) = child
+                            .join2(
+                                |child| async move {
+                                    fetch_all_role_definitions(
+                                        self.tenant_id,
+                                        self.auth_source,
+                                        &child,
+                                    )
+                                    .await
+                                },
+                                |child| async move {
+                                    fetch_all_role_assignments(
+                                        self.tenant_id,
+                                        self.auth_source,
+                                        &child,
+                                    )
+                                    .await
+                                },
+                            )
+                            .await?;
                         let observation = ArtifactObservation::now();
                         let combined = RoleDefinitionsAndAssignments::try_new(
                             definitions.iter().cloned(),

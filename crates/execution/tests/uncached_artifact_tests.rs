@@ -147,34 +147,32 @@ async fn non_sync_outputs_execute_independently_without_reusing_or_selecting_dis
             let executor = CloudTerrastodonExecutor::new(cache, authentication, scope);
             let starts = AtomicUsize::new(0);
             let simultaneous = Barrier::new(2);
-            let execute = || {
-                let starts = &starts;
-                let simultaneous = &simultaneous;
-                executor.uncached_work_with_artifacts(
-                    ExecutorKind::Command,
-                    key("independent-attempts"),
-                    CacheOperationOwner::of::<NumberOperation>(),
-                    &AUTHENTICATION,
-                    fingerprint(),
-                    ArtifactRetention::Full,
-                    move |child, entry| async move {
-                        assert!(entry.load(child.cancellation()).await?.is_none());
-                        let number = starts.fetch_add(1, Ordering::SeqCst) as u64 + 10;
-                        // Per-key joining or serialization would deadlock here.
-                        simultaneous.wait().await;
-                        assert!(
-                            !publish_number(&entry, number, child.cancellation())
-                                .await?
-                                .0
-                        );
-                        Ok(Cell::new(number))
-                    },
-                )
+            let execute = async |executor: CloudTerrastodonExecutor| {
+                executor
+                    .uncached_work_with_artifacts(
+                        ExecutorKind::Command,
+                        key("independent-attempts"),
+                        CacheOperationOwner::of::<NumberOperation>(),
+                        &AUTHENTICATION,
+                        fingerprint(),
+                        ArtifactRetention::Full,
+                        async |child, entry| {
+                            assert!(entry.load(child.cancellation()).await?.is_none());
+                            let number = starts.fetch_add(1, Ordering::SeqCst) as u64 + 10;
+                            // Per-key joining or serialization would deadlock here.
+                            simultaneous.wait().await;
+                            assert!(
+                                !publish_number(&entry, number, child.cancellation())
+                                    .await?
+                                    .0
+                            );
+                            Ok(Cell::new(number))
+                        },
+                    )?
+                    .await
             };
-            let first = execute()?;
-            let second = execute()?;
             let (first, second) =
-                timeout(DEADLOCK_GUARD, async { tokio::try_join!(first, second) }).await??;
+                timeout(DEADLOCK_GUARD, executor.join2(execute, execute)).await??;
             assert_ne!(first.get(), second.get());
             first.set(99);
             assert_ne!(first.get(), second.get());
@@ -286,8 +284,6 @@ async fn caught_uncached_child_rejection_quarantines_an_already_selected_parent(
             let parent_starts = AtomicUsize::new(0);
             let child_starts = AtomicUsize::new(0);
             let execute = || {
-                let parent_starts = &parent_starts;
-                let child_starts = &child_starts;
                 executor.cached_work_with_artifacts(
                     ExecutorKind::InProcess,
                     key("composition"),
@@ -296,7 +292,7 @@ async fn caught_uncached_child_rejection_quarantines_an_already_selected_parent(
                     fingerprint(),
                     WorkReuse::ReusableRead,
                     ArtifactRetention::Full,
-                    move |parent, entry| async move {
+                    async |parent, entry| {
                         let fallback = parent_starts.fetch_add(1, Ordering::SeqCst) as u64;
                         assert!(entry.load(parent.cancellation()).await?.is_none());
                         let (selected, observation) =
@@ -309,7 +305,7 @@ async fn caught_uncached_child_rejection_quarantines_an_already_selected_parent(
                             &AUTHENTICATION,
                             fingerprint(),
                             ArtifactRetention::Full,
-                            |_, _| async move {
+                            async |_, _| {
                                 child_starts.fetch_add(1, Ordering::SeqCst);
                                 Ok(Cell::new(42_u64))
                             },
@@ -396,17 +392,13 @@ async fn authentication_changes_reject_bound_work_and_completed_owned_outputs() 
                     &AUTHENTICATION,
                     fingerprint(),
                     ArtifactRetention::Full,
-                    |child, entry| {
-                        let authentication = &authentication;
-                        let starts = &starts;
-                        async move {
-                            starts.fetch_add(1, Ordering::SeqCst);
-                            assert!(!publish_number(&entry, 8, child.cancellation()).await?.0);
-                            authentication
-                                .partition_generation
-                                .store(2, Ordering::SeqCst);
-                            Ok(Cell::new(8_u64))
-                        }
+                    async |child, entry| {
+                        starts.fetch_add(1, Ordering::SeqCst);
+                        assert!(!publish_number(&entry, 8, child.cancellation()).await?.0);
+                        authentication
+                            .partition_generation
+                            .store(2, Ordering::SeqCst);
+                        Ok(Cell::new(8_u64))
                     },
                 )?
                 .await;

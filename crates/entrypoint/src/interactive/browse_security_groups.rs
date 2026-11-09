@@ -22,7 +22,6 @@ use facet::Facet;
 use std::collections::HashMap;
 use std::sync::Arc;
 use strum::VariantArray;
-use tokio::try_join;
 use tracing::info;
 
 #[derive(Debug, VariantArray, Copy, Clone)]
@@ -105,10 +104,16 @@ pub async fn browse_security_groups(
                     security_groups.len()
                 );
                 for (group, row) in security_groups.iter().zip(rows.iter_mut()) {
-                    let (owners, members) = try_join!(
-                        fetch_group_owners(group.id, auth_context, executor),
-                        fetch_group_members(group.id, auth_context, executor)
-                    )?;
+                    let (owners, members) = executor
+                        .join2(
+                            |child| async move {
+                                fetch_group_owners(group.id, auth_context, &child).await
+                            },
+                            |child| async move {
+                                fetch_group_members(group.id, auth_context, &child).await
+                            },
+                        )
+                        .await?;
                     row.owners = Some(owners);
                     row.members = Some(members);
                 }
@@ -118,18 +123,19 @@ pub async fn browse_security_groups(
                     "Fetching role assignments and definitions to filter for {} groups",
                     security_groups.len()
                 );
-                let (role_assignments, role_definitions) = try_join!(
-                    fetch_all_role_assignments(
-                        auth_context.tenant_id,
-                        auth_context.auth_source()?,
-                        executor
-                    ),
-                    fetch_all_role_definitions(
-                        auth_context.tenant_id,
-                        auth_context.auth_source()?,
-                        executor
-                    ),
-                )?;
+                let auth_source = auth_context.auth_source()?;
+                let (role_assignments, role_definitions) = executor
+                    .join2(
+                        |child| async move {
+                            fetch_all_role_assignments(auth_context.tenant_id, auth_source, &child)
+                                .await
+                        },
+                        |child| async move {
+                            fetch_all_role_definitions(auth_context.tenant_id, auth_source, &child)
+                                .await
+                        },
+                    )
+                    .await?;
                 let role_assignments_by_principal: HashMap<
                     &EntraPrincipalId,
                     Vec<&Arc<RoleAssignment>>,

@@ -351,7 +351,7 @@ fn run_handler_probe(mode: &str) {
                         context.cancellation.request_cancel(CONSUMER_REASON);
                         Ok(())
                     }
-                    _ => Result::<()>::Ok(()),
+                    _ => eyre::Ok(()),
                 }
             }
         })
@@ -409,73 +409,66 @@ fn run_cancellation_probe(mode: &str) {
     } else {
         app()
     };
-    let result = runner.run_parsed(cli(false), |_, context| {
-        let dropped = Rc::clone(&dropped);
-        let completed = Rc::clone(&completed);
-        async move {
-            let _dropped = HandlerDropped(dropped);
-            tokio::time::timeout(Duration::from_secs(5), async move {
-                let (started, started_receiver) = oneshot::channel();
-                let (may_finish, may_finish_receiver) = oneshot::channel();
-                let signal = context.cancellation.clone();
-                tokio::spawn(async move {
-                    started_receiver
-                        .await
-                        .expect("handler should start waiting");
-                    signal.request_cancel(CONSUMER_REASON);
+    let result = runner.run_parsed(cli(false), async |_, context| {
+        let _dropped = HandlerDropped(Rc::clone(&dropped));
+        tokio::time::timeout(Duration::from_secs(5), async {
+            let (started, started_receiver) = oneshot::channel();
+            let (may_finish, may_finish_receiver) = oneshot::channel();
+            let signal = context.cancellation.clone();
+            tokio::spawn(async move {
+                started_receiver
+                    .await
+                    .expect("handler should start waiting");
+                signal.request_cancel(CONSUMER_REASON);
+                tokio::task::yield_now().await;
+                let _ = may_finish.send(());
+            });
+            match mode {
+                "pending_cancellation" => {
+                    let mut started = Some(started);
+                    poll_fn(move |_| {
+                        if let Some(started) = started.take() {
+                            started.send(()).expect("cancellation task should wait");
+                        }
+                        Poll::<Result<()>>::Pending
+                    })
+                    .await
+                }
+                "deferred_cancellation" => {
+                    context
+                        .cancellation
+                        .deferred("Finish synthetic required work", async |protected| {
+                            started.send(()).expect("cancellation task should wait");
+                            may_finish_receiver.await?;
+                            assert!(protected.is_cancelled());
+                            protected.bail_if_cancelled()?;
+                            completed.set(true);
+                            eyre::Ok(())
+                        })
+                        .await?;
+                    pending::<Result<()>>().await
+                }
+                "cooperative_cancellation" => {
+                    started.send(()).expect("cancellation task should wait");
+                    context.cancellation.cancelled().await;
+                    assert!(context.cancellation.is_cancelled());
+                    // Shutdown must survive a pending await before cleanup starts.
                     tokio::task::yield_now().await;
-                    let _ = may_finish.send(());
-                });
-                match mode {
-                    "pending_cancellation" => {
-                        let mut started = Some(started);
-                        poll_fn(move |_| {
-                            if let Some(started) = started.take() {
-                                started.send(()).expect("cancellation task should wait");
-                            }
-                            Poll::<Result<()>>::Pending
+                    context
+                        .cancellation
+                        .finish_required("Finish synthetic shutdown cleanup", async |cleanup| {
+                            may_finish_receiver.await?;
+                            cleanup.bail_if_cancelled()?;
+                            completed.set(true);
+                            eyre::Ok(())
                         })
                         .await
-                    }
-                    "deferred_cancellation" => {
-                        context
-                            .cancellation
-                            .deferred("Finish synthetic required work", |protected| async move {
-                                started.send(()).expect("cancellation task should wait");
-                                may_finish_receiver.await?;
-                                assert!(protected.is_cancelled());
-                                protected.bail_if_cancelled()?;
-                                completed.set(true);
-                                Result::<()>::Ok(())
-                            })
-                            .await?;
-                        pending::<Result<()>>().await
-                    }
-                    "cooperative_cancellation" => {
-                        started.send(()).expect("cancellation task should wait");
-                        context.cancellation.cancelled().await;
-                        assert!(context.cancellation.is_cancelled());
-                        // Shutdown must survive a pending await before cleanup starts.
-                        tokio::task::yield_now().await;
-                        context
-                            .cancellation
-                            .finish_required(
-                                "Finish synthetic shutdown cleanup",
-                                |cleanup| async move {
-                                    may_finish_receiver.await?;
-                                    cleanup.bail_if_cancelled()?;
-                                    completed.set(true);
-                                    Result::<()>::Ok(())
-                                },
-                            )
-                            .await
-                    }
-                    unexpected => panic!("unexpected cancellation probe {unexpected}"),
                 }
-            })
-            .await
-            .map_err(|_| eyre::eyre!("cancellation probe handler exceeded its watchdog"))?
-        }
+                unexpected => panic!("unexpected cancellation probe {unexpected}"),
+            }
+        })
+        .await
+        .map_err(|_| eyre::eyre!("cancellation probe handler exceeded its watchdog"))?
     });
 
     assert!(

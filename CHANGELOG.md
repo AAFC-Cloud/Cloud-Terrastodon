@@ -1,5 +1,11 @@
 # Unreleased
 
+- Remove the unused interactive "populate cache" action and its inventory-refresh workflow.
+
+- Make UUID-backed IDs and role names consistently `Copy`, and use value copies instead of explicit clones throughout their callers.
+
+- Add scope-only `join2` through `join5`, executor join adapters, and bounded iterator mapping through `ConcurrentIteratorExt::map_concurrent` / `map_concurrent_scoped`. Cancel sibling work on the first error while draining required completion. Migrate fixed joins and finite service/HCL batches, preserve complete-all policies, remove the obsolete spawned work queue, and reject fail-fast join macros with Clippy. Keep results in input order and retain borrowed inputs. Document the separate picker-handler cancellation follow-up.
+
 - Automatically register owned and shared collection forms alongside registry values and arbitrary constructors. Preserve explicit constructor identities, support owned values without `Sync`, and remove redundant collection registrations.
 
 - Share an instrumented offline authentication provider across execution, SDK, REST, and registry tests. Retain the strict unreachable provider for tests that must never invoke authentication. Use imported `Facet` and `Arbitrary` derive names throughout the workspace and resource-type generator.

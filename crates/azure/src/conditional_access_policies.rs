@@ -85,7 +85,6 @@ mod test {
     use cloud_terrastodon_azure_types::ipnetwork::Ipv4Network;
     use cloud_terrastodon_command::CancellationToken;
     use std::net::Ipv4Addr;
-    use tokio::try_join;
     use tracing::warn;
 
     #[tokio::test]
@@ -116,10 +115,17 @@ mod test {
                 let tenant_id = get_test_tenant_id(&cancellation).await?;
                 let auth_context = AuthContext::explicit_azure_cli();
                 let auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
-                let (locations, policies) = try_join!(
-                    fetch_all_conditional_access_named_locations(&auth_context, &executor),
-                    fetch_all_conditional_access_policies(&auth_context, &executor),
-                )?;
+                let (locations, policies) = executor
+                    .join2(
+                        async |child| {
+                            fetch_all_conditional_access_named_locations(&auth_context, &child)
+                                .await
+                        },
+                        async |child| {
+                            fetch_all_conditional_access_policies(&auth_context, &child).await
+                        },
+                    )
+                    .await?;
                 assert!(!locations.is_empty());
                 assert!(!policies.is_empty());
                 let locations_by_id = locations

@@ -24,6 +24,8 @@ pub async fn discover_hcl(
     directory: impl AsRef<Path>,
     depth: DiscoveryDepth,
 ) -> eyre::Result<HclProject> {
+    // Discovery grows the work list recursively. These jobs only read and parse
+    // local files, so abandoning siblings on a scan error owes no completion.
     let mut join_set: JoinSet<eyre::Result<ActionResponse>> = JoinSet::new();
     let dir = directory.as_ref().to_path_buf();
     join_set.spawn(async move { Ok(ActionResponse::DiscoverDirChildren(dir)) });
