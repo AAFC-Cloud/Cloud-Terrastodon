@@ -20,6 +20,61 @@ configuration were read. No build, test, or request was executed for this invent
 Repository-relative paths and source-derived counts below contain no local account
 or machine information. Only the root [AGENTS.md](../../AGENTS.md) was found.
 
+**2026-11-09 design supplement:** U123–U128 add account selection, runtime
+verification, and request-first callers before audit extraction. See the
+[account/test/request design](accounts-runtime-tests-and-requests.md) and main
+tasks 6.0a–6.0e. The original source snapshot remains historical; do not treat it
+as a complete classification of these new concerns. New inspection confirms:
+
+- Credential stores need account-aware selection: CLI tenant generations,
+  browser session/refresh slots, the global DevOps PAT slot, configured workload
+  identities, and Gitea's single-profile-per-instance selection. Existing auth
+  partitions already isolate sessions; missing account selection is not evidence
+  of a tenant-only cache leak. Scoped aliases and configured defaults are approved;
+  exact binding/lifecycle contracts remain in the companion's gates.
+- There are 113 SDK `test_executor::test_executor(...)` candidate calls across 85
+  source files (63 Azure, 22 DevOps). Some are offline policy checks, so classify
+  each test. Unignored resource-group and DevOps project-list tests are confirmed
+  live entrypoints. Expand the inventory beyond this helper to auth/config,
+  external-process, interactive, example/tool, and integration tests. Separate
+  genuine offline tests from registered operator-run verification cases.
+- Resource-group, DevOps project, and Gitea organization fetch helpers only bind
+  requests. The existing `.execute(executor)` method already preserves execution
+  behavior. Classify all helpers before removal: batch aggregation, best-effort
+  error handling, and scope-only configuration operations have real behavior.
+  Record each family's schema, callers, registrations, validation, and remaining
+  exceptions in task 6.0d; preserve Cow/Arc ownership and child executors.
+- U129 adds a semantic naming audit to that cutover: new local profile identities
+  use `CloudTerrastodonAccountId`; existing `ResourceGroupListRequest` and
+  `StorageAccount` become `AzureResourceGroupListRequest` and `AzureStorageAccount`.
+  Include related domain IDs/names/requests, owning files, registrations/reflection,
+  and all consumers. Audit actual wire/fingerprint dependencies so Rust renames
+  do not accidentally change API properties or cache scopes. Generic shared
+  infrastructure is not subject to a blanket service-prefix substitution.
+- U130/U132 refine runtime verification: dedicated test registration retains
+  actual effects; optional `--clean` delegates complete underlying-read
+  invalidation and omission warns while permitting eligible cache reuse. A typed
+  hit skips decoding, and REST failure artifacts are not reusable success entries,
+  so exact failed-response replay needs the deliberate diagnostic path in V1/6.0b.
+- U131 confirms request-level account/source/tenant as approval data. Both
+  `ResourceGroupListRequest` and `StorageAccountListRequest` still contain
+  `Cow<AzureTenantAuthContext>`; phase 5's selected family migrations did not
+  complete these types. Convert them directly to final thin selections in 6.0d.
+  Include the admin-read/on-behalf-of-requester example in synthetic validation;
+  keep credential/session generations runtime-owned rather than mandatory request
+  fields, and never re-resolve an approved account from changed defaults.
+
+Reproduce candidate searches without executing requests:
+
+```powershell
+rg -n 'test_executor::test_executor|get_test_tenant_id|CT_TEST_' crates examples tools
+rg -n '#\[ignore|CredentialAuthenticationProvider|AuthContext::explicit_azure_cli' crates examples tools
+rg -n 'pub (async )?fn (fetch_|try_fetch_)|executor\.execute\(' crates examples tools
+```
+
+These searches are triage aids, not acceptance proofs or permission to run tests.
+Source review and final family inventories must account for indirect calls/macros.
+
 ## How to use and refresh this inventory
 
 This supplements the plan rather than replacing its requirements ledger or gates.
