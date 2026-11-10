@@ -1,9 +1,9 @@
 # Accounts, runtime verification, and request-first callers
 
 **Status:** Design refinement for Phase 6; implementation has not started.
-**Updated:** 2026-11-09
+**Updated:** 2026-11-10
 **Root:** Repository root (`.`).
-**Authority:** U123–U132 in the [migration plan](executor-cache-migration.md).
+**Authority:** U123–U134 in the [migration plan](executor-cache-migration.md).
 That plan owns progress, the guidance ledger, and authorization. This companion
 owns the proposed contracts, decision gates, and source evidence. Choices marked
 recommended are not yet user decisions. No live credentials or data were accessed.
@@ -20,10 +20,13 @@ the previously scheduled audit extraction, not authorization to implement it.
 U129 requires domain-qualified type names so CT-owned account identities are
 clearly distinguished from service resource identities.
 U130 makes freshness optional through `ct test run --clean`, with a warning when
-omitted and cached-response diagnosis supported deliberately. U131 clarifies
+omitted and eligible cached responses available for diagnosis. U131 clarifies
 that each serialized request names its execution account/source/tenant for human
 approval while the executor owns credentials. U132 accepts separate test
-registration rather than a test effect.
+registration rather than a test effect. U133 confirms that `run` takes a test-name
+pattern matched against the registry, without a subcommand for each test. U134
+limits the freshness switch to `.with_invalidation(self.clean)` on normal request
+execution; the earlier separate saved-response decoding mode is withdrawn.
 
 | Verified source | Finding and implication |
 | --- | --- |
@@ -285,8 +288,15 @@ Illustrative interface:
 ct test list
 ct test run resource-group-list --tenant example --account admin
 ct test run resource-group-list --tenant example --account admin --clean
-ct test run --all --allow-effect read --tenant example --account admin --clean
+ct test run "*" --allow-effect read --tenant example --account admin --clean
 ```
+
+`run` is the subcommand; `resource-group-list` is a positional test-name pattern,
+not another subcommand. Match against registered test names at runtime, so adding
+a registration does not require a new CLI variant. A literal name selects that
+test; wildcard examples such as `"*"` illustrate pattern selection (quote them to
+avoid shell expansion). Final pattern grammar belongs to V1. A pattern with no
+matches produces a clear non-success outcome; it does not silently run all tests.
 
 Configured account defaults may replace `--account` under U128. `list` inspects
 registration metadata only, without resolving defaults, credentials, or live
@@ -338,7 +348,7 @@ Runner requirements:
    automatic rollback for arbitrary operations or silently drop useful write
    checks. Obsolete manual experiments may be removed with recorded rationale.
 
-### Clean runs, cached checks, and decoder diagnosis
+### One execution path with optional invalidation
 
 `RequestExecution::with_invalidation` invokes the bound request's invalidation
 contract; it does not automatically walk arbitrary nested requests. A test can
@@ -351,24 +361,21 @@ a run without an unnecessary global purge or assuming a prior cache dependency
 graph is complete. Record where one refreshed exchange is shared by cases rather
 than claiming every case performed an independent exchange. Never memoize verdicts.
 
-U130's parser-debugging motivation needs a separate distinction: a decoded memory
-hit skips deserialization, while a selected raw artifact can be decoded again.
-Current REST execution retains failed-decode artifacts but does not publish them
-as reusable successes. A normal retry after a fresh decode failure therefore
-fetches again; simply omitting `--clean` cannot yet guarantee repeated decoding
-of that exact failed response. CLI/browser/PAT invocation partitions can also
-prevent normal reuse across separate program invocations.
+U134 confirms that `.with_invalidation(self.clean)` is the only freshness switch.
+Both values execute the same registered requests through the normal executor and
+cache. Do not add a response-parsing-only mode, replay command, artifact selector,
+or test-runner-specific cache bypass. This supersedes the earlier proposed
+saved-response decoding feature rather than postponing its CLI spelling.
 
-Include a deliberately selected saved-response decoding path in V1/6.0b so parser
-changes can be checked against the same retained response without another API
-call. Keep it distinct from normal result-cache acceptance: bypass typed-memory
-hits, identify the original artifact/account/request and response age, report
-saved-response provenance, and never turn a failed attempt into a normal cached
-success merely to replay it. Do not resend captured mutations. Respect retention
-and input-integrity rules; unavailable artifacts produce a clear diagnostic.
-Exact selection/API/CLI spelling remains a design gate, not an implied automatic
-fallback on every failure. Validate only with synthetic saved responses during
-development; this task does not authorize reading existing production artifacts.
+Report ordinary cache provenance honestly. A decoded memory hit skips
+deserialization; an eligible raw disk hit uses the current decoder. Current REST
+execution retains failed-decode artifacts without publishing reusable successes,
+so a retry may fetch again. Credential partitions may also prevent cross-invocation
+reuse. Omitted `--clean` therefore permits eligible cached data without promising
+offline execution or repeated decoding of a particular response. Preserve these
+cache contracts; this runner change does not make failed attempts reusable or
+resend mutations as a decoding exercise. Validate both invalidation values using
+synthetic storage and requests, without inspecting production artifacts.
 
 `#[ignore]` and test-tenant environment variables do not establish the final
 separation. Remove live Cargo entrypoints and ambient test-provider helpers once
@@ -432,7 +439,7 @@ No compatibility exports or redundant new request factories remain.
 | A2 | Define thin serialized account/source/authority intent for approval and an explicit executor-owned mapping of admitted accounts, favored by U131's mixed-account example. Keep runtime credential generations out of ordinary request data. | Admin read and requester-account operations display/retain their own choices; defaults cannot redirect reviewed requests; wrong bindings fail before hits; account variants share a WorkCache safely and preserve child lineage. |
 | A3 | Define provider-supported principal continuity, new approved identity on principal change versus private generation on credential renewal, logout/remove admission and completion leases, retired-partition/dependency invalidation, and legacy store migration. | Approved identity survives valid credential renewal but never silently changes principal; synthetic races cover required completion, mixed-account parents and resource invalidation across accounts. Document separate-process behavior without promising cross-process cache coordination. |
 | A4 | Specify source-specific add/login/storage for CLI, browser, workload, PAT, and Gitea; any staged source support must be explicit. | Existing sources remain accounted for; no two-user overwrite; service scope stays distinct from authority. External credentials without trustworthy generation retain no-reuse behavior. |
-| V1 | Separate test registration is accepted (U132); choose its exact shape, typed input construction, report/exit semantics, mutation admission/cleanup and strictness reporting. U130 requires optional --clean, cached-run warning, complete underlying-read invalidation and parser-diagnostic saved-response support; settle repeated/dynamic read coverage and explicit replay selection. | Offline list and synthetic runner tests prove effect/input admission, both clean modes, cached provenance, raw response re-decoding without network, no failure publication, cancellation, and zero-case behavior. A cached/replayed pass is not current live compatibility evidence. |
+| V1 | Separate test registration is accepted (U132); choose its exact shape, typed input construction, report/exit semantics, mutation admission/cleanup and strictness reporting. U133 fixes `run <pattern>` as registry selection, not per-test subcommands; settle pattern grammar. U130/U134 require optional --clean through `.with_invalidation(self.clean)`, cached-run warning and complete underlying-read invalidation; settle repeated/dynamic read coverage. No separate decoding mode. | Offline list and synthetic runner tests prove literal/pattern/no-match selection, effect/input admission, the same request execution path for both clean values, cached provenance, preserved success-only publication, cancellation, and zero-case behavior. A cached pass is not current live compatibility evidence. |
 
 These gates are contract work, not a reason to stop read-only research or plan
 refinement. The first implementation task closes them before dependent code.
@@ -444,8 +451,8 @@ The main plan owns tasks 6.0a–6.0e and their completion records:
 - **6.0a:** Close the gates and produce classified account/test/wrapper inventories,
   including domain-qualified names for new CT-owned account types.
 - **6.0b:** Move live Cargo cases into registered runtime verification and implement
-  offline listing/admission/reporting, optional clean invalidation and deliberate
-  saved-response decoder diagnosis. Preserve genuine offline coverage.
+  offline listing/admission/reporting, registry name-pattern selection, and normal
+  execution with optional invalidation. Preserve genuine offline coverage.
 - **6.0c:** Implement account profiles, defaults, provider/session lifecycle, CLI,
   and synthetic migration/isolation proof. After 6.0a, provider internals and test
   classification can proceed independently; shared selection changes need one owner.

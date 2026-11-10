@@ -20,7 +20,7 @@ configuration were read. No build, test, or request was executed for this invent
 Repository-relative paths and source-derived counts below contain no local account
 or machine information. Only the root [AGENTS.md](../../AGENTS.md) was found.
 
-**2026-11-09 design supplement:** U123–U128 add account selection, runtime
+**2026-11-09 design supplement (refined 2026-11-10):** U123–U128 add account selection, runtime
 verification, and request-first callers before audit extraction. See the
 [account/test/request design](accounts-runtime-tests-and-requests.md) and main
 tasks 6.0a–6.0e. The original source snapshot remains historical; do not treat it
@@ -51,11 +51,15 @@ as a complete classification of these new concerns. New inspection confirms:
   and all consumers. Audit actual wire/fingerprint dependencies so Rust renames
   do not accidentally change API properties or cache scopes. Generic shared
   infrastructure is not subject to a blanket service-prefix substitution.
-- U130/U132 refine runtime verification: dedicated test registration retains
+- U130/U132–U134 refine runtime verification: dedicated test registration retains
   actual effects; optional `--clean` delegates complete underlying-read
   invalidation and omission warns while permitting eligible cache reuse. A typed
-  hit skips decoding, and REST failure artifacts are not reusable success entries,
-  so exact failed-response replay needs the deliberate diagnostic path in V1/6.0b.
+  hit skips decoding, and REST failure artifacts are not reusable success entries.
+  U134 removes the proposed separate saved-response decoding mode: both values of
+  `.with_invalidation(self.clean)` use the normal request execution/cache path.
+  U133 selects tests through `ct test run <pattern>` matched against registered
+  names; adding tests must not add per-test CLI subcommands. Update V1/6.0b
+  validation for literal/pattern/no-match selection and normal cache semantics.
 - U131 confirms request-level account/source/tenant as approval data. Both
   `ResourceGroupListRequest` and `StorageAccountListRequest` still contain
   `Cow<AzureTenantAuthContext>`; phase 5's selected family migrations did not

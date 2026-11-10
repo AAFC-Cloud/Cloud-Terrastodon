@@ -1,6 +1,6 @@
 # Explicit execution and shared typed cache migration
 
-**Plan status:** Active migration; current focus is the U123–U132 design revision
+**Plan status:** Active migration; current focus is the U123–U134 design revision
 for accounts, runtime verification, and request-first callers before Phase 6 audit
 extraction. Implementation of that revision is not yet authorized. See
 [the design companion](accounts-runtime-tests-and-requests.md).
@@ -125,7 +125,7 @@ The registry checkpoint is `09d8bb11`.
 
 **Primary implementation root:** Repository root (`.`); no branch change prescribed.
 
-**Last updated:** 2026-11-09
+**Last updated:** 2026-11-10
 
 **Source baseline:** `26e14bcc`; tracked files were initially clean. Pre-existing
 untracked notes are preserved.
@@ -252,8 +252,9 @@ fresh reconstruction of unavailable assistant turns.
   visible for approval, using an admin read on behalf of another user as the
   example; runtime credentials stay executor-owned. U132 accepts separate test
   registration rather than `Effect::Test`.
-- **Traceability:** V1/6.0b/6.0e own both clean modes, nested invalidation and
-  saved-response diagnosis; A2/A3/6.0c/6.0d own account identity, credential
+- **Traceability:** V1/6.0b/6.0e own both clean values and nested invalidation.
+  The saved-response diagnosis feature proposed in this audit was subsequently
+  withdrawn under U134. A2/A3/6.0c/6.0d own account identity, credential
   renewal, explicit multi-account execution and approval data. The inventory
   records resource-group/storage requests as unfinished context migrations.
 - **Adversarial review:** Omitted `--clean` allows caching, not guaranteed offline
@@ -264,7 +265,24 @@ fresh reconstruction of unavailable assistant turns.
   refinements supersede the earlier mandatory fresh-root and per-login serialized
   revision recommendations without changing cache/cancellation safety contracts.
 
-**Current authorization:** U123–U132 authorize design review and updating this
+**U133–U134 intent audit — 2026-11-10:**
+- **Pass 1 — extraction:** Reread the user's CLI clarification: `run` accepts a
+  test-name pattern matched against registry entries, not per-test subcommands.
+  The only freshness switch is `.with_invalidation(self.clean)`; an explicit
+  response-parsing-only mode is rejected.
+- **Pass 2 — traceability:** V1 and 6.0b define runtime name-pattern selection and
+  the same request execution path for both clean values. Update 6.0a/6.0e, the
+  inventory, acceptance criteria, and risks to remove the extra decoding feature.
+  U130's warning and complete underlying-read invalidation remain applicable.
+- **Pass 3 — adversarial omission:** The rejected feature is removed, not deferred
+  behind an unsettled CLI spelling. Normal typed-memory hits still skip decoding,
+  misses may fetch, and failure artifacts are not reusable successes. No-match
+  patterns cannot look passed. Unrelated request serialization/replay and account
+  continuity requirements remain intact. No new cache acceptance policy is implied.
+- **Source limit:** This audit covers the available clarification and source-backed
+  plan; earlier guidance remains represented by the existing historical ledger.
+
+**Current authorization:** U123–U134 authorize design review and updating this
 plan before further implementation. The prior UI cleanup is committed as
 `39bee039`, `Consolidate UI background work and scoped autosaves`. The next safe
 work is closing the account/runtime-verification contracts in 6.0a; implementation
@@ -1245,9 +1263,11 @@ do not silently rewrite earlier guidance.
 | U127 | Account aliases are scoped: reuse names such as admin/user in different tenants or service instances. | Gate A1 settles exact namespace/qualification; 6.0c proves same alias in separate namespaces with distinct stable identities. Alias names are not cache identities or permission guarantees. | — |
 | U128 | Authenticated commands may use an explicitly configured account default; neither ambient Azure CLI selection nor the first available account is acceptable. | Gate A1 and 6.0c/6.0e cover stable default references, explicit overrides, missing/removed/incompatible defaults, and resolution before request construction. Service scope requirements remain intact. | — |
 | U129 | Properly namespace types by their semantic domain: use CloudTerrastodonAccountId for CT's internal model; existing ResourceGroupListRequest and StorageAccount should expose their Azure domain in their names. | Companion naming contract; 6.0a/6.0c apply it to new account types, and 6.0d inventories affected service families for full renames with callers/registrations/files. Preserve wire/cache behavior and avoid unrelated blanket renaming. | — |
-| U130 | Fresh responses should be optional for runtime tests: add --clean to invalidate all underlying requests; warn when absent and allow cached data, especially while diagnosing parser errors against a repeated response. | V1/6.0b/6.0e replace mandatory fresh-root policy with explicit clean/cached modes, complete child invalidation, provenance, and a deliberate saved-response decoder path because failed decodes are not normal cached successes. Development still uses synthetic inputs only. | — |
+| U130 | Fresh responses should be optional for runtime tests: add --clean to invalidate all underlying requests; warn when absent and allow cached data, especially while diagnosing parser errors against a repeated response. | V1/6.0b/6.0e use normal request execution with optional invalidation, complete child coverage and honest cache provenance. U134 withdraws the agent-proposed separate saved-response decoder feature. Development still uses synthetic inputs only. | — |
 | U131 | Serializable requests must contain execution account/source/tenant, while the executor owns runtime auth. An approval workflow may intentionally list resource groups under an admin account rather than the requesting user's account. Resource-group/storage requests still holding contexts reveal unfinished migration. | A2/A3/6.0c/6.0d define stable approved account selection and executor-owned sessions, permit credential renewal without serializing session generations, prevent account substitution, and complete the remaining data-only request cutover. This is an approval-data requirement, not authorization to build a workflow engine. | — |
 | U132 | A separate test registration, analogous to arbitrary registration, makes sense instead of a Test effect. | V1/6.0b use dedicated test metadata linked to normal executable requests; retain Read/Write/Solicit effects and subset admission. Exact registration API remains a design detail. | — |
+| U133 | `ct test run resource-group-list` uses a positional test-name pattern matched against the registry, not an explicit subcommand for every test. | V1/6.0b provide one `run <pattern>` surface, runtime registry selection, and literal/pattern/no-match validation before normal effect/input admission. | — |
+| U134 | The only freshness switch should be the outcome of `.with_invalidation(self.clean)`, without a separate response-parsing-only mode. | V1/6.0b/6.0e use the same request execution/cache path for both clean values. Remove the agent-proposed saved-response decoding mode and its implementation/acceptance requirements; preserve existing cache acceptance rules and explain their ordinary limits. | — |
 
 U18 supersedes the earlier assistant suggestion to preserve an Azure CLI
 active-tenant selection. That suggestion was not user approval. U13 rejects the
@@ -1397,9 +1417,11 @@ not an implemented package; U61 selects `auth_types` paired with runtime `auth`.
 | U127 | Companion alias model, A1; 6.0c/6.0e | User reply confirms scoped aliases; precise lookup contract and synthetic resolution tests pending. |
 | U128 | Companion defaults contract, A1; 6.0c/6.0e | User reply permits configured defaults; no ambient/first-account fallback. Resolution and lifecycle validation pending. |
 | U129 | Companion type naming; 6.0a/6.0c/6.0d | Proposed account name corrected; existing Azure request/storage names verified in source. Production family renames and consumer/reflection checks remain pending. |
-| U130 | Companion clean/replay policy, V1; 6.0b/6.0e | Existing invalidation and REST artifact behavior reviewed; mandatory fresh-root recommendation superseded. Implementation and synthetic clean/cached/redecode proof pending. |
+| U130 | Companion optional-invalidation policy, V1; 6.0b/6.0e | Existing invalidation and REST artifact behavior reviewed; mandatory fresh-root recommendation superseded. U134 removes the extra decoding feature; synthetic normal-execution/cache and invalidation proof pending. |
 | U131 | Companion approval model, A2/A3; 6.0c/6.0d/6.0e | Runtime auth-context fields confirmed in both cited requests; per-account serialized approval and executor mapping remain planned. Credential generations are runtime concerns, not mandatory durable request fields. |
 | U132 | Companion test registration, V1; 6.0b | User accepts registration/effect separation; exact registration and runner implementation pending. |
+| U133 | Companion registry name selection, V1; 6.0b/6.0e | Positional pattern contract recorded; literal/pattern/no-match selection and unchanged effect/input admission proof pending. |
+| U134 | Companion single execution path, V1; 6.0a/6.0b/6.0e | Separate decoding feature removed from active tasks and acceptance. Both invalidation values must retain normal cache behavior; source implementation and synthetic proof pending. |
 
 ## Purpose and scope
 
@@ -1490,8 +1512,9 @@ normal/build dependency order and rejects cycles; `set_version.ps1`,
   itself redirect or unnecessarily invalidate the approved account choice.
 - Runtime test freshness is optional: `--clean` invalidates the selected tests'
   underlying reads; omission permits eligible cache reuse with a warning. Test
-  registration is separate from effects. Saved-response decoding must not promote
-  failure artifacts into normal reusable successes.
+  registration is separate from effects. One `run <pattern>` command selects
+  registered tests; the only freshness switch is `.with_invalidation(self.clean)`.
+  Both values retain normal execution/cache semantics without a separate decoding mode.
 - The executor is a resource coordinator, not a data-filled World or a feature
   client forwarding organization/project fields. Clones share resources; a child
   execution uses its callback's child CancellationScope. Clones never extend a
@@ -4870,8 +4893,8 @@ behavior, and use synthetic data only.
 with the confirmed scoped aliases/configured defaults. Decide serialized binding
 identity, provider selection, session lifecycle, CLI surface, source support,
 legacy migration, verification registration/input/strictness semantics, and
-effect admission. Include optional clean invalidation/replay diagnosis and
-per-operation account visibility for approvals; keep credential generations
+effect admission. Include registry name-pattern selection, optional clean
+invalidation, and per-operation account visibility for approvals; keep credential generations
 separate from durable identity. Inventory concrete store keys, account-sensitive aggregates,
 live/offline Cargo tests, and forwarding versus meaningful helper functions.
 Specify domain-qualified account type names, including `CloudTerrastodonAccountId`,
@@ -4895,30 +4918,34 @@ admission. The present design review is preparation, not completion of this task
 **Work:** Convert meaningful live checks to separately registered executable test
 requests composing production requests. Add metadata-only listing, explicit typed case
 construction, allowed-effect subset checks, typed results, and scoped execution
-through the existing executor. Add optional `--clean`, default false: warn without
+through the existing executor. Implement `ct test run <pattern>` matching registered
+test names at runtime, without per-test subcommands; no matches is a non-success
+outcome. Add optional `--clean`, default false: warn without
 it and allow eligible cached responses; when supplied, delegate invalidation to
 every underlying read request, including pages and composed/non-descendant reads.
-Reuse `.with_invalidation(clean)` and existing contracts without a mandatory new
-cache root or unrelated purge. Design an explicit saved-response decoder path for
-parser diagnosis, since typed memory hits skip parsing and failed-decode artifacts
-are not published as reusable results. Preserve normal success-only cache rules,
-artifact integrity/retention, and visible cache/replay/strictness provenance.
+Reuse `.with_invalidation(self.clean)` and existing contracts without a mandatory
+new cache root or unrelated purge. Both values execute the same registered requests
+through the normal executor/cache path. Do not add a separate decoding/replay mode,
+artifact selector, or test-specific cache bypass. Preserve normal success-only
+cache rules, artifact integrity/retention, and visible cache/strictness provenance.
 Preserve offline unit/policy/loopback/tempfile tests;
 remove obsolete experiments with rationale. Retire credential-backed Cargo test
 helpers/default lookups once callers are classified. Include tests that do not
 use the SDK test_executor helper. Update test scripts and development guidance.
 
 **Validation:** Inspect each migrated test before executing it. Use synthetic
-registrations/providers to exercise list, missing input, disallowed Write/Solicit,
+registrations/providers to exercise list, literal/pattern/no-match selection,
+missing input, disallowed Write/Solicit,
 zero-case runs, failure reporting, warning/provenance without `--clean`, complete
 invalidation and failed-invalidation handling with it, empty-item coverage, and cooperative
 draining. Cancellation during a case must stop queued cases from starting and
 produce a cancelled/partial non-success outcome after required work drains; it
 must not become an ordinary failed case that permits continued scheduling.
 List may inspect metadata only, with configuration/credentials disabled.
-Use synthetic retained responses to prove repeated decoding uses the new decoder
-without network, bypasses typed memory hits, and does not publish a failed attempt
-as a normal cached success. Test repeated/dynamic child-read coverage for clean runs.
+Use synthetic requests/storage to prove both clean values run the same request
+procedure, with normal cache reuse when eligible and invalidation when requested.
+Preserve success-only publication; do not require cache hits to rerun decoding.
+Test repeated/dynamic child-read coverage for clean runs.
 Compile live cases without invoking them. Record exact focused test commands once
 targets exist and have been inspected; do not run broad Cargo suites yet.
 
@@ -4926,8 +4953,8 @@ targets exist and have been inspected; do not run broad Cargo suites yet.
 ambient service credentials/configuration. Meaningful former live checks have
 explicit runtime cases; genuine offline coverage remains. All cases declare
 actual effects and cannot bootstrap live scope via Arbitrary/discovery. Clean and
-cached runs follow U130, parser diagnosis has explicit saved-response provenance,
-and neither cached nor replayed success claims a fresh service exchange.
+cached runs follow U130/U134, selection follows U133, and cached success does not
+claim a fresh service exchange. No separate parsing-only path is introduced.
 
 ### [ ] 6.0c Implement named accounts and credential-session ownership
 
@@ -5006,15 +5033,15 @@ no old-name compatibility aliases remain.
 **Work:** Integrate account selection/defaults, normal requests, aggregate caches,
 runtime test admission, and consumer outputs. Document `ct account`/`ct test`,
 credential lifecycle and separate-process limits, strict/normal decoding coverage,
-optional `--clean`/cached warnings and saved-response diagnosis, per-request
+registry pattern selection, optional `--clean`/cached warnings, per-request
 approval identities, full Rust API cutover, and how to run offline Cargo tests. Update the inventory,
 contracts, auth docs, and Unreleased notes to the final implemented design.
 
 **Validation:** Use two synthetic accounts in one tenant/source sharing a cache,
 including mixed-account composition and rebind/logout races. Exercise metadata-only
 test listing, selected read runs with denied writes/solicitation, scoped defaults,
-both clean modes/replay against synthetic isolated storage, and real
-`--auth-source none` dispatch without service I/O. Test an approved admin read
+both invalidation values on the same execution path against synthetic isolated
+storage, and real `--auth-source none` dispatch without service I/O. Test an approved admin read
 alongside another account's request without default substitution or credential
 resources in serialized request data.
 Audit all Cargo targets before admitting a workspace test command; until that
@@ -5206,7 +5233,7 @@ evidence and documentation. This item remains deferred when phases 1–7 complet
 | Azure CLI bearer, browser, workload identity | Explicit request tenant/source | Offline selection/command construction; no live credential tests | Auth/runtime selection and task 4.2 caller-provider rebinding checks passed; no live credential validation |
 | PAT and local-only/disabled auth | PAT tenant-independent; local work credential-free | Selection/admission tests | Provider policy, CLI early admission, raw REST disabled-auth, group-management disabled-auth, and small-stack dispatch checks passed |
 | Named accounts and scoped aliases/defaults | Multiple identities per tenant/service; explicit immutable request selection | Same-source/account isolation, default resolution, binding replay, logout/rebind completion and dependency tests | U123/U127/U128 design recorded; 6.0a/6.0c/6.0e pending |
-| Cargo tests and registered runtime verification | Offline Cargo workflow; deliberate runtime checks with optional --clean and warning/provenance for cache use | Classified test inventory, offline listing, effect/input admission, clean/cached/replay/strictness reporting and synthetic runner checks | U130/U132 refine the design; 6.0b/6.0e pending; no live run authorized |
+| Cargo tests and registered runtime verification | Offline Cargo workflow; registry name-pattern selection and deliberate runtime checks with optional --clean and warning/provenance for cache use | Classified test inventory, offline listing, pattern/effect/input admission, normal execution with optional invalidation, cache/strictness reporting and synthetic runner checks | U130/U132–U134 refine the design; 6.0b/6.0e pending; no live run authorized |
 | Direct request callers | Trivial fetch wrappers removed; behavior/borrowing preserved | Per-family full consumer compilation and inspected offline behavior checks | ExecutableRequest::execute exists; 6.0d pending |
 | Registry, UI, discovery, CLI output | Explicit execution; offline planning preserved | Synthetic invocation/discovery and scoped UI/output checks | Task 3.3's registry, shared-output discovery, UI lifecycle/export, and entrypoint dispatch checks passed; broader service/output consumer migration remains phase 6 |
 | App with auth and without auth; workspace examples | Supported feature boundaries; no production inputs | Both process-suite feature configurations, `--auth-source none` local handler with isolated storage, and consumer compile checks | Task 3.2's no-auth library and auth-enabled binding tests plus workspace compilation passed; later consumer/process acceptance remains task 6.2 |
@@ -5216,7 +5243,7 @@ evidence and documentation. This item remains deferred when phases 1–7 complet
 
 ## Overall initial-migration completion criteria
 
-- [ ] Every active U01–U132 requirement has task evidence; G1–G6 and A1–A4/V1 are closed and
+- [ ] Every active U01–U134 requirement has task evidence; G1–G6 and A1–A4/V1 are closed and
   phases 1–7 complete. Phase 8 remains explicitly deferred.
 - [ ] Requests contain explicit operation/auth selection data and no execution
   resources; both execute spellings and registry invocation share one contract.
@@ -5243,10 +5270,11 @@ evidence and documentation. This item remains deferred when phases 1–7 complet
   binding replacement/logout, and account-dependent cache reuse satisfy the
   companion contracts without ambient account fallback or cross-process overclaims.
 - [ ] Cargo tests are isolated from live credentials/services. Registered runtime
-  verification uses explicit scope, actual effect admission, optional `--clean`
-  with complete underlying-read invalidation, warnings for cached runs, deliberate
-  saved-response diagnosis, and honest build-mode/coverage reporting; cached or
-  replayed success does not imply current live compatibility.
+  verification uses registry name-pattern selection, explicit scope, actual effect
+  admission, and `.with_invalidation(self.clean)` with complete underlying-read
+  coverage. Both values follow normal execution/cache behavior, with cached-run
+  warnings and honest build-mode/coverage reporting. No separate parsing-only mode
+  is added; cached success does not imply current live compatibility.
 - [ ] Approval surfaces can inspect each request's selected account/source/tenant;
   execution cannot substitute a requester's/default account. Credential renewal
   is distinct from changing the approved principal, and requests carry no runtime
@@ -5269,8 +5297,9 @@ evidence and documentation. This item remains deferred when phases 1–7 complet
 | Credential/account crossover despite matching source/tenant | G3 auth partition; 3.1 isolation tests; no secret-based printable keys |
 | Named profile rebind redirects serialized request or cached aggregate | A2/A3 immutable binding intent; 6.0c/6.0d generation/dependency proof, including mixed-account parents |
 | Logout turns a successful write into an early error before cleanup | A3 distinguishes closed new admission from admitted required completion; 6.0c mutation/response/artifact/invalidation drain tests |
-| Cached/replayed test result mistaken for fresh service coverage | U130/V1; optional clean invalidation, warning/provenance, saved-response versus typed-hit distinction, coverage/strictness metadata, no verdict memoization, explicit zero-case behavior |
-| Root invalidation leaves child data cached or parser retry silently refetches | U130/6.0b; underlying read-contract delegation across branches, dynamic-child coverage, explicit diagnostic artifact replay without normal success publication |
+| Cached test result mistaken for fresh service coverage | U130/U134/V1; optional clean invalidation, warning/provenance, normal typed-hit versus disk-decode behavior, coverage/strictness metadata, no verdict memoization, explicit zero-case behavior |
+| Root invalidation leaves child data cached | U130/U134/6.0b; underlying read-contract delegation across branches and dynamic-child coverage through existing invalidation contracts |
+| Test selection becomes hardcoded CLI variants or an unmatched pattern looks successful | U133/V1/6.0b; one registry-driven `run <pattern>` surface, literal/pattern/no-match tests and subsequent effect/input admission |
 | Reviewed operation executes under a different account/default | U131/A2/A3; serialized stable account/source/tenant, exact provider admission, credential-renewal versus principal-change tests |
 | Test marker or Read intersection admits writes/solicitation | V1 separate purpose metadata and full allowed-effects subset; offline admission tests |
 | Broad helper deletion adds clones, loses typed errors, or bypasses child ownership | 6.0d classification and complete per-family caller validation |
