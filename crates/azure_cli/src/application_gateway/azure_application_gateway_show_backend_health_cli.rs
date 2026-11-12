@@ -1,22 +1,20 @@
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
+use cloud_terrastodon_azure::AzureApplicationGatewayListRequest;
+use cloud_terrastodon_azure::AzureApplicationGatewayResourceBackendHealthRequest;
 use cloud_terrastodon_azure::Scope;
-use cloud_terrastodon_azure::fetch_all_application_gateways;
-use cloud_terrastodon_azure::fetch_application_gateway_backend_health;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
 use eyre::bail;
 use facet::Facet;
-use std::io::Write;
 use tracing::info;
 
 /// Arguments for showing backend health for a single Azure application gateway.
 #[derive(Facet, Debug, Clone)]
 pub struct AzureApplicationGatewayShowBackendHealthArgs {
-    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[facet(figue::named, default)]
-    pub tenant: AzureTenantArgument<'static>,
+    #[facet(flatten)]
+    pub authentication: AzureAuthenticationArgs,
 
     /// Application gateway resource id or resource name.
     #[facet(figue::positional)]
@@ -24,21 +22,13 @@ pub struct AzureApplicationGatewayShowBackendHealthArgs {
 }
 
 impl AzureApplicationGatewayShowBackendHealthArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        let cancellation = executor.cancellation();
-        let tenant_auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
-            .await?;
-        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
-        let tenant_id = tenant_auth_context.tenant_id;
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        let authentication = self.authentication.resolve(executor).await?;
+        let tenant_id = authentication.tenant_id;
         info!(needle = %self.application_gateway, %tenant_id, "Resolving Azure application gateway for backend health");
-        let application_gateways =
-            fetch_all_application_gateways(&tenant_auth_context, executor).await?;
+        let application_gateways = AzureApplicationGatewayListRequest { authentication }
+            .execute(executor)
+            .await?;
 
         let needle = self.application_gateway.trim();
         let mut matches = application_gateways
@@ -55,19 +45,13 @@ impl AzureApplicationGatewayShowBackendHealthArgs {
             }
             1 => {
                 let application_gateway = matches.remove(0);
-                let backend_health = fetch_application_gateway_backend_health(
-                    tenant_id,
-                    application_gateway.id.clone(),
-                    tenant_auth_context.auth_context.azure_bearer_source()?,
-                    executor,
-                )
+                let backend_health = AzureApplicationGatewayResourceBackendHealthRequest {
+                    authentication,
+                    application_gateway_id: (application_gateway.id.clone()),
+                }
+                .execute(executor)
                 .await?;
-                let stdout = std::io::stdout();
-                let mut handle = stdout.lock();
-                facet_json::to_writer_std_pretty(&mut handle, &backend_health)
-                    .map_err(|error| eyre::eyre!("{error:?}"))?;
-                handle.write_all(b"\n")?;
-                Ok(())
+                Ok(CliOutput::facet(backend_health))
             }
             _ => {
                 matches.sort_by_key(|application_gateway| application_gateway.id.expanded_form());

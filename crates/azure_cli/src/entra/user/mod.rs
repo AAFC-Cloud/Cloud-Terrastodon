@@ -1,3 +1,4 @@
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use facet::Facet;
 pub mod azure_entra_user_browse_cli;
@@ -11,7 +12,6 @@ pub use azure_entra_user_cli::AzureEntraUserCommand;
 pub use azure_entra_user_list_cli::AzureEntraUserListArgs;
 pub use azure_entra_user_search_cli::AzureEntraUserSearchArgs;
 pub use azure_entra_user_show_cli::AzureEntraUserShowArgs;
-use cloud_terrastodon_auth::AuthContext;
 use eyre::Result;
 
 /// Entra user subcommands.
@@ -22,11 +22,7 @@ pub struct AzureEntraUserArgs {
 }
 
 impl AzureEntraUserArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        self.command.invoke(auth_context, executor).await
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        self.command.invoke(executor).await
     }
 }

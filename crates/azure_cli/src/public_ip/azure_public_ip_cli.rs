@@ -1,6 +1,6 @@
 use super::AzurePublicIpListArgs;
 use super::AzurePublicIpShowArgs;
-use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use facet::Facet;
@@ -16,14 +16,10 @@ pub enum AzurePublicIpCommand {
 }
 
 impl AzurePublicIpCommand {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         match self {
-            AzurePublicIpCommand::List(args) => args.invoke(auth_context, executor).await,
-            AzurePublicIpCommand::Show(args) => args.invoke(auth_context, executor).await,
+            AzurePublicIpCommand::List(args) => Box::pin(args.invoke(executor)).await,
+            AzurePublicIpCommand::Show(args) => Box::pin(args.invoke(executor)).await,
         }
     }
 }

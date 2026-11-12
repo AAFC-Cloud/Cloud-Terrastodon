@@ -23,6 +23,8 @@ pub mod virtual_network;
 pub mod vm;
 
 mod audit_azure;
+#[cfg(test)]
+mod audit_policy_tests;
 mod browse_application_registrations;
 mod browse_policy_assignments;
 mod browse_service_principals;
@@ -42,3 +44,24 @@ pub use pim_activate::build_duration_choices;
 pub use pim_activate::pim_activate;
 pub use pim_activate::pim_activate_azurerm;
 pub use pim_activate::pim_activate_entra;
+
+mod azure_audit_finding;
+pub use azure_audit_finding::AzureAuditFinding;
+
+mod azure_audit_password_credential_status;
+pub use azure_audit_password_credential_status::AzureAuditPasswordCredentialStatus;
+
+mod azure_audit_report;
+pub use azure_audit_report::AzureAuditReport;
+
+mod azure_unknown_principal_audit_request;
+pub use azure_unknown_principal_audit_request::AzureUnknownPrincipalAuditRequest;
+
+mod azure_service_principal_password_audit_request;
+pub use azure_service_principal_password_audit_request::AzureServicePrincipalPasswordAuditRequest;
+
+mod azure_resource_tag_audit_request;
+pub use azure_resource_tag_audit_request::AzureResourceTagAuditRequest;
+
+mod azure_admin_correspondence_audit_request;
+pub use azure_admin_correspondence_audit_request::AzureAdminCorrespondenceAuditRequest;

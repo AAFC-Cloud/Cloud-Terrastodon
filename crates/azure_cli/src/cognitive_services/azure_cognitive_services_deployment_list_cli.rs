@@ -1,17 +1,16 @@
 use crate::cognitive_services::CognitiveServicesAccountArgument;
-use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
 use cloud_terrastodon_azure::AzureCognitiveServicesAccountDeployment;
+use cloud_terrastodon_azure::AzureCognitiveServicesAccountDeploymentListRequest;
+use cloud_terrastodon_azure::AzureCognitiveServicesAccountListRequest;
 use cloud_terrastodon_azure::AzureCognitiveServicesAccountResource;
-use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::Scope;
-use cloud_terrastodon_azure::fetch_all_cognitive_services_accounts;
-use cloud_terrastodon_azure::fetch_cognitive_services_account_deployments;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
 use eyre::bail;
 use facet::Facet;
-use std::io::Write;
 use std::sync::Arc;
 
 #[derive(Debug, Clone, Facet)]
@@ -23,30 +22,26 @@ struct CognitiveServicesAccountDeploymentListEntry {
 /// Arguments for listing deployments for Azure Cognitive Services accounts.
 #[derive(Facet, Debug, Clone)]
 pub struct AzureCognitiveServicesDeploymentListArgs {
-    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[facet(figue::named, default)]
-    pub tenant: AzureTenantArgument<'static>,
+    #[facet(flatten)]
+    pub authentication: AzureAuthenticationArgs,
 
     /// Optional Cognitive Services account resource id, resource name, or wildcard pattern.
     #[facet(figue::positional, default)]
-    pub account: Option<CognitiveServicesAccountArgument<'static>>,
+    pub cognitive_services_account: Option<CognitiveServicesAccountArgument<'static>>,
 }
 
 impl AzureCognitiveServicesDeploymentListArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        let cancellation = executor.cancellation();
-        let Self { tenant, account } = self;
-        let tenant_auth_context = tenant.bind_auth_context(auth_context, cancellation).await?;
-        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
-        let tenant_id = tenant_auth_context.tenant_id;
-        let accounts =
-            fetch_all_cognitive_services_accounts(&tenant_auth_context, executor).await?;
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        let Self {
+            authentication,
+            cognitive_services_account,
+        } = self;
+        let authentication = authentication.resolve(executor).await?;
+        let accounts = AzureCognitiveServicesAccountListRequest { authentication }
+            .execute(executor)
+            .await?;
 
-        let deployments = if let Some(account_argument) = account {
+        let deployments = if let Some(account_argument) = cognitive_services_account {
             let mut matches = accounts
                 .into_iter()
                 .filter(|item| account_argument.matches(item))
@@ -61,12 +56,11 @@ impl AzureCognitiveServicesDeploymentListArgs {
                 }
                 1 => {
                     let account = matches.remove(0);
-                    let deployments = fetch_cognitive_services_account_deployments(
-                        tenant_id,
-                        account.id.clone(),
-                        tenant_auth_context.auth_context.azure_bearer_source()?,
-                        executor,
-                    )
+                    let deployments = AzureCognitiveServicesAccountDeploymentListRequest {
+                        authentication,
+                        account_id: (account.id.clone()),
+                    }
+                    .execute(executor)
                     .await?;
                     deployments
                         .into_iter()
@@ -93,12 +87,11 @@ impl AzureCognitiveServicesDeploymentListArgs {
         } else {
             let mut deployments = Vec::new();
             for account in accounts {
-                let account_deployments = fetch_cognitive_services_account_deployments(
-                    tenant_id,
-                    account.id.clone(),
-                    tenant_auth_context.auth_context.azure_bearer_source()?,
-                    executor,
-                )
+                let account_deployments = AzureCognitiveServicesAccountDeploymentListRequest {
+                    authentication,
+                    account_id: (account.id.clone()),
+                }
+                .execute(executor)
                 .await?;
                 deployments.extend(account_deployments.into_iter().map(|deployment| {
                     CognitiveServicesAccountDeploymentListEntry {
@@ -110,11 +103,6 @@ impl AzureCognitiveServicesDeploymentListArgs {
             deployments
         };
 
-        let stdout = std::io::stdout();
-        let mut handle = stdout.lock();
-        facet_json::to_writer_std_pretty(&mut handle, &deployments)
-            .map_err(|error| eyre::eyre!("{error:?}"))?;
-        handle.write_all(b"\n")?;
-        Ok(())
+        Ok(CliOutput::facet(deployments))
     }
 }

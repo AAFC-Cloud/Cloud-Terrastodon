@@ -1,13 +1,11 @@
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure::AzureTenantArgumentExt;
-use cloud_terrastodon_azure::EntraPrincipal;
-use cloud_terrastodon_azure::RoleAssignment;
-use cloud_terrastodon_azure::RoleDefinition;
+use super::azure_role_assignment_browse_output::AzureRoleAssignmentBrowseOutput;
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
+use cloud_terrastodon_azure::AzureRoleDefinitionsAndAssignmentsListRequest;
+use cloud_terrastodon_azure::EntraPrincipalListRequest;
 use cloud_terrastodon_azure::Scope;
-use cloud_terrastodon_azure::fetch_all_principals;
-use cloud_terrastodon_azure::fetch_all_role_definitions_and_assignments;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::PickerTui;
@@ -15,50 +13,31 @@ use eyre::Result;
 use facet::Facet;
 use itertools::Itertools;
 use std::borrow::Cow;
-use std::io::Write;
+use std::sync::Arc;
 use tracing::info;
 
 /// Arguments for browsing Azure role assignments.
 #[derive(Facet, Debug, Clone)]
 pub struct AzureRoleAssignmentBrowseArgs {
-    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[facet(figue::named, default)]
-    pub tenant: AzureTenantArgument<'static>,
-}
-
-#[derive(Facet)]
-struct RoleAssignmentBrowseOutput<'a> {
-    role_assignment: &'a RoleAssignment,
-    role_definition: &'a RoleDefinition,
-    principal: Option<&'a EntraPrincipal>,
+    #[facet(flatten)]
+    pub authentication: AzureAuthenticationArgs,
 }
 
 impl AzureRoleAssignmentBrowseArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        let cancellation = executor.cancellation();
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         info!("Fetching Azure role assignments and principals");
-        let tenant_auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
-            .await?;
-        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
-        let auth_source = tenant_auth_context.auth_source()?;
+        let authentication = self.authentication.resolve(executor).await?;
         let (rbac, principals) = executor
             .join2(
-                |child| async move {
-                    fetch_all_role_definitions_and_assignments(
-                        tenant_auth_context.tenant_id,
-                        auth_source,
-                        &child,
-                    )
-                    .await
+                async |child| {
+                    AzureRoleDefinitionsAndAssignmentsListRequest { authentication }
+                        .execute(&child)
+                        .await
                 },
-                |child| async move {
-                    fetch_all_principals(tenant_auth_context.tenant_id, auth_source, &child).await
+                async |child| {
+                    EntraPrincipalListRequest { authentication }
+                        .execute(&child)
+                        .await
                 },
             )
             .await?;
@@ -70,7 +49,13 @@ impl AzureRoleAssignmentBrowseArgs {
         info!(count = principals.len(), "Fetched Azure principals");
 
         let mut choices = Vec::new();
-        for (role_assignment, role_definition) in rbac.iter_role_assignments() {
+        for role_assignment in rbac.role_assignments.values() {
+            let Some(role_definition) = rbac
+                .role_definitions
+                .get(&role_assignment.role_definition_id)
+            else {
+                continue;
+            };
             let principal = principals.get(&role_assignment.principal_id);
             let principal_name = principal
                 .map(|p| Cow::Borrowed(p.display_name()))
@@ -101,19 +86,14 @@ impl AzureRoleAssignmentBrowseArgs {
         let chosen = chosen
             .into_iter()
             .map(
-                |(role_assignment, role_definition, principal)| RoleAssignmentBrowseOutput {
-                    role_assignment,
-                    role_definition,
-                    principal,
+                |(role_assignment, role_definition, principal)| AzureRoleAssignmentBrowseOutput {
+                    role_assignment: Arc::clone(role_assignment),
+                    role_definition: Arc::clone(role_definition),
+                    principal: principal.cloned(),
                 },
             )
             .collect_vec();
 
-        let stdout = std::io::stdout();
-        let mut handle = stdout.lock();
-        facet_json::to_writer_std_pretty(&mut handle, &chosen)
-            .map_err(|error| eyre::eyre!("{error:?}"))?;
-        handle.write_all(b"\n")?;
-        maybe_error
+        Ok(CliOutput::facet(chosen).with_result(maybe_error))
     }
 }

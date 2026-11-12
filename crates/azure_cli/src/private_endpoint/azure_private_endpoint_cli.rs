@@ -1,6 +1,6 @@
 use super::AzurePrivateEndpointListArgs;
 use super::AzurePrivateEndpointShowArgs;
-use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use facet::Facet;
@@ -16,14 +16,10 @@ pub enum AzurePrivateEndpointCommand {
 }
 
 impl AzurePrivateEndpointCommand {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         match self {
-            AzurePrivateEndpointCommand::List(args) => args.invoke(auth_context, executor).await,
-            AzurePrivateEndpointCommand::Show(args) => args.invoke(auth_context, executor).await,
+            AzurePrivateEndpointCommand::List(args) => Box::pin(args.invoke(executor)).await,
+            AzurePrivateEndpointCommand::Show(args) => Box::pin(args.invoke(executor)).await,
         }
     }
 }

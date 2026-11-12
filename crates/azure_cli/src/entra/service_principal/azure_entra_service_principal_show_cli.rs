@@ -1,23 +1,22 @@
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
 use cloud_terrastodon_azure::EntraServicePrincipal;
+use cloud_terrastodon_azure::EntraServicePrincipalListRequest;
 use cloud_terrastodon_azure::EntraServicePrincipalObjectId;
-use cloud_terrastodon_azure::fetch_all_service_principals;
-use cloud_terrastodon_azure::fetch_service_principal;
+use cloud_terrastodon_azure::EntraServicePrincipalRequest;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
 use eyre::bail;
 use facet::Facet;
-use std::io::Write;
+use std::sync::Arc;
 use tracing::info;
 
 /// Show a single Entra (Azure AD) service principal.
 #[derive(Facet, Debug, Clone)]
 pub struct AzureEntraSpShowArgs {
-    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[facet(figue::named, default)]
-    pub tenant: AzureTenantArgument<'static>,
+    #[facet(flatten)]
+    pub authentication: AzureAuthenticationArgs,
 
     /// Service principal object id, app id, display name, or service principal name.
     #[facet(figue::positional)]
@@ -25,36 +24,21 @@ pub struct AzureEntraSpShowArgs {
 }
 
 impl AzureEntraSpShowArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        let cancellation = executor.cancellation();
-        let tenant_auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
-            .await?;
-        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
-        info!(needle = %self.service_principal, tenant_id = %tenant_auth_context.tenant_id, "Fetching service principals");
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        let authentication = self.authentication.resolve(executor).await?;
+        info!(needle = %self.service_principal, tenant_id = %authentication.tenant_id, "Fetching service principals");
         let needle = self.service_principal.trim();
 
         if let Ok(service_principal_id) = needle.parse::<EntraServicePrincipalObjectId>() {
-            match fetch_service_principal(
-                service_principal_id,
-                tenant_auth_context.tenant_id,
-                tenant_auth_context.auth_source()?,
-                executor,
-            )
+            match (EntraServicePrincipalRequest {
+                service_principal_id: (service_principal_id),
+                authentication,
+            })
+            .execute(executor)
             .await
             {
                 Ok(service_principal) => {
-                    let stdout = std::io::stdout();
-                    let mut handle = stdout.lock();
-                    facet_json::to_writer_std_pretty(&mut handle, &service_principal)
-                        .map_err(|error| eyre::eyre!("{error:?}"))?;
-                    handle.write_all(b"\n")?;
-                    return Ok(());
+                    return Ok(CliOutput::facet(service_principal));
                 }
                 Err(error) => {
                     info!(
@@ -65,12 +49,9 @@ impl AzureEntraSpShowArgs {
             }
         }
 
-        let service_principals = fetch_all_service_principals(
-            tenant_auth_context.tenant_id,
-            tenant_auth_context.auth_source()?,
-            executor,
-        )
-        .await?;
+        let service_principals = EntraServicePrincipalListRequest { authentication }
+            .execute(executor)
+            .await?;
         info!(
             count = service_principals.len(),
             "Fetched service principals"
@@ -85,14 +66,7 @@ impl AzureEntraSpShowArgs {
             0 => {
                 bail!("No service principal found matching '{}'.", needle);
             }
-            1 => {
-                let stdout = std::io::stdout();
-                let mut handle = stdout.lock();
-                facet_json::to_writer_std_pretty(&mut handle, &matches.remove(0))
-                    .map_err(|error| eyre::eyre!("{error:?}"))?;
-                handle.write_all(b"\n")?;
-                Ok(())
-            }
+            1 => Ok(CliOutput::facet(Arc::clone(matches.remove(0)))),
             _ => {
                 matches.sort_by_key(|service_principal| service_principal.id.to_string());
                 let ids = matches

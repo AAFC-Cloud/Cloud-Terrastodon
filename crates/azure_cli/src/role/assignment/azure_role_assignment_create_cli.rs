@@ -1,29 +1,30 @@
-use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
 use cloud_terrastodon_azure::AzurePrincipalArgument;
+use cloud_terrastodon_azure::AzureResourceListRequest;
+use cloud_terrastodon_azure::AzureRoleAssignmentCreateRequest;
 use cloud_terrastodon_azure::AzureRoleDefinitionArgument;
-use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_azure::AzureRoleDefinitionListRequest;
+use cloud_terrastodon_azure::EntraPrincipalListRequest;
+use cloud_terrastodon_azure::RoleAssignmentId;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::ScopeImpl;
-use cloud_terrastodon_azure::create_role_assignment;
-use cloud_terrastodon_azure::fetch_all_principals;
-use cloud_terrastodon_azure::fetch_all_resources;
-use cloud_terrastodon_azure::fetch_all_role_definitions;
+use cloud_terrastodon_azure::uuid::Uuid;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use facet::Facet;
 use itertools::Itertools;
-use std::io::Write;
+use std::borrow::Cow;
 use tracing::info;
 
 /// Create Azure role assignments.
 #[derive(Facet, Debug, Clone)]
 pub struct AzureRoleAssignmentCreateArgs {
-    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[facet(figue::named, default)]
-    pub tenant: AzureTenantArgument<'static>,
+    #[facet(flatten)]
+    pub authentication: AzureAuthenticationArgs,
 
     /// Principal (object id or userPrincipalName)
     #[facet(figue::named)]
@@ -47,28 +48,16 @@ struct RoleAssignmentCreateResult {
 }
 
 impl AzureRoleAssignmentCreateArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        let cancellation = executor.cancellation();
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         info!("Preparing to create role assignment");
-        let tenant_auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
-            .await?;
-        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
+        let authentication = self.authentication.resolve(executor).await?;
 
         // Resolve role definitions
         let role_defs = if let Some(role_arg) = self.role_definition {
             // If caller provided an argument, fetch list to resolve names if needed
-            let all = fetch_all_role_definitions(
-                tenant_auth_context.tenant_id,
-                tenant_auth_context.auth_source()?,
-                executor,
-            )
-            .await?;
+            let all = AzureRoleDefinitionListRequest { authentication }
+                .execute(executor)
+                .await?;
             let matched: Vec<_> = all
                 .iter()
                 .filter(|r| role_arg.matches(r))
@@ -80,12 +69,9 @@ impl AzureRoleAssignmentCreateArgs {
             matched
         } else {
             info!("Fetching role definitions for interactive pick");
-            let all = fetch_all_role_definitions(
-                tenant_auth_context.tenant_id,
-                tenant_auth_context.auth_source()?,
-                executor,
-            )
-            .await?;
+            let all = AzureRoleDefinitionListRequest { authentication }
+                .execute(executor)
+                .await?;
             PickerTui::<_>::new()
                 .set_header("Roles to assign")
                 .pick_many(
@@ -100,12 +86,9 @@ impl AzureRoleAssignmentCreateArgs {
 
         // Resolve principals
         let principals = if let Some(principal_arg) = self.principal {
-            let fetched = fetch_all_principals(
-                tenant_auth_context.tenant_id,
-                tenant_auth_context.auth_source()?,
-                executor,
-            )
-            .await?;
+            let fetched = EntraPrincipalListRequest { authentication }
+                .execute(executor)
+                .await?;
             let matched: Vec<_> = fetched
                 .values()
                 .filter(|p| principal_arg.matches(*p))
@@ -117,12 +100,9 @@ impl AzureRoleAssignmentCreateArgs {
             matched
         } else {
             info!("Fetching principals for interactive pick");
-            let fetched = fetch_all_principals(
-                tenant_auth_context.tenant_id,
-                tenant_auth_context.auth_source()?,
-                executor,
-            )
-            .await?;
+            let fetched = EntraPrincipalListRequest { authentication }
+                .execute(executor)
+                .await?;
             PickerTui::<_>::new()
                 .set_header("Principals to assign")
                 .pick_many(
@@ -140,7 +120,9 @@ impl AzureRoleAssignmentCreateArgs {
             vec![scope]
         } else {
             info!("Fetching resources for interactive pick");
-            let resources = fetch_all_resources(&tenant_auth_context, executor).await?;
+            let resources = AzureResourceListRequest { authentication }
+                .execute(executor)
+                .await?;
             PickerTui::<_>::new()
                 .set_header(format!(
                     "Assigning {} to {}",
@@ -168,13 +150,19 @@ impl AzureRoleAssignmentCreateArgs {
                         principal.name(),
                         scope.expanded_form()
                     );
-                    let id = create_role_assignment(
-                        &scope,
-                        &role.id,
-                        principal.as_ref(),
-                        &tenant_auth_context,
-                        executor,
+                    let assignment_id: RoleAssignmentId = format!(
+                        "{}/providers/Microsoft.Authorization/roleAssignments/{}",
+                        scope.expanded_form().trim_end_matches('/'),
+                        Uuid::new_v4(),
                     )
+                    .parse()?;
+                    let id = AzureRoleAssignmentCreateRequest {
+                        authentication,
+                        id: Cow::Owned(assignment_id),
+                        role_definition_id: Cow::Borrowed(&role.id),
+                        principal_id: principal.id(),
+                    }
+                    .execute(executor)
                     .await?;
                     results.push(RoleAssignmentCreateResult {
                         scope: scope.expanded_form(),
@@ -186,13 +174,7 @@ impl AzureRoleAssignmentCreateArgs {
             }
         }
 
-        let stdout = std::io::stdout();
-        let mut handle = stdout.lock();
-        facet_json::to_writer_std_pretty(&mut handle, &results)
-            .map_err(|error| eyre::eyre!("{error:?}"))?;
-        handle.write_all(b"\n")?;
-
         info!("Successfully created {} role assignments", results.len());
-        Ok(())
+        Ok(CliOutput::facet(results))
     }
 }

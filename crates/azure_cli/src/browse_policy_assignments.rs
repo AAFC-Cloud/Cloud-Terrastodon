@@ -1,13 +1,15 @@
 use crate::policy_compliance_row::PolicyComplianceRow;
 use crate::policy_compliance_row::fetch_all_policy_compliance;
-use cloud_terrastodon_auth::AzureTenantAuthContext;
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
+use cloud_terrastodon_azure::AzurePolicyAssignmentListRequest;
+use cloud_terrastodon_azure::AzurePolicyDefinitionListRequest;
+use cloud_terrastodon_azure::AzurePolicySetDefinitionListRequest;
 use cloud_terrastodon_azure::PolicyAssignmentId;
 use cloud_terrastodon_azure::PolicyDefinitionIdReference;
 use cloud_terrastodon_azure::Scope;
-use cloud_terrastodon_azure::fetch_all_policy_assignments;
-use cloud_terrastodon_azure::fetch_all_policy_definitions;
-use cloud_terrastodon_azure::fetch_all_policy_set_definitions;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Context;
@@ -21,17 +23,29 @@ use tracing::warn;
 
 /// This is a new function that merges “search assigned policies” with a compliance query.
 pub async fn browse_policy_assignments(
-    auth_context: &AzureTenantAuthContext,
+    authentication: AzureBearerAuthenticationSelection,
     executor: &CloudTerrastodonExecutor,
-) -> eyre::Result<()> {
+) -> eyre::Result<CliOutput> {
     info!("Fetching a bunch of data...");
     let (policy_assignments, policy_definitions, policy_set_definitions, policy_compliance) =
         executor
             .join4(
-                |child| async move { fetch_all_policy_assignments(auth_context, &child).await },
-                |child| async move { fetch_all_policy_definitions(auth_context, &child).await },
-                |child| async move { fetch_all_policy_set_definitions(auth_context, &child).await },
-                |child| async move { fetch_all_policy_compliance(auth_context, &child).await },
+                |child| async move {
+                    AzurePolicyAssignmentListRequest { authentication }
+                        .execute(&child)
+                        .await
+                },
+                |child| async move {
+                    AzurePolicyDefinitionListRequest { authentication }
+                        .execute(&child)
+                        .await
+                },
+                |child| async move {
+                    AzurePolicySetDefinitionListRequest { authentication }
+                        .execute(&child)
+                        .await
+                },
+                |child| async move { fetch_all_policy_compliance(authentication, &child).await },
             )
             .await
             .context("failed to fetch policy data")?;
@@ -237,5 +251,5 @@ pub async fn browse_policy_assignments(
         .await
         .into_chosen_and_maybe_error()?;
     info!("You chose:\n{}", chosen.iter().join("\n=====\n"));
-    maybe_error
+    Ok(CliOutput::facet(chosen).with_result(maybe_error))
 }

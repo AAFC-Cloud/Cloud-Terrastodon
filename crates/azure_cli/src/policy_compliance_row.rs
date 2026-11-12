@@ -1,4 +1,4 @@
-use cloud_terrastodon_auth::AzureTenantAuthContext;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure::PolicyAssignmentId;
 use cloud_terrastodon_azure::ResourceGraphHelper;
 use cloud_terrastodon_cache::CacheKey;
@@ -20,7 +20,7 @@ pub(crate) struct PolicyComplianceRow {
 }
 
 pub(crate) async fn fetch_all_policy_compliance(
-    auth_context: &AzureTenantAuthContext,
+    authentication: AzureBearerAuthenticationSelection,
     executor: &CloudTerrastodonExecutor,
 ) -> eyre::Result<Vec<Arc<PolicyComplianceRow>>> {
     info!("Fetching all policy compliance information");
@@ -50,8 +50,7 @@ policyResources
             ]))?,
             valid_for: Duration::from_mins(15),
         }),
-        auth_context.tenant_id,
-        auth_context.auth_source()?,
+        authentication,
     )
     .collect_all::<PolicyComplianceRow>(executor)
     .await?;

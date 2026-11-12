@@ -1,7 +1,7 @@
 use super::AzureEntraSpBrowseArgs;
 use super::AzureEntraSpListArgs;
 use super::AzureEntraSpShowArgs;
-use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use facet::Facet;
@@ -19,15 +19,11 @@ pub enum AzureEntraSpCommand {
 }
 
 impl AzureEntraSpCommand {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         match self {
-            AzureEntraSpCommand::List(args) => args.invoke(auth_context, executor).await,
-            AzureEntraSpCommand::Show(args) => args.invoke(auth_context, executor).await,
-            AzureEntraSpCommand::Browse(args) => args.invoke(auth_context, executor).await,
+            AzureEntraSpCommand::List(args) => Box::pin(args.invoke(executor)).await,
+            AzureEntraSpCommand::Show(args) => Box::pin(args.invoke(executor)).await,
+            AzureEntraSpCommand::Browse(args) => Box::pin(args.invoke(executor)).await,
         }
     }
 }

@@ -1,5 +1,4 @@
 use cloud_terrastodon_app::CliOutput;
-use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use facet::Facet;
 pub mod azure_subscription_list_cli;
@@ -23,13 +22,9 @@ pub enum AzureSubscriptionCommand {
 }
 
 impl AzureSubscriptionArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<CliOutput> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         match self.command {
-            AzureSubscriptionCommand::List(args) => args.invoke(auth_context, executor).await,
+            AzureSubscriptionCommand::List(args) => Box::pin(args.invoke(executor)).await,
         }
     }
 }

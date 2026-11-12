@@ -1,21 +1,19 @@
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
+use cloud_terrastodon_azure::AzureApplicationGatewayListRequest;
 use cloud_terrastodon_azure::Scope;
-use cloud_terrastodon_azure::fetch_all_application_gateways;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
 use eyre::bail;
 use facet::Facet;
-use std::io::Write;
 use tracing::info;
 
 /// Arguments for showing a single Azure application gateway.
 #[derive(Facet, Debug, Clone)]
 pub struct AzureApplicationGatewayShowArgs {
-    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[facet(figue::named, default)]
-    pub tenant: AzureTenantArgument<'static>,
+    #[facet(flatten)]
+    pub authentication: AzureAuthenticationArgs,
 
     /// Application gateway resource id or resource name.
     #[facet(figue::positional)]
@@ -23,20 +21,12 @@ pub struct AzureApplicationGatewayShowArgs {
 }
 
 impl AzureApplicationGatewayShowArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        let cancellation = executor.cancellation();
-        let tenant_auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        let authentication = self.authentication.resolve(executor).await?;
+        info!(needle = %self.application_gateway, tenant_id = %authentication.tenant_id, "Fetching Azure application gateways");
+        let application_gateways = AzureApplicationGatewayListRequest { authentication }
+            .execute(executor)
             .await?;
-        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
-        info!(needle = %self.application_gateway, tenant_id = %tenant_auth_context.tenant_id, "Fetching Azure application gateways");
-        let application_gateways =
-            fetch_all_application_gateways(&tenant_auth_context, executor).await?;
         info!(
             count = application_gateways.len(),
             "Fetched Azure application gateways"
@@ -55,14 +45,7 @@ impl AzureApplicationGatewayShowArgs {
             0 => {
                 bail!("No application gateway found matching '{}'.", needle);
             }
-            1 => {
-                let stdout = std::io::stdout();
-                let mut handle = stdout.lock();
-                facet_json::to_writer_std_pretty(&mut handle, &matches.remove(0))
-                    .map_err(|error| eyre::eyre!("{error:?}"))?;
-                handle.write_all(b"\n")?;
-                Ok(())
-            }
+            1 => Ok(CliOutput::facet(matches.remove(0))),
             _ => {
                 matches.sort_by_key(|application_gateway| application_gateway.id.expanded_form());
                 let ids = matches

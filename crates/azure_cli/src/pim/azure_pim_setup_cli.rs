@@ -1,84 +1,72 @@
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_auth::AzureTenantAuthContext;
-use cloud_terrastodon_auth::DEFAULT_PIM_GRAPH_SCOPES;
-use cloud_terrastodon_auth::PIM_APPLICATION_DISPLAY_NAME;
-use cloud_terrastodon_auth::PimConfig;
-use cloud_terrastodon_azure::AzureTenantArgument;
+use super::azure_pim_required_resource_access::AzurePimRequiredResourceAccess;
+use super::azure_pim_setup_client_id_output::AzurePimSetupClientIdOutput;
+use super::azure_pim_setup_output::AzurePimSetupOutput;
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
-use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure::EntraApplicationClientId;
 use cloud_terrastodon_azure::EntraApplicationRegistration;
-use cloud_terrastodon_azure::fetch_all_service_principals;
-use cloud_terrastodon_azure::fetch_oauth2_permission_scopes;
-use cloud_terrastodon_azure::search_application_registrations;
-use cloud_terrastodon_config::Config;
+use cloud_terrastodon_azure::EntraApplicationRegistrationSearchRequest;
+use cloud_terrastodon_azure::EntraOAuth2PermissionScopeListRequest;
+use cloud_terrastodon_azure::EntraServicePrincipalListRequest;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Context;
 use eyre::Result;
 use eyre::bail;
 use facet::Facet;
 use std::collections::HashSet;
-use std::io::Write;
 use std::sync::Arc;
 use tracing::info;
-use uuid::Uuid;
 
+const PIM_APPLICATION_DISPLAY_NAME: &str = "Cloud Terrastodon PIM";
+const DEFAULT_PIM_GRAPH_SCOPES: &[&str] = &[
+    "https://graph.microsoft.com/User.Read",
+    "https://graph.microsoft.com/PrivilegedAccess.Read.AzureAD",
+    "https://graph.microsoft.com/PrivilegedAccess.ReadWrite.AzureAD",
+    "offline_access",
+];
 const MICROSOFT_GRAPH_APP_ID: &str = "00000003-0000-0000-c000-000000000000";
 const MICROSOFT_GRAPH_SCOPE_PREFIX: &str = "https://graph.microsoft.com/";
 
-/// Configure the Cloud Terrastodon PIM app registration by client ID or discovery.
+/// Inspect a PIM app registration and show how to register a named browser account.
 #[derive(Facet, Debug, Clone)]
 pub struct AzurePimSetupArgs {
-    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[facet(figue::named, default)]
-    pub tenant: AzureTenantArgument<'static>,
+    #[facet(flatten)]
+    pub authentication: AzureAuthenticationArgs,
 
-    /// App registration client ID to persist without authenticated discovery.
+    /// Explicit app client ID for local account-registration guidance without discovery.
     #[facet(figue::named)]
     pub client_id: Option<EntraApplicationClientId>,
 }
 
 impl AzurePimSetupArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         let cancellation = executor.cancellation();
         if let Some(client_id) = self.client_id {
-            let tenant_id = self.tenant.resolve(cancellation).await?;
-            persist_client_id(&tenant_id, client_id).await?;
+            let tenant_id = self.authentication.tenant.resolve(cancellation).await?;
 
-            let output = PimClientIdSetupOutput {
+            let output = AzurePimSetupClientIdOutput {
                 tenant_id,
                 application_id: client_id,
-                client_id_persisted: true,
+                account_registration_command: format!(
+                    "ct account add browser --name <account-alias> --tenant {tenant_id} --client-id {client_id}"
+                ),
                 permissions_verified: false,
             };
-            let stdout = std::io::stdout();
-            let mut handle = stdout.lock();
-            facet_json::to_writer_std_pretty(&mut handle, &output)
-                .map_err(|error| eyre::eyre!("{error:?}"))?;
-            handle.write_all(b"\n")?;
-            return Ok(());
+            return Ok(CliOutput::facet(output));
         }
 
-        let tenant_auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
-            .await?;
-        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
-        let tenant_id = tenant_auth_context.tenant_id;
+        let authentication = self.authentication.resolve(executor).await?;
+        let tenant_id = authentication.tenant_id;
         info!(%tenant_id, "Searching for the Cloud Terrastodon PIM app registration");
 
-        let application = find_pim_application(&tenant_auth_context, executor).await?;
+        let application = find_pim_application(authentication, executor).await?;
         let graph_app_id: EntraApplicationClientId = MICROSOFT_GRAPH_APP_ID.parse()?;
-        let service_principals = fetch_all_service_principals(
-            tenant_auth_context.tenant_id,
-            tenant_auth_context.auth_source()?,
-            executor,
-        )
-        .await?;
+        let service_principals = EntraServicePrincipalListRequest { authentication }
+            .execute(executor)
+            .await?;
         let graph_service_principal = service_principals
             .iter()
             .find(|service_principal| service_principal.app_id == graph_app_id)
@@ -88,11 +76,11 @@ impl AzurePimSetupArgs {
                 )
             })?;
 
-        let graph_scopes = fetch_oauth2_permission_scopes(
-            graph_service_principal.id,
-            &tenant_auth_context,
-            executor,
-        )
+        let graph_scopes = EntraOAuth2PermissionScopeListRequest {
+            service_principal_id: (graph_service_principal.id),
+            authentication,
+        }
+        .execute(executor)
         .await?;
         let required_resource_access = parse_required_resource_access(&application)?;
         let configured_scope_ids = required_resource_access
@@ -139,9 +127,8 @@ impl AzurePimSetupArgs {
                 problems.join("; ")
             );
         }
-
-        persist_client_id(&tenant_id, application.app_id).await?;
-        let output = PimSetupOutput {
+        let output = AzurePimSetupOutput {
+            tenant_id,
             application_id: application.app_id,
             application_display_name: application.display_name.clone(),
             configured_graph_scopes: required_graph_claims
@@ -153,68 +140,26 @@ impl AzurePimSetupArgs {
                 .filter(|scope| graph_permission_claim(scope).is_none())
                 .map(|scope| (*scope).to_string())
                 .collect(),
-            client_id_persisted: true,
+            account_registration_command: format!(
+                "ct account add browser --name <account-alias> --tenant {tenant_id} --client-id {}",
+                application.app_id
+            ),
         };
 
-        let stdout = std::io::stdout();
-        let mut handle = stdout.lock();
-        facet_json::to_writer_std_pretty(&mut handle, &output)
-            .map_err(|error| eyre::eyre!("{error:?}"))?;
-        handle.write_all(b"\n")?;
-        Ok(())
+        Ok(CliOutput::facet(output))
     }
 }
 
-async fn persist_client_id(
-    tenant_id: &AzureTenantId,
-    client_id: EntraApplicationClientId,
-) -> Result<()> {
-    let mut config = PimConfig::load().await?;
-    config.set_client_id(tenant_id, client_id);
-    config.save().await
-}
-
-#[derive(Debug, Facet)]
-#[facet(rename_all = "camelCase")]
-struct PimClientIdSetupOutput {
-    tenant_id: AzureTenantId,
-    application_id: EntraApplicationClientId,
-    client_id_persisted: bool,
-    permissions_verified: bool,
-}
-
-#[derive(Debug, Facet)]
-#[facet(rename_all = "camelCase")]
-struct PimSetupOutput {
-    application_id: EntraApplicationClientId,
-    application_display_name: String,
-    configured_graph_scopes: Vec<String>,
-    protocol_scopes: Vec<String>,
-    client_id_persisted: bool,
-}
-
-#[derive(Debug, Facet)]
-#[facet(rename_all = "camelCase")]
-struct RequiredResourceAccess {
-    resource_app_id: EntraApplicationClientId,
-    resource_access: Vec<RequiredResourceAccessEntry>,
-}
-
-#[derive(Debug, Facet)]
-#[facet(rename_all = "camelCase")]
-struct RequiredResourceAccessEntry {
-    id: Uuid,
-    #[facet(rename = "type")]
-    permission_type: String,
-}
-
 async fn find_pim_application(
-    auth_context: &AzureTenantAuthContext,
+    authentication: AzureBearerAuthenticationSelection,
     executor: &CloudTerrastodonExecutor,
 ) -> Result<Arc<EntraApplicationRegistration>> {
-    let applications =
-        search_application_registrations(PIM_APPLICATION_DISPLAY_NAME, auth_context, executor)
-            .await?;
+    let applications = EntraApplicationRegistrationSearchRequest {
+        search_term: (PIM_APPLICATION_DISPLAY_NAME).into(),
+        authentication,
+    }
+    .execute(executor)
+    .await?;
     let matches = applications
         .into_iter()
         .filter(|application| {
@@ -245,7 +190,7 @@ async fn find_pim_application(
 
 fn parse_required_resource_access(
     application: &EntraApplicationRegistration,
-) -> Result<Vec<RequiredResourceAccess>> {
+) -> Result<Vec<AzurePimRequiredResourceAccess>> {
     application
         .required_resource_access
         .iter()

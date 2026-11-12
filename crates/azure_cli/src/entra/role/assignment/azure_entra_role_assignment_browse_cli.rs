@@ -1,64 +1,53 @@
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure::AzureTenantArgumentExt;
-use cloud_terrastodon_azure::EntraPrincipal;
-use cloud_terrastodon_azure::UnifiedRoleAssignment;
-use cloud_terrastodon_azure::UnifiedRoleDefinition;
-use cloud_terrastodon_azure::fetch_all_principals;
-use cloud_terrastodon_azure::fetch_all_unified_role_definitions_and_assignments;
+use super::azure_entra_role_assignment_browse_output::AzureEntraRoleAssignmentBrowseOutput;
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
+use cloud_terrastodon_azure::EntraPrincipalListRequest;
+use cloud_terrastodon_azure::EntraUnifiedRoleDefinitionsAndAssignmentsListRequest;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use facet::Facet;
 use std::borrow::Cow;
-use std::io::Write;
+use std::sync::Arc;
 use tracing::info;
 
 /// Arguments for browsing Entra role assignments.
 #[derive(Facet, Debug, Clone)]
 pub struct AzureEntraRoleAssignmentBrowseArgs {
-    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[facet(figue::named, default)]
-    pub tenant: AzureTenantArgument<'static>,
-}
-
-#[derive(Facet)]
-struct EntraRoleAssignmentBrowseOutput<'a> {
-    role_assignment: &'a UnifiedRoleAssignment,
-    role_definition: &'a UnifiedRoleDefinition,
-    principal: Option<&'a EntraPrincipal>,
+    #[facet(flatten)]
+    pub authentication: AzureAuthenticationArgs,
 }
 
 impl AzureEntraRoleAssignmentBrowseArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        let cancellation = executor.cancellation();
-        let tenant_auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
-            .await?;
-        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
-        info!(tenant_id = %tenant_auth_context.tenant_id, "Fetching Entra role assignments, definitions, and principals");
-        let auth_source = tenant_auth_context.auth_source()?;
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        let authentication = self.authentication.resolve(executor).await?;
+        info!(tenant_id = %authentication.tenant_id, "Fetching Entra role assignments, definitions, and principals");
         let (rbac, principals) = executor
             .join2(
                 async |child| {
-                    fetch_all_unified_role_definitions_and_assignments(&tenant_auth_context, &child)
+                    EntraUnifiedRoleDefinitionsAndAssignmentsListRequest { authentication }
+                        .execute(&child)
                         .await
                 },
                 async |child| {
-                    fetch_all_principals(tenant_auth_context.tenant_id, auth_source, &child).await
+                    EntraPrincipalListRequest { authentication }
+                        .execute(&child)
+                        .await
                 },
             )
             .await?;
 
         let mut choices = rbac
-            .iter_role_assignments()
+            .role_assignments
+            .values()
+            .filter_map(|assignment| {
+                rbac.role_definitions
+                    .get(&assignment.role_definition_id)
+                    .map(|definition| (assignment, definition))
+            })
             .map(|(role_assignment, role_definition)| {
                 let principal_name = principals
                     .get(&role_assignment.principal_id)
@@ -92,20 +81,15 @@ impl AzureEntraRoleAssignmentBrowseArgs {
             .into_chosen_and_maybe_error()?;
         let chosen = chosen
             .into_iter()
-            .map(
-                |(role_assignment, role_definition, principal)| EntraRoleAssignmentBrowseOutput {
-                    role_assignment,
-                    role_definition,
-                    principal,
-                },
-            )
+            .map(|(role_assignment, role_definition, principal)| {
+                AzureEntraRoleAssignmentBrowseOutput {
+                    role_assignment: Arc::clone(role_assignment),
+                    role_definition: Arc::clone(role_definition),
+                    principal: principal.cloned(),
+                }
+            })
             .collect::<Vec<_>>();
 
-        let stdout = std::io::stdout();
-        let mut handle = stdout.lock();
-        facet_json::to_writer_std_pretty(&mut handle, &chosen)
-            .map_err(|error| eyre::eyre!("{error:?}"))?;
-        handle.write_all(b"\n")?;
-        maybe_error
+        Ok(CliOutput::facet(chosen).with_result(maybe_error))
     }
 }

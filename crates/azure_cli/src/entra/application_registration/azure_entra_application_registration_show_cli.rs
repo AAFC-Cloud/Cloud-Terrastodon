@@ -1,23 +1,21 @@
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
 use cloud_terrastodon_azure::EntraApplicationClientId;
 use cloud_terrastodon_azure::EntraApplicationRegistration;
-use cloud_terrastodon_azure::fetch_all_application_registrations;
-use cloud_terrastodon_azure::fetch_application_registration;
+use cloud_terrastodon_azure::EntraApplicationRegistrationGetRequest;
+use cloud_terrastodon_azure::EntraApplicationRegistrationListRequest;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
 use eyre::bail;
 use facet::Facet;
-use std::io::Write;
 use tracing::info;
 
 /// Show a single Entra (Azure AD) application registration.
 #[derive(Facet, Debug, Clone)]
 pub struct AzureEntraApplicationRegistrationShowArgs {
-    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[facet(figue::named, default)]
-    pub tenant: AzureTenantArgument<'static>,
+    #[facet(flatten)]
+    pub authentication: AzureAuthenticationArgs,
 
     /// Application registration object id, app id, display name, identifier URI, or unique name.
     #[facet(figue::positional)]
@@ -25,29 +23,21 @@ pub struct AzureEntraApplicationRegistrationShowArgs {
 }
 
 impl AzureEntraApplicationRegistrationShowArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        let cancellation = executor.cancellation();
-        let tenant_auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
-            .await?;
-        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
-        info!(needle = %self.application_registration, tenant_id = %tenant_auth_context.tenant_id, "Fetching application registrations");
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        let authentication = self.authentication.resolve(executor).await?;
+        info!(needle = %self.application_registration, tenant_id = %authentication.tenant_id, "Fetching application registrations");
         let needle = self.application_registration.trim();
 
         if let Ok(app_id) = needle.parse::<EntraApplicationClientId>() {
-            match fetch_application_registration(app_id, &tenant_auth_context, executor).await {
+            match (EntraApplicationRegistrationGetRequest {
+                application_id: (app_id),
+                authentication,
+            })
+            .execute(executor)
+            .await
+            {
                 Ok(application) => {
-                    let stdout = std::io::stdout();
-                    let mut handle = stdout.lock();
-                    facet_json::to_writer_std_pretty(&mut handle, &application)
-                        .map_err(|error| eyre::eyre!("{error:?}"))?;
-                    handle.write_all(b"\n")?;
-                    return Ok(());
+                    return Ok(CliOutput::facet(application));
                 }
                 Err(error) => {
                     info!(
@@ -58,8 +48,9 @@ impl AzureEntraApplicationRegistrationShowArgs {
             }
         }
 
-        let applications =
-            fetch_all_application_registrations(&tenant_auth_context, executor).await?;
+        let applications = EntraApplicationRegistrationListRequest { authentication }
+            .execute(executor)
+            .await?;
         info!(
             count = applications.len(),
             "Fetched application registrations"
@@ -74,14 +65,7 @@ impl AzureEntraApplicationRegistrationShowArgs {
             0 => {
                 bail!("No application registration found matching '{}'.", needle);
             }
-            1 => {
-                let stdout = std::io::stdout();
-                let mut handle = stdout.lock();
-                facet_json::to_writer_std_pretty(&mut handle, &matches.remove(0))
-                    .map_err(|error| eyre::eyre!("{error:?}"))?;
-                handle.write_all(b"\n")?;
-                Ok(())
-            }
+            1 => Ok(CliOutput::facet(matches.remove(0))),
             _ => {
                 matches.sort_by_key(|application| application.id.to_string());
                 let ids = matches

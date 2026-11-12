@@ -1,3 +1,4 @@
+use cloud_terrastodon_app::CliOutput;
 use facet::Facet;
 pub mod azure_tenant_alias_add_cli;
 pub mod azure_tenant_alias_list_cli;
@@ -28,13 +29,11 @@ pub enum AzureTenantAliasCommand {
 }
 
 impl AzureTenantAliasArgs {
-    pub async fn invoke(self, cancellation: &CancellationScope) -> Result<()> {
+    pub async fn invoke(self, cancellation: &CancellationScope) -> Result<CliOutput> {
         match self.command {
-            AzureTenantAliasCommand::Add(args) => args.invoke(cancellation).await?,
-            AzureTenantAliasCommand::List(args) => args.invoke(cancellation).await?,
-            AzureTenantAliasCommand::Remove(args) => args.invoke(cancellation).await?,
+            AzureTenantAliasCommand::Add(args) => Box::pin(args.invoke(cancellation)).await,
+            AzureTenantAliasCommand::List(args) => Box::pin(args.invoke(cancellation)).await,
+            AzureTenantAliasCommand::Remove(args) => Box::pin(args.invoke(cancellation)).await,
         }
-
-        Ok(())
     }
 }

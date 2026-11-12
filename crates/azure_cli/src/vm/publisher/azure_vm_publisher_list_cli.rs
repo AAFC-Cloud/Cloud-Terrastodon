@@ -1,28 +1,25 @@
-use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
+use cloud_terrastodon_azure::AzureComputePublishersListRequest;
 use cloud_terrastodon_azure::AzureLocationName;
-use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure::AzureTenantArgumentExt;
-use cloud_terrastodon_azure::fetch_all_subscriptions;
-use cloud_terrastodon_azure::fetch_compute_publishers;
-use cloud_terrastodon_azure::get_active_subscription_id;
+use cloud_terrastodon_azure::AzureSubscriptionListRequest;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
 use facet::Facet;
-use std::io::Write;
 use tracing::info;
 
 /// List VM publishers for a subscription and location.
 #[derive(Facet, Debug, Clone)]
 pub struct AzureVmPublisherListArgs {
-    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[facet(figue::named, default)]
-    pub tenant: AzureTenantArgument<'static>,
+    #[facet(flatten)]
+    pub authentication: AzureAuthenticationArgs,
 
     /// Subscription id or name to query. If an id is provided it will be parsed, otherwise
     /// the list of subscriptions will be searched for a subscription with a matching name.
-    /// Defaults to the active account subscription.
+    /// This scope is explicit and independent of the selected account.
     #[facet(figue::named)]
-    pub subscription: Option<String>,
+    pub subscription: String,
 
     /// Location to query. Defaults to `canadacentral`.
     #[facet(figue::named)]
@@ -30,61 +27,53 @@ pub struct AzureVmPublisherListArgs {
 }
 
 impl AzureVmPublisherListArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        let cancellation = executor.cancellation();
-        let tenant_auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
-            .await?;
-        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        let authentication = self.authentication.resolve(executor).await?;
         // Resolve the subscription argument (string) into a SubscriptionId.
-        let subscription = match self.subscription {
-            Some(s) => {
-                let s = s.trim();
-                // First, try to parse as a subscription id (uuid or /subscriptions/<uuid>).
-                match s.parse() {
-                    Ok(id) => id,
-                    Err(_) => {
-                        // Try to match by subscription name (case-insensitive).
-                        let subs = fetch_all_subscriptions(&tenant_auth_context, executor).await?;
-                        let target = s.to_lowercase();
-                        if let Some(found) = subs
-                            .into_iter()
-                            .find(|sub| sub.name.eq_ignore_ascii_case(&target))
-                        {
-                            found.id
-                        } else {
-                            eyre::bail!("No subscription found matching id or name '{s}'");
-                        }
+        let subscription = {
+            let s = self.subscription;
+            let s = s.trim();
+            // First, try to parse as a subscription id (uuid or /subscriptions/<uuid>).
+            match s.parse() {
+                Ok(id) => id,
+                Err(_) => {
+                    // Try to match by subscription name (case-insensitive).
+                    let subs = AzureSubscriptionListRequest { authentication }
+                        .execute(executor)
+                        .await?;
+                    let target = s.to_lowercase();
+                    if let Some(found) = subs
+                        .into_iter()
+                        .find(|sub| sub.name.eq_ignore_ascii_case(&target))
+                    {
+                        found.id
+                    } else {
+                        eyre::bail!("No subscription found matching id or name '{s}'");
                     }
                 }
             }
-            None => get_active_subscription_id(cancellation).await?,
         };
 
         let location = self.location.unwrap_or(AzureLocationName::CanadaCentral);
 
         info!(subscription = %subscription, location = %location, "Fetching VM publishers");
-        let publishers = fetch_compute_publishers(
-            subscription,
-            location,
-            tenant_auth_context.auth_context.azure_bearer_source()?,
-            tenant_auth_context.tenant_id,
-            executor,
-        )
+        let publishers = AzureComputePublishersListRequest {
+            authentication,
+            subscription_id: (subscription),
+            location: (location),
+        }
+        .execute(executor)
         .await?;
 
-        let stdout = std::io::stdout();
-        let mut out = stdout.lock();
-        for p in publishers {
-            // Print the full id of the publisher (e.g. /Subscriptions/.../Publishers/<name>)
-            writeln!(out, "{}", p)?;
-        }
-
-        Ok(())
+        Ok(CliOutput::facet_with_text(
+            publishers,
+            |values, writer, cancellation| {
+                for value in values {
+                    cancellation.bail_if_cancelled()?;
+                    writeln!(writer, "{value}")?;
+                }
+                Ok(())
+            },
+        ))
     }
 }

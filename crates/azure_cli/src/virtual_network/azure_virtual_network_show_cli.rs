@@ -1,11 +1,10 @@
 use cloud_terrastodon_app::CliOutput;
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
 use cloud_terrastodon_azure::AzureVirtualNetworkArgument;
+use cloud_terrastodon_azure::AzureVirtualNetworkListRequest;
 use cloud_terrastodon_azure::Scope;
-use cloud_terrastodon_azure::fetch_all_virtual_networks;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
 use eyre::bail;
 use facet::Facet;
@@ -17,9 +16,8 @@ pub struct AzureVirtualNetworkShowArgs {
     /// Must match exactly one virtual network.
     #[facet(figue::positional, figue::label = "VNET")]
     pub virtual_network: AzureVirtualNetworkArgument,
-    /// Tenant ID or tracked alias. Defaults to the selected authentication tenant.
-    #[facet(figue::named, default)]
-    pub tenant: AzureTenantArgument<'static>,
+    #[facet(flatten)]
+    pub authentication: AzureAuthenticationArgs,
     /// Refresh the tenant's virtual-network inventory before matching networks.
     #[facet(
         figue::named,
@@ -31,18 +29,10 @@ pub struct AzureVirtualNetworkShowArgs {
 }
 
 impl AzureVirtualNetworkShowArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<CliOutput> {
-        let cancellation = executor.cancellation();
-        let tenant_auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
-            .await?;
-        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
-        let networks = fetch_all_virtual_networks(&tenant_auth_context, executor)
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        let authentication = self.authentication.resolve(executor).await?;
+        let networks = AzureVirtualNetworkListRequest { authentication }
+            .execute(executor)
             .with_invalidation(self.no_cache)
             .await?;
         let mut networks = networks

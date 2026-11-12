@@ -1,4 +1,4 @@
-use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use facet::Facet;
 pub mod assignment;
@@ -40,25 +40,17 @@ pub enum AzurePolicyCommand {
 }
 
 impl AzurePolicyArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        self.command.invoke(auth_context, executor).await
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        self.command.invoke(executor).await
     }
 }
 
 impl AzurePolicyCommand {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         match self {
-            AzurePolicyCommand::Assignment(args) => args.invoke(auth_context, executor).await,
-            AzurePolicyCommand::Definition(args) => args.invoke(auth_context, executor).await,
-            AzurePolicyCommand::SetDefinition(args) => args.invoke(auth_context, executor).await,
+            AzurePolicyCommand::Assignment(args) => Box::pin(args.invoke(executor)).await,
+            AzurePolicyCommand::Definition(args) => Box::pin(args.invoke(executor)).await,
+            AzurePolicyCommand::SetDefinition(args) => Box::pin(args.invoke(executor)).await,
         }
     }
 }

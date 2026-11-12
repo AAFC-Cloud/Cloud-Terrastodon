@@ -2,7 +2,6 @@ use super::azure_entra_group_list_cli::AzureEntraGroupListArgs;
 use super::azure_entra_group_show_cli::AzureEntraGroupShowArgs;
 use super::member::AzureEntraGroupMemberArgs;
 use cloud_terrastodon_app::CliOutput;
-use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use facet::Facet;
@@ -20,18 +19,11 @@ pub enum AzureEntraGroupCommand {
 }
 
 impl AzureEntraGroupCommand {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<CliOutput> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         match self {
-            AzureEntraGroupCommand::List(args) => args.invoke(auth_context, executor).await?,
-            AzureEntraGroupCommand::Show(args) => {
-                return args.invoke(auth_context, executor).await;
-            }
-            AzureEntraGroupCommand::Member(args) => args.invoke(auth_context, executor).await?,
+            AzureEntraGroupCommand::List(args) => Box::pin(args.invoke(executor)).await,
+            AzureEntraGroupCommand::Show(args) => Box::pin(args.invoke(executor)).await,
+            AzureEntraGroupCommand::Member(args) => Box::pin(args.invoke(executor)).await,
         }
-        Ok(CliOutput::none())
     }
 }

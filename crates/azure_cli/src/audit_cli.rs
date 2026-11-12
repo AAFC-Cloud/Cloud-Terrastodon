@@ -1,7 +1,7 @@
+use crate::AzureAuditReport;
 use crate::audit_azure;
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use facet::Facet;
@@ -9,24 +9,17 @@ use facet::Facet;
 /// Arguments for auditing Azure resources.
 #[derive(Facet, Debug, Clone)]
 pub struct AzureAuditArgs {
-    /// Tracked tenant id or alias to query. Defaults to the selected
-    /// workload-identity/browser tenant, then the Azure CLI tenant.
-    #[facet(figue::named, default)]
-    pub tenant: AzureTenantArgument<'static>,
+    #[facet(flatten)]
+    pub authentication: AzureAuthenticationArgs,
 }
 
 impl AzureAuditArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        let cancellation = executor.cancellation();
-        let auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
-            .await?;
-        let executor = &auth_context.auth_context.bind_executor(executor)?;
-        audit_azure(&auth_context, executor).await
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        let authentication = self.authentication.resolve(executor).await?;
+        let report = audit_azure(authentication, executor).await?;
+        Ok(CliOutput::facet_with_text(
+            report,
+            AzureAuditReport::write_text,
+        ))
     }
 }

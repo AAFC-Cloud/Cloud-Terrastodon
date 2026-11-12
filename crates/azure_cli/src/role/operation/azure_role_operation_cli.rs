@@ -1,6 +1,6 @@
 use super::AzureRoleOperationBrowseArgs;
 use super::AzureRoleOperationListArgs;
-use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use facet::Facet;
@@ -16,14 +16,10 @@ pub enum AzureRoleOperationCommand {
 }
 
 impl AzureRoleOperationCommand {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         match self {
-            AzureRoleOperationCommand::List(args) => args.invoke(auth_context, executor).await,
-            AzureRoleOperationCommand::Browse(args) => args.invoke(auth_context, executor).await,
+            AzureRoleOperationCommand::List(args) => Box::pin(args.invoke(executor)).await,
+            AzureRoleOperationCommand::Browse(args) => Box::pin(args.invoke(executor)).await,
         }
     }
 }

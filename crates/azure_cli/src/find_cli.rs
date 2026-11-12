@@ -1,25 +1,23 @@
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
+use cloud_terrastodon_azure::AzureResourceListRequest;
 use cloud_terrastodon_azure::Resource;
-use cloud_terrastodon_azure::fetch_all_resources;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
 use facet::Facet;
 use nucleo::Nucleo;
 use nucleo::pattern::CaseMatching;
 use nucleo::pattern::Normalization;
 use std::collections::HashSet;
-use std::io::Write;
 use std::sync::Arc;
 use tracing::info;
 
 /// Find Azure resources where the serialized JSON contains the provided text.
 #[derive(Facet, Debug, Clone)]
 pub struct AzureFindArgs {
-    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[facet(figue::named, default)]
-    pub tenant: AzureTenantArgument<'static>,
+    #[facet(flatten)]
+    pub authentication: AzureAuthenticationArgs,
 
     /// Text to search for in each resource JSON payload.
     #[facet(figue::positional)]
@@ -27,19 +25,12 @@ pub struct AzureFindArgs {
 }
 
 impl AzureFindArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        let cancellation = executor.cancellation();
-        let tenant_auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
-            .await?;
-        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        let authentication = self.authentication.resolve(executor).await?;
         info!(needle = %self.text, "Fetching all Azure resources");
-        let resources = fetch_all_resources(&tenant_auth_context, executor).await?;
+        let resources = AzureResourceListRequest { authentication }
+            .execute(executor)
+            .await?;
         info!(count = resources.len(), "Fetched Azure resources");
 
         let serialized_resources = resources
@@ -75,11 +66,6 @@ impl AzureFindArgs {
 
         info!(needle = %self.text, matches = matches.len(), "Completed resource JSON search");
 
-        let stdout = std::io::stdout();
-        let mut handle = stdout.lock();
-        facet_json::to_writer_std_pretty(&mut handle, &matches)
-            .map_err(|error| eyre::eyre!("{error:?}"))?;
-        handle.write_all(b"\n")?;
-        Ok(())
+        Ok(CliOutput::facet(matches))
     }
 }

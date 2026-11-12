@@ -1,20 +1,21 @@
 use super::error_summary;
 use cloud_terrastodon_app::CliOutput;
-use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_auth_types::AuthSource;
+use cloud_terrastodon_azure::AzureSubscriptionListRequest;
 use cloud_terrastodon_azure::AzureTenantAlias;
 use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_azure::AzureTenantDetailsRequest;
 use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure::Subscription;
-use cloud_terrastodon_azure::fetch_all_subscriptions;
-use cloud_terrastodon_azure::fetch_azure_tenant_details;
 use cloud_terrastodon_azure::get_tracked_tenant;
 use cloud_terrastodon_azure::list_tracked_tenant_aliases_for;
 use cloud_terrastodon_azure::list_tracked_tenants;
-use cloud_terrastodon_azure::resolve_tenant_auth_context;
+use cloud_terrastodon_cli_types::CloudTerrastodonAccountArgument;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ConcurrentIteratorExt;
+use cloud_terrastodon_execution::ExecutableRequest;
 use color_eyre::owo_colors::OwoColorize;
 use color_eyre::owo_colors::Stream;
 use color_eyre::owo_colors::Style;
@@ -34,6 +35,12 @@ pub struct AzureSubscriptionListArgs {
     /// Optional tenant id or tracked alias to query. Defaults to all tracked tenants.
     #[facet(figue::named)]
     pub tenant: Option<AzureTenantArgument<'static>>,
+    /// Account ID or scoped alias; omission uses each tenant's configured account default.
+    #[facet(figue::named)]
+    pub account: Option<CloudTerrastodonAccountArgument>,
+    /// Override each account's preferred authentication mechanism.
+    #[facet(figue::named, default)]
+    pub auth_source: AuthSource,
 }
 
 #[derive(Debug, Facet)]
@@ -60,28 +67,24 @@ struct ListedSubscription {
 struct SubscriptionListOutput(Vec<TenantSubscriptions>);
 
 impl AzureSubscriptionListArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<CliOutput> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        eyre::ensure!(
+            self.auth_source != AuthSource::None,
+            "authentication is disabled by auth source none"
+        );
         let cancellation = executor.cancellation();
         let tenant_ids = match self.tenant {
-            Some(tenant) => {
-                let tenant_id = match (&tenant, auth_context.tenant_id()) {
-                    (AzureTenantArgument::Default, Some(tenant_id)) => tenant_id,
-                    _ => tenant.resolve(cancellation).await?,
-                };
-                vec![tenant_id]
-            }
+            Some(tenant) => vec![tenant.resolve(cancellation).await?],
             None => list_tracked_tenants().await?,
         };
         debug!(
             count = tenant_ids.len(),
             "Fetching subscriptions across Azure tenants"
         );
-        let tenants = collect_tenants(tenant_ids, executor, |child, tenant_id| async move {
-            fetch_tenant_subscriptions(tenant_id, auth_context, &child).await
+        let account = self.account.as_ref().map(ToString::to_string);
+        let tenants = collect_tenants(tenant_ids, executor, async |child, tenant_id| {
+            fetch_tenant_subscriptions(tenant_id, account.as_deref(), self.auth_source, &child)
+                .await
         })
         .await?;
         Ok(SubscriptionListOutput(tenants).into_cli_output())
@@ -118,31 +121,20 @@ where
 
 async fn fetch_tenant_subscriptions(
     tenant_id: AzureTenantId,
-    auth_context: &AuthContext,
+    account: Option<&str>,
+    auth_source: AuthSource,
     executor: &CloudTerrastodonExecutor,
 ) -> TenantSubscriptions {
-    let cancellation = executor.cancellation();
     let aliases = async {
-        // An explicit `--tenant default` may select an untracked Azure CLI tenant.
+        // An explicit tenant selector may identify an untracked tenant.
         if get_tracked_tenant(tenant_id).await?.is_none() {
             return Ok(Vec::new());
         }
         list_tracked_tenant_aliases_for(tenant_id).await
     };
-    let binding = async {
-        let auth_context =
-            resolve_tenant_auth_context(auth_context, tenant_id, cancellation).await?;
-        auth_context.bind_to_azure_tenant(tenant_id)
-    }
-    .await;
-    let tenant_auth_context = match binding {
+    let binding = executor.resolve_azure_authentication(tenant_id, account, auth_source);
+    let authentication = match binding {
         Ok(context) => context,
-        Err(error) => {
-            return tenant_output(tenant_id, aliases.await, Ok(None), Err(error));
-        }
-    };
-    let executor = match tenant_auth_context.auth_context.bind_executor(executor) {
-        Ok(executor) => executor,
         Err(error) => {
             return tenant_output(tenant_id, aliases.await, Ok(None), Err(error));
         }
@@ -150,11 +142,16 @@ async fn fetch_tenant_subscriptions(
     let (aliases, details, subscriptions) = tokio::join!(
         aliases,
         async {
-            fetch_azure_tenant_details(&tenant_auth_context, &executor)
+            AzureTenantDetailsRequest { authentication }
+                .execute(executor)
                 .await
                 .map(|details| Some(details.display_name.clone()))
         },
-        async { fetch_all_subscriptions(&tenant_auth_context, &executor).await },
+        async {
+            AzureSubscriptionListRequest { authentication }
+                .execute(executor)
+                .await
+        },
     );
     tenant_output(tenant_id, aliases, details, subscriptions)
 }

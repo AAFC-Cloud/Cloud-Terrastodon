@@ -1,3 +1,4 @@
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use facet::Facet;
 pub mod azure_entra_group_member_add_cli;
@@ -7,7 +8,6 @@ pub mod azure_entra_group_member_remove_cli;
 pub use azure_entra_group_member_add_cli::AzureEntraGroupMemberAddArgs;
 pub use azure_entra_group_member_list_cli::AzureEntraGroupMemberListArgs;
 pub use azure_entra_group_member_remove_cli::AzureEntraGroupMemberRemoveArgs;
-use cloud_terrastodon_auth::AuthContext;
 use eyre::Result;
 
 /// Group member operations (add/remove)
@@ -29,16 +29,11 @@ pub enum AzureEntraGroupMemberCommand {
 }
 
 impl AzureEntraGroupMemberArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         match self.command {
-            AzureEntraGroupMemberCommand::Add(a) => a.invoke(auth_context, executor).await?,
-            AzureEntraGroupMemberCommand::List(a) => a.invoke(auth_context, executor).await?,
-            AzureEntraGroupMemberCommand::Remove(a) => a.invoke(auth_context, executor).await?,
+            AzureEntraGroupMemberCommand::Add(a) => Box::pin(a.invoke(executor)).await,
+            AzureEntraGroupMemberCommand::List(a) => Box::pin(a.invoke(executor)).await,
+            AzureEntraGroupMemberCommand::Remove(a) => Box::pin(a.invoke(executor)).await,
         }
-        Ok(())
     }
 }

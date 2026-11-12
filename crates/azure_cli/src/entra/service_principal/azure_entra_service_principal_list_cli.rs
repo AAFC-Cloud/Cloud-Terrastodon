@@ -1,52 +1,42 @@
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure::AzureTenantArgumentExt;
-use cloud_terrastodon_azure::fetch_all_service_principals;
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
+use cloud_terrastodon_azure::EntraServicePrincipalListRequest;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
 use facet::Facet;
-use std::io::Write;
 use tracing::info;
 
 /// List Entra (Azure AD) service principals.
 #[derive(Facet, Debug, Clone)]
 pub struct AzureEntraSpListArgs {
-    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[facet(figue::named, default)]
-    pub tenant: AzureTenantArgument<'static>,
+    #[facet(flatten)]
+    pub authentication: AzureAuthenticationArgs,
 }
 
 impl AzureEntraSpListArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        let cancellation = executor.cancellation();
-        let tenant_auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
-            .await?;
-        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        let authentication = self.authentication.resolve(executor).await?;
         info!("Fetching service principals");
-        let sps = fetch_all_service_principals(
-            tenant_auth_context.tenant_id,
-            tenant_auth_context.auth_source()?,
-            executor,
-        )
-        .await?;
-        let stdout = std::io::stdout();
-        let mut out = stdout.lock();
-        for sp in sps.iter() {
-            writeln!(
-                out,
-                "{} {:64} {} {}",
-                sp.id,
-                sp.display_name,
-                sp.app_id,
-                sp.service_principal_names.join(",")
-            )?;
-        }
-        Ok(())
+        let sps = EntraServicePrincipalListRequest { authentication }
+            .execute(executor)
+            .await?;
+        Ok(CliOutput::facet_with_text(
+            sps,
+            |principals, writer, cancellation| {
+                for sp in principals.iter() {
+                    cancellation.bail_if_cancelled()?;
+                    writeln!(
+                        writer,
+                        "{} {:64} {} {}",
+                        sp.id,
+                        sp.display_name,
+                        sp.app_id,
+                        sp.service_principal_names.join(",")
+                    )?;
+                }
+                Ok(())
+            },
+        ))
     }
 }

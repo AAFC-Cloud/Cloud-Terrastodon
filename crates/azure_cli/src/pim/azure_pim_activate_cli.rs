@@ -1,9 +1,8 @@
 use crate::pim_activate;
 use crate::pim_activate_azurerm;
 use crate::pim_activate_entra;
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use facet::Facet;
@@ -11,9 +10,8 @@ use facet::Facet;
 /// Arguments for activating Privileged Identity Management roles.
 #[derive(Facet, Debug, Clone)]
 pub struct AzurePimActivateArgs {
-    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[facet(figue::named, default)]
-    pub tenant: AzureTenantArgument<'static>,
+    #[facet(flatten)]
+    pub authentication: AzureAuthenticationArgs,
 
     #[facet(figue::subcommand)]
     pub target: Option<AzurePimActivateTarget>,
@@ -37,24 +35,17 @@ pub enum AzurePimActivateTarget {
 }
 
 impl AzurePimActivateArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        let auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, executor.cancellation())
-            .await?;
-        let executor = &auth_context.auth_context.bind_executor(executor)?;
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        let authentication = self.authentication.resolve(executor).await?;
         match self.target {
             Some(AzurePimActivateTarget::AzureRm) => {
-                pim_activate_azurerm(&auth_context, executor).await
+                pim_activate_azurerm(authentication, executor).await
             }
             Some(AzurePimActivateTarget::AzureAd) => {
-                pim_activate_entra(&auth_context, executor).await
+                pim_activate_entra(authentication, executor).await
             }
-            None => pim_activate(&auth_context, executor).await,
-        }
+            None => pim_activate(authentication, executor).await,
+        }?;
+        Ok(CliOutput::none())
     }
 }

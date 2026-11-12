@@ -1,22 +1,20 @@
-use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
 use cloud_terrastodon_azure::AzurePrincipalArgument;
-use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure::AzureTenantArgumentExt;
-use cloud_terrastodon_azure::fetch_all_principals;
-use cloud_terrastodon_azure::fetch_principal;
+use cloud_terrastodon_azure::EntraPrincipalListRequest;
+use cloud_terrastodon_azure::EntraPrincipalRequest;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
 use eyre::bail;
 use facet::Facet;
-use std::io::Write;
 use tracing::info;
 
 /// Show a single Entra (Azure AD) principal.
 #[derive(Facet, Debug, Clone)]
 pub struct AzureEntraPrincipalShowArgs {
-    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[facet(figue::named, default)]
-    pub tenant: AzureTenantArgument<'static>,
+    #[facet(flatten)]
+    pub authentication: AzureAuthenticationArgs,
 
     /// Principal object id, display name, or user principal name.
     #[facet(figue::positional)]
@@ -24,41 +22,23 @@ pub struct AzureEntraPrincipalShowArgs {
 }
 
 impl AzureEntraPrincipalShowArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        let cancellation = executor.cancellation();
-        let tenant_auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
-            .await?;
-        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
-        info!(needle = %self.principal, tenant_id = %tenant_auth_context.tenant_id, "Fetching Entra principal");
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        let authentication = self.authentication.resolve(executor).await?;
+        info!(needle = %self.principal, tenant_id = %authentication.tenant_id, "Fetching Entra principal");
 
         if let Some(principal_id) = self.principal.as_id() {
-            let principal = fetch_principal(
-                *principal_id,
-                tenant_auth_context.tenant_id,
-                tenant_auth_context.auth_source()?,
-                executor,
-            )
+            let principal = EntraPrincipalRequest {
+                lookup: (*principal_id).into(),
+                authentication,
+            }
+            .execute(executor)
             .await?;
-            let stdout = std::io::stdout();
-            let mut handle = stdout.lock();
-            facet_json::to_writer_std_pretty(&mut handle, &principal)
-                .map_err(|error| eyre::eyre!("{error:?}"))?;
-            handle.write_all(b"\n")?;
-            return Ok(());
+            return Ok(CliOutput::facet(principal));
         }
 
-        let principals = fetch_all_principals(
-            tenant_auth_context.tenant_id,
-            tenant_auth_context.auth_source()?,
-            executor,
-        )
-        .await?;
+        let principals = EntraPrincipalListRequest { authentication }
+            .execute(executor)
+            .await?;
         let mut matches = principals
             .values()
             .filter(|principal| self.principal.matches(*principal))
@@ -68,14 +48,7 @@ impl AzureEntraPrincipalShowArgs {
             0 => {
                 bail!("No principal found matching '{}'.", self.principal);
             }
-            1 => {
-                let stdout = std::io::stdout();
-                let mut handle = stdout.lock();
-                facet_json::to_writer_std_pretty(&mut handle, matches.remove(0))
-                    .map_err(|error| eyre::eyre!("{error:?}"))?;
-                handle.write_all(b"\n")?;
-                Ok(())
-            }
+            1 => Ok(CliOutput::facet(matches.remove(0).clone())),
             _ => {
                 matches.sort_by_key(|principal| principal.id().to_string());
                 let ids = matches

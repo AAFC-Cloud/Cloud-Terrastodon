@@ -11,7 +11,6 @@ pub use azure_entra_group_cli::AzureEntraGroupCommand;
 pub use azure_entra_group_list_cli::AzureEntraGroupListArgs;
 pub use azure_entra_group_show_cli::AzureEntraGroupShowArgs;
 use cloud_terrastodon_app::CliOutput;
-use cloud_terrastodon_auth::AuthContext;
 use eyre::Result;
 pub use member::AzureEntraGroupMemberArgs;
 
@@ -23,11 +22,7 @@ pub struct AzureEntraGroupArgs {
 }
 
 impl AzureEntraGroupArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<CliOutput> {
-        self.command.invoke(auth_context, executor).await
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        self.command.invoke(executor).await
     }
 }

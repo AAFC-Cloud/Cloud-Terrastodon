@@ -1,3 +1,4 @@
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use facet::Facet;
 pub mod azure_vm_publisher_browse_cli;
@@ -11,7 +12,6 @@ pub use azure_vm_publisher_list_cli::AzureVmPublisherListArgs;
 pub use azure_vm_publisher_offer_list_cli::AzureVmPublisherOfferListArgs;
 pub use azure_vm_publisher_offer_sku_list_cli::AzureVmPublisherOfferSkuListArgs;
 pub use azure_vm_publisher_offer_sku_version_list_cli::AzureVmPublisherOfferSkuVersionListArgs;
-use cloud_terrastodon_auth::AuthContext;
 use eyre::Result;
 
 #[derive(Facet, Debug, Clone)]
@@ -21,12 +21,8 @@ pub struct AzureVmPublisherArgs {
 }
 
 impl AzureVmPublisherArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        self.command.invoke(auth_context, executor).await
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        self.command.invoke(executor).await
     }
 }
 
@@ -37,12 +33,8 @@ pub struct AzureVmPublisherOfferArgs {
 }
 
 impl AzureVmPublisherOfferArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        self.command.invoke(auth_context, executor).await
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        self.command.invoke(executor).await
     }
 }
 
@@ -56,14 +48,10 @@ pub enum AzureVmPublisherOfferCommand {
 }
 
 impl AzureVmPublisherOfferCommand {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         match self {
-            AzureVmPublisherOfferCommand::List(args) => args.invoke(auth_context, executor).await,
-            AzureVmPublisherOfferCommand::Sku(args) => args.invoke(auth_context, executor).await,
+            AzureVmPublisherOfferCommand::List(args) => Box::pin(args.invoke(executor)).await,
+            AzureVmPublisherOfferCommand::Sku(args) => Box::pin(args.invoke(executor)).await,
         }
     }
 }
@@ -75,12 +63,8 @@ pub struct AzureVmPublisherOfferSkuArgs {
 }
 
 impl AzureVmPublisherOfferSkuArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        self.command.invoke(auth_context, executor).await
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        self.command.invoke(executor).await
     }
 }
 
@@ -94,18 +78,10 @@ pub enum AzureVmPublisherOfferSkuCommand {
 }
 
 impl AzureVmPublisherOfferSkuCommand {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         match self {
-            AzureVmPublisherOfferSkuCommand::List(args) => {
-                args.invoke(auth_context, executor).await
-            }
-            AzureVmPublisherOfferSkuCommand::Version(args) => {
-                args.invoke(auth_context, executor).await
-            }
+            AzureVmPublisherOfferSkuCommand::List(args) => Box::pin(args.invoke(executor)).await,
+            AzureVmPublisherOfferSkuCommand::Version(args) => Box::pin(args.invoke(executor)).await,
         }
     }
 }
@@ -117,12 +93,8 @@ pub struct AzureVmPublisherOfferSkuVersionArgs {
 }
 
 impl AzureVmPublisherOfferSkuVersionArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        self.command.invoke(auth_context, executor).await
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        self.command.invoke(executor).await
     }
 }
 
@@ -134,14 +106,10 @@ pub enum AzureVmPublisherOfferSkuVersionCommand {
 }
 
 impl AzureVmPublisherOfferSkuVersionCommand {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         match self {
             AzureVmPublisherOfferSkuVersionCommand::List(args) => {
-                args.invoke(auth_context, executor).await
+                Box::pin(args.invoke(executor)).await
             }
         }
     }
@@ -160,15 +128,11 @@ pub enum AzureVmPublisherCommand {
 }
 
 impl AzureVmPublisherCommand {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         match self {
-            AzureVmPublisherCommand::List(args) => args.invoke(auth_context, executor).await,
-            AzureVmPublisherCommand::Browse(args) => args.invoke(auth_context, executor).await,
-            AzureVmPublisherCommand::Offer(args) => args.invoke(auth_context, executor).await,
+            AzureVmPublisherCommand::List(args) => Box::pin(args.invoke(executor)).await,
+            AzureVmPublisherCommand::Browse(args) => Box::pin(args.invoke(executor)).await,
+            AzureVmPublisherCommand::Offer(args) => Box::pin(args.invoke(executor)).await,
         }
     }
 }

@@ -1,27 +1,25 @@
 use super::OAuth2PermissionGrantPreset;
 use super::resolve_preset_service_principals;
 use super::split_scope_csv;
-use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
 use cloud_terrastodon_azure::AzurePrincipalArgument;
-use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure::AzureTenantArgumentExt;
-use cloud_terrastodon_azure::fetch_all_principals;
-use cloud_terrastodon_azure::fetch_oauth2_permission_grants;
+use cloud_terrastodon_azure::EntraOAuth2PermissionGrantListRequest;
+use cloud_terrastodon_azure::EntraOAuth2PermissionGrantRemoveRequest;
+use cloud_terrastodon_azure::EntraOAuth2PermissionGrantUpdateRequest;
+use cloud_terrastodon_azure::EntraPrincipalListRequest;
 use cloud_terrastodon_azure::merge_oauth2_permission_grant_scopes;
-use cloud_terrastodon_azure::remove_oauth2_permission_grant;
-use cloud_terrastodon_azure::update_oauth2_permission_grant;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::ContextCompat;
 use eyre::Result;
 use facet::Facet;
-use std::io::Write;
 
 /// Update an Entra OAuth2 permission grant.
 #[derive(Facet, Debug, Clone)]
 pub struct AzureEntraOAuth2PermissionGrantUpdateArgs {
-    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[facet(figue::named, default)]
-    pub tenant: AzureTenantArgument<'static>,
+    #[facet(flatten)]
+    pub authentication: AzureAuthenticationArgs,
 
     /// Grant id to update.
     #[facet(figue::named)]
@@ -45,34 +43,22 @@ pub struct AzureEntraOAuth2PermissionGrantUpdateArgs {
 }
 
 impl AzureEntraOAuth2PermissionGrantUpdateArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        let cancellation = executor.cancellation();
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         if self.id.is_some() && (self.preset.is_some() || self.principal.is_some()) {
             eyre::bail!("--id cannot be used with --preset or --principal");
         }
 
-        let tenant_auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
-            .await?;
-        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
-        let tenant_id = tenant_auth_context.tenant_id;
+        let authentication = self.authentication.resolve(executor).await?;
+        let tenant_id = authentication.tenant_id;
         let add_scope = split_scope_csv(&self.add_scope);
         let remove_scope = split_scope_csv(&self.remove_scope);
         if add_scope.is_empty() && remove_scope.is_empty() {
             eyre::bail!("Specify at least one of --add-scope or --remove-scope");
         }
 
-        let grants = fetch_oauth2_permission_grants(
-            tenant_id,
-            tenant_auth_context.auth_context.azure_bearer_source()?,
-            executor,
-        )
-        .await?;
+        let grants = EntraOAuth2PermissionGrantListRequest { authentication }
+            .execute(executor)
+            .await?;
         let grant = match self.id {
             Some(id) => grants
                 .into_iter()
@@ -85,12 +71,9 @@ impl AzureEntraOAuth2PermissionGrantUpdateArgs {
                 let principal = self
                     .principal
                     .wrap_err("--principal is required when using --preset")?;
-                let principals = fetch_all_principals(
-                    tenant_auth_context.tenant_id,
-                    tenant_auth_context.auth_source()?,
-                    executor,
-                )
-                .await?;
+                let principals = EntraPrincipalListRequest { authentication }
+                    .execute(executor)
+                    .await?;
                 let principal = principal.resolve(&principals).wrap_err_with(|| {
                     format!(
                         "Could not resolve principal '{}' in tenant {tenant_id}",
@@ -105,13 +88,8 @@ impl AzureEntraOAuth2PermissionGrantUpdateArgs {
                             "Delegated oauth2 permission grants require a user principal, got '{principal}'"
                         )
                     })?;
-                let (client_id, resource_id) = resolve_preset_service_principals(
-                    tenant_id,
-                    preset,
-                    &tenant_auth_context.auth_context,
-                    executor,
-                )
-                .await?;
+                let (client_id, resource_id) =
+                    resolve_preset_service_principals(preset, authentication, executor).await?;
                 grants
                     .into_iter()
                     .find(|grant| {
@@ -131,8 +109,6 @@ impl AzureEntraOAuth2PermissionGrantUpdateArgs {
             remove_scope.iter().copied(),
         );
 
-        let stdout = std::io::stdout();
-        let mut handle = stdout.lock();
         if merged_scope.is_empty() {
             #[derive(Facet)]
             struct DeletedResponse {
@@ -140,18 +116,16 @@ impl AzureEntraOAuth2PermissionGrantUpdateArgs {
                 id: cloud_terrastodon_azure::OAuth2PermissionGrantId,
             }
 
-            remove_oauth2_permission_grant(&tenant_auth_context, grant.id.clone(), executor)
-                .await?;
-            facet_json::to_writer_std_pretty(
-                &mut handle,
-                &DeletedResponse {
-                    deleted: true,
-                    id: grant.id.clone(),
-                },
-            )
-            .map_err(|error| eyre::eyre!("{error:?}"))?;
-            handle.write_all(b"\n")?;
-            return Ok(());
+            EntraOAuth2PermissionGrantRemoveRequest {
+                authentication,
+                id: (grant.id.clone()),
+            }
+            .execute(executor)
+            .await?;
+            return Ok(CliOutput::facet(DeletedResponse {
+                deleted: true,
+                id: grant.id.clone(),
+            }));
         }
 
         #[derive(Facet)]
@@ -161,24 +135,17 @@ impl AzureEntraOAuth2PermissionGrantUpdateArgs {
             scope: String,
         }
 
-        let () = update_oauth2_permission_grant(
-            tenant_id,
-            grant.id.clone(),
-            merged_scope.clone(),
-            tenant_auth_context.auth_context.azure_bearer_source()?,
-            executor,
-        )
+        let () = EntraOAuth2PermissionGrantUpdateRequest {
+            authentication,
+            id: (grant.id.clone()),
+            scope: (merged_scope.clone()),
+        }
+        .execute(executor)
         .await?;
-        facet_json::to_writer_std_pretty(
-            &mut handle,
-            &UpdatedResponse {
-                deleted: false,
-                id: grant.id.clone(),
-                scope: merged_scope,
-            },
-        )
-        .map_err(|error| eyre::eyre!("{error:?}"))?;
-        handle.write_all(b"\n")?;
-        Ok(())
+        Ok(CliOutput::facet(UpdatedResponse {
+            deleted: false,
+            id: grant.id.clone(),
+            scope: merged_scope,
+        }))
     }
 }

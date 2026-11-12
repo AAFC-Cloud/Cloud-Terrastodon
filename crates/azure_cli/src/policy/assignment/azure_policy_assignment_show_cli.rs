@@ -1,21 +1,20 @@
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
+use cloud_terrastodon_azure::AzurePolicyAssignmentListRequest;
 use cloud_terrastodon_azure::Scope;
-use cloud_terrastodon_azure::fetch_all_policy_assignments;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
 use eyre::bail;
 use facet::Facet;
-use std::io::Write;
+use std::sync::Arc;
 use tracing::info;
 
 /// Arguments for showing a single Azure policy assignment.
 #[derive(Facet, Debug, Clone)]
 pub struct AzurePolicyAssignmentShowArgs {
-    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[facet(figue::named, default)]
-    pub tenant: AzureTenantArgument<'static>,
+    #[facet(flatten)]
+    pub authentication: AzureAuthenticationArgs,
 
     /// Policy assignment id, name, or display name.
     #[facet(figue::positional)]
@@ -23,20 +22,12 @@ pub struct AzurePolicyAssignmentShowArgs {
 }
 
 impl AzurePolicyAssignmentShowArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        let cancellation = executor.cancellation();
-        let tenant_auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        let authentication = self.authentication.resolve(executor).await?;
+        info!(needle = %self.policy_assignment, tenant_id = %authentication.tenant_id, "Fetching Azure policy assignments");
+        let policy_assignments = AzurePolicyAssignmentListRequest { authentication }
+            .execute(executor)
             .await?;
-        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
-        info!(needle = %self.policy_assignment, tenant_id = %tenant_auth_context.tenant_id, "Fetching Azure policy assignments");
-        let policy_assignments =
-            fetch_all_policy_assignments(&tenant_auth_context, executor).await?;
         info!(
             count = policy_assignments.len(),
             "Fetched Azure policy assignments"
@@ -47,12 +38,7 @@ impl AzurePolicyAssignmentShowArgs {
             .iter()
             .find(|policy_assignment| policy_assignment.id.expanded_form() == needle)
         {
-            let stdout = std::io::stdout();
-            let mut handle = stdout.lock();
-            facet_json::to_writer_std_pretty(&mut handle, policy_assignment)
-                .map_err(|error| eyre::eyre!("{error:?}"))?;
-            handle.write_all(b"\n")?;
-            return Ok(());
+            return Ok(CliOutput::facet(Arc::clone(policy_assignment)));
         }
 
         let mut name_matches = policy_assignments
@@ -78,14 +64,7 @@ impl AzurePolicyAssignmentShowArgs {
             0 => {
                 bail!("No policy assignment found matching '{}'.", needle);
             }
-            1 => {
-                let stdout = std::io::stdout();
-                let mut handle = stdout.lock();
-                facet_json::to_writer_std_pretty(&mut handle, name_matches.remove(0))
-                    .map_err(|error| eyre::eyre!("{error:?}"))?;
-                handle.write_all(b"\n")?;
-                Ok(())
-            }
+            1 => Ok(CliOutput::facet(Arc::clone(name_matches.remove(0)))),
             _ => {
                 name_matches.sort_by_key(|policy_assignment| policy_assignment.id.expanded_form());
                 let ids = name_matches

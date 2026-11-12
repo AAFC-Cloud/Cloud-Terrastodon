@@ -1,31 +1,28 @@
-use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
+use cloud_terrastodon_azure::AzureComputePublisherImageOfferSkuVersionListRequest;
 use cloud_terrastodon_azure::AzureLocationName;
-use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_azure::AzureSubscriptionListRequest;
 use cloud_terrastodon_azure::ComputePublisherName;
 use cloud_terrastodon_azure::ComputePublisherVmImageOfferName;
 use cloud_terrastodon_azure::ComputePublisherVmImageOfferSkuName;
-use cloud_terrastodon_azure::fetch_all_subscriptions;
-use cloud_terrastodon_azure::fetch_compute_publisher_image_offer_sku_versions;
-use cloud_terrastodon_azure::get_active_subscription_id;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
 use facet::Facet;
-use std::io::Write;
 use tracing::info;
 
 /// List versions for a publisher's offer SKU for a subscription and location.
 #[derive(Facet, Debug, Clone)]
 pub struct AzureVmPublisherOfferSkuVersionListArgs {
-    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[facet(figue::named, default)]
-    pub tenant: AzureTenantArgument<'static>,
+    #[facet(flatten)]
+    pub authentication: AzureAuthenticationArgs,
 
     /// Subscription id or name to query. If an id is provided it will be parsed, otherwise
     /// the list of subscriptions will be searched for a subscription with a matching name.
-    /// Defaults to the active account subscription.
+    /// This scope is explicit and independent of the selected account.
     #[facet(figue::named)]
-    pub subscription: Option<String>,
+    pub subscription: String,
 
     /// Location to query. Defaults to `canadacentral`.
     #[facet(figue::named)]
@@ -45,38 +42,29 @@ pub struct AzureVmPublisherOfferSkuVersionListArgs {
 }
 
 impl AzureVmPublisherOfferSkuVersionListArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        let cancellation = executor.cancellation();
-        let tenant_auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
-            .await?;
-        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        let authentication = self.authentication.resolve(executor).await?;
         // Resolve the subscription argument (string) into a SubscriptionId.
-        let subscription = match self.subscription {
-            Some(s) => {
-                let s = s.trim();
-                match s.parse() {
-                    Ok(id) => id,
-                    Err(_) => {
-                        let subs = fetch_all_subscriptions(&tenant_auth_context, executor).await?;
-                        let target = s.to_lowercase();
-                        if let Some(found) = subs
-                            .into_iter()
-                            .find(|sub| sub.name.eq_ignore_ascii_case(&target))
-                        {
-                            found.id
-                        } else {
-                            eyre::bail!("No subscription found matching id or name '{s}'");
-                        }
+        let subscription = {
+            let s = self.subscription;
+            let s = s.trim();
+            match s.parse() {
+                Ok(id) => id,
+                Err(_) => {
+                    let subs = AzureSubscriptionListRequest { authentication }
+                        .execute(executor)
+                        .await?;
+                    let target = s.to_lowercase();
+                    if let Some(found) = subs
+                        .into_iter()
+                        .find(|sub| sub.name.eq_ignore_ascii_case(&target))
+                    {
+                        found.id
+                    } else {
+                        eyre::bail!("No subscription found matching id or name '{s}'");
                     }
                 }
             }
-            None => get_active_subscription_id(cancellation).await?,
         };
 
         let location = self.location.unwrap_or(AzureLocationName::CanadaCentral);
@@ -86,24 +74,26 @@ impl AzureVmPublisherOfferSkuVersionListArgs {
         let sku = self.sku.parse::<ComputePublisherVmImageOfferSkuName>()?;
 
         info!(subscription = %subscription, location = %location, publisher = %publisher, offer = %offer, sku = %sku, "Fetching VM publisher offer SKU versions");
-        let versions = fetch_compute_publisher_image_offer_sku_versions(
-            subscription,
-            location,
-            publisher,
-            offer,
-            sku,
-            tenant_auth_context.auth_context.azure_bearer_source()?,
-            tenant_auth_context.tenant_id,
-            executor,
-        )
+        let versions = AzureComputePublisherImageOfferSkuVersionListRequest {
+            authentication,
+            subscription_id: (subscription),
+            location: (location),
+            publisher_name: (publisher),
+            offer_name: (offer),
+            sku_name: (sku),
+        }
+        .execute(executor)
         .await?;
 
-        let stdout = std::io::stdout();
-        let mut out = stdout.lock();
-        for v in versions {
-            writeln!(out, "{}", v)?;
-        }
-
-        Ok(())
+        Ok(CliOutput::facet_with_text(
+            versions,
+            |values, writer, cancellation| {
+                for value in values {
+                    cancellation.bail_if_cancelled()?;
+                    writeln!(writer, "{value}")?;
+                }
+                Ok(())
+            },
+        ))
     }
 }

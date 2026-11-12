@@ -1,12 +1,12 @@
 use crate::vm::browse::AzureVmBrowseOption;
 use crate::vm::publisher::AzureVmPublisherBrowseArgs;
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure::AzureTenantArgumentExt;
-use cloud_terrastodon_azure::fetch_all_subscriptions;
-use cloud_terrastodon_azure::fetch_all_virtual_machines;
-use cloud_terrastodon_azure::fetch_virtual_machine_skus;
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
+use cloud_terrastodon_azure::AzureSubscriptionListRequest;
+use cloud_terrastodon_azure::AzureVirtualMachineListRequest;
+use cloud_terrastodon_azure::AzureVirtualMachineSkuRequest;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::PickerTui;
@@ -16,24 +16,13 @@ use tracing::info;
 
 #[derive(Facet, Debug, Clone)]
 pub struct AzureVmBrowseArgs {
-    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[facet(figue::named, default)]
-    pub tenant: AzureTenantArgument<'static>,
+    #[facet(flatten)]
+    pub authentication: AzureAuthenticationArgs,
 }
 
 impl AzureVmBrowseArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> eyre::Result<()> {
-        let cancellation = executor.cancellation();
-        let tenant_auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
-            .await?;
-        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
-        let auth_source = tenant_auth_context.auth_context.azure_bearer_source()?;
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> eyre::Result<CliOutput> {
+        let authentication = self.authentication.resolve(executor).await?;
         let chosen = PickerTui::<_>::new()
             .pick_one(AzureVmBrowseOption::VARIANTS, executor.cancellation())
             .await?;
@@ -43,7 +32,8 @@ impl AzureVmBrowseArgs {
                     .pick_many_reloadable(executor.cancellation(), async |child, invalidate| {
                         let executor = &executor.with_cancellation_scope(child);
                         info!("Fetching virtual machines");
-                        Ok(fetch_all_virtual_machines(&tenant_auth_context, executor)
+                        Ok(AzureVirtualMachineListRequest { authentication }
+                            .execute(executor)
                             .with_invalidation(invalidate)
                             .await?
                             .into_iter()
@@ -58,19 +48,15 @@ impl AzureVmBrowseArgs {
                     })
                     .await
                     .into_chosen_and_maybe_error()?;
-                println!(
-                    "{}",
-                    facet_json::to_string_pretty(&chosen_resources)
-                        .map_err(|error| eyre::eyre!("{error:?}"))?
-                );
-                maybe_error?;
+                Ok(CliOutput::facet(chosen_resources).with_result(maybe_error))
             }
             AzureVmBrowseOption::Skus => {
                 let chosen_subscription = PickerTui::<_>::new()
                     .pick_one_reloadable(executor.cancellation(), async |child, invalidate| {
                         let executor = &executor.with_cancellation_scope(child);
                         info!("Fetching subscriptions");
-                        let subscriptions = fetch_all_subscriptions(&tenant_auth_context, executor)
+                        let subscriptions = AzureSubscriptionListRequest { authentication }
+                            .execute(executor)
                             .with_invalidation(invalidate)
                             .await?;
                         Ok(subscriptions)
@@ -80,27 +66,21 @@ impl AzureVmBrowseArgs {
                 let (chosen_skus, maybe_error) = PickerTui::<_>::new().pick_many_reloadable(executor.cancellation(), async |child, invalidate| {
             let executor = &executor.with_cancellation_scope(child);
                         info!(%chosen_subscription.name, %chosen_subscription.id, "Fetching VM SKUs, this may take a while" );
-                        let skus = fetch_virtual_machine_skus(chosen_subscription.id, auth_source, tenant_auth_context.tenant_id, executor).with_invalidation(invalidate).await?;
+                        let skus = AzureVirtualMachineSkuRequest { authentication, subscription_id: (chosen_subscription.id) }.execute(executor).with_invalidation(invalidate).await?;
                         skus.into_iter().map(|sku| eyre::Ok(Choice {
                             key: format!("{} - {} - {}", sku.resource_type, sku.name, facet_json::to_string(&sku.locations).map_err(|error| eyre::eyre!("{error:?}"))?),
                             value: sku,
                         })).collect::<eyre::Result<Vec<_>>>()
                 }).await.into_chosen_and_maybe_error()?;
-                println!(
-                    "{}",
-                    facet_json::to_string_pretty(&chosen_skus)
-                        .map_err(|error| eyre::eyre!("{error:?}"))?
-                );
-                maybe_error?;
+                Ok(CliOutput::facet(chosen_skus).with_result(maybe_error))
             }
             AzureVmBrowseOption::Publishers => {
                 AzureVmPublisherBrowseArgs {
-                    tenant: self.tenant,
+                    authentication: self.authentication,
                 }
-                .invoke(&tenant_auth_context.auth_context, executor)
-                .await?
+                .invoke(executor)
+                .await
             }
         }
-        Ok(())
     }
 }

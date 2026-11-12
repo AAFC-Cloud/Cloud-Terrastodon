@@ -1,41 +1,36 @@
 use chrono::Local;
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
+use cloud_terrastodon_azure::AzureResourceListRequest;
+use cloud_terrastodon_azure::AzureResourceTagsPatchOperation;
+use cloud_terrastodon_azure::AzureResourceTagsUpdateRequest;
+use cloud_terrastodon_azure::EntraCurrentUserRequest;
 use cloud_terrastodon_azure::ResourceTagsId;
-use cloud_terrastodon_azure::fetch_all_resources;
-use cloud_terrastodon_azure::fetch_current_user;
-use cloud_terrastodon_azure::merge_tags_for_resources;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ConcurrentIteratorExt;
+use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_user_input::PickerTui;
 use cloud_terrastodon_user_input::prompt_line;
 use eyre::Result;
 use facet::Facet;
+use std::borrow::Cow;
 use std::collections::HashMap;
+use std::num::NonZeroUsize;
 use tracing::info;
 
 /// Arguments for tagging resources that are slated for cleanup.
 #[derive(Facet, Debug, Clone)]
 pub struct AzureTagForCleanupArgs {
-    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[facet(figue::named, default)]
-    pub tenant: AzureTenantArgument<'static>,
+    #[facet(flatten)]
+    pub authentication: AzureAuthenticationArgs,
 }
 
 impl AzureTagForCleanupArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        let cancellation = executor.cancellation();
-        let tenant_auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
-            .await?;
-        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        let authentication = self.authentication.resolve(executor).await?;
         let cleanup_tagged_date = Local::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
-        let cleanup_tagged_by = fetch_current_user(&tenant_auth_context, executor)
+        let cleanup_tagged_by = EntraCurrentUserRequest { authentication }
+            .execute(executor)
             .await?
             .user_principal_name
             .clone();
@@ -53,7 +48,9 @@ impl AzureTagForCleanupArgs {
             }
         };
 
-        let resources = fetch_all_resources(&tenant_auth_context, executor).await?;
+        let resources = AzureResourceListRequest { authentication }
+            .execute(executor)
+            .await?;
 
         let chosen_resources = PickerTui::<_>::new()
             .pick_many(resources, executor.cancellation())
@@ -85,8 +82,24 @@ impl AzureTagForCleanupArgs {
         }
 
         info!(?tags_to_merge, "Executing tag modifications");
-        merge_tags_for_resources(&tenant_auth_context, updates, executor).await?;
+        updates
+            .into_iter()
+            .map_concurrent(
+                executor,
+                NonZeroUsize::try_from(20)?,
+                async |child, (id, tags)| {
+                    AzureResourceTagsUpdateRequest {
+                        authentication,
+                        id: Cow::Owned(id),
+                        operation: AzureResourceTagsPatchOperation::Merge,
+                        tags,
+                    }
+                    .execute(&child)
+                    .await
+                },
+            )
+            .await?;
 
-        Ok(())
+        Ok(CliOutput::none())
     }
 }

@@ -1,23 +1,22 @@
 use super::azure_entra_group_show_lookup::AzureEntraGroupShowLookup;
 use super::azure_entra_group_show_lookup_result::AzureEntraGroupShowLookupResult;
 use cloud_terrastodon_app::CliOutput;
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
+use cloud_terrastodon_azure::AzureRoleDefinitionsAndAssignmentsListRequest;
 use cloud_terrastodon_azure::EntraDirectoryObject;
 use cloud_terrastodon_azure::EntraGroup;
+use cloud_terrastodon_azure::EntraGroupGetBatchRequest;
 use cloud_terrastodon_azure::EntraGroupId;
+use cloud_terrastodon_azure::EntraGroupMembersListRequest;
+use cloud_terrastodon_azure::EntraGroupOwnerListRequest;
 use cloud_terrastodon_azure::RoleAssignment;
 use cloud_terrastodon_azure::RoleDefinition;
 use cloud_terrastodon_azure::RoleDefinitionsAndAssignmentsIterTools;
 use cloud_terrastodon_azure::Scope;
-use cloud_terrastodon_azure::fetch_all_role_definitions_and_assignments;
-use cloud_terrastodon_azure::fetch_group_members;
-use cloud_terrastodon_azure::fetch_group_owners;
-use cloud_terrastodon_azure::fetch_groups_by_id;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ConcurrentIteratorExt;
+use cloud_terrastodon_execution::ExecutableRequest;
 use color_eyre::owo_colors::OwoColorize;
 use color_eyre::owo_colors::Stream;
 use color_eyre::owo_colors::Style;
@@ -35,9 +34,8 @@ use tracing::info;
 /// Show one or more Entra (Azure AD) groups by id.
 #[derive(Facet, Debug, Clone)]
 pub struct AzureEntraGroupShowArgs {
-    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[facet(figue::named, default)]
-    pub tenant: AzureTenantArgument<'static>,
+    #[facet(flatten)]
+    pub authentication: AzureAuthenticationArgs,
 
     /// Group identifier(s) (UUID). Use '-' to read IDs from stdin (one per line).
     #[facet(figue::named)]
@@ -58,12 +56,7 @@ struct GroupData {
 struct GroupShowOutput(Vec<GroupData>);
 
 impl AzureEntraGroupShowArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<CliOutput> {
-        let cancellation = executor.cancellation();
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         // Determine requested IDs. Support `-` as stdin source when a single `-` is provided.
         let id_strings: Vec<String> = if self.group_id.len() == 1 && self.group_id[0] == "-" {
             let mut v = Vec::new();
@@ -90,18 +83,13 @@ impl AzureEntraGroupShowArgs {
             bail!("At least one group ID must be provided.");
         }
 
-        let tenant_auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
-            .await?;
-        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
-        info!(count = ids.len(), tenant_id = %tenant_auth_context.tenant_id, "Fetching Entra groups");
-        let groups = fetch_groups_by_id(
-            ids.clone(),
-            tenant_auth_context.tenant_id,
-            tenant_auth_context.auth_source()?,
-            executor,
-        )
+        let authentication = self.authentication.resolve(executor).await?;
+        info!(count = ids.len(), tenant_id = %authentication.tenant_id, "Fetching Entra groups");
+        let groups = EntraGroupGetBatchRequest {
+            group_ids: ids.iter().copied().collect(),
+            authentication,
+        }
+        .execute(executor)
         .await?;
 
         // Map by id for fast lookup
@@ -118,7 +106,6 @@ impl AzureEntraGroupShowArgs {
             }
         }
 
-        let auth_source = tenant_auth_context.auth_source()?;
         let work = chosen_groups
             .iter()
             .flat_map(|group| {
@@ -133,30 +120,25 @@ impl AzureEntraGroupShowArgs {
                 // Preserve complete-all behavior: service errors are collected
                 // as data, then propagated after every inventory has finished.
                 eyre::Ok(match lookup {
-                    AzureEntraGroupShowLookup::Members(group_id) => {
-                        fetch_group_members(group_id, &tenant_auth_context, &child)
-                            .await
-                            .map(|members| AzureEntraGroupShowLookupResult::Members {
-                                group_id,
-                                members,
-                            })
+                    AzureEntraGroupShowLookup::Members(group_id) => EntraGroupMembersListRequest {
+                        group_id: (group_id),
+                        authentication,
                     }
-                    AzureEntraGroupShowLookup::Owners(group_id) => {
-                        fetch_group_owners(group_id, &tenant_auth_context, &child)
-                            .await
-                            .map(|owners| AzureEntraGroupShowLookupResult::Owners {
-                                group_id,
-                                owners,
-                            })
+                    .execute(&child)
+                    .await
+                    .map(|members| AzureEntraGroupShowLookupResult::Members { group_id, members }),
+                    AzureEntraGroupShowLookup::Owners(group_id) => EntraGroupOwnerListRequest {
+                        group_id: (group_id),
+                        authentication,
                     }
+                    .execute(&child)
+                    .await
+                    .map(|owners| AzureEntraGroupShowLookupResult::Owners { group_id, owners }),
                     AzureEntraGroupShowLookup::RoleAssignments => {
-                        fetch_all_role_definitions_and_assignments(
-                            tenant_auth_context.tenant_id,
-                            auth_source,
-                            &child,
-                        )
-                        .await
-                        .map(AzureEntraGroupShowLookupResult::RoleAssignments)
+                        AzureRoleDefinitionsAndAssignmentsListRequest { authentication }
+                            .execute(&child)
+                            .await
+                            .map(AzureEntraGroupShowLookupResult::RoleAssignments)
                     }
                 })
             })

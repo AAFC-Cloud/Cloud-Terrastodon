@@ -1,25 +1,24 @@
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_auth::AzureTenantAuthContext;
-use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use super::azure_entra_oauth2_permission_grant_claim_list_output::AzureEntraOAuth2PermissionGrantClaimListOutput;
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
+use cloud_terrastodon_azure::EntraOAuth2PermissionScopeListRequest;
 use cloud_terrastodon_azure::EntraServicePrincipal;
+use cloud_terrastodon_azure::EntraServicePrincipalListRequest;
 use cloud_terrastodon_azure::EntraServicePrincipalObjectId;
-use cloud_terrastodon_azure::fetch_all_service_principals;
-use cloud_terrastodon_azure::fetch_oauth2_permission_scopes;
-use cloud_terrastodon_azure::fetch_service_principal;
+use cloud_terrastodon_azure::EntraServicePrincipalRequest;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
 use eyre::bail;
 use facet::Facet;
-use std::io::Write;
 use tracing::info;
 
 /// List the delegated OAuth2 permission claims exposed by a service principal.
 #[derive(Facet, Debug, Clone)]
 pub struct AzureEntraOAuth2PermissionGrantClaimListArgs {
-    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[facet(figue::named, default)]
-    pub tenant: AzureTenantArgument<'static>,
+    #[facet(flatten)]
+    pub authentication: AzureAuthenticationArgs,
 
     /// Resource service principal object id, app id, display name, or service principal name.
     #[facet(figue::positional)]
@@ -27,56 +26,40 @@ pub struct AzureEntraOAuth2PermissionGrantClaimListArgs {
 }
 
 impl AzureEntraOAuth2PermissionGrantClaimListArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        let cancellation = executor.cancellation();
-        let tenant_auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
-            .await?;
-        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
-        let service_principal_id = resolve_service_principal_id(
-            &tenant_auth_context,
-            self.service_principal.trim(),
-            executor,
-        )
-        .await?;
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        let authentication = self.authentication.resolve(executor).await?;
+        let service_principal_id =
+            resolve_service_principal_id(authentication, self.service_principal.trim(), executor)
+                .await?;
 
         info!(
-            tenant_id = %tenant_auth_context.tenant_id,
+            tenant_id = %authentication.tenant_id,
             %service_principal_id,
             "Fetching delegated OAuth2 permission claims"
         );
-        let scopes =
-            fetch_oauth2_permission_scopes(service_principal_id, &tenant_auth_context, executor)
-                .await?;
-        let mut scopes = scopes.iter().collect::<Vec<_>>();
-        scopes.sort_by(|left, right| left.value.cmp(&right.value));
-
-        let stdout = std::io::stdout();
-        let mut handle = stdout.lock();
-        facet_json::to_writer_std_pretty(&mut handle, &scopes)
-            .map_err(|error| eyre::eyre!("{error:?}"))?;
-        handle.write_all(b"\n")?;
-        Ok(())
+        let scopes = EntraOAuth2PermissionScopeListRequest {
+            service_principal_id: (service_principal_id),
+            authentication,
+        }
+        .execute(executor)
+        .await?;
+        Ok(CliOutput::new(
+            AzureEntraOAuth2PermissionGrantClaimListOutput { scopes },
+        ))
     }
 }
 
 async fn resolve_service_principal_id(
-    auth_context: &AzureTenantAuthContext,
+    authentication: AzureBearerAuthenticationSelection,
     needle: &str,
     executor: &CloudTerrastodonExecutor,
 ) -> Result<EntraServicePrincipalObjectId> {
     if let Ok(service_principal_id) = needle.parse::<EntraServicePrincipalObjectId>() {
-        match fetch_service_principal(
-            service_principal_id,
-            auth_context.tenant_id,
-            auth_context.auth_source()?,
-            executor,
-        )
+        match (EntraServicePrincipalRequest {
+            service_principal_id: (service_principal_id),
+            authentication,
+        })
+        .execute(executor)
         .await
         {
             Ok(_) => return Ok(service_principal_id),
@@ -89,12 +72,9 @@ async fn resolve_service_principal_id(
         }
     }
 
-    let service_principals = fetch_all_service_principals(
-        auth_context.tenant_id,
-        auth_context.auth_source()?,
-        executor,
-    )
-    .await?;
+    let service_principals = EntraServicePrincipalListRequest { authentication }
+        .execute(executor)
+        .await?;
     let mut matches = service_principals
         .iter()
         .filter(|service_principal| matches_service_principal(service_principal, needle))

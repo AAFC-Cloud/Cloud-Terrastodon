@@ -1,19 +1,17 @@
 use cloud_terrastodon_app::CliOutput;
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
+use cloud_terrastodon_azure::AzureVirtualNetworkListRequest;
 use cloud_terrastodon_azure::Scope;
-use cloud_terrastodon_azure::fetch_all_virtual_networks;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
 use facet::Facet;
 
 /// List virtual networks from the tenant's cached Azure Resource Graph inventory.
 #[derive(Debug, Clone, Facet)]
 pub struct AzureVirtualNetworkListArgs {
-    /// Tenant ID or tracked alias. Defaults to the selected authentication tenant.
-    #[facet(figue::named, default)]
-    pub tenant: AzureTenantArgument<'static>,
+    #[facet(flatten)]
+    pub authentication: AzureAuthenticationArgs,
     /// Refresh the tenant's virtual-network inventory before listing it.
     #[facet(
         figue::named,
@@ -25,18 +23,10 @@ pub struct AzureVirtualNetworkListArgs {
 }
 
 impl AzureVirtualNetworkListArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<CliOutput> {
-        let cancellation = executor.cancellation();
-        let tenant_auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
-            .await?;
-        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
-        let mut networks = fetch_all_virtual_networks(&tenant_auth_context, executor)
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        let authentication = self.authentication.resolve(executor).await?;
+        let mut networks = AzureVirtualNetworkListRequest { authentication }
+            .execute(executor)
             .with_invalidation(self.no_cache)
             .await?;
         networks.sort_by_cached_key(|network| {

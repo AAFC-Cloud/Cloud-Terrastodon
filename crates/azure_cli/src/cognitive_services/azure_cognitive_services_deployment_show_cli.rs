@@ -1,26 +1,24 @@
 use super::CognitiveServicesAccountArgument;
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
+use cloud_terrastodon_azure::AzureCognitiveServicesAccountDeploymentListRequest;
+use cloud_terrastodon_azure::AzureCognitiveServicesAccountListRequest;
 use cloud_terrastodon_azure::Scope;
-use cloud_terrastodon_azure::fetch_all_cognitive_services_accounts;
-use cloud_terrastodon_azure::fetch_cognitive_services_account_deployments;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
 use eyre::bail;
 use facet::Facet;
-use std::io::Write;
 
 /// Arguments for showing a single deployment for an Azure Cognitive Services account.
 #[derive(Facet, Debug, Clone)]
 pub struct AzureCognitiveServicesDeploymentShowArgs {
-    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[facet(figue::named, default)]
-    pub tenant: AzureTenantArgument<'static>,
+    #[facet(flatten)]
+    pub authentication: AzureAuthenticationArgs,
 
     /// Cognitive Services account resource id, resource name, or wildcard pattern.
     #[facet(figue::positional)]
-    pub account: CognitiveServicesAccountArgument<'static>,
+    pub cognitive_services_account: CognitiveServicesAccountArgument<'static>,
 
     /// Deployment resource id or deployment name.
     #[facet(figue::positional)]
@@ -28,32 +26,26 @@ pub struct AzureCognitiveServicesDeploymentShowArgs {
 }
 
 impl AzureCognitiveServicesDeploymentShowArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        let cancellation = executor.cancellation();
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         let Self {
-            tenant,
-            account,
+            authentication,
+            cognitive_services_account,
             deployment,
         } = self;
-        let tenant_auth_context = tenant.bind_auth_context(auth_context, cancellation).await?;
-        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
-        let tenant_id = tenant_auth_context.tenant_id;
-        let accounts =
-            fetch_all_cognitive_services_accounts(&tenant_auth_context, executor).await?;
+        let authentication = authentication.resolve(executor).await?;
+        let accounts = AzureCognitiveServicesAccountListRequest { authentication }
+            .execute(executor)
+            .await?;
         let mut account_matches = accounts
             .into_iter()
-            .filter(|item| account.matches(item))
+            .filter(|item| cognitive_services_account.matches(item))
             .collect::<Vec<_>>();
 
         let account = match account_matches.len() {
             0 => {
                 bail!(
                     "No Cognitive Services account found matching '{}'.",
-                    account
+                    cognitive_services_account
                 );
             }
             1 => account_matches.remove(0),
@@ -66,19 +58,18 @@ impl AzureCognitiveServicesDeploymentShowArgs {
                     .join("\n  ");
                 bail!(
                     "Multiple Cognitive Services accounts matched '{}'. Use a full resource id.\n  {}",
-                    account,
+                    cognitive_services_account,
                     ids
                 );
             }
         };
 
         let deployment_needle = deployment.trim();
-        let mut matches = fetch_cognitive_services_account_deployments(
-            tenant_id,
-            account.id.clone(),
-            tenant_auth_context.auth_context.azure_bearer_source()?,
-            executor,
-        )
+        let mut matches = AzureCognitiveServicesAccountDeploymentListRequest {
+            authentication,
+            account_id: (account.id.clone()),
+        }
+        .execute(executor)
         .await?
         .into_iter()
         .filter(|deployment| {
@@ -91,14 +82,7 @@ impl AzureCognitiveServicesDeploymentShowArgs {
             0 => {
                 bail!("No deployment found matching '{}'.", deployment_needle);
             }
-            1 => {
-                let stdout = std::io::stdout();
-                let mut handle = stdout.lock();
-                facet_json::to_writer_std_pretty(&mut handle, &matches.remove(0))
-                    .map_err(|error| eyre::eyre!("{error:?}"))?;
-                handle.write_all(b"\n")?;
-                Ok(())
-            }
+            1 => Ok(CliOutput::facet(matches.remove(0))),
             _ => {
                 matches.sort_by_key(|deployment| deployment.id.expanded_form());
                 let ids = matches

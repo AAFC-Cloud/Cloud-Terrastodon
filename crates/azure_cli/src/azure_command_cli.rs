@@ -19,7 +19,6 @@ use super::virtual_network::AzureVirtualNetworkArgs;
 use super::vm::AzureVmArgs;
 use crate::entra::AzureEntraArgs;
 use cloud_terrastodon_app::CliOutput;
-use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure_devops_cli::AzureDevOpsArgs;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
@@ -33,12 +32,8 @@ pub struct AzureArgs {
 }
 
 impl AzureArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<CliOutput> {
-        self.command.invoke(auth_context, executor).await
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        self.command.invoke(executor).await
     }
 }
 
@@ -102,58 +97,30 @@ pub enum AzureCommand {
 }
 
 impl AzureCommand {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<CliOutput> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         // Box child futures so large commands do not enlarge every dispatcher stack frame.
         match self {
-            AzureCommand::DevOps(args) => {
-                return Box::pin(args.invoke(auth_context, executor)).await;
-            }
-            AzureCommand::Tenant(args) => {
-                return Box::pin(args.invoke(auth_context, executor)).await;
-            }
-            AzureCommand::AppService(args) => Box::pin(args.invoke(auth_context, executor)).await?,
-            AzureCommand::Audit(args) => Box::pin(args.invoke(auth_context, executor)).await?,
-            AzureCommand::ApplicationGateway(args) => {
-                Box::pin(args.invoke(auth_context, executor)).await?
-            }
-            AzureCommand::CognitiveServices(args) => {
-                Box::pin(args.invoke(auth_context, executor)).await?
-            }
-            AzureCommand::ContainerInstance(args) => {
-                Box::pin(args.invoke(auth_context, executor)).await?
-            }
-            AzureCommand::Find(args) => Box::pin(args.invoke(auth_context, executor)).await?,
-            AzureCommand::NetworkInterface(args) => {
-                Box::pin(args.invoke(auth_context, executor)).await?
-            }
-            AzureCommand::VirtualNetwork(args) => {
-                return Box::pin(args.invoke(auth_context, executor)).await;
-            }
-            AzureCommand::ResourceGroup(args) => {
-                Box::pin(args.invoke(auth_context, executor)).await?
-            }
-            AzureCommand::Policy(args) => Box::pin(args.invoke(auth_context, executor)).await?,
-            AzureCommand::PrivateEndpoint(args) => {
-                Box::pin(args.invoke(auth_context, executor)).await?
-            }
-            AzureCommand::PublicIp(args) => Box::pin(args.invoke(auth_context, executor)).await?,
-            AzureCommand::Tag(args) => Box::pin(args.invoke(auth_context, executor)).await?,
-            AzureCommand::Resource(args) => Box::pin(args.invoke(auth_context, executor)).await?,
-            AzureCommand::Role(args) => Box::pin(args.invoke(auth_context, executor)).await?,
-            AzureCommand::Pim(args) => Box::pin(args.invoke(auth_context, executor)).await?,
-            AzureCommand::Entra(args) => {
-                return Box::pin(args.invoke(auth_context, executor)).await;
-            }
-            AzureCommand::Vm(args) => Box::pin(args.invoke(auth_context, executor)).await?,
-            AzureCommand::Subscription(args) => {
-                return Box::pin(args.invoke(auth_context, executor)).await;
-            }
+            AzureCommand::DevOps(args) => Box::pin(args.invoke(executor)).await,
+            AzureCommand::Tenant(args) => Box::pin(args.invoke(executor)).await,
+            AzureCommand::AppService(args) => Box::pin(args.invoke(executor)).await,
+            AzureCommand::Audit(args) => Box::pin(args.invoke(executor)).await,
+            AzureCommand::ApplicationGateway(args) => Box::pin(args.invoke(executor)).await,
+            AzureCommand::CognitiveServices(args) => Box::pin(args.invoke(executor)).await,
+            AzureCommand::ContainerInstance(args) => Box::pin(args.invoke(executor)).await,
+            AzureCommand::Find(args) => Box::pin(args.invoke(executor)).await,
+            AzureCommand::NetworkInterface(args) => Box::pin(args.invoke(executor)).await,
+            AzureCommand::VirtualNetwork(args) => Box::pin(args.invoke(executor)).await,
+            AzureCommand::ResourceGroup(args) => Box::pin(args.invoke(executor)).await,
+            AzureCommand::Policy(args) => Box::pin(args.invoke(executor)).await,
+            AzureCommand::PrivateEndpoint(args) => Box::pin(args.invoke(executor)).await,
+            AzureCommand::PublicIp(args) => Box::pin(args.invoke(executor)).await,
+            AzureCommand::Tag(args) => Box::pin(args.invoke(executor)).await,
+            AzureCommand::Resource(args) => Box::pin(args.invoke(executor)).await,
+            AzureCommand::Role(args) => Box::pin(args.invoke(executor)).await,
+            AzureCommand::Pim(args) => Box::pin(args.invoke(executor)).await,
+            AzureCommand::Entra(args) => Box::pin(args.invoke(executor)).await,
+            AzureCommand::Vm(args) => Box::pin(args.invoke(executor)).await,
+            AzureCommand::Subscription(args) => Box::pin(args.invoke(executor)).await,
         }
-
-        Ok(CliOutput::none())
     }
 }

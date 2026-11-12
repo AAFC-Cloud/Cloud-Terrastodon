@@ -1,12 +1,11 @@
 use cloud_terrastodon_app::CliOutput;
-use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
 use cloud_terrastodon_azure::AzureSubnetArgument;
-use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::AzureVirtualNetworkArgument;
+use cloud_terrastodon_azure::AzureVirtualNetworkListRequest;
 use cloud_terrastodon_azure::Scope;
-use cloud_terrastodon_azure::fetch_all_virtual_networks;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
 use eyre::bail;
 use facet::Facet;
@@ -18,9 +17,8 @@ pub struct AzureVirtualNetworkSubnetShowArgs {
     /// Must match exactly one subnet within the selected virtual networks.
     #[facet(figue::positional, figue::label = "SUBNET")]
     pub subnet: AzureSubnetArgument,
-    /// Tenant ID or tracked alias. Defaults to the selected authentication tenant.
-    #[facet(figue::named, default)]
-    pub tenant: AzureTenantArgument<'static>,
+    #[facet(flatten)]
+    pub authentication: AzureAuthenticationArgs,
     /// Restrict the search to matching virtual networks by name or full resource ID.
     #[facet(figue::named)]
     pub vnet: Option<AzureVirtualNetworkArgument>,
@@ -35,18 +33,10 @@ pub struct AzureVirtualNetworkSubnetShowArgs {
 }
 
 impl AzureVirtualNetworkSubnetShowArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<CliOutput> {
-        let cancellation = executor.cancellation();
-        let tenant_auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
-            .await?;
-        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
-        let networks = fetch_all_virtual_networks(&tenant_auth_context, executor)
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        let authentication = self.authentication.resolve(executor).await?;
+        let networks = AzureVirtualNetworkListRequest { authentication }
+            .execute(executor)
             .with_invalidation(self.no_cache)
             .await?;
         let mut subnets = networks

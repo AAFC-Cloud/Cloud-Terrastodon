@@ -1,23 +1,21 @@
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
+use cloud_terrastodon_azure::AzureRoleDefinitionsAndAssignmentsListRequest;
 use cloud_terrastodon_azure::RoleDefinition;
 use cloud_terrastodon_azure::RolePermissionAction;
 use cloud_terrastodon_azure::Scope;
-use cloud_terrastodon_azure::fetch_all_role_definitions_and_assignments;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
 use facet::Facet;
 use std::collections::HashSet;
-use std::io::Write;
 use tracing::info;
 
 /// Find role definitions and role assignments that satisfy an action or data action.
 #[derive(Facet, Debug, Clone)]
 pub struct AzureRoleDefinitionFindArgs {
-    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[facet(figue::named, default)]
-    pub tenant: AzureTenantArgument<'static>,
+    #[facet(flatten)]
+    pub authentication: AzureAuthenticationArgs,
 
     /// Required action or data action to search for.
     #[facet(figue::positional, proxy = String)]
@@ -25,24 +23,12 @@ pub struct AzureRoleDefinitionFindArgs {
 }
 
 impl AzureRoleDefinitionFindArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        let cancellation = executor.cancellation();
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         info!(action = %self.action, "Fetching Azure role definitions and role assignments");
-        let tenant_auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
+        let authentication = self.authentication.resolve(executor).await?;
+        let rbac = AzureRoleDefinitionsAndAssignmentsListRequest { authentication }
+            .execute(executor)
             .await?;
-        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
-        let rbac = fetch_all_role_definitions_and_assignments(
-            tenant_auth_context.tenant_id,
-            tenant_auth_context.auth_source()?,
-            executor,
-        )
-        .await?;
 
         let fallback_chain = build_fallback_chain(&self.action);
         let literal_match_counts = fallback_chain
@@ -112,13 +98,7 @@ impl AzureRoleDefinitionFindArgs {
             "Completed role definition find"
         );
 
-        let stdout = std::io::stdout();
-        let mut handle = stdout.lock();
-        facet_json::to_writer_std_pretty(&mut handle, &output)
-            .map_err(|error| eyre::eyre!("{error:?}"))?;
-        handle.write_all(b"\n")?;
-
-        Ok(())
+        Ok(CliOutput::facet(output))
     }
 }
 

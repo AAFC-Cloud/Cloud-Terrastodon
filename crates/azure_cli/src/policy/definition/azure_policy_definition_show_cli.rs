@@ -1,21 +1,20 @@
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
+use cloud_terrastodon_azure::AzurePolicyDefinitionListRequest;
 use cloud_terrastodon_azure::Scope;
-use cloud_terrastodon_azure::fetch_all_policy_definitions;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
 use eyre::bail;
 use facet::Facet;
-use std::io::Write;
+use std::sync::Arc;
 use tracing::info;
 
 /// Arguments for showing a single Azure policy definition.
 #[derive(Facet, Debug, Clone)]
 pub struct AzurePolicyDefinitionShowArgs {
-    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[facet(figue::named, default)]
-    pub tenant: AzureTenantArgument<'static>,
+    #[facet(flatten)]
+    pub authentication: AzureAuthenticationArgs,
 
     /// Policy definition id, name, or display name.
     #[facet(figue::positional)]
@@ -23,20 +22,12 @@ pub struct AzurePolicyDefinitionShowArgs {
 }
 
 impl AzurePolicyDefinitionShowArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        let cancellation = executor.cancellation();
-        let tenant_auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        let authentication = self.authentication.resolve(executor).await?;
+        info!(needle = %self.policy_definition, tenant_id = %authentication.tenant_id, "Fetching Azure policy definitions");
+        let policy_definitions = AzurePolicyDefinitionListRequest { authentication }
+            .execute(executor)
             .await?;
-        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
-        info!(needle = %self.policy_definition, tenant_id = %tenant_auth_context.tenant_id, "Fetching Azure policy definitions");
-        let policy_definitions =
-            fetch_all_policy_definitions(&tenant_auth_context, executor).await?;
         info!(
             count = policy_definitions.len(),
             "Fetched Azure policy definitions"
@@ -47,12 +38,7 @@ impl AzurePolicyDefinitionShowArgs {
             .iter()
             .find(|policy_definition| policy_definition.id.expanded_form() == needle)
         {
-            let stdout = std::io::stdout();
-            let mut handle = stdout.lock();
-            facet_json::to_writer_std_pretty(&mut handle, policy_definition)
-                .map_err(|error| eyre::eyre!("{error:?}"))?;
-            handle.write_all(b"\n")?;
-            return Ok(());
+            return Ok(CliOutput::facet(Arc::clone(policy_definition)));
         }
 
         let mut name_matches = policy_definitions
@@ -78,14 +64,7 @@ impl AzurePolicyDefinitionShowArgs {
             0 => {
                 bail!("No policy definition found matching '{}'.", needle);
             }
-            1 => {
-                let stdout = std::io::stdout();
-                let mut handle = stdout.lock();
-                facet_json::to_writer_std_pretty(&mut handle, name_matches.remove(0))
-                    .map_err(|error| eyre::eyre!("{error:?}"))?;
-                handle.write_all(b"\n")?;
-                Ok(())
-            }
+            1 => Ok(CliOutput::facet(Arc::clone(name_matches.remove(0)))),
             _ => {
                 name_matches.sort_by_key(|policy_definition| policy_definition.id.expanded_form());
                 let ids = name_matches

@@ -1,6 +1,8 @@
-use cloud_terrastodon_auth::AzureTenantAuthContext;
-use cloud_terrastodon_azure::fetch_all_service_principals;
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
+use cloud_terrastodon_azure::EntraServicePrincipalListRequest;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::PickerTui;
@@ -8,16 +10,13 @@ use eyre::Result;
 use tracing::info;
 
 pub async fn browse_service_principals(
-    auth_context: &AzureTenantAuthContext,
+    authentication: AzureBearerAuthenticationSelection,
     executor: &CloudTerrastodonExecutor,
-) -> Result<()> {
+) -> Result<CliOutput> {
     info!("Fetching service principals");
-    let service_principals = fetch_all_service_principals(
-        auth_context.tenant_id,
-        auth_context.auth_source()?,
-        executor,
-    )
-    .await?;
+    let service_principals = EntraServicePrincipalListRequest { authentication }
+        .execute(executor)
+        .await?;
     let (service_principals, maybe_error) = PickerTui::<_>::new()
         .set_header("Service Principals")
         .pick_many(
@@ -30,8 +29,14 @@ pub async fn browse_service_principals(
         .await
         .into_chosen_and_maybe_error()?;
     info!("You chose:");
-    for sp in &service_principals {
-        println!("- {} {:64} {}", sp.id, sp.display_name, sp.app_id);
-    }
-    maybe_error
+    Ok(
+        CliOutput::facet_with_text(service_principals, |principals, writer, cancellation| {
+            for sp in principals {
+                cancellation.bail_if_cancelled()?;
+                writeln!(writer, "- {} {:64} {}", sp.id, sp.display_name, sp.app_id)?;
+            }
+            Ok(())
+        })
+        .with_result(maybe_error),
+    )
 }

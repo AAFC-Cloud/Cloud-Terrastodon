@@ -1,7 +1,7 @@
 use super::AzureApplicationGatewayListArgs;
 use super::AzureApplicationGatewayShowArgs;
 use super::AzureApplicationGatewayShowBackendHealthArgs;
-use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use facet::Facet;
@@ -19,16 +19,12 @@ pub enum AzureApplicationGatewayCommand {
 }
 
 impl AzureApplicationGatewayCommand {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         match self {
-            AzureApplicationGatewayCommand::List(args) => args.invoke(auth_context, executor).await,
-            AzureApplicationGatewayCommand::Show(args) => args.invoke(auth_context, executor).await,
+            AzureApplicationGatewayCommand::List(args) => Box::pin(args.invoke(executor)).await,
+            AzureApplicationGatewayCommand::Show(args) => Box::pin(args.invoke(executor)).await,
             AzureApplicationGatewayCommand::ShowBackendHealth(args) => {
-                args.invoke(auth_context, executor).await
+                Box::pin(args.invoke(executor)).await
             }
         }
     }

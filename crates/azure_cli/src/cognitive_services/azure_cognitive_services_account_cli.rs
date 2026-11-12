@@ -1,7 +1,7 @@
 use super::AzureCognitiveServicesDeploymentArgs;
 use super::AzureCognitiveServicesListArgs;
 use super::AzureCognitiveServicesShowArgs;
-use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use facet::Facet;
@@ -14,12 +14,8 @@ pub struct AzureCognitiveServicesAccountArgs {
 }
 
 impl AzureCognitiveServicesAccountArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        self.command.invoke(auth_context, executor).await
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        self.command.invoke(executor).await
     }
 }
 
@@ -35,20 +31,16 @@ pub enum AzureCognitiveServicesAccountCommand {
 }
 
 impl AzureCognitiveServicesAccountCommand {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         match self {
             AzureCognitiveServicesAccountCommand::List(args) => {
-                args.invoke(auth_context, executor).await
+                Box::pin(args.invoke(executor)).await
             }
             AzureCognitiveServicesAccountCommand::Show(args) => {
-                args.invoke(auth_context, executor).await
+                Box::pin(args.invoke(executor)).await
             }
             AzureCognitiveServicesAccountCommand::Deployment(args) => {
-                args.invoke(auth_context, executor).await
+                Box::pin(args.invoke(executor)).await
             }
         }
     }

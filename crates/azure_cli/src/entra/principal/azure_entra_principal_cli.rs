@@ -1,6 +1,6 @@
 use super::AzureEntraPrincipalListArgs;
 use super::AzureEntraPrincipalShowArgs;
-use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use facet::Facet;
@@ -16,14 +16,10 @@ pub enum AzureEntraPrincipalCommand {
 }
 
 impl AzureEntraPrincipalCommand {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         match self {
-            AzureEntraPrincipalCommand::List(args) => args.invoke(auth_context, executor).await,
-            AzureEntraPrincipalCommand::Show(args) => args.invoke(auth_context, executor).await,
+            AzureEntraPrincipalCommand::List(args) => Box::pin(args.invoke(executor)).await,
+            AzureEntraPrincipalCommand::Show(args) => Box::pin(args.invoke(executor)).await,
         }
     }
 }

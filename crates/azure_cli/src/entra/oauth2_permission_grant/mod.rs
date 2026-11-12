@@ -1,9 +1,12 @@
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use facet::Facet;
 use std::sync::Arc;
 pub mod azure_entra_oauth2_permission_grant_browse_cli;
 pub mod azure_entra_oauth2_permission_grant_claim_cli;
 pub mod azure_entra_oauth2_permission_grant_claim_list_cli;
+mod azure_entra_oauth2_permission_grant_claim_list_output;
 pub mod azure_entra_oauth2_permission_grant_cli;
 pub mod azure_entra_oauth2_permission_grant_create_cli;
 pub mod azure_entra_oauth2_permission_grant_list_cli;
@@ -16,11 +19,10 @@ pub use azure_entra_oauth2_permission_grant_cli::AzureEntraOAuth2PermissionGrant
 pub use azure_entra_oauth2_permission_grant_create_cli::AzureEntraOAuth2PermissionGrantCreateArgs;
 pub use azure_entra_oauth2_permission_grant_list_cli::AzureEntraOAuth2PermissionGrantListArgs;
 pub use azure_entra_oauth2_permission_grant_update_cli::AzureEntraOAuth2PermissionGrantUpdateArgs;
-use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_azure::EntraApplicationClientId;
 use cloud_terrastodon_azure::EntraServicePrincipal;
+use cloud_terrastodon_azure::EntraServicePrincipalListRequest;
 use cloud_terrastodon_azure::EntraServicePrincipalObjectId;
-use cloud_terrastodon_azure::fetch_all_service_principals;
 use eyre::ContextCompat;
 use eyre::Result;
 
@@ -35,12 +37,8 @@ pub struct AzureEntraOAuth2PermissionGrantArgs {
 }
 
 impl AzureEntraOAuth2PermissionGrantArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        self.command.invoke(auth_context, executor).await
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        self.command.invoke(executor).await
     }
 }
 
@@ -60,20 +58,15 @@ pub fn split_scope_csv(scopes: &[String]) -> Vec<&str> {
 }
 
 pub async fn resolve_preset_service_principals(
-    tenant_id: cloud_terrastodon_azure::AzureTenantId,
     preset: OAuth2PermissionGrantPreset,
-    auth_context: &AuthContext,
+    authentication: cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection,
     executor: &CloudTerrastodonExecutor,
 ) -> Result<(EntraServicePrincipalObjectId, EntraServicePrincipalObjectId)> {
-    let tenant_auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
     match preset {
         OAuth2PermissionGrantPreset::GraphExplorer => {
-            let service_principals = fetch_all_service_principals(
-                tenant_auth_context.tenant_id,
-                tenant_auth_context.auth_source()?,
-                executor,
-            )
-            .await?;
+            let service_principals = EntraServicePrincipalListRequest { authentication }
+                .execute(executor)
+                .await?;
             let client =
                 resolve_service_principal_by_app_id(&service_principals, GRAPH_EXPLORER_APP_ID)?;
             let resource =

@@ -1,26 +1,24 @@
 use super::OAuth2PermissionGrantPreset;
 use super::resolve_preset_service_principals;
 use super::split_scope_csv;
-use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
 use cloud_terrastodon_azure::AzurePrincipalArgument;
-use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_azure::EntraOAuth2PermissionGrantCreateRequest;
+use cloud_terrastodon_azure::EntraPrincipalListRequest;
 use cloud_terrastodon_azure::EntraServicePrincipalObjectId;
-use cloud_terrastodon_azure::create_oauth2_permission_grant;
-use cloud_terrastodon_azure::fetch_all_principals;
 use cloud_terrastodon_azure::join_oauth2_permission_grant_scopes;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::ContextCompat;
 use eyre::Result;
 use facet::Facet;
-use std::io::Write;
 
 /// Create an Entra OAuth2 permission grant.
 #[derive(Facet, Debug, Clone)]
 pub struct AzureEntraOAuth2PermissionGrantCreateArgs {
-    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[facet(figue::named, default)]
-    pub tenant: AzureTenantArgument<'static>,
+    #[facet(flatten)]
+    pub authentication: AzureAuthenticationArgs,
 
     /// Client service principal object id.
     #[facet(figue::named)]
@@ -44,31 +42,16 @@ pub struct AzureEntraOAuth2PermissionGrantCreateArgs {
 }
 
 impl AzureEntraOAuth2PermissionGrantCreateArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        let cancellation = executor.cancellation();
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         if self.preset.is_some() && (self.client_id.is_some() || self.resource_id.is_some()) {
             eyre::bail!("--preset cannot be used with --client-id or --resource-id");
         }
 
-        let tenant_auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
-            .await?;
-        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
-        let tenant_id = tenant_auth_context.tenant_id;
+        let authentication = self.authentication.resolve(executor).await?;
+        let tenant_id = authentication.tenant_id;
         let (client_id, resource_id) = match self.preset {
             Some(preset) => {
-                resolve_preset_service_principals(
-                    tenant_id,
-                    preset,
-                    &tenant_auth_context.auth_context,
-                    executor,
-                )
-                .await?
+                resolve_preset_service_principals(preset, authentication, executor).await?
             }
             None => (
                 self.client_id
@@ -83,12 +66,9 @@ impl AzureEntraOAuth2PermissionGrantCreateArgs {
             eyre::bail!("At least one --scope value is required");
         }
 
-        let principals = fetch_all_principals(
-            tenant_auth_context.tenant_id,
-            tenant_auth_context.auth_source()?,
-            executor,
-        )
-        .await?;
+        let principals = EntraPrincipalListRequest { authentication }
+            .execute(executor)
+            .await?;
         let principal = self.principal.resolve(&principals).wrap_err_with(|| {
             format!(
                 "Could not resolve principal '{}' in tenant {tenant_id}",
@@ -101,22 +81,16 @@ impl AzureEntraOAuth2PermissionGrantCreateArgs {
             )
         })?;
 
-        let grant = create_oauth2_permission_grant(
-            tenant_id,
-            resource_id,
-            client_id,
-            principal_id,
-            join_oauth2_permission_grant_scopes(scopes),
-            tenant_auth_context.auth_context.azure_bearer_source()?,
-            executor,
-        )
+        let grant = EntraOAuth2PermissionGrantCreateRequest {
+            authentication,
+            resource_id: (resource_id),
+            client_id: (client_id),
+            principal_id: (principal_id),
+            scope: (join_oauth2_permission_grant_scopes(scopes)),
+        }
+        .execute(executor)
         .await?;
 
-        let stdout = std::io::stdout();
-        let mut handle = stdout.lock();
-        facet_json::to_writer_std_pretty(&mut handle, &grant)
-            .map_err(|error| eyre::eyre!("{error:?}"))?;
-        handle.write_all(b"\n")?;
-        Ok(())
+        Ok(CliOutput::facet(grant))
     }
 }

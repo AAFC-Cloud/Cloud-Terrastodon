@@ -12,7 +12,6 @@ pub mod user;
 pub use application_registration::AzureEntraApplicationRegistrationArgs;
 pub use azure_entra_cli::AzureEntraCommand;
 use cloud_terrastodon_app::CliOutput;
-use cloud_terrastodon_auth::AuthContext;
 use eyre::Result;
 pub use group::AzureEntraGroupArgs;
 pub use oauth2_permission_grant::AzureEntraOAuth2PermissionGrantArgs;
@@ -29,11 +28,7 @@ pub struct AzureEntraArgs {
 }
 
 impl AzureEntraArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<CliOutput> {
-        self.command.invoke(auth_context, executor).await
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        self.command.invoke(executor).await
     }
 }

@@ -1,42 +1,35 @@
-use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
+use cloud_terrastodon_azure::AzureComputePublisherImageOfferListRequest;
+use cloud_terrastodon_azure::AzureComputePublisherImageOfferSkuListRequest;
+use cloud_terrastodon_azure::AzureComputePublisherImageOfferSkuVersionListRequest;
+use cloud_terrastodon_azure::AzureComputePublishersListRequest;
+use cloud_terrastodon_azure::AzureLocationListRequest;
 use cloud_terrastodon_azure::AzureLocationName;
-use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_azure::AzureSubscriptionListRequest;
 use cloud_terrastodon_azure::ComputePublisherId;
 use cloud_terrastodon_azure::ComputePublisherVmImageOfferId;
 use cloud_terrastodon_azure::ComputePublisherVmImageOfferSkuId;
 use cloud_terrastodon_azure::ComputePublisherVmImageOfferSkuVersionId;
 use cloud_terrastodon_azure::SubscriptionId;
-use cloud_terrastodon_azure::fetch_all_locations;
-use cloud_terrastodon_azure::fetch_all_subscriptions;
-use cloud_terrastodon_azure::fetch_compute_publisher_image_offer_sku_versions;
-use cloud_terrastodon_azure::fetch_compute_publisher_image_offer_skus;
-use cloud_terrastodon_azure::fetch_compute_publisher_image_offers;
-use cloud_terrastodon_azure::fetch_compute_publishers;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use facet::Facet;
-use std::io::Write;
 use tracing::info;
 
 /// Interactively pick subscriptions, locations and publishers.
 #[derive(Facet, Debug, Clone)]
 pub struct AzureVmPublisherBrowseArgs {
-    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[facet(figue::named, default)]
-    pub tenant: AzureTenantArgument<'static>,
+    #[facet(flatten)]
+    pub authentication: AzureAuthenticationArgs,
 }
 
 impl AzureVmPublisherBrowseArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        let cancellation = executor.cancellation();
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         #[derive(Debug, Clone, Copy, PartialEq, Eq)]
         enum Decision {
             Print,
@@ -44,12 +37,10 @@ impl AzureVmPublisherBrowseArgs {
         }
         // 1) Pick subscriptions
         info!("Fetching subscriptions");
-        let tenant_auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
+        let authentication = self.authentication.resolve(executor).await?;
+        let subs = AzureSubscriptionListRequest { authentication }
+            .execute(executor)
             .await?;
-        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
-        let subs = fetch_all_subscriptions(&tenant_auth_context, executor).await?;
         let (chosen_subs, maybe_error) = PickerTui::<_>::new()
             .set_header("Select one or more subscriptions (Tab to mark multiple)")
             .pick_many(subs, executor.cancellation())
@@ -61,12 +52,11 @@ impl AzureVmPublisherBrowseArgs {
         let mut location_choices: Vec<Choice<(SubscriptionId, AzureLocationName)>> = Vec::new();
         for sub in &chosen_subs {
             info!(subscription_id = %sub.id, subscription_name = %sub.name, "Fetching locations for subscription");
-            let locations = fetch_all_locations(
-                sub.id,
-                tenant_auth_context.auth_context.azure_bearer_source()?,
-                tenant_auth_context.tenant_id,
-                executor,
-            )
+            let locations = AzureLocationListRequest {
+                authentication,
+                subscription_id: (sub.id),
+            }
+            .execute(executor)
             .await?;
             for loc in locations {
                 let key = format!("{} - {} ({})", sub.name, loc.display_name, loc.name);
@@ -89,13 +79,12 @@ impl AzureVmPublisherBrowseArgs {
         let mut publisher_set: HashSet<ComputePublisherId> = HashSet::new();
         for (sub_id, loc_name) in &chosen_locations {
             info!(subscription_id = %sub_id, location = %loc_name, "Fetching publishers for subscription and location");
-            let pubs = fetch_compute_publishers(
-                *sub_id,
-                loc_name.clone(),
-                tenant_auth_context.auth_context.azure_bearer_source()?,
-                tenant_auth_context.tenant_id,
-                executor,
-            )
+            let pubs = AzureComputePublishersListRequest {
+                authentication,
+                subscription_id: (*sub_id),
+                location: (loc_name.clone()),
+            }
+            .execute(executor)
             .await?;
             for p in pubs {
                 publisher_set.insert(p);
@@ -131,26 +120,29 @@ impl AzureVmPublisherBrowseArgs {
             .await?;
 
         if decision == Decision::Print {
-            let stdout = std::io::stdout();
-            let mut out = stdout.lock();
-            for p in chosen_publishers {
-                writeln!(out, "{}", p)?;
-            }
-            return Ok(());
+            return Ok(CliOutput::facet_with_text(
+                chosen_publishers,
+                |values, writer, cancellation| {
+                    for value in values {
+                        cancellation.bail_if_cancelled()?;
+                        writeln!(writer, "{value}")?;
+                    }
+                    Ok(())
+                },
+            ));
         }
 
         // 5) For each chosen publisher fetch offers and accumulate unique offers
         let mut offer_set: HashSet<ComputePublisherVmImageOfferId> = HashSet::new();
         for p in &chosen_publishers {
             info!(subscription_id = %p.subscription_id, location = %p.location_name, publisher = %p.publisher_name, "Fetching offers for publisher");
-            let offers = fetch_compute_publisher_image_offers(
-                p.subscription_id,
-                p.location_name.clone(),
-                p.publisher_name.clone(),
-                tenant_auth_context.auth_context.azure_bearer_source()?,
-                tenant_auth_context.tenant_id,
-                executor,
-            )
+            let offers = AzureComputePublisherImageOfferListRequest {
+                authentication,
+                subscription_id: (p.subscription_id),
+                location: (p.location_name.clone()),
+                publisher_name: (p.publisher_name.clone()),
+            }
+            .execute(executor)
             .await?;
             for o in offers {
                 offer_set.insert(o);
@@ -199,27 +191,30 @@ impl AzureVmPublisherBrowseArgs {
             .await?;
 
         if decision == Decision::Print {
-            let stdout = std::io::stdout();
-            let mut out = stdout.lock();
-            for o in chosen_offers {
-                writeln!(out, "{}", o)?;
-            }
-            return Ok(());
+            return Ok(CliOutput::facet_with_text(
+                chosen_offers,
+                |values, writer, cancellation| {
+                    for value in values {
+                        cancellation.bail_if_cancelled()?;
+                        writeln!(writer, "{value}")?;
+                    }
+                    Ok(())
+                },
+            ));
         }
 
         // 7) For each chosen offer fetch SKUs and accumulate unique SKUs
         let mut sku_set: HashSet<ComputePublisherVmImageOfferSkuId> = HashSet::new();
         for o in &chosen_offers {
             info!(subscription_id = %o.subscription_id, location = %o.location_name, publisher = %o.publisher_name, offer = %o.offer_name, "Fetching SKUs for offer");
-            let skus = fetch_compute_publisher_image_offer_skus(
-                o.subscription_id,
-                o.location_name.clone(),
-                o.publisher_name.clone(),
-                o.offer_name.clone(),
-                tenant_auth_context.auth_context.azure_bearer_source()?,
-                tenant_auth_context.tenant_id,
-                executor,
-            )
+            let skus = AzureComputePublisherImageOfferSkuListRequest {
+                authentication,
+                subscription_id: (o.subscription_id),
+                location: (o.location_name.clone()),
+                publisher_name: (o.publisher_name.clone()),
+                offer_name: (o.offer_name.clone()),
+            }
+            .execute(executor)
             .await?;
             for s in skus {
                 sku_set.insert(s);
@@ -267,39 +262,45 @@ impl AzureVmPublisherBrowseArgs {
             .await?;
 
         if decision == Decision::Print {
-            let stdout = std::io::stdout();
-            let mut out = stdout.lock();
-            for s in chosen_skus {
-                writeln!(out, "{}", s)?;
-            }
-            return Ok(());
+            return Ok(CliOutput::facet_with_text(
+                chosen_skus,
+                |values, writer, cancellation| {
+                    for value in values {
+                        cancellation.bail_if_cancelled()?;
+                        writeln!(writer, "{value}")?;
+                    }
+                    Ok(())
+                },
+            ));
         }
 
         // 9) Display version infos (fetch and print version ids for chosen SKUs)
         let mut version_ids: Vec<ComputePublisherVmImageOfferSkuVersionId> = Vec::new();
         for s in &chosen_skus {
             info!(subscription_id = %s.subscription_id, location = %s.location_name, publisher = %s.publisher_name, offer = %s.offer_name, sku = %s.sku_name, "Fetching versions for SKU");
-            let versions = fetch_compute_publisher_image_offer_sku_versions(
-                s.subscription_id,
-                s.location_name.clone(),
-                s.publisher_name.clone(),
-                s.offer_name.clone(),
-                s.sku_name.clone(),
-                tenant_auth_context.auth_context.azure_bearer_source()?,
-                tenant_auth_context.tenant_id,
-                executor,
-            )
+            let versions = AzureComputePublisherImageOfferSkuVersionListRequest {
+                authentication,
+                subscription_id: (s.subscription_id),
+                location: (s.location_name.clone()),
+                publisher_name: (s.publisher_name.clone()),
+                offer_name: (s.offer_name.clone()),
+                sku_name: (s.sku_name.clone()),
+            }
+            .execute(executor)
             .await?;
             version_ids.extend(versions);
         }
         version_ids.sort();
 
-        let stdout = std::io::stdout();
-        let mut out = stdout.lock();
-        for v in version_ids {
-            writeln!(out, "{}", v)?;
-        }
-
-        Ok(())
+        Ok(CliOutput::facet_with_text(
+            version_ids,
+            |values, writer, cancellation| {
+                for value in values {
+                    cancellation.bail_if_cancelled()?;
+                    writeln!(writer, "{value}")?;
+                }
+                Ok(())
+            },
+        ))
     }
 }

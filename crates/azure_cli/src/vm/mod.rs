@@ -1,3 +1,4 @@
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use facet::Facet;
 pub mod browse;
@@ -5,7 +6,6 @@ pub mod publisher;
 
 use crate::vm::browse::AzureVmBrowseArgs;
 use crate::vm::publisher::AzureVmPublisherArgs;
-use cloud_terrastodon_auth::AuthContext;
 use eyre::Result;
 
 /// Virtual machine related subcommands.
@@ -26,14 +26,10 @@ pub struct AzureVmArgs {
 }
 
 impl AzureVmArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         match self.command {
-            AzureVmCommand::Publisher(args) => args.invoke(auth_context, executor).await,
-            AzureVmCommand::Browse(args) => args.invoke(auth_context, executor).await,
+            AzureVmCommand::Publisher(args) => Box::pin(args.invoke(executor)).await,
+            AzureVmCommand::Browse(args) => Box::pin(args.invoke(executor)).await,
         }
     }
 }

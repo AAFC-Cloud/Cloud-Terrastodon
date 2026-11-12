@@ -1,3 +1,4 @@
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use facet::Facet;
 pub mod assignment;
@@ -7,7 +8,6 @@ pub mod operation;
 
 pub use assignment::AzureRoleAssignmentArgs;
 pub use azure_role_cli::AzureRoleCommand;
-use cloud_terrastodon_auth::AuthContext;
 pub use definition::AzureRoleDefinitionArgs;
 use eyre::Result;
 pub use operation::AzureRoleOperationArgs;
@@ -20,11 +20,7 @@ pub struct AzureRoleArgs {
 }
 
 impl AzureRoleArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        self.command.invoke(auth_context, executor).await
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        self.command.invoke(executor).await
     }
 }

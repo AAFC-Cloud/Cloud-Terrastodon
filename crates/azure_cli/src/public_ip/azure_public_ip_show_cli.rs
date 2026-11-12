@@ -1,21 +1,19 @@
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
+use cloud_terrastodon_azure::AzurePublicIpListRequest;
 use cloud_terrastodon_azure::Scope;
-use cloud_terrastodon_azure::fetch_all_public_ips;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
 use eyre::bail;
 use facet::Facet;
-use std::io::Write;
 use tracing::info;
 
 /// Arguments for showing a single Azure public IP address.
 #[derive(Facet, Debug, Clone)]
 pub struct AzurePublicIpShowArgs {
-    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[facet(figue::named, default)]
-    pub tenant: AzureTenantArgument<'static>,
+    #[facet(flatten)]
+    pub authentication: AzureAuthenticationArgs,
 
     /// Public IP resource id, resource name, IP address, or FQDN.
     #[facet(figue::positional)]
@@ -23,19 +21,12 @@ pub struct AzurePublicIpShowArgs {
 }
 
 impl AzurePublicIpShowArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        let cancellation = executor.cancellation();
-        let tenant_auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        let authentication = self.authentication.resolve(executor).await?;
+        info!(needle = %self.public_ip, tenant_id = %authentication.tenant_id, "Fetching Azure public IP addresses");
+        let public_ips = AzurePublicIpListRequest { authentication }
+            .execute(executor)
             .await?;
-        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
-        info!(needle = %self.public_ip, tenant_id = %tenant_auth_context.tenant_id, "Fetching Azure public IP addresses");
-        let public_ips = fetch_all_public_ips(&tenant_auth_context, executor).await?;
         info!(
             count = public_ips.len(),
             "Fetched Azure public IP addresses"
@@ -66,14 +57,7 @@ impl AzurePublicIpShowArgs {
             0 => {
                 bail!("No public IP found matching '{}'.", needle);
             }
-            1 => {
-                let stdout = std::io::stdout();
-                let mut handle = stdout.lock();
-                facet_json::to_writer_std_pretty(&mut handle, &matches.remove(0))
-                    .map_err(|error| eyre::eyre!("{error:?}"))?;
-                handle.write_all(b"\n")?;
-                Ok(())
-            }
+            1 => Ok(CliOutput::facet(matches.remove(0))),
             _ => {
                 matches.sort_by_key(|public_ip| public_ip.id.expanded_form());
                 let ids = matches

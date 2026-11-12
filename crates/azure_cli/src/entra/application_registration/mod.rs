@@ -1,3 +1,4 @@
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use facet::Facet;
 pub mod azure_entra_application_registration_browse_cli;
@@ -15,7 +16,6 @@ pub use azure_entra_application_registration_role_cli::AzureEntraApplicationRegi
 pub use azure_entra_application_registration_role_list_cli::AzureEntraApplicationRegistrationRoleListArgs;
 pub use azure_entra_application_registration_search_cli::AzureEntraApplicationRegistrationSearchArgs;
 pub use azure_entra_application_registration_show_cli::AzureEntraApplicationRegistrationShowArgs;
-use cloud_terrastodon_auth::AuthContext;
 use eyre::Result;
 
 /// Entra application registration subcommands.
@@ -26,11 +26,7 @@ pub struct AzureEntraApplicationRegistrationArgs {
 }
 
 impl AzureEntraApplicationRegistrationArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        self.command.invoke(auth_context, executor).await
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        self.command.invoke(executor).await
     }
 }

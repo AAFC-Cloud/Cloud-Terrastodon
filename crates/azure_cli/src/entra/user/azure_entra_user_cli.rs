@@ -2,7 +2,7 @@ use super::AzureEntraUserBrowseArgs;
 use super::AzureEntraUserListArgs;
 use super::AzureEntraUserSearchArgs;
 use super::AzureEntraUserShowArgs;
-use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use facet::Facet;
@@ -22,16 +22,12 @@ pub enum AzureEntraUserCommand {
 }
 
 impl AzureEntraUserCommand {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         match self {
-            AzureEntraUserCommand::List(args) => args.invoke(auth_context, executor).await,
-            AzureEntraUserCommand::Show(args) => args.invoke(auth_context, executor).await,
-            AzureEntraUserCommand::Search(args) => args.invoke(auth_context, executor).await,
-            AzureEntraUserCommand::Browse(args) => args.invoke(auth_context, executor).await,
+            AzureEntraUserCommand::List(args) => Box::pin(args.invoke(executor)).await,
+            AzureEntraUserCommand::Show(args) => Box::pin(args.invoke(executor)).await,
+            AzureEntraUserCommand::Search(args) => Box::pin(args.invoke(executor)).await,
+            AzureEntraUserCommand::Browse(args) => Box::pin(args.invoke(executor)).await,
         }
     }
 }

@@ -1,22 +1,20 @@
-use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
+use cloud_terrastodon_azure::AzurePrivateEndpointListRequest;
 use cloud_terrastodon_azure::AzurePrivateEndpointResource;
-use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::Scope;
-use cloud_terrastodon_azure::fetch_all_private_endpoints;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
 use eyre::bail;
 use facet::Facet;
-use std::io::Write;
 use tracing::info;
 
 /// Arguments for showing a single Azure private endpoint.
 #[derive(Facet, Debug, Clone)]
 pub struct AzurePrivateEndpointShowArgs {
-    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[facet(figue::named, default)]
-    pub tenant: AzureTenantArgument<'static>,
+    #[facet(flatten)]
+    pub authentication: AzureAuthenticationArgs,
 
     /// Private endpoint resource id, resource name, NIC id, custom NIC name, target resource id, private IP address, or FQDN.
     #[facet(figue::positional)]
@@ -24,19 +22,12 @@ pub struct AzurePrivateEndpointShowArgs {
 }
 
 impl AzurePrivateEndpointShowArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        let cancellation = executor.cancellation();
-        let tenant_auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        let authentication = self.authentication.resolve(executor).await?;
+        info!(needle = %self.private_endpoint, tenant_id = %authentication.tenant_id, "Fetching Azure private endpoints");
+        let private_endpoints = AzurePrivateEndpointListRequest { authentication }
+            .execute(executor)
             .await?;
-        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
-        info!(needle = %self.private_endpoint, tenant_id = %tenant_auth_context.tenant_id, "Fetching Azure private endpoints");
-        let private_endpoints = fetch_all_private_endpoints(&tenant_auth_context, executor).await?;
         info!(
             count = private_endpoints.len(),
             "Fetched Azure private endpoints"
@@ -52,14 +43,7 @@ impl AzurePrivateEndpointShowArgs {
             0 => {
                 bail!("No private endpoint found matching '{}'.", needle);
             }
-            1 => {
-                let stdout = std::io::stdout();
-                let mut handle = stdout.lock();
-                facet_json::to_writer_std_pretty(&mut handle, &matches.remove(0))
-                    .map_err(|error| eyre::eyre!("{error:?}"))?;
-                handle.write_all(b"\n")?;
-                Ok(())
-            }
+            1 => Ok(CliOutput::facet(matches.remove(0))),
             _ => {
                 matches.sort_by_key(|private_endpoint| private_endpoint.id.expanded_form());
                 let ids = matches

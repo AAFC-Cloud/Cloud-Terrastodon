@@ -1,7 +1,7 @@
 use super::AzurePolicySetDefinitionBrowseArgs;
 use super::AzurePolicySetDefinitionListArgs;
 use super::AzurePolicySetDefinitionShowArgs;
-use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use facet::Facet;
@@ -19,21 +19,11 @@ pub enum AzurePolicySetDefinitionCommand {
 }
 
 impl AzurePolicySetDefinitionCommand {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         match self {
-            AzurePolicySetDefinitionCommand::List(args) => {
-                args.invoke(auth_context, executor).await
-            }
-            AzurePolicySetDefinitionCommand::Browse(args) => {
-                args.invoke(auth_context, executor).await
-            }
-            AzurePolicySetDefinitionCommand::Show(args) => {
-                args.invoke(auth_context, executor).await
-            }
+            AzurePolicySetDefinitionCommand::List(args) => Box::pin(args.invoke(executor)).await,
+            AzurePolicySetDefinitionCommand::Browse(args) => Box::pin(args.invoke(executor)).await,
+            AzurePolicySetDefinitionCommand::Show(args) => Box::pin(args.invoke(executor)).await,
         }
     }
 }

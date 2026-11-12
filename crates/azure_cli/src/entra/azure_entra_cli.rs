@@ -6,7 +6,6 @@ use super::role::AzureEntraRoleArgs;
 use super::service_principal::AzureEntraServicePrincipalArgs;
 use super::user::AzureEntraUserArgs;
 use cloud_terrastodon_app::CliOutput;
-use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use facet::Facet;
@@ -39,33 +38,17 @@ pub enum AzureEntraCommand {
 }
 
 impl AzureEntraCommand {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<CliOutput> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         match self {
-            AzureEntraCommand::User(args) => {
-                args.invoke(auth_context, executor).await?;
-            }
-            AzureEntraCommand::Principal(args) => {
-                args.invoke(auth_context, executor).await?;
-            }
-            AzureEntraCommand::Role(args) => {
-                args.invoke(auth_context, executor).await?;
-            }
-            AzureEntraCommand::ServicePrincipal(args) => {
-                args.invoke(auth_context, executor).await?;
-            }
+            AzureEntraCommand::User(args) => Box::pin(args.invoke(executor)).await,
+            AzureEntraCommand::Principal(args) => Box::pin(args.invoke(executor)).await,
+            AzureEntraCommand::Role(args) => Box::pin(args.invoke(executor)).await,
+            AzureEntraCommand::ServicePrincipal(args) => Box::pin(args.invoke(executor)).await,
             AzureEntraCommand::ApplicationRegistration(args) => {
-                args.invoke(auth_context, executor).await?;
+                Box::pin(args.invoke(executor)).await
             }
-            AzureEntraCommand::Group(args) => return args.invoke(auth_context, executor).await,
-            AzureEntraCommand::OAuth2PermissionGrant(args) => {
-                args.invoke(auth_context, executor).await?;
-            }
+            AzureEntraCommand::Group(args) => Box::pin(args.invoke(executor)).await,
+            AzureEntraCommand::OAuth2PermissionGrant(args) => Box::pin(args.invoke(executor)).await,
         }
-
-        Ok(CliOutput::none())
     }
 }

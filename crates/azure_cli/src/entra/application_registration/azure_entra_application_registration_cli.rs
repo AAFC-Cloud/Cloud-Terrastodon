@@ -3,7 +3,7 @@ use super::AzureEntraApplicationRegistrationListArgs;
 use super::AzureEntraApplicationRegistrationRoleArgs;
 use super::AzureEntraApplicationRegistrationSearchArgs;
 use super::AzureEntraApplicationRegistrationShowArgs;
-use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use facet::Facet;
@@ -25,26 +25,22 @@ pub enum AzureEntraApplicationRegistrationCommand {
 }
 
 impl AzureEntraApplicationRegistrationCommand {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         match self {
             AzureEntraApplicationRegistrationCommand::List(args) => {
-                args.invoke(auth_context, executor).await
+                Box::pin(args.invoke(executor)).await
             }
             AzureEntraApplicationRegistrationCommand::Show(args) => {
-                args.invoke(auth_context, executor).await
+                Box::pin(args.invoke(executor)).await
             }
             AzureEntraApplicationRegistrationCommand::Browse(args) => {
-                args.invoke(auth_context, executor).await
+                Box::pin(args.invoke(executor)).await
             }
             AzureEntraApplicationRegistrationCommand::Role(args) => {
-                args.invoke(auth_context, executor).await
+                Box::pin(args.invoke(executor)).await
             }
             AzureEntraApplicationRegistrationCommand::Search(args) => {
-                args.invoke(auth_context, executor).await
+                Box::pin(args.invoke(executor)).await
             }
         }
     }

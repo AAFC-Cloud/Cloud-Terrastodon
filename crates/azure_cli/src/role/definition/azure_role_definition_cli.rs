@@ -1,7 +1,7 @@
 use super::AzureRoleDefinitionBrowseArgs;
 use super::AzureRoleDefinitionFindArgs;
 use super::AzureRoleDefinitionListArgs;
-use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use facet::Facet;
@@ -19,15 +19,11 @@ pub enum AzureRoleDefinitionCommand {
 }
 
 impl AzureRoleDefinitionCommand {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         match self {
-            AzureRoleDefinitionCommand::List(args) => args.invoke(auth_context, executor).await,
-            AzureRoleDefinitionCommand::Browse(args) => args.invoke(auth_context, executor).await,
-            AzureRoleDefinitionCommand::Find(args) => args.invoke(auth_context, executor).await,
+            AzureRoleDefinitionCommand::List(args) => Box::pin(args.invoke(executor)).await,
+            AzureRoleDefinitionCommand::Browse(args) => Box::pin(args.invoke(executor)).await,
+            AzureRoleDefinitionCommand::Find(args) => Box::pin(args.invoke(executor)).await,
         }
     }
 }
