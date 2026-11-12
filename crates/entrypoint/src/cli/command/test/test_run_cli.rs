@@ -146,7 +146,9 @@ impl TestRunArgs {
         }
         report.cancelled |= executor.cancellation().is_cancelled();
         let outcome = report.outcome();
-        Ok(CliOutput::facet(report).with_result(outcome))
+        Ok(CliOutput::facet(report)
+            .with_required_emission("emit runtime verification report")
+            .with_result(outcome))
     }
 
     /// Common flags supply only fields the registered input actually declares.
@@ -336,7 +338,7 @@ mod tests {
     cloud_terrastodon_registry_execution::register_runtime_test!(LaterCase => (), name = "synthetic-run-cancellation-2", effects = [Read], uncached);
 
     #[tokio::test]
-    async fn a_cancelled_case_closes_admission_without_cancelling_the_root() -> Result<()> {
+    async fn a_cancelled_case_stops_admission_and_preserves_its_final_report() -> Result<()> {
         CancellationToken::new()
             .with_async_scope(async |scope| {
                 let executor = CloudTerrastodonExecutor::new(
@@ -360,17 +362,22 @@ mod tests {
                 .await?;
                 assert!(!executor.cancellation().is_cancelled());
                 assert_eq!(LATER_CASE_STARTS.load(Ordering::SeqCst), 0);
+                // Cancellation can also arrive after the report is assembled.
+                // The leaf's output must retain emission without root dispatch.
+                executor
+                    .cancellation()
+                    .request_cancel("synthetic cancellation before report emission");
                 let mut bytes = Vec::new();
-                assert!(
-                    output
-                        .write_to(
-                            Some(OutputFormat::Json),
-                            false,
-                            &mut bytes,
-                            executor.cancellation()
-                        )
-                        .is_err()
-                );
+                let error = output
+                    .write_to(
+                        Some(OutputFormat::Json),
+                        false,
+                        &mut bytes,
+                        executor.cancellation(),
+                    )
+                    .expect_err("emit the report before returning its failed outcome");
+                assert_eq!(error.to_string(), "runtime verification was cancelled");
+                assert!(executor.cancellation().bail_if_cancelled().is_err());
                 let report: RuntimeTestReport = facet_json::from_slice(&bytes)?;
                 assert!(report.cancelled);
                 assert_eq!(report.cases.len(), 2);

@@ -48,21 +48,15 @@ impl Cli {
         cancellation: &CancellationScope,
         executor: &CloudTerrastodonExecutor,
     ) -> eyre::Result<CliOutput> {
-        let retain_report = matches!(&self.command, Some(CloudTerrastodonCommand::Test(_)));
         // Keep command and interactive-menu futures out of this outer future's
         // inline state; nested debug poll frames otherwise exhaust small stacks.
-        let output = match self.command {
-            Some(cmd) => Box::pin(cmd.invoke(cancellation, executor)).await?,
+        match self.command {
+            Some(cmd) => Box::pin(cmd.invoke(cancellation, executor)).await,
             None => {
                 Box::pin(menu_loop(executor)).await?;
-                CliOutput::none()
+                Ok(CliOutput::none())
             }
-        };
-        Ok(if retain_report {
-            output.with_required_emission("emit runtime verification report")
-        } else {
-            output
-        })
+        }
     }
 }
 
