@@ -1,10 +1,7 @@
 use crate::EntraUserListRequest;
 use crate::EntraUserSearchRequest;
-use crate::fetch_all_entra_users;
-use crate::search_entra_users;
 use arbitrary::Arbitrary;
-use cloud_terrastodon_auth_types::AzureBearerAuthSource;
-use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure_types::EntraUser;
 use cloud_terrastodon_cache::CacheInvalidationKeys;
 use cloud_terrastodon_cache::CacheKey;
@@ -12,7 +9,6 @@ use cloud_terrastodon_cache::HasCacheKey;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
-use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickError;
 use cloud_terrastodon_user_input::PickerEvent;
@@ -29,34 +25,19 @@ use tracing::info;
 #[must_use = "This is an interactive request; execute it with an executor"]
 #[derive(Arbitrary, Facet)]
 pub struct EntraUserPickRequest {
-    pub tenant_id: AzureTenantId,
-    pub auth_source: AzureBearerAuthSource,
-}
-
-#[track_caller]
-pub fn pick_entra_users<'a>(
-    tenant_id: AzureTenantId,
-    auth_source: AzureBearerAuthSource,
-    executor: &'a CloudTerrastodonExecutor,
-) -> RequestExecution<'a, EntraUserPickRequest> {
-    executor.execute(EntraUserPickRequest {
-        tenant_id,
-        auth_source,
-    })
+    pub authentication: AzureBearerAuthenticationSelection,
 }
 
 impl CacheInvalidationKeys for EntraUserPickRequest {
     fn cache_keys_to_invalidate(&self) -> Result<Vec<CacheKey>> {
         Ok(vec![
             EntraUserListRequest {
-                tenant_id: self.tenant_id,
-                auth_source: self.auth_source,
+                authentication: self.authentication,
             }
             .cache_key()?,
             EntraUserSearchRequest {
                 search_term: String::new(),
-                tenant_id: self.tenant_id,
-                auth_source: self.auth_source,
+                authentication: self.authentication,
             }
             .tenant_cache_key()?,
         ])
@@ -64,6 +45,14 @@ impl CacheInvalidationKeys for EntraUserPickRequest {
 }
 
 impl ExecutableRequest for EntraUserPickRequest {
+    fn bind_authentication(
+        &self,
+        executor: CloudTerrastodonExecutor,
+    ) -> eyre::Result<CloudTerrastodonExecutor, Self::Error> {
+        executor
+            .with_authentication_lease(&self.authentication.into())
+            .map_err(Into::into)
+    }
     type Output = Vec<Arc<EntraUser>>;
     type Error = PickError<Arc<EntraUser>>;
 
@@ -81,11 +70,10 @@ impl ExecutableRequest for EntraUserPickRequest {
                 .add_event_handler(async |child, event, sink| {
                     if matches!(event.as_ref(), PickerEvent::InitialLoad) {
                         info!("Fetching all Entra users");
-                        let users = fetch_all_entra_users(
-                            self.tenant_id,
-                            self.auth_source,
-                            &executor.with_cancellation_scope(child),
-                        )
+                        let users = EntraUserListRequest {
+                            authentication: self.authentication,
+                        }
+                        .execute(&executor.with_cancellation_scope(child))
                         .await?;
                         sink.push(users.iter().cloned().map(user_choice))?;
                         info!("Finished fetching all Entra users");
@@ -100,12 +88,11 @@ impl ExecutableRequest for EntraUserPickRequest {
                         PickerEvent::InitialLoad | PickerEvent::QueryCleared => return Ok(()),
                     };
                     info!(query = %query, "Searching Entra users");
-                    let users = search_entra_users(
-                        query.as_ref(),
-                        self.tenant_id,
-                        self.auth_source,
-                        &executor.with_cancellation_scope(child),
-                    )
+                    let users = EntraUserSearchRequest {
+                        search_term: (query.as_ref()).into(),
+                        authentication: self.authentication,
+                    }
+                    .execute(&executor.with_cancellation_scope(child))
                     .await?;
                     sink.push(users.into_iter().map(user_choice))?;
                     info!(query = %query, "Finished searching Entra users");
@@ -134,43 +121,47 @@ cloud_terrastodon_registry_execution::register_executable_request!(EntraUserPick
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cloud_terrastodon_auth::AuthContext;
+    use crate::test_authentication::test_authentication;
 
     #[test]
     fn refresh_covers_all_selected_tenant_searches_without_crossing_tenants() -> Result<()> {
-        let selected = AuthContext::explicit_azure_cli()
-            .bind_to_azure_tenant("11111111-1111-1111-1111-111111111111".parse()?)?;
-        let other = AuthContext::explicit_azure_cli()
-            .bind_to_azure_tenant("22222222-2222-2222-2222-222222222222".parse()?)?;
+        let selected = test_authentication();
+        let other = AzureBearerAuthenticationSelection {
+            tenant_id: "33333333-3333-3333-3333-333333333333".parse()?,
+            ..selected
+        };
         let keys = EntraUserPickRequest {
-            tenant_id: selected.tenant_id,
-            auth_source: selected.auth_source()?,
+            authentication: selected,
         }
         .cache_keys_to_invalidate()?;
-        for auth_context in [&selected, &other] {
+        for authentication in [&selected, &other] {
             let inventory = EntraUserListRequest {
-                tenant_id: auth_context.tenant_id,
-                auth_source: auth_context.auth_source()?,
+                authentication: *authentication,
             }
             .cache_key()?;
             assert_eq!(
                 keys.iter()
                     .any(|key| inventory.scope.starts_with(&key.scope)),
-                auth_context.tenant_id == selected.tenant_id
+                authentication.tenant_id == selected.tenant_id
             );
             for term in ["Alice", "Bob", "O'Neil"] {
                 let search = EntraUserSearchRequest {
                     search_term: term.to_owned(),
-                    tenant_id: auth_context.tenant_id,
-                    auth_source: auth_context.auth_source()?,
+                    authentication: *authentication,
                 }
                 .cache_key()?;
                 assert_eq!(
                     keys.iter().any(|key| search.scope.starts_with(&key.scope)),
-                    auth_context.tenant_id == selected.tenant_id
+                    authentication.tenant_id == selected.tenant_id
                 );
             }
         }
         Ok(())
     }
 }
+
+cloud_terrastodon_registry_execution::register_runtime_test!(
+    EntraUserPickRequest,
+    name = "entra-user-pick",
+    cached
+);

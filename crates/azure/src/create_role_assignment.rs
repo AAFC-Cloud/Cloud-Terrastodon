@@ -1,5 +1,5 @@
-use crate::fetch_all_role_assignments;
-use cloud_terrastodon_auth::AzureTenantAuthContext;
+use crate::AzureRoleAssignmentListRequest;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure_types::EntraPrincipalId;
 use cloud_terrastodon_azure_types::RoleAssignmentCreateBody;
 use cloud_terrastodon_azure_types::RoleAssignmentCreateProperties;
@@ -11,6 +11,7 @@ use cloud_terrastodon_azure_types::uuid::Uuid;
 use cloud_terrastodon_cache::CacheKey;
 use cloud_terrastodon_cache::CacheScope;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
 use http::Method;
@@ -27,9 +28,10 @@ pub async fn create_role_assignment(
     scope: &impl Scope,
     role_definition_id: &RoleDefinitionId,
     principal_object_id: &Uuid,
-    auth_context: &AzureTenantAuthContext,
+    authentication: &AzureBearerAuthenticationSelection,
     executor: &CloudTerrastodonExecutor,
 ) -> Result<RoleAssignmentId> {
+    let executor = &executor.with_authentication_lease(&(*authentication).into())?;
     let assignment_id: RoleAssignmentId = format!(
         "{}/providers/Microsoft.Authorization/roleAssignments/{}",
         scope.expanded_form().trim_end_matches('/'),
@@ -49,7 +51,7 @@ pub async fn create_role_assignment(
     let key = CacheKey {
         scope: CacheScope::try_from_relative_path(
             PathBuf::from("rest/arm/tenants")
-                .join(auth_context.tenant_id.to_string())
+                .join(authentication.tenant_id.to_string())
                 .join("role-assignments/create")
                 .join(assignment_id.short_form()),
         )?,
@@ -60,18 +62,17 @@ pub async fn create_role_assignment(
             "creating an RBAC assignment and invalidating its inventory",
             |executor| async move {
                 let execution = RestRequest::from_method_and_url(Method::PUT, url)?
-                    .azure_auth_context(auth_context)?
+                    .authentication((*authentication).into())
                     .body(facet_json::to_string(&body)?)
                     .cache(key)
                     .receive::<RoleAssignmentResource>(&executor)
                     .await;
                 // A failed response or artifact write does not prove the remote
                 // mutation failed. Refresh the inventory after every attempt.
-                let invalidation = fetch_all_role_assignments(
-                    auth_context.tenant_id,
-                    auth_context.auth_source()?,
-                    &executor,
-                )
+                let invalidation = AzureRoleAssignmentListRequest {
+                    authentication: *authentication,
+                }
+                .execute(&executor)
                 .invalidate()
                 .await;
                 match (execution, invalidation) {

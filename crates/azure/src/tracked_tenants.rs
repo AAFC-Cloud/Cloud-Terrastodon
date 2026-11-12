@@ -1,10 +1,5 @@
 use crate::get_default_tenant_id;
-use arbitrary::Arbitrary;
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_auth::AzureDevOpsAuthContext;
-use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_auth::read_azure_cli_local_accounts;
-use cloud_terrastodon_auth_types::AuthSource;
 use cloud_terrastodon_azure_types::Account;
 use cloud_terrastodon_azure_types::AzureTenantAlias;
 use cloud_terrastodon_azure_types::AzureTenantArgument;
@@ -13,7 +8,6 @@ use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_pathing::AppDir;
 use eyre::Context;
 use eyre::bail;
-use facet::Facet;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::Path;
@@ -22,7 +16,6 @@ use tokio::fs;
 use tracing::warn;
 
 const ALIASES_FILE_NAME: &str = "aliases.txt";
-const AUTH_SOURCE_FILE_NAME: &str = "auth_source.txt";
 
 pub fn tracked_tenants_dir() -> PathBuf {
     AppDir::Tenants.as_path_buf()
@@ -38,10 +31,6 @@ pub fn tracked_tenant_aliases_file(tenant_id: AzureTenantId) -> PathBuf {
 
 pub fn tracked_tenant_aliases_file_for_alias(tenant_id: AzureTenantId) -> PathBuf {
     tracked_tenant_aliases_file(tenant_id)
-}
-
-pub fn tracked_tenant_auth_source_file(tenant_id: AzureTenantId) -> PathBuf {
-    tracked_tenant_dir(tenant_id).join(AUTH_SOURCE_FILE_NAME)
 }
 
 pub async fn list_tracked_tenants() -> eyre::Result<Vec<AzureTenantId>> {
@@ -68,55 +57,6 @@ pub async fn forget_tracked_tenant(
         .map(|(tenant_id, _)| tenant_id))
 }
 
-pub async fn get_tracked_tenant_auth_source(
-    tenant_id: AzureTenantId,
-) -> eyre::Result<Option<AuthSource>> {
-    read_tracked_tenant_auth_source_in(&tracked_tenants_dir(), tenant_id).await
-}
-
-pub async fn set_tracked_tenant_auth_source(
-    tenant_id: AzureTenantId,
-    auth_source: AuthSource,
-) -> eyre::Result<AuthSource> {
-    ensure_tracked_tenant_exists(tenant_id).await?;
-    set_tracked_tenant_auth_source_in(&tracked_tenants_dir(), tenant_id, auth_source).await
-}
-
-/// Apply a tracked tenant's authentication preference when the invocation did
-/// not explicitly choose a source.
-pub async fn resolve_tenant_auth_context(
-    auth_context: &AuthContext,
-    tenant_id: AzureTenantId,
-    cancellation: &CancellationScope,
-) -> eyre::Result<AuthContext> {
-    cancellation
-        .cancellable_scope(|_| async {
-            resolve_tenant_auth_context_in(&tracked_tenants_dir(), auth_context, tenant_id).await
-        })
-        .await
-}
-
-async fn resolve_tenant_auth_context_in(
-    root: &Path,
-    auth_context: &AuthContext,
-    tenant_id: AzureTenantId,
-) -> eyre::Result<AuthContext> {
-    if auth_context.requested_source() == Some(AuthSource::None) {
-        return Ok(auth_context.clone());
-    }
-    let Some(auth_source) = read_tracked_tenant_auth_source_in(root, tenant_id).await? else {
-        return Ok(auth_context.clone());
-    };
-
-    if !matches!(auth_context.requested_source(), Some(AuthSource::Auto))
-        || matches!(auth_source, AuthSource::Auto)
-    {
-        return Ok(auth_context.clone());
-    }
-
-    AuthContext::resolve(auth_source)
-}
-
 #[expect(async_fn_in_trait)]
 pub trait AzureTenantAliasExt {
     async fn resolve(&self, cancellation: &CancellationScope) -> eyre::Result<AzureTenantId>;
@@ -131,63 +71,7 @@ impl AzureTenantAliasExt for AzureTenantAlias {
 #[expect(async_fn_in_trait)]
 pub trait AzureTenantArgumentExt {
     async fn resolve(&self, cancellation: &CancellationScope) -> eyre::Result<AzureTenantId>;
-
-    /// Resolve this tenant selector against an invocation's authentication
-    /// context and bind the result into one tenant-specific context.
-    async fn bind_auth_context(
-        &self,
-        auth_context: &AuthContext,
-        cancellation: &CancellationScope,
-    ) -> eyre::Result<AzureTenantAuthContext>;
 }
-
-/// Bind an optional Azure tenant selector to the authentication shape needed
-/// by Azure DevOps. Bearer authentication requires an explicit tenant or an
-/// already tenant-bound authentication context. PAT authentication may omit
-/// the tenant because its credential is independent of Azure tenant selection.
-#[expect(async_fn_in_trait)]
-pub trait AzureDevOpsTenantArgumentExt {
-    async fn bind_auth_context(
-        &self,
-        auth_context: &AuthContext,
-        cancellation: &CancellationScope,
-    ) -> eyre::Result<AzureDevOpsAuthContext>;
-}
-
-#[must_use = "This is a future request, you must .run().await it"]
-#[derive(Debug, Clone, Arbitrary, Facet)]
-pub struct AzureTenantIdResolveRequest {
-    #[facet(skip_serializing)]
-    pub cancellation: CancellationScope,
-
-    pub tenant: AzureTenantArgument<'static>,
-}
-
-impl AzureTenantIdResolveRequest {
-    pub async fn run(self) -> eyre::Result<AzureTenantId> {
-        self.cancellation
-            .cancellable_scope(
-                |cancellation| async move { self.tenant.resolve(&cancellation).await },
-            )
-            .await
-    }
-}
-
-pub fn resolve_azure_tenant_id(
-    tenant: AzureTenantArgument<'static>,
-    cancellation: &CancellationScope,
-) -> AzureTenantIdResolveRequest {
-    AzureTenantIdResolveRequest {
-        cancellation: cancellation.clone(),
-        tenant,
-    }
-}
-cloud_terrastodon_registry::register_thing!(AzureTenantIdResolveRequest);
-cloud_terrastodon_registry::register_arbitrary!(AzureTenantIdResolveRequest);
-cloud_terrastodon_registry_execution::register_into_future!(
-    AzureTenantIdResolveRequest => AzureTenantId,
-    effects = [Read]
-);
 
 impl AzureTenantArgumentExt for AzureTenantArgument<'_> {
     async fn resolve(&self, cancellation: &CancellationScope) -> eyre::Result<AzureTenantId> {
@@ -197,46 +81,6 @@ impl AzureTenantArgumentExt for AzureTenantArgument<'_> {
                 resolve_tracked_tenant_id(*id.as_ref(), cancellation).await
             }
             AzureTenantArgument::Alias(alias) => alias.resolve(cancellation).await,
-        }
-    }
-
-    async fn bind_auth_context(
-        &self,
-        auth_context: &AuthContext,
-        cancellation: &CancellationScope,
-    ) -> eyre::Result<AzureTenantAuthContext> {
-        eyre::ensure!(
-            auth_context.source() != Some(AuthSource::None),
-            "authentication is disabled by auth source none; cannot resolve or bind an Azure tenant"
-        );
-        let tenant_id = match (self, auth_context.tenant_id()) {
-            (AzureTenantArgument::Default, Some(tenant_id)) => tenant_id,
-            _ => self.resolve(cancellation).await?,
-        };
-        let auth_context =
-            resolve_tenant_auth_context(auth_context, tenant_id, cancellation).await?;
-        auth_context.bind_to_azure_tenant(tenant_id)
-    }
-}
-
-impl AzureDevOpsTenantArgumentExt for Option<AzureTenantArgument<'_>> {
-    async fn bind_auth_context(
-        &self,
-        auth_context: &AuthContext,
-        cancellation: &CancellationScope,
-    ) -> eyre::Result<AzureDevOpsAuthContext> {
-        eyre::ensure!(
-            auth_context.source() != Some(AuthSource::None),
-            "authentication is disabled by auth source none; cannot resolve or bind Azure DevOps authentication"
-        );
-        match self {
-            Some(tenant) => {
-                let tenant_id = tenant.resolve(cancellation).await?;
-                let auth_context =
-                    resolve_tenant_auth_context(auth_context, tenant_id, cancellation).await?;
-                AzureDevOpsAuthContext::for_tenant(&auth_context, tenant_id)
-            }
-            None => AzureDevOpsAuthContext::new(auth_context),
         }
     }
 }
@@ -610,52 +454,6 @@ async fn read_tracked_tenant_aliases_file(file: &Path) -> eyre::Result<Vec<Azure
     Ok(parse_alias_lines(&content, file))
 }
 
-async fn read_tracked_tenant_auth_source_in(
-    root: &Path,
-    tenant_id: AzureTenantId,
-) -> eyre::Result<Option<AuthSource>> {
-    let file = root.join(tenant_id.to_string()).join(AUTH_SOURCE_FILE_NAME);
-    if !fs::try_exists(&file).await? {
-        return Ok(None);
-    }
-
-    let content = fs::read_to_string(&file)
-        .await
-        .wrap_err_with(|| format!("Reading tracked tenant auth source from {}", file.display()))?;
-    let value = content.trim();
-    if value.is_empty() {
-        bail!(
-            "Tracked tenant auth source file is empty: {}",
-            file.display()
-        );
-    }
-
-    value
-        .parse::<AuthSource>()
-        .wrap_err_with(|| format!("Parsing tracked tenant auth source from {}", file.display()))
-        .map(Some)
-}
-
-async fn set_tracked_tenant_auth_source_in(
-    root: &Path,
-    tenant_id: AzureTenantId,
-    auth_source: AuthSource,
-) -> eyre::Result<AuthSource> {
-    let file = root.join(tenant_id.to_string()).join(AUTH_SOURCE_FILE_NAME);
-    fs::create_dir_all(file.parent().unwrap_or(root))
-        .await
-        .wrap_err_with(|| {
-            format!(
-                "Creating tracked tenant auth source parent {}",
-                file.display()
-            )
-        })?;
-    fs::write(&file, format!("{auth_source}\n"))
-        .await
-        .wrap_err_with(|| format!("Writing tracked tenant auth source to {}", file.display()))?;
-    Ok(auth_source)
-}
-
 async fn write_tracked_tenant_aliases_in(
     root: &Path,
     tenant_id: AzureTenantId,
@@ -704,20 +502,9 @@ fn parse_alias_lines(content: &str, file: &Path) -> Vec<AzureTenantAlias> {
     aliases
 }
 
-impl std::future::IntoFuture for AzureTenantIdResolveRequest {
-    type Output = eyre::Result<AzureTenantId>;
-    type IntoFuture = std::pin::Pin<Box<dyn std::future::Future<Output = Self::Output> + Send>>;
-
-    fn into_future(self) -> Self::IntoFuture {
-        Box::pin(self.run())
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use super::AUTH_SOURCE_FILE_NAME;
-    use super::AzureDevOpsTenantArgumentExt;
-    use super::AzureTenantArgumentExt;
+
     use super::add_tracked_tenant_aliases_in;
     use super::add_tracked_tenant_in;
     use super::forget_tracked_tenant_in;
@@ -725,91 +512,13 @@ mod tests {
     use super::list_tracked_tenant_aliases_for_in;
     use super::list_tracked_tenant_aliases_in;
     use super::list_tracked_tenants_in;
-    use super::read_tracked_tenant_auth_source_in;
     use super::remove_tracked_tenant_aliases_in;
-    use super::resolve_tenant_auth_context_in;
     use super::resolve_tracked_tenant_alias_in;
-    use super::set_tracked_tenant_auth_source_in;
     use crate::tracked_tenants::discover_tracked_tenants_in;
-    use cloud_terrastodon_auth::AuthContext;
-    use cloud_terrastodon_auth::WorkloadIdentityConfig;
-    use cloud_terrastodon_auth_types::AuthSource;
     use cloud_terrastodon_azure_types::AzureTenantAlias;
-    use cloud_terrastodon_azure_types::AzureTenantArgument;
     use cloud_terrastodon_azure_types::AzureTenantId;
-    use cloud_terrastodon_command::CancellationToken;
     use std::str::FromStr;
     use tempfile::tempdir;
-    use tokio::fs;
-
-    #[tokio::test]
-    async fn disabled_authentication_rejects_default_selectors_before_azure_cli_lookup()
-    -> eyre::Result<()> {
-        CancellationToken::new()
-            .with_async_scope(|cancellation| async move {
-                let auth = AuthContext::resolve(AuthSource::None)?;
-                // A regression may reach lookup code; keep its execution scope
-                // cancelled so it cannot admit an external Azure CLI command.
-                cancellation.request_cancel("external lookup is forbidden in this test");
-                let azure = AzureTenantArgument::Default
-                    .bind_auth_context(&auth, &cancellation)
-                    .await
-                    .expect_err("disabled authentication must reject the default selector");
-                let azure_devops = Some(AzureTenantArgument::Default)
-                    .bind_auth_context(&auth, &cancellation)
-                    .await
-                    .expect_err("disabled authentication must reject the default selector");
-                assert!(azure.to_string().contains("auth source none"));
-                assert!(azure_devops.to_string().contains("auth source none"));
-                Ok(())
-            })
-            .await
-    }
-
-    #[tokio::test]
-    async fn disabled_authentication_ignores_malformed_tracked_tenant_preferences()
-    -> eyre::Result<()> {
-        let temp = tempdir()?;
-        let tenant_id = AzureTenantId::from_str("11111111-1111-1111-1111-111111111111")?;
-        let directory = temp.path().join(tenant_id.to_string());
-        fs::create_dir_all(&directory).await?;
-        fs::write(
-            directory.join(AUTH_SOURCE_FILE_NAME),
-            "synthetic-invalid-auth-source",
-        )
-        .await?;
-        let context = AuthContext::resolve(AuthSource::None)?;
-        let resolved = resolve_tenant_auth_context_in(temp.path(), &context, tenant_id).await?;
-        assert_eq!(resolved.source(), Some(AuthSource::None));
-        assert_eq!(resolved.requested_source(), Some(AuthSource::None));
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn default_argument_binds_to_the_context_tenant_without_a_lookup() -> eyre::Result<()> {
-        CancellationToken::new()
-            .cancellable_scope(|cancellation| async move {
-                let tenant_id = AzureTenantId::from_str("11111111-1111-1111-1111-111111111111")?;
-                let auth_context = AuthContext::explicit(AuthSource::WorkloadIdentity)
-                    .with_workload_identity(WorkloadIdentityConfig {
-                        client_id: "22222222-2222-2222-2222-222222222222".parse()?,
-                        tenant_id,
-                        federated_token: "test-token".to_owned(),
-                    })?;
-
-                let bound = AzureTenantArgument::Default
-                    .bind_auth_context(&auth_context, &cancellation)
-                    .await?;
-
-                assert_eq!(bound.tenant_id, tenant_id);
-                assert_eq!(
-                    bound.auth_context.source(),
-                    Some(AuthSource::WorkloadIdentity)
-                );
-                Ok(())
-            })
-            .await
-    }
 
     #[tokio::test]
     async fn it_lists_added_tenants() -> eyre::Result<()> {
@@ -851,52 +560,6 @@ mod tests {
                 .await?
                 .is_none()
         );
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn it_sets_and_reads_a_tracked_tenant_auth_source() -> eyre::Result<()> {
-        let temp = tempdir()?;
-        let tenant_id = AzureTenantId::from_str("33333333-3333-3333-3333-333333333333")?;
-        add_tracked_tenant_in(temp.path(), tenant_id).await?;
-
-        assert_eq!(
-            read_tracked_tenant_auth_source_in(temp.path(), tenant_id).await?,
-            None
-        );
-
-        set_tracked_tenant_auth_source_in(temp.path(), tenant_id, AuthSource::Browser).await?;
-        assert_eq!(
-            read_tracked_tenant_auth_source_in(temp.path(), tenant_id).await?,
-            Some(AuthSource::Browser)
-        );
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn tenant_auth_source_overrides_auto_but_not_explicit_source() -> eyre::Result<()> {
-        let temp = tempdir()?;
-        let tenant_id = AzureTenantId::from_str("99999999-9999-9999-9999-999999999999")?;
-        add_tracked_tenant_in(temp.path(), tenant_id).await?;
-        set_tracked_tenant_auth_source_in(temp.path(), tenant_id, AuthSource::Browser).await?;
-
-        let auto = resolve_tenant_auth_context_in(
-            temp.path(),
-            &AuthContext::explicit(AuthSource::Auto),
-            tenant_id,
-        )
-        .await?;
-        assert_eq!(auto.requested_source(), Some(AuthSource::Browser));
-        assert_eq!(auto.source(), Some(AuthSource::Browser));
-
-        let explicit = resolve_tenant_auth_context_in(
-            temp.path(),
-            &AuthContext::explicit(AuthSource::AzureCli),
-            tenant_id,
-        )
-        .await?;
-        assert_eq!(explicit.requested_source(), Some(AuthSource::AzureCli));
-        assert_eq!(explicit.source(), Some(AuthSource::AzureCli));
         Ok(())
     }
 

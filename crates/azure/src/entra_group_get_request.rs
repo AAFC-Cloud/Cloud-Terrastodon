@@ -1,7 +1,6 @@
 use crate::MicrosoftGraphHelper;
 use arbitrary::Arbitrary;
-use cloud_terrastodon_auth_types::AzureBearerAuthSource;
-use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure_types::EntraGroup;
 use cloud_terrastodon_azure_types::EntraGroupId;
 use cloud_terrastodon_cache::CacheKey;
@@ -10,7 +9,6 @@ use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
-use cloud_terrastodon_execution::RequestExecution;
 use facet::Facet;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -21,22 +19,7 @@ use tracing::debug;
 #[derive(Arbitrary, Facet)]
 pub struct EntraGroupGetRequest {
     pub group_id: EntraGroupId,
-    pub tenant_id: AzureTenantId,
-    pub auth_source: AzureBearerAuthSource,
-}
-
-#[track_caller]
-pub fn fetch_group<'a>(
-    group_id: EntraGroupId,
-    tenant_id: AzureTenantId,
-    auth_source: AzureBearerAuthSource,
-    executor: &'a CloudTerrastodonExecutor,
-) -> RequestExecution<'a, EntraGroupGetRequest> {
-    executor.execute(EntraGroupGetRequest {
-        group_id,
-        tenant_id,
-        auth_source,
-    })
+    pub authentication: AzureBearerAuthenticationSelection,
 }
 
 impl EntraGroupGetRequest {
@@ -54,13 +37,19 @@ impl HasCacheKey for EntraGroupGetRequest {
             "graph",
             "GET",
             "groups",
-            self.tenant_id.to_string().as_str(),
+            self.authentication.tenant_id.to_string().as_str(),
             self.group_id.to_string().as_str(),
         ]))
     }
 }
 
 impl ExecutableRequest for EntraGroupGetRequest {
+    fn bind_authentication(
+        &self,
+        executor: CloudTerrastodonExecutor,
+    ) -> eyre::Result<CloudTerrastodonExecutor, Self::Error> {
+        executor.with_authentication_lease(&self.authentication.into())
+    }
     type Error = eyre::Report;
     type Output = Arc<EntraGroup>;
     fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
@@ -70,18 +59,13 @@ impl ExecutableRequest for EntraGroupGetRequest {
     {
         Box::pin(async move {
             debug!(
-                tenant_id = %self.tenant_id,
+                tenant_id = %self.authentication.tenant_id,
                 group_id = %self.group_id,
                 "Fetching group by object id"
             );
-            MicrosoftGraphHelper::new(
-                self.url(),
-                Some(self.cache_key()?),
-                self.tenant_id,
-                self.auth_source,
-            )
-            .fetch_one(&executor)
-            .await
+            MicrosoftGraphHelper::new(self.url(), Some(self.cache_key()?), self.authentication)
+                .fetch_one(&executor)
+                .await
         })
     }
 }
@@ -89,3 +73,9 @@ impl ExecutableRequest for EntraGroupGetRequest {
 cloud_terrastodon_registry::register_thing!(EntraGroupGetRequest);
 cloud_terrastodon_registry::register_arbitrary!(EntraGroupGetRequest);
 cloud_terrastodon_registry_execution::register_executable_request!(EntraGroupGetRequest => Arc<EntraGroup>, effects = [Read]);
+
+cloud_terrastodon_registry_execution::register_runtime_test!(
+    EntraGroupGetRequest,
+    name = "entra-group-get",
+    cached
+);

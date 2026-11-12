@@ -1,5 +1,4 @@
 // https://learn.microsoft.com/en-us/graph/api/resources/oauth2permissiongrant?view=graph-rest-1.0
-use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::EntraServicePrincipalObjectId;
 use cloud_terrastodon_azure_types::EntraUserId;
 use cloud_terrastodon_azure_types::OAuth2PermissionGrant;
@@ -11,15 +10,6 @@ use std::sync::LazyLock;
 pub static FETCH_OAUTH2_PERMISSION_GRANTS_CACHE_DIR: LazyLock<PathBuf> =
     LazyLock::new(|| PathBuf::from_iter(["ms", "graph", "GET", "oauth2PermissionGrants"]));
 
-pub(crate) async fn bust_oauth2_permission_grants_cache(
-    tenant_id: AzureTenantId,
-    auth_source: cloud_terrastodon_auth_types::AzureBearerAuthSource,
-    executor: &cloud_terrastodon_execution::CloudTerrastodonExecutor,
-) -> eyre::Result<()> {
-    crate::fetch_oauth2_permission_grants(tenant_id, auth_source, executor)
-        .invalidate()
-        .await
-}
 pub fn split_oauth2_permission_grant_scope(scope: &str) -> Vec<String> {
     scope
         .split_ascii_whitespace()
@@ -92,29 +82,6 @@ pub fn find_matching_oauth2_permission_grant(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::fetch_oauth2_permission_grants;
-    use crate::get_test_tenant_id;
-    use cloud_terrastodon_command::CancellationToken;
-
-    #[tokio::test]
-    async fn it_works() -> eyre::Result<()> {
-        CancellationToken::new()
-            .cancellable_scope(|cancellation| async move {
-                let executor = crate::test_executor::test_executor(
-                    &cloud_terrastodon_auth::AuthContext::explicit_azure_cli(),
-                    &cancellation,
-                )?;
-                let found = fetch_oauth2_permission_grants(
-                    get_test_tenant_id(&cancellation).await?,
-                    cloud_terrastodon_auth_types::AzureBearerAuthSource::AzureCli,
-                    &executor,
-                )
-                .await?;
-                assert!(!found.is_empty());
-                Ok(())
-            })
-            .await
-    }
 
     #[test]
     fn merge_scopes_preserves_existing_order_and_appends_new_values() {

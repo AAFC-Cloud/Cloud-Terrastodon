@@ -3,9 +3,7 @@ use crate::ResourceGraphQueryRestBody;
 use crate::ResourceGraphQueryRestOptions;
 use crate::ResourceGraphQueryRestScopeFilterOption;
 use crate::resource_graph_rate_limit_state::ResourceGraphRateLimitState;
-use cloud_terrastodon_auth_types::AuthenticationSelection;
-use cloud_terrastodon_auth_types::AzureBearerAuthSource;
-use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure_types::RawResourceGraphQueryResponse;
 use cloud_terrastodon_azure_types::ResourceGraphEntryDeserializeError;
 use cloud_terrastodon_azure_types::ResourceGraphQueryResponse;
@@ -49,8 +47,7 @@ static RESOURCE_GRAPH_RECOVERY_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mute
 pub struct ResourceGraphHelper {
     query: String,
     cache_behaviour: Option<CacheKey>,
-    tenant_id: AzureTenantId,
-    auth_source: AzureBearerAuthSource,
+    authentication: AzureBearerAuthenticationSelection,
     skip: Option<(u64, String)>,
     index: usize,
     #[cfg(debug_assertions)]
@@ -60,14 +57,12 @@ impl ResourceGraphHelper {
     pub fn new(
         query: impl Into<String>,
         cache_behaviour: Option<CacheKey>,
-        tenant_id: AzureTenantId,
-        auth_source: AzureBearerAuthSource,
+        authentication: AzureBearerAuthenticationSelection,
     ) -> Self {
         Self {
             query: query.into(),
             cache_behaviour,
-            tenant_id,
-            auth_source,
+            authentication,
             skip: None,
             index: 0,
             #[cfg(debug_assertions)]
@@ -77,10 +72,7 @@ impl ResourceGraphHelper {
 
     fn get_request(&self, body: String) -> Result<RestRequest> {
         let mut request = RestRequest::new(http::Method::POST, "https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2022-10-01")?.cancellation_safe()
-        .authentication(AuthenticationSelection::AzureBearer {
-            tenant_id: self.tenant_id,
-            auth_source: self.auth_source,
-        })
+        .authentication(self.authentication.into())
         .body(body);
         request.cache_key = self.cache_behaviour.clone();
         Ok(request)
@@ -144,7 +136,7 @@ impl ResourceGraphHelper {
                 batch_index=self.index,
                 batch_size=RESOURCE_GRAPH_BATCH_SIZE,
                 skip,
-                ?self.tenant_id,
+                ?self.authentication.tenant_id,
                 ?self.cache_behaviour,
                 "Fetching resource graph batch",
             );
@@ -199,7 +191,7 @@ impl ResourceGraphHelper {
 
             debug!(
                 total_items=all_data.len(),
-                ?self.tenant_id,
+                ?self.authentication.tenant_id,
                 ?self.cache_behaviour,
                 "Completed fetching all resource graph data",
             );
@@ -351,57 +343,12 @@ fn resource_graph_failure_extra_files(error: &eyre::Report) -> BTreeMap<PathBuf,
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cloud_terrastodon_auth::AuthContext;
-    use cloud_terrastodon_auth::CredentialAuthenticationProvider;
-    use cloud_terrastodon_cache::WorkCache;
-    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_rest::SerializableRestResponse;
     use facet::Facet;
     use http::HeaderMap;
     use http::HeaderValue;
     use http::StatusCode;
     use std::path::PathBuf;
-    use std::sync::Arc;
-
-    #[tokio::test]
-    #[ignore = "requires explicitly configured test tenant and live Azure Resource Graph access"]
-    async fn it_works() -> Result<()> {
-        CancellationToken::new()
-            .cancellable_scope(|cancellation| async move {
-                let query = r#"
-    resourcecontainers
-    | project name
-    "#;
-                #[derive(Facet)]
-                struct Row {
-                    name: String,
-                }
-                let auth = AuthContext::explicit_azure_cli();
-                let auth_context =
-                    auth.bind_to_azure_tenant(crate::get_test_tenant_id(&cancellation).await?)?;
-                let executor = CloudTerrastodonExecutor::new(
-                    WorkCache::temporary()?,
-                    Arc::new(CredentialAuthenticationProvider::new(auth)),
-                    cancellation,
-                );
-                let data = ResourceGraphHelper::new(
-                    query,
-                    Some(CacheKey::from_relative_path(PathBuf::from_iter([
-                        "az",
-                        "resource_graph",
-                        "resource-container-names",
-                    ]))?),
-                    auth_context.tenant_id,
-                    auth_context.auth_source()?,
-                )
-                .collect_all::<Row>(&executor)
-                .await?;
-                assert!(data.len() > 10);
-                assert!(data.iter().all(|row| !row.name.is_empty()));
-                Ok(())
-            })
-            .await
-    }
 
     #[test]
     fn reads_resource_graph_quota_headers() {

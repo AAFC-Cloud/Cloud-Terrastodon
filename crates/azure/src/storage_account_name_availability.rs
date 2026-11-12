@@ -1,8 +1,8 @@
-use cloud_terrastodon_auth::AzureTenantAuthContext;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure_types::AzureResourceNameAvailability;
 use cloud_terrastodon_azure_types::AzureResourceNameAvailabilityBody;
+use cloud_terrastodon_azure_types::AzureStorageAccountName;
 use cloud_terrastodon_azure_types::ResourceType;
-use cloud_terrastodon_azure_types::StorageAccountName;
 use cloud_terrastodon_azure_types::SubscriptionId;
 use cloud_terrastodon_cache::CacheKey;
 use cloud_terrastodon_cache::CacheScope;
@@ -19,9 +19,9 @@ use url::Url;
 ///
 /// [Storage Resource Provider 2025-06-01](https://learn.microsoft.com/rest/api/storagerp/storage-accounts/check-name-availability?view=rest-storagerp-2025-06-01).
 pub async fn is_storage_account_name_available(
-    name: &StorageAccountName,
+    name: &AzureStorageAccountName,
     subscription_id: SubscriptionId,
-    auth_context: &AzureTenantAuthContext,
+    authentication: &AzureBearerAuthenticationSelection,
     executor: &CloudTerrastodonExecutor,
 ) -> Result<bool> {
     let url = Url::parse(&format!(
@@ -33,13 +33,13 @@ pub async fn is_storage_account_name_available(
     };
     let response: AzureResourceNameAvailability =
         RestRequest::from_method_and_url(Method::POST, url)?
-            .azure_auth_context(auth_context)?
+            .authentication((*authentication).into())
             .cancellation_safe()
             .body(facet_json::to_string(&body)?)
             .cache(CacheKey {
                 scope: CacheScope::try_from_relative_path(
                     PathBuf::from("rest/arm/tenants")
-                        .join(auth_context.tenant_id.to_string())
+                        .join(authentication.tenant_id.to_string())
                         .join("subscriptions")
                         .join(subscription_id.to_string())
                         .join("storage-account-name-availability")

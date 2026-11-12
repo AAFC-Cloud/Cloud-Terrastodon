@@ -1,7 +1,5 @@
-use crate::MyEntraPimRoleAssignmentsListRequest;
-use cloud_terrastodon_auth_types::AuthenticationSelection;
-use cloud_terrastodon_auth_types::AzureBearerAuthSource;
-use cloud_terrastodon_azure_types::AzureTenantId;
+use crate::EntraMyPimRoleAssignmentsListRequest;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure_types::EntraPrincipalId;
 use cloud_terrastodon_azure_types::GovernanceRoleAssignment;
 use cloud_terrastodon_azure_types::RoleAssignmentRequest;
@@ -18,21 +16,21 @@ use url::Url;
 /// Activate an Entra role through the executor's delegated Graph credential.
 /// See [PIM role-assignment requests](https://learn.microsoft.com/graph/api/resources/governanceroleassignmentrequest?view=graph-rest-beta).
 pub async fn activate_pim_entra_role(
-    tenant_id: AzureTenantId,
-    auth_source: AzureBearerAuthSource,
+    authentication: AzureBearerAuthenticationSelection,
     principal_id: impl Into<EntraPrincipalId>,
     role_assignment: &GovernanceRoleAssignment,
     justification: String,
     duration: Duration,
     executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
+    let executor = &executor.with_authentication_lease(&authentication.into())?;
     let principal_id = principal_id.into();
     let url = Url::parse(
         "https://graph.microsoft.com/beta/privilegedAccess/aadroles/roleAssignmentRequests",
     )?;
     let body = facet_json::to_string_pretty(&RoleAssignmentRequest::new_self_activation(
         principal_id,
-        tenant_id,
+        authentication.tenant_id,
         role_assignment,
         justification,
         duration,
@@ -42,7 +40,7 @@ pub async fn activate_pim_entra_role(
             "graph",
             "beta",
             "tenants",
-            &tenant_id.to_string(),
+            &authentication.tenant_id.to_string(),
             "pim",
             "principals",
             &principal_id.to_string(),
@@ -56,10 +54,7 @@ pub async fn activate_pim_entra_role(
             "activating an Entra role and invalidating its assignment inventory",
             |child| async move {
                 let execution = RestRequest::from_method_and_url(Method::POST, url)?
-                    .authentication(AuthenticationSelection::AzureBearer {
-                        auth_source,
-                        tenant_id,
-                    })
+                    .authentication(authentication.into())
                     .cache(key)
                     .body(body)
                     .receive_raw(&child)
@@ -67,12 +62,9 @@ pub async fn activate_pim_entra_role(
                     .and_then(|response| response.error_for_status().map_err(Into::into));
                 // A server-side mutation can succeed before response/artifact handling
                 // reports an error, so retain invalidation for either outcome.
-                let invalidation = MyEntraPimRoleAssignmentsListRequest {
-                    tenant_id,
-                    auth_source,
-                }
-                .invalidate(&child)
-                .await;
+                let invalidation = EntraMyPimRoleAssignmentsListRequest { authentication }
+                    .invalidate(&child)
+                    .await;
                 match (execution, invalidation) {
                     (Ok(_), Ok(())) => Ok(()),
                     (Err(error), Ok(())) | (Ok(_), Err(error)) => Err(error),

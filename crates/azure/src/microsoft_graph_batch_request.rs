@@ -2,9 +2,7 @@ use crate::MicrosoftGraphBatchRequestEntry;
 use crate::MicrosoftGraphBatchResponse;
 use crate::microsoft_graph_batch_request_entry_wire::MicrosoftGraphBatchRequestEntryWire;
 use crate::microsoft_graph_batch_request_wire::MicrosoftGraphBatchRequestWire;
-use cloud_terrastodon_auth_types::AuthenticationSelection;
-use cloud_terrastodon_auth_types::AzureBearerAuthSource;
-use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_cache::CacheKey;
 use cloud_terrastodon_cache::CacheOperationOwner;
 use cloud_terrastodon_command::FromCommandOutput;
@@ -28,18 +26,16 @@ pub struct MicrosoftGraphBatchRequest<REQ> {
     pub ids: Vec<String>,
     /// The key to use for caching the batch request
     pub cache_key: Option<CacheKey>,
-    pub tenant_id: AzureTenantId,
-    pub auth_source: AzureBearerAuthSource,
+    pub authentication: AzureBearerAuthenticationSelection,
 }
 impl<REQ> MicrosoftGraphBatchRequest<REQ> {
-    pub fn new(tenant_id: AzureTenantId, auth_source: AzureBearerAuthSource) -> Self {
+    pub fn new(authentication: AzureBearerAuthenticationSelection) -> Self {
         MicrosoftGraphBatchRequest {
             cancellation_safe: false,
             requests: Vec::new(),
             ids: Vec::new(),
             cache_key: None,
-            tenant_id,
-            auth_source,
+            authentication,
         }
     }
     /// Allow cancellation to drop a batch whose entries the caller guarantees are read-only.
@@ -81,8 +77,7 @@ impl<REQ> MicrosoftGraphBatchRequest<REQ> {
             requests,
             ids,
             cache_key,
-            tenant_id,
-            auth_source,
+            authentication,
         } = self;
         if requests.is_empty() {
             return Ok(MicrosoftGraphBatchResponse {
@@ -144,10 +139,7 @@ impl<REQ> MicrosoftGraphBatchRequest<REQ> {
             };
             let mut request =
                 RestRequest::new(Method::POST, "https://graph.microsoft.com/v1.0/$batch")?
-                    .authentication(AuthenticationSelection::AzureBearer {
-                        tenant_id,
-                        auth_source,
-                    })
+                    .authentication(authentication.into())
                     .body(
                         facet_json::to_string_pretty(&body)
                             .map_err(|error| eyre::eyre!("{error:?}"))?,

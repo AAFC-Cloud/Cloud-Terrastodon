@@ -1,12 +1,13 @@
-use crate::fetch_all_entra_users;
-use crate::fetch_all_service_principals;
-use crate::fetch_oauth2_permission_grants;
-use cloud_terrastodon_auth::AzureTenantAuthContext;
+use crate::EntraOAuth2PermissionGrantListRequest;
+use crate::EntraServicePrincipalListRequest;
+use crate::EntraUserListRequest;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure_types::ConsentType;
 use cloud_terrastodon_azure_types::EntraServicePrincipal;
 use cloud_terrastodon_azure_types::EntraUser;
 use cloud_terrastodon_azure_types::OAuth2PermissionGrant;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickError;
 use cloud_terrastodon_user_input::PickManyResult;
@@ -77,21 +78,20 @@ impl fmt::Display for Grant {
 }
 
 pub async fn pick_oauth2_permission_grants(
-    auth_context: &AzureTenantAuthContext,
+    authentication: &AzureBearerAuthenticationSelection,
     executor: &CloudTerrastodonExecutor,
 ) -> PickManyResult<Grant> {
     executor.cancellable_scope(|executor| async move {
-            let auth_source = auth_context.auth_source()?;
             let (grants, service_principals, users) = executor
                 .join3(
                     |child| async move {
-                        fetch_oauth2_permission_grants(auth_context.tenant_id, auth_source, &child).await
+                        EntraOAuth2PermissionGrantListRequest { authentication: *authentication }.execute(&child).await
                     },
                     |child| async move {
-                        fetch_all_service_principals(auth_context.tenant_id, auth_source, &child).await
+                        EntraServicePrincipalListRequest { authentication: *authentication }.execute(&child).await
                     },
                     |child| async move {
-                        fetch_all_entra_users(auth_context.tenant_id, auth_source, &child).await
+                        EntraUserListRequest { authentication: *authentication }.execute(&child).await
                     },
                 )
                 .await?;

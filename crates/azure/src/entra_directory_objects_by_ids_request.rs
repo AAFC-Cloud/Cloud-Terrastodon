@@ -3,7 +3,7 @@ use crate::MicrosoftGraphBatchRequest;
 use crate::MicrosoftGraphBatchRequestEntry;
 use crate::MicrosoftGraphResponse;
 use crate::entra_directory_objects_by_ids_request_body::EntraDirectoryObjectsByIdsRequestBody;
-use cloud_terrastodon_auth::AzureTenantAuthContext;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure_types::uuid::Uuid;
 use cloud_terrastodon_cache::CacheKey;
 use cloud_terrastodon_cache::HasCacheKey;
@@ -11,10 +11,8 @@ use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
-use cloud_terrastodon_execution::RequestExecution;
 use facet::Facet;
 use http::Method;
-use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -33,33 +31,21 @@ const DIRECTORY_OBJECTS_BY_IDS_URL: &str =
 /// explicitly instead of appearing to be a missing ID.
 #[must_use = "This is a future request, you must .execute it"]
 #[derive(Debug, Facet)]
-pub struct EntraDirectoryObjectsByIdsRequest<'a> {
+pub struct EntraDirectoryObjectsByIdsRequest {
     pub ids: Vec<Uuid>,
-    pub auth_context: Cow<'a, AzureTenantAuthContext>,
+    pub authentication: AzureBearerAuthenticationSelection,
 }
 
-impl<'a> arbitrary::Arbitrary<'a> for EntraDirectoryObjectsByIdsRequest<'static> {
+impl<'a> arbitrary::Arbitrary<'a> for EntraDirectoryObjectsByIdsRequest {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
             ids: arbitrary::Arbitrary::arbitrary(u)?,
-            auth_context: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
+            authentication: arbitrary::Arbitrary::arbitrary(u)?,
         })
     }
 }
 
-#[track_caller]
-pub fn fetch_entra_directory_objects_by_ids<'a>(
-    ids: impl IntoIterator<Item = Uuid>,
-    auth_context: &'a AzureTenantAuthContext,
-    executor: &'a CloudTerrastodonExecutor,
-) -> RequestExecution<'a, EntraDirectoryObjectsByIdsRequest<'a>> {
-    executor.execute(EntraDirectoryObjectsByIdsRequest {
-        ids: ids.into_iter().collect(),
-        auth_context: Cow::Borrowed(auth_context),
-    })
-}
-
-impl EntraDirectoryObjectsByIdsRequest<'_> {
+impl EntraDirectoryObjectsByIdsRequest {
     fn normalized_ids(&self) -> Vec<Uuid> {
         let mut ids = self.ids.clone();
         ids.sort_unstable();
@@ -80,7 +66,7 @@ impl EntraDirectoryObjectsByIdsRequest<'_> {
             "POST",
             "directoryObjects",
             "getByIds",
-            self.auth_context.tenant_id.to_string().as_str(),
+            self.authentication.tenant_id.to_string().as_str(),
             // The previous key cached a user/group/service-principal filter;
             // those results cannot answer an all-types existence lookup.
             "all-types",
@@ -89,15 +75,21 @@ impl EntraDirectoryObjectsByIdsRequest<'_> {
     }
 }
 
-impl InvalidatesOwnCacheKey for EntraDirectoryObjectsByIdsRequest<'_> {}
+impl InvalidatesOwnCacheKey for EntraDirectoryObjectsByIdsRequest {}
 
-impl HasCacheKey for EntraDirectoryObjectsByIdsRequest<'_> {
+impl HasCacheKey for EntraDirectoryObjectsByIdsRequest {
     fn cache_key(&self) -> eyre::Result<CacheKey> {
         self.cache_key_for_ids(&self.normalized_ids())
     }
 }
 
-impl ExecutableRequest for EntraDirectoryObjectsByIdsRequest<'_> {
+impl ExecutableRequest for EntraDirectoryObjectsByIdsRequest {
+    fn bind_authentication(
+        &self,
+        executor: CloudTerrastodonExecutor,
+    ) -> eyre::Result<CloudTerrastodonExecutor, Self::Error> {
+        executor.with_authentication_lease(&self.authentication.into())
+    }
     type Error = eyre::Report;
     type Output = Vec<Arc<EntraDirectoryObject>>;
     fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
@@ -108,22 +100,21 @@ impl ExecutableRequest for EntraDirectoryObjectsByIdsRequest<'_> {
         Box::pin(async move {
             let ids = self.normalized_ids();
             if ids.is_empty() {
-                debug!(tenant_id = %self.auth_context.tenant_id, "Skipping empty Entra directory object lookup");
+                debug!(tenant_id = %self.authentication.tenant_id, "Skipping empty Entra directory object lookup");
                 return Ok(Vec::new());
             }
 
             let cache_key = self.cache_key()?;
             let mut batch =
                 MicrosoftGraphBatchRequest::<EntraDirectoryObjectsByIdsRequestBody>::new(
-                    self.auth_context.tenant_id,
-                    self.auth_context.auth_source()?,
+                    self.authentication,
                 )
                 .cancellation_safe();
             batch.cache(cache_key);
 
             for (chunk_index, ids) in ids.chunks(MAX_DIRECTORY_OBJECT_IDS).enumerate() {
                 debug!(
-                    tenant_id = %self.auth_context.tenant_id,
+                    tenant_id = %self.authentication.tenant_id,
                     chunk_index,
                     count = ids.len(),
                     "Queueing Entra directory objects by object id lookup"
@@ -149,15 +140,15 @@ impl ExecutableRequest for EntraDirectoryObjectsByIdsRequest<'_> {
                 objects.extend(response.body()?.value.iter().cloned());
             }
 
-            debug!(tenant_id = %self.auth_context.tenant_id, count = objects.len(), "Found Entra directory objects");
+            debug!(tenant_id = %self.authentication.tenant_id, count = objects.len(), "Found Entra directory objects");
             Ok(objects)
         })
     }
 }
 
-cloud_terrastodon_registry::register_thing!(EntraDirectoryObjectsByIdsRequest<'static>);
-cloud_terrastodon_registry::register_arbitrary!(EntraDirectoryObjectsByIdsRequest<'static>);
-cloud_terrastodon_registry_execution::register_executable_request!(EntraDirectoryObjectsByIdsRequest<'static> => Vec<Arc<EntraDirectoryObject>>, effects = [Read]);
+cloud_terrastodon_registry::register_thing!(EntraDirectoryObjectsByIdsRequest);
+cloud_terrastodon_registry::register_arbitrary!(EntraDirectoryObjectsByIdsRequest);
+cloud_terrastodon_registry_execution::register_executable_request!(EntraDirectoryObjectsByIdsRequest => Vec<Arc<EntraDirectoryObject>>, effects = [Read]);
 
 #[cfg(test)]
 #[allow(
@@ -166,8 +157,7 @@ cloud_terrastodon_registry_execution::register_executable_request!(EntraDirector
 )]
 mod tests {
     use super::*;
-    use cloud_terrastodon_auth::AuthContext;
-    use cloud_terrastodon_azure_types::AzureTenantId;
+    use crate::test_authentication::test_authentication;
     use cloud_terrastodon_command::CancellationToken;
     use facet_json::RawJson;
 
@@ -175,19 +165,16 @@ mod tests {
     fn normalizes_ids_for_stable_lookup_and_cache_keys() {
         CancellationToken::new()
             .with_scope(|_cancellation| {
-                let auth_context = AuthContext::explicit_azure_cli();
-                let auth_context = auth_context
-                    .bind_to_azure_tenant(AzureTenantId::new(Uuid::nil()))
-                    .expect("default auth context should bind to a tenant");
+                let authentication = test_authentication();
                 let first_id = Uuid::from_u128(1);
                 let second_id = Uuid::from_u128(2);
                 let first = EntraDirectoryObjectsByIdsRequest {
                     ids: vec![first_id, second_id, first_id],
-                    auth_context: Cow::Borrowed(&auth_context),
+                    authentication,
                 };
                 let second = EntraDirectoryObjectsByIdsRequest {
                     ids: vec![second_id, first_id],
-                    auth_context: Cow::Borrowed(&auth_context),
+                    authentication,
                 };
 
                 assert_eq!(first.normalized_ids(), vec![first_id, second_id]);
@@ -210,3 +197,9 @@ mod tests {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry_execution::register_runtime_test!(
+    EntraDirectoryObjectsByIdsRequest,
+    name = "entra-directory-objects-by-ids",
+    cached
+);

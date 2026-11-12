@@ -1,20 +1,20 @@
-use crate::fetch_all_security_groups;
-use cloud_terrastodon_auth::AzureTenantAuthContext;
+use crate::EntraSecurityGroupListRequest;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure_types::EntraGroup;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_user_input::Choice;
 use itertools::Itertools;
 use std::sync::Arc;
 
 pub async fn get_security_group_choices(
-    auth_context: &AzureTenantAuthContext,
+    authentication: &AzureBearerAuthenticationSelection,
     executor: &CloudTerrastodonExecutor,
 ) -> eyre::Result<Vec<Choice<Arc<EntraGroup>>>> {
-    let security_groups = fetch_all_security_groups(
-        auth_context.tenant_id,
-        auth_context.auth_source()?,
-        executor,
-    )
+    let security_groups = EntraSecurityGroupListRequest {
+        authentication: *authentication,
+    }
+    .execute(executor)
     .await?;
     let choices = security_groups
         .iter()

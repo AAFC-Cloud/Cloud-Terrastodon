@@ -1,5 +1,5 @@
+use cloud_terrastodon_azure_types::AzureResourceGroupName;
 use cloud_terrastodon_azure_types::OptionalNonEmptyStringProxy;
-use cloud_terrastodon_azure_types::ResourceGroupName;
 use cloud_terrastodon_azure_types::ScopeImpl;
 use cloud_terrastodon_azure_types::SubscriptionId;
 use cloud_terrastodon_azure_types::SubscriptionName;
@@ -12,7 +12,7 @@ use facet::Facet;
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub(crate) struct PolicyNoncompliantResourceRow {
     #[facet(proxy = OptionalNonEmptyStringProxy)]
-    pub resource_group_name: Option<ResourceGroupName>,
+    pub resource_group_name: Option<AzureResourceGroupName>,
     pub subscription_id: SubscriptionId,
     #[facet(proxy = OptionalNonEmptyStringProxy)]
     pub subscription_name: Option<SubscriptionName>,

@@ -1,16 +1,21 @@
-use crate::fetch_all_resource_groups;
-use cloud_terrastodon_auth::AzureTenantAuthContext;
-use cloud_terrastodon_azure_types::ResourceGroup;
+use crate::AzureResourceGroupListRequest;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
+use cloud_terrastodon_azure_types::AzureResourceGroup;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_user_input::Choice;
 use std::sync::Arc;
 
 /// Returns (Resource group, Subscription name)
 pub async fn get_resource_group_choices(
-    auth_context: &AzureTenantAuthContext,
+    authentication: &AzureBearerAuthenticationSelection,
     executor: &CloudTerrastodonExecutor,
-) -> eyre::Result<Vec<Choice<Arc<ResourceGroup>>>> {
-    let resource_groups = fetch_all_resource_groups(auth_context, executor).await?;
+) -> eyre::Result<Vec<Choice<Arc<AzureResourceGroup>>>> {
+    let resource_groups = AzureResourceGroupListRequest {
+        authentication: *authentication,
+    }
+    .execute(executor)
+    .await?;
 
     let mut choices = Vec::new();
     for rg in resource_groups {

@@ -1,6 +1,4 @@
-use cloud_terrastodon_auth_types::AuthenticationSelection;
-use cloud_terrastodon_auth_types::AzureBearerAuthSource;
-use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure_types::MicrosoftGraphResponse;
 use cloud_terrastodon_cache::CacheKey;
 use cloud_terrastodon_cache::CacheOperationOwner;
@@ -17,22 +15,19 @@ use std::time::Instant;
 pub struct MicrosoftGraphHelper {
     pub url: String,
     pub cache_key: Option<CacheKey>,
-    pub tenant_id: AzureTenantId,
-    pub auth_source: AzureBearerAuthSource,
+    pub authentication: AzureBearerAuthenticationSelection,
     pub headers: Option<RequestHeaders>,
 }
 impl MicrosoftGraphHelper {
     pub fn new(
         url: impl ToString,
         cache_key: Option<CacheKey>,
-        tenant_id: AzureTenantId,
-        auth_source: AzureBearerAuthSource,
+        authentication: AzureBearerAuthenticationSelection,
     ) -> Self {
         MicrosoftGraphHelper {
             url: url.to_string(),
             cache_key,
-            tenant_id,
-            auth_source,
+            authentication,
             headers: None,
         }
     }
@@ -51,12 +46,8 @@ impl MicrosoftGraphHelper {
     }
 
     fn get_request(&self, url: &str) -> Result<RestRequest> {
-        let mut request = RestRequest::new(http::Method::GET, url)?.authentication(
-            AuthenticationSelection::AzureBearer {
-                tenant_id: self.tenant_id,
-                auth_source: self.auth_source,
-            },
-        );
+        let mut request =
+            RestRequest::new(http::Method::GET, url)?.authentication(self.authentication.into());
         request.cache_key = self.cache_key.clone();
         request.headers = self.headers.clone();
         Ok(request)
@@ -192,7 +183,7 @@ impl MicrosoftGraphHelper {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cloud_terrastodon_azure_types::uuid::Uuid;
+    use crate::test_authentication::test_authentication;
     use cloud_terrastodon_command::CancellationToken;
 
     #[test]
@@ -201,8 +192,7 @@ mod tests {
             let helper = MicrosoftGraphHelper::new(
                 "https://graph.microsoft.com/v1.0/users",
                 None,
-                AzureTenantId::new(Uuid::nil()),
-                AzureBearerAuthSource::AzureCli,
+                test_authentication(),
             )
             .add_headers(
                 RequestHeaders::from_header_lines(["X-Test: value"])

@@ -1,0 +1,315 @@
+use arbitrary::Arbitrary;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
+use cloud_terrastodon_azure_types::AzureApplicationGatewayResourceBackendHealthResponse;
+use cloud_terrastodon_azure_types::AzureApplicationGatewayResourceId;
+use cloud_terrastodon_azure_types::Scope;
+use cloud_terrastodon_cache::CacheKey;
+use cloud_terrastodon_cache::CacheScope;
+use cloud_terrastodon_cache::HasCacheKey;
+use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
+use cloud_terrastodon_rest::RequestHeaders;
+use cloud_terrastodon_rest::RestRequest;
+use cloud_terrastodon_rest::SerializableRestResponse;
+use eyre::OptionExt;
+use eyre::Result;
+use eyre::WrapErr;
+use eyre::bail;
+use facet::Facet;
+use http::StatusCode;
+use std::path::PathBuf;
+use std::time::Duration;
+use tracing::info;
+
+const APPLICATION_GATEWAY_BACKEND_HEALTH_API_VERSION: &str = "2025-03-01";
+const APPLICATION_GATEWAY_BACKEND_HEALTH_CACHE_DURATION: Duration = Duration::from_secs(30);
+const APPLICATION_GATEWAY_BACKEND_HEALTH_HEADERS: &str =
+    r#"{"content-type":"application/x-www-form-urlencoded; charset=UTF-8"}"#;
+const MAX_POLL_ATTEMPTS: usize = 10;
+
+/// <https://learn.microsoft.com/en-us/rest/api/application-gateway/application-gateways/backend-health?view=rest-application-gateway-2025-05-01&tabs=HTTP>
+#[must_use = "This is a future request, you must .execute it"]
+#[derive(Arbitrary, Facet)]
+pub struct AzureApplicationGatewayResourceBackendHealthRequest {
+    pub authentication: AzureBearerAuthenticationSelection,
+
+    pub application_gateway_id: AzureApplicationGatewayResourceId,
+}
+
+impl InvalidatesOwnCacheKey for AzureApplicationGatewayResourceBackendHealthRequest {}
+
+impl HasCacheKey for AzureApplicationGatewayResourceBackendHealthRequest {
+    fn cache_key(&self) -> eyre::Result<CacheKey> {
+        Ok(CacheKey {
+            scope: CacheScope::try_from_relative_path(PathBuf::from_iter([
+                "az",
+                "application_gateway",
+                "backend_health",
+                self.authentication.tenant_id.to_string().as_str(),
+                self.application_gateway_id
+                    .resource_group_id
+                    .subscription_id
+                    .to_string()
+                    .as_str(),
+                self.application_gateway_id
+                    .resource_group_id
+                    .resource_group_name
+                    .as_ref(),
+                self.application_gateway_id
+                    .azure_application_gateway_resource_name
+                    .as_ref(),
+            ]))?,
+            valid_for: APPLICATION_GATEWAY_BACKEND_HEALTH_CACHE_DURATION,
+        })
+    }
+}
+
+impl ExecutableRequest for AzureApplicationGatewayResourceBackendHealthRequest {
+    fn bind_authentication(
+        &self,
+        executor: CloudTerrastodonExecutor,
+    ) -> eyre::Result<CloudTerrastodonExecutor, Self::Error> {
+        executor.with_authentication_lease(&self.authentication.into())
+    }
+    type Error = eyre::Report;
+    type Output = AzureApplicationGatewayResourceBackendHealthResponse;
+    fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
+    where
+        Self: 'exec,
+        Self::Output: 'exec,
+    {
+        Box::pin(async move {
+            info!(
+                tenant_id = %self.authentication.tenant_id,
+                application_gateway_id = %self.application_gateway_id.expanded_form(),
+                "Fetching Azure application gateway backend health"
+            );
+
+            let backend_health_url = build_backend_health_url(&self.application_gateway_id);
+            let initial_response = {
+                RestRequest::new(http::Method::POST, &backend_health_url)?
+                    .cancellation_safe()
+                    .authentication(self.authentication.into())
+                    .headers(RequestHeaders::from_json_str(
+                        APPLICATION_GATEWAY_BACKEND_HEALTH_HEADERS,
+                    )?)
+                    .body("{}")
+                    .receive_raw(&executor)
+                    .await?
+            };
+
+            if !initial_response.ok {
+                bail!(
+                    "Backend health request failed with status {} ({})",
+                    initial_response.status.as_u16(),
+                    initial_response
+                        .reason_phrase
+                        .as_deref()
+                        .unwrap_or("Unknown error")
+                );
+            }
+
+            match initial_response.status {
+                StatusCode::OK => parse_backend_health_response(initial_response),
+                StatusCode::ACCEPTED => {
+                    let mut next_url = initial_response
+                    .header("location")
+                    .map(str::to_owned)
+                    .ok_or_eyre(
+                        "Backend health request returned 202 Accepted without a Location header",
+                    )?;
+
+                    for attempt in 0..MAX_POLL_ATTEMPTS {
+                        let response = {
+                            RestRequest::new(http::Method::GET, &next_url)?
+                                .authentication(self.authentication.into())
+                                .receive_raw(&executor)
+                                .await?
+                        };
+
+                        if !response.ok {
+                            bail!(
+                                "Backend health poll failed with status {} ({})",
+                                response.status.as_u16(),
+                                response.reason_phrase.as_deref().unwrap_or("Unknown error")
+                            );
+                        }
+
+                        match response.status {
+                            StatusCode::OK => return parse_backend_health_response(response),
+                            StatusCode::ACCEPTED => {
+                                next_url = response
+                                .header("location")
+                                .map(str::to_owned)
+                                .ok_or_eyre("Backend health poll returned 202 Accepted without a Location header")?;
+                                info!(
+                                    attempt = attempt + 1,
+                                    "Backend health still pending, polling again"
+                                );
+                            }
+                            status => {
+                                bail!(
+                                    "Unexpected backend health poll status {} ({})",
+                                    status.as_u16(),
+                                    response.reason_phrase.as_deref().unwrap_or("Unknown error")
+                                );
+                            }
+                        }
+                    }
+
+                    bail!(
+                        "Backend health polling did not complete after {} attempts",
+                        MAX_POLL_ATTEMPTS
+                    );
+                }
+                status => {
+                    bail!(
+                        "Unexpected backend health response status {} ({})",
+                        status.as_u16(),
+                        initial_response
+                            .reason_phrase
+                            .as_deref()
+                            .unwrap_or("Unknown error")
+                    );
+                }
+            }
+        })
+    }
+}
+
+fn build_backend_health_url(application_gateway_id: &AzureApplicationGatewayResourceId) -> String {
+    format!(
+        "https://management.azure.com{}/backendhealth?api-version={}",
+        application_gateway_id.expanded_form(),
+        APPLICATION_GATEWAY_BACKEND_HEALTH_API_VERSION
+    )
+}
+
+fn parse_backend_health_response(
+    response: SerializableRestResponse,
+) -> Result<AzureApplicationGatewayResourceBackendHealthResponse> {
+    facet_json::from_str(response.into_json_body()?.as_str())
+        .map_err(|error| eyre::eyre!("{error:?}"))
+        .wrap_err("Deserializing Azure application gateway backend health response")
+}
+
+#[cfg(test)]
+#[allow(
+    clippy::disallowed_types,
+    reason = "These tests construct raw transport bodies for response and error handling."
+)]
+mod tests {
+    use super::build_backend_health_url;
+    use super::parse_backend_health_response;
+    use cloud_terrastodon_azure_types::AzureApplicationGatewayResourceBackendHealthProbeErrorName;
+    use cloud_terrastodon_azure_types::AzureApplicationGatewayResourceBackendHealthResponse;
+    use cloud_terrastodon_azure_types::AzureApplicationGatewayResourceBackendHealthServerHealth;
+    use cloud_terrastodon_azure_types::AzureApplicationGatewayResourceId;
+    use cloud_terrastodon_azure_types::Scope;
+    use cloud_terrastodon_rest::RestResponseBody;
+    use cloud_terrastodon_rest::RestResponseHeaders;
+    use cloud_terrastodon_rest::SerializableRestResponse;
+    use facet_json::RawJson;
+    use http::StatusCode;
+
+    #[test]
+    fn builds_backend_health_url() -> eyre::Result<()> {
+        let id = "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/my-rg/providers/Microsoft.Network/applicationGateways/my-agw"
+            .parse::<AzureApplicationGatewayResourceId>()?;
+        assert_eq!(
+            build_backend_health_url(&id),
+            "https://management.azure.com/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/my-rg/providers/Microsoft.Network/applicationGateways/my-agw/backendhealth?api-version=2025-03-01"
+        );
+        assert_eq!(
+            id.expanded_form(),
+            "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/my-rg/providers/Microsoft.Network/applicationGateways/my-agw"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn location_header_lookup_is_case_insensitive() {
+        let response = SerializableRestResponse {
+            status: StatusCode::ACCEPTED,
+            ok: true,
+            reason_phrase: Some("Accepted".to_string()),
+            headers: RestResponseHeaders::from([(
+                String::from("Location"),
+                vec![String::from("https://example.test/poll")],
+            )]),
+            body: RestResponseBody::Json(RawJson::from_owned("null".to_string())),
+        };
+        assert_eq!(
+            response.header("location"),
+            Some("https://example.test/poll")
+        );
+    }
+
+    #[test]
+    fn parses_backend_health_response_into_strong_type() -> eyre::Result<()> {
+        let response = SerializableRestResponse {
+            status: StatusCode::OK,
+            ok: true,
+            reason_phrase: Some("OK".to_string()),
+            headers: RestResponseHeaders::default(),
+            body: RestResponseBody::Json(RawJson::from_owned(
+                r#"{
+                    "backendAddressPools": [
+                        {
+                            "backendAddressPool": {
+                                "id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/my-rg/providers/Microsoft.Network/applicationGateways/my-agw/backendAddressPools/pool-a"
+                            },
+                            "backendHttpSettingsCollection": [
+                                {
+                                    "backendHttpSettings": {
+                                        "id": "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/my-rg/providers/Microsoft.Network/applicationGateways/my-agw/backendHttpSettingsCollection/settings-a"
+                                    },
+                                    "servers": [
+                                        {
+                                            "address": "10.0.0.5",
+                                            "health": "Healthy",
+                                            "healthProbeLog": "Success",
+                                            "healthProbeErrorName": "SuccessWithStatusCode",
+                                            "backendCertificateChainMetadata": {
+                                                "certificateChainMetadata": []
+                                            }
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }"#
+                .to_string(),
+            )),
+        };
+
+        let parsed: AzureApplicationGatewayResourceBackendHealthResponse =
+            parse_backend_health_response(response)?;
+        assert_eq!(parsed.backend_address_pools.len(), 1);
+        assert_eq!(
+            parsed.backend_address_pools[0].backend_http_settings_collection[0].servers[0].health,
+            AzureApplicationGatewayResourceBackendHealthServerHealth::Healthy
+        );
+        assert_eq!(
+            parsed.backend_address_pools[0].backend_http_settings_collection[0].servers[0]
+                .health_probe_error_name,
+            Some(AzureApplicationGatewayResourceBackendHealthProbeErrorName::SuccessWithStatusCode)
+        );
+        Ok(())
+    }
+}
+
+cloud_terrastodon_registry::register_thing!(AzureApplicationGatewayResourceBackendHealthRequest);
+cloud_terrastodon_registry::register_arbitrary!(
+    AzureApplicationGatewayResourceBackendHealthRequest
+);
+cloud_terrastodon_registry_execution::register_executable_request!(AzureApplicationGatewayResourceBackendHealthRequest => AzureApplicationGatewayResourceBackendHealthResponse, effects = [Read]);
+
+cloud_terrastodon_registry_execution::register_runtime_test!(
+    AzureApplicationGatewayResourceBackendHealthRequest,
+    name = "application-gateway-resource-backend-health",
+    cached
+);

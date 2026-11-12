@@ -1,7 +1,7 @@
-use crate::create_policy_remediation;
-use crate::fetch_all_policy_assignments;
-use crate::fetch_all_policy_set_definitions;
-use cloud_terrastodon_auth::AzureTenantAuthContext;
+use crate::AzurePolicyAssignmentListRequest;
+use crate::AzurePolicyRemediationCreateRequest;
+use crate::AzurePolicySetDefinitionListRequest;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure_types::DistinctByScope;
 use cloud_terrastodon_azure_types::PolicyAssignment;
 use cloud_terrastodon_azure_types::PolicyDefinitionIdReference;
@@ -9,6 +9,7 @@ use cloud_terrastodon_azure_types::PolicyRemediationId;
 use cloud_terrastodon_azure_types::PolicyRemediationName;
 use cloud_terrastodon_azure_types::PolicyRemediationScope;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
@@ -23,12 +24,12 @@ use tracing::info;
 ///
 /// Tasks run asynchronously in Azure; see [policy remediation](https://learn.microsoft.com/en-us/azure/governance/policy/how-to/remediate-resources).
 pub async fn remediate_policy_assignment(
-    auth_context: &AzureTenantAuthContext,
+    authentication: &AzureBearerAuthenticationSelection,
     executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
     executor.cancellable_scope(|executor| async move {
         info!("Fetching policy assignments");
-        let policy_assignments = fetch_all_policy_assignments(auth_context, &executor).await?;
+        let policy_assignments = AzurePolicyAssignmentListRequest { authentication: *authentication }.execute(&executor).await?;
         let choices = policy_assignments
             .into_iter()
             .distinct_by_scope()
@@ -50,7 +51,7 @@ pub async fn remediate_policy_assignment(
 
         let reference_ids = match &policy_assignment.properties.policy_definition_id {
             PolicyDefinitionIdReference::PolicySetDefinitionId(policy_set_definition_id) => {
-                let Some(policy_set_definition) = fetch_all_policy_set_definitions(auth_context, &executor)
+                let Some(policy_set_definition) = AzurePolicySetDefinitionListRequest { authentication: *authentication }.execute(&executor)
                     .await?.into_iter().find(|definition| definition.id == *policy_set_definition_id)
                 else {
                     bail!("Could not find policy set definition with id {policy_set_definition_id:?}");
@@ -80,13 +81,7 @@ pub async fn remediate_policy_assignment(
                 name: PolicyRemediationName::new(format!("myRemediation{:x}", rand::rng().next_u32()))?,
             };
             info!(remediation = %id, "Submitting policy remediation task");
-            create_policy_remediation(
-                id,
-                policy_assignment.id.clone(),
-                reference_id,
-                auth_context,
-                &executor,
-            ).await?;
+            AzurePolicyRemediationCreateRequest { authentication: *authentication, id: (id), policy_assignment_id: (policy_assignment.id.clone()), policy_definition_reference_id: (reference_id) }.execute(&executor).await?;
         }
         Ok(())
     }).await

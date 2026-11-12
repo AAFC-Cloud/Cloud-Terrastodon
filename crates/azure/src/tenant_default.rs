@@ -1,44 +1,33 @@
-use cloud_terrastodon_auth::read_azure_cli_local_accounts;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_command::CancellationScope;
-use eyre::bail;
+use cloud_terrastodon_pathing::AppDir;
+use eyre::WrapErr;
 
+/// Read the tenant deliberately configured by `ct az tenant default`.
+/// Account admission is separate and never consults Azure CLI's active tenant.
 pub async fn get_default_tenant_id(
     cancellation: &CancellationScope,
 ) -> eyre::Result<AzureTenantId> {
-    let accounts = read_azure_cli_local_accounts(cancellation).await?;
-    let num_accounts = accounts.len();
-    let Some(default_account) = accounts.into_iter().find(|account| account.is_default) else {
-        bail!(
-            "Failed to find default account among {} accounts.",
-            num_accounts
-        );
-    };
-    Ok(default_account.tenant_id)
-}
-
-pub async fn get_test_tenant_id(cancellation: &CancellationScope) -> eyre::Result<AzureTenantId> {
-    use crate::AzureTenantAliasExt;
-    use cloud_terrastodon_azure_types::AzureTenantAlias;
-
-    AzureTenantAlias::try_new("test")?
-        .resolve(cancellation)
+    let text = tokio::fs::read_to_string(AppDir::Tenants.as_path_buf().join("default.txt"))
         .await
+        .wrap_err("no readable Cloud Terrastodon tenant default; specify --tenant or configure `ct az tenant default <tenant>`")?;
+    cancellation.bail_if_cancelled()?;
+    text.trim()
+        .parse()
+        .wrap_err("parsing configured Cloud Terrastodon tenant default")
 }
 
-#[cfg(test)]
-mod test {
-    use crate::get_test_tenant_id;
-    use cloud_terrastodon_command::CancellationToken;
-
-    #[tokio::test]
-    pub async fn it_works() -> eyre::Result<()> {
-        CancellationToken::new()
-            .cancellable_scope(|cancellation| async move {
-                let tenant = get_test_tenant_id(&cancellation).await?;
-                assert!(!tenant.to_string().is_empty());
-                Ok(())
-            })
-            .await
-    }
+/// Persist an explicit tenant default without selecting an account or acquiring credentials.
+pub async fn set_default_tenant_id(
+    tenant: AzureTenantId,
+    cancellation: &CancellationScope,
+) -> eyre::Result<()> {
+    cancellation
+        .deferred("persist tenant default", |_protected| async move {
+            let root = AppDir::Tenants.as_path_buf();
+            tokio::fs::create_dir_all(&root).await?;
+            tokio::fs::write(root.join("default.txt"), format!("{tenant}\n")).await?;
+            Ok(())
+        })
+        .await
 }

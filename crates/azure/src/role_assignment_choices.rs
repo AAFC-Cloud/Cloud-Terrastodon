@@ -1,32 +1,44 @@
+use crate::AzureRoleAssignmentListRequest;
+use crate::AzureRoleDefinitionListRequest;
 use crate::EntraPrincipalId;
+use crate::EntraUserListRequest;
 use crate::RoleAssignment;
 use crate::RoleDefinition;
 use crate::RoleDefinitionId;
-use crate::fetch_all_entra_users;
-use crate::fetch_all_role_assignments;
-use crate::fetch_all_role_definitions;
-use cloud_terrastodon_auth::AzureTenantAuthContext;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_user_input::Choice;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::warn;
 
 pub async fn get_role_assignment_choices(
-    auth_context: &AzureTenantAuthContext,
+    authentication: &AzureBearerAuthenticationSelection,
     executor: &CloudTerrastodonExecutor,
 ) -> eyre::Result<Vec<Choice<Arc<RoleAssignment>>>> {
-    let auth_source = auth_context.auth_source()?;
     let (role_assignments, role_definitions, users) = executor
         .join3(
             |child| async move {
-                fetch_all_role_assignments(auth_context.tenant_id, auth_source, &child).await
+                AzureRoleAssignmentListRequest {
+                    authentication: *authentication,
+                }
+                .execute(&child)
+                .await
             },
             |child| async move {
-                fetch_all_role_definitions(auth_context.tenant_id, auth_source, &child).await
+                AzureRoleDefinitionListRequest {
+                    authentication: *authentication,
+                }
+                .execute(&child)
+                .await
             },
             |child| async move {
-                fetch_all_entra_users(auth_context.tenant_id, auth_source, &child).await
+                EntraUserListRequest {
+                    authentication: *authentication,
+                }
+                .execute(&child)
+                .await
             },
         )
         .await?;

@@ -1,5 +1,5 @@
-use crate::RoleAssignmentListRequest;
-use cloud_terrastodon_auth::AzureTenantAuthContext;
+use crate::AzureRoleAssignmentListRequest;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure_types::EntraPrincipalId;
 use cloud_terrastodon_azure_types::RoleAssignmentScheduleRequest;
 use cloud_terrastodon_azure_types::RoleDefinitionId;
@@ -26,9 +26,10 @@ pub async fn activate_pim_role(
     role_eligibility_schedule_id: RoleEligibilityScheduleId,
     justification: String,
     duration: Duration,
-    auth_context: &AzureTenantAuthContext,
+    authentication: &AzureBearerAuthenticationSelection,
     executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
+    let executor = &executor.with_authentication_lease(&(*authentication).into())?;
     let request_id = Uuid::new_v4();
     let url = format!(
         "https://management.azure.com{}/providers/Microsoft.Authorization/roleAssignmentScheduleRequests/{request_id}?api-version=2020-10-01",
@@ -48,7 +49,7 @@ pub async fn activate_pim_role(
             "rest",
             "PUT",
             "roleAssignmentScheduleRequests",
-            &auth_context.tenant_id.to_string(),
+            &authentication.tenant_id.to_string(),
             &request_id.to_string(),
         ]))?,
         valid_for: Duration::ZERO,
@@ -58,7 +59,7 @@ pub async fn activate_pim_role(
             "activating an ARM role and invalidating its assignments",
             |child| async move {
                 let execution = RestRequest::new(http::Method::PUT, &url)?
-                    .azure_auth_context(auth_context)?
+                    .authentication((*authentication).into())
                     .cache(key)
                     .body(body)
                     .receive_raw_with_decoder(
@@ -69,9 +70,8 @@ pub async fn activate_pim_role(
                         &child,
                     )
                     .await;
-                let invalidation = RoleAssignmentListRequest {
-                    tenant_id: auth_context.tenant_id,
-                    auth_source: auth_context.auth_source()?,
+                let invalidation = AzureRoleAssignmentListRequest {
+                    authentication: *authentication,
                 }
                 .invalidate(&child)
                 .await;

@@ -1,8 +1,8 @@
-use crate::BatchRequest;
-use crate::BatchRequestEntry;
+use crate::AzureBatchRequest;
+use crate::AzureBatchRequestEntry;
 use crate::BatchResponse;
 use crate::invoke_batch_request;
-use cloud_terrastodon_auth::AzureTenantAuthContext;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure_types::ResourceTagsId;
 use cloud_terrastodon_azure_types::Scope;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
@@ -48,15 +48,15 @@ impl TagPatchContent {
 }
 
 pub async fn get_tags_for_resources(
-    auth_context: &AzureTenantAuthContext,
+    authentication: &AzureBearerAuthenticationSelection,
     resource_ids: Vec<ResourceTagsId>,
     executor: &CloudTerrastodonExecutor,
 ) -> Result<HashMap<ResourceTagsId, HashMap<String, String>>> {
     let url_tail = "?api-version=2022-09-01";
-    let mut batch = BatchRequest::new(auth_context).cancellation_safe();
+    let mut batch = AzureBatchRequest::new(*authentication).cancellation_safe();
     batch.requests = resource_ids
         .into_iter()
-        .map(|id| BatchRequestEntry::new_get(format!("{}{}", id.expanded_form(), url_tail)))
+        .map(|id| AzureBatchRequestEntry::new_get(format!("{}{}", id.expanded_form(), url_tail)))
         .collect_vec();
     let resp = invoke_batch_request::<_, TagContent>(&batch, executor).await?;
     let results = extract_tags_from_response(resp);
@@ -65,16 +65,16 @@ pub async fn get_tags_for_resources(
 
 /// You MUST invalidate the cache for the affected resources after calling this function
 pub async fn replace_tags_for_resources(
-    auth_context: &AzureTenantAuthContext,
+    authentication: &AzureBearerAuthenticationSelection,
     resource_tags: HashMap<ResourceTagsId, HashMap<String, String>>,
     executor: &CloudTerrastodonExecutor,
 ) -> Result<HashMap<ResourceTagsId, HashMap<String, String>>> {
     let url_tail = "?api-version=2022-09-01";
-    let mut batch = BatchRequest::new(auth_context);
+    let mut batch = AzureBatchRequest::new(*authentication);
     batch.requests = resource_tags
         .into_iter()
         .map(|(resource_id, tags)| {
-            BatchRequestEntry::new(
+            AzureBatchRequestEntry::new(
                 Method::PATCH,
                 format!("{}{}", resource_id.expanded_form(), url_tail),
                 Some(TagPatchContent::new("Replace", tags)),
@@ -88,16 +88,16 @@ pub async fn replace_tags_for_resources(
 
 /// You MUST invalidate the cache for the affected resources after calling this function
 pub async fn merge_tags_for_resources(
-    auth_context: &AzureTenantAuthContext,
+    authentication: &AzureBearerAuthenticationSelection,
     resource_tags: HashMap<ResourceTagsId, HashMap<String, String>>,
     executor: &CloudTerrastodonExecutor,
 ) -> Result<HashMap<ResourceTagsId, HashMap<String, String>>> {
     let url_tail = "?api-version=2022-09-01";
-    let mut batch = BatchRequest::new(auth_context);
+    let mut batch = AzureBatchRequest::new(*authentication);
     batch.requests = resource_tags
         .into_iter()
         .map(|(resource_id, tags)| {
-            BatchRequestEntry::new(
+            AzureBatchRequestEntry::new(
                 Method::PATCH,
                 format!("{}{}", resource_id.expanded_form(), url_tail),
                 Some(TagPatchContent::new("Merge", tags)),
@@ -111,16 +111,16 @@ pub async fn merge_tags_for_resources(
 
 /// You MUST invalidate the cache for the affected resources after calling this function
 pub async fn delete_tags_for_resources(
-    auth_context: &AzureTenantAuthContext,
+    authentication: &AzureBearerAuthenticationSelection,
     resource_tags: HashMap<ResourceTagsId, HashMap<String, String>>,
     executor: &CloudTerrastodonExecutor,
 ) -> Result<HashMap<ResourceTagsId, HashMap<String, String>>> {
     let url_tail = "?api-version=2022-09-01";
-    let mut batch = BatchRequest::new(auth_context);
+    let mut batch = AzureBatchRequest::new(*authentication);
     batch.requests = resource_tags
         .into_iter()
         .map(|(resource_id, tags)| {
-            BatchRequestEntry::new(
+            AzureBatchRequestEntry::new(
                 Method::PATCH,
                 format!("{}{}", resource_id.expanded_form(), url_tail),
                 Some(TagPatchContent::new("Delete", tags)),
@@ -141,42 +141,4 @@ fn extract_tags_from_response(
         results.insert(response.content.id, response.content.properties.tags);
     }
     results
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::fetch_all_resource_groups;
-    use crate::get_test_tenant_id;
-    use cloud_terrastodon_auth::AuthContext;
-    use cloud_terrastodon_command::CancellationToken;
-
-    #[tokio::test]
-    async fn get_tags_test() -> Result<()> {
-        CancellationToken::new()
-            .cancellable_scope(|cancellation| async move {
-                let executor = crate::test_executor::test_executor(
-                    &cloud_terrastodon_auth::AuthContext::explicit_azure_cli(),
-                    &cancellation,
-                )?;
-                let tenant_id = get_test_tenant_id(&cancellation).await?;
-                let auth_context =
-                    AuthContext::explicit_azure_cli().bind_to_azure_tenant(tenant_id)?;
-                let resource_groups = fetch_all_resource_groups(&auth_context, &executor).await?;
-                let tags = get_tags_for_resources(
-                    &auth_context,
-                    resource_groups
-                        .iter()
-                        .take(5)
-                        .map(ResourceTagsId::from_scope)
-                        .collect_vec(),
-                    &executor,
-                )
-                .await?;
-                assert_eq!(tags.len(), 5);
-                assert!(tags.values().any(|x| !x.is_empty()));
-                Ok(())
-            })
-            .await
-    }
 }

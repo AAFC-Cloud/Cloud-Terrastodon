@@ -1,14 +1,15 @@
+use crate::AzurePolicyAssignmentListRequest;
 use crate::ResourceGraphHelper;
-use crate::fetch_all_policy_assignments;
 use crate::policy_noncompliance_reference_row::PolicyNoncomplianceReferenceRow;
 use crate::policy_noncompliant_resource_row::PolicyNoncompliantResourceRow;
-use cloud_terrastodon_auth::AzureTenantAuthContext;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure_types::DistinctByScope;
 use cloud_terrastodon_azure_types::PolicyAssignment;
 use cloud_terrastodon_azure_types::Scope;
 use cloud_terrastodon_cache::CacheKey;
 use cloud_terrastodon_cache::CacheScope;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_hcl_types::Sanitizable;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
@@ -20,11 +21,15 @@ use std::time::Duration;
 use tracing::info;
 
 pub async fn evaluate_policy_assignment_compliance(
-    auth_context: &AzureTenantAuthContext,
+    authentication: &AzureBearerAuthenticationSelection,
     executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
     info!("Fetching policy assignments");
-    let policy_assignments = fetch_all_policy_assignments(auth_context, executor).await?;
+    let policy_assignments = AzurePolicyAssignmentListRequest {
+        authentication: *authentication,
+    }
+    .execute(executor)
+    .await?;
 
     let policy_assignment: Arc<PolicyAssignment> = PickerTui::<_>::new()
         .set_header("Choose policy to evaluate")
@@ -84,8 +89,7 @@ policyResources
             ]))?,
             valid_for: Duration::from_secs(15 * 60),
         }),
-        auth_context.tenant_id,
-        auth_context.auth_source()?,
+        *authentication,
     )
     .collect_all::<PolicyNoncomplianceReferenceRow>(executor)
     .await?;
@@ -149,8 +153,7 @@ policyResources
             ]))?,
             valid_for: Duration::from_secs(15 * 60),
         }),
-        auth_context.tenant_id,
-        auth_context.auth_source()?,
+        *authentication,
     )
     .collect_all::<PolicyNoncompliantResourceRow>(executor)
     .await?;
