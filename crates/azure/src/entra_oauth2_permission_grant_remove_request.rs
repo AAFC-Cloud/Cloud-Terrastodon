@@ -1,4 +1,5 @@
 use crate::EntraOAuth2PermissionGrantListRequest;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure_types::OAuth2PermissionGrantId;
 use cloud_terrastodon_cache::CacheKey;
@@ -15,19 +16,10 @@ use http::Method;
 use std::path::PathBuf;
 use std::time::Duration;
 
-#[derive(Facet)]
+#[derive(Arbitrary, Facet)]
 pub struct EntraOAuth2PermissionGrantRemoveRequest {
     pub authentication: AzureBearerAuthenticationSelection,
     pub id: OAuth2PermissionGrantId,
-}
-
-impl<'a> arbitrary::Arbitrary<'a> for EntraOAuth2PermissionGrantRemoveRequest {
-    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        Ok(Self {
-            authentication: arbitrary::Arbitrary::arbitrary(u)?,
-            id: arbitrary::Arbitrary::arbitrary(u)?,
-        })
-    }
 }
 
 impl InvalidatesOwnCacheKey for EntraOAuth2PermissionGrantRemoveRequest {}

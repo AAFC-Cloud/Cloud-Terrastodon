@@ -3,6 +3,7 @@ use crate::MicrosoftGraphBatchRequest;
 use crate::MicrosoftGraphBatchRequestEntry;
 use crate::MicrosoftGraphResponse;
 use crate::entra_directory_objects_by_ids_request_body::EntraDirectoryObjectsByIdsRequestBody;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure_types::uuid::Uuid;
 use cloud_terrastodon_cache::CacheKey;
@@ -30,19 +31,10 @@ const DIRECTORY_OBJECTS_BY_IDS_URL: &str =
 /// Returned objects retain their types; any unmodeled type fails decoding
 /// explicitly instead of appearing to be a missing ID.
 #[must_use = "This is a future request, you must .execute it"]
-#[derive(Debug, Facet)]
+#[derive(Arbitrary, Debug, Facet)]
 pub struct EntraDirectoryObjectsByIdsRequest {
     pub ids: Vec<Uuid>,
     pub authentication: AzureBearerAuthenticationSelection,
-}
-
-impl<'a> arbitrary::Arbitrary<'a> for EntraDirectoryObjectsByIdsRequest {
-    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        Ok(Self {
-            ids: arbitrary::Arbitrary::arbitrary(u)?,
-            authentication: arbitrary::Arbitrary::arbitrary(u)?,
-        })
-    }
 }
 
 impl EntraDirectoryObjectsByIdsRequest {

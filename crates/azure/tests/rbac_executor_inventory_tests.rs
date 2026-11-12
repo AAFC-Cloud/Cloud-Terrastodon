@@ -3,12 +3,11 @@
 //! Exercise RBAC composition against typed in-memory child inventories only.
 //! Authorization always fails, so an accidental cache miss cannot access Azure.
 
-use cloud_terrastodon_auth_types::AuthenticationSelection;
 use cloud_terrastodon_auth_types::AzureBearerAuthSource;
-use cloud_terrastodon_azure::RoleAssignmentListRequest;
-use cloud_terrastodon_azure::RoleDefinitionListRequest;
-use cloud_terrastodon_azure::RoleDefinitionsAndAssignmentsListRequest;
-use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
+use cloud_terrastodon_azure::AzureRoleAssignmentListRequest;
+use cloud_terrastodon_azure::AzureRoleDefinitionListRequest;
+use cloud_terrastodon_azure::AzureRoleDefinitionsAndAssignmentsListRequest;
 use cloud_terrastodon_azure_types::RoleAssignment;
 use cloud_terrastodon_azure_types::RoleDefinition;
 use cloud_terrastodon_azure_types::RoleDefinitionKind;
@@ -23,15 +22,19 @@ use cloud_terrastodon_cache::WorkReuse;
 use cloud_terrastodon_command::CancellationToken;
 use cloud_terrastodon_execution::CacheInvalidatableRequest;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::TestAuthenticationProvider;
 use eyre::Result;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
-fn request(source: AzureBearerAuthSource) -> RoleDefinitionsAndAssignmentsListRequest {
-    RoleDefinitionsAndAssignmentsListRequest {
-        tenant_id: "00000000-0000-0000-0000-000000000001".parse().unwrap(),
-        auth_source: source,
+fn request(source: AzureBearerAuthSource) -> AzureRoleDefinitionsAndAssignmentsListRequest {
+    AzureRoleDefinitionsAndAssignmentsListRequest {
+        authentication: AzureBearerAuthenticationSelection {
+            account_id: "11111111-1111-1111-1111-111111111111".parse().unwrap(),
+            tenant_id: "00000000-0000-0000-0000-000000000001".parse().unwrap(),
+            auth_source: source,
+        },
     }
 }
 
@@ -64,8 +67,7 @@ fn assignment(definition: &RoleDefinition, principal: u8) -> Arc<RoleAssignment>
 async fn seed<R, T>(
     executor: &CloudTerrastodonExecutor,
     request: &R,
-    tenant_id: AzureTenantId,
-    auth_source: AzureBearerAuthSource,
+    authentication: AzureBearerAuthenticationSelection,
     value: T,
 ) -> Result<Arc<T>>
 where
@@ -77,10 +79,7 @@ where
             ExecutorKind::InProcess,
             request.cache_key()?,
             CacheOperationOwner::of::<R>(),
-            &AuthenticationSelection::AzureBearer {
-                tenant_id,
-                auth_source,
-            },
+            &authentication.into(),
             NonEmptyString::new(facet_json::to_string(request)?)?,
             WorkReuse::ReusableRead,
             |_| async move { Ok(WorkOutput::new(value, ArtifactObservation::now())) },
@@ -90,17 +89,15 @@ where
 
 async fn seed_definitions(
     executor: &CloudTerrastodonExecutor,
-    request: &RoleDefinitionsAndAssignmentsListRequest,
+    request: &AzureRoleDefinitionsAndAssignmentsListRequest,
     values: Vec<Arc<RoleDefinition>>,
 ) -> Result<Arc<Vec<Arc<RoleDefinition>>>> {
     seed(
         executor,
-        &RoleDefinitionListRequest {
-            tenant_id: request.tenant_id,
-            auth_source: request.auth_source,
+        &AzureRoleDefinitionListRequest {
+            authentication: request.authentication,
         },
-        request.tenant_id,
-        request.auth_source,
+        request.authentication,
         values,
     )
     .await
@@ -108,17 +105,15 @@ async fn seed_definitions(
 
 async fn seed_assignments(
     executor: &CloudTerrastodonExecutor,
-    request: &RoleDefinitionsAndAssignmentsListRequest,
+    request: &AzureRoleDefinitionsAndAssignmentsListRequest,
     values: Vec<Arc<RoleAssignment>>,
 ) -> Result<Arc<Vec<Arc<RoleAssignment>>>> {
     seed(
         executor,
-        &RoleAssignmentListRequest {
-            tenant_id: request.tenant_id,
-            auth_source: request.auth_source,
+        &AzureRoleAssignmentListRequest {
+            authentication: request.authentication,
         },
-        request.tenant_id,
-        request.auth_source,
+        request.authentication,
         values,
     )
     .await
@@ -148,7 +143,7 @@ async fn concurrent_composition_shares_one_validated_inventory_and_child_records
                     async |child| child.execute(request.clone()).await,
                 )
                 .await?;
-            let warm = executor.execute(request).await?;
+            let warm = request.execute(&executor).await?;
             assert!(Arc::ptr_eq(&first, &concurrent));
             assert!(Arc::ptr_eq(&first, &warm));
             assert!(Arc::ptr_eq(&first.role_definitions[&role.id], &role));
@@ -179,30 +174,28 @@ async fn either_child_invalidation_expires_the_combined_inventory() -> Result<()
             let assigned = assignment(&original, 5);
             seed_definitions(&executor, &request, vec![Arc::clone(&original)]).await?;
             seed_assignments(&executor, &request, vec![Arc::clone(&assigned)]).await?;
-            let first = executor.execute(request.clone()).await?;
+            let first = request.clone().execute(&executor).await?;
 
-            RoleDefinitionListRequest {
-                tenant_id: request.tenant_id,
-                auth_source: request.auth_source,
+            AzureRoleDefinitionListRequest {
+                authentication: request.authentication,
             }
             .invalidate(&executor)
             .await?;
             let changed = definition("after");
             seed_definitions(&executor, &request, vec![Arc::clone(&changed)]).await?;
-            let second = executor.execute(request.clone()).await?;
+            let second = request.clone().execute(&executor).await?;
             assert!(!Arc::ptr_eq(&first, &second));
             assert_eq!(first.role_definitions[&original.id].display_name, "before");
             assert!(Arc::ptr_eq(&second.role_definitions[&changed.id], &changed));
 
-            RoleAssignmentListRequest {
-                tenant_id: request.tenant_id,
-                auth_source: request.auth_source,
+            AzureRoleAssignmentListRequest {
+                authentication: request.authentication,
             }
             .invalidate(&executor)
             .await?;
             let reassigned = assignment(&changed, 6);
             seed_assignments(&executor, &request, vec![Arc::clone(&reassigned)]).await?;
-            let third = executor.execute(request.clone()).await?;
+            let third = request.clone().execute(&executor).await?;
             assert!(!Arc::ptr_eq(&second, &third));
             assert!(Arc::ptr_eq(
                 &third.role_assignments[&reassigned.id],
@@ -216,7 +209,7 @@ async fn either_child_invalidation_expires_the_combined_inventory() -> Result<()
             let refreshed_assignment = assignment(&refreshed_role, 7);
             seed_definitions(&executor, &request, vec![Arc::clone(&refreshed_role)]).await?;
             seed_assignments(&executor, &request, vec![Arc::clone(&refreshed_assignment)]).await?;
-            let refreshed = executor.execute(request).await?;
+            let refreshed = request.execute(&executor).await?;
             assert!(!Arc::ptr_eq(&third, &refreshed));
             assert!(Arc::ptr_eq(
                 &refreshed.role_definitions[&refreshed_role.id],
@@ -250,7 +243,7 @@ async fn inconsistent_children_fail_validation_and_allow_a_corrected_retry() -> 
             seed_definitions(&executor, &request, Vec::new()).await?;
             seed_assignments(&executor, &request, vec![assigned]).await?;
             for _ in 0..2 {
-                let error = executor.execute(request.clone()).await.unwrap_err();
+                let error = request.clone().execute(&executor).await.unwrap_err();
                 assert!(
                     error
                         .to_string()
@@ -258,14 +251,13 @@ async fn inconsistent_children_fail_validation_and_allow_a_corrected_retry() -> 
                 );
             }
 
-            RoleDefinitionListRequest {
-                tenant_id: request.tenant_id,
-                auth_source: request.auth_source,
+            AzureRoleDefinitionListRequest {
+                authentication: request.authentication,
             }
             .invalidate(&executor)
             .await?;
             seed_definitions(&executor, &request, vec![missing_role]).await?;
-            let corrected = executor.execute(request).await?;
+            let corrected = request.execute(&executor).await?;
             assert_eq!(corrected.iter_role_assignments().count(), 1);
             assert_eq!(authentication.authorizations.load(Ordering::SeqCst), 0);
             Ok(())
@@ -293,8 +285,8 @@ async fn authentication_selection_keeps_inventories_separate() -> Result<()> {
                 seed_definitions(&executor, request, vec![role]).await?;
                 seed_assignments(&executor, request, vec![assigned]).await?;
             }
-            let cli = executor.execute(cli_request).await?;
-            let browser = executor.execute(browser_request).await?;
+            let cli = cli_request.execute(&executor).await?;
+            let browser = browser_request.execute(&executor).await?;
             assert!(!Arc::ptr_eq(&cli, &browser));
             assert_eq!(
                 cli.role_definitions.values().next().unwrap().display_name,

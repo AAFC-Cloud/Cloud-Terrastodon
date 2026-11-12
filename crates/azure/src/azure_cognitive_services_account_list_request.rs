@@ -1,4 +1,5 @@
 use crate::ResourceGraphHelper;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure_types::AzureCognitiveServicesAccountResource;
 use cloud_terrastodon_cache::CacheKey;
@@ -11,21 +12,13 @@ use facet::Facet;
 use indoc::indoc;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tracing::info;
+use tracing::debug;
 
 #[must_use = "This is a future request, you must .execute it"]
-#[derive(Debug, Clone, Facet)]
+#[derive(Arbitrary, Debug, Clone, Facet)]
 #[facet(traits(Clone))]
 pub struct AzureCognitiveServicesAccountListRequest {
     pub authentication: AzureBearerAuthenticationSelection,
-}
-
-impl<'a> arbitrary::Arbitrary<'a> for AzureCognitiveServicesAccountListRequest {
-    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        Ok(Self {
-            authentication: arbitrary::Arbitrary::arbitrary(u)?,
-        })
-    }
 }
 
 impl InvalidatesOwnCacheKey for AzureCognitiveServicesAccountListRequest {}
@@ -56,7 +49,7 @@ impl ExecutableRequest for AzureCognitiveServicesAccountListRequest {
         Self::Output: 'exec,
     {
         Box::pin(async move {
-            info!(%self.authentication.tenant_id, "Fetching Cognitive Services accounts");
+            debug!(%self.authentication.tenant_id, "Fetching Cognitive Services accounts");
             let query = indoc! {r#"
         Resources
         | where type == "microsoft.cognitiveservices/accounts"
@@ -76,7 +69,7 @@ impl ExecutableRequest for AzureCognitiveServicesAccountListRequest {
                 ResourceGraphHelper::new(query, Some(self.cache_key()?), self.authentication)
                     .collect_all::<AzureCognitiveServicesAccountResource>(&executor)
                     .await?;
-            info!(
+            debug!(
                 count = accounts.len(),
                 "Fetched Cognitive Services accounts"
             );

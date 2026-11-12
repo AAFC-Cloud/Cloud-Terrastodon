@@ -16,13 +16,13 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 #[derive(Arbitrary, Facet)]
-pub struct EntraMyRoleEligibilityScheduleListRequest {
+pub struct EntraRoleEligibilityScheduleListMineRequest {
     pub authentication: AzureBearerAuthenticationSelection,
 }
 
-impl InvalidatesOwnCacheKey for EntraMyRoleEligibilityScheduleListRequest {}
+impl InvalidatesOwnCacheKey for EntraRoleEligibilityScheduleListMineRequest {}
 
-impl HasCacheKey for EntraMyRoleEligibilityScheduleListRequest {
+impl HasCacheKey for EntraRoleEligibilityScheduleListMineRequest {
     fn cache_key(&self) -> eyre::Result<CacheKey> {
         CacheKey::from_relative_path(PathBuf::from_iter([
             "az",
@@ -34,7 +34,7 @@ impl HasCacheKey for EntraMyRoleEligibilityScheduleListRequest {
     }
 }
 
-impl ExecutableRequest for EntraMyRoleEligibilityScheduleListRequest {
+impl ExecutableRequest for EntraRoleEligibilityScheduleListMineRequest {
     fn bind_authentication(
         &self,
         executor: CloudTerrastodonExecutor,
@@ -58,7 +58,7 @@ impl ExecutableRequest for EntraMyRoleEligibilityScheduleListRequest {
                 .clone()
                 .receive_cached(
                     &executor,
-                    CacheOperationOwner::of::<EntraMyRoleEligibilityScheduleListRequest>(),
+                    CacheOperationOwner::of::<EntraRoleEligibilityScheduleListMineRequest>(),
                 )
                 .await;
             if result.is_err() {
@@ -67,7 +67,7 @@ impl ExecutableRequest for EntraMyRoleEligibilityScheduleListRequest {
                 result = request
                     .receive_cached(
                         &executor,
-                        CacheOperationOwner::of::<EntraMyRoleEligibilityScheduleListRequest>(),
+                        CacheOperationOwner::of::<EntraRoleEligibilityScheduleListMineRequest>(),
                     )
                     .await;
             }
@@ -76,12 +76,12 @@ impl ExecutableRequest for EntraMyRoleEligibilityScheduleListRequest {
     }
 }
 
-cloud_terrastodon_registry::register_thing!(EntraMyRoleEligibilityScheduleListRequest);
-cloud_terrastodon_registry::register_arbitrary!(EntraMyRoleEligibilityScheduleListRequest);
-cloud_terrastodon_registry_execution::register_executable_request!(EntraMyRoleEligibilityScheduleListRequest => Vec<Arc<RoleEligibilitySchedule>>, effects = [Read]);
+cloud_terrastodon_registry::register_thing!(EntraRoleEligibilityScheduleListMineRequest);
+cloud_terrastodon_registry::register_arbitrary!(EntraRoleEligibilityScheduleListMineRequest);
+cloud_terrastodon_registry_execution::register_executable_request!(EntraRoleEligibilityScheduleListMineRequest => Vec<Arc<RoleEligibilitySchedule>>, effects = [Read]);
 
 cloud_terrastodon_registry_execution::register_runtime_test!(
-    EntraMyRoleEligibilityScheduleListRequest,
-    name = "my-entra-role-eligibility-schedule-list",
+    EntraRoleEligibilityScheduleListMineRequest,
+    name = "entra-role-eligibility-schedule-list-mine",
     cached
 );

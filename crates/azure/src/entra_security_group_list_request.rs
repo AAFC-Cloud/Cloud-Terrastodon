@@ -22,6 +22,11 @@ use std::time::Duration;
 use tracing::debug;
 
 /// Security-enabled Graph v1.0 [groups](https://learn.microsoft.com/graph/api/group-list?view=graph-rest-1.0) in one explicit tenant.
+///
+/// Shares the completed inventory in memory. `MicrosoftGraphHelper` separately
+/// caches decoded pages; it does not retain their assembled vector. Recording
+/// those pages as dependencies keeps this inventory fresh when a page expires or
+/// is invalidated, without assembling it again for each caller.
 #[must_use = "This is a future request, you must .execute it"]
 #[derive(Arbitrary, Facet)]
 pub struct EntraSecurityGroupListRequest {
@@ -63,21 +68,27 @@ impl ExecutableRequest for EntraSecurityGroupListRequest {
             let key = self.cache_key()?;
             let selection = self.authentication.into();
             let fingerprint = NonEmptyString::new(facet_json::to_string(&self)?)?;
-            executor.cached_work(
-                ExecutorKind::InProcess,
-                key.clone(),
-                CacheOperationOwner::of::<Self>(),
-                &selection,
-                fingerprint,
-                WorkReuse::ReusableRead,
-                move |executor| async move {
-            debug!("Fetching security groups");
-            let query = MicrosoftGraphHelper::new("https://graph.microsoft.com/v1.0/groups?$filter=securityEnabled eq true", Some(key), self.authentication);
-            let groups: Vec<Arc<EntraGroup>> = query.fetch_all(&executor).await?;
-            debug!("Found {} security groups", groups.len());
-            Ok(WorkOutput::new(groups, ArtifactObservation::now()))
-                },
-            )?.await
+            executor
+                .cached_work(
+                    ExecutorKind::InProcess,
+                    key.clone(),
+                    CacheOperationOwner::of::<Self>(),
+                    &selection,
+                    fingerprint,
+                    WorkReuse::ReusableRead,
+                    move |executor| async move {
+                        debug!("Fetching security groups");
+                        let query = MicrosoftGraphHelper::new(
+                            "https://graph.microsoft.com/v1.0/groups?$filter=securityEnabled eq true",
+                            Some(key),
+                            self.authentication,
+                        );
+                        let groups: Vec<Arc<EntraGroup>> = query.fetch_all(&executor).await?;
+                        debug!("Found {} security groups", groups.len());
+                        Ok(WorkOutput::new(groups, ArtifactObservation::now()))
+                    },
+                )?
+                .await
         })
     }
 }

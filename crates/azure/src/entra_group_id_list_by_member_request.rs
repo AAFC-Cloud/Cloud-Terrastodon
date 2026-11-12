@@ -20,12 +20,12 @@ use std::sync::Arc;
 /// [Microsoft Graph v1.0 getMemberGroups](https://learn.microsoft.com/graph/api/directoryobject-getmembergroups?view=graph-rest-1.0).
 /// Graph reports an error when its result-size limit is exceeded.
 #[derive(Arbitrary, Facet)]
-pub struct EntraMemberGroupIdsRequest {
+pub struct EntraGroupIdListByMemberRequest {
     pub principal_id: EntraPrincipalId,
     pub authentication: AzureBearerAuthenticationSelection,
 }
 
-impl HasCacheKey for EntraMemberGroupIdsRequest {
+impl HasCacheKey for EntraGroupIdListByMemberRequest {
     fn cache_key(&self) -> eyre::Result<CacheKey> {
         CacheKey::from_relative_path(PathBuf::from_iter([
             "ms".to_string(),
@@ -38,9 +38,9 @@ impl HasCacheKey for EntraMemberGroupIdsRequest {
     }
 }
 
-impl InvalidatesOwnCacheKey for EntraMemberGroupIdsRequest {}
+impl InvalidatesOwnCacheKey for EntraGroupIdListByMemberRequest {}
 
-impl ExecutableRequest for EntraMemberGroupIdsRequest {
+impl ExecutableRequest for EntraGroupIdListByMemberRequest {
     type Error = eyre::Report;
     type Output = Arc<MicrosoftGraphResponse<EntraGroupId>>;
 
@@ -74,16 +74,16 @@ impl ExecutableRequest for EntraMemberGroupIdsRequest {
     }
 }
 
-cloud_terrastodon_registry::register_thing!(EntraMemberGroupIdsRequest);
+cloud_terrastodon_registry::register_thing!(EntraGroupIdListByMemberRequest);
 cloud_terrastodon_registry::register_thing!(MicrosoftGraphResponse<EntraGroupId>);
 cloud_terrastodon_registry::register_arbitrary!(MicrosoftGraphResponse<EntraGroupId>);
-cloud_terrastodon_registry::register_arbitrary!(EntraMemberGroupIdsRequest);
+cloud_terrastodon_registry::register_arbitrary!(EntraGroupIdListByMemberRequest);
 cloud_terrastodon_registry_execution::register_executable_request!(
-    EntraMemberGroupIdsRequest => Arc<MicrosoftGraphResponse<EntraGroupId>>,
+    EntraGroupIdListByMemberRequest => Arc<MicrosoftGraphResponse<EntraGroupId>>,
     effects = [Read]
 );
 cloud_terrastodon_registry_execution::register_runtime_test!(
-    EntraMemberGroupIdsRequest,
-    name = "entra-member-group-ids",
+    EntraGroupIdListByMemberRequest,
+    name = "entra-group-id-list-by-member",
     cached
 );

@@ -1,4 +1,5 @@
 use crate::ResourceGraphHelper;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure_types::VirtualMachine;
 use cloud_terrastodon_cache::CacheKey;
@@ -11,21 +12,13 @@ use facet::Facet;
 use indoc::indoc;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tracing::info;
+use tracing::debug;
 
 #[must_use = "This is a future request, you must .execute it"]
-#[derive(Debug, Clone, Facet)]
+#[derive(Arbitrary, Debug, Clone, Facet)]
 #[facet(traits(Clone))]
 pub struct AzureVirtualMachineListRequest {
     pub authentication: AzureBearerAuthenticationSelection,
-}
-
-impl<'a> arbitrary::Arbitrary<'a> for AzureVirtualMachineListRequest {
-    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        Ok(Self {
-            authentication: arbitrary::Arbitrary::arbitrary(u)?,
-        })
-    }
 }
 
 impl InvalidatesOwnCacheKey for AzureVirtualMachineListRequest {}
@@ -56,7 +49,7 @@ impl ExecutableRequest for AzureVirtualMachineListRequest {
         Self::Output: 'exec,
     {
         Box::pin(async move {
-            info!(fetching = "virtual machines");
+            debug!(fetching = "virtual machines");
             let query = indoc! {r#"
             Resources
             | where type == "microsoft.compute/virtualmachines"
@@ -75,7 +68,7 @@ impl ExecutableRequest for AzureVirtualMachineListRequest {
                 ResourceGraphHelper::new(query, Some(self.cache_key()?), self.authentication)
                     .collect_all::<VirtualMachine>(&executor)
                     .await?;
-            info!(count = virtual_machines.len(), "Found virtual machines");
+            debug!(count = virtual_machines.len(), "Found virtual machines");
             Ok(virtual_machines)
         })
     }

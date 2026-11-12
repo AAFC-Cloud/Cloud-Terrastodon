@@ -1,4 +1,5 @@
 use crate::MicrosoftGraphHelper;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure_types::EntraDirectoryObject;
 use cloud_terrastodon_azure_types::EntraGroupId;
@@ -19,24 +20,15 @@ use tracing::debug;
 /// cache key. Optional names retain limited-information responses. Graph v1.0
 /// [list owners](https://learn.microsoft.com/en-us/graph/api/group-list-owners?view=graph-rest-1.0)
 /// can omit service principals, so pagination alone does not prove completeness.
-#[derive(Facet)]
-pub struct EntraGroupOwnersListRequest {
+#[derive(Arbitrary, Facet)]
+pub struct EntraGroupOwnerListRequest {
     pub group_id: EntraGroupId,
     pub authentication: AzureBearerAuthenticationSelection,
 }
 
-impl<'a> arbitrary::Arbitrary<'a> for EntraGroupOwnersListRequest {
-    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        Ok(Self {
-            group_id: arbitrary::Arbitrary::arbitrary(u)?,
-            authentication: arbitrary::Arbitrary::arbitrary(u)?,
-        })
-    }
-}
+impl InvalidatesOwnCacheKey for EntraGroupOwnerListRequest {}
 
-impl InvalidatesOwnCacheKey for EntraGroupOwnersListRequest {}
-
-impl HasCacheKey for EntraGroupOwnersListRequest {
+impl HasCacheKey for EntraGroupOwnerListRequest {
     fn cache_key(&self) -> eyre::Result<CacheKey> {
         CacheKey::from_relative_path(PathBuf::from_iter([
             "ms",
@@ -53,7 +45,7 @@ impl HasCacheKey for EntraGroupOwnersListRequest {
     }
 }
 
-impl ExecutableRequest for EntraGroupOwnersListRequest {
+impl ExecutableRequest for EntraGroupOwnerListRequest {
     fn bind_authentication(
         &self,
         executor: CloudTerrastodonExecutor,
@@ -84,12 +76,12 @@ impl ExecutableRequest for EntraGroupOwnersListRequest {
     }
 }
 
-cloud_terrastodon_registry::register_thing!(EntraGroupOwnersListRequest);
-cloud_terrastodon_registry::register_arbitrary!(EntraGroupOwnersListRequest);
-cloud_terrastodon_registry_execution::register_executable_request!(EntraGroupOwnersListRequest => Vec<Arc<EntraDirectoryObject>>, effects = [Read]);
+cloud_terrastodon_registry::register_thing!(EntraGroupOwnerListRequest);
+cloud_terrastodon_registry::register_arbitrary!(EntraGroupOwnerListRequest);
+cloud_terrastodon_registry_execution::register_executable_request!(EntraGroupOwnerListRequest => Vec<Arc<EntraDirectoryObject>>, effects = [Read]);
 
 cloud_terrastodon_registry_execution::register_runtime_test!(
-    EntraGroupOwnersListRequest,
-    name = "entra-group-owners-list",
+    EntraGroupOwnerListRequest,
+    name = "entra-group-owner-list",
     cached
 );

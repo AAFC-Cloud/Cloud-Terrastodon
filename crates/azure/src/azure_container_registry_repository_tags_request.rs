@@ -1,14 +1,15 @@
-use crate::AzureContainerRegistryEndpointRequest;
 use crate::container_registry_pagination::next_registry_page;
+use arbitrary::Arbitrary;
+use arbitrary::Unstructured;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
-use cloud_terrastodon_azure_types::ContainerRegistryId;
+use cloud_terrastodon_azure_types::ContainerRegistryEndpoint;
 use cloud_terrastodon_azure_types::ContainerRegistryRepositoryName;
 use cloud_terrastodon_azure_types::ContainerRegistryRepositoryTag;
 use cloud_terrastodon_azure_types::ContainerRegistryTagListResponse;
-use cloud_terrastodon_cache::CacheInvalidationKeys;
 use cloud_terrastodon_cache::CacheKey;
 use cloud_terrastodon_cache::CacheOperationOwner;
 use cloud_terrastodon_cache::HasCacheKey;
+use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
@@ -22,49 +23,26 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-/// List all registry tags, using its real login server and a scoped ACR bearer exchange.
+/// List all repository tags at a resolved endpoint with a scoped ACR bearer exchange.
+/// Resolve an endpoint separately or reuse [`ContainerRegistryEndpoint::try_from`]
+/// on an existing registry; this operation makes no Resource Graph lookup.
 /// [REST API 2021-07-01](https://learn.microsoft.com/en-us/rest/api/registry-dataplane/container-registry/get-tags?view=rest-registry-dataplane-2021-07-01).
 #[derive(Facet)]
 pub struct AzureContainerRegistryRepositoryTagsRequest<'a> {
-    pub registry_id: Cow<'a, ContainerRegistryId>,
+    pub endpoint: Cow<'a, ContainerRegistryEndpoint>,
     pub repository_name: Cow<'a, ContainerRegistryRepositoryName>,
     pub authentication: AzureBearerAuthenticationSelection,
 }
 
-impl CacheInvalidationKeys for AzureContainerRegistryRepositoryTagsRequest<'_> {
-    fn cache_keys_to_invalidate(&self) -> eyre::Result<Vec<CacheKey>> {
-        Ok(vec![
-            self.cache_key()?,
-            AzureContainerRegistryEndpointRequest {
-                registry_id: Cow::Borrowed(&self.registry_id),
-                authentication: self.authentication,
-            }
-            .cache_key()?,
-        ])
-    }
-}
+impl InvalidatesOwnCacheKey for AzureContainerRegistryRepositoryTagsRequest<'_> {}
 
 impl HasCacheKey for AzureContainerRegistryRepositoryTagsRequest<'_> {
     fn cache_key(&self) -> eyre::Result<CacheKey> {
         CacheKey::from_relative_path(
             PathBuf::from("rest/container-registry/tenants")
                 .join(self.authentication.tenant_id.to_string())
-                .join("subscriptions")
-                .join(
-                    self.registry_id
-                        .resource_group_id
-                        .subscription_id
-                        .to_string(),
-                )
-                .join("resource-groups")
-                .join(sanitize_windows_path_component(
-                    self.registry_id
-                        .resource_group_id
-                        .resource_group_name
-                        .as_str(),
-                ))
-                .join("registries")
-                .join(self.registry_id.container_registry_name.as_str())
+                .join("login-servers")
+                .join(self.endpoint.login_server.as_str())
                 .join("repositories")
                 .join("by-name")
                 .join(sanitize_windows_path_component(&self.repository_name))
@@ -94,13 +72,7 @@ impl ExecutableRequest for AzureContainerRegistryRepositoryTagsRequest<'_> {
                     .all(|segment| !segment.is_empty() && segment != "." && segment != ".."),
                 "repository name contains an ambiguous URL path segment"
             );
-            let endpoint = AzureContainerRegistryEndpointRequest {
-                registry_id: Cow::Borrowed(&self.registry_id),
-                authentication: self.authentication,
-            }
-            .execute(&executor)
-            .await?;
-            let mut url = endpoint.login_server.endpoint()?;
+            let mut url = self.endpoint.login_server.endpoint()?;
             {
                 let mut path = url
                     .path_segments_mut()
@@ -160,12 +132,12 @@ impl ExecutableRequest for AzureContainerRegistryRepositoryTagsRequest<'_> {
 
 cloud_terrastodon_registry::register_thing!(AzureContainerRegistryRepositoryTagsRequest<'static>);
 
-impl<'a> arbitrary::Arbitrary<'a> for AzureContainerRegistryRepositoryTagsRequest<'static> {
-    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+impl<'a> Arbitrary<'a> for AzureContainerRegistryRepositoryTagsRequest<'static> {
+    fn arbitrary(u: &mut Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
-            registry_id: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
-            repository_name: Cow::Owned(arbitrary::Arbitrary::arbitrary(u)?),
-            authentication: arbitrary::Arbitrary::arbitrary(u)?,
+            endpoint: Cow::Owned(Arbitrary::arbitrary(u)?),
+            repository_name: Cow::Owned(Arbitrary::arbitrary(u)?),
+            authentication: Arbitrary::arbitrary(u)?,
         })
     }
 }

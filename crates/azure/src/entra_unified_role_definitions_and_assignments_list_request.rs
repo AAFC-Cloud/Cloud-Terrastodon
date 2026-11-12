@@ -13,17 +13,10 @@ use facet::Facet;
 
 /// Combine Microsoft Entra unified role definitions and assignments for a tenant.
 #[must_use = "Bind this request to an executor and await its execution"]
-#[derive(Debug, Clone, Facet)]
+#[derive(Arbitrary, Debug, Clone, Facet)]
 #[facet(traits(Clone))]
 pub struct EntraUnifiedRoleDefinitionsAndAssignmentsListRequest {
     pub authentication: AzureBearerAuthenticationSelection,
-}
-impl<'a> Arbitrary<'a> for EntraUnifiedRoleDefinitionsAndAssignmentsListRequest {
-    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        Ok(Self {
-            authentication: Arbitrary::arbitrary(u)?,
-        })
-    }
 }
 
 impl CacheInvalidationKeys for EntraUnifiedRoleDefinitionsAndAssignmentsListRequest {

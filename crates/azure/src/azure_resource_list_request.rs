@@ -1,6 +1,7 @@
 // $x = az rest --method GET --url 'https://management.azure.com/subscriptions/{subscription_id}/providers?api-version=2021-04-01&' | ConvertFrom-Json
 // $x.value | % { $n = $_.namespace; $_.resourceTypes | % { "$n/$($_.resourceType)" } } | fzf
 use crate::ResourceGraphHelper;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure_types::Resource;
 use cloud_terrastodon_cache::CacheKey;
@@ -15,17 +16,9 @@ use std::sync::Arc;
 use tracing::debug;
 
 #[must_use = "This is a future request, you must .execute it"]
-#[derive(Facet)]
+#[derive(Arbitrary, Facet)]
 pub struct AzureResourceListRequest {
     pub authentication: AzureBearerAuthenticationSelection,
-}
-
-impl<'a> arbitrary::Arbitrary<'a> for AzureResourceListRequest {
-    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        Ok(Self {
-            authentication: arbitrary::Arbitrary::arbitrary(u)?,
-        })
-    }
 }
 
 impl InvalidatesOwnCacheKey for AzureResourceListRequest {}

@@ -1,8 +1,7 @@
 use crate::AzureEligibleChildResourcesAtScopeRequest;
-use crate::AzureManagementGroupListRequest;
 use crate::AzureResourceGroupListRequest;
 use crate::FetchChildrenBehaviour;
-use crate::azure_management_group_list_request::fetch_root_management_group;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure_types::AsScope;
 use cloud_terrastodon_azure_types::EligibleChildResource;
@@ -20,28 +19,16 @@ use facet::Facet;
 use std::sync::Arc;
 
 #[must_use = "This is a future request, you must .execute it"]
-#[derive(Debug, Clone, Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[facet(traits(Clone))]
 pub struct AzureEligibleChildResourceListRequest {
     pub authentication: AzureBearerAuthenticationSelection,
 }
 
-impl<'a> arbitrary::Arbitrary<'a> for AzureEligibleChildResourceListRequest {
-    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        Ok(Self {
-            authentication: arbitrary::Arbitrary::arbitrary(u)?,
-        })
-    }
-}
-
 impl CacheInvalidationKeys for AzureEligibleChildResourceListRequest {
     fn cache_keys_to_invalidate(&self) -> Result<Vec<CacheKey>> {
-        // The root-group lookup and both inventory reads contribute to this composition.
+        // Both inventory reads contribute to this composition.
         Ok(vec![
-            AzureManagementGroupListRequest {
-                authentication: self.authentication,
-            }
-            .cache_key()?,
             AzureEligibleChildResourcesAtScopeRequest {
                 scope: ManagementGroupId::from_name(&self.authentication.tenant_id.to_string())
                     .as_scope_impl(),
@@ -72,11 +59,12 @@ impl ExecutableRequest for AzureEligibleChildResourceListRequest {
         Self::Output: 'exec,
     {
         Box::pin(async move {
-            let root_mg = fetch_root_management_group(&self.authentication, &executor).await?;
-            let scope = root_mg.as_scope();
+            // Azure defines the tenant root management-group ID as the tenant ID:
+            // https://learn.microsoft.com/en-us/azure/governance/management-groups/overview
             let mut resource_containers = AzureEligibleChildResourcesAtScopeRequest {
-                scope: (scope).as_scope_impl(),
-                behaviour: (FetchChildrenBehaviour::GetAllChildren),
+                scope: ManagementGroupId::from_name(&self.authentication.tenant_id.to_string())
+                    .as_scope_impl(),
+                behaviour: FetchChildrenBehaviour::GetAllChildren,
                 authentication: self.authentication,
             }
             .execute(&executor)

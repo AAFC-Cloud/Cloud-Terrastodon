@@ -16,7 +16,7 @@ use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use facet::Facet;
 use std::sync::Arc;
-use tracing::info;
+use tracing::debug;
 
 /// Select users from the tenant inventory or an interactive Graph search.
 ///
@@ -69,14 +69,14 @@ impl ExecutableRequest for EntraUserPickRequest {
                 .set_header("Users")
                 .add_event_handler(async |child, event, sink| {
                     if matches!(event.as_ref(), PickerEvent::InitialLoad) {
-                        info!("Fetching all Entra users");
+                        debug!("Fetching all Entra users");
                         let users = EntraUserListRequest {
                             authentication: self.authentication,
                         }
                         .execute(&executor.with_cancellation_scope(child))
                         .await?;
                         sink.push(users.iter().cloned().map(user_choice))?;
-                        info!("Finished fetching all Entra users");
+                        debug!("Finished fetching all Entra users");
                     }
                     Ok(())
                 })
@@ -87,7 +87,7 @@ impl ExecutableRequest for EntraUserPickRequest {
                         }
                         PickerEvent::InitialLoad | PickerEvent::QueryCleared => return Ok(()),
                     };
-                    info!(query = %query, "Searching Entra users");
+                    debug!(query = %query, "Searching Entra users");
                     let users = EntraUserSearchRequest {
                         search_term: (query.as_ref()).into(),
                         authentication: self.authentication,
@@ -95,7 +95,7 @@ impl ExecutableRequest for EntraUserPickRequest {
                     .execute(&executor.with_cancellation_scope(child))
                     .await?;
                     sink.push(users.into_iter().map(user_choice))?;
-                    info!(query = %query, "Finished searching Entra users");
+                    debug!(query = %query, "Finished searching Entra users");
                     Ok(())
                 })
                 .pick_many_events(executor.cancellation())

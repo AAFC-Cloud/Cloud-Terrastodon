@@ -21,11 +21,11 @@ use url::Url;
 
 /// List the current delegated user's eligible and active [PIM assignments](https://learn.microsoft.com/graph/api/resources/governanceroleassignment?view=graph-rest-beta).
 #[derive(Arbitrary, Facet)]
-pub struct EntraMyPimRoleAssignmentsListRequest {
+pub struct EntraPimRoleAssignmentsListMineRequest {
     pub authentication: AzureBearerAuthenticationSelection,
 }
 
-impl HasCacheKey for EntraMyPimRoleAssignmentsListRequest {
+impl HasCacheKey for EntraPimRoleAssignmentsListMineRequest {
     fn cache_key(&self) -> Result<CacheKey> {
         Ok(CacheKey {
             scope: CacheScope::try_from_components([
@@ -41,7 +41,7 @@ impl HasCacheKey for EntraMyPimRoleAssignmentsListRequest {
         })
     }
 }
-impl CacheInvalidationKeys for EntraMyPimRoleAssignmentsListRequest {
+impl CacheInvalidationKeys for EntraPimRoleAssignmentsListMineRequest {
     fn cache_keys_to_invalidate(&self) -> Result<Vec<CacheKey>> {
         Ok(vec![
             self.cache_key()?,
@@ -52,7 +52,7 @@ impl CacheInvalidationKeys for EntraMyPimRoleAssignmentsListRequest {
         ])
     }
 }
-impl ExecutableRequest for EntraMyPimRoleAssignmentsListRequest {
+impl ExecutableRequest for EntraPimRoleAssignmentsListMineRequest {
     fn bind_authentication(
         &self,
         executor: CloudTerrastodonExecutor,
@@ -119,12 +119,12 @@ impl ExecutableRequest for EntraMyPimRoleAssignmentsListRequest {
         })
     }
 }
-cloud_terrastodon_registry::register_thing!(EntraMyPimRoleAssignmentsListRequest);
-cloud_terrastodon_registry::register_arbitrary!(EntraMyPimRoleAssignmentsListRequest);
-cloud_terrastodon_registry_execution::register_executable_request!(EntraMyPimRoleAssignmentsListRequest => Vec<Arc<GovernanceRoleAssignment>>, effects = [Read]);
+cloud_terrastodon_registry::register_thing!(EntraPimRoleAssignmentsListMineRequest);
+cloud_terrastodon_registry::register_arbitrary!(EntraPimRoleAssignmentsListMineRequest);
+cloud_terrastodon_registry_execution::register_executable_request!(EntraPimRoleAssignmentsListMineRequest => Vec<Arc<GovernanceRoleAssignment>>, effects = [Read]);
 
 cloud_terrastodon_registry_execution::register_runtime_test!(
-    EntraMyPimRoleAssignmentsListRequest,
-    name = "my-entra-pim-role-assignments-list",
+    EntraPimRoleAssignmentsListMineRequest,
+    name = "entra-pim-role-assignments-list-mine",
     cached
 );

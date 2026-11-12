@@ -14,7 +14,7 @@ use facet::Facet;
 use http::Method;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tracing::info;
+use tracing::debug;
 
 #[derive(Arbitrary, Facet)]
 pub struct EntraApplicationRoleListRequest {
@@ -53,7 +53,7 @@ impl ExecutableRequest for EntraApplicationRoleListRequest {
         Self::Output: 'exec,
     {
         Box::pin(async move {
-            info!(
+            debug!(
                 tenant_id = %self.authentication.tenant_id,
                 application_id = %self.application_id,
                 "Fetching service principal app roles and resource-specific application permissions"

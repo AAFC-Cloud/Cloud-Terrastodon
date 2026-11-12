@@ -1,4 +1,5 @@
 use crate::ResourceGraphHelper;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure_types::AzureContainerInstanceResource;
 use cloud_terrastodon_cache::CacheKey;
@@ -11,21 +12,13 @@ use facet::Facet;
 use indoc::indoc;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tracing::info;
+use tracing::debug;
 
 #[must_use = "This is a future request, you must .execute it"]
-#[derive(Debug, Clone, Facet)]
+#[derive(Arbitrary, Debug, Clone, Facet)]
 #[facet(traits(Clone))]
 pub struct AzureContainerInstanceListRequest {
     pub authentication: AzureBearerAuthenticationSelection,
-}
-
-impl<'a> arbitrary::Arbitrary<'a> for AzureContainerInstanceListRequest {
-    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        Ok(Self {
-            authentication: arbitrary::Arbitrary::arbitrary(u)?,
-        })
-    }
 }
 
 impl InvalidatesOwnCacheKey for AzureContainerInstanceListRequest {}
@@ -56,7 +49,7 @@ impl ExecutableRequest for AzureContainerInstanceListRequest {
         Self::Output: 'exec,
     {
         Box::pin(async move {
-            info!(%self.authentication.tenant_id, "Fetching Azure container instances");
+            debug!(%self.authentication.tenant_id, "Fetching Azure container instances");
             let query = indoc! {r#"
         Resources
         | where type == "microsoft.containerinstance/containergroups"
@@ -75,7 +68,7 @@ impl ExecutableRequest for AzureContainerInstanceListRequest {
                 ResourceGraphHelper::new(query, Some(self.cache_key()?), self.authentication)
                     .collect_all::<AzureContainerInstanceResource>(&executor)
                     .await?;
-            info!(
+            debug!(
                 count = container_instances.len(),
                 "Fetched Azure container instances"
             );

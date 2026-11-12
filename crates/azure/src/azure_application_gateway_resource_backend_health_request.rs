@@ -21,7 +21,7 @@ use facet::Facet;
 use http::StatusCode;
 use std::path::PathBuf;
 use std::time::Duration;
-use tracing::info;
+use tracing::debug;
 
 const APPLICATION_GATEWAY_BACKEND_HEALTH_API_VERSION: &str = "2025-03-01";
 const APPLICATION_GATEWAY_BACKEND_HEALTH_CACHE_DURATION: Duration = Duration::from_secs(30);
@@ -81,7 +81,7 @@ impl ExecutableRequest for AzureApplicationGatewayResourceBackendHealthRequest {
         Self::Output: 'exec,
     {
         Box::pin(async move {
-            info!(
+            debug!(
                 tenant_id = %self.authentication.tenant_id,
                 application_gateway_id = %self.application_gateway_id.expanded_form(),
                 "Fetching Azure application gateway backend health"
@@ -144,7 +144,7 @@ impl ExecutableRequest for AzureApplicationGatewayResourceBackendHealthRequest {
                                 .header("location")
                                 .map(str::to_owned)
                                 .ok_or_eyre("Backend health poll returned 202 Accepted without a Location header")?;
-                                info!(
+                                debug!(
                                     attempt = attempt + 1,
                                     "Backend health still pending, polling again"
                                 );

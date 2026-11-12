@@ -41,7 +41,7 @@ const REMEDIATIONS_API_VERSION: &str = "2024-10-01";
 /// No remediation read cache currently exists to invalidate. Resource/compliance
 /// inventories must be refreshed after the asynchronous work actually completes.
 #[must_use = "This is a future request, you must .execute it"]
-#[derive(Debug, Clone, Facet)]
+#[derive(Arbitrary, Debug, Clone, Facet)]
 #[facet(traits(Clone))]
 pub struct AzurePolicyRemediationCreateRequest {
     pub authentication: AzureBearerAuthenticationSelection,
@@ -49,17 +49,6 @@ pub struct AzurePolicyRemediationCreateRequest {
     pub policy_assignment_id: PolicyAssignmentId,
     /// Required when the assignment targets an initiative; omitted for a single definition.
     pub policy_definition_reference_id: Option<PolicyDefinitionReferenceId>,
-}
-
-impl<'a> Arbitrary<'a> for AzurePolicyRemediationCreateRequest {
-    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        Ok(Self {
-            authentication: u.arbitrary()?,
-            id: u.arbitrary()?,
-            policy_assignment_id: u.arbitrary()?,
-            policy_definition_reference_id: u.arbitrary()?,
-        })
-    }
 }
 
 impl HasCacheKey for AzurePolicyRemediationCreateRequest {

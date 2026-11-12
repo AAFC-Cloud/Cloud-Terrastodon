@@ -1,6 +1,7 @@
 use crate::EntraGroupMembersListRequest;
 use crate::MicrosoftGraphBatchRequest;
 use crate::MicrosoftGraphResponse;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure_types::EntraDirectoryObject;
 use cloud_terrastodon_azure_types::EntraGroupId;
@@ -21,19 +22,10 @@ use std::sync::Arc;
 /// Prefer [`crate::EntraGroupMembersListRequest`] when every page is required; this legacy
 /// batch operation does not follow continuation links from
 /// [list members](https://learn.microsoft.com/en-us/graph/api/group-list-members?view=graph-rest-1.0).
-#[derive(Facet)]
+#[derive(Arbitrary, Facet)]
 pub struct EntraGroupMembersListBatchRequest {
     pub group_ids: Vec<EntraGroupId>,
     pub authentication: AzureBearerAuthenticationSelection,
-}
-
-impl<'a> arbitrary::Arbitrary<'a> for EntraGroupMembersListBatchRequest {
-    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        Ok(Self {
-            group_ids: arbitrary::Arbitrary::arbitrary(u)?,
-            authentication: arbitrary::Arbitrary::arbitrary(u)?,
-        })
-    }
 }
 
 /// TODO! This does n't auto fetch nextLink stuff :(

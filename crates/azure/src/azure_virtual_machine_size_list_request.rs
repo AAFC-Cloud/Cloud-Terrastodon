@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure_types::AzureLocationName;
 use cloud_terrastodon_azure_types::SubscriptionId;
@@ -17,20 +18,11 @@ use std::sync::Arc;
 
 /// List VM sizes in the selected subscription and location.
 /// [Compute 2022-11-01](https://learn.microsoft.com/rest/api/compute/virtual-machine-sizes/list?view=rest-compute-2022-11-01).
-#[derive(Facet)]
+#[derive(Arbitrary, Facet)]
 pub struct AzureVirtualMachineSizeListRequest {
     pub subscription_id: SubscriptionId,
     pub location: AzureLocationName,
     pub authentication: AzureBearerAuthenticationSelection,
-}
-impl<'a> arbitrary::Arbitrary<'a> for AzureVirtualMachineSizeListRequest {
-    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        Ok(Self {
-            subscription_id: arbitrary::Arbitrary::arbitrary(u)?,
-            location: arbitrary::Arbitrary::arbitrary(u)?,
-            authentication: arbitrary::Arbitrary::arbitrary(u)?,
-        })
-    }
 }
 impl HasCacheKey for AzureVirtualMachineSizeListRequest {
     fn cache_key(&self) -> eyre::Result<CacheKey> {

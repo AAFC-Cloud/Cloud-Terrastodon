@@ -1,4 +1,5 @@
 use crate::MicrosoftGraphHelper;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure_types::EntraApplicationRegistration;
 use cloud_terrastodon_cache::CacheKey;
@@ -13,17 +14,9 @@ use std::sync::Arc;
 use tracing::debug;
 
 #[must_use = "This is a future request, you must .execute it"]
-#[derive(Facet)]
+#[derive(Arbitrary, Facet)]
 pub struct EntraApplicationRegistrationListRequest {
     pub authentication: AzureBearerAuthenticationSelection,
-}
-
-impl<'a> arbitrary::Arbitrary<'a> for EntraApplicationRegistrationListRequest {
-    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        Ok(Self {
-            authentication: arbitrary::Arbitrary::arbitrary(u)?,
-        })
-    }
 }
 
 impl InvalidatesOwnCacheKey for EntraApplicationRegistrationListRequest {}

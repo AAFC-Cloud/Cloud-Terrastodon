@@ -1,4 +1,5 @@
 use crate::MicrosoftGraphHelper;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure_types::UnifiedRoleDefinitionCollection;
 use cloud_terrastodon_cache::CacheKey;
@@ -13,17 +14,9 @@ use std::path::PathBuf;
 /// Fetch all Entra role assignments.
 ///
 /// Not to be confused with Azure RBAC role assignments.
-#[derive(Facet)]
+#[derive(Arbitrary, Facet)]
 pub struct EntraUnifiedRoleDefinitionListRequest {
     pub authentication: AzureBearerAuthenticationSelection,
-}
-
-impl<'a> arbitrary::Arbitrary<'a> for EntraUnifiedRoleDefinitionListRequest {
-    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        Ok(Self {
-            authentication: arbitrary::Arbitrary::arbitrary(u)?,
-        })
-    }
 }
 
 impl InvalidatesOwnCacheKey for EntraUnifiedRoleDefinitionListRequest {}

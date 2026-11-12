@@ -1,4 +1,5 @@
 use crate::ResourceGraphHelper;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure_types::RouteTable;
 use cloud_terrastodon_cache::CacheKey;
@@ -11,21 +12,13 @@ use facet::Facet;
 use indoc::indoc;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tracing::info;
+use tracing::debug;
 
 #[must_use = "This is a future request, you must .execute it"]
-#[derive(Debug, Clone, Facet)]
+#[derive(Arbitrary, Debug, Clone, Facet)]
 #[facet(traits(Clone))]
 pub struct AzureRouteTableListRequest {
     pub authentication: AzureBearerAuthenticationSelection,
-}
-
-impl<'a> arbitrary::Arbitrary<'a> for AzureRouteTableListRequest {
-    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        Ok(Self {
-            authentication: arbitrary::Arbitrary::arbitrary(u)?,
-        })
-    }
 }
 
 impl InvalidatesOwnCacheKey for AzureRouteTableListRequest {}
@@ -56,7 +49,7 @@ impl ExecutableRequest for AzureRouteTableListRequest {
         Self::Output: 'exec,
     {
         Box::pin(async move {
-            info!("Fetching route tables");
+            debug!("Fetching route tables");
             let query = indoc! {r#"
         Resources
         | where type == "microsoft.network/routetables"
@@ -75,7 +68,7 @@ impl ExecutableRequest for AzureRouteTableListRequest {
                 ResourceGraphHelper::new(query, Some(self.cache_key()?), self.authentication)
                     .collect_all::<RouteTable>(&executor)
                     .await?;
-            info!("Found {} route tables", route_tables.len());
+            debug!("Found {} route tables", route_tables.len());
             Ok(route_tables)
         })
     }

@@ -1,4 +1,5 @@
 use crate::ResourceGraphHelper;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure_types::ManagementGroup;
 use cloud_terrastodon_cache::CacheKey;
@@ -7,53 +8,18 @@ use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
-use eyre::Result;
 use eyre::bail;
 use facet::Facet;
 use indoc::indoc;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tracing::error;
-use tracing::info;
-
-pub async fn fetch_root_management_group(
-    authentication: &AzureBearerAuthenticationSelection,
-    executor: &CloudTerrastodonExecutor,
-) -> Result<Arc<ManagementGroup>> {
-    info!("Fetching root management group");
-    let found = AzureManagementGroupListRequest {
-        authentication: *authentication,
-    }
-    .execute(executor)
-    .await?
-    .into_iter()
-    .find(|mg| mg.name() == mg.tenant_id.to_string());
-    match found {
-        Some(management_group) => {
-            info!("Found root management group");
-            Ok(management_group)
-        }
-        None => {
-            let msg = "Failed to find a management group with name matching the tenant ID";
-            error!(msg);
-            bail!(msg);
-        }
-    }
-}
+use tracing::debug;
 
 #[must_use = "This is a future request, you must .execute it"]
-#[derive(Debug, Clone, Facet)]
+#[derive(Debug, Clone, Arbitrary, Facet)]
 #[facet(traits(Clone))]
 pub struct AzureManagementGroupListRequest {
     pub authentication: AzureBearerAuthenticationSelection,
-}
-
-impl<'a> arbitrary::Arbitrary<'a> for AzureManagementGroupListRequest {
-    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        Ok(Self {
-            authentication: arbitrary::Arbitrary::arbitrary(u)?,
-        })
-    }
 }
 
 impl InvalidatesOwnCacheKey for AzureManagementGroupListRequest {}
@@ -84,7 +50,7 @@ impl ExecutableRequest for AzureManagementGroupListRequest {
         Self::Output: 'exec,
     {
         Box::pin(async move {
-            info!("Fetching management groups");
+            debug!("Fetching management groups");
             let query = indoc! {r#"
         resourcecontainers
         | where type =~ "Microsoft.Management/managementGroups"
@@ -106,7 +72,7 @@ impl ExecutableRequest for AzureManagementGroupListRequest {
                     self.authentication.tenant_id
                 );
             }
-            info!("Found {count} management groups");
+            debug!("Found {count} management groups");
             Ok(management_groups)
         })
     }

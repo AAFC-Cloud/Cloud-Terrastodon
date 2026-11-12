@@ -1,11 +1,7 @@
-use crate::AzureManagementGroupListRequest;
 use crate::cost_management_response::CostManagementResponse;
-use crate::fetch_root_management_group;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure_types::CostManagementQueryDefinition;
 use cloud_terrastodon_azure_types::CostManagementQueryResult;
-use cloud_terrastodon_cache::CacheInvalidationKeys;
-use cloud_terrastodon_cache::CacheKey;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
@@ -30,17 +26,6 @@ pub struct AzureCostQueryRequest<'a> {
     pub query: Cow<'a, CostManagementQueryDefinition>,
 }
 
-impl CacheInvalidationKeys for AzureCostQueryRequest<'_> {
-    fn cache_keys_to_invalidate(&self) -> eyre::Result<Vec<CacheKey>> {
-        // The cost POST is not reused. Root-group lookup is the only cached
-        // dependency and owns the scope that --clean must refresh.
-        AzureManagementGroupListRequest {
-            authentication: self.authentication,
-        }
-        .cache_keys_to_invalidate()
-    }
-}
-
 impl ExecutableRequest for AzureCostQueryRequest<'_> {
     type Output = CostManagementQueryResult;
     type Error = eyre::Report;
@@ -56,10 +41,11 @@ impl ExecutableRequest for AzureCostQueryRequest<'_> {
         Self: 'a,
     {
         Box::pin(async move {
-            let root = fetch_root_management_group(&self.authentication, &executor).await?;
+            // The tenant root management-group ID is the explicit tenant ID:
+            // https://learn.microsoft.com/en-us/azure/governance/management-groups/overview
             let url = format!(
                 "https://management.azure.com/providers/Microsoft.Management/managementGroups/{}/providers/Microsoft.CostManagement/query?api-version=2021-10-01",
-                root.tenant_id
+                self.authentication.tenant_id
             );
             let request = RestRequest::new(http::Method::POST, url.as_str())?
                 .cancellation_safe()
@@ -202,5 +188,5 @@ cloud_terrastodon_registry_execution::register_executable_request!(AzureCostQuer
 cloud_terrastodon_registry_execution::register_runtime_test!(
     AzureCostQueryRequest<'static>,
     name = "cost-query",
-    cached
+    uncached
 );

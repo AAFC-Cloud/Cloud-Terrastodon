@@ -16,19 +16,10 @@ use std::sync::Arc;
 use tracing::debug;
 
 #[must_use = "This is a future request, you must .execute it"]
-#[derive(Facet)]
+#[derive(Arbitrary, Facet)]
 pub struct EntraApplicationRegistrationSearchRequest {
     pub search_term: String,
     pub authentication: AzureBearerAuthenticationSelection,
-}
-
-impl<'a> Arbitrary<'a> for EntraApplicationRegistrationSearchRequest {
-    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        Ok(Self {
-            search_term: Arbitrary::arbitrary(u)?,
-            authentication: Arbitrary::arbitrary(u)?,
-        })
-    }
 }
 
 impl EntraApplicationRegistrationSearchRequest {

@@ -1,3 +1,4 @@
+use arbitrary::Arbitrary;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure_types::EntraServicePrincipalObjectId;
 use cloud_terrastodon_azure_types::OAuth2PermissionScope;
@@ -13,26 +14,17 @@ use cloud_terrastodon_rest::RestRequest;
 use facet::Facet;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tracing::info;
+use tracing::debug;
 
-#[derive(Facet)]
-pub struct EntraOAuth2PermissionScopesListRequest {
+#[derive(Arbitrary, Facet)]
+pub struct EntraOAuth2PermissionScopeListRequest {
     pub service_principal_id: EntraServicePrincipalObjectId,
     pub authentication: AzureBearerAuthenticationSelection,
 }
 
-impl<'a> arbitrary::Arbitrary<'a> for EntraOAuth2PermissionScopesListRequest {
-    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        Ok(Self {
-            service_principal_id: arbitrary::Arbitrary::arbitrary(u)?,
-            authentication: arbitrary::Arbitrary::arbitrary(u)?,
-        })
-    }
-}
+impl InvalidatesOwnCacheKey for EntraOAuth2PermissionScopeListRequest {}
 
-impl InvalidatesOwnCacheKey for EntraOAuth2PermissionScopesListRequest {}
-
-impl HasCacheKey for EntraOAuth2PermissionScopesListRequest {
+impl HasCacheKey for EntraOAuth2PermissionScopeListRequest {
     fn cache_key(&self) -> eyre::Result<CacheKey> {
         CacheKey::from_relative_path(PathBuf::from_iter([
             "az",
@@ -45,7 +37,7 @@ impl HasCacheKey for EntraOAuth2PermissionScopesListRequest {
     }
 }
 
-impl ExecutableRequest for EntraOAuth2PermissionScopesListRequest {
+impl ExecutableRequest for EntraOAuth2PermissionScopeListRequest {
     fn bind_authentication(
         &self,
         executor: CloudTerrastodonExecutor,
@@ -60,7 +52,7 @@ impl ExecutableRequest for EntraOAuth2PermissionScopesListRequest {
         Self::Output: 'exec,
     {
         Box::pin(async move {
-            info!(
+            debug!(
                 "Fetching OAuth2 permission scopes for {:?}",
                 self.service_principal_id
             );
@@ -73,11 +65,11 @@ impl ExecutableRequest for EntraOAuth2PermissionScopesListRequest {
                 .cache(self.cache_key()?)
                 .receive_cached::<OAuth2PermissionScopeListResponse>(
                     &executor,
-                    CacheOperationOwner::of::<EntraOAuth2PermissionScopesListRequest>(),
+                    CacheOperationOwner::of::<EntraOAuth2PermissionScopeListRequest>(),
                 )
                 .await?;
 
-            info!(
+            debug!(
                 "Found {} OAuth2 permission scopes",
                 entries.oauth2_permission_scopes.len()
             );
@@ -86,12 +78,12 @@ impl ExecutableRequest for EntraOAuth2PermissionScopesListRequest {
     }
 }
 
-cloud_terrastodon_registry::register_thing!(EntraOAuth2PermissionScopesListRequest);
-cloud_terrastodon_registry::register_arbitrary!(EntraOAuth2PermissionScopesListRequest);
-cloud_terrastodon_registry_execution::register_executable_request!(EntraOAuth2PermissionScopesListRequest => Arc<Vec<OAuth2PermissionScope>>, effects = [Read]);
+cloud_terrastodon_registry::register_thing!(EntraOAuth2PermissionScopeListRequest);
+cloud_terrastodon_registry::register_arbitrary!(EntraOAuth2PermissionScopeListRequest);
+cloud_terrastodon_registry_execution::register_executable_request!(EntraOAuth2PermissionScopeListRequest => Arc<Vec<OAuth2PermissionScope>>, effects = [Read]);
 
 cloud_terrastodon_registry_execution::register_runtime_test!(
-    EntraOAuth2PermissionScopesListRequest,
-    name = "oauth2-permission-scopes-list",
+    EntraOAuth2PermissionScopeListRequest,
+    name = "entra-oauth2-permission-scope-list",
     cached
 );

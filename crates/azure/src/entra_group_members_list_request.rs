@@ -1,5 +1,6 @@
 use crate::MicrosoftGraphBatchRequestEntry;
 use crate::MicrosoftGraphHelper;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure_types::EntraDirectoryObject;
 use cloud_terrastodon_azure_types::EntraGroupId;
@@ -20,7 +21,7 @@ use tracing::debug;
 /// cache key. Optional names retain limited-information responses. Graph v1.0
 /// [list members](https://learn.microsoft.com/en-us/graph/api/group-list-members?view=graph-rest-1.0)
 /// can omit service principals, so pagination alone does not prove completeness.
-#[derive(Facet)]
+#[derive(Arbitrary, Facet)]
 pub struct EntraGroupMembersListRequest {
     pub group_id: EntraGroupId,
     pub authentication: AzureBearerAuthenticationSelection,
@@ -41,15 +42,6 @@ impl From<EntraGroupMembersListRequest>
             format!("group-members-for-{}", request.group_id),
             request.url(),
         )
-    }
-}
-
-impl<'a> arbitrary::Arbitrary<'a> for EntraGroupMembersListRequest {
-    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        Ok(Self {
-            group_id: arbitrary::Arbitrary::arbitrary(u)?,
-            authentication: arbitrary::Arbitrary::arbitrary(u)?,
-        })
     }
 }
 

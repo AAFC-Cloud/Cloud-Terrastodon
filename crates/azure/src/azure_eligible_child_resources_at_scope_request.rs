@@ -1,4 +1,5 @@
 use crate::FetchChildrenBehaviour;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure_types::EligibleChildResource;
 use cloud_terrastodon_azure_types::EligibleChildResourceListResponse;
@@ -19,20 +20,11 @@ use std::time::Duration;
 
 /// List eligible children of one ARM scope.
 /// [Authorization 2020-10-01](https://learn.microsoft.com/rest/api/authorization/eligible-child-resources/get?view=rest-authorization-2020-10-01).
-#[derive(Facet)]
+#[derive(Arbitrary, Facet)]
 pub struct AzureEligibleChildResourcesAtScopeRequest {
     pub scope: ScopeImpl,
     pub behaviour: FetchChildrenBehaviour,
     pub authentication: AzureBearerAuthenticationSelection,
-}
-impl<'a> arbitrary::Arbitrary<'a> for AzureEligibleChildResourcesAtScopeRequest {
-    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        Ok(Self {
-            scope: arbitrary::Arbitrary::arbitrary(u)?,
-            behaviour: arbitrary::Arbitrary::arbitrary(u)?,
-            authentication: arbitrary::Arbitrary::arbitrary(u)?,
-        })
-    }
 }
 impl HasCacheKey for AzureEligibleChildResourcesAtScopeRequest {
     fn cache_key(&self) -> eyre::Result<CacheKey> {

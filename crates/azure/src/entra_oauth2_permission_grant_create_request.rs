@@ -19,7 +19,7 @@ use facet::Facet;
 use http::Method;
 use std::path::PathBuf;
 use std::time::Duration;
-use tracing::info;
+use tracing::debug;
 
 #[derive(Debug, Clone, Arbitrary, Facet)]
 pub struct EntraOAuth2PermissionGrantCreateRequest {
@@ -71,7 +71,7 @@ impl ExecutableRequest for EntraOAuth2PermissionGrantCreateRequest {
                     "Finish the submitted Azure mutation and its cache cleanup",
                     |executor| async move {
                         let cache_key = self.cache_key()?;
-                        info!(
+                        debug!(
                             "Creating OAuth2 permission grant for {} for {}",
                             self.scope, self.principal_id
                         );

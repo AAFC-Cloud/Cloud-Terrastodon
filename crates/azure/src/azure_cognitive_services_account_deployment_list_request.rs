@@ -15,7 +15,7 @@ use cloud_terrastodon_rest::RestRequest;
 use facet::Facet;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tracing::info;
+use tracing::debug;
 
 const COGNITIVE_SERVICES_ACCOUNT_DEPLOYMENTS_API_VERSION: &str = "2025-06-01";
 
@@ -67,7 +67,7 @@ impl ExecutableRequest for AzureCognitiveServicesAccountDeploymentListRequest {
         Self::Output: 'exec,
     {
         Box::pin(async move {
-            info!(
+            debug!(
                 tenant_id = %self.authentication.tenant_id,
                 account_id = %self.account_id.expanded_form(),
                 "Fetching Cognitive Services account deployments"
@@ -86,7 +86,7 @@ impl ExecutableRequest for AzureCognitiveServicesAccountDeploymentListRequest {
                     CacheOperationOwner::of::<Self>(),
                 )
                 .await?;
-            info!(
+            debug!(
                 count = deployments.value.len(),
                 account_id = %self.account_id.expanded_form(),
                 "Fetched Cognitive Services account deployments"

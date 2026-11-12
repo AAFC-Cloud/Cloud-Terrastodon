@@ -1,4 +1,5 @@
 use crate::MicrosoftGraphHelper;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure_types::EntraApplicationClientId;
 use cloud_terrastodon_azure_types::EntraApplicationRegistration;
@@ -14,19 +15,10 @@ use std::sync::Arc;
 use tracing::debug;
 
 #[must_use = "This is a future request, you must .execute it"]
-#[derive(Facet)]
+#[derive(Arbitrary, Facet)]
 pub struct EntraApplicationRegistrationGetRequest {
     pub application_id: EntraApplicationClientId,
     pub authentication: AzureBearerAuthenticationSelection,
-}
-
-impl<'a> arbitrary::Arbitrary<'a> for EntraApplicationRegistrationGetRequest {
-    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        Ok(Self {
-            application_id: arbitrary::Arbitrary::arbitrary(u)?,
-            authentication: arbitrary::Arbitrary::arbitrary(u)?,
-        })
-    }
 }
 
 impl EntraApplicationRegistrationGetRequest {

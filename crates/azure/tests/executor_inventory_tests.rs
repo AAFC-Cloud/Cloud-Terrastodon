@@ -2,10 +2,11 @@
 
 use cloud_terrastodon_auth_types::AuthenticationSelection;
 use cloud_terrastodon_auth_types::AzureBearerAuthSource;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
+use cloud_terrastodon_azure::EntraPrincipalListRequest;
+use cloud_terrastodon_azure::EntraSecurityGroupListRequest;
+use cloud_terrastodon_azure::EntraServicePrincipalListRequest;
 use cloud_terrastodon_azure::EntraUserListRequest;
-use cloud_terrastodon_azure::PrincipalListRequest;
-use cloud_terrastodon_azure::SecurityGroupListRequest;
-use cloud_terrastodon_azure::ServicePrincipalListRequest;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::EntraGroup;
 use cloud_terrastodon_azure_types::EntraPrincipal;
@@ -104,21 +105,20 @@ async fn principal_assembly_shares_records_and_tracks_warm_child_page_dependenci
                 CloudTerrastodonExecutor::new(cache.clone(), authentication.clone(), scope.clone());
             let tenant_id: AzureTenantId = "22222222-2222-2222-2222-222222222222".parse()?;
             let auth_source = AzureBearerAuthSource::AzureCli;
-            let selection = AuthenticationSelection::AzureBearer {
+            let selected = AzureBearerAuthenticationSelection {
+                account_id: "11111111-1111-1111-1111-111111111111".parse()?,
                 tenant_id,
                 auth_source,
             };
+            let selection = selected.into();
             let users = EntraUserListRequest {
-                tenant_id,
-                auth_source,
+                authentication: selected,
             };
-            let groups = SecurityGroupListRequest {
-                tenant_id,
-                auth_source,
+            let groups = EntraSecurityGroupListRequest {
+                authentication: selected,
             };
-            let principals = ServicePrincipalListRequest {
-                tenant_id,
-                auth_source,
+            let principals = EntraServicePrincipalListRequest {
+                authentication: selected,
             };
             let original = Arc::new(user("original"));
             seed_category(&executor, &users, &selection, vec![original.clone()]).await?;
@@ -130,9 +130,8 @@ async fn principal_assembly_shares_records_and_tracks_warm_child_page_dependenci
                 Vec::new(),
             )
             .await?;
-            let request = || PrincipalListRequest {
-                tenant_id,
-                auth_source,
+            let request = || EntraPrincipalListRequest {
+                authentication: selected,
             };
             let (first, second) = executor
                 .join2(

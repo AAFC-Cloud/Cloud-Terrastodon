@@ -35,18 +35,10 @@ const PROVIDERS_API_VERSION: &str = "2021-04-01";
 /// subscription. Subscription registration queries and changes require their
 /// own subscription-scoped operations.
 #[must_use = "This is a future request, you must .execute it"]
-#[derive(Debug, Clone, Facet)]
+#[derive(Arbitrary, Debug, Clone, Facet)]
 #[facet(traits(Clone))]
 pub struct AzureResourceProviderListRequest {
     pub authentication: AzureBearerAuthenticationSelection,
-}
-
-impl<'a> Arbitrary<'a> for AzureResourceProviderListRequest {
-    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        Ok(Self {
-            authentication: Arbitrary::arbitrary(u)?,
-        })
-    }
 }
 
 impl HasCacheKey for AzureResourceProviderListRequest {
