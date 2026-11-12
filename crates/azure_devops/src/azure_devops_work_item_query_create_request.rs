@@ -1,5 +1,5 @@
 use arbitrary::Arbitrary;
-use cloud_terrastodon_auth::AzureDevOpsAuthContext;
+use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemQuery;
@@ -18,7 +18,7 @@ use std::borrow::Cow;
 pub struct AzureDevOpsWorkItemQueryCreateRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub project: AzureDevOpsProjectArgument<'a>,
-    pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
+    pub auth_selection: AzureDevOpsAuthSelection,
     pub folder: AzureDevOpsWorkItemQueryPath,
     pub name: String,
     pub wiql: String,
@@ -29,7 +29,7 @@ impl<'a> Arbitrary<'a> for AzureDevOpsWorkItemQueryCreateRequest<'static> {
         Ok(Self {
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
-            auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
+            auth_selection: AzureDevOpsAuthSelection::arbitrary(u)?,
             folder: AzureDevOpsWorkItemQueryPath::arbitrary(u)?,
             name: String::arbitrary(u)?,
             wiql: String::arbitrary(u)?,
@@ -38,6 +38,17 @@ impl<'a> Arbitrary<'a> for AzureDevOpsWorkItemQueryCreateRequest<'static> {
 }
 
 impl<'a> ExecutableRequest for AzureDevOpsWorkItemQueryCreateRequest<'a> {
+    fn bind_authentication(
+        &self,
+        executor: CloudTerrastodonExecutor,
+    ) -> Result<CloudTerrastodonExecutor, Self::Error> {
+        executor.validate_authentication_target(
+            &self.auth_selection.into(),
+            &self.org_url.api_url("dev.azure.com", "_apis", &[])?,
+        )?;
+        executor.with_authentication_lease(&self.auth_selection.into())
+    }
+
     type Error = eyre::Report;
     type Output = AzureDevOpsWorkItemQuery;
 
@@ -67,7 +78,7 @@ impl<'a> ExecutableRequest for AzureDevOpsWorkItemQueryCreateRequest<'a> {
                     wiql: self.wiql,
                 })?);
             request
-                .azure_devops_auth_context(self.auth_context.as_ref())?
+                .authentication(self.auth_selection.into())
                 .receive(&executor)
                 .await
         })

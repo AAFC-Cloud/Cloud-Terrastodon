@@ -1,13 +1,13 @@
 #![cfg(test)]
 
-// The production project request is data-only; other request families still
-// require runtime contexts until their own migration slices complete.
+// SDK discovery uses explicit credential selections without runtime contexts.
 
 #[path = "support/discovery_requests.rs"]
 mod discovery_requests;
 
-use cloud_terrastodon_auth::AzureDevOpsAuthContext;
-use cloud_terrastodon_auth::AzureTenantAuthContext;
+use cloud_terrastodon_auth_types::AuthenticationSelection;
+use cloud_terrastodon_auth_types::AzureBearerAuthSource;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
 use cloud_terrastodon_azure_devops::AzureDevOpsBuildDefinitionGetRequest;
 use cloud_terrastodon_azure_devops::AzureDevOpsBuildDefinitionListRequest;
@@ -59,7 +59,6 @@ fn sdk_linked_catalog_connects_projects_to_service_connections_and_full_build_de
         known_functions().iter().map(Function::descriptor),
         &[
             AzureDevOpsOrganizationUrl::SHAPE,
-            AzureDevOpsAuthContext::SHAPE,
             AzureDevOpsAuthSelection::SHAPE,
         ],
         &[
@@ -131,7 +130,6 @@ fn sdk_project_argument_conversion_is_required_even_when_request_arbitrary_is_re
     ];
     let seeds = [
         AzureDevOpsOrganizationUrl::SHAPE,
-        AzureDevOpsAuthContext::SHAPE,
         AzureDevOpsAuthSelection::SHAPE,
     ];
     let targets = [AzureDevOpsServiceEndpoint::SHAPE];
@@ -175,7 +173,6 @@ fn sdk_yaml_filename_is_a_conditional_descendant_of_a_full_build_definition() {
         ],
         &[
             AzureDevOpsOrganizationUrl::SHAPE,
-            AzureDevOpsAuthContext::SHAPE,
             AzureDevOpsAuthSelection::SHAPE,
         ],
         &[AzureDevOpsBuildYamlFilename::SHAPE],
@@ -192,25 +189,102 @@ fn sdk_yaml_filename_is_a_conditional_descendant_of_a_full_build_definition() {
 }
 
 #[test]
-fn sdk_devops_auth_does_not_supply_the_tenant_context_from_its_bearer_variant() {
+fn sdk_devops_selection_has_only_conditional_structural_bearer_reachability() {
     let plan = plan(
         known_functions().iter().map(Function::descriptor),
         &[
             AzureDevOpsOrganizationUrl::SHAPE,
-            AzureDevOpsAuthContext::SHAPE,
+            AzureDevOpsAuthSelection::SHAPE,
         ],
-        &[AzureTenantAuthContext::SHAPE],
+        &[AzureBearerAuthenticationSelection::SHAPE],
     );
 
+    // The linked catalog converts DevOps selections to AuthenticationSelection.
+    // Their bearer variants now expose the same explicit selection payload.
+    // Type-only planning can describe that path, but cannot promise the enum
+    // value is a bearer selection rather than a PAT.
+    let target = plan.nodes.iter().find(|node| node.target).unwrap();
+    assert!(target.reachable);
     assert!(
-        !plan
-            .nodes
+        plan.edges
             .iter()
-            .find(|node| node.target)
-            .unwrap()
-            .reachable,
-        "Azure inventory requires an explicit tenant-bound auth input",
+            .any(|edge| { edge.target == target.id && edge.label.ends_with("(if active)") })
     );
+}
+
+#[test]
+fn sdk_value_discovery_preserves_bearer_identity_and_cannot_invent_it_from_a_pat() {
+    let catalog: Vec<_> = known_functions()
+        .iter()
+        .filter(|function| {
+            (function.kind == FunctionKind::Conversion
+                && function
+                    .input_shape
+                    .is_shape(AzureDevOpsAuthSelection::SHAPE)
+                && function
+                    .output_shape
+                    .is_shape(AuthenticationSelection::SHAPE))
+                || (function.kind == FunctionKind::Constructor
+                    && function.trait_contract == FunctionTraitContract::Arbitrary
+                    && function
+                        .output_shape
+                        .is_shape(AzureBearerAuthenticationSelection::SHAPE))
+        })
+        .collect();
+    assert_eq!(
+        catalog.len(),
+        2,
+        "the test requires the linked conversion and generator"
+    );
+    let bearer = AzureBearerAuthenticationSelection {
+        account_id: "11111111-1111-1111-1111-111111111111".parse().unwrap(),
+        auth_source: AzureBearerAuthSource::Browser,
+        tenant_id: "22222222-2222-2222-2222-222222222222".parse().unwrap(),
+    };
+    for (selection, expected_bearer) in [
+        (
+            AzureDevOpsAuthSelection::PersonalAccessToken {
+                account_id: bearer.account_id,
+            },
+            None,
+        ),
+        (AzureDevOpsAuthSelection::Bearer(bearer), Some(bearer)),
+    ] {
+        let simulation = CancellationToken::new()
+            .with_scope(|cancellation| {
+                DiscoverySimulation::run(
+                    vec![RuntimeValue::from_box(Box::new(selection))?],
+                    // A linked generator must not manufacture a missing
+                    // credential selection while exploring actual values.
+                    catalog.iter().copied(),
+                    7,
+                    16,
+                    64,
+                    &cancellation,
+                )
+            })
+            .unwrap();
+        assert!(simulation.converged, "{:?}", simulation.diagnostics);
+        assert!(simulation.simulated_requests.is_empty());
+        let discovered = simulation
+            .values
+            .get(AzureBearerAuthenticationSelection::SHAPE)
+            .and_then(|values| values.first())
+            .map(|value| {
+                *value
+                    .value
+                    .peek()
+                    .get::<AzureBearerAuthenticationSelection>()
+                    .unwrap()
+            });
+        assert_eq!(discovered, expected_bearer);
+        let converted = simulation.values[AuthenticationSelection::SHAPE][0]
+            .value
+            .peek()
+            .get::<AuthenticationSelection>()
+            .unwrap();
+        assert_eq!(*converted, AuthenticationSelection::from(selection));
+    }
 }
 
 #[test]
@@ -251,7 +325,9 @@ fn structural_project_folder_plan_covers_the_arbitrary_simulation_requests() {
                         "example".parse::<AzureDevOpsOrganizationUrl>()?,
                     ))?,
                     RuntimeValue::from_box(Box::new(
-                        AzureDevOpsAuthSelection::PersonalAccessToken,
+                        AzureDevOpsAuthSelection::PersonalAccessToken {
+                            account_id: "11111111-1111-1111-1111-111111111111".parse()?,
+                        },
                     ))?,
                 ],
                 catalog.iter().copied(),

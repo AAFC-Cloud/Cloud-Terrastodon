@@ -1,6 +1,6 @@
-use crate::fetch_azure_devops_user_license_entitlements;
+use crate::AzureDevOpsUserLicenseEntitlementListRequest;
 use arbitrary::Arbitrary;
-use cloud_terrastodon_auth::AzureDevOpsAuthContext;
+use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsJsonPatch;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsJsonPatchOperation;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsLicenseAccessLevelUpdate;
@@ -16,7 +16,6 @@ use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
-use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_rest::RequestHeaders;
 use cloud_terrastodon_rest::RestRequest;
 use facet::Facet;
@@ -31,32 +30,16 @@ use std::time::Duration;
 #[facet(traits(Clone))]
 pub struct AzureDevOpsUserLicenseEntitlementUpdateRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
-    pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
+    pub auth_selection: AzureDevOpsAuthSelection,
     pub user: AzureDevOpsUserArgument<'a>,
     pub license_kind: AzureDevOpsLicenseType,
-}
-
-#[track_caller]
-pub fn update_azure_devops_user_license_entitlement<'a>(
-    org_url: &'a AzureDevOpsOrganizationUrl,
-    user: impl Into<AzureDevOpsUserArgument<'a>>,
-    license_kind: AzureDevOpsLicenseType,
-    auth_context: &'a AzureDevOpsAuthContext,
-    executor: &'a CloudTerrastodonExecutor,
-) -> RequestExecution<'a, AzureDevOpsUserLicenseEntitlementUpdateRequest<'a>> {
-    executor.execute(AzureDevOpsUserLicenseEntitlementUpdateRequest {
-        org_url: Cow::Borrowed(org_url),
-        auth_context: Cow::Borrowed(auth_context),
-        user: user.into(),
-        license_kind,
-    })
 }
 
 impl<'a> Arbitrary<'a> for AzureDevOpsUserLicenseEntitlementUpdateRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
-            auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
+            auth_selection: AzureDevOpsAuthSelection::arbitrary(u)?,
             user: AzureDevOpsUserArgument::arbitrary(u)?.into_owned(),
             license_kind: AzureDevOpsLicenseType::arbitrary(u)?,
         })
@@ -83,6 +66,17 @@ impl<'a> HasCacheKey for AzureDevOpsUserLicenseEntitlementUpdateRequest<'a> {
 impl<'a> InvalidatesOwnCacheKey for AzureDevOpsUserLicenseEntitlementUpdateRequest<'a> {}
 
 impl<'a> ExecutableRequest for AzureDevOpsUserLicenseEntitlementUpdateRequest<'a> {
+    fn bind_authentication(
+        &self,
+        executor: CloudTerrastodonExecutor,
+    ) -> Result<CloudTerrastodonExecutor, Self::Error> {
+        executor.validate_authentication_target(
+            &self.auth_selection.into(),
+            &self.org_url.api_url("dev.azure.com", "_apis", &[])?,
+        )?;
+        executor.with_authentication_lease(&self.auth_selection.into())
+    }
+
     type Error = eyre::Report;
     type Output = AzureDevOpsLicenseEntitlementUpdateResponse;
     fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
@@ -95,11 +89,11 @@ impl<'a> ExecutableRequest for AzureDevOpsUserLicenseEntitlementUpdateRequest<'a
             let user_id = match &self.user {
                 AzureDevOpsUserArgument::Id(id) => *id.as_ref(),
                 AzureDevOpsUserArgument::Email(_) => {
-                    let listing = fetch_azure_devops_user_license_entitlements(
-                        self.org_url.as_ref(),
-                        self.auth_context.as_ref(),
-                        &executor,
-                    );
+                    let listing = AzureDevOpsUserLicenseEntitlementListRequest {
+                        org_url: Cow::Borrowed(self.org_url.as_ref()),
+                        auth_selection: self.auth_selection,
+                    }
+                    .execute(&executor);
                     listing.invalidate().await?;
                     let users = listing.await?;
                     let mut matches = users
@@ -140,15 +134,15 @@ impl<'a> ExecutableRequest for AzureDevOpsUserLicenseEntitlementUpdateRequest<'a
                             )?)
                             .body(facet_json::to_string(&patch)?)
                             .cache(cache_key)
-                            .azure_devops_auth_context(self.auth_context.as_ref())?
+                            .authentication(self.auth_selection.into())
                             .receive::<AzureDevOpsUserEntitlementsPatchResponse>(&executor)
                             .await;
                         // A response-decoding failure cannot prove that PATCH had no effect.
-                        let invalidation = fetch_azure_devops_user_license_entitlements(
-                            self.org_url.as_ref(),
-                            self.auth_context.as_ref(),
-                            &executor,
-                        )
+                        let invalidation = AzureDevOpsUserLicenseEntitlementListRequest {
+                            org_url: Cow::Borrowed(self.org_url.as_ref()),
+                            auth_selection: self.auth_selection,
+                        }
+                        .execute(&executor)
                         .invalidate()
                         .await;
                         let response = match (response, invalidation) {

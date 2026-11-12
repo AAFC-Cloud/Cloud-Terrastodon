@@ -1,5 +1,5 @@
 use arbitrary::Arbitrary;
-use cloud_terrastodon_auth::AzureDevOpsAuthContext;
+use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemQuery;
@@ -18,7 +18,7 @@ use std::borrow::Cow;
 pub struct AzureDevOpsWorkItemQueryGetRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub project: AzureDevOpsProjectArgument<'a>,
-    pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
+    pub auth_selection: AzureDevOpsAuthSelection,
     pub query: AzureDevOpsWorkItemQueryPath,
 }
 
@@ -27,13 +27,24 @@ impl<'a> Arbitrary<'a> for AzureDevOpsWorkItemQueryGetRequest<'static> {
         Ok(Self {
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
-            auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
+            auth_selection: AzureDevOpsAuthSelection::arbitrary(u)?,
             query: AzureDevOpsWorkItemQueryPath::arbitrary(u)?,
         })
     }
 }
 
 impl<'a> ExecutableRequest for AzureDevOpsWorkItemQueryGetRequest<'a> {
+    fn bind_authentication(
+        &self,
+        executor: CloudTerrastodonExecutor,
+    ) -> Result<CloudTerrastodonExecutor, Self::Error> {
+        executor.validate_authentication_target(
+            &self.auth_selection.into(),
+            &self.org_url.api_url("dev.azure.com", "_apis", &[])?,
+        )?;
+        executor.with_authentication_lease(&self.auth_selection.into())
+    }
+
     type Error = eyre::Report;
     type Output = AzureDevOpsWorkItemQuery;
 
@@ -56,7 +67,7 @@ impl<'a> ExecutableRequest for AzureDevOpsWorkItemQueryGetRequest<'a> {
 
             let request = RestRequest::from_method_and_url(Method::GET, url)?;
             request
-                .azure_devops_auth_context(self.auth_context.as_ref())?
+                .authentication(self.auth_selection.into())
                 .receive(&executor)
                 .await
         })

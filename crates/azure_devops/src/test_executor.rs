@@ -1,26 +1,27 @@
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_auth::AzureDevOpsAuthContext;
-use cloud_terrastodon_auth::CredentialAuthenticationProvider;
-use cloud_terrastodon_auth_types::AuthSource;
+use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
 use cloud_terrastodon_cache::WorkCache;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::TestAuthenticationProvider;
 use std::sync::Arc;
 
-/// Tests own fresh artifacts and explicitly select their authentication policy.
-/// Construction does not read configuration or acquire a credential.
+/// Offline executor for local request validation, cache keys, and fake writers.
 pub(crate) fn test_executor(
-    authentication: &AzureDevOpsAuthContext,
     cancellation: &CancellationScope,
 ) -> eyre::Result<CloudTerrastodonExecutor> {
-    let authentication = match authentication {
-        AzureDevOpsAuthContext::None => AuthContext::explicit(AuthSource::None),
-        AzureDevOpsAuthContext::Bearer(context) => context.auth_context.clone(),
-        AzureDevOpsAuthContext::PersonalAccessToken(context) => context.clone(),
-    };
     Ok(CloudTerrastodonExecutor::new(
         WorkCache::temporary()?,
-        Arc::new(CredentialAuthenticationProvider::new(authentication)),
+        Arc::new(TestAuthenticationProvider::offline(
+            "devops-request-policy",
+        )?),
         cancellation.clone(),
     ))
+}
+
+pub(crate) fn authentication_selection() -> AzureDevOpsAuthSelection {
+    AzureDevOpsAuthSelection::PersonalAccessToken {
+        account_id: "00000000-0000-0000-0000-000000000001"
+            .parse()
+            .expect("a synthetic account ID"),
+    }
 }

@@ -1,6 +1,6 @@
 use crate::azure_devops_work_item_query_selector::AzureDevOpsWorkItemQuerySelector;
 use arbitrary::Arbitrary;
-use cloud_terrastodon_auth::AzureDevOpsAuthContext;
+use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops_types::WorkItemQueryResult;
@@ -19,7 +19,7 @@ use std::borrow::Cow;
 pub struct AzureDevOpsWorkItemQueryInvokeRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub project: Option<AzureDevOpsProjectArgument<'a>>,
-    pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
+    pub auth_selection: AzureDevOpsAuthSelection,
     pub query: AzureDevOpsWorkItemQuerySelector,
 }
 
@@ -28,13 +28,24 @@ impl<'a> Arbitrary<'a> for AzureDevOpsWorkItemQueryInvokeRequest<'static> {
         Ok(Self {
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: Option::<AzureDevOpsProjectArgument<'static>>::arbitrary(u)?,
-            auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
+            auth_selection: AzureDevOpsAuthSelection::arbitrary(u)?,
             query: AzureDevOpsWorkItemQuerySelector::arbitrary(u)?,
         })
     }
 }
 
 impl<'a> ExecutableRequest for AzureDevOpsWorkItemQueryInvokeRequest<'a> {
+    fn bind_authentication(
+        &self,
+        executor: CloudTerrastodonExecutor,
+    ) -> Result<CloudTerrastodonExecutor, Self::Error> {
+        executor.validate_authentication_target(
+            &self.auth_selection.into(),
+            &self.org_url.api_url("dev.azure.com", "_apis", &[])?,
+        )?;
+        executor.with_authentication_lease(&self.auth_selection.into())
+    }
+
     type Error = eyre::Report;
     type Output = WorkItemQueryResult;
 
@@ -81,7 +92,7 @@ impl<'a> ExecutableRequest for AzureDevOpsWorkItemQueryInvokeRequest<'a> {
             let mut request = RestRequest::from_method_and_url(method, url)?.cancellation_safe();
             request.body = body;
             request
-                .azure_devops_auth_context(self.auth_context.as_ref())?
+                .authentication(self.auth_selection.into())
                 .receive(&executor)
                 .await
         })

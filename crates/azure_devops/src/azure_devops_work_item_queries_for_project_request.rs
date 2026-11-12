@@ -1,5 +1,5 @@
 use arbitrary::Arbitrary;
-use cloud_terrastodon_auth::AzureDevOpsAuthContext;
+use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsCollectionResponse;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
@@ -11,7 +11,6 @@ use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
-use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_pathing::sanitize_windows_path_component;
 use cloud_terrastodon_rest::RestRequest;
 use cloud_terrastodon_rest::RestService;
@@ -23,36 +22,22 @@ use std::sync::Arc;
 
 #[derive(Debug, Clone, Facet)]
 #[facet(traits(Clone))]
-pub struct WorkItemQueriesForProjectRequest<'a> {
+pub struct AzureDevOpsWorkItemQueriesForProjectRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
-    pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
+    pub auth_selection: AzureDevOpsAuthSelection,
     pub project: AzureDevOpsProjectArgument<'a>,
 }
 
-#[track_caller]
-pub fn fetch_queries_for_project<'a>(
-    org_url: &'a AzureDevOpsOrganizationUrl,
-    project: impl Into<AzureDevOpsProjectArgument<'a>>,
-    auth_context: &'a AzureDevOpsAuthContext,
-    executor: &'a CloudTerrastodonExecutor,
-) -> RequestExecution<'a, WorkItemQueriesForProjectRequest<'a>> {
-    executor.execute(WorkItemQueriesForProjectRequest {
-        org_url: Cow::Borrowed(org_url),
-        auth_context: Cow::Borrowed(auth_context),
-        project: project.into(),
-    })
-}
-
-impl<'a> Arbitrary<'a> for WorkItemQueriesForProjectRequest<'static> {
+impl<'a> Arbitrary<'a> for AzureDevOpsWorkItemQueriesForProjectRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
-            auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
+            auth_selection: AzureDevOpsAuthSelection::arbitrary(u)?,
             project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
         })
     }
 }
-impl<'a> HasCacheKey for WorkItemQueriesForProjectRequest<'a> {
+impl<'a> HasCacheKey for AzureDevOpsWorkItemQueriesForProjectRequest<'a> {
     fn cache_key(&self) -> eyre::Result<CacheKey> {
         let mut path = PathBuf::from_iter(["az", "devops"]);
         if self.org_url.collection_name().is_some() {
@@ -83,9 +68,20 @@ impl<'a> HasCacheKey for WorkItemQueriesForProjectRequest<'a> {
     }
 }
 
-impl<'a> InvalidatesOwnCacheKey for WorkItemQueriesForProjectRequest<'a> {}
+impl<'a> InvalidatesOwnCacheKey for AzureDevOpsWorkItemQueriesForProjectRequest<'a> {}
 
-impl<'a> ExecutableRequest for WorkItemQueriesForProjectRequest<'a> {
+impl<'a> ExecutableRequest for AzureDevOpsWorkItemQueriesForProjectRequest<'a> {
+    fn bind_authentication(
+        &self,
+        executor: CloudTerrastodonExecutor,
+    ) -> Result<CloudTerrastodonExecutor, Self::Error> {
+        executor.validate_authentication_target(
+            &self.auth_selection.into(),
+            &self.org_url.api_url("dev.azure.com", "_apis", &[])?,
+        )?;
+        executor.with_authentication_lease(&self.auth_selection.into())
+    }
+
     type Error = eyre::Report;
     type Output = Arc<Vec<AzureDevOpsWorkItemQuery>>;
     fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
@@ -110,10 +106,10 @@ impl<'a> ExecutableRequest for WorkItemQueriesForProjectRequest<'a> {
                 RestService::AzureDevOps,
             )?
             .cache(self.cache_key()?)
-            .azure_devops_auth_context(self.auth_context.as_ref())?
+            .authentication(self.auth_selection.into())
             .receive_cached::<AzureDevOpsCollectionResponse<Arc<Vec<AzureDevOpsWorkItemQuery>>>>(
                 &executor,
-                CacheOperationOwner::of::<WorkItemQueriesForProjectRequest<'static>>(),
+                CacheOperationOwner::of::<AzureDevOpsWorkItemQueriesForProjectRequest<'static>>(),
             )
             .await?;
             Ok(Arc::clone(&response.value))
@@ -121,72 +117,80 @@ impl<'a> ExecutableRequest for WorkItemQueriesForProjectRequest<'a> {
     }
 }
 
-cloud_terrastodon_registry::register_thing!(WorkItemQueriesForProjectRequest<'static>);
-cloud_terrastodon_registry::register_arbitrary!(WorkItemQueriesForProjectRequest<'static>);
-cloud_terrastodon_registry_execution::register_executable_request!(WorkItemQueriesForProjectRequest<'static> => Arc<Vec<AzureDevOpsWorkItemQuery>>, effects = [Read]);
+cloud_terrastodon_registry::register_thing!(AzureDevOpsWorkItemQueriesForProjectRequest<'static>);
+cloud_terrastodon_registry::register_arbitrary!(
+    AzureDevOpsWorkItemQueriesForProjectRequest<'static>
+);
+cloud_terrastodon_registry_execution::register_executable_request!(AzureDevOpsWorkItemQueriesForProjectRequest<'static> => Arc<Vec<AzureDevOpsWorkItemQuery>>, effects = [Read]);
 
 #[cfg(test)]
 mod test {
-    use crate::fetch_queries_for_project;
-    use crate::get_default_organization_url;
-    use crate::get_default_project_name;
-    use cloud_terrastodon_auth::AzureDevOpsAuthContext;
-    use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemQuery;
-    use cloud_terrastodon_command::CancellationToken;
+    use crate::AzureDevOpsWorkItemQueriesForProjectRequest;
+    use std::borrow::Cow;
 
     #[test]
     fn project_cache_scopes_preserve_selector_identity_and_name_matching() -> eyre::Result<()> {
-        use crate::fetch_all_azure_devops_service_endpoints;
-        use crate::fetch_azure_devops_team_members;
-        use crate::fetch_azure_devops_teams_for_project;
+        use crate::AzureDevOpsServiceEndpointsListRequest;
+        use crate::AzureDevOpsTeamMembersRequest;
+        use crate::AzureDevOpsTeamsForProjectRequest;
         use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
         use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
         use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectId;
         use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectName;
         use cloud_terrastodon_azure_devops_types::AzureDevOpsTeamId;
         use cloud_terrastodon_cache::HasCacheKey;
-        use cloud_terrastodon_command::CancellationScope;
         use std::path::PathBuf;
 
         let org: AzureDevOpsOrganizationUrl = "synthetic".parse()?;
         let team: AzureDevOpsTeamId = "11111111-1111-1111-1111-111111111111".parse()?;
-        let auth = AzureDevOpsAuthContext::None;
-        let scope = CancellationScope::unbound();
-        let executor = crate::test_executor::test_executor(
-            &cloud_terrastodon_auth::AzureDevOpsAuthContext::None,
-            &scope,
-        )
-        .unwrap();
+        let auth_selection = crate::test_executor::authentication_selection();
         let keys = |project: AzureDevOpsProjectArgument<'static>| -> [PathBuf; 4] {
             [
-                fetch_queries_for_project(&org, project.clone(), &auth, &executor)
-                    .cache_key()
-                    .unwrap()
-                    .scope
-                    .components()
-                    .iter()
-                    .collect::<PathBuf>(),
-                fetch_azure_devops_teams_for_project(&org, project.clone(), &auth, &executor)
-                    .cache_key()
-                    .unwrap()
-                    .scope
-                    .components()
-                    .iter()
-                    .collect::<PathBuf>(),
-                fetch_azure_devops_team_members(&org, project.clone(), &team, &auth, &executor)
-                    .cache_key()
-                    .unwrap()
-                    .scope
-                    .components()
-                    .iter()
-                    .collect::<PathBuf>(),
-                fetch_all_azure_devops_service_endpoints(&org, project, &auth, &executor)
-                    .cache_key()
-                    .unwrap()
-                    .scope
-                    .components()
-                    .iter()
-                    .collect::<PathBuf>(),
+                AzureDevOpsWorkItemQueriesForProjectRequest {
+                    org_url: Cow::Borrowed(&org),
+                    auth_selection,
+                    project: (project.clone()),
+                }
+                .cache_key()
+                .unwrap()
+                .scope
+                .components()
+                .iter()
+                .collect::<PathBuf>(),
+                AzureDevOpsTeamsForProjectRequest {
+                    org_url: Cow::Borrowed(&org),
+                    auth_selection,
+                    project: (project.clone()),
+                }
+                .cache_key()
+                .unwrap()
+                .scope
+                .components()
+                .iter()
+                .collect::<PathBuf>(),
+                AzureDevOpsTeamMembersRequest {
+                    org_url: Cow::Borrowed(&org),
+                    auth_selection,
+                    project: (project.clone()),
+                    team_id: Cow::Borrowed(&team),
+                }
+                .cache_key()
+                .unwrap()
+                .scope
+                .components()
+                .iter()
+                .collect::<PathBuf>(),
+                AzureDevOpsServiceEndpointsListRequest {
+                    org_url: Cow::Borrowed(&org),
+                    auth_selection,
+                    project: (project),
+                }
+                .cache_key()
+                .unwrap()
+                .scope
+                .components()
+                .iter()
+                .collect::<PathBuf>(),
             ]
         };
         let named = |value: &str| -> eyre::Result<AzureDevOpsProjectArgument<'static>> {
@@ -223,37 +227,10 @@ mod test {
         }
         Ok(())
     }
-
-    #[tokio::test]
-    pub async fn it_works() -> eyre::Result<()> {
-        CancellationToken::new()
-            .with_async_scope(|cancellation| async move {
-                let azure_devops_auth_context = AzureDevOpsAuthContext::for_tenant(
-                    &cloud_terrastodon_auth::AuthContext::explicit_azure_cli(),
-                    crate::test_tenant_id::test_tenant_id()?,
-                )?;
-                let executor =
-                    crate::test_executor::test_executor(&azure_devops_auth_context, &cancellation)?;
-                let org_url = get_default_organization_url(&cancellation).await?;
-                let project_name = get_default_project_name(&cancellation).await?;
-                let queries = fetch_queries_for_project(
-                    &org_url,
-                    &project_name,
-                    &azure_devops_auth_context,
-                    &executor,
-                )
-                .await?;
-                let flattened = AzureDevOpsWorkItemQuery::flatten_many(queries.iter());
-                assert!(
-                    !flattened.is_empty(),
-                    "Expected at least one Azure DevOps work item query"
-                );
-                assert!(
-                    flattened.iter().all(|entry| !entry.child.name.is_empty()),
-                    "Expected Azure DevOps work item queries to include names"
-                );
-                Ok(())
-            })
-            .await
-    }
 }
+
+cloud_terrastodon_registry_execution::register_runtime_test!(
+    AzureDevOpsWorkItemQueriesForProjectRequest<'static>,
+    name = "azure-devops-work-item-queries-for-project",
+    cached
+);

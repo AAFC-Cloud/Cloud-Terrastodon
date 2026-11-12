@@ -1,5 +1,5 @@
 use arbitrary::Arbitrary;
-use cloud_terrastodon_auth::AzureDevOpsAuthContext;
+use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsUserLicenseEntitlement;
 use cloud_terrastodon_cache::CacheKey;
@@ -9,7 +9,6 @@ use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
-use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_rest::MicrosoftContinuationToken;
 use cloud_terrastodon_rest::RestRequest;
 use facet::Facet;
@@ -23,26 +22,14 @@ use tracing::debug;
 #[facet(traits(Clone))]
 pub struct AzureDevOpsUserLicenseEntitlementListRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
-    pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
-}
-
-#[track_caller]
-pub fn fetch_azure_devops_user_license_entitlements<'a>(
-    org_url: &'a AzureDevOpsOrganizationUrl,
-    auth_context: &'a AzureDevOpsAuthContext,
-    executor: &'a CloudTerrastodonExecutor,
-) -> RequestExecution<'a, AzureDevOpsUserLicenseEntitlementListRequest<'a>> {
-    executor.execute(AzureDevOpsUserLicenseEntitlementListRequest {
-        org_url: Cow::Borrowed(org_url),
-        auth_context: Cow::Borrowed(auth_context),
-    })
+    pub auth_selection: AzureDevOpsAuthSelection,
 }
 
 impl<'a> Arbitrary<'a> for AzureDevOpsUserLicenseEntitlementListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
-            auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
+            auth_selection: AzureDevOpsAuthSelection::arbitrary(u)?,
         })
     }
 }
@@ -62,6 +49,17 @@ impl<'a> HasCacheKey for AzureDevOpsUserLicenseEntitlementListRequest<'a> {
 impl<'a> InvalidatesOwnCacheKey for AzureDevOpsUserLicenseEntitlementListRequest<'a> {}
 
 impl<'a> ExecutableRequest for AzureDevOpsUserLicenseEntitlementListRequest<'a> {
+    fn bind_authentication(
+        &self,
+        executor: CloudTerrastodonExecutor,
+    ) -> Result<CloudTerrastodonExecutor, Self::Error> {
+        executor.validate_authentication_target(
+            &self.auth_selection.into(),
+            &self.org_url.api_url("dev.azure.com", "_apis", &[])?,
+        )?;
+        executor.with_authentication_lease(&self.auth_selection.into())
+    }
+
     type Error = eyre::Report;
     type Output = Vec<Arc<AzureDevOpsUserLicenseEntitlement>>;
     fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
@@ -95,7 +93,7 @@ impl<'a> ExecutableRequest for AzureDevOpsUserLicenseEntitlementListRequest<'a> 
                 )?;
                 let request = RestRequest::from_method_and_url(Method::GET, url)?
                     .cache(cache_key.join(page_index.to_string())?)
-                    .azure_devops_auth_context(self.auth_context.as_ref())?;
+                    .authentication(self.auth_selection.into());
                 let (response, next_continuation) = request
                     .receive_with_ms_continuation_token_cached::<InvokeResponse>(
                         &executor,
@@ -125,45 +123,8 @@ cloud_terrastodon_registry::register_arbitrary!(
 );
 cloud_terrastodon_registry_execution::register_executable_request!(AzureDevOpsUserLicenseEntitlementListRequest<'static> => Vec<Arc<AzureDevOpsUserLicenseEntitlement>>, effects = [Read]);
 
-#[cfg(test)]
-mod test {
-    use super::*;
-    use crate::get_default_organization_url;
-    use cloud_terrastodon_auth::AuthContext;
-    use cloud_terrastodon_command::CancellationToken;
-
-    #[tokio::test]
-    pub async fn it_works() -> eyre::Result<()> {
-        CancellationToken::new()
-            .with_async_scope(|cancellation| async move {
-                let auth_context = AuthContext::explicit_azure_cli();
-                let azure_devops_auth_context = AzureDevOpsAuthContext::for_tenant(
-                    &auth_context,
-                    crate::test_tenant_id::test_tenant_id()?,
-                )?;
-                let executor =
-                    crate::test_executor::test_executor(&azure_devops_auth_context, &cancellation)?;
-                let org_url = get_default_organization_url(&cancellation).await?;
-                let entitlements = fetch_azure_devops_user_license_entitlements(
-                    &org_url,
-                    &azure_devops_auth_context,
-                    &executor,
-                )
-                .await?;
-                assert!(
-                    !entitlements.is_empty(),
-                    "Expected at least one Azure DevOps user entitlement"
-                );
-                assert!(
-                    entitlements.iter().all(|entitlement| {
-                        !entitlement.user.display_name.is_empty()
-                            && !entitlement.user.unique_name.is_empty()
-                    }),
-                    "Expected sampled Azure DevOps user entitlements to include user identity data"
-                );
-
-                Ok(())
-            })
-            .await
-    }
-}
+cloud_terrastodon_registry_execution::register_runtime_test!(
+    AzureDevOpsUserLicenseEntitlementListRequest<'static>,
+    name = "azure-devops-user-license-entitlement-list",
+    cached
+);

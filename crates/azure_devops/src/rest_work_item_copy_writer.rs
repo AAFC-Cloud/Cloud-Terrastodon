@@ -3,7 +3,7 @@ use crate::azure_devops_work_item_relation_change::AzureDevOpsWorkItemRelationCh
 use crate::azure_devops_work_item_relation_change_request::AzureDevOpsWorkItemRelationChangeRequest;
 use crate::azure_devops_work_items_get_request::AzureDevOpsWorkItemsGetRequest;
 use crate::work_item_copy_writer::WorkItemCopyWriter;
-use cloud_terrastodon_auth::AzureDevOpsAuthContext;
+use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsJsonPatch;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
@@ -22,7 +22,7 @@ use std::borrow::Cow;
 pub(crate) struct RestWorkItemCopyWriter {
     pub org_url: AzureDevOpsOrganizationUrl,
     pub project: AzureDevOpsProjectArgument<'static>,
-    pub auth_context: AzureDevOpsAuthContext,
+    pub auth_selection: AzureDevOpsAuthSelection,
     pub suppress_notifications: bool,
 }
 
@@ -37,7 +37,7 @@ impl WorkItemCopyWriter for RestWorkItemCopyWriter {
         let response = AzureDevOpsWorkItemCreateRequest {
             org_url: Cow::Borrowed(&self.org_url),
             project: self.project.clone(),
-            auth_context: Cow::Borrowed(&self.auth_context),
+            auth_selection: self.auth_selection,
             work_item_type,
             patch,
             validate_only: false,
@@ -57,7 +57,7 @@ impl WorkItemCopyWriter for RestWorkItemCopyWriter {
         AzureDevOpsWorkItemRelationChangeRequest {
             org_url: Cow::Borrowed(&self.org_url),
             project: Some(self.project.clone()),
-            auth_context: Cow::Borrowed(&self.auth_context),
+            auth_selection: self.auth_selection,
             id: source,
             change: AzureDevOpsWorkItemRelationChange::Create(relation),
             validate_only: false,
@@ -76,7 +76,7 @@ impl WorkItemCopyWriter for RestWorkItemCopyWriter {
         AzureDevOpsWorkItemsGetRequest {
             org_url: Cow::Borrowed(&self.org_url),
             project: Some(self.project.clone()),
-            auth_context: Cow::Borrowed(&self.auth_context),
+            auth_selection: self.auth_selection,
             ids,
             expand: Default::default(),
             fields: Vec::new(),

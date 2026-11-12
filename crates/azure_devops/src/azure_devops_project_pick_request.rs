@@ -1,4 +1,4 @@
-use crate::fetch_all_azure_devops_projects;
+use crate::AzureDevOpsProjectsListRequest;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
@@ -10,7 +10,6 @@ use cloud_terrastodon_cache::HasCacheKey;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
-use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerEvent;
 use cloud_terrastodon_user_input::PickerTui;
@@ -42,20 +41,6 @@ impl<'a> Arbitrary<'a> for AzureDevOpsProjectPickRequest<'static> {
     }
 }
 
-/// Select a project using the service inventory and the application's picker.
-///
-/// See [Projects List (7.1)](https://learn.microsoft.com/en-us/rest/api/azure/devops/core/projects/list?view=azure-devops-rest-7.1).
-#[track_caller]
-pub fn pick_azure_devops_project<'a>(
-    org_url: &'a AzureDevOpsOrganizationUrl,
-    auth_selection: AzureDevOpsAuthSelection,
-    executor: &'a CloudTerrastodonExecutor,
-) -> RequestExecution<'a, AzureDevOpsProjectPickRequest<'a>> {
-    executor.execute(AzureDevOpsProjectPickRequest {
-        org_url: Cow::Borrowed(org_url),
-        auth_selection,
-    })
-}
 impl CacheInvalidationKeys for AzureDevOpsProjectPickRequest<'_> {
     fn cache_keys_to_invalidate(&self) -> Result<Vec<CacheKey>> {
         Ok(vec![
@@ -69,6 +54,17 @@ impl CacheInvalidationKeys for AzureDevOpsProjectPickRequest<'_> {
 }
 
 impl ExecutableRequest for AzureDevOpsProjectPickRequest<'_> {
+    fn bind_authentication(
+        &self,
+        executor: CloudTerrastodonExecutor,
+    ) -> Result<CloudTerrastodonExecutor, Self::Error> {
+        executor.validate_authentication_target(
+            &self.auth_selection.into(),
+            &self.org_url.api_url("dev.azure.com", "_apis", &[])?,
+        )?;
+        executor.with_authentication_lease(&self.auth_selection.into())
+    }
+
     type Error = eyre::Report;
     type Output = AzureDevOpsProjectArgument<'static>;
 
@@ -83,11 +79,7 @@ impl ExecutableRequest for AzureDevOpsProjectPickRequest<'_> {
                 .add_event_handler(async |child, event, sink| {
                         if matches!(event.as_ref(), PickerEvent::InitialLoad) {
                             info!(organization = %self.org_url, "Fetching Azure DevOps projects");
-                            let projects = fetch_all_azure_devops_projects(
-                                &self.org_url,
-                                self.auth_selection,
-                                &executor.with_cancellation_scope(child),
-                            )
+                            let projects = AzureDevOpsProjectsListRequest { org_url: Cow::Borrowed(&self.org_url), auth_selection: (self.auth_selection) }.execute(&executor.with_cancellation_scope(child))
                             .await?;
                             sink.push(projects.iter().cloned().map(project_choice))?;
                             info!(organization = %self.org_url, "Finished fetching Azure DevOps projects");
@@ -119,12 +111,9 @@ cloud_terrastodon_registry_execution::register_executable_request!(
 #[cfg(test)]
 mod test {
     use super::AzureDevOpsProjectPickRequest;
-    use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
     use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
     use cloud_terrastodon_cache::CacheInvalidationKeys;
     use cloud_terrastodon_registry::RuntimeValue;
-    use cloud_terrastodon_registry_execution::shape_can_be_produced_from_defaults;
-    use facet::Facet;
     use std::borrow::Cow;
     use std::sync::LazyLock;
 
@@ -142,7 +131,7 @@ mod test {
                 } else {
                     Cow::Owned((*ORG).clone())
                 },
-                auth_selection: AzureDevOpsAuthSelection::PersonalAccessToken,
+                auth_selection: crate::test_executor::authentication_selection(),
             };
             let invalidation = request.cache_keys_to_invalidate()?;
             let original = RuntimeValue::from_box(Box::new(request))?;
@@ -157,7 +146,7 @@ mod test {
             assert_eq!(matches!(cloned.org_url, Cow::Borrowed(_)), borrowed);
             assert_eq!(
                 cloned.auth_selection,
-                AzureDevOpsAuthSelection::PersonalAccessToken
+                crate::test_executor::authentication_selection()
             );
             assert_eq!(cloned.cache_keys_to_invalidate()?, invalidation);
             if borrowed {
@@ -166,11 +155,10 @@ mod test {
         }
         Ok(())
     }
-
-    #[test]
-    fn registry_discovers_default_organization_dependency() {
-        assert!(shape_can_be_produced_from_defaults(
-            AzureDevOpsProjectPickRequest::SHAPE
-        ));
-    }
 }
+
+cloud_terrastodon_registry_execution::register_runtime_test!(
+    AzureDevOpsProjectPickRequest<'static>,
+    name = "azure-devops-project-pick",
+    cached
+);

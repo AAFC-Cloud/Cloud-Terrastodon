@@ -1,6 +1,6 @@
 use crate::WorkItemListResponse;
 use arbitrary::Arbitrary;
-use cloud_terrastodon_auth::AzureDevOpsAuthContext;
+use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemType;
@@ -19,7 +19,7 @@ use std::borrow::Cow;
 pub struct AzureDevOpsWorkItemTypeFieldListRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub project: AzureDevOpsProjectArgument<'a>,
-    pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
+    pub auth_selection: AzureDevOpsAuthSelection,
     pub work_item_type: AzureDevOpsWorkItemType,
 }
 
@@ -28,13 +28,24 @@ impl<'a> Arbitrary<'a> for AzureDevOpsWorkItemTypeFieldListRequest<'static> {
         Ok(Self {
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
-            auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
+            auth_selection: AzureDevOpsAuthSelection::arbitrary(u)?,
             work_item_type: AzureDevOpsWorkItemType::arbitrary(u)?,
         })
     }
 }
 
 impl<'a> ExecutableRequest for AzureDevOpsWorkItemTypeFieldListRequest<'a> {
+    fn bind_authentication(
+        &self,
+        executor: CloudTerrastodonExecutor,
+    ) -> Result<CloudTerrastodonExecutor, Self::Error> {
+        executor.validate_authentication_target(
+            &self.auth_selection.into(),
+            &self.org_url.api_url("dev.azure.com", "_apis", &[])?,
+        )?;
+        executor.with_authentication_lease(&self.auth_selection.into())
+    }
+
     type Error = eyre::Report;
     type Output = Vec<AzureDevOpsWorkItemTypeField>;
 
@@ -57,7 +68,7 @@ impl<'a> ExecutableRequest for AzureDevOpsWorkItemTypeFieldListRequest<'a> {
                 .append_pair("api-version", "7.1")
                 .append_pair("$expand", "all");
             let request = RestRequest::from_method_and_url(Method::GET, url)?
-                .azure_devops_auth_context(self.auth_context.as_ref())?;
+                .authentication(self.auth_selection.into());
             request
                 .receive::<WorkItemListResponse<AzureDevOpsWorkItemTypeField>>(&executor)
                 .await

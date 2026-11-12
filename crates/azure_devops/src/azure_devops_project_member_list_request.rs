@@ -1,32 +1,30 @@
-use crate::fetch_all_azure_devops_projects;
-use crate::fetch_azure_devops_group_members;
-use crate::fetch_azure_devops_groups_for_project;
+use crate::AzureDevOpsGroupMembersListRequest;
+use crate::AzureDevOpsGroupsListRequest;
+use crate::AzureDevOpsProjectsListRequest;
+use crate::azure_devops_project_member_accumulator::AzureDevOpsProjectMemberAccumulator;
 use arbitrary::Arbitrary;
-use cloud_terrastodon_auth::AzureDevOpsAuthContext;
+use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsDescriptor;
-use cloud_terrastodon_azure_devops_types::AzureDevOpsGroup;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsGroupMember;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsProject;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
-use cloud_terrastodon_cache::CacheInvalidationKeys;
-use cloud_terrastodon_cache::CacheKey;
-use cloud_terrastodon_cache::HasCacheKey;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectMember;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectPermissionObject;
+use cloud_terrastodon_execution::CacheInvalidatableRequest;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ConcurrentIteratorExt;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
-use cloud_terrastodon_execution::RequestExecution;
 use eyre::OptionExt;
 use eyre::Result;
 use eyre::WrapErr;
-use eyre::bail;
 use facet::Facet;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::num::NonZeroUsize;
-use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
@@ -38,21 +36,7 @@ use tracing::info;
 pub struct AzureDevOpsProjectMemberListRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub project: AzureDevOpsProjectArgument<'a>,
-    pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
-}
-
-#[track_caller]
-pub fn fetch_azure_devops_project_members<'a>(
-    org_url: &'a AzureDevOpsOrganizationUrl,
-    project: impl Into<AzureDevOpsProjectArgument<'a>>,
-    auth_context: &'a AzureDevOpsAuthContext,
-    executor: &'a CloudTerrastodonExecutor,
-) -> RequestExecution<'a, AzureDevOpsProjectMemberListRequest<'a>> {
-    executor.execute(AzureDevOpsProjectMemberListRequest {
-        org_url: Cow::Borrowed(org_url),
-        project: project.into(),
-        auth_context: Cow::Borrowed(auth_context),
-    })
+    pub auth_selection: AzureDevOpsAuthSelection,
 }
 
 impl<'a> Arbitrary<'a> for AzureDevOpsProjectMemberListRequest<'static> {
@@ -60,66 +44,74 @@ impl<'a> Arbitrary<'a> for AzureDevOpsProjectMemberListRequest<'static> {
         Ok(Self {
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
-            auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
+            auth_selection: AzureDevOpsAuthSelection::arbitrary(u)?,
         })
     }
 }
 
-#[derive(Debug, Clone, Arbitrary, Facet)]
-#[facet(rename_all = "camelCase")]
-pub struct AzureDevOpsProjectMember {
-    pub descriptor: AzureDevOpsDescriptor,
-    pub display_name: String,
-    pub principal_name: String,
-    pub mail_address: Option<String>,
-    pub origin: String,
-    pub origin_id: String,
-    pub subject_kind: String,
-    pub permission_objects: Vec<AzureDevOpsProjectPermissionObject>,
+impl AzureDevOpsProjectMemberListRequest<'_> {
+    /// Resolve name selectors before choosing the group's cache scope. Refresh
+    /// and ordinary execution must use the same project identity.
+    fn groups_request(
+        &self,
+        projects: &[Arc<AzureDevOpsProject>],
+    ) -> Result<AzureDevOpsGroupsListRequest<'_>> {
+        let project = projects
+            .iter()
+            .find(|project| self.project.matches(project))
+            .ok_or_else(|| eyre::eyre!("No project found matching '{}'.", self.project))?;
+        Ok(AzureDevOpsGroupsListRequest {
+            org_url: Cow::Borrowed(self.org_url.as_ref()),
+            project: project.id.into(),
+            auth_selection: self.auth_selection,
+        })
+    }
 }
 
-#[derive(Debug, Clone, Arbitrary, Facet)]
-#[facet(rename_all = "camelCase")]
-pub struct AzureDevOpsProjectPermissionObject {
-    pub descriptor: AzureDevOpsDescriptor,
-    pub display_name: String,
-    pub principal_name: String,
-    pub origin: String,
-    pub origin_id: String,
-    pub subject_kind: String,
-}
-
-struct AzureDevOpsProjectMemberAccumulator {
-    member: Arc<AzureDevOpsGroupMember>,
-    permission_objects: HashMap<AzureDevOpsDescriptor, AzureDevOpsProjectPermissionObject>,
-}
-impl<'a> CacheInvalidationKeys for AzureDevOpsProjectMemberListRequest<'a> {
-    fn cache_keys_to_invalidate(&self) -> Result<Vec<CacheKey>> {
-        let projects = crate::AzureDevOpsProjectsListRequest {
-            org_url: Cow::Borrowed(self.org_url.as_ref()),
-            auth_selection: self.auth_context.selection()?,
-        }
-        .cache_key()?;
-        let groups = crate::AzureDevOpsGroupsListRequest {
-            org_url: Cow::Borrowed(self.org_url.as_ref()),
-            project: self.project.clone(),
-            auth_context: Cow::Borrowed(self.auth_context.as_ref()),
-        }
-        .cache_key()?;
-        let memberships = CacheKey::from_relative_path(PathBuf::from_iter([
-            "az",
-            "devops",
-            self.org_url.name(),
-            "security",
-            "group",
-            "membership",
-            "list",
-        ]))?;
-        Ok(vec![projects, groups, memberships])
+impl CacheInvalidatableRequest for AzureDevOpsProjectMemberListRequest<'_> {
+    fn invalidate<'a>(&'a self, executor: &'a CloudTerrastodonExecutor) -> ExecutionFuture<'a, ()> {
+        Box::pin(async move {
+            let projects = AzureDevOpsProjectsListRequest {
+                org_url: Cow::Borrowed(self.org_url.as_ref()),
+                auth_selection: self.auth_selection,
+            }
+            .execute(executor)
+            .with_invalidation(true)
+            .await?;
+            let groups = self
+                .groups_request(&projects)?
+                .execute(executor)
+                .with_invalidation(true)
+                .await?;
+            // A group's own contract owns its key. Refresh only the selected
+            // project's reachable memberships, including newly added subgroups.
+            for group in groups {
+                collect_transitive_user_members(
+                    self.org_url.as_ref(),
+                    &group.descriptor,
+                    self.auth_selection,
+                    true,
+                    executor,
+                )
+                .await?;
+            }
+            Ok(())
+        })
     }
 }
 
 impl<'a> ExecutableRequest for AzureDevOpsProjectMemberListRequest<'a> {
+    fn bind_authentication(
+        &self,
+        executor: CloudTerrastodonExecutor,
+    ) -> Result<CloudTerrastodonExecutor, Self::Error> {
+        executor.validate_authentication_target(
+            &self.auth_selection.into(),
+            &self.org_url.api_url("dev.azure.com", "_apis", &[])?,
+        )?;
+        executor.with_authentication_lease(&self.auth_selection.into())
+    }
+
     type Error = eyre::Report;
     type Output = Vec<AzureDevOpsProjectMember>;
 
@@ -129,27 +121,14 @@ impl<'a> ExecutableRequest for AzureDevOpsProjectMemberListRequest<'a> {
         Self::Output: 'exec,
     {
         Box::pin(executor.cancellable_scope(move |executor| async move {
-            let projects = fetch_all_azure_devops_projects(
-                self.org_url.as_ref(),
-                self.auth_context.selection()?,
-                &executor,
-            )
+            let projects = AzureDevOpsProjectsListRequest {
+                org_url: Cow::Borrowed(self.org_url.as_ref()),
+                auth_selection: self.auth_selection,
+            }
+            .execute(&executor)
             .await?;
-            let Some(project) = projects
-                .iter()
-                .find(|project| self.project.matches(project))
-            else {
-                bail!("No project found matching '{}'.", self.project);
-            };
-
-            info!(project = %project.name, "Fetching project permission objects");
-            let permission_objects = fetch_azure_devops_groups_for_project(
-                self.org_url.as_ref(),
-                project.as_ref(),
-                self.auth_context.as_ref(),
-                &executor,
-            )
-            .await?;
+            info!(project = %self.project, "Fetching project permission objects");
+            let permission_objects = self.groups_request(&projects)?.execute(&executor).await?;
 
             let remaining = AtomicUsize::new(permission_objects.len());
             // Retain complete-all behavior for independent permission-object
@@ -163,7 +142,8 @@ impl<'a> ExecutableRequest for AzureDevOpsProjectMemberListRequest<'a> {
                         let result = collect_transitive_user_members(
                             self.org_url.as_ref(),
                             &permission_object.descriptor,
-                            self.auth_context.as_ref(),
+                            self.auth_selection,
+                            false,
                             &executor,
                         )
                         .await
@@ -235,7 +215,8 @@ impl<'a> ExecutableRequest for AzureDevOpsProjectMemberListRequest<'a> {
 async fn collect_transitive_user_members(
     org_url: &AzureDevOpsOrganizationUrl,
     root_descriptor: &AzureDevOpsDescriptor,
-    auth_context: &AzureDevOpsAuthContext,
+    auth_selection: AzureDevOpsAuthSelection,
+    invalidate: bool,
     executor: &CloudTerrastodonExecutor,
 ) -> Result<Vec<Arc<AzureDevOpsGroupMember>>> {
     let mut visited_permission_objects = HashSet::new();
@@ -248,12 +229,15 @@ async fn collect_transitive_user_members(
             continue;
         }
 
-        let members =
-            fetch_azure_devops_group_members(org_url, &descriptor, auth_context, executor)
-                .await
-                .wrap_err_with(|| {
-                    format!("Failed to list members for permission object {descriptor}")
-                })?;
+        let members = AzureDevOpsGroupMembersListRequest {
+            org_url: Cow::Borrowed(org_url),
+            auth_selection,
+            group_id: Cow::Borrowed(&descriptor),
+        }
+        .execute(executor)
+        .with_invalidation(invalidate)
+        .await
+        .wrap_err_with(|| format!("Failed to list members for permission object {descriptor}"))?;
 
         for member in members.values() {
             if is_user_member(member) {
@@ -282,48 +266,8 @@ fn is_permission_object_member(member: &AzureDevOpsGroupMember) -> bool {
         )
 }
 
-impl From<&AzureDevOpsGroup> for AzureDevOpsProjectPermissionObject {
-    fn from(group: &AzureDevOpsGroup) -> Self {
-        AzureDevOpsProjectPermissionObject {
-            descriptor: group.descriptor.clone(),
-            display_name: group.display_name.clone(),
-            principal_name: group.principal_name.clone(),
-            origin: group.origin.clone(),
-            origin_id: group.origin_id.clone(),
-            subject_kind: group.subject_kind.clone(),
-        }
-    }
-}
-
-impl From<AzureDevOpsProjectMemberAccumulator> for AzureDevOpsProjectMember {
-    fn from(value: AzureDevOpsProjectMemberAccumulator) -> Self {
-        let mut permission_objects = value
-            .permission_objects
-            .into_values()
-            .collect::<Vec<AzureDevOpsProjectPermissionObject>>();
-        permission_objects.sort_by(|a, b| {
-            a.display_name
-                .to_lowercase()
-                .cmp(&b.display_name.to_lowercase())
-                .then_with(|| a.descriptor.to_string().cmp(&b.descriptor.to_string()))
-        });
-
-        AzureDevOpsProjectMember {
-            descriptor: value.member.descriptor.clone(),
-            display_name: value.member.display_name.clone(),
-            principal_name: value.member.principal_name.clone(),
-            mail_address: value.member.mail_address.clone(),
-            origin: value.member.origin.clone(),
-            origin_id: value.member.origin_id.clone(),
-            subject_kind: value.member.subject_kind.clone(),
-            permission_objects,
-        }
-    }
-}
-
 cloud_terrastodon_registry::register_thing!(AzureDevOpsProjectMemberListRequest<'static>);
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsProjectMemberListRequest<'static>);
-cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsProjectMember);
 cloud_terrastodon_registry_execution::register_executable_request!(
     AzureDevOpsProjectMemberListRequest<'static> => Vec<AzureDevOpsProjectMember>,
     effects = [Read]
@@ -331,11 +275,72 @@ cloud_terrastodon_registry_execution::register_executable_request!(
 
 #[cfg(test)]
 mod tests {
-    use super::AzureDevOpsProjectMember;
+    use super::*;
+    use crate::test_executor::authentication_selection;
+    use chrono::DateTime;
+    use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectId;
+    use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectName;
+    use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectState;
+    use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectVisibility;
+    use cloud_terrastodon_cache::HasCacheKey;
     use cloud_terrastodon_registry::ArbitraryBytes;
     use cloud_terrastodon_registry::ProductionKind;
     use cloud_terrastodon_registry_execution::functions_from;
     use facet::Facet;
+
+    fn project(id: &str, name: &str) -> AzureDevOpsProject {
+        AzureDevOpsProject {
+            abbreviation: None,
+            default_team_image_url: None,
+            description: None,
+            id: id.parse::<AzureDevOpsProjectId>().unwrap(),
+            last_update_time: DateTime::UNIX_EPOCH,
+            name: AzureDevOpsProjectName::try_new(name).unwrap(),
+            revision: 1,
+            state: AzureDevOpsProjectState::WellFormed,
+            url: format!("https://dev.azure.com/synthetic/_apis/projects/{id}"),
+            visibility: AzureDevOpsProjectVisibility::Private,
+        }
+    }
+
+    #[test]
+    fn name_and_id_selection_share_only_the_resolved_project_scope() -> Result<()> {
+        let projects = [
+            Arc::new(project("00000000-0000-0000-0000-000000000001", "Selected")),
+            Arc::new(project("00000000-0000-0000-0000-000000000002", "Unrelated")),
+        ];
+        let request = AzureDevOpsProjectMemberListRequest {
+            org_url: Cow::Owned("synthetic".parse()?),
+            project: "selected".parse()?,
+            auth_selection: authentication_selection(),
+        };
+        let by_name = request.groups_request(&projects)?.cache_key()?.scope;
+        let by_id = AzureDevOpsProjectMemberListRequest {
+            project: projects[0].id.into(),
+            ..request.clone()
+        }
+        .groups_request(&projects)?
+        .cache_key()?
+        .scope;
+        let unrelated = AzureDevOpsProjectMemberListRequest {
+            project: projects[1].id.into(),
+            ..request.clone()
+        }
+        .groups_request(&projects)?
+        .cache_key()?
+        .scope;
+        assert_eq!(by_name, by_id);
+        assert_ne!(by_name, unrelated);
+        assert!(
+            AzureDevOpsProjectMemberListRequest {
+                project: "Missing".parse()?,
+                ..request
+            }
+            .groups_request(&projects)
+            .is_err()
+        );
+        Ok(())
+    }
 
     #[test]
     fn project_member_list_has_an_arbitrary_response_constructor() {
@@ -349,3 +354,9 @@ mod tests {
         );
     }
 }
+
+cloud_terrastodon_registry_execution::register_runtime_test!(
+    AzureDevOpsProjectMemberListRequest<'static>,
+    name = "azure-devops-project-member-list",
+    cached
+);

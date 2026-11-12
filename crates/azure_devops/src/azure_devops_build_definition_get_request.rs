@@ -1,5 +1,5 @@
 use arbitrary::Arbitrary;
-use cloud_terrastodon_auth::AzureDevOpsAuthContext;
+use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsBuildDefinition;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsBuildDefinitionId;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
@@ -11,7 +11,6 @@ use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
-use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_pathing::sanitize_windows_path_component;
 use cloud_terrastodon_rest::RestRequest;
 #[cfg(test)]
@@ -40,31 +39,10 @@ pub struct AzureDevOpsBuildDefinitionGetRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     /// Project ID or name.
     pub project: AzureDevOpsProjectArgument<'a>,
-    pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
+    pub auth_selection: AzureDevOpsAuthSelection,
     pub definition_id: AzureDevOpsBuildDefinitionId,
     /// The revision to retrieve; `None` retrieves the latest definition.
     pub revision: Option<i32>,
-}
-
-/// Retrieve a complete build definition using the Azure DevOps 7.1 API.
-///
-/// See Microsoft's [Definitions Get API](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/definitions/get?view=azure-devops-rest-7.1).
-#[track_caller]
-pub fn fetch_azure_devops_build_definition<'a>(
-    org_url: &'a AzureDevOpsOrganizationUrl,
-    project: impl Into<AzureDevOpsProjectArgument<'a>>,
-    auth_context: &'a AzureDevOpsAuthContext,
-    definition_id: AzureDevOpsBuildDefinitionId,
-    revision: Option<i32>,
-    executor: &'a CloudTerrastodonExecutor,
-) -> RequestExecution<'a, AzureDevOpsBuildDefinitionGetRequest<'a>> {
-    executor.execute(AzureDevOpsBuildDefinitionGetRequest {
-        org_url: Cow::Borrowed(org_url),
-        project: project.into(),
-        auth_context: Cow::Borrowed(auth_context),
-        definition_id,
-        revision,
-    })
 }
 
 impl<'a> Arbitrary<'a> for AzureDevOpsBuildDefinitionGetRequest<'static> {
@@ -72,7 +50,7 @@ impl<'a> Arbitrary<'a> for AzureDevOpsBuildDefinitionGetRequest<'static> {
         Ok(Self {
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
-            auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
+            auth_selection: AzureDevOpsAuthSelection::arbitrary(u)?,
             definition_id: u.arbitrary()?,
             revision: u.arbitrary()?,
         })
@@ -126,6 +104,17 @@ impl HasCacheKey for AzureDevOpsBuildDefinitionGetRequest<'_> {
 }
 
 impl<'a> ExecutableRequest for AzureDevOpsBuildDefinitionGetRequest<'a> {
+    fn bind_authentication(
+        &self,
+        executor: CloudTerrastodonExecutor,
+    ) -> Result<CloudTerrastodonExecutor, Self::Error> {
+        executor.validate_authentication_target(
+            &self.auth_selection.into(),
+            &self.org_url.api_url("dev.azure.com", "_apis", &[])?,
+        )?;
+        executor.with_authentication_lease(&self.auth_selection.into())
+    }
+
     type Error = eyre::Report;
     type Output = Arc<AzureDevOpsBuildDefinition>;
 
@@ -159,7 +148,7 @@ impl<'a> ExecutableRequest for AzureDevOpsBuildDefinitionGetRequest<'a> {
             };
             let request = RestRequest::from_method_and_url(Method::GET, url)?
                 .cache(cache_key)
-                .azure_devops_auth_context(self.auth_context.as_ref())?;
+                .authentication(self.auth_selection.into());
             let definition_id = self.definition_id;
             request
                 .receive_with_validator_cached(
@@ -196,7 +185,7 @@ mod tests {
         let mut request = AzureDevOpsBuildDefinitionGetRequest {
             org_url: Cow::Owned("https://dev.azure.com/synthetic".parse()?),
             project: "Synthetic project".parse()?,
-            auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
+            auth_selection: crate::test_executor::authentication_selection(),
             definition_id: AzureDevOpsBuildDefinitionId::new(42)?,
             revision: None,
         };
@@ -251,3 +240,9 @@ mod tests {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry_execution::register_runtime_test!(
+    AzureDevOpsBuildDefinitionGetRequest<'static>,
+    name = "azure-devops-build-definition-get",
+    cached
+);

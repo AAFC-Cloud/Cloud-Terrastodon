@@ -16,7 +16,6 @@ use cloud_terrastodon_cache::WorkReuse;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
-use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_pathing::sanitize_windows_path_component;
 use cloud_terrastodon_rest::MicrosoftContinuationToken;
 use cloud_terrastodon_rest::RestRequest;
@@ -49,21 +48,6 @@ impl<'a> Arbitrary<'a> for AzureDevOpsProjectsListRequest<'static> {
     }
 }
 
-/// Fetch shared project records in the service's page order.
-///
-/// See [Projects List (7.1)](https://learn.microsoft.com/en-us/rest/api/azure/devops/core/projects/list?view=azure-devops-rest-7.1).
-#[track_caller]
-pub fn fetch_all_azure_devops_projects<'a>(
-    org_url: &'a AzureDevOpsOrganizationUrl,
-    auth_selection: AzureDevOpsAuthSelection,
-    executor: &'a CloudTerrastodonExecutor,
-) -> RequestExecution<'a, AzureDevOpsProjectsListRequest<'a>> {
-    executor.execute(AzureDevOpsProjectsListRequest {
-        org_url: Cow::Borrowed(org_url),
-        auth_selection,
-    })
-}
-
 impl HasCacheKey for AzureDevOpsProjectsListRequest<'_> {
     fn cache_key(&self) -> eyre::Result<CacheKey> {
         let mut path = PathBuf::from("az/devops");
@@ -88,6 +72,17 @@ impl HasCacheKey for AzureDevOpsProjectsListRequest<'_> {
 impl InvalidatesOwnCacheKey for AzureDevOpsProjectsListRequest<'_> {}
 
 impl ExecutableRequest for AzureDevOpsProjectsListRequest<'_> {
+    fn bind_authentication(
+        &self,
+        executor: CloudTerrastodonExecutor,
+    ) -> Result<CloudTerrastodonExecutor, Self::Error> {
+        executor.validate_authentication_target(
+            &self.auth_selection.into(),
+            &self.org_url.api_url("dev.azure.com", "_apis", &[])?,
+        )?;
+        executor.with_authentication_lease(&self.auth_selection.into())
+    }
+
     type Error = eyre::Report;
     type Output = Arc<Vec<Arc<AzureDevOpsProject>>>;
     fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
@@ -161,10 +156,6 @@ cloud_terrastodon_registry_execution::register_executable_request!(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::get_default_organization_url;
-    use cloud_terrastodon_auth::AuthContext;
-    use cloud_terrastodon_auth::AzureDevOpsAuthContext;
-    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_registry::RuntimeValue;
     use std::sync::LazyLock;
 
@@ -175,7 +166,7 @@ mod tests {
                 .parse()
                 .expect("valid synthetic organization")
         });
-        let auth_selection = AzureDevOpsAuthSelection::PersonalAccessToken;
+        let auth_selection = crate::test_executor::authentication_selection();
         for borrowed in [false, true] {
             let original = RuntimeValue::from_box(Box::new(AzureDevOpsProjectsListRequest {
                 org_url: if borrowed {
@@ -198,29 +189,10 @@ mod tests {
         }
         Ok(())
     }
-
-    #[tokio::test]
-    async fn test_fetch_all_azure_devops_projects() -> Result<()> {
-        CancellationToken::new()
-            .with_async_scope(|cancellation| async move {
-                let auth_context = AuthContext::explicit_azure_cli();
-                let azure_devops_auth_context = AzureDevOpsAuthContext::for_tenant(
-                    &auth_context,
-                    crate::test_tenant_id::test_tenant_id()?,
-                )?;
-                let executor =
-                    crate::test_executor::test_executor(&azure_devops_auth_context, &cancellation)?;
-                let org_url = get_default_organization_url(&cancellation).await?;
-                let projects = fetch_all_azure_devops_projects(
-                    &org_url,
-                    azure_devops_auth_context.selection()?,
-                    &executor,
-                )
-                .await?;
-                assert!(!projects.is_empty());
-                assert!(projects.iter().all(|project| !project.name.is_empty()));
-                Ok(())
-            })
-            .await
-    }
 }
+
+cloud_terrastodon_registry_execution::register_runtime_test!(
+    AzureDevOpsProjectsListRequest<'static>,
+    name = "azure-devops-projects-list",
+    cached
+);

@@ -1,5 +1,5 @@
 use arbitrary::Arbitrary;
-use cloud_terrastodon_auth::AzureDevOpsAuthContext;
+use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsCollectionResponse;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectId;
@@ -11,7 +11,6 @@ use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
-use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_pathing::sanitize_windows_path_component;
 use cloud_terrastodon_rest::RestRequest;
 use cloud_terrastodon_rest::RestService;
@@ -28,21 +27,7 @@ use std::sync::Arc;
 pub struct AzureDevOpsRepositoriesListRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub project_id: AzureDevOpsProjectId,
-    pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
-}
-
-#[track_caller]
-pub fn fetch_all_azure_devops_repos_for_project<'a>(
-    org_url: &'a AzureDevOpsOrganizationUrl,
-    project_id: &AzureDevOpsProjectId,
-    auth_context: &'a AzureDevOpsAuthContext,
-    executor: &'a CloudTerrastodonExecutor,
-) -> RequestExecution<'a, AzureDevOpsRepositoriesListRequest<'a>> {
-    executor.execute(AzureDevOpsRepositoriesListRequest {
-        org_url: Cow::Borrowed(org_url),
-        project_id: *project_id,
-        auth_context: Cow::Borrowed(auth_context),
-    })
+    pub auth_selection: AzureDevOpsAuthSelection,
 }
 
 impl<'a> Arbitrary<'a> for AzureDevOpsRepositoriesListRequest<'static> {
@@ -50,7 +35,7 @@ impl<'a> Arbitrary<'a> for AzureDevOpsRepositoriesListRequest<'static> {
         Ok(Self {
             org_url: Cow::Owned(u.arbitrary()?),
             project_id: u.arbitrary()?,
-            auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
+            auth_selection: AzureDevOpsAuthSelection::arbitrary(u)?,
         })
     }
 }
@@ -75,6 +60,17 @@ impl HasCacheKey for AzureDevOpsRepositoriesListRequest<'_> {
 impl InvalidatesOwnCacheKey for AzureDevOpsRepositoriesListRequest<'_> {}
 
 impl ExecutableRequest for AzureDevOpsRepositoriesListRequest<'_> {
+    fn bind_authentication(
+        &self,
+        executor: CloudTerrastodonExecutor,
+    ) -> Result<CloudTerrastodonExecutor, Self::Error> {
+        executor.validate_authentication_target(
+            &self.auth_selection.into(),
+            &self.org_url.api_url("dev.azure.com", "_apis", &[])?,
+        )?;
+        executor.with_authentication_lease(&self.auth_selection.into())
+    }
+
     type Error = eyre::Report;
     type Output = Arc<Vec<AzureDevOpsRepo>>;
     fn run<'a>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>
@@ -97,7 +93,7 @@ impl ExecutableRequest for AzureDevOpsRepositoriesListRequest<'_> {
                 RestService::AzureDevOps,
             )?
             .cache(self.cache_key()?)
-            .azure_devops_auth_context(self.auth_context.as_ref())?
+            .authentication(self.auth_selection.into())
             .receive_cached::<AzureDevOpsCollectionResponse<Arc<Vec<AzureDevOpsRepo>>>>(
                 &executor,
                 CacheOperationOwner::of::<AzureDevOpsRepositoriesListRequest<'static>>(),
@@ -113,4 +109,10 @@ cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsRepositoriesListReque
 cloud_terrastodon_registry_execution::register_executable_request!(
     AzureDevOpsRepositoriesListRequest<'static> => Arc<Vec<AzureDevOpsRepo>>,
     effects = [Read]
+);
+
+cloud_terrastodon_registry_execution::register_runtime_test!(
+    AzureDevOpsRepositoriesListRequest<'static>,
+    name = "azure-devops-repositories-list",
+    cached
 );

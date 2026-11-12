@@ -1,7 +1,7 @@
 use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
-use cloud_terrastodon_auth::AzureDevOpsAuthContext;
+use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItem;
@@ -22,7 +22,7 @@ use std::borrow::Cow;
 pub struct AzureDevOpsWorkItemGetRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub project: Option<AzureDevOpsProjectArgument<'a>>,
-    pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
+    pub auth_selection: AzureDevOpsAuthSelection,
     pub id: AzureDevOpsWorkItemId,
     pub expand: AzureDevOpsWorkItemExpand,
     pub fields: Vec<String>,
@@ -39,7 +39,7 @@ impl<'a> Arbitrary<'a> for AzureDevOpsWorkItemGetRequest<'static> {
         Ok(Self {
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: Some(AzureDevOpsProjectArgument::arbitrary(u)?.into_owned()),
-            auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
+            auth_selection: AzureDevOpsAuthSelection::arbitrary(u)?,
             id: AzureDevOpsWorkItemId::arbitrary(u)?,
             expand: AzureDevOpsWorkItemExpand::arbitrary(u)?,
             fields: Vec::<String>::arbitrary(u)?,
@@ -49,6 +49,17 @@ impl<'a> Arbitrary<'a> for AzureDevOpsWorkItemGetRequest<'static> {
 }
 
 impl<'a> ExecutableRequest for AzureDevOpsWorkItemGetRequest<'a> {
+    fn bind_authentication(
+        &self,
+        executor: CloudTerrastodonExecutor,
+    ) -> Result<CloudTerrastodonExecutor, Self::Error> {
+        executor.validate_authentication_target(
+            &self.auth_selection.into(),
+            &self.org_url.api_url("dev.azure.com", "_apis", &[])?,
+        )?;
+        executor.with_authentication_lease(&self.auth_selection.into())
+    }
+
     type Error = eyre::Report;
     type Output = AzureDevOpsWorkItem;
 
@@ -84,7 +95,7 @@ impl<'a> ExecutableRequest for AzureDevOpsWorkItemGetRequest<'a> {
             let id = self.id;
             let request = RestRequest::from_method_and_url(Method::GET, url)?;
             let item: AzureDevOpsWorkItem = request
-                .azure_devops_auth_context(self.auth_context.as_ref())?
+                .authentication(self.auth_selection.into())
                 .receive(&executor)
                 .await?;
             ensure!(

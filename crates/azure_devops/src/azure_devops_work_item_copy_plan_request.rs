@@ -6,7 +6,7 @@ use crate::azure_devops_work_item_type_field_list_request::AzureDevOpsWorkItemTy
 use crate::azure_devops_work_items_get_request::AzureDevOpsWorkItemsGetRequest;
 use crate::build_work_item_copy_plan;
 use arbitrary::Arbitrary;
-use cloud_terrastodon_auth::AzureDevOpsAuthContext;
+use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemId;
@@ -27,7 +27,7 @@ pub struct AzureDevOpsWorkItemCopyPlanRequest<'a> {
     /// Caller-owned cancellation scope, excluded from serialized request input.
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub project: AzureDevOpsProjectArgument<'a>,
-    pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
+    pub auth_selection: AzureDevOpsAuthSelection,
     pub root: AzureDevOpsWorkItemId,
     pub options: AzureDevOpsWorkItemCopyOptions,
 }
@@ -37,7 +37,7 @@ impl<'a> Arbitrary<'a> for AzureDevOpsWorkItemCopyPlanRequest<'static> {
         Ok(Self {
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
-            auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
+            auth_selection: AzureDevOpsAuthSelection::arbitrary(u)?,
             root: AzureDevOpsWorkItemId::arbitrary(u)?,
             options: AzureDevOpsWorkItemCopyOptions::arbitrary(u)?,
         })
@@ -45,6 +45,17 @@ impl<'a> Arbitrary<'a> for AzureDevOpsWorkItemCopyPlanRequest<'static> {
 }
 
 impl<'a> ExecutableRequest for AzureDevOpsWorkItemCopyPlanRequest<'a> {
+    fn bind_authentication(
+        &self,
+        executor: CloudTerrastodonExecutor,
+    ) -> Result<CloudTerrastodonExecutor, Self::Error> {
+        executor.validate_authentication_target(
+            &self.auth_selection.into(),
+            &self.org_url.api_url("dev.azure.com", "_apis", &[])?,
+        )?;
+        executor.with_authentication_lease(&self.auth_selection.into())
+    }
+
     type Error = eyre::Report;
     type Output = AzureDevOpsWorkItemCopyPlan;
 
@@ -68,7 +79,7 @@ impl<'a> ExecutableRequest for AzureDevOpsWorkItemCopyPlanRequest<'a> {
                 let fetched = AzureDevOpsWorkItemsGetRequest {
                     org_url: Cow::Borrowed(self.org_url.as_ref()),
                     project: Some(self.project.clone()),
-                    auth_context: Cow::Borrowed(self.auth_context.as_ref()),
+                    auth_selection: self.auth_selection,
                     ids: frontier,
                     expand: Default::default(),
                     fields: Vec::new(),
@@ -103,13 +114,13 @@ impl<'a> ExecutableRequest for AzureDevOpsWorkItemCopyPlanRequest<'a> {
             }
             let fields = AzureDevOpsWorkItemFieldDefinitionListRequest {
                 org_url: Cow::Borrowed(self.org_url.as_ref()),
-                auth_context: Cow::Borrowed(self.auth_context.as_ref()),
+                auth_selection: self.auth_selection,
             }
             .execute(&executor)
             .await?;
             let relations = AzureDevOpsWorkItemRelationTypeListRequest {
                 org_url: Cow::Borrowed(self.org_url.as_ref()),
-                auth_context: Cow::Borrowed(self.auth_context.as_ref()),
+                auth_selection: self.auth_selection,
             }
             .execute(&executor)
             .await?;
@@ -128,7 +139,7 @@ impl<'a> ExecutableRequest for AzureDevOpsWorkItemCopyPlanRequest<'a> {
                 let metadata = AzureDevOpsWorkItemTypeFieldListRequest {
                     org_url: Cow::Borrowed(self.org_url.as_ref()),
                     project: self.project.clone(),
-                    auth_context: Cow::Borrowed(self.auth_context.as_ref()),
+                    auth_selection: self.auth_selection,
                     work_item_type: work_item_type.clone(),
                 }
                 .execute(&executor)

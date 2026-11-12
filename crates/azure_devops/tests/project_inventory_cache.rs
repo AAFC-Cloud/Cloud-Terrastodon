@@ -1,6 +1,7 @@
 #![cfg(test)]
 
 use cloud_terrastodon_auth_types::AzureBearerAuthSource;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectsListRequest;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsCollectionResponse;
@@ -150,7 +151,9 @@ async fn assembled_projects_share_records_and_track_page_invalidation() -> Resul
                 CloudTerrastodonExecutor::new(cache.clone(), auth.clone(), scope.clone());
             let request = request(
                 "offline-projects",
-                AzureDevOpsAuthSelection::PersonalAccessToken,
+                AzureDevOpsAuthSelection::PersonalAccessToken {
+                    account_id: "11111111-1111-1111-1111-111111111111".parse()?,
+                },
             )?;
             let first = project("First", "11111111-1111-1111-1111-111111111111")?;
             let second = project("Second", "22222222-2222-2222-2222-222222222222")?;
@@ -208,7 +211,9 @@ async fn assembled_projects_share_records_and_track_page_invalidation() -> Resul
 
             let unrelated_request = self::request(
                 "other-offline-projects",
-                AzureDevOpsAuthSelection::PersonalAccessToken,
+                AzureDevOpsAuthSelection::PersonalAccessToken {
+                    account_id: "11111111-1111-1111-1111-111111111111".parse()?,
+                },
             )?;
             seed_page(
                 cache.root(),
@@ -303,19 +308,24 @@ async fn selected_bearer_tenants_and_pat_have_independent_aggregate_variants() -
             let executor =
                 CloudTerrastodonExecutor::new(cache.clone(), auth.clone(), scope.clone());
             let selections = [
-                AzureDevOpsAuthSelection::PersonalAccessToken,
-                AzureDevOpsAuthSelection::Bearer {
+                AzureDevOpsAuthSelection::PersonalAccessToken {
+                    account_id: "11111111-1111-1111-1111-111111111111".parse()?,
+                },
+                AzureDevOpsAuthSelection::Bearer(AzureBearerAuthenticationSelection {
+                    account_id: "11111111-1111-1111-1111-111111111111".parse()?,
                     auth_source: AzureBearerAuthSource::AzureCli,
                     tenant_id: "11111111-1111-1111-1111-111111111111".parse()?,
-                },
-                AzureDevOpsAuthSelection::Bearer {
+                }),
+                AzureDevOpsAuthSelection::Bearer(AzureBearerAuthenticationSelection {
+                    account_id: "11111111-1111-1111-1111-111111111111".parse()?,
                     auth_source: AzureBearerAuthSource::AzureCli,
                     tenant_id: "22222222-2222-2222-2222-222222222222".parse()?,
-                },
-                AzureDevOpsAuthSelection::Bearer {
+                }),
+                AzureDevOpsAuthSelection::Bearer(AzureBearerAuthenticationSelection {
+                    account_id: "11111111-1111-1111-1111-111111111111".parse()?,
                     auth_source: AzureBearerAuthSource::Browser,
                     tenant_id: "11111111-1111-1111-1111-111111111111".parse()?,
-                },
+                }),
             ];
             let project = project("Synthetic", "33333333-3333-3333-3333-333333333333")?;
             let mut values = Vec::new();
@@ -353,7 +363,9 @@ async fn selected_bearer_tenants_and_pat_have_independent_aggregate_variants() -
 
 #[test]
 fn project_invalidation_scopes_preserve_server_and_organization_identity() -> Result<()> {
-    let selection = AzureDevOpsAuthSelection::PersonalAccessToken;
+    let selection = AzureDevOpsAuthSelection::PersonalAccessToken {
+        account_id: "11111111-1111-1111-1111-111111111111".parse()?,
+    };
     let cloud = request("https://dev.azure.com/offline", selection)?;
     let alias = request("https://offline.visualstudio.com", selection)?;
     assert_eq!(cloud.cache_key()?, alias.cache_key()?);

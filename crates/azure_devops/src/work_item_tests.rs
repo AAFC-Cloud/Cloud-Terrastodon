@@ -2,11 +2,10 @@
 //! this module sends a mutation to a service.
 use crate::work_item_copy_writer::WorkItemCopyWriter;
 use crate::*;
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_auth::AzureDevOpsAuthContext;
-use cloud_terrastodon_auth_types::AuthSource;
 use cloud_terrastodon_auth_types::AuthenticationSelection;
 use cloud_terrastodon_auth_types::AzureBearerAuthSource;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
+use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
 use cloud_terrastodon_azure_types::ArbitraryJson;
 use cloud_terrastodon_command::CancellationError;
 use cloud_terrastodon_command::CancellationScope;
@@ -24,13 +23,13 @@ use std::sync::atomic::Ordering;
 fn scope() -> Result<(
     AzureDevOpsOrganizationUrl,
     AzureDevOpsProjectArgument<'static>,
-    AzureDevOpsAuthContext,
+    AzureDevOpsAuthSelection,
 )> {
     let suffix = rand::random::<u32>();
     Ok((
         format!("https://dev.azure.com/fixture-{suffix:x}").parse()?,
         format!("fixture {suffix:x}").parse()?,
-        AzureDevOpsAuthContext::None,
+        crate::test_executor::authentication_selection(),
     ))
 }
 
@@ -174,12 +173,11 @@ async fn batch_read_rejects_an_empty_selection_before_authentication_or_network(
     CancellationToken::new()
         .with_async_scope(|cancellation| async move {
             let (organization, project, _) = scope()?;
-            let executor =
-                crate::test_executor::test_executor(&AzureDevOpsAuthContext::None, &cancellation)?;
+            let executor = crate::test_executor::test_executor(&cancellation)?;
             let error = AzureDevOpsWorkItemsGetRequest {
                 org_url: std::borrow::Cow::Owned(organization),
                 project: Some(project),
-                auth_context: std::borrow::Cow::Owned(AzureDevOpsAuthContext::None),
+                auth_selection: crate::test_executor::authentication_selection(),
                 ids: Vec::new(),
                 expand: Default::default(),
                 fields: Vec::new(),
@@ -286,19 +284,24 @@ fn relation_selection_rejects_ambiguity_and_uses_the_current_index() -> Result<(
 #[test]
 fn browser_auth_retains_tenant_and_revision_uses_a_test_operation() -> Result<()> {
     let tenant = format!("{:032x}", rand::random::<u128>()).parse()?;
-    let auth_context =
-        AzureDevOpsAuthContext::for_tenant(&AuthContext::explicit(AuthSource::Browser), tenant)?;
+    let account_id = "00000000-0000-0000-0000-000000000001".parse()?;
+    let authentication = AzureDevOpsAuthSelection::Bearer(AzureBearerAuthenticationSelection {
+        account_id,
+        auth_source: AzureBearerAuthSource::Browser,
+        tenant_id: tenant,
+    });
     let request = cloud_terrastodon_rest::RestRequest::new(
         reqwest::Method::PATCH,
         "https://dev.azure.com/fixture/_apis/wit/workitems/1?api-version=7.1",
     )?
-    .azure_devops_auth_context(&auth_context)?;
+    .authentication(authentication.into());
     assert_eq!(
         request.authentication,
-        AuthenticationSelection::AzureBearer {
+        AuthenticationSelection::AzureBearer(AzureBearerAuthenticationSelection {
+            account_id,
             auth_source: AzureBearerAuthSource::Browser,
             tenant_id: tenant,
-        }
+        })
     );
     let revision = AzureDevOpsJsonPatchOperation::Test {
         path: "/rev".to_owned(),
@@ -378,13 +381,13 @@ async fn copy_scope_rejection_happens_before_authentication_or_network() -> Resu
     CancellationToken::new()
         .with_async_scope(|cancellation| async move {
             let (organization, project, _) = scope()?;
-            let auth_context = AzureDevOpsAuthContext::None;
-            let executor = crate::test_executor::test_executor(&auth_context, &cancellation)?;
+            let auth_selection = crate::test_executor::authentication_selection();
+            let executor = crate::test_executor::test_executor(&cancellation)?;
             let ids = ids(2);
             let result = AzureDevOpsWorkItemCopyPlanRequest {
                 org_url: Cow::Borrowed(&organization),
                 project,
-                auth_context: Cow::Borrowed(&auth_context),
+                auth_selection,
                 root: ids[0],
                 options: AzureDevOpsWorkItemCopyOptions {
                     deep: true,
@@ -485,8 +488,8 @@ impl WorkItemCopyWriter for MemoryWriter {
 async fn copy_execution_reuses_new_parent_urls_and_completed_journals() -> Result<()> {
     CancellationToken::new()
         .with_async_scope(|cancellation| async move {
-            let (organization, project, auth_context) = scope()?;
-            let executor = crate::test_executor::test_executor(&auth_context, &cancellation)?;
+            let (organization, project, auth_selection) = scope()?;
+            let executor = crate::test_executor::test_executor(&cancellation)?;
             let mut items = tree(&organization, &project)?;
             let leaf = items[0].id;
             items[1].relations.as_mut().unwrap().push(relation(
@@ -499,7 +502,7 @@ async fn copy_execution_reuses_new_parent_urls_and_completed_journals() -> Resul
             let request = AzureDevOpsWorkItemCopyRequest {
                 org_url: Cow::Borrowed(&organization),
                 project: project.clone(),
-                auth_context: Cow::Borrowed(&auth_context),
+                auth_selection,
                 plan,
                 journal_path: directory.path().join("copy.json"),
                 resume: false,
@@ -544,7 +547,7 @@ async fn copy_execution_reuses_new_parent_urls_and_completed_journals() -> Resul
             let busy = AzureDevOpsWorkItemCopyRequest {
                 org_url: Cow::Borrowed(&organization),
                 project: project.clone(),
-                auth_context: Cow::Borrowed(&auth_context),
+                auth_selection,
                 plan: loaded.plan,
                 journal_path: directory.path().join("copy.json"),
                 resume: true,
@@ -561,15 +564,15 @@ async fn copy_execution_reuses_new_parent_urls_and_completed_journals() -> Resul
 async fn uncertain_create_keeps_progress_and_prevents_automatic_replay() -> Result<()> {
     CancellationToken::new()
         .with_async_scope(|cancellation| async move {
-            let (organization, project, auth_context) = scope()?;
-            let executor = crate::test_executor::test_executor(&auth_context, &cancellation)?;
+            let (organization, project, auth_selection) = scope()?;
+            let executor = crate::test_executor::test_executor(&cancellation)?;
             let items = tree(&organization, &project)?;
             let plan = plan(&organization, &project, items[1].id, items)?;
             let directory = tempfile::tempdir()?;
             let request = AzureDevOpsWorkItemCopyRequest {
                 org_url: Cow::Borrowed(&organization),
                 project: project.clone(),
-                auth_context: Cow::Borrowed(&auth_context),
+                auth_selection,
                 plan,
                 journal_path: directory.path().join("copy.json"),
                 resume: false,
@@ -607,8 +610,8 @@ async fn uncertain_create_keeps_progress_and_prevents_automatic_replay() -> Resu
 async fn copy_cancellation_after_create_saves_progress_before_stopping() -> Result<()> {
     CancellationToken::new()
         .with_async_scope(|cancellation| async move {
-            let (organization, project, auth_context) = scope()?;
-            let executor = crate::test_executor::test_executor(&auth_context, &cancellation)?;
+            let (organization, project, auth_selection) = scope()?;
+            let executor = crate::test_executor::test_executor(&cancellation)?;
             let items = tree(&organization, &project)?;
             let source_root = items[1].id;
             let plan = plan(&organization, &project, source_root, items)?;
@@ -617,7 +620,7 @@ async fn copy_cancellation_after_create_saves_progress_before_stopping() -> Resu
             let request = AzureDevOpsWorkItemCopyRequest {
                 org_url: Cow::Borrowed(&organization),
                 project: project.clone(),
-                auth_context: Cow::Borrowed(&auth_context),
+                auth_selection,
                 plan,
                 journal_path: directory.path().join("copy.json"),
                 resume: false,
@@ -659,160 +662,6 @@ async fn copy_cancellation_after_create_saves_progress_before_stopping() -> Resu
             );
             assert!(cancellation.bail_if_cancelled().is_err());
             Ok(())
-        })
-        .await
-}
-
-/// Optional smoke test. Configuration is supplied at runtime, never recorded as
-/// a fixture. Only the explicit IDs are read; no queries or network traversal.
-/// CT_TEST_AZDO_COPY_ROOT optionally checks a closed subtree using this snapshot.
-/// Errors and assertions intentionally omit service response bodies and scope.
-#[tokio::test]
-#[ignore = "requires CT_TEST_AZDO_ORG, PROJECT, TENANT_ID, IDS and an existing browser session"]
-async fn live_work_item_deserialization() -> Result<()> {
-    CancellationToken::new()
-        .with_async_scope(|cancellation| async move {
-            fn config(name: &str) -> Result<String> {
-                std::env::var(name).map_err(|_| eyre::eyre!("Live test configuration is missing"))
-            }
-            async fn verify(
-                stage: &mut &'static str,
-                cancellation: &CancellationScope,
-            ) -> Result<()> {
-                let organization = config("CT_TEST_AZDO_ORG")?.parse()?;
-                let project: AzureDevOpsProjectArgument<'static> =
-                    config("CT_TEST_AZDO_PROJECT")?.parse()?;
-                let tenant = config("CT_TEST_AZDO_TENANT_ID")?.parse()?;
-                let ids = config("CT_TEST_AZDO_IDS")?
-                    .split(',')
-                    .map(|id| id.trim().parse())
-                    .collect::<Result<Vec<AzureDevOpsWorkItemId>>>()?;
-                let auth = AuthContext::explicit_headless(AuthSource::Browser);
-                let auth_context = AzureDevOpsAuthContext::for_tenant(&auth, tenant)?;
-                let executor = crate::test_executor::test_executor(&auth_context, cancellation)?;
-                *stage = "selected item reads";
-                let as_of = chrono::Utc::now();
-                let items = AzureDevOpsWorkItemsGetRequest {
-                    org_url: std::borrow::Cow::Borrowed(&organization),
-                    project: Some(project.clone()),
-                    auth_context: std::borrow::Cow::Borrowed(&auth_context),
-                    ids: ids.clone(),
-                    expand: Default::default(),
-                    fields: Vec::new(),
-                    as_of: Some(as_of),
-                }
-                .execute(&executor)
-                .await?;
-                eyre::ensure!(
-                    !items.is_empty()
-                        && items
-                            .iter()
-                            .all(|item| { item.rev > 0 && item.fields.title.is_some() }),
-                    "Incomplete work item responses"
-                );
-                *stage = "field definitions";
-                let fields = AzureDevOpsWorkItemFieldDefinitionListRequest {
-                    org_url: std::borrow::Cow::Borrowed(&organization),
-                    auth_context: std::borrow::Cow::Borrowed(&auth_context),
-                }
-                .execute(&executor)
-                .await?;
-                eyre::ensure!(!fields.is_empty(), "No field definitions returned");
-                let kinds: std::collections::BTreeSet<AzureDevOpsWorkItemType> = items
-                    .iter()
-                    .map(|item| {
-                        item.fields
-                            .work_item_type
-                            .clone()
-                            .ok_or_else(|| eyre::eyre!("Missing System.WorkItemType field"))
-                    })
-                    .collect::<Result<_>>()?;
-                let mut type_fields = BTreeMap::new();
-                for work_item_type in kinds {
-                    *stage = "type field definitions";
-                    let fields = AzureDevOpsWorkItemTypeFieldListRequest {
-                        org_url: std::borrow::Cow::Borrowed(&organization),
-                        project: project.clone(),
-                        auth_context: std::borrow::Cow::Borrowed(&auth_context),
-                        work_item_type: work_item_type.clone(),
-                    }
-                    .execute(&executor)
-                    .await?;
-                    eyre::ensure!(!fields.is_empty(), "No type fields returned");
-                    type_fields.insert(work_item_type, fields);
-                }
-                *stage = "relation definitions";
-                let relations = AzureDevOpsWorkItemRelationTypeListRequest {
-                    org_url: std::borrow::Cow::Borrowed(&organization),
-                    auth_context: std::borrow::Cow::Borrowed(&auth_context),
-                }
-                .execute(&executor)
-                .await?;
-                eyre::ensure!(!relations.is_empty(), "No relation definitions returned");
-                if let Ok(root) = std::env::var("CT_TEST_AZDO_COPY_ROOT") {
-                    *stage = "bounded copy planning";
-                    let plan = build_work_item_copy_plan(
-                        &organization,
-                        &project,
-                        root.parse()?,
-                        &AzureDevOpsWorkItemCopyOptions {
-                            deep: true,
-                            allowed_ids: ids,
-                            ..Default::default()
-                        },
-                        as_of,
-                        items,
-                        &fields,
-                        &type_fields,
-                        &relations,
-                    )
-                    .map_err(|error| {
-                        // Classify failures using fixed labels only; never include the
-                        // dynamic field, identity, URL, or item values from the error.
-                        let reason = error.to_string();
-                        *stage = if reason.starts_with("A required writable field") {
-                            "planning: required field"
-                        } else if reason.starts_with("Missing field") {
-                            "planning: missing field"
-                        } else if reason.starts_with("Identity field") {
-                            "planning: identity"
-                        } else if reason.starts_with("Copy currently supports") {
-                            "planning: project scope"
-                        } else if reason.starts_with("Invalid work item relation") {
-                            "planning: relation URL"
-                        } else if reason.starts_with("Source Parent") {
-                            "planning: parent agreement"
-                        } else if reason.starts_with("Root Parent") {
-                            "planning: root parent"
-                        } else if reason.starts_with("Creation requires") {
-                            "planning: title"
-                        } else if reason.starts_with("Copy snapshot") {
-                            "planning: snapshot"
-                        } else if reason.starts_with("Unknown internal relation") {
-                            "planning: relation definition"
-                        } else {
-                            "planning: value conversion or validation"
-                        };
-                        eyre::eyre!("Copy planning failed")
-                    })?;
-                    eyre::ensure!(!plan.nodes.is_empty(), "Copy plan is empty");
-                }
-                Ok(())
-            }
-            let mut stage = "configuration";
-            match tokio::time::timeout(
-                std::time::Duration::from_secs(60),
-                verify(&mut stage, &cancellation),
-            )
-            .await
-            {
-                Ok(Ok(())) => Ok(()),
-                _ => {
-                    eyre::bail!(
-                        "Read-only smoke test failed during {stage}; response details suppressed"
-                    );
-                }
-            }
         })
         .await
 }

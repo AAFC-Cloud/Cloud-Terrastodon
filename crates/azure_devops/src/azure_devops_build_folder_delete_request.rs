@@ -1,8 +1,8 @@
-use crate::fetch_azure_devops_build_definitions;
-use crate::fetch_azure_devops_build_folders;
-use crate::fetch_azure_devops_builds;
+use crate::AzureDevOpsBuildDefinitionListRequest;
+use crate::AzureDevOpsBuildFolderListRequest;
+use crate::AzureDevOpsBuildListRequest;
 use arbitrary::Arbitrary;
-use cloud_terrastodon_auth::AzureDevOpsAuthContext;
+use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsBuildFolderPath;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
@@ -41,7 +41,7 @@ pub struct AzureDevOpsBuildFolderDeleteRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     /// Project ID or name.
     pub project: AzureDevOpsProjectArgument<'a>,
-    pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
+    pub auth_selection: AzureDevOpsAuthSelection,
     /// Exact folder spelling returned by the service, without CLI normalization.
     pub path: AzureDevOpsBuildFolderPath,
 }
@@ -52,7 +52,7 @@ impl<'a> Arbitrary<'a> for AzureDevOpsBuildFolderDeleteRequest<'static> {
         Ok(Self {
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
-            auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
+            auth_selection: AzureDevOpsAuthSelection::arbitrary(u)?,
             path: if path.is_root() {
                 AzureDevOpsBuildFolderPath::try_new(r"\Synthetic")
                     .map_err(|_| arbitrary::Error::IncorrectFormat)?
@@ -107,6 +107,17 @@ impl HasCacheKey for AzureDevOpsBuildFolderDeleteRequest<'_> {
 }
 
 impl<'a> ExecutableRequest for AzureDevOpsBuildFolderDeleteRequest<'a> {
+    fn bind_authentication(
+        &self,
+        executor: CloudTerrastodonExecutor,
+    ) -> Result<CloudTerrastodonExecutor, Self::Error> {
+        executor.validate_authentication_target(
+            &self.auth_selection.into(),
+            &self.org_url.api_url("dev.azure.com", "_apis", &[])?,
+        )?;
+        executor.with_authentication_lease(&self.auth_selection.into())
+    }
+
     type Error = eyre::Report;
     type Output = ();
 
@@ -139,7 +150,7 @@ impl<'a> ExecutableRequest for AzureDevOpsBuildFolderDeleteRequest<'a> {
                 let request =
                     RestRequest::from_method_and_url(Method::DELETE, url)?
                         .cache(self.cache_key()?)
-                        .azure_devops_auth_context(self.auth_context.as_ref())?;
+                        .authentication(self.auth_selection.into());
                 let result = request.receive_raw(&executor).await.and_then(|response| {
                     // A successful DELETE may return HTTP 204 with no JSON body.
                     ensure!(
@@ -151,32 +162,9 @@ impl<'a> ExecutableRequest for AzureDevOpsBuildFolderDeleteRequest<'a> {
                     );
                     Ok(())
                 });
-                let folders = fetch_azure_devops_build_folders(
-                    &self.org_url,
-                    self.project.clone(),
-                    &self.auth_context,
-                    None,
-                    &executor,
-                );
-                let definitions = fetch_azure_devops_build_definitions(
-                    &self.org_url,
-                    self.project.clone(),
-                    &self.auth_context,
-                    None,
-                    None,
-                    &executor,
-                );
-                let builds = fetch_azure_devops_builds(
-                    &self.org_url,
-                    self.project.clone(),
-                    &self.auth_context,
-                    Vec::new(),
-                    None,
-                    None,
-                    None,
-                    None,
-                    &executor,
-                );
+                let folders = AzureDevOpsBuildFolderListRequest { org_url: Cow::Borrowed(&self.org_url), project: (self.project.clone()), auth_selection: self.auth_selection, path: (None) }.execute(&executor);
+                let definitions = AzureDevOpsBuildDefinitionListRequest { org_url: Cow::Borrowed(&self.org_url), project: (self.project.clone()), auth_selection: self.auth_selection, name: (None), path: (None) }.execute(&executor);
+                let builds = AzureDevOpsBuildListRequest { org_url: Cow::Borrowed(&self.org_url), project: (self.project.clone()), auth_selection: self.auth_selection, definitions: (Vec::new()), status: (None), result: (None), branch: (None), limit: (None) }.execute(&executor);
                 // Transport or artifact completion can fail after DELETE took effect.
                 // Attempt each affected invalidation before returning either failure.
                 let (folders, definitions, builds) = tokio::join!(
@@ -228,7 +216,7 @@ mod tests {
         let request = AzureDevOpsBuildFolderDeleteRequest {
             org_url: Cow::Owned("https://dev.azure.com/fixture".parse().unwrap()),
             project: "Synthetic project".parse().unwrap(),
-            auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
+            auth_selection: crate::test_executor::authentication_selection(),
             path: AzureDevOpsBuildFolderPath::try_new(r"\Synthetic").unwrap(),
         };
         let key = request.cache_key().unwrap();
@@ -245,16 +233,13 @@ mod tests {
     async fn build_folder_delete_rejects_root_before_authentication_or_network() {
         CancellationToken::new()
             .with_async_scope(|cancellation| async move {
-                let executor = crate::test_executor::test_executor(
-                    &cloud_terrastodon_auth::AzureDevOpsAuthContext::None,
-                    &cancellation,
-                )?;
+                let executor = crate::test_executor::test_executor(&cancellation)?;
                 let error = AzureDevOpsBuildFolderDeleteRequest {
                     org_url: Cow::Owned("https://dev.azure.com/fixture".parse().unwrap()),
                     project: "Synthetic project".parse().unwrap(),
                     // Missing auth also rejects locally if root protection regresses;
                     // this test can never acquire credentials or execute HTTP.
-                    auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
+                    auth_selection: crate::test_executor::authentication_selection(),
                     path: AzureDevOpsBuildFolderPath::root(),
                 }
                 .execute(&executor)

@@ -1,6 +1,6 @@
 use crate::azure_devops_work_item_relation_change::AzureDevOpsWorkItemRelationChange;
 use arbitrary::Arbitrary;
-use cloud_terrastodon_auth::AzureDevOpsAuthContext;
+use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsJsonPatchOperation;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
@@ -25,7 +25,7 @@ use std::borrow::Cow;
 pub struct AzureDevOpsWorkItemRelationChangeRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub project: Option<AzureDevOpsProjectArgument<'a>>,
-    pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
+    pub auth_selection: AzureDevOpsAuthSelection,
     pub id: AzureDevOpsWorkItemId,
     pub change: AzureDevOpsWorkItemRelationChange,
     /// Indicate whether to validate the changes without saving the work item.
@@ -40,7 +40,7 @@ impl<'a> Arbitrary<'a> for AzureDevOpsWorkItemRelationChangeRequest<'static> {
         Ok(Self {
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: Option::<AzureDevOpsProjectArgument<'static>>::arbitrary(u)?,
-            auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
+            auth_selection: AzureDevOpsAuthSelection::arbitrary(u)?,
             id: AzureDevOpsWorkItemId::arbitrary(u)?,
             change: AzureDevOpsWorkItemRelationChange::arbitrary(u)?,
             validate_only: bool::arbitrary(u)?,
@@ -58,6 +58,17 @@ impl<'a> AzureDevOpsWorkItemRelationChangeRequest<'a> {
 }
 
 impl<'a> ExecutableRequest for AzureDevOpsWorkItemRelationChangeRequest<'a> {
+    fn bind_authentication(
+        &self,
+        executor: CloudTerrastodonExecutor,
+    ) -> Result<CloudTerrastodonExecutor, Self::Error> {
+        executor.validate_authentication_target(
+            &self.auth_selection.into(),
+            &self.org_url.api_url("dev.azure.com", "_apis", &[])?,
+        )?;
+        executor.with_authentication_lease(&self.auth_selection.into())
+    }
+
     type Error = eyre::Report;
     type Output = ArbitraryJson;
 
@@ -71,7 +82,7 @@ impl<'a> ExecutableRequest for AzureDevOpsWorkItemRelationChangeRequest<'a> {
             get_url.query_pairs_mut().append_pair("$expand", "all");
             let get_request = RestRequest::from_method_and_url(Method::GET, get_url)?;
             let item: AzureDevOpsWorkItem = get_request
-                .azure_devops_auth_context(self.auth_context.as_ref())?
+                .authentication(self.auth_selection.into())
                 .receive(&executor)
                 .await?;
             ensure!(
@@ -117,7 +128,7 @@ impl<'a> ExecutableRequest for AzureDevOpsWorkItemRelationChangeRequest<'a> {
                     "application/json-patch+json",
                 )?);
             patch_request
-                .azure_devops_auth_context(self.auth_context.as_ref())?
+                .authentication(self.auth_selection.into())
                 .receive(&executor)
                 .await
         })

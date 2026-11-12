@@ -5,7 +5,7 @@ use crate::azure_devops_work_item_relation_selector::AzureDevOpsWorkItemRelation
 use crate::rest_work_item_copy_writer::RestWorkItemCopyWriter;
 use crate::work_item_copy_writer::WorkItemCopyWriter;
 use arbitrary::Arbitrary;
-use cloud_terrastodon_auth::AzureDevOpsAuthContext;
+use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsJsonPatch;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
@@ -31,7 +31,7 @@ use std::path::PathBuf;
 pub struct AzureDevOpsWorkItemCopyRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub project: AzureDevOpsProjectArgument<'a>,
-    pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
+    pub auth_selection: AzureDevOpsAuthSelection,
     pub plan: AzureDevOpsWorkItemCopyPlan,
     pub journal_path: PathBuf,
     pub resume: bool,
@@ -44,7 +44,7 @@ impl<'a> Arbitrary<'a> for AzureDevOpsWorkItemCopyRequest<'static> {
         Ok(Self {
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
-            auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
+            auth_selection: AzureDevOpsAuthSelection::arbitrary(u)?,
             plan: AzureDevOpsWorkItemCopyPlan::arbitrary(u)?,
             journal_path: PathBuf::arbitrary(u)?,
             resume: bool::arbitrary(u)?,
@@ -355,6 +355,17 @@ impl<'a> AzureDevOpsWorkItemCopyRequest<'a> {
 }
 
 impl<'a> ExecutableRequest for AzureDevOpsWorkItemCopyRequest<'a> {
+    fn bind_authentication(
+        &self,
+        executor: CloudTerrastodonExecutor,
+    ) -> Result<CloudTerrastodonExecutor, Self::Error> {
+        executor.validate_authentication_target(
+            &self.auth_selection.into(),
+            &self.org_url.api_url("dev.azure.com", "_apis", &[])?,
+        )?;
+        executor.with_authentication_lease(&self.auth_selection.into())
+    }
+
     type Error = eyre::Report;
     type Output = AzureDevOpsWorkItemCopyJournal;
 
@@ -367,7 +378,7 @@ impl<'a> ExecutableRequest for AzureDevOpsWorkItemCopyRequest<'a> {
             let writer = RestWorkItemCopyWriter {
                 org_url: self.org_url.as_ref().clone(),
                 project: self.project.clone().into_owned(),
-                auth_context: self.auth_context.as_ref().clone(),
+                auth_selection: self.auth_selection,
                 suppress_notifications: self.suppress_notifications,
             };
             self.execute_with(&writer, &executor).await

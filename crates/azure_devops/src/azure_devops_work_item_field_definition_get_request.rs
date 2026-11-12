@@ -1,5 +1,5 @@
 use arbitrary::Arbitrary;
-use cloud_terrastodon_auth::AzureDevOpsAuthContext;
+use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemFieldDefinition;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemFieldName;
@@ -16,7 +16,7 @@ use std::borrow::Cow;
 #[facet(traits(Clone))]
 pub struct AzureDevOpsWorkItemFieldDefinitionGetRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
-    pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
+    pub auth_selection: AzureDevOpsAuthSelection,
     pub name: AzureDevOpsWorkItemFieldName,
 }
 
@@ -24,13 +24,24 @@ impl<'a> Arbitrary<'a> for AzureDevOpsWorkItemFieldDefinitionGetRequest<'static>
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
-            auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
+            auth_selection: AzureDevOpsAuthSelection::arbitrary(u)?,
             name: AzureDevOpsWorkItemFieldName::arbitrary(u)?,
         })
     }
 }
 
 impl<'a> ExecutableRequest for AzureDevOpsWorkItemFieldDefinitionGetRequest<'a> {
+    fn bind_authentication(
+        &self,
+        executor: CloudTerrastodonExecutor,
+    ) -> Result<CloudTerrastodonExecutor, Self::Error> {
+        executor.validate_authentication_target(
+            &self.auth_selection.into(),
+            &self.org_url.api_url("dev.azure.com", "_apis", &[])?,
+        )?;
+        executor.with_authentication_lease(&self.auth_selection.into())
+    }
+
     type Error = eyre::Report;
     type Output = AzureDevOpsWorkItemFieldDefinition;
 
@@ -48,7 +59,7 @@ impl<'a> ExecutableRequest for AzureDevOpsWorkItemFieldDefinitionGetRequest<'a> 
                 .push(self.name.as_ref());
             url.query_pairs_mut().append_pair("api-version", "7.1");
             let request = RestRequest::from_method_and_url(Method::GET, url)?
-                .azure_devops_auth_context(self.auth_context.as_ref())?;
+                .authentication(self.auth_selection.into());
             request.receive(&executor).await
         })
     }

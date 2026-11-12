@@ -1,6 +1,6 @@
 use crate::azure_devops_build_page::AzureDevOpsBuildPage;
 use arbitrary::Arbitrary;
-use cloud_terrastodon_auth::AzureDevOpsAuthContext;
+use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsBuild;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsBuildDefinitionId;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsBuildListLimit;
@@ -15,7 +15,6 @@ use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
-use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_pathing::sanitize_windows_path_component;
 use cloud_terrastodon_rest::MicrosoftContinuationToken;
 use cloud_terrastodon_rest::RestRequest;
@@ -43,7 +42,7 @@ pub struct AzureDevOpsBuildListRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     /// Project ID or name.
     pub project: AzureDevOpsProjectArgument<'a>,
-    pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
+    pub auth_selection: AzureDevOpsAuthSelection,
     pub definitions: Vec<AzureDevOpsBuildDefinitionId>,
     pub status: Option<AzureDevOpsBuildStatus>,
     pub result: Option<AzureDevOpsBuildResult>,
@@ -52,43 +51,12 @@ pub struct AzureDevOpsBuildListRequest<'a> {
     pub limit: Option<AzureDevOpsBuildListLimit>,
 }
 
-/// List build runs using the Azure DevOps 7.1 API, with a total limit across pages.
-///
-/// See Microsoft's [Builds List API](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/builds/list?view=azure-devops-rest-7.1).
-#[expect(
-    clippy::too_many_arguments,
-    reason = "Expose build-list filters directly instead of a convenience parameter wrapper"
-)]
-#[track_caller]
-pub fn fetch_azure_devops_builds<'a>(
-    org_url: &'a AzureDevOpsOrganizationUrl,
-    project: impl Into<AzureDevOpsProjectArgument<'a>>,
-    auth_context: &'a AzureDevOpsAuthContext,
-    definitions: Vec<AzureDevOpsBuildDefinitionId>,
-    status: Option<AzureDevOpsBuildStatus>,
-    result: Option<AzureDevOpsBuildResult>,
-    branch: Option<String>,
-    limit: Option<AzureDevOpsBuildListLimit>,
-    executor: &'a CloudTerrastodonExecutor,
-) -> RequestExecution<'a, AzureDevOpsBuildListRequest<'a>> {
-    executor.execute(AzureDevOpsBuildListRequest {
-        org_url: Cow::Borrowed(org_url),
-        project: project.into(),
-        auth_context: Cow::Borrowed(auth_context),
-        definitions,
-        status,
-        result,
-        branch,
-        limit,
-    })
-}
-
 impl<'a> Arbitrary<'a> for AzureDevOpsBuildListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
-            auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
+            auth_selection: AzureDevOpsAuthSelection::arbitrary(u)?,
             definitions: u.arbitrary()?,
             status: u.arbitrary()?,
             result: u.arbitrary()?,
@@ -144,6 +112,17 @@ impl HasCacheKey for AzureDevOpsBuildListRequest<'_> {
 }
 
 impl<'a> ExecutableRequest for AzureDevOpsBuildListRequest<'a> {
+    fn bind_authentication(
+        &self,
+        executor: CloudTerrastodonExecutor,
+    ) -> Result<CloudTerrastodonExecutor, Self::Error> {
+        executor.validate_authentication_target(
+            &self.auth_selection.into(),
+            &self.org_url.api_url("dev.azure.com", "_apis", &[])?,
+        )?;
+        executor.with_authentication_lease(&self.auth_selection.into())
+    }
+
     type Error = eyre::Report;
     type Output = Vec<Arc<AzureDevOpsBuild>>;
 
@@ -229,7 +208,7 @@ impl<'a> ExecutableRequest for AzureDevOpsBuildListRequest<'a> {
                 }
                 let request = RestRequest::from_method_and_url(Method::GET, page_url)?
                     .cache(cache_key.join(page_index.to_string())?)
-                    .azure_devops_auth_context(self.auth_context.as_ref())?;
+                    .authentication(self.auth_selection.into());
                 let (page, next) =
                     request.receive_with_ms_continuation_token_cached::<AzureDevOpsBuildPage<Arc<AzureDevOpsBuild>>>(&executor, CacheOperationOwner::of::<AzureDevOpsBuildListRequest<'static>>()).await?;
                 builds.extend(
@@ -264,3 +243,9 @@ cloud_terrastodon_registry_execution::register_executable_request!(
 );
 
 impl InvalidatesOwnCacheKey for AzureDevOpsBuildListRequest<'_> {}
+
+cloud_terrastodon_registry_execution::register_runtime_test!(
+    AzureDevOpsBuildListRequest<'static>,
+    name = "azure-devops-build-list",
+    cached
+);

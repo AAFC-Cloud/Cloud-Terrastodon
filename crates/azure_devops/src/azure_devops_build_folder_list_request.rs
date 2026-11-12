@@ -1,6 +1,6 @@
 use crate::azure_devops_build_page::AzureDevOpsBuildPage;
 use arbitrary::Arbitrary;
-use cloud_terrastodon_auth::AzureDevOpsAuthContext;
+use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsBuildFolder;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsBuildFolderPath;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
@@ -9,12 +9,9 @@ use cloud_terrastodon_cache::CacheKey;
 use cloud_terrastodon_cache::CacheOperationOwner;
 use cloud_terrastodon_cache::HasCacheKey;
 use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
-#[cfg(test)]
-use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
-use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_pathing::sanitize_windows_path_component;
 use cloud_terrastodon_rest::MicrosoftContinuationToken;
 use cloud_terrastodon_rest::RestRequest;
@@ -42,28 +39,9 @@ pub struct AzureDevOpsBuildFolderListRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     /// Project ID or name.
     pub project: AzureDevOpsProjectArgument<'a>,
-    pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
+    pub auth_selection: AzureDevOpsAuthSelection,
     /// Optional starting folder path. Omit this for a complete project inventory.
     pub path: Option<AzureDevOpsBuildFolderPath>,
-}
-
-/// List build definition folders using the Azure DevOps 7.1-preview.2 API.
-///
-/// See Microsoft's [Folders List API](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/folders/list?view=azure-devops-rest-7.1).
-#[track_caller]
-pub fn fetch_azure_devops_build_folders<'a>(
-    org_url: &'a AzureDevOpsOrganizationUrl,
-    project: impl Into<AzureDevOpsProjectArgument<'a>>,
-    auth_context: &'a AzureDevOpsAuthContext,
-    path: Option<AzureDevOpsBuildFolderPath>,
-    executor: &'a CloudTerrastodonExecutor,
-) -> RequestExecution<'a, AzureDevOpsBuildFolderListRequest<'a>> {
-    executor.execute(AzureDevOpsBuildFolderListRequest {
-        org_url: Cow::Borrowed(org_url),
-        project: project.into(),
-        auth_context: Cow::Borrowed(auth_context),
-        path,
-    })
 }
 
 impl<'a> Arbitrary<'a> for AzureDevOpsBuildFolderListRequest<'static> {
@@ -71,7 +49,7 @@ impl<'a> Arbitrary<'a> for AzureDevOpsBuildFolderListRequest<'static> {
         Ok(Self {
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
-            auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
+            auth_selection: AzureDevOpsAuthSelection::arbitrary(u)?,
             path: Option::<AzureDevOpsBuildFolderPath>::arbitrary(u)?,
         })
     }
@@ -123,6 +101,17 @@ impl HasCacheKey for AzureDevOpsBuildFolderListRequest<'_> {
 }
 
 impl<'a> ExecutableRequest for AzureDevOpsBuildFolderListRequest<'a> {
+    fn bind_authentication(
+        &self,
+        executor: CloudTerrastodonExecutor,
+    ) -> Result<CloudTerrastodonExecutor, Self::Error> {
+        executor.validate_authentication_target(
+            &self.auth_selection.into(),
+            &self.org_url.api_url("dev.azure.com", "_apis", &[])?,
+        )?;
+        executor.with_authentication_lease(&self.auth_selection.into())
+    }
+
     type Error = eyre::Report;
     type Output = Vec<Arc<AzureDevOpsBuildFolder>>;
 
@@ -175,7 +164,7 @@ impl<'a> ExecutableRequest for AzureDevOpsBuildFolderListRequest<'a> {
                 }
                 let request = RestRequest::from_method_and_url(Method::GET, url)?
                     .cache(cache_key.join(page_index.to_string())?)
-                    .azure_devops_auth_context(self.auth_context.as_ref())?;
+                    .authentication(self.auth_selection.into());
                 let (page, next) =
                     request.receive_with_ms_continuation_token_cached::<AzureDevOpsBuildPage<Arc<AzureDevOpsBuildFolder>>>(&executor, CacheOperationOwner::of::<AzureDevOpsBuildFolderListRequest<'static>>()).await?;
                 folders.extend(page.value.iter().cloned());
@@ -209,39 +198,36 @@ mod tests {
 
     #[test]
     fn cloud_url_aliases_share_folder_invalidation_root() {
-        let cancellation = CancellationScope::unbound();
-        let executor = crate::test_executor::test_executor(
-            &cloud_terrastodon_auth::AzureDevOpsAuthContext::None,
-            &cancellation,
-        )
-        .unwrap();
         let modern = "https://dev.azure.com/synthetic".parse().unwrap();
         let legacy = "https://synthetic.visualstudio.com".parse().unwrap();
         let project: AzureDevOpsProjectArgument<'static> = "Synthetic project".parse().unwrap();
-        let auth_context = AzureDevOpsAuthContext::None;
+        let auth_selection = crate::test_executor::authentication_selection();
         assert_eq!(
-            fetch_azure_devops_build_folders(
-                &modern,
-                project.clone(),
-                &auth_context,
-                None,
-                &executor
-            )
+            AzureDevOpsBuildFolderListRequest {
+                org_url: Cow::Borrowed(&modern),
+                project: (project.clone()),
+                auth_selection,
+                path: (None)
+            }
             .cache_key()
             .unwrap(),
-            fetch_azure_devops_build_folders(&legacy, project, &auth_context, None, &executor)
-                .cache_key()
-                .unwrap()
+            AzureDevOpsBuildFolderListRequest {
+                org_url: Cow::Borrowed(&legacy),
+                project: (project),
+                auth_selection,
+                path: (None)
+            }
+            .cache_key()
+            .unwrap()
         );
-        let key = fetch_azure_devops_build_folders(
-            &modern,
-            "Synthetic project"
+        let key = AzureDevOpsBuildFolderListRequest {
+            org_url: Cow::Borrowed(&modern),
+            project: ("Synthetic project"
                 .parse::<AzureDevOpsProjectArgument>()
-                .unwrap(),
-            &auth_context,
-            None,
-            &executor,
-        )
+                .unwrap()),
+            auth_selection,
+            path: (None),
+        }
         .cache_key()
         .unwrap();
         assert_eq!(
@@ -254,12 +240,6 @@ mod tests {
 
     #[test]
     fn server_cache_scopes_include_the_instance_and_collection() {
-        let cancellation = CancellationScope::unbound();
-        let executor = crate::test_executor::test_executor(
-            &cloud_terrastodon_auth::AzureDevOpsAuthContext::None,
-            &cancellation,
-        )
-        .unwrap();
         let urls = [
             "https://one.example.invalid/tfs/Collection",
             "https://two.example.invalid/tfs/Collection",
@@ -268,16 +248,15 @@ mod tests {
             "https://one.example.invalid/tfs/Other",
         ];
         let project: AzureDevOpsProjectArgument<'static> = "Synthetic project".parse().unwrap();
-        let auth_context = AzureDevOpsAuthContext::None;
+        let auth_selection = crate::test_executor::authentication_selection();
         let keys = urls.map(|url| {
             let organization = url.parse().unwrap();
-            fetch_azure_devops_build_folders(
-                &organization,
-                project.clone(),
-                &auth_context,
-                None,
-                &executor,
-            )
+            AzureDevOpsBuildFolderListRequest {
+                org_url: Cow::Borrowed(&organization),
+                project: (project.clone()),
+                auth_selection,
+                path: (None),
+            }
             .cache_key()
             .unwrap()
         });
@@ -300,48 +279,39 @@ mod tests {
 
     #[test]
     fn folder_cache_invalidation_is_scoped_to_the_project_selector() {
-        let cancellation = CancellationScope::unbound();
-        let executor = crate::test_executor::test_executor(
-            &cloud_terrastodon_auth::AzureDevOpsAuthContext::None,
-            &cancellation,
-        )
-        .unwrap();
         let organization = "https://dev.azure.com/synthetic".parse().unwrap();
-        let auth_context = AzureDevOpsAuthContext::None;
+        let auth_selection = crate::test_executor::authentication_selection();
         let project: AzureDevOpsProjectArgument<'static> = "Synthetic project".parse().unwrap();
         let same_project: AzureDevOpsProjectArgument<'static> =
             "SYNTHETIC PROJECT".parse().unwrap();
         let other_project: AzureDevOpsProjectArgument<'static> = "Other project".parse().unwrap();
-        let key = fetch_azure_devops_build_folders(
-            &organization,
-            project.clone(),
-            &auth_context,
-            None,
-            &executor,
-        )
+        let key = AzureDevOpsBuildFolderListRequest {
+            org_url: Cow::Borrowed(&organization),
+            project: (project.clone()),
+            auth_selection,
+            path: (None),
+        }
         .cache_key()
         .unwrap();
         assert_eq!(
             key,
-            fetch_azure_devops_build_folders(
-                &organization,
-                same_project,
-                &auth_context,
-                Some(AzureDevOpsBuildFolderPath::try_new(r"\Synthetic\CI").unwrap()),
-                &executor
-            )
+            AzureDevOpsBuildFolderListRequest {
+                org_url: Cow::Borrowed(&organization),
+                project: (same_project),
+                auth_selection,
+                path: (Some(AzureDevOpsBuildFolderPath::try_new(r"\Synthetic\CI").unwrap()))
+            }
             .cache_key()
             .unwrap()
         );
         assert_ne!(
             key,
-            fetch_azure_devops_build_folders(
-                &organization,
-                other_project,
-                &auth_context,
-                None,
-                &executor
-            )
+            AzureDevOpsBuildFolderListRequest {
+                org_url: Cow::Borrowed(&organization),
+                project: (other_project),
+                auth_selection,
+                path: (None)
+            }
             .cache_key()
             .unwrap()
         );
@@ -350,22 +320,20 @@ mod tests {
         let project_id: AzureDevOpsProjectArgument<'static> = id_text.parse().unwrap();
         let project_name = AzureDevOpsProjectName::try_new(id_text).unwrap();
         assert_ne!(
-            fetch_azure_devops_build_folders(
-                &organization,
-                project_id,
-                &auth_context,
-                None,
-                &executor
-            )
+            AzureDevOpsBuildFolderListRequest {
+                org_url: Cow::Borrowed(&organization),
+                project: (project_id),
+                auth_selection,
+                path: (None)
+            }
             .cache_key()
             .unwrap(),
-            fetch_azure_devops_build_folders(
-                &organization,
-                project_name,
-                &auth_context,
-                None,
-                &executor
-            )
+            AzureDevOpsBuildFolderListRequest {
+                org_url: Cow::Borrowed(&organization),
+                project: (project_name).into(),
+                auth_selection,
+                path: (None)
+            }
             .cache_key()
             .unwrap()
         );
@@ -373,14 +341,8 @@ mod tests {
 
     #[test]
     fn readable_project_scopes_preserve_spaces_underscores_and_percent_escapes() {
-        let cancellation = CancellationScope::unbound();
-        let executor = crate::test_executor::test_executor(
-            &cloud_terrastodon_auth::AzureDevOpsAuthContext::None,
-            &cancellation,
-        )
-        .unwrap();
         let organization = "https://dev.azure.com/synthetic".parse().unwrap();
-        let auth_context = AzureDevOpsAuthContext::None;
+        let auth_selection = crate::test_executor::authentication_selection();
         let names = [
             "Synthetic project",
             "Synthetic_project",
@@ -388,10 +350,15 @@ mod tests {
         ];
         let keys = names.map(|name| {
             let project = AzureDevOpsProjectName::try_new(name).unwrap();
-            fetch_azure_devops_build_folders(&organization, project, &auth_context, None, &executor)
-                .cache_key()
-                .unwrap()
-                .scope
+            AzureDevOpsBuildFolderListRequest {
+                org_url: Cow::Borrowed(&organization),
+                project: (project).into(),
+                auth_selection,
+                path: (None),
+            }
+            .cache_key()
+            .unwrap()
+            .scope
         });
         for (index, key) in keys.iter().enumerate() {
             assert!(!keys[..index].contains(key));
@@ -416,3 +383,9 @@ mod tests {
         );
     }
 }
+
+cloud_terrastodon_registry_execution::register_runtime_test!(
+    AzureDevOpsBuildFolderListRequest<'static>,
+    name = "azure-devops-build-folder-list",
+    cached
+);

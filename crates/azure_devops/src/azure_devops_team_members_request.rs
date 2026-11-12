@@ -1,5 +1,5 @@
 use arbitrary::Arbitrary;
-use cloud_terrastodon_auth::AzureDevOpsAuthContext;
+use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsCollectionResponse;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
@@ -12,7 +12,6 @@ use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
-use cloud_terrastodon_execution::RequestExecution;
 use cloud_terrastodon_pathing::sanitize_windows_path_component;
 use cloud_terrastodon_rest::RestRequest;
 use cloud_terrastodon_rest::RestService;
@@ -26,32 +25,16 @@ use std::sync::Arc;
 #[facet(traits(Clone))]
 pub struct AzureDevOpsTeamMembersRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
-    pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
+    pub auth_selection: AzureDevOpsAuthSelection,
     pub project: AzureDevOpsProjectArgument<'a>,
     pub team_id: Cow<'a, AzureDevOpsTeamId>,
-}
-
-#[track_caller]
-pub fn fetch_azure_devops_team_members<'a>(
-    org_url: &'a AzureDevOpsOrganizationUrl,
-    project: impl Into<AzureDevOpsProjectArgument<'a>>,
-    team_id: &'a AzureDevOpsTeamId,
-    auth_context: &'a AzureDevOpsAuthContext,
-    executor: &'a CloudTerrastodonExecutor,
-) -> RequestExecution<'a, AzureDevOpsTeamMembersRequest<'a>> {
-    executor.execute(AzureDevOpsTeamMembersRequest {
-        org_url: Cow::Borrowed(org_url),
-        auth_context: Cow::Borrowed(auth_context),
-        project: project.into(),
-        team_id: Cow::Borrowed(team_id),
-    })
 }
 
 impl<'a> Arbitrary<'a> for AzureDevOpsTeamMembersRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
-            auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
+            auth_selection: AzureDevOpsAuthSelection::arbitrary(u)?,
             project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
             team_id: Cow::Owned(AzureDevOpsTeamId::arbitrary(u)?),
         })
@@ -94,6 +77,17 @@ impl<'a> HasCacheKey for AzureDevOpsTeamMembersRequest<'a> {
 impl<'a> InvalidatesOwnCacheKey for AzureDevOpsTeamMembersRequest<'a> {}
 
 impl<'a> ExecutableRequest for AzureDevOpsTeamMembersRequest<'a> {
+    fn bind_authentication(
+        &self,
+        executor: CloudTerrastodonExecutor,
+    ) -> Result<CloudTerrastodonExecutor, Self::Error> {
+        executor.validate_authentication_target(
+            &self.auth_selection.into(),
+            &self.org_url.api_url("dev.azure.com", "_apis", &[])?,
+        )?;
+        executor.with_authentication_lease(&self.auth_selection.into())
+    }
+
     type Error = eyre::Report;
     type Output = Vec<Arc<AzureDevOpsTeamMember>>;
     fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
@@ -134,7 +128,7 @@ impl<'a> ExecutableRequest for AzureDevOpsTeamMembersRequest<'a> {
                     RestService::AzureDevOps,
                 )?
                 .cache(cache_key.join("pages")?.join(offset.to_string())?)
-                .azure_devops_auth_context(self.auth_context.as_ref())?
+                .authentication(self.auth_selection.into())
                 .receive_cached::<AzureDevOpsCollectionResponse<Vec<Arc<AzureDevOpsTeamMember>>>>(
                     &executor,
                     CacheOperationOwner::of::<AzureDevOpsTeamMembersRequest<'static>>(),
@@ -158,70 +152,8 @@ cloud_terrastodon_registry::register_thing!(AzureDevOpsTeamMembersRequest<'stati
 cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsTeamMembersRequest<'static>);
 cloud_terrastodon_registry_execution::register_executable_request!(AzureDevOpsTeamMembersRequest<'static> => Vec<Arc<AzureDevOpsTeamMember>>, effects = [Read]);
 
-#[cfg(test)]
-mod test {
-    use crate::fetch_all_azure_devops_projects;
-    use crate::fetch_azure_devops_team_members;
-    use crate::fetch_azure_devops_teams_for_project;
-    use crate::get_default_organization_url;
-    use cloud_terrastodon_auth::AuthContext;
-    use cloud_terrastodon_auth::AzureDevOpsAuthContext;
-    use cloud_terrastodon_command::CancellationToken;
-
-    #[tokio::test]
-    pub async fn it_works() -> eyre::Result<()> {
-        CancellationToken::new()
-            .with_async_scope(|cancellation| async move {
-                let auth_context = AuthContext::explicit_azure_cli();
-                let azure_devops_auth_context = AzureDevOpsAuthContext::for_tenant(
-                    &auth_context,
-                    crate::test_tenant_id::test_tenant_id()?,
-                )?;
-                let executor =
-                    crate::test_executor::test_executor(&azure_devops_auth_context, &cancellation)?;
-                let org_url = get_default_organization_url(&cancellation).await?;
-                let project = fetch_all_azure_devops_projects(
-                    &org_url,
-                    azure_devops_auth_context.selection()?,
-                    &executor,
-                )
-                .await?
-                .first()
-                .cloned()
-                .unwrap();
-                let teams = fetch_azure_devops_teams_for_project(
-                    &org_url,
-                    &project.id,
-                    &azure_devops_auth_context,
-                    &executor,
-                )
-                .await?;
-                let team = teams
-                    .into_iter()
-                    .next()
-                    .expect("Expected at least one team in the project");
-
-                assert!(!team.name.is_empty());
-                let members = fetch_azure_devops_team_members(
-                    &org_url,
-                    &project.id,
-                    &team.id,
-                    &azure_devops_auth_context,
-                    &executor,
-                )
-                .await?;
-
-                assert!(
-                    !members.is_empty(),
-                    "Expected at least one member in the team"
-                );
-                assert!(
-                    members
-                        .iter()
-                        .all(|member| !member.identity.display_name.is_empty())
-                );
-                Ok(())
-            })
-            .await
-    }
-}
+cloud_terrastodon_registry_execution::register_runtime_test!(
+    AzureDevOpsTeamMembersRequest<'static>,
+    name = "azure-devops-team-members",
+    cached
+);

@@ -30,7 +30,9 @@ fn fabricated_seed(seed: u64) -> AzureDevOpsProjectsListRequest<'static> {
         AzureDevOpsProjectsListRequest::arbitrary(&mut Unstructured::new(&bytes)).unwrap();
     // Discovery uses serializable credential selection without resolving credentials
     // or invoking requests.
-    request.auth_selection = AzureDevOpsAuthSelection::PersonalAccessToken;
+    request.auth_selection = AzureDevOpsAuthSelection::PersonalAccessToken {
+        account_id: "11111111-1111-1111-1111-111111111111".parse().unwrap(),
+    };
     request
 }
 
@@ -109,7 +111,7 @@ fn fabricated_project_inventory_unlocks_project_scoped_folder_discovery() {
                 assert_eq!(&folders_request.project, argument);
                 assert!(matches!(
                     folders_request.auth_selection,
-                    AzureDevOpsAuthSelection::PersonalAccessToken
+                    AzureDevOpsAuthSelection::PersonalAccessToken { .. }
                 ));
                 assert_eq!(folders_request.path, None);
                 assert!(

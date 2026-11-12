@@ -1,19 +1,18 @@
+use crate::AzureDevOpsBuildDefinitionListRequest;
 use crate::AzureDevOpsBuildFolderDeleteRequest;
+use crate::AzureDevOpsBuildFolderListRequest;
 use crate::AzureDevOpsBuildFolderPruneReport;
 use crate::AzureDevOpsBuildFolderPruneSkip;
 use crate::azure_devops_build_folder_snapshot::AzureDevOpsBuildFolderSnapshot;
 use crate::azure_devops_build_folder_validated_snapshot::AzureDevOpsBuildFolderValidatedSnapshot;
-use crate::fetch_azure_devops_build_definitions;
-use crate::fetch_azure_devops_build_folders;
 use arbitrary::Arbitrary;
-use cloud_terrastodon_auth::AzureDevOpsAuthContext;
+use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsBuildFolderPath;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
-use cloud_terrastodon_execution::RequestExecution;
 use eyre::Context;
 use facet::Facet;
 use std::borrow::Cow;
@@ -30,32 +29,9 @@ use std::borrow::Cow;
 pub struct AzureDevOpsBuildFolderPruneRequest<'a> {
     pub org_url: Cow<'a, AzureDevOpsOrganizationUrl>,
     pub project: AzureDevOpsProjectArgument<'a>,
-    pub auth_context: Cow<'a, AzureDevOpsAuthContext>,
+    pub auth_selection: AzureDevOpsAuthSelection,
     pub path: Option<AzureDevOpsBuildFolderPath>,
     pub dry_run: bool,
-}
-
-/// Build an awaitable empty-folder pruning request for an explicit project.
-/// Dry runs only inspect inventory; deletion rechecks every candidate.
-///
-/// See the [folder-delete API](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/folders/delete?view=azure-devops-rest-7.1)
-/// for its cascade behavior and the request type for caller preconditions.
-#[track_caller]
-pub fn prune_azure_devops_build_definition_folders<'a>(
-    org_url: &'a AzureDevOpsOrganizationUrl,
-    project: impl Into<AzureDevOpsProjectArgument<'a>>,
-    auth_context: &'a AzureDevOpsAuthContext,
-    path: Option<AzureDevOpsBuildFolderPath>,
-    dry_run: bool,
-    executor: &'a CloudTerrastodonExecutor,
-) -> RequestExecution<'a, AzureDevOpsBuildFolderPruneRequest<'a>> {
-    executor.execute(AzureDevOpsBuildFolderPruneRequest {
-        org_url: Cow::Borrowed(org_url),
-        project: project.into(),
-        auth_context: Cow::Borrowed(auth_context),
-        path,
-        dry_run,
-    })
 }
 
 impl<'a> Arbitrary<'a> for AzureDevOpsBuildFolderPruneRequest<'static> {
@@ -63,7 +39,7 @@ impl<'a> Arbitrary<'a> for AzureDevOpsBuildFolderPruneRequest<'static> {
         Ok(Self {
             org_url: Cow::Owned(AzureDevOpsOrganizationUrl::arbitrary(u)?),
             project: AzureDevOpsProjectArgument::arbitrary(u)?.into_owned(),
-            auth_context: Cow::Owned(AzureDevOpsAuthContext::None),
+            auth_selection: AzureDevOpsAuthSelection::arbitrary(u)?,
             path: Option::<AzureDevOpsBuildFolderPath>::arbitrary(u)?,
             dry_run: bool::arbitrary(u)?,
         })
@@ -71,6 +47,17 @@ impl<'a> Arbitrary<'a> for AzureDevOpsBuildFolderPruneRequest<'static> {
 }
 
 impl<'a> ExecutableRequest for AzureDevOpsBuildFolderPruneRequest<'a> {
+    fn bind_authentication(
+        &self,
+        executor: CloudTerrastodonExecutor,
+    ) -> Result<CloudTerrastodonExecutor, Self::Error> {
+        executor.validate_authentication_target(
+            &self.auth_selection.into(),
+            &self.org_url.api_url("dev.azure.com", "_apis", &[])?,
+        )?;
+        executor.with_authentication_lease(&self.auth_selection.into())
+    }
+
     type Error = eyre::Report;
     type Output = AzureDevOpsBuildFolderPruneReport;
 
@@ -83,23 +70,23 @@ impl<'a> ExecutableRequest for AzureDevOpsBuildFolderPruneRequest<'a> {
             let scope = self.path.unwrap_or_else(AzureDevOpsBuildFolderPath::root);
             // Always inspect the complete project. User scope restricts deletion
             // candidates, rather than hiding definitions or descendant folders.
-            let folders = fetch_azure_devops_build_folders(
-                &self.org_url,
-                self.project.clone(),
-                &self.auth_context,
-                None,
-                &executor,
-            )
+            let folders = AzureDevOpsBuildFolderListRequest {
+                org_url: Cow::Borrowed(&self.org_url),
+                project: (self.project.clone()),
+                auth_selection: self.auth_selection,
+                path: (None),
+            }
+            .execute(&executor)
             .with_invalidation(true)
             .await?;
-            let definitions = fetch_azure_devops_build_definitions(
-                &self.org_url,
-                self.project.clone(),
-                &self.auth_context,
-                None,
-                None,
-                &executor,
-            )
+            let definitions = AzureDevOpsBuildDefinitionListRequest {
+                org_url: Cow::Borrowed(&self.org_url),
+                project: (self.project.clone()),
+                auth_selection: self.auth_selection,
+                name: (None),
+                path: (None),
+            }
+            .execute(&executor)
             .with_invalidation(true)
             .await?;
             let inventory =
@@ -123,23 +110,23 @@ impl<'a> ExecutableRequest for AzureDevOpsBuildFolderPruneRequest<'a> {
                 // may remain after an earlier candidate was skipped. Recheck
                 // both inventories before invoking the cascading delete API.
                 let fresh = async {
-                    let folders = fetch_azure_devops_build_folders(
-                        &self.org_url,
-                        self.project.clone(),
-                        &self.auth_context,
-                        None,
-                        &executor,
-                    )
+                    let folders = AzureDevOpsBuildFolderListRequest {
+                        org_url: Cow::Borrowed(&self.org_url),
+                        project: (self.project.clone()),
+                        auth_selection: self.auth_selection,
+                        path: (None),
+                    }
+                    .execute(&executor)
                     .with_invalidation(true)
                     .await?;
-                    let definitions = fetch_azure_devops_build_definitions(
-                        &self.org_url,
-                        self.project.clone(),
-                        &self.auth_context,
-                        None,
-                        None,
-                        &executor,
-                    )
+                    let definitions = AzureDevOpsBuildDefinitionListRequest {
+                        org_url: Cow::Borrowed(&self.org_url),
+                        project: (self.project.clone()),
+                        auth_selection: self.auth_selection,
+                        name: (None),
+                        path: (None),
+                    }
+                    .execute(&executor)
                     .with_invalidation(true)
                     .await?;
                     AzureDevOpsBuildFolderValidatedSnapshot::new(AzureDevOpsBuildFolderSnapshot {
@@ -164,7 +151,7 @@ impl<'a> ExecutableRequest for AzureDevOpsBuildFolderPruneRequest<'a> {
                 AzureDevOpsBuildFolderDeleteRequest {
                     org_url: Cow::Borrowed(&self.org_url),
                     project: self.project.clone(),
-                    auth_context: Cow::Borrowed(&self.auth_context),
+                    auth_selection: self.auth_selection,
                     path: candidate.clone(),
                 }
                 .execute(&executor)
