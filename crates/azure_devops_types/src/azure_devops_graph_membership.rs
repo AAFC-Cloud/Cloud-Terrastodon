@@ -1,9 +1,10 @@
 use crate::AzureDevOpsDescriptor;
 use crate::AzureDevOpsReferenceLinks;
+use arbitrary::Arbitrary;
 use facet::Facet;
 
 /// A direct Graph membership edge returned by the [7.1 membership API](https://learn.microsoft.com/en-us/rest/api/azure/devops/graph/memberships/list?view=azure-devops-rest-7.1#graphmembership).
-#[derive(Debug, Clone, Facet)]
+#[derive(Debug, Clone, Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct AzureDevOpsGraphMembership {
@@ -13,3 +14,6 @@ pub struct AzureDevOpsGraphMembership {
     /// Omitted in the documented 7.1 list responses.
     pub links: Option<AzureDevOpsReferenceLinks>,
 }
+
+cloud_terrastodon_registry::register_thing!(AzureDevOpsGraphMembership);
+cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsGraphMembership);

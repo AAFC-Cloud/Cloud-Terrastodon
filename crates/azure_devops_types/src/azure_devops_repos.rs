@@ -1,5 +1,6 @@
 use crate::AzureDevOpsProject;
 use crate::AzureDevOpsRepoId;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_types::ArbitraryJson;
 use cloud_terrastodon_hcl_types::AzureDevOpsResourceBlockKind;
 use cloud_terrastodon_hcl_types::HclImportBlock;
@@ -8,7 +9,7 @@ use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
 use facet::Facet;
 
-#[derive(Debug, Eq, PartialEq, Clone, Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Facet, Arbitrary)]
 #[facet(rename_all = "camelCase")]
 pub struct AzureDevOpsRepo {
     pub default_branch: Option<String>,
@@ -52,3 +53,6 @@ impl From<&AzureDevOpsRepo> for HclImportBlock {
         }
     }
 }
+
+cloud_terrastodon_registry::register_thing!(AzureDevOpsRepo);
+cloud_terrastodon_registry::register_arbitrary!(AzureDevOpsRepo);

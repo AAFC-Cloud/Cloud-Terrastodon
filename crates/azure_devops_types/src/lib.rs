@@ -326,3 +326,9 @@ pub use azure_devops_license_entitlement_update_response::AzureDevOpsLicenseEnti
 pub use azure_devops_msdn_license_type::AzureDevOpsMsdnLicenseType;
 pub use azure_devops_user_entitlement_operation_result::AzureDevOpsUserEntitlementOperationResult;
 pub use azure_devops_user_entitlements_patch_response::AzureDevOpsUserEntitlementsPatchResponse;
+mod azure_devops_group_members_v2_response;
+pub use azure_devops_group_members_v2_response::*;
+mod azure_devops_project_member;
+mod azure_devops_project_permission_object;
+pub use azure_devops_project_member::*;
+pub use azure_devops_project_permission_object::*;
