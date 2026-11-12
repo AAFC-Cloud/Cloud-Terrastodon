@@ -27,7 +27,8 @@ use teamy_cancellation::CancellationScope;
 /// Reuse checks original generations and every semantic child's freshness.
 #[must_use = "Cached work does nothing until awaited"]
 pub struct CachedWorkSpec<'a, T, F> {
-    // Bound fields cannot be changed after the canonical ownership claim.
+    // Identity and ancestry stay fixed after the canonical ownership claim;
+    // adapters may rebind only the bounded execution scope.
     pub(crate) cache: WorkCache,
     pub(crate) identity: CacheEntryIdentity,
     pub(crate) validity: Duration,
@@ -41,6 +42,33 @@ pub struct CachedWorkSpec<'a, T, F> {
 }
 
 impl<'a, T, F> CachedWorkSpec<'a, T, F> {
+    /// Execute this already claimed operation within a supplied bounded scope.
+    ///
+    /// Execution adapters can add account retirement or another linked signal
+    /// after synchronous binding without repeating the ownership claim. The
+    /// operation identity, semantic ancestry, and initializer remain unchanged.
+    /// The supplied scope must stay owned until this spec finishes.
+    pub fn with_cancellation_scope<'scope>(
+        self,
+        cancellation: &'scope CancellationScope,
+    ) -> CachedWorkSpec<'scope, T, F>
+    where
+        'a: 'scope,
+    {
+        CachedWorkSpec {
+            cache: self.cache,
+            identity: self.identity,
+            validity: self.validity,
+            reusable: self.reusable,
+            parent: self.parent,
+            child: self.child,
+            cancellation,
+            initialize: self.initialize,
+            observer: self.observer,
+            output: self.output,
+        }
+    }
+
     /// Observe this invocation's coordination decisions. The callback is never
     /// stored in the shared entry or invoked while holding the cache state lock.
     /// It must return promptly without synchronously waiting on cache work;

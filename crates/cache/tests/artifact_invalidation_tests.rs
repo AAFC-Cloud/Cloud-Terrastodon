@@ -137,6 +137,64 @@ async fn prefix_invalidation_finds_disk_only_entries_across_namespaces_and_varia
 }
 
 #[tokio::test]
+async fn credential_retirement_removes_only_its_disk_selections_and_keeps_evidence()
+-> eyre::Result<()> {
+    CancellationToken::new()
+        .with_async_scope(|scope| async move {
+            let temporary = tempfile::tempdir()?;
+            let original = WorkCache::new(temporary.path())?;
+            let retired = AuthPartition::new("retired-session")?;
+            let mut identities = [
+                identity(ExecutorKind::Rest, &["projects", "first"], "query"),
+                identity(ExecutorKind::Command, &["projects", "second"], "query"),
+                identity(ExecutorKind::Rest, &["projects", "first"], "query"),
+            ];
+            identities[0].auth_partition = retired.clone();
+            identities[1].auth_partition = retired.clone();
+            let mut evidence = Vec::new();
+            for identity in &identities {
+                let entry = entry(&original, identity)?;
+                let stored = finish(&entry, &scope).await?;
+                assert!(entry.publish(&stored, &scope).await?);
+                evidence.push(stored.directory().to_owned());
+            }
+            drop(original);
+            let cache = WorkCache::new(temporary.path())?;
+            let pending = entry(&cache, &identities[0])?
+                .begin_attempt(BTreeMap::new(), &scope)
+                .await?
+                .unwrap();
+            cache.invalidate_authentication(&retired, &scope).await?;
+            for (index, identity) in identities.iter().enumerate() {
+                assert_eq!(
+                    entry(&cache, identity)?.load(&scope).await?.is_some(),
+                    index == 2
+                );
+                assert!(evidence[index].join("manifest.json").is_file());
+                assert!(evidence[index].join("payload.bin").is_file());
+            }
+            let late = pending
+                .finish(
+                    ArtifactSet {
+                        payload: b"late retired response".to_vec(),
+                        diagnostics: BTreeMap::new(),
+                    },
+                    ArtifactObservation::now(),
+                    &scope,
+                )
+                .await?;
+            assert!(
+                !entry(&cache, &identities[0])?
+                    .publish(&late, &scope)
+                    .await?
+            );
+            assert!(late.directory().join("payload.bin").is_file());
+            Ok(())
+        })
+        .await
+}
+
+#[tokio::test]
 async fn invalidation_prevents_an_inflight_attempt_from_selecting_its_later_outcome()
 -> eyre::Result<()> {
     CancellationToken::new()

@@ -6,4 +6,5 @@
 pub(crate) struct CacheGenerationStamp {
     pub ancestors: Vec<u64>,
     pub exact: u64,
+    pub authentication: u64,
 }

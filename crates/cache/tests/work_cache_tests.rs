@@ -130,6 +130,107 @@ async fn concurrent_and_warm_reads_reuse_one_execution_decode_and_arc() -> eyre:
         .await
 }
 
+#[tokio::test]
+async fn credential_retirement_expires_cross_account_dependencies_but_preserves_other_reads()
+-> eyre::Result<()> {
+    CancellationToken::new()
+        .with_async_scope(|scope| async move {
+            let cache = WorkCache::temporary()?;
+            let retired = AuthPartition::new("retired-session")?;
+            let mut dependency = identity("shared-resource");
+            dependency.auth_partition = retired.clone();
+            let independent = read(&cache, "shared-resource", &scope, 7).await?;
+            let executions = AtomicUsize::new(0);
+            let mut snapshots = Vec::new();
+            for iteration in 0_u64..3 {
+                let parent = cache
+                    .cached_work(
+                        identity("cross-account-composition"),
+                        CacheOperationOwner::of::<SyntheticRead>(),
+                        WorkReuse::ReusableRead,
+                        VALID_FOR,
+                        None,
+                        &scope,
+                        async |attempt, child_scope| {
+                            executions.fetch_add(1, Ordering::SeqCst);
+                            let value = cache
+                                .cached_work(
+                                    dependency.clone(),
+                                    CacheOperationOwner::of::<SyntheticRead>(),
+                                    WorkReuse::ReusableRead,
+                                    VALID_FOR,
+                                    attempt.as_ref(),
+                                    &child_scope,
+                                    |_, _| async move { Ok(output(iteration)) },
+                                )?
+                                .await?;
+                            Ok(output(*value))
+                        },
+                    )?
+                    .await?;
+                snapshots.push(parent);
+                if iteration == 1 {
+                    cache.invalidate_authentication(&retired, &scope).await?;
+                }
+            }
+            assert!(Arc::ptr_eq(&snapshots[0], &snapshots[1]));
+            assert_eq!(*snapshots[0], 0);
+            assert_eq!(*snapshots[2], 2);
+            assert_eq!(executions.load(Ordering::SeqCst), 2);
+            assert!(Arc::ptr_eq(
+                &independent,
+                &read(&cache, "shared-resource", &scope, 99).await?
+            ));
+            Ok(())
+        })
+        .await
+}
+
+#[tokio::test]
+async fn credential_retirement_during_a_composition_prevents_its_late_memory_publication()
+-> eyre::Result<()> {
+    CancellationToken::new()
+        .with_async_scope(|scope| async move {
+            let cache = WorkCache::temporary()?;
+            let retired = AuthPartition::new("retired-session")?;
+            let mut dependency = identity("late-retired-resource");
+            dependency.auth_partition = retired.clone();
+            let original = cache
+                .cached_work(
+                    identity("late-composition"),
+                    CacheOperationOwner::of::<SyntheticRead>(),
+                    WorkReuse::ReusableRead,
+                    VALID_FOR,
+                    None,
+                    &scope,
+                    async |attempt, child_scope| {
+                        cache
+                            .cached_work(
+                                dependency,
+                                CacheOperationOwner::of::<SyntheticRead>(),
+                                WorkReuse::ReusableRead,
+                                VALID_FOR,
+                                attempt.as_ref(),
+                                &child_scope,
+                                async |_, child_scope| {
+                                    cache
+                                        .invalidate_authentication(&retired, &child_scope)
+                                        .await?;
+                                    Ok(output(1_u64))
+                                },
+                            )?
+                            .await?;
+                        Ok(output(10_u64))
+                    },
+                )?
+                .await?;
+            assert_eq!(*original, 10);
+            assert_eq!(*read(&cache, "late-composition", &scope, 20).await?, 20);
+            Ok(())
+        })
+        .await
+}
+
 async fn barrier_read(
     cache: &WorkCache,
     key: CacheEntryIdentity,

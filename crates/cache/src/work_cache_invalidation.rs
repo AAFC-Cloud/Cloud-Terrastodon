@@ -1,3 +1,4 @@
+use crate::AuthPartition;
 use crate::CacheEntryIdentity;
 use crate::CacheScope;
 use crate::WorkCache;
@@ -11,6 +12,22 @@ use teamy_cancellation::CancellationScope;
 use uuid::Uuid;
 
 impl WorkCache {
+    /// Retire one credential session's reusable observations across all scopes.
+    /// Dependency stamps also expire composed results that consumed this session,
+    /// even when those results belong to another account. Already returned values
+    /// remain readable; in-flight observations cannot republish their old stamp.
+    pub async fn invalidate_authentication(
+        &self,
+        partition: &AuthPartition,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        self.invalidate_target(
+            CacheInvalidationTarget::Authentication(partition.clone()),
+            cancellation,
+        )
+        .await
+    }
+
     /// Invalidate a logical subtree across executor namespaces and variants.
     ///
     /// Existing caller snapshots remain readable. In-flight attempts keep their

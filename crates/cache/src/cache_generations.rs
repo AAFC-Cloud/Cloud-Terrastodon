@@ -1,3 +1,4 @@
+use crate::AuthPartition;
 use crate::CacheEntryIdentity;
 use crate::cache_generation_stamp::CacheGenerationStamp;
 use crate::cache_invalidation_target::CacheInvalidationTarget;
@@ -10,6 +11,7 @@ use std::collections::HashMap;
 pub(crate) struct CacheGenerations {
     prefixes: HashMap<Vec<String>, u64>,
     entries: HashMap<CacheEntryIdentity, u64>,
+    authentication: HashMap<AuthPartition, u64>,
     // Exhaustion cannot leave old certificates valid or wrap back to zero.
     exhausted: Vec<CacheInvalidationTarget>,
 }
@@ -27,6 +29,11 @@ impl CacheGenerations {
                 })
                 .collect(),
             exact: self.entries.get(identity).copied().unwrap_or(0),
+            authentication: self
+                .authentication
+                .get(&identity.auth_partition)
+                .copied()
+                .unwrap_or(0),
         }
     }
 
@@ -43,6 +50,9 @@ impl CacheGenerations {
                 .or_default(),
             CacheInvalidationTarget::Entry(identity) => {
                 self.entries.entry(identity.clone()).or_default()
+            }
+            CacheInvalidationTarget::Authentication(partition) => {
+                self.authentication.entry(partition.clone()).or_default()
             }
         };
         let Some(next) = generation.checked_add(1) else {
