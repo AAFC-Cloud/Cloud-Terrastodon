@@ -197,24 +197,29 @@ inventories before using them.
 Production types have their own files, except each CLI group's paired argument
 struct and command enum share its `_cli.rs` file. CLI argument schemas, command
 enums, and explicit scope selection stay in `azure_devops_cli`. Each listing
-command declares its required organization/project and optional tenant flags directly.
+command declares its required organization/project fields directly and flattens
+`auth_cli::AzureDevOpsAuthenticationArgs` for tenant/account/source selection.
+That helper resolves concrete metadata; the request uses the same shared executor
+without replacing its authentication provider.
 Organization shorthand is normalized by `AzureDevOpsOrganizationUrl` without
 configured defaults. Project selectors contain an explicit ID or name. Each SDK
 request constructs its URL and
-executes its REST calls in `IntoFuture`, with pagination directly in each list
+executes its REST calls in `ExecutableRequest::run`, with pagination directly in each list
 request. Each list request assembles its readable organization or collection,
 project, and operation cache root locally, reuses `pathing`'s shared Windows
 filename sanitization, and hashes the complete GET URL, including the initial
 total build limit, beneath that root before adding separate page entries.
 Cloud URL aliases share the project-scoped invalidation root while
 full request URLs distinguish cached responses. A mutation's own invalidation
-contract addresses its inspection artifact; after success, its `IntoFuture`
+contract addresses its inspection artifact; after success, its execution
 procedure constructs and invalidates affected list requests without
 reconstructing their cache keys.
 Pruning awaits those lists for fresh inventories and uses the folder
-delete request after its checks. Each request passes its authentication context to
-`RestRequest::azure_devops_auth_context`; the setter preserves the selected source
-and bearer tenant. Requests obtain the decoded page and continuation header through
+delete request after its checks. Each request stores a pure `AzureDevOpsAuthSelection`
+and passes it through `RestRequest::authentication`; the executor owns the
+admitted account and credential resources. Bearer selections preserve the explicit
+account, source and tenant; PAT selections identify an organization-bound account.
+Callers construct requests and use `.execute(executor)`. Requests obtain the decoded page and continuation header through
 `RestRequest::receive_with_ms_continuation_token` and follow pages locally. The
 REST crate's `MicrosoftContinuationToken` rejects blank tokens at construction
 and preserves all other token text unchanged; list requests retain their

@@ -3,7 +3,6 @@ use super::command::GroupManagementValidateArgs;
 #[cfg(test)]
 use arbitrary::Arbitrary;
 use cloud_terrastodon::app::ApplicationCli;
-use cloud_terrastodon::app::AuthContext;
 use cloud_terrastodon::app::CliOutput;
 use cloud_terrastodon::app::GlobalArgs;
 use cloud_terrastodon::app::Result;
@@ -41,14 +40,10 @@ pub enum GroupManagementCommand {
 }
 
 impl GroupManagementArgs {
-    pub async fn invoke(
-        self,
-        auth: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<CliOutput> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         match self.command {
             GroupManagementCommand::Validate(args) => args.invoke(),
-            GroupManagementCommand::Plan(args) => Box::pin(args.invoke(auth, executor)).await,
+            GroupManagementCommand::Plan(args) => Box::pin(args.invoke(executor)).await,
         }
     }
 }

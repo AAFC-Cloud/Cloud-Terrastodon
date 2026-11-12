@@ -527,7 +527,7 @@ acceptance requirements for their owning later slices.
   post-execution decoding and artifact retention remain required responsibilities.
 - [Graph helper](../../crates/azure/src/microsoft_graph.rs): continuation recovery
   invalidates its own subtree and retries, so hierarchy locks cannot span execution.
-- [Principal inventory](../../crates/azure/src/principals.rs): separate child
+- [Principal inventory](../../crates/azure/src/entra_principal_list_request.rs): separate child
   inventories motivate transitive dependency stamps and memory-only aggregates.
 
 Only repository source and planning documents were inspected to make these

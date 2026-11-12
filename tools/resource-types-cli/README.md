@@ -23,14 +23,14 @@ require an existing input file. Preserve the upstream spelling, for example:
 Refresh the input only when live access to the selected tenant is intended:
 
 ```powershell
-cargo run --offline --locked -p cloud_terrastodon_resource_types_cli -- --account admin --auth-source azure-cli refresh --tenant example-lab
+cargo run --offline --locked -p cloud_terrastodon_resource_types_cli -- refresh --tenant example-lab --account admin --auth-source azure-cli
 ```
 
 Omitting `--tenant`, or passing `--tenant default`, uses the explicitly configured
 Cloud Terrastodon default tenant. Select another tracked tenant with
 `--tenant example-lab` or a tenant UUID. `--account` selects a registered account
-within that tenant; omission requires a configured account default. The global
-`--auth-source` optionally constrains the account's source; `auto` uses its stored
+within that tenant; omission requires a configured account default. Refresh's
+`--auth-source` selects a registered mechanism; `auto` uses its preferred
 source. Register and log in through `ct account` first. No ambient Azure CLI
 login, subscription, or tenant is selected. `--auth-source none` rejects refresh
 before account lookup.
@@ -80,8 +80,9 @@ configuration, acquire credentials, read execution caches, or query Azure.
 using a temporary file in that directory and atomic replacement. Identical output
 is left untouched. `check` reports missing or stale output and never writes it.
 The shared application host supplies cancellation, logging, and output formatting.
-Startup records authentication preferences without resolving accounts or tokens.
-Only `refresh` binds those preferences to its tenant and account; `generate` and
+Startup installs one lazy credential provider without resolving accounts or tokens.
+Only `refresh` owns authentication arguments and resolves concrete request metadata;
+execution uses the shared executor. `generate` and
 `check` remain local operations.
 
 Exact duplicates are removed, and the order is deterministic. Case-insensitive

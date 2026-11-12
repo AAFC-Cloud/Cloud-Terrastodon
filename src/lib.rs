@@ -12,7 +12,7 @@
 //!   `azure-devops`, `azure-devops-types`, `hcl`, `hcl-types`, `user-input`,
 //!   `command`, `software`, `zombies`, `relative-location`, `ui-ratatui`, `ui-egui`,
 //!   `azure-locations`, `auth`, `auth-types`, `execution`, `rest`, `source`, `source-types`.
-//! - `azure-cli`, `azure-devops-cli`, `source-cli`, `cli-types`: Reusable command
+//! - `azure-cli`, `azure-devops-cli`, `source-cli`, `auth-cli`, `cli-types`: Reusable command
 //!   groups and shared command-line input contracts.
 
 // One pub use per optional subcrate, behind its feature flag.
@@ -20,6 +20,8 @@
 pub use cloud_terrastodon_app as app;
 #[cfg(feature = "auth")]
 pub use cloud_terrastodon_auth as auth;
+#[cfg(feature = "auth-cli")]
+pub use cloud_terrastodon_auth_cli as auth_cli;
 #[cfg(feature = "auth-types")]
 pub use cloud_terrastodon_auth_types as auth_types;
 #[cfg(feature = "azure")]

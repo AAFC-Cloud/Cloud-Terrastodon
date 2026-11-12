@@ -1,6 +1,12 @@
 # Unreleased
 
-- Add named Cloud Terrastodon accounts with stable IDs, tenant/service-scoped aliases, explicit defaults, and isolated CLI/browser/workload/PAT/Gitea credential sessions. Requests select an admitted account; logout retires its cache partition and dependent results while required work drains.
+- Refine Azure/Entra request boundaries: accept resolved Container Registry endpoints, expose tenant-root management-group and inherited-role-definition requests, and replace tag, role-assignment-create, PIM-activation, and name-availability helpers with registered operations. Construct tenant-root scopes directly from explicit tenant IDs, require ordered unique group-batch inputs, normalize Entra request names, and keep routine SDK logging at debug level.
+
+- Wait for asynchronous tag updates before returning, retaining affected-read invalidation and failure artifacts. Use targeted Merge patches when adding tags, and bound polling HTTP exchanges without abandoning required persistence or cleanup.
+
+- Add named Cloud Terrastodon accounts with stable IDs, tenant/service-scoped aliases, explicit defaults, and isolated CLI/browser/workload/PAT/Gitea credential sessions. Entra user accounts can register both CLI and browser mechanisms after verified principal matching, select a preferred source, and override it per request. Source-specific logout preserves other mechanisms; retirement drains required work and invalidates affected cache partitions and dependent results.
+
+- Move authentication selectors from global arguments into authenticated command leaves, sharing `AzureAuthenticationArgs` and `AzureDevOpsAuthenticationArgs` through `auth_cli`. Resolve concrete tenant/account/source metadata before request construction and use one invocation-owned provider and executor throughout. Local commands have no authentication arguments; Azure DevOps bearer and PAT accounts resolve in distinct tenant and organization namespaces.
 
 - Complete the request-first SDK cutover: pure serializable account/source/tenant fields, domain-prefixed Azure/Entra request and Azure resource-group/storage-account families, and direct `Request { ... }.execute(executor)` calls. Remove trivial fetch factories, runtime fields, reflective cancellation injection, and ambient Azure CLI defaults. This is a breaking API change without compatibility exports.
 
@@ -40,7 +46,7 @@
 
 - Keep REST authentication as explicit account/source/tenant selection. Credential providers own token acquisition, including isolated Container Registry challenge exchanges and delegated Graph credentials; requests no longer retain runtime credentials or cancellation scopes.
 
-- Bind explicitly selected accounts to the executor's admitted provider map, preserving cache ownership, cancellation, and execution lineage across CLI and UI callers.
+- Acquire credential sessions lazily by request-selected account and source through the executor's shared provider, preserving cache ownership, cancellation, and execution lineage across CLI and UI callers without rebinding the executor.
 
 - Remove the Command-owned global cache and legacy request-cache APIs. Cache listing and cleanup use the explicit `WorkCache` owner and a metadata-only inventory that never reads cached payloads or credential inputs.
 
@@ -66,7 +72,7 @@
 
 - Let `WorkCache` own temporary directories through `temporary()` and `from_tempdir()`. Cleanup follows the last shared cache or artifact owner; path-only caches retain caller-managed storage.
 
-- Add `cloud_terrastodon_execution` with explicitly bound request execution, shared cache/authentication handles, linked cancellation scopes, and an injected credential-provider interface. `AppContext::executor()` binds the current app context without credential discovery or cache I/O; existing auth/cancellation fields remain available.
+- Add `cloud_terrastodon_execution` with explicit request execution, shared cache/authentication handles, linked cancellation scopes, and an injected credential-provider interface. `AppContext::executor()` shares the provider/cache and current cancellation scope without credential discovery or cache I/O.
 
 - Bind registry invocation and UI jobs to the explicit executor. `register_executable_request!` supports data-only requests and shared outputs; offline discovery does not acquire credentials or execute requests. Each UI job retains independent cancellation. Remove the legacy `IntoFuture` registration callback and reflective cancellation injection.
 
@@ -78,7 +84,7 @@
 
 - Move Terraform formatting to `hcl::AsFormattedHclString`, keeping pure HCL conversions in `hcl_types`. Extract resource-type maintenance into the unpublished `tools/resource-types-cli` with offline generation/checking and explicit tenant ID-or-alias/source refresh. The types crates no longer depend transitively on command execution.
 
-- Add `App::without_authentication()` for credential-free startup regardless of Cargo feature unification; service commands can own their explicit credential selection.
+- Default `App` to an anonymous provider and support `App::authentication_provider` injection. Remove the app's `auth` feature and `AppContext::auth`; service commands own their explicit credential selection independently of Cargo feature unification.
 
 - Remove the direct command dependency from Azure response types; Resource Graph row decoding requires only Facet and keeps the same public response types and diagnostics.
 
@@ -100,7 +106,7 @@
 
 - Stream CLI JSON directly through the supplied cancellation-aware writer, preserving scoped deferral and cancellation reasons without buffering a complete document. Saved group plans check writes before caller-owned buffering and explicitly flush before publication.
 
-- Add explicit `AuthSource::None` / `--auth-source none` to disable credential discovery and reject authenticated requests, including local-only group-management validation. Map it to cache-free `AuthContext::None`, and rename the default placeholder to `AuthContext::Unresolved`.
+- Add explicit `AuthSource::None` / `--auth-source none` to reject authenticated leaf operations before account/default lookup. Local operations use the anonymous provider without authentication flags or runtime credential contexts.
 - Pass cancellation scopes through output rendering and emission, support incremental custom output writers, and check cancellation between bounded writes; text rendering loops also observe cancellation. Use Teamy Cancellation's I/O helpers and typed cancellation-error extensions.
 
 - Add the multi-file `group-management` consumer example with tenant-qualified `groupId` input, local validation, explicit exact/additive relationship policies, workload-identity preflight, and read-only saved plans with completeness blockers.

@@ -257,6 +257,10 @@ path = "./crates/auth"
 version = "0.37.0" # CT_VERSION
 path = "./crates/auth_types"
 
+[workspace.dependencies.cloud_terrastodon_auth_cli]
+version = "0.37.0" # CT_VERSION
+path = "./crates/auth_cli"
+
 [workspace.dependencies.cloud_terrastodon_rest]
 version = "0.37.0"            # CT_VERSION
 path = "./crates/rest"
@@ -313,6 +317,7 @@ cloud_terrastodon_ui_ratatui = { workspace = true, optional = true }
 cloud_terrastodon_ui_egui = { workspace = true, optional = true }
 cloud_terrastodon_auth = { workspace = true, optional = true }
 cloud_terrastodon_auth_types = { workspace = true, optional = true }
+cloud_terrastodon_auth_cli = { workspace = true, optional = true }
 cloud_terrastodon_execution = { workspace = true, optional = true }
 cloud_terrastodon_rest = { workspace = true, optional = true }
 
@@ -328,7 +333,7 @@ default = ["full"]
 entrypoint = ["dep:cloud_terrastodon_entrypoint", "dep:mimalloc"]
 # Reusable startup for consumer-owned CLIs; these do not enable our command tree.
 app = ["dep:cloud_terrastodon_app"]
-app-auth = ["app", "cloud_terrastodon_app/auth"]
+
 app-terminal = ["app", "cloud_terrastodon_app/terminal"]
 # Enable high-frequency instrumentation intended for profiling and diagnosis.
 extended_observability = [
@@ -373,12 +378,13 @@ ui-ratatui = ["dep:cloud_terrastodon_ui_ratatui"]
 ui-egui = ["dep:cloud_terrastodon_ui_egui"]
 auth = ["dep:cloud_terrastodon_auth"]
 auth-types = ["dep:cloud_terrastodon_auth_types"]
+auth-cli = ["dep:cloud_terrastodon_auth_cli"]
 execution = ["dep:cloud_terrastodon_execution"]
 rest = ["dep:cloud_terrastodon_rest"]
 
 # Convenience feature that enables all re-exports, similar to tokio's `full`.
 full = [
-    "app-auth",
+    "app",
     "pathing",
     "source",
     "source-types",
@@ -404,6 +410,7 @@ full = [
     "ui-egui",
     "auth",
     "auth-types",
+    "auth-cli",
     "execution",
     "rest",
 ]
@@ -416,7 +423,7 @@ required-features = ["entrypoint"]
 
 [[example]]
 name = "resource_group_list"
-required-features = ["app-auth", "azure", "execution"]
+required-features = ["app", "auth", "auth-cli", "azure", "execution"]
 test = true
 
 

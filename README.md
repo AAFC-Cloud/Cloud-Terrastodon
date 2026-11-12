@@ -38,7 +38,7 @@ explicit tenant ID or tracked alias. The add command returns the account ID:
 ```pwsh
 ct account add azure-cli --name admin --tenant example-tenant
 ct account login <account-id>
-ct --account admin az subscription list --tenant example-tenant
+ct az subscription list --tenant example-tenant --account admin
 ```
 
 This login persists in Cloud Terrastodon's own store. A separate `az login`

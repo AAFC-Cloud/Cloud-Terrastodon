@@ -1,255 +1,254 @@
 # Authentication
 
-Cloud Terrastodon uses one shared authentication boundary for Graph, Azure
-Resource Manager (ARM), and Azure DevOps REST requests. The resource audience
-is selected by the request; callers do not pass tokens between services.
+Cloud Terrastodon accounts identify a principal within a tenant or service
+namespace. Each account has a stable `CloudTerrastodonAccountId`, a scoped alias,
+registered credential mechanisms, and a preferred source. Requests retain the
+resolved account ID, concrete source, and Entra tenant where applicable; the
+executor's shared provider holds credentials and token caches.
 
-For the next-release crate/import cutover and the scope of the executor work,
-see [authentication selections and execution](auth-execution-migration.md).
+Account aliases such as `admin` and `user` are scoped to an Entra tenant, an Azure
+DevOps organization/Server collection for PATs, or a Gitea instance. Entra accounts
+can acquire the Graph, ARM, Azure DevOps, Key Vault, and Container Registry
+audiences supported by their provider. An organization or project remains request
+scope, independently of the tenant that issues a bearer token.
 
-## Selecting an authentication source
+## Registering and selecting accounts
 
-Use the global option on any command:
-
-```text
-ct --auth-source auto <command>
-```
-
-The supported values are:
-
-- `auto` (the default): use workload identity when configured and otherwise use
-  the application-owned Azure CLI source. It never starts a new browser login;
-  use `ct az tenant login <tenant>` or select `browser` explicitly for that.
-- `none`: disable credential discovery and refuse authenticated requests that
-  use the invocation's `AuthContext`. Use it for local-only operations such as
-  group-management validation.
-- `workload-identity`: require the pipeline workload-identity inputs and use a
-  short-lived Entra bearer token.
-- `browser`: use the delegated browser/PKCE flow for shared REST requests to
-  Graph, ARM, and Azure DevOps, plus PIM operations. Browser-backed REST
-  requests use the tenant from the stored browser session when one is
-  available; otherwise callers must provide an explicit tenant so the correct
-  Entra authority can be selected.
-- `azure-cli`: use an explicitly selected tenant's login in Cloud Terrastodon's
-  persistent Azure CLI store. A separate `az login` does not populate this store.
-- `pat`: explicitly use the Azure DevOps PAT compatibility source. This is not
-  a workload-identity flow and is not a pipeline requirement.
-
-`--debug` controls diagnostics only; it does not select authentication.
-
-Selecting `none` creates `AuthContext::None`, an explicitly disabled policy without
-inspecting workload-identity environment variables or discovering stored browser
-sessions. AuthContext-governed Graph, ARM, and Azure DevOps operations reject it,
-including REST requests supplied an explicit bearer token. Default-tenant lookup
-and tenant login also reject it instead of consulting a signed-in Azure CLI
-account. Consumer CLIs can select this policy before `App::run_parsed` for
-local-only subcommands.
-
-`AuthContext::Unresolved` is the inert placeholder used by default and generated
-request construction. It means no invocation policy has been attached yet;
-it is distinct from explicitly disabling authentication with `AuthContext::None`.
-The explicit `None` variant carries no credential configuration or token caches.
-
-This policy governs operations using the supplied `AuthContext`; it does not
-change independent credential APIs invoked directly without that context or
-Gitea's separate authentication.
-
-## Per-tenant authentication defaults
-
-Tracked tenants can have their own default source. Set it while adding a
-tenant:
+Register an acquisition source, then explicitly provision its credential session:
 
 ```text
-ct az tenant add <tenant-id> --auth-source browser
+ct account add azure-cli --name admin --tenant <tenant-or-alias>
+ct account login <account-id>
+ct az devops project list --org <organization> --tenant <tenant-or-alias> --account admin
 ```
 
-Or update an existing tenant, using its id or alias:
+The `add` result includes the stable account ID. Authenticated command leaves own
+`--account`, `--auth-source`, and their tenant selector; these are not global
+arguments. `--account` accepts an ID or an alias within the command's explicit
+tenant/service namespace. No account is selected merely because it is first or
+is the only account available. The alias `default` is reserved, ignoring case.
 
 ```text
-ct az tenant set-auth-source <tenant-or-alias> browser
+ct account list
+ct account show <account-id>
+ct account default set <account-id>
+ct account default clear <account-id>
 ```
 
-The tenant setting is used when the global source is `auto`; an explicit global
-`--auth-source` takes precedence. Set the tenant source to `auto` to restore
-automatic selection.
+Defaults are deliberate, namespace-specific choices. An explicit `--account`
+overrides the default; a missing, incompatible, retired, or removed account
+fails without fallback. Changing a default does not change an already resolved
+request. Defaults do not supply Azure DevOps `--org` or `--project`.
 
-In an automatically detected headless context (`CI`, Azure DevOps build
-variables, or non-terminal standard input), Cloud Terrastodon rejects Azure CLI
-authentication even when a stored login exists. It does not launch device code
-or browser authentication when WIF configuration is missing. Use a WIF service
-connection for pipelines.
+`--auth-source auto` uses the selected account's preferred registered mechanism;
+it does not inspect environment variables, discover credentials, or pick an
+ambient Azure CLI account. Explicit `azure-cli`, `browser`, `workload-identity`,
+or `pat` selects that registered mechanism. An unavailable preferred or explicitly
+selected source fails; another source is never tried implicitly.
 
-## Explicit tenant and Azure CLI sessions
+`--auth-source none` rejects authenticated service operations before account or
+tenant-default lookup. Local commands do not need authentication arguments.
+Account provisioning and cleanup have their own explicit command surfaces.
 
-Every bearer request carries a concrete tenant, including requests authenticated
-through Azure CLI. Azure DevOps commands accept `--tenant <tenant-id-or-alias>`;
-omitting it requires a tenant already carried by workload identity or a selected
-browser session. Azure CLI's active tenant is not an authentication fallback.
-PAT authentication is tenant-independent. Organization and project selection
-remain separate from authentication.
+Interactive Azure DevOps menu actions prompt for the organization, then the
+authentication scope, account, and source. A blank tenant selects that
+organization's PAT namespace; an explicit tenant ID or alias selects Entra.
+Blank account/source choices use only that scope's configured account default
+and its preferred source, with no probing or fallback between PAT and Entra.
 
-Establish the tenant's CLI login explicitly:
+Tenant tracking keeps aliases and an explicitly configured CT tenant default:
 
 ```text
-ct az tenant login <tenant-id-or-alias> --auth-source azure-cli
-ct az devops project list --org <organization-url> --tenant <tenant-id-or-alias> --auth-source azure-cli
+ct az tenant add <tenant-id> --alias example
+ct az tenant default example
 ```
 
-Cloud Terrastodon stores this login under its configuration directory in
-`azure-cli-sessions`, using an isolated `AZURE_CONFIG_DIR`. The store persists
-between invocations. Token acquisition does not start a login; if the selected
-session is missing or unusable, run the explicit tenant-login command. The
-default tenant-login flow remains browser/PKCE; choose `azure-cli` explicitly
-for this store.
+Bearer requests always contain a concrete tenant, including Azure CLI requests.
+An explicit `default` tenant selector resolves the CT setting; it never reads
+Azure CLI's active subscription or tenant. Azure DevOps bearer commands require
+`--tenant`; PAT commands omit it and resolve accounts in their organization
+namespace.
 
-Each login creates a new generation. An authentication context and its clones
-retain their tenant's selected generation, so a later login does not replace
-the identity used by work already in progress. Credential subprocess output
-bypasses the general command artifacts. The logout command revokes the stored
-CLI generations as well as clearing the other sources described below.
+## Several mechanisms for one account
 
-## Workload identity environment variables
-
-Both environment naming conventions are accepted. Use one complete set, and do
-not set conflicting values:
-
-| Azure SDK-style | Azure DevOps task-style | Meaning |
-| --- | --- | --- |
-| `AZURE_CLIENT_ID` | `servicePrincipalId` | Entra application/client ID |
-| `AZURE_TENANT_ID` | `tenantId` | Entra tenant ID |
-| `AZURE_FEDERATED_TOKEN` | `idToken` | OIDC client assertion |
-
-The assertion is exchanged for a resource-specific bearer token. The current
-resource audiences are Graph, ARM, and Azure DevOps; assertions and access
-tokens are never included in logs, cache keys, or command summaries.
-
-The pipeline identity is the service connection/app registration. It is not a
-signed-in user. ARM access is governed by that identity's RBAC assignments,
-Graph access by its Entra application permissions, and Azure DevOps access by
-the service principal's explicit organization membership, licensing, and
-organization permissions. Local delegated flows continue to act as the user.
-
-## Delegated browser boundary
-
-Browser authentication is an interactive, delegated-user workflow. Access
-tokens are resource-specific: a Graph token cannot be reused for ARM or Azure
-DevOps. PIM remains delegated and interactive; the first pipeline milestone
-does not activate PIM or turn a service principal into a user. A pipeline that
-needs PIM must use a separately designed and authorized flow.
-
-The browser provider caches access and refresh tokens only inside the explicit
-`AuthContext` for the current invocation. It does not write browser tokens to
-the command cache or logs. `ct az tenant login <tenant-or-alias>` performs the
-interactive login and persists only the refresh token: on Linux it is written
-to a user-only (`0600`) file, while Windows uses Credential Manager. Subsequent
-commands can select the browser source explicitly or through a tenant default.
-The initial browser consent requests the delegated Graph, ARM, and Azure DevOps scopes
-together, while each access-token exchange remains resource-specific. A browser
-context stays bound to its admitted tenant and client. To switch tenants, run
-`ct az tenant login <tenant-or-alias> --auth-source browser`, then start a new
-invocation with that tenant. If refresh requires reauthentication, explicitly
-log in and start a new context; the existing context never prompts for another
-account.
-PIM's existing Windows Credential Manager path remains compatible. To use browser
-authentication by default for a tracked tenant, configure its per-tenant
-authentication default.
-
-The callback listener binds to a dynamically chosen `localhost` port. In WSL,
-VS Code can forward that port to the host browser when automatic port
-forwarding is enabled; if it does not, the command prints the authorization URL
-and the forwarded port can be opened manually.
-
-The browser flow needs the public client's app registration ID before its first
-login. Bootstrap a known registration without Azure CLI or Graph authentication:
+An Entra user account can register both Azure CLI and delegated browser
+authentication without changing its account ID:
 
 ```text
-ct az pim setup --tenant <tenant-or-alias> --client-id <application-client-id>
-ct --auth-source browser az tenant login <tenant-or-alias>
+ct account credential add-browser <account-id> --tenant <tenant-or-alias> --client-id <application-client-id>
+ct account login <account-id> --source browser
+ct account credential prefer <account-id> --source browser
+ct az resource-group list --tenant <tenant-or-alias> --account admin --auth-source azure-cli
 ```
 
-Supplying `--client-id` only persists the tenant-to-client-ID mapping; it does
-not verify the registration or its delegated permissions. Omitting it preserves
-the authenticated discovery and permission-validation setup path.
+`account credential add-azure-cli <account-id> --tenant <tenant-or-alias>` adds
+the CLI mechanism to an existing browser account. Registration checks the
+account's tenant. Login verifies the authenticated Graph `/me` object ID against
+the principal already recorded for the account; a different user is rejected and
+the candidate session is cleaned up. An unverified JWT claim is not sufficient
+identity proof. Each mechanism has its own credential generation and token cache.
 
-## Logging out
+Changing the preferred source does not provision it. Login is still required
+before use. Workload identities represent application principals and cannot be
+added to an interactive user account. PAT and Gitea accounts retain one source;
+their service namespace remains independent of Entra bearer authentication.
+
+## Source-specific provisioning
+
+### Azure CLI
+
+`account add azure-cli` records the tenant. `account login` establishes a login
+in an account-owned, generation-specific `AZURE_CONFIG_DIR` beneath the CT
+configuration directory. Two accounts in the same tenant have separate stores.
+A separate ambient `az login` does not populate them.
+
+Token acquisition is noninteractive and verifies the captured CLI identity.
+It cannot run account-changing service commands or select another login.
+Explicitly provisioned sessions can be reused noninteractively in scripts and
+CI. Requests never trigger login, including when that session has expired or is
+missing. Workload identity remains available for application-based pipelines.
+
+### Delegated browser
 
 ```text
-cloud_terrastodon.exe az tenant logout
+ct account add browser --name admin --tenant <tenant-or-alias> --client-id <application-client-id>
+ct account login <account-id>
 ```
 
-This logs out across all tenants and organizations, regardless of `--auth-source`.
-It removes the stored browser session and, on Windows, all Cloud Terrastodon
-browser and legacy PIM refresh tokens from Credential Manager. It revokes Cloud
-Terrastodon's application-owned CLI generations and clears their credentials,
-retaining the revoked directories so existing contexts fail on their next use.
-It also runs
-[`az logout`](https://learn.microsoft.com/en-us/cli/azure/reference-index#az-logout)
-for the active account,
-[`az account clear`](https://learn.microsoft.com/en-us/cli/azure/account#az-account-clear)
-to log out the remaining cached users and service principals, and
-[`az devops logout`](https://learn.microsoft.com/en-us/cli/azure/devops#az-devops-logout)
-without an organization filter. Every source is attempted even if
-another fails; any failure is reported after cleanup. Azure CLI and its Azure
-DevOps extension must be installed for those logout steps to succeed.
+The explicit login performs authorization code + PKCE with a dynamic localhost
+callback port. The account owns its refresh credential; resource-specific access
+tokens remain in memory. Windows stores the refresh credential in Credential
+Manager. Unix uses an account-owned file with owner-only permissions.
 
-Logout preserves tracked tenants, aliases, and PIM client registrations. It does
-not revoke tokens remotely or clear browser cookies. Credentials supplied through
-environment variables, including PATs and workload identity assertions or token
-files, remain available to future processes until removed from the calling shell
-or pipeline. Logout bypasses credential discovery so a broken authentication
-configuration does not prevent cleanup.
+Ordinary requests only redeem the captured refresh session. They never launch
+another browser login or consult a tenant-wide PIM client setting. Refresh
+rotation preserves the selected account; failed refresh does not switch users.
+PIM activation uses the already selected delegated browser/Azure CLI account,
+rather than acquiring a separate user identity.
 
-## Azure CLI and PAT compatibility
+`ct az pim setup` remains an app-registration discovery/permission-validation
+tool. Supply the resulting client ID explicitly when registering a browser
+account. Setup reports that registration command without writing tenant-wide client settings.
 
-Azure CLI and PAT-backed paths remain for local compatibility and follow-on
-commands. They are not required by the WIF audit targets. The first migration
-removes direct Azure CLI request execution from the five Azure DevOps request
-families used by `ct audit azure-devops`; the audit command also passes its
-entrypoint context through every Graph, ARM Resource Graph, and Azure DevOps
-request (including parallel and paginated work). Other CLI-backed commands are
-tracked in the local secretless-authentication plan. The typed `ct az devops
-project list` path now receives the same invocation context on every paginated
-request. Policy remediation and storage-backend selection use typed ARM REST
-requests with that same selected authentication context. The backend picker
-lists management-plane container metadata; listing does not establish access to
-the blobs themselves. The CLI service-command bridge has been removed, while
-the owned CLI login store remains available for token acquisition. See the
-[migration scope](auth-execution-migration.md#migration-scope) for the remaining
-legacy paths and the inventory behavior change.
+### Workload identity
 
-In a workload-identity pipeline, pass `--tenant` to an audit command when the
-tenant cannot be inferred from the service-connection environment, and pass
-`--org` explicitly for Azure DevOps. Project-scoped commands also require
-`--project`; neither selector falls back to configured Azure DevOps defaults.
-This avoids depending on a signed-in Azure CLI account for tenant or organization
-metadata.
-For raw `ct rest` ARM requests, an explicit `--tenant` wins; otherwise the
-tenant carried by workload identity or the stored browser session is used
-before the legacy tracked-subscription fallback.
+```text
+ct account add workload-identity --name automation --tenant <tenant-or-alias> --client-id <application-client-id> --assertion-file <path>
+ct account login <account-id>
+```
 
-## Linux browser-flow acceptance checklist
+The registration records an explicit absolute assertion-file location and
+tenant/client identity. Login exchanges the configured assertion to verify that
+identity before activating the registration. Session acquisition
+reads the selected assertion once and exchanges it for each required audience;
+SDK requests do not rediscover environment inputs. Pipelines own obtaining and
+refreshing the assertion file before a new invocation.
 
-Run this checklist from the WSL terminal after building Cloud Terrastodon. Use
-an organization URL appropriate to your environment; do not put credentials in
-the command line.
+The Entra application/service principal is the account's remote identity.
+Its RBAC, Graph permissions, Azure DevOps membership, licensing, and permissions
+must be configured independently. Selecting workload identity does not create
+delegated user rights.
 
-1. With no application-owned Azure CLI session, run
-   `ct az devops project list --org <organization-url> --tenant <tenant-or-alias> --auth-source azure-cli`.
-   The command should fail quickly at authentication and must not launch
-   device-code or `az login`.
-2. Run `ct az tenant login <tenant-or-alias> --auth-source browser`. The command
-   should open (or print) the Entra authorization URL and show the dynamically
-   selected localhost callback port.
-3. If the host browser cannot reach WSL directly, forward that port in VS Code
-   and open the printed URL. After the callback completes, rerun the project
-   list command with `--auth-source browser` and the same explicit tenant; the
-   stored browser refresh token should obtain the Azure DevOps bearer token
-   without Azure CLI.
+### Azure DevOps PAT
 
-## Pipeline prerequisites
+```text
+ct account add azure-devops --name admin --org <organization-or-server-collection>
+ct account login <account-id> --pat-stdin
+ct az devops project list --org <organization-or-server-collection> --account admin --auth-source pat
+```
 
-Before live validation, the pipeline owner must verify the single app
-registration/service connection's federated credential, tenant, ARM scope,
-Graph permissions, Azure DevOps organization access, and licensing. Those
-tenant and service-connection checks are intentionally not performed by local
-build/test work.
+Pipe the PAT into the login command. Tokens are not command-line arguments and
+interactive echoed standard input is rejected. Each PAT is stored independently
+under its account and generation, never in list/show output or request JSON.
+
+PAT requests must remain within the registered organization/collection.
+Admission checks the target before result reuse or credential transmission,
+including supported API-area hosts. REST does not automatically follow redirects
+that could bypass that target check. A PAT does not require an Entra tenant.
+
+### Gitea
+
+```text
+ct account add gitea --name user --instance <instance-url> --login <tea-login-name> --configuration <tea-config-file>
+ct account login <account-id>
+```
+
+Supply a tea configuration containing exactly the selected login. Explicit
+account login validates its name and instance using tea's local login metadata
+and captures the configuration as a credential. It does not query the service.
+Later commands use a private temporary configuration snapshot through
+`XDG_CONFIG_HOME`, select the captured login explicitly, and clear overriding
+tea/Gitea environment settings. Changes to the original external file cannot
+switch an admitted request's identity.
+
+The last retained snapshot owner removes its temporary credential file. Gitea
+result reuse remains disabled under the existing external-provider policy.
+
+## Identity renewal, logout, and removal
+
+```text
+ct account logout <account-id>
+ct account logout <account-id> --source browser
+ct account remove <account-id>
+```
+
+Logout without `--source` retires every registered source; supplying it retires
+only that mechanism. Removal retires all sources. They do not log out ambient
+Azure CLI accounts, revoke credentials remotely, or clear browser cookies.
+Removal also deletes the registration and any default referring to it; reusing
+its alias produces a new account ID.
+
+Automatic browser/CLI token renewal retains an admitted identity. Explicit login
+refuses to overwrite an active source; log it out first. A later Entra login
+must verify the same tenant-local user or application principal before publishing
+a replacement session. PAT and Gitea replacements still require a new account
+because their flows do not establish principal continuity. An old request ID
+cannot silently select a different principal.
+
+First-login/import generations are durably marked as provisioning before
+credential writes. They cannot authorize requests. Retrying an interrupted
+first attempt cleans that generation; retired generations retain their identifier
+so cleanup errors can be retried.
+
+Embedded applications first call `executor.retire_account(account_id, source)`;
+`None` retires all sources. Owners holding the provider directly can use
+`CredentialAuthenticationProvider::retire` with their shared cache and scope,
+or `retire_source` for one mechanism. The account logout/remove CLI commands
+already perform this step before durable cleanup.
+It closes new admission, cancels optional work, drains admitted deferred work,
+and invalidates affected authentication partitions before and after draining.
+Only then should the owner remove durable credentials through the account store.
+Already returned `Arc` values cannot be retracted. Separate running processes
+are outside this cache/lease coordination contract; durable retirement prevents
+new invocations from reopening the retired stored generation.
+
+## Explicit legacy import
+
+```text
+ct account import-legacy <new-account-id>
+```
+
+First register the intended source and scope. `--source` chooses a registered
+mechanism; omission uses the preferred source. Import can adopt the previous
+CT-owned Azure CLI tenant store, the matching old CT browser session, or the
+legacy Azure DevOps PAT location. Ordinary startup never imports them. Browser
+imports require the registered tenant and client to match. Gitea and workload
+identity use their explicit acquisition configuration through `account login`.
+Entra imports verify the authenticated principal before activation. The earlier
+single-credential draft account catalogue is not silently relocated or upgraded;
+an incompatible catalogue fails decoding.
+
+The former `ct az tenant login`, `logout`, and `set-auth-source` commands have
+been removed. Tenant aliases remain separate from account aliases.
+
+## Verification
+
+Offline Cargo tests cover account selection, immutable snapshots, partition
+isolation, destination validation, and cooperative retirement with synthetic
+data. They do not acquire production credentials. Operator-selected service
+verification belongs to `ct test run <registry-pattern>`; `--clean` requests
+normal cache invalidation before execution. Without it, successful cached reads
+are not evidence of current live API compatibility.
+
+See [authentication selections and execution](auth-execution-migration.md) for
+the SDK contract and crate responsibilities.

@@ -38,7 +38,7 @@ To configure a discovery plan without invoking cloud APIs:
    **create new owned List<RegisteredFunction>** to select a smaller catalog.
 3. On `seeds`, choose **create new owned List<RegisteredShape>** and select the
    input shapes to assume available, for example `AzureDevOpsOrganizationUrl`
-   and `AzureDevOpsAuthContext`. This supplies type assumptions, not credentials
+   and `AzureDevOpsAuthSelection`. This supplies type assumptions, not credentials
    or actual objects. Ctrl-Enter with nothing checked supplies an empty list.
 4. On `targets`, choose **create new owned List<RegisteredShape>** (the reflected
    `Vec<RegisteredShape>`). Search for

@@ -9,7 +9,8 @@ name = "field-notes"
 path = "src/main.rs"
 
 [dependencies]
-cloud_terrastodon = { path = "../..", version = "=0.37.0", default-features = false, features = ["app-auth", "azure", "execution"] }
+cloud_terrastodon_auth_cli.workspace = true
+cloud_terrastodon = { path = "../..", version = "=0.37.0", default-features = false, features = ["app", "azure", "execution", "auth", "auth-types"] }
 # Figue's attribute expansion currently requires ::facet in the extern prelude.
 # Keep the canonical Rust alias for TeamDman's distinct published package.
 facet.workspace = true

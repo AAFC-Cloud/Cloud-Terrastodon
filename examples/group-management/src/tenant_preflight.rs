@@ -1,58 +1,48 @@
 use crate::domain::DesiredGroup;
-use cloud_terrastodon::app::AuthContext;
-use cloud_terrastodon::auth::AzureTenantAuthContext;
+use cloud_terrastodon::auth_types::AuthSource;
+use cloud_terrastodon::auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon::azure_types::AzureTenantId;
+use cloud_terrastodon::execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use eyre::WrapErr;
 use eyre::ensure;
 use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 
-/// Bind the entire selected scope before any Graph reads or credential exchanges.
+/// Resolve the entire selected scope before any Graph reads or credential exchanges.
 pub(crate) fn preflight_tenants(
     groups: &[DesiredGroup],
-    auth: &AuthContext,
-) -> Result<BTreeMap<AzureTenantId, AzureTenantAuthContext>> {
-    let required = {
-        let mut tenants: Vec<_> = groups.iter().map(|group| group.tenant_id).collect();
-        tenants.sort_by_key(ToString::to_string);
-        tenants.dedup();
-        tenants
-    };
-    if let Some(workload) = auth.workload_identity() {
-        let missing: Vec<_> = required
-            .iter()
-            .filter(|tenant| **tenant != workload.tenant_id)
-            .map(ToString::to_string)
-            .collect();
-        ensure!(
-            missing.is_empty(),
-            "Tenant authentication preflight failed: required [{}]; available workload-identity tenant [{}]; missing [{}]. No directory reads were started. Select a tenant explicitly with --only-tenant and its matching service connection, or supply matching credentials.",
-            required
-                .iter()
-                .map(ToString::to_string)
-                .collect::<Vec<_>>()
-                .join(", "),
-            workload.tenant_id,
-            missing.join(", ")
-        );
-    }
-    required
-        .into_iter()
-        .map(|tenant| {
-            auth.bind_to_azure_tenant(tenant)
-                .map(|binding| (tenant, binding))
-        })
-        .collect()
+    account: Option<&str>,
+    source: AuthSource,
+    executor: &CloudTerrastodonExecutor,
+) -> Result<BTreeMap<AzureTenantId, AzureBearerAuthenticationSelection>> {
+    ensure!(
+        source != AuthSource::None,
+        "authentication is disabled by auth source none"
+    );
+    groups.iter().map(|group| group.tenant_id).collect::<BTreeSet<_>>()
+        .into_iter().map(|tenant| {
+            executor.resolve_azure_authentication(tenant, account, source)
+                .map(|selection| (tenant, selection))
+                .wrap_err_with(|| format!(
+                    "Tenant authentication preflight failed for {tenant}. No directory reads were started. Register a matching account or select a tenant explicitly with --only-tenant."
+                ))
+        }).collect()
 }
 
 #[cfg(test)]
 mod tests {
-    use super::preflight_tenants;
+    use super::*;
     use crate::DesireDocument;
-    use crate::domain::DesiredGroup;
     use crate::domain::ReconciliationMode;
-    use cloud_terrastodon::app::AuthContext;
-    use cloud_terrastodon::app::AuthSource;
-    use cloud_terrastodon::auth::WorkloadIdentityConfig;
+    use cloud_terrastodon::auth::CloudTerrastodonAccountCatalogue;
+    use cloud_terrastodon::auth::CloudTerrastodonAccountStore;
+    use cloud_terrastodon::auth::CredentialAuthenticationProvider;
+    use cloud_terrastodon::auth_types::CloudTerrastodonAccountCredential;
+    use cloud_terrastodon::auth_types::CloudTerrastodonAccountProfile;
+    use cloud_terrastodon_cache::WorkCache;
+    use std::sync::Arc;
+    use teamy_cancellation::CancellationToken;
 
     fn group(tenant: &str) -> DesiredGroup {
         DesiredGroup {
@@ -66,32 +56,59 @@ mod tests {
         }
     }
 
-    #[test]
-    fn mixed_tenants_fail_before_credential_exchange_and_explicit_selection_is_bounded() {
-        let first = "11111111-1111-4111-8111-111111111111";
-        let second = "22222222-2222-4222-8222-222222222222";
-        let auth = AuthContext::explicit(AuthSource::WorkloadIdentity)
-            .with_workload_identity(WorkloadIdentityConfig {
-                tenant_id: first.parse().unwrap(),
-                client_id: "44444444-4444-4444-8444-444444444444".parse().unwrap(),
-                federated_token: "synthetic-unused-assertion".into(),
+    #[tokio::test]
+    async fn mixed_tenants_fail_before_credential_exchange_and_explicit_selection_is_bounded()
+    -> Result<()> {
+        CancellationToken::new()
+            .with_async_scope(|scope| async move {
+                let first = "11111111-1111-4111-8111-111111111111";
+                let second = "22222222-2222-4222-8222-222222222222";
+                let directory = tempfile::tempdir()?;
+                let catalogue = CloudTerrastodonAccountCatalogue {
+                    accounts: vec![CloudTerrastodonAccountProfile::new(
+                        "44444444-4444-4444-8444-444444444444".parse()?,
+                        "admin".parse()?,
+                        CloudTerrastodonAccountCredential::AzureCli {
+                            tenant_id: first.parse()?,
+                        },
+                    )],
+                    defaults: Vec::new(),
+                };
+                std::fs::write(
+                    directory.path().join("accounts.json"),
+                    facet_json::to_string(&catalogue)?,
+                )?;
+                let executor = CloudTerrastodonExecutor::new(
+                    WorkCache::temporary()?,
+                    Arc::new(CredentialAuthenticationProvider::from_store(
+                        CloudTerrastodonAccountStore::new(directory.path())?,
+                    )),
+                    scope,
+                );
+                let desire = DesireDocument::try_new(
+                    vec![group(first), group(second)],
+                    "synthetic-document".into(),
+                )?;
+                let error =
+                    preflight_tenants(desire.groups(), Some("admin"), AuthSource::Auto, &executor)
+                        .unwrap_err();
+                assert!(error.to_string().contains(second));
+                assert!(error.to_string().contains("No directory reads"));
+                let first_tenant = first.parse()?;
+                let selected = desire.select_tenant(first_tenant)?;
+                assert_eq!(selected.source_digest(), "synthetic-document");
+                let selections = preflight_tenants(
+                    selected.groups(),
+                    Some("admin"),
+                    AuthSource::Auto,
+                    &executor,
+                )?;
+                assert_eq!(selections.len(), 1);
+                assert_eq!(selections[&first_tenant].tenant_id.to_string(), first);
+                assert!(selected.select_tenant(second.parse()?).is_err());
+                assert!(!directory.path().join("credentials").exists());
+                Ok(())
             })
-            .unwrap();
-        let desire = DesireDocument::try_new(
-            vec![group(first), group(second)],
-            "synthetic-document".into(),
-        )
-        .unwrap();
-        let error = preflight_tenants(desire.groups(), &auth).unwrap_err();
-        assert!(error.to_string().contains(second));
-        assert!(error.to_string().contains("No directory reads"));
-
-        let first_tenant = first.parse().unwrap();
-        let selected = desire.select_tenant(first_tenant).unwrap();
-        assert_eq!(selected.source_digest(), "synthetic-document");
-        let bindings = preflight_tenants(selected.groups(), &auth).unwrap();
-        assert_eq!(bindings.len(), 1);
-        assert_eq!(bindings[&first_tenant].tenant_id.to_string(), first);
-        assert!(selected.select_tenant(second.parse().unwrap()).is_err());
+            .await
     }
 }

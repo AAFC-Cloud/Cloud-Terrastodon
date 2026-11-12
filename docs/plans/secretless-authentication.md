@@ -1,12 +1,20 @@
 # Secretless authentication and audit pipeline support
 
-**Plan status:** Active — browser/typed-project/audit context slice implemented; live WIF validation deferred
-**Primary implementation root:** main in ~/repos/Cloud-Terrastodon (WSL)
-**Last updated:** 2026-08-27
+**Plan status:** Historical — superseded by the executor/account cutover.
+**Primary implementation root:** Repository root (`.`).
+**Last updated:** 2026-11-10
 **Intent audit:** Passed 2026-08-21 against the full conversation through the request to create this local plan  
 **Public issue:** Deferred; do not create or post a GitHub issue until this plan and its first milestone are reviewed  
 
-## Current implementation slice
+The implementation descriptions below preserve the earlier migration record;
+they are not the current public contract. Request-owned authentication contexts,
+tenant login commands, ambient workload discovery, and compatibility constructors
+have been replaced. See [current authentication](../authentication.md),
+[account contracts](accounts-runtime-tests-and-requests.md), and the
+[executor migration](executor-cache-migration.md). Live Linux/browser/pipeline
+compatibility evidence remains unavailable and is not implied by the cutover.
+
+## Historical implementation slice
 
 The local Rust track now supports the first interactive Linux handoff without
 calling Azure CLI for the migrated path:

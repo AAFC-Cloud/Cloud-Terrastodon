@@ -86,8 +86,10 @@ operation and corrects the journal. There is no automatic rollback.
 - [Work item model](../../crates/azure_devops_types/src/azure_devops_work_item.rs)
 - [Work item ID](../../crates/azure_devops_types/src/azure_devops_work_item_id.rs)
 - [JSON Patch operation](../../crates/azure_devops_types/src/azure_devops_json_patch_operation.rs)
-- [Item and metadata requests](../../crates/azure_devops/src/work_item_requests.rs)
-- [Shared field/link builders](../../crates/azure_devops/src/work_item_patch.rs)
+- [Item request](../../crates/azure_devops/src/azure_devops_work_item_get_request.rs)
+- [Metadata request](../../crates/azure_devops/src/azure_devops_work_item_field_definition_list_request.rs)
+- [Shared patch builder](../../crates/azure_devops_types/src/azure_devops_json_patch.rs)
+- [Link changes](../../crates/azure_devops/src/azure_devops_work_item_relation_change.rs)
 - [Query list request](../../crates/azure_devops/src/azure_devops_work_item_query_list_request.rs)
 - [Query get request](../../crates/azure_devops/src/azure_devops_work_item_query_get_request.rs)
 - [Query invoke request](../../crates/azure_devops/src/azure_devops_work_item_query_invoke_request.rs)
@@ -99,6 +101,7 @@ operation and corrects the journal. There is no automatic rollback.
 
 Offline tests generate identifiers and scope names. They build requests without
 sending writes and execute copies with an in-memory writer and temporary local
-journals. The opt-in live test reads only runtime-supplied IDs and schema metadata:
-no queries, traversal, service identifiers in fixtures, or response logging.
-Its returned errors are sanitized.
+journals. Service response verification is registered under `ct test`, with
+explicit account, scope, inputs, and effect admission. No live Cargo test remains.
+See [runtime verification](../runtime-verification.md) for selection and optional
+clean invalidation; development validation does not contact service accounts.

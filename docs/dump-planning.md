@@ -205,7 +205,7 @@ accepts `registry::FunctionDescriptor` references and needs no invocation
 registry. The request's `seeds` and `targets` fields are lists of
 `RegisteredShape`; choose them through the explorer's shape picker. Seeds declare
 the input types assumed available, such as `AzureDevOpsOrganizationUrl` and
-`AzureDevOpsAuthContext`. They do not create input values or resolve credentials.
+`AzureDevOpsAuthSelection`. They do not create input values or resolve credentials.
 An explicit empty seed list is valid and exposes blocked dependencies.
 
 The `functions` field defaults to the linked registry's operation catalog. It is

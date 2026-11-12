@@ -89,11 +89,11 @@ cargo +1.96.0 run --locked -p cloud-terrastodon-group-management -- validate --d
 ```
 
 Planning reads directory data **when you run it**. Supply your own desired-state
-file and an explicitly chosen authentication source:
+file and registered accounts in its selected tenants:
 
 ```powershell
-group-management plan --desired groups.json --auth-source workload-identity --out plan.json
-group-management plan --desired groups.json --auth-source azure-cli --output-format json
+group-management plan --desired groups.json --account automation --auth-source workload-identity --out plan.json
+group-management plan --desired groups.json --account admin --auth-source azure-cli --output-format json
 ```
 
 Without `--out`, the plan is emitted to stdout using the shared output format.
@@ -122,14 +122,20 @@ are sorted by their structured fields and exact duplicates are removed.
 Plans with blockers are still emitted and saved when requested, then the process
 exits unsuccessfully so a pipeline cannot treat them as ready to continue.
 
-Every selected tenant must pass authentication preflight before group inventory
-begins. Environment-backed workload identity authentication covers the tenant
-configured for that identity; the tool fails when a document requires another
-tenant rather than silently skipping it or switching to interactive login.
+Every selected tenant must pass account metadata resolution and credential
+preflight before group inventory begins. `--account` resolves an alias separately
+within each tenant; omission requires that tenant's explicitly configured account
+default. A stable account ID can only cover its own tenant. `--auth-source auto`
+uses each selected account's preferred registered mechanism; an explicit source
+selects that mechanism without fallback. Register and provision credentials
+through `ct account` first. Workload identity reads the account's configured
+assertion file, not ambient environment settings. The tool fails if any selected
+tenant lacks a matching account or credential rather than skipping it or logging
+in interactively.
 Tenant-scoped pipeline jobs can select their tenant explicitly:
 
 ```powershell
-group-management plan --desired groups.json --only-tenant 11111111-1111-4111-8111-111111111111 --auth-source workload-identity --out tenant-plan.json
+group-management plan --desired groups.json --only-tenant 11111111-1111-4111-8111-111111111111 --account automation --auth-source workload-identity --out tenant-plan.json
 ```
 
 The resulting plan reports that selection. A tenant ID in desired state selects
@@ -138,16 +144,15 @@ Configure the pipeline service connection and Microsoft Graph permissions before
 running the read-only planner.
 
 Shared `App` startup provides the global flags and builtin help/version handling.
-The entrypoint uses `parse_from` followed by `run_parsed` so local validation can
-skip credential-environment configuration while retaining common logging and
-cancellation. Validation selects `AuthSource::None`, which resolves to
-`AuthContext::None` and disables credential discovery and authenticated requests.
+The entrypoint uses `parse_from` followed by `run_parsed` and installs one lazy
+credential provider. Local validation has no authentication arguments and never
+asks that provider to read account metadata or credentials, while retaining
+common logging and cancellation. Only the `plan` leaf owns account/source flags.
 The root dispatcher forwards one `CliOutput`; `main` emits it once.
-SDK reads receive the handler's `CancellationScope`, with checkpoints between
+SDK reads use the shared executor and explicit authentication selections, with checkpoints between
 principal-resolution and inventory operations. Automatic cancellation is checked
 at poll boundaries; synchronous local validation and comparison are not preempted.
-The local validation command does not bind an authentication context to a tenant
-or acquire a token.
+The local validation command does not resolve an account or acquire a token.
 
 Tests include Figue argument-consistency checks and 128 successful roundtrips per
 `validate` and `plan` command leaf. These generate and parse argument values

@@ -4,11 +4,11 @@ Cloud Terrastodon can supply application startup without supplying your command
 tree. Define your own public CLI, reuse `GlobalArgs`, and call the shared runner.
 Cloud Terrastodon's main executable uses the same runner.
 
-Local tools can call `App::without_authentication()` to bypass credential
-discovery during startup, even when another workspace member enables the app's
-`auth` feature. The handler receives `AuthContext::None` in that configuration.
-Explicit global credential sources are rejected; applications that have service
-commands can resolve those commands' own explicit selections when invoked.
+Local tools use `App::new` with its default anonymous authentication provider.
+Authenticated applications install a shared provider with
+`App::authentication_provider`; the runner does not depend on runtime credential
+implementation or expose global account/source fields. Each authenticated
+command owns resolving its explicit request selection.
 
 ## Command crate boundaries
 
@@ -17,8 +17,9 @@ The main command tree composes `cloud_terrastodon_azure_cli`,
 `cloud_terrastodon_entrypoint`. Each CLI crate owns its command schemas, dispatch,
 and presentation and depends on its corresponding SDK crate. SDK and domain
 types crates do not depend on the CLI crates. `cloud_terrastodon_cli_types` holds
-shared validated CLI inputs; `cloud_terrastodon_app` supplies reusable startup
-and output facilities.
+shared validated CLI inputs; `cloud_terrastodon_auth_cli` owns the shared Azure
+and Azure DevOps authentication argument schemas and metadata resolution.
+`cloud_terrastodon_app` supplies reusable startup and output facilities.
 
 These boundaries give Cargo separate compilation units for the command groups.
 An entrypoint-only edit can reuse unchanged CLI crates, while SDK edits still
@@ -46,7 +47,7 @@ The [group-management example](../examples/group-management) demonstrates a larg
 consumer in its own workspace package. Its library owns domain validation and
 reconciliation planning, its command files follow the main CLI's structure, and
 its small `main.rs` selects startup policy and emits one output. Local validation
-uses no directory credentials; read-only planning binds explicit tenant identities
+uses no directory credentials; read-only planning resolves explicit tenant identities
 and reports incomplete inventories as blockers. See its README for the current
 milestone and planned apply workflow.
 
@@ -119,19 +120,22 @@ with shared application startup and cooperative cancellation.
 
 For a tool with just one operation, omit the `command` field and enum entirely.
 The [resource-group listing example](../examples/resource_group_list.rs) does this:
-its root contains globals and a typed `--tenant` selector, and its
-handler lists resource groups. `--auth-source` selects authentication;
+its root contains globals and operation-specific authentication selectors, and its
+handler lists resource groups. `--auth-source` selects a registered mechanism;
 `--tenant` accepts a tenant ID, tracked alias, or `default`. When omitted or set
-to `default`, binding through `context.auth` retains a known authentication tenant
-and otherwise falls back to Azure CLI's active tenant.
+to `default`, it uses the deliberately configured Cloud Terrastodon default tenant.
+`--account` selects an account within that tenant, or uses its configured account
+default. Run `ct account add` and `ct account login` to provision it first.
 
 ```powershell
-cargo +1.96.0 run --example resource_group_list -- --auth-source azure-cli --tenant YOUR_TENANT_ID_OR_ALIAS
+cargo +1.96.0 run --example resource_group_list -- --account admin --auth-source azure-cli --tenant YOUR_TENANT_ID_OR_ALIAS
 ```
 
 That command reads Azure data when executed. `App` automatically wraps the
-handler in a cancellable scope. Tenant binding and the SDK fetch receive
-`&context.cancellation` directly. The printing loop awaits
+handler in a cancellable scope. Tenant resolution uses `&context.cancellation`.
+The handler resolves a concrete authentication selection, constructs
+`AzureResourceGroupListRequest { authentication }`, and calls
+`.execute(&executor)` using the same invocation executor. The printing loop awaits
 `tokio::task::yield_now()` before each `println!`, giving the handler's wrapper
 a poll boundary at which to observe cancellation. A ready no-op await and a
 zero-duration sleep do not reliably suspend, and a blocking print already in
@@ -162,28 +166,40 @@ Cloud Terrastodon Azure CLI login store.
 | Facade feature | Facilities |
 | --- | --- |
 | `app` | Shared debug/logging/output arguments; text/JSON output rendering; Figue help/version/completions; caller-owned schema; error reporting; Tokio runtime; cooperative Ctrl-C cancellation |
-| `app-auth` | `GlobalArgs::auth_source`, `--auth-source`, and `AppContext::auth` using Cloud Terrastodon's authentication preferences |
+| `auth`, `auth-types` | Runtime account/credential provider and pure serializable authentication selections |
+| `auth-cli` | Shared flattened Azure/Azure DevOps authentication arguments and metadata-only resolution |
 | `app-terminal` | Coordinated terminal/picker task locals and buffered human logging; no full command tree or egui |
 
-Authentication resolves preferences at startup, not during help; individual
-Cloud Terrastodon API calls still determine whether credentials/network access
-are needed. Enable the facade's relevant SDK features separately when using those
-APIs. The auth feature brings in the registry through the `auth` crate.
-Terminal support brings in the picker/Ratatui dependencies. Features are additive:
-another dependency enabling `auth` adds its globals to the shared type too. Prefer
-`GlobalArgs::default()` over exhaustive literals when constructing it manually.
+Install a shared `CredentialAuthenticationProvider::configured()` using
+`App::authentication_provider(Arc::new(provider))` when service operations need
+stored accounts. Creating that provider does not read the catalogue or acquire
+credentials. Each leaf resolves its account metadata and constructs request data;
+request execution acquires that account/source's credential lazily. Enable the
+facade's relevant SDK features separately when using those APIs. Terminal support
+brings in the picker/Ratatui dependencies. Cargo features do not change which
+authentication flags appear in `GlobalArgs`: there are none.
 
-The standalone audit example opts into `app-auth` and `azure`, keeping default
-features disabled. To add the audit's SDK facilities to the minimal external
-project recipe above, use `features = ["app-auth", "azure"]` on the facade.
+The standalone audit example enables `app`, `auth`, `auth-types`, `azure`, and
+`execution`, plus a direct `cloud_terrastodon_auth_cli` dependency, with default
+features disabled. Consumers can instead use the facade's `auth-cli` feature and
+`auth_cli` module. To add the audit's SDK facilities to the minimal external
+project recipe above, use `features = ["app", "auth", "auth-cli", "azure", "execution"]`.
 Its `--tenant` accepts a tenant ID or tracked alias through `AzureTenantArgument`.
-Binding that argument to `context.auth` retains a known authentication tenant
-when omitted and otherwise uses Azure CLI's default tenant. The handler calls
-`fetch_all_resource_groups` for accessible subscriptions in that tenant; existing
-SDK request caches may supply the inventory.
-That default lookup remains part of the existing CLI selector. Authentication
-receives its resolved tenant and uses the application-owned CLI login described
-above. Supplying `--tenant` chooses the tenant directly through an ID or alias.
+The shared `AzureAuthenticationArgs` helper from `cloud_terrastodon_auth_cli`
+resolves that explicit tenant/alias or configured tenant default, then asks the
+executor for the concrete account/source selection. It does not replace the
+executor's provider or acquire a token.
+The handler constructs `AzureResourceGroupListRequest` with the resolved
+`AzureBearerAuthenticationSelection` and calls `.execute(executor)`. Cached
+results remain partitioned by the admitted account/session. Requests serialize
+account ID, concrete source, tenant, and operation data; the executor owns
+credentials, cancellation, and the shared cache. Local file/process helpers
+continue accepting only a cancellation scope when that is all they need.
+
+An invocation owns one `WorkCache`. Use `App::work_cache(cache)` to provide an
+explicit owner, including `WorkCache::temporary()?` for an isolated application
+or test. Every `AppContext::executor()` clone shares that owner; the temporary
+directory lives until its last owner is dropped.
 
 The runner accepts one tracing directive for each `--log-filter` and
 `--log-file-filter`, including a module directive such as `field_notes=debug`.
@@ -334,8 +350,8 @@ the report is emitted through `CliOutput` using the shared `--output-format`.
   Neither a `Send` nor a `'static` handler-future bound is imposed.
 - `App::run` and `run_parsed` enable automatic cooperative cancellation by
   default. The handler's `cancellable_scope` runner supplies
-  `context.cancellation`; pass that scope directly to SDK operations without
-  another top-level wrapper. It checks at poll boundaries, not after every
+  `context.cancellation`; executor handles share that scope, and local operations
+  accept it directly without another top-level wrapper. It checks at poll boundaries, not after every
   syntactic `.await`. Long synchronous loops need a scope checkpoint or a yield.
   Deeply nested deferrals keep their owning wrappers polling until the protected
   unit finishes; independent sibling scopes remain cancellable.
@@ -355,10 +371,11 @@ the report is emitted through `CliOutput` using the shared `--output-format`.
 
 ## Cancellation in SDK operations
 
-Pass `&context.cancellation` as the final argument to SDK fetch helpers and
-request constructors. This mandatory `CancellationScope` belongs to a bounded
-callback or future; requests retain a clone and pass it through serial operations,
-transport execution, and pagination. A raw `CancellationToken` holds cancellation
+SDK requests contain operation data and authentication selections, with no
+cancellation fields. Execute them with the caller's executor; local operations
+that only need cancellation accept `&CancellationScope` directly. A scope belongs
+to a bounded callback or future and flows through serial operations, transport,
+and pagination. A raw `CancellationToken` holds cancellation
 intent and notifications, without an execution policy or a `bail_if_cancelled`
 method. The caller owns deciding whether to begin another operation.
 

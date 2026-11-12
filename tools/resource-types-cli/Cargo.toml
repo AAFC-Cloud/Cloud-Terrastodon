@@ -14,9 +14,10 @@ name = "resource-types"
 path = "src/main.rs"
 
 [dependencies]
+cloud_terrastodon_auth_cli.workspace = true
 cloud_terrastodon_execution.workspace = true
 cloud_terrastodon_auth_types.workspace = true
-cloud_terrastodon_app = { workspace = true, features = ["auth"] }
+cloud_terrastodon_app.workspace = true
 cloud_terrastodon_azure.workspace = true
 cloud_terrastodon_azure_types.workspace = true
 cloud_terrastodon_command.workspace = true

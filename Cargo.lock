@@ -882,11 +882,14 @@ dependencies = [
  "chrono",
  "cloud_terrastodon",
  "cloud_terrastodon_app",
+ "cloud_terrastodon_cache",
+ "cloud_terrastodon_cli_types",
  "eyre",
  "teamy-cancellation",
  "teamy-facet",
  "teamy-facet-json",
  "tempfile",
+ "tokio",
 ]
 
 [[package]]
@@ -896,6 +899,7 @@ dependencies = [
  "arbitrary",
  "cloud_terrastodon",
  "cloud_terrastodon_app",
+ "cloud_terrastodon_auth_cli",
  "teamy-facet",
 ]
 
@@ -906,6 +910,7 @@ dependencies = [
  "arbitrary",
  "cloud_terrastodon_app",
  "cloud_terrastodon_auth",
+ "cloud_terrastodon_auth_cli",
  "cloud_terrastodon_auth_types",
  "cloud_terrastodon_azure",
  "cloud_terrastodon_azure_cli",
@@ -948,10 +953,8 @@ name = "cloud_terrastodon_app"
 version = "0.37.0"
 dependencies = [
  "arbitrary",
- "cloud_terrastodon_auth",
  "cloud_terrastodon_auth_types",
  "cloud_terrastodon_cache",
- "cloud_terrastodon_cli_types",
  "cloud_terrastodon_execution",
  "cloud_terrastodon_pathing",
  "cloud_terrastodon_tracing",
@@ -997,6 +1000,21 @@ dependencies = [
  "uuid",
  "webbrowser",
  "windows 0.62.2",
+]
+
+[[package]]
+name = "cloud_terrastodon_auth_cli"
+version = "0.37.0"
+dependencies = [
+ "arbitrary",
+ "cloud_terrastodon_auth_types",
+ "cloud_terrastodon_azure",
+ "cloud_terrastodon_azure_devops_types",
+ "cloud_terrastodon_cli_types",
+ "cloud_terrastodon_execution",
+ "eyre",
+ "teamy-facet",
+ "teamy-figue",
 ]
 
 [[package]]
@@ -1063,11 +1081,12 @@ dependencies = [
  "arbitrary",
  "chrono",
  "cloud_terrastodon_app",
- "cloud_terrastodon_auth",
+ "cloud_terrastodon_auth_cli",
  "cloud_terrastodon_auth_types",
  "cloud_terrastodon_azure",
  "cloud_terrastodon_azure_devops_cli",
  "cloud_terrastodon_cache",
+ "cloud_terrastodon_cli_types",
  "cloud_terrastodon_command",
  "cloud_terrastodon_config",
  "cloud_terrastodon_execution",
@@ -1133,7 +1152,7 @@ version = "0.37.0"
 dependencies = [
  "chrono",
  "cloud_terrastodon_app",
- "cloud_terrastodon_auth",
+ "cloud_terrastodon_auth_cli",
  "cloud_terrastodon_auth_types",
  "cloud_terrastodon_azure",
  "cloud_terrastodon_azure_devops",
@@ -1319,6 +1338,7 @@ dependencies = [
  "chrono",
  "cloud_terrastodon_app",
  "cloud_terrastodon_auth",
+ "cloud_terrastodon_auth_cli",
  "cloud_terrastodon_auth_types",
  "cloud_terrastodon_azure",
  "cloud_terrastodon_azure_cli",
@@ -1403,6 +1423,8 @@ name = "cloud_terrastodon_execution"
 version = "0.37.0"
 dependencies = [
  "cloud_terrastodon_auth_types",
+ "cloud_terrastodon_azure_devops_types",
+ "cloud_terrastodon_azure_types",
  "cloud_terrastodon_cache",
  "cloud_terrastodon_execution",
  "eyre",
@@ -1445,7 +1467,6 @@ version = "0.37.0"
 dependencies = [
  "arbitrary",
  "async-trait",
- "cloud_terrastodon_auth",
  "cloud_terrastodon_auth_types",
  "cloud_terrastodon_azure",
  "cloud_terrastodon_azure_devops",
@@ -1550,6 +1571,7 @@ version = "0.37.0"
 dependencies = [
  "cloud_terrastodon_app",
  "cloud_terrastodon_auth",
+ "cloud_terrastodon_auth_cli",
  "cloud_terrastodon_auth_types",
  "cloud_terrastodon_azure",
  "cloud_terrastodon_azure_types",
@@ -1572,7 +1594,6 @@ dependencies = [
  "arbitrary",
  "blake3",
  "bstr",
- "cloud_terrastodon_auth",
  "cloud_terrastodon_auth_types",
  "cloud_terrastodon_azure_types",
  "cloud_terrastodon_cache",
@@ -1666,7 +1687,7 @@ name = "cloud_terrastodon_ui_egui"
 version = "0.37.0"
 dependencies = [
  "async-trait",
- "cloud_terrastodon_auth",
+ "cloud_terrastodon_auth_types",
  "cloud_terrastodon_azure",
  "cloud_terrastodon_azure_devops",
  "cloud_terrastodon_command",
@@ -1696,7 +1717,6 @@ name = "cloud_terrastodon_ui_ratatui"
 version = "0.37.0"
 dependencies = [
  "arbitrary",
- "cloud_terrastodon_auth",
  "cloud_terrastodon_auth_types",
  "cloud_terrastodon_azure",
  "cloud_terrastodon_azure_devops",

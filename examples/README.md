@@ -29,11 +29,12 @@ planning commands, and subsequent apply/pipeline milestones.
 with a root CLI containing `GlobalArgs` and a typed `--tenant` selector.
 There are no subcommands or required positional arguments. The runner supplies
 Figue's standard builtin flags internally, logging, error reporting, a Tokio
-runtime, authentication preferences, and cooperative cancellation.
+runtime and cooperative cancellation. The operation owns its authentication
+arguments and uses one injected lazy credential provider.
 
 This is a Cargo example target: its dependencies, features and lockfile
 come from the repository root, so it needs no separate `Cargo.toml`. The default
-`full` feature includes `app-auth` (which includes `app`) and `azure`.
+`full` feature includes `app`, `auth`, `auth-cli`, `azure`, and `execution`.
 
 Show help without resolving authentication or contacting Azure:
 
@@ -48,14 +49,17 @@ cargo +1.96.0 run --example resource_group_list -- --auth-source azure-cli --ten
 cargo +1.96.0 run --example resource_group_list -- --auth-source azure-cli --tenant YOUR_TENANT_ID_OR_ALIAS --log-filter warn
 ```
 
-`--auth-source` selects authentication. `--tenant` accepts a tenant ID, tracked
-alias, or `default`. When omitted or set to `default`, it uses the authentication
-context's known tenant, falling back to Azure CLI's active tenant when none is
-known. The selector binds through `context.auth` before the resource-group fetch.
+`--auth-source` selects a registered credential mechanism; `auto` uses the
+account's preferred source. `--tenant` accepts a tenant ID, tracked alias, or
+`default`. When omitted or set to `default`, it uses the configured Cloud
+Terrastodon default tenant. Use `--account` to select a registered account or
+configure an account default. The authentication argument helper resolves
+concrete account/source/tenant metadata before constructing the request.
 Running with no arguments also performs the list using these shared defaults.
 `App` automatically wraps the handler in a cancellable scope. The handler passes
-`&context.cancellation` directly to tenant binding and the SDK fetch, without an
-extra wrapper. Automatic checks occur at poll boundaries; they do not intercept
+`&context.cancellation` to tenant resolution; it constructs
+`AzureResourceGroupListRequest` with the account selection and executes it through
+the shared executor. Automatic checks occur at poll boundaries; they do not intercept
 every internal `.await`. The SDK also uses cancellable read boundaries and page
 checkpoints.
 
@@ -72,8 +76,8 @@ To avoid enabling the full Cloud Terrastodon command tree and UIs, select only
 the example's required facade features:
 
 ```powershell
-cargo +1.96.0 run --no-default-features --features app-auth,azure --example resource_group_list -- --help
-cargo +1.96.0 test --no-default-features --features app-auth,azure --example resource_group_list --offline --locked
+cargo +1.96.0 run --no-default-features --features app,auth,auth-cli,azure,execution --example resource_group_list -- --help
+cargo +1.96.0 test --no-default-features --features app,auth,auth-cli,azure,execution --example resource_group_list --offline --locked
 ```
 
 The tests call Figue's arbitrary-based consistency and round-trip helpers, requiring
@@ -98,13 +102,15 @@ native paths return a serialization error instead of being converted lossily.
 package identity as the facade and supplies the canonical alias required by
 Figue's attribute macros.
 Its single `audit` command lives in `src/main.rs`.
-It enables `app-auth` and `azure` with default features disabled, reusing the
-shared runner's authentication context and the existing Azure SDK helpers.
+It enables `app`, `auth`, `auth-types`, `azure`, and `execution`, with a direct
+`cloud_terrastodon_auth_cli` dependency and default features disabled, reusing
+shared argument resolution and direct Azure SDK requests.
 
 Its `audit` command lists resource groups in accessible subscriptions of the
 selected tenant. `--tenant` accepts a tenant ID or tracked alias; when omitted,
-the existing tenant argument binds to the known authentication tenant or falls
-back to Azure CLI's default. SDK request caches may supply the inventory.
+the tenant argument resolves the deliberately configured CT tenant default.
+`--account` or a configured account default selects credentials in that tenant.
+SDK request caches may supply the inventory.
 
 Names with exactly five ASCII vowel occurrences (`a`, `e`, `i`, `o`, `u`, ignoring
 case) go in `with_five_vowels`; all other names go in `without_five_vowels`.
@@ -114,7 +120,7 @@ shared `--output-format` selects text, JSON or Facet Pretty.
 To read Azure resource groups yourself, run:
 
 ```powershell
-cargo +1.96.0 run -p cloud-terrastodon-standalone-cli -- --auth-source azure-cli --output-format json audit
+cargo +1.96.0 run -p cloud-terrastodon-standalone-cli -- --output-format json audit --auth-source azure-cli
 ```
 
 For local validation, check the package and run its pure vowel-policy test:
@@ -130,4 +136,4 @@ executing the audit, resolving defaults, obtaining credentials or reading Azure.
 See [reusable applications](../docs/REUSABLE_APPLICATIONS.md) for the shared API.
 
 Most Azure functionality also has examples in its adjacent tests, including
-[ResourceGroupListRequest](../crates/azure/src/resource_group_list_request.rs).
+[AzureResourceGroupListRequest](../crates/azure/src/azure_resource_group_list_request.rs).

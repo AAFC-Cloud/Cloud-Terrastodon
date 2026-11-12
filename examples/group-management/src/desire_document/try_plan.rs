@@ -8,20 +8,20 @@ use crate::domain::ReconciliationMode;
 use crate::planning::DesireDocumentAchievementPlan;
 use crate::planning::GroupPlanBlocker;
 use crate::tenant_preflight::preflight_tenants;
-use cloud_terrastodon::app::AuthContext;
-use cloud_terrastodon::auth::AzureTenantAuthContext;
-use cloud_terrastodon::auth_types::AuthenticationSelection;
+use cloud_terrastodon::auth_types::AuthSource;
+use cloud_terrastodon::auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon::auth_types::AzureCredentialResource;
-use cloud_terrastodon::azure::fetch_entra_directory_objects_by_ids;
-use cloud_terrastodon::azure::fetch_entra_user;
-use cloud_terrastodon::azure::fetch_group;
-use cloud_terrastodon::azure::fetch_group_members;
-use cloud_terrastodon::azure::fetch_group_owners;
+use cloud_terrastodon::azure::EntraDirectoryObjectsByIdsRequest;
+use cloud_terrastodon::azure::EntraGroupGetRequest;
+use cloud_terrastodon::azure::EntraGroupMembersListRequest;
+use cloud_terrastodon::azure::EntraGroupOwnerListRequest;
+use cloud_terrastodon::azure::EntraUserGetRequest;
 use cloud_terrastodon::azure_types::AzureTenantId;
 use cloud_terrastodon::azure_types::EntraGroup;
 use cloud_terrastodon::azure_types::EntraUser;
 use cloud_terrastodon::azure_types::uuid::Uuid;
 use cloud_terrastodon::execution::CloudTerrastodonExecutor;
+use cloud_terrastodon::execution::ExecutableRequest;
 use cloud_terrastodon::rest::RestHttpError;
 use eyre::Context;
 use eyre::Result;
@@ -41,7 +41,8 @@ impl DesireDocument {
     pub async fn try_plan(
         self,
         only_tenant: Option<AzureTenantId>,
-        auth: &AuthContext,
+        account: Option<&str>,
+        source: AuthSource,
         executor: &CloudTerrastodonExecutor,
     ) -> Result<DesireDocumentAchievementPlan> {
         let document_tenant_ids = {
@@ -54,47 +55,43 @@ impl DesireDocument {
             Some(tenant) => self.select_tenant(tenant)?,
             None => self,
         };
-        let bindings = preflight_tenants(desired.groups(), auth)?;
+        let authentications = preflight_tenants(desired.groups(), account, source, executor)?;
 
-        // A successful local binding is not proof that a credential can authenticate
+        // Successful metadata resolution is not proof that a credential can authenticate
         // to this tenant/resource. Complete these exchanges for every selected tenant
         // before reading the first group. No access token enters the plan artifact.
-        for binding in bindings.values() {
+        for authentication in authentications.values() {
             executor.cancellation().bail_if_cancelled()?;
             executor
                 .authorization(
-                    &AuthenticationSelection::AzureBearer {
-                        auth_source: binding.auth_context.azure_bearer_source()?,
-                        tenant_id: binding.tenant_id,
-                    },
+                    &(*authentication).into(),
                     AzureCredentialResource::MicrosoftGraph,
                 )
                 .await
                 .wrap_err_with(|| {
                     format!(
                         "Authenticating to Microsoft Graph in tenant {}",
-                        binding.tenant_id
+                        authentication.tenant_id
                     )
                 })?;
         }
 
-        let resolutions = resolve_principals(desired.groups(), &bindings, executor).await?;
+        let resolutions = resolve_principals(desired.groups(), &authentications, executor).await?;
         let mut snapshots = Vec::with_capacity(desired.groups().len());
         let mut eligibility = BTreeMap::new();
         for group in desired.groups() {
             executor.cancellation().bail_if_cancelled()?;
-            let binding = bindings.get(&group.tenant_id).ok_or_else(|| {
+            let authentication = authentications.get(&group.tenant_id).ok_or_else(|| {
                 eyre::eyre!(
                     "Tenant {} was not admitted by authentication preflight",
                     group.tenant_id
                 )
             })?;
-            let observed = fetch_group(
-                group.group_id,
-                binding.tenant_id,
-                binding.auth_source()?,
-                executor,
-            )
+            let observed = EntraGroupGetRequest {
+                group_id: (group.group_id),
+                authentication: *authentication,
+            }
+            .execute(executor)
             .with_invalidation(true)
             .await
             .wrap_err_with(|| {
@@ -112,22 +109,30 @@ impl DesireDocument {
                 eligibility_blockers(&observed),
             );
             let members = if group.members_mode != ReconciliationMode::Ignore {
-                fetch_group_members(group.group_id, binding, executor)
-                    .with_invalidation(true)
-                    .await?
-                    .into_iter()
-                    .map(|principal| ObservedPrincipal::from(principal.as_ref()))
-                    .collect()
+                EntraGroupMembersListRequest {
+                    group_id: (group.group_id),
+                    authentication: *authentication,
+                }
+                .execute(executor)
+                .with_invalidation(true)
+                .await?
+                .into_iter()
+                .map(|principal| ObservedPrincipal::from(principal.as_ref()))
+                .collect()
             } else {
                 Vec::new()
             };
             let owners = if group.owners_mode != ReconciliationMode::Ignore {
-                fetch_group_owners(group.group_id, binding, executor)
-                    .with_invalidation(true)
-                    .await?
-                    .into_iter()
-                    .map(|principal| ObservedPrincipal::from(principal.as_ref()))
-                    .collect()
+                EntraGroupOwnerListRequest {
+                    group_id: (group.group_id),
+                    authentication: *authentication,
+                }
+                .execute(executor)
+                .with_invalidation(true)
+                .await?
+                .into_iter()
+                .map(|principal| ObservedPrincipal::from(principal.as_ref()))
+                .collect()
             } else {
                 Vec::new()
             };
@@ -148,7 +153,7 @@ impl DesireDocument {
         plan.excluded_tenant_ids = document_tenant_ids
             .iter()
             .copied()
-            .filter(|tenant| !bindings.contains_key(tenant))
+            .filter(|tenant| !authentications.contains_key(tenant))
             .collect();
         plan.document_tenant_ids = document_tenant_ids;
         for group in &mut plan.groups {
@@ -173,16 +178,16 @@ impl DesireDocument {
 
 async fn resolve_principals(
     desired: &[DesiredGroup],
-    bindings: &BTreeMap<AzureTenantId, AzureTenantAuthContext>,
+    authentications: &BTreeMap<AzureTenantId, AzureBearerAuthenticationSelection>,
     executor: &CloudTerrastodonExecutor,
 ) -> Result<Vec<PrincipalResolution>> {
     let mut resolutions = Vec::new();
-    for binding in bindings.values() {
+    for authentication in authentications.values() {
         executor.cancellation().bail_if_cancelled()?;
         let mut references = BTreeMap::new();
         for group in desired
             .iter()
-            .filter(|group| group.tenant_id == binding.tenant_id)
+            .filter(|group| group.tenant_id == authentication.tenant_id)
         {
             for reference in group.members.iter().chain(&group.owners) {
                 references
@@ -197,13 +202,17 @@ async fn resolve_principals(
         let by_id: BTreeMap<_, _> = if ids.is_empty() {
             BTreeMap::new()
         } else {
-            fetch_entra_directory_objects_by_ids(ids, binding, executor)
-                .with_invalidation(true)
-                .await?
-                .into_iter()
-                .map(|principal| ObservedPrincipal::from(principal.as_ref()))
-                .map(|principal| (principal.id.to_string(), principal))
-                .collect()
+            EntraDirectoryObjectsByIdsRequest {
+                ids: (ids).into_iter().collect(),
+                authentication: *authentication,
+            }
+            .execute(executor)
+            .with_invalidation(true)
+            .await?
+            .into_iter()
+            .map(|principal| ObservedPrincipal::from(principal.as_ref()))
+            .map(|principal| (principal.id.to_string(), principal))
+            .collect()
         };
         let mut by_upn = BTreeMap::new();
         for reference in references.into_values() {
@@ -212,9 +221,13 @@ async fn resolve_principals(
                 let key = upn.comparison_key();
                 if !by_upn.contains_key(&key) {
                     let user = user_lookup_observation(
-                        fetch_entra_user(upn, binding.tenant_id, binding.auth_source()?, executor)
-                            .with_invalidation(true)
-                            .await,
+                        EntraUserGetRequest {
+                            lookup: (upn).into(),
+                            authentication: *authentication,
+                        }
+                        .execute(executor)
+                        .with_invalidation(true)
+                        .await,
                     )?;
                     by_upn.insert(key.clone(), user);
                 }
@@ -223,7 +236,7 @@ async fn resolve_principals(
                 None
             };
             resolutions.push(PrincipalResolution {
-                tenant_id: binding.tenant_id,
+                tenant_id: authentication.tenant_id,
                 reference: reference.clone(),
                 by_id: reference
                     .id

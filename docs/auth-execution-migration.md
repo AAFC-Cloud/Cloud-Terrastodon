@@ -1,150 +1,140 @@
 # Authentication selections and execution
 
-This describes the workspace changes for the next release.
-For source selection, WIF configuration, browser/PIM setup, and logout, see
-the [authentication guide](authentication.md).
+The workspace uses `cloud_terrastodon_auth` for runtime credentials and
+`cloud_terrastodon_auth_types` for serializable authentication intent. The old
+`credentials` crate/import names and context-bearing SDK request constructors
+have no compatibility exports. See the [authentication guide](authentication.md)
+for the concrete account CLI and source-specific provisioning.
 
-## Crates and imports
+## Ownership and request data
 
-`cloud_terrastodon_credentials` has been renamed to `cloud_terrastodon_auth`.
-Serializable authentication choices belong to `cloud_terrastodon_auth_types`:
-
-| Responsibility | Crate and types |
+| Responsibility | Owning surface |
 | --- | --- |
-| Startup preference | `auth_types::AuthSource` |
-| Resolved request selection | `auth_types::AuthenticationSelection`, `AzureDevOpsAuthSelection`, and `AzureBearerAuthSource` |
-| Credential audience | `auth_types::AzureCredentialResource`, replacing `AzureRestResource` |
-| Credential acquisition and invocation-owned state | `auth::AuthContext`, `AzureTenantAuthContext`, and `AzureDevOpsAuthContext` |
-| Bound execution and injected authentication contract | `execution::CloudTerrastodonExecutor`, `ExecutableRequest`, and `AuthenticationProvider` |
-| Tenant identity | `azure_types::AzureTenantId` |
+| CLI source preference | `auth_types::AuthSource` |
+| Shared authenticated-leaf parsing and metadata resolution | `auth_cli::AzureAuthenticationArgs`, `AzureDevOpsAuthenticationArgs` |
+| Stable CT account identity and source configuration | `CloudTerrastodonAccountId`, account profile/namespace/credential types |
+| Serializable request authentication | `AuthenticationSelection`, `AzureBearerAuthenticationSelection`, `AzureDevOpsAuthSelection` |
+| Credential sessions and account catalogue | `auth::CloudTerrastodonAccountStore`, `CredentialAuthenticationProvider` |
+| Execution, cancellation, cache, and injected provider | `execution::CloudTerrastodonExecutor` |
+| Service identities | `AzureTenantId` in `azure_types`, organization/collection URLs in `azure_devops_types` |
 
-The facade exposes `cloud_terrastodon::auth` with feature `auth`, and
-`cloud_terrastodon::auth_types` with feature `auth-types`. Update direct crate
-dependencies and imports too; the former crate, feature, and facade names have
-no compatibility exports. `app-auth` continues to enable authentication in the
-application runner.
+A request carries its stable account ID, concrete source and authority where
+needed, operation scope, and input. It has no credential context, token cache,
+cancellation scope, or credential-generation handle. Aliases and defaults are
+resolved at the application boundary before request serialization, approval, or
+execution.
 
-Request selections contain the source and tenant, not tokens or credential
-caches. The runtime admits those selections against its owned authentication
-state. Acquired `auth_types::Authorization` values are sensitive and have no
-serialization implementation.
+Authenticated leaves flatten the relevant auth argument schema. Its resolver
+reads tenant/account metadata and returns a concrete selection; it neither
+acquires credentials nor creates a differently bound executor. Omitted account
+arguments resolve only an explicitly configured namespace default. Source `auto`
+resolves the account's preferred registered mechanism. These conveniences never
+appear in a serialized request. Source `none` rejects service operations before
+configuration lookup.
 
-## Binding execution resources
+For Azure DevOps, a supplied tenant selects the Entra account namespace and a
+bearer mechanism. Without a tenant, selection uses the organization/collection
+namespace and PAT authentication. Explicit bearer sources require `--tenant`
+(which can be `default`); PAT and tenant cannot be combined. Organization/project
+scope stays on the leaf schema and request independently of authentication.
 
-`cloud_terrastodon_execution` supplies the executor and request contract. The
-facade exposes them through `cloud_terrastodon::execution` with feature
-`execution`. Inside an app handler, `context.executor()` binds its current
-cancellation scope, selected authentication, and invocation-owned cache. New
-requests implementing `ExecutableRequest` support either
-`executor.execute(request).await` or `request.execute(&executor).await`.
+## Executing requests
 
-Repeated app bindings share cache ownership and the resolved credential session.
-Binding does not discover credentials, acquire tokens, or read cache files.
-Without app authentication support, the executor uses
-`execution::AnonymousAuthenticationProvider`, which permits anonymous work and
-rejects selections requiring credentials. The existing public `context.auth` and
-`context.cancellation` fields remain available while SDK consumers migrate;
-new bindings use their current values, and existing executor handles keep their
-original binding.
+Prefer constructing a request and calling:
 
-The executor depends on the provider interface, while
-`auth::CredentialAuthenticationProvider` supplies the implementation from an
-already-selected `AuthContext`. Admission checks source/tenant policy before
-cache reuse; acquiring credentials is separate sensitive infrastructure.
-Registry invocation accepts the same explicit executor. Register data-only
-requests with `registry_execution::register_executable_request!`; their
-`REGISTERED_EXECUTABLE_REQUEST` handle invokes the request without registry lookup
-or cancellation-field injection. The erased invocation borrows the executor,
-and UI workers own their executor clone while awaiting it. Independent child
-scopes let UI jobs cancel individually and let UI shutdown drain required work.
-
-Tests asserting that no authentication is consulted can use the public
-`execution::UnreachableAuthenticationProvider`. Enable the execution crate's
-`test-support` feature only through a dev-dependency. Both admission and
-authorization panic synchronously on any call, including anonymous selections;
-the authorization check does not wait for its returned future to be polled.
-The provider is excluded from normal builds and differs from the anonymous
-provider, whose anonymous admission and authorization are valid operations.
-
-`DiscoveryPlanBuildRequest` also implements `ExecutableRequest`; supply execution
-resources when running it. Planning and synthetic discovery inspect request data
-and registered shapes without resolving credentials or invoking service requests.
-Legacy `IntoFuture` registrations retain their separate callback and child-scope
-binding during the scheduled SDK migration. Production Command/REST adapters and
-SDK request cutover remain later steps in the
-[executor/cache plan](plans/executor-cache-migration.md).
-
-## Choosing a source and tenant
-
-`--auth-source auto` prefers configured workload identity and otherwise selects
-Azure CLI. A tracked tenant's preference can refine an automatic selection;
-an explicit `--auth-source` takes precedence. `--auth-source none` disables
-credential discovery and authenticated requests for local operations.
-
-Bearer authentication always has a concrete tenant, including Azure CLI.
-Azure DevOps commands accept a tenant UUID or tracked alias through `--tenant`;
-omitting it requires an already tenant-bound context, such as configured
-workload identity. Azure CLI's active tenant is not a bearer-authentication
-fallback. Organization and project selection are independent of this tenant.
-
-PAT authentication has no tenant requirement. The runtime supplies the stored
-credential; scoped commands still require their organization and project:
-
-```powershell
-ct az devops project list --org example-org --auth-source pat
+```rust,ignore
+request.execute(&executor).with_invalidation(clean).await
 ```
 
-## Cloud Terrastodon's Azure CLI login store
+`executor.execute(request)` remains equivalent. Meaningful workflows compose
+request objects directly; forwarding functions that only construct them are
+removed. Requests declare their canonical output and error types through
+`ExecutableRequest`, retaining domain errors such as selection errors.
 
-Establish a login for the selected tenant explicitly:
+Cached decoded results use `Arc` ownership. Collection consumers borrow or
+clone elements deliberately rather than forcing the SDK to copy entire cached
+responses. Raw command/HTTP artifacts and decoded in-memory reuse share the
+execution/cache lifecycle.
 
-```powershell
-ct az tenant login example-tenant --auth-source azure-cli
-ct az devops project list --org example-org --tenant example-tenant --auth-source azure-cli
-```
+The application installs one `CredentialAuthenticationProvider::configured()`
+or `from_store(store)` through `App::authentication_provider`. Construction does
+not open the catalogue or acquire credentials. The same provider and work cache
+serve every request; credential sessions are acquired lazily by stable account
+ID and concrete source. A request never depends on a CLI calling a binding
+setter first. Metadata resolution and credential acquisition validate the
+selected namespace and mechanism rather than changing to another account.
 
-Replace `example-tenant` with a tracked alias or tenant UUID. `--auth-source` is
-a global option and can also appear before `az`. The default tenant-login flow
-uses browser/PKCE; `--auth-source azure-cli` selects CLI login explicitly.
+One Entra user account can have independently provisioned CLI and browser
+mechanisms after login verifies the same principal. Source preferences and
+defaults do not change requests already resolved to concrete selections. Cache
+partitions include the admitted session identity, while recorded dependencies
+connect composed work to its actual child requests.
+Azure CLI, browser, PAT, and workload-identity partitions remain isolated to the
+invocation: a stored credential generation does not enable response reuse across
+separate CT runs. Within an invocation, requests for the same account/source
+share its loaded session, token cache, and eligible work results.
 
-The login is stored beneath Cloud Terrastodon's configuration directory in
-`azure-cli-sessions`. It persists between invocations and uses its own
-`AZURE_CONFIG_DIR`; a separate `az login` does not populate this store.
-Token acquisition uses the selected stored login and never starts an implicit
-login. If no usable session exists, run the explicit tenant-login command.
-The existing headless policy still rejects Azure CLI authentication; pipelines
-can use workload identity.
+Account admission happens before result reuse. Service-bound PAT accounts also
+validate the request organization/collection before semantic or REST cache
+lookup. Entra tenant identity remains separate from Azure DevOps organization
+scope. Gitea validates its configured instance and supplies an immutable private
+tea session snapshot.
 
-Each explicit login creates a new generation. An authentication context binds
-to one generation per tenant, and clones share that binding. A later login does
-not replace the identity used by work already in progress. Credential
-subprocess output bypasses general command artifacts. The logout command also
-revokes Cloud Terrastodon's stored CLI generations.
+## Leases and cancellation
 
-## Migration scope
+Authenticated requests retain a provider lease for their complete execution,
+including response decoding, artifacts, and affected-read invalidation. The
+shared admission coordinator covers uses of the same captured credential session.
+`ExecutableRequest::bind_authentication` is an internal admission/lease hook;
+it does not select or mutate an executor's current account.
 
-Policy remediation and the storage-backend picker execute typed ARM REST
-requests with the selected authentication context. The auth crate no longer
-provides a generic CLI service runner or a service-command allowlist. Azure CLI
-remains an optional credential source through the isolated login/token lifecycle.
+Account retirement closes new admission, requests cancellation of optional work
+through independent linked child signals, and drains required completion.
+Retirement never cancels unrelated parent work. An already admitted deferred
+mutation keeps its original credential binding through its remaining work;
+starting a new operation from the unleased provider fails.
 
-Remediation creates or updates a job at the selected resource-group or
-management-group scope using [Policy Insights](https://learn.microsoft.com/en-us/rest/api/policyinsights/remediations/create-or-update-at-resource-group?view=rest-policyinsights-2024-10-01).
-The operation retains its mutation response and execution artifacts; submission
-does not wait for all policy-driven deployments to finish.
+Direct authorization, Command/REST execution, and the executor's cached/uncached
+work APIs also retain account leases and observe retirement. Direct work binding
+claims canonical ownership synchronously; first polling acquires its account lease
+until the future finishes or is dropped. Unpolled work cannot delay logout or
+return a warm result after retirement. Its initializer uses the account-linked
+child scope. Existing cancellation policies remain authoritative: cancellable reads
+may exit early, while deferred units retain response/decoding/artifact completion.
+Coordinators must continue polling those children.
 
-The backend picker shares the SDK's container-names request and invalidates its
-cached pages on reload. It uses the management-plane
-[Blob Containers List API](https://learn.microsoft.com/en-us/rest/api/storagerp/blob-containers/list?view=rest-storagerp-2025-06-01),
-with the existing ARM credential audience. This inventories container resources;
-it does not read blobs or establish permission/network access to Terraform state
-data. That differs from the former Blob-service CLI listing and is an intentional
-selection-workflow contract. Resource IDs supply the account, resource group,
-and subscription explicitly.
+Retirement invalidates authentication partitions before and after draining.
+Parent dependency generations advance even across account boundaries. Already
+returned values remain readable. This guarantees coordination among owners
+sharing the provider/cache, not arbitrary separate processes.
 
-Legacy SDK helpers that execute Azure CLI without an authentication-context
-parameter still use their existing execution path. Their request migrations
-remain in phases 5 and 6 of the [executor/cache plan](plans/executor-cache-migration.md).
-The executor binding is available for migrated requests; the full Command/REST
-cache cutover remains subsequent work. Existing SDK requests are not silently
-switched to the new cache owner by adding that binding.
+Operations needing only cancellation still take a cancellation scope.
+Local formatting, filesystem work, and ordinary uncached subprocesses do not
+need an executor merely to obtain cancellation.
+
+## Registration and offline tests
+
+Register executable requests through
+`registry_execution::register_executable_request!`. Typed registry handles
+retain the same request execution path and declared effects. Runtime test
+registrations select real requests by pattern through `ct test run`; they are
+separate from effect metadata and ordinary Cargo tests.
+
+`execution::AnonymousAuthenticationProvider` admits anonymous work and rejects
+credential use. With the `test-support` feature, use
+`UnreachableAuthenticationProvider` when any auth call is a test failure, or
+`TestAuthenticationProvider` for synthetic admission, counters, and credentials.
+No fixture should resolve real account configuration or contact production
+services.
+
+## Existing REST behavior retained
+
+Policy remediation uses typed ARM requests and retains mutation responses and
+artifacts. Submission does not wait for every remediation deployment to finish.
+See [Policy Insights](https://learn.microsoft.com/en-us/rest/api/policyinsights/remediations/create-or-update-at-resource-group?view=rest-policyinsights-2024-10-01).
+
+The storage backend picker inventories containers through the management-plane
+[Blob Containers List API](https://learn.microsoft.com/en-us/rest/api/storagerp/blob-containers/list?view=rest-storagerp-2025-06-01).
+It does not read Terraform state blobs or establish data-plane permission.
+Azure CLI remains an optional account credential source, with isolated login and
+token acquisition, rather than an SDK service-command bridge.

@@ -18,24 +18,32 @@ Every leaf command requires `--org`; project-scoped commands also require
 `--project`. Neither selector falls back to configured defaults. `--org` accepts
 a full organization/Server collection URL or a cloud organization name, and
 `--project` accepts a project ID or name. `--tenant` selects the authentication
-tenant. With `--auth-source browser`, commands use Cloud Terrastodon's stored
-browser session, independently of Azure CLI's login.
+tenant. `--account` selects an account ID or tenant-scoped alias; omission requires
+an explicitly configured account default. `--auth-source browser` selects that
+account's registered browser mechanism, independently of Azure CLI's login.
+These authentication flags belong to the leaf command, not the root CLI.
+For PAT authentication, omit `--tenant` and select an account registered for
+the organization instead. See [authentication](authentication.md).
 
-Examples use PowerShell variables for your chosen scope, type, field, and IDs.
+Examples use PowerShell variables for your chosen account, scope, type, field, and IDs.
 `$itemIds` is a comma-separated string of permitted IDs.
 
 ```powershell
-$scope = @('--org', $organization, '--project', $project, '--tenant', $tenant)
-ct --auth-source browser az devops work-item show $itemId @scope
-ct --auth-source browser az devops work-item list --ids $itemIds @scope
-ct --auth-source browser az devops work-item field show $itemId System.Title @scope
-ct --auth-source browser az devops work-item field definition list @scope
-ct --auth-source browser az devops work-item type field list --type $typeName @scope
-ct --auth-source browser az devops work-item relation list $itemId @scope
-ct --auth-source browser az devops work-item query invoke --wiql '@query.wiql' @scope
+$scope = @('--org', $organization, '--project', $project, '--tenant', $tenant,
+           '--account', $account, '--auth-source', 'browser')
+ct az devops work-item show $itemId @scope
+ct az devops work-item list --ids $itemIds @scope
+ct az devops work-item field show $itemId System.Title @scope
+ct az devops work-item field definition list @scope
+ct az devops work-item type field list --type $typeName @scope
+ct az devops work-item relation list $itemId @scope
+ct az devops work-item query invoke --wiql '@query.wiql' @scope
 ```
 
-Results are JSON. `list` fetches explicit IDs in batches of at most 200. `show`
+Leaves return `CliOutput`; global `--output-format text|json|facet-pretty|auto`
+selects presentation from the same typed result. Automatic output selects text in
+a terminal and JSON when redirected; use `--output-format json` to require JSON.
+`list` fetches explicit IDs in batches of at most 200. `show`
 and `list` accept `--fields` (comma-separated references), `--expand`, and
 `--as-of`. Query invocation returns references without reading item contents.
 Metadata `show` accepts a name. Type-field commands also require `--type`.
@@ -43,14 +51,14 @@ Metadata `show` accepts a name. Type-field commands also require `--type`.
 ## Create and edit
 
 ```powershell
-ct --auth-source browser az devops work-item create --type $typeName --fields '@fields.json' --parent $parentId @scope
-ct --auth-source browser az devops work-item field set $itemId System.Title --value '@title.json' @scope
-ct --auth-source browser az devops work-item field remove $itemId $fieldName @scope
-ct --auth-source browser az devops work-item update $itemId --patch '@patch.json' --if-rev $revision @scope
-ct --auth-source browser az devops work-item relation create $itemId --type System.LinkTypes.Related --target $targetId @scope
-ct --auth-source browser az devops work-item relation update $itemId --type System.LinkTypes.Related --target $targetId --comment 'Updated comment' @scope
-ct --auth-source browser az devops work-item relation remove $itemId --type System.LinkTypes.Related --target $targetId @scope
-ct --auth-source browser az devops work-item query create --folder $queryFolder --name $queryName --wiql '@query.wiql' @scope
+ct az devops work-item create --type $typeName --fields '@fields.json' --parent $parentId @scope
+ct az devops work-item field set $itemId System.Title --value '@title.json' @scope
+ct az devops work-item field remove $itemId $fieldName @scope
+ct az devops work-item update $itemId --patch '@patch.json' --if-rev $revision @scope
+ct az devops work-item relation create $itemId --type System.LinkTypes.Related --target $targetId @scope
+ct az devops work-item relation update $itemId --type System.LinkTypes.Related --target $targetId --comment 'Updated comment' @scope
+ct az devops work-item relation remove $itemId --type System.LinkTypes.Related --target $targetId @scope
+ct az devops work-item query create --folder $queryFolder --name $queryName --wiql '@query.wiql' @scope
 ```
 
 JSON inputs accept inline JSON or `@file`, preserving value types. For example,
@@ -71,11 +79,11 @@ fresh revision used to find the link. Saved-query creation has no validation mod
 
 ```powershell
 # Preview without writes, restricted to an explicit set of source IDs.
-ct --auth-source browser az devops work-item copy $itemId --deep --allowed-ids $itemIds --dry-run @scope
+ct az devops work-item copy $itemId --deep --allowed-ids $itemIds --dry-run @scope
 # Create the copy and retain its progress journal.
-ct --auth-source browser az devops work-item copy $itemId --deep --allowed-ids $itemIds --journal ./copy-progress.json @scope
+ct az devops work-item copy $itemId --deep --allowed-ids $itemIds --journal ./copy-progress.json @scope
 # Resume the saved plan; omit discovery options such as --deep.
-ct --auth-source browser az devops work-item copy $itemId --resume --journal ./copy-progress.json @scope
+ct az devops work-item copy $itemId --resume --journal ./copy-progress.json @scope
 ```
 
 Parents are created before children; internal links are remapped after all new
@@ -105,19 +113,22 @@ cargo test -p cloud_terrastodon_azure_devops work_item_tests --lib --offline
 cargo test -p cloud_terrastodon_azure_devops_cli azure_devops_work_item_cli_tests --lib --offline
 ```
 
-These focused tests never mutate service data. An ignored read-only smoke test
-accepts `CT_TEST_AZDO_ORG`, `CT_TEST_AZDO_PROJECT`, `CT_TEST_AZDO_TENANT_ID` (tenant
-UUID), and `CT_TEST_AZDO_IDS` (comma-separated explicit IDs) from the environment.
-It uses an existing browser session, reads only those items and schema metadata,
-and reports no response contents or scope values:
+These focused Cargo tests use offline fixtures and do not acquire credentials or
+contact services. The former ignored live smoke test and its `CT_TEST_AZDO_*`
+environment inputs have been removed. To verify selected service data, invoke
+the commands above with explicit account and operation inputs. Discover the
+available registered runtime checks without authenticating:
 
 ```powershell
-cargo test -p cloud_terrastodon_azure_devops --lib --offline work_item_tests::live_work_item_deserialization -- --ignored --exact
+ct test list '*work-item*'
 ```
 
-Optionally set `CT_TEST_AZDO_COPY_ROOT` to validate a deep-copy plan from that
-same snapshot. The explicit IDs must form the complete subtree; this check makes
-no further work item requests and performs no writes.
+Runtime checks run through `ct test run <registry-pattern>` with explicit inputs
+and effect admission. `--clean` uses each registered request's invalidation
+contract; otherwise eligible cached reads can be reused. See
+[runtime verification](runtime-verification.md). Use the copy command's
+`--dry-run` surface above to inspect a plan for deliberately selected IDs without
+creating work items.
 
 See the [implementation design](plans/azure-devops-work-item-copy.md) for official
 API contracts and recovery details.

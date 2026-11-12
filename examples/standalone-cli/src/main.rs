@@ -7,11 +7,12 @@ use cloud_terrastodon::app::GlobalArgs;
 use cloud_terrastodon::app::Result;
 use cloud_terrastodon::app::facet;
 use cloud_terrastodon::app::figue;
-use cloud_terrastodon::azure::AzureTenantArgument;
-use cloud_terrastodon::azure::AzureTenantArgumentExt;
-use cloud_terrastodon::azure::ResourceGroup;
-use cloud_terrastodon::azure::ResourceGroupName;
-use cloud_terrastodon::azure::fetch_all_resource_groups;
+use cloud_terrastodon::auth::CredentialAuthenticationProvider;
+use cloud_terrastodon::azure::AzureResourceGroup;
+use cloud_terrastodon::azure::AzureResourceGroupListRequest;
+use cloud_terrastodon::azure::AzureResourceGroupName;
+use cloud_terrastodon::execution::ExecutableRequest;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
 use facet::Facet;
 use std::sync::Arc;
 
@@ -44,22 +45,20 @@ pub enum Command {
 #[derive(Facet)]
 #[cfg_attr(test, derive(Arbitrary))]
 pub struct AuditArgs {
-    /// Tenant ID, tracked alias, or `default`.
-    /// Defaults to the authentication source's tenant or the active Azure CLI tenant.
-    #[facet(figue::named, default)]
-    pub tenant: AzureTenantArgument<'static>,
+    #[facet(flatten)]
+    pub authentication: AzureAuthenticationArgs,
 }
 
 /// Resource groups partitioned by the number of vowels in their names.
 #[derive(Facet)]
 pub struct ResourceGroupAudit {
     /// Groups whose names have exactly five ASCII vowels (`a`, `e`, `i`, `o`, `u`), ignoring case.
-    pub with_five_vowels: Vec<Arc<ResourceGroup>>,
+    pub with_five_vowels: Vec<Arc<AzureResourceGroup>>,
     /// All other resource groups, including names with more than five vowels.
-    pub without_five_vowels: Vec<Arc<ResourceGroup>>,
+    pub without_five_vowels: Vec<Arc<AzureResourceGroup>>,
 }
 
-fn has_five_vowels(name: &ResourceGroupName) -> bool {
+fn has_five_vowels(name: &AzureResourceGroupName) -> bool {
     name.chars()
         .filter(|character| matches!(character.to_ascii_lowercase(), 'a' | 'e' | 'i' | 'o' | 'u'))
         .count()
@@ -67,37 +66,39 @@ fn has_five_vowels(name: &ResourceGroupName) -> bool {
 }
 
 fn main() -> Result<()> {
-    App::new("field-notes", env!("CARGO_PKG_VERSION")).run(|cli: Cli, context| async move {
-        let Command::Audit(args) = cli.command;
+    App::new("field-notes", env!("CARGO_PKG_VERSION"))
+        .authentication_provider(Arc::new(CredentialAuthenticationProvider::configured()))
+        .run(|cli: Cli, context| async move {
+            let Command::Audit(args) = cli.command;
 
-        let auth = args
-            .tenant
-            .bind_auth_context(&context.auth, &context.cancellation)
-            .await?;
-        let executor = auth.auth_context.bind_executor(&context.executor())?;
-        let resource_groups = fetch_all_resource_groups(&auth, &executor).await?;
-
-        let mut audit = ResourceGroupAudit {
-            with_five_vowels: Vec::new(),
-            without_five_vowels: Vec::new(),
-        };
-        for resource_group in resource_groups {
-            // This synchronous loop cannot yield to App's automatic poll checks.
-            context.cancellation.bail_if_cancelled()?;
-            if has_five_vowels(&resource_group.name) {
-                audit.with_five_vowels.push(resource_group);
-            } else {
-                audit.without_five_vowels.push(resource_group);
+            let executor = context.executor();
+            let resource_groups = AzureResourceGroupListRequest {
+                authentication: args.authentication.resolve(&executor).await?,
             }
-        }
-        CliOutput::facet(audit).emit(cli.global_args.output_format, &context.cancellation)
-    })
+            .execute(&executor)
+            .await?;
+
+            let mut audit = ResourceGroupAudit {
+                with_five_vowels: Vec::new(),
+                without_five_vowels: Vec::new(),
+            };
+            for resource_group in resource_groups {
+                // This synchronous loop cannot yield to App's automatic poll checks.
+                context.cancellation.bail_if_cancelled()?;
+                if has_five_vowels(&resource_group.name) {
+                    audit.with_five_vowels.push(resource_group);
+                } else {
+                    audit.without_five_vowels.push(resource_group);
+                }
+            }
+            CliOutput::facet(audit).emit(cli.global_args.output_format, &context.cancellation)
+        })
 }
 
 #[cfg(test)]
 mod tests {
+    use super::AzureResourceGroupName;
     use super::Cli;
-    use super::ResourceGroupName;
     use super::has_five_vowels;
     use cloud_terrastodon::app::Result;
     use cloud_terrastodon::app::figue;
@@ -132,8 +133,8 @@ mod tests {
             ("rg-rhythm-123", false),
             ("rg-äëïöü", false),
         ] {
-            let name =
-                ResourceGroupName::try_from(name).expect("valid synthetic resource group name");
+            let name = AzureResourceGroupName::try_from(name)
+                .expect("valid synthetic resource group name");
             assert_eq!(has_five_vowels(&name), expected, "{name}");
         }
     }

@@ -1,9 +1,14 @@
 # Explicit execution and shared typed cache migration
 
-**Plan status:** Active migration; current focus is the U123–U134 design revision
-for accounts, runtime verification, and request-first callers before Phase 6 audit
-extraction. Implementation of that revision is not yet authorized. See
-[the design companion](accounts-runtime-tests-and-requests.md).
+**Plan status:** U135 foundation complete through Phase 7; the authorized
+[account/CLI ownership refinement](account-authentication-resolution-cutover.md)
+is complete. Its R1–R12 ledger and current Windows offline acceptance record
+cover the subsequent comprehensive cutover. Changes remain uncommitted.
+The [account contracts](accounts-runtime-tests-and-requests.md) close A1–A4/V1;
+the [foundation evidence](executor-cache-cutover-validation.md) records U135
+implementation and validation. The completed refinement plan records subsequent
+checks. Earlier checkpoint narratives below are historical.
+Phase 8 remains deferred.
 
 Historical completion record: tasks 2.6–2.8 and their tooling refinements were
 committed as `aa02c23c`. U59–U61 revise the next boundary: option B with pure
@@ -282,13 +287,15 @@ fresh reconstruction of unavailable assistant turns.
 - **Source limit:** This audit covers the available clarification and source-backed
   plan; earlier guidance remains represented by the existing historical ledger.
 
-**Current authorization:** U123–U134 authorize design review and updating this
-plan before further implementation. The prior UI cleanup is committed as
-`39bee039`, `Consolidate UI background work and scoped autosaves`. The next safe
-work is closing the account/runtime-verification contracts in 6.0a; implementation
-of tasks 6.0b–6.0e and the existing 6.1–6.3 follows a subsequent instruction to
-proceed. No code changes, commit, push, live credentials, or production-data
-access are authorized by this planning request.
+**Current authorization:** U135 authorizes completing tasks 6.0a–6.0e, 6.1–6.3,
+and 7.1–7.2 as one comprehensive cutover, leaving changes uncommitted. Phase 8
+remains deferred. Resolve routine contract details in 6.0a and continue through
+implementation rather than stopping after a prerequisite. Validation remains
+synthetic/offline; no live credentials or production-data access is authorized.
+Parallel ownership: account/provider/store work; runtime test registration and
+Cargo isolation; DevOps/Gitea requests; primary agent Azure requests, shared
+integration, audit extraction, and final validation. Shared API changes are
+coordinated before consumer changes.
 
 **Phase 5 authorization history:** U104 authorized completing all three phase 5 SDK
 vertical slices, their shared observation support, necessary consumers, and offline
@@ -1268,6 +1275,7 @@ do not silently rewrite earlier guidance.
 | U132 | A separate test registration, analogous to arbitrary registration, makes sense instead of a Test effect. | V1/6.0b use dedicated test metadata linked to normal executable requests; retain Read/Write/Solicit effects and subset admission. Exact registration API remains a design detail. | — |
 | U133 | `ct test run resource-group-list` uses a positional test-name pattern matched against the registry, not an explicit subcommand for every test. | V1/6.0b provide one `run <pattern>` surface, runtime registry selection, and literal/pattern/no-match validation before normal effect/input admission. | — |
 | U134 | The only freshness switch should be the outcome of `.with_invalidation(self.clean)`, without a separate response-parsing-only mode. | V1/6.0b/6.0e use the same request execution/cache path for both clean values. Remove the agent-proposed saved-response decoding mode and its implementation/acceptance requirements; preserve existing cache acceptance rules and explain their ordinary limits. | — |
+| U135 | Complete the comprehensive implementation cutover and leave changes uncommitted. | Complete 6.0a–6.0e, 6.1–6.3 and Phase 7; close contracts as internal milestones, preserve earlier requirements and synthetic-only validation, and do not commit. Phase 8 stays deferred. | — |
 
 U18 supersedes the earlier assistant suggestion to preserve an Azure CLI
 active-tenant selection. That suggestion was not user approval. U13 rejects the
@@ -1410,18 +1418,19 @@ not an implemented package; U61 selects `auth_types` paired with runtime `auth`.
 | U120 | UI background-work cleanup below | Existing work committed as `58f454e4`. Cleanup complete; six focused offline tests, workspace all-target compilation, and warnings-denied all-target Clippy for command and both UIs pass. U122 records the cleanup checkpoint. |
 | U121 | Shared `Work::enqueue` lifetime contract | Source review and an isolated compiler check confirm the typed sender needs the bound when captured in the independently owned background task; the UI state borrow stays synchronous. |
 | U122 | UI cleanup checkpoint; Phase 6 completion boundary | Local checkpoint titled `Consolidate UI background work and scoped autosaves`; remaining Phase 6 scope verified against source. |
-| U123 | Companion account model, A1–A4; 6.0a/6.0c/6.0d/6.0e | Source inventory confirms single-selection stores and existing session partitions; implementation and two-account/lifecycle proof pending. |
-| U124 | Companion verification model, V1; 6.0b/6.0e | Live unignored tests and existing effect semantics verified; full test classification, runtime runner, and offline acceptance pending. |
-| U125 | Companion helper classification; 6.0d/7.1 | Request-first execution already exists; full family cutover and caller checks pending. |
+| U123 | Companion account model, A1–A4; 6.0a/6.0c/6.0d/6.0e | Account catalogue/provider map and source provisioning implemented; same-tenant selection, immutable replay, retirement, and cross-account dependency scenarios have synthetic tests. Final results are in the cutover evidence. |
+| U124 | Companion verification model, V1; 6.0b/6.0e | 132 former live/obsolete Cargo cases classified; 127 runtime registrations, effect/input admission, normal clean execution, coverage/provenance and cancellation reporting implemented. Retained configuration tests use isolated temporary roots. |
+| U125 | Companion helper classification; 6.0d/7.1 | SDK families and consumers construct requests directly; forwarding exports removed. Retained repository aggregation, best-effort and local-scope helpers perform substantive work. |
 | U126 | Current authorization; revised Phase 6 order | Design-only update; completed foundations preserved and new gates explicit. No implementation or live validation performed. |
-| U127 | Companion alias model, A1; 6.0c/6.0e | User reply confirms scoped aliases; precise lookup contract and synthetic resolution tests pending. |
-| U128 | Companion defaults contract, A1; 6.0c/6.0e | User reply permits configured defaults; no ambient/first-account fallback. Resolution and lifecycle validation pending. |
-| U129 | Companion type naming; 6.0a/6.0c/6.0d | Proposed account name corrected; existing Azure request/storage names verified in source. Production family renames and consumer/reflection checks remain pending. |
-| U130 | Companion optional-invalidation policy, V1; 6.0b/6.0e | Existing invalidation and REST artifact behavior reviewed; mandatory fresh-root recommendation superseded. U134 removes the extra decoding feature; synthetic normal-execution/cache and invalidation proof pending. |
-| U131 | Companion approval model, A2/A3; 6.0c/6.0d/6.0e | Runtime auth-context fields confirmed in both cited requests; per-account serialized approval and executor mapping remain planned. Credential generations are runtime concerns, not mandatory durable request fields. |
-| U132 | Companion test registration, V1; 6.0b | User accepts registration/effect separation; exact registration and runner implementation pending. |
-| U133 | Companion registry name selection, V1; 6.0b/6.0e | Positional pattern contract recorded; literal/pattern/no-match selection and unchanged effect/input admission proof pending. |
-| U134 | Companion single execution path, V1; 6.0a/6.0b/6.0e | Separate decoding feature removed from active tasks and acceptance. Both invalidation values must retain normal cache behavior; source implementation and synthetic proof pending. |
+| U127 | Companion alias model, A1; 6.0c/6.0e | Alias lookup is scoped to Entra tenant or service instance; synthetic tests cover reuse across namespaces and distinct stable account IDs. |
+| U128 | Companion defaults contract, A1; 6.0c/6.0e | Explicit IDs/aliases override deliberate scoped defaults; missing/incompatible selections fail. Tests cover default changes without redirecting serialized requests. No ambient/first-account fallback. |
+| U129 | Companion type naming; 6.0a/6.0c/6.0d | CloudTerrastodon account vocabulary and Azure/Entra request/resource-group/storage-account families use domain-qualified names and owning files; consumers and reflection registrations compile without aliases. |
+| U130 | Companion optional-invalidation policy, V1; 6.0b/6.0e | Runner warns without clean and invokes the same production request with optional normal invalidation. Review corrected ACR/PIM discovery, dynamic Entra membership and DevOps project-member refresh coverage. |
+| U131 | Companion approval model, A2/A3; 6.0c/6.0d/6.0e | Pure account/source/tenant selections replace request-owned runtime auth; explicit provider maps validate identity before reuse. Synthetic replay and mixed-account tests cover approval intent without serializing credential generations. |
+| U132 | Companion test registration, V1; 6.0b | RuntimeTestRegistration is separate from operation effects; direct executable handles reuse production requests, with separate workflow request types where extra verification behavior exists. |
+| U133 | Companion registry name selection, V1; 6.0b/6.0e | One run subcommand selects full registry names by literal or star/question-mark pattern; no-match, effect and typed-input admission have offline regressions. |
+| U134 | Companion single execution path, V1; 6.0a/6.0b/6.0e | Both clean values use normal request execution and cache acceptance; synthetic runner regressions cover reuse/invalidation. No separate decoding/replay mode or test-specific bypass exists. |
+| U135 | Current authorization; Phase 6 and Phase 7 | Comprehensive cutover complete; 1,668 workspace tests, seven doctests, 47 no-auth app tests, all-target/all-feature Clippy and formatting passed. All changes remain uncommitted; Linux/live verification and Phase 8 remain explicitly outside this evidence. |
 
 ## Purpose and scope
 
@@ -1459,20 +1468,20 @@ These are source-inspection findings at the recorded baseline, not test results.
 
 | Area | Existing evidence | Migration implication |
 | --- | --- | --- |
-| Shared work | [cacheable_work.rs](../../crates/command/src/cacheable_work.rs) owns CachedWorkSpec, raw execution, decoding, artifact retention, and post-decode publication. | Reuse its responsibility while splitting production types into their own files. |
-| Memory/disk cache | [artifact_cache.rs](../../crates/command/src/artifact_cache.rs) has a global map of serialized CommandOutput; memory keys include fingerprint, disk directories do not. | Decoded sharing, explicit ownership, and physical write isolation are all needed. |
+| Shared work | `crates/command/src/cacheable_work.rs` (baseline; retired) owns CachedWorkSpec, raw execution, decoding, artifact retention, and post-decode publication. | Reuse its responsibility while splitting production types into their own files. |
+| Memory/disk cache | `crates/command/src/artifact_cache.rs` (baseline; retired) has a global map of serialized CommandOutput; memory keys include fingerprint, disk directories do not. | Decoded sharing, explicit ownership, and physical write isolation are all needed. |
 | Validity | Memory hits precede timestamp checks. Writes append timestamps; validity reads the first line while discovery reads the last. | Give memory and disk consistent expiry/refill semantics; cover with owned-policy tests. |
-| Invalidation | [cache_key.rs](../../crates/command/src/cache_key.rs) scans existing descendant context files and clears global memory. | Add generations, in-flight protection, and an explicit cache owner. |
+| Invalidation | `crates/command/src/cache_key.rs` (baseline; retired) scans existing descendant context files and clears global memory. | Add generations, in-flight protection, and an explicit cache owner. |
 | Commands | [command.rs](../../crates/command/src/command.rs), [process_fingerprint.rs](../../crates/command/src/process_fingerprint.rs), [command_kind.rs](../../crates/command/src/command_kind.rs). | Retries reenter the cache boundary; raw success is published before typed decode; adjacent files are written into the cache directory before execution. |
 | REST | [rest_request.rs](../../crates/rest/src/rest_request.rs) uses shared cached work but has a separate uncached branch; arbitrary validators/mappers run for callers. | Preserve status/header/body diagnostics, tracked caller/span, and per-caller callbacks. |
-| SDK trait | [cachable_command.rs](../../crates/command/src/cachable_command.rs) supplies key/run and IntoFuture macros; it does not cache assembled SDK outputs. | Aggregate memoization is new behavior, not merely moving the current cache. |
+| SDK trait | `crates/command/src/cachable_command.rs` (baseline; retired) supplies key/run and IntoFuture macros; it does not cache assembled SDK outputs. | Aggregate memoization is new behavior, not merely moving the current cache. |
 | Auth runtime | [auth_context.rs](../../crates/auth/src/auth_context.rs) already owns invocation-local reference-counted token caches. | Preserve source policy, headless behavior, and cache isolation while moving ownership. |
 | Tenant binding | [azure_tenant_auth_context.rs](../../crates/auth/src/azure_tenant_auth_context.rs) validates resolved enabled sources and workload-identity tenant agreement. | Keep these invariants in the new auth-selection/execution boundary. |
 | CLI fallback | [azure_devops_auth_context.rs](../../crates/auth/src/azure_devops_auth_context.rs), [azure_access_token.rs](../../crates/auth/src/azure_access_token.rs), [tracked_tenants.rs](../../crates/azure/src/tracked_tenants.rs). | Active-tenant compatibility and optional CLI token tenant must be removed from authenticated request execution. |
-| Graph | [microsoft_graph.rs](../../crates/azure/src/microsoft_graph.rs), [entra_user_list_request.rs](../../crates/azure/src/entra_user_list_request.rs), [principals.rs](../../crates/azure/src/principals.rs). | Runtime fields/progress hooks move out; continuation recovery invalidates its own subtree; records currently move into aggregates. |
-| RBAC | [resource_graph.rs](../../crates/azure/src/resource_graph.rs), role_definitions.rs, role_assignments.rs, role_definitions_and_assignments.rs in the Azure SDK. | Paginated read-only POST, combined validation, and separate child keys exercise shared results and dependencies. |
+| Graph | `crates/azure/src/microsoft_graph.rs` (baseline; retired), [entra_user_list_request.rs](../../crates/azure/src/entra_user_list_request.rs), [principals.rs](../../crates/azure/src/entra_principal_list_request.rs). | Runtime fields/progress hooks move out; continuation recovery invalidates its own subtree; records currently move into aggregates. |
+| RBAC | `crates/azure/src/resource_graph.rs` (baseline; retired), role_definitions.rs, role_assignments.rs, role_definitions_and_assignments.rs in the Azure SDK. | Paginated read-only POST, combined validation, and separate child keys exercise shared results and dependencies. |
 | Shared domain values | [entra_principal.rs](../../crates/azure_types/src/entra_principal.rs), [entra_principal_collection.rs](../../crates/azure_types/src/entra_principal_collection.rs), [role_definitions_and_assignments.rs](../../crates/azure_types/src/role_definitions_and_assignments.rs). | Box/owned conversions, mutable collection access, and cross-record invariants constrain Arc placement. |
-| Azure DevOps slice | [azure_devops_projects.rs](../../crates/azure_devops/src/azure_devops_projects.rs) and [project CLI](../../crates/azure_devops_cli/src/project/list/azure_devops_project_list_cli.rs). | Explicit org, optional tenant compatibility, page metadata, owned results, and late credential acquisition all need deliberate migration. |
+| Azure DevOps slice | [azure_devops_projects.rs](../../crates/azure_devops/src/azure_devops_projects_list_request.rs) and [project CLI](../../crates/azure_devops_cli/src/project/list/azure_devops_project_list_cli.rs). | Explicit org, optional tenant compatibility, page metadata, owned results, and late credential acquisition all need deliberate migration. |
 | Registry | [registry lib](../../crates/registry/src/lib.rs), bind_request_cancellation.rs, function_trait_contract.rs, default_production.rs, discovery_reflection.rs. | Invocation currently awaits request IntoFuture and reflects a scope field; discovery must stay offline and effects-aware. |
 | Consumers | [app](../../crates/app/src/lib.rs), [audit_azure.rs](../../crates/azure_cli/src/audit_azure.rs), [object explorer invocation](../../crates/ui_ratatui/src/object_explorer/invocation_controller.rs), [egui app](../../crates/ui_egui/src/app.rs), entrypoint dump planning, examples. | Explicit resources must reach CLI, both UI implementations and their workers, discovery execution, and reusable applications. |
 
@@ -1528,7 +1537,7 @@ normal/build dependency order and rejects cycles; `set_version.ps1`,
 - Account aliases are scoped by tenant/service and may have explicit configured
   defaults. Resolve selection before constructing requests; never choose the
   first account or depend on ambient Azure CLI state. Exact account contracts
-  remain gates A1–A4 in the companion. New live verification is an intentional
+  are closed in A1–A4 in the companion. New live verification is an intentional
   runtime operation; it does not authorize live development tests.
 - Azure CLI bearer acquisition always receives the request's explicit tenant.
   PAT remains tenant-independent. Resolve permitted CLI selectors to request
@@ -1566,10 +1575,10 @@ normal/build dependency order and rejects cycles; `set_version.ps1`,
 
 ## Contract decisions and implementation gates
 
-U123–U128 add gates A1–A4/V1 in the
-[design companion](accounts-runtime-tests-and-requests.md#gates-before-implementation).
-These extend the completed foundation; they do not reopen its resolved cache or
-crate boundaries. Close them in 6.0a before their dependent implementation.
+U123–U128 add gates A1–A4/V1, now closed under U135 in the
+[account contracts](accounts-runtime-tests-and-requests.md#closed-decisions).
+They extend the completed foundation without reopening resolved cache or crate
+boundaries. Task 6.0a records their implementation decisions.
 
 G1–G6 are closed for initial implementation by
 [the public contracts](executor-cache-contracts.md) and
@@ -1807,7 +1816,7 @@ CLI dispatchers, and examples. Record migration batches and owners here. Identif
 direct cancellation-only requests that also need executor binding without
 artificial auth requirements. Preserve existing cache inspection/clean behavior.
 Inventory wrappers that pass `self.cache_key()` unchanged to a child Command or
-RestRequest, starting with `crates/azure/src/locations.rs`: the SDK output is
+RestRequest, starting with `crates/azure/src/azure_location_list_request.rs`: the SDK output is
 Vec<AzureLocation>, while REST decodes a Response envelope. Record the namespaces
 and canonical ownership at both levels; cover same-kind nested wrappers too.
 
@@ -3063,12 +3072,12 @@ bridge cleanup. The primary agent integrated module exports, documentation,
 plan evidence, and serial verification. Existing staged work is preserved without
 staging or committing this refinement.
 
-[PolicyRemediationCreateRequest](../../crates/azure/src/policy_remediation_create_request.rs)
+[PolicyRemediationCreateRequest](../../crates/azure/src/azure_policy_remediation_create_request.rs)
 owns the typed PUT, zero-lifetime artifact key, and explicit tenant authentication.
 Both workflow branches use it. Submission does not wait for policy deployments;
 there is no existing remediation read cache to invalidate, and later resource or
 compliance inventory refresh remains the caller's responsibility after completion.
-[StorageAccountBlobContainerNamesListRequest](../../crates/azure/src/storage_account_blob_container_names.rs)
+[StorageAccountBlobContainerNamesListRequest](../../crates/azure/src/azure_storage_account_blob_container_names_list_request.rs)
 owns cached ARM pages, account-bound continuation validation, and parent-key
 invalidation. The picker reuses it and forwards reload. Reusable records live in
 `azure_types`, including shared ARM system data, typed remediation scope/name/ID,
@@ -4866,8 +4875,9 @@ Reproduction commands are in the
 
 ## Phase 6 — accounts, runtime verification, requests, and remaining consumers
 
-**Revised next comprehensive boundary:** U123–U128 insert tasks 6.0a–6.0e before
-audit extraction. The current work is design only; task 6.0a closes its contracts.
+**Comprehensive boundary:** U123–U128 insert tasks 6.0a–6.0e before
+audit extraction. U135 authorizes their implementation and the remaining Phase 7
+cutover. Current evidence is in the linked cutover validation record.
 Remove accidental live Cargo entrypoints, introduce named account ownership, and
 complete account-aware request data/direct callers before extracting audits.
 After 6.0a, test classification/runner work (6.0b) and provider/store work (6.0c)
@@ -4887,7 +4897,16 @@ verified execution contract or an explicitly documented Phase 7 removal item.
 Keep scope-only helpers independent of the executor, preserve existing audit
 behavior, and use synthetic data only.
 
-### [ ] 6.0a Close account and runtime-verification contracts
+### [x] 6.0a Close account and runtime-verification contracts
+
+**Completion notes:** A1–A4/V1 are closed in the account companion. Selection uses a stable
+`CloudTerrastodonAccountId`; bearer selection contains that ID, concrete source,
+and explicit tenant. SDK request fields use `authentication` with pure selection
+types; provider sessions remain executor-owned. Runtime tests retain one
+registry-pattern command and normal execution with optional invalidation.
+The companion records source-specific provisioning, immutable replay, required
+completion leases, scoped defaults, and verification purpose/effect separation.
+The runtime inventory classifies live Cargo entrypoints and offline replacements.
 
 **Work:** Close A1–A4/V1 in the [design companion](accounts-runtime-tests-and-requests.md)
 with the confirmed scoped aliases/configured defaults. Decide serialized binding
@@ -4913,7 +4932,15 @@ contract; inventories classify actual behavior, not file/function names. The nex
 agent can implement without guessing public defaults, account identity, or test
 admission. The present design review is preparation, not completion of this task.
 
-### [ ] 6.0b Separate live verification from Cargo tests
+### [x] 6.0b Separate live verification from Cargo tests
+
+**Completion notes:** `RuntimeTestRegistration` and its catalogue hold direct
+executable handles separately from ordinary operation discovery. `ct test
+list/run <pattern>` uses typed explicit inputs, full effect-subset admission,
+normal optional invalidation, cache/coverage observations, and cancellation-aware
+partial reports. The [runtime inventory](runtime-test-cutover-inventory.md)
+records 132 retired live/obsolete cases and 127 runtime registrations. Offline
+tests remain; the final review also isolated Config's three disk fixtures.
 
 **Work:** Convert meaningful live checks to separately registered executable test
 requests composing production requests. Add metadata-only listing, explicit typed case
@@ -4956,7 +4983,16 @@ actual effects and cannot bootstrap live scope via Arbitrary/discovery. Clean an
 cached runs follow U130/U134, selection follows U133, and cached success does not
 claim a fresh service exchange. No separate parsing-only path is introduced.
 
-### [ ] 6.0c Implement named accounts and credential-session ownership
+### [x] 6.0c Implement named accounts and credential-session ownership
+
+**Completion notes:** Account IDs and serialized selections live in
+`auth_types`; `CloudTerrastodonAccountStore`, admitted provider maps and credential
+sessions live in `auth`. Account CLI commands cover provisioning, inspection,
+defaults, explicit legacy import, login, logout and removal. Each source has an
+account-owned binding. Retirement closes new admission, signals optional work,
+drains leased completion, and invalidates account partitions/dependencies. Direct
+executor work acquires leases on first poll, preserving lazy binding. The
+[authentication guide](../authentication.md) records source-specific contracts.
 
 **Work:** Add stable account/binding vocabulary to auth_types and resource-owning
 profile/session behavior to auth, using `CloudTerrastodon`-prefixed account types
@@ -4989,7 +5025,16 @@ limits. No single tenant/global credential slot silently replaces another accoun
 Profiles carry references, not serialized secrets; requests still name authority
 and service scope correctly.
 
-### [ ] 6.0d Complete account-aware request data and direct callers
+### [x] 6.0d Complete account-aware request data and direct callers
+
+**Completion notes:** Azure/Entra, DevOps and Gitea request fields contain
+pure selections; factories are removed and consumers construct requests directly.
+The Azure request/resource-group/storage-account families have domain-qualified
+names, owning files and registrations, without compatibility aliases. Cow inputs,
+Arc outputs, typed picker errors, invalidation and child-executor use are retained.
+Remaining repository aggregation, best-effort probing and local-scope helpers
+have substantive responsibilities. Runtime auth contexts remain only at actual
+selection/execution boundaries, not in serializable SDK requests.
 
 **Work:** Migrate each inventoried family and all consumers together to resolved
 serializable account/source/tenant selections, including the still-context-bearing
@@ -5028,7 +5073,14 @@ exceptions have explicit responsibilities and no compatibility role. New account
 types and inventoried renamed service families use their owning domain prefix;
 no old-name compatibility aliases remain.
 
-### [ ] 6.0e Prove integrated account and verification behavior
+### [x] 6.0e Prove integrated account and verification behavior
+
+**Completion notes:** Synthetic scenarios cover same-tenant accounts,
+default/alias changes without request substitution, mixed-account execution,
+retirement and transitive invalidation, disabled-auth admission, and runtime
+verification policy. Current guides, contracts, inventories and Unreleased notes
+describe the implemented API. The [cutover evidence](executor-cache-cutover-validation.md)
+records final checks and the unavailable Linux/live-service evidence explicitly.
 
 **Work:** Integrate account selection/defaults, normal requests, aggregate caches,
 runtime test admission, and consumer outputs. Document `ct account`/`ct test`,
@@ -5054,7 +5106,14 @@ cutover have integrated offline evidence. Every prior live Cargo case has a
 disposition; the ordinary test workflow cannot resolve ambient credentials or
 access services. Existing tasks 6.1–6.3 can proceed against the settled contract.
 
-### [ ] 6.1 Separate audit activities without centralizing their input data
+### [x] 6.1 Separate audit activities without centralizing their input data
+
+**Completion notes:** Four independent requests own unknown-principal,
+admin-correspondence, service-principal-password and resource-tag policies under
+`azure_cli`. They carry explicit account selections, bind leases, return typed
+findings and share existing principal/RBAC inventories. `audit_azure` coordinates
+them through child executors and emits one typed report. Five focused regressions
+cover the existing policies and shared initialization.
 
 **Prerequisite:** Complete 6.0a–6.0e. Audit callers use the settled account selection
 and request-first API, avoiding a second broad caller migration.
@@ -5078,7 +5137,14 @@ sharing principals/RBAC and asserts one canonical fill, without real service dat
 **Completion criteria:** Activities are independently invocable and testable, share
 decoded inventories through the executor, and preserve existing audit results.
 
-### [ ] 6.2 Construct and pass the executor from application startup
+### [x] 6.2 Construct and pass the executor from application startup
+
+**Completion notes:** Startup records explicit authentication preferences
+without loading accounts. `App::work_cache` accepts the invocation's cache owner,
+including temporary storage. Both featureless and auth/terminal process fixtures
+exercise isolated local handlers, including parsed `--auth-source none`.
+Examples and the resource-type tool construct account-aware requests; global
+source/account arguments no longer imply ambient service scope.
 
 **Foundation:** Tasks 3.2 and 4.2 now bind the application executor and propagate
 it through service callers, cache list/clean paths, and both examples. This item
@@ -5116,15 +5182,21 @@ startup acquires no credentials; no hidden singleton bridges old/new paths;
 invalidation targets the same memory/storage owner as execution. Both feature
 configurations have runtime evidence without accessing production data.
 
-### [ ] 6.3 Migrate UI, discovery execution, and remaining consumer batches
+### [x] 6.3 Migrate UI, discovery execution, and remaining consumer batches
+
+**Completion notes:** CLI/UI, examples and tools use the settled request
+contract. HCL provider/reflow inputs contain pure optional selections; SourceHunt
+retains its legitimate scope-only scan operation behind explicit request execution.
+UI export/discovery request fields no longer contain runtime scopes. Egui receives
+an explicit optional organization and selected startup account; worker children
+share the invocation cache without discovering ambient DevOps defaults.
 
 **Verified foundation:** Task 3.3 already supplies executors to registry invocation;
 U118 and U120 now supply child scopes to UI workers and share background-task
-ownership. Reconcile those completed changes against the inventory rather than
-repeat them. Remaining request-owned runtime fields still need classification;
-for example, `crates/hcl/src/reflow/reflow_new.rs` retains an optional borrowed
-Azure tenant auth context. Preserve legitimate execution contexts and scope-only
-operations while closing the actual remaining consumer gaps.
+ownership. The cutover reconciles those foundations against the inventory.
+The formerly borrowed Azure tenant auth context in HCL reflow is now a pure
+optional authentication selection. Legitimate execution contexts and scope-only
+operations retain their separate responsibilities.
 
 **Work:** Update object-explorer invocation/value construction, dump planning and
 simulation admission, menus, source/HCL consumers, and the inventory from 1.2.
@@ -5148,7 +5220,14 @@ HCL transformations and UI behavior are unchanged.
 
 ## Phase 7 — cutover, acceptance, and documentation
 
-### [ ] 7.1 Remove transitional implicit/runtime-bearing paths
+### [x] 7.1 Remove transitional implicit/runtime-bearing paths
+
+**Completion notes:** Removed reflective IntoFuture registration/cancellation
+injection, request factories, ambient Azure CLI tenant/subscription and DevOps
+scope defaults, and obsolete PIM configuration persistence. Public documentation
+uses owning APIs; the older secretless-authentication plan is clearly historical.
+The remaining SDK test-executor helper supplies only synthetic authentication and
+temporary storage. It is not the retired credential-backed helper.
 
 **Work:** Complete each remaining request-family batch from 1.2. Remove legacy
 global memory cache, request-owned auth/scope, implicit REST auth resolution,
@@ -5174,7 +5253,14 @@ the old cache lifecycle, and no migration compatibility re-exports remain. Each
 search finding is removed or justified by its actual remaining responsibility.
 The full workspace compiles against the new contract.
 
-### [ ] 7.2 Verify acceptance and document public migration/release impact
+### [x] 7.2 Verify acceptance and document public migration/release impact
+
+**Completion notes:** The [cutover evidence](executor-cache-cutover-validation.md)
+is the current validation record, including corrected final-review failures.
+Publication ordering is an acyclic 34-package DAG. Lockfile changes update internal
+edges and add an already-pinned tempfile dependency for Config tests; no external
+package version changed. Changes remain unstaged and uncommitted. Linux and live
+provider/service validation are not claimed; Phase 8 remains deferred.
 
 **Work:** Run the reviewed local test matrix and cross-platform checks. Update
 REUSABLE_APPLICATIONS.md, affected request docs/examples, public import paths, and
@@ -5229,63 +5315,63 @@ evidence and documentation. This item remains deferred when phases 1–7 complet
 | Raw artifact storage | Isolated complete attempts and guarded selection within one handle | Local storage/integrity, freshness, and worker-drop tests | Core storage and Command checks passed; task 4.2 REST failure/outcome/sensitive-retention tests passed |
 | SDK/transport namespaces and ownership | Separate concrete entries; shared logical invalidation scope | Synthetic wrapper succeeds; same-namespace owner/type collisions bail before execution/reuse; invalidation covers all kinds | Core namespace/claim/invalidation tests and REST wrapper/envelope loopback scenario passed; all callers compile |
 | Mutations, zero-duration and uncached work | Execute each invocation; retain required artifacts | Cancellation and artifact/invalidation tests | Executor/Command checks and REST independent-mutation/required-completion loopback checks passed |
-| Graph principals, ARM RBAC, Azure DevOps projects | Explicit auth/scope; shared assembled results | Typed local composition/discovery tests and compile checks | Explicit executor/auth binding and discovery checks passed in 4.2; shared aggregates and dependency freshness remain phase 5 |
+| Graph principals, ARM RBAC, Azure DevOps projects | Explicit auth/scope; shared assembled results | Typed local composition/discovery tests and compile checks | Phase 5 shared aggregate/dependency checks and the cutover's account-bound request/discovery checks pass; runtime cases compile without invocation |
 | Azure CLI bearer, browser, workload identity | Explicit request tenant/source | Offline selection/command construction; no live credential tests | Auth/runtime selection and task 4.2 caller-provider rebinding checks passed; no live credential validation |
 | PAT and local-only/disabled auth | PAT tenant-independent; local work credential-free | Selection/admission tests | Provider policy, CLI early admission, raw REST disabled-auth, group-management disabled-auth, and small-stack dispatch checks passed |
-| Named accounts and scoped aliases/defaults | Multiple identities per tenant/service; explicit immutable request selection | Same-source/account isolation, default resolution, binding replay, logout/rebind completion and dependency tests | U123/U127/U128 design recorded; 6.0a/6.0c/6.0e pending |
-| Cargo tests and registered runtime verification | Offline Cargo workflow; registry name-pattern selection and deliberate runtime checks with optional --clean and warning/provenance for cache use | Classified test inventory, offline listing, pattern/effect/input admission, normal execution with optional invalidation, cache/strictness reporting and synthetic runner checks | U130/U132–U134 refine the design; 6.0b/6.0e pending; no live run authorized |
-| Direct request callers | Trivial fetch wrappers removed; behavior/borrowing preserved | Per-family full consumer compilation and inspected offline behavior checks | ExecutableRequest::execute exists; 6.0d pending |
-| Registry, UI, discovery, CLI output | Explicit execution; offline planning preserved | Synthetic invocation/discovery and scoped UI/output checks | Task 3.3's registry, shared-output discovery, UI lifecycle/export, and entrypoint dispatch checks passed; broader service/output consumer migration remains phase 6 |
-| App with auth and without auth; workspace examples | Supported feature boundaries; no production inputs | Both process-suite feature configurations, `--auth-source none` local handler with isolated storage, and consumer compile checks | Task 3.2's no-auth library and auth-enabled binding tests plus workspace compilation passed; later consumer/process acceptance remains task 6.2 |
-| Windows | Primary local validation platform | Existing linker/toolchain; local PowerShell fixture suites | Command phase 4.1's 51 local tests and 16 focused policy tests passed; later migration phases remain open |
+| Named accounts and scoped aliases/defaults | Multiple identities per tenant/service; explicit immutable request selection | Same-source/account isolation, default resolution, binding replay, logout/rebind completion and dependency tests | Account-store/provider synthetic tests, account-partition races, approval replay, and all four direct-work retirement regressions pass; see cutover evidence |
+| Cargo tests and registered runtime verification | Offline Cargo workflow; registry name-pattern selection and deliberate runtime checks with optional --clean and warning/provenance for cache use | Classified test inventory, offline listing, pattern/effect/input admission, normal execution with optional invalidation, cache/strictness reporting and synthetic runner checks | 132 retired live/obsolete cases classified; 127 runtime registrations; runner admission, clean behavior, coverage and partial-report policy tests pass; no live run performed |
+| Direct request callers | Trivial fetch wrappers removed; behavior/borrowing preserved | Per-family full consumer compilation and inspected offline behavior checks | Azure/Entra, DevOps, Gitea, CLI/UI, examples and tools use request-first execution; remaining substantive workflows are classified in the inventory |
+| Registry, UI, discovery, CLI output | Explicit execution; offline planning preserved | Synthetic invocation/discovery and scoped UI/output checks | Direct registrations, shared-output discovery, offline generators, UI lifecycle/export and root CLI dispatch checked against the final contract; see cutover evidence |
+| App with auth and without auth; workspace examples | Supported feature boundaries; no production inputs | Both process-suite feature configurations, `--auth-source none` local handler with isolated storage, and consumer compile checks | All-feature process checks and the 47-test no-default-features app suite pass; examples compile through all-target Clippy |
+| Windows | Primary local validation platform | Existing linker/toolchain; local PowerShell fixture suites | Clean-rebuild workspace and feature validation recorded in the cutover evidence; debug assertions remain enabled |
 | Linux | Preserve documented consumer support | Repeat relevant compilation/tests when environment available | Pending |
 | Live cloud and pipeline use | Outside this migration's development validation; no production data access or ingestion | Local synthetic fixtures and compile checks only; live compatibility is not established | Not run |
 
 ## Overall initial-migration completion criteria
 
-- [ ] Every active U01–U134 requirement has task evidence; G1–G6 and A1–A4/V1 are closed and
+- [x] Every active U01–U135 requirement has task evidence; G1–G6 and A1–A4/V1 are closed and
   phases 1–7 complete. Phase 8 remains explicitly deferred.
-- [ ] Requests contain explicit operation/auth selection data and no execution
+- [x] Requests contain explicit operation/auth selection data and no execution
   resources; both execute spellings and registry invocation share one contract.
-- [ ] All moved-type consumers use the owning crate/API; no migration compatibility
+- [x] All moved-type consumers use the owning crate/API; no migration compatibility
   re-exports remain, and examples and public documentation show the new imports.
-- [ ] Pure `registry` and executor-aware `registry_execution` own their respective
+- [x] Pure `registry` and executor-aware `registry_execution` own their respective
   registrations; runtime `auth` and vocabulary `auth_types` replace `credentials`.
   `AuthSource` belongs to `auth_types`, `AzureTenantId` remains in `azure_types`,
   and `registry_values`/old package aliases are absent. The normal/build graph
   remains acyclic and the integrated catalogue has no duplicate registrations.
-- [ ] Command/REST/in-process execution use one cache lifecycle with no hidden
+- [x] Command/REST/in-process execution use one cache lifecycle with no hidden
   global work cache or implicit authenticated-request fallback.
-- [ ] Concurrent successful reads share canonical decoded results; warm hits do
+- [x] Concurrent successful reads share canonical decoded results; warm hits do
   not deserialize or deep-copy results. Type/owner misuse fails diagnostically.
   Namespace separation covers SDK/transport results without hiding same-namespace
   collisions or narrowing logical-scope invalidation.
-- [ ] Prefix and recorded dependency invalidation cover memory and disk without
+- [x] Prefix and recorded dependency invalidation cover memory and disk without
   stale publication or nested deadlock; unrelated scopes remain reusable.
-- [ ] Initializer/waiter/root cancellation, deferrals, mutations, zero-duration
+- [x] Initializer/waiter/root cancellation, deferrals, mutations, zero-duration
   entries, caller validators, and required artifacts obey their stated contracts.
-- [ ] Azure CLI bearer requests always specify tenant; all authenticated sources
+- [x] Azure CLI bearer requests always specify tenant; all authenticated sources
   remain explicit; PAT and disabled/local-only paths keep their distinct semantics.
-- [ ] Multiple accounts in one tenant/service, scoped aliases, configured defaults,
+- [x] Multiple accounts in one tenant/service, scoped aliases, configured defaults,
   binding replacement/logout, and account-dependent cache reuse satisfy the
   companion contracts without ambient account fallback or cross-process overclaims.
-- [ ] Cargo tests are isolated from live credentials/services. Registered runtime
+- [x] Cargo tests are isolated from live credentials/services. Registered runtime
   verification uses registry name-pattern selection, explicit scope, actual effect
   admission, and `.with_invalidation(self.clean)` with complete underlying-read
   coverage. Both values follow normal execution/cache behavior, with cached-run
   warnings and honest build-mode/coverage reporting. No separate parsing-only mode
   is added; cached success does not imply current live compatibility.
-- [ ] Approval surfaces can inspect each request's selected account/source/tenant;
+- [x] Approval surfaces can inspect each request's selected account/source/tenant;
   execution cannot substitute a requester's/default account. Credential renewal
   is distinct from changing the approved principal, and requests carry no runtime
   auth resources or mandatory token/session generations.
-- [ ] Operation call sites construct requests and use `.execute(executor)`;
+- [x] Operation call sites construct requests and use `.execute(executor)`;
   forwarding helpers are gone and meaningful scope-only/workflow helpers remain.
-- [ ] Independent audit activities share inventories without a World object or
+- [x] Independent audit activities share inventories without a World object or
   new audit-policy behavior. Consumers and discovery support the chosen Arc shapes.
-- [ ] Workspace/feature/consumer checks and reviewed offline tests have recorded
+- [x] Workspace/feature/consumer checks and reviewed offline tests have recorded
   results; unavailable platform evidence is explicit and limits completion claims.
-- [ ] Documentation, Unreleased notes, package DAG, privacy checks, and temporary
+- [x] Documentation, Unreleased notes, package DAG, privacy checks, and temporary
   adapter removal are complete. No release, live test, or commit is implied.
 
 ## Risk register
@@ -5318,5 +5404,5 @@ evidence and documentation. This item remains deferred when phases 1–7 complet
 | New executor creates command/auth or registry cycles | G1; 3.0/3.1 normal/build DAG checks including pure conversions and metadata; staged checks and release-order review |
 | Legacy timestamps, metadata, or cache paths misrepresent freshness | G5; 2.2 legacy/expiry policy; preserve diagnostic inspection |
 | Claimed thread safety mistaken for cross-process guarantees | U27; acceptance matrix and separate phase 8 |
-| Tests or cache inspection expose production data to tools/agent context | U29; reviewed local targets, auth-feature startup with none, isolated synthetic storage, no test.ps1/workspace suite/ignored tests |
+| Tests or cache inspection expose production data to tools/agent context | U29; classified Cargo targets, auth-feature startup with none, isolated synthetic storage; workspace tests admitted only after the live-test cutover, ignored tests not invoked |
 | Plan drifts or includes identifying local output | Stable ledger, three-pass audit, relative evidence, privacy scan on update |

@@ -551,133 +551,80 @@ credential contexts without using a current access token as request identity.
 ### Serializable authentication selection
 
 `auth_types::AuthSource` retains application selection preferences, including
-`Auto` and `None`. Executable bearer request data uses `AzureBearerAuthSource`,
-a selected source vocabulary containing `AzureCli`, `WorkloadIdentity`, and `Browser`.
-This is a distinct validated contract: a request cannot encode an unresolved
-auto preference, disabled source, or PAT as a bearer source.
+`Auto` and `None`. Pure `AzureBearerAuthenticationSelection` contains a stable
+`CloudTerrastodonAccountId`, concrete `AzureBearerAuthSource`, and explicit
+`AzureTenantId`. Principal/ARM requests retain that selection in their
+`authentication` field. `AzureDevOpsAuthSelection` distinguishes this bearer
+selection from an account-selected PAT. Gitea requests name their account and
+instance. No request contains runtime credential caches or cancellation handles.
 
-Principal and ARM requests keep explicit `auth_source` and `tenant_id` fields.
-`AzureDevOpsAuthSelection` has a tenant-bearing bearer case and a
-`PersonalAccessToken` case. There is no active-CLI-tenant case. PAT is explicitly
-tenant-independent. Every Azure CLI bearer token subprocess receives the
-request's tenant; account defaults never complete missing request data.
+Aliases and deliberately configured CT defaults resolve before construction.
+No active-CLI-tenant or first-account fallback exists. The resource-type tool uses
+the shared tenant selector and configured CT tenant default; it no longer consults
+Azure CLI's ambient account. Every bearer request contains the resolved tenant,
+and every Azure CLI token subprocess receives it explicitly.
 
-U56 permits the unpublished resource-type maintenance tool to resolve its shared
-CLI tenant selector before constructing SDK request data. Omitted or `default`
-selection uses the Azure CLI default account's tenant; UUIDs and aliases use the
-shared tracked-tenant resolver. The tool then binds that concrete UUID to its
-explicitly selected credential source. This CLI selection exception neither
-adds an active-tenant variant to executable request data nor permits the
-authentication provider to fill a missing request tenant from account defaults.
+The executor owns an invocation-specific provider map keyed by account ID.
+`AuthenticationProvider::admit` checks the already-owned source, authority, account,
+and generation before a reusable hit. `validate_target` enforces service credential
+destinations before reuse or transmission. `lease` retains the admitted binding
+for the complete request; retirement tokens cancel optional work while linked
+deferrals drain required completion. Pure selection and admission do not fetch a
+token, read defaults, or switch accounts.
 
-The provider interface uses `AuthenticationSelection` to represent anonymous
-work, explicit tenant-bound bearer selection, or Azure DevOps PAT selection,
-and an `AzureCredentialResource` audience. `Authorization` owns sensitive runtime
-authorization data with redacted diagnostics. It is not part of request wire
-data or a cache identity.
-
-```rust
-pub trait AuthenticationProvider: Send + Sync {
-    fn admit(
-        &self,
-        selection: &AuthenticationSelection,
-    ) -> eyre::Result<AuthPartition>;
-
-    fn authorization<'a>(
-        &'a self,
-        selection: &'a AuthenticationSelection,
-        resource: AzureCredentialResource,
-        executor: &'a CloudTerrastodonExecutor,
-    ) -> ExecutionFuture<'a, Authorization>;
-}
-```
-
-Admission is synchronous policy checking against already-owned provider state.
-It checks disabled authentication, permitted source, explicit tenant, and
-configured tenant agreement before any reusable cache hit. It does not fetch a
-token or consult live account defaults. Credential acquisition runs only when
-execution needs it. The current executor lets credential implementations retain
-the correct child cancellation relationship when running subprocesses or HTTP
-exchanges. Such work is explicitly credential infrastructure, not a semantic
-inventory dependency. Infrastructure classification cannot hide a domain write
-or user solicitation.
-The executor rejects both general cached work and direct cache-handle access
-inside credential infrastructure; its linked child scope helpers preserve that
-classification. Authorization cannot recursively request authorization.
+`authorization` and registry challenge exchange use the executor's bounded
+credential-infrastructure scope. `Authorization` owns sensitive runtime headers
+with redacted diagnostics. Credential infrastructure cannot access general work
+artifacts/caches or recursively request authorization. Infrastructure classification
+cannot hide a domain write or user solicitation.
 
 ### Auth partitions and their lifetime
 
-For workload identity, already-configured authority, tenant, and client identity
-establish a stable partition. This enables persistent reuse for that configured
-principal without acquiring a token solely to determine a cache hit. Source
-policy and tenant agreement still apply before reuse.
+The admitted account/session determines a non-secret `AuthPartition`.
+Independent CLI/browser/PAT provider sessions keep conservative partitioning;
+naming accounts does not automatically promise persistent cross-invocation result
+reuse. Workload identity includes its configured identity and account binding.
+Gitea remains nonreusable under its external-provider policy. No partition uses
+tokens, assertions, PATs, refresh credentials, or secret-derived printable keys.
 
-Current browser session metadata identifies tenant and client, but not the
-signed-in user. Azure CLI and PAT selection likewise do not establish the
-principal from request data alone. These sources use a fresh random
-provider-session identifier. Provider/executor clones share it; independently
-created providers do not, even when they share a work-cache handle. Consequently
-CLI, browser, and PAT disk results are not reusable across provider sessions in
-the initial contract. This deliberately sacrifices that disk reuse rather than
-allowing one account to reuse another account's inventory. An unpartitioned
-legacy artifact cannot establish identity and is a miss.
+Selected account ID, source, and tenant survive request serialization and alias or
+default changes. Credentials may renew within the captured identity. Explicit
+replacement credentials require a new approved account ID when continuity cannot
+be proved; an old request never silently follows the replacement. A provider can
+admit several accounts without changing execution lineage or the shared cache.
 
-A provider represents a credential session, not a live reference to whatever
-external account happens to be selected later. Every acquisition, including a
-new audience or tenant and a refresh, must preserve its established identity. A
-changed or unverifiable identity requires a new provider/partition or an error,
-not silent reuse under the old partition.
+CLI sessions use persistent account-owned generation directories with explicit
+tenant/account binding. Browser refresh credentials, PATs, workload assertion
+snapshots, and tea configuration snapshots are also account-owned. Ordinary
+execution never imports legacy credentials or follows mutable external defaults.
+Account login/import are explicit operations; token acquisition stays
+noninteractive. Azure/DevOps service operations use REST, not an auth-owned generic
+CLI service runner.
 
-Migrated service operations use REST with the selected provider's authorization.
-U71/U72 replace the temporary CLI service bridge with typed ARM remediation and
-container-inventory requests; there is no generic auth-owned service runner or
-allowlist. CLI credential subprocesses still require an isolated provider-owned
-session with explicit tenant/account binding. Do not fall back to an ambient
-configuration directory. Copying CLI configuration files alone does not establish
-a stable credential snapshot. Task 3.1 records the provisioning mechanism and
-synthetic isolation checks. External CLI account switches cannot redefine an
-existing executor's identity. Task 4.1b removes the remaining Azure/DevOps service
-Command callers. Their REST requests retain explicit auth contexts until the
-scheduled REST and data-only SDK migration.
+Retirement closes new admission, signals optional jobs, drains admitted deferred
+jobs, and invalidates the authentication partition before and after draining.
+Required response decoding, artifact persistence, and affected-read invalidation
+retain the old binding until completion. Cache generations reject stale
+publication, and recorded cross-account dependencies invalidate aggregate results.
+Previously returned `Arc` snapshots remain readable.
 
-U68 selected persistent Cloud Terrastodon login storage. Task 3.1 implements
-fresh app-owned generations for explicit tenant login, an atomic tenant selector,
-and per-generation OS file leases. Existing contexts retain their selected
-generation when another login publishes a new one. Credential subprocesses
-use that generation's config directory and recorded account, with
-brokers, ambient credential overrides, file logging, debug output, and implicit
-login disabled. CLI token acquisition requires an explicit tenant and never
-falls back to the ambient CLI store. Logout revokes owned generations.
-Task 4.1b replaces the remaining ambient Azure/DevOps service command paths with
-explicit-context REST. Credential subprocesses continue to use their dedicated
-sensitive-output boundary outside ordinary semantic work, even though Command
-now supports disabled raw retention. Local account metadata and logout likewise
-remain auth infrastructure rather than reusable inventory operations. See the
-[authentication guide](../authentication.md) and task 3.1's evidence for platform
-storage behavior and the limits of offline validation.
+Account retirement and ordinary resource invalidation have different scopes:
+retirement targets that credential partition, while mutation invalidation reaches
+all account variants of the affected resource. Shared-handle coordination does
+not imply cross-process cache coherence. Durable retirement prevents new
+invocations reopening retired generations; separately running processes are not
+instantly cancelled. Phase 8 owns stronger cross-process guarantees.
 
-No identity partition includes raw tokens, assertions, refresh tokens, PATs,
-or secret-derived printable keys. A valid hit performs no token acquisition.
-`AnonymousAuthenticationProvider` permits anonymous/local work and rejects
-requests requiring credentials before reuse. Local startup tests still need
-isolated storage: anonymous authentication does not prevent reading an existing
-disk cache.
+`AnonymousAuthenticationProvider` admits anonymous/local work and rejects
+credential-requiring selections. The default-off `test-support` sentinel
+`UnreachableAuthenticationProvider` fails any authentication use.
+`TestAuthenticationProvider` supplies synthetic policy, credentials, and call counters.
+Local tests also require temporary cache ownership because anonymous execution
+alone does not isolate disk state.
 
-The public `execution::UnreachableAuthenticationProvider` is a test sentinel
-behind the default-off `test-support` feature, enabled only through a
-dev-dependency. Its admission and authorization methods panic synchronously on
-every call, including anonymous selections, so offline tests detect unexpected
-authentication even when the caller would ignore an error or never poll the
-authorization future. It is excluded from normal builds.
-
-Credential infrastructure also declares sensitive-output retention before work
-starts. Token acquisition results stay in the provider's runtime token cache,
-not the reusable work cache or raw artifact files. Successful or failed token
-stdout, HTTP bodies, credential inputs, and token-bearing error text must not be
-persisted or logged; retain only explicitly redacted diagnostic metadata. The
-new shared lifecycle must not start archiving successful uncached token commands
-that currently leave no success artifact. This is distinct from whether a child
-participates in inventory dependency freshness.
+The [account companion](accounts-runtime-tests-and-requests.md) closes A1–A4/V1.
+The [authentication guide](../authentication.md) documents exact commands,
+source-specific storage, legacy import, and continuity limits.
 
 ## G4 — shared records, observation, and effect admission
 

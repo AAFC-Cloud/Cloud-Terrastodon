@@ -346,7 +346,7 @@ cargo +1.96.0 tree --locked --invert teamy-facet
 cargo +1.96.0 tree --locked --invert teamy-facet-core
 cargo +1.96.0 tree --locked --invert teamy-figue
 cargo +1.96.0 tree --locked --duplicates
-cargo +1.96.0 run --quiet --locked --bin cloud_terrastodon -- az tenant login --help
+cargo +1.96.0 run --quiet --locked --bin cloud_terrastodon -- account login --help
 git diff --check
 ```
 
@@ -363,16 +363,31 @@ dependencies. `-DryRun` reads metadata without publishing. Actual publication
 is a separate step after the prepared changes and validation are reviewed.
 
 Do not use an installed, potentially stale `ct` executable as proof.
-Entrypoint regressions check root/leaf global options, complete authentication
-docs and parse-only global flags after a leaf. Outage artifact tests check
-actual IPv4/IPv6 JSON without network access. Registry/Object Explorer tests
-retain Cow borrow/promote and runtime lease behavior. Record credential or
-environment limitations separately from compatibility failures.
+Global output and logging options remain shared; authentication source and
+account selectors belong to authenticated leaf commands. Check the relevant
+leaf's help, such as `ct az resource-group list --help`, when validating that
+surface. Outage artifact tests check actual IPv4/IPv6 JSON without network
+access. Registry/Object Explorer tests retain Cow borrow/promote and runtime
+lease behavior. Record environment limitations separately from compatibility
+failures.
 
-Do not run the entire workspace suite blindly: several unignored tests use
-live Azure/Gitea services or the user's credential/config stores.
-`CLOUD_TERRASTODON_REAUTH=DENY` does not prevent use of cached credentials.
-The audited local-library selection for this checkpoint is:
+Ordinary Cargo tests use offline fixtures and isolated stores. Live service
+verification is an explicit `ct test run` operation, described in
+[runtime verification](runtime-verification.md); do not invoke it for dependency
+acceptance without authorization to access the selected data. Cargo's `--offline`
+controls dependency access, not network access from test code, so review new tests
+for that boundary rather than relying on the flag or
+`CLOUD_TERRASTODON_REAUTH=DENY` to disable credentials.
+
+Current workspace acceptance can use:
+
+```powershell
+cargo +1.96.0 test --workspace --all-features --offline --locked
+```
+
+The following narrower selection records the historical 2026-09-08 checkpoint,
+before live verification moved out of Cargo tests. Its exclusions are not the
+current acceptance procedure:
 
 ```powershell
 cargo +1.96.0 test --offline --locked --no-fail-fast --lib `
@@ -390,10 +405,10 @@ cargo +1.96.0 test --offline --locked --no-fail-fast --lib `
   --skip it_fetches_repositories_without_empty_ids
 ```
 
-Keep ignored tests ignored. This selection excludes live service/credential
-tests and two tests whose missing host-configuration assumptions require
-separate isolation; `--lib` also excludes command integration tests that run
-Azure CLI. It is a dependency acceptance check, not full release validation.
+At that checkpoint, this selection excluded live service/credential tests and
+two tests whose missing host-configuration assumptions required separate
+isolation; `--lib` also excluded command integration tests that ran Azure CLI.
+It was a dependency acceptance check, not full release validation.
 
 At the 2026-09-08 application-repair checkpoint, this selection has **766
 passing tests, zero failures, 12 ignored and seven filtered**. The previous
@@ -416,8 +431,8 @@ cargo +1.96.0 test --offline --locked --lib -p cloud_terrastodon_ui_ratatui `
 ```
 
 This tests the relevant release-mode control flow without claiming a complete
-optimized release build. Keep the isolated license-response generator tests
-separate from live Azure DevOps tests:
+optimized release build. The checkpoint also ran the isolated license-response
+generator tests:
 
 ```powershell
 cargo +1.96.0 test --offline --locked --lib -p cloud_terrastodon_azure_devops `

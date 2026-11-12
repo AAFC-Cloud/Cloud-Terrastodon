@@ -22,14 +22,16 @@ cargo +1.96.0 test --offline --locked -p cloud-terrastodon-standalone-cli --bin 
 This package belongs to the Cloud Terrastodon workspace and shares its root
 `Cargo.lock`. The [root manifest](../../Cargo.toml) defines dependency versions
 and sources.
-The `app-auth` and `azure` features provide
-shared startup, authentication, and Azure SDK operations. `default-features = false`
+The `app`, `auth`, `auth-types`, `azure`, and `execution` features provide
+shared startup, authentication, and Azure SDK operations. A direct
+`cloud_terrastodon_auth_cli` dependency supplies shared authentication arguments
+(also available through the facade's `auth-cli` feature). `default-features = false`
 opts out of the full Cloud Terrastodon command tree. Publication is deliberately disabled.
 
 ## Audit resource groups
 
 When you run it, `audit` reads Azure resource groups using
-`fetch_all_resource_groups`, then partitions the typed records into
+`AzureResourceGroupListRequest { authentication }.execute(executor)`, then partitions the typed records into
 `with_five_vowels` and `without_five_vowels`. It counts exactly five occurrences
 of ASCII `a`, `e`, `i`, `o`, or `u`, ignoring case; repeated vowels count, while
 `y` and accented letters do not. A name with six vowels belongs in the second
@@ -42,12 +44,17 @@ cargo +1.96.0 run --offline --locked -p cloud-terrastodon-standalone-cli -- audi
 cargo +1.96.0 run --offline --locked -p cloud-terrastodon-standalone-cli -- audit --tenant YOUR_TENANT_ID --output-format json
 ```
 
-`--tenant` accepts an ID, tracked tenant alias, or `default`. The default uses the
-authentication source's tenant when available, otherwise the active Azure CLI
-tenant. The SDK fetches groups across accessible subscriptions in that tenant
-and uses its existing cache. `--auth-source` selects the authentication policy.
+`audit` owns its authentication arguments through the shared
+`AzureAuthenticationArgs` schema. `--tenant` accepts an ID, tracked tenant alias,
+or `default`. The default uses the configured Cloud Terrastodon tenant.
+`--account` selects a registered account in that tenant;
+omission requires a deliberately configured account default. The SDK fetches groups across accessible subscriptions in that tenant
+and uses its existing cache. `--auth-source auto` selects the account's preferred
+registered mechanism; an explicit source overrides it without fallback.
+Application startup installs one lazy credential provider. Resolving the args
+produces pure request data, and execution uses the same shared executor.
 `App` automatically wraps the handler in a cancellable scope. The handler passes
-`&context.cancellation` directly to tenant resolution and the SDK fetch, without
+`&context.cancellation` to tenant resolution and the shared executor to requests, without
 an extra handler wrapper or repeated post-await checks. The SDK observes
 cancellation during reads and between pages. The synchronous partitioning loop
 checks the scope between records, with another checkpoint before emitting output.

@@ -1,16 +1,16 @@
 // Prints each Azure Resource Group name using the re-exported Azure module.
-
 #[cfg(test)]
 use arbitrary::Arbitrary;
 use cloud_terrastodon::app::App;
 use cloud_terrastodon::app::ApplicationCli;
 use cloud_terrastodon::app::GlobalArgs;
 use cloud_terrastodon::app::Result;
-use cloud_terrastodon::app::figue;
-use cloud_terrastodon::azure::AzureTenantArgument;
-use cloud_terrastodon::azure::AzureTenantArgumentExt;
-use cloud_terrastodon::azure::fetch_all_resource_groups;
+use cloud_terrastodon::auth::CredentialAuthenticationProvider;
+use cloud_terrastodon::azure::AzureResourceGroupListRequest;
+use cloud_terrastodon::execution::ExecutableRequest;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
 use facet::Facet;
+use std::sync::Arc;
 
 /// List resource groups with their subscription names and resource IDs.
 #[derive(Facet)]
@@ -18,10 +18,8 @@ use facet::Facet;
 struct Cli {
     #[facet(flatten)]
     global_args: GlobalArgs,
-    /// Tenant ID, tracked alias, or `default`.
-    /// Defaults to the authentication source's tenant or the active Azure CLI tenant.
-    #[facet(figue::named, default)]
-    tenant: AzureTenantArgument<'static>,
+    #[facet(flatten)]
+    pub authentication: AzureAuthenticationArgs,
 }
 
 impl ApplicationCli for Cli {
@@ -31,31 +29,34 @@ impl ApplicationCli for Cli {
 }
 
 fn main() -> Result<()> {
-    App::new("resource_group_list", env!("CARGO_PKG_VERSION")).run(|cli: Cli, context| async move {
-        let auth = cli
-            .tenant
-            .bind_auth_context(&context.auth, &context.cancellation)
+    App::new("resource_group_list", env!("CARGO_PKG_VERSION"))
+        .authentication_provider(Arc::new(CredentialAuthenticationProvider::configured()))
+        .run(|cli: Cli, context| async move {
+            let executor = context.executor();
+            let resource_groups = AzureResourceGroupListRequest {
+                authentication: cli.authentication.resolve(&executor).await?,
+            }
+            .execute(&executor)
             .await?;
-        let executor = auth.auth_context.bind_executor(&context.executor())?;
-        let resource_groups = fetch_all_resource_groups(&auth, &executor).await?;
 
-        for resource_group in resource_groups {
-            // Suspend so App's wrapper can check cancellation before this row.
-            tokio::task::yield_now().await;
-            println!(
-                "{subscription_name} - {resource_group_name} ({full_id})",
-                subscription_name = resource_group.subscription_name,
-                resource_group_name = resource_group.name,
-                full_id = resource_group.id
-            );
-        }
-        Ok(())
-    })
+            for resource_group in resource_groups {
+                // Suspend so App's wrapper can check cancellation before this row.
+                tokio::task::yield_now().await;
+                println!(
+                    "{subscription_name} - {resource_group_name} ({full_id})",
+                    subscription_name = resource_group.subscription_name,
+                    resource_group_name = resource_group.name,
+                    full_id = resource_group.id
+                );
+            }
+            Ok(())
+        })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cloud_terrastodon::app::figue;
     use figue::TestToArgsConsistencyConfig;
 
     #[test]
