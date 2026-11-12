@@ -1,5 +1,5 @@
+use crate::AzureResourceGroupId;
 use crate::RESOURCE_GROUP_ID_PREFIX;
-use crate::ResourceGroupId;
 use crate::SUBSCRIPTION_ID_PREFIX;
 use crate::VirtualNetworkId;
 use crate::VirtualNetworkName;
@@ -101,7 +101,7 @@ impl Scope for VirtualNetworkPeeringId {
         let (resource_group_name, remaining) =
             strip_prefix_get_slug_and_leading_slashed_remains(remaining, RESOURCE_GROUP_ID_PREFIX)?;
         let resource_group_name = resource_group_name.parse()?;
-        let resource_group_id = ResourceGroupId {
+        let resource_group_id = AzureResourceGroupId {
             subscription_id,
             resource_group_name,
         };

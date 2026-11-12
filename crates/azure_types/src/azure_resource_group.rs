@@ -1,7 +1,7 @@
 use crate::AzureLocationName;
+use crate::AzureResourceGroupId;
+use crate::AzureResourceGroupName;
 use crate::AzureTenantId;
-use crate::ResourceGroupId;
-use crate::ResourceGroupName;
 use crate::SubscriptionName;
 use crate::SubscriptionScoped;
 use crate::scopes::AsScope;
@@ -15,41 +15,41 @@ use cloud_terrastodon_hcl_types::Sanitizable;
 use facet::Facet;
 use std::collections::HashMap;
 #[derive(Debug, PartialEq, Clone, Arbitrary, Facet)]
-pub struct ResourceGroup {
-    pub id: ResourceGroupId,
+pub struct AzureResourceGroup {
+    pub id: AzureResourceGroupId,
     pub subscription_name: SubscriptionName,
     pub tenant_id: AzureTenantId,
     pub location: AzureLocationName,
     pub managed_by: Option<String>,
-    pub name: ResourceGroupName,
+    pub name: AzureResourceGroupName,
     pub properties: HashMap<String, String>,
     #[facet(default, proxy = crate::StringMapDefaultNullProxy)]
     pub tags: HashMap<String, String>,
 }
 
-impl AsScope for ResourceGroup {
+impl AsScope for AzureResourceGroup {
     fn as_scope(&self) -> &impl Scope {
         &self.id
     }
 }
-impl AsScope for &ResourceGroup {
+impl AsScope for &AzureResourceGroup {
     fn as_scope(&self) -> &impl Scope {
         &self.id
     }
 }
 
-impl std::fmt::Display for ResourceGroup {
+impl std::fmt::Display for AzureResourceGroup {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.name)
     }
 }
-impl From<ResourceGroup> for HclImportBlock {
-    fn from(resource_group: ResourceGroup) -> Self {
+impl From<AzureResourceGroup> for HclImportBlock {
+    fn from(resource_group: AzureResourceGroup) -> Self {
         Self::from(&resource_group)
     }
 }
-impl From<&ResourceGroup> for HclImportBlock {
-    fn from(resource_group: &ResourceGroup) -> Self {
+impl From<&AzureResourceGroup> for HclImportBlock {
+    fn from(resource_group: &AzureResourceGroup) -> Self {
         HclImportBlock {
             provider: HclProviderReference::Inherited,
             id: resource_group.id.to_string(),
@@ -69,7 +69,7 @@ impl From<&ResourceGroup> for HclImportBlock {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ResourceGroupName;
+    use crate::AzureResourceGroupName;
     use crate::SubscriptionId;
     use crate::slug::Slug;
     use eyre::Result;
@@ -77,12 +77,12 @@ mod tests {
 
     #[test]
     fn deserializes() -> Result<()> {
-        let id = ResourceGroupId::new(
+        let id = AzureResourceGroupId::new(
             SubscriptionId::new(Uuid::nil()),
-            ResourceGroupName::try_new("bruh")?,
+            AzureResourceGroupName::try_new("bruh")?,
         );
         let expanded = id.expanded_form();
-        let x: ResourceGroupId = facet_json::from_str(&facet_json::to_string(&expanded)?)?;
+        let x: AzureResourceGroupId = facet_json::from_str(&facet_json::to_string(&expanded)?)?;
         assert_eq!(x, id);
         assert_eq!(x.expanded_form(), expanded);
         assert_eq!(x.to_string(), expanded);
@@ -92,9 +92,9 @@ mod tests {
 
     #[test]
     fn null_tags_default_to_empty_map() -> Result<()> {
-        let id = ResourceGroupId::new(
+        let id = AzureResourceGroupId::new(
             SubscriptionId::new(Uuid::nil()),
-            ResourceGroupName::try_new("bruh")?,
+            AzureResourceGroupName::try_new("bruh")?,
         );
         let json = format!(
             r#"{{
@@ -110,14 +110,14 @@ mod tests {
             id.expanded_form()
         );
 
-        let resource_group = facet_json::from_str::<ResourceGroup>(&json)?;
+        let resource_group = facet_json::from_str::<AzureResourceGroup>(&json)?;
         assert!(resource_group.tags.is_empty());
         let reparsed =
-            facet_json::from_str::<ResourceGroup>(&facet_json::to_string(&resource_group)?)?;
+            facet_json::from_str::<AzureResourceGroup>(&facet_json::to_string(&resource_group)?)?;
         assert_eq!(resource_group, reparsed);
         Ok(())
     }
 }
 
-cloud_terrastodon_registry::register_thing!(ResourceGroup);
-cloud_terrastodon_registry::register_arbitrary!(ResourceGroup);
+cloud_terrastodon_registry::register_thing!(AzureResourceGroup);
+cloud_terrastodon_registry::register_arbitrary!(AzureResourceGroup);

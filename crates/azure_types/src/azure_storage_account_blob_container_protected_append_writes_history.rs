@@ -11,14 +11,14 @@ use facet::Facet;
 #[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
-pub struct StorageAccountBlobContainerProtectedAppendWritesHistory {
+pub struct AzureStorageAccountBlobContainerProtectedAppendWritesHistory {
     pub allow_protected_append_writes_all: bool,
     pub timestamp: DateTime<Utc>,
 }
 
 cloud_terrastodon_registry::register_thing!(
-    StorageAccountBlobContainerProtectedAppendWritesHistory
+    AzureStorageAccountBlobContainerProtectedAppendWritesHistory
 );
 cloud_terrastodon_registry::register_arbitrary!(
-    StorageAccountBlobContainerProtectedAppendWritesHistory
+    AzureStorageAccountBlobContainerProtectedAppendWritesHistory
 );

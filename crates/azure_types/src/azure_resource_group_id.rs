@@ -1,0 +1,268 @@
+use crate::AzureResourceGroupName;
+use crate::SUBSCRIPTION_ID_PREFIX;
+use crate::SubscriptionId;
+use crate::SubscriptionScoped;
+use crate::scopes::HasPrefix;
+use crate::scopes::Scope;
+use crate::scopes::ScopeImpl;
+use crate::scopes::ScopeImplKind;
+use crate::scopes::TryFromSubscriptionScoped;
+use crate::scopes::strip_prefix_case_insensitive;
+use crate::slug::HasSlug;
+use crate::strip_prefix_get_slug_and_leading_slashed_remains;
+use arbitrary::Arbitrary;
+use eyre::Context;
+use eyre::Result;
+use eyre::bail;
+use facet::Facet;
+use std::hash::Hash;
+use std::str::FromStr;
+use uuid::Uuid;
+
+pub const RESOURCE_GROUP_ID_PREFIX: &str = "/resourceGroups/";
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Arbitrary, Facet)]
+#[facet(json::proxy = String)]
+pub struct AzureResourceGroupId {
+    pub subscription_id: SubscriptionId,
+    pub resource_group_name: AzureResourceGroupName,
+}
+impl AzureResourceGroupId {
+    pub fn new(
+        subscription_id: impl Into<SubscriptionId>,
+        resource_group_name: impl Into<AzureResourceGroupName>,
+    ) -> AzureResourceGroupId {
+        AzureResourceGroupId {
+            subscription_id: subscription_id.into(),
+            resource_group_name: resource_group_name.into(),
+        }
+    }
+    pub fn try_new<S, N>(subscription_id: S, resource_group_name: N) -> Result<Self>
+    where
+        S: TryInto<SubscriptionId>,
+        S::Error: Into<eyre::Error>,
+        N: TryInto<AzureResourceGroupName>,
+        N::Error: Into<eyre::Error>,
+    {
+        let subscription_id = subscription_id
+            .try_into()
+            .map_err(Into::into)
+            .wrap_err("Failed to convert subscription_id")?;
+        let resource_group_name = resource_group_name
+            .try_into()
+            .map_err(Into::into)
+            .wrap_err("Failed to convert resource_group_name")?;
+        Ok(AzureResourceGroupId {
+            subscription_id,
+            resource_group_name,
+        })
+    }
+}
+
+impl From<&AzureResourceGroupId> for String {
+    fn from(value: &AzureResourceGroupId) -> Self {
+        value.expanded_form()
+    }
+}
+
+impl HasSlug for AzureResourceGroupId {
+    type Name = AzureResourceGroupName;
+
+    fn name(&self) -> &Self::Name {
+        &self.resource_group_name
+    }
+}
+impl SubscriptionScoped for AzureResourceGroupId {
+    fn subscription_id(&self) -> &SubscriptionId {
+        &self.subscription_id
+    }
+}
+
+impl std::fmt::Display for AzureResourceGroupId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.expanded_form().as_str())
+    }
+}
+
+impl HasPrefix for AzureResourceGroupId {
+    fn get_prefix() -> &'static str {
+        RESOURCE_GROUP_ID_PREFIX
+    }
+}
+impl TryFromSubscriptionScoped for AzureResourceGroupId {
+    unsafe fn new_subscription_scoped_unchecked(
+        _expanded: &str,
+        subscription_id: SubscriptionId,
+        name: Self::Name,
+    ) -> Self {
+        Self {
+            subscription_id,
+            resource_group_name: name,
+        }
+    }
+}
+
+impl FromStr for AzureResourceGroupId {
+    type Err = eyre::Error;
+
+    fn from_str(expanded_form: &str) -> Result<Self, Self::Err> {
+        // /subscriptions/0000-000-00000/resourceGroups/My-Resource-Group/optional/other/stuff
+
+        // "0000-000-0000", maybe "/resourceGroups/My-Resource-Group/optional/other/stuff"
+        let (sub_id, remaining) = strip_prefix_get_slug_and_leading_slashed_remains(
+            expanded_form,
+            SUBSCRIPTION_ID_PREFIX,
+        )
+        .context(format!(
+            "Tried to parse {expanded_form:?} as resource group id, but prefix {SUBSCRIPTION_ID_PREFIX} was missing"
+        ))?;
+
+        // "0000-000-0000" => Uuid{0000-000-0000}
+        let sub_id = sub_id.parse::<Uuid>().context(format!("Tried to parse {expanded_form:?} as a resource group id, but the subscription id {sub_id:?} isn't a valid guid"))?;
+        let sub_id = SubscriptionId::new(sub_id);
+
+        // maybe "/resourceGroups/..." => Some("/resourceGroups/...")
+        let Some(remaining) = remaining else {
+            bail!(
+                "Tried to parse {:?} as resource group id, but the stuff after the subscription id was missing",
+                expanded_form
+            );
+        };
+
+        // "My-Resource-Group", "optional/other/stuff"
+        let (rg_name, remaining) = strip_prefix_get_slug_and_leading_slashed_remains(
+            remaining,
+            RESOURCE_GROUP_ID_PREFIX,
+        )
+        .context(format!(
+            "Tried to parse {expanded_form:?} as a resource group id, but chunk {remaining:?} was missing prefix {RESOURCE_GROUP_ID_PREFIX:?}"
+        ))?;
+        let rg_name: AzureResourceGroupName = rg_name.parse()?;
+
+        if let Some(remaining) = remaining {
+            bail!(
+                "Tried to parse {:?} as a resource group id, but encountered unexpected trailing remains {:?}",
+                expanded_form,
+                remaining
+            );
+        }
+
+        Ok(AzureResourceGroupId::new(sub_id, rg_name.to_owned()))
+    }
+}
+impl TryFrom<&str> for AzureResourceGroupId {
+    type Error = eyre::Error;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        AzureResourceGroupId::from_str(value)
+    }
+}
+impl TryFrom<String> for AzureResourceGroupId {
+    type Error = eyre::Error;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::from_str(&value)
+    }
+}
+impl TryFrom<&String> for AzureResourceGroupId {
+    type Error = eyre::Error;
+
+    fn try_from(value: &String) -> Result<Self, Self::Error> {
+        Self::from_str(value)
+    }
+}
+
+impl Scope for AzureResourceGroupId {
+    type Err = <Self as std::str::FromStr>::Err;
+    fn expanded_form(&self) -> String {
+        format!(
+            "{}{}{}",
+            self.subscription_id.expanded_form(),
+            RESOURCE_GROUP_ID_PREFIX,
+            self.resource_group_name
+        )
+    }
+
+    fn try_from_expanded(expanded: &str) -> Result<Self> {
+        let (subscription, resource_group) =
+            strip_prefix_get_slug_and_leading_slashed_remains(expanded, SUBSCRIPTION_ID_PREFIX)?;
+        let Some(resource_group) = resource_group else {
+            bail!(
+                "Could not create resource group id from {expanded:?}, extracted subscription {subscription} but found no resource group afterwards"
+            );
+        };
+        let subscription_id = subscription.parse()?;
+        let resource_group_name =
+            strip_prefix_case_insensitive(resource_group, AzureResourceGroupId::get_prefix())?;
+        let resource_group_name = resource_group_name.parse()?;
+        Ok(AzureResourceGroupId {
+            subscription_id,
+            resource_group_name,
+        })
+    }
+
+    fn as_scope_impl(&self) -> crate::scopes::ScopeImpl {
+        ScopeImpl::ResourceGroup(self.clone())
+    }
+    fn kind(&self) -> ScopeImplKind {
+        ScopeImplKind::ResourceGroup
+    }
+}
+
+cloud_terrastodon_registry::register_thing!(AzureResourceGroupId);
+cloud_terrastodon_registry::register_arbitrary!(AzureResourceGroupId);
+
+#[cfg(test)]
+mod test {
+    use super::AzureResourceGroupId;
+    use crate::scopes::Scope;
+    use facet::Facet;
+    use uuid::Uuid;
+
+    #[test]
+    pub fn it_works() -> eyre::Result<()> {
+        // a random guid
+        let _id = AzureResourceGroupId::try_new(
+            "d8e27b8a-2513-45f5-9ae7-10fcb50e645e",
+            "My-Resource-Group",
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    pub fn easy_construct() -> eyre::Result<()> {
+        let subscription_id = Uuid::nil().to_string();
+        let resource_group_name = "My-RG".to_string();
+        let id = AzureResourceGroupId::try_new(subscription_id, resource_group_name)?;
+        assert_eq!(
+            id.expanded_form(),
+            "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/My-RG"
+        );
+        Ok(())
+    }
+
+    #[derive(Debug, PartialEq, Facet)]
+    pub struct Something {
+        pub resource_group_id: AzureResourceGroupId,
+    }
+
+    #[test]
+    pub fn json_round_trip() -> eyre::Result<()> {
+        let id_str = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/My-RG";
+        let something = Something {
+            resource_group_id: id_str.parse()?,
+        };
+        crate::facet_json_equivalence::assert_json_serialize_equivalent(&something)?;
+        crate::facet_json_equivalence::assert_json_roundtrip_equivalent::<Something>(
+            r#"{"resource_group_id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/My-RG"}"#,
+        )?;
+        let json = facet_json::to_string(&something)?;
+        let json_expected = r#"{"resource_group_id":"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/My-RG"}"#;
+        assert_eq!(
+            facet_json::from_str::<crate::ArbitraryJson>(&json)?,
+            facet_json::from_str::<crate::ArbitraryJson>(json_expected)?
+        );
+
+        Ok(())
+    }
+}

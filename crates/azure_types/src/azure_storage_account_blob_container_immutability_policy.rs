@@ -1,5 +1,5 @@
-use crate::StorageAccountBlobContainerImmutabilityPolicyProperties;
-use crate::StorageAccountBlobContainerImmutabilityUpdate;
+use crate::AzureStorageAccountBlobContainerImmutabilityPolicyProperties;
+use crate::AzureStorageAccountBlobContainerImmutabilityUpdate;
 use arbitrary::Arbitrary;
 use facet::Facet;
 
@@ -11,11 +11,11 @@ use facet::Facet;
 #[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
-pub struct StorageAccountBlobContainerImmutabilityPolicy {
-    pub properties: StorageAccountBlobContainerImmutabilityPolicyProperties,
+pub struct AzureStorageAccountBlobContainerImmutabilityPolicy {
+    pub properties: AzureStorageAccountBlobContainerImmutabilityPolicyProperties,
     pub etag: String,
-    pub update_history: Vec<StorageAccountBlobContainerImmutabilityUpdate>,
+    pub update_history: Vec<AzureStorageAccountBlobContainerImmutabilityUpdate>,
 }
 
-cloud_terrastodon_registry::register_thing!(StorageAccountBlobContainerImmutabilityPolicy);
-cloud_terrastodon_registry::register_arbitrary!(StorageAccountBlobContainerImmutabilityPolicy);
+cloud_terrastodon_registry::register_thing!(AzureStorageAccountBlobContainerImmutabilityPolicy);
+cloud_terrastodon_registry::register_arbitrary!(AzureStorageAccountBlobContainerImmutabilityPolicy);

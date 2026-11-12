@@ -10,11 +10,11 @@ use std::str::FromStr;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Facet)]
 #[facet(json::proxy = String)]
-pub struct StorageAccountName {
+pub struct AzureStorageAccountName {
     inner: CompactString,
 }
-crate::impl_facet_string_proxy!(StorageAccountName, value => value.to_string());
-impl Slug for StorageAccountName {
+crate::impl_facet_string_proxy!(AzureStorageAccountName, value => value.to_string());
+impl Slug for AzureStorageAccountName {
     fn try_new(name: impl Into<CompactString>) -> eyre::Result<Self> {
         let inner = name.into();
         validate_storage_account_name(&inner)?;
@@ -58,46 +58,46 @@ fn validate_storage_account_name_inner(value: &CompactString) -> eyre::Result<()
     Ok(())
 }
 
-impl FromStr for StorageAccountName {
+impl FromStr for AzureStorageAccountName {
     type Err = eyre::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        StorageAccountName::try_new(s)
+        AzureStorageAccountName::try_new(s)
     }
 }
-impl TryFrom<&str> for StorageAccountName {
+impl TryFrom<&str> for AzureStorageAccountName {
     type Error = eyre::Error;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        StorageAccountName::try_new(value)
+        AzureStorageAccountName::try_new(value)
     }
 }
-impl std::fmt::Display for StorageAccountName {
+impl std::fmt::Display for AzureStorageAccountName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.inner)
     }
 }
-impl Deref for StorageAccountName {
+impl Deref for AzureStorageAccountName {
     type Target = CompactString;
 
     fn deref(&self) -> &Self::Target {
         &self.inner
     }
 }
-impl TryFrom<CompactString> for StorageAccountName {
+impl TryFrom<CompactString> for AzureStorageAccountName {
     type Error = eyre::Error;
 
     fn try_from(value: CompactString) -> Result<Self, Self::Error> {
         Self::try_new(value)
     }
 }
-impl From<StorageAccountName> for CompactString {
-    fn from(value: StorageAccountName) -> Self {
+impl From<AzureStorageAccountName> for CompactString {
+    fn from(value: AzureStorageAccountName) -> Self {
         value.inner
     }
 }
 
-impl<'a> Arbitrary<'a> for StorageAccountName {
+impl<'a> Arbitrary<'a> for AzureStorageAccountName {
     fn arbitrary(u: &mut Unstructured<'a>) -> arbitrary::Result<Self> {
         // Get length in 3-24
         let len = u.int_in_range(3..=24)?;
@@ -110,17 +110,17 @@ impl<'a> Arbitrary<'a> for StorageAccountName {
                 Ok(*c)
             })
             .collect::<Result<String, _>>()?;
-        StorageAccountName::try_new(CompactString::from(name))
+        AzureStorageAccountName::try_new(CompactString::from(name))
             .map_err(|_| arbitrary::Error::IncorrectFormat)
     }
 }
 
-cloud_terrastodon_registry::register_thing!(StorageAccountName);
-cloud_terrastodon_registry::register_arbitrary!(StorageAccountName);
+cloud_terrastodon_registry::register_thing!(AzureStorageAccountName);
+cloud_terrastodon_registry::register_arbitrary!(AzureStorageAccountName);
 
 #[cfg(test)]
 mod test {
-    use crate::StorageAccountName;
+    use crate::AzureStorageAccountName;
     use crate::slug::Slug;
     use arbitrary::Arbitrary;
     use arbitrary::Unstructured;
@@ -128,26 +128,26 @@ mod test {
 
     #[test]
     pub fn validation() -> eyre::Result<()> {
-        assert!(StorageAccountName::try_new("bruh").is_ok());
-        assert!(StorageAccountName::try_new("-").is_err());
-        assert!(StorageAccountName::try_new("a-b-c").is_err());
-        assert!(StorageAccountName::try_new("hi+hi").is_err());
-        assert!(StorageAccountName::try_new("").is_err());
-        assert!(StorageAccountName::try_new("a").is_err());
-        assert!(StorageAccountName::try_new("aa").is_err());
-        assert!(StorageAccountName::try_new("JEOFF").is_err());
-        assert!(StorageAccountName::try_new("caPital").is_err());
-        assert!(StorageAccountName::try_new("aaaa").is_ok());
-        assert!(StorageAccountName::try_new("a".repeat(23)).is_ok());
-        assert!(StorageAccountName::try_new("a".repeat(24)).is_ok());
-        assert!(StorageAccountName::try_new("a".repeat(25)).is_err());
+        assert!(AzureStorageAccountName::try_new("bruh").is_ok());
+        assert!(AzureStorageAccountName::try_new("-").is_err());
+        assert!(AzureStorageAccountName::try_new("a-b-c").is_err());
+        assert!(AzureStorageAccountName::try_new("hi+hi").is_err());
+        assert!(AzureStorageAccountName::try_new("").is_err());
+        assert!(AzureStorageAccountName::try_new("a").is_err());
+        assert!(AzureStorageAccountName::try_new("aa").is_err());
+        assert!(AzureStorageAccountName::try_new("JEOFF").is_err());
+        assert!(AzureStorageAccountName::try_new("caPital").is_err());
+        assert!(AzureStorageAccountName::try_new("aaaa").is_ok());
+        assert!(AzureStorageAccountName::try_new("a".repeat(23)).is_ok());
+        assert!(AzureStorageAccountName::try_new("a".repeat(24)).is_ok());
+        assert!(AzureStorageAccountName::try_new("a".repeat(25)).is_err());
         Ok(())
     }
 
     #[test]
     #[ignore]
     pub fn preview_failure() -> eyre::Result<()> {
-        StorageAccountName::try_new("abc123B321")?;
+        AzureStorageAccountName::try_new("abc123B321")?;
         Ok(())
     }
 
@@ -157,7 +157,7 @@ mod test {
             let mut raw = [0u8; 64];
             rand::rng().fill(&mut raw);
             let mut un = Unstructured::new(&raw);
-            let name = StorageAccountName::arbitrary(&mut un)?;
+            let name = AzureStorageAccountName::arbitrary(&mut un)?;
             assert!(name.validate_slug().is_ok());
         }
         Ok(())
@@ -165,8 +165,8 @@ mod test {
 
     #[test]
     pub fn json_round_trips_through_facet() -> eyre::Result<()> {
-        let name = facet_json::from_str::<StorageAccountName>("\"bruh\"")?;
-        assert_eq!(name, StorageAccountName::try_new("bruh")?);
+        let name = facet_json::from_str::<AzureStorageAccountName>("\"bruh\"")?;
+        assert_eq!(name, AzureStorageAccountName::try_new("bruh")?);
         assert_eq!(facet_json::to_string(&name)?, "\"bruh\"");
         Ok(())
     }

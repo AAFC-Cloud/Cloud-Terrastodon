@@ -5,13 +5,14 @@ use crate::AzureContainerInstanceResourceId;
 use crate::AzureNetworkInterfaceResourceId;
 use crate::AzurePrivateEndpointResourceId;
 use crate::AzurePublicIpResourceId;
+use crate::AzureResourceGroupId;
+use crate::AzureStorageAccountId;
 use crate::ContainerRegistryId;
 use crate::KeyVaultId;
 use crate::PolicyAssignmentId;
 use crate::PolicyDefinitionId;
 use crate::PolicySetDefinitionId;
 use crate::RESOURCE_GROUP_ID_PREFIX;
-use crate::ResourceGroupId;
 use crate::ResourceId;
 use crate::ResourceTagsId;
 use crate::RoleAssignmentId;
@@ -23,7 +24,6 @@ use crate::RouteTableId;
 use crate::SUBSCRIPTION_ID_PREFIX;
 use crate::ServiceGroupId;
 use crate::ServiceGroupName;
-use crate::StorageAccountId;
 use crate::SubnetId;
 use crate::SubscriptionId;
 use crate::TestResourceId;
@@ -267,7 +267,7 @@ where
         let (resource_group, remaining) =
             strip_prefix_get_slug_and_leading_slashed_remains(remaining, RESOURCE_GROUP_ID_PREFIX)?;
         let resource_group_name = resource_group.parse()?;
-        let resource_group_id = ResourceGroupId {
+        let resource_group_id = AzureResourceGroupId {
             subscription_id,
             resource_group_name,
         };
@@ -292,7 +292,7 @@ where
     /// The try_from methods should be used instead
     unsafe fn new_resource_group_scoped_unchecked(
         _expanded: &str,
-        resource_group_id: ResourceGroupId,
+        resource_group_id: AzureResourceGroupId,
         name: Self::Name,
     ) -> Self;
 }
@@ -314,7 +314,7 @@ where
         let (resource_group_name, remaining) =
             strip_prefix_get_slug_and_leading_slashed_remains(remaining, RESOURCE_GROUP_ID_PREFIX)?;
         let resource_group_name = resource_group_name.parse()?;
-        let resource_group_id = ResourceGroupId {
+        let resource_group_id = AzureResourceGroupId {
             subscription_id,
             resource_group_name,
         };
@@ -634,13 +634,13 @@ pub trait SubscriptionScoped {
     fn subscription_id(&self) -> &SubscriptionId;
 }
 pub trait ResourceGroupScoped {
-    fn resource_group_id(&self) -> &ResourceGroupId;
+    fn resource_group_id(&self) -> &AzureResourceGroupId;
 }
 pub trait ResourceScoped {
     fn resource_id(&self) -> &ResourceId;
 }
 impl<T: ResourceScoped> ResourceGroupScoped for T {
-    fn resource_group_id(&self) -> &ResourceGroupId {
+    fn resource_group_id(&self) -> &AzureResourceGroupId {
         &self.resource_id().resource_group_id
     }
 }
@@ -709,7 +709,7 @@ pub enum ScopeImpl {
     PolicyDefinition(PolicyDefinitionId),
     PolicySetDefinition(PolicySetDefinitionId),
     PolicyAssignment(PolicyAssignmentId),
-    ResourceGroup(ResourceGroupId),
+    ResourceGroup(AzureResourceGroupId),
     RoleAssignment(RoleAssignmentId),
     RoleDefinition(RoleDefinitionId),
     ServiceGroup(ServiceGroupId),
@@ -718,7 +718,7 @@ pub enum ScopeImpl {
     TestResource(TestResourceId),
     RoleManagementPolicyAssignment(RoleManagementPolicyAssignmentId),
     RoleManagementPolicy(RoleManagementPolicyId),
-    StorageAccount(StorageAccountId),
+    StorageAccount(AzureStorageAccountId),
     AzureAppServiceResource(AzureAppServiceResourceId),
     AzureCognitiveServicesAccountResource(AzureCognitiveServicesAccountResourceId),
     AzureApplicationGatewayResource(AzureApplicationGatewayResourceId),
@@ -819,7 +819,7 @@ impl Scope for ScopeImpl {
     }
 
     fn try_from_expanded(expanded: &str) -> Result<Self, <Self as Scope>::Err> {
-        if let Ok(id) = ResourceGroupId::try_from_expanded(expanded) {
+        if let Ok(id) = AzureResourceGroupId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::ResourceGroup(id));
         }
         if let Ok(id) = SubscriptionId::from_str(expanded) {
@@ -828,7 +828,7 @@ impl Scope for ScopeImpl {
         if let Ok(id) = ManagementGroupId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::ManagementGroup(id));
         }
-        if let Ok(id) = StorageAccountId::try_from_expanded(expanded) {
+        if let Ok(id) = AzureStorageAccountId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::StorageAccount(id));
         }
         if let Ok(id) = AzureAppServiceResourceId::try_from_expanded(expanded) {

@@ -1,5 +1,5 @@
+use crate::AzureResourceGroupId;
 use crate::ManagementGroupId;
-use crate::ResourceGroupId;
 use crate::Scope;
 use crate::ScopeImpl;
 use arbitrary::Arbitrary;
@@ -19,7 +19,7 @@ use std::str::FromStr;
 #[repr(C)]
 pub enum PolicyRemediationScope {
     ManagementGroup(ManagementGroupId),
-    ResourceGroup(ResourceGroupId),
+    ResourceGroup(AzureResourceGroupId),
 }
 
 impl Display for PolicyRemediationScope {
@@ -51,7 +51,7 @@ impl FromStr for PolicyRemediationScope {
     type Err = eyre::Report;
 
     fn from_str(value: &str) -> eyre::Result<Self> {
-        if let Ok(id) = value.parse::<ResourceGroupId>() {
+        if let Ok(id) = value.parse::<AzureResourceGroupId>() {
             return Ok(Self::ResourceGroup(id));
         }
         let id = ManagementGroupId::try_from_expanded(value)?;

@@ -8,14 +8,14 @@ use facet::Facet;
 #[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
-pub enum StorageAccountBlobContainerMigrationState {
+pub enum AzureStorageAccountBlobContainerMigrationState {
     InProgress,
     Completed,
     #[arbitrary(skip)]
     Unknown(String),
 }
 
-impl From<String> for StorageAccountBlobContainerMigrationState {
+impl From<String> for AzureStorageAccountBlobContainerMigrationState {
     fn from(value: String) -> Self {
         match value.as_str() {
             "InProgress" => Self::InProgress,
@@ -30,16 +30,16 @@ impl From<String> for StorageAccountBlobContainerMigrationState {
     }
 }
 
-impl From<&StorageAccountBlobContainerMigrationState> for String {
-    fn from(value: &StorageAccountBlobContainerMigrationState) -> Self {
+impl From<&AzureStorageAccountBlobContainerMigrationState> for String {
+    fn from(value: &AzureStorageAccountBlobContainerMigrationState) -> Self {
         match value {
-            StorageAccountBlobContainerMigrationState::InProgress => "InProgress",
-            StorageAccountBlobContainerMigrationState::Completed => "Completed",
-            StorageAccountBlobContainerMigrationState::Unknown(value) => value,
+            AzureStorageAccountBlobContainerMigrationState::InProgress => "InProgress",
+            AzureStorageAccountBlobContainerMigrationState::Completed => "Completed",
+            AzureStorageAccountBlobContainerMigrationState::Unknown(value) => value,
         }
         .to_owned()
     }
 }
 
-cloud_terrastodon_registry::register_thing!(StorageAccountBlobContainerMigrationState);
-cloud_terrastodon_registry::register_arbitrary!(StorageAccountBlobContainerMigrationState);
+cloud_terrastodon_registry::register_thing!(AzureStorageAccountBlobContainerMigrationState);
+cloud_terrastodon_registry::register_arbitrary!(AzureStorageAccountBlobContainerMigrationState);

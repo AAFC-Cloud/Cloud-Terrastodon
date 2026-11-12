@@ -8,14 +8,14 @@ use facet::Facet;
 #[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
-pub enum StorageAccountBlobContainerLeaseStatus {
+pub enum AzureStorageAccountBlobContainerLeaseStatus {
     Locked,
     Unlocked,
     #[arbitrary(skip)]
     Unknown(String),
 }
 
-impl From<String> for StorageAccountBlobContainerLeaseStatus {
+impl From<String> for AzureStorageAccountBlobContainerLeaseStatus {
     fn from(value: String) -> Self {
         match value.as_str() {
             "Locked" => Self::Locked,
@@ -30,16 +30,16 @@ impl From<String> for StorageAccountBlobContainerLeaseStatus {
     }
 }
 
-impl From<&StorageAccountBlobContainerLeaseStatus> for String {
-    fn from(value: &StorageAccountBlobContainerLeaseStatus) -> Self {
+impl From<&AzureStorageAccountBlobContainerLeaseStatus> for String {
+    fn from(value: &AzureStorageAccountBlobContainerLeaseStatus) -> Self {
         match value {
-            StorageAccountBlobContainerLeaseStatus::Locked => "Locked",
-            StorageAccountBlobContainerLeaseStatus::Unlocked => "Unlocked",
-            StorageAccountBlobContainerLeaseStatus::Unknown(value) => value,
+            AzureStorageAccountBlobContainerLeaseStatus::Locked => "Locked",
+            AzureStorageAccountBlobContainerLeaseStatus::Unlocked => "Unlocked",
+            AzureStorageAccountBlobContainerLeaseStatus::Unknown(value) => value,
         }
         .to_owned()
     }
 }
 
-cloud_terrastodon_registry::register_thing!(StorageAccountBlobContainerLeaseStatus);
-cloud_terrastodon_registry::register_arbitrary!(StorageAccountBlobContainerLeaseStatus);
+cloud_terrastodon_registry::register_thing!(AzureStorageAccountBlobContainerLeaseStatus);
+cloud_terrastodon_registry::register_arbitrary!(AzureStorageAccountBlobContainerLeaseStatus);

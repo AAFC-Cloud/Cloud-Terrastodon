@@ -1,4 +1,4 @@
-use crate::ResourceGroupId;
+use crate::AzureResourceGroupId;
 use crate::RouteTableId;
 use crate::RouteTableProperties;
 use arbitrary::Arbitrary;
@@ -16,7 +16,7 @@ pub struct RouteTable {
 }
 
 impl RouteTable {
-    pub fn resource_group_id(&self) -> &ResourceGroupId {
+    pub fn resource_group_id(&self) -> &AzureResourceGroupId {
         &self.id.resource_group_id
     }
 }

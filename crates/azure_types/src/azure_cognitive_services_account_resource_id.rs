@@ -1,5 +1,5 @@
 use crate::AzureCognitiveServicesAccountResourceName;
-use crate::ResourceGroupId;
+use crate::AzureResourceGroupId;
 use crate::scopes::HasPrefix;
 use crate::scopes::NameValidatable;
 use crate::scopes::Scope;
@@ -20,14 +20,14 @@ pub const AZURE_COGNITIVE_SERVICES_ACCOUNT_RESOURCE_ID_PREFIX: &str =
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, Facet)]
 #[facet(json::proxy = String)]
 pub struct AzureCognitiveServicesAccountResourceId {
-    pub resource_group_id: ResourceGroupId,
+    pub resource_group_id: AzureResourceGroupId,
     pub azure_cognitive_services_account_resource_name: AzureCognitiveServicesAccountResourceName,
 }
 crate::impl_facet_string_proxy!(AzureCognitiveServicesAccountResourceId, value => value.expanded_form());
 
 impl AzureCognitiveServicesAccountResourceId {
     pub fn new(
-        resource_group_id: impl Into<ResourceGroupId>,
+        resource_group_id: impl Into<AzureResourceGroupId>,
         azure_cognitive_services_account_resource_name: impl Into<
             AzureCognitiveServicesAccountResourceName,
         >,
@@ -44,7 +44,7 @@ impl AzureCognitiveServicesAccountResourceId {
         azure_cognitive_services_account_resource_name: N,
     ) -> Result<Self>
     where
-        R: TryInto<ResourceGroupId>,
+        R: TryInto<AzureResourceGroupId>,
         R::Error: Into<eyre::Error>,
         N: TryInto<AzureCognitiveServicesAccountResourceName>,
         N::Error: Into<eyre::Error>,
@@ -73,8 +73,8 @@ impl HasSlug for AzureCognitiveServicesAccountResourceId {
     }
 }
 
-impl AsRef<ResourceGroupId> for AzureCognitiveServicesAccountResourceId {
-    fn as_ref(&self) -> &ResourceGroupId {
+impl AsRef<AzureResourceGroupId> for AzureCognitiveServicesAccountResourceId {
+    fn as_ref(&self) -> &AzureResourceGroupId {
         &self.resource_group_id
     }
 }
@@ -100,7 +100,7 @@ impl HasPrefix for AzureCognitiveServicesAccountResourceId {
 impl TryFromResourceGroupScoped for AzureCognitiveServicesAccountResourceId {
     unsafe fn new_resource_group_scoped_unchecked(
         _expanded: &str,
-        resource_group_id: ResourceGroupId,
+        resource_group_id: AzureResourceGroupId,
         name: Self::Name,
     ) -> Self {
         Self {
@@ -150,7 +150,7 @@ cloud_terrastodon_registry::register_arbitrary!(AzureCognitiveServicesAccountRes
 mod test {
     use super::AzureCognitiveServicesAccountResourceId;
     use crate::AzureCognitiveServicesAccountResourceName;
-    use crate::ResourceGroupId;
+    use crate::AzureResourceGroupId;
     use crate::SubscriptionId;
     use crate::scopes::Scope;
     use crate::slug::Slug;
@@ -165,18 +165,18 @@ mod test {
             "my-openai",
         )?;
         AzureCognitiveServicesAccountResourceId::try_new(
-            ResourceGroupId::try_new("95c30970-3b9b-47d6-84a2-31f0e0cdfc8e", "myRG")?,
+            AzureResourceGroupId::try_new("95c30970-3b9b-47d6-84a2-31f0e0cdfc8e", "myRG")?,
             "my-openai",
         )?;
         AzureCognitiveServicesAccountResourceId::try_new(
-            ResourceGroupId::try_new(
+            AzureResourceGroupId::try_new(
                 SubscriptionId::try_new("d4917068-8792-4f47-9a6d-330f202cd438")?,
                 "myRG",
             )?,
             "my-openai",
         )?;
         AzureCognitiveServicesAccountResourceId::new(
-            ResourceGroupId::try_new(
+            AzureResourceGroupId::try_new(
                 "/subscriptions/ac9c7dce-2d4e-4bd2-865d-4a2de1ff5df4",
                 "MyRG",
             )?,

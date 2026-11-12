@@ -151,8 +151,8 @@ cloud_terrastodon_registry::register_arbitrary!(SubnetId);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ResourceGroupId;
-    use crate::ResourceGroupName;
+    use crate::AzureResourceGroupId;
+    use crate::AzureResourceGroupName;
     use crate::SubscriptionId;
     use crate::VirtualNetworkName;
     use uuid::Uuid;
@@ -183,8 +183,8 @@ mod tests {
     #[test]
     fn test_subnet_id_creation_and_scopes() -> eyre::Result<()> {
         let sub_id = SubscriptionId::new(Uuid::new_v4());
-        let rg_name = ResourceGroupName::try_new("test-rg")?;
-        let rg_id = ResourceGroupId::new(sub_id, rg_name);
+        let rg_name = AzureResourceGroupName::try_new("test-rg")?;
+        let rg_id = AzureResourceGroupId::new(sub_id, rg_name);
         let vnet_name = VirtualNetworkName::try_new("test-vnet")?;
         let vnet_id = VirtualNetworkId::new(rg_id, vnet_name);
         let subnet_name = SubnetName::try_new("test-subnet")?;

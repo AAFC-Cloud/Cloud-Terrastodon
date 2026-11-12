@@ -1,5 +1,5 @@
 use crate::AzureContainerInstanceResourceName;
-use crate::ResourceGroupId;
+use crate::AzureResourceGroupId;
 use crate::scopes::HasPrefix;
 use crate::scopes::NameValidatable;
 use crate::scopes::Scope;
@@ -20,14 +20,14 @@ pub const AZURE_CONTAINER_INSTANCE_RESOURCE_ID_PREFIX: &str =
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, Facet)]
 #[facet(json::proxy = String)]
 pub struct AzureContainerInstanceResourceId {
-    pub resource_group_id: ResourceGroupId,
+    pub resource_group_id: AzureResourceGroupId,
     pub azure_container_instance_resource_name: AzureContainerInstanceResourceName,
 }
 crate::impl_facet_string_proxy!(AzureContainerInstanceResourceId, value => value.expanded_form());
 
 impl AzureContainerInstanceResourceId {
     pub fn new(
-        resource_group_id: impl Into<ResourceGroupId>,
+        resource_group_id: impl Into<AzureResourceGroupId>,
         azure_container_instance_resource_name: impl Into<AzureContainerInstanceResourceName>,
     ) -> Self {
         Self {
@@ -38,7 +38,7 @@ impl AzureContainerInstanceResourceId {
 
     pub fn try_new<R, N>(resource_group_id: R, name: N) -> Result<Self>
     where
-        R: TryInto<ResourceGroupId>,
+        R: TryInto<AzureResourceGroupId>,
         R::Error: Into<eyre::Error>,
         N: TryInto<AzureContainerInstanceResourceName>,
         N::Error: Into<eyre::Error>,
@@ -63,8 +63,8 @@ impl HasSlug for AzureContainerInstanceResourceId {
     }
 }
 
-impl AsRef<ResourceGroupId> for AzureContainerInstanceResourceId {
-    fn as_ref(&self) -> &ResourceGroupId {
+impl AsRef<AzureResourceGroupId> for AzureContainerInstanceResourceId {
+    fn as_ref(&self) -> &AzureResourceGroupId {
         &self.resource_group_id
     }
 }
@@ -90,7 +90,7 @@ impl HasPrefix for AzureContainerInstanceResourceId {
 impl TryFromResourceGroupScoped for AzureContainerInstanceResourceId {
     unsafe fn new_resource_group_scoped_unchecked(
         _expanded: &str,
-        resource_group_id: ResourceGroupId,
+        resource_group_id: AzureResourceGroupId,
         name: Self::Name,
     ) -> Self {
         Self::new(resource_group_id, name)

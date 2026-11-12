@@ -1,3 +1,5 @@
+use arbitrary::Arbitrary;
+use arbitrary::Unstructured;
 use facet::Facet;
 use url::Url;
 
@@ -14,4 +16,18 @@ pub struct MicrosoftGraphResponse<T> {
     #[facet(rename = "@odata.nextLink")]
     pub next_link: Option<String>,
     pub value: Vec<T>,
+}
+
+impl<'a, T: Arbitrary<'a>> Arbitrary<'a> for MicrosoftGraphResponse<T> {
+    fn arbitrary(input: &mut Unstructured<'a>) -> arbitrary::Result<Self> {
+        let value = Vec::<T>::arbitrary(input)?;
+        // Generate a complete offline page. Continuation URLs belong to a live
+        // query, and a supplied count must agree with this generated inventory.
+        Ok(Self {
+            context: None,
+            count: input.arbitrary::<bool>()?.then_some(value.len()),
+            next_link: None,
+            value,
+        })
+    }
 }

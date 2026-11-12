@@ -1,6 +1,6 @@
+use crate::AzureStorageAccountBlobContainerName;
+use crate::AzureStorageAccountId;
 use crate::Scope;
-use crate::StorageAccountBlobContainerName;
-use crate::StorageAccountId;
 use arbitrary::Arbitrary;
 use eyre::Result;
 use eyre::WrapErr;
@@ -17,12 +17,12 @@ use std::str::FromStr;
 /// either field with another valid value preserves this resource route.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Arbitrary, Facet)]
 #[facet(proxy = String)]
-pub struct StorageAccountBlobContainerId {
-    pub storage_account_id: StorageAccountId,
-    pub container_name: StorageAccountBlobContainerName,
+pub struct AzureStorageAccountBlobContainerId {
+    pub storage_account_id: AzureStorageAccountId,
+    pub container_name: AzureStorageAccountBlobContainerName,
 }
 
-impl Display for StorageAccountBlobContainerId {
+impl Display for AzureStorageAccountBlobContainerId {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             formatter,
@@ -33,7 +33,7 @@ impl Display for StorageAccountBlobContainerId {
     }
 }
 
-impl FromStr for StorageAccountBlobContainerId {
+impl FromStr for AzureStorageAccountBlobContainerId {
     type Err = eyre::Report;
 
     fn from_str(value: &str) -> Result<Self> {
@@ -57,20 +57,20 @@ impl FromStr for StorageAccountBlobContainerId {
     }
 }
 
-crate::impl_facet_string_proxy!(StorageAccountBlobContainerId, value => value.to_string());
+crate::impl_facet_string_proxy!(AzureStorageAccountBlobContainerId, value => value.to_string());
 
-cloud_terrastodon_registry::register_thing!(StorageAccountBlobContainerId);
-cloud_terrastodon_registry::register_arbitrary!(StorageAccountBlobContainerId);
+cloud_terrastodon_registry::register_thing!(AzureStorageAccountBlobContainerId);
+cloud_terrastodon_registry::register_arbitrary!(AzureStorageAccountBlobContainerId);
 
 #[cfg(test)]
 mod tests {
-    use super::StorageAccountBlobContainerId;
+    use super::AzureStorageAccountBlobContainerId;
 
     #[test]
     fn resource_identity_rejects_other_services_and_nested_resources() -> eyre::Result<()> {
         let account = "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/synthetic/providers/Microsoft.Storage/storageAccounts/syntheticaccount";
         let value = format!("{account}/blobServices/default/containers/synthetic-container");
-        let id: StorageAccountBlobContainerId = value.parse()?;
+        let id: AzureStorageAccountBlobContainerId = value.parse()?;
         assert_eq!(id.to_string(), value);
         assert_eq!(id.container_name.to_string(), "synthetic-container");
         for suffix in [
@@ -81,7 +81,7 @@ mod tests {
         ] {
             assert!(
                 format!("{account}{suffix}")
-                    .parse::<StorageAccountBlobContainerId>()
+                    .parse::<AzureStorageAccountBlobContainerId>()
                     .is_err()
             );
         }

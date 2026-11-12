@@ -1,7 +1,7 @@
+use crate::AzureResourceGroupId;
+use crate::AzureResourceGroupScopedRoleEligibilityScheduleId;
 use crate::ManagementGroupId;
 use crate::ManagementGroupScopedRoleEligibilityScheduleId;
-use crate::ResourceGroupId;
-use crate::ResourceGroupScopedRoleEligibilityScheduleId;
 use crate::ResourceId;
 use crate::ResourceScopedRoleEligibilityScheduleId;
 use crate::RoleEligibilityScheduleName;
@@ -37,7 +37,7 @@ pub enum RoleEligibilityScheduleId {
     Unscoped(UnscopedRoleEligibilityScheduleId),
     ManagementGroupScoped(ManagementGroupScopedRoleEligibilityScheduleId),
     SubscriptionScoped(SubscriptionScopedRoleEligibilityScheduleId),
-    ResourceGroupScoped(ResourceGroupScopedRoleEligibilityScheduleId),
+    ResourceGroupScoped(AzureResourceGroupScopedRoleEligibilityScheduleId),
     ResourceScoped(ResourceScopedRoleEligibilityScheduleId),
 }
 crate::impl_facet_string_proxy!(RoleEligibilityScheduleId, value => value.expanded_form());
@@ -94,11 +94,11 @@ impl TryFromUnscoped for RoleEligibilityScheduleId {
 impl TryFromResourceGroupScoped for RoleEligibilityScheduleId {
     unsafe fn new_resource_group_scoped_unchecked(
         _expanded: &str,
-        resource_group_id: ResourceGroupId,
+        resource_group_id: AzureResourceGroupId,
         name: Self::Name,
     ) -> Self {
         RoleEligibilityScheduleId::ResourceGroupScoped(
-            ResourceGroupScopedRoleEligibilityScheduleId {
+            AzureResourceGroupScopedRoleEligibilityScheduleId {
                 resource_group_id,
                 name,
             },
@@ -197,7 +197,7 @@ impl HasPrefix for RoleEligibilityScheduleId {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ResourceGroupName;
+    use crate::AzureResourceGroupName;
     use crate::slug::Slug;
     use cloud_terrastodon_azure_resource_types::ResourceType;
     use eyre::Result;
@@ -219,9 +219,9 @@ mod tests {
         let expanded =
             RoleEligibilityScheduleId::ResourceScoped(ResourceScopedRoleEligibilityScheduleId {
                 resource_id: ResourceId::new(
-                    ResourceGroupId::new(
+                    AzureResourceGroupId::new(
                         SubscriptionId::new(Uuid::new_v4()),
-                        ResourceGroupName::try_new("MY-RG")?,
+                        AzureResourceGroupName::try_new("MY-RG")?,
                     ),
                     ResourceType::MICROSOFT_DOT_NETWORK_SLASH_VIRTUALNETWORKS,
                     "MY-VNET",

@@ -1,4 +1,4 @@
-use crate::ResourceGroupId;
+use crate::AzureResourceGroupId;
 use crate::VirtualMachineName;
 use crate::scopes::HasPrefix;
 use crate::scopes::NameValidatable;
@@ -19,7 +19,7 @@ pub const VIRTUAL_MACHINE_ID_PREFIX: &str = "/providers/Microsoft.Compute/virtua
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Arbitrary, Facet)]
 #[facet(json::proxy = String)]
 pub struct VirtualMachineId {
-    pub resource_group_id: ResourceGroupId,
+    pub resource_group_id: AzureResourceGroupId,
     pub vm_name: VirtualMachineName,
 }
 crate::impl_facet_string_proxy!(VirtualMachineId, value => value.expanded_form());
@@ -34,14 +34,17 @@ impl core::fmt::Display for VirtualMachineId {
 }
 
 impl VirtualMachineId {
-    pub fn new(resource_group_id: ResourceGroupId, vm_name: impl Into<VirtualMachineName>) -> Self {
+    pub fn new(
+        resource_group_id: AzureResourceGroupId,
+        vm_name: impl Into<VirtualMachineName>,
+    ) -> Self {
         Self {
             resource_group_id,
             vm_name: vm_name.into(),
         }
     }
 
-    pub fn try_new<N>(resource_group_id: ResourceGroupId, vm_name: N) -> Result<Self>
+    pub fn try_new<N>(resource_group_id: AzureResourceGroupId, vm_name: N) -> Result<Self>
     where
         N: TryInto<VirtualMachineName>,
         N::Error: Into<eyre::Error>,
@@ -64,8 +67,8 @@ impl HasSlug for VirtualMachineId {
     }
 }
 
-impl AsRef<ResourceGroupId> for VirtualMachineId {
-    fn as_ref(&self) -> &ResourceGroupId {
+impl AsRef<AzureResourceGroupId> for VirtualMachineId {
+    fn as_ref(&self) -> &AzureResourceGroupId {
         &self.resource_group_id
     }
 }
@@ -91,7 +94,7 @@ impl HasPrefix for VirtualMachineId {
 impl TryFromResourceGroupScoped for VirtualMachineId {
     unsafe fn new_resource_group_scoped_unchecked(
         _expanded: &str,
-        resource_group_id: ResourceGroupId,
+        resource_group_id: AzureResourceGroupId,
         name: Self::Name,
     ) -> Self {
         Self {
@@ -141,14 +144,15 @@ cloud_terrastodon_registry::register_arbitrary!(VirtualMachineId);
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::ResourceGroupName;
+    use crate::AzureResourceGroupName;
     use crate::SubscriptionId;
     use std::str::FromStr;
 
     #[test]
     fn test_virtual_machine_id_serialization_deserialization() -> eyre::Result<()> {
         let sub_id = SubscriptionId::from_str("00000000-0000-0000-0000-000000000000")?;
-        let rg_id = ResourceGroupId::new(sub_id, ResourceGroupName::try_new("test-rg").unwrap());
+        let rg_id =
+            AzureResourceGroupId::new(sub_id, AzureResourceGroupName::try_new("test-rg").unwrap());
         let vm_id = VirtualMachineId::try_new(rg_id, "test-vm")?;
 
         let expected_str = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/test-rg/providers/Microsoft.Compute/virtualMachines/test-vm".to_string();

@@ -8,7 +8,7 @@ use facet::Facet;
 #[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
-pub enum StorageAccountBlobContainerPublicAccess {
+pub enum AzureStorageAccountBlobContainerPublicAccess {
     Container,
     Blob,
     None,
@@ -16,7 +16,7 @@ pub enum StorageAccountBlobContainerPublicAccess {
     Unknown(String),
 }
 
-impl From<String> for StorageAccountBlobContainerPublicAccess {
+impl From<String> for AzureStorageAccountBlobContainerPublicAccess {
     fn from(value: String) -> Self {
         match value.as_str() {
             "Container" => Self::Container,
@@ -32,17 +32,17 @@ impl From<String> for StorageAccountBlobContainerPublicAccess {
     }
 }
 
-impl From<&StorageAccountBlobContainerPublicAccess> for String {
-    fn from(value: &StorageAccountBlobContainerPublicAccess) -> Self {
+impl From<&AzureStorageAccountBlobContainerPublicAccess> for String {
+    fn from(value: &AzureStorageAccountBlobContainerPublicAccess) -> Self {
         match value {
-            StorageAccountBlobContainerPublicAccess::Container => "Container",
-            StorageAccountBlobContainerPublicAccess::Blob => "Blob",
-            StorageAccountBlobContainerPublicAccess::None => "None",
-            StorageAccountBlobContainerPublicAccess::Unknown(value) => value,
+            AzureStorageAccountBlobContainerPublicAccess::Container => "Container",
+            AzureStorageAccountBlobContainerPublicAccess::Blob => "Blob",
+            AzureStorageAccountBlobContainerPublicAccess::None => "None",
+            AzureStorageAccountBlobContainerPublicAccess::Unknown(value) => value,
         }
         .to_owned()
     }
 }
 
-cloud_terrastodon_registry::register_thing!(StorageAccountBlobContainerPublicAccess);
-cloud_terrastodon_registry::register_arbitrary!(StorageAccountBlobContainerPublicAccess);
+cloud_terrastodon_registry::register_thing!(AzureStorageAccountBlobContainerPublicAccess);
+cloud_terrastodon_registry::register_arbitrary!(AzureStorageAccountBlobContainerPublicAccess);

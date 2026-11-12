@@ -1,7 +1,7 @@
+use crate::AzureResourceGroupId;
 use crate::ManagementGroupId;
 use crate::ManagementGroupScoped;
 use crate::ROLE_MANAGEMENT_POLICY_ASSIGNMENT_ID_PREFIX;
-use crate::ResourceGroupId;
 use crate::ResourceGroupScoped;
 use crate::ResourceId;
 use crate::RoleManagementPolicyAssignmentId;
@@ -44,8 +44,8 @@ pub struct SubscriptionScopedRoleManagementPolicyAssignmentId {
 }
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Facet)]
 #[facet(json::proxy = String)]
-pub struct ResourceGroupScopedRoleManagementPolicyAssignmentId {
-    pub resource_group_id: ResourceGroupId,
+pub struct AzureResourceGroupScopedRoleManagementPolicyAssignmentId {
+    pub resource_group_id: AzureResourceGroupId,
     pub name: RoleManagementPolicyAssignmentName,
 }
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Facet)]
@@ -57,7 +57,7 @@ pub struct ResourceScopedRoleManagementPolicyAssignmentId {
 crate::impl_facet_string_proxy!(UnscopedRoleManagementPolicyAssignmentId, value => value.expanded_form());
 crate::impl_facet_string_proxy!(ManagementGroupScopedRoleManagementPolicyAssignmentId, value => value.expanded_form());
 crate::impl_facet_string_proxy!(SubscriptionScopedRoleManagementPolicyAssignmentId, value => value.expanded_form());
-crate::impl_facet_string_proxy!(ResourceGroupScopedRoleManagementPolicyAssignmentId, value => value.expanded_form());
+crate::impl_facet_string_proxy!(AzureResourceGroupScopedRoleManagementPolicyAssignmentId, value => value.expanded_form());
 crate::impl_facet_string_proxy!(ResourceScopedRoleManagementPolicyAssignmentId, value => value.expanded_form());
 
 // MARK: impl HasSlug
@@ -69,7 +69,7 @@ impl HasSlug for UnscopedRoleManagementPolicyAssignmentId {
         &self.name
     }
 }
-impl HasSlug for ResourceGroupScopedRoleManagementPolicyAssignmentId {
+impl HasSlug for AzureResourceGroupScopedRoleManagementPolicyAssignmentId {
     type Name = RoleManagementPolicyAssignmentName;
 
     fn name(&self) -> &Self::Name {
@@ -105,8 +105,8 @@ impl ManagementGroupScoped for ManagementGroupScopedRoleManagementPolicyAssignme
         &self.management_group_id
     }
 }
-impl ResourceGroupScoped for ResourceGroupScopedRoleManagementPolicyAssignmentId {
-    fn resource_group_id(&self) -> &ResourceGroupId {
+impl ResourceGroupScoped for AzureResourceGroupScopedRoleManagementPolicyAssignmentId {
+    fn resource_group_id(&self) -> &AzureResourceGroupId {
         &self.resource_group_id
     }
 }
@@ -152,13 +152,13 @@ impl TryFromSubscriptionScoped for SubscriptionScopedRoleManagementPolicyAssignm
         }
     }
 }
-impl TryFromResourceGroupScoped for ResourceGroupScopedRoleManagementPolicyAssignmentId {
+impl TryFromResourceGroupScoped for AzureResourceGroupScopedRoleManagementPolicyAssignmentId {
     unsafe fn new_resource_group_scoped_unchecked(
         _expanded: &str,
-        resource_group_id: crate::ResourceGroupId,
+        resource_group_id: crate::AzureResourceGroupId,
         name: Self::Name,
     ) -> Self {
-        ResourceGroupScopedRoleManagementPolicyAssignmentId {
+        AzureResourceGroupScopedRoleManagementPolicyAssignmentId {
             resource_group_id,
             name,
         }
@@ -250,7 +250,7 @@ impl Scope for SubscriptionScopedRoleManagementPolicyAssignmentId {
     }
 }
 
-impl Scope for ResourceGroupScopedRoleManagementPolicyAssignmentId {
+impl Scope for AzureResourceGroupScopedRoleManagementPolicyAssignmentId {
     type Err = <Self as std::str::FromStr>::Err;
     fn expanded_form(&self) -> String {
         format!(
@@ -262,7 +262,7 @@ impl Scope for ResourceGroupScopedRoleManagementPolicyAssignmentId {
     }
 
     fn try_from_expanded(expanded: &str) -> eyre::Result<Self> {
-        ResourceGroupScopedRoleManagementPolicyAssignmentId::try_from_expanded_resource_group_scoped(
+        AzureResourceGroupScopedRoleManagementPolicyAssignmentId::try_from_expanded_resource_group_scoped(
             expanded,
         )
     }
@@ -325,7 +325,7 @@ impl NameValidatable for SubscriptionScopedRoleManagementPolicyAssignmentId {
         Ok(())
     }
 }
-impl NameValidatable for ResourceGroupScopedRoleManagementPolicyAssignmentId {
+impl NameValidatable for AzureResourceGroupScopedRoleManagementPolicyAssignmentId {
     fn validate_name(name: &str) -> eyre::Result<()> {
         Uuid::parse_str(name)?;
         Ok(())
@@ -354,7 +354,7 @@ impl HasPrefix for SubscriptionScopedRoleManagementPolicyAssignmentId {
         ROLE_MANAGEMENT_POLICY_ASSIGNMENT_ID_PREFIX
     }
 }
-impl HasPrefix for ResourceGroupScopedRoleManagementPolicyAssignmentId {
+impl HasPrefix for AzureResourceGroupScopedRoleManagementPolicyAssignmentId {
     fn get_prefix() -> &'static str {
         ROLE_MANAGEMENT_POLICY_ASSIGNMENT_ID_PREFIX
     }
@@ -388,10 +388,10 @@ impl FromStr for SubscriptionScopedRoleManagementPolicyAssignmentId {
     }
 }
 
-impl FromStr for ResourceGroupScopedRoleManagementPolicyAssignmentId {
+impl FromStr for AzureResourceGroupScopedRoleManagementPolicyAssignmentId {
     type Err = eyre::Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        ResourceGroupScopedRoleManagementPolicyAssignmentId::try_from_expanded(s)
+        AzureResourceGroupScopedRoleManagementPolicyAssignmentId::try_from_expanded(s)
     }
 }
 

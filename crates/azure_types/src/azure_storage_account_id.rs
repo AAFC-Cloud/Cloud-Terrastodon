@@ -1,5 +1,5 @@
-use crate::ResourceGroupId;
-use crate::StorageAccountName;
+use crate::AzureResourceGroupId;
+use crate::AzureStorageAccountName;
 use crate::scopes::HasPrefix;
 use crate::scopes::NameValidatable;
 use crate::scopes::Scope;
@@ -18,17 +18,17 @@ pub const STORAGE_ACCOUNT_ID_PREFIX: &str = "/providers/Microsoft.Storage/storag
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, Facet)]
 #[facet(json::proxy = String)]
-pub struct StorageAccountId {
-    pub resource_group_id: ResourceGroupId,
-    pub storage_account_name: StorageAccountName,
+pub struct AzureStorageAccountId {
+    pub resource_group_id: AzureResourceGroupId,
+    pub storage_account_name: AzureStorageAccountName,
 }
-crate::impl_facet_string_proxy!(StorageAccountId, value => value.expanded_form());
-impl StorageAccountId {
+crate::impl_facet_string_proxy!(AzureStorageAccountId, value => value.expanded_form());
+impl AzureStorageAccountId {
     pub fn new(
-        resource_group_id: impl Into<ResourceGroupId>,
-        storage_account_name: impl Into<StorageAccountName>,
-    ) -> StorageAccountId {
-        StorageAccountId {
+        resource_group_id: impl Into<AzureResourceGroupId>,
+        storage_account_name: impl Into<AzureStorageAccountName>,
+    ) -> AzureStorageAccountId {
+        AzureStorageAccountId {
             resource_group_id: resource_group_id.into(),
             storage_account_name: storage_account_name.into(),
         }
@@ -36,9 +36,9 @@ impl StorageAccountId {
 
     pub fn try_new<R, N>(resource_group_id: R, storage_account_name: N) -> Result<Self>
     where
-        R: TryInto<ResourceGroupId>,
+        R: TryInto<AzureResourceGroupId>,
         R::Error: Into<eyre::Error>,
-        N: TryInto<StorageAccountName>,
+        N: TryInto<AzureStorageAccountName>,
         N::Error: Into<eyre::Error>,
     {
         let resource_group_id = resource_group_id
@@ -49,66 +49,66 @@ impl StorageAccountId {
             .try_into()
             .map_err(Into::into)
             .wrap_err("Failed to convert storage_account_name")?;
-        Ok(StorageAccountId {
+        Ok(AzureStorageAccountId {
             resource_group_id,
             storage_account_name,
         })
     }
 }
 
-impl HasSlug for StorageAccountId {
-    type Name = StorageAccountName;
+impl HasSlug for AzureStorageAccountId {
+    type Name = AzureStorageAccountName;
 
     fn name(&self) -> &Self::Name {
         &self.storage_account_name
     }
 }
-impl AsRef<ResourceGroupId> for StorageAccountId {
-    fn as_ref(&self) -> &ResourceGroupId {
+impl AsRef<AzureResourceGroupId> for AzureStorageAccountId {
+    fn as_ref(&self) -> &AzureResourceGroupId {
         &self.resource_group_id
     }
 }
-impl AsRef<StorageAccountName> for StorageAccountId {
-    fn as_ref(&self) -> &StorageAccountName {
+impl AsRef<AzureStorageAccountName> for AzureStorageAccountId {
+    fn as_ref(&self) -> &AzureStorageAccountName {
         &self.storage_account_name
     }
 }
 
-impl NameValidatable for StorageAccountId {
+impl NameValidatable for AzureStorageAccountId {
     fn validate_name(name: &str) -> Result<()> {
-        StorageAccountName::try_new(name).map(|_| ())
+        AzureStorageAccountName::try_new(name).map(|_| ())
     }
 }
-impl HasPrefix for StorageAccountId {
+impl HasPrefix for AzureStorageAccountId {
     fn get_prefix() -> &'static str {
         STORAGE_ACCOUNT_ID_PREFIX
     }
 }
-impl TryFromResourceGroupScoped for StorageAccountId {
+impl TryFromResourceGroupScoped for AzureStorageAccountId {
     unsafe fn new_resource_group_scoped_unchecked(
         _expanded: &str,
-        resource_group_id: ResourceGroupId,
+        resource_group_id: AzureResourceGroupId,
         name: Self::Name,
     ) -> Self {
-        StorageAccountId {
+        AzureStorageAccountId {
             resource_group_id,
             storage_account_name: name,
         }
     }
 }
 
-impl FromStr for StorageAccountId {
+impl FromStr for AzureStorageAccountId {
     type Err = eyre::Error;
 
     fn from_str(s: &str) -> Result<Self> {
-        StorageAccountId::try_from_expanded(s)
+        AzureStorageAccountId::try_from_expanded(s)
     }
 }
 
-impl Scope for StorageAccountId {
+impl Scope for AzureStorageAccountId {
     type Err = <Self as std::str::FromStr>::Err;
     fn try_from_expanded(expanded: &str) -> Result<Self> {
-        StorageAccountId::try_from_expanded_resource_group_scoped(expanded)
+        AzureStorageAccountId::try_from_expanded_resource_group_scoped(expanded)
     }
 
     fn expanded_form(&self) -> String {
@@ -128,14 +128,14 @@ impl Scope for StorageAccountId {
     }
 }
 
-cloud_terrastodon_registry::register_thing!(StorageAccountId);
-cloud_terrastodon_registry::register_arbitrary!(StorageAccountId);
+cloud_terrastodon_registry::register_thing!(AzureStorageAccountId);
+cloud_terrastodon_registry::register_arbitrary!(AzureStorageAccountId);
 
 #[cfg(test)]
 mod test {
-    use super::StorageAccountId;
-    use crate::ResourceGroupId;
-    use crate::StorageAccountName;
+    use super::AzureStorageAccountId;
+    use crate::AzureResourceGroupId;
+    use crate::AzureStorageAccountName;
     use crate::SubscriptionId;
     use crate::scopes::Scope;
     use crate::slug::Slug;
@@ -144,28 +144,28 @@ mod test {
 
     #[test]
     pub fn it_works() -> eyre::Result<()> {
-        assert!(StorageAccountId::try_new("", "").is_err());
-        StorageAccountId::try_new(
+        assert!(AzureStorageAccountId::try_new("", "").is_err());
+        AzureStorageAccountId::try_new(
             "/subscriptions/eefb00d7-c277-4c2c-a7de-ba3a11cf2110/resourceGroups/myRG",
             "aaa",
         )?;
-        StorageAccountId::try_new(
-            ResourceGroupId::try_new("95c30970-3b9b-47d6-84a2-31f0e0cdfc8e", "myRG")?,
+        AzureStorageAccountId::try_new(
+            AzureResourceGroupId::try_new("95c30970-3b9b-47d6-84a2-31f0e0cdfc8e", "myRG")?,
             "aaa",
         )?;
-        StorageAccountId::try_new(
-            ResourceGroupId::try_new(
+        AzureStorageAccountId::try_new(
+            AzureResourceGroupId::try_new(
                 SubscriptionId::try_new("d4917068-8792-4f47-9a6d-330f202cd438")?,
                 "myRG",
             )?,
             "aaa",
         )?;
-        StorageAccountId::new(
-            ResourceGroupId::try_new(
+        AzureStorageAccountId::new(
+            AzureResourceGroupId::try_new(
                 "/subscriptions/ac9c7dce-2d4e-4bd2-865d-4a2de1ff5df4",
                 "MyRG",
             )?,
-            StorageAccountName::try_new("aaa")?,
+            AzureStorageAccountName::try_new("aaa")?,
         );
         Ok(())
     }
@@ -176,13 +176,13 @@ mod test {
             // construct arbitrary id
             let data = &[i; 16];
             let mut data = Unstructured::new(data);
-            let id = StorageAccountId::arbitrary(&mut data)?;
+            let id = AzureStorageAccountId::arbitrary(&mut data)?;
             let serialized = id.expanded_form();
-            let deserialized: StorageAccountId = serialized.parse()?;
+            let deserialized: AzureStorageAccountId = serialized.parse()?;
             assert_eq!(id, deserialized);
             let json = facet_json::to_string(&serialized)?;
             assert_eq!(facet_json::to_string(&id)?, json);
-            assert_eq!(facet_json::from_str::<StorageAccountId>(&json)?, id);
+            assert_eq!(facet_json::from_str::<AzureStorageAccountId>(&json)?, id);
         }
         Ok(())
     }

@@ -1,9 +1,9 @@
+use crate::AzureResourceGroupId;
 use crate::ManagementGroupId;
 use crate::ManagementGroupScoped;
 use crate::POLICY_ASSIGNMENT_ID_PREFIX;
 use crate::PolicyAssignmentId;
 use crate::PolicyAssignmentName;
-use crate::ResourceGroupId;
 use crate::ResourceGroupScoped;
 use crate::ResourceId;
 use crate::SubscriptionId;
@@ -44,8 +44,8 @@ pub struct SubscriptionScopedPolicyAssignmentId {
 }
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Facet)]
 #[facet(json::proxy = String)]
-pub struct ResourceGroupScopedPolicyAssignmentId {
-    pub resource_group_id: ResourceGroupId,
+pub struct AzureResourceGroupScopedPolicyAssignmentId {
+    pub resource_group_id: AzureResourceGroupId,
     pub name: PolicyAssignmentName,
 }
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Facet)]
@@ -57,7 +57,7 @@ pub struct ResourceScopedPolicyAssignmentId {
 crate::impl_facet_string_proxy!(UnscopedPolicyAssignmentId, value => value.expanded_form());
 crate::impl_facet_string_proxy!(ManagementGroupScopedPolicyAssignmentId, value => value.expanded_form());
 crate::impl_facet_string_proxy!(SubscriptionScopedPolicyAssignmentId, value => value.expanded_form());
-crate::impl_facet_string_proxy!(ResourceGroupScopedPolicyAssignmentId, value => value.expanded_form());
+crate::impl_facet_string_proxy!(AzureResourceGroupScopedPolicyAssignmentId, value => value.expanded_form());
 crate::impl_facet_string_proxy!(ResourceScopedPolicyAssignmentId, value => value.expanded_form());
 
 // MARK: impl HasSlug
@@ -69,7 +69,7 @@ impl HasSlug for UnscopedPolicyAssignmentId {
         &self.role_assignment_name
     }
 }
-impl HasSlug for ResourceGroupScopedPolicyAssignmentId {
+impl HasSlug for AzureResourceGroupScopedPolicyAssignmentId {
     type Name = PolicyAssignmentName;
 
     fn name(&self) -> &Self::Name {
@@ -105,8 +105,8 @@ impl ManagementGroupScoped for ManagementGroupScopedPolicyAssignmentId {
         &self.management_group_id
     }
 }
-impl ResourceGroupScoped for ResourceGroupScopedPolicyAssignmentId {
-    fn resource_group_id(&self) -> &ResourceGroupId {
+impl ResourceGroupScoped for AzureResourceGroupScopedPolicyAssignmentId {
+    fn resource_group_id(&self) -> &AzureResourceGroupId {
         &self.resource_group_id
     }
 }
@@ -154,13 +154,13 @@ impl TryFromSubscriptionScoped for SubscriptionScopedPolicyAssignmentId {
         }
     }
 }
-impl TryFromResourceGroupScoped for ResourceGroupScopedPolicyAssignmentId {
+impl TryFromResourceGroupScoped for AzureResourceGroupScopedPolicyAssignmentId {
     unsafe fn new_resource_group_scoped_unchecked(
         _expanded: &str,
-        resource_group_id: crate::ResourceGroupId,
+        resource_group_id: crate::AzureResourceGroupId,
         name: Self::Name,
     ) -> Self {
-        ResourceGroupScopedPolicyAssignmentId {
+        AzureResourceGroupScopedPolicyAssignmentId {
             resource_group_id,
             name,
         }
@@ -244,7 +244,7 @@ impl Scope for SubscriptionScopedPolicyAssignmentId {
     }
 }
 
-impl Scope for ResourceGroupScopedPolicyAssignmentId {
+impl Scope for AzureResourceGroupScopedPolicyAssignmentId {
     type Err = <Self as std::str::FromStr>::Err;
     fn expanded_form(&self) -> String {
         format!(
@@ -256,7 +256,9 @@ impl Scope for ResourceGroupScopedPolicyAssignmentId {
     }
 
     fn try_from_expanded(expanded: &str) -> eyre::Result<Self> {
-        ResourceGroupScopedPolicyAssignmentId::try_from_expanded_resource_group_scoped(expanded)
+        AzureResourceGroupScopedPolicyAssignmentId::try_from_expanded_resource_group_scoped(
+            expanded,
+        )
     }
 
     fn as_scope_impl(&self) -> ScopeImpl {
@@ -313,7 +315,7 @@ impl NameValidatable for SubscriptionScopedPolicyAssignmentId {
         Ok(())
     }
 }
-impl NameValidatable for ResourceGroupScopedPolicyAssignmentId {
+impl NameValidatable for AzureResourceGroupScopedPolicyAssignmentId {
     fn validate_name(name: &str) -> eyre::Result<()> {
         Uuid::parse_str(name)?;
         Ok(())
@@ -342,7 +344,7 @@ impl HasPrefix for SubscriptionScopedPolicyAssignmentId {
         POLICY_ASSIGNMENT_ID_PREFIX
     }
 }
-impl HasPrefix for ResourceGroupScopedPolicyAssignmentId {
+impl HasPrefix for AzureResourceGroupScopedPolicyAssignmentId {
     fn get_prefix() -> &'static str {
         POLICY_ASSIGNMENT_ID_PREFIX
     }
@@ -376,10 +378,10 @@ impl FromStr for SubscriptionScopedPolicyAssignmentId {
     }
 }
 
-impl FromStr for ResourceGroupScopedPolicyAssignmentId {
+impl FromStr for AzureResourceGroupScopedPolicyAssignmentId {
     type Err = eyre::Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        ResourceGroupScopedPolicyAssignmentId::try_from_expanded(s)
+        AzureResourceGroupScopedPolicyAssignmentId::try_from_expanded(s)
     }
 }
 

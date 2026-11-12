@@ -1,4 +1,4 @@
-use crate::StorageAccountBlobContainer;
+use crate::AzureStorageAccountBlobContainer;
 use facet::Facet;
 use url::Url;
 
@@ -10,10 +10,10 @@ use url::Url;
 #[derive(Debug, Clone, PartialEq, Eq, Facet)]
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
-pub struct StorageAccountBlobContainerListResponse {
-    pub value: Vec<StorageAccountBlobContainer>,
+pub struct AzureStorageAccountBlobContainerListResponse {
+    pub value: Vec<AzureStorageAccountBlobContainer>,
     /// Present only when another page exists; the ListDeletedContainers example omits it.
     pub next_link: Option<Url>,
 }
 
-cloud_terrastodon_registry::register_thing!(StorageAccountBlobContainerListResponse);
+cloud_terrastodon_registry::register_thing!(AzureStorageAccountBlobContainerListResponse);

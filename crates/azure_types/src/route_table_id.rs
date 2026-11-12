@@ -1,4 +1,4 @@
-use crate::ResourceGroupId;
+use crate::AzureResourceGroupId;
 use crate::RouteTableName;
 use crate::scopes::HasPrefix;
 use crate::scopes::NameValidatable;
@@ -17,14 +17,14 @@ pub const ROUTE_TABLE_ID_PREFIX: &str = "/providers/Microsoft.Network/routeTable
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Arbitrary, Facet)]
 #[facet(json::proxy = String)]
 pub struct RouteTableId {
-    pub resource_group_id: ResourceGroupId,
+    pub resource_group_id: AzureResourceGroupId,
     pub route_table_name: RouteTableName,
 }
 crate::impl_facet_string_proxy!(RouteTableId, value => value.expanded_form());
 
 impl RouteTableId {
     pub fn new(
-        resource_group_id: impl Into<ResourceGroupId>,
+        resource_group_id: impl Into<AzureResourceGroupId>,
         route_table_name: impl Into<RouteTableName>,
     ) -> Self {
         Self {
@@ -35,7 +35,7 @@ impl RouteTableId {
 
     pub fn try_new<R, N>(resource_group_id: R, route_table_name: N) -> Result<Self>
     where
-        R: TryInto<ResourceGroupId>,
+        R: TryInto<AzureResourceGroupId>,
         R::Error: Into<eyre::Error>,
         N: TryInto<RouteTableName>,
         N::Error: Into<eyre::Error>,
@@ -61,8 +61,8 @@ impl HasSlug for RouteTableId {
     }
 }
 
-impl AsRef<ResourceGroupId> for RouteTableId {
-    fn as_ref(&self) -> &ResourceGroupId {
+impl AsRef<AzureResourceGroupId> for RouteTableId {
+    fn as_ref(&self) -> &AzureResourceGroupId {
         &self.resource_group_id
     }
 }
@@ -88,7 +88,7 @@ impl HasPrefix for RouteTableId {
 impl TryFromResourceGroupScoped for RouteTableId {
     unsafe fn new_resource_group_scoped_unchecked(
         _expanded: &str,
-        resource_group_id: ResourceGroupId,
+        resource_group_id: AzureResourceGroupId,
         name: Self::Name,
     ) -> Self {
         Self {
@@ -136,14 +136,15 @@ cloud_terrastodon_registry::register_arbitrary!(RouteTableId);
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::ResourceGroupName;
+    use crate::AzureResourceGroupName;
     use crate::SubscriptionId;
     use std::str::FromStr;
 
     #[test]
     fn test_route_table_id_serialization_deserialization() -> eyre::Result<()> {
         let sub_id = SubscriptionId::from_str("00000000-0000-0000-0000-000000000000")?;
-        let rg_id = ResourceGroupId::new(sub_id, ResourceGroupName::try_new("test-rg").unwrap());
+        let rg_id =
+            AzureResourceGroupId::new(sub_id, AzureResourceGroupName::try_new("test-rg").unwrap());
         let rt_id = RouteTableId::try_new(rg_id, "test-route-table")?;
 
         let expected_str = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/test-rg/providers/Microsoft.Network/routeTables/test-route-table".to_string();
@@ -159,9 +160,9 @@ mod test {
     #[test]
     fn test_scope_roundtrip() -> eyre::Result<()> {
         let sub_id = SubscriptionId::from_str("11111111-1111-1111-1111-111111111111")?;
-        let rg_id = ResourceGroupId::new(
+        let rg_id = AzureResourceGroupId::new(
             sub_id,
-            ResourceGroupName::try_new("myResourceGroup").unwrap(),
+            AzureResourceGroupName::try_new("myResourceGroup").unwrap(),
         );
         let original_id = RouteTableId::try_new(rg_id, "myRouteTable")?;
         let expanded = original_id.expanded_form();

@@ -58,3 +58,42 @@ impl From<ContainerRegistry> for HclImportBlock {
 
 cloud_terrastodon_registry::register_thing!(ContainerRegistry);
 cloud_terrastodon_registry::register_arbitrary!(ContainerRegistry);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ContainerRegistryEndpoint;
+    use std::collections::HashMap;
+
+    #[test]
+    fn endpoint_uses_the_returned_login_server_without_a_name_fallback() -> eyre::Result<()> {
+        let mut registry = ContainerRegistry {
+            id: "/subscriptions/33333333-3333-3333-3333-333333333333/resourceGroups/fixture/providers/Microsoft.ContainerRegistry/registries/fixture".parse()?,
+            name: "fixture".parse()?,
+            location: "fixture-region".to_owned(),
+            sku: ContainerRegistrySKU {
+                name: "Basic".to_owned(),
+                tier: "Basic".to_owned(),
+            },
+            properties: ArbitraryJson::try_from_facet(&HashMap::from([
+                ("loginServer", ArbitraryJson::from_text("fixture-ab12.azurecr.io")),
+                ("unmodeledProperty", ArbitraryJson::object()),
+            ]))?,
+        };
+        let endpoint = ContainerRegistryEndpoint::try_from(&registry)?;
+        assert_eq!(endpoint.id, registry.id);
+        assert_eq!(endpoint.login_server.as_str(), "fixture-ab12.azurecr.io");
+
+        registry.properties = ArbitraryJson::object();
+        assert!(ContainerRegistryEndpoint::try_from(&registry).is_err());
+        for invalid in [
+            ArbitraryJson::from_text("fixture.azurecr.io/path"),
+            ArbitraryJson::try_from_facet(&17_u8)?,
+        ] {
+            registry.properties =
+                ArbitraryJson::try_from_facet(&HashMap::from([("loginServer", invalid)]))?;
+            assert!(ContainerRegistryEndpoint::try_from(&registry).is_err());
+        }
+        Ok(())
+    }
+}

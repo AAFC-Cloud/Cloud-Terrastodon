@@ -1,6 +1,6 @@
+use crate::AzureResourceGroupId;
 use crate::ManagementGroupId;
 use crate::ManagementGroupScoped;
-use crate::ResourceGroupId;
 use crate::ResourceGroupScoped;
 use crate::ResourceId;
 use crate::RoleAssignmentId;
@@ -61,8 +61,8 @@ pub struct SubscriptionScopedRoleAssignmentId {
 }
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Facet)]
 #[facet(json::proxy = String)]
-pub struct ResourceGroupScopedRoleAssignmentId {
-    pub resource_group_id: ResourceGroupId,
+pub struct AzureResourceGroupScopedRoleAssignmentId {
+    pub resource_group_id: AzureResourceGroupId,
     pub role_assignment_name: RoleAssignmentName,
 }
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Facet)]
@@ -76,7 +76,7 @@ crate::impl_facet_string_proxy!(PortalScopedRoleAssignmentId, value => value.exp
 crate::impl_facet_string_proxy!(ServiceGroupScopedRoleAssignmentId, value => value.expanded_form());
 crate::impl_facet_string_proxy!(ManagementGroupScopedRoleAssignmentId, value => value.expanded_form());
 crate::impl_facet_string_proxy!(SubscriptionScopedRoleAssignmentId, value => value.expanded_form());
-crate::impl_facet_string_proxy!(ResourceGroupScopedRoleAssignmentId, value => value.expanded_form());
+crate::impl_facet_string_proxy!(AzureResourceGroupScopedRoleAssignmentId, value => value.expanded_form());
 crate::impl_facet_string_proxy!(ResourceScopedRoleAssignmentId, value => value.expanded_form());
 
 // MARK: impl HasSlug
@@ -102,7 +102,7 @@ impl HasSlug for ServiceGroupScopedRoleAssignmentId {
         &self.role_assignment_name
     }
 }
-impl HasSlug for ResourceGroupScopedRoleAssignmentId {
+impl HasSlug for AzureResourceGroupScopedRoleAssignmentId {
     type Name = RoleAssignmentName;
 
     fn name(&self) -> &Self::Name {
@@ -144,8 +144,8 @@ impl ManagementGroupScoped for ManagementGroupScopedRoleAssignmentId {
         &self.management_group_id
     }
 }
-impl ResourceGroupScoped for ResourceGroupScopedRoleAssignmentId {
-    fn resource_group_id(&self) -> &ResourceGroupId {
+impl ResourceGroupScoped for AzureResourceGroupScopedRoleAssignmentId {
+    fn resource_group_id(&self) -> &AzureResourceGroupId {
         &self.resource_group_id
     }
 }
@@ -212,13 +212,13 @@ impl TryFromSubscriptionScoped for SubscriptionScopedRoleAssignmentId {
         }
     }
 }
-impl TryFromResourceGroupScoped for ResourceGroupScopedRoleAssignmentId {
+impl TryFromResourceGroupScoped for AzureResourceGroupScopedRoleAssignmentId {
     unsafe fn new_resource_group_scoped_unchecked(
         _expanded: &str,
-        resource_group_id: crate::ResourceGroupId,
+        resource_group_id: crate::AzureResourceGroupId,
         name: Self::Name,
     ) -> Self {
-        ResourceGroupScopedRoleAssignmentId {
+        AzureResourceGroupScopedRoleAssignmentId {
             resource_group_id,
             role_assignment_name: name,
         }
@@ -354,7 +354,7 @@ impl Scope for SubscriptionScopedRoleAssignmentId {
     }
 }
 
-impl Scope for ResourceGroupScopedRoleAssignmentId {
+impl Scope for AzureResourceGroupScopedRoleAssignmentId {
     type Err = <Self as std::str::FromStr>::Err;
     fn expanded_form(&self) -> String {
         format!(
@@ -366,7 +366,7 @@ impl Scope for ResourceGroupScopedRoleAssignmentId {
     }
 
     fn try_from_expanded(expanded: &str) -> Result<Self> {
-        ResourceGroupScopedRoleAssignmentId::try_from_expanded_resource_group_scoped(expanded)
+        AzureResourceGroupScopedRoleAssignmentId::try_from_expanded_resource_group_scoped(expanded)
     }
 
     fn as_scope_impl(&self) -> ScopeImpl {
@@ -437,7 +437,7 @@ impl NameValidatable for SubscriptionScopedRoleAssignmentId {
         Ok(())
     }
 }
-impl NameValidatable for ResourceGroupScopedRoleAssignmentId {
+impl NameValidatable for AzureResourceGroupScopedRoleAssignmentId {
     fn validate_name(name: &str) -> Result<()> {
         Uuid::parse_str(name)?;
         Ok(())
@@ -476,7 +476,7 @@ impl HasPrefix for SubscriptionScopedRoleAssignmentId {
         ROLE_ASSIGNMENT_ID_PREFIX
     }
 }
-impl HasPrefix for ResourceGroupScopedRoleAssignmentId {
+impl HasPrefix for AzureResourceGroupScopedRoleAssignmentId {
     fn get_prefix() -> &'static str {
         ROLE_ASSIGNMENT_ID_PREFIX
     }
@@ -524,10 +524,10 @@ impl FromStr for SubscriptionScopedRoleAssignmentId {
     }
 }
 
-impl FromStr for ResourceGroupScopedRoleAssignmentId {
+impl FromStr for AzureResourceGroupScopedRoleAssignmentId {
     type Err = eyre::Error;
     fn from_str(s: &str) -> Result<Self> {
-        ResourceGroupScopedRoleAssignmentId::try_from_expanded(s)
+        AzureResourceGroupScopedRoleAssignmentId::try_from_expanded(s)
     }
 }
 

@@ -1,4 +1,4 @@
-use crate::ResourceGroupId;
+use crate::AzureResourceGroupId;
 use crate::VirtualNetworkName;
 use crate::scopes::HasPrefix;
 use crate::scopes::NameValidatable;
@@ -18,14 +18,14 @@ pub const VIRTUAL_NETWORK_ID_PREFIX: &str = "/providers/Microsoft.Network/virtua
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord, Arbitrary, Facet)]
 #[facet(json::proxy = String)]
 pub struct VirtualNetworkId {
-    pub resource_group_id: ResourceGroupId,
+    pub resource_group_id: AzureResourceGroupId,
     pub virtual_network_name: VirtualNetworkName,
 }
 crate::impl_facet_string_proxy!(VirtualNetworkId, value => value.expanded_form());
 
 impl VirtualNetworkId {
     pub fn new(
-        resource_group_id: ResourceGroupId,
+        resource_group_id: AzureResourceGroupId,
         virtual_network_name: impl Into<VirtualNetworkName>,
     ) -> Self {
         Self {
@@ -34,7 +34,10 @@ impl VirtualNetworkId {
         }
     }
 
-    pub fn try_new<N>(resource_group_id: ResourceGroupId, virtual_network_name: N) -> Result<Self>
+    pub fn try_new<N>(
+        resource_group_id: AzureResourceGroupId,
+        virtual_network_name: N,
+    ) -> Result<Self>
     where
         N: TryInto<VirtualNetworkName>,
         N::Error: Into<eyre::Error>,
@@ -57,8 +60,8 @@ impl HasSlug for VirtualNetworkId {
     }
 }
 
-impl AsRef<ResourceGroupId> for VirtualNetworkId {
-    fn as_ref(&self) -> &ResourceGroupId {
+impl AsRef<AzureResourceGroupId> for VirtualNetworkId {
+    fn as_ref(&self) -> &AzureResourceGroupId {
         &self.resource_group_id
     }
 }
@@ -84,7 +87,7 @@ impl HasPrefix for VirtualNetworkId {
 impl TryFromResourceGroupScoped for VirtualNetworkId {
     unsafe fn new_resource_group_scoped_unchecked(
         _expanded: &str,
-        resource_group_id: ResourceGroupId,
+        resource_group_id: AzureResourceGroupId,
         name: Self::Name,
     ) -> Self {
         Self {
@@ -132,14 +135,15 @@ cloud_terrastodon_registry::register_arbitrary!(VirtualNetworkId);
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::ResourceGroupName;
+    use crate::AzureResourceGroupName;
     use crate::SubscriptionId;
     use std::str::FromStr;
 
     #[test]
     fn test_virtual_network_id_serialization_deserialization() -> eyre::Result<()> {
         let sub_id = SubscriptionId::from_str("00000000-0000-0000-0000-000000000000")?;
-        let rg_id = ResourceGroupId::new(sub_id, ResourceGroupName::try_new("test-rg").unwrap());
+        let rg_id =
+            AzureResourceGroupId::new(sub_id, AzureResourceGroupName::try_new("test-rg").unwrap());
         let vnet_id = VirtualNetworkId::try_new(rg_id, "test-vnet")?;
 
         let expected_str = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/test-rg/providers/Microsoft.Network/virtualNetworks/test-vnet".to_string();
@@ -155,9 +159,9 @@ mod test {
     #[test]
     fn test_scope_roundtrip() -> eyre::Result<()> {
         let sub_id = SubscriptionId::from_str("11111111-1111-1111-1111-111111111111")?;
-        let rg_id = ResourceGroupId::new(
+        let rg_id = AzureResourceGroupId::new(
             sub_id,
-            ResourceGroupName::try_new("myResourceGroup").unwrap(),
+            AzureResourceGroupName::try_new("myResourceGroup").unwrap(),
         );
         let original_id = VirtualNetworkId::try_new(rg_id, "myVirtualNetwork")?;
         let expanded = original_id.expanded_form();

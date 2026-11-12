@@ -1,9 +1,9 @@
+use crate::AzureResourceGroupId;
 use crate::ManagementGroupId;
 use crate::ManagementGroupScoped;
 use crate::POLICY_DEFINITION_ID_PREFIX;
 use crate::PolicyDefinitionId;
 use crate::PolicyDefinitionName;
-use crate::ResourceGroupId;
 use crate::ResourceGroupScoped;
 use crate::ResourceId;
 use crate::SubscriptionId;
@@ -45,8 +45,8 @@ pub struct SubscriptionScopedPolicyDefinitionId {
 }
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Facet)]
 #[facet(json::proxy = String)]
-pub struct ResourceGroupScopedPolicyDefinitionId {
-    pub resource_group_id: ResourceGroupId,
+pub struct AzureResourceGroupScopedPolicyDefinitionId {
+    pub resource_group_id: AzureResourceGroupId,
     pub name: PolicyDefinitionName,
 }
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Facet)]
@@ -58,7 +58,7 @@ pub struct ResourceScopedPolicyDefinitionId {
 crate::impl_facet_string_proxy!(UnscopedPolicyDefinitionId, value => value.expanded_form());
 crate::impl_facet_string_proxy!(ManagementGroupScopedPolicyDefinitionId, value => value.expanded_form());
 crate::impl_facet_string_proxy!(SubscriptionScopedPolicyDefinitionId, value => value.expanded_form());
-crate::impl_facet_string_proxy!(ResourceGroupScopedPolicyDefinitionId, value => value.expanded_form());
+crate::impl_facet_string_proxy!(AzureResourceGroupScopedPolicyDefinitionId, value => value.expanded_form());
 crate::impl_facet_string_proxy!(ResourceScopedPolicyDefinitionId, value => value.expanded_form());
 
 // MARK: impl HasSlug
@@ -70,7 +70,7 @@ impl HasSlug for UnscopedPolicyDefinitionId {
         &self.name
     }
 }
-impl HasSlug for ResourceGroupScopedPolicyDefinitionId {
+impl HasSlug for AzureResourceGroupScopedPolicyDefinitionId {
     type Name = PolicyDefinitionName;
 
     fn name(&self) -> &Self::Name {
@@ -106,8 +106,8 @@ impl ManagementGroupScoped for ManagementGroupScopedPolicyDefinitionId {
         &self.management_group_id
     }
 }
-impl ResourceGroupScoped for ResourceGroupScopedPolicyDefinitionId {
-    fn resource_group_id(&self) -> &ResourceGroupId {
+impl ResourceGroupScoped for AzureResourceGroupScopedPolicyDefinitionId {
+    fn resource_group_id(&self) -> &AzureResourceGroupId {
         &self.resource_group_id
     }
 }
@@ -153,13 +153,13 @@ impl TryFromSubscriptionScoped for SubscriptionScopedPolicyDefinitionId {
         }
     }
 }
-impl TryFromResourceGroupScoped for ResourceGroupScopedPolicyDefinitionId {
+impl TryFromResourceGroupScoped for AzureResourceGroupScopedPolicyDefinitionId {
     unsafe fn new_resource_group_scoped_unchecked(
         _expanded: &str,
-        resource_group_id: crate::ResourceGroupId,
+        resource_group_id: crate::AzureResourceGroupId,
         name: Self::Name,
     ) -> Self {
-        ResourceGroupScopedPolicyDefinitionId {
+        AzureResourceGroupScopedPolicyDefinitionId {
             resource_group_id,
             name,
         }
@@ -243,7 +243,7 @@ impl Scope for SubscriptionScopedPolicyDefinitionId {
     }
 }
 
-impl Scope for ResourceGroupScopedPolicyDefinitionId {
+impl Scope for AzureResourceGroupScopedPolicyDefinitionId {
     type Err = <Self as std::str::FromStr>::Err;
     fn expanded_form(&self) -> String {
         format!(
@@ -255,7 +255,9 @@ impl Scope for ResourceGroupScopedPolicyDefinitionId {
     }
 
     fn try_from_expanded(expanded: &str) -> Result<Self> {
-        ResourceGroupScopedPolicyDefinitionId::try_from_expanded_resource_group_scoped(expanded)
+        AzureResourceGroupScopedPolicyDefinitionId::try_from_expanded_resource_group_scoped(
+            expanded,
+        )
     }
 
     fn as_scope_impl(&self) -> ScopeImpl {
@@ -312,10 +314,12 @@ impl FromStr for SubscriptionScopedPolicyDefinitionId {
         SubscriptionScopedPolicyDefinitionId::try_from_expanded_subscription_scoped(expanded)
     }
 }
-impl FromStr for ResourceGroupScopedPolicyDefinitionId {
+impl FromStr for AzureResourceGroupScopedPolicyDefinitionId {
     type Err = eyre::Error;
     fn from_str(expanded: &str) -> Result<Self> {
-        ResourceGroupScopedPolicyDefinitionId::try_from_expanded_resource_group_scoped(expanded)
+        AzureResourceGroupScopedPolicyDefinitionId::try_from_expanded_resource_group_scoped(
+            expanded,
+        )
     }
 }
 impl FromStr for ResourceScopedPolicyDefinitionId {
@@ -346,7 +350,7 @@ impl NameValidatable for SubscriptionScopedPolicyDefinitionId {
         Ok(())
     }
 }
-impl NameValidatable for ResourceGroupScopedPolicyDefinitionId {
+impl NameValidatable for AzureResourceGroupScopedPolicyDefinitionId {
     fn validate_name(name: &str) -> Result<()> {
         Uuid::parse_str(name)?;
         Ok(())
@@ -375,7 +379,7 @@ impl HasPrefix for SubscriptionScopedPolicyDefinitionId {
         POLICY_DEFINITION_ID_PREFIX
     }
 }
-impl HasPrefix for ResourceGroupScopedPolicyDefinitionId {
+impl HasPrefix for AzureResourceGroupScopedPolicyDefinitionId {
     fn get_prefix() -> &'static str {
         POLICY_DEFINITION_ID_PREFIX
     }

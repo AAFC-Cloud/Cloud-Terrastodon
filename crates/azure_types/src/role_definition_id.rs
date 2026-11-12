@@ -1,7 +1,7 @@
+use crate::AzureResourceGroupId;
+use crate::AzureResourceGroupScopedRoleDefinitionId;
 use crate::ManagementGroupId;
 use crate::ManagementGroupScopedRoleDefinitionId;
-use crate::ResourceGroupId;
-use crate::ResourceGroupScopedRoleDefinitionId;
 use crate::ResourceId;
 use crate::ResourceScopedRoleDefinitionId;
 use crate::RoleDefinitionName;
@@ -36,7 +36,7 @@ pub enum RoleDefinitionId {
     Unscoped(UnscopedRoleDefinitionId),
     ManagementGroupScoped(ManagementGroupScopedRoleDefinitionId),
     SubscriptionScoped(SubscriptionScopedRoleDefinitionId),
-    ResourceGroupScoped(ResourceGroupScopedRoleDefinitionId),
+    ResourceGroupScoped(AzureResourceGroupScopedRoleDefinitionId),
     ResourceScoped(ResourceScopedRoleDefinitionId),
 }
 crate::impl_facet_string_proxy!(RoleDefinitionId, value => value.expanded_form());
@@ -108,10 +108,10 @@ impl TryFromUnscoped for RoleDefinitionId {
 impl TryFromResourceGroupScoped for RoleDefinitionId {
     unsafe fn new_resource_group_scoped_unchecked(
         _expanded: &str,
-        resource_group_id: ResourceGroupId,
+        resource_group_id: AzureResourceGroupId,
         name: Self::Name,
     ) -> Self {
-        RoleDefinitionId::ResourceGroupScoped(ResourceGroupScopedRoleDefinitionId {
+        RoleDefinitionId::ResourceGroupScoped(AzureResourceGroupScopedRoleDefinitionId {
             resource_group_id,
             name,
         })

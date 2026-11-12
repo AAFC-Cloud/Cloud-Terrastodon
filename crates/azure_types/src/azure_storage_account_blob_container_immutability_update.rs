@@ -1,6 +1,6 @@
+use crate::AzureStorageAccountBlobContainerImmutabilityUpdateType;
 use crate::AzureTenantId;
 use crate::EntraUserId;
-use crate::StorageAccountBlobContainerImmutabilityUpdateType;
 use crate::UserPrincipalName;
 use arbitrary::Arbitrary;
 use chrono::DateTime;
@@ -16,8 +16,8 @@ use facet::Facet;
 #[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
-pub struct StorageAccountBlobContainerImmutabilityUpdate {
-    pub update: StorageAccountBlobContainerImmutabilityUpdateType,
+pub struct AzureStorageAccountBlobContainerImmutabilityUpdate {
+    pub update: AzureStorageAccountBlobContainerImmutabilityUpdateType,
     pub immutability_period_since_creation_in_days: i32,
     pub timestamp: DateTime<Utc>,
     pub object_identifier: EntraUserId,
@@ -30,5 +30,5 @@ pub struct StorageAccountBlobContainerImmutabilityUpdate {
     pub allow_protected_append_writes_all: Option<bool>,
 }
 
-cloud_terrastodon_registry::register_thing!(StorageAccountBlobContainerImmutabilityUpdate);
-cloud_terrastodon_registry::register_arbitrary!(StorageAccountBlobContainerImmutabilityUpdate);
+cloud_terrastodon_registry::register_thing!(AzureStorageAccountBlobContainerImmutabilityUpdate);
+cloud_terrastodon_registry::register_arbitrary!(AzureStorageAccountBlobContainerImmutabilityUpdate);

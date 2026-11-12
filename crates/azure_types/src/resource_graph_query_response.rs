@@ -84,7 +84,7 @@ mod tests {
             total_records: 1,
         };
 
-        let response: ResourceGraphQueryResponse<crate::ResourceGroup> = raw.try_into()?;
+        let response: ResourceGraphQueryResponse<crate::AzureResourceGroup> = raw.try_into()?;
 
         assert_eq!(response.data.len(), 1);
         assert_eq!(response.data[0].name.to_string(), "example-rg");

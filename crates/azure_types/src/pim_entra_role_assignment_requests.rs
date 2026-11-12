@@ -1,6 +1,5 @@
 use crate::AzureTenantId;
 use crate::EntraPrincipalId;
-use crate::GovernanceRoleAssignment;
 use crate::iso8601_duration::IsoDuration;
 use facet::Facet;
 use std::time::Duration;
@@ -59,12 +58,13 @@ impl RoleAssignmentRequest {
     pub fn new_self_activation(
         principal_id: EntraPrincipalId,
         tenant_id: AzureTenantId,
-        role_assignment: &GovernanceRoleAssignment,
+        role_definition_id: Uuid,
+        linked_eligible_role_assignment_id: String,
         justification: String,
         duration: Duration,
     ) -> Self {
         Self {
-            role_definition_id: role_assignment.role_definition_id,
+            role_definition_id,
             resource_id: *tenant_id,
             subject_id: principal_id,
             assignment_state: RoleAssignmentRequestAssignmentState::Active,
@@ -76,7 +76,7 @@ impl RoleAssignmentRequest {
                 kind: RoleAssignmentRequestScheduleKind::Once,
                 duration: duration.into(),
             },
-            linked_eligible_role_assignment_id: role_assignment.id.clone(),
+            linked_eligible_role_assignment_id,
         }
     }
 }

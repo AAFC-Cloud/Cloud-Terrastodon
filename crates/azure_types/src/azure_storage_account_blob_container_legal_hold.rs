@@ -1,5 +1,5 @@
-use crate::StorageAccountBlobContainerLegalHoldTag;
-use crate::StorageAccountBlobContainerProtectedAppendWritesHistory;
+use crate::AzureStorageAccountBlobContainerLegalHoldTag;
+use crate::AzureStorageAccountBlobContainerProtectedAppendWritesHistory;
 use arbitrary::Arbitrary;
 use facet::Facet;
 
@@ -11,13 +11,13 @@ use facet::Facet;
 #[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
-pub struct StorageAccountBlobContainerLegalHold {
+pub struct AzureStorageAccountBlobContainerLegalHold {
     pub has_legal_hold: bool,
-    pub tags: Vec<StorageAccountBlobContainerLegalHoldTag>,
+    pub tags: Vec<AzureStorageAccountBlobContainerLegalHoldTag>,
     /// Only included when protected append-write history is reported.
     pub protected_append_writes_history:
-        Option<StorageAccountBlobContainerProtectedAppendWritesHistory>,
+        Option<AzureStorageAccountBlobContainerProtectedAppendWritesHistory>,
 }
 
-cloud_terrastodon_registry::register_thing!(StorageAccountBlobContainerLegalHold);
-cloud_terrastodon_registry::register_arbitrary!(StorageAccountBlobContainerLegalHold);
+cloud_terrastodon_registry::register_thing!(AzureStorageAccountBlobContainerLegalHold);
+cloud_terrastodon_registry::register_arbitrary!(AzureStorageAccountBlobContainerLegalHold);

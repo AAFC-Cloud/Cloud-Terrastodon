@@ -3,8 +3,8 @@
 use arbitrary::Arbitrary;
 use arbitrary::Unstructured;
 use cloud_terrastodon_azure_types::AzurePolicyDefinitionParametersSupplied;
+use cloud_terrastodon_azure_types::AzureResourceGroup;
 use cloud_terrastodon_azure_types::PolicyDefinition;
-use cloud_terrastodon_azure_types::ResourceGroup;
 
 const REQUIRE_A_TAG_ON_RESOURCE_GROUPS_POLICY_DEFINITION_JSON_STR: &str = r#"
 {
@@ -61,7 +61,7 @@ fn tag_policy_compliance_evaluation() -> eyre::Result<()> {
     // Create a resource group without tags
     let bytes = [0u8; 100];
     let mut unstructured = Unstructured::new(&bytes);
-    let mut resource_group = ResourceGroup::arbitrary(&mut unstructured)?;
+    let mut resource_group = AzureResourceGroup::arbitrary(&mut unstructured)?;
     resource_group.tags.clear();
 
     // Describe policy parameters

@@ -20,11 +20,11 @@ const STORAGE_ACCOUNT_NAMING_RULES_URL: &str = "https://learn.microsoft.com/en-u
 /// Accepting these identities does not imply that each listing API returns them.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Facet)]
 #[facet(json::proxy = String)]
-pub struct StorageAccountBlobContainerName {
+pub struct AzureStorageAccountBlobContainerName {
     inner: CompactString,
 }
-crate::impl_facet_string_proxy!(StorageAccountBlobContainerName, value => value.to_string());
-impl Slug for StorageAccountBlobContainerName {
+crate::impl_facet_string_proxy!(AzureStorageAccountBlobContainerName, value => value.to_string());
+impl Slug for AzureStorageAccountBlobContainerName {
     fn try_new(name: impl Into<CompactString>) -> eyre::Result<Self> {
         let inner = name.into();
         validate_storage_account_blob_container_name(&inner)?;
@@ -98,46 +98,46 @@ fn validate_storage_account_blob_container_name_inner(value: &str) -> eyre::Resu
     Ok(())
 }
 
-impl FromStr for StorageAccountBlobContainerName {
+impl FromStr for AzureStorageAccountBlobContainerName {
     type Err = eyre::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        StorageAccountBlobContainerName::try_new(s)
+        AzureStorageAccountBlobContainerName::try_new(s)
     }
 }
-impl TryFrom<&str> for StorageAccountBlobContainerName {
+impl TryFrom<&str> for AzureStorageAccountBlobContainerName {
     type Error = eyre::Error;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        StorageAccountBlobContainerName::try_new(value)
+        AzureStorageAccountBlobContainerName::try_new(value)
     }
 }
-impl std::fmt::Display for StorageAccountBlobContainerName {
+impl std::fmt::Display for AzureStorageAccountBlobContainerName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.inner)
     }
 }
-impl Deref for StorageAccountBlobContainerName {
+impl Deref for AzureStorageAccountBlobContainerName {
     type Target = CompactString;
 
     fn deref(&self) -> &Self::Target {
         &self.inner
     }
 }
-impl TryFrom<CompactString> for StorageAccountBlobContainerName {
+impl TryFrom<CompactString> for AzureStorageAccountBlobContainerName {
     type Error = eyre::Error;
 
     fn try_from(value: CompactString) -> Result<Self, Self::Error> {
         Self::try_new(value)
     }
 }
-impl From<StorageAccountBlobContainerName> for CompactString {
-    fn from(value: StorageAccountBlobContainerName) -> Self {
+impl From<AzureStorageAccountBlobContainerName> for CompactString {
+    fn from(value: AzureStorageAccountBlobContainerName) -> Self {
         value.inner
     }
 }
 
-impl<'a> Arbitrary<'a> for StorageAccountBlobContainerName {
+impl<'a> Arbitrary<'a> for AzureStorageAccountBlobContainerName {
     fn arbitrary(u: &mut Unstructured<'a>) -> arbitrary::Result<Self> {
         // Get length in 3-63
         let len = u.int_in_range(3..=63)?;
@@ -175,23 +175,23 @@ impl<'a> Arbitrary<'a> for StorageAccountBlobContainerName {
             }
         }
 
-        StorageAccountBlobContainerName::try_new(CompactString::from(name))
+        AzureStorageAccountBlobContainerName::try_new(CompactString::from(name))
             .map_err(|_| arbitrary::Error::IncorrectFormat)
     }
 }
 
-cloud_terrastodon_registry::register_thing!(StorageAccountBlobContainerName);
-cloud_terrastodon_registry::register_arbitrary!(StorageAccountBlobContainerName);
+cloud_terrastodon_registry::register_thing!(AzureStorageAccountBlobContainerName);
+cloud_terrastodon_registry::register_arbitrary!(AzureStorageAccountBlobContainerName);
 cloud_terrastodon_registry::register_thing!(
-    std::collections::HashSet<StorageAccountBlobContainerName>
+    std::collections::HashSet<AzureStorageAccountBlobContainerName>
 );
 cloud_terrastodon_registry::register_arbitrary!(
-    std::collections::HashSet<StorageAccountBlobContainerName>
+    std::collections::HashSet<AzureStorageAccountBlobContainerName>
 );
 
 #[cfg(test)]
 mod test {
-    use crate::StorageAccountBlobContainerName;
+    use crate::AzureStorageAccountBlobContainerName;
     use crate::slug::Slug;
     use arbitrary::Arbitrary;
     use arbitrary::Unstructured;
@@ -200,44 +200,44 @@ mod test {
     #[test]
     pub fn validation() -> eyre::Result<()> {
         // Valid cases
-        assert!(StorageAccountBlobContainerName::try_new("abc").is_ok()); // minimum length
-        assert!(StorageAccountBlobContainerName::try_new("bruh").is_ok()); // lowercase letters
-        assert!(StorageAccountBlobContainerName::try_new("123").is_ok()); // numbers only
-        assert!(StorageAccountBlobContainerName::try_new("a1b2c3").is_ok()); // letters and numbers
-        assert!(StorageAccountBlobContainerName::try_new("a-b-c").is_ok()); // valid hyphens
-        assert!(StorageAccountBlobContainerName::try_new("test-container-1").is_ok()); // realistic name
-        assert!(StorageAccountBlobContainerName::try_new("1test").is_ok()); // starts with number
-        assert!(StorageAccountBlobContainerName::try_new("a".repeat(63)).is_ok()); // maximum length
+        assert!(AzureStorageAccountBlobContainerName::try_new("abc").is_ok()); // minimum length
+        assert!(AzureStorageAccountBlobContainerName::try_new("bruh").is_ok()); // lowercase letters
+        assert!(AzureStorageAccountBlobContainerName::try_new("123").is_ok()); // numbers only
+        assert!(AzureStorageAccountBlobContainerName::try_new("a1b2c3").is_ok()); // letters and numbers
+        assert!(AzureStorageAccountBlobContainerName::try_new("a-b-c").is_ok()); // valid hyphens
+        assert!(AzureStorageAccountBlobContainerName::try_new("test-container-1").is_ok()); // realistic name
+        assert!(AzureStorageAccountBlobContainerName::try_new("1test").is_ok()); // starts with number
+        assert!(AzureStorageAccountBlobContainerName::try_new("a".repeat(63)).is_ok()); // maximum length
 
         // Invalid: too short (less than 3 characters)
-        assert!(StorageAccountBlobContainerName::try_new("").is_err());
-        assert!(StorageAccountBlobContainerName::try_new("a").is_err());
-        assert!(StorageAccountBlobContainerName::try_new("ab").is_err());
+        assert!(AzureStorageAccountBlobContainerName::try_new("").is_err());
+        assert!(AzureStorageAccountBlobContainerName::try_new("a").is_err());
+        assert!(AzureStorageAccountBlobContainerName::try_new("ab").is_err());
 
         // Invalid: too long (more than 63 characters)
-        assert!(StorageAccountBlobContainerName::try_new("a".repeat(64)).is_err());
+        assert!(AzureStorageAccountBlobContainerName::try_new("a".repeat(64)).is_err());
 
         // Invalid: starts with hyphen
-        assert!(StorageAccountBlobContainerName::try_new("-abc").is_err());
-        assert!(StorageAccountBlobContainerName::try_new("-123").is_err());
+        assert!(AzureStorageAccountBlobContainerName::try_new("-abc").is_err());
+        assert!(AzureStorageAccountBlobContainerName::try_new("-123").is_err());
 
         // Invalid: consecutive hyphens
-        assert!(StorageAccountBlobContainerName::try_new("a--b").is_err());
-        assert!(StorageAccountBlobContainerName::try_new("test--container").is_err());
-        assert!(StorageAccountBlobContainerName::try_new("a---b").is_err());
+        assert!(AzureStorageAccountBlobContainerName::try_new("a--b").is_err());
+        assert!(AzureStorageAccountBlobContainerName::try_new("test--container").is_err());
+        assert!(AzureStorageAccountBlobContainerName::try_new("a---b").is_err());
 
         // Invalid: uppercase letters
-        assert!(StorageAccountBlobContainerName::try_new("JEOFF").is_err());
-        assert!(StorageAccountBlobContainerName::try_new("caPital").is_err());
-        assert!(StorageAccountBlobContainerName::try_new("Test").is_err());
-        assert!(StorageAccountBlobContainerName::try_new("testA").is_err());
+        assert!(AzureStorageAccountBlobContainerName::try_new("JEOFF").is_err());
+        assert!(AzureStorageAccountBlobContainerName::try_new("caPital").is_err());
+        assert!(AzureStorageAccountBlobContainerName::try_new("Test").is_err());
+        assert!(AzureStorageAccountBlobContainerName::try_new("testA").is_err());
 
         // Invalid: special characters
-        assert!(StorageAccountBlobContainerName::try_new("hi+hi").is_err());
-        assert!(StorageAccountBlobContainerName::try_new("test_container").is_err());
-        assert!(StorageAccountBlobContainerName::try_new("test.container").is_err());
-        assert!(StorageAccountBlobContainerName::try_new("test@container").is_err());
-        assert!(StorageAccountBlobContainerName::try_new("test container").is_err()); // space
+        assert!(AzureStorageAccountBlobContainerName::try_new("hi+hi").is_err());
+        assert!(AzureStorageAccountBlobContainerName::try_new("test_container").is_err());
+        assert!(AzureStorageAccountBlobContainerName::try_new("test.container").is_err());
+        assert!(AzureStorageAccountBlobContainerName::try_new("test@container").is_err());
+        assert!(AzureStorageAccountBlobContainerName::try_new("test container").is_err()); // space
 
         Ok(())
     }
@@ -245,18 +245,20 @@ mod test {
     #[test]
     fn supports_documented_special_names_without_weakening_ordinary_names() -> eyre::Result<()> {
         for value in ["$root", "$web", "$logs", "$blobchangefeed"] {
-            let name = StorageAccountBlobContainerName::try_new(value)?;
+            let name = AzureStorageAccountBlobContainerName::try_new(value)?;
             assert_eq!(name.to_string(), value);
             let encoded = facet_json::to_string(&name)?;
             assert_eq!(
-                facet_json::from_str::<StorageAccountBlobContainerName>(&encoded)?,
+                facet_json::from_str::<AzureStorageAccountBlobContainerName>(&encoded)?,
                 name
             );
         }
         for value in ["$other", "$ROOT", "abc-", "a--b"] {
-            assert!(StorageAccountBlobContainerName::try_new(value).is_err());
+            assert!(AzureStorageAccountBlobContainerName::try_new(value).is_err());
             let encoded = facet_json::to_string(&value)?;
-            assert!(facet_json::from_str::<StorageAccountBlobContainerName>(&encoded).is_err());
+            assert!(
+                facet_json::from_str::<AzureStorageAccountBlobContainerName>(&encoded).is_err()
+            );
         }
         Ok(())
     }
@@ -264,7 +266,7 @@ mod test {
     #[test]
     #[ignore]
     pub fn preview_failure() -> eyre::Result<()> {
-        StorageAccountBlobContainerName::try_new("abc123B321")?; // Should fail due to uppercase 'B'
+        AzureStorageAccountBlobContainerName::try_new("abc123B321")?; // Should fail due to uppercase 'B'
         Ok(())
     }
 
@@ -274,7 +276,7 @@ mod test {
             let mut raw = [0u8; 64];
             rand::rng().fill(&mut raw);
             let mut un = Unstructured::new(&raw);
-            let name = StorageAccountBlobContainerName::arbitrary(&mut un)?;
+            let name = AzureStorageAccountBlobContainerName::arbitrary(&mut un)?;
             assert!(name.validate_slug().is_ok());
         }
         Ok(())

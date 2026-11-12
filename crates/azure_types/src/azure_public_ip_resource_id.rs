@@ -1,5 +1,5 @@
 use crate::AzurePublicIpResourceName;
-use crate::ResourceGroupId;
+use crate::AzureResourceGroupId;
 use crate::scopes::HasPrefix;
 use crate::scopes::NameValidatable;
 use crate::scopes::Scope;
@@ -20,13 +20,13 @@ pub const AZURE_PUBLIC_IP_RESOURCE_ID_PREFIX: &str =
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, Facet)]
 #[facet(json::proxy = String)]
 pub struct AzurePublicIpResourceId {
-    pub resource_group_id: ResourceGroupId,
+    pub resource_group_id: AzureResourceGroupId,
     pub azure_public_ip_resource_name: AzurePublicIpResourceName,
 }
 crate::impl_facet_string_proxy!(AzurePublicIpResourceId, value => value.expanded_form());
 impl AzurePublicIpResourceId {
     pub fn new(
-        resource_group_id: impl Into<ResourceGroupId>,
+        resource_group_id: impl Into<AzureResourceGroupId>,
         azure_public_ip_resource_name: impl Into<AzurePublicIpResourceName>,
     ) -> AzurePublicIpResourceId {
         AzurePublicIpResourceId {
@@ -37,7 +37,7 @@ impl AzurePublicIpResourceId {
 
     pub fn try_new<R, N>(resource_group_id: R, azure_public_ip_resource_name: N) -> Result<Self>
     where
-        R: TryInto<ResourceGroupId>,
+        R: TryInto<AzureResourceGroupId>,
         R::Error: Into<eyre::Error>,
         N: TryInto<AzurePublicIpResourceName>,
         N::Error: Into<eyre::Error>,
@@ -64,8 +64,8 @@ impl HasSlug for AzurePublicIpResourceId {
         &self.azure_public_ip_resource_name
     }
 }
-impl AsRef<ResourceGroupId> for AzurePublicIpResourceId {
-    fn as_ref(&self) -> &ResourceGroupId {
+impl AsRef<AzureResourceGroupId> for AzurePublicIpResourceId {
+    fn as_ref(&self) -> &AzureResourceGroupId {
         &self.resource_group_id
     }
 }
@@ -88,7 +88,7 @@ impl HasPrefix for AzurePublicIpResourceId {
 impl TryFromResourceGroupScoped for AzurePublicIpResourceId {
     unsafe fn new_resource_group_scoped_unchecked(
         _expanded: &str,
-        resource_group_id: ResourceGroupId,
+        resource_group_id: AzureResourceGroupId,
         name: Self::Name,
     ) -> Self {
         AzurePublicIpResourceId {
@@ -136,7 +136,7 @@ cloud_terrastodon_registry::register_arbitrary!(AzurePublicIpResourceId);
 mod test {
     use super::AzurePublicIpResourceId;
     use crate::AzurePublicIpResourceName;
-    use crate::ResourceGroupId;
+    use crate::AzureResourceGroupId;
     use crate::SubscriptionId;
     use crate::scopes::Scope;
     use crate::slug::Slug;
@@ -151,18 +151,18 @@ mod test {
             "aaa",
         )?;
         AzurePublicIpResourceId::try_new(
-            ResourceGroupId::try_new("95c30970-3b9b-47d6-84a2-31f0e0cdfc8e", "myRG")?,
+            AzureResourceGroupId::try_new("95c30970-3b9b-47d6-84a2-31f0e0cdfc8e", "myRG")?,
             "aaa",
         )?;
         AzurePublicIpResourceId::try_new(
-            ResourceGroupId::try_new(
+            AzureResourceGroupId::try_new(
                 SubscriptionId::try_new("d4917068-8792-4f47-9a6d-330f202cd438")?,
                 "myRG",
             )?,
             "aaa",
         )?;
         AzurePublicIpResourceId::new(
-            ResourceGroupId::try_new(
+            AzureResourceGroupId::try_new(
                 "/subscriptions/ac9c7dce-2d4e-4bd2-865d-4a2de1ff5df4",
                 "MyRG",
             )?,

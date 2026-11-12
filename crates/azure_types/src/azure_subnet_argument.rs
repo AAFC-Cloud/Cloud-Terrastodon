@@ -78,8 +78,8 @@ cloud_terrastodon_registry::register_arbitrary!(AzureSubnetArgument);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ResourceGroupId;
-    use crate::ResourceGroupName;
+    use crate::AzureResourceGroupId;
+    use crate::AzureResourceGroupName;
     use crate::SubscriptionId;
     use crate::VirtualNetworkId;
     use crate::VirtualNetworkName;
@@ -88,9 +88,9 @@ mod tests {
     fn subnet_id(network: &str, name: &str) -> SubnetId {
         SubnetId::new(
             VirtualNetworkId::new(
-                ResourceGroupId::new(
+                AzureResourceGroupId::new(
                     SubscriptionId::new(Uuid::nil()),
-                    "ExampleGroup".parse::<ResourceGroupName>().unwrap(),
+                    "ExampleGroup".parse::<AzureResourceGroupName>().unwrap(),
                 ),
                 network.parse::<VirtualNetworkName>().unwrap(),
             ),

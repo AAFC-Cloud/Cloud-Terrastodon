@@ -1,4 +1,4 @@
-use crate::StorageAccountBlobContainerMigrationState;
+use crate::AzureStorageAccountBlobContainerMigrationState;
 use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
@@ -12,17 +12,17 @@ use facet::Facet;
 #[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
-pub struct StorageAccountBlobContainerImmutableStorageWithVersioning {
+pub struct AzureStorageAccountBlobContainerImmutableStorageWithVersioning {
     pub enabled: bool,
     /// Not returned in the documented object-level WORM creation response.
     pub time_stamp: Option<DateTime<Utc>>,
     /// Relevant to migration; omitted when object-level WORM is enabled at creation.
-    pub migration_state: Option<StorageAccountBlobContainerMigrationState>,
+    pub migration_state: Option<AzureStorageAccountBlobContainerMigrationState>,
 }
 
 cloud_terrastodon_registry::register_thing!(
-    StorageAccountBlobContainerImmutableStorageWithVersioning
+    AzureStorageAccountBlobContainerImmutableStorageWithVersioning
 );
 cloud_terrastodon_registry::register_arbitrary!(
-    StorageAccountBlobContainerImmutableStorageWithVersioning
+    AzureStorageAccountBlobContainerImmutableStorageWithVersioning
 );

@@ -1,5 +1,5 @@
+use crate::AzureResourceGroupId;
 use crate::ContainerRegistryName;
-use crate::ResourceGroupId;
 use crate::scopes::HasPrefix;
 use crate::scopes::NameValidatable;
 use crate::scopes::Scope;
@@ -19,13 +19,13 @@ pub const CONTAINER_REGISTRY_ID_PREFIX: &str = "/providers/Microsoft.ContainerRe
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Arbitrary, Facet)]
 #[facet(json::proxy = String)]
 pub struct ContainerRegistryId {
-    pub resource_group_id: ResourceGroupId,
+    pub resource_group_id: AzureResourceGroupId,
     pub container_registry_name: ContainerRegistryName,
 }
 crate::impl_facet_string_proxy!(ContainerRegistryId, value => value.expanded_form());
 impl ContainerRegistryId {
     pub fn new(
-        resource_group_id: impl Into<ResourceGroupId>,
+        resource_group_id: impl Into<AzureResourceGroupId>,
         container_registry_name: impl Into<ContainerRegistryName>,
     ) -> ContainerRegistryId {
         ContainerRegistryId {
@@ -36,7 +36,7 @@ impl ContainerRegistryId {
 
     pub fn try_new<R, N>(resource_group_id: R, container_registry_name: N) -> Result<Self>
     where
-        R: TryInto<ResourceGroupId>,
+        R: TryInto<AzureResourceGroupId>,
         R::Error: Into<eyre::Error>,
         N: TryInto<ContainerRegistryName>,
         N::Error: Into<eyre::Error>,
@@ -63,8 +63,8 @@ impl HasSlug for ContainerRegistryId {
         &self.container_registry_name
     }
 }
-impl AsRef<ResourceGroupId> for ContainerRegistryId {
-    fn as_ref(&self) -> &ResourceGroupId {
+impl AsRef<AzureResourceGroupId> for ContainerRegistryId {
+    fn as_ref(&self) -> &AzureResourceGroupId {
         &self.resource_group_id
     }
 }
@@ -87,7 +87,7 @@ impl HasPrefix for ContainerRegistryId {
 impl TryFromResourceGroupScoped for ContainerRegistryId {
     unsafe fn new_resource_group_scoped_unchecked(
         _expanded: &str,
-        resource_group_id: ResourceGroupId,
+        resource_group_id: AzureResourceGroupId,
         name: Self::Name,
     ) -> Self {
         ContainerRegistryId {
@@ -131,8 +131,8 @@ impl FromStr for ContainerRegistryId {
 #[cfg(test)]
 mod test {
     use super::ContainerRegistryId;
+    use crate::AzureResourceGroupId;
     use crate::ContainerRegistryName;
-    use crate::ResourceGroupId;
     use crate::SubscriptionId;
     use crate::scopes::Scope;
     use crate::slug::Slug;
@@ -148,18 +148,18 @@ mod test {
             "aaaaa",
         )?;
         ContainerRegistryId::try_new(
-            ResourceGroupId::try_new("95c30970-3b9b-47d6-84a2-31f0e0cdfc8e", "myRG")?,
+            AzureResourceGroupId::try_new("95c30970-3b9b-47d6-84a2-31f0e0cdfc8e", "myRG")?,
             "aaaaa",
         )?;
         ContainerRegistryId::try_new(
-            ResourceGroupId::try_new(
+            AzureResourceGroupId::try_new(
                 SubscriptionId::try_new("d4917068-8792-4f47-9a6d-330f202cd438")?,
                 "myRG",
             )?,
             "aaaaa",
         )?;
         ContainerRegistryId::new(
-            ResourceGroupId::try_new(
+            AzureResourceGroupId::try_new(
                 "/subscriptions/ac9c7dce-2d4e-4bd2-865d-4a2de1ff5df4",
                 "MyRG",
             )?,

@@ -8,14 +8,14 @@ use facet::Facet;
 #[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
-pub enum StorageAccountBlobContainerImmutabilityState {
+pub enum AzureStorageAccountBlobContainerImmutabilityState {
     Locked,
     Unlocked,
     #[arbitrary(skip)]
     Unknown(String),
 }
 
-impl From<String> for StorageAccountBlobContainerImmutabilityState {
+impl From<String> for AzureStorageAccountBlobContainerImmutabilityState {
     fn from(value: String) -> Self {
         match value.as_str() {
             "Locked" => Self::Locked,
@@ -30,16 +30,16 @@ impl From<String> for StorageAccountBlobContainerImmutabilityState {
     }
 }
 
-impl From<&StorageAccountBlobContainerImmutabilityState> for String {
-    fn from(value: &StorageAccountBlobContainerImmutabilityState) -> Self {
+impl From<&AzureStorageAccountBlobContainerImmutabilityState> for String {
+    fn from(value: &AzureStorageAccountBlobContainerImmutabilityState) -> Self {
         match value {
-            StorageAccountBlobContainerImmutabilityState::Locked => "Locked",
-            StorageAccountBlobContainerImmutabilityState::Unlocked => "Unlocked",
-            StorageAccountBlobContainerImmutabilityState::Unknown(value) => value,
+            AzureStorageAccountBlobContainerImmutabilityState::Locked => "Locked",
+            AzureStorageAccountBlobContainerImmutabilityState::Unlocked => "Unlocked",
+            AzureStorageAccountBlobContainerImmutabilityState::Unknown(value) => value,
         }
         .to_owned()
     }
 }
 
-cloud_terrastodon_registry::register_thing!(StorageAccountBlobContainerImmutabilityState);
-cloud_terrastodon_registry::register_arbitrary!(StorageAccountBlobContainerImmutabilityState);
+cloud_terrastodon_registry::register_thing!(AzureStorageAccountBlobContainerImmutabilityState);
+cloud_terrastodon_registry::register_arbitrary!(AzureStorageAccountBlobContainerImmutabilityState);

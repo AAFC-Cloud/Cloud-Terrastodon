@@ -54,8 +54,8 @@ impl From<KeyVault> for HclImportBlock {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ResourceGroupId;
-    use crate::ResourceGroupName;
+    use crate::AzureResourceGroupId;
+    use crate::AzureResourceGroupName;
     use crate::SubscriptionId;
     use crate::slug::Slug;
     use eyre::Result;
@@ -65,9 +65,9 @@ mod tests {
     fn deserializes() -> Result<()> {
         // /subscriptions/{nil}/resourceGroups/MY-RG/providers/Microsoft.KeyVault/vaults/bruh
         let expanded = KeyVaultId {
-            resource_group_id: ResourceGroupId::new(
+            resource_group_id: AzureResourceGroupId::new(
                 SubscriptionId::new(Uuid::new_v4()),
-                ResourceGroupName::try_new("MY-RG")?,
+                AzureResourceGroupName::try_new("MY-RG")?,
             ),
             key_vault_name: KeyVaultName::try_new("bruh")?,
         };

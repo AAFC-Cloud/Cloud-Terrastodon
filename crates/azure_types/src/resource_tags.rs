@@ -3,6 +3,7 @@ use crate::Scope;
 use crate::ScopeImpl;
 use crate::ScopeImplKind;
 use crate::strip_suffix_case_insensitive;
+use arbitrary::Arbitrary;
 use eyre::Context;
 use eyre::Result;
 use facet::Facet;
@@ -16,7 +17,19 @@ pub struct ResourceTagsId {
     expanded: String,
 }
 crate::impl_facet_string_proxy!(ResourceTagsId, value => value.expanded_form());
+impl<'a> Arbitrary<'a> for ResourceTagsId {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        Ok(Self::from_scope(&crate::SubscriptionId::arbitrary(u)?))
+    }
+}
+cloud_terrastodon_registry::register_thing!(ResourceTagsId);
+cloud_terrastodon_registry::register_arbitrary!(ResourceTagsId);
 impl ResourceTagsId {
+    /// The ARM resource or subscription whose tags this wrapper contains.
+    pub fn tagged_scope(&self) -> Result<ScopeImpl> {
+        Ok(strip_suffix_case_insensitive(&self.expanded, TAGS_SUFFIX)?.parse()?)
+    }
+
     pub fn from_scope(resource: &impl AsScope) -> ResourceTagsId {
         match resource.as_scope().as_scope_impl() {
             ScopeImpl::ResourceTags(x) => x,

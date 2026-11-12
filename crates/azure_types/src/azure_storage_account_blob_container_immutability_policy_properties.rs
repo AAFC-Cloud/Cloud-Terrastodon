@@ -1,4 +1,4 @@
-use crate::StorageAccountBlobContainerImmutabilityState;
+use crate::AzureStorageAccountBlobContainerImmutabilityState;
 use arbitrary::Arbitrary;
 use facet::Facet;
 
@@ -10,9 +10,9 @@ use facet::Facet;
 #[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
-pub struct StorageAccountBlobContainerImmutabilityPolicyProperties {
+pub struct AzureStorageAccountBlobContainerImmutabilityPolicyProperties {
     pub immutability_period_since_creation_in_days: i32,
-    pub state: StorageAccountBlobContainerImmutabilityState,
+    pub state: AzureStorageAccountBlobContainerImmutabilityState,
     /// Omitted when the response does not include append-blob protection settings.
     pub allow_protected_append_writes: Option<bool>,
     /// Alternative block/append protection setting, omitted by basic GetContainers.
@@ -20,8 +20,8 @@ pub struct StorageAccountBlobContainerImmutabilityPolicyProperties {
 }
 
 cloud_terrastodon_registry::register_thing!(
-    StorageAccountBlobContainerImmutabilityPolicyProperties
+    AzureStorageAccountBlobContainerImmutabilityPolicyProperties
 );
 cloud_terrastodon_registry::register_arbitrary!(
-    StorageAccountBlobContainerImmutabilityPolicyProperties
+    AzureStorageAccountBlobContainerImmutabilityPolicyProperties
 );

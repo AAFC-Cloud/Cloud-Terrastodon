@@ -1,8 +1,8 @@
+use crate::AzureResourceGroupId;
+use crate::AzureResourceGroupScopedPolicySetDefinitionId;
 use crate::ManagementGroupId;
 use crate::ManagementGroupScopedPolicySetDefinitionId;
 use crate::PolicySetDefinitionName;
-use crate::ResourceGroupId;
-use crate::ResourceGroupScopedPolicySetDefinitionId;
 use crate::ResourceId;
 use crate::ResourceScopedPolicySetDefinitionId;
 use crate::SubscriptionId;
@@ -37,7 +37,7 @@ pub enum PolicySetDefinitionId {
     Unscoped(UnscopedPolicySetDefinitionId),
     ManagementGroupScoped(ManagementGroupScopedPolicySetDefinitionId),
     SubscriptionScoped(SubscriptionScopedPolicySetDefinitionId),
-    ResourceGroupScoped(ResourceGroupScopedPolicySetDefinitionId),
+    ResourceGroupScoped(AzureResourceGroupScopedPolicySetDefinitionId),
     ResourceScoped(ResourceScopedPolicySetDefinitionId),
 }
 crate::impl_facet_string_proxy!(PolicySetDefinitionId, value => value.expanded_form());
@@ -107,10 +107,10 @@ impl TryFromUnscoped for PolicySetDefinitionId {
 impl TryFromResourceGroupScoped for PolicySetDefinitionId {
     unsafe fn new_resource_group_scoped_unchecked(
         _expanded: &str,
-        resource_group_id: ResourceGroupId,
+        resource_group_id: AzureResourceGroupId,
         name: Self::Name,
     ) -> Self {
-        PolicySetDefinitionId::ResourceGroupScoped(ResourceGroupScopedPolicySetDefinitionId {
+        PolicySetDefinitionId::ResourceGroupScoped(AzureResourceGroupScopedPolicySetDefinitionId {
             resource_group_id,
             name,
         })
@@ -209,7 +209,7 @@ cloud_terrastodon_registry::register_arbitrary!(PolicySetDefinitionId);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ResourceGroupName;
+    use crate::AzureResourceGroupName;
     use crate::slug::Slug;
     use cloud_terrastodon_azure_resource_types::ResourceType;
     use eyre::Result;
@@ -230,9 +230,9 @@ mod tests {
         // /subscriptions/{nil}/resourceGroups/MY-RG/providers/Microsoft.Network/virtualNetworks/MY-VNET/subnets/MY-Subnet/providers/Microsoft.Authorization/PolicySetDefinitions/{nil}
         let expanded = PolicySetDefinitionId::ResourceScoped(ResourceScopedPolicySetDefinitionId {
             resource_id: ResourceId::new(
-                ResourceGroupId::new(
+                AzureResourceGroupId::new(
                     SubscriptionId::new(Uuid::new_v4()),
-                    ResourceGroupName::try_new("MY-RG")?,
+                    AzureResourceGroupName::try_new("MY-RG")?,
                 ),
                 ResourceType::MICROSOFT_DOT_NETWORK_SLASH_VIRTUALNETWORKS,
                 "MY-VNET",

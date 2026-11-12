@@ -14,7 +14,7 @@ use facet::Facet;
 #[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
-pub struct StorageAccountBlobContainerLegalHoldTag {
+pub struct AzureStorageAccountBlobContainerLegalHoldTag {
     pub tag: String,
     pub timestamp: DateTime<Utc>,
     pub object_identifier: EntraUserId,
@@ -23,5 +23,5 @@ pub struct StorageAccountBlobContainerLegalHoldTag {
     pub upn: Option<UserPrincipalName>,
 }
 
-cloud_terrastodon_registry::register_thing!(StorageAccountBlobContainerLegalHoldTag);
-cloud_terrastodon_registry::register_arbitrary!(StorageAccountBlobContainerLegalHoldTag);
+cloud_terrastodon_registry::register_thing!(AzureStorageAccountBlobContainerLegalHoldTag);
+cloud_terrastodon_registry::register_arbitrary!(AzureStorageAccountBlobContainerLegalHoldTag);

@@ -27,19 +27,19 @@ use unicode_categories::UnicodeCategories;
 /// See also: https://github.com/Azure/azure-rest-api-specs/blob/6c548b0bd279f5e233661b1c81fb5b61b19965cd/specification/storage/resource-manager/Microsoft.Storage/stable/2025-01-01/storage.json#L5841-L5852
 #[derive(Debug, Clone, Eq, PartialOrd, Ord, Facet)]
 #[facet(transparent)]
-pub struct ResourceGroupName(CompactString);
+pub struct AzureResourceGroupName(CompactString);
 
-impl PartialEq for ResourceGroupName {
+impl PartialEq for AzureResourceGroupName {
     fn eq(&self, other: &Self) -> bool {
         self.0.eq_ignore_ascii_case(&other.0)
     }
 }
-impl Hash for ResourceGroupName {
+impl Hash for AzureResourceGroupName {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.to_ascii_lowercase().hash(state);
     }
 }
-impl Slug for ResourceGroupName {
+impl Slug for AzureResourceGroupName {
     fn try_new(name: impl Into<CompactString>) -> eyre::Result<Self> {
         let inner = name.into();
         validate_resource_group_name(&inner)?;
@@ -52,28 +52,28 @@ impl Slug for ResourceGroupName {
     }
 }
 
-impl FromStr for ResourceGroupName {
+impl FromStr for AzureResourceGroupName {
     type Err = eyre::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        ResourceGroupName::try_new(s)
+        AzureResourceGroupName::try_new(s)
     }
 }
-impl TryFrom<&str> for ResourceGroupName {
+impl TryFrom<&str> for AzureResourceGroupName {
     type Error = eyre::Error;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        ResourceGroupName::try_new(value)
+        AzureResourceGroupName::try_new(value)
     }
 }
-impl TryFrom<String> for ResourceGroupName {
+impl TryFrom<String> for AzureResourceGroupName {
     type Error = eyre::Error;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
         Self::from_str(&value)
     }
 }
-impl TryFrom<&String> for ResourceGroupName {
+impl TryFrom<&String> for AzureResourceGroupName {
     type Error = eyre::Error;
 
     fn try_from(value: &String) -> Result<Self, Self::Error> {
@@ -141,32 +141,32 @@ fn validate_resource_group_name(value: &str) -> eyre::Result<()> {
         .wrap_err("https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftresources")
 }
 
-impl std::fmt::Display for ResourceGroupName {
+impl std::fmt::Display for AzureResourceGroupName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.0)
     }
 }
-impl Deref for ResourceGroupName {
+impl Deref for AzureResourceGroupName {
     type Target = CompactString;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
-impl TryFrom<CompactString> for ResourceGroupName {
+impl TryFrom<CompactString> for AzureResourceGroupName {
     type Error = eyre::Error;
 
     fn try_from(value: CompactString) -> Result<Self, Self::Error> {
         Self::try_new(value)
     }
 }
-impl From<ResourceGroupName> for CompactString {
-    fn from(value: ResourceGroupName) -> Self {
+impl From<AzureResourceGroupName> for CompactString {
+    fn from(value: AzureResourceGroupName) -> Self {
         value.0
     }
 }
 
-impl<'a> Arbitrary<'a> for ResourceGroupName {
+impl<'a> Arbitrary<'a> for AzureResourceGroupName {
     fn arbitrary(u: &mut Unstructured<'a>) -> arbitrary::Result<Self> {
         // Length 1..=90 (Azure RG name max length)
         let len = u.int_in_range(1..=90)?;
@@ -206,13 +206,13 @@ impl<'a> Arbitrary<'a> for ResourceGroupName {
             chars.push('_');
         }
         let name: String = chars.into_iter().collect();
-        ResourceGroupName::try_new(CompactString::from(name))
+        AzureResourceGroupName::try_new(CompactString::from(name))
             .map_err(|_| arbitrary::Error::IncorrectFormat)
     }
 }
 
-cloud_terrastodon_registry::register_thing!(ResourceGroupName);
-cloud_terrastodon_registry::register_arbitrary!(ResourceGroupName);
+cloud_terrastodon_registry::register_thing!(AzureResourceGroupName);
+cloud_terrastodon_registry::register_arbitrary!(AzureResourceGroupName);
 
 #[cfg(test)]
 mod test {
@@ -223,23 +223,23 @@ mod test {
 
     #[test]
     pub fn validation() -> eyre::Result<()> {
-        assert!(ResourceGroupName::try_new("bruh").is_ok());
-        assert!(ResourceGroupName::try_new("-").is_ok());
-        assert!(ResourceGroupName::try_new("a-b-c").is_ok());
-        assert!(ResourceGroupName::try_new("hi+hi").is_err()); // '+' is not allowed
-        assert!(ResourceGroupName::try_new("").is_err()); // too short
-        assert!(ResourceGroupName::try_new("a").is_ok());
-        assert!(ResourceGroupName::try_new("aa").is_ok());
-        assert!(ResourceGroupName::try_new("JEOFF").is_ok());
-        assert!(ResourceGroupName::try_new("caPital").is_ok());
-        assert!(ResourceGroupName::try_new("aaaa").is_ok());
-        assert!(ResourceGroupName::try_new("a".repeat(89)).is_ok());
-        assert!(ResourceGroupName::try_new("a".repeat(90)).is_ok());
-        assert!(ResourceGroupName::try_new("a".repeat(91)).is_err()); // too long
+        assert!(AzureResourceGroupName::try_new("bruh").is_ok());
+        assert!(AzureResourceGroupName::try_new("-").is_ok());
+        assert!(AzureResourceGroupName::try_new("a-b-c").is_ok());
+        assert!(AzureResourceGroupName::try_new("hi+hi").is_err()); // '+' is not allowed
+        assert!(AzureResourceGroupName::try_new("").is_err()); // too short
+        assert!(AzureResourceGroupName::try_new("a").is_ok());
+        assert!(AzureResourceGroupName::try_new("aa").is_ok());
+        assert!(AzureResourceGroupName::try_new("JEOFF").is_ok());
+        assert!(AzureResourceGroupName::try_new("caPital").is_ok());
+        assert!(AzureResourceGroupName::try_new("aaaa").is_ok());
+        assert!(AzureResourceGroupName::try_new("a".repeat(89)).is_ok());
+        assert!(AzureResourceGroupName::try_new("a".repeat(90)).is_ok());
+        assert!(AzureResourceGroupName::try_new("a".repeat(91)).is_err()); // too long
         // Test Unicode letters
-        assert!(ResourceGroupName::try_new("αβΓδЖЩ").is_ok());
+        assert!(AzureResourceGroupName::try_new("αβΓδЖЩ").is_ok());
         // Test period at the end
-        assert!(ResourceGroupName::try_new("abc.").is_err());
+        assert!(AzureResourceGroupName::try_new("abc.").is_err());
         Ok(())
     }
 
@@ -249,7 +249,7 @@ mod test {
             let mut raw = [0u8; 128];
             rand::rng().fill(&mut raw);
             let mut un = Unstructured::new(&raw);
-            let name = ResourceGroupName::arbitrary(&mut un)?;
+            let name = AzureResourceGroupName::arbitrary(&mut un)?;
             assert!(name.validate_slug().is_ok());
         }
         Ok(())
@@ -257,9 +257,9 @@ mod test {
 
     #[test]
     pub fn json_roundtrips() -> eyre::Result<()> {
-        let name = ResourceGroupName::try_new("My-RG")?;
+        let name = AzureResourceGroupName::try_new("My-RG")?;
         crate::facet_json_equivalence::assert_json_serialize_equivalent(&name)?;
-        crate::facet_json_equivalence::assert_json_roundtrip_equivalent::<ResourceGroupName>(
+        crate::facet_json_equivalence::assert_json_roundtrip_equivalent::<AzureResourceGroupName>(
             "\"My-RG\"",
         )?;
         Ok(())

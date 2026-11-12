@@ -8,7 +8,7 @@ use facet::Facet;
 #[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
-pub enum StorageAccountBlobContainerLeaseState {
+pub enum AzureStorageAccountBlobContainerLeaseState {
     Available,
     Leased,
     Expired,
@@ -18,7 +18,7 @@ pub enum StorageAccountBlobContainerLeaseState {
     Unknown(String),
 }
 
-impl From<String> for StorageAccountBlobContainerLeaseState {
+impl From<String> for AzureStorageAccountBlobContainerLeaseState {
     fn from(value: String) -> Self {
         match value.as_str() {
             "Available" => Self::Available,
@@ -36,19 +36,19 @@ impl From<String> for StorageAccountBlobContainerLeaseState {
     }
 }
 
-impl From<&StorageAccountBlobContainerLeaseState> for String {
-    fn from(value: &StorageAccountBlobContainerLeaseState) -> Self {
+impl From<&AzureStorageAccountBlobContainerLeaseState> for String {
+    fn from(value: &AzureStorageAccountBlobContainerLeaseState) -> Self {
         match value {
-            StorageAccountBlobContainerLeaseState::Available => "Available",
-            StorageAccountBlobContainerLeaseState::Leased => "Leased",
-            StorageAccountBlobContainerLeaseState::Expired => "Expired",
-            StorageAccountBlobContainerLeaseState::Breaking => "Breaking",
-            StorageAccountBlobContainerLeaseState::Broken => "Broken",
-            StorageAccountBlobContainerLeaseState::Unknown(value) => value,
+            AzureStorageAccountBlobContainerLeaseState::Available => "Available",
+            AzureStorageAccountBlobContainerLeaseState::Leased => "Leased",
+            AzureStorageAccountBlobContainerLeaseState::Expired => "Expired",
+            AzureStorageAccountBlobContainerLeaseState::Breaking => "Breaking",
+            AzureStorageAccountBlobContainerLeaseState::Broken => "Broken",
+            AzureStorageAccountBlobContainerLeaseState::Unknown(value) => value,
         }
         .to_owned()
     }
 }
 
-cloud_terrastodon_registry::register_thing!(StorageAccountBlobContainerLeaseState);
-cloud_terrastodon_registry::register_arbitrary!(StorageAccountBlobContainerLeaseState);
+cloud_terrastodon_registry::register_thing!(AzureStorageAccountBlobContainerLeaseState);
+cloud_terrastodon_registry::register_arbitrary!(AzureStorageAccountBlobContainerLeaseState);

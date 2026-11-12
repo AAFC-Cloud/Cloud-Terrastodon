@@ -1,10 +1,10 @@
-use crate::StorageAccountBlobContainerImmutabilityPolicy;
-use crate::StorageAccountBlobContainerImmutableStorageWithVersioning;
-use crate::StorageAccountBlobContainerLeaseDuration;
-use crate::StorageAccountBlobContainerLeaseState;
-use crate::StorageAccountBlobContainerLeaseStatus;
-use crate::StorageAccountBlobContainerLegalHold;
-use crate::StorageAccountBlobContainerPublicAccess;
+use crate::AzureStorageAccountBlobContainerImmutabilityPolicy;
+use crate::AzureStorageAccountBlobContainerImmutableStorageWithVersioning;
+use crate::AzureStorageAccountBlobContainerLeaseDuration;
+use crate::AzureStorageAccountBlobContainerLeaseState;
+use crate::AzureStorageAccountBlobContainerLeaseStatus;
+use crate::AzureStorageAccountBlobContainerLegalHold;
+use crate::AzureStorageAccountBlobContainerPublicAccess;
 use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
@@ -19,7 +19,7 @@ use std::collections::HashMap;
 #[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
-pub struct StorageAccountBlobContainerProperties {
+pub struct AzureStorageAccountBlobContainerProperties {
     /// Identifies a soft-deleted version; omitted for live containers.
     pub version: Option<String>,
     /// The deletion marker is omitted for live containers.
@@ -32,23 +32,23 @@ pub struct StorageAccountBlobContainerProperties {
     pub default_encryption_scope: Option<String>,
     /// Encryption-scope setting omitted by the basic ListContainers response.
     pub deny_encryption_scope_override: Option<bool>,
-    pub public_access: StorageAccountBlobContainerPublicAccess,
+    pub public_access: AzureStorageAccountBlobContainerPublicAccess,
     pub last_modified_time: DateTime<Utc>,
-    pub lease_status: StorageAccountBlobContainerLeaseStatus,
-    pub lease_state: StorageAccountBlobContainerLeaseState,
+    pub lease_status: AzureStorageAccountBlobContainerLeaseStatus,
+    pub lease_state: AzureStorageAccountBlobContainerLeaseState,
     /// Only reported when the container is leased, as specified by the API.
-    pub lease_duration: Option<StorageAccountBlobContainerLeaseDuration>,
+    pub lease_duration: Option<AzureStorageAccountBlobContainerLeaseDuration>,
     /// User metadata is omitted by the basic ListContainers response.
     pub metadata: Option<HashMap<String, String>>,
     /// Policy details are absent when no immutability policy is configured.
-    pub immutability_policy: Option<StorageAccountBlobContainerImmutabilityPolicy>,
+    pub immutability_policy: Option<AzureStorageAccountBlobContainerImmutabilityPolicy>,
     /// Hold details are absent when no legal hold is configured.
-    pub legal_hold: Option<StorageAccountBlobContainerLegalHold>,
+    pub legal_hold: Option<AzureStorageAccountBlobContainerLegalHold>,
     pub has_legal_hold: bool,
     pub has_immutability_policy: bool,
     /// Feature configuration is omitted by the basic ListContainers response.
     pub immutable_storage_with_versioning:
-        Option<StorageAccountBlobContainerImmutableStorageWithVersioning>,
+        Option<AzureStorageAccountBlobContainerImmutableStorageWithVersioning>,
     #[facet(rename = "enableNfsV3RootSquash")]
     /// NFSv3 configuration is omitted by the basic ListContainers response.
     pub enable_nfs_v3_root_squash: Option<bool>,
@@ -57,5 +57,5 @@ pub struct StorageAccountBlobContainerProperties {
     pub enable_nfs_v3_all_squash: Option<bool>,
 }
 
-cloud_terrastodon_registry::register_thing!(StorageAccountBlobContainerProperties);
-cloud_terrastodon_registry::register_arbitrary!(StorageAccountBlobContainerProperties);
+cloud_terrastodon_registry::register_thing!(AzureStorageAccountBlobContainerProperties);
+cloud_terrastodon_registry::register_arbitrary!(AzureStorageAccountBlobContainerProperties);

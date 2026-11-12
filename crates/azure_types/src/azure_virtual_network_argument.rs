@@ -80,16 +80,16 @@ cloud_terrastodon_registry::register_arbitrary!(AzureVirtualNetworkArgument);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ResourceGroupId;
-    use crate::ResourceGroupName;
+    use crate::AzureResourceGroupId;
+    use crate::AzureResourceGroupName;
     use crate::SubscriptionId;
     use uuid::Uuid;
 
     fn network_id(resource_group: &str, name: &str) -> VirtualNetworkId {
         VirtualNetworkId::new(
-            ResourceGroupId::new(
+            AzureResourceGroupId::new(
                 SubscriptionId::new(Uuid::nil()),
-                resource_group.parse::<ResourceGroupName>().unwrap(),
+                resource_group.parse::<AzureResourceGroupName>().unwrap(),
             ),
             name.parse::<VirtualNetworkName>().unwrap(),
         )

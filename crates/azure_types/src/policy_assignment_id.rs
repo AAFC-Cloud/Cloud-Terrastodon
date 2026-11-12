@@ -1,8 +1,8 @@
+use crate::AzureResourceGroupId;
+use crate::AzureResourceGroupScopedPolicyAssignmentId;
 use crate::ManagementGroupId;
 use crate::ManagementGroupScopedPolicyAssignmentId;
 use crate::PolicyAssignmentName;
-use crate::ResourceGroupId;
-use crate::ResourceGroupScopedPolicyAssignmentId;
 use crate::ResourceId;
 use crate::ResourceScopedPolicyAssignmentId;
 use crate::SubscriptionId;
@@ -36,7 +36,7 @@ pub enum PolicyAssignmentId {
     Unscoped(UnscopedPolicyAssignmentId),
     ManagementGroupScoped(ManagementGroupScopedPolicyAssignmentId),
     SubscriptionScoped(SubscriptionScopedPolicyAssignmentId),
-    ResourceGroupScoped(ResourceGroupScopedPolicyAssignmentId),
+    ResourceGroupScoped(AzureResourceGroupScopedPolicyAssignmentId),
     ResourceScoped(ResourceScopedPolicyAssignmentId),
 }
 crate::impl_facet_string_proxy!(PolicyAssignmentId, value => value.expanded_form());
@@ -108,10 +108,10 @@ impl TryFromUnscoped for PolicyAssignmentId {
 impl TryFromResourceGroupScoped for PolicyAssignmentId {
     unsafe fn new_resource_group_scoped_unchecked(
         _expanded: &str,
-        resource_group_id: ResourceGroupId,
+        resource_group_id: AzureResourceGroupId,
         name: Self::Name,
     ) -> Self {
-        PolicyAssignmentId::ResourceGroupScoped(ResourceGroupScopedPolicyAssignmentId {
+        PolicyAssignmentId::ResourceGroupScoped(AzureResourceGroupScopedPolicyAssignmentId {
             resource_group_id,
             name,
         })

@@ -8,14 +8,14 @@ use facet::Facet;
 #[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
-pub enum StorageAccountBlobContainerLeaseDuration {
+pub enum AzureStorageAccountBlobContainerLeaseDuration {
     Infinite,
     Fixed,
     #[arbitrary(skip)]
     Unknown(String),
 }
 
-impl From<String> for StorageAccountBlobContainerLeaseDuration {
+impl From<String> for AzureStorageAccountBlobContainerLeaseDuration {
     fn from(value: String) -> Self {
         match value.as_str() {
             "Infinite" => Self::Infinite,
@@ -30,16 +30,16 @@ impl From<String> for StorageAccountBlobContainerLeaseDuration {
     }
 }
 
-impl From<&StorageAccountBlobContainerLeaseDuration> for String {
-    fn from(value: &StorageAccountBlobContainerLeaseDuration) -> Self {
+impl From<&AzureStorageAccountBlobContainerLeaseDuration> for String {
+    fn from(value: &AzureStorageAccountBlobContainerLeaseDuration) -> Self {
         match value {
-            StorageAccountBlobContainerLeaseDuration::Infinite => "Infinite",
-            StorageAccountBlobContainerLeaseDuration::Fixed => "Fixed",
-            StorageAccountBlobContainerLeaseDuration::Unknown(value) => value,
+            AzureStorageAccountBlobContainerLeaseDuration::Infinite => "Infinite",
+            AzureStorageAccountBlobContainerLeaseDuration::Fixed => "Fixed",
+            AzureStorageAccountBlobContainerLeaseDuration::Unknown(value) => value,
         }
         .to_owned()
     }
 }
 
-cloud_terrastodon_registry::register_thing!(StorageAccountBlobContainerLeaseDuration);
-cloud_terrastodon_registry::register_arbitrary!(StorageAccountBlobContainerLeaseDuration);
+cloud_terrastodon_registry::register_thing!(AzureStorageAccountBlobContainerLeaseDuration);
+cloud_terrastodon_registry::register_arbitrary!(AzureStorageAccountBlobContainerLeaseDuration);

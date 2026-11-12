@@ -1,6 +1,6 @@
 use crate::ArbitraryJson;
 use crate::AsScope;
-use crate::ResourceGroupId;
+use crate::AzureResourceGroupId;
 use crate::ResourceType;
 use crate::Scope;
 use crate::ScopeImpl;
@@ -21,14 +21,14 @@ use std::str::FromStr;
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Facet, Arbitrary)]
 #[facet(json::proxy = String)]
 pub struct ResourceId {
-    pub resource_group_id: ResourceGroupId,
+    pub resource_group_id: AzureResourceGroupId,
     pub resource_type: ResourceType,
     pub resource_name: CompactString,
 }
 crate::impl_facet_string_proxy!(ResourceId, value => value.expanded_form());
 impl ResourceId {
     pub fn new(
-        resource_group_id: ResourceGroupId,
+        resource_group_id: AzureResourceGroupId,
         resource_type: ResourceType,
         name: impl Into<CompactString>,
     ) -> Self {
@@ -191,8 +191,8 @@ cloud_terrastodon_registry::register_arbitrary!(Resource);
 
 #[cfg(test)]
 mod test {
-    use crate::ResourceGroupId;
-    use crate::ResourceGroupName;
+    use crate::AzureResourceGroupId;
+    use crate::AzureResourceGroupName;
     use crate::ResourceId;
     use crate::SubscriptionId;
     use crate::scopes::Scope;
@@ -204,9 +204,9 @@ mod test {
     pub fn it_works() -> eyre::Result<()> {
         // /subscriptions/{nil}/resourceGroups/MY-RG/providers/Microsoft.Network/virtualNetworks/MY-VNET/subnets/MY-Subnet/providers/Microsoft.Authorization/roleAssignments/{nil}
         let id = ResourceId::new(
-            ResourceGroupId::new(
+            AzureResourceGroupId::new(
                 SubscriptionId::new(Uuid::nil()),
-                ResourceGroupName::try_new("MY-RG")?,
+                AzureResourceGroupName::try_new("MY-RG")?,
             ),
             ResourceType::MICROSOFT_DOT_NETWORK_SLASH_VIRTUALNETWORKS,
             "MY-VNET",
@@ -224,9 +224,9 @@ mod test {
     #[test]
     fn resource_id_json_roundtrips() -> eyre::Result<()> {
         let id = ResourceId::new(
-            ResourceGroupId::new(
+            AzureResourceGroupId::new(
                 SubscriptionId::new(Uuid::nil()),
-                ResourceGroupName::try_new("MY-RG")?,
+                AzureResourceGroupName::try_new("MY-RG")?,
             ),
             ResourceType::MICROSOFT_DOT_NETWORK_SLASH_VIRTUALNETWORKS,
             "MY-VNET",

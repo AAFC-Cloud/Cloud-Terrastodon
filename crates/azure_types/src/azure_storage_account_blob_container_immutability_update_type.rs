@@ -8,7 +8,7 @@ use facet::Facet;
 #[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
-pub enum StorageAccountBlobContainerImmutabilityUpdateType {
+pub enum AzureStorageAccountBlobContainerImmutabilityUpdateType {
     Put,
     Lock,
     Extend,
@@ -16,7 +16,7 @@ pub enum StorageAccountBlobContainerImmutabilityUpdateType {
     Unknown(String),
 }
 
-impl From<String> for StorageAccountBlobContainerImmutabilityUpdateType {
+impl From<String> for AzureStorageAccountBlobContainerImmutabilityUpdateType {
     fn from(value: String) -> Self {
         match value.as_str() {
             "put" => Self::Put,
@@ -32,17 +32,19 @@ impl From<String> for StorageAccountBlobContainerImmutabilityUpdateType {
     }
 }
 
-impl From<&StorageAccountBlobContainerImmutabilityUpdateType> for String {
-    fn from(value: &StorageAccountBlobContainerImmutabilityUpdateType) -> Self {
+impl From<&AzureStorageAccountBlobContainerImmutabilityUpdateType> for String {
+    fn from(value: &AzureStorageAccountBlobContainerImmutabilityUpdateType) -> Self {
         match value {
-            StorageAccountBlobContainerImmutabilityUpdateType::Put => "put",
-            StorageAccountBlobContainerImmutabilityUpdateType::Lock => "lock",
-            StorageAccountBlobContainerImmutabilityUpdateType::Extend => "extend",
-            StorageAccountBlobContainerImmutabilityUpdateType::Unknown(value) => value,
+            AzureStorageAccountBlobContainerImmutabilityUpdateType::Put => "put",
+            AzureStorageAccountBlobContainerImmutabilityUpdateType::Lock => "lock",
+            AzureStorageAccountBlobContainerImmutabilityUpdateType::Extend => "extend",
+            AzureStorageAccountBlobContainerImmutabilityUpdateType::Unknown(value) => value,
         }
         .to_owned()
     }
 }
 
-cloud_terrastodon_registry::register_thing!(StorageAccountBlobContainerImmutabilityUpdateType);
-cloud_terrastodon_registry::register_arbitrary!(StorageAccountBlobContainerImmutabilityUpdateType);
+cloud_terrastodon_registry::register_thing!(AzureStorageAccountBlobContainerImmutabilityUpdateType);
+cloud_terrastodon_registry::register_arbitrary!(
+    AzureStorageAccountBlobContainerImmutabilityUpdateType
+);

@@ -1,6 +1,8 @@
 use crate::ArbitraryJson;
-use crate::StorageAccountId;
-use crate::StorageAccountName;
+use crate::AzureStorageAccountId;
+use crate::AzureStorageAccountKind;
+use crate::AzureStorageAccountName;
+use crate::AzureStorageAccountSku;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
 use arbitrary::Arbitrary;
@@ -13,51 +15,36 @@ use facet::Facet;
 use std::collections::HashMap;
 
 #[derive(Debug, PartialEq, Eq, Arbitrary, Facet)]
-pub struct StorageAccountSKU {
-    name: String,
-    tier: String,
-}
-
-#[derive(Debug, PartialEq, Eq, Arbitrary, Facet)]
-#[repr(C)]
-pub enum StorageAccountKind {
-    BlockBlobStorage,
-    BlobStorage,
-    Storage,
-    StorageV2,
-}
-
-#[derive(Debug, PartialEq, Eq, Arbitrary, Facet)]
-pub struct StorageAccount {
-    pub id: StorageAccountId,
-    pub name: StorageAccountName,
-    pub kind: StorageAccountKind,
+pub struct AzureStorageAccount {
+    pub id: AzureStorageAccountId,
+    pub name: AzureStorageAccountName,
+    pub kind: AzureStorageAccountKind,
     pub location: String,
-    pub sku: StorageAccountSKU,
+    pub sku: AzureStorageAccountSku,
     pub properties: ArbitraryJson,
     #[facet(default)]
     pub tags: HashMap<String, String>,
 }
 
-impl AsScope for StorageAccount {
+impl AsScope for AzureStorageAccount {
     fn as_scope(&self) -> &impl Scope {
         &self.id
     }
 }
-impl AsScope for &StorageAccount {
+impl AsScope for &AzureStorageAccount {
     fn as_scope(&self) -> &impl Scope {
         &self.id
     }
 }
 
-impl std::fmt::Display for StorageAccount {
+impl std::fmt::Display for AzureStorageAccount {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.name)?;
         Ok(())
     }
 }
-impl From<StorageAccount> for HclImportBlock {
-    fn from(storage_account: StorageAccount) -> Self {
+impl From<AzureStorageAccount> for HclImportBlock {
+    fn from(storage_account: AzureStorageAccount) -> Self {
         HclImportBlock {
             provider: HclProviderReference::Inherited,
             id: storage_account.id.expanded_form().to_owned(),
@@ -71,8 +58,8 @@ impl From<StorageAccount> for HclImportBlock {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ResourceGroupId;
-    use crate::ResourceGroupName;
+    use crate::AzureResourceGroupId;
+    use crate::AzureResourceGroupName;
     use crate::SubscriptionId;
     use crate::slug::Slug;
     use eyre::Result;
@@ -81,14 +68,14 @@ mod tests {
     #[test]
     fn deserializes() -> Result<()> {
         // /subscriptions/{nil}/resourceGroups/MY-RG/providers/Microsoft.Storage/storageAccounts/bruh
-        let expanded = StorageAccountId {
-            resource_group_id: ResourceGroupId::new(
+        let expanded = AzureStorageAccountId {
+            resource_group_id: AzureResourceGroupId::new(
                 SubscriptionId::new(Uuid::new_v4()),
-                ResourceGroupName::try_new("MY-RG")?,
+                AzureResourceGroupName::try_new("MY-RG")?,
             ),
-            storage_account_name: StorageAccountName::try_new("bruh")?,
+            storage_account_name: AzureStorageAccountName::try_new("bruh")?,
         };
-        let id: StorageAccountId = facet_json::from_str(&facet_json::to_string(&expanded)?)?;
+        let id: AzureStorageAccountId = facet_json::from_str(&facet_json::to_string(&expanded)?)?;
         assert_eq!(id, expanded);
         Ok(())
     }
@@ -99,11 +86,11 @@ mod tests {
             "/subscriptions/{nil}/resourceGroups/MY-RG/providers/Microsoft.Storage/storageAccounts/bruh",
             nil = Uuid::nil()
         );
-        let id = StorageAccountId::try_from_expanded(&expanded)?;
+        let id = AzureStorageAccountId::try_from_expanded(&expanded)?;
         assert_eq!(id.expanded_form(), expanded);
         Ok(())
     }
 }
 
-cloud_terrastodon_registry::register_thing!(StorageAccount);
-cloud_terrastodon_registry::register_arbitrary!(StorageAccount);
+cloud_terrastodon_registry::register_thing!(AzureStorageAccount);
+cloud_terrastodon_registry::register_arbitrary!(AzureStorageAccount);

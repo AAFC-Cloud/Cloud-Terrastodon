@@ -16,7 +16,7 @@ pub struct VirtualMachine {
 }
 
 impl VirtualMachine {
-    pub fn resource_group_id(&self) -> &crate::ResourceGroupId {
+    pub fn resource_group_id(&self) -> &crate::AzureResourceGroupId {
         &self.id.resource_group_id
     }
 }
