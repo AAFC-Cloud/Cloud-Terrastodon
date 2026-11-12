@@ -20,6 +20,7 @@ use cloud_terrastodon_execution::AnonymousAuthenticationProvider;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
+use cloud_terrastodon_execution::TestAuthenticationProvider;
 use eyre::Result;
 use facet::Facet;
 use std::cell::Cell;
@@ -50,6 +51,57 @@ impl ExecutableRequest for ManagedCommandRequest {
 }
 
 static REJECT_DISK_VALUE: AtomicBool = AtomicBool::new(false);
+
+#[tokio::test]
+async fn external_command_cache_is_partitioned_by_selected_account() -> Result<()> {
+    CancellationToken::new()
+        .with_async_scope(|scope| async move {
+            let directory = tempfile::tempdir()?;
+            let provider = Arc::new(TestAuthenticationProvider::offline("external-command")?);
+            let executor =
+                CloudTerrastodonExecutor::new(WorkCache::temporary()?, provider.clone(), scope);
+            let mut command = command(directory.path(), "41");
+            let first_account = AuthenticationSelection::Gitea {
+                account_id: "00000000-0000-0000-0000-000000000001".parse()?,
+            };
+            let second_account = AuthenticationSelection::Gitea {
+                account_id: "00000000-0000-0000-0000-000000000002".parse()?,
+            };
+            let owner = CacheOperationOwner::of::<SyntheticNumber>();
+            command.authentication(first_account);
+            let first = command.run_cached::<u64>(&executor, owner).await?;
+            command.authentication(second_account);
+            let second = command.run_cached::<u64>(&executor, owner).await?;
+            assert!(!Arc::ptr_eq(&first, &second));
+            command.authentication(first_account);
+            assert!(Arc::ptr_eq(
+                &first,
+                &command.run_cached::<u64>(&executor, owner).await?
+            ));
+            assert_eq!(
+                std::fs::read_to_string(directory.path().join("count"))?,
+                "2"
+            );
+            assert_eq!(provider.authorizations.load(Ordering::SeqCst), 0);
+            Ok(())
+        })
+        .await
+}
+
+#[tokio::test]
+async fn plain_commands_cannot_bypass_selected_account_admission() -> Result<()> {
+    CancellationToken::new()
+        .with_async_scope(|scope| async move {
+            let mut command = CommandBuilder::new(CommandKind::Other("must-not-start".to_owned()));
+            command.authentication(AuthenticationSelection::Gitea {
+                account_id: "00000000-0000-0000-0000-000000000001".parse()?,
+            });
+            let error = command.run_raw(&scope).await.unwrap_err();
+            assert!(format!("{error:#}").contains("requires an executor-backed execution method"));
+            Ok(())
+        })
+        .await
+}
 
 #[derive(Debug, Facet)]
 #[facet(proxy = u64)]

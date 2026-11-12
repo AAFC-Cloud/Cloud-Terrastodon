@@ -69,6 +69,7 @@ pub struct CommandBuilder {
     /// False by default: retain command execution, decoding, and artifacts.
     pub(crate) cancellation_safe: bool,
     pub(crate) artifact_retention: ArtifactRetention,
+    pub(crate) authentication: AuthenticationSelection,
 }
 
 impl Default for CommandBuilder {
@@ -89,11 +90,20 @@ impl Default for CommandBuilder {
             stdin_content: None,
             cancellation_safe: false,
             artifact_retention: ArtifactRetention::Full,
+            authentication: AuthenticationSelection::Anonymous,
         }
     }
 }
 
 impl CommandBuilder {
+    /// Admit this external command under an explicit account and partition its artifacts.
+    /// The caller still supplies the isolated credential session to the process.
+    /// Non-anonymous selections require an executor-backed execution method.
+    pub fn authentication(&mut self, selection: AuthenticationSelection) -> &mut Self {
+        self.authentication = selection;
+        self
+    }
+
     pub fn new(kind: CommandKind) -> CommandBuilder {
         Self {
             kind,
@@ -146,16 +156,21 @@ impl CommandBuilder {
         F::IntoFuture: 'a,
         T: 'a,
     {
-        if self.cancellation_safe {
-            executor.cancellable_scope(execute).await
-        } else {
-            executor
+        let executor = executor.with_authentication_lease(&self.authentication)?;
+        executor
+            .with_account_cancellation(move |executor| async move {
+                if self.cancellation_safe {
+                    executor.cancellable_scope(execute).await
+                } else {
+                    executor
                 .deferred(
                     "finishing command execution, decoding, caller validation, and artifacts",
                     execute,
                 )
                 .await
-        }
+                }
+            })
+            .await
     }
 
     /// Suppress every raw input, output, and error artifact for sensitive commands.
@@ -669,6 +684,10 @@ impl CommandBuilder {
     ) -> impl Future<Output = Result<T>> + Send + 'a {
         self.with_cancellation_policy(cancellation, move |scope| async move {
             eyre::ensure!(
+                matches!(self.authentication, AuthenticationSelection::Anonymous),
+                "authenticated command execution requires an executor-backed execution method"
+            );
+            eyre::ensure!(
                 self.cache_key.is_none(),
                 "plain command execution cannot use a cache key; use an explicit cached or artifact execution method"
             );
@@ -844,7 +863,7 @@ impl CommandBuilder {
                         ExecutorKind::Command,
                         key,
                         CacheOperationOwner::of::<Self>(),
-                        &AuthenticationSelection::Anonymous,
+                        &self.authentication,
                         fingerprint,
                         self.artifact_retention,
                         |attempt, entry| async move {
@@ -887,7 +906,7 @@ impl CommandBuilder {
                 ExecutorKind::Command,
                 key,
                 owner,
-                &AuthenticationSelection::Anonymous,
+                &self.authentication,
                 fingerprint,
                 WorkReuse::ReusableRead,
                 self.artifact_retention,
@@ -1025,7 +1044,7 @@ impl CommandBuilder {
                 ExecutorKind::Command,
                 key,
                 owner,
-                executor.admit(&AuthenticationSelection::Anonymous)?,
+                executor.admit(&self.authentication)?,
                 NonEmptyString::new(self.cache_fingerprint(&self.cache_debug_inputs()).await?)?,
                 self.artifact_retention,
             )?;
