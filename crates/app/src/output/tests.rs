@@ -745,3 +745,22 @@ fn a_protected_json_writer_finishes_after_the_raw_signal_is_requested() -> eyre:
         Ok(())
     })
 }
+
+#[test]
+fn required_report_survives_prior_cancellation_and_preserves_its_result() -> eyre::Result<()> {
+    let token = CancellationToken::new();
+    token.with_scope(|cancellation| {
+        token.request_cancel("the operation was stopped");
+        let mut writer = RecordingWriter::default();
+        let error = CliOutput::facet("completed report")
+            .with_required_emission("report already completed work")
+            .with_result(Err(eyre::eyre!("reported operation failure")))
+            .write_to(Some(OutputFormat::Json), false, &mut writer, &cancellation)
+            .unwrap_err();
+        assert_eq!(writer.bytes, b"\"completed report\"\n");
+        assert!(writer.flushed);
+        assert_eq!(error.to_string(), "reported operation failure");
+        assert!(cancellation.bail_if_cancelled().is_err());
+        Ok(())
+    })
+}

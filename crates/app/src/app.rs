@@ -1,5 +1,6 @@
 use crate::AppContext;
 use crate::ApplicationCli;
+use crate::CliOutput;
 use crate::GlobalArgs;
 use crate::app_cli::AppCli;
 use crate::cancel_on_drop::CancelOnDrop;
@@ -20,6 +21,7 @@ use std::process::ExitCode;
 use std::process::Termination;
 use std::str::FromStr;
 use std::sync::Arc;
+use teamy_cancellation::CancellationScope;
 use tracing::Instrument;
 use tracing_subscriber::filter::Directive;
 
@@ -150,7 +152,7 @@ impl App {
         figue::Driver::new(config).run().map(|cli| cli.cli)
     }
 
-    /// Parse process arguments and run the caller's async handler.
+    /// Parse process arguments, run the handler, and emit its command output.
     ///
     /// Help, version, completions and parse errors use Figue's CLI exit behavior
     /// before runtime/auth/log initialization. Handler errors return to `main`.
@@ -160,11 +162,14 @@ impl App {
     /// [`automatic_cancellation(false)`](Self::automatic_cancellation) when the
     /// handler owns asynchronous shutdown. Synchronous work still needs
     /// cancellation checkpoints or yields.
+    /// Return [`CliOutput`] from the handler; the runner emits it once using the
+    /// selected output format. Return [`CliOutput::none`] for interactive commands
+    /// without a final value. Emission errors propagate to the caller.
     pub fn run<C, F, Fut>(self, invoke: F) -> Result<()>
     where
         C: ApplicationCli,
         F: FnOnce(C, AppContext) -> Fut,
-        Fut: Future<Output = Result<()>>,
+        Fut: Future<Output = Result<CliOutput>>,
     {
         prepare_process()?;
         let cli = match self.parse_from(std::env::args_os().skip(1)).into_result() {
@@ -186,11 +191,12 @@ impl App {
     /// The value is your consumer CLI; builtin flags have already been handled
     /// when parsing with [`Self::parse_from`]. The automatic cancellation policy
     /// configured by [`Self::automatic_cancellation`] applies to this handler too.
+    /// The runner emits the returned [`CliOutput`] using the parsed format.
     pub fn run_parsed<C, F, Fut>(self, cli: C, invoke: F) -> Result<()>
     where
         C: ApplicationCli,
         F: FnOnce(C, AppContext) -> Fut,
-        Fut: Future<Output = Result<()>>,
+        Fut: Future<Output = Result<CliOutput>>,
     {
         eyre::ensure!(
             tokio::runtime::Handle::try_current().is_err(),
@@ -200,6 +206,7 @@ impl App {
         windows_support::enable_virtual_terminal_processing();
         let globals = cli.global_args();
         let debug = globals.debug;
+        let output_format = globals.output_format;
         install_panic_hook(debug)?;
 
         let (log_filter, file_filter) = logging_filters(globals)?;
@@ -232,16 +239,18 @@ impl App {
         let invocation = Box::pin(
             async move {
                 let _cancel_on_exit = CancelOnDrop(cancellation.clone());
-                let run_handler = |cancellation| async move {
+                let run_handler = |cancellation: CancellationScope| async move {
                     let context = AppContext::new(
                         match self.work_cache {
                             Some(cache) => cache,
                             None => WorkCache::new(AppDir::Commands.join("work"))?,
                         },
-                        cancellation,
+                        cancellation.clone(),
                         self.authentication,
                     );
-                    invoke(cli, context).await
+                    invoke(cli, context)
+                        .await?
+                        .emit(output_format, &cancellation)
                 };
                 let handler = if self.automatic_cancellation {
                     cancellation.cancellable_scope(run_handler)

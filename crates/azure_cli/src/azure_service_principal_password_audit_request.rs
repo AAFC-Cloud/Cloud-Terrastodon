@@ -6,6 +6,8 @@ use chrono::Utc;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure::EntraPrincipalCollection;
 use cloud_terrastodon_azure::EntraPrincipalListRequest;
+use cloud_terrastodon_cache::CacheInvalidationKeys;
+use cloud_terrastodon_cache::CacheKey;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
@@ -17,6 +19,15 @@ use facet::Facet;
 pub struct AzureServicePrincipalPasswordAuditRequest {
     pub authentication: AzureBearerAuthenticationSelection,
     pub observed_at: DateTime<Utc>,
+}
+
+impl CacheInvalidationKeys for AzureServicePrincipalPasswordAuditRequest {
+    fn cache_keys_to_invalidate(&self) -> eyre::Result<Vec<CacheKey>> {
+        EntraPrincipalListRequest {
+            authentication: self.authentication,
+        }
+        .cache_keys_to_invalidate()
+    }
 }
 
 impl AzureServicePrincipalPasswordAuditRequest {

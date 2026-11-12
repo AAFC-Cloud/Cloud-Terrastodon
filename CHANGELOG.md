@@ -1,5 +1,11 @@
 # Unreleased
 
+- Refresh Azure and Azure DevOps audit inventories with `--clean`, including composed and paginated reads. Give each Azure audit its own invalidation contract and refresh shared inventories before concurrent evaluation.
+
+- Decode Container Registry login servers into typed properties and reuse them directly when constructing endpoints. Generate browser-account setup guidance from the real CLI schema with Figue.
+
+- Have application handlers return `CliOutput`; the runner emits it once using the selected format. Keep required final-report emission with the output contract, and use shared text/JSON output in standalone examples.
+
 - Refine Azure/Entra request boundaries: accept resolved Container Registry endpoints, expose tenant-root management-group and inherited-role-definition requests, and replace tag, role-assignment-create, PIM-activation, and name-availability helpers with registered operations. Construct tenant-root scopes directly from explicit tenant IDs, require ordered unique group-batch inputs, normalize Entra request names, and keep routine SDK logging at debug level.
 
 - Wait for asynchronous tag updates before returning, retaining affected-read invalidation and failure artifacts. Use targeted Merge patches when adding tags, and bound polling HTTP exchanges without abandoning required persistence or cleanup.

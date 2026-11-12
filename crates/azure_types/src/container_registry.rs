@@ -1,6 +1,7 @@
-use crate::ArbitraryJson;
 use crate::ContainerRegistryId;
 use crate::ContainerRegistryName;
+use crate::ContainerRegistryProperties;
+use crate::ContainerRegistrySKU;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
 use arbitrary::Arbitrary;
@@ -11,19 +12,15 @@ use cloud_terrastodon_hcl_types::ResourceBlockReference;
 use cloud_terrastodon_hcl_types::Sanitizable;
 use facet::Facet;
 
-#[derive(Debug, PartialEq, Eq, Arbitrary, Facet)]
-pub struct ContainerRegistrySKU {
-    name: String,
-    tier: String,
-}
-
+/// A container registry returned by Azure Resource Graph.
+/// [Registry schema](https://learn.microsoft.com/en-us/rest/api/container-registry/registries/get?view=rest-container-registry-2025-11-01#registry).
 #[derive(Debug, PartialEq, Eq, Arbitrary, Facet)]
 pub struct ContainerRegistry {
     pub id: ContainerRegistryId,
     pub name: ContainerRegistryName,
     pub location: String,
     pub sku: ContainerRegistrySKU,
-    pub properties: ArbitraryJson,
+    pub properties: ContainerRegistryProperties,
 }
 
 impl AsScope for ContainerRegistry {
@@ -67,7 +64,7 @@ mod tests {
 
     #[test]
     fn endpoint_uses_the_returned_login_server_without_a_name_fallback() -> eyre::Result<()> {
-        let mut registry = ContainerRegistry {
+        let registry = ContainerRegistry {
             id: "/subscriptions/33333333-3333-3333-3333-333333333333/resourceGroups/fixture/providers/Microsoft.ContainerRegistry/registries/fixture".parse()?,
             name: "fixture".parse()?,
             location: "fixture-region".to_owned(),
@@ -75,25 +72,14 @@ mod tests {
                 name: "Basic".to_owned(),
                 tier: "Basic".to_owned(),
             },
-            properties: ArbitraryJson::try_from_facet(&HashMap::from([
-                ("loginServer", ArbitraryJson::from_text("fixture-ab12.azurecr.io")),
-                ("unmodeledProperty", ArbitraryJson::object()),
-            ]))?,
+            properties: ContainerRegistryProperties {
+                login_server: "fixture-ab12.azurecr.io".parse()?,
+                other: HashMap::new(),
+            },
         };
-        let endpoint = ContainerRegistryEndpoint::try_from(&registry)?;
+        let endpoint = ContainerRegistryEndpoint::from(&registry);
         assert_eq!(endpoint.id, registry.id);
         assert_eq!(endpoint.login_server.as_str(), "fixture-ab12.azurecr.io");
-
-        registry.properties = ArbitraryJson::object();
-        assert!(ContainerRegistryEndpoint::try_from(&registry).is_err());
-        for invalid in [
-            ArbitraryJson::from_text("fixture.azurecr.io/path"),
-            ArbitraryJson::try_from_facet(&17_u8)?,
-        ] {
-            registry.properties =
-                ArbitraryJson::try_from_facet(&HashMap::from([("loginServer", invalid)]))?;
-            assert!(ContainerRegistryEndpoint::try_from(&registry).is_err());
-        }
         Ok(())
     }
 }

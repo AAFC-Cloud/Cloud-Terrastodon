@@ -1,12 +1,8 @@
-use crate::ArbitraryJson;
 use crate::ContainerRegistry;
 use crate::ContainerRegistryId;
 use crate::ContainerRegistryLoginServer;
 use arbitrary::Arbitrary;
-use eyre::Context;
-use eyre::Result;
 use facet::Facet;
-use std::collections::HashMap;
 
 /// Resource Graph projection of the service-assigned registry login server.
 /// [Registry properties](https://learn.microsoft.com/en-us/rest/api/container-registry/registries/get?view=rest-container-registry-2025-11-01#registry).
@@ -18,24 +14,15 @@ pub struct ContainerRegistryEndpoint {
     pub login_server: ContainerRegistryLoginServer,
 }
 
-impl TryFrom<&ContainerRegistry> for ContainerRegistryEndpoint {
-    type Error = eyre::Report;
-
+impl From<&ContainerRegistry> for ContainerRegistryEndpoint {
     /// Reuse the service-assigned login server from an already fetched registry.
-    /// Missing or invalid `properties.loginServer` is an error; the resource name
-    /// is never substituted because it does not include service DNS-label hashes.
-    fn try_from(registry: &ContainerRegistry) -> Result<Self> {
-        let properties: HashMap<String, ArbitraryJson> =
-            facet_json::from_str(registry.properties.as_ref())
-                .wrap_err("container registry properties must be an object")?;
-        let login_server = properties
-            .get("loginServer")
-            .ok_or_else(|| eyre::eyre!("container registry properties omitted loginServer"))?;
-        Ok(Self {
+    /// `properties.loginServer` has already been validated during decoding. The
+    /// resource name is never substituted because it omits service DNS-label hashes.
+    fn from(registry: &ContainerRegistry) -> Self {
+        Self {
             id: registry.id.clone(),
-            login_server: facet_json::from_str(login_server.as_ref())
-                .wrap_err("container registry properties contain an invalid loginServer")?,
-        })
+            login_server: registry.properties.login_server.clone(),
+        }
     }
 }
 
@@ -45,6 +32,7 @@ cloud_terrastodon_registry::register_fn_ref!(
     ContainerRegistry => ContainerRegistryEndpoint,
     kind = cloud_terrastodon_registry::FunctionKind::Conversion,
     label = "registry endpoint",
-    trait_contract = cloud_terrastodon_registry::FunctionTraitContract::TryFrom,
+    trait_contract = cloud_terrastodon_registry::FunctionTraitContract::From,
+    // The registry callback uses Result; From supplies this infallible blanket adapter.
     invoke = ContainerRegistryEndpoint::try_from,
 );

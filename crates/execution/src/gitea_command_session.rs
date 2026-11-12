@@ -10,6 +10,10 @@ use tempfile::TempDir;
 /// The last session owner removes the credential file. Commands select this root
 /// through `XDG_CONFIG_HOME`, supported by tea's configuration implementation:
 /// <https://gitea.com/gitea/tea/src/tag/v0.11.1/modules/config/config.go>.
+///
+/// This session is shared between the authentication provider and Gitea SDK.
+/// It currently belongs to their lower-level execution contract: moving it into
+/// the SDK would create a cycle because that SDK already depends on execution.
 pub struct GiteaCommandSession {
     login: String,
     configuration: TempDir,

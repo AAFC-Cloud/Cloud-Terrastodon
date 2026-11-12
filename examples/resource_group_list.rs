@@ -1,8 +1,9 @@
-// Prints each Azure Resource Group name using the re-exported Azure module.
+// Lists Azure resource groups through the shared text/JSON output boundary.
 #[cfg(test)]
 use arbitrary::Arbitrary;
 use cloud_terrastodon::app::App;
 use cloud_terrastodon::app::ApplicationCli;
+use cloud_terrastodon::app::CliOutput;
 use cloud_terrastodon::app::GlobalArgs;
 use cloud_terrastodon::app::Result;
 use cloud_terrastodon::auth::CredentialAuthenticationProvider;
@@ -39,17 +40,19 @@ fn main() -> Result<()> {
             .execute(&executor)
             .await?;
 
-            for resource_group in resource_groups {
-                // Suspend so App's wrapper can check cancellation before this row.
-                tokio::task::yield_now().await;
-                println!(
-                    "{subscription_name} - {resource_group_name} ({full_id})",
-                    subscription_name = resource_group.subscription_name,
-                    resource_group_name = resource_group.name,
-                    full_id = resource_group.id
-                );
-            }
-            Ok(())
+            Ok(CliOutput::facet_with_text(
+                resource_groups,
+                |groups, writer, _| {
+                    for group in groups {
+                        writeln!(
+                            writer,
+                            "{} - {} ({})",
+                            group.subscription_name, group.name, group.id
+                        )?;
+                    }
+                    Ok(())
+                },
+            ))
         })
 }
 

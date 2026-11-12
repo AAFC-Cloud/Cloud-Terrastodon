@@ -9,6 +9,7 @@ pub mod output {
 }
 
 use crate::menu::menu_loop;
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 pub use command::*;
@@ -46,8 +47,7 @@ impl Cli {
         self,
         cancellation: &CancellationScope,
         executor: &CloudTerrastodonExecutor,
-    ) -> eyre::Result<()> {
-        let requested_format = self.global_args.output_format;
+    ) -> eyre::Result<CliOutput> {
         let retain_report = matches!(&self.command, Some(CloudTerrastodonCommand::Test(_)));
         // Keep command and interactive-menu futures out of this outer future's
         // inline state; nested debug poll frames otherwise exhaust small stacks.
@@ -55,16 +55,14 @@ impl Cli {
             Some(cmd) => Box::pin(cmd.invoke(cancellation, executor)).await?,
             None => {
                 Box::pin(menu_loop(executor)).await?;
-                output::CliOutput::none()
+                CliOutput::none()
             }
         };
-        if retain_report {
-            cancellation.finish_required_sync("emit runtime verification report", |protected| {
-                output.emit(requested_format, &protected)
-            })
+        Ok(if retain_report {
+            output.with_required_emission("emit runtime verification report")
         } else {
-            output.emit(requested_format, cancellation)
-        }
+            output
+        })
     }
 }
 

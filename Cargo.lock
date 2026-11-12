@@ -1007,12 +1007,15 @@ name = "cloud_terrastodon_auth_cli"
 version = "0.37.0"
 dependencies = [
  "arbitrary",
+ "cloud_terrastodon_app",
+ "cloud_terrastodon_auth",
  "cloud_terrastodon_auth_types",
  "cloud_terrastodon_azure",
  "cloud_terrastodon_azure_devops_types",
  "cloud_terrastodon_cli_types",
  "cloud_terrastodon_execution",
  "eyre",
+ "teamy-cancellation",
  "teamy-facet",
  "teamy-figue",
 ]

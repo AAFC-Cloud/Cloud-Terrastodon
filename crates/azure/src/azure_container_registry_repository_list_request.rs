@@ -22,7 +22,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 /// List all repositories at a resolved registry endpoint with a scoped ACR bearer exchange.
-/// Resolve an endpoint separately or reuse [`ContainerRegistryEndpoint::try_from`]
+/// Resolve an endpoint separately or reuse [`ContainerRegistryEndpoint::from`]
 /// on an existing registry; this operation makes no Resource Graph lookup.
 /// [REST API 2021-07-01](https://learn.microsoft.com/en-us/rest/api/registry-dataplane/container-registry/get-repositories?view=rest-registry-dataplane-2021-07-01).
 #[derive(Facet)]

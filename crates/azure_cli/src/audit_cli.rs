@@ -11,12 +11,16 @@ use facet::Facet;
 pub struct AzureAuditArgs {
     #[facet(flatten)]
     pub authentication: AzureAuthenticationArgs,
+
+    /// Invalidate the inventories used by every audit before reading fresh data.
+    #[facet(figue::named, default)]
+    pub clean: bool,
 }
 
 impl AzureAuditArgs {
     pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         let authentication = self.authentication.resolve(executor).await?;
-        let report = audit_azure(authentication, executor).await?;
+        let report = audit_azure(authentication, self.clean, executor).await?;
         Ok(CliOutput::facet_with_text(
             report,
             AzureAuditReport::write_text,

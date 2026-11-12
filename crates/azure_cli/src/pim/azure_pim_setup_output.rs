@@ -11,5 +11,6 @@ pub struct AzurePimSetupOutput {
     pub application_display_name: String,
     pub configured_graph_scopes: Vec<String>,
     pub protocol_scopes: Vec<String>,
+    /// Suggested command; replace `account-alias` with the desired account name.
     pub account_registration_command: String,
 }

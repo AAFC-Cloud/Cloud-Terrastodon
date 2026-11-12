@@ -9,5 +9,6 @@ pub struct AzurePimSetupClientIdOutput {
     pub tenant_id: AzureTenantId,
     pub application_id: EntraApplicationClientId,
     pub permissions_verified: bool,
+    /// Suggested command; replace `account-alias` with the desired account name.
     pub account_registration_command: String,
 }

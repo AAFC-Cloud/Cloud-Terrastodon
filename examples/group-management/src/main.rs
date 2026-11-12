@@ -22,8 +22,6 @@ fn main() -> Result<()> {
         }
     };
     app.run_parsed(cli, |cli, context| async move {
-        let output_format = cli.global_args.output_format;
-        let output = cli.invoke(&context.executor()).await?;
-        output.emit(output_format, &context.cancellation)
+        cli.invoke(&context.executor()).await
     })
 }

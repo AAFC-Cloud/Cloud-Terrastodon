@@ -31,11 +31,15 @@ checks cancellation between bounded writes; check the supplied scope during
 long computation that does not write. JSON and `facet-pretty`
 continue to render the same underlying value through the shared Facet renderer.
 Implement `CliOutputValue` and return `CliOutput::new(value)` when all formats
-need custom rendering. Call
-`output.emit(cli.global_args().output_format, &context.cancellation)` in the handler: `auto` or omitted
+need custom rendering. Handlers return `Result<CliOutput>`; `App::run` and
+`run_parsed` emit it once using the parsed output format and invocation scope. `auto` or omitted
 formats use text in interactive terminals and JSON in redirected stdout or
 PowerShell pipelines.
 `CliOutput::none()` represents commands with no result to emit.
+
+Use `with_required_emission(reason)` when completed work owes a final report even
+after cancellation. This protects emission and flushing, not the handler that
+produces the report; handlers that drain work still disable automatic cancellation.
 
 `output.with_result(result)` defers a command error until its output has been
 written and flushed, allowing an unsuccessful REST response to remain visible.

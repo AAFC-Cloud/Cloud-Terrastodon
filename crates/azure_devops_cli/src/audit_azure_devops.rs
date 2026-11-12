@@ -32,6 +32,7 @@ pub async fn audit_azure_devops(
     test_license_inactivity_threshold: Duration,
     paid_license_inactivity_threshold: Duration,
     authentication: AzureBearerAuthenticationSelection,
+    clean: bool,
     executor: &CloudTerrastodonExecutor,
 ) -> eyre::Result<CliOutput> {
     let test_license_inactivity_threshold =
@@ -39,7 +40,9 @@ pub async fn audit_azure_devops(
     let paid_license_inactivity_threshold =
         chrono::Duration::from_std(paid_license_inactivity_threshold)?;
 
-    warn!("Use `cloud_terrastodon clean` to wipe the cache if you think results are stale.");
+    if !clean {
+        warn!("Audit results may use cached data; pass --clean to refresh the audit inventories.");
+    }
     info!("Fetching a buncha information...");
 
     let mut total_problems = 0;
@@ -51,9 +54,11 @@ pub async fn audit_azure_devops(
         auth_selection: authentication.into(),
     }
     .execute(executor)
+    .with_invalidation(clean)
     .await?;
     let users_by_principal_name = EntraUserListRequest { authentication }
         .execute(executor)
+        .with_invalidation(clean)
         .await?
         .iter()
         .cloned()
@@ -159,6 +164,7 @@ pub async fn audit_azure_devops(
         auth_selection: (authentication.into()),
     }
     .execute(executor)
+    .with_invalidation(clean)
     .await?;
     // Complete each inventory batch before reporting its ordinary service
     // errors. Scope cancellation still stops admission and drains active work.
@@ -174,6 +180,7 @@ pub async fn audit_azure_devops(
                     auth_selection: authentication.into(),
                 }
                 .execute(&child)
+                .with_invalidation(clean)
                 .await;
                 info!(project_id = %project.id, "Finished fetching project test plans");
                 eyre::Ok(plans.map(|plans| (project.id, plans)))
@@ -197,6 +204,7 @@ pub async fn audit_azure_devops(
                     auth_selection: authentication.into(),
                 }
                 .execute(&child)
+                .with_invalidation(clean)
                 .await;
                 info!(%project_id, %plan_id, "Finished fetching project test suites");
                 eyre::Ok(suites.map(|suites| ((*project_id, plan_id), suites)))
@@ -218,6 +226,7 @@ pub async fn audit_azure_devops(
                     auth_selection: authentication.into(),
                 }
                 .execute(&child)
+                .with_invalidation(clean)
                 .await;
                 info!("Finished fetching groups for a test plan licensed user");
                 eyre::Ok(groups.map(|groups| (entitlement.user.descriptor.clone(), groups)))
@@ -239,6 +248,7 @@ pub async fn audit_azure_devops(
                     auth_selection: authentication.into(),
                 }
                 .execute(&child)
+                .with_invalidation(clean)
                 .await;
                 info!(project_id = %project.id, "Finished fetching project groups");
                 eyre::Ok(groups.map(|groups| (project.id, groups)))

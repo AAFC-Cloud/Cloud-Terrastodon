@@ -1,6 +1,5 @@
 mod account_add_azure_cli_cli;
 mod account_add_azure_devops_cli;
-mod account_add_browser_cli;
 mod account_add_cli;
 mod account_add_gitea_cli;
 mod account_add_workload_identity_cli;

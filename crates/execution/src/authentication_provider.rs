@@ -27,6 +27,12 @@ use url::Url;
 /// ambient account. Clones of a runtime
 /// provider must preserve the admitted identity; independent sessions must not
 /// silently share its partition. Credential bytes never form cache identities.
+///
+/// Applications may implement and inject this trait, but its selections,
+/// audiences, and the built-in account catalogue currently describe the supported
+/// Azure/Entra, Azure DevOps, and Gitea services. This is not an open service
+/// registration API; adding another account service requires extending those
+/// contracts, not disguising its credentials as an existing selection.
 pub trait AuthenticationProvider: Send + Sync {
     /// Close admission and drain retained work before credentials are removed.
     /// A source selects one mechanism; omission retires the entire account.

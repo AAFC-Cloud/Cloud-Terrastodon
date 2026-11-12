@@ -2,6 +2,7 @@ use super::azure_pim_required_resource_access::AzurePimRequiredResourceAccess;
 use super::azure_pim_setup_client_id_output::AzurePimSetupClientIdOutput;
 use super::azure_pim_setup_output::AzurePimSetupOutput;
 use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_cli::AccountAddBrowserArgs;
 use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure::AzureTenantArgumentExt;
@@ -16,6 +17,7 @@ use eyre::Context;
 use eyre::Result;
 use eyre::bail;
 use facet::Facet;
+use figue::ToArgs;
 use std::collections::HashSet;
 use std::sync::Arc;
 use tracing::info;
@@ -51,7 +53,14 @@ impl AzurePimSetupArgs {
                 tenant_id,
                 application_id: client_id,
                 account_registration_command: format!(
-                    "ct account add browser --name <account-alias> --tenant {tenant_id} --client-id {client_id}"
+                    "ct account add browser {}",
+                    AccountAddBrowserArgs {
+                        name: "account-alias".parse()?,
+                        tenant: tenant_id.into(),
+                        client_id,
+                    }
+                    .to_args_string()?
+                    .to_string_lossy()
                 ),
                 permissions_verified: false,
             };
@@ -141,8 +150,14 @@ impl AzurePimSetupArgs {
                 .map(|scope| (*scope).to_string())
                 .collect(),
             account_registration_command: format!(
-                "ct account add browser --name <account-alias> --tenant {tenant_id} --client-id {}",
-                application.app_id
+                "ct account add browser {}",
+                AccountAddBrowserArgs {
+                    name: "account-alias".parse()?,
+                    tenant: tenant_id.into(),
+                    client_id: application.app_id,
+                }
+                .to_args_string()?
+                .to_string_lossy()
             ),
         };
 

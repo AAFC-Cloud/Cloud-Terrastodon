@@ -3,6 +3,8 @@ use arbitrary::Arbitrary;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure::EntraPrincipalCollection;
 use cloud_terrastodon_azure::EntraPrincipalListRequest;
+use cloud_terrastodon_cache::CacheInvalidationKeys;
+use cloud_terrastodon_cache::CacheKey;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
@@ -14,6 +16,15 @@ use std::collections::HashSet;
 #[derive(Debug, Arbitrary, Facet)]
 pub struct AzureAdminCorrespondenceAuditRequest {
     pub authentication: AzureBearerAuthenticationSelection,
+}
+
+impl CacheInvalidationKeys for AzureAdminCorrespondenceAuditRequest {
+    fn cache_keys_to_invalidate(&self) -> eyre::Result<Vec<CacheKey>> {
+        EntraPrincipalListRequest {
+            authentication: self.authentication,
+        }
+        .cache_keys_to_invalidate()
+    }
 }
 
 impl AzureAdminCorrespondenceAuditRequest {

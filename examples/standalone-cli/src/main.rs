@@ -91,7 +91,7 @@ fn main() -> Result<()> {
                     audit.without_five_vowels.push(resource_group);
                 }
             }
-            CliOutput::facet(audit).emit(cli.global_args.output_format, &context.cancellation)
+            Ok(CliOutput::facet(audit))
         })
 }
 

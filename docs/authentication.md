@@ -241,6 +241,23 @@ an incompatible catalogue fails decoding.
 The former `ct az tenant login`, `logout`, and `set-auth-source` commands have
 been removed. Tenant aliases remain separate from account aliases.
 
+## Application-supplied providers
+
+Applications can implement `AuthenticationProvider` and install it through
+`App::authentication_provider` or `CloudTerrastodonExecutor::new`. That replaces
+credential acquisition and admission for the existing authentication selections.
+It does not register additional services in the built-in account catalogue:
+account namespaces, credential registrations, and source selections are closed
+Azure/Entra, Azure DevOps, and Gitea enums, and token audiences are Azure-specific.
+
+`GiteaCommandSession` is currently part of the execution contract because both
+the authentication implementation and Gitea SDK use its retained tea configuration.
+Moving it into the SDK would introduce a dependency cycle. Supporting independent
+service adapters would require separating common account identity, defaults,
+admission, retirement, and cache partitioning from each service's registration
+schema and credential/session capabilities. The current provider injection API
+does not yet provide that extension mechanism.
+
 ## Verification
 
 Offline Cargo tests cover account selection, immutable snapshots, partition

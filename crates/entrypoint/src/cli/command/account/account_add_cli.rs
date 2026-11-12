@@ -1,9 +1,9 @@
 use super::account_add_azure_cli_cli::AccountAddAzureCliArgs;
 use super::account_add_azure_devops_cli::AccountAddAzureDevOpsArgs;
-use super::account_add_browser_cli::AccountAddBrowserArgs;
 use super::account_add_gitea_cli::AccountAddGiteaArgs;
 use super::account_add_workload_identity_cli::AccountAddWorkloadIdentityArgs;
 use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_cli::AccountAddBrowserArgs;
 use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 use facet::Facet;

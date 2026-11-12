@@ -4,6 +4,8 @@ use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure::AzureResourceListRequest;
 use cloud_terrastodon_azure::Resource;
 use cloud_terrastodon_azure::Scope;
+use cloud_terrastodon_cache::CacheInvalidationKeys;
+use cloud_terrastodon_cache::CacheKey;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
@@ -16,6 +18,15 @@ use std::sync::Arc;
 #[derive(Debug, Arbitrary, Facet)]
 pub struct AzureResourceTagAuditRequest {
     pub authentication: AzureBearerAuthenticationSelection,
+}
+
+impl CacheInvalidationKeys for AzureResourceTagAuditRequest {
+    fn cache_keys_to_invalidate(&self) -> eyre::Result<Vec<CacheKey>> {
+        AzureResourceListRequest {
+            authentication: self.authentication,
+        }
+        .cache_keys_to_invalidate()
+    }
 }
 
 impl AzureResourceTagAuditRequest {

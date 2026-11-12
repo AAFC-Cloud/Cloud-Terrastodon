@@ -18,6 +18,10 @@ pub struct AzureDevOpsAuditArgs {
     #[facet(flatten)]
     pub authentication: AzureAuthenticationArgs,
 
+    /// Refresh every inventory used by the audit, including project and member reads.
+    #[facet(figue::named, default)]
+    pub clean: bool,
+
     /// The amount of time until an Azure DevOps paid license is considered unused.
     /// Defaults to two humantime months (30.44 days each).
     #[facet(figue::named, default = HumantimeDurationCli(Duration::from_secs(2 * 2_630_016).into()))]
@@ -36,6 +40,7 @@ impl AzureDevOpsAuditArgs {
             self.test_license_inactivity_threshold.0.into(),
             self.paid_license_inactivity_threshold.0.into(),
             authentication,
+            self.clean,
             executor,
         )
         .await

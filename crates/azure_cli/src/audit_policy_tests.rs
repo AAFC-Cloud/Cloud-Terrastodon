@@ -9,16 +9,22 @@ use chrono::Duration;
 use chrono::Utc;
 use cloud_terrastodon_auth_types::AzureBearerAuthSource;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
+use cloud_terrastodon_azure::AzureResourceListRequest;
+use cloud_terrastodon_azure::AzureRoleAssignmentListRequest;
+use cloud_terrastodon_azure::AzureRoleDefinitionListRequest;
 use cloud_terrastodon_azure::AzureRoleDefinitionsAndAssignmentsListRequest;
 use cloud_terrastodon_azure::EntraApplicationClientId;
 use cloud_terrastodon_azure::EntraPrincipal;
 use cloud_terrastodon_azure::EntraPrincipalCollection;
 use cloud_terrastodon_azure::EntraPrincipalId;
 use cloud_terrastodon_azure::EntraPrincipalListRequest;
+use cloud_terrastodon_azure::EntraSecurityGroupListRequest;
 use cloud_terrastodon_azure::EntraServicePrincipal;
+use cloud_terrastodon_azure::EntraServicePrincipalListRequest;
 use cloud_terrastodon_azure::EntraServicePrincipalObjectId;
 use cloud_terrastodon_azure::EntraUser;
 use cloud_terrastodon_azure::EntraUserId;
+use cloud_terrastodon_azure::EntraUserListRequest;
 use cloud_terrastodon_azure::Resource;
 use cloud_terrastodon_azure::ResourceType;
 use cloud_terrastodon_azure::RoleAssignment;
@@ -27,6 +33,7 @@ use cloud_terrastodon_azure::RoleDefinitionKind;
 use cloud_terrastodon_azure::RoleDefinitionsAndAssignments;
 use cloud_terrastodon_azure::ServicePrincipalPasswordCredential;
 use cloud_terrastodon_cache::ArtifactObservation;
+use cloud_terrastodon_cache::CacheKey;
 use cloud_terrastodon_cache::CacheOperationOwner;
 use cloud_terrastodon_cache::ExecutorKind;
 use cloud_terrastodon_cache::HasCacheKey;
@@ -35,6 +42,7 @@ use cloud_terrastodon_cache::WorkCache;
 use cloud_terrastodon_cache::WorkOutput;
 use cloud_terrastodon_cache::WorkReuse;
 use cloud_terrastodon_command::CancellationToken;
+use cloud_terrastodon_execution::CacheInvalidatableRequest;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::TestAuthenticationProvider;
@@ -326,4 +334,129 @@ async fn audit_policy_tests_independent_activities_join_one_shared_principal_fil
             Ok(())
         })
         .await
+}
+
+async fn inventory_marker(
+    executor: &CloudTerrastodonExecutor,
+    authentication: AzureBearerAuthenticationSelection,
+    key: CacheKey,
+    fills: &AtomicUsize,
+) -> eyre::Result<Arc<usize>> {
+    executor
+        .cached_work(
+            ExecutorKind::InProcess,
+            key,
+            CacheOperationOwner::of::<usize>(),
+            &authentication.into(),
+            NonEmptyString::new("synthetic-audit-inventory")?,
+            WorkReuse::ReusableRead,
+            |_| async {
+                Ok(WorkOutput::new(
+                    fills.fetch_add(1, Ordering::SeqCst),
+                    ArtifactObservation::now(),
+                ))
+            },
+        )?
+        .await
+}
+
+async fn assert_audit_refreshes_inventories<R: CacheInvalidatableRequest>(
+    request: R,
+    authentication: AzureBearerAuthenticationSelection,
+    inventories: Vec<CacheKey>,
+) -> eyre::Result<()> {
+    CancellationToken::new()
+        .with_async_scope(async |scope| {
+            let provider = Arc::new(TestAuthenticationProvider::offline("audit-refresh")?);
+            let executor =
+                CloudTerrastodonExecutor::new(WorkCache::temporary()?, provider.clone(), scope);
+            let mut keys = Vec::new();
+            for key in inventories {
+                keys.push(key.join("pages/1")?);
+                keys.push(key);
+            }
+            let unaffected = EntraUserListRequest {
+                authentication: AzureBearerAuthenticationSelection {
+                    tenant_id: "33333333-3333-3333-3333-333333333333".parse()?,
+                    ..authentication
+                },
+            }
+            .cache_key()?;
+            let fills = AtomicUsize::new(0);
+            let retained =
+                inventory_marker(&executor, authentication, unaffected.clone(), &fills).await?;
+            let mut before = Vec::new();
+            for key in &keys {
+                before
+                    .push(inventory_marker(&executor, authentication, key.clone(), &fills).await?);
+            }
+
+            request.invalidate(&executor).await?;
+
+            for (key, stale) in keys.into_iter().zip(before) {
+                let fresh = inventory_marker(&executor, authentication, key, &fills).await?;
+                assert!(
+                    !Arc::ptr_eq(&stale, &fresh),
+                    "audit must refresh child inventories and pages"
+                );
+            }
+            let still_retained =
+                inventory_marker(&executor, authentication, unaffected, &fills).await?;
+            assert!(
+                Arc::ptr_eq(&retained, &still_retained),
+                "refresh must preserve another tenant's inventory"
+            );
+            assert_eq!(provider.authorizations.load(Ordering::SeqCst), 0);
+            Ok(())
+        })
+        .await
+}
+
+#[tokio::test]
+async fn audit_policy_tests_refresh_child_inventories_and_preserve_other_tenants()
+-> eyre::Result<()> {
+    let authentication = AzureBearerAuthenticationSelection {
+        account_id: "11111111-1111-1111-1111-111111111111".parse()?,
+        tenant_id: "22222222-2222-2222-2222-222222222222".parse()?,
+        auth_source: AzureBearerAuthSource::AzureCli,
+    };
+    let principal_inventories = vec![
+        EntraPrincipalListRequest { authentication }.cache_key()?,
+        EntraUserListRequest { authentication }.cache_key()?,
+        EntraSecurityGroupListRequest { authentication }.cache_key()?,
+        EntraServicePrincipalListRequest { authentication }.cache_key()?,
+    ];
+    assert_audit_refreshes_inventories(
+        AzureAdminCorrespondenceAuditRequest { authentication },
+        authentication,
+        principal_inventories.clone(),
+    )
+    .await?;
+    assert_audit_refreshes_inventories(
+        AzureServicePrincipalPasswordAuditRequest {
+            authentication,
+            observed_at: "2020-01-01T00:00:00Z".parse()?,
+        },
+        authentication,
+        principal_inventories.clone(),
+    )
+    .await?;
+    let mut unknown_principal_inventories = principal_inventories;
+    unknown_principal_inventories.extend([
+        AzureRoleDefinitionsAndAssignmentsListRequest { authentication }.cache_key()?,
+        AzureRoleDefinitionListRequest { authentication }.cache_key()?,
+        AzureRoleAssignmentListRequest { authentication }.cache_key()?,
+    ]);
+    assert_audit_refreshes_inventories(
+        AzureUnknownPrincipalAuditRequest { authentication },
+        authentication,
+        unknown_principal_inventories,
+    )
+    .await?;
+    assert_audit_refreshes_inventories(
+        AzureResourceTagAuditRequest { authentication },
+        authentication,
+        vec![AzureResourceListRequest { authentication }.cache_key()?],
+    )
+    .await
 }

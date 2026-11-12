@@ -16,6 +16,9 @@ use teamy_cancellation::CancellationScope;
 pub struct CliOutput {
     value: Option<Box<dyn CliOutputValue>>,
     result: eyre::Result<()>,
+    // Completed work can owe a final report even after cancellation. Keep that
+    // responsibility with the output, rather than teaching App about commands.
+    required_emission: Option<&'static str>,
 }
 
 impl core::fmt::Debug for CliOutput {
@@ -23,6 +26,7 @@ impl core::fmt::Debug for CliOutput {
         f.debug_struct("CliOutput")
             .field("has_value", &self.value.is_some())
             .field("has_error", &self.result.is_err())
+            .field("required_emission", &self.required_emission)
             .finish()
     }
 }
@@ -34,6 +38,7 @@ impl CliOutput {
         Self {
             value: Some(Box::new(value)),
             result: Ok(()),
+            required_emission: None,
         }
     }
 
@@ -43,6 +48,7 @@ impl CliOutput {
         Self {
             value: None,
             result: Ok(()),
+            required_emission: None,
         }
     }
 
@@ -85,6 +91,18 @@ impl CliOutput {
     #[must_use]
     pub fn with_result(mut self, result: eyre::Result<()>) -> Self {
         self.result = result;
+        self
+    }
+
+    /// Finish emitting a report already owed by completed work, even if cancelled.
+    ///
+    /// Applies to [`Self::emit`] and [`Self::write_to`], including their final
+    /// flush. Preview rendering remains cancellable. This does not keep an async
+    /// handler alive: callers that own shutdown must still disable automatic
+    /// cancellation and drain their work before returning the report.
+    #[must_use]
+    pub fn with_required_emission(mut self, reason: &'static str) -> Self {
+        self.required_emission = Some(reason);
         self
     }
 
@@ -140,18 +158,24 @@ impl CliOutput {
         mut writer: impl Write,
         cancellation: &CancellationScope,
     ) -> eyre::Result<()> {
-        if let Some(output) = self.value {
-            let format = OutputFormat::resolve(requested_format, stdout_is_terminal);
-            let mut writer = OutputWriter::new(&mut writer, cancellation);
-            cancellation.bail_if_cancelled()?;
-            output
-                .write_to(format, &mut writer, cancellation)
-                .map_err(CancellationReportExt::normalize_cancellation)?;
-            writer
-                .finish()
-                .map_err(CancellationReportExt::normalize_cancellation)?;
+        let write_output = |cancellation: &CancellationScope| {
+            if let Some(output) = self.value {
+                let format = OutputFormat::resolve(requested_format, stdout_is_terminal);
+                let mut writer = OutputWriter::new(&mut writer, cancellation);
+                cancellation.bail_if_cancelled()?;
+                output
+                    .write_to(format, &mut writer, cancellation)
+                    .map_err(CancellationReportExt::normalize_cancellation)?;
+                writer
+                    .finish()
+                    .map_err(CancellationReportExt::normalize_cancellation)?;
+            }
+            self.result
+        };
+        match self.required_emission {
+            Some(reason) => cancellation.finish_required_sync(reason, |scope| write_output(&scope)),
+            None => write_output(cancellation),
         }
-        self.result
     }
 
     /// Detect stdout and emit output before returning any deferred command result.

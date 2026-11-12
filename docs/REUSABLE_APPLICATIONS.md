@@ -80,7 +80,7 @@ an internal wrapper, while parsed values and handlers use the consumer's own
 CLI type:
 
 ```rust,no_run
-use cloud_terrastodon::app::{App, ApplicationCli, GlobalArgs, Result, figue, tracing};
+use cloud_terrastodon::app::{App, ApplicationCli, CliOutput, GlobalArgs, Result, figue};
 use facet::Facet;
 
 #[derive(Facet)]
@@ -106,9 +106,8 @@ fn main() -> Result<()> {
     App::new(env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"))
         .run(|cli: Cli, _context| async move {
             match cli.command {
-                Command::Hello => tracing::info!("Hello!"),
+                Command::Hello => Ok(CliOutput::facet("Hello!")),
             }
-            Ok(())
         })
 }
 ```
@@ -135,14 +134,12 @@ That command reads Azure data when executed. `App` automatically wraps the
 handler in a cancellable scope. Tenant resolution uses `&context.cancellation`.
 The handler resolves a concrete authentication selection, constructs
 `AzureResourceGroupListRequest { authentication }`, and calls
-`.execute(&executor)` using the same invocation executor. The printing loop awaits
-`tokio::task::yield_now()` before each `println!`, giving the handler's wrapper
-a poll boundary at which to observe cancellation. A ready no-op await and a
-zero-duration sleep do not reliably suspend, and a blocking print already in
-progress cannot be interrupted.
-Tokio can immediately poll the same task again; yielding does not promise another
-task will run first. See the pinned
-[Tokio yield documentation](https://docs.rs/tokio/1.52.3/tokio/task/fn.yield_now.html).
+`.execute(&executor)` using the same invocation executor. It returns a
+`CliOutput::facet_with_text` value. The runner emits it with the selected format;
+the shared writer checks cancellation between bounded writes, so the text
+renderer needs no asynchronous yield between rows. JSON and Facet Pretty expose
+the same typed resource groups. A blocking write already in progress cannot be
+interrupted.
 
 It remains a single Cargo example source file using the repository's manifest;
 the standalone workspace package has its own manifest and command tree.
@@ -223,16 +220,16 @@ honoring `NO_COLOR` and `FORCE_COLOR` as well as stdout detection.
 printer, including for commands with a custom `text` presentation.
 
 Let leaf `invoke` methods return `Result<CliOutput>` and pass that value through
-parent dispatchers. The top-level handler calls
-`emit(globals.output_format, &context.cancellation)` once; the runner's handler
-still returns `Result<()>`.
+parent dispatchers. `App::run` and `run_parsed` require the same handler result
+and emit it once using the parsed format and invocation scope. The synchronous
+runner returns `Result<()>`, including rendering and deferred command errors.
 
 `CliOutput::facet(value)` uses Facet's pretty printer for `text` and
 `facet-pretty`, and its serializer for JSON. For a command with its own text
 presentation, derive `Facet` on the report and supply a text renderer:
 
 ```rust,no_run
-use cloud_terrastodon::app::{CancellationScope, CliOutput, GlobalArgs, Result};
+use cloud_terrastodon::app::{CancellationScope, CliOutput, Result};
 use facet::Facet;
 use std::io::Write;
 
@@ -257,8 +254,8 @@ async fn invoke_list() -> Result<CliOutput> {
     Ok(CliOutput::facet_with_text(report, Report::write_text))
 }
 
-async fn invoke_cli(globals: &GlobalArgs, cancellation: &CancellationScope) -> Result<()> {
-    invoke_list().await?.emit(globals.output_format, cancellation)
+async fn invoke_cli() -> Result<CliOutput> {
+    invoke_list().await
 }
 ```
 
@@ -282,6 +279,11 @@ computation that does not write; this supports large or unbounded streams withou
 collecting a complete `String`. Keep JSON free of terminal colors and hyperlinks. Use
 `CliOutput::none()` for commands that perform their own interaction and have no
 final value to emit.
+
+Completed work can mark a final report with `with_required_emission(reason)`.
+The runner then finishes writing and flushing it after cancellation. This does
+not keep the handler alive while it creates the report; handlers that drain jobs
+or report cancelled runtime tests still use `automatic_cancellation(false)`.
 
 `render(format, stdout_is_terminal, cancellation)` explicitly collects a buffered
 preview without adding a final newline or flushing.

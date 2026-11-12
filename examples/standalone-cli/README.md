@@ -64,7 +64,8 @@ cancellation responsive during this synchronous work without adding a runtime
 dependency to the example. Blocking work is not preempted. Deeply nested deferrals
 retain the handler while required work finishes.
 
-The report retains full resource group records. Shared `--output-format` selects
+The handler returns `CliOutput` containing full resource group records, and the
+runner emits it once. Shared `--output-format` selects
 text, JSON, or Facet Pretty; the default selects text in a terminal and JSON for
 redirected stdout. Tests check the vowel policy with synthetic names and verify
 argument consistency and round trips for `audit`, with 128 successful round trips

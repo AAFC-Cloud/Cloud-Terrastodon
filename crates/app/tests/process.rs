@@ -5,7 +5,9 @@
 use cloud_terrastodon_app::App;
 use cloud_terrastodon_app::ApplicationCli;
 use cloud_terrastodon_app::CancellationScope;
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_app::GlobalArgs;
+use cloud_terrastodon_app::OutputFormat;
 use cloud_terrastodon_app::Result;
 use cloud_terrastodon_cache::WorkCache;
 use facet::Facet;
@@ -184,6 +186,27 @@ fn local_handler_receives_an_isolated_cache() {
 }
 
 #[test]
+fn runner_emits_the_returned_value_once_using_the_requested_format() {
+    for mode in [
+        "output_json",
+        "output_text",
+        "output_error",
+        "required_output",
+    ] {
+        let output = subprocess(mode);
+        assert_success(&output);
+        let stdout = String::from_utf8(output.stdout).expect("synthetic UTF-8 output");
+        assert_eq!(stdout.matches("app-output-value").count(), 1, "{stdout}");
+        if mode == "output_text" {
+            assert!(stdout.contains("Text: app-output-value"), "{stdout}");
+        } else {
+            assert!(stdout.contains("\"app-output-value\""), "{stdout}");
+            assert!(!stdout.contains("Text:"), "{stdout}");
+        }
+    }
+}
+
+#[test]
 fn invalid_parse_outcomes_do_not_occupy_the_process_error_hook() {
     assert_success(&subprocess("parse_then_run"));
 }
@@ -206,6 +229,38 @@ fn runner_process_probe() {
     };
     assert_backtrace_environment_unchanged();
     match mode.as_str() {
+        "output_json" | "output_text" | "output_error" | "required_output" => {
+            let mut cli = cli(false);
+            cli.global.output_format = Some(if mode == "output_text" {
+                OutputFormat::Text
+            } else {
+                OutputFormat::Json
+            });
+            let result = app()
+                .automatic_cancellation(false)
+                .run_parsed(cli, async |_, context| {
+                    let output =
+                        CliOutput::facet_with_text("app-output-value", |value, writer, _| {
+                            write!(writer, "Text: {value}")?;
+                            Ok(())
+                        });
+                    if mode == "required_output" {
+                        context
+                            .cancellation
+                            .request_cancel("finished work owes a report");
+                        Ok(output.with_required_emission("emit the completed report"))
+                    } else if mode == "output_error" {
+                        Ok(output.with_result(Err(eyre::eyre!(HANDLER_ERROR))))
+                    } else {
+                        Ok(output)
+                    }
+                });
+            if mode == "output_error" {
+                assert!(result.unwrap_err().to_string().contains(HANDLER_ERROR));
+            } else {
+                result.expect("runner should emit the selected output");
+            }
+        }
         "parsed_local" => {
             let runner = app();
             let cli = runner
@@ -219,7 +274,7 @@ fn runner_process_probe() {
                     let cache = executor.cache()?;
                     assert!(cache.root().is_dir());
                     assert!(std::fs::read_dir(cache.root())?.next().is_none());
-                    Ok(())
+                    Ok(CliOutput::none())
                 })
                 .expect("local handler with disabled credentials");
         }
@@ -231,7 +286,7 @@ fn runner_process_probe() {
             app()
                 .run_parsed(cli, |_, context| async move {
                     assert!(!context.cancellation.is_cancelled());
-                    Ok(())
+                    Ok(CliOutput::none())
                 })
                 .expect("credential-free startup succeeds");
         }
@@ -344,9 +399,9 @@ fn run_handler_probe(mode: &str) {
                     "error" => Err(eyre::eyre!(HANDLER_ERROR).wrap_err("consumer handler failed")),
                     "already_cancelled" => {
                         context.cancellation.request_cancel(CONSUMER_REASON);
-                        Ok(())
+                        Ok(CliOutput::none())
                     }
-                    _ => eyre::Ok(()),
+                    _ => eyre::Ok(CliOutput::none()),
                 }
             }
         })
@@ -463,7 +518,8 @@ fn run_cancellation_probe(mode: &str) {
             }
         })
         .await
-        .map_err(|_| eyre::eyre!("cancellation probe handler exceeded its watchdog"))?
+        .map_err(|_| eyre::eyre!("cancellation probe handler exceeded its watchdog"))??;
+        Ok(CliOutput::none())
     });
 
     assert!(
