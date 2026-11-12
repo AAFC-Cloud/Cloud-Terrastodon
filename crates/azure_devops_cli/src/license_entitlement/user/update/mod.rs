@@ -3,3 +3,5 @@ mod azure_devops_license_entitlement_user_update_tui_cli;
 
 pub use azure_devops_license_entitlement_user_update_cli::*;
 pub use azure_devops_license_entitlement_user_update_tui_cli::*;
+mod azure_devops_license_update_outcome;
+mod azure_devops_license_update_report;

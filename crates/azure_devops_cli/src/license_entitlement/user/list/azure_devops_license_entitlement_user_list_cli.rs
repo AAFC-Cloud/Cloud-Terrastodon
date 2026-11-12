@@ -1,19 +1,18 @@
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureDevOpsTenantArgumentExt;
-use cloud_terrastodon_azure::AzureTenantArgument;
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_cli::AzureDevOpsAuthenticationArgs;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
-use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlements;
+use cloud_terrastodon_azure_devops::AzureDevOpsUserLicenseEntitlementListRequest;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
 use facet::Facet;
-use std::io::stdout;
+use std::borrow::Cow;
 
 /// List Azure DevOps license entitlements (users) for the organization.
 #[derive(Facet, Debug, Clone)]
 pub struct AzureDevOpsLicenseEntitlementUserListArgs {
-    /// Tenant id or tracked alias for bearer authentication; PAT authentication may omit it.
-    #[facet(figue::named)]
-    pub tenant: Option<AzureTenantArgument<'static>>,
+    #[facet(flatten)]
+    pub authentication: AzureDevOpsAuthenticationArgs,
 
     /// Azure DevOps organization name or URL.
     #[facet(figue::named)]
@@ -21,25 +20,14 @@ pub struct AzureDevOpsLicenseEntitlementUserListArgs {
 }
 
 impl AzureDevOpsLicenseEntitlementUserListArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        let cancellation = executor.cancellation();
-        let azure_devops_auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
-            .await?;
-        let executor = &azure_devops_auth_context.bind_executor(executor)?;
-        let entitlements = fetch_azure_devops_user_license_entitlements(
-            &self.org,
-            &azure_devops_auth_context,
-            executor,
-        )
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        let auth_selection = self.authentication.resolve(&self.org, executor).await?;
+        let entitlements = AzureDevOpsUserLicenseEntitlementListRequest {
+            org_url: Cow::Borrowed(&self.org),
+            auth_selection,
+        }
+        .execute(executor)
         .await?;
-        facet_json::to_writer_std_pretty(stdout(), &entitlements)
-            .map_err(|error| eyre::eyre!("{error:?}"))?;
-        Ok(())
+        Ok(CliOutput::facet(entitlements))
     }
 }

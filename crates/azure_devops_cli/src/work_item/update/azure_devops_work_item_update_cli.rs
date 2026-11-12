@@ -1,6 +1,5 @@
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureDevOpsTenantArgumentExt;
-use cloud_terrastodon_azure::AzureTenantArgument;
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_cli::AzureDevOpsAuthenticationArgs;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemId;
@@ -18,8 +17,8 @@ pub struct AzureDevOpsWorkItemUpdateArgs {
     /// Project ID or name.
     #[facet(figue::named)]
     pub project: AzureDevOpsProjectArgument<'static>,
-    #[facet(figue::named)]
-    pub tenant: Option<AzureTenantArgument<'static>>,
+    #[facet(flatten)]
+    pub authentication: AzureDevOpsAuthenticationArgs,
     /// Work item ID.
     #[facet(figue::positional)]
     pub id: AzureDevOpsWorkItemId,
@@ -38,23 +37,17 @@ pub struct AzureDevOpsWorkItemUpdateArgs {
 }
 
 impl AzureDevOpsWorkItemUpdateArgs {
-    pub async fn invoke(
-        self,
-        auth: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        let cancellation = executor.cancellation();
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         let body = cloud_terrastodon_rest::read_optional_body(Some(self.patch))
             .await?
             .ok_or_else(|| eyre::eyre!("Missing JSON input"))?;
         let patch = facet_json::from_str(&body)
             .map_err(|error| eyre::eyre!("Invalid JSON input: {error}"))?;
-        let auth_context = self.tenant.bind_auth_context(auth, cancellation).await?;
-        let executor = &auth_context.bind_executor(executor)?;
+        let auth_selection = self.authentication.resolve(&self.org, executor).await?;
         let item = AzureDevOpsWorkItemUpdateRequest {
             org_url: Cow::Owned(self.org),
             project: Some(self.project),
-            auth_context: Cow::Owned(auth_context),
+            auth_selection,
             id: self.id,
             patch,
             validate_only: self.validate_only,
@@ -63,8 +56,6 @@ impl AzureDevOpsWorkItemUpdateArgs {
         }
         .execute(executor)
         .await?;
-        facet_json::to_writer_std_pretty(std::io::stdout(), &item)
-            .map_err(|error| eyre::eyre!("{error:?}"))?;
-        Ok(())
+        Ok(CliOutput::facet(item))
     }
 }

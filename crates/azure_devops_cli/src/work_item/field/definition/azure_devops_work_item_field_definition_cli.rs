@@ -1,6 +1,6 @@
 use crate::work_item::field::definition::list::AzureDevOpsWorkItemFieldDefinitionListArgs;
 use crate::work_item::field::definition::show::AzureDevOpsWorkItemFieldDefinitionShowArgs;
-use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use facet::Facet;
@@ -22,17 +22,13 @@ pub enum AzureDevOpsWorkItemFieldDefinitionCommand {
 }
 
 impl AzureDevOpsWorkItemFieldDefinitionArgs {
-    pub async fn invoke(
-        self,
-        auth: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         match self.command {
             AzureDevOpsWorkItemFieldDefinitionCommand::List(args) => {
-                args.invoke(auth, executor).await
+                Box::pin(args.invoke(executor)).await
             }
             AzureDevOpsWorkItemFieldDefinitionCommand::Show(args) => {
-                args.invoke(auth, executor).await
+                Box::pin(args.invoke(executor)).await
             }
         }
     }

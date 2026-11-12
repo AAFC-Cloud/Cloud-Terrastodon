@@ -1,6 +1,6 @@
 use crate::repo::list::AzureDevOpsRepoListArgs;
 use crate::repo::show::AzureDevOpsRepoShowArgs;
-use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use facet::Facet;
@@ -22,16 +22,10 @@ pub enum AzureDevOpsRepoCommand {
 }
 
 impl AzureDevOpsRepoArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         match self.command {
-            AzureDevOpsRepoCommand::List(args) => args.invoke(auth_context, executor).await?,
-            AzureDevOpsRepoCommand::Show(args) => args.invoke(auth_context, executor).await?,
+            AzureDevOpsRepoCommand::List(args) => Box::pin(args.invoke(executor)).await,
+            AzureDevOpsRepoCommand::Show(args) => Box::pin(args.invoke(executor)).await,
         }
-
-        Ok(())
     }
 }

@@ -4,6 +4,7 @@ pub mod agent;
 pub mod agent_package;
 mod audit_azure_devops;
 pub mod audit_cli;
+mod azure_devops_audit_summary;
 pub mod azure_devops_command_cli;
 pub mod azure_devops_rest_command_cli;
 pub mod build;

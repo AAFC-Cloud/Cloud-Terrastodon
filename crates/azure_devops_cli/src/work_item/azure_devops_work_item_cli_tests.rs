@@ -36,7 +36,8 @@ fn parses_item_reads_and_tenant_context() {
     };
     assert!(args.id.to_string() == id);
     assert!(
-        args.tenant
+        args.authentication
+            .tenant
             .as_ref()
             .is_some_and(|value| value.to_string() == tenant)
     );

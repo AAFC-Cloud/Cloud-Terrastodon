@@ -1,28 +1,27 @@
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureDevOpsTenantArgumentExt;
-use cloud_terrastodon_azure::AzureTenantArgument;
+use super::azure_devops_license_update_outcome::AzureDevOpsLicenseUpdateOutcome;
+use super::azure_devops_license_update_report::AzureDevOpsLicenseUpdateReport;
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_cli::AzureDevOpsAuthenticationArgs;
 use cloud_terrastodon_azure_devops::AzureDevOpsAccountLicenseType;
 use cloud_terrastodon_azure_devops::AzureDevOpsLicenseAccessLevelUpdate;
 use cloud_terrastodon_azure_devops::AzureDevOpsLicenseType;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsUserArgument;
-use cloud_terrastodon_azure_devops::AzureDevOpsUserLicenseEntitlement;
-use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlement;
-use cloud_terrastodon_azure_devops::update_azure_devops_user_license_entitlement;
+use cloud_terrastodon_azure_devops::AzureDevOpsUserLicenseEntitlementShowRequest;
+use cloud_terrastodon_azure_devops::AzureDevOpsUserLicenseEntitlementUpdateRequest;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
-use color_eyre::owo_colors::OwoColorize;
+use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
 use facet::Facet;
-use std::sync::Arc;
+use std::borrow::Cow;
 use tracing::error;
 use tracing::info;
 
 #[derive(Facet, Debug, Clone)]
 /// Update an Azure DevOps user's license entitlement.
 pub struct AzureDevOpsLicenseEntitlementUserUpdateArgs {
-    /// Tenant id or tracked alias for bearer authentication; PAT authentication may omit it.
-    #[facet(figue::named)]
-    pub tenant: Option<AzureTenantArgument<'static>>,
+    #[facet(flatten)]
+    pub authentication: AzureDevOpsAuthenticationArgs,
 
     /// Azure DevOps organization name or URL.
     #[facet(figue::named)]
@@ -50,48 +49,19 @@ pub struct AzureDevOpsLicenseEntitlementUserUpdateArgs {
 }
 
 impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        let cancellation = executor.cancellation();
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         AzureDevOpsLicenseAccessLevelUpdate::try_from(&self.license)?;
-        let azure_devops_auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
-            .await?;
-        let executor = &azure_devops_auth_context.bind_executor(executor)?;
+        let auth_selection = self.authentication.resolve(&self.org, executor).await?;
 
-        #[derive(Default)]
-        enum Outcome {
-            NoChangeNeeded(AzureDevOpsUserArgument<'static>),
-            SkippedDueToLicenseMatchFailureDueToMissingLicense(AzureDevOpsUserArgument<'static>),
-            SkippedDueToLicenseMatchFailure {
-                user: AzureDevOpsUserArgument<'static>,
-                was: Arc<AzureDevOpsUserLicenseEntitlement>,
-            },
-            Updated {
-                user: AzureDevOpsUserArgument<'static>,
-                was: Option<Arc<AzureDevOpsUserLicenseEntitlement>>,
-            },
-            UpdateDidntTakeEffect {
-                user: AzureDevOpsUserArgument<'static>,
-                was: Option<Arc<AzureDevOpsUserLicenseEntitlement>>,
-                now: Arc<AzureDevOpsUserLicenseEntitlement>,
-            },
-            #[default]
-            None,
-        }
         let mut outcomes = Vec::new();
         for (i, user) in self.user.into_iter().enumerate() {
             let was = if let Some(ref expected) = self.has_license {
-                if let Some(entitlement) = match fetch_azure_devops_user_license_entitlement(
-                    &self.org,
-                    &user,
-                    &azure_devops_auth_context,
-                    executor,
-                )
+                if let Some(entitlement) = match (AzureDevOpsUserLicenseEntitlementShowRequest {
+                    org_url: Cow::Borrowed(&self.org),
+                    user: (&user).into(),
+                    auth_selection,
+                })
+                .execute(executor)
                 .with_invalidation(i == 0 && self.no_cache)
                 .await
                 {
@@ -110,7 +80,7 @@ impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
                             %expected,
                             "Failed to fetch license entitlement for user, skipping due to expected license requirement: {e:#}"
                         );
-                        outcomes.push(Outcome::SkippedDueToLicenseMatchFailureDueToMissingLicense(
+                        outcomes.push(AzureDevOpsLicenseUpdateOutcome::SkippedDueToLicenseMatchFailureDueToMissingLicense(
                             user,
                         ));
                         continue;
@@ -123,7 +93,7 @@ impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
                                 license = %x,
                                 "User already has desired license, no change needed"
                             );
-                            outcomes.push(Outcome::NoChangeNeeded(user));
+                            outcomes.push(AzureDevOpsLicenseUpdateOutcome::NoChangeNeeded(user));
                             continue;
                         }
                         ref x if *x != *expected => {
@@ -133,10 +103,12 @@ impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
                                 %expected,
                                 "User has license that does not match expected, skipping update"
                             );
-                            outcomes.push(Outcome::SkippedDueToLicenseMatchFailure {
-                                user,
-                                was: entitlement,
-                            });
+                            outcomes.push(
+                                AzureDevOpsLicenseUpdateOutcome::SkippedDueToLicenseMatchFailure {
+                                    user,
+                                    was: entitlement,
+                                },
+                            );
                             continue;
                         }
                         ref x if *x == *expected => Some(entitlement),
@@ -156,21 +128,21 @@ impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
                 "Updating license entitlement for user"
             );
 
-            update_azure_devops_user_license_entitlement(
-                &self.org,
-                &user,
-                self.license.clone(),
-                &azure_devops_auth_context,
-                executor,
-            )
+            AzureDevOpsUserLicenseEntitlementUpdateRequest {
+                org_url: Cow::Borrowed(&self.org),
+                auth_selection,
+                user: (&user).into(),
+                license_kind: (self.license.clone()),
+            }
+            .execute(executor)
             .await?;
-            outcomes.push(Outcome::Updated { user, was });
+            outcomes.push(AzureDevOpsLicenseUpdateOutcome::Updated { user, was });
         }
 
         // Wait for it to take effect
         let wait = match outcomes
             .iter()
-            .any(|o| matches!(o, Outcome::Updated { .. }))
+            .any(|o| matches!(o, AzureDevOpsLicenseUpdateOutcome::Updated { .. }))
         {
             true => std::time::Duration::from_mins(1),
             false => std::time::Duration::from_mins(0),
@@ -181,25 +153,23 @@ impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
         );
         tokio::time::sleep(wait).await;
 
-        for (i, outcome) in outcomes.iter_mut().enumerate() {
-            let Outcome::Updated { .. } = outcome else {
+        let mut verified_outcomes = Vec::with_capacity(outcomes.len());
+        let mut invalidated = false;
+        for outcome in outcomes {
+            let AzureDevOpsLicenseUpdateOutcome::Updated { user, was } = outcome else {
+                verified_outcomes.push(outcome);
                 continue;
             };
-            let Outcome::Updated { user, was } = std::mem::take(outcome) else {
-                unreachable!()
-            };
-
-            // Fetch to verify
-            let new_license = fetch_azure_devops_user_license_entitlement(
-                &self.org,
-                &user,
-                &azure_devops_auth_context,
-                executor,
-            )
-            // underlying cache is shared for all users, so only invalidate on the first check
-            .with_invalidation(i == 0)
+            let new_license = AzureDevOpsUserLicenseEntitlementShowRequest {
+                org_url: Cow::Borrowed(&self.org),
+                user: (&user).into(),
+                auth_selection,
+            }
+            .execute(executor)
+            // Refresh the shared inventory once, at the first actual verification.
+            .with_invalidation(!invalidated)
             .await?;
-
+            invalidated = true;
             if new_license.license != self.license {
                 error!(
                     %user,
@@ -208,48 +178,21 @@ impl AzureDevOpsLicenseEntitlementUserUpdateArgs {
                     actual = %new_license.license,
                     "License entitlement update did not take effect after waiting"
                 );
-                *outcome = Outcome::UpdateDidntTakeEffect {
-                    user: user.clone(),
+                verified_outcomes.push(AzureDevOpsLicenseUpdateOutcome::UpdateDidntTakeEffect {
+                    user,
                     was,
                     now: new_license,
-                };
+                });
+            } else {
+                verified_outcomes.push(AzureDevOpsLicenseUpdateOutcome::Updated { user, was });
             }
         }
-
-        // pretty print a final report
-        for outcome in &outcomes {
-            let (user, was, now) = match outcome {
-                Outcome::NoChangeNeeded(user) => (user, Some(&self.license), Some(&self.license)),
-                Outcome::SkippedDueToLicenseMatchFailureDueToMissingLicense(user) => {
-                    (user, None, None)
-                }
-                Outcome::SkippedDueToLicenseMatchFailure {
-                    user,
-                    was: entitlement,
-                } => (user, Some(&entitlement.license), Some(&entitlement.license)),
-                Outcome::Updated { user, was } => {
-                    (user, was.as_ref().map(|x| &x.license), Some(&self.license))
-                }
-                Outcome::UpdateDidntTakeEffect { user, was, now } => {
-                    (user, was.as_ref().map(|x| &x.license), Some(&now.license))
-                }
-                Outcome::None => unreachable!(),
-            };
-            print!("{:64} was ", user.cyan());
-            match was {
-                Some(x) if x == &self.license => print!("{} (as desired)", x.green()),
-                Some(x) => print!("{}", x.yellow()),
-                None => print!("{}", "None".yellow()),
-            };
-            print!(" now ");
-            match now {
-                Some(x) if x == &self.license => print!("{} (as desired)", x.green()),
-                Some(x) => print!("{}", x.red()),
-                None => print!("{}", "None".red()),
-            };
-            println!();
-        }
-
-        Ok(())
+        Ok(CliOutput::facet_with_text(
+            AzureDevOpsLicenseUpdateReport {
+                desired_license: self.license,
+                outcomes: verified_outcomes,
+            },
+            AzureDevOpsLicenseUpdateReport::write_text,
+        ))
     }
 }

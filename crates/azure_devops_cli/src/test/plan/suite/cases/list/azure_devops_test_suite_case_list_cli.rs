@@ -1,20 +1,19 @@
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureDevOpsTenantArgumentExt;
-use cloud_terrastodon_azure::AzureTenantArgument;
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_cli::AzureDevOpsAuthenticationArgs;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
-use cloud_terrastodon_azure_devops::fetch_azure_devops_test_suite_cases;
+use cloud_terrastodon_azure_devops::AzureDevOpsTestSuiteCasesListRequest;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
 use facet::Facet;
-use std::io::stdout;
+use std::borrow::Cow;
 
 /// List Azure DevOps test cases in a suite.
 #[derive(Facet, Debug, Clone)]
 pub struct AzureDevOpsTestSuiteCaseListArgs {
-    /// Tenant id or tracked alias for bearer authentication; PAT authentication may omit it.
-    #[facet(figue::named)]
-    pub tenant: Option<AzureTenantArgument<'static>>,
+    #[facet(flatten)]
+    pub authentication: AzureDevOpsAuthenticationArgs,
 
     /// Azure DevOps organization name or URL.
     #[facet(figue::named)]
@@ -33,28 +32,17 @@ pub struct AzureDevOpsTestSuiteCaseListArgs {
 }
 
 impl AzureDevOpsTestSuiteCaseListArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        let cancellation = executor.cancellation();
-        let azure_devops_auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
-            .await?;
-        let executor = &azure_devops_auth_context.bind_executor(executor)?;
-        let cases = fetch_azure_devops_test_suite_cases(
-            &self.org,
-            self.project,
-            self.plan,
-            self.suite,
-            &azure_devops_auth_context,
-            executor,
-        )
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        let auth_selection = self.authentication.resolve(&self.org, executor).await?;
+        let cases = AzureDevOpsTestSuiteCasesListRequest {
+            org_url: Cow::Borrowed(&self.org),
+            project: (self.project),
+            plan: (self.plan),
+            suite: (self.suite),
+            auth_selection,
+        }
+        .execute(executor)
         .await?;
-        facet_json::to_writer_std_pretty(stdout(), &cases)
-            .map_err(|error| eyre::eyre!("{error:?}"))?;
-        Ok(())
+        Ok(CliOutput::facet(cases))
     }
 }

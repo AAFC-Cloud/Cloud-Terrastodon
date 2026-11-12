@@ -1,21 +1,20 @@
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureDevOpsTenantArgumentExt;
-use cloud_terrastodon_azure::AzureTenantArgument;
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_cli::AzureDevOpsAuthenticationArgs;
 use cloud_terrastodon_azure_devops::AzureDevOpsAgentPoolArgument;
+use cloud_terrastodon_azure_devops::AzureDevOpsAgentPoolEntitlementListForProjectRequest;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
-use cloud_terrastodon_azure_devops::fetch_azure_devops_agent_pool_entitlements_for_project;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
 use facet::Facet;
-use std::io::stdout;
+use std::borrow::Cow;
 
 /// List Azure DevOps agent pool entitlements (queues) in a project.
 #[derive(Facet, Debug, Clone)]
 pub struct AzureDevOpsAgentPoolEntitlementListArgs {
-    /// Tenant id or tracked alias for bearer authentication; PAT authentication may omit it.
-    #[facet(figue::named)]
-    pub tenant: Option<AzureTenantArgument<'static>>,
+    #[facet(flatten)]
+    pub authentication: AzureDevOpsAuthenticationArgs,
 
     /// Azure DevOps organization name or URL.
     #[facet(figue::named)]
@@ -28,23 +27,14 @@ pub struct AzureDevOpsAgentPoolEntitlementListArgs {
 }
 
 impl AzureDevOpsAgentPoolEntitlementListArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        let cancellation = executor.cancellation();
-        let azure_devops_auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
-            .await?;
-        let executor = &azure_devops_auth_context.bind_executor(executor)?;
-        let entitlements = fetch_azure_devops_agent_pool_entitlements_for_project(
-            &self.org,
-            self.project,
-            &azure_devops_auth_context,
-            executor,
-        )
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        let auth_selection = self.authentication.resolve(&self.org, executor).await?;
+        let entitlements = AzureDevOpsAgentPoolEntitlementListForProjectRequest {
+            org_url: Cow::Borrowed(&self.org),
+            project: (self.project),
+            auth_selection,
+        }
+        .execute(executor)
         .await?;
         let entitlements: Vec<_> = entitlements
             .into_iter()
@@ -54,8 +44,6 @@ impl AzureDevOpsAgentPoolEntitlementListArgs {
                     .is_none_or(|pool| pool.matches_entitlement(entitlement))
             })
             .collect();
-        facet_json::to_writer_std_pretty(stdout(), &entitlements)
-            .map_err(|error| eyre::eyre!("{error:?}"))?;
-        Ok(())
+        Ok(CliOutput::facet(entitlements))
     }
 }

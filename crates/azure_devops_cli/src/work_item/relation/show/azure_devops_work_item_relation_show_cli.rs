@@ -1,7 +1,6 @@
 use crate::work_item::relation::AzureDevOpsWorkItemRelationTarget;
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureDevOpsTenantArgumentExt;
-use cloud_terrastodon_azure::AzureTenantArgument;
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_cli::AzureDevOpsAuthenticationArgs;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemGetRequest;
@@ -21,8 +20,8 @@ pub struct AzureDevOpsWorkItemRelationShowArgs {
     /// Project ID or name.
     #[facet(figue::named)]
     pub project: AzureDevOpsProjectArgument<'static>,
-    #[facet(figue::named)]
-    pub tenant: Option<AzureTenantArgument<'static>>,
+    #[facet(flatten)]
+    pub authentication: AzureDevOpsAuthenticationArgs,
     /// Work item ID.
     #[facet(figue::positional)]
     pub id: AzureDevOpsWorkItemId,
@@ -35,19 +34,13 @@ pub struct AzureDevOpsWorkItemRelationShowArgs {
 }
 
 impl AzureDevOpsWorkItemRelationShowArgs {
-    pub async fn invoke(
-        self,
-        auth: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        let cancellation = executor.cancellation();
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         let target = self.target.into_relation_url(&self.org).into_work_item()?;
-        let auth_context = self.tenant.bind_auth_context(auth, cancellation).await?;
-        let executor = &auth_context.bind_executor(executor)?;
+        let auth_selection = self.authentication.resolve(&self.org, executor).await?;
         let item = AzureDevOpsWorkItemGetRequest {
             org_url: Cow::Borrowed(&self.org),
             project: Some(self.project),
-            auth_context: Cow::Owned(auth_context),
+            auth_selection,
             id: self.id,
             expand: Default::default(),
             fields: Vec::new(),
@@ -64,8 +57,6 @@ impl AzureDevOpsWorkItemRelationShowArgs {
             .relations
             .as_ref()
             .ok_or_else(|| eyre::eyre!("No relations returned"))?[index];
-        facet_json::to_writer_std_pretty(std::io::stdout(), relation)
-            .map_err(|error| eyre::eyre!("{error:?}"))?;
-        Ok(())
+        Ok(CliOutput::facet(relation.clone()))
     }
 }

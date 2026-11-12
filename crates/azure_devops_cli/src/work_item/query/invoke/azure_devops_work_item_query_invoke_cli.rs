@@ -1,6 +1,5 @@
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureDevOpsTenantArgumentExt;
-use cloud_terrastodon_azure::AzureTenantArgument;
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_cli::AzureDevOpsAuthenticationArgs;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemQueryInvokeRequest;
@@ -19,8 +18,8 @@ pub struct AzureDevOpsWorkItemQueryInvokeArgs {
     /// Project ID or name.
     #[facet(figue::named)]
     pub project: AzureDevOpsProjectArgument<'static>,
-    #[facet(figue::named)]
-    pub tenant: Option<AzureTenantArgument<'static>>,
+    #[facet(flatten)]
+    pub authentication: AzureDevOpsAuthenticationArgs,
     /// Saved query UUID. Supply either this or --wiql.
     #[facet(figue::positional)]
     pub id: Option<String>,
@@ -30,12 +29,7 @@ pub struct AzureDevOpsWorkItemQueryInvokeArgs {
 }
 
 impl AzureDevOpsWorkItemQueryInvokeArgs {
-    pub async fn invoke(
-        self,
-        auth: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        let cancellation = executor.cancellation();
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         let query = match (self.id, self.wiql) {
             (Some(id), None) => AzureDevOpsWorkItemQuerySelector::Id(id.parse()?),
             (None, Some(wiql)) => AzureDevOpsWorkItemQuerySelector::Wiql(
@@ -47,18 +41,15 @@ impl AzureDevOpsWorkItemQueryInvokeArgs {
                 bail!("Specify exactly one saved query ID or --wiql");
             }
         };
-        let auth_context = self.tenant.bind_auth_context(auth, cancellation).await?;
-        let executor = &auth_context.bind_executor(executor)?;
+        let auth_selection = self.authentication.resolve(&self.org, executor).await?;
         let result = AzureDevOpsWorkItemQueryInvokeRequest {
             org_url: Cow::Owned(self.org),
             project: Some(self.project),
-            auth_context: Cow::Owned(auth_context),
+            auth_selection,
             query,
         }
         .execute(executor)
         .await?;
-        facet_json::to_writer_std_pretty(std::io::stdout(), &result)
-            .map_err(|error| eyre::eyre!("{error:?}"))?;
-        Ok(())
+        Ok(CliOutput::facet(result))
     }
 }

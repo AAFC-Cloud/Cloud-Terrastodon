@@ -1,7 +1,7 @@
 use crate::agent::pool::entitlement::AzureDevOpsAgentPoolEntitlementArgs;
 use crate::agent::pool::list::AzureDevOpsAgentPoolListArgs;
 use crate::agent::pool::summary::AzureDevOpsAgentPoolSummaryArgs;
-use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use facet::Facet;
@@ -25,21 +25,11 @@ pub enum AzureDevOpsAgentPoolCommand {
 }
 
 impl AzureDevOpsAgentPoolArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         match self.command {
-            AzureDevOpsAgentPoolCommand::List(args) => args.invoke(auth_context, executor).await?,
-            AzureDevOpsAgentPoolCommand::Entitlement(args) => {
-                args.invoke(auth_context, executor).await?
-            }
-            AzureDevOpsAgentPoolCommand::Summary(args) => {
-                args.invoke(auth_context, executor).await?
-            }
+            AzureDevOpsAgentPoolCommand::List(args) => Box::pin(args.invoke(executor)).await,
+            AzureDevOpsAgentPoolCommand::Entitlement(args) => Box::pin(args.invoke(executor)).await,
+            AzureDevOpsAgentPoolCommand::Summary(args) => Box::pin(args.invoke(executor)).await,
         }
-
-        Ok(())
     }
 }

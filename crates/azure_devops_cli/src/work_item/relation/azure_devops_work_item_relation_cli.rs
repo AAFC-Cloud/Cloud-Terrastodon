@@ -4,7 +4,7 @@ use crate::work_item::relation::remove::AzureDevOpsWorkItemRelationRemoveArgs;
 use crate::work_item::relation::show::AzureDevOpsWorkItemRelationShowArgs;
 use crate::work_item::relation::r#type::AzureDevOpsWorkItemRelationTypeArgs;
 use crate::work_item::relation::update::AzureDevOpsWorkItemRelationUpdateArgs;
-use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use facet::Facet;
@@ -34,18 +34,20 @@ pub enum AzureDevOpsWorkItemRelationCommand {
 }
 
 impl AzureDevOpsWorkItemRelationArgs {
-    pub async fn invoke(
-        self,
-        auth: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         match self.command {
-            AzureDevOpsWorkItemRelationCommand::List(args) => args.invoke(auth, executor).await,
-            AzureDevOpsWorkItemRelationCommand::Show(args) => args.invoke(auth, executor).await,
-            AzureDevOpsWorkItemRelationCommand::Create(args) => args.invoke(auth, executor).await,
-            AzureDevOpsWorkItemRelationCommand::Update(args) => args.invoke(auth, executor).await,
-            AzureDevOpsWorkItemRelationCommand::Remove(args) => args.invoke(auth, executor).await,
-            AzureDevOpsWorkItemRelationCommand::Type(args) => args.invoke(auth, executor).await,
+            AzureDevOpsWorkItemRelationCommand::List(args) => Box::pin(args.invoke(executor)).await,
+            AzureDevOpsWorkItemRelationCommand::Show(args) => Box::pin(args.invoke(executor)).await,
+            AzureDevOpsWorkItemRelationCommand::Create(args) => {
+                Box::pin(args.invoke(executor)).await
+            }
+            AzureDevOpsWorkItemRelationCommand::Update(args) => {
+                Box::pin(args.invoke(executor)).await
+            }
+            AzureDevOpsWorkItemRelationCommand::Remove(args) => {
+                Box::pin(args.invoke(executor)).await
+            }
+            AzureDevOpsWorkItemRelationCommand::Type(args) => Box::pin(args.invoke(executor)).await,
         }
     }
 }

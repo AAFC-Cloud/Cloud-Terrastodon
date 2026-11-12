@@ -2,7 +2,7 @@ use crate::project::dump::AzureDevOpsProjectDumpArgs;
 use crate::project::list::AzureDevOpsProjectListArgs;
 use crate::project::member::AzureDevOpsProjectMemberArgs;
 use crate::project::show::AzureDevOpsProjectShowArgs;
-use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use facet::Facet;
@@ -28,18 +28,12 @@ pub enum AzureDevOpsProjectCommand {
 }
 
 impl AzureDevOpsProjectArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         match self.command {
-            AzureDevOpsProjectCommand::List(args) => args.invoke(auth_context, executor).await?,
-            AzureDevOpsProjectCommand::Show(args) => args.invoke(auth_context, executor).await?,
-            AzureDevOpsProjectCommand::Dump(args) => args.invoke(auth_context, executor).await?,
-            AzureDevOpsProjectCommand::Member(args) => args.invoke(auth_context, executor).await?,
+            AzureDevOpsProjectCommand::List(args) => Box::pin(args.invoke(executor)).await,
+            AzureDevOpsProjectCommand::Show(args) => Box::pin(args.invoke(executor)).await,
+            AzureDevOpsProjectCommand::Dump(args) => Box::pin(args.invoke(executor)).await,
+            AzureDevOpsProjectCommand::Member(args) => Box::pin(args.invoke(executor)).await,
         }
-
-        Ok(())
     }
 }

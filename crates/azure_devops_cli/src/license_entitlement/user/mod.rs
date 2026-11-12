@@ -1,3 +1,5 @@
+mod azure_devops_license_entitlement_user_cli;
+pub use azure_devops_license_entitlement_user_cli::AzureDevOpsLicenseEntitlementUserArgs;
 pub mod list;
 pub mod revoke;
 pub mod show;

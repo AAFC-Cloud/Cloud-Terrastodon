@@ -1,5 +1,5 @@
 use crate::agent::pool::entitlement::list::AzureDevOpsAgentPoolEntitlementListArgs;
-use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use facet::Facet;
@@ -19,17 +19,11 @@ pub enum AzureDevOpsAgentPoolEntitlementCommand {
 }
 
 impl AzureDevOpsAgentPoolEntitlementArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         match self.command {
             AzureDevOpsAgentPoolEntitlementCommand::List(args) => {
-                args.invoke(auth_context, executor).await?
+                Box::pin(args.invoke(executor)).await
             }
         }
-
-        Ok(())
     }
 }

@@ -1,8 +1,7 @@
 use chrono::DateTime;
 use chrono::Utc;
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureDevOpsTenantArgumentExt;
-use cloud_terrastodon_azure::AzureTenantArgument;
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_cli::AzureDevOpsAuthenticationArgs;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemCopyJournal;
@@ -27,8 +26,8 @@ pub struct AzureDevOpsWorkItemCopyArgs {
     pub org: AzureDevOpsOrganizationUrl,
     #[facet(figue::named)]
     pub project: AzureDevOpsProjectArgument<'static>,
-    #[facet(figue::named)]
-    pub tenant: Option<AzureTenantArgument<'static>>,
+    #[facet(flatten)]
+    pub authentication: AzureDevOpsAuthenticationArgs,
     /// Work item ID.
     #[facet(figue::positional)]
     pub id: AzureDevOpsWorkItemId,
@@ -65,12 +64,7 @@ pub struct AzureDevOpsWorkItemCopyArgs {
 }
 
 impl AzureDevOpsWorkItemCopyArgs {
-    pub async fn invoke(
-        self,
-        auth: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        let cancellation = executor.cancellation();
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         ensure!(
             !self.resume || (self.journal.is_some() && !self.dry_run),
             "Resume requires --journal and cannot be combined with --dry-run"
@@ -97,8 +91,7 @@ impl AzureDevOpsWorkItemCopyArgs {
             keep_external_relations: self.keep_external_relations,
             as_of: self.as_of,
         };
-        let auth_context = self.tenant.bind_auth_context(auth, cancellation).await?;
-        let executor = &auth_context.bind_executor(executor)?;
+        let auth_selection = self.authentication.resolve(&self.org, executor).await?;
         let plan = if self.resume {
             let journal = AzureDevOpsWorkItemCopyJournal::load(
                 self.journal
@@ -114,7 +107,7 @@ impl AzureDevOpsWorkItemCopyArgs {
             AzureDevOpsWorkItemCopyPlanRequest {
                 org_url: Cow::Borrowed(&self.org),
                 project: self.project.clone(),
-                auth_context: Cow::Borrowed(&auth_context),
+                auth_selection,
                 root: self.id,
                 options,
             }
@@ -122,9 +115,7 @@ impl AzureDevOpsWorkItemCopyArgs {
             .await?
         };
         if self.dry_run {
-            facet_json::to_writer_std_pretty(std::io::stdout(), &plan)
-                .map_err(|error| eyre::eyre!("{error:?}"))?;
-            return Ok(());
+            return Ok(CliOutput::facet(plan));
         }
         let journal_path = self.journal.unwrap_or_else(|| {
             PathBuf::from(format!("work-item-copy-{}.json", uuid::Uuid::new_v4()))
@@ -133,7 +124,7 @@ impl AzureDevOpsWorkItemCopyArgs {
         let result = AzureDevOpsWorkItemCopyRequest {
             org_url: Cow::Borrowed(&self.org),
             project: self.project,
-            auth_context: Cow::Borrowed(&auth_context),
+            auth_selection,
             plan,
             journal_path,
             resume: self.resume,
@@ -141,8 +132,6 @@ impl AzureDevOpsWorkItemCopyArgs {
         }
         .execute(executor)
         .await?;
-        facet_json::to_writer_std_pretty(std::io::stdout(), &result)
-            .map_err(|error| eyre::eyre!("{error:?}"))?;
-        Ok(())
+        Ok(CliOutput::facet(result))
     }
 }

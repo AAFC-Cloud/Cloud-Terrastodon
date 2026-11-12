@@ -1,7 +1,7 @@
 use crate::test::plan::list::AzureDevOpsTestPlanListArgs;
 use crate::test::plan::show::AzureDevOpsTestPlanShowArgs;
 use crate::test::plan::suite::AzureDevOpsTestSuiteArgs;
-use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use facet::Facet;
@@ -27,17 +27,11 @@ pub enum AzureDevOpsTestPlanCommand {
 }
 
 impl AzureDevOpsTestPlanArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         match self.command {
-            AzureDevOpsTestPlanCommand::List(args) => args.invoke(auth_context, executor).await?,
-            AzureDevOpsTestPlanCommand::Show(args) => args.invoke(auth_context, executor).await?,
-            AzureDevOpsTestPlanCommand::Suite(args) => args.invoke(auth_context, executor).await?,
+            AzureDevOpsTestPlanCommand::List(args) => Box::pin(args.invoke(executor)).await,
+            AzureDevOpsTestPlanCommand::Show(args) => Box::pin(args.invoke(executor)).await,
+            AzureDevOpsTestPlanCommand::Suite(args) => Box::pin(args.invoke(executor)).await,
         }
-
-        Ok(())
     }
 }

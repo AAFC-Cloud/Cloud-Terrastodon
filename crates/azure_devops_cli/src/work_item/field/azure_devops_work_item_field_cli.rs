@@ -3,7 +3,7 @@ use crate::work_item::field::list::AzureDevOpsWorkItemFieldListArgs;
 use crate::work_item::field::remove::AzureDevOpsWorkItemFieldRemoveArgs;
 use crate::work_item::field::set::AzureDevOpsWorkItemFieldSetArgs;
 use crate::work_item::field::show::AzureDevOpsWorkItemFieldShowArgs;
-use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use facet::Facet;
@@ -31,17 +31,15 @@ pub enum AzureDevOpsWorkItemFieldCommand {
 }
 
 impl AzureDevOpsWorkItemFieldArgs {
-    pub async fn invoke(
-        self,
-        auth: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         match self.command {
-            AzureDevOpsWorkItemFieldCommand::List(args) => args.invoke(auth, executor).await,
-            AzureDevOpsWorkItemFieldCommand::Show(args) => args.invoke(auth, executor).await,
-            AzureDevOpsWorkItemFieldCommand::Set(args) => args.invoke(auth, executor).await,
-            AzureDevOpsWorkItemFieldCommand::Remove(args) => args.invoke(auth, executor).await,
-            AzureDevOpsWorkItemFieldCommand::Definition(args) => args.invoke(auth, executor).await,
+            AzureDevOpsWorkItemFieldCommand::List(args) => Box::pin(args.invoke(executor)).await,
+            AzureDevOpsWorkItemFieldCommand::Show(args) => Box::pin(args.invoke(executor)).await,
+            AzureDevOpsWorkItemFieldCommand::Set(args) => Box::pin(args.invoke(executor)).await,
+            AzureDevOpsWorkItemFieldCommand::Remove(args) => Box::pin(args.invoke(executor)).await,
+            AzureDevOpsWorkItemFieldCommand::Definition(args) => {
+                Box::pin(args.invoke(executor)).await
+            }
         }
     }
 }

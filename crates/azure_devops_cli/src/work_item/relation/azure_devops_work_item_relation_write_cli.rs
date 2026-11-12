@@ -1,6 +1,5 @@
 use crate::work_item::relation::show::AzureDevOpsWorkItemRelationShowArgs;
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureDevOpsTenantArgumentExt;
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemRelationChange;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemRelationChangeRequest;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemRelationInput;
@@ -37,10 +36,9 @@ pub struct AzureDevOpsWorkItemRelationWriteArgs {
 impl AzureDevOpsWorkItemRelationWriteArgs {
     pub(crate) async fn invoke(
         self,
-        auth: &AuthContext,
         create: bool,
         executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
+    ) -> Result<CliOutput> {
         let mut attributes: AzureDevOpsWorkItemRelationInputAttributes = match self.attributes {
             Some(input) => {
                 let body = cloud_terrastodon_rest::read_optional_body(Some(input))
@@ -59,12 +57,11 @@ impl AzureDevOpsWorkItemRelationWriteArgs {
             attributes.comment = Some(comment);
         }
         let target = self.relation.target.into_relation_url(&self.relation.org);
-        let auth_context = self
+        let auth_selection = self
             .relation
-            .tenant
-            .bind_auth_context(auth, executor.cancellation())
+            .authentication
+            .resolve(&self.relation.org, executor)
             .await?;
-        let executor = &auth_context.bind_executor(executor)?;
         let change = if create {
             AzureDevOpsWorkItemRelationChange::Create(AzureDevOpsWorkItemRelationInput {
                 rel: self.relation.relation_type,
@@ -83,7 +80,7 @@ impl AzureDevOpsWorkItemRelationWriteArgs {
         let item = AzureDevOpsWorkItemRelationChangeRequest {
             org_url: Cow::Owned(self.relation.org),
             project: Some(self.relation.project),
-            auth_context: Cow::Owned(auth_context),
+            auth_selection,
             id: self.relation.id,
             change,
             validate_only: self.validate_only,
@@ -92,8 +89,6 @@ impl AzureDevOpsWorkItemRelationWriteArgs {
         }
         .execute(executor)
         .await?;
-        facet_json::to_writer_std_pretty(std::io::stdout(), &item)
-            .map_err(|error| eyre::eyre!("{error:?}"))?;
-        Ok(())
+        Ok(CliOutput::facet(item))
     }
 }

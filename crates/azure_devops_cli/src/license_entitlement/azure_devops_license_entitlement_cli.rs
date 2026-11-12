@@ -1,11 +1,6 @@
-use crate::license_entitlement::group::AzureDevOpsLicenseEntitlementGroupListArgs;
-use crate::license_entitlement::user::AzureDevOpsLicenseEntitlementUserListArgs;
-use crate::license_entitlement::user::AzureDevOpsLicenseEntitlementUserRevokeArgs;
-use crate::license_entitlement::user::AzureDevOpsLicenseEntitlementUserShowArgs;
-use crate::license_entitlement::user::AzureDevOpsLicenseEntitlementUserSummaryArgs;
-use crate::license_entitlement::user::AzureDevOpsLicenseEntitlementUserUpdateArgs;
-use crate::license_entitlement::user::AzureDevOpsLicenseEntitlementUserUpdateTuiArgs;
-use cloud_terrastodon_auth::AuthContext;
+use crate::license_entitlement::group::AzureDevOpsLicenseEntitlementGroupArgs;
+use crate::license_entitlement::user::AzureDevOpsLicenseEntitlementUserArgs;
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use facet::Facet;
@@ -26,76 +21,15 @@ pub enum AzureDevOpsLicenseEntitlementCommand {
     Group(AzureDevOpsLicenseEntitlementGroupArgs),
 }
 
-#[derive(Facet, Debug, Clone)]
-pub struct AzureDevOpsLicenseEntitlementUserArgs {
-    #[facet(figue::subcommand)]
-    pub command: AzureDevOpsLicenseEntitlementUserCommand,
-}
-
-#[derive(Facet, Debug, Clone)]
-#[repr(u8)]
-pub enum AzureDevOpsLicenseEntitlementUserCommand {
-    /// List Azure DevOps user license entitlements.
-    List(AzureDevOpsLicenseEntitlementUserListArgs),
-    /// Summarize Azure DevOps user license entitlements by license type.
-    Summary(AzureDevOpsLicenseEntitlementUserSummaryArgs),
-    /// Update Azure DevOps user license entitlement.
-    Update(AzureDevOpsLicenseEntitlementUserUpdateArgs),
-    /// Update Azure DevOps user license entitlement via TUI picker.
-    UpdateTui(AzureDevOpsLicenseEntitlementUserUpdateTuiArgs),
-    /// Show a specific user's license entitlement by id.
-    Show(AzureDevOpsLicenseEntitlementUserShowArgs),
-    /// Revoke group rule assignment (show groups that grant this user's license).
-    Revoke(AzureDevOpsLicenseEntitlementUserRevokeArgs),
-}
-
-#[derive(Facet, Debug, Clone)]
-pub struct AzureDevOpsLicenseEntitlementGroupArgs {
-    #[facet(figue::subcommand)]
-    pub command: AzureDevOpsLicenseEntitlementGroupCommand,
-}
-
-#[derive(Facet, Debug, Clone)]
-#[repr(u8)]
-pub enum AzureDevOpsLicenseEntitlementGroupCommand {
-    /// List Azure DevOps group license entitlements.
-    List(AzureDevOpsLicenseEntitlementGroupListArgs),
-}
-
 impl AzureDevOpsLicenseEntitlementArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         match self.command {
-            AzureDevOpsLicenseEntitlementCommand::User(args) => match args.command {
-                AzureDevOpsLicenseEntitlementUserCommand::List(a) => {
-                    a.invoke(auth_context, executor).await?
-                }
-                AzureDevOpsLicenseEntitlementUserCommand::Summary(a) => {
-                    a.invoke(auth_context, executor).await?
-                }
-                AzureDevOpsLicenseEntitlementUserCommand::Update(a) => {
-                    a.invoke(auth_context, executor).await?
-                }
-                AzureDevOpsLicenseEntitlementUserCommand::UpdateTui(a) => {
-                    a.invoke(auth_context, executor).await?
-                }
-                AzureDevOpsLicenseEntitlementUserCommand::Show(a) => {
-                    a.invoke(auth_context, executor).await?
-                }
-                AzureDevOpsLicenseEntitlementUserCommand::Revoke(a) => {
-                    a.invoke(auth_context, executor).await?
-                }
-            },
-            AzureDevOpsLicenseEntitlementCommand::Group(args) => match args.command {
-                AzureDevOpsLicenseEntitlementGroupCommand::List(a) => {
-                    a.invoke(auth_context, executor).await?
-                }
-            },
+            AzureDevOpsLicenseEntitlementCommand::User(args) => {
+                Box::pin(args.invoke(executor)).await
+            }
+            AzureDevOpsLicenseEntitlementCommand::Group(args) => {
+                Box::pin(args.invoke(executor)).await
+            }
         }
-
-        Ok(())
     }
 }

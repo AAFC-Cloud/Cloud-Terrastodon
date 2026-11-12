@@ -1,23 +1,26 @@
+use crate::azure_devops_audit_summary::AzureDevOpsAuditSummary;
 use chrono::Local;
 use chrono::TimeDelta;
 use chrono::Utc;
-use cloud_terrastodon_auth::AzureDevOpsAuthContext;
-use cloud_terrastodon_auth::AzureTenantAuthContext;
-use cloud_terrastodon_azure::fetch_all_entra_users;
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
+use cloud_terrastodon_azure::EntraUserListRequest;
 use cloud_terrastodon_azure_devops::AzureDevOpsAccountLicenseType;
 use cloud_terrastodon_azure_devops::AzureDevOpsDescriptor;
+use cloud_terrastodon_azure_devops::AzureDevOpsGroupsForMemberRequest;
+use cloud_terrastodon_azure_devops::AzureDevOpsGroupsListRequest;
 use cloud_terrastodon_azure_devops::AzureDevOpsLicenseType;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
+use cloud_terrastodon_azure_devops::AzureDevOpsProjectsListRequest;
+use cloud_terrastodon_azure_devops::AzureDevOpsTestPlanListRequest;
+use cloud_terrastodon_azure_devops::AzureDevOpsTestSuiteListRequest;
+use cloud_terrastodon_azure_devops::AzureDevOpsUserLicenseEntitlementListRequest;
 use cloud_terrastodon_azure_devops::LastAccessedDate;
-use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
-use cloud_terrastodon_azure_devops::fetch_azure_devops_groups_for_member;
-use cloud_terrastodon_azure_devops::fetch_azure_devops_groups_for_project;
-use cloud_terrastodon_azure_devops::fetch_azure_devops_test_plans;
-use cloud_terrastodon_azure_devops::fetch_azure_devops_test_suites;
-use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlements;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ConcurrentIteratorExt;
+use cloud_terrastodon_execution::ExecutableRequest;
 use itertools::Itertools;
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::num::NonZeroUsize;
 use std::time::Duration;
@@ -28,9 +31,9 @@ pub async fn audit_azure_devops(
     org_url: AzureDevOpsOrganizationUrl,
     test_license_inactivity_threshold: Duration,
     paid_license_inactivity_threshold: Duration,
-    auth_context: &AzureTenantAuthContext,
+    authentication: AzureBearerAuthenticationSelection,
     executor: &CloudTerrastodonExecutor,
-) -> eyre::Result<()> {
+) -> eyre::Result<CliOutput> {
     let test_license_inactivity_threshold =
         chrono::Duration::from_std(test_license_inactivity_threshold)?;
     let paid_license_inactivity_threshold =
@@ -43,23 +46,19 @@ pub async fn audit_azure_devops(
     let mut total_cost_waste_cad = 0.00;
     let mut message_counts: HashMap<String, usize> = HashMap::new();
 
-    let azure_devops_auth_context = AzureDevOpsAuthContext::Bearer(auth_context.clone());
-    let entitlements = fetch_azure_devops_user_license_entitlements(
-        &org_url,
-        &azure_devops_auth_context,
-        executor,
-    )
+    let entitlements = AzureDevOpsUserLicenseEntitlementListRequest {
+        org_url: Cow::Borrowed(&org_url),
+        auth_selection: authentication.into(),
+    }
+    .execute(executor)
     .await?;
-    let users_by_principal_name = fetch_all_entra_users(
-        auth_context.tenant_id,
-        auth_context.auth_source()?,
-        executor,
-    )
-    .await?
-    .iter()
-    .cloned()
-    .map(|user| (user.user_principal_name.to_lowercase(), user))
-    .collect::<HashMap<_, _>>();
+    let users_by_principal_name = EntraUserListRequest { authentication }
+        .execute(executor)
+        .await?
+        .iter()
+        .cloned()
+        .map(|user| (user.user_principal_name.to_lowercase(), user))
+        .collect::<HashMap<_, _>>();
 
     // Emit a warning for anyone who has not recently accessed azure devops and have greater than stakeholder license
     for entitlement in entitlements
@@ -155,9 +154,12 @@ pub async fn audit_azure_devops(
         "Analyzing test plan license usage",
     );
 
-    let projects =
-        fetch_all_azure_devops_projects(&org_url, azure_devops_auth_context.selection()?, executor)
-            .await?;
+    let projects = AzureDevOpsProjectsListRequest {
+        org_url: Cow::Borrowed(&org_url),
+        auth_selection: (authentication.into()),
+    }
+    .execute(executor)
+    .await?;
     // Complete each inventory batch before reporting its ordinary service
     // errors. Scope cancellation still stops admission and drains active work.
     let project_test_plans = projects
@@ -166,12 +168,12 @@ pub async fn audit_azure_devops(
             executor,
             NonZeroUsize::MIN.saturating_add(3),
             async |child, project| {
-                let plans = fetch_azure_devops_test_plans(
-                    &org_url,
-                    project.id,
-                    &azure_devops_auth_context,
-                    &child,
-                )
+                let plans = AzureDevOpsTestPlanListRequest {
+                    org_url: Cow::Borrowed(&org_url),
+                    project: (project.id).into(),
+                    auth_selection: authentication.into(),
+                }
+                .execute(&child)
                 .await;
                 info!(project_id = %project.id, "Finished fetching project test plans");
                 eyre::Ok(plans.map(|plans| (project.id, plans)))
@@ -188,13 +190,13 @@ pub async fn audit_azure_devops(
             executor,
             NonZeroUsize::MIN.saturating_add(3),
             async |child, (project_id, plan_id)| {
-                let suites = fetch_azure_devops_test_suites(
-                    &org_url,
-                    project_id,
-                    plan_id.to_string(),
-                    &azure_devops_auth_context,
-                    &child,
-                )
+                let suites = AzureDevOpsTestSuiteListRequest {
+                    org_url: Cow::Borrowed(&org_url),
+                    project: (project_id).into(),
+                    plan: (plan_id.to_string()),
+                    auth_selection: authentication.into(),
+                }
+                .execute(&child)
                 .await;
                 info!(%project_id, %plan_id, "Finished fetching project test suites");
                 eyre::Ok(suites.map(|suites| ((*project_id, plan_id), suites)))
@@ -210,12 +212,12 @@ pub async fn audit_azure_devops(
             executor,
             NonZeroUsize::MIN.saturating_add(3),
             async |child, entitlement| {
-                let groups = fetch_azure_devops_groups_for_member(
-                    &org_url,
-                    &entitlement.user.descriptor,
-                    &azure_devops_auth_context,
-                    &child,
-                )
+                let groups = AzureDevOpsGroupsForMemberRequest {
+                    org_url: Cow::Borrowed(&org_url),
+                    member_id: Cow::Borrowed(&entitlement.user.descriptor),
+                    auth_selection: authentication.into(),
+                }
+                .execute(&child)
                 .await;
                 info!("Finished fetching groups for a test plan licensed user");
                 eyre::Ok(groups.map(|groups| (entitlement.user.descriptor.clone(), groups)))
@@ -231,12 +233,12 @@ pub async fn audit_azure_devops(
             executor,
             NonZeroUsize::MIN.saturating_add(3),
             async |child, project| {
-                let groups = fetch_azure_devops_groups_for_project(
-                    &org_url,
-                    project.id,
-                    &azure_devops_auth_context,
-                    &child,
-                )
+                let groups = AzureDevOpsGroupsListRequest {
+                    org_url: Cow::Borrowed(&org_url),
+                    project: (project.id).into(),
+                    auth_selection: authentication.into(),
+                }
+                .execute(&child)
                 .await;
                 info!(project_id = %project.id, "Finished fetching project groups");
                 eyre::Ok(groups.map(|groups| (project.id, groups)))
@@ -355,7 +357,11 @@ pub async fn audit_azure_devops(
     } else {
         info!("No potential problems found in Azure DevOps");
     }
-    Ok(())
+    Ok(CliOutput::facet(AzureDevOpsAuditSummary {
+        total_problems,
+        total_cost_waste_cad,
+        message_counts,
+    }))
 }
 
 /// Format a duration into a human-readable string, granularity limited to days (no minutes or seconds shown)

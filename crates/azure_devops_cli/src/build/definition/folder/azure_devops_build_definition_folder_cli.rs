@@ -1,7 +1,6 @@
 use super::list::AzureDevOpsBuildDefinitionFolderListArgs;
 use super::prune::AzureDevOpsBuildDefinitionFolderPruneArgs;
 use cloud_terrastodon_app::CliOutput;
-use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use facet::Facet;
@@ -14,12 +13,8 @@ pub struct AzureDevOpsBuildDefinitionFolderArgs {
 }
 
 impl AzureDevOpsBuildDefinitionFolderArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<CliOutput> {
-        self.command.invoke(auth_context, executor).await
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        self.command.invoke(executor).await
     }
 }
 
@@ -35,14 +30,10 @@ pub enum AzureDevOpsBuildDefinitionFolderCommand {
 }
 
 impl AzureDevOpsBuildDefinitionFolderCommand {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<CliOutput> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         match self {
-            Self::List(args) => args.invoke(auth_context, executor).await,
-            Self::Prune(args) => args.invoke(auth_context, executor).await,
+            Self::List(args) => Box::pin(args.invoke(executor)).await,
+            Self::Prune(args) => Box::pin(args.invoke(executor)).await,
         }
     }
 }

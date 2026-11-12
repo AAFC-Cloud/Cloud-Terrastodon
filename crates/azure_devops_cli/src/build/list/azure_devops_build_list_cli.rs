@@ -1,23 +1,23 @@
 use crate::build::output;
 use cloud_terrastodon_app::CliOutput;
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureDevOpsTenantArgumentExt;
-use cloud_terrastodon_azure::AzureTenantArgument;
+use cloud_terrastodon_auth_cli::AzureDevOpsAuthenticationArgs;
 use cloud_terrastodon_azure_devops::AzureDevOpsBuild;
 use cloud_terrastodon_azure_devops::AzureDevOpsBuildDefinitionId;
 use cloud_terrastodon_azure_devops::AzureDevOpsBuildListLimit;
+use cloud_terrastodon_azure_devops::AzureDevOpsBuildListRequest;
 use cloud_terrastodon_azure_devops::AzureDevOpsBuildResult;
 use cloud_terrastodon_azure_devops::AzureDevOpsBuildStatus;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
-use cloud_terrastodon_azure_devops::fetch_azure_devops_builds;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use color_eyre::owo_colors::OwoColorize;
 use color_eyre::owo_colors::Stream;
 use color_eyre::owo_colors::Style;
 use eyre::Result;
 use facet::Facet;
+use std::borrow::Cow;
 use std::io::Write;
 use std::sync::Arc;
 
@@ -30,9 +30,8 @@ pub struct AzureDevOpsBuildListArgs {
     /// Project ID or name.
     #[facet(figue::named)]
     pub project: AzureDevOpsProjectArgument<'static>,
-    /// Tenant ID or tracked alias for delegated authentication.
-    #[facet(figue::named)]
-    pub tenant: Option<AzureTenantArgument<'static>>,
+    #[facet(flatten)]
+    pub authentication: AzureDevOpsAuthenticationArgs,
     /// Refresh cached results before listing builds.
     #[facet(
         figue::named,
@@ -59,28 +58,19 @@ pub struct AzureDevOpsBuildListArgs {
 }
 
 impl AzureDevOpsBuildListArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<CliOutput> {
-        let cancellation = executor.cancellation();
-        let auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
-            .await?;
-        let executor = &auth_context.bind_executor(executor)?;
-        let builds = fetch_azure_devops_builds(
-            &self.org,
-            self.project,
-            &auth_context,
-            self.definition,
-            self.status,
-            self.result,
-            self.branch,
-            Some(self.limit),
-            executor,
-        )
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        let auth_selection = self.authentication.resolve(&self.org, executor).await?;
+        let builds = AzureDevOpsBuildListRequest {
+            org_url: Cow::Borrowed(&self.org),
+            project: (self.project),
+            auth_selection,
+            definitions: (self.definition),
+            status: (self.status),
+            result: (self.result),
+            branch: (self.branch),
+            limit: (Some(self.limit)),
+        }
+        .execute(executor)
         .with_invalidation(self.no_cache)
         .await?;
         Ok(CliOutput::facet_with_text(

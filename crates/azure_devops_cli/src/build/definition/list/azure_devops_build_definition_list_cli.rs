@@ -1,20 +1,20 @@
 use crate::build::output;
 use cloud_terrastodon_app::CliOutput;
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureDevOpsTenantArgumentExt;
-use cloud_terrastodon_azure::AzureTenantArgument;
+use cloud_terrastodon_auth_cli::AzureDevOpsAuthenticationArgs;
+use cloud_terrastodon_azure_devops::AzureDevOpsBuildDefinitionListRequest;
 use cloud_terrastodon_azure_devops::AzureDevOpsBuildDefinitionReference;
 use cloud_terrastodon_azure_devops::AzureDevOpsBuildFolderPathArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
-use cloud_terrastodon_azure_devops::fetch_azure_devops_build_definitions;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use color_eyre::owo_colors::OwoColorize;
 use color_eyre::owo_colors::Stream;
 use color_eyre::owo_colors::Style;
 use eyre::Result;
 use facet::Facet;
+use std::borrow::Cow;
 use std::io::Write;
 use std::sync::Arc;
 
@@ -27,9 +27,8 @@ pub struct AzureDevOpsBuildDefinitionListArgs {
     /// Project ID or name.
     #[facet(figue::named)]
     pub project: AzureDevOpsProjectArgument<'static>,
-    /// Tenant ID or tracked alias for delegated authentication.
-    #[facet(figue::named)]
-    pub tenant: Option<AzureTenantArgument<'static>>,
+    #[facet(flatten)]
+    pub authentication: AzureDevOpsAuthenticationArgs,
     /// Refresh cached results before listing definitions.
     #[facet(
         figue::named,
@@ -47,26 +46,17 @@ pub struct AzureDevOpsBuildDefinitionListArgs {
 }
 
 impl AzureDevOpsBuildDefinitionListArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<CliOutput> {
-        let cancellation = executor.cancellation();
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         let path = self.path.map(AzureDevOpsBuildFolderPathArgument::into_path);
-        let auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
-            .await?;
-        let executor = &auth_context.bind_executor(executor)?;
-        let definitions = fetch_azure_devops_build_definitions(
-            &self.org,
-            self.project,
-            &auth_context,
-            self.name,
-            path,
-            executor,
-        )
+        let auth_selection = self.authentication.resolve(&self.org, executor).await?;
+        let definitions = AzureDevOpsBuildDefinitionListRequest {
+            org_url: Cow::Borrowed(&self.org),
+            project: (self.project),
+            auth_selection,
+            name: (self.name),
+            path: (path),
+        }
+        .execute(executor)
         .with_invalidation(self.no_cache)
         .await?;
         Ok(CliOutput::facet_with_text(

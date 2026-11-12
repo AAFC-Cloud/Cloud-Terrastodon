@@ -1,26 +1,26 @@
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_auth::AzureDevOpsAuthContext;
-use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
 use cloud_terrastodon_azure::EntraGroupId;
+use cloud_terrastodon_azure::EntraGroupMemberRemoveRequest;
+use cloud_terrastodon_azure::EntraGroupMembersListRequest;
 use cloud_terrastodon_azure::EntraUserArgument;
-use cloud_terrastodon_azure::fetch_entra_user;
-use cloud_terrastodon_azure::fetch_group_members;
-use cloud_terrastodon_azure::remove_group_member;
+use cloud_terrastodon_azure::EntraUserGetRequest;
 use cloud_terrastodon_azure_devops::AzureDevOpsAccountLicenseType;
+use cloud_terrastodon_azure_devops::AzureDevOpsGroupLicenseEntitlementsRequest;
 use cloud_terrastodon_azure_devops::AzureDevOpsLicenseAssignmentSource;
 use cloud_terrastodon_azure_devops::AzureDevOpsLicenseType;
 use cloud_terrastodon_azure_devops::AzureDevOpsMsdnLicenseType;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsUserArgument;
-use cloud_terrastodon_azure_devops::fetch_azure_devops_group_license_entitlements;
-use cloud_terrastodon_azure_devops::fetch_azure_devops_user_license_entitlements;
-use cloud_terrastodon_azure_devops::update_azure_devops_user_license_entitlement;
+use cloud_terrastodon_azure_devops::AzureDevOpsUserLicenseEntitlementListRequest;
+use cloud_terrastodon_azure_devops::AzureDevOpsUserLicenseEntitlementUpdateRequest;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Context;
 use eyre::ContextCompat;
 use eyre::Result;
 use facet::Facet;
+use std::borrow::Cow;
 use tracing::debug;
 use tracing::info;
 
@@ -33,32 +33,20 @@ pub struct AzureDevOpsLicenseEntitlementUserRevokeArgs {
     #[facet(figue::named, proxy = String)]
     pub user: AzureDevOpsUserArgument<'static>,
 
-    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[facet(figue::named, default)]
-    pub tenant: AzureTenantArgument<'static>,
+    #[facet(flatten)]
+    pub authentication: AzureAuthenticationArgs,
 }
 
 impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        let cancellation = executor.cancellation();
-        let tenant_auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
-            .await?;
-        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        let authentication = self.authentication.resolve(executor).await?;
         let user_predicate = self.user.as_predicate()?;
 
-        let azure_devops_auth_context =
-            AzureDevOpsAuthContext::for_azure_tenant(&tenant_auth_context);
-        let entitlements = fetch_azure_devops_user_license_entitlements(
-            &self.org,
-            &azure_devops_auth_context,
-            executor,
-        )
+        let entitlements = AzureDevOpsUserLicenseEntitlementListRequest {
+            org_url: Cow::Borrowed(&self.org),
+            auth_selection: authentication.into(),
+        }
+        .execute(executor)
         .await?;
 
         let user_entitlement = entitlements
@@ -81,18 +69,17 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
                 user_devops_license = ?user_entitlement.license,
                 "User does not have a premium license, skipping revocation"
             );
-            return Ok(());
+            return Ok(CliOutput::none());
         }
 
         if user_entitlement.assignment_source == AzureDevOpsLicenseAssignmentSource::GroupRule {
             // Membership listings can expose only object IDs. Resolve the selected
             // user once, rather than interpreting an unavailable UPN as absence.
-            let entra_user_id = fetch_entra_user(
-                EntraUserArgument::try_from(user_principal_name.as_str())?,
-                tenant_auth_context.tenant_id,
-                tenant_auth_context.auth_source()?,
-                executor,
-            )
+            let entra_user_id = EntraUserGetRequest {
+                lookup: (EntraUserArgument::try_from(user_principal_name.as_str())?),
+                authentication,
+            }
+            .execute(executor)
             .with_invalidation(true)
             .await
             .wrap_err("Resolving the Entra user before removing license-granting memberships")?
@@ -100,11 +87,11 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
             // Find the rule that is granting the license and remove the user from that group
 
             // Fetch groups that are granting licenses
-            let group_entitlements = fetch_azure_devops_group_license_entitlements(
-                &self.org,
-                &azure_devops_auth_context,
-                executor,
-            )
+            let group_entitlements = AzureDevOpsGroupLicenseEntitlementsRequest {
+                org_url: Cow::Borrowed(&self.org),
+                auth_selection: authentication.into(),
+            }
+            .execute(executor)
             .await?;
 
             // Identify groups which grant the license that the user has
@@ -129,10 +116,13 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
                     .group
                     .origin_id
                     .parse::<EntraGroupId>()?;
-                let group_entra_members =
-                    fetch_group_members(group_entra_id, &tenant_auth_context, executor)
-                        .with_invalidation(true)
-                        .await?;
+                let group_entra_members = EntraGroupMembersListRequest {
+                    group_id: (group_entra_id),
+                    authentication,
+                }
+                .execute(executor)
+                .with_invalidation(true)
+                .await?;
                 let user_in_group = group_entra_members
                     .iter()
                     .any(|principal| principal.id() == entra_user_id);
@@ -158,18 +148,18 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
                         .deferred(
                             "finishing group-member removal and invalidating its inventory",
                             async |protected| {
-                                remove_group_member(
-                                    group_entra_id,
-                                    entra_user_id,
-                                    &tenant_auth_context,
-                                    &protected,
-                                )
+                                EntraGroupMemberRemoveRequest {
+                                    authentication,
+                                    group_id: (group_entra_id),
+                                    member_id: (entra_user_id).into(),
+                                }
+                                .execute(&protected)
                                 .await?;
-                                fetch_group_members(
-                                    group_entra_id,
-                                    &tenant_auth_context,
-                                    &protected,
-                                )
+                                EntraGroupMembersListRequest {
+                                    group_id: (group_entra_id),
+                                    authentication,
+                                }
+                                .execute(&protected)
                                 .invalidate()
                                 .await
                             },
@@ -179,16 +169,18 @@ impl AzureDevOpsLicenseEntitlementUserRevokeArgs {
             }
         } else {
             // Direct assignment - just downgrade the license
-            update_azure_devops_user_license_entitlement(
-                &self.org,
-                user_entitlement.user_id,
-                AzureDevOpsLicenseType::Account(AzureDevOpsAccountLicenseType::Stakeholder),
-                &azure_devops_auth_context,
-                executor,
-            )
+            AzureDevOpsUserLicenseEntitlementUpdateRequest {
+                org_url: Cow::Borrowed(&self.org),
+                auth_selection: authentication.into(),
+                user: (user_entitlement.user_id).into(),
+                license_kind: (AzureDevOpsLicenseType::Account(
+                    AzureDevOpsAccountLicenseType::Stakeholder,
+                )),
+            }
+            .execute(executor)
             .await?;
         }
 
-        Ok(())
+        Ok(CliOutput::none())
     }
 }

@@ -1,6 +1,5 @@
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureDevOpsTenantArgumentExt;
-use cloud_terrastodon_azure::AzureTenantArgument;
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_cli::AzureDevOpsAuthenticationArgs;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemQueryCreateRequest;
@@ -19,9 +18,8 @@ pub struct AzureDevOpsWorkItemQueryCreateArgs {
     /// Project id or project name.
     #[facet(figue::named)]
     pub project: AzureDevOpsProjectArgument<'static>,
-    /// Tenant id or tracked alias for delegated authentication.
-    #[facet(figue::named)]
-    pub tenant: Option<AzureTenantArgument<'static>>,
+    #[facet(flatten)]
+    pub authentication: AzureDevOpsAuthenticationArgs,
     /// Existing destination folder UUID or path.
     #[facet(figue::named)]
     pub folder: AzureDevOpsWorkItemQueryPath,
@@ -34,18 +32,12 @@ pub struct AzureDevOpsWorkItemQueryCreateArgs {
 }
 
 impl AzureDevOpsWorkItemQueryCreateArgs {
-    pub async fn invoke(
-        self,
-        auth: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        let cancellation = executor.cancellation();
-        let auth_context = self.tenant.bind_auth_context(auth, cancellation).await?;
-        let executor = &auth_context.bind_executor(executor)?;
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        let auth_selection = self.authentication.resolve(&self.org, executor).await?;
         let query = AzureDevOpsWorkItemQueryCreateRequest {
             org_url: Cow::Borrowed(&self.org),
             project: self.project,
-            auth_context: Cow::Borrowed(&auth_context),
+            auth_selection,
             folder: self.folder,
             name: self.name,
             wiql: cloud_terrastodon_rest::read_optional_body(Some(self.wiql))
@@ -54,8 +46,6 @@ impl AzureDevOpsWorkItemQueryCreateArgs {
         }
         .execute(executor)
         .await?;
-        facet_json::to_writer_std_pretty(std::io::stdout(), &query)
-            .map_err(|error| eyre::eyre!("{error:?}"))?;
-        Ok(())
+        Ok(CliOutput::facet(query))
     }
 }

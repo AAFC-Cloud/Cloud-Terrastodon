@@ -1,7 +1,6 @@
-use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_cli::AzureDevOpsAuthenticationArgs;
 use cloud_terrastodon_azure::ArbitraryJson;
-use cloud_terrastodon_azure::AzureDevOpsTenantArgumentExt;
-use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsJsonPatch;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
@@ -23,8 +22,8 @@ pub struct AzureDevOpsWorkItemCreateArgs {
     pub org: AzureDevOpsOrganizationUrl,
     #[facet(figue::named)]
     pub project: AzureDevOpsProjectArgument<'static>,
-    #[facet(figue::named)]
-    pub tenant: Option<AzureTenantArgument<'static>>,
+    #[facet(flatten)]
+    pub authentication: AzureDevOpsAuthenticationArgs,
     /// Work item type name, including custom project types.
     #[facet(figue::named, rename = "type")]
     pub work_item_type: AzureDevOpsWorkItemType,
@@ -49,12 +48,7 @@ pub struct AzureDevOpsWorkItemCreateArgs {
 }
 
 impl AzureDevOpsWorkItemCreateArgs {
-    pub async fn invoke(
-        self,
-        auth: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        let cancellation = executor.cancellation();
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         let mut fields: AzureDevOpsWorkItemPatchFields = match self.fields {
             Some(input) => {
                 let body = cloud_terrastodon_rest::read_optional_body(Some(input))
@@ -85,8 +79,7 @@ impl AzureDevOpsWorkItemCreateArgs {
             }
             None => Vec::new(),
         };
-        let auth_context = self.tenant.bind_auth_context(auth, cancellation).await?;
-        let executor = &auth_context.bind_executor(executor)?;
+        let auth_selection = self.authentication.resolve(&self.org, executor).await?;
         if let Some(parent) = self.parent {
             relations.push(AzureDevOpsWorkItemRelationInput::parent(&self.org, parent)?);
         }
@@ -94,7 +87,7 @@ impl AzureDevOpsWorkItemCreateArgs {
         let item = AzureDevOpsWorkItemCreateRequest {
             org_url: Cow::Owned(self.org),
             project: self.project,
-            auth_context: Cow::Owned(auth_context),
+            auth_selection,
             work_item_type: self.work_item_type,
             patch,
             validate_only: self.validate_only,
@@ -102,8 +95,6 @@ impl AzureDevOpsWorkItemCreateArgs {
         }
         .execute(executor)
         .await?;
-        facet_json::to_writer_std_pretty(std::io::stdout(), &item)
-            .map_err(|error| eyre::eyre!("{error:?}"))?;
-        Ok(())
+        Ok(CliOutput::facet(item))
     }
 }

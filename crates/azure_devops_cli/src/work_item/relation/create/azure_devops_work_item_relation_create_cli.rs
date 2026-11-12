@@ -1,5 +1,5 @@
 use crate::work_item::relation::AzureDevOpsWorkItemRelationWriteArgs;
-use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use facet::Facet;
@@ -11,11 +11,7 @@ pub struct AzureDevOpsWorkItemRelationCreateArgs {
 }
 
 impl AzureDevOpsWorkItemRelationCreateArgs {
-    pub async fn invoke(
-        self,
-        auth: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        self.args.invoke(auth, true, executor).await
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        self.args.invoke(true, executor).await
     }
 }

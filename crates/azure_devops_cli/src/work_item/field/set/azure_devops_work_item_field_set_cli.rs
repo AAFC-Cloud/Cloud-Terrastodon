@@ -1,6 +1,5 @@
 use crate::work_item::field::show::AzureDevOpsWorkItemFieldShowArgs;
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureDevOpsTenantArgumentExt;
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_azure_devops::AzureDevOpsJsonPatch;
 use cloud_terrastodon_azure_devops::AzureDevOpsJsonPatchOperation;
 use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemUpdateRequest;
@@ -29,12 +28,7 @@ pub struct AzureDevOpsWorkItemFieldSetArgs {
 }
 
 impl AzureDevOpsWorkItemFieldSetArgs {
-    pub async fn invoke(
-        self,
-        auth: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        let cancellation = executor.cancellation();
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         let patch = AzureDevOpsJsonPatch::try_from(vec![AzureDevOpsJsonPatchOperation::Add {
             path: format!(
                 "/fields/{}",
@@ -48,16 +42,15 @@ impl AzureDevOpsWorkItemFieldSetArgs {
                     .map_err(|error| eyre::eyre!("Invalid JSON input: {error}"))?
             },
         }])?;
-        let auth_context = self
+        let auth_selection = self
             .field
-            .tenant
-            .bind_auth_context(auth, cancellation)
+            .authentication
+            .resolve(&self.field.org, executor)
             .await?;
-        let executor = &auth_context.bind_executor(executor)?;
         let item = AzureDevOpsWorkItemUpdateRequest {
             org_url: Cow::Owned(self.field.org),
             project: Some(self.field.project),
-            auth_context: Cow::Owned(auth_context),
+            auth_selection,
             id: self.field.id,
             patch,
             validate_only: self.validate_only,
@@ -66,8 +59,6 @@ impl AzureDevOpsWorkItemFieldSetArgs {
         }
         .execute(executor)
         .await?;
-        facet_json::to_writer_std_pretty(std::io::stdout(), &item)
-            .map_err(|error| eyre::eyre!("{error:?}"))?;
-        Ok(())
+        Ok(CliOutput::facet(item))
     }
 }

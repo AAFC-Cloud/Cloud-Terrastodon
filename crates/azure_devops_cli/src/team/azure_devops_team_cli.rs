@@ -1,6 +1,6 @@
 use crate::team::list::AzureDevOpsTeamListArgs;
 use crate::team::show::AzureDevOpsTeamShowArgs;
-use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use facet::Facet;
@@ -22,16 +22,10 @@ pub enum AzureDevOpsTeamCommand {
 }
 
 impl AzureDevOpsTeamArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         match self.command {
-            AzureDevOpsTeamCommand::List(args) => args.invoke(auth_context, executor).await?,
-            AzureDevOpsTeamCommand::Show(args) => args.invoke(auth_context, executor).await?,
+            AzureDevOpsTeamCommand::List(args) => Box::pin(args.invoke(executor)).await,
+            AzureDevOpsTeamCommand::Show(args) => Box::pin(args.invoke(executor)).await,
         }
-
-        Ok(())
     }
 }

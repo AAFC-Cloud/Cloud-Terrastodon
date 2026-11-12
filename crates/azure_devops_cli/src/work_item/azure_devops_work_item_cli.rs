@@ -7,7 +7,7 @@ use crate::work_item::relation::AzureDevOpsWorkItemRelationArgs;
 use crate::work_item::show::AzureDevOpsWorkItemShowArgs;
 use crate::work_item::r#type::AzureDevOpsWorkItemTypeArgs;
 use crate::work_item::update::AzureDevOpsWorkItemUpdateArgs;
-use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use facet::Facet;
@@ -43,21 +43,17 @@ pub enum AzureDevOpsWorkItemCommand {
 }
 
 impl AzureDevOpsWorkItemArgs {
-    pub async fn invoke(
-        self,
-        auth: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         match self.command {
-            AzureDevOpsWorkItemCommand::List(args) => args.invoke(auth, executor).await,
-            AzureDevOpsWorkItemCommand::Show(args) => args.invoke(auth, executor).await,
-            AzureDevOpsWorkItemCommand::Create(args) => args.invoke(auth, executor).await,
-            AzureDevOpsWorkItemCommand::Update(args) => args.invoke(auth, executor).await,
-            AzureDevOpsWorkItemCommand::Copy(args) => args.invoke(auth, executor).await,
-            AzureDevOpsWorkItemCommand::Field(args) => args.invoke(auth, executor).await,
-            AzureDevOpsWorkItemCommand::Relation(args) => args.invoke(auth, executor).await,
-            AzureDevOpsWorkItemCommand::Type(args) => args.invoke(auth, executor).await,
-            AzureDevOpsWorkItemCommand::Query(args) => args.invoke(auth, executor).await,
+            AzureDevOpsWorkItemCommand::List(args) => Box::pin(args.invoke(executor)).await,
+            AzureDevOpsWorkItemCommand::Show(args) => Box::pin(args.invoke(executor)).await,
+            AzureDevOpsWorkItemCommand::Create(args) => Box::pin(args.invoke(executor)).await,
+            AzureDevOpsWorkItemCommand::Update(args) => Box::pin(args.invoke(executor)).await,
+            AzureDevOpsWorkItemCommand::Copy(args) => Box::pin(args.invoke(executor)).await,
+            AzureDevOpsWorkItemCommand::Field(args) => Box::pin(args.invoke(executor)).await,
+            AzureDevOpsWorkItemCommand::Relation(args) => Box::pin(args.invoke(executor)).await,
+            AzureDevOpsWorkItemCommand::Type(args) => Box::pin(args.invoke(executor)).await,
+            AzureDevOpsWorkItemCommand::Query(args) => Box::pin(args.invoke(executor)).await,
         }
     }
 }

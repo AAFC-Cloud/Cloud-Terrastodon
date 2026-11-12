@@ -1,24 +1,20 @@
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureDevOpsTenantArgumentExt;
-use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure_devops::AzureDevOpsGroup;
-use cloud_terrastodon_azure_devops::AzureDevOpsGroupMembersV2Response;
+use super::azure_devops_project_dump_payload::AzureDevOpsProjectDumpPayload;
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_cli::AzureDevOpsAuthenticationArgs;
+use cloud_terrastodon_azure_devops::AzureDevOpsGroupMembersV2Request;
+use cloud_terrastodon_azure_devops::AzureDevOpsGroupsListRequest;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
-use cloud_terrastodon_azure_devops::AzureDevOpsProject;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
-use cloud_terrastodon_azure_devops::AzureDevOpsTeam;
-use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
-use cloud_terrastodon_azure_devops::fetch_azure_devops_group_members_v2;
-use cloud_terrastodon_azure_devops::fetch_azure_devops_groups_for_project;
-use cloud_terrastodon_azure_devops::fetch_azure_devops_teams_for_project;
+use cloud_terrastodon_azure_devops::AzureDevOpsProjectsListRequest;
+use cloud_terrastodon_azure_devops::AzureDevOpsTeamsForProjectRequest;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ConcurrentIteratorExt;
+use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
 use eyre::bail;
 use facet::Facet;
-use std::io::stdout;
+use std::borrow::Cow;
 use std::num::NonZeroUsize;
-use std::sync::Arc;
 use tracing::Instrument;
 use tracing::info;
 use tracing::info_span;
@@ -26,9 +22,8 @@ use tracing::info_span;
 /// Azure DevOps project dump command.
 #[derive(Facet, Debug, Clone)]
 pub struct AzureDevOpsProjectDumpArgs {
-    /// Tenant id or tracked alias for bearer authentication; PAT authentication may omit it.
-    #[facet(figue::named)]
-    pub tenant: Option<AzureTenantArgument<'static>>,
+    #[facet(flatten)]
+    pub authentication: AzureDevOpsAuthenticationArgs,
 
     /// Azure DevOps organization name or URL.
     #[facet(figue::named)]
@@ -38,36 +33,19 @@ pub struct AzureDevOpsProjectDumpArgs {
     project: AzureDevOpsProjectArgument<'static>,
 }
 
-#[derive(Facet)]
-struct AzureDevOpsProjectDumpPayload {
-    project: Arc<AzureDevOpsProject>,
-    teams: Vec<Arc<AzureDevOpsTeam>>,
-    groups: Vec<Arc<AzureDevOpsGroup>>,
-    group_members: Vec<Arc<AzureDevOpsGroupMembersV2Response>>,
-}
-
 impl AzureDevOpsProjectDumpArgs {
     /// Stubbed invoke implementation for the `dump` command.
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        let cancellation = executor.cancellation();
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         let span = info_span!("azure_devops_project_dump", project=%self.project);
         let _guard = span.clone().entered();
 
         info!("Fetching projects");
-        let azure_devops_auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
-            .await?;
-        let executor = &azure_devops_auth_context.bind_executor(executor)?;
-        let projects = fetch_all_azure_devops_projects(
-            &self.org,
-            azure_devops_auth_context.selection()?,
-            executor,
-        )
+        let auth_selection = self.authentication.resolve(&self.org, executor).await?;
+        let projects = AzureDevOpsProjectsListRequest {
+            org_url: Cow::Borrowed(&self.org),
+            auth_selection,
+        }
+        .execute(executor)
         .into_future()
         .instrument(span.clone())
         .await?;
@@ -76,22 +54,22 @@ impl AzureDevOpsProjectDumpArgs {
             bail!("No project found matching '{}'.", self.project);
         };
 
-        let teams = fetch_azure_devops_teams_for_project(
-            &self.org,
-            project.as_ref(),
-            &azure_devops_auth_context,
-            executor,
-        )
+        let teams = AzureDevOpsTeamsForProjectRequest {
+            org_url: Cow::Borrowed(&self.org),
+            auth_selection,
+            project: (project.as_ref()).into(),
+        }
+        .execute(executor)
         .into_future()
         .instrument(span.clone())
         .await?;
 
-        let groups = fetch_azure_devops_groups_for_project(
-            &self.org,
-            project.as_ref(),
-            &azure_devops_auth_context,
-            executor,
-        )
+        let groups = AzureDevOpsGroupsListRequest {
+            org_url: Cow::Borrowed(&self.org),
+            project: (project.as_ref()).into(),
+            auth_selection,
+        }
+        .execute(executor)
         .into_future()
         .instrument(span.clone())
         .await?;
@@ -103,12 +81,12 @@ impl AzureDevOpsProjectDumpArgs {
                 executor,
                 NonZeroUsize::MIN.saturating_add(3),
                 async |child, group| {
-                    let members = fetch_azure_devops_group_members_v2(
-                        &self.org,
-                        &group.descriptor,
-                        &azure_devops_auth_context,
-                        &child,
-                    )
+                    let members = AzureDevOpsGroupMembersV2Request {
+                        org_url: Cow::Borrowed(&self.org),
+                        group_id: Cow::Borrowed(&group.descriptor),
+                        auth_selection,
+                    }
+                    .execute(&child)
                     .into_future()
                     .instrument(span.clone())
                     .await;
@@ -127,9 +105,6 @@ impl AzureDevOpsProjectDumpArgs {
             group_members,
         };
 
-        facet_json::to_writer_std_pretty(stdout(), &payload)
-            .map_err(|error| eyre::eyre!("{error:?}"))?;
-
-        Ok(())
+        Ok(CliOutput::facet(payload))
     }
 }

@@ -2,7 +2,7 @@ use crate::work_item::query::create::AzureDevOpsWorkItemQueryCreateArgs;
 use crate::work_item::query::invoke::AzureDevOpsWorkItemQueryInvokeArgs;
 use crate::work_item::query::list::AzureDevOpsWorkItemQueryListArgs;
 use crate::work_item::query::show::AzureDevOpsWorkItemQueryShowArgs;
-use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use facet::Facet;
@@ -28,16 +28,12 @@ pub enum AzureDevOpsWorkItemQueryCommand {
 }
 
 impl AzureDevOpsWorkItemQueryArgs {
-    pub async fn invoke(
-        self,
-        auth: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         match self.command {
-            AzureDevOpsWorkItemQueryCommand::List(args) => args.invoke(auth, executor).await,
-            AzureDevOpsWorkItemQueryCommand::Show(args) => args.invoke(auth, executor).await,
-            AzureDevOpsWorkItemQueryCommand::Invoke(args) => args.invoke(auth, executor).await,
-            AzureDevOpsWorkItemQueryCommand::Create(args) => args.invoke(auth, executor).await,
+            AzureDevOpsWorkItemQueryCommand::List(args) => Box::pin(args.invoke(executor)).await,
+            AzureDevOpsWorkItemQueryCommand::Show(args) => Box::pin(args.invoke(executor)).await,
+            AzureDevOpsWorkItemQueryCommand::Invoke(args) => Box::pin(args.invoke(executor)).await,
+            AzureDevOpsWorkItemQueryCommand::Create(args) => Box::pin(args.invoke(executor)).await,
         }
     }
 }

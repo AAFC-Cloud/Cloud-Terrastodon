@@ -1,6 +1,6 @@
 use crate::agent_package::list::AzureDevOpsAgentPackageListArgs;
 use crate::agent_package::show_newest::AzureDevOpsAgentPackageShowNewestArgs;
-use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use facet::Facet;
@@ -22,20 +22,12 @@ pub enum AzureDevOpsAgentPackageCommand {
 }
 
 impl AzureDevOpsAgentPackageArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         match self.command {
-            AzureDevOpsAgentPackageCommand::List(args) => {
-                args.invoke(auth_context, executor).await?
-            }
+            AzureDevOpsAgentPackageCommand::List(args) => Box::pin(args.invoke(executor)).await,
             AzureDevOpsAgentPackageCommand::ShowNewest(args) => {
-                args.invoke(auth_context, executor).await?
+                Box::pin(args.invoke(executor)).await
             }
         }
-
-        Ok(())
     }
 }

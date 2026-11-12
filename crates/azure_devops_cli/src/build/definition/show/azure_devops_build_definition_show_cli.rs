@@ -1,14 +1,14 @@
 use cloud_terrastodon_app::CliOutput;
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureDevOpsTenantArgumentExt;
-use cloud_terrastodon_azure::AzureTenantArgument;
+use cloud_terrastodon_auth_cli::AzureDevOpsAuthenticationArgs;
+use cloud_terrastodon_azure_devops::AzureDevOpsBuildDefinitionGetRequest;
 use cloud_terrastodon_azure_devops::AzureDevOpsBuildDefinitionId;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
-use cloud_terrastodon_azure_devops::fetch_azure_devops_build_definition;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
 use facet::Facet;
+use std::borrow::Cow;
 
 /// Show a pipeline's full definition, including repository and YAML process details.
 ///
@@ -24,9 +24,8 @@ pub struct AzureDevOpsBuildDefinitionShowArgs {
     /// Project ID or name.
     #[facet(figue::named)]
     pub project: AzureDevOpsProjectArgument<'static>,
-    /// Tenant ID or tracked alias for delegated authentication.
-    #[facet(figue::named)]
-    pub tenant: Option<AzureTenantArgument<'static>>,
+    #[facet(flatten)]
+    pub authentication: AzureDevOpsAuthenticationArgs,
     /// Retrieve a specific definition revision. Defaults to the latest revision.
     #[facet(figue::named)]
     pub revision: Option<i32>,
@@ -41,25 +40,16 @@ pub struct AzureDevOpsBuildDefinitionShowArgs {
 }
 
 impl AzureDevOpsBuildDefinitionShowArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<CliOutput> {
-        let cancellation = executor.cancellation();
-        let auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
-            .await?;
-        let executor = &auth_context.bind_executor(executor)?;
-        let definition = fetch_azure_devops_build_definition(
-            &self.org,
-            self.project,
-            &auth_context,
-            self.id,
-            self.revision,
-            executor,
-        )
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        let auth_selection = self.authentication.resolve(&self.org, executor).await?;
+        let definition = AzureDevOpsBuildDefinitionGetRequest {
+            org_url: Cow::Borrowed(&self.org),
+            project: (self.project),
+            auth_selection,
+            definition_id: (self.id),
+            revision: (self.revision),
+        }
+        .execute(executor)
         .with_invalidation(self.no_cache)
         .await?;
         Ok(CliOutput::facet(definition))

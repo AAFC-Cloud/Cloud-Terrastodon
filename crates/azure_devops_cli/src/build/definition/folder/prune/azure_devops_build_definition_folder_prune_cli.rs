@@ -1,19 +1,19 @@
 use cloud_terrastodon_app::CliOutput;
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureDevOpsTenantArgumentExt;
-use cloud_terrastodon_azure::AzureTenantArgument;
+use cloud_terrastodon_auth_cli::AzureDevOpsAuthenticationArgs;
 use cloud_terrastodon_azure_devops::AzureDevOpsBuildFolderPathArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsBuildFolderPruneReport;
+use cloud_terrastodon_azure_devops::AzureDevOpsBuildFolderPruneRequest;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectArgument;
-use cloud_terrastodon_azure_devops::prune_azure_devops_build_definition_folders;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use color_eyre::owo_colors::OwoColorize;
 use color_eyre::owo_colors::Stream;
 use color_eyre::owo_colors::Style;
 use eyre::Result;
 use facet::Facet;
+use std::borrow::Cow;
 use std::io::Write;
 
 /// Remove empty build definition folders after fresh checks.
@@ -27,9 +27,8 @@ pub struct AzureDevOpsBuildDefinitionFolderPruneArgs {
     /// Explicit project ID, name, or `default`; a project selector is required.
     #[facet(figue::named)]
     pub project: AzureDevOpsProjectArgument<'static>,
-    /// Tenant ID or tracked alias for delegated authentication.
-    #[facet(figue::named)]
-    pub tenant: Option<AzureTenantArgument<'static>>,
+    #[facet(flatten)]
+    pub authentication: AzureDevOpsAuthenticationArgs,
     /// Restrict pruning to this folder and its descendants. Root is preserved.
     #[facet(figue::named)]
     pub path: Option<AzureDevOpsBuildFolderPathArgument>,
@@ -39,26 +38,17 @@ pub struct AzureDevOpsBuildDefinitionFolderPruneArgs {
 }
 
 impl AzureDevOpsBuildDefinitionFolderPruneArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<CliOutput> {
-        let cancellation = executor.cancellation();
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         let path = self.path.map(AzureDevOpsBuildFolderPathArgument::into_path);
-        let auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
-            .await?;
-        let executor = &auth_context.bind_executor(executor)?;
-        let report = prune_azure_devops_build_definition_folders(
-            &self.org,
-            self.project,
-            &auth_context,
-            path,
-            self.dry_run,
-            executor,
-        )
+        let auth_selection = self.authentication.resolve(&self.org, executor).await?;
+        let report = AzureDevOpsBuildFolderPruneRequest {
+            org_url: Cow::Borrowed(&self.org),
+            project: (self.project),
+            auth_selection,
+            path: (path),
+            dry_run: (self.dry_run),
+        }
+        .execute(executor)
         .await?;
         Ok(CliOutput::facet_with_text(report, write_prune_report))
     }
