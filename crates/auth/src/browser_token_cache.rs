@@ -17,6 +17,8 @@ use tokio::sync::MutexGuard;
 /// the same admission and credentials; separately constructed caches do not.
 #[derive(Clone, Default)]
 pub struct BrowserTokenCache {
+    pub(crate) credential_store:
+        Option<crate::cloud_terrastodon_account_secret_store::CloudTerrastodonAccountSecretStore>,
     tenant_id: Arc<OnceLock<AzureTenantId>>,
     client_id: Arc<OnceLock<EntraApplicationClientId>>,
     session: Arc<Mutex<BrowserTokenSession>>,
@@ -25,6 +27,7 @@ pub struct BrowserTokenCache {
 impl BrowserTokenCache {
     pub(crate) fn from_session(session: Option<&BrowserSession>) -> Self {
         Self {
+            credential_store: None,
             tenant_id: Arc::new(match session {
                 Some(session) => OnceLock::from(session.tenant_id),
                 None => OnceLock::new(),

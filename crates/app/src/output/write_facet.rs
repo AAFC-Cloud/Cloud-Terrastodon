@@ -9,7 +9,13 @@ use facet_pretty::PrettyPrinter;
 use std::io::Write;
 use teamy_cancellation::CancellationScope;
 
-pub(super) fn write_facet<T: Facet<'static>>(
+/// Render a Facet value using the shared CLI format and color policy.
+///
+/// Custom [`super::CliOutputValue`] implementations can retain an owned value and
+/// pass a borrowed projection here without cloning its records. The caller's
+/// output boundary resolves the format and supplies the cancellation-aware writer
+/// and final newline.
+pub fn write_facet<'facet, T: Facet<'facet>>(
     value: &T,
     format: OutputFormat,
     writer: &mut dyn Write,

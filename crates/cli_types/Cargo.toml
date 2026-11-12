@@ -13,6 +13,7 @@ categories.workspace = true
 [dependencies]
 arbitrary.workspace = true
 cloud_terrastodon_registry.workspace = true
+cloud_terrastodon_auth_types.workspace = true
 eyre.workspace = true
 facet.workspace = true
 http.workspace = true

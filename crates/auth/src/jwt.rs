@@ -86,7 +86,6 @@ fn decode_jwt_segment(segment: &str, label: &str) -> eyre::Result<String> {
 mod test {
     use base64::Engine;
     use base64::prelude::BASE64_URL_SAFE_NO_PAD;
-    use cloud_terrastodon_command::CancellationToken;
 
     #[test]
     fn decodes_claims() -> eyre::Result<()> {
@@ -163,21 +162,5 @@ mod test {
         assert_eq!(decoded.claims_json, r#"{"sub":"hello"}"#);
         assert_eq!(decoded.signature, "sig");
         Ok(())
-    }
-
-    #[tokio::test]
-    #[ignore = "requires an application-owned CLI login and live Azure access"]
-    pub async fn it_works() -> eyre::Result<()> {
-        CancellationToken::new()
-            .cancellable_scope(|cancellation| async move {
-                super::get_azure_access_token_jwt(
-                    &crate::AuthContext::explicit_azure_cli(),
-                    "11111111-1111-1111-1111-111111111111".parse()?,
-                    &cancellation,
-                )
-                .await?;
-                Ok(())
-            })
-            .await
     }
 }

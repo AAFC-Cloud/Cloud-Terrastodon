@@ -1,0 +1,25 @@
+[package]
+name = "cloud_terrastodon_auth_cli"
+description = "Account and authentication selection contracts for Cloud Terrastodon commands"
+version = "0.37.0" # CT_VERSION
+readme.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+arbitrary.workspace = true
+cloud_terrastodon_auth_types.workspace = true
+cloud_terrastodon_azure.workspace = true
+cloud_terrastodon_azure_devops_types.workspace = true
+cloud_terrastodon_cli_types.workspace = true
+cloud_terrastodon_execution.workspace = true
+eyre.workspace = true
+facet.workspace = true
+figue.workspace = true
+
+[lints]
+workspace = true

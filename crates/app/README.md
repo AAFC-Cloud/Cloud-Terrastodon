@@ -84,23 +84,34 @@ native Eyre downcasts while retaining the original report and its source chain.
 Other artifact writers can convert I/O errors into Eyre reports and normalize
 cancellation at their error boundary in the same way.
 
-Optional `auth` enables `--auth-source` and `AppContext::auth`. Optional `terminal`
-enables coordinated pickers/logs. Neither enables Cloud Terrastodon's full command
-tree or egui. Without `auth`, the runner supplies a disabled authentication
-provider and does not load the runtime credential implementation. Features are
-additive across a Cargo dependency graph.
+The runner defaults to `AnonymousAuthenticationProvider`, which supports local
+work and rejects credential use. Authenticated applications inject one shared
+provider through `App::authentication_provider(Arc::new(provider))`; the main CLI
+uses `CredentialAuthenticationProvider::configured()`. The app crate does not
+depend on the runtime credential implementation and has no `auth` feature.
+Optional `terminal` enables coordinated pickers/logs without enabling the full
+Cloud Terrastodon command tree or egui.
 
-`context.executor()` binds a cheap executor handle to the handler's current
-cancellation scope, selected authentication, and invocation-owned work cache.
+`context.executor()` creates a cheap executor handle using the handler's current
+cancellation scope, shared authentication provider, and invocation-owned cache.
 Requests implementing `ExecutableRequest` can use
 `context.executor().execute(request).await`; the equivalent request method is
 `request.execute(&executor).await` after binding a local executor handle.
-Repeated bindings share the cache owner and resolved credential session. Binding
-does not discover credentials, acquire tokens, or read cache contents. Startup
+Repeated handles share the provider and cache owner. Creating a handle does not
+discover credentials, acquire tokens, or read cache contents. Startup
 selects the `commands/work` subdirectory of the existing application cache root;
-the directory is created only when work needs to persist artifacts. The public
-`auth` and `cancellation` fields remain available for existing SDK callers; each
-new executor binding uses their current values.
+the directory is created only when work needs to persist artifacts. Local operations
+can use the public `cancellation` scope directly. Authenticated leaves resolve
+their tenant, account, and source into request data, then execute with the same
+executor; they do not configure a current account on it.
+
+Authentication arguments are not part of `GlobalArgs`. Service CLI leaves own
+them, using `cloud_terrastodon_auth_cli::AzureAuthenticationArgs` or
+`AzureDevOpsAuthenticationArgs` when that selection policy applies. These schemas
+resolve account metadata before serialization; the provider acquires the selected
+credential lazily during request execution. Local command schemas need no
+authentication fields. Source `auto` and omitted account selectors become a
+concrete source and stable ID before constructing the request.
 
 Authentication runtime state lives in `cloud_terrastodon_auth`; source and
 request selections live in `cloud_terrastodon_auth_types`. The facade exports
@@ -111,8 +122,9 @@ explicit bearer tenant selection, and application-owned Azure CLI logins.
 The runner owns process-global error/tracing/Ctrl-C hooks and its Tokio runtime;
 use once per process before another component installs those hooks.
 `run` and `run_parsed` automatically wrap the handler in a cancellable execution
-scope. Pass `&context.cancellation` directly to SDK operations; no extra handler
-wrapper is needed. Checks occur at poll boundaries, rather than every syntactic
+scope. Execute SDK requests with the context's executor, and pass
+`&context.cancellation` to scope-only operations; no extra handler wrapper is
+needed. Checks occur at poll boundaries, rather than every syntactic
 `.await`: already-ready awaits and synchronous loops can continue within one poll.
 Use a scope checkpoint or `tokio::task::yield_now().await` in long synchronous
 loops. Deeply nested deferrals retain the handler while protected work finishes;

@@ -11,6 +11,7 @@ mod write_facet;
 pub use cli_output::CliOutput;
 pub use cli_output_value::CliOutputValue;
 pub use output_format::OutputFormat;
+pub use write_facet::write_facet;
 
 #[cfg(test)]
 mod tests;

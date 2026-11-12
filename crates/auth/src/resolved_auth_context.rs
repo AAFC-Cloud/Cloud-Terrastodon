@@ -4,8 +4,12 @@ use crate::AzureDevOpsPersonalAccessToken;
 use crate::BrowserSession;
 use crate::BrowserTokenCache;
 use crate::WorkloadIdentityConfig;
+use crate::cloud_terrastodon_account_admission::CloudTerrastodonAccountAdmission;
+use crate::cloud_terrastodon_account_secret_store::CloudTerrastodonAccountSecretStore;
 use cloud_terrastodon_auth_types::AuthSource;
 use cloud_terrastodon_auth_types::AzureCredentialResource;
+use cloud_terrastodon_auth_types::CloudTerrastodonAccountId;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_types::AzureAccessToken;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use std::collections::HashMap;
@@ -17,13 +21,17 @@ use uuid::Uuid;
 pub(crate) type WorkloadIdentityTokenCache =
     Mutex<HashMap<(AzureTenantId, AzureCredentialResource), AzureAccessToken<AzureBearerToken>>>;
 
-/// Credential state belonging to one resolved invocation.
+/// Credential state belonging to one selected account mechanism and session.
 ///
 /// Fields stay internal because changing a source or principal while retaining
 /// its caches or partition would allow one identity to reuse another's results.
 #[derive(Debug)]
 pub struct ResolvedAuthContext {
-    pub(crate) requested_source: AuthSource,
+    pub(crate) admission: Arc<CloudTerrastodonAccountAdmission>,
+    pub(crate) account_id: CloudTerrastodonAccountId,
+    pub(crate) tenant_id: Option<AzureTenantId>,
+    pub(crate) organization: Option<AzureDevOpsOrganizationUrl>,
+    pub(crate) credential_store: Option<CloudTerrastodonAccountSecretStore>,
     pub(crate) source: AuthSource,
     pub(crate) workload_identity: Option<WorkloadIdentityConfig>,
     pub(crate) headless: bool,
@@ -37,14 +45,17 @@ pub struct ResolvedAuthContext {
 
 impl ResolvedAuthContext {
     pub(crate) fn new(
-        requested_source: AuthSource,
         source: AuthSource,
         workload_identity: Option<WorkloadIdentityConfig>,
         headless: bool,
         browser_session: Option<BrowserSession>,
     ) -> Self {
         Self {
-            requested_source,
+            admission: Arc::new(CloudTerrastodonAccountAdmission::new()),
+            account_id: CloudTerrastodonAccountId::new(Uuid::new_v4()),
+            tenant_id: None,
+            organization: None,
+            credential_store: None,
             source,
             workload_identity,
             headless,

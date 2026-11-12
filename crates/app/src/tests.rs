@@ -61,8 +61,6 @@ fn shared_defaults_match_explicit_construction() {
     assert_eq!(cli.global.log_file_filter, defaults.log_file_filter);
     assert_eq!(cli.global.log_file, defaults.log_file);
     assert_eq!(cli.global.output_format, defaults.output_format);
-    #[cfg(feature = "auth")]
-    assert_eq!(cli.global.auth_source, defaults.auth_source);
 }
 
 #[test]
@@ -94,10 +92,7 @@ fn help_inherits_shared_flags_and_complete_prose() {
             prose.contains("If omitted, the regular log filter is also used for the file output"),
             "{text}"
         );
-        #[cfg(not(feature = "auth"))]
         assert!(!text.contains("--auth-source"));
-        #[cfg(feature = "auth")]
-        assert_eq!(text.matches("--auth-source <SOURCE>").count(), 1);
     }
 }
 

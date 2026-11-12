@@ -13,13 +13,18 @@ categories.workspace = true
 [dependencies]
 url.workspace = true
 cloud_terrastodon_azure_types.workspace = true
+cloud_terrastodon_azure_devops_types.workspace = true
 cloud_terrastodon_registry.workspace = true
 arbitrary.workspace = true
 base64.workspace = true
 eyre.workspace = true
 facet.workspace = true
 http.workspace = true
+uuid.workspace = true
 linkme.workspace = true
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+facet-json.workspace = true

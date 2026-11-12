@@ -11,9 +11,7 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
-cloud_terrastodon_auth_types = { workspace = true, optional = true }
 cloud_terrastodon_tracing.workspace = true
-cloud_terrastodon_auth = { workspace = true, optional = true }
 cloud_terrastodon_cache.workspace = true
 cloud_terrastodon_execution.workspace = true
 cloud_terrastodon_pathing.workspace = true
@@ -35,7 +33,6 @@ windows = { version = "0.62.2", features = ["Win32_System_Console", "Win32_Globa
 
 [features]
 default = []
-auth = ["dep:cloud_terrastodon_auth", "dep:cloud_terrastodon_auth_types"]
 terminal = ["dep:cloud_terrastodon_user_input"]
 arbitrary = ["dep:arbitrary"]
 extended_observability = [
@@ -47,3 +44,7 @@ tracy = ["cloud_terrastodon_tracing/tracy", "extended_observability"]
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+cloud_terrastodon_auth_types.workspace = true
+cloud_terrastodon_execution = { workspace = true, features = ["test-support"] }

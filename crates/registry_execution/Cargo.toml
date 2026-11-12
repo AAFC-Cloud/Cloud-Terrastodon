@@ -12,13 +12,16 @@ categories.workspace = true
 
 [dependencies]
 cloud_terrastodon_execution.workspace = true
+cloud_terrastodon_cache.workspace = true
 cloud_terrastodon_registry.workspace = true
 eyre.workspace = true
 arbitrary.workspace = true
 facet.workspace = true
 facet-reflect.workspace = true
+facet-json.workspace = true
 linkme.workspace = true
 rand.workspace = true
+regex.workspace = true
 teamy-cancellation.workspace = true
 tracing.workspace = true
 

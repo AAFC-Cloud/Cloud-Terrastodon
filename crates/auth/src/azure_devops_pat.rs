@@ -45,7 +45,7 @@ impl TryFrom<AzureDevOpsPersonalAccessToken> for HeaderValue {
     }
 }
 
-pub async fn get_azure_devops_personal_access_token_from_credential_manager()
+pub(crate) async fn read_legacy_azure_devops_personal_access_token()
 -> eyre::Result<AzureDevOpsPersonalAccessToken> {
     #[cfg(windows)]
     return read_azure_devops_pat_from_credential_manager();
@@ -57,7 +57,6 @@ pub async fn get_azure_devops_personal_access_token_from_credential_manager()
 
 #[cfg(test)]
 mod test {
-    use crate::get_azure_devops_personal_access_token_from_credential_manager;
 
     #[test]
     fn diagnostics_redact_pat_while_header_access_is_explicit() {
@@ -65,19 +64,5 @@ mod test {
         assert!(!format!("{token:?}").contains("synthetic-secret-pat"));
         assert!(!format!("{token}").contains("synthetic-secret-pat"));
         assert_eq!(token.as_ref(), "synthetic-secret-pat");
-    }
-
-    #[tokio::test]
-    #[ignore = "reads credentials from the real user environment"]
-    pub async fn non_empty() -> eyre::Result<()> {
-        let credential = get_azure_devops_personal_access_token_from_credential_manager()
-            .await
-            .ok();
-        if let Some(credential) = credential {
-            assert!(!credential.is_empty());
-        } else {
-            println!("No credential found, skipping test");
-        }
-        Ok(())
     }
 }

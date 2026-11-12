@@ -1,6 +1,6 @@
 use super::AzureAppServiceListArgs;
 use super::AzureAppServiceShowArgs;
-use cloud_terrastodon_auth::AuthContext;
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use facet::Facet;
@@ -16,14 +16,10 @@ pub enum AzureAppServiceCommand {
 }
 
 impl AzureAppServiceCommand {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         match self {
-            AzureAppServiceCommand::List(args) => args.invoke(auth_context, executor).await,
-            AzureAppServiceCommand::Show(args) => args.invoke(auth_context, executor).await,
+            AzureAppServiceCommand::List(args) => Box::pin(args.invoke(executor)).await,
+            AzureAppServiceCommand::Show(args) => Box::pin(args.invoke(executor)).await,
         }
     }
 }

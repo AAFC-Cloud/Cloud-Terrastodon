@@ -1,6 +1,4 @@
 use crate::OutputFormat;
-#[cfg(feature = "auth")]
-use cloud_terrastodon_auth_types::AuthSource;
 use facet::Facet;
 use std::path::PathBuf;
 
@@ -8,18 +6,10 @@ use std::path::PathBuf;
 ///
 /// Flatten this into your own root CLI. [`crate::App::parse_from`] and
 /// [`crate::App::run`] supply Figue's standard builtin flags internally.
-/// Authentication selection is available with the `auth` feature. Prefer
+/// Authentication is selected by service commands. Prefer
 /// `Default` over exhaustive struct literals so optional facilities compose.
 #[derive(Facet, Debug, Clone, PartialEq, Eq)]
 pub struct GlobalArgs {
-    /// Authentication source preference. `auto` uses workload identity when
-    /// configured and otherwise defaults to Azure CLI. Browser authentication
-    /// can be selected explicitly or configured per tenant. `none` disables
-    /// credential discovery and authenticated requests for local-only commands.
-    #[cfg(feature = "auth")]
-    #[facet(figue::named, default = AuthSource::default(), figue::label = "SOURCE")]
-    pub auth_source: AuthSource,
-
     /// Enable debug logging, including backtraces on panics.
     #[facet(figue::named, default = false)]
     pub debug: bool,
@@ -48,8 +38,6 @@ pub struct GlobalArgs {
 impl Default for GlobalArgs {
     fn default() -> Self {
         Self {
-            #[cfg(feature = "auth")]
-            auth_source: AuthSource::default(),
             debug: false,
             log_filter: "info".into(),
             log_file_filter: None,
@@ -63,8 +51,6 @@ impl Default for GlobalArgs {
 impl<'a> arbitrary::Arbitrary<'a> for GlobalArgs {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
-            #[cfg(feature = "auth")]
-            auth_source: AuthSource::arbitrary(u)?,
             debug: bool::arbitrary(u)?,
             log_filter: String::arbitrary(u)?,
             log_file_filter: Option::<String>::arbitrary(u)?,

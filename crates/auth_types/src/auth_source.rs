@@ -6,10 +6,11 @@ use std::str::FromStr;
 
 /// Selects the credential source used by Azure resource requests.
 ///
-/// `Auto` prefers a complete workload-identity environment and otherwise uses
-/// Azure CLI. Browser authentication must be selected explicitly or through a
-/// tracked tenant's authentication default. `None` disables authentication and
-/// credential discovery for local-only operations.
+/// `Auto` uses the concrete preferred source on the selected named account,
+/// including a deliberately configured account default. It never discovers
+/// credentials from the environment or the ambient Azure CLI session. Explicit
+/// sources select a registered mechanism on that same account. `None` disables authentication and credential
+/// discovery for local-only operations.
 /// These are application preferences rather than resolved request credentials.
 /// See [Microsoft identity authentication flows](https://learn.microsoft.com/en-us/entra/identity-platform/authentication-flows-app-scenarios).
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, Arbitrary, Facet)]

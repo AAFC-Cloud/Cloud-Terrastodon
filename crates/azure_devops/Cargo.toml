@@ -22,7 +22,6 @@ cloud_terrastodon_command.workspace = true
 cloud_terrastodon_user_input.workspace = true
 cloud_terrastodon_hcl_types.workspace = true
 cloud_terrastodon_pathing.workspace = true
-cloud_terrastodon_auth.workspace = true
 cloud_terrastodon_rest.workspace = true
 cloud_terrastodon_registry.workspace = true
 linkme.workspace = true
@@ -36,8 +35,6 @@ itertools.workspace = true
 rand.workspace = true
 indoc.workspace = true
 humantime.workspace = true
-ratatui = { workspace = true, optional = true }
-ratatui-textarea = { workspace = true, optional = true }
 base64.workspace = true
 blake3.workspace = true
 reqwest.workspace = true
@@ -47,11 +44,6 @@ arbitrary.workspace = true
 [dev-dependencies]
 cloud_terrastodon_execution = { workspace = true, features = ["test-support"] }
 test-log.workspace = true
-
-[features]
-# Enables text user interface support
-tui = ["ratatui", "ratatui-textarea"]
-default = ["tui"]
 
 [lints]
 workspace = true

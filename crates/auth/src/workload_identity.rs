@@ -2,132 +2,11 @@ use crate::CancellationScope;
 use crate::WorkloadIdentityConfig;
 use crate::workload_identity_token_response::WorkloadIdentityTokenResponse;
 use cloud_terrastodon_auth_types::AzureCredentialResource;
-use cloud_terrastodon_azure_types::AzureTenantId;
-use cloud_terrastodon_azure_types::EntraApplicationClientId;
 use eyre::Context;
 use eyre::Result;
-use eyre::bail;
 use reqwest::Client;
 use reqwest::Url;
 use std::fmt::Write;
-
-pub const AZURE_CLIENT_ID_ENV: &str = "AZURE_CLIENT_ID";
-pub const AZURE_TENANT_ID_ENV: &str = "AZURE_TENANT_ID";
-pub const AZURE_FEDERATED_TOKEN_ENV: &str = "AZURE_FEDERATED_TOKEN";
-pub const SERVICE_PRINCIPAL_ID_ENV: &str = "servicePrincipalId";
-pub const TASK_TENANT_ID_ENV: &str = "tenantId";
-pub const TASK_ID_TOKEN_ENV: &str = "idToken";
-
-/// Reads either the Azure SDK names or Azure DevOps task names.
-pub fn load_workload_identity_config() -> Result<Option<WorkloadIdentityConfig>> {
-    normalize_workload_identity_inputs(
-        read_env(AZURE_CLIENT_ID_ENV)?,
-        read_env(SERVICE_PRINCIPAL_ID_ENV)?,
-        read_env(AZURE_TENANT_ID_ENV)?,
-        read_env(TASK_TENANT_ID_ENV)?,
-        read_env(AZURE_FEDERATED_TOKEN_ENV)?,
-        read_env(TASK_ID_TOKEN_ENV)?,
-    )
-}
-
-fn read_env(name: &str) -> Result<Option<String>> {
-    match std::env::var(name) {
-        Ok(value) if !value.trim().is_empty() => Ok(Some(value)),
-        Ok(_) => Ok(None),
-        Err(std::env::VarError::NotPresent) => Ok(None),
-        Err(std::env::VarError::NotUnicode(_)) => {
-            bail!("{name} must be valid UTF-8");
-        }
-    }
-}
-
-fn resolve_alias(
-    label: &str,
-    first_name: &str,
-    first: Option<String>,
-    second_name: &str,
-    second: Option<String>,
-) -> Result<Option<String>> {
-    match (first, second) {
-        (Some(first), Some(second)) if first != second => {
-            bail!(
-                "conflicting workload identity values for {label}; {first_name} and {second_name} must match"
-            );
-        }
-        (Some(value), _) | (_, Some(value)) => Ok(Some(value)),
-        (None, None) => Ok(None),
-    }
-}
-
-fn required_input(label: &str, value: Option<String>, names: &[&str]) -> Result<String> {
-    value.ok_or_else(|| {
-        eyre::eyre!(
-            "workload identity is incomplete: {label} is required ({})",
-            names.join(" or ")
-        )
-    })
-}
-
-pub(crate) fn normalize_workload_identity_inputs(
-    azure_client_id: Option<String>,
-    service_principal_id: Option<String>,
-    azure_tenant_id: Option<String>,
-    task_tenant_id: Option<String>,
-    azure_federated_token: Option<String>,
-    task_id_token: Option<String>,
-) -> Result<Option<WorkloadIdentityConfig>> {
-    let client_id = resolve_alias(
-        "client ID",
-        AZURE_CLIENT_ID_ENV,
-        azure_client_id,
-        SERVICE_PRINCIPAL_ID_ENV,
-        service_principal_id,
-    )?;
-    let tenant_id = resolve_alias(
-        "tenant ID",
-        AZURE_TENANT_ID_ENV,
-        azure_tenant_id,
-        TASK_TENANT_ID_ENV,
-        task_tenant_id,
-    )?;
-    let federated_token = resolve_alias(
-        "federated token",
-        AZURE_FEDERATED_TOKEN_ENV,
-        azure_federated_token,
-        TASK_ID_TOKEN_ENV,
-        task_id_token,
-    )?;
-
-    if client_id.is_none() && tenant_id.is_none() && federated_token.is_none() {
-        return Ok(None);
-    }
-
-    let client_id = required_input(
-        "client ID",
-        client_id,
-        &[AZURE_CLIENT_ID_ENV, SERVICE_PRINCIPAL_ID_ENV],
-    )?
-    .parse::<EntraApplicationClientId>()
-    .map_err(|_| eyre::eyre!("workload identity client ID is not a valid UUID"))?;
-    let tenant_id = required_input(
-        "tenant ID",
-        tenant_id,
-        &[AZURE_TENANT_ID_ENV, TASK_TENANT_ID_ENV],
-    )?
-    .parse::<AzureTenantId>()
-    .map_err(|_| eyre::eyre!("workload identity tenant ID is not a valid UUID"))?;
-    let federated_token = required_input(
-        "federated token",
-        federated_token,
-        &[AZURE_FEDERATED_TOKEN_ENV, TASK_ID_TOKEN_ENV],
-    )?;
-
-    Ok(Some(WorkloadIdentityConfig {
-        client_id,
-        tenant_id,
-        federated_token,
-    }))
-}
 
 pub(crate) fn form_urlencoded(parameters: &[(&str, &str)]) -> String {
     parameters
@@ -189,9 +68,6 @@ pub(crate) async fn exchange_workload_identity_assertion(
 mod tests {
     use super::*;
     use cloud_terrastodon_auth_types::AzureCredentialResource;
-    use cloud_terrastodon_azure_types::AzureTenantId;
-    use cloud_terrastodon_azure_types::EntraApplicationClientId;
-    use std::str::FromStr;
 
     fn ids() -> (String, String) {
         (
@@ -201,82 +77,13 @@ mod tests {
     }
 
     #[test]
-    fn accepts_either_complete_environment_contract() -> Result<()> {
-        let (client, tenant) = ids();
-        let config = normalize_workload_identity_inputs(
-            Some(client.clone()),
-            None,
-            Some(tenant.clone()),
-            None,
-            Some("assertion".to_string()),
-            None,
-        )?
-        .expect("canonical contract should be configured");
-        assert_eq!(
-            config.client_id,
-            EntraApplicationClientId::from_str(&client)?
-        );
-        assert_eq!(config.tenant_id, AzureTenantId::from_str(&tenant)?);
-
-        let config = normalize_workload_identity_inputs(
-            None,
-            Some(client.clone()),
-            None,
-            Some(tenant.clone()),
-            None,
-            Some("assertion".to_string()),
-        )?
-        .expect("task contract should be configured");
-        assert_eq!(
-            config.client_id,
-            EntraApplicationClientId::from_str(&client)?
-        );
-        assert_eq!(config.tenant_id, AzureTenantId::from_str(&tenant)?);
-        Ok(())
-    }
-
-    #[test]
-    fn rejects_partial_and_conflicting_inputs_without_values() -> Result<()> {
-        let (_, tenant) = ids();
-        let error = normalize_workload_identity_inputs(
-            None,
-            None,
-            Some(tenant),
-            None,
-            Some("assertion".to_string()),
-            None,
-        )
-        .expect_err("missing client ID should fail");
-        let message = format!("{error:?}");
-        assert!(message.contains("client ID"));
-        assert!(!message.contains("assertion"));
-
-        let (client, _) = ids();
-        let error = normalize_workload_identity_inputs(
-            Some(client),
-            Some("33333333-3333-3333-3333-333333333333".to_string()),
-            None,
-            None,
-            None,
-            None,
-        )
-        .expect_err("conflicting aliases should fail");
-        assert!(format!("{error:?}").contains("conflicting"));
-        Ok(())
-    }
-
-    #[test]
     fn builds_resource_specific_exchange_form_without_logging_assertion() -> Result<()> {
         let (client, tenant) = ids();
-        let config = normalize_workload_identity_inputs(
-            Some(client.clone()),
-            None,
-            Some(tenant),
-            None,
-            Some("secret-assertion".to_string()),
-            None,
-        )?
-        .unwrap();
+        let config = WorkloadIdentityConfig {
+            client_id: client.parse()?,
+            tenant_id: tenant.parse()?,
+            federated_token: "secret-assertion".to_owned(),
+        };
         let form = form_urlencoded(&[
             ("client_id", &config.client_id.to_string()),
             ("scope", AzureCredentialResource::AzureDevOps.scope()),

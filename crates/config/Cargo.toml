@@ -26,5 +26,8 @@ facet-value = { workspace = true }
 arbitrary.workspace = true
 linkme = { workspace = true }
 
+[dev-dependencies]
+tempfile.workspace = true
+
 [lints]
 workspace = true

@@ -50,6 +50,7 @@ impl Cli {
         executor: &CloudTerrastodonExecutor,
     ) -> eyre::Result<()> {
         let requested_format = self.global_args.output_format;
+        let retain_report = matches!(&self.command, Some(CloudTerrastodonCommand::Test(_)));
         // Keep command and interactive-menu futures out of this outer future's
         // inline state; nested debug poll frames otherwise exhaust small stacks.
         let output = match self.command {
@@ -67,7 +68,13 @@ impl Cli {
                 output::CliOutput::none()
             }
         };
-        output.emit(requested_format, cancellation)
+        if retain_report {
+            cancellation.finish_required_sync("emit runtime verification report", |protected| {
+                output.emit(requested_format, &protected)
+            })
+        } else {
+            output.emit(requested_format, cancellation)
+        }
     }
 }
 
@@ -78,7 +85,6 @@ mod tests {
     use crate::cli::azure::azure_command_cli::AzureCommand;
     use crate::cli::azure::pim::AzurePimCommand;
     use crate::cli::azure::subscription::AzureSubscriptionCommand;
-    use crate::cli::azure::tenant::AzureTenantCommand;
     use crate::cli::azure_devops::AzureDevOpsArgs;
     use crate::cli::azure_devops::azure_devops_command_cli::AzureDevOpsCommand;
     use crate::cli::azure_devops::build::AzureDevOpsBuildArgs;
@@ -165,9 +171,9 @@ mod tests {
                     global_args: GlobalArgs::default(),
                     command: Some(CloudTerrastodonCommand::Azure(azure)),
                 };
-                // The placeholder context must fail while configuring REST auth,
+                // Disabled authentication must fail while configuring REST auth,
                 // before credentials, cached output, or HTTP are accessed.
-                let auth_context = AuthContext::Unresolved;
+                let auth_context = AuthContext::None;
                 let cancellation_token = CancellationToken::new();
                 let runtime = tokio::runtime::Builder::new_current_thread()
                     .build()
@@ -186,11 +192,11 @@ mod tests {
                             cli.invoke(&cancellation, &auth_context, &executor).await
                         },
                     )))
-                    .expect_err("placeholder authentication should fail locally");
+                    .expect_err("disabled authentication should fail locally");
                 assert!(error.chain().any(|cause| {
                     cause
                         .to_string()
-                        .contains("the placeholder Azure DevOps context cannot bind an executor")
+                        .contains("authentication is disabled by auth source none")
                 }));
             })?
             .join()
@@ -204,7 +210,10 @@ mod tests {
             vec!["--output-format", "json", "az", "sub", "list"],
             vec!["az", "subscription", "list", "--output-format", "json"],
         ] {
-            let cli: Cli = figue::from_slice(&arguments).unwrap();
+            let cli: Cli = figue::from_slice(&arguments)
+                .into_result()
+                .expect("synthetic CLI arguments should parse")
+                .get();
             assert_eq!(cli.global_args.output_format, Some(OutputFormat::Json));
             let Some(CloudTerrastodonCommand::Azure(azure)) = cli.command else {
                 panic!("expected Azure command");
@@ -228,7 +237,9 @@ mod tests {
             "--output-format",
             "text",
         ])
-        .unwrap();
+        .into_result()
+        .expect("synthetic CLI arguments should parse")
+        .get();
         assert_eq!(cli.global_args.output_format, Some(OutputFormat::Text));
         let Some(CloudTerrastodonCommand::Azure(azure)) = cli.command else {
             panic!("expected Azure command");
@@ -293,7 +304,10 @@ mod tests {
                 "facet-pretty",
             ],
         ] {
-            let cli: Cli = figue::from_slice(&arguments).unwrap();
+            let cli: Cli = figue::from_slice(&arguments)
+                .into_result()
+                .expect("synthetic CLI arguments should parse")
+                .get();
             assert!(cli.global_args.output_format.is_some());
         }
     }
@@ -301,7 +315,10 @@ mod tests {
     #[test]
     fn parses_the_linux_project_list_vertical_slice() {
         let cli: Cli =
-            figue::from_slice(&["az", "devops", "project", "list", "--org", "synthetic"]).unwrap();
+            figue::from_slice(&["az", "devops", "project", "list", "--org", "synthetic"])
+                .into_result()
+                .expect("synthetic CLI arguments should parse")
+                .get();
         let Some(CloudTerrastodonCommand::Azure(azure)) = cli.command else {
             panic!("expected the az command alias");
         };
@@ -318,38 +335,6 @@ mod tests {
     }
 
     #[test]
-    fn parses_the_browser_tenant_login_vertical_slice() {
-        let cli: Cli = figue::from_slice(&["az", "tenant", "login", "agr"]).unwrap();
-        let Some(CloudTerrastodonCommand::Azure(azure)) = cli.command else {
-            panic!("expected the az command alias");
-        };
-        let AzureCommand::Tenant(tenant) = azure.command else {
-            panic!("expected the tenant command");
-        };
-        let AzureTenantCommand::Login(login) = tenant.command else {
-            panic!("expected the login command");
-        };
-        assert_eq!(login.tenant.to_string(), "agr");
-    }
-
-    #[test]
-    fn parses_the_tenant_auth_source_setting_vertical_slice() {
-        let cli: Cli =
-            figue::from_slice(&["az", "tenant", "set-auth-source", "agr", "browser"]).unwrap();
-        let Some(CloudTerrastodonCommand::Azure(azure)) = cli.command else {
-            panic!("expected the az command alias");
-        };
-        let AzureCommand::Tenant(tenant) = azure.command else {
-            panic!("expected the tenant command");
-        };
-        let AzureTenantCommand::SetAuthSource(set_auth_source) = tenant.command else {
-            panic!("expected the set-auth-source command");
-        };
-        assert_eq!(set_auth_source.tenant.to_string(), "agr");
-        assert_eq!(set_auth_source.auth_source, AuthSource::Browser);
-    }
-
-    #[test]
     fn parses_the_unauthenticated_pim_client_id_bootstrap() {
         let cli: Cli = figue::from_slice(&[
             "az",
@@ -360,7 +345,9 @@ mod tests {
             "--client-id",
             "11111111-1111-1111-1111-111111111111",
         ])
-        .unwrap();
+        .into_result()
+        .expect("synthetic CLI arguments should parse")
+        .get();
         let Some(CloudTerrastodonCommand::Azure(azure)) = cli.command else {
             panic!("expected the az command alias");
         };

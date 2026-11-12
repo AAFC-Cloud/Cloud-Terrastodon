@@ -951,6 +951,7 @@ dependencies = [
  "cloud_terrastodon_auth",
  "cloud_terrastodon_auth_types",
  "cloud_terrastodon_cache",
+ "cloud_terrastodon_cli_types",
  "cloud_terrastodon_execution",
  "cloud_terrastodon_pathing",
  "cloud_terrastodon_tracing",
@@ -973,14 +974,13 @@ name = "cloud_terrastodon_auth"
 version = "0.37.0"
 dependencies = [
  "arbitrary",
- "async-trait",
  "base64",
  "chrono",
  "cloud_terrastodon_auth_types",
+ "cloud_terrastodon_azure_devops_types",
  "cloud_terrastodon_azure_types",
  "cloud_terrastodon_cache",
  "cloud_terrastodon_command",
- "cloud_terrastodon_config",
  "cloud_terrastodon_execution",
  "cloud_terrastodon_pathing",
  "cloud_terrastodon_registry",
@@ -1005,13 +1005,16 @@ version = "0.37.0"
 dependencies = [
  "arbitrary",
  "base64",
+ "cloud_terrastodon_azure_devops_types",
  "cloud_terrastodon_azure_types",
  "cloud_terrastodon_registry",
  "eyre",
  "http",
  "linkme",
  "teamy-facet",
+ "teamy-facet-json",
  "url",
+ "uuid",
 ]
 
 [[package]]
@@ -1068,6 +1071,8 @@ dependencies = [
  "cloud_terrastodon_command",
  "cloud_terrastodon_config",
  "cloud_terrastodon_execution",
+ "cloud_terrastodon_registry",
+ "cloud_terrastodon_registry_execution",
  "cloud_terrastodon_user_input",
  "color-eyre",
  "eyre",
@@ -1075,6 +1080,7 @@ dependencies = [
  "indexmap",
  "indoc",
  "itertools",
+ "linkme",
  "nucleo",
  "serde_json",
  "strum 0.27.2",
@@ -1094,7 +1100,6 @@ dependencies = [
  "base64",
  "blake3",
  "chrono",
- "cloud_terrastodon_auth",
  "cloud_terrastodon_auth_types",
  "cloud_terrastodon_azure_devops_types",
  "cloud_terrastodon_azure_types",
@@ -1113,8 +1118,6 @@ dependencies = [
  "itertools",
  "linkme",
  "rand 0.10.2",
- "ratatui",
- "ratatui-textarea",
  "reqwest",
  "teamy-facet",
  "teamy-facet-json",
@@ -1245,6 +1248,7 @@ name = "cloud_terrastodon_cli_types"
 version = "0.37.0"
 dependencies = [
  "arbitrary",
+ "cloud_terrastodon_auth_types",
  "cloud_terrastodon_registry",
  "eyre",
  "http",
@@ -1300,6 +1304,7 @@ dependencies = [
  "teamy-facet",
  "teamy-facet-json",
  "teamy-facet-value",
+ "tempfile",
  "tokio",
  "tracing",
 ]
@@ -1379,6 +1384,8 @@ dependencies = [
 name = "cloud_terrastodon_excalidraw"
 version = "0.37.0"
 dependencies = [
+ "cloud_terrastodon_cache",
+ "cloud_terrastodon_execution",
  "cloud_terrastodon_registry",
  "cloud_terrastodon_registry_execution",
  "eyre",
@@ -1404,6 +1411,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "tracing",
+ "url",
 ]
 
 [[package]]
@@ -1413,6 +1421,7 @@ dependencies = [
  "arbitrary",
  "blake3",
  "chrono",
+ "cloud_terrastodon_auth_types",
  "cloud_terrastodon_cache",
  "cloud_terrastodon_command",
  "cloud_terrastodon_execution",
@@ -1437,6 +1446,7 @@ dependencies = [
  "arbitrary",
  "async-trait",
  "cloud_terrastodon_auth",
+ "cloud_terrastodon_auth_types",
  "cloud_terrastodon_azure",
  "cloud_terrastodon_azure_devops",
  "cloud_terrastodon_cache",
@@ -1444,12 +1454,15 @@ dependencies = [
  "cloud_terrastodon_execution",
  "cloud_terrastodon_hcl_types",
  "cloud_terrastodon_pathing",
+ "cloud_terrastodon_registry",
+ "cloud_terrastodon_registry_execution",
  "cloud_terrastodon_relative_location",
  "directories-next",
  "eyre",
  "hcl-rs",
  "indoc",
  "itertools",
+ "linkme",
  "rand 0.10.2",
  "reqwest",
  "teamy-facet",
@@ -1515,8 +1528,10 @@ dependencies = [
  "eyre",
  "linkme",
  "rand 0.10.2",
+ "regex",
  "teamy-cancellation",
  "teamy-facet",
+ "teamy-facet-json",
  "teamy-facet-reflect",
  "tokio",
  "tracing",
@@ -1585,6 +1600,7 @@ version = "0.37.0"
 dependencies = [
  "arbitrary",
  "chrono",
+ "cloud_terrastodon_execution",
  "cloud_terrastodon_registry",
  "cloud_terrastodon_registry_execution",
  "cloud_terrastodon_source_types",

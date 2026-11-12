@@ -16,11 +16,59 @@ use uuid::Uuid;
 ///
 /// Identity-bearing files are private authentication state, never work artifacts.
 /// Publishing a fresh generation does not change an existing provider's binding.
+#[derive(Clone)]
 pub(crate) struct AzureCliSessionStore {
     root: PathBuf,
 }
 
 impl AzureCliSessionStore {
+    pub(crate) fn at(root: PathBuf) -> Self {
+        Self { root }
+    }
+
+    /// Explicitly adopt one application-owned legacy tenant session. This never
+    /// reads the Azure CLI ambient configuration directory.
+    pub(crate) async fn import_legacy(
+        &self,
+        tenant: AzureTenantId,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let legacy = Self::configured().load(tenant, cancellation).await?;
+        let _legacy_lease = legacy.lease(cancellation).await?;
+        let generation = Uuid::new_v4();
+        let destination = self.root.join("generations").join(generation.to_string());
+        Self::prepare_directory(&destination)?;
+        let mut pending = vec![(legacy.directory.clone(), destination)];
+        while let Some((source, target)) = pending.pop() {
+            cancellation.bail_if_cancelled()?;
+            for child in std::fs::read_dir(source)? {
+                let child = child?;
+                let kind = child.file_type()?;
+                ensure!(
+                    !kind.is_symlink(),
+                    "legacy credential storage contains a symbolic link; cannot import it"
+                );
+                if child.file_name() == "session.lock" {
+                    continue;
+                }
+                let output = target.join(child.file_name());
+                if kind.is_dir() {
+                    Self::prepare_directory(&output)?;
+                    pending.push((child.path(), output));
+                } else if kind.is_file() {
+                    std::fs::copy(child.path(), output)?;
+                }
+            }
+        }
+        cancellation.with_deferral("publishing imported Azure CLI credentials", |_| {
+            Self::prepare_directory(&self.root.join("tenants"))?;
+            std::fs::write(
+                self.root.join("tenants").join(tenant.to_string()),
+                generation.to_string(),
+            )?;
+            eyre::Ok(())
+        })
+    }
     pub(crate) fn configured() -> Self {
         Self {
             root: AppDir::Config.join("azure-cli-sessions"),
@@ -46,7 +94,7 @@ impl AzureCliSessionStore {
     ) -> Result<AzureCliSession> {
         ensure!(
             self.root.try_exists()?,
-            "no Cloud Terrastodon Azure CLI session exists; run azure tenant login with --auth-source azure-cli and an explicit tenant"
+            "no Cloud Terrastodon Azure CLI session exists; run ct account login for the registered Azure CLI account"
         );
         let _lease = AzureCliSession::lock(&self.root.join("store.lock"), cancellation).await?;
         let generation = std::fs::read_to_string(

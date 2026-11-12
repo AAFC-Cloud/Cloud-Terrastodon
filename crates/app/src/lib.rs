@@ -29,10 +29,6 @@ mod windows_support;
 pub use app::App;
 pub use app_context::AppContext;
 pub use application_cli::ApplicationCli;
-#[cfg(feature = "auth")]
-pub use cloud_terrastodon_auth::AuthContext;
-#[cfg(feature = "auth")]
-pub use cloud_terrastodon_auth_types::AuthSource;
 pub use eyre::Result;
 pub use facet;
 pub use figue;
@@ -40,6 +36,7 @@ pub use global_args::GlobalArgs;
 pub use output::CliOutput;
 pub use output::CliOutputValue;
 pub use output::OutputFormat;
+pub use output::write_facet;
 pub use startup::install_error_hook;
 pub use startup::prepare_process;
 pub use teamy_cancellation::CancellationReportExt;

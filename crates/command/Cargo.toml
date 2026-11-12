@@ -21,8 +21,8 @@ cloud_terrastodon_config.workspace = true
 cloud_terrastodon_relative_location.workspace = true
 cloud_terrastodon_registry.workspace = true
 teamy-cancellation.workspace = true
-tokio.workspace = true 
-eyre.workspace = true 
+tokio.workspace = true
+eyre.workspace = true
 facet.workspace = true
 facet-json.workspace = true
 tempfile.workspace = true
@@ -37,6 +37,7 @@ linkme.workspace = true
 
 arbitrary.workspace = true
 [dev-dependencies]
+cloud_terrastodon_execution = { workspace = true, features = ["test-support"] }
 cloud_terrastodon_user_input.workspace = true
 ratatui.workspace = true
 tracing-subscriber.workspace=true

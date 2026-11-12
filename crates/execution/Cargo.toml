@@ -22,6 +22,8 @@ futures.workspace = true
 teamy-cancellation = { workspace = true, features = ["inheritance"] }
 tracing.workspace = true
 tokio.workspace = true
+tempfile.workspace = true
+url.workspace = true
 
 [dev-dependencies]
 cloud_terrastodon_execution = { workspace = true, features = ["test-support"] }

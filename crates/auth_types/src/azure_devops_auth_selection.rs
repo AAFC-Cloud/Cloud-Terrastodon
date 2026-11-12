@@ -1,6 +1,6 @@
-use crate::AzureBearerAuthSource;
+use crate::AzureBearerAuthenticationSelection;
+use crate::CloudTerrastodonAccountId;
 use arbitrary::Arbitrary;
-use cloud_terrastodon_azure_types::AzureTenantId;
 use facet::Facet;
 
 /// Credential selection carried by a serializable Azure DevOps request.
@@ -12,11 +12,10 @@ use facet::Facet;
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Arbitrary, Facet)]
 #[repr(u8)]
 pub enum AzureDevOpsAuthSelection {
-    Bearer {
-        auth_source: AzureBearerAuthSource,
-        tenant_id: AzureTenantId,
+    Bearer(AzureBearerAuthenticationSelection),
+    PersonalAccessToken {
+        account_id: CloudTerrastodonAccountId,
     },
-    PersonalAccessToken,
 }
 
 cloud_terrastodon_registry::register_thing!(AzureDevOpsAuthSelection);

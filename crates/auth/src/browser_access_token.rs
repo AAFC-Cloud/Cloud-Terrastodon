@@ -12,6 +12,7 @@ use cloud_terrastodon_auth_types::AzureCredentialResource;
 use cloud_terrastodon_azure_types::AzureAccessToken;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_azure_types::EntraApplicationClientId;
+use cloud_terrastodon_azure_types::EntraUserId;
 use cloud_terrastodon_pathing::AppDir;
 use eyre::Context;
 use eyre::Result;
@@ -21,7 +22,6 @@ use reqwest::Url;
 use sha2::Digest;
 use sha2::Sha256;
 use std::fmt::Write;
-use std::fs::OpenOptions;
 use std::time::Duration;
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
@@ -76,69 +76,6 @@ pub(crate) fn load_browser_session() -> Result<Option<BrowserSession>> {
     facet_json::from_str::<BrowserSession>(&content)
         .map(|session| (!session.refresh_token.trim().is_empty()).then_some(session))
         .map_err(|_| eyre::eyre!("could not deserialize the local browser authentication session"))
-}
-
-pub(crate) fn store_browser_session(session: &BrowserSession) -> Result<()> {
-    // Serialization diagnostics must not expose the sensitive session value.
-    let path = AppDir::Config.join(BROWSER_SESSION_FILE);
-    let Some(parent) = path.parent() else {
-        bail!("browser authentication session path has no parent directory");
-    };
-    std::fs::create_dir_all(parent).wrap_err("creating the browser authentication directory")?;
-    #[cfg(windows)]
-    let content = facet_json::to_string_pretty(&BrowserSessionMetadata {
-        tenant_id: session.tenant_id,
-        client_id: session.client_id,
-    })
-    .map_err(|_| eyre::eyre!("could not serialize the browser authentication session metadata"))?;
-    #[cfg(not(windows))]
-    let content = facet_json::to_string_pretty(session)
-        .map_err(|_| eyre::eyre!("could not serialize the browser authentication session"))?;
-
-    let mut options = OpenOptions::new();
-    options.create(true).truncate(true).write(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::OpenOptionsExt;
-        options.mode(0o600);
-    }
-    use std::io::Write as _;
-    let mut file = options
-        .open(&path)
-        .wrap_err("opening the browser authentication session file")?;
-    file.write_all(content.as_bytes())
-        .wrap_err("writing the browser authentication session")?;
-    #[cfg(unix)]
-    std::fs::set_permissions(&path, std::os::unix::fs::PermissionsExt::from_mode(0o600))
-        .wrap_err("restricting browser authentication session permissions")?;
-    #[cfg(windows)]
-    {
-        let target = browser_session_target(&session.tenant_id, &session.client_id)?;
-        crate::write_credential_to_manager(&target, &session.refresh_token)
-            .wrap_err("persisting the browser refresh token in Windows Credential Manager")?;
-    }
-    Ok(())
-}
-
-#[cfg(not(windows))]
-pub(crate) fn delete_browser_session(
-    tenant_id: AzureTenantId,
-    client_id: EntraApplicationClientId,
-) {
-    let path = AppDir::Config.join(BROWSER_SESSION_FILE);
-    if let Ok(Some(session)) = load_browser_session()
-        && (session.tenant_id != tenant_id || session.client_id != client_id)
-    {
-        return;
-    }
-    if let Err(error) = std::fs::remove_file(path)
-        && error.kind() != std::io::ErrorKind::NotFound
-    {
-        debug!(
-            ?error,
-            "Could not delete the local browser authentication session"
-        );
-    }
 }
 
 #[cfg(windows)]
@@ -224,11 +161,14 @@ pub(crate) async fn fetch_browser_access_token(
                             // handoff within this provider's existing partition.
                             session.remember(acquisition_key, token);
                             if let Some(refresh_token) = session.refresh_token() {
-                                store_browser_session(&BrowserSession {
+                                let saved = BrowserSession {
                                     tenant_id,
                                     client_id,
                                     refresh_token: refresh_token.to_owned(),
-                                })?;
+                                };
+                                if let Some(store) = &cache.credential_store {
+                                    store.write(&facet_json::to_string(&saved).map_err(|_| eyre::eyre!("serializing the refreshed account credential failed"))?)?;
+                                }
                             }
                             eyre::Ok(access_token)
                         },
@@ -260,40 +200,37 @@ fn initial_browser_resource(resource: AzureCredentialResource) -> AzureCredentia
     }
 }
 
-/// Complete one delegated browser login and persist the resulting refresh
-/// token for later resource-specific token exchanges.
-pub async fn login_browser_session(
+/// Complete explicit browser login and verify the authenticated tenant-local
+/// Graph user before returning its captured refresh credential to the account store.
+pub(crate) async fn acquire_browser_session(
     tenant_id: AzureTenantId,
     client_id: EntraApplicationClientId,
     cancellation: &CancellationScope,
-) -> Result<()> {
-    cancellation
-        .cancellable_scope(|cancellation| async move {
-            // Request consent for every delegated resource during the one browser
-            // handoff. Entra can then redeem the resulting refresh token for one
-            // resource at a time without forcing a second browser prompt when the
-            // caller first reaches ARM or Azure DevOps.
-            let scopes = delegated_login_scopes();
-            let token = request_with_authorization_code(
-                tenant_id,
-                client_id,
-                AzureCredentialResource::MicrosoftGraph,
-                &scopes,
-                &cancellation,
-            )
-            .await?;
-            let refresh_token = token
+) -> Result<(BrowserSession, EntraUserId)> {
+    let token = request_with_authorization_code(
+        tenant_id,
+        client_id,
+        AzureCredentialResource::MicrosoftGraph,
+        &delegated_login_scopes(),
+        cancellation,
+    )
+    .await?;
+    let principal =
+        crate::entra_authenticated_user_identity::EntraAuthenticatedUserIdentity::verify(
+            &token.access_token.access_token,
+            cancellation,
+        )
+        .await?;
+    Ok((
+        BrowserSession {
+            tenant_id,
+            client_id,
+            refresh_token: token
                 .refresh_token
-                .clone()
-                .ok_or_else(|| eyre::eyre!("Entra browser login did not return a refresh token"))?;
-            store_browser_session(&BrowserSession {
-                tenant_id,
-                client_id,
-                refresh_token,
-            })?;
-            Ok(())
-        })
-        .await
+                .ok_or_else(|| eyre::eyre!("browser login did not return a refresh credential"))?,
+        },
+        principal,
+    ))
 }
 
 fn delegated_login_scopes() -> String {
@@ -309,42 +246,9 @@ fn delegated_login_scopes() -> String {
     .join(" ")
 }
 
-/// Acquire a delegated token for the PIM module with caller-provided scopes.
-/// The PIM module keeps its existing Windows Credential Manager refresh-token
-/// persistence, while this module owns the shared callback and token parsing.
-pub(crate) async fn fetch_browser_access_token_with_scopes(
-    tenant_id: AzureTenantId,
-    client_id: EntraApplicationClientId,
-    resource: AzureCredentialResource,
-    scopes: &str,
-    cancellation: &CancellationScope,
-) -> Result<BrowserAccessToken> {
-    cancellation
-        .cancellable_scope(|cancellation| async move {
-            request_with_authorization_code(tenant_id, client_id, resource, scopes, &cancellation)
-                .await
-        })
-        .await
-}
-
-pub(crate) async fn refresh_browser_access_token(
-    tenant_id: AzureTenantId,
-    client_id: EntraApplicationClientId,
-    resource: AzureCredentialResource,
-    scopes: &str,
-    refresh_token: &str,
-    cancellation: &CancellationScope,
-) -> Result<BrowserAccessToken> {
-    request_with_refresh_token(
-        tenant_id,
-        client_id,
-        resource,
-        scopes,
-        refresh_token,
-        cancellation,
-    )
-    .await
-}
+/// Perform the authorization-code/PKCE exchange for explicit browser provisioning.
+/// The named account owns refresh-credential persistence; this function owns
+/// the callback and token parsing for the requested scopes.
 
 #[instrument(level = "debug", skip_all)]
 async fn request_with_authorization_code(

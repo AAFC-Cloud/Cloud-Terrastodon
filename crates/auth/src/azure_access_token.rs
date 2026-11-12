@@ -2,13 +2,13 @@ use crate::AuthContext;
 use crate::AzureBearerToken;
 use crate::CancellationScope;
 use crate::browser_access_token::fetch_browser_access_token;
-use crate::pim_client_id;
 use crate::workload_identity::exchange_workload_identity_assertion;
 use chrono::Local;
 use chrono::TimeDelta;
 use cloud_terrastodon_auth_types::AuthSource;
 use cloud_terrastodon_auth_types::AuthenticationSelection;
 use cloud_terrastodon_auth_types::AzureBearerAuthSource;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_auth_types::AzureCredentialResource;
 use cloud_terrastodon_azure_types::AzureAccessToken;
 use cloud_terrastodon_azure_types::AzureTenantId;
@@ -24,10 +24,13 @@ pub async fn fetch_azure_access_token(
     resource: AzureCredentialResource,
     cancellation: &CancellationScope,
 ) -> eyre::Result<AzureAccessToken<AzureBearerToken>> {
-    auth_context.admit(&AuthenticationSelection::AzureBearer {
-        auth_source: AzureBearerAuthSource::AzureCli,
-        tenant_id: tenant,
-    })?;
+    auth_context.admit(&AuthenticationSelection::AzureBearer(
+        AzureBearerAuthenticationSelection {
+            account_id: auth_context.account_id()?,
+            auth_source: AzureBearerAuthSource::AzureCli,
+            tenant_id: tenant,
+        },
+    ))?;
     auth_context
         .azure_cli_sessions()
         .ok_or_else(|| eyre::eyre!("Azure CLI session is not configured"))?
@@ -52,10 +55,13 @@ pub async fn fetch_azure_bearer_access_token(
         }
         Some(source) => AzureBearerAuthSource::try_from(source)?,
     };
-    auth_context.admit(&AuthenticationSelection::AzureBearer {
-        auth_source: source,
-        tenant_id: tenant,
-    })?;
+    auth_context.admit(&AuthenticationSelection::AzureBearer(
+        AzureBearerAuthenticationSelection {
+            account_id: auth_context.account_id()?,
+            auth_source: source,
+            tenant_id: tenant,
+        },
+    ))?;
     cancellation
         .cancellable_scope(|cancellation| async move {
             match source {
@@ -107,11 +113,14 @@ pub async fn fetch_azure_bearer_access_token(
                     fetch_azure_access_token(auth_context, tenant, resource, &cancellation).await
                 }
                 AzureBearerAuthSource::Browser => {
-                    let client_id = if let Some(session) = auth_context.browser_session() {
-                        session.client_id
-                    } else {
-                        pim_client_id(&tenant, &cancellation).await?
-                    };
+                    let client_id = auth_context
+                        .browser_session()
+                        .ok_or_else(|| {
+                            eyre::eyre!(
+                                "no named-account browser session was supplied; use account login"
+                            )
+                        })?
+                        .client_id;
                     fetch_browser_access_token(
                         auth_context
                             .browser_token_cache()
@@ -119,7 +128,7 @@ pub async fn fetch_azure_bearer_access_token(
                         tenant,
                         client_id,
                         resource,
-                        auth_context.allows_interactive_browser_login(),
+                        false,
                         &cancellation,
                     )
                     .await
@@ -168,16 +177,14 @@ mod test {
     use crate::AuthContext;
     use crate::AzureBearerToken;
     use crate::azure_access_token::TOKEN_REFRESH_BUFFER_SECONDS;
-    use crate::azure_access_token::fetch_azure_devops_bearer_access_token;
-    use crate::create_azure_devops_rest_client;
     use chrono::Local;
     use chrono::TimeDelta;
     use cloud_terrastodon_auth_types::AuthSource;
+    use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
     use cloud_terrastodon_azure_types::AzureAccessToken;
     use cloud_terrastodon_azure_types::AzureTenantId;
     use cloud_terrastodon_azure_types::TokenType;
     use cloud_terrastodon_command::CancellationToken;
-    use facet_json::RawJson;
 
     #[test]
     fn explicit_context_is_used_for_dispatch() -> eyre::Result<()> {
@@ -194,11 +201,14 @@ mod test {
                 let tenant = "11111111-1111-1111-1111-111111111111".parse().unwrap();
                 let error = context
                     .admit(
-                        &cloud_terrastodon_auth_types::AuthenticationSelection::AzureBearer {
-                            auth_source:
-                                cloud_terrastodon_auth_types::AzureBearerAuthSource::AzureCli,
-                            tenant_id: tenant,
-                        },
+                        &cloud_terrastodon_auth_types::AuthenticationSelection::AzureBearer(
+                            AzureBearerAuthenticationSelection {
+                                account_id: context.account_id()?,
+                                auth_source:
+                                    cloud_terrastodon_auth_types::AzureBearerAuthSource::AzureCli,
+                                tenant_id: tenant,
+                            },
+                        ),
                     )
                     .expect_err("headless admission must fail before any reusable result lookup");
                 assert!(error.to_string().contains("headless"));
@@ -240,7 +250,7 @@ mod test {
     async fn disabled_authentication_fails_before_token_acquisition() {
         CancellationToken::new()
             .cancellable_scope(|cancellation| async move {
-                let context = AuthContext::resolve(AuthSource::None)?;
+                let context = AuthContext::None;
                 let error = super::fetch_azure_bearer_access_token(
                     &context,
                     "11111111-1111-1111-1111-111111111111".parse().unwrap(),
@@ -276,70 +286,5 @@ mod test {
             now
         ));
         Ok(())
-    }
-
-    #[tokio::test]
-    #[ignore = "requires a signed-in Azure CLI and live Azure DevOps access"]
-    pub async fn it_works_profiles() -> eyre::Result<()> {
-        CancellationToken::new()
-            .cancellable_scope(|cancellation| async move {
-                // this endpoint only works with the `az account get-access-token`, not with a raw PAT
-                let url =
-                    "https://app.vssps.visualstudio.com/_apis/profile/profiles/me?api-version=6.0";
-
-                let token = fetch_azure_devops_bearer_access_token(
-                    &AuthContext::explicit_azure_cli(),
-                    "11111111-1111-1111-1111-111111111111".parse()?,
-                    &cancellation,
-                )
-                .await?;
-                let client = create_azure_devops_rest_client(&token).await?;
-
-                let resp = client.get(url).send().await?;
-                let status = resp.status();
-
-                let content = resp.text().await?;
-
-                assert_eq!(200, status.as_u16(), "{:?}", status.canonical_reason());
-                let parsed = facet_json::from_str::<RawJson<'static>>(&content)?;
-                assert!(parsed.as_str().trim_start().starts_with('{'));
-                Ok(())
-            })
-            .await
-    }
-
-    #[tokio::test]
-    #[ignore] // todo: remove, deprecate in favour of get_azure_devops_personal_access_token_from_credential_manager
-    pub async fn it_works_projects() -> eyre::Result<()> {
-        CancellationToken::new()
-            .cancellable_scope(|cancellation| async move {
-                // this endpoint only works with the `az account get-access-token`, not with a raw PAT
-                let url = "https://dev.azure.com/aafc/_apis/projects?api-version=7.1";
-
-                let token = fetch_azure_devops_bearer_access_token(
-                    &AuthContext::explicit_azure_cli(),
-                    "11111111-1111-1111-1111-111111111111".parse()?,
-                    &cancellation,
-                )
-                .await?;
-                let client = create_azure_devops_rest_client(&token).await?;
-
-                let resp = client.get(url).send().await?;
-                let status = resp.status();
-
-                let content = resp.text().await?;
-
-                assert_eq!(
-                    200,
-                    status.as_u16(),
-                    "{} - {:?}",
-                    status.as_u16(),
-                    status.canonical_reason()
-                );
-                let parsed = facet_json::from_str::<RawJson<'static>>(&content)?;
-                assert!(parsed.as_str().trim_start().starts_with('{'));
-                Ok(())
-            })
-            .await
     }
 }

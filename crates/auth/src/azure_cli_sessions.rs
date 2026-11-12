@@ -6,7 +6,6 @@ use cloud_terrastodon_azure_types::AzureAccessToken;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
-use eyre::ensure;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -16,9 +15,16 @@ use tokio::sync::Mutex;
 #[derive(Clone, Default)]
 pub(crate) struct AzureCliSessions {
     sessions: Arc<Mutex<HashMap<AzureTenantId, Arc<AzureCliSession>>>>,
+    store: Option<AzureCliSessionStore>,
 }
 
 impl AzureCliSessions {
+    pub(crate) fn at(root: std::path::PathBuf) -> Self {
+        Self {
+            sessions: Arc::default(),
+            store: Some(AzureCliSessionStore::at(root)),
+        }
+    }
     async fn session(
         &self,
         tenant: AzureTenantId,
@@ -29,30 +35,14 @@ impl AzureCliSessions {
             return Ok(session.clone());
         }
         let session = Arc::new(
-            AzureCliSessionStore::configured()
+            self.store
+                .as_ref()
+                .ok_or_else(|| eyre::eyre!("no named-account Azure CLI store was supplied"))?
                 .load(tenant, cancellation)
                 .await?,
         );
         sessions.insert(tenant, session.clone());
         Ok(session)
-    }
-
-    /// Explicitly create and select a fresh login. Acquisition never calls this.
-    pub(crate) async fn login(
-        &self,
-        tenant: AzureTenantId,
-        cancellation: &CancellationScope,
-    ) -> Result<()> {
-        let mut sessions = self.sessions.lock().await;
-        ensure!(
-            !sessions.contains_key(&tenant),
-            "this authentication context is already bound to an Azure CLI session; create a new context to log in again"
-        );
-        let session = AzureCliSessionStore::configured()
-            .login(tenant, cancellation)
-            .await?;
-        sessions.insert(tenant, Arc::new(session));
-        Ok(())
     }
 
     pub(crate) async fn fetch_bearer_access_token(
@@ -64,12 +54,6 @@ impl AzureCliSessions {
         self.session(tenant, cancellation)
             .await?
             .fetch_token(resource, cancellation)
-            .await
-    }
-
-    pub(crate) async fn logout_all(cancellation: &CancellationScope) -> Result<()> {
-        AzureCliSessionStore::configured()
-            .logout_all(cancellation)
             .await
     }
 }

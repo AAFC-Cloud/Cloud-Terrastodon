@@ -16,33 +16,3 @@ pub async fn create_azure_devops_rest_client(token: &impl AuthBearerExt) -> eyre
         .build()?;
     Ok(client)
 }
-
-#[cfg(test)]
-#[allow(
-    clippy::disallowed_types,
-    reason = "This transport test inspects a raw JSON response without a domain schema."
-)]
-mod test {
-    use crate::create_azure_devops_rest_client;
-    use crate::get_azure_devops_personal_access_token_from_credential_manager;
-    use facet_json::RawJson;
-
-    #[tokio::test]
-    #[ignore = "requires a PAT and live Azure DevOps access"]
-    pub async fn it_works() -> eyre::Result<()> {
-        let url = "https://dev.azure.com/aafc/_apis/projects?api-version=7.1";
-
-        let pat = get_azure_devops_personal_access_token_from_credential_manager().await?;
-        let client = create_azure_devops_rest_client(&pat).await?;
-
-        let resp = client.get(url).send().await?;
-        let status = resp.status();
-
-        let content = resp.text().await?;
-
-        assert_eq!(200, status.as_u16(), "{:?}", status.canonical_reason());
-        let parsed = facet_json::from_str::<RawJson<'static>>(&content)?;
-        assert!(parsed.as_str().trim_start().starts_with('{'));
-        Ok(())
-    }
-}

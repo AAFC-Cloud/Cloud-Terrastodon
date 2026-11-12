@@ -1,5 +1,13 @@
 # Unreleased
 
+- Add named Cloud Terrastodon accounts with stable IDs, tenant/service-scoped aliases, explicit defaults, and isolated CLI/browser/workload/PAT/Gitea credential sessions. Requests select an admitted account; logout retires its cache partition and dependent results while required work drains.
+
+- Complete the request-first SDK cutover: pure serializable account/source/tenant fields, domain-prefixed Azure/Entra request and Azure resource-group/storage-account families, and direct `Request { ... }.execute(executor)` calls. Remove trivial fetch factories, runtime fields, reflective cancellation injection, and ambient Azure CLI defaults. This is a breaking API change without compatibility exports.
+
+- Move live Cargo checks into a separate runtime verification registry. `ct test list` inspects metadata; `ct test run <pattern>` requires explicit service inputs and effect admission. Optional `--clean` uses the normal request invalidation contract; cached runs warn without adding a replay mode.
+
+- Split Azure audit policies into independently executable activities returning typed findings while sharing decoded principal/RBAC inventories. Allow applications to supply their own shared `WorkCache`, including temporary owners.
+
 - Share the loading-state adapter and background task tracker between egui and Ratatui. Remove duplicate UI work types and delivery-policy flags; cancellation scopes determine required completion. Drain earlier jobs before saving final GUI settings.
 
 - Give picker callbacks linked cancellation scopes and retain required completion across reload, exit, and failure. Drain background jobs and nested pickers during application shutdown, including after task panics; keep terminal cleanup alive without shielding optional reads. Replace blocking tab-warning prompts with in-picker notifications.
@@ -28,23 +36,21 @@
 
 - Preserve request-specific errors through direct executor calls, including recoverable partial results. Registry invocation converts errors to reports only at its erased boundary; cancellation retains the request's chosen error type.
 
-- Route REST execution through the caller-owned executor and shared cache. Explicit cached receives share canonical decoded `Arc` values; owned receives execute every call, and existing uncached Work Item Tracking reads retain that policy. Preserve caller validation, continuation metadata, failure artifacts, and cancellation through mutations and invalidation. Migrate SDK, CLI, UI, tools, and example callers; the subsequent inventory phase adds aggregate memoization and canonical concrete principal-batch decoding.
+- Route REST execution through the caller-owned executor and shared cache. Explicit cached receives share canonical decoded `Arc` values; owned receives execute every call, and existing uncached Work Item Tracking reads retain that policy. Preserve caller validation, continuation metadata, failure artifacts, and cancellation through mutations and invalidation. SDK, CLI, UI, tools, and example callers use the same lifecycle, including aggregate memoization and canonical principal-batch decoding.
 
-- Keep REST authentication as explicit source/tenant selection. Credential providers own token acquisition, including isolated Container Registry challenge exchanges and invocation-owned PIM Graph credentials; requests no longer retain runtime credentials or cancellation scopes.
+- Keep REST authentication as explicit account/source/tenant selection. Credential providers own token acquisition, including isolated Container Registry challenge exchanges and delegated Graph credentials; requests no longer retain runtime credentials or cancellation scopes.
 
-- Bind each selected tenant's authentication provider to its executor, preserving tracked authentication overrides, cache ownership, cancellation, and execution lineage across CLI and UI callers.
+- Bind explicitly selected accounts to the executor's admitted provider map, preserving cache ownership, cancellation, and execution lineage across CLI and UI callers.
 
 - Remove the Command-owned global cache and legacy request-cache APIs. Cache listing and cleanup use the explicit `WorkCache` owner and a metadata-only inventory that never reads cached payloads or credential inputs.
 
 - Acquire the first browser Container Registry token through a consented Graph session followed by an ACR refresh exchange. Preserve the established session if the second exchange fails or is cancelled.
 
-- Invalidate cached local DevOps configuration after attempting a defaults change, including when command artifact persistence fails after the CLI has already changed the configuration.
-
-- Restore `.with_invalidation(bool)` on executor-bound requests. Keep `HasCacheKey` independent of invalidation policy: requests opt into their own key, declare several keys, or implement custom async invalidation. Composed default selections select their underlying request keys. Invalidation remains lazy and must succeed before execution begins.
+- Restore `.with_invalidation(bool)` on executor-bound requests. Keep `HasCacheKey` independent of invalidation policy: requests opt into their own key, declare several keys, or implement custom async invalidation. Composed requests invalidate their underlying reads. Invalidation remains lazy and must succeed before execution begins.
 
 - Reuse `ArbitraryJson` for opaque Azure/DevOps values and preserve their generator constraints. Add a workspace Clippy reminder for direct `RawJson` usage, with documented codec and transport exceptions.
 
-- Add a tenant-bound REST authentication setter that extracts the selected source and tenant together; reuse it in Azure SDK callers and Azure DevOps bearer authentication without retaining runtime credentials.
+- Transfer pure authentication selections to REST through its `authentication` setter; Azure and Azure DevOps bearer selections retain the account, source, and tenant without runtime credentials.
 
 - Share Azure DevOps account/MSDN license types between combined selections, REST responses, and updates. Preserve existing license strings and aliases; match group rules by licensing source and reject unknown update selections before authentication.
 
@@ -62,13 +68,13 @@
 
 - Add `cloud_terrastodon_execution` with explicitly bound request execution, shared cache/authentication handles, linked cancellation scopes, and an injected credential-provider interface. `AppContext::executor()` binds the current app context without credential discovery or cache I/O; existing auth/cancellation fields remain available.
 
-- Bind registry invocation and UI jobs to the explicit executor. `register_executable_request!` supports data-only requests and shared outputs; offline discovery does not acquire credentials or execute requests. Each UI job retains independent cancellation. The separately tagged legacy `IntoFuture` callback remains until its SDK and local request callers migrate.
+- Bind registry invocation and UI jobs to the explicit executor. `register_executable_request!` supports data-only requests and shared outputs; offline discovery does not acquire credentials or execute requests. Each UI job retains independent cancellation. Remove the legacy `IntoFuture` registration callback and reflective cancellation injection.
 
 - Rename `cloud_terrastodon_credentials` to `cloud_terrastodon_auth` and move authentication selections and credential audiences into `cloud_terrastodon_auth_types`, without compatibility exports. The facade now uses `auth` and `auth-types`; `AzureTenantId` remains in `azure_types`.
 
-- Require an explicit tenant for Azure CLI bearer authentication, including Azure DevOps; PAT authentication remains tenant-independent. Establish persistent, application-owned CLI logins with `ct az tenant login <ID-or-alias> --auth-source azure-cli`. Token acquisition no longer relies on ambient CLI login state or starts an implicit login. Policy remediation and storage-backend container inventory now use typed ARM REST requests with the selected context; the CLI service runner and allowlist are removed. Container inventory is management metadata and does not establish blob-data access. Legacy unbound SDK helpers remain scheduled for request migration. See [authentication](docs/authentication.md).
+- Require an explicit tenant for Azure CLI bearer authentication, including Azure DevOps; PAT authentication remains tenant-independent. Establish persistent, account-owned CLI logins with `ct account login <account-id>` after registering the source and tenant. Token acquisition no longer relies on ambient CLI login state or starts an implicit login. Policy remediation and storage-backend container inventory use typed ARM REST requests; the CLI service runner and allowlist are removed. Container inventory is management metadata and does not establish blob-data access. See [authentication](docs/authentication.md).
 
-- Expose resource-provider metadata through `azure_types` and `azure::fetch_all_resource_providers`, including tenant-scoped pagination, cached pages, and invalidation. The maintenance tool consumes this SDK surface; provider-relative names preserve unknown types and service spelling for enum generation.
+- Expose resource-provider metadata through `azure_types` and `azure::AzureResourceProviderListRequest`, including tenant-scoped pagination, cached pages, and invalidation. The maintenance tool consumes this SDK surface; provider-relative names preserve unknown types and service spelling for enum generation.
 
 - Move Terraform formatting to `hcl::AsFormattedHclString`, keeping pure HCL conversions in `hcl_types`. Extract resource-type maintenance into the unpublished `tools/resource-types-cli` with offline generation/checking and explicit tenant ID-or-alias/source refresh. The types crates no longer depend transitively on command execution.
 
@@ -199,7 +205,7 @@
 - Add `ct az role operation browse|list` command
 - Add `ct az ad user show {}` command
 - Add `ct az ad oauth2-permission-grant list|create|update|browse` command
-- Update `ct az devops repo list` command to make `--project {}` optional 
+- Update `ct az devops repo list` command to make `--project {}` optional
 - Revamp REST behaviour to no longer spawn another process
 
 # v0.35.1

@@ -1,7 +1,7 @@
-use crate::AzureBearerAuthSource;
+use crate::AzureBearerAuthenticationSelection;
 use crate::AzureDevOpsAuthSelection;
+use crate::CloudTerrastodonAccountId;
 use arbitrary::Arbitrary;
-use cloud_terrastodon_azure_types::AzureTenantId;
 use facet::Facet;
 
 /// Non-secret authentication intent admitted by an execution provider.
@@ -14,24 +14,34 @@ use facet::Facet;
 #[repr(u8)]
 pub enum AuthenticationSelection {
     Anonymous,
-    AzureBearer {
-        auth_source: AzureBearerAuthSource,
-        tenant_id: AzureTenantId,
+    AzureBearer(AzureBearerAuthenticationSelection),
+    AzureDevOpsPersonalAccessToken {
+        account_id: CloudTerrastodonAccountId,
     },
-    AzureDevOpsPersonalAccessToken,
+    Gitea {
+        account_id: CloudTerrastodonAccountId,
+    },
 }
 
 impl From<AzureDevOpsAuthSelection> for AuthenticationSelection {
     fn from(selection: AzureDevOpsAuthSelection) -> Self {
         match selection {
-            AzureDevOpsAuthSelection::Bearer {
-                auth_source,
-                tenant_id,
-            } => Self::AzureBearer {
-                auth_source,
-                tenant_id,
-            },
-            AzureDevOpsAuthSelection::PersonalAccessToken => Self::AzureDevOpsPersonalAccessToken,
+            AzureDevOpsAuthSelection::Bearer(selection) => Self::AzureBearer(selection),
+            AzureDevOpsAuthSelection::PersonalAccessToken { account_id } => {
+                Self::AzureDevOpsPersonalAccessToken { account_id }
+            }
+        }
+    }
+}
+
+impl AuthenticationSelection {
+    pub const fn account_id(self) -> Option<CloudTerrastodonAccountId> {
+        match self {
+            Self::Anonymous => None,
+            Self::AzureBearer(selection) => Some(selection.account_id),
+            Self::AzureDevOpsPersonalAccessToken { account_id } | Self::Gitea { account_id } => {
+                Some(account_id)
+            }
         }
     }
 }

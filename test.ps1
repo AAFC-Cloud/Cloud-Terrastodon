@@ -1,6 +1,5 @@
-# build with all cores
-cargo build --tests
-# test with fewer workers to avoid rate limits lol
-$env:CLOUD_TERRASTODON_REAUTH="DENY"
-cargo test --workspace --jobs 2
-Remove-Item Env:CLOUD_TERRASTODON_REAUTH
+# Cargo tests are offline checks: they must not consult configured accounts,
+# invoke installed cloud tools, or contact services. Runtime verification is
+# explicitly selected with `ct test list` and `ct test run <pattern>`.
+cargo test --workspace --offline --locked
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

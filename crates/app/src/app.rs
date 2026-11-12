@@ -9,11 +9,9 @@ use crate::startup::install_panic_hook;
 use crate::terminal;
 #[cfg(windows)]
 use crate::windows_support;
-#[cfg(feature = "auth")]
-use cloud_terrastodon_auth::AuthContext;
-#[cfg(feature = "auth")]
-use cloud_terrastodon_auth_types::AuthSource;
 use cloud_terrastodon_cache::WorkCache;
+use cloud_terrastodon_execution::AnonymousAuthenticationProvider;
+use cloud_terrastodon_execution::AuthenticationProvider;
 use cloud_terrastodon_pathing::AppDir;
 use eyre::Result;
 use std::ffi::OsString;
@@ -21,11 +19,12 @@ use std::future::Future;
 use std::process::ExitCode;
 use std::process::Termination;
 use std::str::FromStr;
+use std::sync::Arc;
 use tracing::Instrument;
 use tracing_subscriber::filter::Directive;
 
 /// Caller-supplied application identity and startup policy.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct App {
     name: String,
     version: String,
@@ -33,8 +32,8 @@ pub struct App {
     implementation_source_file: bool,
     egui_collector: bool,
     automatic_cancellation: bool,
-    #[cfg(feature = "auth")]
-    authentication: bool,
+    work_cache: Option<WorkCache>,
+    authentication: Arc<dyn AuthenticationProvider>,
     #[cfg(feature = "terminal")]
     terminal_debug_capture: bool,
 }
@@ -49,11 +48,18 @@ impl App {
             implementation_source_file: false,
             egui_collector: false,
             automatic_cancellation: true,
-            #[cfg(feature = "auth")]
-            authentication: true,
+            work_cache: None,
+            authentication: Arc::new(AnonymousAuthenticationProvider),
             #[cfg(feature = "terminal")]
             terminal_debug_capture: false,
         }
+    }
+
+    /// Use a caller-owned cache for every executor created by this invocation.
+    /// Cloned handles preserve cache coordination and temporary-directory ownership.
+    pub fn work_cache(mut self, cache: WorkCache) -> Self {
+        self.work_cache = Some(cache);
+        self
     }
 
     /// Include source hints using the caller's repository and immutable revision.
@@ -94,26 +100,12 @@ impl App {
         self
     }
 
-    /// Disable authentication discovery during application startup.
-    ///
-    /// Use this for local tools or applications whose service commands own
-    /// credential selection. It remains effective if Cargo feature unification
-    /// enables `auth` through another workspace member. With that feature enabled,
-    /// the handler receives `AuthContext::None`; global `auto`/`none` selections
-    /// perform no discovery, and explicit global credential sources are rejected.
-    /// Command-specific authentication remains the consumer's responsibility.
-    pub fn without_authentication(self) -> Self {
-        #[cfg(feature = "auth")]
-        {
-            Self {
-                authentication: false,
-                ..self
-            }
-        }
-        #[cfg(not(feature = "auth"))]
-        {
-            self
-        }
+    /// Share an application-owned authentication provider across all executors.
+    /// The default admits anonymous requests only. Installing a provider does not
+    /// resolve accounts or acquire credentials; requests select their own identity.
+    pub fn authentication_provider(mut self, provider: Arc<dyn AuthenticationProvider>) -> Self {
+        self.authentication = provider;
+        self
     }
 
     /// Capture a bounded Debug-through-Error stream for an interactive log surface.
@@ -212,17 +204,6 @@ impl App {
 
         let (log_filter, file_filter) = logging_filters(globals)?;
 
-        #[cfg(feature = "auth")]
-        let auth = if self.authentication {
-            AuthContext::resolve(globals.auth_source)?
-        } else {
-            eyre::ensure!(
-                matches!(globals.auth_source, AuthSource::Auto | AuthSource::None),
-                "this application disables startup authentication; select credentials on the service command instead of the global --auth-source"
-            );
-            AuthContext::None
-        };
-
         #[cfg(feature = "terminal")]
         let terminal = terminal::TerminalSession::new().debug_capture(self.terminal_debug_capture);
         #[cfg(feature = "terminal")]
@@ -253,10 +234,12 @@ impl App {
                 let _cancel_on_exit = CancelOnDrop(cancellation.clone());
                 let run_handler = |cancellation| async move {
                     let context = AppContext::new(
-                        WorkCache::new(AppDir::Commands.join("work"))?,
+                        match self.work_cache {
+                            Some(cache) => cache,
+                            None => WorkCache::new(AppDir::Commands.join("work"))?,
+                        },
                         cancellation,
-                        #[cfg(feature = "auth")]
-                        auth,
+                        self.authentication,
                     );
                     invoke(cli, context).await
                 };

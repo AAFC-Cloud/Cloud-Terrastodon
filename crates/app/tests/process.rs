@@ -7,6 +7,7 @@ use cloud_terrastodon_app::ApplicationCli;
 use cloud_terrastodon_app::CancellationScope;
 use cloud_terrastodon_app::GlobalArgs;
 use cloud_terrastodon_app::Result;
+use cloud_terrastodon_cache::WorkCache;
 use facet::Facet;
 use std::cell::Cell;
 use std::future::pending;
@@ -46,8 +47,6 @@ fn cli(debug: bool) -> ProbeCli {
     ProbeCli {
         global: GlobalArgs {
             debug,
-            #[cfg(feature = "auth")]
-            auth_source: cloud_terrastodon_app::AuthSource::AzureCli,
             ..GlobalArgs::default()
         },
     }
@@ -55,6 +54,7 @@ fn cli(debug: bool) -> ProbeCli {
 
 fn app() -> App {
     App::new("runner-process-probe", "0.0.0")
+        .work_cache(WorkCache::temporary().expect("isolated application cache"))
 }
 
 fn subprocess(mode: &str) -> Output {
@@ -77,7 +77,7 @@ fn subprocess(mode: &str) -> Output {
         .env("CLICOLOR", "0")
         .env("CLICOLOR_FORCE", "0")
         .env("CLOUD_TERRASTODON_REAUTH", "DENY");
-    if mode.starts_with("without_authentication") {
+    if mode.starts_with("anonymous_startup") {
         // If startup accidentally performs discovery, synthetic invalid inputs
         // make it fail before any persisted credentials or services are involved.
         command
@@ -174,14 +174,13 @@ fn an_invalid_logging_filter_returns_an_error_without_invoking_the_handler() {
 }
 
 #[test]
-fn disabled_startup_authentication_does_not_discover_credentials() {
-    assert_success(&subprocess("without_authentication"));
+fn default_startup_does_not_discover_credentials() {
+    assert_success(&subprocess("anonymous_startup"));
 }
 
-#[cfg(feature = "auth")]
 #[test]
-fn disabled_startup_authentication_rejects_explicit_global_credentials() {
-    assert_success(&subprocess("without_authentication_explicit_source"));
+fn local_handler_receives_an_isolated_cache() {
+    assert_success(&subprocess("parsed_local"));
 }
 
 #[test]
@@ -207,38 +206,34 @@ fn runner_process_probe() {
     };
     assert_backtrace_environment_unchanged();
     match mode.as_str() {
-        "without_authentication" => {
-            // Defaults include Auto when auth is enabled. The policy must bypass
-            // discovery even in that build, independently of ambient credentials.
+        "parsed_local" => {
+            let runner = app();
+            let cli = runner
+                .parse_from::<ProbeCli>(std::iter::empty::<&str>())
+                .into_result()
+                .expect("parse local command")
+                .get();
+            runner
+                .run_parsed(cli, |_, context| async move {
+                    let executor = context.executor();
+                    let cache = executor.cache()?;
+                    assert!(cache.root().is_dir());
+                    assert!(std::fs::read_dir(cache.root())?.next().is_none());
+                    Ok(())
+                })
+                .expect("local handler with disabled credentials");
+        }
+        "anonymous_startup" => {
+            // The generic App owns no credential discovery and starts anonymously.
             let cli = ProbeCli {
                 global: GlobalArgs::default(),
             };
             app()
-                .without_authentication()
                 .run_parsed(cli, |_, context| async move {
-                    #[cfg(feature = "auth")]
-                    assert!(matches!(
-                        context.auth,
-                        cloud_terrastodon_app::AuthContext::None
-                    ));
                     assert!(!context.cancellation.is_cancelled());
                     Ok(())
                 })
                 .expect("credential-free startup succeeds");
-        }
-        #[cfg(feature = "auth")]
-        "without_authentication_explicit_source" => {
-            let error = app()
-                .without_authentication()
-                .run_parsed(cli(false), |_, _| async {
-                    panic!("disabled startup with an explicit source invoked the handler")
-                })
-                .expect_err("an explicit global source must not be silently ignored");
-            assert!(
-                error
-                    .to_string()
-                    .contains("disables startup authentication")
-            );
         }
         "invalid_filter" => {
             let mut cli = cli(false);

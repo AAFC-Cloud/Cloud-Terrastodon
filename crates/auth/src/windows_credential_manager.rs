@@ -1,6 +1,5 @@
 use crate::AzureDevOpsPersonalAccessToken;
 use crate::WindowsCredentialManagerTargetName;
-use crate::auth_logout_error::AuthLogoutError;
 use eyre::Context;
 use eyre::bail;
 use windows::Win32::Foundation::ERROR_NOT_FOUND;
@@ -9,7 +8,6 @@ use windows::Win32::Security::Credentials::CRED_PERSIST_LOCAL_MACHINE;
 use windows::Win32::Security::Credentials::CRED_TYPE_GENERIC;
 use windows::Win32::Security::Credentials::CREDENTIALA;
 use windows::Win32::Security::Credentials::CredDeleteA;
-use windows::Win32::Security::Credentials::CredEnumerateA;
 use windows::Win32::Security::Credentials::CredFree;
 use windows::Win32::Security::Credentials::CredReadA;
 use windows::Win32::Security::Credentials::CredWriteA;
@@ -29,31 +27,49 @@ pub fn read_credential_from_manager(
         )
     };
 
-    if result.is_ok() && !credential_ptr.is_null() {
-        let credential = unsafe { &*credential_ptr };
-
-        // Extract the credential blob (password)
-        let password_bytes = unsafe {
+    if let Err(error) = result {
+        if error.code() == ERROR_NOT_FOUND.to_hresult() {
+            return Ok(None);
+        }
+        return Err(error).wrap_err("reading the selected Windows credential");
+    }
+    eyre::ensure!(
+        !credential_ptr.is_null(),
+        "Windows returned an empty credential record"
+    );
+    // Copy the selected blob before releasing Windows' allocation. New CT
+    // credentials are UTF-8; explicit legacy import also accepts UTF-16LE blobs.
+    let bytes = unsafe {
+        let credential = &*credential_ptr;
+        let bytes = if credential.CredentialBlobSize == 0 {
+            Vec::new()
+        } else {
             std::slice::from_raw_parts(
                 credential.CredentialBlob,
                 credential.CredentialBlobSize as usize,
             )
+            .to_vec()
         };
-
-        let password = String::from_utf8_lossy(password_bytes)
-            .chars()
-            .filter(|c| *c != '\0') // this is ugly hack and idk why the null bytes are there in the first place D:
-            .collect::<String>();
-
-        // Free the credential
-        unsafe {
-            CredFree(credential_ptr as *mut std::ffi::c_void);
-        }
-
-        Ok(Some(password))
+        CredFree(credential_ptr.cast());
+        bytes
+    };
+    let password = if bytes.len().is_multiple_of(2)
+        && bytes.iter().skip(1).step_by(2).all(|byte| *byte == 0)
+    {
+        String::from_utf16(
+            &bytes
+                .as_chunks::<2>()
+                .0
+                .iter()
+                .map(|pair| u16::from_le_bytes([pair[0], pair[1]]))
+                .collect::<Vec<_>>(),
+        )
+        .map_err(|_| eyre::eyre!("selected legacy credential has invalid text encoding"))?
     } else {
-        Ok(None)
-    }
+        String::from_utf8(bytes)
+            .map_err(|_| eyre::eyre!("selected credential has invalid UTF-8 encoding"))?
+    };
+    Ok(Some(password))
 }
 
 /// Write a generic string credential to the current user's Windows Credential Manager.
@@ -104,63 +120,8 @@ pub fn delete_credential_from_manager(
     }
 }
 
-/// Delete all generic credentials with an application-owned prefix, including
-/// tokens left behind when the persisted session switched tenants or clients.
-/// Uses the prefix filter from
-/// https://learn.microsoft.com/en-us/windows/win32/api/wincred/nf-wincred-credenumeratea.
-pub(crate) fn delete_credentials_with_prefix(prefix: &str) -> eyre::Result<()> {
-    let filter = WindowsCredentialManagerTargetName::try_new(format!("{prefix}*"))?;
-    let mut count = 0;
-    let mut credentials: *mut *mut CREDENTIALA = std::ptr::null_mut();
-    // SAFETY: The filter is NUL-terminated and both output pointers are valid.
-    let result = unsafe {
-        CredEnumerateA(
-            windows::core::PCSTR(filter.as_c_str().as_ptr().cast()),
-            None,
-            &mut count,
-            &mut credentials,
-        )
-    };
-    if let Err(error) = result {
-        if error.code() == ERROR_NOT_FOUND.to_hresult() {
-            return Ok(());
-        }
-        return Err(error).wrap_err("enumerating stored Cloud Terrastodon refresh tokens");
-    }
-    // SAFETY: Successful enumeration provides count records in a single Windows
-    // allocation. Copy target names before releasing that allocation with CredFree.
-    // No credential blobs are read. Collection retains errors until after freeing.
-    let targets = unsafe {
-        std::slice::from_raw_parts(credentials, count as usize)
-            .iter()
-            .filter(|&&credential| (*credential).Type == CRED_TYPE_GENERIC)
-            .map(|credential| {
-                (**credential)
-                    .TargetName
-                    .to_string()
-                    .wrap_err("reading a stored refresh-token target name")
-                    .and_then(WindowsCredentialManagerTargetName::try_new)
-            })
-            .collect::<Vec<_>>()
-    };
-    // SAFETY: credentials is the allocation returned by successful enumeration;
-    // all references to its records have ended and it is freed exactly once.
-    unsafe { CredFree(credentials.cast()) };
-    let mut errors = Vec::new();
-    for target in targets {
-        if let Err(error) = target.and_then(|target| delete_credential_from_manager(&target)) {
-            errors.push(error);
-        }
-    }
-    if errors.is_empty() {
-        Ok(())
-    } else {
-        Err(AuthLogoutError { errors }.into())
-    }
-}
-
 /// Read credentials from Windows Credential Manager
-pub fn read_azure_devops_pat_from_credential_manager()
+pub(crate) fn read_azure_devops_pat_from_credential_manager()
 -> eyre::Result<AzureDevOpsPersonalAccessToken> {
     let target_name = WindowsCredentialManagerTargetName::try_new("azdevops-cli: default")?;
     match read_credential_from_manager(&target_name) {

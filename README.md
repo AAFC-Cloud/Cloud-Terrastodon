@@ -33,10 +33,12 @@ By defauilt, the app takes no arguments and enters an interactive terminal user 
 The most helpful commands are "pim activate" and the "browse ..." ones.
 
 For Azure CLI authentication, establish a Cloud Terrastodon login for an
-explicit tenant ID or tracked alias:
+explicit tenant ID or tracked alias. The add command returns the account ID:
 
 ```pwsh
-ct az tenant login example-tenant --auth-source azure-cli
+ct account add azure-cli --name admin --tenant example-tenant
+ct account login <account-id>
+ct --account admin az subscription list --tenant example-tenant
 ```
 
 This login persists in Cloud Terrastodon's own store. A separate `az login`

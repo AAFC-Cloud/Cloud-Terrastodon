@@ -23,29 +23,24 @@ require an existing input file. Preserve the upstream spelling, for example:
 Refresh the input only when live access to the selected tenant is intended:
 
 ```powershell
-cargo run --offline --locked -p cloud_terrastodon_resource_types_cli -- refresh --auth-source azure-cli
+cargo run --offline --locked -p cloud_terrastodon_resource_types_cli -- --account admin --auth-source azure-cli refresh --tenant example-lab
 ```
 
-Omitting `--tenant`, or passing `--tenant default`, uses the shared Cloud
-Terrastodon tenant resolver to select the Azure CLI default account's tenant.
-Select another tenant with `--tenant example-lab` or a tenant UUID. The shared
-resolver checks explicit UUIDs against tracked tenants and resolves aliases with
-its existing case-insensitive matching and ambiguity errors.
+Omitting `--tenant`, or passing `--tenant default`, uses the explicitly configured
+Cloud Terrastodon default tenant. Select another tracked tenant with
+`--tenant example-lab` or a tenant UUID. `--account` selects a registered account
+within that tenant; omission requires a configured account default. The global
+`--auth-source` optionally constrains the account's source; `auto` uses its stored
+source. Register and log in through `ct account` first. No ambient Azure CLI
+login, subscription, or tenant is selected. `--auth-source none` rejects refresh
+before account lookup.
 
-`--auth-source` remains required and accepts `azure-cli`, `browser`, or
-`workload-identity`. Tenant selection does not change that source or load a
-tracked tenant's authentication preference. Automatic credential-source
-selection, disabled authentication, and PATs are rejected during argument
-validation. After selection, the resolved tenant UUID is bound explicitly to
-credential acquisition and the SDK request; the request does not rely on an
-ambient tenant. An existing credential for the selected tenant must be usable by
-the selected source; normal authentication interactions may occur for that source.
 `--offline` controls Cargo dependency downloads; **refresh itself contacts Azure**.
 
-The command uses `azure::fetch_all_resource_providers`, backed by
+The command uses `azure::AzureResourceProviderListRequest`, backed by
 [Providers - List At Tenant Scope, API 2021-04-01](https://learn.microsoft.com/en-us/rest/api/resources/providers/list-at-tenant-scope?view=rest-resources-2021-04-01).
 The SDK owns authentication, cached pages, and pagination; `refresh` invalidates
-that selected tenant/source request before fetching. The SDK confines continuation
+that selected account/tenant request before fetching. The SDK confines continuation
 URLs to the HTTPS public-cloud ARM `/providers` collection. Only validated full
 resource-type names are saved, with no tokens, credentials, tenant identifiers,
 or other response metadata. Existing input survives a failed or cancelled refresh
@@ -85,10 +80,9 @@ configuration, acquire credentials, read execution caches, or query Azure.
 using a temporary file in that directory and atomic replacement. Identical output
 is left untouched. `check` reports missing or stale output and never writes it.
 The shared application host supplies cancellation, logging, and output formatting.
-Host authentication is explicitly disabled, including when workspace feature
-unification enables the shared application's authentication support. Only
-`refresh` resolves credentials. Select its credential source with the required
-`refresh --auth-source` argument; application-wide authentication is not used.
+Startup records authentication preferences without resolving accounts or tokens.
+Only `refresh` binds those preferences to its tenant and account; `generate` and
+`check` remain local operations.
 
 Exact duplicates are removed, and the order is deterministic. Case-insensitive
 spelling conflicts, generated-identifier collisions, invalid Rust identifiers,

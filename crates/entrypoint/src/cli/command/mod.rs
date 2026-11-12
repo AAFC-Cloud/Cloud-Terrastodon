@@ -1,6 +1,8 @@
 use arbitrary::Arbitrary;
 use facet::Facet;
+pub mod account;
 pub mod add_work_dir;
+pub mod test;
 pub use cloud_terrastodon_azure_cli as azure;
 pub use cloud_terrastodon_azure_devops_cli as azure_devops;
 pub mod cache;
@@ -27,6 +29,8 @@ pub use cloud_terrastodon_source_cli as source;
 pub mod terraform;
 pub mod write_all_imports;
 
+use self::account::AccountArgs;
+use self::test::TestArgs;
 use crate::cli::add_work_dir::AddWorkDirArgs;
 use crate::cli::azure::AzureArgs;
 use crate::cli::azure_devops::AzureDevOpsArgs;
@@ -64,6 +68,10 @@ use eyre::Result;
 #[derive(Facet, Debug)]
 #[repr(u8)]
 pub enum CloudTerrastodonCommand {
+    /// Manage named accounts and their explicit authentication sessions.
+    Account(AccountArgs),
+    /// List or run registered runtime verification cases.
+    Test(TestArgs),
     /// Launch the Ratatui-based interface.
     Ratatui(RatatuiArgs),
     /// Launch the egui-based interface.
@@ -139,6 +147,17 @@ impl CloudTerrastodonCommand {
     ) -> Result<CliOutput> {
         // Box child futures so large commands do not enlarge every dispatcher stack frame.
         match self {
+            CloudTerrastodonCommand::Account(args) => {
+                return Box::pin(args.invoke(requested_auth_source, cancellation)).await;
+            }
+            CloudTerrastodonCommand::Test(args) => {
+                return Box::pin(args.invoke(
+                    requested_auth_source,
+                    auth_context.requested_account(),
+                    executor,
+                ))
+                .await;
+            }
             CloudTerrastodonCommand::Ratatui(args) => Box::pin(args.invoke(executor)).await,
             CloudTerrastodonCommand::Egui(args) => {
                 Box::pin(args.invoke(auth_context, executor)).await
@@ -179,7 +198,9 @@ impl CloudTerrastodonCommand {
             CloudTerrastodonCommand::Azure(args) => {
                 return Box::pin(args.invoke(auth_context, executor)).await;
             }
-            CloudTerrastodonCommand::Tea(args) => Box::pin(args.invoke(executor)).await,
+            CloudTerrastodonCommand::Tea(args) => {
+                Box::pin(args.invoke(auth_context, executor)).await
+            }
             CloudTerrastodonCommand::Jwt(args) => Box::pin(args.invoke(cancellation)).await,
             CloudTerrastodonCommand::ExtractUuid(args) => Box::pin(args.invoke(cancellation)).await,
             CloudTerrastodonCommand::Pick(args) => Box::pin(args.invoke(cancellation)).await,

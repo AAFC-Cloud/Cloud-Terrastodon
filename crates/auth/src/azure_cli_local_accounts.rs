@@ -7,7 +7,7 @@ use eyre::WrapErr;
 use std::process::Stdio;
 use tokio::process::Command;
 
-/// Read the Azure CLI's local account metadata for tenant/default selection.
+/// Read the Azure CLI's local account metadata for explicit tenant discovery.
 ///
 /// This deliberately inspects the user's configured CLI profile without using
 /// it to authenticate service requests. It neither refreshes subscriptions nor

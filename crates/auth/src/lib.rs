@@ -6,6 +6,18 @@ pub use azure_cli_local_accounts::read_azure_cli_local_accounts;
 mod auth_bearer_ext;
 pub use cloud_terrastodon_command::CancellationScope;
 mod auth_context;
+mod cloud_terrastodon_account_admission;
+mod cloud_terrastodon_account_admission_state;
+mod cloud_terrastodon_account_authentication;
+mod cloud_terrastodon_account_catalogue;
+mod cloud_terrastodon_account_default;
+mod cloud_terrastodon_account_lease;
+mod cloud_terrastodon_account_secret_store;
+mod cloud_terrastodon_account_store;
+mod gitea_account_login_metadata;
+pub use cloud_terrastodon_account_catalogue::CloudTerrastodonAccountCatalogue;
+pub use cloud_terrastodon_account_default::CloudTerrastodonAccountDefault;
+pub use cloud_terrastodon_account_store::CloudTerrastodonAccountStore;
 mod auth_logout_error;
 mod azure_access_token;
 mod azure_bearer_token;
@@ -14,10 +26,8 @@ mod azure_cli_account_identity;
 mod azure_cli_session;
 mod azure_cli_session_store;
 mod azure_cli_sessions;
-mod azure_devops_auth_context;
 mod azure_devops_pat;
 mod azure_devops_rest_client;
-mod azure_tenant_auth_context;
 mod azure_token_cache;
 mod browser_access_token;
 mod browser_opener;
@@ -28,16 +38,12 @@ mod browser_token_cache;
 mod browser_token_cache_key;
 mod browser_token_response;
 mod browser_token_session;
+mod cloud_terrastodon_credential_identity;
 mod credential_authentication_provider;
+mod entra_authenticated_user_identity;
 mod jwt;
-mod logout_all_auth_sources;
-mod microsoft_graph_access_token;
-mod microsoft_graph_token_authentication_provider;
-mod pim_client_id;
-mod pim_config;
-mod pim_device_code_response;
-mod pim_graph_access_token;
-mod pim_token_response;
+#[cfg(test)]
+mod multi_source_authentication_tests;
 mod resolved_auth_context;
 #[cfg(windows)]
 mod windows_credential_manager;
@@ -53,31 +59,26 @@ pub use azure_access_token::*;
 pub use azure_bearer_token::*;
 pub use azure_claims::*;
 pub(crate) use azure_cli_sessions::AzureCliSessions;
-pub use azure_devops_auth_context::*;
 pub use azure_devops_pat::*;
 pub use azure_devops_rest_client::*;
-pub use azure_tenant_auth_context::*;
 #[expect(unused_imports)]
 pub use azure_token_cache::*;
-pub use browser_access_token::login_browser_session;
 pub use browser_session::BrowserSession;
 pub use browser_token_cache::BrowserTokenCache;
 pub use credential_authentication_provider::CredentialAuthenticationProvider;
 pub use jwt::*;
-pub use logout_all_auth_sources::logout_all_auth_sources;
-pub use microsoft_graph_access_token::MicrosoftGraphAccessToken;
-pub use microsoft_graph_token_authentication_provider::MicrosoftGraphTokenAuthenticationProvider;
-pub use pim_client_id::*;
-pub use pim_config::*;
-pub use pim_graph_access_token::*;
 pub use resolved_auth_context::ResolvedAuthContext;
 #[cfg(windows)]
 pub use windows_credential_manager::*;
 #[cfg(windows)]
 pub use windows_credential_manager_target_name::*;
-pub use workload_identity::*;
 pub use workload_identity_config::WorkloadIdentityConfig;
 
 mod container_registry_access_token_response;
 mod container_registry_authorization;
 mod container_registry_refresh_token_response;
+
+mod cloud_terrastodon_account_binding;
+
+#[cfg(test)]
+mod direct_work_retirement_tests;
