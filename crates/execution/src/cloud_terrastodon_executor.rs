@@ -6,10 +6,17 @@ use crate::ExecutionFuture;
 use crate::RequestExecution;
 use crate::execution_mode::ExecutionMode;
 use crate::scoped_join;
+use cloud_terrastodon_auth_types::AuthSource;
 use cloud_terrastodon_auth_types::AuthenticationSelection;
 use cloud_terrastodon_auth_types::Authorization;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_auth_types::AzureCredentialResource;
+use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
+use cloud_terrastodon_auth_types::CloudTerrastodonAccountId;
+use cloud_terrastodon_auth_types::CloudTerrastodonCredentialSource;
 use cloud_terrastodon_auth_types::ContainerRegistryBearerChallenge;
+use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
+use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_cache::ArtifactEntry;
 use cloud_terrastodon_cache::ArtifactRetention;
 use cloud_terrastodon_cache::AuthPartition;
@@ -28,6 +35,7 @@ use std::future::Future;
 use std::future::IntoFuture;
 use std::panic::Location;
 use std::sync::Arc;
+use std::sync::OnceLock;
 use std::time::Duration;
 use teamy_cancellation::CancellationError;
 use teamy_cancellation::CancellationScope;
@@ -35,6 +43,7 @@ use teamy_cancellation::CancellationToken;
 use tokio::sync::mpsc::UnboundedSender;
 use tracing::Instrument;
 use tracing::warn;
+use url::Url;
 
 /// Shared execution resources bound to an already-owned invocation lifetime.
 ///
@@ -58,6 +67,80 @@ pub struct CloudTerrastodonExecutor {
 }
 
 impl CloudTerrastodonExecutor {
+    /// Stop new account work and drain required completion before deleting its
+    /// credentials. The owner must perform credential removal after this returns.
+    pub async fn retire_account(
+        &self,
+        account_id: CloudTerrastodonAccountId,
+        source: Option<CloudTerrastodonCredentialSource>,
+    ) -> Result<()> {
+        ensure!(
+            matches!(self.mode, ExecutionMode::Normal(_)),
+            "credential infrastructure cannot retire accounts"
+        );
+        self.authentication
+            .retire_account(account_id, source, &self.cache, &self.cancellation)
+            .await
+    }
+
+    /// Resolve explicit CLI account metadata without selecting a current account
+    /// or acquiring credentials. Concrete SDK requests never call this method.
+    pub fn resolve_azure_authentication(
+        &self,
+        tenant_id: AzureTenantId,
+        account: Option<&str>,
+        source: AuthSource,
+    ) -> Result<AzureBearerAuthenticationSelection> {
+        ensure!(
+            matches!(self.mode, ExecutionMode::Normal(_)),
+            "credential infrastructure cannot resolve account selectors"
+        );
+        self.authentication
+            .resolve_azure_authentication(tenant_id, account, source)
+    }
+
+    /// Resolve a bearer/PAT account within the explicitly selected namespace.
+    pub fn resolve_azure_devops_authentication(
+        &self,
+        organization: &AzureDevOpsOrganizationUrl,
+        tenant_id: Option<AzureTenantId>,
+        account: Option<&str>,
+        source: AuthSource,
+    ) -> Result<AzureDevOpsAuthSelection> {
+        ensure!(
+            matches!(self.mode, ExecutionMode::Normal(_)),
+            "credential infrastructure cannot resolve account selectors"
+        );
+        self.authentication.resolve_azure_devops_authentication(
+            organization,
+            tenant_id,
+            account,
+            source,
+        )
+    }
+
+    /// Resolve a Gitea account without reading its captured credential session.
+    pub fn resolve_gitea_authentication(
+        &self,
+        instance: &str,
+        account: Option<&str>,
+    ) -> Result<CloudTerrastodonAccountId> {
+        ensure!(
+            matches!(self.mode, ExecutionMode::Normal(_)),
+            "credential infrastructure cannot resolve account selectors"
+        );
+        self.authentication
+            .resolve_gitea_authentication(instance, account)
+    }
+    /// Resolve a captured tea profile only for its configured service instance.
+    pub fn gitea_session(
+        &self,
+        account_id: CloudTerrastodonAccountId,
+        instance: &str,
+    ) -> Result<Arc<crate::GiteaCommandSession>> {
+        self.admit(&AuthenticationSelection::Gitea { account_id })?;
+        self.authentication.gitea_session(account_id, instance)
+    }
     /// Bind explicitly supplied resources to an existing bounded scope.
     pub fn new(
         cache: WorkCache,
@@ -73,9 +156,10 @@ impl CloudTerrastodonExecutor {
         }
     }
 
-    /// Explicitly select another provider while retaining this execution lifetime.
+    /// Replace the injected provider for embedding or a retained execution lease.
     ///
-    /// Callers resolving an authentication override own this decision. Request
+    /// This is not account or source selection: ordinary callers put that
+    /// selection on their request and use the existing shared provider. Request
     /// adapters must not replace an injected provider implicitly. The returned
     /// handle shares the cache, cancellation scope, and semantic dependency
     /// ancestry; the original handle keeps its provider. Credential infrastructure
@@ -163,6 +247,50 @@ impl CloudTerrastodonExecutor {
         self.authentication.admit(selection)
     }
 
+    /// Check service-bound account scope before cache lookup or credential use.
+    pub fn validate_authentication_target(
+        &self,
+        selection: &AuthenticationSelection,
+        target: &Url,
+    ) -> Result<()> {
+        self.authentication.validate_target(selection, target)
+    }
+
+    /// Retain this request's admitted credential session through all completion
+    /// work. New leases fail after retirement; existing leases keep the same
+    /// identity so logout cannot interrupt post-mutation cache invalidation.
+    pub fn with_authentication_lease(&self, selection: &AuthenticationSelection) -> Result<Self> {
+        match self.authentication.lease(selection)? {
+            Some(provider) => self.with_authentication(provider),
+            None => {
+                self.admit(selection)?;
+                Ok(self.clone())
+            }
+        }
+    }
+
+    /// Run admitted account work in its own cancellation signal. Retiring an
+    /// account interrupts optional work without cancelling unrelated caller work;
+    /// linked deferred units keep polling through their required completion.
+    pub async fn with_account_cancellation<C, F, T, E>(&self, factory: C) -> Result<T, E>
+    where
+        C: FnOnce(Self) -> F,
+        F: IntoFuture<Output = Result<T, E>>,
+        E: From<CancellationError>,
+    {
+        let (token, work) = self.cancellable_child_scope(factory);
+        let _listeners = self
+            .authentication
+            .retirement_tokens()
+            .into_iter()
+            .map(|retirement| {
+                let token = token.clone();
+                retirement.register_listener(move |reason| token.request_cancel(reason))
+            })
+            .collect::<Vec<_>>();
+        work.await
+    }
+
     /// Acquire credentials in a linked infrastructure scope, outside semantic work.
     #[track_caller]
     pub fn authorization<'a>(
@@ -171,16 +299,20 @@ impl CloudTerrastodonExecutor {
         resource: AzureCredentialResource,
     ) -> ExecutionFuture<'a, Authorization> {
         Box::pin(
-            self.cancellable_scope(move |mut child| async move {
+            self.cancellable_scope(move |child| async move {
                 ensure!(
                     matches!(child.mode, ExecutionMode::Normal(_)),
                     "credential acquisition cannot recursively request authorization"
                 );
-                child.admit(selection)?;
-                child.mode = ExecutionMode::NoWorkCacheOrAuthorizationReentry;
+                let child = child.with_authentication_lease(selection)?;
                 child
-                    .authentication
-                    .authorization(selection, resource, &child)
+                    .with_account_cancellation(move |mut infrastructure| async move {
+                        infrastructure.mode = ExecutionMode::NoWorkCacheOrAuthorizationReentry;
+                        infrastructure
+                            .authentication
+                            .authorization(selection, resource, &infrastructure)
+                            .await
+                    })
                     .await
             })
             .in_current_span(),
@@ -197,20 +329,29 @@ impl CloudTerrastodonExecutor {
         challenge: &'a ContainerRegistryBearerChallenge,
     ) -> ExecutionFuture<'a, Authorization> {
         Box::pin(
-            self.cancellable_scope(move |mut child| async move {
+            self.cancellable_scope(move |child| async move {
                 ensure!(
                     matches!(child.mode, ExecutionMode::Normal(_)),
                     "credential acquisition cannot recursively request authorization"
                 );
                 ensure!(
-                    matches!(selection, AuthenticationSelection::AzureBearer { .. }),
+                    matches!(
+                        selection,
+                        AuthenticationSelection::AzureBearer(
+                            AzureBearerAuthenticationSelection { .. }
+                        )
+                    ),
                     "Container Registry requires an explicitly tenant-bound bearer selection"
                 );
-                child.admit(selection)?;
-                child.mode = ExecutionMode::NoWorkCacheOrAuthorizationReentry;
+                let child = child.with_authentication_lease(selection)?;
                 child
-                    .authentication
-                    .container_registry_authorization(selection, challenge, &child)
+                    .with_account_cancellation(move |mut infrastructure| async move {
+                        infrastructure.mode = ExecutionMode::NoWorkCacheOrAuthorizationReentry;
+                        infrastructure
+                            .authentication
+                            .container_registry_authorization(selection, challenge, &infrastructure)
+                            .await
+                    })
                     .await
             })
             .in_current_span(),
@@ -225,6 +366,9 @@ impl CloudTerrastodonExecutor {
     /// The initializer owns its attempt and receives the attempt's child scope;
     /// nested cached requests automatically record their semantic dependencies.
     /// Caller-specific mapping/validation belongs after the returned future.
+    /// First polling acquires the selected account until the future finishes or
+    /// is dropped. Retirement cancels optional work while linked deferrals finish;
+    /// an unpolled binding does not delay retirement or bypass later admission.
     #[track_caller]
     #[allow(
         clippy::too_many_arguments,
@@ -268,6 +412,8 @@ impl CloudTerrastodonExecutor {
     /// results for reuse, but may retain inspectable execution artifacts. Disabled
     /// retention suppresses raw disk access independently of decoded memory reuse.
     /// Credential infrastructure cannot enter either general work-cache API.
+    /// As with [`Self::cached_work`], polling retains an account lease and applies
+    /// retirement cancellation without changing the caller's required deferrals.
     /// Cancellation policy belongs to the caller: use [`Self::deferred`] for work
     /// whose effects, decoding, and artifacts must finish together. Caller-specific
     /// validators and projections run after this future, including on memory hits.
@@ -341,6 +487,8 @@ impl CloudTerrastodonExecutor {
     /// The callback receives a linked cancellable scope. Use [`Self::deferred`]
     /// around effectful work and its required completion; caller-specific borrowed
     /// or non-`Send` callbacks can run after awaiting the owned result.
+    /// First polling retains an account lease through completion. Retirement cancels
+    /// optional callbacks and waits for already admitted deferred work to drain.
     #[track_caller]
     pub fn uncached_work<'a, T, F, Fut>(
         &'a self,
@@ -353,7 +501,10 @@ impl CloudTerrastodonExecutor {
         Fut: Future<Output = Result<T>> + Send + 'a,
     {
         let partition = self.admit_uncached_work(selection)?;
-        Ok(self.await_admitted_work(selection, partition, self.cancellable_scope(execute)))
+        Ok(self.await_account_work(selection, move |child| async move {
+            let work = child.cancellable_scope(execute);
+            child.await_admitted_work(selection, partition, work).await
+        }))
     }
 
     /// Execute independent work with inspectable artifacts and an owned result.
@@ -368,6 +519,8 @@ impl CloudTerrastodonExecutor {
     /// callback. Use [`Self::deferred`] when effects and their completion must stay
     /// together. The `'static` output bound identifies the artifact's canonical
     /// type; borrowed outputs without artifacts use [`Self::uncached_work`].
+    /// The account lease covers decoding, artifact writes, and the final admission
+    /// check; retirement cannot replace the identity during required completion.
     #[track_caller]
     #[allow(
         clippy::too_many_arguments,
@@ -400,11 +553,10 @@ impl CloudTerrastodonExecutor {
             fingerprint,
             retention,
         )?;
-        Ok(self.await_admitted_work(
-            selection,
-            partition,
-            self.cancellable_scope(move |child| execute(child, entry)),
-        ))
+        Ok(self.await_account_work(selection, move |child| async move {
+            let work = child.cancellable_scope(move |child| execute(child, entry));
+            child.await_admitted_work(selection, partition, work).await
+        }))
     }
 
     // Cached entry points share coordination and ancestry. The
@@ -431,6 +583,11 @@ impl CloudTerrastodonExecutor {
         Fut: Future<Output = Result<WorkOutput<T>>> + Send + 'a,
     {
         let (partition, parent) = self.admit_work(selection)?;
+        // Ownership/child claims stay synchronous, but an unpolled future must
+        // not keep an account active. First polling installs its retained
+        // executor before the already-bound spec can invoke this initializer.
+        let initialization_executor = Arc::new(OnceLock::<Self>::new());
+        let initialization_binding = Arc::clone(&initialization_executor);
         let initialization_partition = partition.clone();
         let identity = CacheEntryIdentity {
             kind,
@@ -451,15 +608,18 @@ impl CloudTerrastodonExecutor {
             parent,
             &self.cancellation,
             move |attempt, scope| async move {
+                let initialization_executor = initialization_executor.get().ok_or_else(|| {
+                    eyre::eyre!("cached initializer ran before account admission")
+                })?;
                 ensure!(
-                    self.admit(selection)? == initialization_partition,
+                    initialization_executor.admit(selection)? == initialization_partition,
                     "authentication identity changed before cached work initialization"
                 );
-                let mut child = self.with_cancellation_scope(scope);
+                let mut child = initialization_executor.with_cancellation_scope(scope);
                 child.mode = ExecutionMode::Normal(attempt);
                 let output = initialize(child, initialization_identity).await?;
                 ensure!(
-                    self.admit(selection)? == initialization_partition,
+                    initialization_executor.admit(selection)? == initialization_partition,
                     "authentication identity changed during cached work initialization"
                 );
                 Ok(output)
@@ -477,7 +637,37 @@ impl CloudTerrastodonExecutor {
         } else {
             spec
         };
-        Ok(self.await_admitted_work(selection, partition, spec))
+        Ok(self.await_account_work(selection, move |child| async move {
+            initialization_binding.set(child.clone()).map_err(|_| {
+                eyre::eyre!("cached work account admission was installed more than once")
+            })?;
+            let spec = spec.with_cancellation_scope(child.cancellation());
+            child.await_admitted_work(selection, partition, spec).await
+        }))
+    }
+
+    // Preserve one admitted credential binding through callbacks and their final
+    // admission checks, including direct work callers outside ExecutableRequest.
+    // Record cancellation at this boundary too: it may interrupt the body before
+    // await_admitted_work gets a chance to poison a reusable ancestor.
+    fn await_account_work<'a, T, F, Fut>(
+        &'a self,
+        selection: &'a AuthenticationSelection,
+        execute: F,
+    ) -> ExecutionFuture<'a, T>
+    where
+        T: Send + 'a,
+        F: FnOnce(Self) -> Fut + Send + 'a,
+        Fut: Future<Output = Result<T>> + Send + 'a,
+    {
+        Box::pin(
+            async move {
+                let retained =
+                    self.record_semantic_result(self.with_authentication_lease(selection))?;
+                self.record_semantic_result(retained.with_account_cancellation(execute).await)
+            }
+            .in_current_span(),
+        )
     }
 
     // Keep admission and the canonical claim synchronous so track_caller can

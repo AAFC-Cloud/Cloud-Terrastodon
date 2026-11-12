@@ -36,7 +36,6 @@ use super::value_builder::BuilderStore;
 use super::value_candidate::ValueCandidate;
 use super::value_candidate_window::ValueCandidateWindow;
 use super::work_budget::WorkBudget;
-use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_registry::RuntimeValue;
 use facet::Facet;
@@ -131,14 +130,13 @@ impl ExplorerEngine {
     }
 
     fn with_invocation_host(arena: Arena, invocation_host: Box<dyn InvocationHost>) -> Self {
-        let cancellation = CancellationScope::unbound();
         Self {
             arena,
             next_query_session: 1,
             next_browse_session: 1,
             export_barrier: ExportReadBarrier::default(),
             json_encoder: JsonEncoder::default(),
-            builders: BuilderStore::with_cancellation(&cancellation),
+            builders: BuilderStore::default(),
             borrow_graph: BorrowGraph::default(),
             invocations: InvocationController::default(),
             productions: ProductionController::default(),
@@ -1616,6 +1614,9 @@ mod tests {
     use crate::object_explorer::value_candidate_window::ValueCandidateWindowBudget;
     use crate::object_explorer::value_path::ValuePathSegment;
     use cloud_terrastodon_command::CancellationToken;
+    use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+    use cloud_terrastodon_execution::ExecutableRequest;
+    use cloud_terrastodon_execution::ExecutionFuture;
     use cloud_terrastodon_registry::Effect;
     use cloud_terrastodon_registry::FunctionKind;
     use cloud_terrastodon_registry::FunctionTraitContract;
@@ -1632,10 +1633,9 @@ mod tests {
     use facet::Facet;
     use std::any::Any;
     use std::borrow::Cow;
-    use std::future::Future;
-    use std::future::IntoFuture;
     use std::future::pending;
-    use std::pin::Pin;
+    use std::sync::Arc;
+    use tokio::sync::Notify;
 
     #[derive(Clone, Debug, Facet)]
     #[repr(C)]
@@ -1696,6 +1696,13 @@ mod tests {
     }
 
     #[derive(Clone, Debug, Facet)]
+    #[facet(opaque)]
+    struct EngineDeferredInvocationRequest {
+        entered: Arc<Notify>,
+        finish: Arc<Notify>,
+    }
+
+    #[derive(Clone, Debug, Facet)]
     #[repr(C)]
     struct EngineDefaultProducerRequest {
         marker: u8,
@@ -1713,11 +1720,16 @@ mod tests {
         value: EngineProducedValue,
     }
 
-    impl IntoFuture for EngineDefaultProducerRequest {
-        type Output = eyre::Result<EngineProducedValue>;
-        type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + Send>>;
+    impl ExecutableRequest for EngineDefaultProducerRequest {
+        type Output = EngineProducedValue;
+        type Error = eyre::Report;
 
-        fn into_future(self) -> Self::IntoFuture {
+        fn run<'a>(self, _executor: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>
+        where
+            Self: 'a,
+            Self::Output: 'a,
+            Self::Error: 'a,
+        {
             Box::pin(async move {
                 Ok(EngineProducedValue {
                     marker: self.marker,
@@ -1728,7 +1740,7 @@ mod tests {
 
     cloud_terrastodon_registry::register_thing!(EngineDefaultProducerRequest);
     cloud_terrastodon_registry::register_thing!(EngineProducedValue);
-    cloud_terrastodon_registry_execution::register_into_future!(
+    cloud_terrastodon_registry_execution::register_executable_request!(
         EngineDefaultProducerRequest => EngineProducedValue,
         effects = [Read]
     );
@@ -1742,13 +1754,25 @@ mod tests {
         })
     }
 
-    fn hold_engine_request(input: Box<dyn Any + Send>) -> InvocationFuture<'static> {
+    fn hold_engine_request(
+        input: Box<dyn Any + Send>,
+        executor: &CloudTerrastodonExecutor,
+    ) -> InvocationFuture<'_> {
         Box::pin(async move {
             let request = input
-                .downcast::<EngineInvocationRequest>()
+                .downcast::<EngineDeferredInvocationRequest>()
                 .map_err(|_| eyre::eyre!("wrong engine request input"))?;
-            std::future::pending::<()>().await;
-            Ok(Box::new(request.value.clone()) as Box<dyn Any + Send>)
+            executor
+                .deferred(
+                    "finishing required work before GUI teardown",
+                    |_| async move {
+                        request.entered.notify_one();
+                        request.finish.notified().await;
+                        Ok(Box::new(String::from("required work completed"))
+                            as Box<dyn Any + Send>)
+                    },
+                )
+                .await
         })
     }
 
@@ -1771,8 +1795,15 @@ mod tests {
         RegistrationSite::new(file!(), line!()),
     );
 
-    static ENGINE_HELD_INVOCATION_FUNCTION: RuntimeFunction = RuntimeFunction::async_value(
-        EngineInvocationRequest::SHAPE,
+    static ENGINE_HELD_INVOCATION_THING: Thing = Thing::value(
+        EngineDeferredInvocationRequest::SHAPE,
+        runtime_from_boxed::<EngineDeferredInvocationRequest>,
+        runtime_into_boxed::<EngineDeferredInvocationRequest>,
+        RegistrationSite::new(file!(), line!()),
+    );
+
+    static ENGINE_HELD_INVOCATION_FUNCTION: RuntimeFunction = RuntimeFunction::async_execution(
+        EngineDeferredInvocationRequest::SHAPE,
         String::SHAPE,
         FunctionKind::AsyncInvoke,
         "invoke",
@@ -1788,17 +1819,19 @@ mod tests {
         let parent = CancellationToken::new();
         let requester = parent.clone();
         parent.with_async_scope(|parent| async move {
+        let request = EngineDeferredInvocationRequest {
+                    entered: Arc::new(Notify::new()),
+                    finish: Arc::new(Notify::new()),
+        };
         let mut arena = Arena::default();
         let input = arena
-            .insert_ready(runtime(EngineInvocationRequest {
-                value: "owned test input".to_owned(),
-            }))
+            .insert_ready(runtime(request.clone()))
             .unwrap();
         let mut builders = BuilderStore::default();
         let mut borrows = BorrowGraph::default();
         let mut controller = InvocationController::default();
         let mut host = TokioInvocationHost::with_cancellation(identity_invocation_future, &parent);
-        let super::super::invocation_controller::InvocationStart::Pending { invocation, .. } =
+        let super::super::invocation_controller::InvocationStart::Pending { .. } =
             controller
                 .invoke(
                     &mut arena,
@@ -1806,7 +1839,7 @@ mod tests {
                     &mut borrows,
                     &mut host,
                     input,
-                    &ENGINE_INVOCATION_THING,
+                    &ENGINE_HELD_INVOCATION_THING,
                     Function::Runtime(&ENGINE_HELD_INVOCATION_FUNCTION),
                     super::super::invocation_mode::InvocationMode::Consume,
                 )
@@ -1814,15 +1847,9 @@ mod tests {
         else {
             panic!("The held invocation must be pending");
         };
-        tokio::task::yield_now().await;
-        let cancellation = host.operation_scope(invocation).unwrap();
-        let mut deferral = Box::pin(cancellation.deferred("finishing required work before GUI teardown", |_| {
-            std::future::pending::<Result<(), eyre::Report>>()
-        }));
-        std::future::poll_fn(|context| {
-            assert!(deferral.as_mut().poll(context).is_pending());
-            std::task::Poll::Ready(())
-        }).await;
+        // The operation owns and polls its protection. An external deferral on
+        // a cloned ancestor scope cannot retain a separately bounded child.
+        request.entered.notified().await;
         let mut engine = ExplorerEngine::empty_with_invocation_host(Box::new(host));
         engine.arena = arena;
         engine.builders = builders;
@@ -1839,7 +1866,7 @@ mod tests {
                 () = tokio::time::sleep(std::time::Duration::from_millis(25)) => {},
             }
             assert_eq!(handle.pending_invocations().await.unwrap(), 1);
-            drop(deferral);
+            request.finish.notify_one();
             tokio::time::timeout(std::time::Duration::from_secs(2), &mut draining)
                 .await
                 .unwrap()

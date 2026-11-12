@@ -314,13 +314,8 @@ pub async fn generate_config_out_bulk(
 
 #[cfg(test)]
 mod test {
-    use crate::ProviderManager;
-    use crate::generate_config_out_bulk;
     use crate::identify_required_providers;
     use crate::identify_required_providers_bulk;
-    use crate::initialize_work_dirs;
-    use crate::validate_work_dirs;
-    use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_hcl_types::ProviderHostname;
     use cloud_terrastodon_hcl_types::ProviderKind;
     use cloud_terrastodon_hcl_types::ProviderNamespace;
@@ -328,69 +323,12 @@ mod test {
     use cloud_terrastodon_hcl_types::ProviderVersionConstraint;
     use cloud_terrastodon_hcl_types::ProviderVersionObject;
     use cloud_terrastodon_hcl_types::TerraformRequiredProvidersBlock;
-    use cloud_terrastodon_pathing::AppDir;
     use cloud_terrastodon_pathing::Existy;
     use indoc::indoc;
 
-    fn init_logging() -> eyre::Result<()> {
-        let env_filter = tracing_subscriber::EnvFilter::builder()
-            .with_default_directive(tracing::level_filters::LevelFilter::DEBUG.into())
-            .from_env_lossy();
-        tracing_subscriber::fmt()
-            .with_env_filter(env_filter)
-            .with_file(true)
-            .with_line_number(true)
-            .without_time()
-            .init();
-        Ok(())
-    }
-
-    #[tokio::test]
-    #[ignore]
-    pub async fn terraform_concurrent_init_happy() -> eyre::Result<()> {
-        CancellationToken::new()
-            .with_async_scope(|cancellation| async move {
-                init_logging()?;
-                let temp_dir = tempfile::Builder::new().tempdir_in(AppDir::Temp.as_path_buf())?;
-                println!("Check out the dirs at {}", temp_dir.path().display());
-                let num_workspaces = 25;
-
-                let provider_manager = ProviderManager::try_new()?;
-
-                let mut work_dirs = Vec::new();
-                for i in 0..num_workspaces {
-                    let workspace_dir = temp_dir.path().join(format!("workspace_{i:03}"));
-                    provider_manager
-                        .write_default_provider_configs(&workspace_dir, &cancellation)
-                        .await?;
-                    let content = indoc! {r#"
-                import {
-                    id = "123,0,1000"
-                    to = random_integer.bruh
-                }
-            "#};
-                    tokio::fs::write(workspace_dir.join("main.tf"), content).await?;
-                    work_dirs.push(workspace_dir)
-                }
-
-                println!("Initializing");
-                let work_dirs = initialize_work_dirs(work_dirs, &cancellation).await?;
-                println!("Validating");
-                let work_dirs = validate_work_dirs(work_dirs, &cancellation).await?;
-                println!("Generating");
-                generate_config_out_bulk(work_dirs, &cancellation).await?;
-
-                println!("Check out the dirs at {}", temp_dir.path().display());
-                _ = temp_dir.keep(); // keep it around
-                Ok(())
-            })
-            .await
-    }
-
     #[tokio::test]
     pub async fn infer_providers() -> eyre::Result<()> {
-        AppDir::Temp.ensure_dir_exists().await?;
-        let temp_dir = tempfile::Builder::new().tempdir_in(AppDir::Temp.as_path_buf())?;
+        let temp_dir = tempfile::tempdir()?;
         println!("Check out the dirs at {}", temp_dir.path().display());
         let content = indoc! {r#"
             import {
@@ -427,8 +365,7 @@ mod test {
 
     #[tokio::test]
     pub async fn infer_providers_bulk() -> eyre::Result<()> {
-        AppDir::Temp.ensure_dir_exists().await?;
-        let temp_dir = tempfile::Builder::new().tempdir_in(AppDir::Temp.as_path_buf())?;
+        let temp_dir = tempfile::tempdir()?;
         println!("Created temp dir at {}", temp_dir.path().display());
 
         let work_dir_1 = temp_dir.path().join("work_dir_1");

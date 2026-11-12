@@ -4,6 +4,7 @@
 //!
 //! ```rust
 //! #[track_caller]
+//! fn operation() {}
 //! ```
 //!
 //! the value returned by

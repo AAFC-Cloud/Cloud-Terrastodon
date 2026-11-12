@@ -1,18 +1,20 @@
 use crate::app::MyApp;
-use cloud_terrastodon_auth::AzureDevOpsAuthContext;
 use cloud_terrastodon_azure_devops::AzureDevOpsProject;
-use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
-use cloud_terrastodon_azure_devops::get_default_organization_url;
+use cloud_terrastodon_azure_devops::AzureDevOpsProjectsListRequest;
 use cloud_terrastodon_command::app_work::Loadable;
 use cloud_terrastodon_command::app_work::LoadableWorkBuilder;
+use cloud_terrastodon_execution::ExecutableRequest;
+use std::borrow::Cow;
 use std::sync::Arc;
 use std::time::Instant;
 use tracing::info;
 
 pub fn load_azure_devops_projects(app: &mut MyApp) {
+    let Some(org_url) = app.azure_devops_organization.clone() else {
+        return;
+    };
     info!("Queueing work to fetch Azure DevOps projects...");
-    let auth_context = app.auth_context.clone();
-    let tenant_id = app.tenant_id;
+    let authentication = app.authentication;
     let executor = app.executor.clone();
     let cancellation = executor.cancellation().clone();
     let started_at = Instant::now();
@@ -21,15 +23,11 @@ pub fn load_azure_devops_projects(app: &mut MyApp) {
         .setter(|app, data| app.azure_devops_projects = data)
         .work(async move |scope| {
             let executor = executor.with_cancellation_scope(scope);
-            let azure_devops_auth_context =
-                AzureDevOpsAuthContext::for_tenant(&auth_context, tenant_id)?;
-            let executor = azure_devops_auth_context.bind_executor(&executor)?;
-            let org_url = get_default_organization_url(executor.cancellation()).await?;
-            let projects = fetch_all_azure_devops_projects(
-                &org_url,
-                azure_devops_auth_context.selection()?,
-                &executor,
-            )
+            let projects = AzureDevOpsProjectsListRequest {
+                org_url: Cow::Borrowed(&org_url),
+                auth_selection: (authentication.into()),
+            }
+            .execute(&executor)
             .await?;
             Ok(projects)
         })

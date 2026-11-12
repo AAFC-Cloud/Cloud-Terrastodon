@@ -3,6 +3,7 @@
 use cloud_terrastodon_auth_types::AuthenticationSelection;
 use cloud_terrastodon_auth_types::Authorization;
 use cloud_terrastodon_auth_types::AzureBearerAuthSource;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_cache::ArtifactObservation;
 use cloud_terrastodon_cache::ArtifactRetention;
 use cloud_terrastodon_cache::CacheKey;
@@ -159,10 +160,15 @@ impl LocalServer {
             self.url.clone(),
             RestService::MicrosoftGraph,
         )?
-        .authentication(AuthenticationSelection::AzureBearer {
-            auth_source: AzureBearerAuthSource::Browser,
-            tenant_id: "11111111-1111-1111-1111-111111111111".parse()?,
-        })
+        .authentication(AuthenticationSelection::AzureBearer(
+            AzureBearerAuthenticationSelection {
+                account_id: "11111111-1111-1111-1111-111111111111"
+                    .parse()
+                    .expect("synthetic account ID"),
+                auth_source: AzureBearerAuthSource::Browser,
+                tenant_id: "11111111-1111-1111-1111-111111111111".parse()?,
+            },
+        ))
         .cache(key()))
     }
 }
@@ -583,6 +589,62 @@ async fn owned_mutations_never_share_and_keep_their_outcome_after_cancellation()
                     .is_err()
             );
             assert_eq!(server.requests.load(Ordering::SeqCst), 2);
+            Ok(())
+        })
+        .await
+}
+
+#[tokio::test]
+async fn transport_timeout_retains_failure_artifacts_and_finishes_owed_cleanup() -> Result<()> {
+    let token = CancellationToken::new();
+    token
+        .with_async_scope(|scope| async {
+            // Keep the real HTTP peer silent after it has read the mutation.
+            // Only the transport deadline, never a released response, completes it.
+            let server = LocalServer::start(200, "9", Some(Arc::new(Notify::new()))).await?;
+            let executor = CloudTerrastodonExecutor::new(
+                WorkCache::temporary()?,
+                Arc::new(TestAuthenticationProvider::new(
+                    "synthetic-test-session",
+                    Authorization::bearer("synthetic-test-credential")?,
+                )?),
+                scope,
+            );
+            let request = server
+                .request(Method::POST)?
+                .body("synthetic mutation")
+                .transport_timeout(Duration::from_millis(500));
+            let cleanup_path = executor.cache()?.root().join("owed-cleanup.txt");
+            let execution = executor.deferred(
+                "retain timed-out mutation and finish its required cleanup",
+                async |child| {
+                    let result = request.receive::<u64>(&child).await;
+                    // SDK mutations similarly owe invalidation/journaling after
+                    // an ambiguous network failure, even when already cancelled.
+                    tokio::fs::write(&cleanup_path, "completed").await?;
+                    result
+                },
+            );
+            let control = async {
+                server.observed.notified().await;
+                token.request_cancel("cancel after the mutation reached the local peer");
+            };
+            // A test-only watchdog exposes a missing transport deadline without
+            // making timeout-by-dropping the production request the success path.
+            let (result, ()) = tokio::time::timeout(Duration::from_secs(10), async {
+                tokio::join!(execution, control)
+            })
+            .await?;
+            let error = result.unwrap_err();
+            assert!(error.downcast_ref::<reqwest::Error>().unwrap().is_timeout());
+            assert_eq!(std::fs::read_to_string(cleanup_path)?, "completed");
+            assert_eq!(server.requests.load(Ordering::SeqCst), 1);
+            let root = executor.cache()?.root();
+            assert_eq!(files_named(root, "body.json")?.len(), 1);
+            assert_eq!(files_named(root, "error.txt")?.len(), 1);
+            assert_eq!(files_named(root, "manifest.json")?.len(), 1);
+            assert!(files_named(root, "response.body.json")?.is_empty());
+            assert!(files_named(root, "selection.json")?.is_empty());
             Ok(())
         })
         .await

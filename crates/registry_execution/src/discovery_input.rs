@@ -1,13 +1,10 @@
 use crate::CancellationScope;
 use crate::DiscoveryValue;
 use cloud_terrastodon_registry::FunctionDescriptor;
-use cloud_terrastodon_registry::FunctionTraitContract;
 use cloud_terrastodon_registry::RuntimeValue;
 use cloud_terrastodon_registry::describe_shape;
 use facet::Def;
-use facet::Facet;
 use facet::KnownPointer;
-use facet::OpaqueBorrow;
 use facet::Shape;
 use facet::Type;
 use facet::UserType;
@@ -32,13 +29,7 @@ pub(crate) fn assemble_request(
         cancellation.bail_if_cancelled()?;
         // Actual shapes matter here: a String proxy is not a discovered domain
         // selector, even when the selector's wire representation is a string.
-        let (value, field_depth) = input_field(
-            field.shape(),
-            values,
-            cancellation,
-            function.trait_contract == FunctionTraitContract::IntoFuture,
-        )
-        .map_err(|error| {
+        let (value, field_depth) = input_field(field.shape(), values).map_err(|error| {
             error.wrap_err(format!(
                 "missing field '{}' of {}",
                 field.name,
@@ -66,20 +57,7 @@ pub(crate) fn assemble_request(
 fn input_field(
     shape: &'static Shape,
     values: &HashMap<&'static Shape, Vec<DiscoveryValue>>,
-    cancellation: &CancellationScope,
-    legacy_runtime_inputs: bool,
 ) -> eyre::Result<(RuntimeValue, usize)> {
-    if legacy_runtime_inputs && shape.is_shape(CancellationScope::SHAPE) {
-        return Ok((RuntimeValue::from_box(Box::new(cancellation.clone()))?, 0));
-    }
-    if legacy_runtime_inputs && shape.is_shape(<OpaqueBorrow<'static, CancellationScope>>::SHAPE) {
-        return Ok((
-            RuntimeValue::from_box(Box::new(OpaqueBorrow::<'static, _>::new(
-                cancellation.clone(),
-            )))?,
-            0,
-        ));
-    }
     if let Some(existing) = values.get(shape).and_then(|values| values.first()) {
         return Ok((existing.value.try_clone()?, existing.depth));
     }

@@ -63,7 +63,7 @@ struct CatalogRequest {
     seed: CatalogSeed,
 }
 
-/// Deliberately retains the legacy runtime field to test that new registrations
+/// Deliberately declares a runtime field to test that request registrations
 /// cannot silently receive it from offline discovery.
 #[derive(Clone, Debug, Facet)]
 struct ScopeBearingRequest {
@@ -350,14 +350,14 @@ fn write_prompting_and_mixed_requests_are_never_simulated() {
         &[Effect::Read, Effect::Solicit][..],
         &[Effect::Read, Effect::Write, Effect::Solicit][..],
     ] {
-        let request = RuntimeFunction::async_value(
+        let request = RuntimeFunction::async_execution(
             CatalogRequest::SHAPE,
             CatalogItem::SHAPE,
             FunctionKind::AsyncInvoke,
             "invoke",
-            FunctionTraitContract::IntoFuture,
+            FunctionTraitContract::ExecutableRequest,
             effects,
-            forbidden_async_conversion,
+            forbidden_execution,
             runtime_from_boxed::<CatalogItem>,
             RegistrationSite::new(file!(), line!()),
         );
@@ -380,10 +380,6 @@ fn forbidden_conversion(_: Box<dyn Any + Send>) -> eyre::Result<Box<dyn Any + Se
     panic!("an effectful conversion must never run during discovery")
 }
 
-fn forbidden_async_conversion(_: Box<dyn Any + Send>) -> InvocationFuture<'static> {
-    panic!("an async executor must never run during discovery")
-}
-
 fn forbidden_execution(
     _: Box<dyn Any + Send>,
     _: &CloudTerrastodonExecutor,
@@ -391,19 +387,12 @@ fn forbidden_execution(
     panic!("offline discovery must not invoke an executor-dependent callback")
 }
 
+fn forbidden_async_conversion(_: Box<dyn Any + Send>) -> InvocationFuture<'static> {
+    panic!("offline discovery must not invoke an asynchronous conversion")
+}
+
 #[test]
-fn only_legacy_request_contracts_receive_host_supplied_cancellation() {
-    let legacy = RuntimeFunction::async_value(
-        ScopeBearingRequest::SHAPE,
-        CatalogItem::SHAPE,
-        FunctionKind::AsyncInvoke,
-        "invoke",
-        FunctionTraitContract::IntoFuture,
-        &[Effect::Read],
-        forbidden_async_conversion,
-        runtime_from_boxed::<CatalogItem>,
-        RegistrationSite::new(file!(), line!()),
-    );
+fn discovery_does_not_synthesize_runtime_cancellation_fields() {
     let executable = RuntimeFunction::async_execution(
         ScopeBearingRequest::SHAPE,
         CatalogItem::SHAPE,
@@ -415,8 +404,8 @@ fn only_legacy_request_contracts_receive_host_supplied_cancellation() {
         runtime_from_boxed::<CatalogItem>,
         RegistrationSite::new(file!(), line!()),
     );
-    for (registration, expected_reachable) in [(legacy, true), (executable, false)] {
-        let function = Function::Runtime(Box::leak(Box::new(registration)));
+    {
+        let function = Function::Runtime(Box::leak(Box::new(executable)));
         let plan = CancellationToken::new()
             .with_scope(|scope| {
                 DiscoveryPlan::build(
@@ -427,13 +416,13 @@ fn only_legacy_request_contracts_receive_host_supplied_cancellation() {
                 )
             })
             .unwrap();
-        assert_eq!(
-            plan.nodes
+        assert!(
+            !plan
+                .nodes
                 .iter()
                 .find(|node| node.target)
                 .unwrap()
                 .reachable,
-            expected_reachable,
         );
         let simulation = simulate(
             vec![runtime(CatalogSeed { marker: 7 })],
@@ -444,15 +433,13 @@ fn only_legacy_request_contracts_receive_host_supplied_cancellation() {
             32,
             128,
         );
-        assert_eq!(has::<CatalogItem>(&simulation), expected_reachable);
-        if !expected_reachable {
-            assert!(plan.nodes.iter().any(|node| {
-                node.missing_inputs
-                    .iter()
-                    .any(|input| input == "cancellation: CancellationScope")
-            }));
-            assert!(simulation.simulated_requests.is_empty());
-        }
+        assert!(!has::<CatalogItem>(&simulation));
+        assert!(plan.nodes.iter().any(|node| {
+            node.missing_inputs
+                .iter()
+                .any(|input| input == "cancellation: CancellationScope")
+        }));
+        assert!(simulation.simulated_requests.is_empty());
     }
 }
 
@@ -713,14 +700,14 @@ fn cancellation_during_response_generation_is_not_reported_as_a_generation_failu
     CancellationToken::new().with_scope(|scope| {
         let previous = RESPONSE_CANCELLATION.with(|current| current.replace(Some(scope.clone())));
         let _restore = RestoreResponseCancellation(previous);
-        let request = RuntimeFunction::async_value(
+        let request = RuntimeFunction::async_execution(
             CatalogRequest::SHAPE,
             CancelledResponse::SHAPE,
             FunctionKind::AsyncInvoke,
             "invoke",
-            FunctionTraitContract::IntoFuture,
+            FunctionTraitContract::ExecutableRequest,
             &[Effect::Read],
-            forbidden_async_conversion,
+            forbidden_execution,
             runtime_from_boxed::<CancelledResponse>,
             RegistrationSite::new(file!(), line!()),
         );

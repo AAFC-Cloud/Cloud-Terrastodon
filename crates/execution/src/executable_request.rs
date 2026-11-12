@@ -14,6 +14,24 @@ pub trait ExecutableRequest: Sized + Send {
     /// The execution boundary converts scope cancellation into this type.
     type Error: Send + From<CancellationError>;
 
+    /// Admit this request's authentication selection and retain its credential
+    /// session through response handling and affected-cache invalidation.
+    ///
+    /// This runs on the request's child executor before invalidation or `run`.
+    /// It does not change the caller's executor or choose a current account:
+    /// the serializable request supplies the selection. The returned executor
+    /// holds a lease so retirement can reject new work while already admitted
+    /// required-completion work finishes. Token acquisition happens later at
+    /// the transport boundary. Composite operations may additionally acquire
+    /// leases for their child requests; unauthenticated operations use this
+    /// default implementation.
+    fn bind_authentication(
+        &self,
+        executor: CloudTerrastodonExecutor,
+    ) -> Result<CloudTerrastodonExecutor, Self::Error> {
+        Ok(executor)
+    }
+
     /// Execute with the correctly bound child scope and shared runtime resources.
     fn run<'a>(
         self,

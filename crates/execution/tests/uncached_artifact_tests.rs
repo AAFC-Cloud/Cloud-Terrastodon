@@ -32,8 +32,12 @@ use teamy_cancellation::CancellationToken;
 use tokio::sync::Barrier;
 use tokio::time::timeout;
 
-const AUTHENTICATION: AuthenticationSelection =
-    AuthenticationSelection::AzureDevOpsPersonalAccessToken;
+static AUTHENTICATION: std::sync::LazyLock<AuthenticationSelection> =
+    std::sync::LazyLock::new(|| AuthenticationSelection::AzureDevOpsPersonalAccessToken {
+        account_id: "11111111-1111-1111-1111-111111111111"
+            .parse()
+            .expect("synthetic account ID"),
+    });
 const DEADLOCK_GUARD: Duration = Duration::from_secs(10);
 
 struct NumberOperation;

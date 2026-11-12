@@ -1,17 +1,18 @@
-use cloud_terrastodon_auth::AzureTenantAuthContext;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
+use cloud_terrastodon_azure::AzureRoleDefinitionsAndAssignmentsListRequest;
 use cloud_terrastodon_azure::EntraPrincipal;
 use cloud_terrastodon_azure::EntraPrincipalCollection;
+use cloud_terrastodon_azure::EntraPrincipalListRequest;
 use cloud_terrastodon_azure::RoleAssignment;
 use cloud_terrastodon_azure::RoleAssignmentId;
 use cloud_terrastodon_azure::RoleDefinition;
 use cloud_terrastodon_azure::RoleDefinitionsAndAssignments;
 use cloud_terrastodon_azure::Scope;
-use cloud_terrastodon_azure::fetch_all_principals;
-use cloud_terrastodon_azure::fetch_all_role_definitions_and_assignments;
 use cloud_terrastodon_command::app_work::AppWorkState;
 use cloud_terrastodon_command::app_work::Loadable;
 use cloud_terrastodon_command::app_work::LoadableWorkBuilder;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
 use futures::FutureExt;
 use ratatui::crossterm::event;
@@ -66,7 +67,7 @@ impl fmt::Debug for RoleAssignmentPickerAppResult {
 /// Entrypoint for the interactive role assignment picker.
 pub struct RoleAssignmentPickerApp {
     executor: CloudTerrastodonExecutor,
-    auth_context: AzureTenantAuthContext,
+    authentication: AzureBearerAuthenticationSelection,
     data: AppData,
     work: AppWorkState<AppData>,
     ui: UiState,
@@ -75,10 +76,13 @@ pub struct RoleAssignmentPickerApp {
 
 impl RoleAssignmentPickerApp {
     /// Creates a new app instance.
-    pub fn new(auth_context: &AzureTenantAuthContext, executor: &CloudTerrastodonExecutor) -> Self {
+    pub fn new(
+        authentication: AzureBearerAuthenticationSelection,
+        executor: &CloudTerrastodonExecutor,
+    ) -> Self {
         Self {
             executor: executor.clone(),
-            auth_context: auth_context.clone(),
+            authentication,
             data: AppData::default(),
             work: AppWorkState::new(),
             ui: UiState::default(),
@@ -177,7 +181,7 @@ impl RoleAssignmentPickerApp {
     }
 
     fn enqueue_initial_work(&mut self) -> Result<()> {
-        let role_auth_context = self.auth_context.clone();
+        let authentication = self.authentication;
         let role_executor = self.executor.clone();
         let role_work = LoadableWorkBuilder::<AppData, RoleDefinitionsHolder>::new()
             .description("fetch_all_role_definitions_and_assignments")
@@ -187,13 +191,9 @@ impl RoleAssignmentPickerApp {
             })
             .work(async move |scope| {
                 let executor = role_executor.with_cancellation_scope(scope);
-                let executor = role_auth_context.auth_context.bind_executor(&executor)?;
-                let data = fetch_all_role_definitions_and_assignments(
-                    role_auth_context.tenant_id,
-                    role_auth_context.auth_source()?,
-                    &executor,
-                )
-                .await?;
+                let data = AzureRoleDefinitionsAndAssignmentsListRequest { authentication }
+                    .execute(&executor)
+                    .await?;
                 Ok(RoleDefinitionsHolder(data))
             })
             .build()?;
@@ -204,7 +204,6 @@ impl RoleAssignmentPickerApp {
             self.executor.cancellation(),
         )?;
 
-        let principals_auth_context = self.auth_context.clone();
         let principals_executor = self.executor.clone();
         let principals_work = LoadableWorkBuilder::<AppData, PrincipalCollectionHolder>::new()
             .description("fetch_all_principals")
@@ -214,15 +213,9 @@ impl RoleAssignmentPickerApp {
             })
             .work(async move |scope| {
                 let executor = principals_executor.with_cancellation_scope(scope);
-                let executor = principals_auth_context
-                    .auth_context
-                    .bind_executor(&executor)?;
-                let data = fetch_all_principals(
-                    principals_auth_context.tenant_id,
-                    principals_auth_context.auth_source()?,
-                    &executor,
-                )
-                .await?;
+                let data = EntraPrincipalListRequest { authentication }
+                    .execute(&executor)
+                    .await?;
                 Ok(PrincipalCollectionHolder(data))
             })
             .build()?;
@@ -656,39 +649,5 @@ impl Deref for PrincipalCollectionHolder {
 impl std::fmt::Debug for PrincipalCollectionHolder {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PrincipalCollectionHolder").finish()
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::RoleAssignmentPickerApp;
-    use super::RoleAssignmentPickerAppResult;
-    use cloud_terrastodon_auth::AuthContext;
-    use cloud_terrastodon_azure::get_test_tenant_id;
-    use cloud_terrastodon_command::CancellationToken;
-
-    #[tokio::test]
-    #[ignore = "manual entrypoint"]
-    async fn manual_pick() -> eyre::Result<()> {
-        CancellationToken::new()
-            .with_async_scope(|cancellation| async move {
-                color_eyre::install()?;
-                let auth_context = AuthContext::explicit_azure_cli();
-                let auth_context =
-                    auth_context.bind_to_azure_tenant(get_test_tenant_id(&cancellation).await?)?;
-                let executor = cloud_terrastodon_execution::CloudTerrastodonExecutor::new(
-                    cloud_terrastodon_cache::WorkCache::temporary()?,
-                    std::sync::Arc::new(
-                        cloud_terrastodon_auth::CredentialAuthenticationProvider::new(
-                            auth_context.auth_context.clone(),
-                        ),
-                    ),
-                    cancellation.clone(),
-                );
-                let app = RoleAssignmentPickerApp::new(&auth_context, &executor);
-                let _result: RoleAssignmentPickerAppResult = app.run().await?;
-                Ok(())
-            })
-            .await
     }
 }

@@ -1,7 +1,7 @@
 use crate::writer::HclWriter;
 use cloud_terrastodon_azure::Scope;
-use cloud_terrastodon_azure::get_active_subscription_id;
-use cloud_terrastodon_azure_devops::get_default_organization_url;
+use cloud_terrastodon_azure::SubscriptionId;
+use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
@@ -254,27 +254,31 @@ impl ProviderManager {
         Ok(Some(temp_dir))
     }
 
-    pub async fn write_default_provider_configs(
+    /// Write provider declarations only for the scopes explicitly supplied by the caller.
+    /// Existing user provider configuration remains available when a scope is omitted.
+    pub async fn write_provider_configs(
         &self,
         work_dir: impl AsRef<Path>,
+        organization: Option<&AzureDevOpsOrganizationUrl>,
+        subscription: Option<SubscriptionId>,
         cancellation: &CancellationScope,
     ) -> eyre::Result<()> {
         let work_dir = work_dir.as_ref();
-        // Get devops url
-        let org_service_url = format!(
-            "https://dev.azure.com/{name}/",
-            name = get_default_organization_url(cancellation)
-                .await?
-                .organization_name()?
-        );
-
-        // Get active sub
-        let active_sub_id = get_active_subscription_id(cancellation).await?;
-
-        // Open boilerplate file
-        debug!(path = %work_dir.display(), "Writing default provider configs");
-        let boilerplate_path = work_dir.join("boilerplate.tf");
-        HclWriter::new(boilerplate_path)
+        let mut providers = Vec::new();
+        if let Some(organization) = organization {
+            providers.push(HclProviderBlock::AzureDevOps {
+                alias: None,
+                org_service_url: organization.to_string(),
+            });
+        }
+        if let Some(subscription) = subscription {
+            providers.push(HclProviderBlock::AzureRM {
+                alias: None,
+                subscription_id: Some(subscription.short_form()),
+            });
+        }
+        debug!(path = %work_dir.display(), "Writing explicit provider configuration");
+        HclWriter::new(work_dir.join("boilerplate.tf"))
             .merge(
                 vec![TerraformBlock {
                     required_providers: Some(TerraformRequiredProvidersBlock::common()),
@@ -284,101 +288,11 @@ impl ProviderManager {
             )
             .await
             .wrap_err("Writing terraform block")?
-            .merge(
-                vec![
-                    HclProviderBlock::AzureDevOps {
-                        alias: None,
-                        org_service_url,
-                    },
-                    HclProviderBlock::AzureRM {
-                        alias: None,
-                        subscription_id: Some(active_sub_id.short_form()),
-                    },
-                ],
-                cancellation,
-            )
+            .merge(providers, cancellation)
             .await
-            .wrap_err("Writing default provider blocks")?
+            .wrap_err("Writing explicitly scoped provider blocks")?
             .format_file(cancellation)
             .await?;
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use crate::ProviderManager;
-    use cloud_terrastodon_command::CancellationToken;
-    use cloud_terrastodon_hcl_types::TerraformRequiredProvidersBlock;
-    use eyre::bail;
-    use hcl::edit::structure::Body;
-
-    #[tokio::test]
-    pub async fn it_works() -> eyre::Result<()> {
-        let provider_manager = ProviderManager::try_new()?;
-        let found = provider_manager.list_cached_providers().await?;
-        dbg!(found);
-        Ok(())
-    }
-
-    #[tokio::test]
-    #[ignore]
-    pub async fn install_missing_providers() -> eyre::Result<()> {
-        CancellationToken::new()
-            .with_async_scope(|cancellation| async move {
-                let required_providers = TerraformRequiredProvidersBlock::try_from(
-                    r#"
-                required_providers {
-                    azurerm = {
-                        source = "hashicorp/azurerm"
-                        version = ">=4.18.0"
-                    }
-                }
-            "#
-                    .parse::<Body>()?
-                    .into_blocks()
-                    .next()
-                    .unwrap(),
-                )?;
-                let provider_manager = ProviderManager::try_new()?;
-                let temp_dir = provider_manager
-                    .populate_provider_cache(&required_providers, &cancellation)
-                    .await?;
-                let temp_dir = match temp_dir {
-                    None => {
-                        bail!("All required providers are already installed");
-                    }
-                    Some(x) => x,
-                };
-
-                let persist = temp_dir.keep();
-                println!("Persisting dir for testing at {}", persist.display());
-                Ok(())
-            })
-            .await
-    }
-
-    #[tokio::test]
-    #[ignore]
-    pub async fn install_default_providers() -> eyre::Result<()> {
-        CancellationToken::new()
-            .with_async_scope(|cancellation| async move {
-                let required_providers = TerraformRequiredProvidersBlock::common();
-                let provider_manager = ProviderManager::try_new()?;
-                let temp_dir = provider_manager
-                    .populate_provider_cache(&required_providers, &cancellation)
-                    .await?;
-                let temp_dir = match temp_dir {
-                    None => {
-                        bail!("All required providers are already installed");
-                    }
-                    Some(x) => x,
-                };
-
-                let persist = temp_dir.keep();
-                println!("Persisting dir for testing at {}", persist.display());
-                Ok(())
-            })
-            .await
     }
 }

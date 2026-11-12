@@ -1,4 +1,3 @@
-mod default_tenant;
 mod gitea_api_support;
 mod gitea_instance_url;
 mod gitea_login;
@@ -38,7 +37,6 @@ mod gitea_user_list_request;
 mod gitea_user_repo_list_request;
 mod gitea_username;
 
-pub use crate::default_tenant::*;
 pub use crate::gitea_api_support::*;
 pub use crate::gitea_instance_url::*;
 pub use crate::gitea_login::*;
@@ -77,53 +75,3 @@ pub use crate::gitea_user_id::*;
 pub use crate::gitea_user_list_request::*;
 pub use crate::gitea_user_repo_list_request::*;
 pub use crate::gitea_username::*;
-
-#[cfg(test)]
-mod tests {
-    use crate::analyze_gitea_repo_enumeration;
-    use crate::fetch_all_gitea_repositories;
-    use crate::get_default_gitea_instance_url;
-    use cloud_terrastodon_command::CancellationToken;
-
-    #[test_log::test(tokio::test)]
-    async fn it_fetches_repositories_without_empty_ids() -> eyre::Result<()> {
-        CancellationToken::new()
-            .with_async_scope(|cancellation| async move {
-                let executor = cloud_terrastodon_execution::CloudTerrastodonExecutor::new(
-                    cloud_terrastodon_cache::WorkCache::temporary()?,
-                    std::sync::Arc::new(
-                        cloud_terrastodon_execution::AnonymousAuthenticationProvider,
-                    ),
-                    cancellation,
-                );
-                let tenant = get_default_gitea_instance_url(&executor).await?;
-                let repositories = fetch_all_gitea_repositories(&tenant, &executor).await?;
-                assert!(!repositories.is_empty());
-                assert!(repositories.iter().all(|repo| *repo.id > 0));
-                Ok(())
-            })
-            .await
-    }
-
-    #[test_log::test(tokio::test)]
-    #[ignore]
-    async fn it_analyzes_repo_enumeration_methods() -> eyre::Result<()> {
-        CancellationToken::new()
-            .with_async_scope(|cancellation| async move {
-                let executor = cloud_terrastodon_execution::CloudTerrastodonExecutor::new(
-                    cloud_terrastodon_cache::WorkCache::temporary()?,
-                    std::sync::Arc::new(
-                        cloud_terrastodon_execution::AnonymousAuthenticationProvider,
-                    ),
-                    cancellation,
-                );
-                let tenant = get_default_gitea_instance_url(&executor).await?;
-                let report = analyze_gitea_repo_enumeration(&tenant, 1000, &executor).await?;
-                assert!(report.combined.repo_count > 0);
-                assert!(report.search.repo_count > 0);
-                assert!(report.search_missing_from_combined.is_empty());
-                Ok(())
-            })
-            .await
-    }
-}

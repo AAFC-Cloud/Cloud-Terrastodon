@@ -121,7 +121,9 @@ mod tests {
     fn independent_sessions_and_revoked_selections_do_not_share_admission() -> Result<()> {
         let first = TestAuthenticationProvider::offline("first-session")?;
         let second = TestAuthenticationProvider::offline("second-session")?;
-        let selection = AuthenticationSelection::AzureDevOpsPersonalAccessToken;
+        let selection = AuthenticationSelection::AzureDevOpsPersonalAccessToken {
+            account_id: "11111111-1111-1111-1111-111111111111".parse()?,
+        };
         let admitted = first.admit(&selection)?;
         assert_ne!(admitted, second.admit(&selection)?);
 
@@ -143,7 +145,9 @@ mod tests {
                 let provider = Arc::new(TestAuthenticationProvider::offline("offline-session")?);
                 let executor =
                     CloudTerrastodonExecutor::new(WorkCache::temporary()?, provider.clone(), scope);
-                let selection = AuthenticationSelection::AzureDevOpsPersonalAccessToken;
+                let selection = AuthenticationSelection::AzureDevOpsPersonalAccessToken {
+                    account_id: "11111111-1111-1111-1111-111111111111".parse()?,
+                };
                 let attempt = provider.authorization(
                     &selection,
                     AzureCredentialResource::AzureDevOps,

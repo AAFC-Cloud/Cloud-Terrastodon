@@ -75,6 +75,15 @@ impl Thing {
         input_dependencies(self.shape)
     }
 
+    /// Collection forms supplied by this explicit registration point.
+    ///
+    /// This preserves their provenance without guessing from type names. A
+    /// companion has no further forms: collection expansion is deliberately
+    /// finite. Registering a value alone does not promise an arbitrary generator.
+    pub const fn collection_forms(&self) -> &'static [Thing] {
+        self.collections
+    }
+
     pub fn runtime_from_boxed(&self, value: Box<dyn Any + Send>) -> eyre::Result<RuntimeValue> {
         (self.from_runtime)(value)
     }

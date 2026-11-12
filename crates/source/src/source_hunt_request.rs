@@ -6,6 +6,9 @@ use crate::source_directory_scan::SourceDirectoryScan;
 use crate::source_directory_scan::prepare_root;
 use arbitrary::Arbitrary;
 use arbitrary::Unstructured;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
 use eyre::Result;
 use eyre::WrapErr;
 use facet::Facet;
@@ -15,10 +18,7 @@ use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::collections::HashSet;
 use std::collections::VecDeque;
-use std::future::Future;
-use std::future::IntoFuture;
 use std::path::PathBuf;
-use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
 use teamy_cancellation::CancellationScope;
@@ -51,10 +51,6 @@ pub struct SourceHuntRequest {
     pub exclude_dirs: Vec<String>,
     /// Maximum simultaneous blocking directory jobs; must be greater than zero.
     pub jobs: usize,
-    #[facet(skip_serializing)]
-    pub cancellation: CancellationScope,
-    #[facet(opaque, skip_serializing)]
-    pub progress: Option<watch::Sender<SourceHuntProgress>>,
 }
 
 impl<'a> Arbitrary<'a> for SourceHuntRequest {
@@ -64,20 +60,21 @@ impl<'a> Arbitrary<'a> for SourceHuntRequest {
             extensions: Vec::arbitrary(input)?,
             exclude_dirs: Vec::arbitrary(input)?,
             jobs: input.int_in_range(1..=64)?,
-            cancellation: CancellationScope::arbitrary(input)?,
-            progress: None,
         })
     }
 }
 
-impl IntoFuture for SourceHuntRequest {
-    type Output = Result<SourceHuntReport>;
-    type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + Send>>;
-
-    fn into_future(self) -> Self::IntoFuture {
-        Box::pin(self.cancellation.cancellable_scope(move |scan| async move {
+impl SourceHuntRequest {
+    /// Scan local files with scope-only cancellation and an optional progress observer.
+    /// Runtime observation stays outside the serializable operation data.
+    pub async fn scan(
+        self,
+        cancellation: &CancellationScope,
+        progress: Option<watch::Sender<SourceHuntProgress>>,
+    ) -> Result<SourceHuntReport> {
+        cancellation.cancellable_scope(move |scan| async move {
             eyre::ensure!(self.jobs > 0, "Source hunt requires at least one directory job");
-            if let Some(progress) = &self.progress {
+            if let Some(progress) = &progress {
                 progress.send_replace(SourceHuntProgress {
                     active_paths: vec![self.root.clone()],
                     ..SourceHuntProgress::default()
@@ -164,15 +161,15 @@ impl IntoFuture for SourceHuntRequest {
                         }
                         pending.extend(directory.directories.into_iter().map(|path| (path, repository_index)));
                     }
-                    _ = refresh.tick(), if self.progress.is_some() => {
-                        if let Some(progress) = &self.progress {
+                    _ = refresh.tick(), if progress.is_some() => {
+                        if let Some(progress) = &progress {
                             progress.send_replace(progress_snapshot(&report, &active_paths));
                         }
                     }
                 }
             }
             scan.bail_if_cancelled()?;
-            if let Some(progress) = &self.progress {
+            if let Some(progress) = &progress {
                 progress.send_replace(progress_snapshot(&report, &active_paths));
             }
             if !selected_extensions.is_empty() {
@@ -181,13 +178,25 @@ impl IntoFuture for SourceHuntRequest {
             report.repositories.sort_unstable_by(|left, right| left.path.cmp(&right.path));
             report.errors.sort_unstable_by(|left, right| left.path.cmp(&right.path).then_with(|| left.message.cmp(&right.message)));
             Ok(report)
-        }))
+        }).await
+    }
+}
+
+impl ExecutableRequest for SourceHuntRequest {
+    type Output = SourceHuntReport;
+    type Error = eyre::Report;
+    fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
+    where
+        Self: 'exec,
+        Self::Output: 'exec,
+    {
+        Box::pin(async move { self.scan(executor.cancellation(), None).await })
     }
 }
 
 cloud_terrastodon_registry::register_thing!(SourceHuntRequest);
 cloud_terrastodon_registry::register_arbitrary!(SourceHuntRequest);
-cloud_terrastodon_registry_execution::register_into_future!(SourceHuntRequest => SourceHuntReport, effects = [Read]);
+cloud_terrastodon_registry_execution::register_executable_request!(SourceHuntRequest => SourceHuntReport, effects = [Read]);
 
 fn progress_snapshot(
     report: &SourceHuntReport,

@@ -8,32 +8,31 @@ use crate::reflow::ReflowExpressionsUseImportedResourceBlocks;
 use crate::reflow::ReflowJsonAttributes;
 use crate::reflow::ReflowPrincipalIdComments;
 use crate::reflow::ReflowRemoveDefaultAttributes;
-use cloud_terrastodon_auth::AzureTenantAuthContext;
-use cloud_terrastodon_azure::fetch_entra_directory_objects_by_ids;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
+use cloud_terrastodon_azure::EntraDirectoryObjectsByIdsRequest;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use eyre::OptionExt;
-use std::borrow::Cow;
 use std::path::PathBuf;
 use tracing::info;
 
 #[must_use = "This is a future request, you must .execute it"]
-pub struct ReflowHclRequest<'a> {
-    pub auth_context: Option<Cow<'a, AzureTenantAuthContext>>,
+pub struct ReflowHclRequest {
+    pub authentication: Option<AzureBearerAuthenticationSelection>,
     pub hcl: HclProject,
     pub include_principal_id_comments: bool,
     pub single_file_path: Option<PathBuf>,
     pub mixed: bool,
 }
 
-impl<'a> ReflowHclRequest<'a> {
+impl ReflowHclRequest {
     pub fn new(
         hcl: HclProject,
-        auth_context: Option<&'a AzureTenantAuthContext>,
-    ) -> ReflowHclRequest<'a> {
+        authentication: Option<AzureBearerAuthenticationSelection>,
+    ) -> ReflowHclRequest {
         Self {
-            auth_context: auth_context.map(Cow::Borrowed),
+            authentication,
             hcl,
             include_principal_id_comments: false,
             single_file_path: None,
@@ -58,7 +57,7 @@ impl<'a> ReflowHclRequest<'a> {
 
     async fn reflow(self, executor: &CloudTerrastodonExecutor) -> eyre::Result<HclProject> {
         let Self {
-            auth_context,
+            authentication,
             mut hcl,
             include_principal_id_comments,
             single_file_path,
@@ -80,11 +79,15 @@ impl<'a> ReflowHclRequest<'a> {
         };
         if include_principal_id_comments && !principal_ids.is_empty() {
             info!("Fetching principals");
-            let auth_context = auth_context.as_deref().ok_or_eyre(
-                "An Azure tenant authentication context is required to fetch principals",
+            let authentication = authentication.ok_or_eyre(
+                "An explicit Azure account selection is required to fetch principals",
             )?;
-            let principals =
-                fetch_entra_directory_objects_by_ids(principal_ids, auth_context, executor).await?;
+            let principals = EntraDirectoryObjectsByIdsRequest {
+                ids: (principal_ids).into_iter().collect(),
+                authentication,
+            }
+            .execute(executor)
+            .await?;
             reflowers.insert(
                 3,
                 Box::new(ReflowPrincipalIdComments::from_directory_objects(
@@ -103,7 +106,7 @@ impl<'a> ReflowHclRequest<'a> {
     }
 }
 
-impl ExecutableRequest for ReflowHclRequest<'_> {
+impl ExecutableRequest for ReflowHclRequest {
     type Error = eyre::Report;
     type Output = HclProject;
 

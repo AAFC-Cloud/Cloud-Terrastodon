@@ -1,73 +1,21 @@
 use super::arena_query_context::ArenaQueryContext;
-use super::arena_query_context::ArenaQueryContextError;
 use super::arena_query_session::JsonBatchBudget;
 use super::breadcrumbs::Breadcrumbs;
-use cloud_terrastodon_command::CancellationError;
+use super::produce_json_error::ProduceJsonError;
+use arbitrary::Arbitrary;
 use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
 use facet::Facet;
-use std::error::Error;
-use std::fmt;
-use std::future::Future;
 use std::path::PathBuf;
-use std::pin::Pin;
 use tokio::io::AsyncWrite;
 use tokio::io::AsyncWriteExt;
 
 const EXPORT_WORK_PER_BATCH: usize = 256;
 const EXPORT_BYTES_PER_BATCH: usize = 64 * 1024;
 
-#[derive(Debug)]
-pub(crate) enum ProduceJsonError {
-    Cancelled(CancellationError),
-    Query(ArenaQueryContextError),
-    Io {
-        path: PathBuf,
-        operation: &'static str,
-        source: std::io::Error,
-    },
-}
-
-impl fmt::Display for ProduceJsonError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Cancelled(error) => error.fmt(formatter),
-            Self::Query(error) => error.fmt(formatter),
-            Self::Io {
-                path,
-                operation,
-                source,
-            } => write!(
-                formatter,
-                "could not {operation} {}: {source}",
-                path.display()
-            ),
-        }
-    }
-}
-
-impl Error for ProduceJsonError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            Self::Cancelled(error) => Some(error),
-            Self::Query(error) => Some(error),
-            Self::Io { source, .. } => Some(source),
-        }
-    }
-}
-
-impl From<ArenaQueryContextError> for ProduceJsonError {
-    fn from(value: ArenaQueryContextError) -> Self {
-        Self::Query(value)
-    }
-}
-
-impl From<CancellationError> for ProduceJsonError {
-    fn from(value: CancellationError) -> Self {
-        Self::Cancelled(value)
-    }
-}
-
-/// Registry-facing request retained as an ordinary context-free IntoFuture.
+/// Registry-facing export request with an explicit execution context.
 ///
 /// Breadcrumbs is an ordinary reflected field. The generic value picker may
 /// clone a Tab's projected `.breadcrumbs` value (or move a genuinely owned
@@ -76,13 +24,11 @@ impl From<CancellationError> for ProduceJsonError {
 #[derive(Clone, Debug, Facet)]
 #[repr(C)]
 pub(crate) struct ProduceJsonRequest {
-    breadcrumbs: Breadcrumbs,
-    filename: String,
-    #[facet(skip_serializing)]
-    pub cancellation: CancellationScope,
+    pub breadcrumbs: Breadcrumbs,
+    pub filename: String,
 }
 
-impl<'a> arbitrary::Arbitrary<'a> for ProduceJsonRequest {
+impl<'a> Arbitrary<'a> for ProduceJsonRequest {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         let suffix = u.arbitrary::<u64>()?;
         let breadcrumbs = u.arbitrary::<Breadcrumbs>()?;
@@ -92,21 +38,15 @@ impl<'a> arbitrary::Arbitrary<'a> for ProduceJsonRequest {
         Ok(Self::new(
             breadcrumbs,
             format!("object-explorer-{suffix:016x}.json"),
-            &CancellationScope::unbound(),
         ))
     }
 }
 
 impl ProduceJsonRequest {
-    pub(crate) fn new(
-        breadcrumbs: Breadcrumbs,
-        filename: impl Into<String>,
-        cancellation: &CancellationScope,
-    ) -> Self {
+    pub(crate) fn new(breadcrumbs: Breadcrumbs, filename: impl Into<String>) -> Self {
         Self {
             breadcrumbs,
             filename: filename.into(),
-            cancellation: cancellation.clone(),
         }
     }
 
@@ -118,33 +58,29 @@ impl ProduceJsonRequest {
         &self.filename
     }
 
-    pub(crate) fn run(
-        mut self,
+    pub(crate) async fn write_file(
+        self,
         context: ArenaQueryContext,
-    ) -> Pin<Box<dyn Future<Output = Result<String, ProduceJsonError>> + Send>> {
-        Box::pin(async move {
-            let cancellation = self.cancellation.clone();
-            cancellation
-                .deferred(
-                    "writing and flushing the exported JSON document",
-                    |scope| async move {
-                        // Protect truncation, the whole document, and export-session completion.
-                        self.cancellation = scope;
-                        let filename = PathBuf::from(&self.filename);
-                        let mut file =
-                            tokio::fs::File::create(&filename).await.map_err(|source| {
-                                ProduceJsonError::Io {
-                                    path: filename.clone(),
-                                    operation: "create",
-                                    source,
-                                }
-                            })?;
+        cancellation: &CancellationScope,
+    ) -> Result<String, ProduceJsonError> {
+        cancellation
+            .deferred(
+                "writing and flushing the exported JSON document",
+                |scope| async move {
+                    // Protect truncation, the whole document, and export-session completion.
+                    let filename = PathBuf::from(&self.filename);
+                    let mut file = tokio::fs::File::create(&filename).await.map_err(|source| {
+                        ProduceJsonError::Io {
+                            path: filename.clone(),
+                            operation: "create",
+                            source,
+                        }
+                    })?;
 
-                        self.write_to_sink(context, &mut file).await
-                    },
-                )
-                .await
-        })
+                    self.write_to_sink(context, &mut file, &scope).await
+                },
+            )
+            .await
     }
 
     /// Stream this request to any bounded asynchronous sink.
@@ -156,11 +92,11 @@ impl ProduceJsonRequest {
         self,
         context: ArenaQueryContext,
         sink: &mut W,
+        cancellation: &CancellationScope,
     ) -> Result<String, ProduceJsonError>
     where
         W: AsyncWrite + Unpin + Send,
     {
-        let cancellation = self.cancellation.clone();
         cancellation
             .deferred(
                 "finishing the JSON document and export session",
@@ -168,7 +104,6 @@ impl ProduceJsonRequest {
                     let Self {
                         breadcrumbs,
                         filename,
-                        cancellation: _,
                     } = self;
                     let path = PathBuf::from(&filename);
                     let session = context.open_export(breadcrumbs).await?;
@@ -223,23 +158,32 @@ impl ProduceJsonRequest {
     }
 }
 
-impl IntoFuture for ProduceJsonRequest {
-    type Output = eyre::Result<String>;
-    type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + Send>>;
+impl ExecutableRequest for ProduceJsonRequest {
+    type Output = String;
+    type Error = ProduceJsonError;
 
-    fn into_future(self) -> Self::IntoFuture {
+    fn run<'a>(
+        self,
+        executor: CloudTerrastodonExecutor,
+    ) -> ExecutionFuture<'a, Self::Output, Self::Error>
+    where
+        Self: 'a,
+        Self::Output: 'a,
+        Self::Error: 'a,
+    {
         Box::pin(async move {
             // Lookup occurs when the async body is polled, after the host's
             // spawn adapter has installed the task-local capability.
             let context = ArenaQueryContext::current().map_err(ProduceJsonError::from)?;
-            Ok(self.run(context).await?)
+            self.write_file(context, executor.cancellation()).await
         })
     }
 }
 
 cloud_terrastodon_registry::register_thing!(ProduceJsonRequest);
 cloud_terrastodon_registry::register_arbitrary!(ProduceJsonRequest);
-cloud_terrastodon_registry_execution::register_into_future!(
+cloud_terrastodon_registry::register_arbitrary!(String);
+cloud_terrastodon_registry_execution::register_executable_request!(
     ProduceJsonRequest => String,
     effects = [Write]
 );
@@ -252,11 +196,13 @@ cloud_terrastodon_registry_execution::register_into_future!(
 mod tests {
     use super::*;
     use crate::object_explorer::arena::Arena;
+    use crate::object_explorer::arena_query_context::ArenaQueryContextError;
     use crate::object_explorer::arena_query_context::ArenaQueryContextFutureExt;
     use crate::object_explorer::breadcrumb::Breadcrumb;
     use crate::object_explorer::breadcrumbs::Breadcrumbs;
     use crate::object_explorer::explorer_command::OwnedValuePacket;
     use crate::object_explorer::explorer_engine::ExplorerEngine;
+    use crate::object_explorer::synthetic_executor::synthetic_executor;
     use crate::object_explorer::tab::Tab;
     use crate::object_explorer::value_address::ValueAddress;
     use crate::object_explorer::value_path::ValuePathSegment;
@@ -304,7 +250,6 @@ mod tests {
         let fields = request
             .fields
             .iter()
-            .filter(|field| field.effective_name() != "cancellation")
             .map(|field| (field.effective_name(), field.shape()))
             .collect::<Vec<_>>();
 
@@ -316,23 +261,22 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn produce_json_into_future_reports_typed_missing_context() {
+    async fn produce_json_execution_reports_typed_missing_context() {
         CancellationToken::new()
             .with_async_scope(|cancellation| async move {
                 let request = ProduceJsonRequest::new(
                     Breadcrumbs::default(),
                     test_path("missing").display().to_string(),
-                    &cancellation,
                 );
 
                 let error = request
-                    .into_future()
+                    .execute(&synthetic_executor(&cancellation))
                     .await
                     .expect_err("unscoped request must fail");
 
                 assert!(matches!(
-                    error.downcast_ref::<ProduceJsonError>(),
-                    Some(ProduceJsonError::Query(ArenaQueryContextError::Missing))
+                    error,
+                    ProduceJsonError::Query(ArenaQueryContextError::Missing)
                 ));
                 eyre::Ok(())
             })
@@ -363,7 +307,6 @@ mod tests {
                         address.path().segments().to_vec(),
                     )]),
                     "in-memory-serialization-failure.json",
-                    &cancellation,
                 );
                 let engine = ExplorerEngine::new(arena);
                 let (context, inbox) = ArenaQueryContext::channel(2);
@@ -375,7 +318,7 @@ mod tests {
                         .await
                         .expect_err("a runtime cancellation scope cannot be serialized");
                     let export_error = request
-                        .write_to_sink(context.clone(), &mut Vec::new())
+                        .write_to_sink(context.clone(), &mut Vec::new(), &cancellation)
                         .await
                         .expect_err("exporting the same projection must report the failure");
                     (read_error.to_string(), export_error.to_string())
@@ -414,7 +357,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn produce_json_context_free_future_streams_engine_query() {
+    async fn produce_json_execution_streams_engine_query() {
         CancellationToken::new()
             .with_async_scope(|cancellation| async move {
                 let mut arena = Arena::default();
@@ -427,16 +370,13 @@ mod tests {
                 let engine = ExplorerEngine::new(arena);
                 let (context, inbox) = ArenaQueryContext::channel(4);
                 let filename = test_path("stream");
-                let request = ProduceJsonRequest::new(
-                    Breadcrumbs::default(),
-                    filename.display().to_string(),
-                    &cancellation,
-                );
+                let request =
+                    ProduceJsonRequest::new(Breadcrumbs::default(), filename.display().to_string());
 
                 let client = async move {
                     let producer = tokio::spawn(
                         request
-                            .into_future()
+                            .run(synthetic_executor(&cancellation))
                             .with_arena_query_context(context.clone()),
                     );
                     let written = producer
@@ -483,16 +423,13 @@ mod tests {
                 let engine = ExplorerEngine::new(arena);
                 let (context, inbox) = ArenaQueryContext::channel(2);
                 let filename = test_path("explicit");
-                let request = ProduceJsonRequest::new(
-                    Breadcrumbs::default(),
-                    filename.display().to_string(),
-                    &cancellation,
-                );
+                let request =
+                    ProduceJsonRequest::new(Breadcrumbs::default(), filename.display().to_string());
 
                 let client = async move {
                     assert!(ArenaQueryContext::try_current().is_none());
                     request
-                        .run(context.clone())
+                        .write_file(context.clone(), &cancellation)
                         .await
                         .expect("explicit context export succeeds");
                     let document = tokio::fs::read_to_string(&filename)
@@ -544,11 +481,8 @@ mod tests {
                         },
                     ]),
                 );
-                let request = ProduceJsonRequest::new(
-                    tab.breadcrumbs().clone(),
-                    "in-memory-tab-query.json",
-                    &cancellation,
-                );
+                let request =
+                    ProduceJsonRequest::new(tab.breadcrumbs().clone(), "in-memory-tab-query.json");
                 arena.insert_ready(runtime(tab)).unwrap();
                 let engine = ExplorerEngine::new(arena);
                 let (context, inbox) = ArenaQueryContext::channel(2);
@@ -556,7 +490,7 @@ mod tests {
                 let client = async move {
                     let mut sink = Vec::new();
                     request
-                        .write_to_sink(context.clone(), &mut sink)
+                        .write_to_sink(context.clone(), &mut sink, &cancellation)
                         .await
                         .expect("filtered export succeeds");
                     drop(context);
@@ -608,14 +542,13 @@ mod tests {
                         },
                     ]),
                     "pretty.json",
-                    &cancellation,
                 );
                 let engine = ExplorerEngine::new(arena);
                 let (context, inbox) = ArenaQueryContext::channel(2);
                 let client = async move {
                     let mut sink = Vec::new();
                     request
-                        .write_to_sink(context.clone(), &mut sink)
+                        .write_to_sink(context.clone(), &mut sink, &cancellation)
                         .await
                         .unwrap();
                     drop(context);
@@ -654,16 +587,16 @@ mod tests {
                 let handle = context.engine_handle();
                 let wait = Duration::from_secs(2);
                 let client = async move {
-                    let request = ProduceJsonRequest::new(
-                        Breadcrumbs::default(),
-                        "in-memory-export.json",
-                        &cancellation,
-                    );
+                    let request =
+                        ProduceJsonRequest::new(Breadcrumbs::default(), "in-memory-export.json");
                     let producer_context = context.clone();
                     let (writer, mut reader) = duplex(1);
+                    let producer_cancellation = cancellation.clone();
                     let producer = tokio::spawn(async move {
                         let mut writer = writer;
-                        request.write_to_sink(producer_context, &mut writer).await
+                        request
+                            .write_to_sink(producer_context, &mut writer, &producer_cancellation)
+                            .await
                     });
                     let mut opening = [0_u8; 1];
                     timeout(wait, reader.read_exact(&mut opening))
@@ -756,15 +689,19 @@ mod tests {
                     let cancellation = cancellation.clone();
                     let client = async move {
                         let producer_context = context.clone();
-                        let request = ProduceJsonRequest::new(
-                            Breadcrumbs::default(),
-                            "blocked-failure.json",
-                            &cancellation,
-                        );
+                        let request =
+                            ProduceJsonRequest::new(Breadcrumbs::default(), "blocked-failure.json");
                         let (writer, mut reader) = duplex(1);
+                        let producer_cancellation = cancellation.clone();
                         let producer = tokio::spawn(async move {
                             let mut writer = writer;
-                            request.write_to_sink(producer_context, &mut writer).await
+                            request
+                                .write_to_sink(
+                                    producer_context,
+                                    &mut writer,
+                                    &producer_cancellation,
+                                )
+                                .await
                         });
 
                         let mut opening = [0_u8; 1];
@@ -839,15 +776,19 @@ mod tests {
 
                     let client = async move {
                         let producer_context = context.clone();
-                        let request = ProduceJsonRequest::new(
-                            Breadcrumbs::default(),
-                            "blocked-cancel.json",
-                            &cancellation,
-                        );
+                        let request =
+                            ProduceJsonRequest::new(Breadcrumbs::default(), "blocked-cancel.json");
                         let (writer, mut reader) = duplex(1);
+                        let producer_cancellation = cancellation.clone();
                         let producer = tokio::spawn(async move {
                             let mut writer = writer;
-                            request.write_to_sink(producer_context, &mut writer).await
+                            request
+                                .write_to_sink(
+                                    producer_context,
+                                    &mut writer,
+                                    &producer_cancellation,
+                                )
+                                .await
                         });
 
                         let mut opening = [0_u8; 1];

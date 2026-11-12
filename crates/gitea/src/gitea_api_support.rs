@@ -1,9 +1,9 @@
 use crate::GiteaInstanceUrl;
-use crate::GiteaLogin;
 use crate::GiteaRepo;
 use crate::GiteaRepoId;
 use crate::GiteaSearchResults;
-use crate::list_gitea_logins;
+use cloud_terrastodon_auth_types::AuthenticationSelection;
+use cloud_terrastodon_auth_types::CloudTerrastodonAccountId;
 use cloud_terrastodon_cache::CacheKey;
 use cloud_terrastodon_cache::CacheScope;
 use cloud_terrastodon_command::CancellationReportExt;
@@ -20,11 +20,11 @@ use std::time::Duration;
 pub const GITEA_UNCACHED_DELAY: Duration = Duration::from_millis(500);
 pub const GITEA_PAGE_SIZE: usize = 50;
 
-/// Read through tea's explicitly selected external login profile.
-/// External tool credentials are separate from the executor's Azure provider.
-/// Results are not reused because tea does not expose a credential generation.
+/// Read through the executor's immutable snapshot of the selected tea account.
+/// Retain account-partitioned command artifacts without reusing service results.
 pub async fn gitea_api_get<T: Facet<'static> + Send + 'static>(
     tenant: &GiteaInstanceUrl,
+    account_id: CloudTerrastodonAccountId,
     endpoint: &str,
     cache_key: Option<CacheKey>,
     executor: &CloudTerrastodonExecutor,
@@ -34,14 +34,21 @@ pub async fn gitea_api_get<T: Facet<'static> + Send + 'static>(
         url.starts_with(&format!("{tenant}/")),
         "Gitea endpoint must belong to the selected instance"
     );
-    let login = GiteaLogin::for_instance(list_gitea_logins(executor).await?, tenant)?;
+    let session = executor.gitea_session(account_id, tenant.as_ref())?;
     let mut cmd = CommandBuilder::new(CommandKind::Gitea);
-    cmd.cancellation_safe();
-    // tea owns the external credential lifecycle. An explicit profile prevents
-    // ambient default selection; no executor credential lookup is requested.
-    // Its credential generation is unavailable, so service results execute on
-    // every call rather than being reused under a merely non-secret name.
-    cmd.args(["api", "--login", &login.name, url.as_str()]);
+    cmd.cancellation_safe()
+        .authentication(AuthenticationSelection::Gitea { account_id })
+        .env(
+            "XDG_CONFIG_HOME",
+            session.configuration_home().to_str().ok_or_else(|| {
+                eyre::eyre!("Gitea configuration directory must be representable as UTF-8")
+            })?,
+        )
+        .env_remove("TEA_CONFIG")
+        .env_remove_prefix("GITEA_");
+    // The provider retains an immutable account-owned copy of the tea profile.
+    // Keep its session alive until the command and artifact persistence complete.
+    cmd.args(["api", "--login", session.login(), url.as_str()]);
     cmd.use_cache(cache_key.map(|key| CacheKey {
         scope: key.scope,
         valid_for: Duration::ZERO,
@@ -52,6 +59,7 @@ pub async fn gitea_api_get<T: Facet<'static> + Send + 'static>(
 
 pub async fn gitea_api_get_best_effort<T: Facet<'static> + Send + 'static>(
     tenant: &GiteaInstanceUrl,
+    account_id: CloudTerrastodonAccountId,
     endpoint: &str,
     cache_key: Option<CacheKey>,
     executor: &CloudTerrastodonExecutor,
@@ -70,14 +78,21 @@ pub async fn gitea_api_get_best_effort<T: Facet<'static> + Send + 'static>(
         url.starts_with(&format!("{tenant}/")),
         "Gitea endpoint must belong to the selected instance"
     );
-    let login = GiteaLogin::for_instance(list_gitea_logins(executor).await?, tenant)?;
+    let session = executor.gitea_session(account_id, tenant.as_ref())?;
     let mut cmd = CommandBuilder::new(CommandKind::Gitea);
-    cmd.cancellation_safe();
-    // tea owns the external credential lifecycle. An explicit profile prevents
-    // ambient default selection; no executor credential lookup is requested.
-    // Its credential generation is unavailable, so service results execute on
-    // every call rather than being reused under a merely non-secret name.
-    cmd.args(["api", "--login", &login.name, url.as_str()]);
+    cmd.cancellation_safe()
+        .authentication(AuthenticationSelection::Gitea { account_id })
+        .env(
+            "XDG_CONFIG_HOME",
+            session.configuration_home().to_str().ok_or_else(|| {
+                eyre::eyre!("Gitea configuration directory must be representable as UTF-8")
+            })?,
+        )
+        .env_remove("TEA_CONFIG")
+        .env_remove_prefix("GITEA_");
+    // The provider retains an immutable account-owned copy of the tea profile.
+    // Keep its session alive until the command and artifact persistence complete.
+    cmd.args(["api", "--login", session.login(), url.as_str()]);
     cmd.use_cache(cache_key.map(|key| CacheKey {
         scope: key.scope,
         valid_for: Duration::ZERO,
@@ -98,6 +113,7 @@ pub async fn gitea_api_get_best_effort<T: Facet<'static> + Send + 'static>(
 
 pub async fn gitea_api_get_paged<T>(
     tenant: &GiteaInstanceUrl,
+    account_id: CloudTerrastodonAccountId,
     cache_root: CacheKey,
     endpoint_builder: impl Fn(usize, usize) -> String,
     executor: &CloudTerrastodonExecutor,
@@ -115,6 +131,7 @@ where
         };
         let page_items: Vec<T> = gitea_api_get(
             tenant,
+            account_id,
             &endpoint_builder(page, GITEA_PAGE_SIZE),
             Some(page_cache_key),
             executor,
@@ -134,6 +151,7 @@ where
 
 pub async fn gitea_api_get_search_paged<T>(
     tenant: &GiteaInstanceUrl,
+    account_id: CloudTerrastodonAccountId,
     cache_root: CacheKey,
     endpoint_builder: impl Fn(usize, usize) -> String,
     executor: &CloudTerrastodonExecutor,
@@ -151,6 +169,7 @@ where
         };
         let results: GiteaSearchResults<T> = gitea_api_get(
             tenant,
+            account_id,
             &endpoint_builder(page, GITEA_PAGE_SIZE),
             Some(page_cache_key),
             executor,

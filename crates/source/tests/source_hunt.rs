@@ -9,7 +9,6 @@ use cloud_terrastodon_source::SourceHuntRequest;
 use eyre::Result;
 use eyre::WrapErr;
 use std::fs;
-use std::future::IntoFuture;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
@@ -138,9 +137,8 @@ async fn hunt(
                     .map(|value| (*value).to_owned())
                     .collect(),
                 jobs,
-                cancellation: cancellation.clone(),
-                progress: None,
             }
+            .scan(&cancellation, None)
             .await
         })
         .await
@@ -592,9 +590,8 @@ async fn publishes_complete_final_progress_and_rejects_invalid_roots_and_job_lim
                 extensions: Vec::new(),
                 exclude_dirs: Vec::new(),
                 jobs: 2,
-                cancellation: cancellation.clone(),
-                progress: Some(progress),
             }
+            .scan(&cancellation, Some(progress))
             .await
         })
         .await?;
@@ -640,10 +637,8 @@ async fn cancellation_stops_a_scan_with_queued_descendants() -> Result<()> {
                 extensions: Vec::new(),
                 exclude_dirs: Vec::new(),
                 jobs: 1,
-                cancellation: cancellation.clone(),
-                progress: Some(progress),
             }
-            .into_future();
+            .scan(&cancellation, Some(progress));
             tokio::pin!(hunt);
             tokio::select! {
                 report = &mut hunt => { eyre::bail!("Scan completed before a cancellation checkpoint: {report:?}"); },

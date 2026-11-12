@@ -93,14 +93,19 @@ where
         Box::pin(
             executor
                 .cancellable_scope(move |child| async move {
-                    if observe_admission {
-                        child.report_event(ExecutionEvent::Admitted);
-                    }
-                    if let Some(invalidate) = self.invalidation {
-                        invalidate(&self.request, &child).await?;
-                        child.cancellation().bail_if_cancelled()?;
-                    }
-                    self.request.run(child).await
+                    let child = self.request.bind_authentication(child)?;
+                    child
+                        .with_account_cancellation(move |child| async move {
+                            if observe_admission {
+                                child.report_event(ExecutionEvent::Admitted);
+                            }
+                            if let Some(invalidate) = self.invalidation {
+                                invalidate(&self.request, &child).await?;
+                                child.cancellation().bail_if_cancelled()?;
+                            }
+                            self.request.run(child).await
+                        })
+                        .await
                 })
                 .instrument(self.span),
         )

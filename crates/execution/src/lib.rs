@@ -43,3 +43,5 @@ pub use scoped_join::join5;
 pub use test_authentication_provider::TestAuthenticationProvider;
 #[cfg(any(test, feature = "test-support"))]
 pub use unreachable_authentication_provider::UnreachableAuthenticationProvider;
+mod gitea_command_session;
+pub use gitea_command_session::GiteaCommandSession;

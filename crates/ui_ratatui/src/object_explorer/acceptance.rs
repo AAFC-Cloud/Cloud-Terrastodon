@@ -233,10 +233,7 @@ async fn project_admin_query_composes_and_exports_without_azure() {
                         &mut arena,
                         &mut borrows,
                         export_slot,
-                        ValueBuilder::new_with_cancellation(
-                            ProduceJsonRequest::SHAPE,
-                            &cancellation
-                        )?,
+                        ValueBuilder::new(ProduceJsonRequest::SHAPE),
                     )
                     .unwrap(),
                 BuilderTransition::Building
@@ -299,7 +296,7 @@ async fn project_admin_query_composes_and_exports_without_azure() {
                 let (mut writer, mut reader) = duplex(64 * 1024);
                 let write = async move {
                     let path = export
-                        .write_to_sink(context, &mut writer)
+                        .write_to_sink(context, &mut writer, &cancellation)
                         .await
                         .expect("coherent in-memory export succeeds");
                     drop(writer);

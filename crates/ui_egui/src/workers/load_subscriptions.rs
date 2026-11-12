@@ -1,16 +1,16 @@
 use crate::app::MyApp;
+use cloud_terrastodon_azure::AzureSubscriptionListRequest;
 use cloud_terrastodon_azure::Subscription;
-use cloud_terrastodon_azure::fetch_all_subscriptions;
 use cloud_terrastodon_command::app_work::Loadable;
 use cloud_terrastodon_command::app_work::LoadableWorkBuilder;
+use cloud_terrastodon_execution::ExecutableRequest;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Instant;
 use tracing::info;
 
 pub fn load_subscriptions(app: &mut MyApp) {
-    let tenant_id = app.tenant_id;
-    let auth_context = app.auth_context.clone();
+    let authentication = app.authentication;
     let executor = app.executor.clone();
     let cancellation = executor.cancellation().clone();
     let started_at = Instant::now();
@@ -20,9 +20,9 @@ pub fn load_subscriptions(app: &mut MyApp) {
         .setter(|app, data| app.subscriptions = data.map(Rc::new))
         .work(async move |scope| {
             let executor = executor.with_cancellation_scope(scope);
-            let auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
-            let executor = auth_context.auth_context.bind_executor(&executor)?;
-            let subs = fetch_all_subscriptions(&auth_context, &executor).await?;
+            let subs = AzureSubscriptionListRequest { authentication }
+                .execute(&executor)
+                .await?;
             Ok(subs)
         })
         .build()

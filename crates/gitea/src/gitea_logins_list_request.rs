@@ -9,19 +9,12 @@ use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
-use cloud_terrastodon_execution::RequestExecution;
 use facet::Facet;
 use std::time::Duration;
 
 /// Inspect non-secret local tea login metadata without querying a service.
 #[derive(Debug, Clone, Copy, Arbitrary, Facet)]
 pub struct GiteaLoginsListRequest;
-
-pub fn list_gitea_logins(
-    executor: &CloudTerrastodonExecutor,
-) -> RequestExecution<'_, GiteaLoginsListRequest> {
-    executor.execute(GiteaLoginsListRequest)
-}
 
 impl InvalidatesOwnCacheKey for GiteaLoginsListRequest {}
 
@@ -43,8 +36,8 @@ impl ExecutableRequest for GiteaLoginsListRequest {
         Self: 'a,
     {
         Box::pin(async move {
-            // Always refresh: login membership selects the profile for a later
-            // external process, and its configuration has no cache generation.
+            // This is explicit local-profile inspection. Service requests use
+            // the executor's configured account snapshot, never this ambient list.
             CommandBuilder::new(CommandKind::Gitea)
                 .cancellation_safe()
                 .args(["logins", "list", "--output", "json"])

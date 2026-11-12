@@ -1,16 +1,16 @@
 use crate::ExcalidrawScene;
 use crate::ExcalidrawSharedFile;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_registry::DiscoveryPlan;
 use eyre::Context;
 use eyre::Result;
 use facet::Facet;
-use std::future::Future;
 use std::io;
 use std::path::PathBuf;
-use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
-use teamy_cancellation::CancellationScope;
 
 /// Export a discovery plan's dependency graph as an editable Excalidraw drawing.
 ///
@@ -27,15 +27,18 @@ use teamy_cancellation::CancellationScope;
 pub struct ProduceExcalidrawDumpPlanRequest {
     pub plan: DiscoveryPlan,
     pub filename: PathBuf,
-    #[facet(skip_serializing)]
-    pub cancellation: CancellationScope,
 }
 
-impl IntoFuture for ProduceExcalidrawDumpPlanRequest {
-    type Output = Result<PathBuf>;
-    type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + Send>>;
+impl ExecutableRequest for ProduceExcalidrawDumpPlanRequest {
+    type Output = PathBuf;
+    type Error = eyre::Report;
 
-    fn into_future(self) -> Self::IntoFuture {
+    fn run<'a>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>
+    where
+        Self: 'a,
+        Self::Output: 'a,
+        Self::Error: 'a,
+    {
         Box::pin(async move {
             // Layout and filesystem access must not occupy the explorer's async
             // worker. Preparation is read-only, so cancellation may abandon it.
@@ -52,8 +55,8 @@ impl IntoFuture for ProduceExcalidrawDumpPlanRequest {
             loop {
                 let writing = file.clone();
                 let rendering = Arc::clone(&scene);
-                let result = self
-                    .cancellation
+                let result = executor
+                    .cancellation()
                     .deferred(
                         "publishing the discovery plan drawing",
                         |_scope| async move {
@@ -78,7 +81,8 @@ impl IntoFuture for ProduceExcalidrawDumpPlanRequest {
                     {
                         // Release the deferral while waiting. Never remove a lock
                         // owned by the editor or another CT process.
-                        self.cancellation
+                        executor
+                            .cancellation()
                             .cancellable_scope(|_scope| async {
                                 tokio::time::sleep(Duration::from_millis(100)).await;
                                 eyre::Ok(())
@@ -97,20 +101,29 @@ impl IntoFuture for ProduceExcalidrawDumpPlanRequest {
 }
 
 cloud_terrastodon_registry::register_thing!(ProduceExcalidrawDumpPlanRequest);
-cloud_terrastodon_registry_execution::register_into_future!(ProduceExcalidrawDumpPlanRequest => PathBuf, effects = [Write]);
+cloud_terrastodon_registry::register_arbitrary!(PathBuf);
+cloud_terrastodon_registry_execution::register_executable_request!(ProduceExcalidrawDumpPlanRequest => PathBuf, effects = [Write]);
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::excalidraw_file_lock::ExcalidrawFileLock;
+    use cloud_terrastodon_cache::WorkCache;
+    use cloud_terrastodon_execution::AnonymousAuthenticationProvider;
     use std::fs;
     use teamy_cancellation::CancellationReportExt;
+    use teamy_cancellation::CancellationScope;
     use teamy_cancellation::CancellationToken;
 
-    fn request(
-        filename: PathBuf,
-        cancellation: CancellationScope,
-    ) -> ProduceExcalidrawDumpPlanRequest {
+    fn executor(cancellation: CancellationScope) -> Result<CloudTerrastodonExecutor> {
+        Ok(CloudTerrastodonExecutor::new(
+            WorkCache::temporary()?,
+            Arc::new(AnonymousAuthenticationProvider),
+            cancellation,
+        ))
+    }
+
+    fn request(filename: PathBuf) -> ProduceExcalidrawDumpPlanRequest {
         ProduceExcalidrawDumpPlanRequest {
             plan: DiscoveryPlan {
                 nodes: vec![],
@@ -118,7 +131,6 @@ mod tests {
                 diagnostics: vec![],
             },
             filename,
-            cancellation,
         }
     }
 
@@ -129,7 +141,10 @@ mod tests {
         fs::write(&filename, "incomplete existing drawing")?;
         CancellationToken::new()
             .with_async_scope(|scope| async {
-                let error = request(filename.clone(), scope).await.unwrap_err();
+                let error = request(filename.clone())
+                    .execute(&executor(scope)?)
+                    .await
+                    .unwrap_err();
                 assert!(error.to_string().contains("Publishing discovery plan"));
                 assert_eq!(
                     fs::read_to_string(&filename)?,
@@ -149,7 +164,9 @@ mod tests {
         let editor_lock = ExcalidrawFileLock::acquire(lock_path.clone())?;
         CancellationToken::new()
             .with_async_scope(|scope| async move {
-                let mut export = request(filename.clone(), scope).into_future();
+                let executor = executor(scope)?;
+                let mut export =
+                    Box::pin(request(filename.clone()).execute(&executor).into_future());
                 assert!(
                     tokio::time::timeout(Duration::from_millis(200), &mut export)
                         .await
@@ -179,7 +196,9 @@ mod tests {
         let cancellation = CancellationToken::new();
         cancellation
             .with_async_scope(|scope| async {
-                let mut export = request(filename.clone(), scope).into_future();
+                let executor = executor(scope)?;
+                let mut export =
+                    Box::pin(request(filename.clone()).execute(&executor).into_future());
                 assert!(
                     tokio::time::timeout(Duration::from_millis(200), &mut export)
                         .await

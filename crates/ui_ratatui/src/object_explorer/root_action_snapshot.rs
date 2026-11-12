@@ -68,7 +68,6 @@ impl RootActionSnapshot {
         // Keep named operations and trait contracts visible: multiple projections
         // or conversions can share the same input and output shapes.
         match (function.trait_contract, function.label) {
-            (FunctionTraitContract::IntoFuture, "invoke") => {}
             (FunctionTraitContract::From, "from")
             | (FunctionTraitContract::TryFrom, "try_from")
             | (FunctionTraitContract::Arbitrary, "arbitrary") => {

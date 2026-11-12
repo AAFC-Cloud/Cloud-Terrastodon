@@ -11,8 +11,6 @@ use std::fmt;
 pub enum FunctionTraitContract {
     /// A data-only request bound to explicit execution resources at invocation.
     ExecutableRequest,
-    /// An executable request registered through its `IntoFuture` implementation.
-    IntoFuture,
     /// An infallible conversion registered through `From`.
     From,
     /// A fallible conversion registered through `TryFrom`.
@@ -28,7 +26,6 @@ impl FunctionTraitContract {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::ExecutableRequest => "ExecutableRequest",
-            Self::IntoFuture => "IntoFuture",
             Self::From => "From",
             Self::TryFrom => "TryFrom",
             Self::Arbitrary => "Arbitrary",

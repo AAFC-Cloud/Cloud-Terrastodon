@@ -49,6 +49,7 @@ mod pop_coalescer;
 mod preorder_cursor;
 #[cfg(test)]
 mod produce_dump_plan_excalidraw_tests;
+mod produce_json_error;
 mod produce_json_request;
 mod production_controller;
 mod production_job;

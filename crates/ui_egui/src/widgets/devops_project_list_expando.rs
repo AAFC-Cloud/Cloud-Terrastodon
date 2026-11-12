@@ -18,7 +18,10 @@ pub fn draw_devops_project_list_expando(app: &mut MyApp, ui: &mut Ui) {
         expando.toggle(ui);
     }
     let is_open = expando.is_open();
-    if is_open && matches!(app.azure_devops_projects, Loadable::NotLoaded) {
+    if app.azure_devops_organization.is_some()
+        && is_open
+        && matches!(app.azure_devops_projects, Loadable::NotLoaded)
+    {
         load_azure_devops_projects(app);
     }
     expando
@@ -64,6 +67,10 @@ fn draw_expando_header(app: &mut MyApp, ui: &mut Ui, toggle_key: Id) {
 }
 
 fn draw_expando_body(app: &mut MyApp, ui: &mut Ui) {
+    if app.azure_devops_organization.is_none() {
+        ui.label("Launch with egui --org to browse Azure DevOps projects.");
+        return;
+    }
     ui.vertical(|ui| match &app.azure_devops_projects {
         Loadable::NotLoaded => {
             ui.label("Not loaded");

@@ -56,10 +56,8 @@ impl SourceHuntArgs {
                 extensions: self.extension,
                 exclude_dirs: self.exclude_dir,
                 jobs: self.jobs,
-                cancellation: cancellation.clone(),
-                progress: terminal.as_ref().map(|_| progress),
             }
-            .into_future(),
+            .scan(cancellation, terminal.as_ref().map(|_| progress)),
         );
         let mut ticks = tokio::time::interval(Duration::from_millis(100));
         ticks.set_missed_tick_behavior(MissedTickBehavior::Skip);

@@ -348,22 +348,44 @@ mod tests {
     use crate::object_explorer::Breadcrumbs;
     use crate::object_explorer::ExplorerEngine;
     use crate::object_explorer::QueryProgressState;
+    use arbitrary::Arbitrary;
+    use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+    use cloud_terrastodon_execution::ExecutableRequest;
+    use cloud_terrastodon_execution::ExecutionFuture;
     use std::borrow::Cow;
     use std::num::NonZeroUsize;
 
+    #[derive(Clone, Facet)]
+    struct SyntheticPickerValue(String);
+
+    #[derive(Default, Arbitrary, Facet)]
+    struct SyntheticPickerDefaultRequest;
+
+    impl ExecutableRequest for SyntheticPickerDefaultRequest {
+        type Error = eyre::Report;
+        type Output = SyntheticPickerValue;
+        fn run<'a>(self, _executor: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>
+        where
+            Self: 'a,
+        {
+            Box::pin(async { Ok(SyntheticPickerValue("synthetic".into())) })
+        }
+    }
+    cloud_terrastodon_registry::register_thing!(SyntheticPickerValue);
+    cloud_terrastodon_registry::register_thing!(SyntheticPickerDefaultRequest);
+    cloud_terrastodon_registry::register_arbitrary!(SyntheticPickerDefaultRequest);
+    cloud_terrastodon_registry_execution::register_executable_request!(SyntheticPickerDefaultRequest => SyntheticPickerValue, effects = [Read]);
+
     #[test]
     fn cow_field_picker_offers_generic_default_manual_and_arbitrary_producers() {
-        use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
-        use cloud_terrastodon_azure_devops::DefaultAzureDevOpsOrganizationUrlRequest;
-
         // Referencing the request also makes its distributed registry entries
         // part of this test binary.
-        let _ = std::any::TypeId::of::<DefaultAzureDevOpsOrganizationUrlRequest>();
+        let _ = std::any::TypeId::of::<SyntheticPickerDefaultRequest>();
         let picker = FieldValuePicker::new(
             SlotId::new(4),
             0,
             "org_url",
-            <Cow<'static, AzureDevOpsOrganizationUrl>>::SHAPE,
+            <Cow<'static, SyntheticPickerValue>>::SHAPE,
         );
         let labels = picker
             .rows()
@@ -371,22 +393,24 @@ mod tests {
             .map(ValuePickerRow::label)
             .collect::<Vec<_>>();
 
-        assert!(labels.iter().any(|label| {
-            label.contains("invoke default DefaultAzureDevOpsOrganizationUrlRequest")
-        }));
         assert!(
             labels
                 .iter()
-                .any(|label| { label.contains("create DefaultAzureDevOpsOrganizationUrlRequest") })
+                .any(|label| { label.contains("invoke default SyntheticPickerDefaultRequest") })
         );
-        assert!(labels.iter().any(|label| {
-            label.contains("invoke arbitrary DefaultAzureDevOpsOrganizationUrlRequest")
-        }));
+        assert!(
+            labels
+                .iter()
+                .any(|label| { label.contains("create SyntheticPickerDefaultRequest") })
+        );
+        assert!(
+            labels
+                .iter()
+                .any(|label| { label.contains("invoke arbitrary SyntheticPickerDefaultRequest") })
+        );
         assert_eq!(
             labels.first().copied(),
-            Some(
-                "+ invoke default DefaultAzureDevOpsOrganizationUrlRequest for AzureDevOpsOrganizationUrl"
-            ),
+            Some("+ invoke default SyntheticPickerDefaultRequest for SyntheticPickerValue"),
             "a domain default producer should outrank ArbitraryBytes-based construction"
         );
         assert!(matches!(

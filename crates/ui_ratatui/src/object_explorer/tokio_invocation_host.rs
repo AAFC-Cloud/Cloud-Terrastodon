@@ -252,16 +252,6 @@ impl TokioInvocationHost {
         let (cancellation, future) = self.executor.cancellable_child_scope(factory);
         (cancellation, Box::pin(future))
     }
-
-    #[cfg(test)]
-    pub(crate) fn operation_scope(&self, id: InvocationId) -> Option<CancellationScope> {
-        self.jobs.get(&id).and_then(|job| {
-            job.scope
-                .lock()
-                .unwrap_or_else(|error| error.into_inner())
-                .clone()
-        })
-    }
 }
 
 impl InvocationHost for TokioInvocationHost {

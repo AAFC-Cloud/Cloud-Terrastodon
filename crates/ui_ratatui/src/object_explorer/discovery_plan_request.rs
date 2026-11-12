@@ -1,14 +1,15 @@
 use super::arena_query_context::ArenaQueryContext;
 use super::breadcrumbs::Breadcrumbs;
 use cloud_terrastodon_command::CancellationScope;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_registry::DiscoveryPlan;
 use cloud_terrastodon_registry::RegisteredShape;
 use cloud_terrastodon_registry_execution::Function;
 use cloud_terrastodon_registry_execution::known_functions;
 use facet::Facet;
 use std::collections::HashSet;
-use std::future::Future;
-use std::pin::Pin;
 
 /// Inspect the existing object pool and produce an offline discovery graph.
 ///
@@ -24,22 +25,21 @@ pub(crate) struct DiscoveryPlanRequest {
     /// Defaults to the pool's ordinary unfiltered ready-value query.
     #[facet(default)]
     pub inputs: Breadcrumbs,
-    #[facet(skip_serializing)]
-    pub cancellation: CancellationScope,
 }
 
 impl DiscoveryPlanRequest {
     /// Keep the engine capability and catalog explicit for non-UI callers and
-    /// offline tests. Only IntoFuture opts into the installed host context.
+    /// offline tests. Executing the request uses the installed host context.
     pub(crate) async fn run(
         self,
         context: ArenaQueryContext,
         functions: Vec<Function>,
+        cancellation: &CancellationScope,
     ) -> eyre::Result<DiscoveryPlan> {
         let session = context.open_export(self.inputs).await?;
         let mut seeds = HashSet::new();
         loop {
-            self.cancellation.bail_if_cancelled()?;
+            cancellation.bail_if_cancelled()?;
             let batch = session.next_shape_batch(256).await?;
             seeds.extend(batch.shapes);
             if batch.complete {
@@ -47,27 +47,33 @@ impl DiscoveryPlanRequest {
             }
         }
         session.complete().await?;
-        self.cancellation.bail_if_cancelled()?;
+        cancellation.bail_if_cancelled()?;
         DiscoveryPlan::build(
             functions.into_iter().map(|function| function.descriptor()),
             seeds,
             self.targets.iter().map(|target| target.shape()),
-            &self.cancellation,
+            cancellation,
         )
     }
 }
 
-impl IntoFuture for DiscoveryPlanRequest {
-    type Output = eyre::Result<DiscoveryPlan>;
-    type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + Send>>;
+impl ExecutableRequest for DiscoveryPlanRequest {
+    type Output = DiscoveryPlan;
+    type Error = eyre::Report;
 
-    fn into_future(self) -> Self::IntoFuture {
+    fn run<'a>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>
+    where
+        Self: 'a,
+        Self::Output: 'a,
+        Self::Error: 'a,
+    {
         Box::pin(async move {
             // Resolve the host capability when polled, after the invocation
             // host installs it. No new cancellation root or ambient auth lookup.
             self.run(
                 ArenaQueryContext::current()?,
                 known_functions().iter().collect(),
+                executor.cancellation(),
             )
             .await
         })
@@ -75,7 +81,7 @@ impl IntoFuture for DiscoveryPlanRequest {
 }
 
 cloud_terrastodon_registry::register_thing!(DiscoveryPlanRequest);
-cloud_terrastodon_registry_execution::register_into_future!(DiscoveryPlanRequest => DiscoveryPlan, effects = [Read]);
+cloud_terrastodon_registry_execution::register_executable_request!(DiscoveryPlanRequest => DiscoveryPlan, effects = [Read]);
 
 #[cfg(test)]
 mod tests {
@@ -85,7 +91,6 @@ mod tests {
     use super::*;
     use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_registry::RuntimeValue;
-    use std::future::Ready;
 
     #[derive(Clone, Debug, Facet)]
     struct Auth;
@@ -98,16 +103,21 @@ mod tests {
         auth: Auth,
     }
 
-    impl IntoFuture for InventoryRequest {
-        type Output = eyre::Result<Inventory>;
-        type IntoFuture = Ready<Self::Output>;
+    impl ExecutableRequest for InventoryRequest {
+        type Output = Inventory;
+        type Error = eyre::Report;
 
-        fn into_future(self) -> Self::IntoFuture {
+        fn run<'a>(self, _executor: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>
+        where
+            Self: 'a,
+            Self::Output: 'a,
+            Self::Error: 'a,
+        {
             panic!("offline planning must never execute an inventory request")
         }
     }
 
-    cloud_terrastodon_registry_execution::register_into_future!(InventoryRequest => Inventory, effects = [Read]);
+    cloud_terrastodon_registry_execution::register_executable_request!(InventoryRequest => Inventory, effects = [Read]);
 
     #[tokio::test]
     async fn plan_uses_only_ready_values_selected_by_its_input_query() -> eyre::Result<()> {
@@ -124,10 +134,12 @@ mod tests {
                         inputs: Breadcrumbs::new(vec![Breadcrumb::ShapeFilter {
                             included_shapes: vec![filter.to_owned()],
                         }]),
-                        cancellation: cancellation.clone(),
                     };
-                    let client =
-                        request.run(context, vec![InventoryRequest::REGISTERED_INTO_FUTURE]);
+                    let client = request.run(
+                        context,
+                        vec![InventoryRequest::REGISTERED_EXECUTABLE_REQUEST],
+                        &cancellation,
+                    );
                     let (_, plan) = tokio::join!(
                         async {
                             engine

@@ -1,17 +1,19 @@
 use crate::GiteaInstanceUrl;
+use crate::GiteaOrganizationListRequest;
+use crate::GiteaOrganizationRepoListRequest;
 use crate::GiteaRepoEnumerationComparisonReport;
 use crate::GiteaRepoEnumerationMethod;
 use crate::GiteaRepoEnumerationMethodReport;
 use crate::GiteaRepoId;
-use crate::fetch_all_gitea_organization_repositories;
-use crate::fetch_all_gitea_organizations;
-use crate::fetch_all_gitea_repositories;
-use crate::fetch_all_gitea_repositories_via_search;
-use crate::fetch_all_gitea_user_repositories;
-use crate::fetch_all_gitea_users;
-use crate::fetch_current_user_gitea_repositories;
-use crate::fetch_gitea_repositories_by_id_range;
+use crate::GiteaRepoListRequest;
+use crate::GiteaRepoScanByIdRequest;
+use crate::GiteaRepoSearchRequest;
+use crate::GiteaUserCurrentRepoListRequest;
+use crate::GiteaUserListRequest;
+use crate::GiteaUserRepoListRequest;
 use arbitrary::Arbitrary;
+use cloud_terrastodon_auth_types::AuthenticationSelection;
+use cloud_terrastodon_auth_types::CloudTerrastodonAccountId;
 use cloud_terrastodon_cache::CacheKey;
 use cloud_terrastodon_cache::CacheScope;
 use cloud_terrastodon_cache::HasCacheKey;
@@ -19,7 +21,6 @@ use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
-use cloud_terrastodon_execution::RequestExecution;
 use facet::Facet;
 use std::borrow::Cow;
 use std::collections::BTreeSet;
@@ -30,24 +31,15 @@ use std::time::Duration;
 #[facet(traits(Clone))]
 pub struct GiteaRepoEnumerationAnalysisRequest<'a> {
     pub tenant: Cow<'a, GiteaInstanceUrl>,
+    pub account_id: CloudTerrastodonAccountId,
     pub max_repo_id: u64,
-}
-
-pub fn analyze_gitea_repo_enumeration<'a>(
-    tenant: &'a GiteaInstanceUrl,
-    max_repo_id: u64,
-    executor: &'a CloudTerrastodonExecutor,
-) -> RequestExecution<'a, GiteaRepoEnumerationAnalysisRequest<'a>> {
-    executor.execute(GiteaRepoEnumerationAnalysisRequest {
-        tenant: Cow::Borrowed(tenant),
-        max_repo_id,
-    })
 }
 
 impl<'a> Arbitrary<'a> for GiteaRepoEnumerationAnalysisRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
             tenant: Cow::Owned(GiteaInstanceUrl::arbitrary(u)?),
+            account_id: CloudTerrastodonAccountId::arbitrary(u)?,
             max_repo_id: u64::arbitrary(u)?,
         })
     }
@@ -71,6 +63,15 @@ impl HasCacheKey for GiteaRepoEnumerationAnalysisRequest<'_> {
 }
 
 impl ExecutableRequest for GiteaRepoEnumerationAnalysisRequest<'_> {
+    fn bind_authentication(
+        &self,
+        executor: CloudTerrastodonExecutor,
+    ) -> Result<CloudTerrastodonExecutor, Self::Error> {
+        executor.with_authentication_lease(&AuthenticationSelection::Gitea {
+            account_id: self.account_id,
+        })
+    }
+
     type Error = eyre::Report;
     type Output = GiteaRepoEnumerationComparisonReport;
     fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
@@ -78,44 +79,72 @@ impl ExecutableRequest for GiteaRepoEnumerationAnalysisRequest<'_> {
         Self: 'exec,
     {
         Box::pin(async move {
-            let organizations =
-                fetch_all_gitea_organizations(self.tenant.as_ref(), &executor).await?;
+            let organizations = GiteaOrganizationListRequest {
+                account_id: self.account_id,
+                tenant: Cow::Borrowed(self.tenant.as_ref()),
+            }
+            .execute(&executor)
+            .await?;
             let mut org_repositories = Vec::new();
             for organization in &organizations {
                 executor.cancellation().bail_if_cancelled()?;
                 org_repositories.extend(
-                    fetch_all_gitea_organization_repositories(
-                        self.tenant.as_ref(),
-                        &organization.username,
-                        &executor,
-                    )
+                    GiteaOrganizationRepoListRequest {
+                        account_id: self.account_id,
+                        tenant: Cow::Borrowed(self.tenant.as_ref()),
+                        organization_name: Cow::Borrowed(&organization.username),
+                    }
+                    .execute(&executor)
                     .await?,
                 );
             }
 
-            let users = fetch_all_gitea_users(self.tenant.as_ref(), &executor).await?;
+            let users = GiteaUserListRequest {
+                account_id: self.account_id,
+                tenant: Cow::Borrowed(self.tenant.as_ref()),
+            }
+            .execute(&executor)
+            .await?;
             let mut user_repositories = Vec::new();
             for user in &users {
                 executor.cancellation().bail_if_cancelled()?;
                 user_repositories.extend(
-                    fetch_all_gitea_user_repositories(self.tenant.as_ref(), &user.login, &executor)
-                        .await?,
+                    GiteaUserRepoListRequest {
+                        account_id: self.account_id,
+                        tenant: Cow::Borrowed(self.tenant.as_ref()),
+                        username: Cow::Borrowed(&user.login),
+                    }
+                    .execute(&executor)
+                    .await?,
                 );
             }
 
-            let current_user_repositories =
-                fetch_current_user_gitea_repositories(self.tenant.as_ref(), &executor).await?;
-            let search_repositories =
-                fetch_all_gitea_repositories_via_search(self.tenant.as_ref(), &executor).await?;
-            let id_range_repositories = fetch_gitea_repositories_by_id_range(
-                self.tenant.as_ref(),
-                1,
-                self.max_repo_id,
-                &executor,
-            )
+            let current_user_repositories = GiteaUserCurrentRepoListRequest {
+                account_id: self.account_id,
+                tenant: Cow::Borrowed(self.tenant.as_ref()),
+            }
+            .execute(&executor)
             .await?;
-            let combined_repositories =
-                fetch_all_gitea_repositories(self.tenant.as_ref(), &executor).await?;
+            let search_repositories = GiteaRepoSearchRequest {
+                account_id: self.account_id,
+                tenant: Cow::Borrowed(self.tenant.as_ref()),
+            }
+            .execute(&executor)
+            .await?;
+            let id_range_repositories = GiteaRepoScanByIdRequest {
+                account_id: self.account_id,
+                tenant: Cow::Borrowed(self.tenant.as_ref()),
+                start_id: (1),
+                end_id: (self.max_repo_id),
+            }
+            .execute(&executor)
+            .await?;
+            let combined_repositories = GiteaRepoListRequest {
+                account_id: self.account_id,
+                tenant: Cow::Borrowed(self.tenant.as_ref()),
+            }
+            .execute(&executor)
+            .await?;
 
             executor.cancellation().bail_if_cancelled()?;
             let organizations_report = method_report(
@@ -216,4 +245,10 @@ cloud_terrastodon_registry::register_arbitrary!(GiteaRepoEnumerationAnalysisRequ
 cloud_terrastodon_registry_execution::register_executable_request!(
     GiteaRepoEnumerationAnalysisRequest<'static> => GiteaRepoEnumerationComparisonReport,
     effects = [Read]
+);
+
+cloud_terrastodon_registry_execution::register_runtime_test!(
+    GiteaRepoEnumerationAnalysisRequest<'static>,
+    name = "gitea-repo-enumeration-analysis",
+    cached
 );

@@ -2,6 +2,7 @@ use crate::RequestHeaders;
 use crate::RestService;
 use cloud_terrastodon_auth_types::AuthenticationSelection;
 use cloud_terrastodon_auth_types::Authorization;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_auth_types::AzureCredentialResource;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
@@ -13,6 +14,7 @@ use reqwest::Url;
 use reqwest::header::AUTHORIZATION;
 use reqwest::header::CONTENT_TYPE;
 use reqwest::tls::Version;
+use std::time::Duration;
 use tracing::debug;
 
 pub async fn read_optional_body(body: Option<String>) -> Result<Option<String>> {
@@ -28,22 +30,30 @@ pub async fn read_optional_body(body: Option<String>) -> Result<Option<String>> 
 
 /// Execute one service exchange using only the executor's admitted credentials.
 /// Request bodies, response decoding and artifact policy are owned by RestRequest.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "HTTP payload, timeout, authentication, and execution are separate transport inputs"
+)]
 pub async fn execute_rest_request(
     service: RestService,
     method: Method,
     url: Url,
     body: Option<String>,
     headers: Option<RequestHeaders>,
+    transport_timeout: Option<Duration>,
     selection: &AuthenticationSelection,
     executor: &CloudTerrastodonExecutor,
 ) -> Result<Response> {
     match (service, selection) {
         (RestService::AzureRetailPrices, AuthenticationSelection::Anonymous)
-        | (RestService::AzureDevOps, AuthenticationSelection::AzureDevOpsPersonalAccessToken) => {}
+        | (
+            RestService::AzureDevOps,
+            AuthenticationSelection::AzureDevOpsPersonalAccessToken { .. },
+        ) => {}
         (RestService::AzureRetailPrices, _) => {
             eyre::bail!("the public retail-price service requires anonymous authentication");
         }
-        (_, AuthenticationSelection::AzureBearer { .. }) => {}
+        (_, AuthenticationSelection::AzureBearer(AzureBearerAuthenticationSelection { .. })) => {}
         _ => {
             eyre::bail!("the selected authentication cannot authorize this REST service");
         }
@@ -51,9 +61,16 @@ pub async fn execute_rest_request(
     // Public lower-level callers retain admission before HTTP contact, including
     // the unauthenticated request which obtains an ACR challenge.
     executor.admit(selection)?;
+    executor.validate_authentication_target(selection, &url)?;
     if service == RestService::AzureContainerRegistry {
         return crate::container_registry_request_execution::execute_container_registry_request(
-            method, url, body, headers, selection, executor,
+            method,
+            url,
+            body,
+            headers,
+            transport_timeout,
+            selection,
+            executor,
         )
         .await;
     }
@@ -78,14 +95,19 @@ pub async fn execute_rest_request(
         };
         ensure!(matches!((selection, &authorization),
             (AuthenticationSelection::Anonymous, Authorization::Anonymous)
-            | (AuthenticationSelection::AzureBearer { .. }, Authorization::Bearer(_))
-            | (AuthenticationSelection::AzureDevOpsPersonalAccessToken, Authorization::PersonalAccessToken(_))),
+            | (AuthenticationSelection::AzureBearer(AzureBearerAuthenticationSelection {.. }), Authorization::Bearer(_))
+            | (AuthenticationSelection::AzureDevOpsPersonalAccessToken { .. }, Authorization::PersonalAccessToken(_))),
             "the credential provider returned authorization inconsistent with the request selection");
         child.cancellation().bail_if_cancelled()?;
         debug!(?method, %url, ?service, "Executing REST request");
         let has_content_type = headers.contains_key(CONTENT_TYPE);
-        let mut request = ClientBuilder::new().min_tls_version(Version::TLS_1_2).build()?
+        // A redirect can move to another organization on the same host. Keep
+        // credential delivery within the destination validated above.
+        let mut request = ClientBuilder::new().min_tls_version(Version::TLS_1_2).redirect(reqwest::redirect::Policy::none()).build()?
             .request(method, url).headers(headers);
+        if let Some(timeout) = transport_timeout {
+            request = request.timeout(timeout);
+        }
         if let Some(header) = authorization.header() {
             request = request.header(AUTHORIZATION, header);
         }
@@ -117,10 +139,14 @@ mod tests {
                     Arc::new(AnonymousAuthenticationProvider),
                     scope,
                 );
-                let selection = AuthenticationSelection::AzureBearer {
-                    auth_source: AzureBearerAuthSource::AzureCli,
-                    tenant_id: "11111111-1111-1111-1111-111111111111".parse()?,
-                };
+                let selection =
+                    AuthenticationSelection::AzureBearer(AzureBearerAuthenticationSelection {
+                        account_id: "11111111-1111-1111-1111-111111111111"
+                            .parse()
+                            .expect("synthetic account ID"),
+                        auth_source: AzureBearerAuthSource::AzureCli,
+                        tenant_id: "11111111-1111-1111-1111-111111111111".parse()?,
+                    });
                 for service in [
                     RestService::AzureResourceManager,
                     RestService::MicrosoftGraph,
@@ -132,6 +158,7 @@ mod tests {
                         service,
                         Method::GET,
                         Url::parse("file:///synthetic-no-request")?,
+                        None,
                         None,
                         None,
                         &selection,

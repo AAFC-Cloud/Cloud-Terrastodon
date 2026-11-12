@@ -669,8 +669,6 @@ mod tests {
     use crate::object_explorer::RootRevision;
     use crate::object_explorer::SlotId;
     use crate::object_explorer::ValueAddress;
-    use cloud_terrastodon_auth::AuthContext;
-    use cloud_terrastodon_auth::AzureDevOpsAuthContext;
     use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
     use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
     use cloud_terrastodon_azure_devops::AzureDevOpsProjectsListRequest;
@@ -698,14 +696,17 @@ mod tests {
     }
 
     #[test]
-    fn auth_cards_render_the_active_variant_and_nested_policy_preview() {
+    fn authentication_cards_render_the_active_variant_and_nested_selection_preview() {
         let mut arena = Arena::default();
-        let root = arena
-            .insert_ready(runtime(AzureDevOpsAuthContext::PersonalAccessToken(
-                AuthContext::Unresolved,
-            )))
+        let selection = AzureDevOpsAuthSelection::PersonalAccessToken {
+            account_id: "11111111-1111-1111-1111-111111111111".parse().unwrap(),
+        };
+        // Show the empty option before the populated option's account-ID
+        // descendants consume the bounded three-card window.
+        arena
+            .insert_ready(runtime(Option::<AzureDevOpsAuthSelection>::None))
             .unwrap();
-        arena.insert_ready(runtime(AuthContext::None)).unwrap();
+        let root = arena.insert_ready(runtime(Some(selection))).unwrap();
         let source = ArenaAddressSource::new(&arena);
         let window = CardWindow::first(&source, NonZeroUsize::new(3).unwrap(), 8).unwrap();
         let selected = CardAddress::Value(ValueAddress::root(root));
@@ -725,9 +726,9 @@ mod tests {
             .unwrap();
         let rendered = terminal.backend().to_string();
         assert!(rendered.contains("variant: PersonalAccessToken"));
-        assert!(rendered.contains("variant: Unresolved"));
+        assert!(rendered.contains("variant: Some"));
         assert!(rendered.contains("variant: None"));
-        assert!(rendered.contains("value Unresolved"));
+        assert!(rendered.contains("value PersonalAccessToken"));
     }
 
     #[test]
@@ -912,7 +913,11 @@ mod tests {
             let root = arena
                 .insert_ready(runtime(AzureDevOpsProjectsListRequest {
                     org_url: Cow::Owned("example-org".parse().unwrap()),
-                    auth_selection: AzureDevOpsAuthSelection::PersonalAccessToken,
+                    auth_selection: AzureDevOpsAuthSelection::PersonalAccessToken {
+                        account_id: "11111111-1111-1111-1111-111111111111"
+                            .parse()
+                            .expect("synthetic account ID"),
+                    },
                 }))
                 .unwrap();
             let source = ArenaAddressSource::new(&arena);

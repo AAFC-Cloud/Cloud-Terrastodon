@@ -4,13 +4,14 @@ use crate::GiteaOrganizationName;
 use crate::gitea_api_support::gitea_api_get;
 use crate::gitea_api_support::tenant_cache_key_prefix;
 use arbitrary::Arbitrary;
+use cloud_terrastodon_auth_types::AuthenticationSelection;
+use cloud_terrastodon_auth_types::CloudTerrastodonAccountId;
 use cloud_terrastodon_cache::CacheKey;
 use cloud_terrastodon_cache::HasCacheKey;
 use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
-use cloud_terrastodon_execution::RequestExecution;
 use facet::Facet;
 use std::borrow::Cow;
 use std::time::Duration;
@@ -20,24 +21,15 @@ use std::time::Duration;
 #[facet(traits(Clone))]
 pub struct GiteaOrganizationGetRequest<'a> {
     pub tenant: Cow<'a, GiteaInstanceUrl>,
+    pub account_id: CloudTerrastodonAccountId,
     pub organization_name: Cow<'a, GiteaOrganizationName>,
-}
-
-pub fn fetch_gitea_organization<'a>(
-    tenant: &'a GiteaInstanceUrl,
-    organization_name: &'a GiteaOrganizationName,
-    executor: &'a CloudTerrastodonExecutor,
-) -> RequestExecution<'a, GiteaOrganizationGetRequest<'a>> {
-    executor.execute(GiteaOrganizationGetRequest {
-        tenant: Cow::Borrowed(tenant),
-        organization_name: Cow::Borrowed(organization_name),
-    })
 }
 
 impl<'a> Arbitrary<'a> for GiteaOrganizationGetRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
             tenant: Cow::Owned(GiteaInstanceUrl::arbitrary(u)?),
+            account_id: CloudTerrastodonAccountId::arbitrary(u)?,
             organization_name: Cow::Owned(GiteaOrganizationName::arbitrary(u)?),
         })
     }
@@ -58,6 +50,15 @@ impl HasCacheKey for GiteaOrganizationGetRequest<'_> {
 }
 
 impl ExecutableRequest for GiteaOrganizationGetRequest<'_> {
+    fn bind_authentication(
+        &self,
+        executor: CloudTerrastodonExecutor,
+    ) -> Result<CloudTerrastodonExecutor, Self::Error> {
+        executor.with_authentication_lease(&AuthenticationSelection::Gitea {
+            account_id: self.account_id,
+        })
+    }
+
     type Error = eyre::Report;
     type Output = GiteaOrganization;
     fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
@@ -67,6 +68,7 @@ impl ExecutableRequest for GiteaOrganizationGetRequest<'_> {
         Box::pin(async move {
             gitea_api_get(
                 self.tenant.as_ref(),
+                self.account_id,
                 &format!("/orgs/{}", self.organization_name),
                 Some(self.cache_key()?),
                 &executor,
@@ -81,4 +83,10 @@ cloud_terrastodon_registry::register_arbitrary!(GiteaOrganizationGetRequest<'sta
 cloud_terrastodon_registry_execution::register_executable_request!(
     GiteaOrganizationGetRequest<'static> => GiteaOrganization,
     effects = [Read]
+);
+
+cloud_terrastodon_registry_execution::register_runtime_test!(
+    GiteaOrganizationGetRequest<'static>,
+    name = "gitea-organization-get",
+    cached
 );

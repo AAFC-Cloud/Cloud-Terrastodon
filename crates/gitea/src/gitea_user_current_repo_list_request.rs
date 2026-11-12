@@ -3,13 +3,14 @@ use crate::GiteaRepo;
 use crate::gitea_api_support::gitea_api_get_paged;
 use crate::gitea_api_support::tenant_cache_key_prefix;
 use arbitrary::Arbitrary;
+use cloud_terrastodon_auth_types::AuthenticationSelection;
+use cloud_terrastodon_auth_types::CloudTerrastodonAccountId;
 use cloud_terrastodon_cache::CacheKey;
 use cloud_terrastodon_cache::HasCacheKey;
 use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
-use cloud_terrastodon_execution::RequestExecution;
 use facet::Facet;
 use std::borrow::Cow;
 use std::time::Duration;
@@ -19,21 +20,14 @@ use std::time::Duration;
 #[facet(traits(Clone))]
 pub struct GiteaUserCurrentRepoListRequest<'a> {
     pub tenant: Cow<'a, GiteaInstanceUrl>,
-}
-
-pub fn fetch_current_user_gitea_repositories<'a>(
-    tenant: &'a GiteaInstanceUrl,
-    executor: &'a CloudTerrastodonExecutor,
-) -> RequestExecution<'a, GiteaUserCurrentRepoListRequest<'a>> {
-    executor.execute(GiteaUserCurrentRepoListRequest {
-        tenant: Cow::Borrowed(tenant),
-    })
+    pub account_id: CloudTerrastodonAccountId,
 }
 
 impl<'a> Arbitrary<'a> for GiteaUserCurrentRepoListRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
             tenant: Cow::Owned(GiteaInstanceUrl::arbitrary(u)?),
+            account_id: CloudTerrastodonAccountId::arbitrary(u)?,
         })
     }
 }
@@ -54,6 +48,15 @@ impl HasCacheKey for GiteaUserCurrentRepoListRequest<'_> {
 }
 
 impl ExecutableRequest for GiteaUserCurrentRepoListRequest<'_> {
+    fn bind_authentication(
+        &self,
+        executor: CloudTerrastodonExecutor,
+    ) -> Result<CloudTerrastodonExecutor, Self::Error> {
+        executor.with_authentication_lease(&AuthenticationSelection::Gitea {
+            account_id: self.account_id,
+        })
+    }
+
     type Error = eyre::Report;
     type Output = Vec<GiteaRepo>;
     fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
@@ -63,6 +66,7 @@ impl ExecutableRequest for GiteaUserCurrentRepoListRequest<'_> {
         Box::pin(async move {
             gitea_api_get_paged(
                 self.tenant.as_ref(),
+                self.account_id,
                 self.cache_key()?,
                 |page, limit| format!("/user/repos?page={page}&limit={limit}"),
                 &executor,
@@ -77,4 +81,10 @@ cloud_terrastodon_registry::register_arbitrary!(GiteaUserCurrentRepoListRequest<
 cloud_terrastodon_registry_execution::register_executable_request!(
     GiteaUserCurrentRepoListRequest<'static> => Vec<GiteaRepo>,
     effects = [Read]
+);
+
+cloud_terrastodon_registry_execution::register_runtime_test!(
+    GiteaUserCurrentRepoListRequest<'static>,
+    name = "gitea-user-current-repo-list",
+    cached
 );

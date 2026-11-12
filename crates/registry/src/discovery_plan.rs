@@ -11,11 +11,10 @@ use teamy_cancellation::CancellationScope;
 /// Planning inspects only the supplied catalog and actual Facet shapes. It never
 /// invokes requests, constructors, conversions, defaults, or credential lookup.
 /// Seeds are opaque: supplying an enum does not supply all its variant payloads.
-/// Optional request fields may be omitted. Only legacy `IntoFuture` requests
-/// receive host-supplied cancellation fields; executable requests carry data only.
+/// Optional request fields may be omitted; executable requests carry data only.
 /// Required domain values must be seeded, returned, or converted explicitly.
 /// Requests with no required domain inputs (including those with only optional
-/// fields and cancellation) require their input shape to be explicitly supplied;
+/// fields) require their input shape to be explicitly supplied;
 /// they cannot bootstrap discovery through ambient configuration or defaults.
 ///
 /// Reachability is potential type coverage: empty collections, absent options,

@@ -58,7 +58,7 @@ impl GenerateConfigOutHelper {
         };
         let result: eyre::Result<()> = async {
             let provider_manager = ProviderManager::try_new()?;
-            provider_manager.write_default_provider_configs(&work_dir, cancellation).await?;
+            provider_manager.write_provider_configs(&work_dir, None, None, cancellation).await?;
             // provider_manager.populate_provider_cache(&TerraformRequiredProvidersBlock::common()).await?;
 
             // tf init
@@ -192,88 +192,5 @@ impl GenerateConfigOutHelper {
                 "GenerateConfigOutHelper::run failed with dir \"{}\"",
                 work_dir.display()
             ))
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use crate::GenerateConfigOutHelper;
-    use crate::ProviderManager;
-    use cloud_terrastodon_command::CancellationToken;
-    use cloud_terrastodon_execution::ConcurrentIteratorExt;
-    use cloud_terrastodon_hcl_types::TerraformRequiredProvidersBlock;
-    use cloud_terrastodon_pathing::AppDir;
-    use cloud_terrastodon_pathing::Existy;
-    use std::num::NonZeroUsize;
-    use tempfile::Builder;
-
-    #[tokio::test]
-    #[ignore]
-    pub async fn terraform_concurrent_init_fail() -> eyre::Result<()> {
-        CancellationToken::new().with_async_scope(|cancellation| async move {
-        let plugin_dir = ProviderManager::get_default_tf_plugin_cache_dir()?;
-        println!(
-            "This test can leave your plugin dir in a broken config, I recommend deleting {} after",
-            plugin_dir.display()
-        );
-        let temp_dir = Builder::new().tempdir_in(AppDir::Temp.as_path_buf())?;
-        let num_workspaces = 25;
-        (0..num_workspaces).map_concurrent_scoped(
-            &cancellation,
-            NonZeroUsize::new(num_workspaces).unwrap(),
-            |cancellation, i| {
-                let workspace_dir = temp_dir.path().join(format!("workspace_{i:03}"));
-                async move {
-                    workspace_dir.ensure_dir_exists().await?;
-                    GenerateConfigOutHelper::new()
-                        .with_run_dir(&workspace_dir)
-                        .run(&cancellation)
-                        .await?;
-                    eyre::Ok(())
-                }
-            },
-        )
-        .await?;
-        Ok(())
-            }).await
-    }
-
-    #[tokio::test]
-    #[ignore]
-    pub async fn terraform_concurrent_init_happy() -> eyre::Result<()> {
-        CancellationToken::new()
-            .with_async_scope(|cancellation| async move {
-                let temp_dir = Builder::new().tempdir_in(AppDir::Temp.as_path_buf())?;
-                let num_workspaces = 25;
-
-                let provider_manager = ProviderManager::try_new()?;
-                provider_manager
-                    .populate_provider_cache(
-                        &TerraformRequiredProvidersBlock::common(),
-                        &cancellation,
-                    )
-                    .await?;
-
-                let cache_dir = provider_manager.local_mirror_dir;
-                let temp_dir = temp_dir.keep(); // Keep it around for manual inspection.
-                (0..num_workspaces)
-                    .map_concurrent_scoped(
-                        &cancellation,
-                        NonZeroUsize::new(num_workspaces).unwrap(),
-                        async |cancellation, i| {
-                            let workspace_dir = temp_dir.join(format!("workspace_{i:03}"));
-                            workspace_dir.ensure_dir_exists().await?;
-                            GenerateConfigOutHelper::new()
-                                .with_run_dir(&workspace_dir)
-                                .with_plugin_dir(&cache_dir)
-                                .run(&cancellation)
-                                .await?;
-                            eyre::Ok(())
-                        },
-                    )
-                    .await?;
-                Ok(())
-            })
-            .await
     }
 }

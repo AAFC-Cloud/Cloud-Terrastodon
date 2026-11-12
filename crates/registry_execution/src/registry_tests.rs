@@ -30,8 +30,6 @@ use facet::Facet;
 use std::any::Any;
 use std::borrow::Cow;
 use std::cell::Cell;
-use std::future::Future;
-use std::future::IntoFuture;
 use std::future::pending;
 use std::future::poll_fn;
 use std::io;
@@ -59,11 +57,14 @@ struct DummyListRequest {
     tenant: DummyTenant,
 }
 
-impl IntoFuture for DummyListRequest {
-    type Output = eyre::Result<Vec<DummyOutput>>;
-    type IntoFuture = std::pin::Pin<Box<dyn Future<Output = Self::Output> + Send>>;
-
-    fn into_future(self) -> Self::IntoFuture {
+impl ExecutableRequest for DummyListRequest {
+    type Error = eyre::Report;
+    type Output = Vec<DummyOutput>;
+    fn run<'a>(self, _executor: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>
+    where
+        Self: 'a,
+        Self::Output: 'a,
+    {
         Box::pin(async { Ok(vec![DummyOutput { value: "ok".into() }]) })
     }
 }
@@ -113,7 +114,7 @@ cloud_terrastodon_registry::register_thing!(DummyOutput);
 cloud_terrastodon_registry::register_thing!(DummyListRequest);
 cloud_terrastodon_registry::register_thing!(DummyRenamedDefault);
 cloud_terrastodon_registry::register_thing!(DummyManualDefault);
-crate::register_into_future!(DummyListRequest => Vec<DummyOutput>, effects = [Read]);
+crate::register_executable_request!(DummyListRequest => Vec<DummyOutput>, effects = [Read]);
 cloud_terrastodon_registry::register_from!(DummyOutput => DummyConverted, associated = REGISTERED_INTO_CONVERTED, effects = []);
 cloud_terrastodon_registry::register_from!(static U8_TO_U16: u8 => u16);
 cloud_terrastodon_registry::register_arbitrary!(DummyOutput, associated = REGISTERED_ARBITRARY);
@@ -411,7 +412,7 @@ fn runtime_value_rejects_lists_without_element_clone_support() -> eyre::Result<(
 #[test]
 fn direct_registration_handles_alias_the_linked_entries() {
     for handle in [
-        DummyListRequest::REGISTERED_INTO_FUTURE,
+        DummyListRequest::REGISTERED_EXECUTABLE_REQUEST,
         Function::Pure(DummyOutput::REGISTERED_INTO_CONVERTED),
         Function::Pure(&U8_TO_U16),
         Function::Arbitrary(DummyOutput::REGISTERED_ARBITRARY),
@@ -512,40 +513,30 @@ fn by_mut_arbitrary_functions_consume_bytes() -> eyre::Result<()> {
     Ok(())
 }
 #[derive(Facet)]
-struct CancellationProbeRequest {
-    #[facet(skip_serializing)]
-    stop_signal: CancellationScope,
-}
+struct CancellationProbeRequest;
 
-impl std::future::IntoFuture for CancellationProbeRequest {
-    type Output = eyre::Result<bool>;
-    type IntoFuture = std::pin::Pin<Box<dyn std::future::Future<Output = Self::Output> + Send>>;
-
-    fn into_future(self) -> Self::IntoFuture {
-        Box::pin(async move { Ok(!self.stop_signal.is_cancelled()) })
+impl ExecutableRequest for CancellationProbeRequest {
+    type Error = eyre::Report;
+    type Output = bool;
+    fn run<'a>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>
+    where
+        Self: 'a,
+        Self::Output: 'a,
+    {
+        Box::pin(async move { Ok(!executor.cancellation().is_cancelled()) })
     }
 }
 cloud_terrastodon_registry::register_thing!(CancellationProbeRequest);
-register_into_future!(CancellationProbeRequest => bool, effects = [Read]);
+register_executable_request!(CancellationProbeRequest => bool, effects = [Read]);
 
 #[tokio::test]
-async fn invocation_binds_the_callers_token_instead_of_reflected_input_state() -> eyre::Result<()> {
+async fn invocation_supplies_the_callers_execution_scope_to_the_request() -> eyre::Result<()> {
     CancellationToken::new()
         .cancellable_scope(|invocation_token| async move {
             let executor = test_executor(invocation_token)?;
-            let input_token = CancellationScope::unbound();
-            input_token.request_cancel("stale input cancellation");
-
-            let function = functions_from(CancellationProbeRequest::SHAPE)
-                .into_iter()
-                .find(|function| function.kind == FunctionKind::AsyncInvoke)
-                .unwrap();
-            let invocation = function.invoke_value_boxed(
-                Box::new(CancellationProbeRequest {
-                    stop_signal: input_token,
-                }),
-                &executor,
-            )?;
+            let function = CancellationProbeRequest::REGISTERED_EXECUTABLE_REQUEST;
+            let invocation =
+                function.invoke_value_boxed(Box::new(CancellationProbeRequest), &executor)?;
             let FunctionInvocation::Pending(future) = invocation else {
                 panic!("expected async probe")
             };
@@ -554,7 +545,6 @@ async fn invocation_binds_the_callers_token_instead_of_reflected_input_state() -
         })
         .await
 }
-
 fn test_executor(scope: CancellationScope) -> eyre::Result<CloudTerrastodonExecutor> {
     Ok(CloudTerrastodonExecutor::new(
         WorkCache::temporary()?,
@@ -861,58 +851,35 @@ impl ExecutableRequest for PendingRequest {
 
 register_executable_request!(PendingRequest => (), effects = [Read]);
 
-#[derive(Facet)]
-struct PendingLegacyRequest;
-
-impl IntoFuture for PendingLegacyRequest {
-    type Output = eyre::Result<()>;
-    type IntoFuture = std::future::Pending<Self::Output>;
-
-    fn into_future(self) -> Self::IntoFuture {
-        pending()
-    }
-}
-
-register_into_future!(PendingLegacyRequest => (), effects = [Read]);
-
 #[tokio::test]
-async fn pending_new_and_legacy_invocations_obey_the_supplied_executor_scope() -> eyre::Result<()> {
-    for (function, input) in [
-        (
-            PendingRequest::REGISTERED_EXECUTABLE_REQUEST,
-            Box::new(PendingRequest) as Box<dyn Any + Send>,
-        ),
-        (
-            PendingLegacyRequest::REGISTERED_INTO_FUTURE,
-            Box::new(PendingLegacyRequest) as Box<dyn Any + Send>,
-        ),
-    ] {
-        CancellationToken::new()
-            .with_async_scope(|scope| async move {
-                let executor = test_executor(scope)?;
-                let FunctionInvocation::Pending(mut invocation) =
-                    function.invoke_value_boxed(input, &executor)?
-                else {
-                    panic!("asynchronous registrations must produce pending invocations");
-                };
-                poll_fn(|context| {
-                    assert!(invocation.as_mut().poll(context).is_pending());
-                    Poll::Ready(())
-                })
-                .await;
-                executor
-                    .cancellation()
-                    .request_cancel("synthetic registry owner cancelled");
-                let error = tokio::time::timeout(Duration::from_secs(5), invocation)
-                    .await?
-                    .unwrap_err();
-                assert_eq!(
-                    error.downcast_ref::<CancellationError>().unwrap().reason,
-                    "synthetic registry owner cancelled"
-                );
-                eyre::Ok(())
+async fn pending_invocation_obeys_the_supplied_executor_scope() -> eyre::Result<()> {
+    let function = PendingRequest::REGISTERED_EXECUTABLE_REQUEST;
+    let input = Box::new(PendingRequest) as Box<dyn Any + Send>;
+    CancellationToken::new()
+        .with_async_scope(|scope| async move {
+            let executor = test_executor(scope)?;
+            let FunctionInvocation::Pending(mut invocation) =
+                function.invoke_value_boxed(input, &executor)?
+            else {
+                panic!("asynchronous registrations must produce pending invocations");
+            };
+            poll_fn(|context| {
+                assert!(invocation.as_mut().poll(context).is_pending());
+                Poll::Ready(())
             })
-            .await?;
-    }
+            .await;
+            executor
+                .cancellation()
+                .request_cancel("synthetic registry owner cancelled");
+            let error = tokio::time::timeout(Duration::from_secs(5), invocation)
+                .await?
+                .unwrap_err();
+            assert_eq!(
+                error.downcast_ref::<CancellationError>().unwrap().reason,
+                "synthetic registry owner cancelled"
+            );
+            eyre::Ok(())
+        })
+        .await?;
     Ok(())
 }

@@ -10,6 +10,8 @@ use super::slot_id::SlotId;
 use super::value_address::ValueAddress;
 use super::value_path::ValuePathSegment;
 use super::value_resolution_error::ValueResolutionError;
+#[cfg(test)]
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_registry::RegisteredShape;
 use cloud_terrastodon_registry::RuntimeValue;
 use cloud_terrastodon_registry::describe_function;
@@ -323,10 +325,8 @@ mod tests {
     use super::*;
     use crate::object_explorer::arena::Arena;
     use crate::object_explorer::card_window::CardWindow;
-    use cloud_terrastodon_auth::AuthContext;
-    use cloud_terrastodon_auth::AzureDevOpsAuthContext;
-    use cloud_terrastodon_auth::WorkloadIdentityConfig;
-    use cloud_terrastodon_auth_types::AuthSource;
+    use cloud_terrastodon_auth_types::AzureBearerAuthSource;
+    use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
     use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
     use cloud_terrastodon_registry::RuntimeValue;
     use cloud_terrastodon_registry_execution::DiscoveryPlanBuildRequest;
@@ -348,24 +348,29 @@ mod tests {
     }
 
     #[test]
-    fn auth_context_variants_are_visible_in_owned_cards_projections_and_field_previews() {
-        for (context, expected_variant) in [
-            (AuthContext::Unresolved, "Unresolved"),
-            (AuthContext::None, "None"),
-            (AuthContext::explicit(AuthSource::AzureCli), "Resolved"),
+    fn authentication_variants_are_visible_in_owned_cards_projections_and_field_previews() {
+        let account_id = "11111111-1111-1111-1111-111111111111".parse().unwrap();
+        for (selection, expected_variant) in [
+            (
+                AzureDevOpsAuthSelection::PersonalAccessToken { account_id },
+                "PersonalAccessToken",
+            ),
+            (
+                AzureDevOpsAuthSelection::Bearer(AzureBearerAuthenticationSelection {
+                    account_id,
+                    auth_source: AzureBearerAuthSource::AzureCli,
+                    tenant_id: "22222222-2222-2222-2222-222222222222".parse().unwrap(),
+                }),
+                "Bearer",
+            ),
         ] {
             let mut arena = Arena::default();
-            let owned = arena.insert_ready(runtime(context.clone())).unwrap();
-            let wrapper = arena
-                .insert_ready(runtime(AzureDevOpsAuthContext::PersonalAccessToken(
-                    context,
-                )))
-                .unwrap();
+            let owned = arena.insert_ready(runtime(selection)).unwrap();
+            let wrapper = arena.insert_ready(runtime(Some(selection))).unwrap();
             let source = ArenaAddressSource::new(&arena);
             let projected =
                 ValueAddress::root(wrapper).child(ValuePathSegment::Field("0".to_owned()));
             for address in [ValueAddress::root(owned), projected] {
-                // Variant metadata remains visible even with no field budget.
                 let card = CardSnapshot::observe_fields(&source, address, 0).unwrap();
                 assert!(card.rows().iter().any(|row| {
                     row.key() == &CardRowKey::Variant
@@ -381,7 +386,7 @@ mod tests {
                 CardSnapshot::observe_fields(&source, ValueAddress::root(wrapper), 1).unwrap();
             assert!(card.rows().iter().any(|row| {
                 row.key() == &CardRowKey::Variant
-                    && row.content() == &CardRowContent::Text("PersonalAccessToken".to_owned())
+                    && row.content() == &CardRowContent::Text("Some".to_owned())
             }));
             let field = card
                 .rows()
@@ -393,55 +398,40 @@ mod tests {
     }
 
     #[test]
-    fn resolved_auth_cards_keep_tenant_visible_and_hide_session_state() {
-        let tenant_id = "11111111-1111-1111-1111-111111111111".parse().unwrap();
-        let context = AuthContext::explicit(AuthSource::WorkloadIdentity)
-            .with_workload_identity(WorkloadIdentityConfig {
-                tenant_id,
-                client_id: "22222222-2222-2222-2222-222222222222".parse().unwrap(),
-                federated_token: "synthetic-hidden-credential".to_owned(),
-            })
-            .unwrap();
+    fn authentication_cards_keep_account_and_tenant_selection_visible() {
+        let selection = AzureDevOpsAuthSelection::Bearer(AzureBearerAuthenticationSelection {
+            account_id: "11111111-1111-1111-1111-111111111111".parse().unwrap(),
+            auth_source: AzureBearerAuthSource::WorkloadIdentity,
+            tenant_id: "22222222-2222-2222-2222-222222222222".parse().unwrap(),
+        });
         let mut arena = Arena::default();
-        let root = arena
-            .insert_ready(runtime(
-                AzureDevOpsAuthContext::for_tenant(&context, tenant_id).unwrap(),
-            ))
-            .unwrap();
+        let root = arena.insert_ready(runtime(selection)).unwrap();
         let source = ArenaAddressSource::new(&arena);
-        let tenant_context =
-            ValueAddress::root(root).child(ValuePathSegment::Field("0".to_owned()));
-        let policy = tenant_context.child(ValuePathSegment::Field("auth_context".to_owned()));
-        let card = CardSnapshot::observe_fields(&source, policy, 8).unwrap();
-        let fields = card
+        let card = CardSnapshot::observe_fields(&source, ValueAddress::root(root), 8).unwrap();
+        let payload = card
             .rows()
             .iter()
-            .filter_map(|row| match row.key() {
-                CardRowKey::Field(name) => Some((name.as_str(), row.value_display())),
-                _ => None,
-            })
-            .collect::<Vec<_>>();
-        assert!(
-            fields.is_empty(),
-            "credential-session internals must not be browsable"
-        );
-        assert!(card.rows().iter().any(|row| {
-            row.key() == &CardRowKey::Variant
-                && row.content() == &CardRowContent::Text("Resolved".to_owned())
-        }));
+            .find(|row| row.key() == &CardRowKey::Field("0".to_owned()))
+            .expect("Bearer exposes its shared authentication selection");
+        let CardRowContent::Address(payload) = payload.content() else {
+            panic!("the bearer selection must be navigable as a child card");
+        };
         assert!(card.relationships_complete());
-        let card = CardSnapshot::observe_fields(&source, tenant_context, 8).unwrap();
-        let tenant = card
-            .rows()
-            .iter()
-            .find(|row| row.key() == &CardRowKey::Field("tenant_id".to_owned()))
-            .unwrap();
-        assert_eq!(
-            tenant.value_display(),
-            Some("11111111-1111-1111-1111-111111111111")
-        );
+        let card = CardSnapshot::observe_fields(&source, payload.clone(), 8).unwrap();
+        for (field, expected) in [
+            ("account_id", "11111111-1111-1111-1111-111111111111"),
+            ("tenant_id", "22222222-2222-2222-2222-222222222222"),
+            ("auth_source", "workload-identity"),
+        ] {
+            let row = card
+                .rows()
+                .iter()
+                .find(|row| row.key() == &CardRowKey::Field(field.to_owned()))
+                .unwrap();
+            assert_eq!(row.value_display(), Some(expected));
+        }
+        assert!(card.relationships_complete());
     }
-
     #[test]
     fn my_thing_is_one_owned_card_plus_addressed_field_cards() {
         let mut arena = Arena::default();

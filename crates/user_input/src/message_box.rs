@@ -105,17 +105,3 @@ impl MessageBoxTui {
         Ok(())
     }
 }
-
-#[cfg(test)]
-mod test {
-    use super::MessageBoxTui;
-
-    #[test]
-    #[ignore]
-    fn manual_run() -> eyre::Result<()> {
-        MessageBoxTui::new("Hello world from MessageBoxTui. Press Enter to dismiss.")
-            .title("Info")
-            .run()?;
-        Ok(())
-    }
-}

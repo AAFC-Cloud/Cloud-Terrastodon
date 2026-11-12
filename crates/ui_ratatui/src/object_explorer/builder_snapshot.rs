@@ -45,10 +45,7 @@ impl BuilderSnapshot {
     ) -> Result<Self, ValueBuilderError> {
         let shape = builder.shape();
         let field_count = builder.field_count();
-        // Keep real Facet indexes: runtime fields are initialized by the caller
-        // but do not consume the UI's editable-field or observation budget.
-        let mut visible_indexes =
-            (0..field_count).filter(|index| !builder.field_is_runtime_state(*index));
+        let mut visible_indexes = 0..field_count;
         let fields = visible_indexes
             .by_ref()
             .take(max_fields)

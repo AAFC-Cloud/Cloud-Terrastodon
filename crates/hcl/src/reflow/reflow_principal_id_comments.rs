@@ -105,18 +105,36 @@ impl VisitMut for ReflowPrincipalIdComments {
 #[cfg(test)]
 mod test {
     use crate::reflow::HclReflower;
-    use arbitrary::Arbitrary;
-    use arbitrary::Unstructured;
     use cloud_terrastodon_azure::EntraDirectoryObject;
     use cloud_terrastodon_azure::EntraPrincipal;
     use cloud_terrastodon_azure::EntraPrincipalCollection;
     use cloud_terrastodon_azure::EntraUser;
+    use cloud_terrastodon_azure::EntraUserId;
+    use cloud_terrastodon_azure::uuid::Uuid;
     use eyre::ContextCompat;
     use hcl::edit::structure::Body;
     use indoc::formatdoc;
-    use rand::RngExt;
     use std::path::PathBuf;
     use std::sync::Arc;
+
+    fn user(id: u128, principal_name: &str) -> eyre::Result<EntraUser> {
+        Ok(EntraUser {
+            business_phones: Vec::new(),
+            display_name: "Example User".to_owned(),
+            external_user_state: None,
+            external_user_state_change_date_time: None,
+            given_name: None,
+            id: EntraUserId::new(Uuid::from_u128(id)),
+            job_title: None,
+            mail: None,
+            other_mails: Vec::new(),
+            mobile_phone: None,
+            office_location: None,
+            preferred_language: None,
+            surname: None,
+            user_principal_name: principal_name.parse()?,
+        })
+    }
 
     #[tokio::test]
     pub async fn it_works_with_directory_objects() -> eyre::Result<()> {
@@ -125,7 +143,7 @@ mod test {
                 "@odata.type": "#microsoft.graph.user",
                 "id": "11111111-1111-1111-1111-111111111111",
                 "displayName": "Example User",
-                "userPrincipalName": "example.user@example.com"
+                "userPrincipalName": "example.user@example.invalid"
             }"##,
         )?;
         let user_id = user.id();
@@ -147,19 +165,14 @@ mod test {
 
         assert!(
             body.to_string()
-                .contains("/* (User) example.user@example.com */")
+                .contains("/* (User) example.user@example.invalid */")
         );
         Ok(())
     }
 
     #[tokio::test]
     pub async fn it_works() -> eyre::Result<()> {
-        // Create random user principal
-        let mut raw = [0u8; 128];
-        rand::rng().fill(&mut raw);
-        let mut noise = Unstructured::new(&raw);
-        let mut user = EntraUser::arbitrary(&mut noise)?;
-        user.user_principal_name = "first.last@agr.gc.ca".parse()?;
+        let user = user(1, "first.last@example.invalid")?;
         let user_id = user.id;
 
         // Create principal collection
@@ -190,7 +203,7 @@ mod test {
         let expected = formatdoc! {
         r#"
             resource "role_assignment" "bruh" {{
-                principal_id = /* (User) first.last@agr.gc.ca */"{user_id}"
+                principal_id = /* (User) first.last@example.invalid */"{user_id}"
             }}
         "#
         };
@@ -203,16 +216,10 @@ mod test {
 
     #[tokio::test]
     pub async fn it_works_array1() -> eyre::Result<()> {
-        // Create random user principal
-        let mut raw = [0u8; 128];
-        rand::rng().fill(&mut raw);
-        let mut noise = Unstructured::new(&raw);
-        let mut user1 = EntraUser::arbitrary(&mut noise)?;
-        user1.user_principal_name = "first.last@agr.gc.ca".parse()?;
+        let user1 = user(1, "first.last@example.invalid")?;
         let user_id1 = user1.id;
 
-        let mut user2 = EntraUser::arbitrary(&mut noise)?;
-        user2.user_principal_name = "hot.rod@agr.gc.ca".parse()?;
+        let user2 = user(2, "second.user@example.invalid")?;
         let user_id2 = user2.id;
 
         // Create principal collection
@@ -245,7 +252,7 @@ mod test {
         let expected = formatdoc! {
         r#"
             resource "azuread_group" "bruh" {{
-                members = [/* (User) first.last@agr.gc.ca */"{user_id1}", /* (User) hot.rod@agr.gc.ca */"{user_id2}"]
+                members = [/* (User) first.last@example.invalid */"{user_id1}", /* (User) second.user@example.invalid */"{user_id2}"]
             }}
         "#
         };
@@ -258,16 +265,10 @@ mod test {
 
     #[tokio::test]
     pub async fn it_works_array2() -> eyre::Result<()> {
-        // Create random user principal
-        let mut raw = [0u8; 128];
-        rand::rng().fill(&mut raw);
-        let mut noise = Unstructured::new(&raw);
-        let mut user1 = EntraUser::arbitrary(&mut noise)?;
-        user1.user_principal_name = "first.last@agr.gc.ca".parse()?;
+        let user1 = user(1, "first.last@example.invalid")?;
         let user_id1 = user1.id;
 
-        let mut user2 = EntraUser::arbitrary(&mut noise)?;
-        user2.user_principal_name = "hot.rod@agr.gc.ca".parse()?;
+        let user2 = user(2, "second.user@example.invalid")?;
         let user_id2 = user2.id;
 
         // Create principal collection
@@ -304,8 +305,8 @@ mod test {
         r#"
             resource "azuread_group" "bruh" {{
                 members = [
-                    /* (User) first.last@agr.gc.ca */"{user_id1}",
-                    /* (User) hot.rod@agr.gc.ca */"{user_id2}",
+                    /* (User) first.last@example.invalid */"{user_id1}",
+                    /* (User) second.user@example.invalid */"{user_id2}",
                 ]
             }}
         "#
@@ -319,12 +320,7 @@ mod test {
 
     #[tokio::test]
     pub async fn it_works_idempotent() -> eyre::Result<()> {
-        // Create random user principal
-        let mut raw = [0u8; 128];
-        rand::rng().fill(&mut raw);
-        let mut noise = Unstructured::new(&raw);
-        let mut user = EntraUser::arbitrary(&mut noise)?;
-        user.user_principal_name = "first.last@agr.gc.ca".parse()?;
+        let user = user(1, "first.last@example.invalid")?;
         let user_id = user.id;
 
         // Create principal collection
@@ -338,7 +334,7 @@ mod test {
         let body = formatdoc! {
         r#"
             resource "role_assignment" "bruh" {{
-                principal_id = /* (User) first.last@agr.gc.ca */ "{user_id}"
+                principal_id = /* (User) first.last@example.invalid */ "{user_id}"
             }}
         "#}
         .parse::<Body>()?;
@@ -355,7 +351,7 @@ mod test {
         let expected = formatdoc! {
         r#"
             resource "role_assignment" "bruh" {{
-                principal_id = /* (User) first.last@agr.gc.ca */ "{user_id}"
+                principal_id = /* (User) first.last@example.invalid */ "{user_id}"
             }}
         "#
         };
@@ -368,16 +364,10 @@ mod test {
 
     #[tokio::test]
     pub async fn it_works_idempotent2() -> eyre::Result<()> {
-        // Create random user principal
-        let mut raw = [0u8; 128];
-        rand::rng().fill(&mut raw);
-        let mut noise = Unstructured::new(&raw);
-        let mut user1 = EntraUser::arbitrary(&mut noise)?;
-        user1.user_principal_name = "first.last@agr.gc.ca".parse()?;
+        let user1 = user(1, "first.last@example.invalid")?;
         let user_id1 = user1.id;
 
-        let mut user2 = EntraUser::arbitrary(&mut noise)?;
-        user2.user_principal_name = "hot.rod@agr.gc.ca".parse()?;
+        let user2 = user(2, "second.user@example.invalid")?;
         let user_id2 = user2.id;
 
         // Create principal collection
@@ -394,9 +384,9 @@ mod test {
         r#"
             resource "azuread_group" "bruh" {{
                 members = [
-                    /* (User) first.last@agr.gc.ca */
+                    /* (User) first.last@example.invalid */
                     "{user_id1}",
-                    /* (User) hot.rod@agr.gc.ca */
+                    /* (User) second.user@example.invalid */
                     "{user_id2}",
                 ]
             }}
@@ -416,9 +406,9 @@ mod test {
         r#"
             resource "azuread_group" "bruh" {{
                 members = [
-                    /* (User) first.last@agr.gc.ca */
+                    /* (User) first.last@example.invalid */
                     "{user_id1}",
-                    /* (User) hot.rod@agr.gc.ca */
+                    /* (User) second.user@example.invalid */
                     "{user_id2}",
                 ]
             }}

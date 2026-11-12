@@ -1,6 +1,7 @@
 use crate::RequestHeaders;
 use cloud_terrastodon_auth_types::AuthenticationSelection;
 use cloud_terrastodon_auth_types::Authorization;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_auth_types::ContainerRegistryBearerChallenge;
 use cloud_terrastodon_azure_types::ContainerRegistryLoginServer;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
@@ -21,6 +22,7 @@ pub(crate) async fn execute_container_registry_request(
     url: Url,
     body: Option<String>,
     headers: Option<RequestHeaders>,
+    transport_timeout: Option<Duration>,
     selection: &AuthenticationSelection,
     executor: &CloudTerrastodonExecutor,
 ) -> Result<Response> {
@@ -29,7 +31,10 @@ pub(crate) async fn execute_container_registry_request(
         "registry metadata transport currently supports bodyless GET requests"
     );
     ensure!(
-        matches!(selection, AuthenticationSelection::AzureBearer { .. }),
+        matches!(
+            selection,
+            AuthenticationSelection::AzureBearer(AzureBearerAuthenticationSelection { .. })
+        ),
         "Container Registry requires an explicitly tenant-bound bearer selection"
     );
     executor.admit(selection)?;
@@ -58,7 +63,7 @@ pub(crate) async fn execute_container_registry_request(
                 .https_only(true)
                 .redirect(reqwest::redirect::Policy::none())
                 .connect_timeout(Duration::from_secs(30))
-                .timeout(Duration::from_secs(120))
+                .timeout(transport_timeout.unwrap_or(Duration::from_secs(120)))
                 .build()?;
             let response = client
                 .get(url.clone())

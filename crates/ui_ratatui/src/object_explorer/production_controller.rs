@@ -353,11 +353,11 @@ mod tests {
     use crate::object_explorer::tokio_invocation_host::TokioInvocationHost;
     use crate::object_explorer::value_builder::BuilderTransition;
     use arbitrary::Arbitrary;
+    use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+    use cloud_terrastodon_execution::ExecutableRequest;
+    use cloud_terrastodon_execution::ExecutionFuture;
     use cloud_terrastodon_registry_execution::functions_from;
     use facet::Facet;
-    use std::future::Future;
-    use std::future::IntoFuture;
-    use std::pin::Pin;
 
     #[derive(Clone, Debug, Arbitrary, Facet)]
     #[repr(C)]
@@ -377,11 +377,16 @@ mod tests {
         value: ProducedValue,
     }
 
-    impl IntoFuture for ProducerRequest {
-        type Output = eyre::Result<ProducedValue>;
-        type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + Send>>;
+    impl ExecutableRequest for ProducerRequest {
+        type Output = ProducedValue;
+        type Error = eyre::Report;
 
-        fn into_future(self) -> Self::IntoFuture {
+        fn run<'a>(self, _executor: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>
+        where
+            Self: 'a,
+            Self::Output: 'a,
+            Self::Error: 'a,
+        {
             Box::pin(async move {
                 Ok(ProducedValue {
                     marker: self.marker,
@@ -392,7 +397,7 @@ mod tests {
 
     cloud_terrastodon_registry::register_thing!(ProducerRequest);
     cloud_terrastodon_registry::register_thing!(ProducedValue);
-    cloud_terrastodon_registry_execution::register_into_future!(ProducerRequest => ProducedValue, effects = [Read]);
+    cloud_terrastodon_registry_execution::register_executable_request!(ProducerRequest => ProducedValue, effects = [Read]);
     cloud_terrastodon_registry::register_arbitrary!(ProducerRequest);
 
     fn producer() -> Function {

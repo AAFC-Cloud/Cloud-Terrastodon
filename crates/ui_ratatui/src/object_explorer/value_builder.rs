@@ -10,10 +10,7 @@ use super::borrow_materializer::materialize_borrow;
 use super::borrow_materializer::validate_borrow;
 use super::field_binding::FieldBinding;
 use super::slot_id::SlotId;
-use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_registry::RuntimeValue;
-use facet::Facet;
-use facet::OpaqueBorrow;
 use facet::Shape;
 use facet::Type;
 use facet::UserType;
@@ -32,40 +29,18 @@ struct BuilderField {
 }
 
 impl BuilderField {
-    fn from_facet(
-        field: &'static facet::Field,
-        cancellation: &CancellationScope,
-    ) -> Result<Self, ValueBuilderError> {
+    fn from_facet(field: &'static facet::Field) -> Self {
         let has_default = field.has_default();
-        Ok(Self {
+        Self {
             name: field.effective_name().to_owned(),
             shape: field.shape(),
             has_default,
-            // Execution state comes from the builder's caller, never a field
-            // default or a user-selected opaque value.
-            binding: if field.shape().is_shape(CancellationScope::SHAPE) {
-                FieldBinding::InlineOwned(
-                    RuntimeValue::from_box(Box::new(cancellation.clone()))
-                        .map_err(|error| ValueBuilderError::Reflection(error.to_string()))?,
-                )
-            } else if field
-                .shape()
-                .is_shape(<OpaqueBorrow<'static, CancellationScope>>::SHAPE)
-            {
-                // Field-level opacity uses Facet's transparent typed wrapper.
-                // Only this known, fully owned runtime type is supplied here.
-                FieldBinding::InlineOwned(
-                    RuntimeValue::from_box(Box::new(OpaqueBorrow::<'static, _>::new(
-                        cancellation.clone(),
-                    )))
-                    .map_err(|error| ValueBuilderError::Reflection(error.to_string()))?,
-                )
-            } else if has_default {
+            binding: if has_default {
                 FieldBinding::Default
             } else {
                 FieldBinding::Unset
             },
-        })
+        }
     }
 }
 
@@ -82,7 +57,6 @@ enum BuilderKind {
 /// Construction state for one Building arena root.
 #[derive(Debug)]
 pub(crate) struct ValueBuilder {
-    cancellation: CancellationScope,
     shape: &'static Shape,
     kind: BuilderKind,
 }
@@ -226,41 +200,18 @@ impl From<BorrowError> for ValueBuilderError {
 }
 
 impl ValueBuilder {
-    #[cfg(test)]
     pub(crate) fn new(shape: &'static Shape) -> Self {
-        Self::new_with_cancellation(shape, &CancellationScope::unbound()).unwrap()
-    }
-
-    pub(crate) fn new_with_cancellation(
-        shape: &'static Shape,
-        cancellation: &CancellationScope,
-    ) -> Result<Self, ValueBuilderError> {
-        let kind = if shape.is_shape(CancellationScope::SHAPE) {
-            BuilderKind::Scalar(Some(
-                RuntimeValue::from_box(Box::new(cancellation.clone()))
-                    .map_err(|error| ValueBuilderError::Reflection(error.to_string()))?,
-            ))
-        } else {
-            match shape.ty {
-                Type::User(UserType::Struct(object)) => BuilderKind::Struct(
-                    object
-                        .fields
-                        .iter()
-                        .map(|field| BuilderField::from_facet(field, cancellation))
-                        .collect::<Result<_, _>>()?,
-                ),
-                Type::User(UserType::Enum(_)) => BuilderKind::Enum {
-                    variant: None,
-                    fields: Vec::new(),
-                },
-                _ => BuilderKind::Scalar(None),
+        let kind = match shape.ty {
+            Type::User(UserType::Struct(object)) => {
+                BuilderKind::Struct(object.fields.iter().map(BuilderField::from_facet).collect())
             }
+            Type::User(UserType::Enum(_)) => BuilderKind::Enum {
+                variant: None,
+                fields: Vec::new(),
+            },
+            _ => BuilderKind::Scalar(None),
         };
-        Ok(Self {
-            cancellation: cancellation.clone(),
-            shape,
-            kind,
-        })
+        Self { shape, kind }
     }
 
     pub(crate) const fn shape(&self) -> &'static Shape {
@@ -269,13 +220,6 @@ impl ValueBuilder {
 
     pub(crate) fn field_count(&self) -> usize {
         self.fields().map_or(0, <[_]>::len)
-    }
-
-    pub(crate) fn field_is_runtime_state(&self, index: usize) -> bool {
-        self.field_shape(index).is_some_and(|shape| {
-            shape.is_shape(CancellationScope::SHAPE)
-                || shape.is_shape(<OpaqueBorrow<'static, CancellationScope>>::SHAPE)
-        })
     }
 
     pub(crate) fn field_binding(&self, index: usize) -> Option<&FieldBinding> {
@@ -361,8 +305,8 @@ impl ValueBuilder {
             .data
             .fields
             .iter()
-            .map(|field| BuilderField::from_facet(field, &self.cancellation))
-            .collect::<Result<_, _>>()?;
+            .map(BuilderField::from_facet)
+            .collect();
         *variant = Some(index);
         *fields = selected_fields;
         Ok(())
@@ -470,9 +414,6 @@ enum BuilderEntry {
 /// Builders and leases are engine metadata keyed by ownership-bearing SlotId.
 #[derive(Default)]
 pub(crate) struct BuilderStore {
-    // Construction state is acquired outside request fields. Runtime dispatch
-    // replaces it with the operation's token before invoking a request.
-    cancellation: CancellationScope,
     builders: BTreeMap<SlotId, BuilderEntry>,
     builder_leases: BTreeMap<SlotId, BTreeMap<usize, BorrowLease>>,
     builder_inherited_leases: BTreeMap<SlotId, BTreeMap<usize, Vec<BorrowLease>>>,
@@ -481,13 +422,6 @@ pub(crate) struct BuilderStore {
 }
 
 impl BuilderStore {
-    pub(crate) fn with_cancellation(cancellation: &CancellationScope) -> Self {
-        Self {
-            cancellation: cancellation.clone(),
-            ..Self::default()
-        }
-    }
-
     pub(crate) fn reserve(&mut self, arena: &mut Arena) -> Result<SlotId, ValueBuilderError> {
         let slot = arena.reserve_builder()?;
         let replaced = self.builders.insert(slot, BuilderEntry::ShapeUnset);
@@ -510,7 +444,7 @@ impl BuilderStore {
         if matches!(entry, BuilderEntry::Defined(_)) {
             return Err(ValueBuilderError::BuilderShapeAlreadySet(slot));
         }
-        let builder = ValueBuilder::new_with_cancellation(shape, &self.cancellation)?;
+        let builder = ValueBuilder::new(shape);
         arena.set_building_shape(slot, shape)?;
         *entry = BuilderEntry::Defined(builder);
         self.finalize_if_complete(arena, borrow_graph, slot)
@@ -598,8 +532,7 @@ impl BuilderStore {
         variant: usize,
     ) -> Result<BuilderTransition, ValueBuilderError> {
         if let Some(current) = arena.ready_value(slot) {
-            let mut builder =
-                ValueBuilder::new_with_cancellation(current.shape(), &self.cancellation)?;
+            let mut builder = ValueBuilder::new(current.shape());
             // Reject invalid choices without dropping or modifying the current value.
             builder.select_variant(variant)?;
             let selected = current
@@ -1509,7 +1442,6 @@ fn release_leases(borrow_graph: &mut BorrowGraph, leases: Vec<BorrowLease>) {
 mod tests {
     use super::*;
     use crate::object_explorer::breadcrumbs::Breadcrumbs;
-    use crate::object_explorer::builder_snapshot::BuilderSnapshot;
     use crate::object_explorer::produce_json_request::ProduceJsonRequest;
     use crate::object_explorer::tab::Tab;
     use crate::object_explorer::value_address::ValueAddress;
@@ -2654,7 +2586,7 @@ mod tests {
                 .expect("the registered arbitrary implementation supplies offline test data");
         let organization = fake_request.org_url.into_owned();
         let project = fake_request.project.into_owned();
-        let auth_context = fake_request.auth_context;
+        let auth_selection = fake_request.auth_selection;
 
         let mut arena = Arena::default();
         let organization = arena
@@ -2679,7 +2611,7 @@ mod tests {
                     &mut arena,
                     &mut borrows,
                     request,
-                    1,
+                    0,
                     FieldBinding::BorrowFrom(ValueAddress::root(organization)),
                 )
                 .unwrap(),
@@ -2691,23 +2623,22 @@ mod tests {
                     &mut arena,
                     &mut borrows,
                     request,
-                    2,
+                    1,
                     FieldBinding::InlineOwned(runtime(project)),
                 )
                 .unwrap(),
             BuilderTransition::Building
         );
-        // Authentication remains required alongside runtime cancellation, even for an offline request
-        // fixture. Keep the arbitrary implementation's non-executable None
-        // context instead of introducing authentication or a second borrow.
+        // Authentication selection remains ordinary explicit request data.
+        // This fixture only constructs values; it never resolves credentials.
         assert_eq!(
             builders
                 .set_field_and_finalize(
                     &mut arena,
                     &mut borrows,
                     request,
-                    3,
-                    FieldBinding::InlineOwned(runtime(auth_context)),
+                    2,
+                    FieldBinding::InlineOwned(runtime(auth_selection)),
                 )
                 .unwrap(),
             BuilderTransition::Ready
@@ -2743,53 +2674,5 @@ mod tests {
         builders
             .delete(&mut arena, &mut borrows, organization)
             .unwrap();
-    }
-
-    #[derive(Debug, Facet)]
-    struct CancellationFixture {
-        #[facet(skip_serializing)]
-        cancellation: CancellationScope,
-        label: String,
-        #[facet(default)]
-        count: u32,
-    }
-
-    #[test]
-    fn runtime_cancellation_is_supplied_outside_user_fields_and_keeps_real_indexes() {
-        let cancellation = CancellationScope::unbound();
-        let builder =
-            ValueBuilder::new_with_cancellation(CancellationFixture::SHAPE, &cancellation).unwrap();
-        let snapshot = BuilderSnapshot::observe(&builder, 1).unwrap();
-        assert_eq!(snapshot.fields().len(), 1);
-        assert_eq!(snapshot.fields()[0].name(), "label");
-        assert_eq!(snapshot.fields()[0].index(), 1);
-        assert!(!snapshot.fields_complete());
-        assert!(!builder.field_has_default(0).unwrap());
-
-        let mut arena = Arena::default();
-        let mut borrows = BorrowGraph::default();
-        let mut builders = BuilderStore::with_cancellation(&cancellation);
-        let (slot, transition) = builders
-            .create_and_finalize(&mut arena, &mut borrows, CancellationFixture::SHAPE)
-            .unwrap();
-        assert_eq!(transition, BuilderTransition::Building);
-        assert_eq!(
-            builders
-                .set_field_and_finalize(
-                    &mut arena,
-                    &mut borrows,
-                    slot,
-                    snapshot.fields()[0].index(),
-                    FieldBinding::InlineOwned(runtime(String::from("synthetic label"))),
-                )
-                .unwrap(),
-            BuilderTransition::Ready,
-        );
-        cancellation.request_cancel("stop the builder caller");
-        let value = arena.ready_value(slot).unwrap().peek();
-        let request = value.get::<CancellationFixture>().unwrap();
-        assert!(request.cancellation.is_cancelled());
-        assert_eq!(request.label, "synthetic label");
-        assert_eq!(request.count, 0);
     }
 }

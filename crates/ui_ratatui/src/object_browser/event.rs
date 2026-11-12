@@ -2088,6 +2088,9 @@ mod tests {
     use crate::object_explorer::Tab;
     use arbitrary::Arbitrary;
     use cloud_terrastodon_excalidraw::ProduceExcalidrawDumpPlanRequest;
+    use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+    use cloud_terrastodon_execution::ExecutableRequest;
+    use cloud_terrastodon_execution::ExecutionFuture;
     use cloud_terrastodon_registry::ArbitraryBytes;
     use cloud_terrastodon_registry::ProductionKind;
     use cloud_terrastodon_registry::RegisteredShape;
@@ -2098,10 +2101,7 @@ mod tests {
     use facet::Facet;
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
-    use std::future::Future;
-    use std::future::IntoFuture;
     use std::num::NonZeroUsize;
-    use std::pin::Pin;
 
     #[derive(Clone, Debug, Facet)]
     #[repr(C)]
@@ -2128,11 +2128,16 @@ mod tests {
         None,
     }
 
-    impl IntoFuture for BrowserProducerRequest {
-        type Output = eyre::Result<BrowserProducedValue>;
-        type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + Send>>;
+    impl ExecutableRequest for BrowserProducerRequest {
+        type Output = BrowserProducedValue;
+        type Error = eyre::Report;
 
-        fn into_future(self) -> Self::IntoFuture {
+        fn run<'a>(self, _executor: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>
+        where
+            Self: 'a,
+            Self::Output: 'a,
+            Self::Error: 'a,
+        {
             Box::pin(async move {
                 Ok(BrowserProducedValue {
                     marker: self.marker,
@@ -2144,7 +2149,7 @@ mod tests {
     cloud_terrastodon_registry::register_thing!(BrowserProducerRequest);
     cloud_terrastodon_registry::register_thing!(BrowserProducedValue);
     cloud_terrastodon_registry::register_arbitrary!(BrowserProducedValue);
-    cloud_terrastodon_registry_execution::register_into_future!(
+    cloud_terrastodon_registry_execution::register_executable_request!(
         BrowserProducerRequest => BrowserProducedValue,
         effects = [Read]
     );

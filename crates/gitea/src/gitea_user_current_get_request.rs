@@ -3,13 +3,14 @@ use crate::GiteaUser;
 use crate::gitea_api_support::gitea_api_get;
 use crate::gitea_api_support::tenant_cache_key_prefix;
 use arbitrary::Arbitrary;
+use cloud_terrastodon_auth_types::AuthenticationSelection;
+use cloud_terrastodon_auth_types::CloudTerrastodonAccountId;
 use cloud_terrastodon_cache::CacheKey;
 use cloud_terrastodon_cache::HasCacheKey;
 use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
-use cloud_terrastodon_execution::RequestExecution;
 use facet::Facet;
 use std::borrow::Cow;
 use std::time::Duration;
@@ -19,21 +20,14 @@ use std::time::Duration;
 #[facet(traits(Clone))]
 pub struct GiteaUserCurrentGetRequest<'a> {
     pub tenant: Cow<'a, GiteaInstanceUrl>,
-}
-
-pub fn fetch_current_gitea_user<'a>(
-    tenant: &'a GiteaInstanceUrl,
-    executor: &'a CloudTerrastodonExecutor,
-) -> RequestExecution<'a, GiteaUserCurrentGetRequest<'a>> {
-    executor.execute(GiteaUserCurrentGetRequest {
-        tenant: Cow::Borrowed(tenant),
-    })
+    pub account_id: CloudTerrastodonAccountId,
 }
 
 impl<'a> Arbitrary<'a> for GiteaUserCurrentGetRequest<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         Ok(Self {
             tenant: Cow::Owned(GiteaInstanceUrl::arbitrary(u)?),
+            account_id: CloudTerrastodonAccountId::arbitrary(u)?,
         })
     }
 }
@@ -52,6 +46,15 @@ impl HasCacheKey for GiteaUserCurrentGetRequest<'_> {
 }
 
 impl ExecutableRequest for GiteaUserCurrentGetRequest<'_> {
+    fn bind_authentication(
+        &self,
+        executor: CloudTerrastodonExecutor,
+    ) -> Result<CloudTerrastodonExecutor, Self::Error> {
+        executor.with_authentication_lease(&AuthenticationSelection::Gitea {
+            account_id: self.account_id,
+        })
+    }
+
     type Error = eyre::Report;
     type Output = GiteaUser;
     fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
@@ -61,6 +64,7 @@ impl ExecutableRequest for GiteaUserCurrentGetRequest<'_> {
         Box::pin(async move {
             gitea_api_get(
                 self.tenant.as_ref(),
+                self.account_id,
                 "/user",
                 Some(self.cache_key()?),
                 &executor,
@@ -85,6 +89,7 @@ mod tests {
     #[test]
     fn reflected_current_user_clone_retains_its_owned_instance() -> eyre::Result<()> {
         let original = RuntimeValue::from_box(Box::new(GiteaUserCurrentGetRequest {
+            account_id: "00000000-0000-0000-0000-000000000001".parse()?,
             tenant: Cow::Owned("https://offline-clone.example.invalid".parse()?),
         }))?;
         let cloned = original
@@ -101,3 +106,9 @@ mod tests {
         Ok(())
     }
 }
+
+cloud_terrastodon_registry_execution::register_runtime_test!(
+    GiteaUserCurrentGetRequest<'static>,
+    name = "gitea-user-current-get",
+    cached
+);

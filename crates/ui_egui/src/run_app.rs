@@ -1,6 +1,6 @@
 use crate::app::MyApp;
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureTenantId;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
+use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_command::app_work::AppWorkTracker;
 use cloud_terrastodon_config::Config;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
@@ -19,8 +19,8 @@ use tracing::info;
 
 pub async fn run_app(
     app_info: String,
-    tenant_id: AzureTenantId,
-    auth_context: AuthContext,
+    azure_devops_organization: Option<AzureDevOpsOrganizationUrl>,
+    authentication: AzureBearerAuthenticationSelection,
     executor: &CloudTerrastodonExecutor,
 ) -> eyre::Result<()> {
     let (_shutdown, run) = executor.with_async_child_scope(move |executor| async move {
@@ -60,8 +60,8 @@ pub async fn run_app(
                             egui_extras::install_image_loaders(&cc.egui_ctx);
                             let app = runtime::Handle::current().block_on(async move {
                                 MyApp::new(
-                                    tenant_id,
-                                    auth_context,
+                                    azure_devops_organization,
+                                    authentication,
                                     work_tracker2,
                                     shutdown_settings,
                                     app_info,

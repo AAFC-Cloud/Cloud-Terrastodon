@@ -7,9 +7,8 @@ use crate::SerializableRestResponse;
 use crate::decoded_rest_response::DecodedRestResponse;
 use crate::execute_rest_request;
 use crate::rest_request_fingerprint::RestRequestFingerprint;
-use cloud_terrastodon_auth::AzureDevOpsAuthContext;
-use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_auth_types::AuthenticationSelection;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_cache::ArtifactEntry;
 use cloud_terrastodon_cache::ArtifactFilePath;
 use cloud_terrastodon_cache::ArtifactObservation;
@@ -64,6 +63,9 @@ pub struct RestRequest {
     pub output_format: RestOutputFormat,
     pub failure_extra_files: Option<ResponseFailureExtraFiles>,
     pub artifact_retention: ArtifactRetention,
+    /// Bound the HTTP exchange, including body delivery. Credential acquisition,
+    /// decoding, artifact persistence and required completion retain their own lifetime.
+    pub transport_timeout: Option<Duration>,
 }
 
 impl std::fmt::Debug for RestRequest {
@@ -76,6 +78,7 @@ impl std::fmt::Debug for RestRequest {
             .field("summary", &self.context())
             .field("cache_key", &self.cache_key)
             .field("artifact_retention", &self.artifact_retention)
+            .field("transport_timeout", &self.transport_timeout)
             .finish_non_exhaustive()
     }
 }
@@ -126,6 +129,7 @@ impl RestRequest {
             output_format: RestOutputFormat::default(),
             failure_extra_files: None,
             artifact_retention: ArtifactRetention::Full,
+            transport_timeout: None,
         })
     }
     /// Select non-secret authentication intent; the executor supplies credentials.
@@ -133,17 +137,7 @@ impl RestRequest {
         self.authentication = selection;
         self
     }
-    /// Extract explicit source and tenant without retaining runtime authentication state.
-    pub fn azure_auth_context(self, context: &AzureTenantAuthContext) -> Result<Self> {
-        Ok(self.authentication(AuthenticationSelection::AzureBearer {
-            auth_source: context.auth_source()?,
-            tenant_id: context.tenant_id,
-        }))
-    }
-    /// Extract bearer tenant/source or PAT selection without retaining its secret.
-    pub fn azure_devops_auth_context(self, context: &AzureDevOpsAuthContext) -> Result<Self> {
-        Ok(self.authentication(context.selection()?.into()))
-    }
+    /// Set the serialized request body.
     pub fn body(mut self, body: impl Into<String>) -> Self {
         self.body = Some(body.into());
         self
@@ -170,6 +164,12 @@ impl RestRequest {
     }
     pub fn artifact_retention(mut self, retention: ArtifactRetention) -> Self {
         self.artifact_retention = retention;
+        self
+    }
+    /// Limit only the HTTP exchange, including response-body delivery. A timeout
+    /// remains an execution error that still passes through artifact retention.
+    pub fn transport_timeout(mut self, timeout: Duration) -> Self {
+        self.transport_timeout = Some(timeout);
         self
     }
     /// Mark a documented read-only operation as safely interruptible.
@@ -200,14 +200,14 @@ impl RestRequest {
                 AuthenticationSelection::Anonymous
             ) | (
                 RestService::AzureDevOps,
-                AuthenticationSelection::AzureDevOpsPersonalAccessToken
+                AuthenticationSelection::AzureDevOpsPersonalAccessToken { .. }
             ) | (
                 RestService::AzureDevOps
                     | RestService::MicrosoftGraph
                     | RestService::AzureResourceManager
                     | RestService::AzureKeyVault
                     | RestService::AzureContainerRegistry,
-                AuthenticationSelection::AzureBearer { .. }
+                AuthenticationSelection::AzureBearer(AzureBearerAuthenticationSelection { .. })
             )
         );
         ensure!(
@@ -327,6 +327,7 @@ impl RestRequest {
     }
     async fn with_policy<C, F, T>(
         executor: &CloudTerrastodonExecutor,
+        selection: AuthenticationSelection,
         protected: bool,
         callback: C,
     ) -> Result<T>
@@ -334,13 +335,18 @@ impl RestRequest {
         C: FnOnce(CloudTerrastodonExecutor) -> F,
         F: Future<Output = Result<T>>,
     {
-        if protected {
-            executor
-                .deferred("complete REST response, decoding, and artifacts", callback)
-                .await
-        } else {
-            executor.cancellable_scope(callback).await
-        }
+        let executor = executor.with_authentication_lease(&selection)?;
+        executor
+            .with_account_cancellation(move |executor| async move {
+                if protected {
+                    executor
+                        .deferred("complete REST response, decoding, and artifacts", callback)
+                        .await
+                } else {
+                    executor.cancellable_scope(callback).await
+                }
+            })
+            .await
     }
     async fn execute_transport(
         &self,
@@ -352,6 +358,7 @@ impl RestRequest {
             self.url.clone(),
             self.body.clone(),
             self.headers.clone(),
+            self.transport_timeout,
             &self.authentication,
             executor,
         )
@@ -495,9 +502,11 @@ impl RestRequest {
         async move {
             Self::with_policy(
                 executor,
+                self.authentication,
                 self.complete_on_cancellation,
                 move |child| async move {
                     self.validate()?;
+                    child.validate_authentication_target(&self.authentication, &self.url)?;
                     let selection = self.authentication;
                     child
                         .uncached_work_with_artifacts(
@@ -532,9 +541,11 @@ impl RestRequest {
         async move {
             Self::with_policy(
                 executor,
+                self.authentication,
                 self.complete_on_cancellation,
                 move |child| async move {
                     self.validate()?;
+                    child.validate_authentication_target(&self.authentication, &self.url)?;
                     ensure!(
                         !self.complete_on_cancellation,
                         "mutating REST requests must use owned receives and cannot share execution"
@@ -744,6 +755,7 @@ impl RestRequest {
         let caller = Location::caller();
         Self::with_policy(
             executor,
+            self.authentication,
             self.complete_on_cancellation,
             move |child| async move {
                 let response = self
@@ -792,6 +804,7 @@ impl RestRequest {
     {
         Self::with_policy(
             executor,
+            self.authentication,
             self.complete_on_cancellation,
             move |child| async move {
                 let decoded = self
@@ -859,6 +872,7 @@ impl RestRequest {
     {
         Self::with_policy(
             executor,
+            self.authentication,
             self.complete_on_cancellation,
             move |child| async move {
                 let decoded = self
@@ -950,6 +964,13 @@ impl HasCacheKey for RestRequest {
 }
 impl InvalidatesOwnCacheKey for RestRequest {}
 impl ExecutableRequest for RestRequest {
+    fn bind_authentication(
+        &self,
+        executor: CloudTerrastodonExecutor,
+    ) -> Result<CloudTerrastodonExecutor> {
+        executor.validate_authentication_target(&self.authentication, &self.url)?;
+        executor.with_authentication_lease(&self.authentication)
+    }
     type Error = eyre::Report;
     type Output = SerializableRestResponse;
     fn run<'a>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>

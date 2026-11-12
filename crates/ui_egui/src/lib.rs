@@ -1,3 +1,4 @@
+use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 pub mod app;
 pub mod autosave_info;
 pub mod draw_app;
@@ -9,18 +10,23 @@ pub mod widgets;
 pub mod windows;
 pub mod workers;
 
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureTenantId;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use tracing::info;
 
 pub async fn egui_main(
     app_info: String,
-    tenant_id: AzureTenantId,
-    auth_context: AuthContext,
+    azure_devops_organization: Option<AzureDevOpsOrganizationUrl>,
+    authentication: AzureBearerAuthenticationSelection,
     executor: &CloudTerrastodonExecutor,
 ) -> eyre::Result<()> {
     info!("Hello from egui!");
-    run_app::run_app(app_info, tenant_id, auth_context, executor).await?;
+    run_app::run_app(
+        app_info,
+        azure_devops_organization,
+        authentication,
+        executor,
+    )
+    .await?;
     Ok(())
 }

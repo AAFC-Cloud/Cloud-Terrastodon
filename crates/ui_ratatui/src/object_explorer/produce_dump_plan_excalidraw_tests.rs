@@ -14,10 +14,12 @@ use super::value_candidate_window::ValueCandidateWindowBudget;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CancellationToken;
 use cloud_terrastodon_excalidraw::ProduceExcalidrawDumpPlanRequest;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_registry::DiscoveryPlan;
 use cloud_terrastodon_registry::known_thing_for_shape;
 use facet::Facet;
-use std::future::Ready;
 use std::num::NonZeroUsize;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -33,16 +35,21 @@ struct DiagramInventoryRequest {
     input: DiagramInput,
 }
 
-impl IntoFuture for DiagramInventoryRequest {
-    type Output = eyre::Result<DiagramInventory>;
-    type IntoFuture = Ready<Self::Output>;
+impl ExecutableRequest for DiagramInventoryRequest {
+    type Output = DiagramInventory;
+    type Error = eyre::Report;
 
-    fn into_future(self) -> Self::IntoFuture {
+    fn run<'a>(self, _executor: CloudTerrastodonExecutor) -> ExecutionFuture<'a, Self::Output>
+    where
+        Self: 'a,
+        Self::Output: 'a,
+        Self::Error: 'a,
+    {
         panic!("exporting the plan must never execute a planned operation")
     }
 }
 
-cloud_terrastodon_registry_execution::register_into_future!(DiagramInventoryRequest => DiagramInventory, effects = [Read]);
+cloud_terrastodon_registry_execution::register_executable_request!(DiagramInventoryRequest => DiagramInventory, effects = [Read]);
 
 // Observe only the native scene fields this integration produces. The typed
 // writer's tagged/flattened element enum is not a general-purpose scene decoder.
@@ -73,7 +80,7 @@ async fn export_plan_through_explorer(cancellation: CancellationScope) -> eyre::
     let directory = tempfile::tempdir()?;
     let filename = directory.path().join("chosen plan drawing.excalidraw");
     let plan = DiscoveryPlan::build(
-        [DiagramInventoryRequest::REGISTERED_INTO_FUTURE.descriptor()],
+        [DiagramInventoryRequest::REGISTERED_EXECUTABLE_REQUEST.descriptor()],
         [DiagramInput::SHAPE],
         [DiagramInventory::SHAPE],
         &cancellation,
@@ -192,7 +199,7 @@ async fn export_plan_through_explorer(cancellation: CancellationScope) -> eyre::
                 request,
                 known_thing_for_shape(ProduceExcalidrawDumpPlanRequest::SHAPE)
                     .expect("export request is registered"),
-                ProduceExcalidrawDumpPlanRequest::REGISTERED_INTO_FUTURE,
+                ProduceExcalidrawDumpPlanRequest::REGISTERED_EXECUTABLE_REQUEST,
                 InvocationMode::Consume,
             )
             .await?;

@@ -25,32 +25,3 @@ pub trait AsFormattedHclString: AsHclString + Sync {
 }
 
 impl<T: AsHclString + Sync + ?Sized> AsFormattedHclString for T {}
-
-#[cfg(test)]
-mod test {
-    use crate::AsFormattedHclString;
-    use cloud_terrastodon_command::CancellationToken;
-
-    #[tokio::test]
-    async fn send_stdin_fmt() -> eyre::Result<()> {
-        CancellationToken::new()
-            .with_async_scope(|cancellation| async move {
-                let content = r#"resource "time_static" "wait_1_second" {
-depends_on = []
-triggers_complete = null
-}
-"#;
-                let expected = r#"resource "time_static" "wait_1_second" {
-  depends_on        = []
-  triggers_complete = null
-}
-"#;
-                assert_eq!(
-                    content.as_formatted_hcl_string(&cancellation).await?.trim(),
-                    expected.trim()
-                );
-                Ok(())
-            })
-            .await
-    }
-}

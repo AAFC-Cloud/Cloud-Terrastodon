@@ -1,10 +1,14 @@
 use crate::app::MyApp;
 use crate::icons::RESOURCE_GROUP_ICON;
-use cloud_terrastodon_azure::ResourceGroup;
+use cloud_terrastodon_azure::AzureResourceGroup;
 use eframe::egui::Ui;
 use tracing::debug;
 
-pub fn draw_resource_group_checkbox(app: &mut MyApp, ui: &mut Ui, resource_group: &ResourceGroup) {
+pub fn draw_resource_group_checkbox(
+    app: &mut MyApp,
+    ui: &mut Ui,
+    resource_group: &AzureResourceGroup,
+) {
     ui.horizontal(|ui| {
         let checked = app.checkbox_for(&resource_group.id);
         if ui.image(RESOURCE_GROUP_ICON).clicked() {

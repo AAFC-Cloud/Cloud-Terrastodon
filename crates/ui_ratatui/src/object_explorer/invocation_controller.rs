@@ -804,6 +804,7 @@ mod tests {
     use crate::object_explorer::tokio_invocation_host::TokioInvocationHost;
     use crate::object_explorer::value_address::ValueAddress;
     use crate::object_explorer::value_builder::ValueBuilder;
+    use cloud_terrastodon_execution::CloudTerrastodonExecutor;
     use cloud_terrastodon_registry::Effect;
     use cloud_terrastodon_registry::FunctionKind;
     use cloud_terrastodon_registry::FunctionTraitContract;
@@ -863,16 +864,17 @@ mod tests {
     struct DeferredBorrowRequest<'a> {
         source: Cow<'a, BorrowSource>,
         completion: BorrowCompletion,
-        #[facet(skip_serializing)]
-        cancellation: cloud_terrastodon_command::CancellationScope,
     }
 
-    fn invoke_deferred_borrow_request(input: Box<dyn Any + Send>) -> InvocationFuture<'static> {
+    fn invoke_deferred_borrow_request(
+        input: Box<dyn Any + Send>,
+        executor: &CloudTerrastodonExecutor,
+    ) -> InvocationFuture<'_> {
         Box::pin(async move {
             let request = input
                 .downcast::<DeferredBorrowRequest<'static>>()
                 .map_err(|_| eyre::eyre!("wrong deferred borrow request input"))?;
-            let cancellation = request.cancellation.clone();
+            let cancellation = executor.cancellation();
             let output = cancellation
                 .deferred(
                     "finishing work that borrows an arena source",
@@ -895,7 +897,7 @@ mod tests {
         RegistrationSite::new(file!(), line!()),
     );
 
-    static DEFERRED_BORROW_FUNCTION: RuntimeFunction = RuntimeFunction::async_value(
+    static DEFERRED_BORROW_FUNCTION: RuntimeFunction = RuntimeFunction::async_execution(
         <DeferredBorrowRequest<'static>>::SHAPE,
         String::SHAPE,
         FunctionKind::AsyncInvoke,
@@ -905,11 +907,6 @@ mod tests {
         invoke_deferred_borrow_request,
         runtime_from_boxed::<String>,
         RegistrationSite::new(file!(), line!()),
-    )
-    .with_cancellation_binding(
-        cloud_terrastodon_registry_execution::bind_request_cancellation::<
-            DeferredBorrowRequest<'static>,
-        >,
     );
 
     fn invoke_test_request(input: Box<dyn Any + Send>) -> InvocationFuture<'static> {

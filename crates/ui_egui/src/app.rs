@@ -1,9 +1,9 @@
 use crate::autosave_info::AutoSaveBehaviour;
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureTenantId;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
+use cloud_terrastodon_azure::AzureResourceGroupMap;
 use cloud_terrastodon_azure::Resource;
-use cloud_terrastodon_azure::ResourceGroupMap;
 use cloud_terrastodon_azure::Subscription;
+use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProject;
 use cloud_terrastodon_command::app_work::AppWorkTracker;
 use cloud_terrastodon_command::app_work::AppboundWorkFinishedMessage;
@@ -31,13 +31,13 @@ use tracing::info;
 
 pub struct MyApp {
     pub executor: CloudTerrastodonExecutor,
-    pub tenant_id: AzureTenantId,
-    pub auth_context: AuthContext,
+    pub azure_devops_organization: Option<AzureDevOpsOrganizationUrl>,
+    pub authentication: AzureBearerAuthenticationSelection,
     pub toggle_intents: HashSet<Id>,
     pub checkboxes: HashMap<Id, bool>,
     pub subscriptions: Loadable<Rc<Vec<Arc<Subscription>>>, eyre::ErrReport>,
     pub azure_devops_projects: Loadable<Arc<Vec<Arc<AzureDevOpsProject>>>, eyre::ErrReport>,
-    pub resource_groups: Loadable<Rc<ResourceGroupMap>, eyre::ErrReport>,
+    pub resource_groups: Loadable<Rc<AzureResourceGroupMap>, eyre::ErrReport>,
     pub resources: Loadable<Arc<Vec<Arc<Resource>>>, eyre::ErrReport>,
     pub tx: UnboundedSender<AppboundWorkFinishedMessage<MyApp>>,
     pub rx: UnboundedReceiver<AppboundWorkFinishedMessage<MyApp>>,
@@ -66,8 +66,8 @@ pub struct MyApp {
 
 impl MyApp {
     pub async fn new(
-        tenant_id: AzureTenantId,
-        auth_context: AuthContext,
+        azure_devops_organization: Option<AzureDevOpsOrganizationUrl>,
+        authentication: AzureBearerAuthenticationSelection,
         work_tracker: AppWorkTracker,
         shutdown_settings: SyncSender<(EguiConfig, WorkDirsConfig)>,
         app_info: String,
@@ -76,8 +76,8 @@ impl MyApp {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<AppboundWorkFinishedMessage<MyApp>>();
         Ok(Self {
             executor: executor.clone(),
-            tenant_id,
-            auth_context,
+            azure_devops_organization,
+            authentication,
             toggle_intents: Default::default(),
             checkboxes: Default::default(),
             subscriptions: Default::default(),
