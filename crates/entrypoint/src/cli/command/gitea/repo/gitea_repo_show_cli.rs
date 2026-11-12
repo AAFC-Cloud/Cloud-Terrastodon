@@ -1,14 +1,17 @@
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_cli_types::CloudTerrastodonAccountArgument;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_gitea::GiteaRepoArgument;
+use cloud_terrastodon_gitea::GiteaRepoGetByIdRequest;
+use cloud_terrastodon_gitea::GiteaRepoGetRequest;
+use cloud_terrastodon_gitea::GiteaRepoListRequest;
 use cloud_terrastodon_gitea::GiteaTenantArgument;
 use cloud_terrastodon_gitea::GiteaTenantArgumentExt;
-use cloud_terrastodon_gitea::fetch_all_gitea_repositories;
-use cloud_terrastodon_gitea::fetch_gitea_repository;
-use cloud_terrastodon_gitea::fetch_gitea_repository_by_id;
 use eyre::Result;
 use eyre::bail;
 use facet::Facet;
-use std::io::Write;
+use std::borrow::Cow;
 
 #[derive(Facet, Debug, Clone)]
 pub struct GiteaRepoShowArgs {
@@ -16,23 +19,46 @@ pub struct GiteaRepoShowArgs {
     #[facet(figue::positional, proxy = String)]
     pub repo: GiteaRepoArgument<'static>,
 
-    /// Tracked tenant URL or alias to query. Defaults to the active `tea` login.
-    #[facet(figue::named, default, proxy = String)]
+    /// Tracked tenant URL or alias to query. Select an instance explicitly; account defaults do not select service scope.
+    #[facet(figue::named, proxy = String)]
     pub tenant: GiteaTenantArgument<'static>,
+    /// Account ID or alias for this instance; omission selects its configured default.
+    #[facet(figue::named)]
+    pub account: Option<CloudTerrastodonAccountArgument>,
 }
 
 impl GiteaRepoShowArgs {
-    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<()> {
-        let tenant = self.tenant.resolve(executor).await?;
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        let tenant = self.tenant.resolve(executor.cancellation()).await?;
+        let account = self.account.as_ref().map(ToString::to_string);
+        let account_id =
+            executor.resolve_gitea_authentication(tenant.as_ref(), account.as_deref())?;
         let repository = match &self.repo {
             GiteaRepoArgument::Id(repo_id) => {
-                fetch_gitea_repository_by_id(&tenant, *repo_id.as_ref(), executor).await?
+                GiteaRepoGetByIdRequest {
+                    account_id,
+                    tenant: Cow::Borrowed(&tenant),
+                    repo_id: (*repo_id.as_ref()),
+                }
+                .execute(executor)
+                .await?
             }
             GiteaRepoArgument::FullName(full_name) => {
-                fetch_gitea_repository(&tenant, full_name.as_ref(), executor).await?
+                GiteaRepoGetRequest {
+                    account_id,
+                    tenant: Cow::Borrowed(&tenant),
+                    repo_full_name: Cow::Borrowed(full_name.as_ref()),
+                }
+                .execute(executor)
+                .await?
             }
             GiteaRepoArgument::Name(_) => {
-                let repositories = fetch_all_gitea_repositories(&tenant, executor).await?;
+                let repositories = GiteaRepoListRequest {
+                    account_id,
+                    tenant: Cow::Borrowed(&tenant),
+                }
+                .execute(executor)
+                .await?;
                 let matches = repositories
                     .into_iter()
                     .filter(|repo| self.repo.matches(repo))
@@ -51,11 +77,6 @@ impl GiteaRepoShowArgs {
                 }
             }
         };
-        let stdout = std::io::stdout();
-        let mut handle = stdout.lock();
-        facet_json::to_writer_std_pretty(&mut handle, &repository)
-            .map_err(|error| eyre::eyre!("{error:?}"))?;
-        handle.write_all(b"\n")?;
-        Ok(())
+        Ok(CliOutput::facet(repository))
     }
 }

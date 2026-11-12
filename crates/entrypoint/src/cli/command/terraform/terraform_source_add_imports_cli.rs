@@ -1,13 +1,12 @@
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
+use cloud_terrastodon_azure::AzureResourceListRequest;
 use cloud_terrastodon_azure::Resource;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::ScopeImpl;
 use cloud_terrastodon_azure::SubnetId;
 use cloud_terrastodon_azure::VirtualNetworkId;
-use cloud_terrastodon_azure::fetch_all_resources;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_hcl::AsHclString;
 use cloud_terrastodon_hcl::DataBlockReference;
 use cloud_terrastodon_hcl::HclBlock;
@@ -32,28 +31,19 @@ use tracing::warn;
 /// Add Terraform import blocks for existing resource blocks.
 #[derive(Facet, Debug, Clone)]
 pub struct TerraformSourceAddImportsArgs {
-    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[facet(figue::named, default)]
-    pub tenant: AzureTenantArgument<'static>,
+    #[facet(flatten)]
+    pub authentication: AzureAuthenticationArgs,
 
     #[facet(figue::named, default = PathBuf::from("."))]
     pub work_dir: PathBuf,
 }
 
 impl TerraformSourceAddImportsArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        let cancellation = executor.cancellation();
-        let tenant_auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
-            .await?;
-        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<()> {
+        let authentication = self.authentication.resolve(executor).await?;
         info!("Fetching resources from Azure...");
-        let resources = fetch_all_resources(&tenant_auth_context, executor)
+        let resources = AzureResourceListRequest { authentication }
+            .execute(executor)
             .await?
             .into_iter()
             .into_group_map_by(|res| res.name.clone());

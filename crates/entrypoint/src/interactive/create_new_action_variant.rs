@@ -264,15 +264,3 @@ pub async fn {function_name}() -> Result<()> {{
         .wrap_err_with(|| format!("Failed to write to {}", file_path.display()))?;
     Ok(())
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    #[ignore]
-    async fn it_works() -> eyre::Result<()> {
-        update_interactive_entrypoint_mod_rs_file("hehe_testing").await?;
-        Ok(())
-    }
-}

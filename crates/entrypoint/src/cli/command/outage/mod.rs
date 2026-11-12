@@ -2,7 +2,6 @@ use facet::Facet;
 pub mod outage_cli;
 pub mod outage_investigate_cli;
 
-use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 pub use outage_cli::OutageCommand;
@@ -16,11 +15,7 @@ pub struct OutageArgs {
 }
 
 impl OutageArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        self.command.invoke(auth_context, executor).await
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<()> {
+        self.command.invoke(executor).await
     }
 }

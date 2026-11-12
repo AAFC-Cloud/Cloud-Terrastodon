@@ -1,14 +1,15 @@
-use cloud_terrastodon_auth::AzureTenantAuthContext;
-use cloud_terrastodon_azure::create_oauth2_permission_grant;
-use cloud_terrastodon_azure::fetch_all_entra_users;
-use cloud_terrastodon_azure::fetch_all_service_principals;
-use cloud_terrastodon_azure::fetch_oauth2_permission_grants;
-use cloud_terrastodon_azure::fetch_oauth2_permission_scopes;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
+use cloud_terrastodon_azure::EntraOAuth2PermissionGrantCreateRequest;
+use cloud_terrastodon_azure::EntraOAuth2PermissionGrantListRequest;
+use cloud_terrastodon_azure::EntraOAuth2PermissionGrantUpdateRequest;
+use cloud_terrastodon_azure::EntraOAuth2PermissionScopeListRequest;
+use cloud_terrastodon_azure::EntraServicePrincipalListRequest;
+use cloud_terrastodon_azure::EntraUserListRequest;
 use cloud_terrastodon_azure::find_matching_oauth2_permission_grant;
 use cloud_terrastodon_azure::join_oauth2_permission_grant_scopes;
 use cloud_terrastodon_azure::merge_oauth2_permission_grant_scopes;
-use cloud_terrastodon_azure::update_oauth2_permission_grant;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
@@ -17,17 +18,15 @@ use std::sync::Arc;
 use tracing::info;
 
 pub async fn create_oauth2_permission_grants(
-    auth_context: &AzureTenantAuthContext,
+    authentication: &AzureBearerAuthenticationSelection,
     executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
-    let auth_source = auth_context.auth_context.azure_bearer_source()?;
-    let tenant_id = auth_context.tenant_id;
+    let _tenant_id = authentication.tenant_id;
     info!("Fetching all service principals");
-    let service_principals = fetch_all_service_principals(
-        auth_context.tenant_id,
-        auth_context.auth_source()?,
-        executor,
-    )
+    let service_principals = EntraServicePrincipalListRequest {
+        authentication: *authentication,
+    }
+    .execute(executor)
     .await?;
     let resource = PickerTui::<_>::new()
         .set_header("Pick the underlying resource being granted access to")
@@ -55,7 +54,12 @@ pub async fn create_oauth2_permission_grants(
         .await?;
     info!("You chose: {} - {}", client.display_name, client.id);
 
-    let scopes = fetch_oauth2_permission_scopes(resource.id, auth_context, executor).await?;
+    let scopes = EntraOAuth2PermissionScopeListRequest {
+        service_principal_id: (resource.id),
+        authentication: *authentication,
+    }
+    .execute(executor)
+    .await?;
     let scopes = scopes.iter().collect::<HashSet<_>>();
 
     let scopes_to_add = PickerTui::<_>::new()
@@ -69,11 +73,10 @@ pub async fn create_oauth2_permission_grants(
         )
         .await?;
 
-    let users = fetch_all_entra_users(
-        auth_context.tenant_id,
-        auth_context.auth_source()?,
-        executor,
-    )
+    let users = EntraUserListRequest {
+        authentication: *authentication,
+    }
+    .execute(executor)
     .await?;
     let users_to_add = PickerTui::<_>::new()
         .set_header(format!(
@@ -89,8 +92,11 @@ pub async fn create_oauth2_permission_grants(
         )
         .await?;
 
-    let mut existing_grants =
-        fetch_oauth2_permission_grants(tenant_id, auth_source, executor).await?;
+    let mut existing_grants = EntraOAuth2PermissionGrantListRequest {
+        authentication: *authentication,
+    }
+    .execute(executor)
+    .await?;
     let requested_scope =
         join_oauth2_permission_grant_scopes(scopes_to_add.iter().map(|scope| scope.value.as_str()));
 
@@ -112,27 +118,25 @@ pub async fn create_oauth2_permission_grants(
             }
 
             println!("Updating scopes for {}", user);
-            let () = update_oauth2_permission_grant(
-                tenant_id,
-                existing.id.clone(),
-                new_scope.clone(),
-                auth_source,
-                executor,
-            )
+            let () = EntraOAuth2PermissionGrantUpdateRequest {
+                authentication: *authentication,
+                id: (existing.id.clone()),
+                scope: (new_scope.clone()),
+            }
+            .execute(executor)
             .await?;
             // Keep unchanged inventory records shared; only copy a record we update locally.
             Arc::make_mut(existing).scope = new_scope;
         } else {
             println!("Creating grant for {}", user);
-            let created = create_oauth2_permission_grant(
-                tenant_id,
-                resource.id,
-                client.id,
-                user.id,
-                requested_scope.clone(),
-                auth_source,
-                executor,
-            )
+            let created = EntraOAuth2PermissionGrantCreateRequest {
+                authentication: *authentication,
+                resource_id: (resource.id),
+                client_id: (client.id),
+                principal_id: (user.id),
+                scope: (requested_scope.clone()),
+            }
+            .execute(executor)
             .await?;
             existing_grants.push(Arc::new(created));
         }

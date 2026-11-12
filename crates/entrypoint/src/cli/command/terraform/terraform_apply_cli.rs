@@ -1,16 +1,15 @@
 use crate::interactive::pim_activate_entra;
 use crate::menu::press_enter_to_continue;
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
+use cloud_terrastodon_azure::EntraCurrentUserRequest;
+use cloud_terrastodon_azure::EntraUnifiedRoleDefinitionsAndAssignmentsListRequest;
 use cloud_terrastodon_azure::RolePermissionAction;
 use cloud_terrastodon_azure::UnifiedRoleDefinitionsAndAssignmentsIterTools;
-use cloud_terrastodon_azure::fetch_all_unified_role_definitions_and_assignments;
-use cloud_terrastodon_azure::fetch_current_user;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::OutputBehaviour;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_hcl::TerraformChangeAction;
 use cloud_terrastodon_hcl::TerraformPlan;
 use eyre::Result;
@@ -26,22 +25,17 @@ use tracing::debug;
 /// Reflow generated Terraform source files.
 #[derive(Facet, Debug, Clone)]
 pub struct TerraformApplyArgs {
-    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[facet(figue::named, default)]
-    pub tenant: AzureTenantArgument<'static>,
+    #[facet(flatten)]
+    pub authentication: AzureAuthenticationArgs,
 
     #[facet(figue::positional, default = PathBuf::from("."))]
     pub source_dir: PathBuf,
 }
 
 impl TerraformApplyArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<()> {
         let cancellation = executor.cancellation();
-        let tenant_id = self.tenant.resolve(cancellation).await?;
+        let authentication = self.authentication.resolve(executor).await?;
         // Generate the plan file
         let plan_file = "apply.tfplan";
         let mut cmd = CommandBuilder::new(CommandKind::Terraform);
@@ -101,12 +95,12 @@ impl TerraformApplyArgs {
         println!("This plan requires: {:#?}", required_roles);
 
         // Identify RBAC roles for the current principal
-        let tenant_auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
-        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
-        let entra_rbac =
-            fetch_all_unified_role_definitions_and_assignments(&tenant_auth_context, executor)
-                .await?;
-        let current_user = fetch_current_user(&tenant_auth_context, executor).await?;
+        let entra_rbac = EntraUnifiedRoleDefinitionsAndAssignmentsListRequest { authentication }
+            .execute(executor)
+            .await?;
+        let current_user = EntraCurrentUserRequest { authentication }
+            .execute(executor)
+            .await?;
         let current_user_rbac = entra_rbac
             .iter_role_assignments()
             .filter_principal(&current_user.id)
@@ -149,7 +143,7 @@ impl TerraformApplyArgs {
                 unsatisfied_requirements
             );
             press_enter_to_continue().await?;
-            pim_activate_entra(&tenant_auth_context, executor).await?;
+            pim_activate_entra(authentication, executor).await?;
         }
 
         // Apply the plan

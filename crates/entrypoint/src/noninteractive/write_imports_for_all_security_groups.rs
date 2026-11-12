@@ -1,6 +1,7 @@
-use cloud_terrastodon_auth::AzureTenantAuthContext;
-use cloud_terrastodon_azure::fetch_all_security_groups;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
+use cloud_terrastodon_azure::EntraSecurityGroupListRequest;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_hcl::HclImportBlock;
 use cloud_terrastodon_hcl::HclProviderBlock;
 use cloud_terrastodon_hcl::HclWriter;
@@ -9,16 +10,15 @@ use eyre::Result;
 use tracing::info;
 
 pub async fn write_imports_for_all_security_groups(
-    auth_context: &AzureTenantAuthContext,
+    authentication: &AzureBearerAuthenticationSelection,
     executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
     let cancellation = executor.cancellation();
     info!("Fetching security groups");
-    let security_groups = fetch_all_security_groups(
-        auth_context.tenant_id,
-        auth_context.auth_source()?,
-        executor,
-    )
+    let security_groups = EntraSecurityGroupListRequest {
+        authentication: *authentication,
+    }
+    .execute(executor)
     .await?;
 
     info!("Building import blocks");

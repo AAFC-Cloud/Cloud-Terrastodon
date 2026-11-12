@@ -1,5 +1,4 @@
 use super::OutageInvestigateArgs;
-use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use facet::Facet;
@@ -13,13 +12,9 @@ pub enum OutageCommand {
 }
 
 impl OutageCommand {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<()> {
         match self {
-            OutageCommand::Investigate(args) => args.invoke(auth_context, executor).await,
+            OutageCommand::Investigate(args) => args.invoke(executor).await,
         }
     }
 }

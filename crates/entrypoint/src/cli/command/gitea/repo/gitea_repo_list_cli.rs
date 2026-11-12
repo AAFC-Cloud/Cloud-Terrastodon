@@ -1,17 +1,21 @@
+use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_types::CloudTerrastodonAccountId;
+use cloud_terrastodon_cli_types::CloudTerrastodonAccountArgument;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_gitea::GiteaOrganizationListRequest;
+use cloud_terrastodon_gitea::GiteaOrganizationRepoListRequest;
+use cloud_terrastodon_gitea::GiteaRepoListRequest;
+use cloud_terrastodon_gitea::GiteaRepoScanByIdRequest;
+use cloud_terrastodon_gitea::GiteaRepoSearchRequest;
 use cloud_terrastodon_gitea::GiteaTenantArgument;
 use cloud_terrastodon_gitea::GiteaTenantArgumentExt;
-use cloud_terrastodon_gitea::fetch_all_gitea_organization_repositories;
-use cloud_terrastodon_gitea::fetch_all_gitea_organizations;
-use cloud_terrastodon_gitea::fetch_all_gitea_repositories;
-use cloud_terrastodon_gitea::fetch_all_gitea_repositories_via_search;
-use cloud_terrastodon_gitea::fetch_all_gitea_user_repositories;
-use cloud_terrastodon_gitea::fetch_all_gitea_users;
-use cloud_terrastodon_gitea::fetch_current_user_gitea_repositories;
-use cloud_terrastodon_gitea::fetch_gitea_repositories_by_id_range;
+use cloud_terrastodon_gitea::GiteaUserCurrentRepoListRequest;
+use cloud_terrastodon_gitea::GiteaUserListRequest;
+use cloud_terrastodon_gitea::GiteaUserRepoListRequest;
 use eyre::Result;
 use facet::Facet;
-use std::io::Write;
+use std::borrow::Cow;
 use tracing::info;
 
 #[derive(Facet, Debug, Clone, Copy, Default)]
@@ -28,9 +32,12 @@ pub enum GiteaRepoListMethod {
 
 #[derive(Facet, Debug, Clone)]
 pub struct GiteaRepoListArgs {
-    /// Tracked tenant URL or alias to query. Defaults to the active `tea` login.
-    #[facet(figue::named, default, proxy = String)]
+    /// Tracked tenant URL or alias to query. Select an instance explicitly; account defaults do not select service scope.
+    #[facet(figue::named, proxy = String)]
     pub tenant: GiteaTenantArgument<'static>,
+    /// Account ID or alias for this instance; omission selects its configured default.
+    #[facet(figue::named)]
+    pub account: Option<CloudTerrastodonAccountArgument>,
 
     /// Enumeration method to use.
     #[facet(figue::named, default)]
@@ -42,58 +49,100 @@ pub struct GiteaRepoListArgs {
 }
 
 impl GiteaRepoListArgs {
-    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<()> {
-        let tenant = self.tenant.resolve(executor).await?;
-        let repositories = self.fetch_repositories(&tenant, executor).await?;
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
+        let tenant = self.tenant.resolve(executor.cancellation()).await?;
+        let account = self.account.as_ref().map(ToString::to_string);
+        let account_id =
+            executor.resolve_gitea_authentication(tenant.as_ref(), account.as_deref())?;
+        let repositories = self
+            .fetch_repositories(&tenant, account_id, executor)
+            .await?;
         info!(count = repositories.len(), ?self.method, "Fetched Gitea repositories");
-        let stdout = std::io::stdout();
-        let mut handle = stdout.lock();
-        facet_json::to_writer_std_pretty(&mut handle, &repositories)
-            .map_err(|error| eyre::eyre!("{error:?}"))?;
-        handle.write_all(b"\n")?;
-        Ok(())
+        Ok(CliOutput::facet(repositories))
     }
 
     pub async fn fetch_repositories(
         &self,
         tenant: &cloud_terrastodon_gitea::GiteaInstanceUrl,
+        account_id: CloudTerrastodonAccountId,
         executor: &CloudTerrastodonExecutor,
     ) -> Result<Vec<cloud_terrastodon_gitea::GiteaRepo>> {
         match self.method {
-            GiteaRepoListMethod::Combined => fetch_all_gitea_repositories(tenant, executor).await,
+            GiteaRepoListMethod::Combined => {
+                GiteaRepoListRequest {
+                    account_id,
+                    tenant: Cow::Borrowed(tenant),
+                }
+                .execute(executor)
+                .await
+            }
             GiteaRepoListMethod::Search => {
-                fetch_all_gitea_repositories_via_search(tenant, executor).await
+                GiteaRepoSearchRequest {
+                    account_id,
+                    tenant: Cow::Borrowed(tenant),
+                }
+                .execute(executor)
+                .await
             }
             GiteaRepoListMethod::Organizations => {
-                let organizations = fetch_all_gitea_organizations(tenant, executor).await?;
+                let organizations = GiteaOrganizationListRequest {
+                    account_id,
+                    tenant: Cow::Borrowed(tenant),
+                }
+                .execute(executor)
+                .await?;
                 let mut repositories = Vec::new();
                 for organization in &organizations {
                     repositories.extend(
-                        fetch_all_gitea_organization_repositories(
-                            tenant,
-                            &organization.username,
-                            executor,
-                        )
+                        GiteaOrganizationRepoListRequest {
+                            account_id,
+                            tenant: Cow::Borrowed(tenant),
+                            organization_name: Cow::Borrowed(&organization.username),
+                        }
+                        .execute(executor)
                         .await?,
                     );
                 }
                 Ok(cloud_terrastodon_gitea::dedupe_repositories(repositories))
             }
             GiteaRepoListMethod::Users => {
-                let users = fetch_all_gitea_users(tenant, executor).await?;
+                let users = GiteaUserListRequest {
+                    account_id,
+                    tenant: Cow::Borrowed(tenant),
+                }
+                .execute(executor)
+                .await?;
                 let mut repositories = Vec::new();
                 for user in &users {
                     repositories.extend(
-                        fetch_all_gitea_user_repositories(tenant, &user.login, executor).await?,
+                        GiteaUserRepoListRequest {
+                            account_id,
+                            tenant: Cow::Borrowed(tenant),
+                            username: Cow::Borrowed(&user.login),
+                        }
+                        .execute(executor)
+                        .await?,
                     );
                 }
                 Ok(cloud_terrastodon_gitea::dedupe_repositories(repositories))
             }
             GiteaRepoListMethod::CurrentUser => {
-                fetch_current_user_gitea_repositories(tenant, executor).await
+                GiteaUserCurrentRepoListRequest {
+                    account_id,
+                    tenant: Cow::Borrowed(tenant),
+                }
+                .execute(executor)
+                .await
             }
             GiteaRepoListMethod::IdRange => {
-                fetch_gitea_repositories_by_id_range(tenant, 1, self.max_repo_id, executor).await
+                GiteaRepoScanByIdRequest {
+                    account_id,
+                    tenant: Cow::Borrowed(tenant),
+                    start_id: (1),
+                    end_id: (self.max_repo_id),
+                }
+                .execute(executor)
+                .await
             }
         }
     }

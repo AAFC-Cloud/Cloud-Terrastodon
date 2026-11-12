@@ -1,7 +1,6 @@
 use super::dump_plan_cli::DumpPlanArgs;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_app::CliOutput;
-use cloud_terrastodon_auth_types::AuthSource;
 use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 use facet::Facet;
@@ -21,13 +20,9 @@ pub enum DumpCommand {
 }
 
 impl DumpArgs {
-    pub async fn invoke(
-        self,
-        auth_source: AuthSource,
-        cancellation: &CancellationScope,
-    ) -> Result<CliOutput> {
+    pub async fn invoke(self, cancellation: &CancellationScope) -> Result<CliOutput> {
         match self.command {
-            DumpCommand::Plan(args) => Box::pin(args.invoke(auth_source, cancellation)).await,
+            DumpCommand::Plan(args) => Box::pin(args.invoke(cancellation)).await,
         }
     }
 }

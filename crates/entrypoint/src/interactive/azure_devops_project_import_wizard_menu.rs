@@ -1,10 +1,11 @@
-use cloud_terrastodon_auth::AzureDevOpsAuthContext;
-use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
-use cloud_terrastodon_azure_devops::get_default_organization_url;
+use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
+use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
+use cloud_terrastodon_azure_devops::AzureDevOpsProjectsListRequest;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::OutputBehaviour;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_hcl::HclImportBlock;
 use cloud_terrastodon_hcl::HclWriter;
 use cloud_terrastodon_pathing::AppDir;
@@ -12,11 +13,13 @@ use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Context;
 use eyre::Result;
+use std::borrow::Cow;
 use tokio::fs::remove_dir_all;
 use tracing::info;
 
 pub async fn azure_devops_project_import_wizard_menu(
-    auth_context: &AzureDevOpsAuthContext,
+    org_url: &AzureDevOpsOrganizationUrl,
+    auth_selection: AzureDevOpsAuthSelection,
     executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
     let cancellation = executor.cancellation();
@@ -37,9 +40,12 @@ pub async fn azure_devops_project_import_wizard_menu(
         _ => unreachable!(),
     }
 
-    let org_url = get_default_organization_url(cancellation).await?;
-    let projects =
-        fetch_all_azure_devops_projects(&org_url, auth_context.selection()?, executor).await?;
+    let projects = AzureDevOpsProjectsListRequest {
+        org_url: Cow::Borrowed(org_url),
+        auth_selection,
+    }
+    .execute(executor)
+    .await?;
     let projects = PickerTui::<_>::new()
         .set_header("Choose the projects to import")
         .pick_many(

@@ -1,25 +1,30 @@
-use cloud_terrastodon_auth::AzureTenantAuthContext;
-use cloud_terrastodon_azure::create_role_assignment;
-use cloud_terrastodon_azure::fetch_all_entra_users;
-use cloud_terrastodon_azure::fetch_all_resources;
-use cloud_terrastodon_azure::fetch_all_role_definitions;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
+use cloud_terrastodon_azure::AzureResourceListRequest;
+use cloud_terrastodon_azure::AzureRoleAssignmentCreateRequest;
+use cloud_terrastodon_azure::AzureRoleDefinitionListRequest;
+use cloud_terrastodon_azure::EntraPrincipalId;
+use cloud_terrastodon_azure::EntraUserListRequest;
+use cloud_terrastodon_azure::RoleAssignmentId;
+use cloud_terrastodon_azure::Scope;
+use cloud_terrastodon_azure::uuid::Uuid;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use itertools::Itertools;
+use std::borrow::Cow;
 use tracing::info;
 
 pub async fn create_role_assignment_menu(
-    auth_context: &AzureTenantAuthContext,
+    authentication: &AzureBearerAuthenticationSelection,
     executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
     info!("Fetching role definition list");
-    let role_definitions = fetch_all_role_definitions(
-        auth_context.tenant_id,
-        auth_context.auth_source()?,
-        executor,
-    )
+    let role_definitions = AzureRoleDefinitionListRequest {
+        authentication: *authentication,
+    }
+    .execute(executor)
     .await?;
     let role_definitions = PickerTui::<_>::new()
         .set_header("Roles to assign")
@@ -33,11 +38,10 @@ pub async fn create_role_assignment_menu(
         .await?;
 
     info!("Fetching principals");
-    let users = fetch_all_entra_users(
-        auth_context.tenant_id,
-        auth_context.auth_source()?,
-        executor,
-    )
+    let users = EntraUserListRequest {
+        authentication: *authentication,
+    }
+    .execute(executor)
     .await?;
     let principals = PickerTui::<_>::new()
         .set_header(format!(
@@ -54,7 +58,11 @@ pub async fn create_role_assignment_menu(
         .await?;
 
     info!("Fetching resources");
-    let resources = fetch_all_resources(auth_context, executor).await?;
+    let resources = AzureResourceListRequest {
+        authentication: *authentication,
+    }
+    .execute(executor)
+    .await?;
     let resources = PickerTui::<_>::new()
         .set_header(format!(
             "Assigning: {} TO {}",
@@ -78,8 +86,20 @@ pub async fn create_role_assignment_menu(
                     "Assigning {} to {} on {}",
                     role.display_name, principal.user_principal_name, res.id
                 );
-                create_role_assignment(&res.id, &role.id, &principal.id, auth_context, executor)
-                    .await?;
+                let assignment_id: RoleAssignmentId = format!(
+                    "{}/providers/Microsoft.Authorization/roleAssignments/{}",
+                    res.id.expanded_form().trim_end_matches('/'),
+                    Uuid::new_v4(),
+                )
+                .parse()?;
+                AzureRoleAssignmentCreateRequest {
+                    authentication: *authentication,
+                    id: Cow::Owned(assignment_id),
+                    role_definition_id: Cow::Borrowed(&role.id),
+                    principal_id: EntraPrincipalId::UserId(principal.id),
+                }
+                .execute(executor)
+                .await?;
                 total += 1;
             }
         }

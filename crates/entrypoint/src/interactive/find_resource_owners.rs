@@ -1,10 +1,16 @@
 use crate::menu::press_enter_to_continue;
-use cloud_terrastodon_auth::AzureDevOpsAuthContext;
-use cloud_terrastodon_auth::AzureTenantAuthContext;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
+use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
+use cloud_terrastodon_azure::AzureResourceListRequest;
+use cloud_terrastodon_azure::AzureRoleAssignmentListRequest;
+use cloud_terrastodon_azure::AzureRoleDefinitionListRequest;
 use cloud_terrastodon_azure::EntraDirectoryObject;
 use cloud_terrastodon_azure::EntraGroup;
+use cloud_terrastodon_azure::EntraGroupMembersListRequest;
+use cloud_terrastodon_azure::EntraGroupOwnerListRequest;
 use cloud_terrastodon_azure::EntraPrincipal;
 use cloud_terrastodon_azure::EntraPrincipalId;
+use cloud_terrastodon_azure::EntraPrincipalListRequest;
 use cloud_terrastodon_azure::EntraServicePrincipal;
 use cloud_terrastodon_azure::Resource;
 use cloud_terrastodon_azure::RoleAssignment;
@@ -12,24 +18,21 @@ use cloud_terrastodon_azure::RoleDefinition;
 use cloud_terrastodon_azure::RoleDefinitionId;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::ScopeImpl;
-use cloud_terrastodon_azure::fetch_all_principals;
-use cloud_terrastodon_azure::fetch_all_resources;
-use cloud_terrastodon_azure::fetch_all_role_assignments;
-use cloud_terrastodon_azure::fetch_all_role_definitions;
-use cloud_terrastodon_azure::fetch_group_members;
-use cloud_terrastodon_azure::fetch_group_owners;
+use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProject;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectId;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectName;
+use cloud_terrastodon_azure_devops::AzureDevOpsProjectsListRequest;
 use cloud_terrastodon_azure_devops::AzureDevOpsServiceEndpoint;
-use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
-use cloud_terrastodon_azure_devops::fetch_all_azure_devops_service_endpoints;
-use cloud_terrastodon_azure_devops::get_default_organization_url;
+use cloud_terrastodon_azure_devops::AzureDevOpsServiceEndpointsListRequest;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ConcurrentIteratorExt;
+use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
+use cloud_terrastodon_user_input::prompt_line;
 use eyre::bail;
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::ops::Deref;
@@ -196,7 +199,7 @@ impl<'a> AsRef<Clue<'a>> for ClueChain<'a> {
 
 #[allow(dead_code)]
 struct TraversalContext<'a> {
-    pub auth_context: &'a AzureTenantAuthContext,
+    pub authentication: &'a AzureBearerAuthenticationSelection,
     pub clues: Vec<ClueChain<'a>>,
     pub resource_map: HashMap<&'a ScopeImpl, &'a Resource>,
     pub role_definition_map: HashMap<&'a RoleDefinitionId, &'a RoleDefinition>,
@@ -279,8 +282,12 @@ impl Traversal {
                     principal: EntraPrincipal::Group(group),
                 } = clue.as_ref()
                 {
-                    let members =
-                        fetch_group_members(group.id, context.auth_context, executor).await?;
+                    let members = EntraGroupMembersListRequest {
+                        group_id: (group.id),
+                        authentication: *context.authentication,
+                    }
+                    .execute(executor)
+                    .await?;
                     for member in members {
                         rtn.push(clue.join(Clue::GroupMember { group, member }));
                     }
@@ -291,8 +298,12 @@ impl Traversal {
                     principal: EntraPrincipal::Group(group),
                 } = clue.as_ref()
                 {
-                    let owners =
-                        fetch_group_owners(group.id, context.auth_context, executor).await?;
+                    let owners = EntraGroupOwnerListRequest {
+                        group_id: (group.id),
+                        authentication: *context.authentication,
+                    }
+                    .execute(executor)
+                    .await?;
                     for owner in owners {
                         rtn.push(clue.join(Clue::GroupOwner { group, owner }));
                     }
@@ -367,43 +378,70 @@ impl Traversal {
 }
 
 pub async fn find_resource_owners_menu(
-    auth_context: &AzureTenantAuthContext,
+    authentication: &AzureBearerAuthenticationSelection,
     executor: &CloudTerrastodonExecutor,
 ) -> eyre::Result<()> {
     info!(
         "Fetching a bunch of stuff (resources, role assignments, role definitions, and principals)"
     );
-    let auth_source = auth_context.auth_source()?;
-    let (resources, role_assignments, role_definitions, principals, org_url) = executor
-        .join5(
-            |child| async move { fetch_all_resources(auth_context, &child).await },
+    let org_url: AzureDevOpsOrganizationUrl = executor
+        .cancellation()
+        .cancellable_scope(async |_scope| {
+            prompt_line("Azure DevOps organization URL: ")
+                .await?
+                .parse()
+        })
+        .await?;
+    let (resources, role_assignments, role_definitions, principals) = executor
+        .join4(
             |child| async move {
-                fetch_all_role_assignments(auth_context.tenant_id, auth_source, &child).await
+                AzureResourceListRequest {
+                    authentication: *authentication,
+                }
+                .execute(&child)
+                .await
             },
             |child| async move {
-                fetch_all_role_definitions(auth_context.tenant_id, auth_source, &child).await
+                AzureRoleAssignmentListRequest {
+                    authentication: *authentication,
+                }
+                .execute(&child)
+                .await
             },
             |child| async move {
-                fetch_all_principals(auth_context.tenant_id, auth_source, &child).await
+                AzureRoleDefinitionListRequest {
+                    authentication: *authentication,
+                }
+                .execute(&child)
+                .await
             },
-            |child| async move { get_default_organization_url(child.cancellation()).await },
+            |child| async move {
+                EntraPrincipalListRequest {
+                    authentication: *authentication,
+                }
+                .execute(&child)
+                .await
+            },
         )
         .await?;
-    let azure_devops_auth_context = AzureDevOpsAuthContext::for_azure_tenant(auth_context);
-    let projects =
-        fetch_all_azure_devops_projects(&org_url, azure_devops_auth_context.selection()?, executor)
-            .await?;
+    let azure_devops_authentication: AzureDevOpsAuthSelection = (*authentication).into();
+    let projects = AzureDevOpsProjectsListRequest {
+        org_url: Cow::Borrowed(&org_url),
+        auth_selection: (azure_devops_authentication),
+    }
+    .execute(executor)
+    .await?;
     let azure_devops_service_endpoint_inventories = projects
         .iter()
         .map_concurrent(executor, 8.try_into()?, async |child, project| {
             // Preserve the complete-all policy: an individual inventory
             // failure is collected, rather than cancelling other projects.
-            let result = fetch_all_azure_devops_service_endpoints(
-                &org_url,
-                &project.name,
-                &azure_devops_auth_context,
-                &child,
-            )
+            let result = AzureDevOpsServiceEndpointsListRequest {
+                org_url: Cow::Borrowed(&org_url),
+                auth_selection: azure_devops_authentication,
+                project: (&project.name).into(),
+            }
+            .execute(&child)
             .await;
             info!(project = %project.name, "Finished fetching service endpoints");
             eyre::Ok(result)
@@ -446,7 +484,7 @@ pub async fn find_resource_owners_menu(
         .collect::<HashMap<_, _>>();
 
     let mut traversal_context = TraversalContext {
-        auth_context,
+        authentication,
         clues: Vec::new(),
         resource_map,
         role_definition_map,

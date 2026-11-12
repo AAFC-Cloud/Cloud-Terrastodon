@@ -1,8 +1,6 @@
 use crate::noninteractive::perform_import;
 use crate::noninteractive::process_generated;
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use facet::Facet;
@@ -10,25 +8,16 @@ use facet::Facet;
 /// Perform code-generation from existing import definitions.
 #[derive(Facet, Debug, Clone, Default)]
 pub struct PerformCodeGenerationFromImportsArgs {
-    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[facet(figue::named, default)]
-    pub tenant: AzureTenantArgument<'static>,
+    #[facet(flatten)]
+    pub authentication: AzureAuthenticationArgs,
 }
 
 impl PerformCodeGenerationFromImportsArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<()> {
         let cancellation = executor.cancellation();
-        let auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
-            .await?;
-        let executor = &auth_context.auth_context.bind_executor(executor)?;
+        let authentication = self.authentication.resolve(executor).await?;
         perform_import(cancellation).await?;
-        process_generated(&auth_context, executor).await?;
+        process_generated(&authentication, executor).await?;
         Ok(())
     }
 }

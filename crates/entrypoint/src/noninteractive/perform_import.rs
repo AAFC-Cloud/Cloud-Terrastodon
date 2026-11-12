@@ -10,7 +10,7 @@ pub async fn perform_import(cancellation: &CancellationScope) -> Result<()> {
     info!("Beginning tf import...");
     let imports_dir: PathBuf = AppDir::Imports.into();
     ProviderManager::try_new()?
-        .write_default_provider_configs(&imports_dir, cancellation)
+        .write_provider_configs(&imports_dir, None, None, cancellation)
         .await?;
     GenerateConfigOutHelper::default()
         .with_run_dir(imports_dir)

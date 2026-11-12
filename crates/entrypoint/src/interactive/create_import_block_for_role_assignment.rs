@@ -1,4 +1,4 @@
-use cloud_terrastodon_auth::AzureTenantAuthContext;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_hcl::AsHclString;
@@ -14,10 +14,10 @@ use eyre::bail;
 use tracing::info;
 
 pub async fn create_import_block_for_role_assignment(
-    auth_context: &AzureTenantAuthContext,
+    authentication: &AzureBearerAuthenticationSelection,
     executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
-    match RoleAssignmentPickerApp::new(auth_context, executor)
+    match RoleAssignmentPickerApp::new(*authentication, executor)
         .run()
         .await?
     {

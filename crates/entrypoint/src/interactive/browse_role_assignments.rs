@@ -1,4 +1,4 @@
-use cloud_terrastodon_auth::AzureTenantAuthContext;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure::RoleAssignment;
 use cloud_terrastodon_azure::get_role_assignment_choices;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
@@ -9,10 +9,10 @@ use std::sync::Arc;
 use tracing::info;
 
 pub async fn browse_role_assignments(
-    auth_context: &AzureTenantAuthContext,
+    authentication: &AzureBearerAuthenticationSelection,
     executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
-    let choices = get_role_assignment_choices(auth_context, executor).await?;
+    let choices = get_role_assignment_choices(authentication, executor).await?;
 
     info!("Picking");
     let (chosen, maybe_error): (Vec<Arc<RoleAssignment>>, _) = PickerTui::<_>::new()

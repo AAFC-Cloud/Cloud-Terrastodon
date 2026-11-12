@@ -1,7 +1,8 @@
-use cloud_terrastodon_auth::AzureTenantAuthContext;
-use cloud_terrastodon_azure::fetch_all_resource_groups;
-use cloud_terrastodon_azure::fetch_all_subscriptions;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
+use cloud_terrastodon_azure::AzureResourceGroupListRequest;
+use cloud_terrastodon_azure::AzureSubscriptionListRequest;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_hcl::HclImportBlock;
 use cloud_terrastodon_hcl::HclProviderReference;
 use cloud_terrastodon_hcl::HclWriter;
@@ -16,20 +17,27 @@ use std::collections::HashSet;
 use tracing::info;
 
 pub async fn write_imports_for_all_resource_groups(
-    auth_context: &AzureTenantAuthContext,
+    authentication: &AzureBearerAuthenticationSelection,
     executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
     let cancellation = executor.cancellation();
     info!("Writing imports for all resource groups");
 
     info!("Fetching resource groups");
-    let subscriptions = fetch_all_subscriptions(auth_context, executor)
-        .await?
-        .into_iter()
-        .map(|sub| (sub.id, sub))
-        .collect::<HashMap<_, _>>();
+    let subscriptions = AzureSubscriptionListRequest {
+        authentication: *authentication,
+    }
+    .execute(executor)
+    .await?
+    .into_iter()
+    .map(|sub| (sub.id, sub))
+    .collect::<HashMap<_, _>>();
 
-    let resource_groups = fetch_all_resource_groups(auth_context, executor).await?;
+    let resource_groups = AzureResourceGroupListRequest {
+        authentication: *authentication,
+    }
+    .execute(executor)
+    .await?;
 
     info!("Building import blocks");
     let mut used_subscriptions = HashSet::new();

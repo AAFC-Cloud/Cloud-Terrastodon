@@ -8,12 +8,11 @@ use crate::git_revision::set_git_revision;
 use crate::version::full_version;
 use crate::version::set_version;
 use cloud_terrastodon_app::App;
-use cloud_terrastodon_auth_types::AuthSource;
-use cloud_terrastodon_azure_cli::AzureCommand;
-use cloud_terrastodon_azure_cli::tenant::AzureTenantCommand;
+use cloud_terrastodon_auth::CredentialAuthenticationProvider;
 use eyre::Result;
 use std::process::ExitCode;
 use std::process::Termination;
+use std::sync::Arc;
 
 pub fn entrypoint(
     version: Version,
@@ -38,17 +37,16 @@ pub fn entrypoint(
     // Interactive commands await terminal restoration and background-job shutdown.
     // Keep this owner cooperative; requests and scoped jobs cancel independently.
     let app = App::new(executable_name, full_version()?.to_string())
+        .authentication_provider(Arc::new(CredentialAuthenticationProvider::configured()))
         .automatic_cancellation(false)
         .implementation_github("AAFC-Cloud/Cloud-Terrastodon", implementation_revision);
-    let mut cli: Cli = match app.parse_from(std::env::args_os().skip(1)).into_result() {
+    let cli: Cli = match app.parse_from(std::env::args_os().skip(1)).into_result() {
         Ok(output) => output.get(),
         Err(outcome) => {
             let status = outcome.report();
             std::process::exit(if status == ExitCode::SUCCESS { 0 } else { 1 });
         }
     };
-    let requested_auth_source = cli.global_args.auth_source;
-    cli.global_args.auth_source = startup_auth_source(cli.command.as_ref(), requested_auth_source);
     let enable_egui = matches!(cli.command.as_ref(), Some(CloudTerrastodonCommand::Egui(_)));
     let capture_canvas_logs = matches!(
         cli.command.as_ref(),
@@ -56,94 +54,32 @@ pub fn entrypoint(
     );
     app.egui_collector(enable_egui)
         .terminal_debug_capture(capture_canvas_logs)
-        .run_parsed(cli, |mut cli, context| async move {
-            // Preserve the requested policy for plan metadata. App has already
-            // created the disabled execution context for this offline command.
-            if matches!(cli.command, Some(CloudTerrastodonCommand::Dump(_))) {
-                cli.global_args.auth_source = requested_auth_source;
-            }
-            cli.invoke(&context.cancellation, &context.auth, &context.executor())
-                .await
+        .run_parsed(cli, |cli, context| async move {
+            cli.invoke(&context.cancellation, &context.executor()).await
         })
-}
-
-fn startup_auth_source(
-    command: Option<&CloudTerrastodonCommand>,
-    requested: AuthSource,
-) -> AuthSource {
-    if matches!(
-        command,
-        Some(
-            CloudTerrastodonCommand::Source(_)
-                | CloudTerrastodonCommand::Registry(_)
-                | CloudTerrastodonCommand::Dump(_)
-                | CloudTerrastodonCommand::Excalidraw(_)
-        )
-    ) || matches!(
-        command,
-        Some(CloudTerrastodonCommand::Azure(args))
-            if matches!(&args.command, AzureCommand::Tenant(tenant)
-                if matches!(tenant.command, AzureTenantCommand::Logout(_)))
-    ) {
-        // Local inventories, offline plans, and logout do not need credential
-        // discovery. Broken credentials must not prevent their own removal.
-        AuthSource::None
-    } else {
-        requested
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cloud_terrastodon_azure::CostManagementQueryResult;
     use cloud_terrastodon_azure::EntraUser;
     use cloud_terrastodon_azure::EntraUserPickRequest;
+    use cloud_terrastodon_azure::UnifiedRoleDefinitionsAndAssignments;
+    use cloud_terrastodon_registry::ARBITRARY_REGISTRATION_POINTS;
     use cloud_terrastodon_registry::ArbitraryBytes;
+    use cloud_terrastodon_registry::DiscoveryPlan;
     use cloud_terrastodon_registry::FunctionKind;
+    use cloud_terrastodon_registry::THING_REGISTRATION_POINTS;
     use cloud_terrastodon_registry::Thing;
     use cloud_terrastodon_registry::describe_shape;
+    use cloud_terrastodon_registry::known_arbitrary_values;
     use cloud_terrastodon_registry::known_things;
     use cloud_terrastodon_registry_execution::Function;
-    use cloud_terrastodon_registry_execution::functions_from_to;
     use cloud_terrastodon_registry_execution::known_functions;
     use facet::Facet;
     use std::collections::BTreeMap;
-
-    #[test]
-    fn logout_skips_credential_discovery_for_every_requested_source() {
-        use cloud_terrastodon_azure::AzureTenantArgument;
-        use cloud_terrastodon_azure_cli::AzureArgs;
-        use cloud_terrastodon_azure_cli::tenant::AzureTenantArgs;
-        use cloud_terrastodon_azure_cli::tenant::AzureTenantLoginArgs;
-        use cloud_terrastodon_azure_cli::tenant::AzureTenantLogoutArgs;
-
-        let logout = CloudTerrastodonCommand::Azure(AzureArgs {
-            command: AzureCommand::Tenant(AzureTenantArgs {
-                command: AzureTenantCommand::Logout(AzureTenantLogoutArgs),
-            }),
-        });
-        let login = CloudTerrastodonCommand::Azure(AzureArgs {
-            command: AzureCommand::Tenant(AzureTenantArgs {
-                command: AzureTenantCommand::Login(AzureTenantLoginArgs {
-                    tenant: AzureTenantArgument::Default,
-                }),
-            }),
-        });
-        for requested in [
-            AuthSource::Auto,
-            AuthSource::None,
-            AuthSource::Browser,
-            AuthSource::AzureCli,
-            AuthSource::PersonalAccessToken,
-            AuthSource::WorkloadIdentity,
-        ] {
-            assert_eq!(
-                startup_auth_source(Some(&logout), requested),
-                AuthSource::None
-            );
-            assert_eq!(startup_auth_source(Some(&login), requested), requested);
-        }
-    }
+    use std::sync::Arc;
 
     #[test]
     fn cli_schema_builds() {
@@ -171,10 +107,9 @@ mod tests {
 
     #[test]
     fn root_and_tenant_leaf_help_include_all_globals_and_complete_docs() {
-        for arguments in [vec!["--help"], vec!["az", "tenant", "login", "--help"]] {
+        for arguments in [vec!["--help"], vec!["az", "tenant", "default", "--help"]] {
             let help = rendered_cli_help(&arguments);
             for spelling in [
-                "--auth-source <SOURCE>",
                 "--[no-]debug",
                 "--log-filter <DIRECTIVE>",
                 "--log-file-filter <DIRECTIVE>",
@@ -193,14 +128,7 @@ mod tests {
                 );
             }
             let prose = help.split_whitespace().collect::<Vec<_>>().join(" ");
-            assert!(
-                prose.contains("configured and otherwise defaults to Azure CLI"),
-                "{help}"
-            );
-            assert!(
-                prose.contains("can be selected explicitly or configured per tenant"),
-                "{help}"
-            );
+            assert!(!prose.contains("--auth-source"), "{help}");
             assert!(
                 help.contains("AAFC-Cloud/Cloud-Terrastodon/blob/test/"),
                 "{help}"
@@ -213,10 +141,8 @@ mod tests {
         let cli: Cli = figue::from_slice(&[
             "az",
             "tenant",
-            "login",
+            "default",
             "example-tenant",
-            "--auth-source",
-            "workload-identity",
             "--debug",
             "--log-level",
             "trace",
@@ -225,11 +151,9 @@ mod tests {
             "--log-file",
             "logs.ndjson",
         ])
-        .unwrap();
-        assert_eq!(
-            cli.global_args.auth_source,
-            cloud_terrastodon_auth_types::AuthSource::WorkloadIdentity
-        );
+        .into_result()
+        .expect("synthetic CLI arguments should parse")
+        .get();
         assert!(cli.global_args.debug);
         assert_eq!(cli.global_args.log_filter, "trace");
         assert_eq!(cli.global_args.log_file_filter.as_deref(), Some("debug"));
@@ -283,7 +207,7 @@ mod tests {
             .iter()
             .filter(|function| {
                 function.input_shape.is_shape(EntraUserPickRequest::SHAPE)
-                    && function.output_shape.is_shape(Vec::<EntraUser>::SHAPE)
+                    && function.output_shape.is_shape(Vec::<Arc<EntraUser>>::SHAPE)
                     && function.is_async()
             })
             .collect::<Vec<_>>();
@@ -293,7 +217,7 @@ mod tests {
             1,
             "expected one Entra user picker registration"
         );
-        assert_eq!(registrations[0].label, "invoke");
+        assert_eq!(registrations[0].label, "execute");
     }
 
     #[test]
@@ -320,17 +244,44 @@ mod tests {
 
     #[test]
     fn async_request_outputs_have_fake_response_generators() {
+        // These semantic results are deliberately outside response simulation.
+        // A derived generator would fabricate invalid relationships. Keep this
+        // list typed and narrow so new service outputs still require review.
+        let unsupported = [
+            (
+                DiscoveryPlan::SHAPE,
+                "a discovery graph must reference the supplied linked catalog",
+            ),
+            (
+                CostManagementQueryResult::SHAPE,
+                "cost rows must conform to their corresponding column schema",
+            ),
+            (
+                UnifiedRoleDefinitionsAndAssignments::SHAPE,
+                "role assignments must reference the included role definitions",
+            ),
+        ];
+        for (shape, reason) in unsupported {
+            assert!(
+                !known_arbitrary_values()
+                    .iter()
+                    .any(|generator| generator.output_shape.is_shape(shape)),
+                "{} now has a generator; review its invariant and remove the exception: {reason}",
+                describe_shape(shape),
+            );
+        }
         let mut missing = known_functions()
             .iter()
             .filter(|function| function.kind == FunctionKind::AsyncInvoke)
             .filter(|function| {
-                !known_functions()
+                !unsupported
                     .iter()
-                    .filter(|candidate| candidate.kind == FunctionKind::Constructor)
-                    .any(|candidate| {
-                        describe_shape(candidate.input_shape) == describe_shape(ArbitraryBytes::SHAPE)
-                            && candidate.production_kind(function.output_shape).is_some()
-                    })
+                    .any(|(shape, _)| function.output_shape.is_shape(shape))
+            })
+            .filter(|function| {
+                !known_arbitrary_values()
+                    .iter()
+                    .any(|candidate| candidate.output_shape.is_shape(function.output_shape))
             })
             .map(|function| {
                 let output_shape = describe_shape(function.output_shape);
@@ -359,15 +310,23 @@ mod tests {
         );
     }
     #[test]
-    fn registry_lists_missing_arbitrary_companion_registrations() {
-        let mut missing = known_things()
-            .into_iter()
-            .filter(|thing| !thing.shape.is_shape(ArbitraryBytes::SHAPE))
+    fn arbitrary_value_registrations_include_all_automatic_collection_forms() {
+        // Registering metadata or an editable value does not promise that it
+        // can be fabricated. In particular, plans and registered handles depend
+        // on the linked catalog. Once both a value and its arbitrary constructor
+        // are explicitly registered, all supplied companions must be usable.
+        let mut missing = THING_REGISTRATION_POINTS
+            .iter()
             .filter(|thing| {
-                functions_from_to(ArbitraryBytes::SHAPE, thing.shape)
-                    .into_iter()
-                    .next()
-                    .is_none()
+                ARBITRARY_REGISTRATION_POINTS
+                    .iter()
+                    .any(|generator| generator.output_shape.is_shape(thing.shape))
+            })
+            .flat_map(|thing| thing.collection_forms())
+            .filter(|thing| {
+                !known_arbitrary_values()
+                    .iter()
+                    .any(|generator| generator.output_shape.is_shape(thing.shape))
             })
             .map(|thing| {
                 let shape_name = describe_shape(thing.shape);

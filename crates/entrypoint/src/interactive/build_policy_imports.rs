@@ -1,9 +1,10 @@
-use cloud_terrastodon_auth::AzureTenantAuthContext;
-use cloud_terrastodon_azure::fetch_all_policy_assignments;
-use cloud_terrastodon_azure::fetch_all_policy_definitions;
-use cloud_terrastodon_azure::fetch_all_policy_set_definitions;
-use cloud_terrastodon_azure::fetch_all_subscriptions;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
+use cloud_terrastodon_azure::AzurePolicyAssignmentListRequest;
+use cloud_terrastodon_azure::AzurePolicyDefinitionListRequest;
+use cloud_terrastodon_azure::AzurePolicySetDefinitionListRequest;
+use cloud_terrastodon_azure::AzureSubscriptionListRequest;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_hcl::HclImportBlock;
 use cloud_terrastodon_hcl::HclProviderReference;
 use cloud_terrastodon_hcl::HclWriter;
@@ -17,17 +18,41 @@ use std::collections::HashSet;
 use tracing::info;
 
 pub async fn build_policy_imports(
-    auth_context: &AzureTenantAuthContext,
+    authentication: &AzureBearerAuthenticationSelection,
     executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
     let cancellation = executor.cancellation();
     info!("Fetching information");
     let (policy_definitions, policy_set_definitions, policy_assignments, subscriptions) = executor
         .join4(
-            |child| async move { fetch_all_policy_definitions(auth_context, &child).await },
-            |child| async move { fetch_all_policy_set_definitions(auth_context, &child).await },
-            |child| async move { fetch_all_policy_assignments(auth_context, &child).await },
-            |child| async move { fetch_all_subscriptions(auth_context, &child).await },
+            |child| async move {
+                AzurePolicyDefinitionListRequest {
+                    authentication: *authentication,
+                }
+                .execute(&child)
+                .await
+            },
+            |child| async move {
+                AzurePolicySetDefinitionListRequest {
+                    authentication: *authentication,
+                }
+                .execute(&child)
+                .await
+            },
+            |child| async move {
+                AzurePolicyAssignmentListRequest {
+                    authentication: *authentication,
+                }
+                .execute(&child)
+                .await
+            },
+            |child| async move {
+                AzureSubscriptionListRequest {
+                    authentication: *authentication,
+                }
+                .execute(&child)
+                .await
+            },
         )
         .await?;
 

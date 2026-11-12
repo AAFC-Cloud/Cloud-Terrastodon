@@ -1,32 +1,24 @@
 use crate::noninteractive::dump_everything;
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
+use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 use facet::Facet;
 
 /// Dump all collected metadata to disk.
-#[derive(Facet, Debug, Clone, Default)]
+#[derive(Facet, Debug, Clone)]
 pub struct DumpEverythingArgs {
-    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[facet(figue::named, default)]
-    pub tenant: AzureTenantArgument<'static>,
+    /// Azure DevOps organization whose metadata should be exported.
+    #[facet(figue::named)]
+    pub org: AzureDevOpsOrganizationUrl,
+    #[facet(flatten)]
+    pub authentication: AzureAuthenticationArgs,
 }
 
 impl DumpEverythingArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        let cancellation = executor.cancellation();
-        let auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
-            .await?;
-        let executor = &auth_context.auth_context.bind_executor(executor)?;
-        dump_everything(&auth_context, executor).await?;
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<()> {
+        let authentication = self.authentication.resolve(executor).await?;
+        dump_everything(self.org, &authentication, executor).await?;
         Ok(())
     }
 }

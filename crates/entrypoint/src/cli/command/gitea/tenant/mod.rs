@@ -1,3 +1,4 @@
+use cloud_terrastodon_app::CliOutput;
 use facet::Facet;
 pub mod alias;
 pub mod gitea_tenant_add_cli;
@@ -39,15 +40,14 @@ pub enum GiteaTenantCommand {
 }
 
 impl GiteaTenantArgs {
-    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         match self.command {
-            GiteaTenantCommand::List(args) => args.invoke(executor.cancellation()).await?,
-            GiteaTenantCommand::Discover(args) => args.invoke(executor).await?,
-            GiteaTenantCommand::Alias(args) => args.invoke(executor).await?,
-            GiteaTenantCommand::Add(args) => args.invoke(executor.cancellation()).await?,
-            GiteaTenantCommand::Show(args) => args.invoke(executor).await?,
-            GiteaTenantCommand::Forget(args) => args.invoke(executor).await?,
+            GiteaTenantCommand::List(args) => Box::pin(args.invoke(executor.cancellation())).await,
+            GiteaTenantCommand::Discover(args) => Box::pin(args.invoke(executor)).await,
+            GiteaTenantCommand::Alias(args) => Box::pin(args.invoke(executor)).await,
+            GiteaTenantCommand::Add(args) => Box::pin(args.invoke(executor.cancellation())).await,
+            GiteaTenantCommand::Show(args) => Box::pin(args.invoke(executor)).await,
+            GiteaTenantCommand::Forget(args) => Box::pin(args.invoke(executor)).await,
         }
-        Ok(())
     }
 }

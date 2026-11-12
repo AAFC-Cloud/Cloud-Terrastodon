@@ -1,4 +1,4 @@
-use cloud_terrastodon_auth::AzureTenantAuthContext;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
@@ -17,7 +17,7 @@ use tracing::instrument;
 
 #[instrument(level = "debug", skip(executor))]
 pub async fn process_generated(
-    auth_context: &AzureTenantAuthContext,
+    authentication: &AzureBearerAuthenticationSelection,
     executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
     let cancellation = executor.cancellation();
@@ -37,7 +37,7 @@ pub async fn process_generated(
 
     // Determine output files
     let hcl = discover_hcl(&workspace_path, DiscoveryDepth::Shallow).await?;
-    let hcl = ReflowHclRequest::new(hcl, Some(auth_context))
+    let hcl = ReflowHclRequest::new(hcl, Some(*authentication))
         .include_principal_id_comments(true)
         .execute(executor)
         .await?;

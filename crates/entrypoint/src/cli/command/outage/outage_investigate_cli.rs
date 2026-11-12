@@ -1,25 +1,24 @@
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_auth_types::AzureBearerAuthSource;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
+use cloud_terrastodon_azure::AzureApplicationGatewayResourceBackendHealthRequest;
 use cloud_terrastodon_azure::AzureApplicationGatewayResourceBackendHealthResponse;
 use cloud_terrastodon_azure::AzureApplicationGatewayResourceBackendHealthServer;
 use cloud_terrastodon_azure::AzureApplicationGatewayResourceBackendHealthServerHealth;
 use cloud_terrastodon_azure::AzureApplicationGatewayResourceId;
+use cloud_terrastodon_azure::AzureContainerInstanceListRequest;
 use cloud_terrastodon_azure::AzureContainerInstanceResource;
+use cloud_terrastodon_azure::AzureNetworkInterfaceListRequest;
 use cloud_terrastodon_azure::AzureNetworkInterfaceResource;
+use cloud_terrastodon_azure::AzurePrivateEndpointListRequest;
 use cloud_terrastodon_azure::AzurePrivateEndpointResource;
 use cloud_terrastodon_azure::AzurePrivateEndpointResourceId;
+use cloud_terrastodon_azure::AzurePublicIpListRequest;
 use cloud_terrastodon_azure::AzurePublicIpResource;
-use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_azure::AzureVirtualNetworkListRequest;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::VirtualNetwork;
-use cloud_terrastodon_azure::fetch_all_container_instances;
-use cloud_terrastodon_azure::fetch_all_network_interfaces;
-use cloud_terrastodon_azure::fetch_all_private_endpoints;
-use cloud_terrastodon_azure::fetch_all_public_ips;
-use cloud_terrastodon_azure::fetch_all_virtual_networks;
-use cloud_terrastodon_azure::fetch_application_gateway_backend_health;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use color_eyre::owo_colors::OwoColorize;
 use eyre::Context;
 use eyre::ContextCompat;
@@ -45,9 +44,8 @@ use tracing::info;
 /// Investigate a URL or host by resolving DNS and correlating it with Azure public IPs.
 #[derive(Facet, Debug, Clone)]
 pub struct OutageInvestigateArgs {
-    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[facet(figue::named, default)]
-    pub tenant: AzureTenantArgument<'static>,
+    #[facet(flatten)]
+    pub authentication: AzureAuthenticationArgs,
 
     /// Directory to write JSON blobs for relevant investigation artifacts.
     #[facet(figue::named)]
@@ -59,23 +57,16 @@ pub struct OutageInvestigateArgs {
 }
 
 impl OutageInvestigateArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        let cancellation = executor.cancellation();
-        let tenant_auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
-            .await?;
-        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
-        let tenant_id = tenant_auth_context.tenant_id;
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<()> {
+        let authentication = self.authentication.resolve(executor).await?;
+        let tenant_id = authentication.tenant_id;
         let target_host = extract_target_host(&self.target)?;
         let dns = resolve_target(&target_host).await?;
 
         info!(%tenant_id, host = %target_host, "Fetching Azure public IP addresses for outage investigation");
-        let public_ips = fetch_all_public_ips(&tenant_auth_context, executor).await?;
+        let public_ips = AzurePublicIpListRequest { authentication }
+            .execute(executor)
+            .await?;
         info!(
             count = public_ips.len(),
             "Fetched Azure public IP addresses"
@@ -95,19 +86,14 @@ impl OutageInvestigateArgs {
             })
             .collect::<Vec<_>>();
         let matches = enrich_matches_with_application_gateway_backend_health(
-            tenant_id,
+            authentication,
             matches,
-            tenant_auth_context.auth_context.azure_bearer_source()?,
             executor,
         )
         .await?;
-        let matches = enrich_matches_with_backend_resource_discovery(
-            tenant_id,
-            matches,
-            &tenant_auth_context.auth_context,
-            executor,
-        )
-        .await?;
+        let matches =
+            enrich_matches_with_backend_resource_discovery(authentication, matches, executor)
+                .await?;
 
         let report = OutageInvestigationReport {
             input: self.target,
@@ -346,18 +332,13 @@ fn match_public_ip(
 }
 
 async fn enrich_matches_with_application_gateway_backend_health(
-    tenant_id: cloud_terrastodon_azure::AzureTenantId,
+    authentication: AzureBearerAuthenticationSelection,
     mut matches: Vec<OutagePublicIpMatch>,
-    auth_source: AzureBearerAuthSource,
     executor: &CloudTerrastodonExecutor,
 ) -> Result<Vec<OutagePublicIpMatch>> {
-    let backend_health_by_gateway_id = fetch_application_gateway_backend_health_for_matches(
-        tenant_id,
-        &matches,
-        auth_source,
-        executor,
-    )
-    .await;
+    let backend_health_by_gateway_id =
+        fetch_application_gateway_backend_health_for_matches(authentication, &matches, executor)
+            .await;
 
     for matched_public_ip in &mut matches {
         let Some(application_gateway_id) = matched_public_ip.application_gateway_id.as_deref()
@@ -377,12 +358,10 @@ async fn enrich_matches_with_application_gateway_backend_health(
 }
 
 async fn enrich_matches_with_backend_resource_discovery(
-    tenant_id: cloud_terrastodon_azure::AzureTenantId,
+    authentication: AzureBearerAuthenticationSelection,
     mut matches: Vec<OutagePublicIpMatch>,
-    auth_context: &AuthContext,
     executor: &CloudTerrastodonExecutor,
 ) -> Result<Vec<OutagePublicIpMatch>> {
-    let tenant_auth_context = auth_context.bind_to_azure_tenant(tenant_id)?;
     let backend_candidates = matches
         .iter()
         .flat_map(|matched_public_ip| {
@@ -401,21 +380,27 @@ async fn enrich_matches_with_backend_resource_discovery(
             count = backend_candidates.len(),
             "Fetching network interfaces for backend probe investigation"
         );
-        fetch_all_network_interfaces(&tenant_auth_context, executor).await?
+        AzureNetworkInterfaceListRequest { authentication }
+            .execute(executor)
+            .await?
     };
 
     let virtual_networks = if backend_candidates.is_empty() {
         Vec::new()
     } else {
         info!("Fetching virtual networks for backend probe investigation");
-        fetch_all_virtual_networks(&tenant_auth_context, executor).await?
+        AzureVirtualNetworkListRequest { authentication }
+            .execute(executor)
+            .await?
     };
 
     let container_instances = if backend_candidates.is_empty() {
         Vec::new()
     } else {
         info!("Fetching container instances for backend probe investigation");
-        fetch_all_container_instances(&tenant_auth_context, executor).await?
+        AzureContainerInstanceListRequest { authentication }
+            .execute(executor)
+            .await?
     };
 
     let relevant_private_endpoint_ids = backend_candidates
@@ -434,7 +419,8 @@ async fn enrich_matches_with_backend_resource_discovery(
             count = relevant_private_endpoint_ids.len(),
             "Fetching private endpoints for backend probe investigation"
         );
-        fetch_all_private_endpoints(&tenant_auth_context, executor)
+        AzurePrivateEndpointListRequest { authentication }
+            .execute(executor)
             .await?
             .into_iter()
             .filter(|private_endpoint| {
@@ -509,9 +495,8 @@ async fn enrich_matches_with_backend_resource_discovery(
 }
 
 async fn fetch_application_gateway_backend_health_for_matches(
-    tenant_id: cloud_terrastodon_azure::AzureTenantId,
+    authentication: AzureBearerAuthenticationSelection,
     matches: &[OutagePublicIpMatch],
-    auth_source: AzureBearerAuthSource,
     executor: &CloudTerrastodonExecutor,
 ) -> BTreeMap<String, ApplicationGatewayBackendHealthLookup> {
     let application_gateway_ids = matches
@@ -532,12 +517,11 @@ async fn fetch_application_gateway_backend_health_for_matches(
     for application_gateway_id in application_gateway_ids {
         let lookup = match application_gateway_id.parse::<AzureApplicationGatewayResourceId>() {
             Ok(application_gateway_id) => {
-                match fetch_application_gateway_backend_health(
-                    tenant_id,
+                match (AzureApplicationGatewayResourceBackendHealthRequest {
+                    authentication,
                     application_gateway_id,
-                    auth_source,
-                    executor,
-                )
+                })
+                .execute(executor)
                 .await
                 {
                     Ok(backend_health) => ApplicationGatewayBackendHealthLookup {

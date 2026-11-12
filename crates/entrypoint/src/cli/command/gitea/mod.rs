@@ -1,3 +1,4 @@
+use cloud_terrastodon_app::CliOutput;
 use facet::Facet;
 pub mod gitea_command_cli;
 pub mod org;
@@ -16,7 +17,7 @@ pub struct GiteaArgs {
 }
 
 impl GiteaArgs {
-    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         self.command.invoke(executor).await
     }
 }

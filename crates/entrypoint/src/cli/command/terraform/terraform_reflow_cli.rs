@@ -1,6 +1,4 @@
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_hcl::HclWriter;
@@ -19,9 +17,8 @@ use tracing::info;
 /// Reflow generated Terraform source files.
 #[derive(Facet, Debug, Clone)]
 pub struct TerraformReflowArgs {
-    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[facet(figue::named, default = AzureTenantArgument::Default)]
-    pub tenant: AzureTenantArgument<'static>,
+    #[facet(flatten)]
+    pub authentication: AzureAuthenticationArgs,
 
     /// Run full reflow, including principal lookup and principal id comment insertion
     #[facet(figue::named, default = false)]
@@ -47,11 +44,7 @@ pub struct TerraformReflowArgs {
 }
 
 impl TerraformReflowArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<()> {
         let cancellation = executor.cancellation();
         self.validate()?;
         let hcl = discover_hcl(&self.source_dir, self.discovery_depth()).await?;
@@ -59,22 +52,14 @@ impl TerraformReflowArgs {
         let single_file_path = self
             .single_file_arg()
             .map(|single_file| self.resolve_single_file_path(single_file));
-        let tenant_auth_context = if self.full {
-            Some(
-                self.tenant
-                    .bind_auth_context(auth_context, cancellation)
-                    .await?,
-            )
+        let authentication = if self.full {
+            Some(self.authentication.resolve(executor).await?)
         } else {
             None
         };
-        let executor = &match &tenant_auth_context {
-            Some(context) => context.auth_context.bind_executor(executor)?,
-            None => executor.clone(),
-        };
 
         info!(count = hcl.len(), "Discovered HCL files for reflowing");
-        let hcl = ReflowHclRequest::new(hcl, tenant_auth_context.as_ref())
+        let hcl = ReflowHclRequest::new(hcl, authentication)
             .include_principal_id_comments(self.full)
             .single_file_path(single_file_path)
             .mixed(self.mixed)
@@ -183,7 +168,10 @@ mod tests {
     }
 
     fn parse_args(args: &[&str]) -> eyre::Result<TerraformReflowArgs> {
-        let parsed: ParseArgs = figue::from_slice(args).unwrap();
+        let parsed: ParseArgs = figue::from_slice(args)
+            .into_result()
+            .expect("synthetic CLI arguments should parse")
+            .get();
         parsed.args.validate()?;
         Ok(parsed.args)
     }

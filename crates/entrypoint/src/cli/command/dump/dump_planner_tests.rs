@@ -89,14 +89,14 @@ struct SecondRequest {
 const fn request<I: Facet<'static>, O: Facet<'static>>(
     effects: &'static [Effect],
 ) -> RuntimeFunction {
-    RuntimeFunction::async_value(
+    RuntimeFunction::async_execution(
         I::SHAPE,
         O::SHAPE,
         FunctionKind::AsyncInvoke,
         "fixture request",
-        FunctionTraitContract::IntoFuture,
+        FunctionTraitContract::ExecutableRequest,
         effects,
-        |_| panic!("offline planning must not execute requests"),
+        |_, _| panic!("offline planning must not execute requests"),
         |_| panic!("offline planning must not materialize values"),
         RegistrationSite::new(file!(), line!()),
     )

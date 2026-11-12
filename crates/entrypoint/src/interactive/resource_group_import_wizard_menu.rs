@@ -1,14 +1,15 @@
-use cloud_terrastodon_auth::AzureTenantAuthContext;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
+use cloud_terrastodon_azure::AzureRoleAssignmentListRequest;
+use cloud_terrastodon_azure::AzureSubscriptionListRequest;
+use cloud_terrastodon_azure::EntraSecurityGroupListRequest;
 use cloud_terrastodon_azure::ResourceGroupScoped;
 use cloud_terrastodon_azure::RoleAssignmentId;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::SubscriptionScoped;
-use cloud_terrastodon_azure::fetch_all_role_assignments;
-use cloud_terrastodon_azure::fetch_all_security_groups;
-use cloud_terrastodon_azure::fetch_all_subscriptions;
 use cloud_terrastodon_azure::get_resource_group_choices;
 use cloud_terrastodon_azure::uuid::Uuid;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_hcl::HclImportBlock;
 use cloud_terrastodon_hcl::HclProviderBlock;
 use cloud_terrastodon_hcl::HclProviderReference;
@@ -26,7 +27,7 @@ use tokio::join;
 use tracing::info;
 
 pub async fn resource_group_import_wizard_menu(
-    auth_context: &AzureTenantAuthContext,
+    authentication: &AzureBearerAuthenticationSelection,
     executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
     let cancellation = executor.cancellation();
@@ -57,21 +58,22 @@ pub async fn resource_group_import_wizard_menu(
         // users,
         resource_group_choices,
     ) = join!(
-        fetch_all_subscriptions(auth_context, executor),
+        AzureSubscriptionListRequest {
+            authentication: *authentication
+        }
+        .execute(executor),
         // fetch_all_resource_groups(tenant_id),
-        fetch_all_role_assignments(
-            auth_context.tenant_id,
-            auth_context.auth_source()?,
-            executor
-        ),
+        AzureRoleAssignmentListRequest {
+            authentication: *authentication
+        }
+        .execute(executor),
         // fetch_all_role_definitions(),
-        fetch_all_security_groups(
-            auth_context.tenant_id,
-            auth_context.auth_source()?,
-            executor
-        ),
+        EntraSecurityGroupListRequest {
+            authentication: *authentication
+        }
+        .execute(executor),
         // fetch_all_users(),
-        get_resource_group_choices(auth_context, executor),
+        get_resource_group_choices(authentication, executor),
     );
     let subscriptions = subscriptions?
         .into_iter()

@@ -1,13 +1,12 @@
-use cloud_terrastodon_auth::AzureDevOpsAuthContext;
-use cloud_terrastodon_auth::AzureTenantAuthContext;
-use cloud_terrastodon_azure::fetch_all_resource_groups;
-use cloud_terrastodon_azure::fetch_all_subscriptions;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
+use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
+use cloud_terrastodon_azure::AzureResourceGroupListRequest;
+use cloud_terrastodon_azure::AzureSubscriptionListRequest;
+use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProjectId;
-use cloud_terrastodon_azure_devops::fetch_all_azure_devops_projects;
+use cloud_terrastodon_azure_devops::AzureDevOpsProjectsListRequest;
+use cloud_terrastodon_azure_devops::AzureDevOpsTeamsForProjectRequest;
 use cloud_terrastodon_azure_devops::fetch_azure_devops_repos_batch;
-use cloud_terrastodon_azure_devops::fetch_azure_devops_teams_for_project;
-use cloud_terrastodon_azure_devops::get_default_organization_url;
-use cloud_terrastodon_azure_devops::get_personal_access_token;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ConcurrentIteratorExt;
@@ -34,6 +33,7 @@ use cloud_terrastodon_zombies::prompt_kill_processes_using_dirs;
 use eyre::OptionExt;
 use eyre::bail;
 use humantime::FormattedDuration;
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::num::NonZeroUsize;
@@ -69,15 +69,14 @@ where
 }
 
 pub async fn dump_everything(
-    auth_context: &AzureTenantAuthContext,
+    org_url: AzureDevOpsOrganizationUrl,
+    authentication: &AzureBearerAuthenticationSelection,
     executor: &CloudTerrastodonExecutor,
 ) -> eyre::Result<()> {
-    let cancellation = executor.cancellation();
-    info!("Ensuring Azure DevOps PAT is set for future steps");
-    _ = get_personal_access_token(cancellation).await?;
-    let auth_context = auth_context.clone();
+    let authentication = *authentication;
     let (rtn, took) =
-        measure(async move { dump_everything_inner(&auth_context, executor).await }).await?;
+        measure(async move { dump_everything_inner(org_url, &authentication, executor).await })
+            .await?;
     info!("Overall dump took {took}");
     Ok(rtn)
 }
@@ -113,7 +112,8 @@ impl Strategy {
     }
 }
 pub async fn dump_everything_inner(
-    auth_context: &AzureTenantAuthContext,
+    org_url: AzureDevOpsOrganizationUrl,
+    authentication: &AzureBearerAuthenticationSelection,
     executor: &CloudTerrastodonExecutor,
 ) -> eyre::Result<()> {
     let cancellation = executor.cancellation();
@@ -188,7 +188,7 @@ pub async fn dump_everything_inner(
     let tf_work_dirs = match behaviour {
         Behaviour::CleanAndWriteImportsAndInitAndValidateAndGenerateAndProcess
         | Behaviour::WriteImportsAndInitAndValidateAndGenerateAndProcess => {
-            write_all_import_blocks(strategy, auth_context, executor).await?
+            write_all_import_blocks(strategy, org_url, authentication, executor).await?
         }
         _ => discover_existing_dirs(strategy).await?,
     };
@@ -262,10 +262,12 @@ pub async fn dump_everything_inner(
         tf_work_dirs.into_iter().map(|x| x.into()).collect()
     };
 
-    let auth_context = auth_context.clone();
+    let authentication = *authentication;
     let (tf_work_dirs, duration) =
-        measure(async move { process_generated_many(tf_work_dirs, auth_context, executor).await })
-            .await?;
+        measure(
+            async move { process_generated_many(tf_work_dirs, authentication, executor).await },
+        )
+        .await?;
     info!(
         "Processed generated terraform code in {} dirs in {duration}",
         tf_work_dirs.len()
@@ -279,7 +281,7 @@ pub async fn dump_everything_inner(
 
 async fn process_generated_many(
     tf_work_dirs: Vec<GeneratedConfigOutTFWorkDir>,
-    auth_context: AzureTenantAuthContext,
+    authentication: AzureBearerAuthenticationSelection,
     executor: &CloudTerrastodonExecutor,
 ) -> eyre::Result<Vec<ProcessedTFWorkDir>> {
     let cancellation = executor.cancellation();
@@ -314,7 +316,7 @@ async fn process_generated_many(
                         .map(PathBuf::from)?,
                 );
                 let hcl = discover_hcl(work_dir, DiscoveryDepth::Shallow).await?;
-                let hcl = ReflowHclRequest::new(hcl, Some(&auth_context))
+                let hcl = ReflowHclRequest::new(hcl, Some(authentication))
                     .include_principal_id_comments(true)
                     .execute(&executor)
                     .await?;
@@ -539,25 +541,37 @@ async fn discover_existing_dirs(strategy: Strategy) -> eyre::Result<Vec<FreshTFW
 
 async fn write_all_import_blocks(
     strategy: Strategy,
-    auth_context: &AzureTenantAuthContext,
+    org_url: AzureDevOpsOrganizationUrl,
+    authentication: &AzureBearerAuthenticationSelection,
     executor: &CloudTerrastodonExecutor,
 ) -> eyre::Result<Vec<FreshTFWorkDir>> {
     let cancellation = executor.cancellation();
     info!("Writing all import blocks; fetching a lot of data");
-    let org_url = get_default_organization_url(cancellation).await?;
-    let azure_devops_auth_context = AzureDevOpsAuthContext::for_azure_tenant(auth_context);
+    let azure_devops_authentication: AzureDevOpsAuthSelection = (*authentication).into();
     let (azure_devops_projects, subscriptions, resource_groups) = executor
         .join3(
             async |executor| {
-                fetch_all_azure_devops_projects(
-                    &org_url,
-                    azure_devops_auth_context.selection()?,
-                    &executor,
-                )
+                AzureDevOpsProjectsListRequest {
+                    org_url: Cow::Borrowed(&org_url),
+                    auth_selection: (azure_devops_authentication),
+                }
+                .execute(&executor)
                 .await
             },
-            |executor| async move { fetch_all_subscriptions(auth_context, &executor).await },
-            |executor| async move { fetch_all_resource_groups(auth_context, &executor).await },
+            |executor| async move {
+                AzureSubscriptionListRequest {
+                    authentication: *authentication,
+                }
+                .execute(&executor)
+                .await
+            },
+            |executor| async move {
+                AzureResourceGroupListRequest {
+                    authentication: *authentication,
+                }
+                .execute(&executor)
+                .await
+            },
         )
         .await?;
     let mut tf_work_dirs: Vec<PathBuf> = Vec::new();
@@ -571,7 +585,7 @@ async fn write_all_import_blocks(
     let mut azure_devops_project_repos = fetch_azure_devops_repos_batch(
         &org_url,
         project_ids.clone(),
-        &azure_devops_auth_context,
+        azure_devops_authentication,
         executor,
     )
     .await?;
@@ -584,12 +598,12 @@ async fn write_all_import_blocks(
             executor,
             NonZeroUsize::new(10).ok_or_eyre("team fetch concurrency must be nonzero")?,
             async |executor, project_id| {
-                let teams = fetch_azure_devops_teams_for_project(
-                    &org_url,
-                    project_id,
-                    &azure_devops_auth_context,
-                    &executor,
-                )
+                let teams = AzureDevOpsTeamsForProjectRequest {
+                    org_url: Cow::Borrowed(&org_url),
+                    auth_selection: azure_devops_authentication,
+                    project: (project_id).into(),
+                }
+                .execute(&executor)
                 .await;
                 info!(
                     "Fetching Azure DevOps teams, {} projects remain",
@@ -647,11 +661,14 @@ async fn write_all_import_blocks(
                             tf_work_dirs.push(project_teams_dir.clone());
 
                             join_set.spawn({
+                                let org_url = org_url.clone();
                                 task_parent.cancellable_scope(move |cancellation| async move {
                                     let provider_manager = ProviderManager::try_new()?;
                                     provider_manager
-                                        .write_default_provider_configs(
+                                        .write_provider_configs(
                                             &project_creation_dir,
+                                            Some(&org_url),
+                                            None,
                                             &cancellation,
                                         )
                                         .await?;
@@ -659,12 +676,15 @@ async fn write_all_import_blocks(
                                 })
                             });
                             join_set.spawn({
+                                let org_url = org_url.clone();
                                 task_parent.cancellable_scope(move |cancellation| async move {
                                     let provider_manager = ProviderManager::try_new()?;
 
                                     provider_manager
-                                        .write_default_provider_configs(
+                                        .write_provider_configs(
                                             &project_repos_dir,
+                                            Some(&org_url),
+                                            None,
                                             &cancellation,
                                         )
                                         .await?;
@@ -672,11 +692,14 @@ async fn write_all_import_blocks(
                                 })
                             });
                             join_set.spawn({
+                                let org_url = org_url.clone();
                                 task_parent.cancellable_scope(move |cancellation| async move {
                                     let provider_manager = ProviderManager::try_new()?;
                                     provider_manager
-                                        .write_default_provider_configs(
+                                        .write_provider_configs(
                                             &project_teams_dir,
+                                            Some(&org_url),
+                                            None,
                                             &cancellation,
                                         )
                                         .await?;
@@ -793,10 +816,16 @@ async fn write_all_import_blocks(
                         tf_work_dirs.push(all_in_one_dir.to_path_buf());
                         let all_in_one_dir = all_in_one_dir.to_path_buf();
                         join_set.spawn({
+                            let org_url = org_url.clone();
                             task_parent.cancellable_scope(move |cancellation| async move {
                                 let provider_manager = ProviderManager::try_new()?;
                                 provider_manager
-                                    .write_default_provider_configs(&all_in_one_dir, &cancellation)
+                                    .write_provider_configs(
+                                        &all_in_one_dir,
+                                        Some(&org_url),
+                                        None,
+                                        &cancellation,
+                                    )
                                     .await?;
                                 Ok(())
                             })

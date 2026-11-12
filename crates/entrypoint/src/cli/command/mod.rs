@@ -58,8 +58,6 @@ use crate::cli::source::SourceArgs;
 use crate::cli::terraform::TerraformArgs;
 use crate::cli::write_all_imports::WriteAllImportsArgs;
 use cloud_terrastodon_app::CliOutput;
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_auth_types::AuthSource;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
@@ -141,65 +139,48 @@ impl CloudTerrastodonCommand {
     pub async fn invoke(
         self,
         cancellation: &CancellationScope,
-        auth_context: &AuthContext,
-        requested_auth_source: AuthSource,
         executor: &CloudTerrastodonExecutor,
     ) -> Result<CliOutput> {
         // Box child futures so large commands do not enlarge every dispatcher stack frame.
         match self {
             CloudTerrastodonCommand::Account(args) => {
-                return Box::pin(args.invoke(requested_auth_source, cancellation)).await;
+                return Box::pin(args.invoke(executor)).await;
             }
             CloudTerrastodonCommand::Test(args) => {
-                return Box::pin(args.invoke(
-                    requested_auth_source,
-                    auth_context.requested_account(),
-                    executor,
-                ))
-                .await;
+                return Box::pin(args.invoke(executor)).await;
             }
             CloudTerrastodonCommand::Ratatui(args) => Box::pin(args.invoke(executor)).await,
-            CloudTerrastodonCommand::Egui(args) => {
-                Box::pin(args.invoke(auth_context, executor)).await
-            }
+            CloudTerrastodonCommand::Egui(args) => Box::pin(args.invoke(executor)).await,
             CloudTerrastodonCommand::Excalidraw(args) => {
                 return Box::pin(args.invoke(cancellation)).await;
             }
             CloudTerrastodonCommand::Echo(args) => Box::pin(args.invoke(cancellation)).await,
             CloudTerrastodonCommand::Clean(args) => Box::pin(args.invoke(cancellation)).await,
-            CloudTerrastodonCommand::WriteAllImports(args) => {
-                Box::pin(args.invoke(auth_context, executor)).await
-            }
+            CloudTerrastodonCommand::WriteAllImports(args) => Box::pin(args.invoke(executor)).await,
             CloudTerrastodonCommand::PerformCodeGenerationFromImports(args) => {
-                Box::pin(args.invoke(auth_context, executor)).await
+                Box::pin(args.invoke(executor)).await
             }
-            CloudTerrastodonCommand::DumpEverything(args) => {
-                Box::pin(args.invoke(auth_context, executor)).await
-            }
+            CloudTerrastodonCommand::DumpEverything(args) => Box::pin(args.invoke(executor)).await,
             CloudTerrastodonCommand::DumpAzureDevOps(args) => {
-                Box::pin(args.invoke(auth_context, executor)).await
+                return Box::pin(args.invoke(executor)).await;
             }
             CloudTerrastodonCommand::GetPath(args) => Box::pin(args.invoke(cancellation)).await,
             CloudTerrastodonCommand::Nslookup(args) => Box::pin(args.invoke(cancellation)).await,
-            CloudTerrastodonCommand::Outage(args) => {
-                Box::pin(args.invoke(auth_context, executor)).await
-            }
+            CloudTerrastodonCommand::Outage(args) => Box::pin(args.invoke(executor)).await,
             CloudTerrastodonCommand::Rest(args) => {
-                return Box::pin(args.invoke(auth_context, executor)).await;
+                return Box::pin(args.invoke(executor)).await;
             }
             CloudTerrastodonCommand::CopyResults(args) => Box::pin(args.invoke(cancellation)).await,
             CloudTerrastodonCommand::AddWorkDir(args) => Box::pin(args.invoke(cancellation)).await,
-            CloudTerrastodonCommand::Terraform(args) => {
-                Box::pin(args.invoke(auth_context, executor)).await
-            }
+            CloudTerrastodonCommand::Terraform(args) => Box::pin(args.invoke(executor)).await,
             CloudTerrastodonCommand::AzureDevOps(args) => {
-                return Box::pin(args.invoke(auth_context, executor)).await;
+                return Box::pin(args.invoke(executor)).await;
             }
             CloudTerrastodonCommand::Azure(args) => {
-                return Box::pin(args.invoke(auth_context, executor)).await;
+                return Box::pin(args.invoke(executor)).await;
             }
             CloudTerrastodonCommand::Tea(args) => {
-                Box::pin(args.invoke(auth_context, executor)).await
+                return Box::pin(args.invoke(executor)).await;
             }
             CloudTerrastodonCommand::Jwt(args) => Box::pin(args.invoke(cancellation)).await,
             CloudTerrastodonCommand::ExtractUuid(args) => Box::pin(args.invoke(cancellation)).await,
@@ -212,7 +193,7 @@ impl CloudTerrastodonCommand {
                 return Box::pin(args.invoke(cancellation)).await;
             }
             CloudTerrastodonCommand::Dump(args) => {
-                return Box::pin(args.invoke(requested_auth_source, cancellation)).await;
+                return Box::pin(args.invoke(cancellation)).await;
             }
         }?;
         Ok(CliOutput::none())

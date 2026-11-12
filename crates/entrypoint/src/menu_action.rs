@@ -35,6 +35,7 @@ use crate::interactive::list_imports;
 use crate::interactive::open_dir;
 use crate::interactive::pim_activate;
 use crate::interactive::plan_processed;
+use crate::interactive::prompt_azure_devops_authentication;
 use crate::interactive::remove_oauth2_permission_grants;
 use crate::interactive::resource_group_import_wizard_menu;
 use crate::interactive::run_query_menu;
@@ -46,8 +47,7 @@ use crate::noninteractive::process_generated;
 use crate::noninteractive::write_imports_for_all_resource_groups;
 use crate::noninteractive::write_imports_for_all_role_assignments;
 use crate::noninteractive::write_imports_for_all_security_groups;
-use cloud_terrastodon_auth::AzureDevOpsAuthContext;
-use cloud_terrastodon_auth::AzureTenantAuthContext;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
 use cloud_terrastodon_azure::evaluate_policy_assignment_compliance;
 use cloud_terrastodon_azure::remediate_policy_assignment;
 use cloud_terrastodon_command::USE_TOFU_FLAG_KEY;
@@ -186,57 +186,81 @@ impl MenuAction {
             }
         }
     }
-    pub async fn invoke(
-        &self,
-        auth_context: &AzureTenantAuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<MenuActionResult> {
+    pub async fn invoke(&self, executor: &CloudTerrastodonExecutor) -> Result<MenuActionResult> {
         let cancellation = executor.cancellation();
         match self {
             MenuAction::ResourceGroupImportWizard => {
-                resource_group_import_wizard_menu(auth_context, executor).await?
+                let authentication = &AzureAuthenticationArgs::default().resolve(executor).await?;
+                resource_group_import_wizard_menu(authentication, executor).await?
             }
             MenuAction::CopyAzureRMBackend => {
-                copy_azurerm_backend_menu(auth_context, executor).await?
+                let authentication = &AzureAuthenticationArgs::default().resolve(executor).await?;
+                copy_azurerm_backend_menu(authentication, executor).await?
             }
             MenuAction::BrowseResourceGroups => {
-                browse_resource_groups(auth_context, executor).await?
+                let authentication = &AzureAuthenticationArgs::default().resolve(executor).await?;
+                browse_resource_groups(*authentication, executor)
+                    .await?
+                    .emit(None, cancellation)?
             }
             MenuAction::BrowseRoleAssignments => {
-                browse_role_assignments(auth_context, executor).await?
+                let authentication = &AzureAuthenticationArgs::default().resolve(executor).await?;
+                browse_role_assignments(authentication, executor).await?
             }
             MenuAction::BuildAllImports => {
-                write_imports_for_all_resource_groups(auth_context, executor).await?;
-                write_imports_for_all_security_groups(auth_context, executor).await?;
-                write_imports_for_all_role_assignments(auth_context, executor).await?;
+                let authentication = &AzureAuthenticationArgs::default().resolve(executor).await?;
+                write_imports_for_all_resource_groups(authentication, executor).await?;
+                write_imports_for_all_security_groups(authentication, executor).await?;
+                write_imports_for_all_role_assignments(authentication, executor).await?;
             }
-            MenuAction::BrowseUsers => browse_users(auth_context, executor).await?,
+            MenuAction::BrowseUsers => {
+                let authentication = &AzureAuthenticationArgs::default().resolve(executor).await?;
+                browse_users(*authentication, executor)
+                    .await?
+                    .emit(None, cancellation)?
+            }
             MenuAction::BrowseSecurityGroups => {
-                browse_security_groups(auth_context, executor).await?
+                let authentication = &AzureAuthenticationArgs::default().resolve(executor).await?;
+                browse_security_groups(authentication, executor).await?
             }
-            MenuAction::BuildPolicyImports => build_policy_imports(auth_context, executor).await?,
-            MenuAction::BuildGroupImports => build_group_imports(auth_context, executor).await?,
+            MenuAction::BuildPolicyImports => {
+                let authentication = &AzureAuthenticationArgs::default().resolve(executor).await?;
+                build_policy_imports(authentication, executor).await?
+            }
+            MenuAction::BuildGroupImports => {
+                let authentication = &AzureAuthenticationArgs::default().resolve(executor).await?;
+                build_group_imports(authentication, executor).await?
+            }
             MenuAction::BuildResourceGroupImports => {
-                build_resource_group_imports(auth_context, executor).await?
+                let authentication = &AzureAuthenticationArgs::default().resolve(executor).await?;
+                build_resource_group_imports(authentication, executor).await?
             }
             MenuAction::BuildRoleAssignmentImports => {
-                build_role_assignment_imports(auth_context, executor).await?
+                let authentication = &AzureAuthenticationArgs::default().resolve(executor).await?;
+                build_role_assignment_imports(authentication, executor).await?
             }
             MenuAction::BuildImportsFromExisting => {
                 build_imports_from_existing(cancellation).await?
             }
             MenuAction::PerformImport => perform_import(cancellation).await?,
-            MenuAction::ProcessGenerated => process_generated(auth_context, executor).await?,
+            MenuAction::ProcessGenerated => {
+                let authentication = &AzureAuthenticationArgs::default().resolve(executor).await?;
+                process_generated(authentication, executor).await?
+            }
             MenuAction::Clean => clean_all_menu(cancellation).await?,
             MenuAction::CreateRoleAssignment => {
-                create_role_assignment_menu(auth_context, executor).await?
+                let authentication = &AzureAuthenticationArgs::default().resolve(executor).await?;
+                create_role_assignment_menu(authentication, executor).await?
             }
             MenuAction::CleanImports => clean_imports().await?,
             MenuAction::CleanProcessed => clean_processed().await?,
             MenuAction::InitProcessed => init_processed(cancellation).await?,
             MenuAction::ApplyProcessed => apply_processed(cancellation).await?,
             MenuAction::PlanProcessed => plan_processed(cancellation).await?,
-            MenuAction::PimActivate => pim_activate(auth_context, executor).await?,
+            MenuAction::PimActivate => {
+                let authentication = &AzureAuthenticationArgs::default().resolve(executor).await?;
+                pim_activate(*authentication, executor).await?
+            }
             MenuAction::JumpToBlock => {
                 jump_to_block(AppDir::Processed.into(), cancellation).await?;
                 return Ok(MenuActionResult::Continue);
@@ -246,69 +270,133 @@ impl MenuAction {
                 return Ok(MenuActionResult::Continue);
             }
             MenuAction::RemediatePolicyAssignment => {
-                remediate_policy_assignment(auth_context, executor).await?
+                let authentication = &AzureAuthenticationArgs::default().resolve(executor).await?;
+                remediate_policy_assignment(authentication, executor).await?
             }
             MenuAction::EvaluatePolicyAssignmentCompliance => {
-                evaluate_policy_assignment_compliance(auth_context, executor).await?
+                let authentication = &AzureAuthenticationArgs::default().resolve(executor).await?;
+                evaluate_policy_assignment_compliance(authentication, executor).await?
             }
             MenuAction::UseTofu => unsafe { env::set_var(USE_TOFU_FLAG_KEY, "1") },
             MenuAction::UseTerraform => unsafe { env::remove_var(USE_TOFU_FLAG_KEY) },
             MenuAction::OpenDir => open_dir(cancellation).await?,
             MenuAction::Quit => return Ok(MenuActionResult::QuitApplication),
             MenuAction::TagEmptyResourceGroups => {
-                tag_empty_resource_group_menu(auth_context, executor).await?
+                let authentication = &AzureAuthenticationArgs::default().resolve(executor).await?;
+                tag_empty_resource_group_menu(authentication, executor).await?
             }
-            MenuAction::TagResources => tag_resources_menu(auth_context, executor).await?,
-            MenuAction::BrowseResources => browse_resources_menu(auth_context, executor).await?,
-            MenuAction::DumpTags => dump_tags(auth_context, executor).await?,
-            MenuAction::ResourceGraphQuery => run_query_menu(auth_context, executor).await?,
+            MenuAction::TagResources => {
+                let authentication = &AzureAuthenticationArgs::default().resolve(executor).await?;
+                tag_resources_menu(authentication, executor).await?
+            }
+            MenuAction::BrowseResources => {
+                let authentication = &AzureAuthenticationArgs::default().resolve(executor).await?;
+                browse_resources_menu(authentication, executor).await?
+            }
+            MenuAction::DumpTags => {
+                let authentication = &AzureAuthenticationArgs::default().resolve(executor).await?;
+                dump_tags(authentication, executor).await?
+            }
+            MenuAction::ResourceGraphQuery => {
+                let authentication = &AzureAuthenticationArgs::default().resolve(executor).await?;
+                run_query_menu(authentication, executor).await?
+            }
             MenuAction::FindResourceOwners => {
-                find_resource_owners_menu(auth_context, executor).await?
+                let authentication = &AzureAuthenticationArgs::default().resolve(executor).await?;
+                find_resource_owners_menu(authentication, executor).await?
             }
             MenuAction::CreateNewActionVariant => create_new_action_variant().await?,
             MenuAction::BrowsePolicyAssignments => {
-                browse_policy_assignments(auth_context, executor).await?
+                let authentication = &AzureAuthenticationArgs::default().resolve(executor).await?;
+                browse_policy_assignments(*authentication, executor)
+                    .await?
+                    .emit(None, cancellation)?
             }
             MenuAction::DumpSecurityGroups => {
-                dump_security_groups_as_json(auth_context, executor).await?
+                let authentication = &AzureAuthenticationArgs::default().resolve(executor).await?;
+                dump_security_groups_as_json(authentication, executor).await?
             }
             MenuAction::BrowsePolicyDefinitions => {
-                browse_policy_definitions(auth_context, executor).await?
+                let authentication = &AzureAuthenticationArgs::default().resolve(executor).await?;
+                browse_policy_definitions(authentication, executor).await?
             }
-            MenuAction::BulkUserIdLookup => bulk_user_id_lookup(auth_context, executor).await?,
+            MenuAction::BulkUserIdLookup => {
+                let authentication = &AzureAuthenticationArgs::default().resolve(executor).await?;
+                bulk_user_id_lookup(authentication, executor).await?
+            }
             MenuAction::DumpWorkItems => {
-                let auth_context = AzureDevOpsAuthContext::for_azure_tenant(auth_context);
-                dump_work_items(&auth_context, executor).await?
+                let org_url: AzureDevOpsOrganizationUrl = executor
+                    .cancellation()
+                    .cancellable_scope(async |_scope| {
+                        prompt_line("Azure DevOps organization URL: ")
+                            .await?
+                            .parse()
+                    })
+                    .await?;
+                let authentication = prompt_azure_devops_authentication(&org_url, executor).await?;
+                dump_work_items(&org_url, authentication, executor).await?
             }
             MenuAction::BrowseOAuth2PermissionGrants => {
-                browse_oauth2_permission_grants(auth_context, executor).await?
+                let authentication = &AzureAuthenticationArgs::default().resolve(executor).await?;
+                browse_oauth2_permission_grants(authentication, executor).await?
             }
             MenuAction::RemoveOAuth2PermissionGrants => {
-                remove_oauth2_permission_grants(auth_context, executor).await?
+                let authentication = &AzureAuthenticationArgs::default().resolve(executor).await?;
+                remove_oauth2_permission_grants(authentication, executor).await?
             }
             MenuAction::CreateOAuth2PermissionGrants => {
-                create_oauth2_permission_grants(auth_context, executor).await?
+                let authentication = &AzureAuthenticationArgs::default().resolve(executor).await?;
+                create_oauth2_permission_grants(authentication, executor).await?
             }
             MenuAction::AzureDevOpsProjectImportWizard => {
-                let auth_context = AzureDevOpsAuthContext::for_azure_tenant(auth_context);
-                azure_devops_project_import_wizard_menu(&auth_context, executor).await?
+                let org_url: AzureDevOpsOrganizationUrl = executor
+                    .cancellation()
+                    .cancellable_scope(async |_scope| {
+                        prompt_line("Azure DevOps organization URL: ")
+                            .await?
+                            .parse()
+                    })
+                    .await?;
+                let authentication = prompt_azure_devops_authentication(&org_url, executor).await?;
+                azure_devops_project_import_wizard_menu(&org_url, authentication, executor).await?
             }
             MenuAction::BrowseAzureDevOpsProjects => {
-                let auth_context = AzureDevOpsAuthContext::for_azure_tenant(auth_context);
-                browse_azure_devops_projects(&auth_context, executor).await?
+                let org_url: AzureDevOpsOrganizationUrl = executor
+                    .cancellation()
+                    .cancellable_scope(async |_scope| {
+                        prompt_line("Azure DevOps organization URL: ")
+                            .await?
+                            .parse()
+                    })
+                    .await?;
+                let authentication = prompt_azure_devops_authentication(&org_url, executor).await?;
+                browse_azure_devops_projects(&org_url, authentication, executor).await?
             }
             MenuAction::BrowseAzureDevOpsProjectTeams => {
-                let auth_context = AzureDevOpsAuthContext::for_azure_tenant(auth_context);
-                browse_azure_devops_project_teams(&auth_context, executor).await?
+                let org_url: AzureDevOpsOrganizationUrl = executor
+                    .cancellation()
+                    .cancellable_scope(async |_scope| {
+                        prompt_line("Azure DevOps organization URL: ")
+                            .await?
+                            .parse()
+                    })
+                    .await?;
+                let authentication = prompt_azure_devops_authentication(&org_url, executor).await?;
+                browse_azure_devops_project_teams(&org_url, authentication, executor).await?
             }
             MenuAction::BrowseServicePrincipals => {
-                browse_service_principals(auth_context, executor).await?
+                let authentication = &AzureAuthenticationArgs::default().resolve(executor).await?;
+                browse_service_principals(*authentication, executor)
+                    .await?
+                    .emit(None, cancellation)?
             }
             MenuAction::BrowseStorageAccounts => {
-                browse_storage_accounts(auth_context, executor).await?
+                let authentication = &AzureAuthenticationArgs::default().resolve(executor).await?;
+                browse_storage_accounts(authentication, executor).await?
             }
             MenuAction::CreateImportBlockForRoleAssignment => {
-                create_import_block_for_role_assignment(auth_context, executor).await?
+                let authentication = &AzureAuthenticationArgs::default().resolve(executor).await?;
+                create_import_block_for_role_assignment(authentication, executor).await?
             }
         }
         Ok(MenuActionResult::PauseAndContinue)
@@ -374,3 +462,5 @@ impl std::fmt::Display for MenuAction {
         f.write_str(self.name())
     }
 }
+use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
+use cloud_terrastodon_user_input::prompt_line;

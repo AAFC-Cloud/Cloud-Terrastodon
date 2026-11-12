@@ -1,7 +1,5 @@
 use chrono::Local;
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
 use cloud_terrastodon_azure::HclImportable;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
@@ -20,31 +18,22 @@ use tracing::info;
 /// Create Terraform import definitions for selected resources.
 #[derive(Facet, Debug, Clone)]
 pub struct TerraformSourceGenerateArgs {
-    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[facet(figue::named, default)]
-    pub tenant: AzureTenantArgument<'static>,
+    #[facet(flatten)]
+    pub authentication: AzureAuthenticationArgs,
 
     #[facet(figue::named, default = PathBuf::from("."))]
     pub work_dir: PathBuf,
 }
 
 impl TerraformSourceGenerateArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<()> {
         let cancellation = executor.cancellation();
-        let tenant_auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
-            .await?;
-        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
+        let authentication = self.authentication.resolve(executor).await?;
         let work_dir = self.work_dir;
 
         let kind_to_import = HclImportable::pick(cancellation).await?;
         let imports = kind_to_import
-            .pick_into_body(&tenant_auth_context, executor)
+            .pick_into_body(&authentication, executor)
             .await?;
 
         work_dir.ensure_dir_exists().await?;
@@ -69,7 +58,7 @@ impl TerraformSourceGenerateArgs {
 
         info!("Reflowing content");
         let hcl = discover_hcl(import_dir, DiscoveryDepth::Shallow).await?;
-        let hcl = ReflowHclRequest::new(hcl, Some(&tenant_auth_context))
+        let hcl = ReflowHclRequest::new(hcl, Some(authentication))
             .include_principal_id_comments(true)
             .execute(executor)
             .await?;

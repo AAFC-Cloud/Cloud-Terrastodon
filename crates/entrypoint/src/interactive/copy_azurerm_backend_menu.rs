@@ -1,20 +1,22 @@
-use cloud_terrastodon_auth::AzureTenantAuthContext;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
+use cloud_terrastodon_azure::AzureStorageAccountBlobContainerNamesListRequest;
+use cloud_terrastodon_azure::AzureStorageAccountListRequest;
+use cloud_terrastodon_azure::AzureSubscriptionListRequest;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::SubscriptionName;
-use cloud_terrastodon_azure::fetch_all_storage_accounts;
-use cloud_terrastodon_azure::fetch_all_subscriptions;
-use cloud_terrastodon_azure::fetch_storage_account_blob_container_names;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
 use eyre::bail;
+use std::borrow::Cow;
 use std::collections::HashMap;
 use tokio::join;
 use tracing::info;
 
 pub async fn copy_azurerm_backend_menu(
-    auth_context: &AzureTenantAuthContext,
+    authentication: &AzureBearerAuthenticationSelection,
     executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
     info!("Picking storage account");
@@ -25,8 +27,16 @@ pub async fn copy_azurerm_backend_menu(
             info!("Fetching storage accounts");
             info!("Fetching subscriptions");
             let (storage_accounts, subscriptions) = join!(
-                fetch_all_storage_accounts(auth_context, executor).with_invalidation(invalidate),
-                fetch_all_subscriptions(auth_context, executor).with_invalidation(invalidate)
+                AzureStorageAccountListRequest {
+                    authentication: *authentication
+                }
+                .execute(executor)
+                .with_invalidation(invalidate),
+                AzureSubscriptionListRequest {
+                    authentication: *authentication
+                }
+                .execute(executor)
+                .with_invalidation(invalidate)
             );
             let storage_accounts = storage_accounts?;
             let subscriptions = subscriptions?
@@ -58,11 +68,11 @@ pub async fn copy_azurerm_backend_menu(
         .set_header("Blob Container Name")
         .pick_one_reloadable(executor.cancellation(), async |child, invalidate| {
             let executor = &executor.with_cancellation_scope(child);
-            let blob_container_names = fetch_storage_account_blob_container_names(
-                &chosen_storage_account.0.id,
-                auth_context,
-                executor,
-            )
+            let blob_container_names = AzureStorageAccountBlobContainerNamesListRequest {
+                authentication: *authentication,
+                storage_account_id: Cow::Borrowed(&chosen_storage_account.0.id),
+            }
+            .execute(executor)
             .with_invalidation(invalidate)
             .await?;
 

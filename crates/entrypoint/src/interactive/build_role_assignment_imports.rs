@@ -1,7 +1,8 @@
-use cloud_terrastodon_auth::AzureTenantAuthContext;
-use cloud_terrastodon_azure::fetch_all_role_assignments;
-use cloud_terrastodon_azure::fetch_all_subscriptions;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
+use cloud_terrastodon_azure::AzureRoleAssignmentListRequest;
+use cloud_terrastodon_azure::AzureSubscriptionListRequest;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_hcl::HclImportBlock;
 use cloud_terrastodon_hcl::HclProviderReference;
 use cloud_terrastodon_hcl::HclWriter;
@@ -17,27 +18,29 @@ use std::collections::HashSet;
 use tracing::info;
 
 pub async fn build_role_assignment_imports(
-    auth_context: &AzureTenantAuthContext,
+    authentication: &AzureBearerAuthenticationSelection,
     executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
     let cancellation = executor.cancellation();
     info!("Fetching role assignments");
-    let role_assignments = fetch_all_role_assignments(
-        auth_context.tenant_id,
-        auth_context.auth_source()?,
-        executor,
-    )
+    let role_assignments = AzureRoleAssignmentListRequest {
+        authentication: *authentication,
+    }
+    .execute(executor)
     .await?;
 
     info!("Building import blocks");
     let mut used_subscriptions = HashSet::new();
     let mut seen_ids = HashSet::new();
     let mut import_blocks = Vec::new();
-    let subscriptions = fetch_all_subscriptions(auth_context, executor)
-        .await?
-        .into_iter()
-        .map(|sub| (sub.id, sub))
-        .collect::<HashMap<_, _>>();
+    let subscriptions = AzureSubscriptionListRequest {
+        authentication: *authentication,
+    }
+    .execute(executor)
+    .await?
+    .into_iter()
+    .map(|sub| (sub.id, sub))
+    .collect::<HashMap<_, _>>();
 
     for role_assignment in role_assignments.iter() {
         if !seen_ids.insert(role_assignment.id.clone()) {

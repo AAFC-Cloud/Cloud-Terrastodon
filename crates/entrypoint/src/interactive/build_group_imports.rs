@@ -1,6 +1,7 @@
-use cloud_terrastodon_auth::AzureTenantAuthContext;
-use cloud_terrastodon_azure::fetch_all_groups;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
+use cloud_terrastodon_azure::EntraGroupListRequest;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_hcl::HclImportBlock;
 use cloud_terrastodon_hcl::HclWriter;
 use cloud_terrastodon_pathing::AppDir;
@@ -11,16 +12,15 @@ use itertools::Itertools;
 use tracing::info;
 
 pub async fn build_group_imports(
-    auth_context: &AzureTenantAuthContext,
+    authentication: &AzureBearerAuthenticationSelection,
     executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
     let cancellation = executor.cancellation();
     info!("Fetching groups");
-    let groups = fetch_all_groups(
-        auth_context.tenant_id,
-        auth_context.auth_source()?,
-        executor,
-    )
+    let groups = EntraGroupListRequest {
+        authentication: *authentication,
+    }
+    .execute(executor)
     .await?
     .iter()
     .filter(|def| def.security_enabled)

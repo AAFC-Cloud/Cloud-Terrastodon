@@ -1,12 +1,11 @@
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure::AzureTenantArgumentExt;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
 use cloud_terrastodon_azure::EntraPrincipalCollection;
 use cloud_terrastodon_azure::EntraPrincipalId;
-use cloud_terrastodon_azure::fetch_all_principals;
+use cloud_terrastodon_azure::EntraPrincipalListRequest;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_hcl::TerraformChangeAction;
 use cloud_terrastodon_hcl::TerraformPlan;
 use eyre::ContextCompat;
@@ -28,9 +27,8 @@ use tracing::info;
 /// Show a Terraform plan or plan JSON as a parsed `TerraformPlan`.
 #[derive(Facet, Debug, Clone)]
 pub struct TerraformShowArgs {
-    /// Tracked tenant id or alias to query. Defaults to the active Azure CLI tenant.
-    #[facet(figue::named, default)]
-    pub tenant: AzureTenantArgument<'static>,
+    #[facet(flatten)]
+    pub authentication: AzureAuthenticationArgs,
 
     /// Path to a Terraform plan (.tfplan) or a JSON plan file (.json)
     #[facet(figue::positional)]
@@ -38,17 +36,9 @@ pub struct TerraformShowArgs {
 }
 
 impl TerraformShowArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<()> {
         let cancellation = executor.cancellation();
-        let tenant_auth_context = self
-            .tenant
-            .bind_auth_context(auth_context, cancellation)
-            .await?;
-        let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
+        let authentication = self.authentication.resolve(executor).await?;
         // Determine whether the given file is JSON
         let is_json = self.plan_file.extension().and_then(|s| s.to_str()) == Some("json");
 
@@ -75,7 +65,6 @@ impl TerraformShowArgs {
 
             move || {
                 let cache = cache.clone();
-                let tenant_auth_context = tenant_auth_context.clone();
                 async move {
                     // Fast path: return cached clone if present (no await, no borrow across await)
                     if let Some(cached) = cache.borrow().as_ref().cloned() {
@@ -83,12 +72,9 @@ impl TerraformShowArgs {
                     }
 
                     // Slow path: fetch, store in cache, and return
-                    let fetched = fetch_all_principals(
-                        tenant_auth_context.tenant_id,
-                        tenant_auth_context.auth_source()?,
-                        executor,
-                    )
-                    .await?;
+                    let fetched = EntraPrincipalListRequest { authentication }
+                        .execute(executor)
+                        .await?;
                     *cache.borrow_mut() = Some(Arc::clone(&fetched));
                     eyre::Ok(fetched)
                 }

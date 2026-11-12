@@ -1,3 +1,4 @@
+use cloud_terrastodon_app::CliOutput;
 use facet::Facet;
 pub mod gitea_org_browse_cli;
 pub mod gitea_org_list_cli;
@@ -27,12 +28,11 @@ pub enum GiteaOrgCommand {
 }
 
 impl GiteaOrgArgs {
-    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         match self.command {
-            GiteaOrgCommand::List(args) => args.invoke(executor).await?,
-            GiteaOrgCommand::Browse(args) => args.invoke(executor).await?,
-            GiteaOrgCommand::Show(args) => args.invoke(executor).await?,
+            GiteaOrgCommand::List(args) => Box::pin(args.invoke(executor)).await,
+            GiteaOrgCommand::Browse(args) => Box::pin(args.invoke(executor)).await,
+            GiteaOrgCommand::Show(args) => Box::pin(args.invoke(executor)).await,
         }
-        Ok(())
     }
 }

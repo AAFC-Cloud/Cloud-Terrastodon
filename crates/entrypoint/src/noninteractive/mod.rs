@@ -1,3 +1,6 @@
+mod azure_devops_dump_group_members;
+mod azure_devops_dump_payload;
+mod azure_devops_dump_project_groups;
 mod clean;
 mod dump_azure_devops;
 mod dump_everything;

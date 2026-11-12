@@ -1,4 +1,4 @@
-use cloud_terrastodon_auth::AzureTenantAuthContext;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure::ArbitraryJson;
 use cloud_terrastodon_azure::ResourceGraphHelper;
 use cloud_terrastodon_command::CommandBuilder;
@@ -12,7 +12,7 @@ use tracing::debug;
 use tracing::info;
 
 pub async fn run_query_menu(
-    auth_context: &AzureTenantAuthContext,
+    authentication: &AzureBearerAuthenticationSelection,
     executor: &CloudTerrastodonExecutor,
 ) -> eyre::Result<()> {
     let cancellation = executor.cancellation();
@@ -53,14 +53,10 @@ resources
         debug!("Received query:\n{}", query);
 
         info!("Running query");
-        let rows: Vec<Arc<ArbitraryJson>> = ResourceGraphHelper::new(
-            query.clone(),
-            None,
-            auth_context.tenant_id,
-            auth_context.auth_source()?,
-        )
-        .collect_all(executor)
-        .await?;
+        let rows: Vec<Arc<ArbitraryJson>> =
+            ResourceGraphHelper::new(query.clone(), None, *authentication)
+                .collect_all(executor)
+                .await?;
         let rows_json =
             facet_json::to_string_pretty(&rows).map_err(|error| eyre::eyre!("{error:?}"))?;
 

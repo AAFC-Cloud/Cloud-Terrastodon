@@ -1,20 +1,25 @@
-use cloud_terrastodon_auth::AzureTenantAuthContext;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
+use cloud_terrastodon_azure::AzureResourceGroupId;
+use cloud_terrastodon_azure::AzureResourceTagsPatchOperation;
+use cloud_terrastodon_azure::AzureResourceTagsUpdateRequest;
 use cloud_terrastodon_azure::ResourceGraphHelper;
-use cloud_terrastodon_azure::ResourceGroupId;
 use cloud_terrastodon_azure::ResourceTagsId;
 use cloud_terrastodon_azure::Scope;
-use cloud_terrastodon_azure::replace_tags_for_resources;
 use cloud_terrastodon_cache::CacheKey;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ConcurrentIteratorExt;
+use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
 use facet::Facet;
+use std::borrow::Cow;
 use std::collections::HashMap;
+use std::num::NonZeroUsize;
 use std::path::PathBuf;
 use std::time::Duration;
 use tracing::info;
 
 pub async fn tag_empty_resource_group_menu(
-    auth_context: &AzureTenantAuthContext,
+    authentication: &AzureBearerAuthenticationSelection,
     executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
     info!("Fetching empty resource groups");
@@ -28,12 +33,11 @@ ResourceContainers
 	| summarize count() by rgAndSub  
 ) on rgAndSub  
 | where isnull(count_)  
-| project id, tags
+| project id
    "#;
     #[derive(Facet)]
     struct Row {
-        id: ResourceGroupId,
-        tags: HashMap<String, String>,
+        id: AzureResourceGroupId,
     }
     let empty_resource_groups = ResourceGraphHelper::new(
         query,
@@ -46,8 +50,7 @@ ResourceContainers
             .scope,
             valid_for: Duration::ZERO,
         }),
-        auth_context.tenant_id,
-        auth_context.auth_source()?,
+        *authentication,
     )
     .collect_all::<Row>(executor)
     .await?;
@@ -62,19 +65,19 @@ ResourceContainers
     let tag_key = "CleanupAutomationFlag";
     let tag_value = "ThisResourceContainerIsEmpty";
     info!("Adding tag {}={} to each", tag_key, tag_value);
-    let result = replace_tags_for_resources(
-        auth_context,
-        empty_resource_groups
-            .into_iter()
-            .map(|rg| {
-                let mut tags = rg.tags.clone();
-                tags.insert(tag_key.to_owned(), tag_value.to_owned());
-                (ResourceTagsId::from_scope(&rg.id), tags)
-            })
-            .collect(),
-        executor,
-    )
-    .await?;
+    let result = empty_resource_groups
+        .into_iter()
+        .map_concurrent(executor, NonZeroUsize::try_from(20)?, async |child, rg| {
+            AzureResourceTagsUpdateRequest {
+                authentication: *authentication,
+                id: Cow::Owned(ResourceTagsId::from_scope(&rg.id)),
+                operation: AzureResourceTagsPatchOperation::Merge,
+                tags: HashMap::from([(tag_key.to_owned(), tag_value.to_owned())]),
+            }
+            .execute(&child)
+            .await
+        })
+        .await?;
 
     info!(
         "Tagged {} resource groups with {}={}",

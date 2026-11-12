@@ -1,4 +1,4 @@
-use cloud_terrastodon_auth::AzureTenantAuthContext;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure::ArbitraryJson;
 use cloud_terrastodon_azure::ResourceGraphHelper;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
@@ -11,7 +11,7 @@ use tracing::info;
 use tracing::warn;
 
 pub async fn dump_tags(
-    auth_context: &AzureTenantAuthContext,
+    authentication: &AzureBearerAuthenticationSelection,
     executor: &CloudTerrastodonExecutor,
 ) -> eyre::Result<()> {
     let path = PathBuf::from("resource_tags.json");
@@ -44,8 +44,7 @@ resources
     tags
 "#,
         None,
-        auth_context.tenant_id,
-        auth_context.auth_source()?,
+        *authentication,
     )
     .collect_all::<ArbitraryJson>(executor)
     .await?;

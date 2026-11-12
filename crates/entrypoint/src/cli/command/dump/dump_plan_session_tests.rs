@@ -82,13 +82,13 @@ fn target_replacement_is_terminal_owned_and_stale_snapshots_are_rejected() -> Re
 
 #[test]
 fn app_service_site_config_is_selectable_and_updates_the_diagram_without_execution() -> Result<()> {
-    use cloud_terrastodon_azure::AppServiceListRequest;
+    use cloud_terrastodon_azure::AzureAppServiceListRequest;
 
     CancellationToken::new().with_scope(|scope| {
         // Only the descriptor participates. No Azure request, authentication or
         // arbitrary constructor runs while deriving the nested output shape.
         let planner = DumpPlanner::new(
-            [AppServiceListRequest::REGISTERED_EXECUTABLE_REQUEST],
+            [AzureAppServiceListRequest::REGISTERED_EXECUTABLE_REQUEST],
             [],
             Vec::new(),
         );

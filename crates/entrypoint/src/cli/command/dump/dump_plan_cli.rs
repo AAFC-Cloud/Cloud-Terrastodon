@@ -5,9 +5,9 @@ use super::output::write_dump_plan;
 use crate::cli::command::excalidraw::ExcalidrawInteractiveSession;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_app::CliOutput;
-use cloud_terrastodon_auth::AzureDevOpsAuthContext;
-use cloud_terrastodon_auth::AzureTenantAuthContext;
 use cloud_terrastodon_auth_types::AuthSource;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
+use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
 use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_command::CancellationScope;
@@ -26,6 +26,9 @@ use std::path::PathBuf;
 /// Plan potential read-only request chains without resolving credentials or calling APIs.
 #[derive(Debug, Arbitrary, Facet)]
 pub struct DumpPlanArgs {
+    /// Authentication mechanism modeled in the offline plan; no credentials are acquired.
+    #[facet(figue::named, default)]
+    pub auth_source: AuthSource,
     /// Explicit Azure DevOps organization URL or cloud organization name.
     #[facet(figue::named)]
     pub org: Option<AzureDevOpsOrganizationUrl>,
@@ -48,11 +51,7 @@ cloud_terrastodon_registry::register_thing!(DumpPlanArgs);
 cloud_terrastodon_registry::register_arbitrary!(DumpPlanArgs);
 
 impl DumpPlanArgs {
-    pub async fn invoke(
-        self,
-        auth_source: AuthSource,
-        cancellation: &CancellationScope,
-    ) -> Result<CliOutput> {
+    pub async fn invoke(self, cancellation: &CancellationScope) -> Result<CliOutput> {
         ensure!(
             self.interactive || !self.target.is_empty(),
             "provide at least one --target type name"
@@ -68,24 +67,24 @@ impl DumpPlanArgs {
         let mut seeds = Vec::new();
         if self.org.is_some() {
             seeds.push(AzureDevOpsOrganizationUrl::SHAPE);
-            if auth_source != AuthSource::None {
-                seeds.push(AzureDevOpsAuthContext::SHAPE);
+            if self.auth_source != AuthSource::None {
+                seeds.push(AzureDevOpsAuthSelection::SHAPE);
             }
         }
         if self.tenant.is_some()
             && !matches!(
-                auth_source,
+                self.auth_source,
                 AuthSource::None | AuthSource::PersonalAccessToken
             )
         {
-            seeds.push(AzureTenantAuthContext::SHAPE);
+            seeds.push(AzureBearerAuthenticationSelection::SHAPE);
         }
         let planner = DumpPlanner::new(known_functions(), known_things(), seeds);
         let plan = planner.plan(&self.target, cancellation)?;
         let mut report = DumpPlanReport {
             organization: self.org,
             tenant: self.tenant,
-            auth_source,
+            auth_source: self.auth_source,
             plan,
             diagram: self.diagram,
         };

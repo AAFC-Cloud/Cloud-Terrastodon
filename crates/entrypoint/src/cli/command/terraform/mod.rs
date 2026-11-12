@@ -8,7 +8,6 @@ pub mod terraform_source_add_imports_cli;
 pub mod terraform_source_cli;
 pub mod terraform_source_generate_cli;
 
-use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
 pub use terraform_command_cli::TerraformCommand;
@@ -21,11 +20,7 @@ pub struct TerraformArgs {
 }
 
 impl TerraformArgs {
-    pub async fn invoke(
-        self,
-        auth_context: &AuthContext,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Result<()> {
-        self.command.invoke(auth_context, executor).await
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<()> {
+        self.command.invoke(executor).await
     }
 }

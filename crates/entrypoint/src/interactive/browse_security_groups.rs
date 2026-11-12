@@ -1,17 +1,18 @@
-use cloud_terrastodon_auth::AzureTenantAuthContext;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
+use cloud_terrastodon_azure::AzureRoleAssignmentListRequest;
+use cloud_terrastodon_azure::AzureRoleDefinitionListRequest;
 use cloud_terrastodon_azure::EntraDirectoryObject;
 use cloud_terrastodon_azure::EntraGroup;
+use cloud_terrastodon_azure::EntraGroupMembersListRequest;
+use cloud_terrastodon_azure::EntraGroupOwnerListRequest;
 use cloud_terrastodon_azure::EntraPrincipalId;
 use cloud_terrastodon_azure::RoleAssignment;
 use cloud_terrastodon_azure::RoleDefinition;
 use cloud_terrastodon_azure::RoleDefinitionId;
 use cloud_terrastodon_azure::Scope;
-use cloud_terrastodon_azure::fetch_all_role_assignments;
-use cloud_terrastodon_azure::fetch_all_role_definitions;
-use cloud_terrastodon_azure::fetch_group_members;
-use cloud_terrastodon_azure::fetch_group_owners;
 use cloud_terrastodon_azure::get_security_group_choices;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::PickerTui;
@@ -46,13 +47,13 @@ struct SecurityGroupRoleAssignmentRow {
 }
 
 pub async fn browse_security_groups(
-    auth_context: &AzureTenantAuthContext,
+    authentication: &AzureBearerAuthenticationSelection,
     executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
     let (security_groups, maybe_error) = PickerTui::<_>::new()
         .set_header("security groups")
         .pick_many(
-            get_security_group_choices(auth_context, executor).await?,
+            get_security_group_choices(authentication, executor).await?,
             executor.cancellation(),
         )
         .await
@@ -114,10 +115,20 @@ pub async fn browse_security_groups(
                     let (owners, members) = executor
                         .join2(
                             |child| async move {
-                                fetch_group_owners(group.id, auth_context, &child).await
+                                EntraGroupOwnerListRequest {
+                                    group_id: (group.id),
+                                    authentication: *authentication,
+                                }
+                                .execute(&child)
+                                .await
                             },
                             |child| async move {
-                                fetch_group_members(group.id, auth_context, &child).await
+                                EntraGroupMembersListRequest {
+                                    group_id: (group.id),
+                                    authentication: *authentication,
+                                }
+                                .execute(&child)
+                                .await
                             },
                         )
                         .await?;
@@ -130,16 +141,21 @@ pub async fn browse_security_groups(
                     "Fetching role assignments and definitions to filter for {} groups",
                     security_groups.len()
                 );
-                let auth_source = auth_context.auth_source()?;
                 let (role_assignments, role_definitions) = executor
                     .join2(
                         |child| async move {
-                            fetch_all_role_assignments(auth_context.tenant_id, auth_source, &child)
-                                .await
+                            AzureRoleAssignmentListRequest {
+                                authentication: *authentication,
+                            }
+                            .execute(&child)
+                            .await
                         },
                         |child| async move {
-                            fetch_all_role_definitions(auth_context.tenant_id, auth_source, &child)
-                                .await
+                            AzureRoleDefinitionListRequest {
+                                authentication: *authentication,
+                            }
+                            .execute(&child)
+                            .await
                         },
                     )
                     .await?;

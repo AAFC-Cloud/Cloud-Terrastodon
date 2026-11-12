@@ -9,7 +9,6 @@ pub mod output {
 }
 
 use crate::menu::menu_loop;
-use cloud_terrastodon_auth::AuthContext;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 pub use command::*;
@@ -46,7 +45,6 @@ impl Cli {
     pub async fn invoke(
         self,
         cancellation: &CancellationScope,
-        auth_context: &AuthContext,
         executor: &CloudTerrastodonExecutor,
     ) -> eyre::Result<()> {
         let requested_format = self.global_args.output_format;
@@ -54,17 +52,9 @@ impl Cli {
         // Keep command and interactive-menu futures out of this outer future's
         // inline state; nested debug poll frames otherwise exhaust small stacks.
         let output = match self.command {
-            Some(cmd) => {
-                Box::pin(cmd.invoke(
-                    cancellation,
-                    auth_context,
-                    self.global_args.auth_source,
-                    executor,
-                ))
-                .await?
-            }
+            Some(cmd) => Box::pin(cmd.invoke(cancellation, executor)).await?,
             None => {
-                Box::pin(menu_loop(auth_context, executor)).await?;
+                Box::pin(menu_loop(executor)).await?;
                 output::CliOutput::none()
             }
         };
@@ -100,14 +90,14 @@ mod tests {
     use cloud_terrastodon_command::CancellationToken;
 
     #[test]
-    fn nested_devops_work_item_preserves_global_auth_and_tenant_context() {
+    fn nested_devops_work_item_preserves_leaf_auth_and_tenant_selection() {
         let cli: Cli = figue::from_slice(&[
-            "--auth-source",
-            "browser",
             "az",
             "devops",
             "work-item",
             "show",
+            "--auth-source",
+            "browser",
             "1",
             "--tenant",
             "synthetic-tenant",
@@ -119,7 +109,6 @@ mod tests {
         .into_result()
         .expect("synthetic CLI arguments should parse")
         .get();
-        assert_eq!(cli.global_args.auth_source, AuthSource::Browser);
         let Some(CloudTerrastodonCommand::Azure(AzureArgs {
             command:
                 AzureCommand::DevOps(AzureDevOpsArgs {
@@ -132,7 +121,11 @@ mod tests {
         let azure_devops::work_item::AzureDevOpsWorkItemCommand::Show(args) = args.command else {
             panic!("expected work item show");
         };
-        assert_eq!(args.tenant.unwrap().to_string(), "synthetic-tenant");
+        assert_eq!(args.authentication.auth_source, AuthSource::Browser);
+        assert_eq!(
+            args.authentication.tenant.unwrap().to_string(),
+            "synthetic-tenant"
+        );
         assert_eq!(args.org.name(), "synthetic");
         assert_eq!(args.project.to_string(), "Synthetic project");
     }
@@ -149,7 +142,11 @@ mod tests {
                         AzureDevOpsBuildDefinitionFolderListArgs {
                             org: "https://dev.azure.com/example".parse().unwrap(),
                             project: "offline-project".parse().unwrap(),
-                            tenant: None,
+                            authentication:
+                                cloud_terrastodon_auth_cli::AzureDevOpsAuthenticationArgs {
+                                    auth_source: AuthSource::None,
+                                    ..Default::default()
+                                },
                             no_cache: false,
                             path: None,
                         },
@@ -173,7 +170,6 @@ mod tests {
                 };
                 // Disabled authentication must fail while configuring REST auth,
                 // before credentials, cached output, or HTTP are accessed.
-                let auth_context = AuthContext::None;
                 let cancellation_token = CancellationToken::new();
                 let runtime = tokio::runtime::Builder::new_current_thread()
                     .build()
@@ -189,7 +185,7 @@ mod tests {
                                 ),
                                 cancellation.clone(),
                             );
-                            cli.invoke(&cancellation, &auth_context, &executor).await
+                            cli.invoke(&cancellation, &executor).await
                         },
                     )))
                     .expect_err("disabled authentication should fail locally");
@@ -268,6 +264,8 @@ mod tests {
                 "entra",
                 "group",
                 "show",
+                "--auth-source",
+                "browser",
                 "--group-id",
                 "11111111-1111-1111-1111-111111111111",
                 "--output",
@@ -278,6 +276,8 @@ mod tests {
                 "entra",
                 "group",
                 "show",
+                "--auth-source",
+                "browser",
                 "--group-id",
                 "11111111-1111-1111-1111-111111111111",
                 "--output-format",
@@ -298,6 +298,8 @@ mod tests {
                 "entra",
                 "group",
                 "show",
+                "--auth-source",
+                "browser",
                 "--group-id",
                 "11111111-1111-1111-1111-111111111111",
                 "--output-format",
@@ -357,7 +359,7 @@ mod tests {
         let AzurePimCommand::Setup(setup) = pim.command else {
             panic!("expected the setup command");
         };
-        assert_eq!(setup.tenant.to_string(), "agr");
+        assert_eq!(setup.authentication.tenant.to_string(), "agr");
         assert_eq!(
             setup.client_id.map(|client_id| client_id.to_string()),
             Some("11111111-1111-1111-1111-111111111111".to_string())

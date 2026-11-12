@@ -1,10 +1,11 @@
-use cloud_terrastodon_auth::AzureTenantAuthContext;
-use cloud_terrastodon_azure::ResourceGroup;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
+use cloud_terrastodon_azure::AzureResourceGroup;
+use cloud_terrastodon_azure::AzureResourceGroupListRequest;
+use cloud_terrastodon_azure::AzureSubscriptionListRequest;
 use cloud_terrastodon_azure::Subscription;
 use cloud_terrastodon_azure::SubscriptionId;
-use cloud_terrastodon_azure::fetch_all_resource_groups;
-use cloud_terrastodon_azure::fetch_all_subscriptions;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_hcl::HclImportBlock;
 use cloud_terrastodon_hcl::HclProviderBlock;
 use cloud_terrastodon_hcl::HclProviderReference;
@@ -23,7 +24,7 @@ use tracing::info;
 
 pub struct SubRGPair<'a> {
     subscription: &'a Subscription,
-    resource_group: &'a ResourceGroup,
+    resource_group: &'a AzureResourceGroup,
 }
 impl std::fmt::Display for SubRGPair<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -32,18 +33,25 @@ impl std::fmt::Display for SubRGPair<'_> {
 }
 
 pub async fn build_resource_group_imports(
-    auth_context: &AzureTenantAuthContext,
+    authentication: &AzureBearerAuthenticationSelection,
     executor: &CloudTerrastodonExecutor,
 ) -> Result<()> {
     let cancellation = executor.cancellation();
     info!("Fetching resource groups");
-    let subscriptions = fetch_all_subscriptions(auth_context, executor)
-        .await?
-        .into_iter()
-        .map(|sub| (sub.id, sub))
-        .collect::<HashMap<_, _>>();
+    let subscriptions = AzureSubscriptionListRequest {
+        authentication: *authentication,
+    }
+    .execute(executor)
+    .await?
+    .into_iter()
+    .map(|sub| (sub.id, sub))
+    .collect::<HashMap<_, _>>();
 
-    let resource_groups = fetch_all_resource_groups(auth_context, executor).await?;
+    let resource_groups = AzureResourceGroupListRequest {
+        authentication: *authentication,
+    }
+    .execute(executor)
+    .await?;
 
     info!("Prompting for which to import");
     let mut choices: Vec<Choice<SubRGPair>> = Vec::with_capacity(resource_groups.len());

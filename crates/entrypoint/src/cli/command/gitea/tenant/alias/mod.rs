@@ -1,3 +1,4 @@
+use cloud_terrastodon_app::CliOutput;
 use facet::Facet;
 pub mod gitea_tenant_alias_add_cli;
 pub mod gitea_tenant_alias_list_cli;
@@ -27,12 +28,11 @@ pub enum GiteaTenantAliasCommand {
 }
 
 impl GiteaTenantAliasArgs {
-    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<()> {
+    pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         match self.command {
-            GiteaTenantAliasCommand::Add(args) => args.invoke(executor).await?,
-            GiteaTenantAliasCommand::List(args) => args.invoke(executor).await?,
-            GiteaTenantAliasCommand::Remove(args) => args.invoke(executor).await?,
+            GiteaTenantAliasCommand::Add(args) => Box::pin(args.invoke(executor)).await,
+            GiteaTenantAliasCommand::List(args) => Box::pin(args.invoke(executor)).await,
+            GiteaTenantAliasCommand::Remove(args) => Box::pin(args.invoke(executor)).await,
         }
-        Ok(())
     }
 }

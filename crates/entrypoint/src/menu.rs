@@ -1,7 +1,5 @@
 use crate::menu_action::MenuAction;
 use crate::menu_action::MenuActionResult;
-use cloud_terrastodon_auth::AuthContext;
-use cloud_terrastodon_azure::get_default_tenant_id;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_user_input::PickError;
 use cloud_terrastodon_user_input::PickerTui;
@@ -11,11 +9,7 @@ use eyre::Result;
 use strum::VariantArray;
 use tracing::info;
 
-pub async fn menu(
-    auth_context: &AuthContext,
-    executor: &CloudTerrastodonExecutor,
-) -> Result<MenuActionResult> {
-    let cancellation = executor.cancellation();
+pub async fn menu(executor: &CloudTerrastodonExecutor) -> Result<MenuActionResult> {
     // Create a container for the choices we are about to gather
     let mut choices = Vec::new();
 
@@ -57,14 +51,10 @@ pub async fn menu(
     // restore execution order
     chosen.reverse();
 
-    let default_tenant_id = get_default_tenant_id(cancellation).await?;
-    let tenant_auth_context = auth_context.bind_to_azure_tenant(default_tenant_id)?;
-    let executor = &tenant_auth_context.auth_context.bind_executor(executor)?;
-
     for action in &chosen {
         info!("Invoking action \"{action}\"");
         let result = action
-            .invoke(&tenant_auth_context, executor)
+            .invoke(executor)
             .await
             .context(format!("invoking action \"{action}\""));
         match result {
@@ -89,14 +79,11 @@ pub async fn press_enter_to_continue() -> Result<()> {
     Ok(())
 }
 
-pub async fn menu_loop(
-    auth_context: &AuthContext,
-    executor: &CloudTerrastodonExecutor,
-) -> Result<()> {
+pub async fn menu_loop(executor: &CloudTerrastodonExecutor) -> Result<()> {
     let cancellation = executor.cancellation();
     loop {
         cancellation.bail_if_cancelled()?;
-        if menu(auth_context, executor).await? == MenuActionResult::QuitApplication {
+        if menu(executor).await? == MenuActionResult::QuitApplication {
             info!("Goodbye!");
             return Ok(());
         }
