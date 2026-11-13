@@ -24,6 +24,8 @@ tokio.workspace = true
 uuid.workspace = true
 teamy-cancellation.workspace = true
 tempfile.workspace = true
+same-file.workspace = true
+tracing.workspace = true
 
 [lints]
 workspace = true

@@ -155,7 +155,9 @@ impl CloudTerrastodonCommand {
                 return Box::pin(args.invoke(cancellation)).await;
             }
             CloudTerrastodonCommand::Echo(args) => Box::pin(args.invoke(cancellation)).await,
-            CloudTerrastodonCommand::Clean(args) => Box::pin(args.invoke(cancellation)).await,
+            CloudTerrastodonCommand::Clean(args) => {
+                Box::pin(args.invoke(executor.cache()?, cancellation)).await
+            }
             CloudTerrastodonCommand::WriteAllImports(args) => Box::pin(args.invoke(executor)).await,
             CloudTerrastodonCommand::PerformCodeGenerationFromImports(args) => {
                 Box::pin(args.invoke(executor)).await

@@ -12,6 +12,7 @@ use crate::WorkAttempt;
 use crate::WorkOutput;
 use crate::WorkReuse;
 use crate::cache_ownership_claim::CacheOwnershipClaim;
+use crate::cache_root_lease::CacheRootLease;
 use crate::cache_state::CacheState;
 use crate::work_cache_root::WorkCacheRoot;
 use crate::work_cache_state::WorkCacheState;
@@ -37,8 +38,10 @@ use tempfile::TempDir;
 
 /// An explicitly owned cache root and its in-process logical operation claims.
 ///
-/// Clones share the same claims. Separately constructed handles are isolated,
-/// even when given the same root. [`Self::new`] and claiming perform no I/O,
+/// Clones share claims and one lazily acquired exclusive filesystem lease.
+/// Separately constructed handles wait for the current owner of the same root
+/// to drop; ownership is never inferred from sharing a process ID.
+/// [`Self::new`] and claiming perform no I/O,
 /// resolve no defaults, and never consult the legacy command cache.
 /// [`Self::temporary`] explicitly creates a directory owned by the shared cache.
 ///
@@ -51,6 +54,22 @@ pub struct WorkCache {
 }
 
 impl WorkCache {
+    /// Acquire exclusive ownership of this root until the final cache clone or
+    /// artifact worker drops. Acquisition is lazy and cancellable; nested users
+    /// of the same owner proceed concurrently after its first acquisition.
+    /// Separate owners of the same root must finish/drop before this can complete.
+    pub async fn acquire(&self, cancellation: &CancellationScope) -> Result<()> {
+        cancellation
+            .cancellable_scope(async |scope| {
+                self.state
+                    .ownership
+                    .get_or_try_init(|| CacheRootLease::acquire(self, &scope))
+                    .await?;
+                eyre::Ok(())
+            })
+            .await
+    }
+
     /// Bind canonical work after checking its operation/output ownership.
     ///
     /// Declare reuse eligibility before lookup and pass the callback's attempt
@@ -203,6 +222,7 @@ impl WorkCache {
                 registry: Mutex::new(CacheState::default()),
                 artifact_gate: Arc::new(tokio::sync::Mutex::new(())),
                 root,
+                ownership: tokio::sync::OnceCell::new(),
             }),
         })
     }

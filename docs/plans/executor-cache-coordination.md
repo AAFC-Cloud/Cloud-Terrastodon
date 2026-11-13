@@ -1,11 +1,12 @@
 # Cache publication and dependency coordination
 
-**Status:** Selected G5/G6 contract for the
-[executor/cache migration plan](executor-cache-migration.md). Raw artifact storage
-and typed initialization, generations, and dependencies have local validation in
-tasks 2.2–2.4. Production transport and credential-provider integration remain
-pending. The owning plan records implemented boundaries and test evidence;
-cache-only tests do not establish those later integrations or cross-process safety.
+**Status:** Implemented G5/G6 inner coordination contract for the
+[executor/cache migration plan](executor-cache-migration.md). Phases 1–7 and the
+account/CLI ownership refinement have completed Windows offline validation.
+Phase 8 adds the selected [exclusive root ownership](cache-root-ownership.md)
+contract around these existing mechanisms; that plan owns its current progress
+and independent-owner validation evidence. Earlier cache-only test results do
+not establish the new cross-process guarantee.
 
 **Decision date:** 2026-10-30.
 
@@ -13,9 +14,13 @@ cache-only tests do not establish those later integrations or cross-process safe
 
 One explicitly constructed cache handle owns memory values, initializer locks,
 artifact access, invalidation generations, and dependency tracking. Its clones
-share that state. Independent handles and processes do not yet coordinate, even
-when configured with the same disk root. Cross-process locking, crash recovery,
-and durable invalidation agreement remain deferred to migration phase 8.
+share that state. Phase 8 adds lazy exclusive OS ownership of the shared disk
+root, retained until the final cache owner/worker ends. Independent handles and
+processes wait for that ownership rather than sharing memory state. A new owner
+checks disk after acquisition and recovers an interrupted prior owner before
+admission. See the root ownership plan for the recovery marker, support limits,
+and acceptance evidence; the per-entry and generation rules below remain inside
+that lifetime-held ownership boundary.
 
 Successful reusable reads return shared owned snapshots. A warm memory hit neither
 deserializes nor deep-copies the canonical result. Invalidating a snapshot does
@@ -355,11 +360,12 @@ without trustworthy variant/authentication isolation or freshness metadata are
 misses; preserve them for diagnostic inspection instead of upgrading their trust
 by guessing missing information.
 
-This protocol promises coherence among users of one handle while it is running.
-It does not claim that a commit record provides cross-process locking, durable
-generation agreement, atomicity across an operating-system crash, or recovery
-from interrupted writes by unrelated readers. Those require separate phase 8
-design and platform evidence.
+This inner protocol promises coherence among users of one handle while it is
+running. A commit record by itself provides no cross-process lock or durable
+generation agreement. Phase 8 supplies exclusive root ownership and conservative
+recovery after process interruption; its stale active-owner marker clears all
+reusable selections before the next owner may use them. Neither protocol claims
+power-loss atomicity or coordination with unrelated readers that ignore the lock.
 
 ## Aggregate persistence
 
@@ -475,8 +481,9 @@ would require reference-aware reclamation and new proof before introduction.
 Complete immutable artifact sets and diagnostic attempts remain inspectable
 until explicit cleaning; there is no implicit background retention worker.
 Cleaning must respect the same handle's publication protocol and avoid removing
-active attempts. Stronger retention/cleaning coordination across processes is
-deferred with the other independent-owner guarantees.
+active attempts. Phase 8 routes cleaning through the same exclusive root
+ownership and preserves the lock file itself; deleting or replacing that file
+could let different owners lock different filesystem objects for one root.
 
 ## Validation scenarios for implementation
 
@@ -533,5 +540,5 @@ acceptance requirements for their owning later slices.
 Only repository source and planning documents were inspected to make these
 decisions. No service calls, credentials, production cache contents, or production
 data are inputs to this document. Completed core implementation and local evidence
-are recorded in tasks 2.2–2.4; production integrations and cross-process guarantees
-remain pending.
+are recorded in tasks 2.2–2.4, and later production integrations in phases 3–7.
+Independent-owner guarantees require the separate Phase 8 acceptance evidence.

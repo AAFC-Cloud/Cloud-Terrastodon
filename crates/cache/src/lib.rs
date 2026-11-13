@@ -43,6 +43,7 @@ mod cache_key;
 mod cache_operation_owner;
 mod cache_ownership_claim;
 mod cache_path_component;
+mod cache_root_lease;
 mod cache_scope;
 mod executor_kind;
 mod has_cache_key;

@@ -198,6 +198,36 @@ explicit owner, including `WorkCache::temporary()?` for an isolated application
 or test. Every `AppContext::executor()` clone shares that owner; the temporary
 directory lives until its last owner is dropped.
 
+The first cache operation acquires an exclusive filesystem lock for that root.
+`WorkCache::new` and executor construction do not acquire it. Call
+`cache.acquire(cancellation).await?` to acquire it explicitly when an application
+needs to coordinate additional cache-root work. The lock belongs to the shared
+owner, not to each request: clones retain concurrent initialization of unrelated
+entries, while independent owners of the same root wait cancellably. Share one
+owner within an application instead of constructing another handle for each
+operation. A separate handle in the same process also waits, so do not await that
+handle while retaining the first owner.
+
+Ownership lasts until the final cache handle, artifact handle, or filesystem
+worker drops; it is not released between operations. A second command can then
+reuse valid disk results. This does not memoize mutations or bypass explicit
+refresh requests, and strict waiter ordering is not promised.
+
+If a process terminates or finishes with unresolved publication/invalidation
+errors, the next owner removes all reusable selections before admitting work.
+Immutable attempts remain available for diagnosis. This conservative recovery
+protects against process interruption on cooperating local-filesystem clients;
+it is not a power-loss or network-filesystem guarantee. Stop older CT binaries
+before upgrading: binaries that ignore the lock are not coordinated.
+
+`cache.invalidate_all(cancellation).await?` invalidates every reusable result
+without deleting immutable artifacts or the lifetime-held lock. `ct clean` uses
+that contract for the configured cache and preserves directories that overlap
+either its root or the default cache root. With a custom cache, the unused default
+cache is retained without acquiring a second lock or invalidating its results.
+Do not delete or replace the cache root or its `.owner.lock` file while any cache owner
+or waiting command is active. The lock file deliberately remains after release.
+
 The runner accepts one tracing directive for each `--log-filter` and
 `--log-file-filter`, including a module directive such as `field_notes=debug`.
 Existing `RUST_LOG` handling and independent file filtering remain in the tracing

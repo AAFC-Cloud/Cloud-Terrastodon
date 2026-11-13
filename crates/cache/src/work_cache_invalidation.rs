@@ -12,6 +12,13 @@ use teamy_cancellation::CancellationScope;
 use uuid::Uuid;
 
 impl WorkCache {
+    /// Invalidate every reusable result while retaining immutable execution
+    /// artifacts and the lifetime-held ownership lock.
+    pub async fn invalidate_all(&self, cancellation: &CancellationScope) -> Result<()> {
+        self.invalidate_target(CacheInvalidationTarget::All, cancellation)
+            .await
+    }
+
     /// Retire one credential session's reusable observations across all scopes.
     /// Dependency stamps also expire composed results that consumed this session,
     /// even when those results belong to another account. Already returned values
@@ -63,6 +70,7 @@ impl WorkCache {
         target: CacheInvalidationTarget,
         cancellation: &CancellationScope,
     ) -> Result<()> {
+        self.acquire(cancellation).await?;
         // User-owned result destructors run after this future releases its locks,
         // including when durable invalidation returns an error.
         let mut retired = Vec::new();

@@ -97,7 +97,8 @@ fn user(name: &str) -> EntraUser {
 async fn principal_assembly_shares_records_and_tracks_warm_child_page_dependencies() -> Result<()> {
     CancellationToken::new()
         .with_async_scope(|scope| async move {
-            let cache = WorkCache::temporary()?;
+            let temporary = tempfile::tempdir()?;
+            let cache = WorkCache::new(temporary.path())?;
             let authentication = Arc::new(TestAuthenticationProvider::offline(
                 "synthetic-test-session",
             )?);
@@ -162,9 +163,11 @@ async fn principal_assembly_shares_records_and_tracks_warm_child_page_dependenci
             assert_eq!(authentication.authorizations.load(Ordering::SeqCst), 0);
 
             // Aggregates have no durable selection: an independent cache owner cannot
-            // skip rebuilding children, even when it points at the same root.
+            // skip rebuilding children after the original owner releases the root.
+            drop(executor);
+            drop(cache);
             let independent = CloudTerrastodonExecutor::new(
-                WorkCache::new(cache.root())?,
+                WorkCache::new(temporary.path())?,
                 authentication.clone(),
                 scope,
             );

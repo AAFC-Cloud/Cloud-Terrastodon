@@ -452,6 +452,8 @@ async fn cloned_executors_share_one_decoded_result_without_reacquiring_credentia
                 scope,
             );
             let cloned = executor.clone();
+            // Arrange the race at per-entry initialization, after root ownership.
+            executor.cache()?.acquire(executor.cancellation()).await?;
             let decodes = AtomicUsize::new(0);
             let text = String::from("42");
             let (release, released) = oneshot::channel();
@@ -676,6 +678,9 @@ async fn cancelling_the_owner_allows_an_independently_owned_waiter_to_retry() ->
     let decodes = AtomicUsize::new(0);
     let owner_token = CancellationToken::new();
     let waiter_token = CancellationToken::new();
+    owner_token
+        .with_async_scope(async |scope| cache.acquire(&scope).await)
+        .await?;
     let (_release, released) = oneshot::channel();
     let owner = owner_token.with_async_scope(|scope| async {
         let executor = CloudTerrastodonExecutor::new(cache.clone(), authentication.clone(), scope);
@@ -807,6 +812,11 @@ async fn assert_waiter_revocation_is_enforced(cancel_owner: bool) -> Result<()> 
         )?);
         let owner_token = CancellationToken::new();
         let waiter_token = CancellationToken::new();
+        // The first manual poll below must reach the admitted initializer,
+        // rather than pending on initial filesystem ownership preparation.
+        owner_token
+            .with_async_scope(async |scope| cache.acquire(&scope).await)
+            .await?;
         let owner_initializations = Arc::new(AtomicUsize::new(0));
         let waiter_initializations = AtomicUsize::new(0);
         let owner_starts = owner_initializations.clone();

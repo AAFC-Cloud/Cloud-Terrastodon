@@ -3,12 +3,19 @@
 **Plan status:** U135 foundation complete through Phase 7; the authorized
 [account/CLI ownership refinement](account-authentication-resolution-cutover.md)
 is complete. Its R1–R12 ledger and current Windows offline acceptance record
-cover the subsequent comprehensive cutover. Changes remain uncommitted.
+cover the subsequent comprehensive cutover.
 The [account contracts](accounts-runtime-tests-and-requests.md) close A1–A4/V1;
 the [foundation evidence](executor-cache-cutover-validation.md) records U135
 implementation and validation. The completed refinement plan records subsequent
 checks. Earlier checkpoint narratives below are historical.
-Phase 8 remains deferred.
+Phase 8 is complete under the
+[exclusive cache-root ownership plan](cache-root-ownership.md), updated
+2026-11-13. It uses lazy exclusive ownership retained by the shared `WorkCache`
+owner, preserving internal concurrency. Its C1–C10 ledger and task evidence are
+authoritative for this follow-up: 194 focused Windows tests and full-workspace
+Clippy passed. Linux execution and live-provider compatibility are not claimed.
+The user authorized review and commit of Phase 8 on 2026-11-13; the pre-commit
+review found no actionable issues.
 
 Historical completion record: tasks 2.6–2.8 and their tooling refinements were
 committed as `aa02c23c`. U59–U61 revise the next boundary: option B with pure
@@ -1167,7 +1174,7 @@ do not silently rewrite earlier guidance.
 | U24 | Use the named resumable implementation plans skill and save the plan in `docs/plans`. | Maintain this living Markdown artifact and its intent audit. | — |
 | U25 | The plan must not contain the user's username or other PII. | Relative paths, synthetic examples, and privacy checks before handoff and updates. | — |
 | U26 | If the initiating caller of a shared read is cancelled, cancel that attempt; a waiter may retry. | Caller-owned initialization; no detached executor-owned fetch task. | — |
-| U27 | Initially coordinate executors sharing one cache handle; cross-process coordination is a later phase. | State the guarantee precisely and retain a deferred phase for other processes. | — |
+| U27 | Initially coordinate executors sharing one cache handle; cross-process coordination is a later phase. | Preserve the initial guarantee and separate Phase 8 evidence; its later authorization is now tracked by C1–C10 in the root ownership plan. | — |
 | U28 | Record child-request dependencies during execution so invalidating underlying data invalidates composed results. | Track dependency generations across separate key branches, including warm child hits. | — |
 | U29 | An `--auth-source none` run may validate startup; do not access production data or bring it into agent context. | Use local-only execution, synthetic fixtures, and isolated storage; neither services nor existing production caches are validation inputs. | — |
 | U30 | Add workspace coverage to the final Clippy check. | Include `--workspace` so member targets are linted. | — |
@@ -1275,7 +1282,7 @@ do not silently rewrite earlier guidance.
 | U132 | A separate test registration, analogous to arbitrary registration, makes sense instead of a Test effect. | V1/6.0b use dedicated test metadata linked to normal executable requests; retain Read/Write/Solicit effects and subset admission. Exact registration API remains a design detail. | — |
 | U133 | `ct test run resource-group-list` uses a positional test-name pattern matched against the registry, not an explicit subcommand for every test. | V1/6.0b provide one `run <pattern>` surface, runtime registry selection, and literal/pattern/no-match validation before normal effect/input admission. | — |
 | U134 | The only freshness switch should be the outcome of `.with_invalidation(self.clean)`, without a separate response-parsing-only mode. | V1/6.0b/6.0e use the same request execution/cache path for both clean values. Remove the agent-proposed saved-response decoding mode and its implementation/acceptance requirements; preserve existing cache acceptance rules and explain their ordinary limits. | — |
-| U135 | Complete the comprehensive implementation cutover and leave changes uncommitted. | Complete 6.0a–6.0e, 6.1–6.3 and Phase 7; close contracts as internal milestones, preserve earlier requirements and synthetic-only validation, and do not commit. Phase 8 stays deferred. | — |
+| U135 | Complete the comprehensive implementation cutover and leave changes uncommitted. | Complete 6.0a–6.0e, 6.1–6.3 and Phase 7; close contracts as internal milestones, preserve earlier requirements and synthetic-only validation, and do not commit. Phase 8 was deferred at this authorization. | Phase 8 deferral only: C8's subsequent authorization in the root ownership plan |
 
 U18 supersedes the earlier assistant suggestion to preserve an Azure CLI
 active-tenant selection. That suggestion was not user approval. U13 rejects the
@@ -1640,7 +1647,9 @@ describe diagnostics, not type identity.
 
 `1 contracts/inventory → 2 value registry/cache core → 3 registry cutover/auth/executor → 4 adapters →
 5 SDK slices → 6.0 accounts/runtime verification/request-first cutover →
-6.1–6.3 audit/app/consumers → 7 cutover/acceptance`; phase 8 is deferred.
+6.1–6.3 audit/app/consumers → 7 cutover/acceptance`. Phase 8 was deferred for that
+sequence and now follows under the separately authorized
+[root ownership contract](cache-root-ownership.md).
 Phase 2 can use synthetic in-process work until the public executor exists.
 Do not expose a partially initialized global runtime to bridge stages.
 
@@ -5260,7 +5269,8 @@ is the current validation record, including corrected final-review failures.
 Publication ordering is an acyclic 34-package DAG. Lockfile changes update internal
 edges and add an already-pinned tempfile dependency for Config tests; no external
 package version changed. Changes remain unstaged and uncommitted. Linux and live
-provider/service validation are not claimed; Phase 8 remains deferred.
+provider/service validation are not claimed. Phase 8 was deferred at that
+checkpoint; its later authorization and evidence are recorded separately below.
 
 **Work:** Run the reviewed local test matrix and cross-platform checks. Update
 REUSABLE_APPLICATIONS.md, affected request docs/examples, public import paths, and
@@ -5289,28 +5299,45 @@ match executable behavior; no unexpected dependency upgrades, PII, or unstated
 support limitations are introduced. No implementation completion is inferred
 from compilation alone or from unchanged historical test results.
 
-## Phase 8 — deferred cross-process coordination
+## Phase 8 — exclusive cache-root ownership
 
-### [ ] 8.1 Define and implement coordination beyond a shared handle later
+### [x] 8.1–8.5 Complete independent-owner coordination and recovery
 
-**Work:** In a later authorized implementation phase, decide how separate cache
-owners/processes coordinate artifact publication, lock recovery, persisted
-invalidation generations, auth partitions, and legacy readers. Do not claim that
-atomic replacement alone coordinates generations or prevents duplicate execution.
-Specify Windows/Linux behavior and crash recovery before implementation.
+**Completion notes:** The user authorized this previously deferred phase on
+2026-11-13. The [focused implementation contract](cache-root-ownership.md) owns
+C1–C10, the selected design, task-level progress, and exact acceptance evidence.
+All tasks are complete, with 194 native Windows tests passing: 127 cache,
+42 adapter/artifact, 22 execution/SDK, and 3 cleanup. Full-workspace/all-target/
+all-feature Clippy passed with warnings denied; formatting, diff, and plan privacy
+checks passed. Linux and live-provider execution were not run. The focused plan
+records exact commands, process-crash limitations, and independent review evidence.
 
-**Validation:** Add subprocess contention/crash-recovery tests after choosing the
-contract; record exact commands here then. Initial phase tests prove none of this.
+**Work:** Lazily acquire an exclusive OS lock before cache operations and retain
+it through the existing reference-counted `WorkCacheState`. Clones and nested
+requests reuse the owner without serializing internal initialization. Independent
+handles/processes wait cancellably, then inspect disk after ownership transfer.
+An active-owner marker makes interrupted publication/invalidation fail closed:
+the next owner clears reusable selections before admission while retaining
+immutable diagnostic attempts. Lock files survive ordinary clearing; all cache
+I/O, inventory, and cleaning participate in the same ownership contract.
 
-**Completion criteria:** Explicit cross-process guarantees have independent
-evidence and documentation. This item remains deferred when phases 1–7 complete.
+**Validation:** The focused plan records native independent-handle/subprocess
+contention, cancellation, worker lifetime, reuse after handoff, process-termination
+recovery, coordinated cleaning, and downstream checks. Preserve Windows/Linux
+support boundaries explicitly; power-loss, network filesystems, credential-store
+transactions, and old readers that ignore locking are not covered by this phase.
+
+**Completion criteria:** All focused tasks are complete with independent evidence;
+same-owner concurrency and cancellation remain intact; current contracts and
+CLI cleanup behavior match root ownership. Earlier phase tests do not establish
+these new cross-process guarantees.
 
 ## Acceptance matrix
 
 | Surface/target | Initial support contract | Required proof | Evidence |
 | --- | --- | --- | --- |
 | Shared cache handle and executor clones | Coordinated within one owner | Concurrent typed sharing, per-key ownership, generation/dependency races | Tasks 2.3–2.4 cache races and task 3.2's shared decoding, ancestry, admission, and caller-cancellation tests passed |
-| Independent handles/processes sharing disk | No single-flight/coherent invalidation guarantee yet | Document limits; phase 8 supplies stronger proof later | Deferred |
+| Independent handles/processes sharing disk | Phase 8 coarse exclusive root ownership, cancellable waiting, and fail-closed recovery | Same-root contention, handoff reuse, interruption and cleanup tests | Windows ownership, recovery, cancellation, cleanup, and adapter checks pass; see [root ownership acceptance](cache-root-ownership.md#acceptance-matrix) |
 | Command, REST, in-process reads | One lifecycle, canonical memoization | Local adapter + cache tests; different validators still run | Task 4.1 Command checks and task 4.2 REST typed-sharing/caller-policy loopback checks passed; all callers compile |
 | Raw artifact storage | Isolated complete attempts and guarded selection within one handle | Local storage/integrity, freshness, and worker-drop tests | Core storage and Command checks passed; task 4.2 REST failure/outcome/sensitive-retention tests passed |
 | SDK/transport namespaces and ownership | Separate concrete entries; shared logical invalidation scope | Synthetic wrapper succeeds; same-namespace owner/type collisions bail before execution/reuse; invalidation covers all kinds | Core namespace/claim/invalidation tests and REST wrapper/envelope loopback scenario passed; all callers compile |
@@ -5330,7 +5357,8 @@ evidence and documentation. This item remains deferred when phases 1–7 complet
 ## Overall initial-migration completion criteria
 
 - [x] Every active U01–U135 requirement has task evidence; G1–G6 and A1–A4/V1 are closed and
-  phases 1–7 complete. Phase 8 remains explicitly deferred.
+  phases 1–7 complete. Phase 8's subsequent authorization and completed C1–C10
+  requirements have separate evidence in the root ownership plan.
 - [x] Requests contain explicit operation/auth selection data and no execution
   resources; both execute spellings and registry invocation share one contract.
 - [x] All moved-type consumers use the owning crate/API; no migration compatibility

@@ -1257,11 +1257,13 @@ dependencies = [
  "cloud_terrastodon_registry",
  "eyre",
  "linkme",
+ "same-file",
  "teamy-cancellation",
  "teamy-facet",
  "teamy-facet-json",
  "tempfile",
  "tokio",
+ "tracing",
  "uuid",
 ]
 

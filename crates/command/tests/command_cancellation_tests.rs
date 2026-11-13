@@ -3,7 +3,9 @@
 use facet::Facet;
 mod support;
 
+use cloud_terrastodon_cache::ArtifactRetention;
 use cloud_terrastodon_cache::CacheOperationOwner;
+use cloud_terrastodon_cache::WorkCache;
 use cloud_terrastodon_command::CancellationError;
 use cloud_terrastodon_command::CancellationToken;
 use cloud_terrastodon_command::CommandBuilder;
@@ -100,6 +102,65 @@ async fn assert_fixture_artifacts(directory: &Path) -> Result<()> {
         fs::read_to_string(outputs[0].with_file_name("status.txt")).await?,
         "0"
     );
+    Ok(())
+}
+
+#[tokio::test]
+async fn cancellation_while_waiting_for_cache_ownership_does_not_start_a_command() -> Result<()> {
+    // Both retained owned execution and memory-only shared execution use the
+    // root, including the mapper wrappers that otherwise defer completion.
+    for shared in [false, true] {
+        let token = CancellationToken::new();
+        let requester = token.clone();
+        token
+            .with_async_scope(|scope| async move {
+                let directory = tempfile::tempdir()?;
+                let root = directory.path().join("artifacts");
+                let owner = WorkCache::new(&root)?;
+                owner.acquire(&scope).await?;
+                let executor = support::executor_in(scope, &root)?;
+                let mut command = fixture_command(directory.path())?;
+                if shared {
+                    command
+                        .cache(support::key(Duration::from_secs(60)))
+                        .artifact_retention(ArtifactRetention::Disabled);
+                }
+                let mut running = Box::pin(async {
+                    if shared {
+                        command
+                            .run_cached_with_mapper::<ChildOutput, (), _>(
+                                |_| Ok(()),
+                                &executor,
+                                CacheOperationOwner::of::<ChildOutput>(),
+                            )
+                            .await
+                    } else {
+                        command
+                            .run_with_artifacts_and_mapper::<ChildOutput, (), _>(
+                                |_| Ok(()),
+                                &executor,
+                            )
+                            .await
+                    }
+                });
+                poll_fn(|context| {
+                    assert!(Future::poll(running.as_mut(), context).is_pending());
+                    Poll::Ready(())
+                })
+                .await;
+                requester.request_cancel("cancel before acquiring the command cache root");
+                let error = timeout(LIMIT, running).await?.unwrap_err();
+                assert!(error.downcast_ref::<CancellationError>().is_some());
+                assert!(!directory.path().join("started").exists());
+                assert!(!directory.path().join("completed").exists());
+                assert!(support::files_named(&root, "manifest.json")?.is_empty());
+                // The unrelated owner remains alive until after cancellation
+                // completes; releasing its lock must not be needed to stop.
+                drop(owner);
+                eyre::Ok(())
+            })
+            .await?;
+    }
     Ok(())
 }
 

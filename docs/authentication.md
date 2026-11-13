@@ -218,9 +218,11 @@ already perform this step before durable cleanup.
 It closes new admission, cancels optional work, drains admitted deferred work,
 and invalidates affected authentication partitions before and after draining.
 Only then should the owner remove durable credentials through the account store.
-Already returned `Arc` values cannot be retracted. Separate running processes
-are outside this cache/lease coordination contract; durable retirement prevents
-new invocations from reopening the retired stored generation.
+Already returned `Arc` values cannot be retracted. The cache root's exclusive
+ownership coordinates independent cache users, but does not make credential-store
+updates a cross-process transaction or instantly cancel another process's admitted
+account work. Durable retirement prevents new invocations from reopening the
+retired stored generation; account admission and retirement checks remain required.
 
 ## Explicit legacy import
 

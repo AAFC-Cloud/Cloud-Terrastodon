@@ -1,5 +1,11 @@
 # Unreleased
 
+- Coordinate independent cache owners with a lazy exclusive filesystem lock retained by the shared `WorkCache` lifetime. Commands waiting for the same root remain cancellable and reuse valid disk results after ownership transfers; executor clones retain concurrent per-entry execution.
+
+- Recover interrupted cache owners by discarding reusable selections while retaining diagnostic artifacts. Publish metadata through same-directory temporary files, and retain recovery markers after failed invalidation or publication. These guarantees cover cooperating processes on local filesystems, not power-loss durability or older binaries that ignore locking.
+
+- Make `ct clean` invalidate the configured cache's reusable results through its owner while preserving coordination files and immutable attempts. Preserve generated directories that overlap configured or default cache roots without acquiring a second root lock; unrelated generated directories are still removed normally.
+
 - Refresh Azure and Azure DevOps audit inventories with `--clean`, including composed and paginated reads. Give each Azure audit its own invalidation contract and refresh shared inventories before concurrent evaluation.
 
 - Decode Container Registry login servers into typed properties and reuse them directly when constructing endpoints. Generate browser-account setup guidance from the real CLI schema with Figue.

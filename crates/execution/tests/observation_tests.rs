@@ -117,6 +117,8 @@ async fn initializer_joiner_and_hit_have_separate_observers_and_shared_results()
                 Arc::new(AnonymousAuthenticationProvider),
                 scope,
             );
+            // Observe initializer coordination after lazy root preparation.
+            executor.cache()?.acquire(executor.cancellation()).await?;
             let starts = AtomicUsize::new(0);
             let (release, released) = oneshot::channel();
             // Callbacks borrow non-Send state; neither callbacks nor their state are
@@ -199,6 +201,7 @@ async fn cancelled_initializer_reports_failure_and_waiter_retries() -> Result<()
                 Arc::new(AnonymousAuthenticationProvider),
                 scope,
             );
+            executor.cache()?.acquire(executor.cancellation()).await?;
             let starts = AtomicUsize::new(0);
             let (_release, released) = oneshot::channel();
             let events = RefCell::new(Vec::new());

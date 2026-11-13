@@ -109,7 +109,8 @@ impl ArtifactDirectory {
     }
 
     /// Remove only reusable selectors, retaining all immutable attempts.
-    /// The caller owns the artifact I/O gate and installed invalidation quarantine.
+    /// The caller owns the artifact I/O gate and installed invalidation quarantine,
+    /// or the exclusive root lease during recovery before admitting any cache work.
     pub fn invalidate_selections(root: &Path, target: &CacheInvalidationTarget) -> Result<()> {
         if let CacheInvalidationTarget::Entry(identity) = target {
             let directory = Self::for_entry(root, identity)?;

@@ -554,7 +554,12 @@ impl CloudTerrastodonExecutor {
             retention,
         )?;
         Ok(self.await_account_work(selection, move |child| async move {
-            let work = child.cancellable_scope(move |child| execute(child, entry));
+            let work = child.cancellable_scope(async move |child| {
+                if retention != ArtifactRetention::Disabled {
+                    child.cache.acquire(child.cancellation()).await?;
+                }
+                execute(child, entry).await
+            });
             child.await_admitted_work(selection, partition, work).await
         }))
     }

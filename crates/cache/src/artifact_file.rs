@@ -10,6 +10,7 @@ use std::fs::OpenOptions;
 use std::io::ErrorKind;
 use std::io::Write;
 use std::path::PathBuf;
+use tempfile::NamedTempFile;
 
 /// A file address whose I/O remains confined to its original artifact root.
 ///
@@ -65,11 +66,33 @@ impl ArtifactFile {
     }
 
     pub fn create_json<T: for<'a> Facet<'a>>(&self, value: &T) -> Result<()> {
-        self.create_new(&Self::encode_json(value)?)
+        let bytes = Self::encode_json(value)?;
+        self.parent.ensure_exists()?;
+        // tempfile's native Windows persistence calls need the extended-length
+        // path returned by canonicalize; encoded cache hierarchies exceed MAX_PATH.
+        let parent = fs::canonicalize(self.parent.path())
+            .wrap_err("resolving artifact metadata directory")?;
+        let destination = parent.join(
+            self.path
+                .file_name()
+                .ok_or_eyre("artifact file has no name")?,
+        );
+        let mut temporary =
+            NamedTempFile::new_in(&parent).wrap_err("staging immutable artifact metadata")?;
+        temporary
+            .write_all(&bytes)
+            .wrap_err("writing artifact metadata")?;
+        temporary.flush().wrap_err("flushing artifact metadata")?;
+        temporary
+            .persist_noclobber(destination)
+            .map_err(|error| error.error)
+            .wrap_err("publishing immutable artifact metadata")?;
+        Ok(())
     }
 
     /// Replace a mutable record in an existing directory. The caller owns
-    /// publication locking and quarantine; serialization completes before truncation.
+    /// publication locking and quarantine. A same-directory rename publishes a
+    /// complete record; process termination cannot expose a truncated selector.
     pub fn replace_json<T: for<'a> Facet<'a>>(&self, value: &T) -> Result<()> {
         let bytes = Self::encode_json(value)?;
         ensure!(
@@ -77,15 +100,22 @@ impl ArtifactFile {
             "artifact replacement requires an existing parent directory"
         );
         self.is_regular_file()?;
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(&self.path)
-            .wrap_err("opening mutable artifact record")?;
+        let parent = fs::canonicalize(self.parent.path())
+            .wrap_err("resolving artifact metadata directory")?;
+        let destination = parent.join(
+            self.path
+                .file_name()
+                .ok_or_eyre("artifact file has no name")?,
+        );
+        let mut file =
+            NamedTempFile::new_in(&parent).wrap_err("staging mutable artifact record")?;
         file.write_all(&bytes)
             .wrap_err("writing mutable artifact record")?;
-        file.flush().wrap_err("flushing mutable artifact record")
+        file.flush().wrap_err("flushing mutable artifact record")?;
+        file.persist(destination)
+            .map_err(|error| error.error)
+            .wrap_err("publishing mutable artifact record")?;
+        Ok(())
     }
 
     fn is_regular_file(&self) -> Result<bool> {

@@ -330,6 +330,8 @@ async fn owner_and_output_conflicts_fail_during_initialization_and_after_reuse()
         .with_async_scope(|scope| async move {
             let temporary = tempfile::tempdir()?;
             let cache = WorkCache::new(temporary.path())?;
+            // Manual polling below targets initialization, not lazy root acquisition.
+            cache.acquire(&scope).await?;
             let (release, released) = oneshot::channel();
             let leader = cache
                 .cached_work(
@@ -448,6 +450,7 @@ async fn cancelling_a_waiter_leaves_the_active_initializer_running() -> eyre::Re
         .with_async_scope(|scope| async move {
             let temporary = tempfile::tempdir()?;
             let cache = WorkCache::new(temporary.path())?;
+            cache.acquire(&scope).await?;
             let (release, released) = oneshot::channel();
             let leader = cache
                 .cached_work(
@@ -492,6 +495,7 @@ async fn common_root_cancellation_stops_the_initializer_and_waiter() -> eyre::Re
     root.with_async_scope(async |scope| {
         let temporary = tempfile::tempdir()?;
         let cache = WorkCache::new(temporary.path())?;
+        cache.acquire(&scope).await?;
         let leader = cache
             .cached_work::<u64, _, _>(
                 identity("root-cancel"),
@@ -699,6 +703,7 @@ async fn releasing_memory_during_a_fill_preserves_the_live_gate() -> eyre::Resul
         .with_async_scope(|scope| async move {
             let temporary = tempfile::tempdir()?;
             let cache = WorkCache::new(temporary.path())?;
+            cache.acquire(&scope).await?;
             let (release, released) = oneshot::channel();
             let leader = cache
                 .cached_work(
@@ -875,6 +880,7 @@ async fn cancellation_waits_for_required_completion_before_a_waiter_retries() ->
         .with_async_scope(|scope| async move {
             let temporary = tempfile::tempdir()?;
             let cache = WorkCache::new(temporary.path())?;
+            cache.acquire(&scope).await?;
             let leader_token = CancellationToken::new();
             let completed = Arc::new(AtomicUsize::new(0));
             let (started, ready) = oneshot::channel();

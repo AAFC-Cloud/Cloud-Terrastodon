@@ -108,6 +108,7 @@ impl ArtifactEntry {
         if self.retention == ArtifactRetention::Disabled {
             return Ok(None);
         }
+        self.cache.acquire(cancellation).await?;
         let gate = ArtifactIoGuard::acquire(&self.cache.state.artifact_gate).await;
         cancellation.bail_if_cancelled()?;
         let generation = {
@@ -149,6 +150,7 @@ impl ArtifactEntry {
         if self.retention == ArtifactRetention::Disabled || self.validity.is_zero() {
             return Ok(None);
         }
+        self.cache.acquire(cancellation).await?;
         let gate = ArtifactIoGuard::acquire(&self.cache.state.artifact_gate).await;
         cancellation.bail_if_cancelled()?;
         let generation = {

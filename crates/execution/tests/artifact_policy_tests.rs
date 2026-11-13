@@ -232,7 +232,8 @@ async fn disabled_artifact_retention_keeps_decoded_memory_reuse_without_writing_
             let second = execute()?.await?;
             assert!(Arc::ptr_eq(&first, &second));
             assert_eq!(starts.load(Ordering::SeqCst), 1);
-            assert!(std::fs::read_dir(root)?.next().is_none());
+            // Ownership metadata is independent of raw execution retention.
+            assert!(!root.join("artifacts-v2").exists());
             Ok(())
         })
         .await
@@ -393,7 +394,7 @@ async fn rejected_nonreusable_artifact_child_prevents_parent_fallback_reuse() ->
                 assert_eq!(*execute()?.await?, 1);
                 assert_eq!(parent_starts.load(Ordering::SeqCst), 2);
                 assert_eq!(child_starts.load(Ordering::SeqCst), 0);
-                assert!(std::fs::read_dir(root)?.next().is_none());
+                assert!(!root.join("artifacts-v2").exists());
             }
             Ok(())
         })

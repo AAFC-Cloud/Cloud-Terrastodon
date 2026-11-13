@@ -110,6 +110,7 @@ where
     Fut: Future<Output = Result<WorkOutput<T>>>,
 {
     async fn run(mut self, scope: CancellationScope) -> Result<Arc<T>> {
+        self.cache.acquire(&scope).await?;
         let mut retired = None;
         let (coordination, _waiting) = {
             let mut state = self.cache.lock_state()?;

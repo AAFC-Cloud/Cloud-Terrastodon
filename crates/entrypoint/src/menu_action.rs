@@ -247,7 +247,7 @@ impl MenuAction {
                 let authentication = &AzureAuthenticationArgs::default().resolve(executor).await?;
                 process_generated(authentication, executor).await?
             }
-            MenuAction::Clean => clean_all_menu(cancellation).await?,
+            MenuAction::Clean => clean_all_menu(executor.cache()?, cancellation).await?,
             MenuAction::CreateRoleAssignment => {
                 let authentication = &AzureAuthenticationArgs::default().resolve(executor).await?;
                 create_role_assignment_menu(authentication, executor).await?

@@ -5,6 +5,7 @@ use crate::CacheScope;
 /// The exact coverage of one invalidation, including a failed durable attempt.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum CacheInvalidationTarget {
+    All,
     Scope(CacheScope),
     Entry(CacheEntryIdentity),
     Authentication(AuthPartition),
@@ -13,6 +14,7 @@ pub(crate) enum CacheInvalidationTarget {
 impl CacheInvalidationTarget {
     pub fn covers(&self, identity: &CacheEntryIdentity) -> bool {
         match self {
+            Self::All => true,
             Self::Scope(scope) => identity.scope.starts_with(scope),
             Self::Entry(entry) => entry == identity,
             Self::Authentication(partition) => partition == &identity.auth_partition,
@@ -22,6 +24,8 @@ impl CacheInvalidationTarget {
     /// Whether durable success for this target also resolves another failure.
     pub fn contains(&self, other: &Self) -> bool {
         match (self, other) {
+            (Self::All, _) => true,
+            (_, Self::All) => false,
             (Self::Scope(scope), Self::Scope(other)) => other.starts_with(scope),
             (Self::Scope(_), Self::Entry(other)) => self.covers(other),
             (Self::Entry(entry), Self::Entry(other)) => entry == other,

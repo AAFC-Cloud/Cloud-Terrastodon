@@ -357,11 +357,7 @@ async fn managed_command_request_cannot_hide_nonreusable_work_beneath_a_cached_p
             }
             assert_eq!(starts.load(Ordering::SeqCst), 2);
             assert!(!directory.path().join("count").exists());
-            assert!(
-                std::fs::read_dir(executor.cache()?.root())?
-                    .next()
-                    .is_none()
-            );
+            assert!(!executor.cache()?.root().join("artifacts-v2").exists());
             Ok(())
         })
         .await

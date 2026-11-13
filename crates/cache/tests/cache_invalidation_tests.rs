@@ -185,44 +185,52 @@ async fn invalidation_during_a_fill_returns_the_snapshot_but_a_waiter_must_retry
 -> eyre::Result<()> {
     CancellationToken::new()
         .with_async_scope(|scope| async move {
-            let temporary = tempfile::tempdir()?;
-            let cache = WorkCache::new(temporary.path())?;
-            let key = identity(&["projects", "alpha", "inventory"]);
-            let (release, released) = oneshot::channel();
-            let leader = cache
-                .cached_work(
-                    key.clone(),
-                    CacheOperationOwner::of::<SyntheticRead>(),
-                    WorkReuse::ReusableRead,
-                    VALID_FOR,
-                    None,
-                    &scope,
-                    |_, _| async move {
-                        released.await?;
-                        Ok(output(1_u64))
-                    },
-                )?
-                .into_future();
-            let waiter = read(&cache, key.clone(), None, &scope, 2);
-            tokio::pin!(leader, waiter);
-            assert_pending(leader.as_mut()).await;
-            assert_pending(waiter.as_mut()).await;
-            cache
-                .invalidate(
-                    &CacheScope::try_from_components(["projects", "alpha"])?,
-                    &scope,
-                )
-                .await?;
-            release.send(()).unwrap();
-            let (first, next) =
-                timeout(DEADLOCK_GUARD, async { tokio::join!(leader, waiter) }).await?;
-            assert_eq!(*first?, 1);
-            let next = next?;
-            assert_eq!(*next, 2);
-            assert!(Arc::ptr_eq(
-                &next,
-                &read(&cache, key, None, &scope, 3).await?
-            ));
+            for entire_root in [false, true] {
+                let temporary = tempfile::tempdir()?;
+                let cache = WorkCache::new(temporary.path())?;
+                // This race starts after root ownership, at the initializer's suspension.
+                cache.acquire(&scope).await?;
+                let key = identity(&["projects", "alpha", "inventory"]);
+                let (release, released) = oneshot::channel();
+                let leader = cache
+                    .cached_work(
+                        key.clone(),
+                        CacheOperationOwner::of::<SyntheticRead>(),
+                        WorkReuse::ReusableRead,
+                        VALID_FOR,
+                        None,
+                        &scope,
+                        |_, _| async move {
+                            released.await?;
+                            Ok(output(1_u64))
+                        },
+                    )?
+                    .into_future();
+                let waiter = read(&cache, key.clone(), None, &scope, 2);
+                tokio::pin!(leader, waiter);
+                assert_pending(leader.as_mut()).await;
+                assert_pending(waiter.as_mut()).await;
+                if entire_root {
+                    cache.invalidate_all(&scope).await?;
+                } else {
+                    cache
+                        .invalidate(
+                            &CacheScope::try_from_components(["projects", "alpha"])?,
+                            &scope,
+                        )
+                        .await?;
+                }
+                release.send(()).unwrap();
+                let (first, next) =
+                    timeout(DEADLOCK_GUARD, async { tokio::join!(leader, waiter) }).await?;
+                assert_eq!(*first?, 1);
+                let next = next?;
+                assert_eq!(*next, 2);
+                assert!(Arc::ptr_eq(
+                    &next,
+                    &read(&cache, key, None, &scope, 3).await?
+                ));
+            }
             Ok(())
         })
         .await
@@ -235,6 +243,7 @@ async fn new_descendants_after_invalidation_do_not_refresh_an_older_parent_stamp
         .with_async_scope(|scope| async move {
             let temporary = tempfile::tempdir()?;
             let cache = WorkCache::new(temporary.path())?;
+            cache.acquire(&scope).await?;
             let key = identity(&["projects", "alpha", "inventory"]);
             let page = identity(&["projects", "alpha", "pages", "new"]);
             let (release, released) = oneshot::channel();

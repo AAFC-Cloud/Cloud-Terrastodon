@@ -148,6 +148,7 @@ impl CommandBuilder {
     async fn with_executor_cancellation_policy<'a, C, F, T>(
         &'a self,
         executor: &'a CloudTerrastodonExecutor,
+        reuse: WorkReuse,
         execute: C,
     ) -> Result<T>
     where
@@ -156,18 +157,36 @@ impl CommandBuilder {
         F::IntoFuture: 'a,
         T: 'a,
     {
+        if reuse == WorkReuse::ReusableRead {
+            eyre::ensure!(
+                matches!(self.output_behaviour, OutputBehaviour::Capture),
+                "shared command execution requires captured output; use owned execution to display output on every invocation"
+            );
+            eyre::ensure!(
+                self.cache_key.is_some(),
+                "cached commands require an explicit cache key"
+            );
+        }
         let executor = executor.with_authentication_lease(&self.authentication)?;
         executor
             .with_account_cancellation(move |executor| async move {
+                // Waiting for another cache owner precedes this command's effects.
+                // Keep it cancellable before introducing our completion deferral;
+                // an already-protected caller still retains its existing policy.
+                if reuse == WorkReuse::ReusableRead
+                    || self.artifact_retention != ArtifactRetention::Disabled
+                {
+                    executor.cache()?.acquire(executor.cancellation()).await?;
+                }
                 if self.cancellation_safe {
                     executor.cancellable_scope(execute).await
                 } else {
                     executor
-                .deferred(
-                    "finishing command execution, decoding, caller validation, and artifacts",
-                    execute,
-                )
-                .await
+                        .deferred(
+                            "finishing command execution, decoding, caller validation, and artifacts",
+                            execute,
+                        )
+                        .await
                 }
             })
             .await
@@ -849,8 +868,10 @@ impl CommandBuilder {
         caller: &'static Location<'static>,
         decoder: fn(&CommandOutput) -> Result<T>,
     ) -> impl Future<Output = Result<T>> + Send + 'a {
-        Box::pin(
-            self.with_executor_cancellation_policy(executor, move |child| async move {
+        Box::pin(self.with_executor_cancellation_policy(
+            executor,
+            WorkReuse::ExecuteEveryTime,
+            move |child| async move {
                 let summary = self.diagnostic_summary().await?;
                 let key = self.artifact_key(caller)?;
                 let fingerprint =
@@ -883,8 +904,8 @@ impl CommandBuilder {
                     )?
                     .instrument(span)
                     .await
-            }),
-        )
+            },
+        ))
     }
 
     #[track_caller]
@@ -896,8 +917,7 @@ impl CommandBuilder {
         caller: &'static Location<'static>,
         decoder: fn(&CommandOutput) -> Result<T>,
     ) -> impl Future<Output = Result<Arc<T>>> + Send + 'a {
-        Box::pin(self.with_executor_cancellation_policy(executor, move |child| async move {
-            eyre::ensure!(matches!(self.output_behaviour, OutputBehaviour::Capture), "shared command execution requires captured output; use owned execution to display output on every invocation");
+        Box::pin(self.with_executor_cancellation_policy(executor, WorkReuse::ReusableRead, move |child| async move {
             let key = self.cache_key.clone().ok_or_else(|| eyre::eyre!("cached commands require an explicit cache key"))?;
             let summary = self.diagnostic_summary().await?;
             let fingerprint = NonEmptyString::new(self.cache_fingerprint(&self.cache_debug_inputs()).await?)?;
@@ -1093,23 +1113,32 @@ impl CommandBuilder {
         F: FnOnce(Raw) -> Result<Output> + 'a,
     {
         let caller = Location::caller();
-        self.with_executor_cancellation_policy(executor, move |child| async move {
-            let value = self
-                .run_with_artifacts_from(&child, Duration::ZERO, caller, Self::decode_json::<Raw>)
-                .await?;
-            match mapper(value) {
-                Ok(value) => Ok(value),
-                Err(error) if error.is_cancellation() => Err(error),
-                Err(error) => Err(self
-                    .retain_callback_failure::<Raw>(
+        self.with_executor_cancellation_policy(
+            executor,
+            WorkReuse::ExecuteEveryTime,
+            move |child| async move {
+                let value = self
+                    .run_with_artifacts_from(
                         &child,
-                        CacheOperationOwner::of::<Self>(),
+                        Duration::ZERO,
                         caller,
-                        error,
+                        Self::decode_json::<Raw>,
                     )
-                    .await),
-            }
-        })
+                    .await?;
+                match mapper(value) {
+                    Ok(value) => Ok(value),
+                    Err(error) if error.is_cancellation() => Err(error),
+                    Err(error) => Err(self
+                        .retain_callback_failure::<Raw>(
+                            &child,
+                            CacheOperationOwner::of::<Self>(),
+                            caller,
+                            error,
+                        )
+                        .await),
+                }
+            },
+        )
         .instrument(info_span!("command_output_policy", location=%RelativeLocation::from(caller)))
     }
 
@@ -1138,23 +1167,27 @@ impl CommandBuilder {
         T: FromCommandOutput,
         F: FnOnce(T) -> Result<T> + 'a,
     {
-        self.with_executor_cancellation_policy(executor, move |child| async move {
-            let value = self
-                .run_with_artifacts_from(&child, Duration::ZERO, caller, Self::decode_json::<T>)
-                .await?;
-            match validator(value) {
-                Ok(value) => Ok(value),
-                Err(error) if error.is_cancellation() => Err(error),
-                Err(error) => Err(self
-                    .retain_callback_failure::<T>(
-                        &child,
-                        CacheOperationOwner::of::<Self>(),
-                        caller,
-                        error,
-                    )
-                    .await),
-            }
-        })
+        self.with_executor_cancellation_policy(
+            executor,
+            WorkReuse::ExecuteEveryTime,
+            move |child| async move {
+                let value = self
+                    .run_with_artifacts_from(&child, Duration::ZERO, caller, Self::decode_json::<T>)
+                    .await?;
+                match validator(value) {
+                    Ok(value) => Ok(value),
+                    Err(error) if error.is_cancellation() => Err(error),
+                    Err(error) => Err(self
+                        .retain_callback_failure::<T>(
+                            &child,
+                            CacheOperationOwner::of::<Self>(),
+                            caller,
+                            error,
+                        )
+                        .await),
+                }
+            },
+        )
         .instrument(info_span!("command_output_policy", location=%RelativeLocation::from(caller)))
     }
 
@@ -1173,24 +1206,28 @@ impl CommandBuilder {
         F: FnOnce(Arc<Raw>) -> Result<Output> + 'a,
     {
         let caller = Location::caller();
-        self.with_executor_cancellation_policy(executor, move |child| async move {
-            let value = self
-                .run_cached_from(
-                    &child,
-                    owner,
-                    Duration::ZERO,
-                    caller,
-                    Self::decode_json::<Raw>,
-                )
-                .await?;
-            match mapper(value) {
-                Ok(value) => Ok(value),
-                Err(error) if error.is_cancellation() => Err(error),
-                Err(error) => Err(self
-                    .retain_callback_failure::<Raw>(&child, owner, caller, error)
-                    .await),
-            }
-        })
+        self.with_executor_cancellation_policy(
+            executor,
+            WorkReuse::ReusableRead,
+            move |child| async move {
+                let value = self
+                    .run_cached_from(
+                        &child,
+                        owner,
+                        Duration::ZERO,
+                        caller,
+                        Self::decode_json::<Raw>,
+                    )
+                    .await?;
+                match mapper(value) {
+                    Ok(value) => Ok(value),
+                    Err(error) if error.is_cancellation() => Err(error),
+                    Err(error) => Err(self
+                        .retain_callback_failure::<Raw>(&child, owner, caller, error)
+                        .await),
+                }
+            },
+        )
         .instrument(info_span!("command_output_policy", location=%RelativeLocation::from(caller)))
     }
 

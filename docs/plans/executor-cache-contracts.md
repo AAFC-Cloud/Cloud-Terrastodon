@@ -610,10 +610,14 @@ Previously returned `Arc` snapshots remain readable.
 
 Account retirement and ordinary resource invalidation have different scopes:
 retirement targets that credential partition, while mutation invalidation reaches
-all account variants of the affected resource. Shared-handle coordination does
-not imply cross-process cache coherence. Durable retirement prevents new
-invocations reopening retired generations; separately running processes are not
-instantly cancelled. Phase 8 owns stronger cross-process guarantees.
+all account variants of the affected resource. The inner shared-handle protocol
+alone does not imply cross-process cache coherence. Phase 8's
+[exclusive cache-root ownership](cache-root-ownership.md) serializes independent
+cache owners and recovers interrupted disk transitions; it does not turn the
+credential store into a cross-process transaction. Durable retirement prevents
+new invocations reopening retired generations; separately running processes are
+not instantly cancelled. Existing authentication-partition and retirement
+admission rules remain necessary inside cache-root ownership.
 
 `AnonymousAuthenticationProvider` admits anonymous/local work and rejects
 credential-requiring selections. The default-off `test-support` sentinel

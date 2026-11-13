@@ -326,24 +326,49 @@ impl RestRequest {
         Ok(files)
     }
     async fn with_policy<C, F, T>(
+        self,
         executor: &CloudTerrastodonExecutor,
-        selection: AuthenticationSelection,
-        protected: bool,
+        reuse: WorkReuse,
         callback: C,
     ) -> Result<T>
     where
-        C: FnOnce(CloudTerrastodonExecutor) -> F,
+        C: FnOnce(Self, CloudTerrastodonExecutor) -> F,
         F: Future<Output = Result<T>>,
     {
-        let executor = executor.with_authentication_lease(&selection)?;
+        self.validate()?;
+        let executor = executor.with_authentication_lease(&self.authentication)?;
+        executor.validate_authentication_target(&self.authentication, &self.url)?;
+        if reuse == WorkReuse::ReusableRead {
+            ensure!(
+                !self.complete_on_cancellation,
+                "mutating REST requests must use owned receives and cannot share execution"
+            );
+            ensure!(
+                self.cache_key.is_some(),
+                "cached REST receive requires an explicit cache key"
+            );
+        }
         executor
             .with_account_cancellation(move |executor| async move {
-                if protected {
+                // No HTTP exchange has started while another cache owner holds
+                // the root. Wait before introducing this request's deferral so
+                // cancellation can stop it; existing caller deferrals still apply.
+                if reuse == WorkReuse::ReusableRead
+                    || self.artifact_retention != ArtifactRetention::Disabled
+                {
+                    executor.cache()?.acquire(executor.cancellation()).await?;
+                }
+                if self.complete_on_cancellation {
                     executor
-                        .deferred("complete REST response, decoding, and artifacts", callback)
+                        .deferred(
+                            "complete REST response, decoding, and artifacts",
+                            move |child| callback(self, child),
+                        )
                         .await
                 } else {
-                    executor.cancellable_scope(callback).await
+                    executor
+                        .cancellable_scope(move |child| callback(self, child))
+                        .await
                 }
             })
             .await
@@ -500,24 +525,21 @@ impl RestRequest {
     ) -> impl Future<Output = Result<T>> + Send + 'a {
         let span = info_span!("rest_receive", summary=%self.context(), location=%RelativeLocation::from(caller));
         async move {
-            Self::with_policy(
+            self.with_policy(
                 executor,
-                self.authentication,
-                self.complete_on_cancellation,
-                move |child| async move {
-                    self.validate()?;
-                    child.validate_authentication_target(&self.authentication, &self.url)?;
-                    let selection = self.authentication;
+                WorkReuse::ExecuteEveryTime,
+                move |request, child| async move {
+                    let selection = request.authentication;
                     child
                         .uncached_work_with_artifacts(
                             ExecutorKind::Rest,
-                            self.artifact_key(caller)?,
+                            request.artifact_key(caller)?,
                             CacheOperationOwner::of::<Self>(),
                             &selection,
-                            self.fingerprint()?,
-                            self.artifact_retention,
+                            request.fingerprint()?,
+                            request.artifact_retention,
                             |attempt, entry| async move {
-                                Ok(self
+                                Ok(request
                                     .canonical(&attempt, entry, false, decoder, caller)
                                     .await?
                                     .value)
@@ -539,32 +561,27 @@ impl RestRequest {
     ) -> impl Future<Output = Result<Arc<T>>> + Send + 'a {
         let span = info_span!("rest_receive_cached", summary=%self.context(), location=%RelativeLocation::from(caller));
         async move {
-            Self::with_policy(
+            self.with_policy(
                 executor,
-                self.authentication,
-                self.complete_on_cancellation,
-                move |child| async move {
-                    self.validate()?;
-                    child.validate_authentication_target(&self.authentication, &self.url)?;
-                    ensure!(
-                        !self.complete_on_cancellation,
-                        "mutating REST requests must use owned receives and cannot share execution"
-                    );
-                    let key = self.cache_key.clone().ok_or_else(|| {
+                WorkReuse::ReusableRead,
+                move |request, child| async move {
+                    let key = request.cache_key.clone().ok_or_else(|| {
                         eyre::eyre!("cached REST receive requires an explicit cache key")
                     })?;
-                    let selection = self.authentication;
+                    let selection = request.authentication;
                     child
                         .cached_work_with_artifacts(
                             ExecutorKind::Rest,
                             key,
                             owner,
                             &selection,
-                            self.fingerprint()?,
+                            request.fingerprint()?,
                             WorkReuse::ReusableRead,
-                            self.artifact_retention,
+                            request.artifact_retention,
                             |attempt, entry| async move {
-                                self.canonical(&attempt, entry, true, decoder, caller).await
+                                request
+                                    .canonical(&attempt, entry, true, decoder, caller)
+                                    .await
                             },
                         )?
                         .await
@@ -753,18 +770,17 @@ impl RestRequest {
         F: FnOnce(SerializableRestResponse) -> Result<T> + 'a,
     {
         let caller = Location::caller();
-        Self::with_policy(
+        self.with_policy(
             executor,
-            self.authentication,
-            self.complete_on_cancellation,
-            move |child| async move {
-                let response = self
+            WorkReuse::ExecuteEveryTime,
+            move |request, child| async move {
+                let response = request
                     .clone()
                     .receive_owned_from(&child, |response| Ok(response.clone()), caller)
                     .await?;
                 match decode(response.clone()) {
                     Ok(value) => Ok(value),
-                    Err(error) => Err(self
+                    Err(error) => Err(request
                         .policy_failure::<SerializableRestResponse>(
                             &child,
                             CacheOperationOwner::of::<Self>(),
@@ -802,18 +818,17 @@ impl RestRequest {
         H: 'a,
         F: FnOnce(T, &SerializableRestResponse) -> Result<(T, H)> + 'a,
     {
-        Self::with_policy(
+        self.with_policy(
             executor,
-            self.authentication,
-            self.complete_on_cancellation,
-            move |child| async move {
-                let decoded = self
+            WorkReuse::ExecuteEveryTime,
+            move |request, child| async move {
+                let decoded = request
                     .clone()
                     .receive_owned_from(&child, Self::decode_owned::<T>, caller)
                     .await?;
                 match mapper(decoded.value, &decoded.response) {
                     Ok(value) => Ok(value),
-                    Err(error) => Err(self
+                    Err(error) => Err(request
                         .policy_failure::<DecodedRestResponse<T>>(
                             &child,
                             CacheOperationOwner::of::<Self>(),
@@ -870,18 +885,17 @@ impl RestRequest {
         H: 'a,
         F: FnOnce(Arc<T>, &SerializableRestResponse) -> Result<(Arc<T>, H)> + 'a,
     {
-        Self::with_policy(
+        self.with_policy(
             executor,
-            self.authentication,
-            self.complete_on_cancellation,
-            move |child| async move {
-                let decoded = self
+            WorkReuse::ReusableRead,
+            move |request, child| async move {
+                let decoded = request
                     .clone()
                     .receive_shared_from(&child, owner, Self::decode_shared::<T>, caller)
                     .await?;
                 match mapper(Arc::clone(&decoded.value), &decoded.response) {
                     Ok(value) => Ok(value),
-                    Err(error) => Err(self
+                    Err(error) => Err(request
                         .policy_failure::<DecodedRestResponse<Arc<T>>>(
                             &child,
                             owner,

@@ -14,6 +14,7 @@ impl WorkCache {
         &self,
         cancellation: &CancellationScope,
     ) -> Result<Vec<CacheInventoryEntry>> {
+        self.acquire(cancellation).await?;
         let gate = cancellation
             .cancellable_scope(|_child| async {
                 eyre::Ok(ArtifactIoGuard::acquire(&self.state.artifact_gate).await)
@@ -43,8 +44,13 @@ mod tests {
     #[tokio::test]
     async fn inventory_can_cancel_while_waiting_for_artifact_io() -> eyre::Result<()> {
         let cache = WorkCache::temporary()?;
-        let gate = ArtifactIoGuard::acquire(&cache.state.artifact_gate).await;
         let token = CancellationToken::new();
+        // The cancellation below targets the held artifact gate, after the
+        // independent lazy root-ownership preparation has completed.
+        token
+            .with_async_scope(async |scope| cache.acquire(&scope).await)
+            .await?;
+        let gate = ArtifactIoGuard::acquire(&cache.state.artifact_gate).await;
         let inventory = token
             .with_async_scope(async |scope| cache.inventory(&scope).await)
             .into_future();

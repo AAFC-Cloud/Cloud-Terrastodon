@@ -1,4 +1,5 @@
 use crate::noninteractive::clean;
+use cloud_terrastodon_cache::WorkCache;
 use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 use facet::Facet;
@@ -8,8 +9,8 @@ use facet::Facet;
 pub struct CleanArgs;
 
 impl CleanArgs {
-    pub async fn invoke(self, _cancellation: &CancellationScope) -> Result<()> {
-        clean().await?;
+    pub async fn invoke(self, cache: &WorkCache, cancellation: &CancellationScope) -> Result<()> {
+        clean(cache, cancellation).await?;
         Ok(())
     }
 }

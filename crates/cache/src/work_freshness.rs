@@ -13,6 +13,10 @@ use uuid::Uuid;
 
 /// Original observation proof; disk decoding must never restamp loaded bytes.
 #[derive(Debug)]
+#[allow(
+    clippy::large_enum_variant,
+    reason = "the short-lived loaded proof stays inline to avoid allocating on each disk decode; it is consumed before the value enters the memory cache"
+)]
 pub(crate) enum WorkFreshness {
     Observed(ArtifactObservation),
     Loaded {

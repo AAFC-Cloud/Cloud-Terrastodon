@@ -329,8 +329,14 @@ async fn caller_lifetime_narrows_loaded_freshness_without_reanchoring_observatio
             let stored = finish(&original, b"synthetic payload", &scope).await?;
             assert!(original.publish(&stored, &scope).await?);
             let first = original.load(&scope).await?.unwrap();
+            let freshness = first.freshness.clone();
+            drop(first);
+            drop(original);
+            drop(stored);
+            drop(cache);
             // A separately opened owner exercises disk admission without borrowing
-            // any in-memory observation from the writer.
+            // any in-memory observation from the writer, after its final retained
+            // artifact releases exclusive root ownership.
             let reopened = WorkCache::new(temporary.path())?;
             for validity in [Duration::from_secs(30), Duration::MAX] {
                 let reader = reopened.artifacts::<String>(
@@ -345,10 +351,10 @@ async fn caller_lifetime_narrows_loaded_freshness_without_reanchoring_observatio
                     ArtifactRetention::Full,
                 )?;
                 let loaded = reader.load(&scope).await?.unwrap();
-                assert_eq!(loaded.freshness.observed_at, first.freshness.observed_at);
+                assert_eq!(loaded.freshness.observed_at, freshness.observed_at);
                 assert_eq!(
                     loaded.freshness.expires_at,
-                    first.freshness.effective_expires_at(validity)?
+                    freshness.effective_expires_at(validity)?
                 );
             }
             Ok(())

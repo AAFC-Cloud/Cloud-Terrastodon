@@ -9,6 +9,7 @@ use std::collections::HashMap;
 /// Nonwrapping invalidation history retained for one cache owner's lifetime.
 #[derive(Debug, Default)]
 pub(crate) struct CacheGenerations {
+    root: u64,
     prefixes: HashMap<Vec<String>, u64>,
     entries: HashMap<CacheEntryIdentity, u64>,
     authentication: HashMap<AuthPartition, u64>,
@@ -20,6 +21,7 @@ impl CacheGenerations {
     pub fn capture(&self, identity: &CacheEntryIdentity) -> CacheGenerationStamp {
         let components = identity.scope.components();
         CacheGenerationStamp {
+            root: self.root,
             ancestors: (1..=components.len())
                 .map(|length| {
                     self.prefixes
@@ -44,6 +46,7 @@ impl CacheGenerations {
 
     pub fn advance(&mut self, target: &CacheInvalidationTarget) -> Result<()> {
         let generation = match target {
+            CacheInvalidationTarget::All => &mut self.root,
             CacheInvalidationTarget::Scope(scope) => self
                 .prefixes
                 .entry(scope.components().to_vec())

@@ -106,8 +106,10 @@ An earlier final-test attempt exhausted disk before tests; the user ran
 Windows is the available validation platform. Linux compilation/runtime evidence
 is unavailable in this checkout and is not claimed. Live provider/service
 compatibility was not exercised. A cached verification pass does not establish
-current API compatibility. Separate-process cache coordination remains Phase 8;
-the initial guarantee covers a shared cache handle and session owner.
+current API compatibility. This foundation evidence covers a shared cache handle
+and session owner; it is not proof of separate-process coordination. The later
+[Phase 8 ownership plan](cache-root-ownership.md) records that independently
+authorized contract and its current acceptance evidence.
 
 See [account contracts](accounts-runtime-tests-and-requests.md),
 [runtime inventory](runtime-test-cutover-inventory.md),

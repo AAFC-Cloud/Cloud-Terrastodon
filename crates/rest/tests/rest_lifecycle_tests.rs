@@ -24,12 +24,16 @@ use eyre::Result;
 use facet::Facet;
 use http::Method;
 use std::cell::Cell;
+use std::future::Future;
+use std::future::poll_fn;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
+use std::task::Poll;
 use std::time::Duration;
+use teamy_cancellation::CancellationError;
 use teamy_cancellation::CancellationToken;
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
@@ -171,6 +175,68 @@ impl LocalServer {
         ))
         .cache(key()))
     }
+}
+
+#[tokio::test]
+async fn cancellation_while_waiting_for_cache_ownership_does_not_send_http() -> Result<()> {
+    for shared in [false, true] {
+        let token = CancellationToken::new();
+        let requester = token.clone();
+        token
+            .with_async_scope(|scope| async move {
+                let directory = tempfile::tempdir()?;
+                let owner = WorkCache::new(directory.path())?;
+                owner.acquire(&scope).await?;
+                let authentication = Arc::new(TestAuthenticationProvider::new(
+                    "synthetic-test-session",
+                    Authorization::bearer("synthetic-test-credential")?,
+                )?);
+                let executor = CloudTerrastodonExecutor::new(
+                    WorkCache::new(directory.path())?,
+                    authentication.clone(),
+                    scope,
+                );
+                let server = LocalServer::start(200, "9", None).await?;
+                let mut running = Box::pin(async {
+                    if shared {
+                        server
+                            .request(Method::GET)?
+                            .artifact_retention(ArtifactRetention::Disabled)
+                            .receive_with_mapper_cached(
+                                |value: Arc<u64>, _| Ok((value, ())),
+                                &executor,
+                                CacheOperationOwner::of::<Operation>(),
+                            )
+                            .await?;
+                    } else {
+                        server
+                            .request(Method::POST)?
+                            .receive_with_mapper(|value: u64, _| Ok((value, ())), &executor)
+                            .await?;
+                    }
+                    eyre::Ok(())
+                });
+                poll_fn(|context| {
+                    assert!(Future::poll(running.as_mut(), context).is_pending());
+                    Poll::Ready(())
+                })
+                .await;
+                requester.request_cancel("cancel before acquiring the REST cache root");
+                let error = tokio::time::timeout(Duration::from_secs(10), running)
+                    .await?
+                    .unwrap_err();
+                assert!(error.downcast_ref::<CancellationError>().is_some());
+                assert_eq!(server.requests.load(Ordering::SeqCst), 0);
+                assert_eq!(authentication.authorizations.load(Ordering::SeqCst), 0);
+                assert!(files_named(directory.path(), "manifest.json")?.is_empty());
+                // Cancellation must finish while the unrelated owner still
+                // holds the root, without waiting for it to exit.
+                drop(owner);
+                eyre::Ok(())
+            })
+            .await?;
+    }
+    Ok(())
 }
 
 #[tokio::test]

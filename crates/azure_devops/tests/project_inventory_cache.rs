@@ -142,7 +142,8 @@ async fn seed_page(
 async fn assembled_projects_share_records_and_track_page_invalidation() -> Result<()> {
     CancellationToken::new()
         .with_async_scope(|scope| async move {
-            let cache = WorkCache::temporary()?;
+            let temporary = tempfile::tempdir()?;
+            let cache = WorkCache::new(temporary.path())?;
             let auth = Arc::new(TestAuthenticationProvider {
                 allow_anonymous: false.into(),
                 ..TestAuthenticationProvider::offline("synthetic-test-session")?
@@ -180,6 +181,24 @@ async fn assembled_projects_share_records_and_track_page_invalidation() -> Resul
             )
             .await?;
 
+            let unrelated_request = self::request(
+                "other-offline-projects",
+                AzureDevOpsAuthSelection::PersonalAccessToken {
+                    account_id: "11111111-1111-1111-1111-111111111111".parse()?,
+                },
+            )?;
+            seed_page(
+                cache.root(),
+                &unrelated_request,
+                0,
+                None,
+                None,
+                vec![first.clone()],
+                &auth,
+                &scope,
+            )
+            .await?;
+
             // Both calls use the production request, including pagination and the
             // real REST artifact decoder. Authorization fails before any network use.
             let (initial, joined) = executor
@@ -209,46 +228,13 @@ async fn assembled_projects_share_records_and_track_page_invalidation() -> Resul
                 "assembled results are memory-only"
             );
 
-            let unrelated_request = self::request(
-                "other-offline-projects",
-                AzureDevOpsAuthSelection::PersonalAccessToken {
-                    account_id: "11111111-1111-1111-1111-111111111111".parse()?,
-                },
-            )?;
-            seed_page(
-                cache.root(),
-                &unrelated_request,
-                0,
-                None,
-                None,
-                vec![Arc::clone(&initial[0])],
-                &auth,
-                &scope,
-            )
-            .await?;
             let unrelated = unrelated_request.clone().execute(&executor).await?;
             cache
                 .invalidate(&request.cache_key()?.join("1")?.scope, &scope)
                 .await?;
-            let replacement = project("Replacement", "33333333-3333-3333-3333-333333333333")?;
-            seed_page(
-                cache.root(),
-                &request,
-                1,
-                Some("next"),
-                None,
-                vec![replacement.clone()],
-                &auth,
-                &scope,
-            )
-            .await?;
-            let refreshed = request.clone().execute(&executor).await?;
-            assert!(!Arc::ptr_eq(&initial, &refreshed));
-            assert!(
-                Arc::ptr_eq(&initial[0], &refreshed[0]),
-                "unchanged page records remain shared"
-            );
-            assert_eq!(refreshed[1], replacement);
+            // The missing child retires the warm aggregate. The offline provider
+            // rejects the replacement fetch before any network request can start.
+            assert!(request.clone().execute(&executor).await.is_err());
             assert_eq!(
                 initial[1].name.as_ref(),
                 "Second",
@@ -259,19 +245,37 @@ async fn assembled_projects_share_records_and_track_page_invalidation() -> Resul
                 &unrelated_request.execute(&executor).await?
             ));
 
-            // A new owner rebuilds the aggregate from leaf artifacts, keeping the
-            // output representation identical while sharing within its own lifetime.
+            // Release every root owner before a separate fixture writer updates the
+            // leaf. Holding result snapshots does not retain cache ownership.
+            drop(aggregate_artifact);
+            drop(executor);
+            drop(cache);
+            let replacement = project("Replacement", "33333333-3333-3333-3333-333333333333")?;
+            seed_page(
+                temporary.path(),
+                &request,
+                1,
+                Some("next"),
+                None,
+                vec![replacement.clone()],
+                &auth,
+                &scope,
+            )
+            .await?;
+            // A new owner rebuilds the aggregate from the retained leaf artifacts.
             let restored_executor = CloudTerrastodonExecutor::new(
-                WorkCache::new(cache.root())?,
+                WorkCache::new(temporary.path())?,
                 auth.clone(),
                 scope.clone(),
             );
             let restored = request.clone().execute(&restored_executor).await?;
-            assert!(!Arc::ptr_eq(&refreshed, &restored));
-            assert_eq!(
-                facet_json::to_string(&restored)?,
-                facet_json::to_string(&refreshed)?
-            );
+            assert!(!Arc::ptr_eq(&initial, &restored));
+            assert_eq!(restored[0], initial[0]);
+            assert_eq!(restored[1], replacement);
+            assert!(Arc::ptr_eq(
+                &restored,
+                &request.clone().execute(&restored_executor).await?
+            ));
             assert_eq!(
                 facet_json::to_string(&restored)?,
                 facet_json::to_string(restored.as_ref())?
@@ -280,7 +284,7 @@ async fn assembled_projects_share_records_and_track_page_invalidation() -> Resul
             auth.allow_authenticated.store(false, Ordering::SeqCst);
             assert!(
                 request
-                    .execute(&executor)
+                    .execute(&restored_executor)
                     .await
                     .unwrap_err()
                     .to_string()
@@ -288,8 +292,8 @@ async fn assembled_projects_share_records_and_track_page_invalidation() -> Resul
             );
             assert_eq!(
                 auth.authorizations.load(Ordering::SeqCst),
-                0,
-                "disk and memory hits must not request a credential"
+                1,
+                "only the invalidated page requests a credential; cache hits do not"
             );
             Ok(())
         })
@@ -328,6 +332,20 @@ async fn selected_bearer_tenants_and_pat_have_independent_aggregate_variants() -
                 }),
             ];
             let project = project("Synthetic", "33333333-3333-3333-3333-333333333333")?;
+            // Independent writers finish before this executor first acquires the root.
+            for selection in selections {
+                seed_page(
+                    cache.root(),
+                    &request("offline-projects", selection)?,
+                    0,
+                    None,
+                    None,
+                    vec![project.clone()],
+                    &auth,
+                    &scope,
+                )
+                .await?;
+            }
             let mut values = Vec::new();
             for selection in selections {
                 let request = request("offline-projects", selection)?;
@@ -338,17 +356,6 @@ async fn selected_bearer_tenants_and_pat_have_independent_aggregate_variants() -
                 };
                 let replayed =
                     facet_json::from_str::<AzureDevOpsProjectsListRequest<'static>>(&serialized)?;
-                seed_page(
-                    cache.root(),
-                    &request,
-                    0,
-                    None,
-                    None,
-                    vec![project.clone()],
-                    &auth,
-                    &scope,
-                )
-                .await?;
                 let result = borrowed.execute(&executor).await?;
                 assert!(values.iter().all(|other| !Arc::ptr_eq(other, &result)));
                 assert!(Arc::ptr_eq(&result, &replayed.execute(&executor).await?));
