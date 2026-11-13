@@ -1,3 +1,7 @@
+/// Encode a UTF-8 string as one URI component, preserving RFC 3986 unreserved bytes.
+///
+/// Delimiters such as `/`, `%`, and `+` are escaped rather than interpreted as
+/// part of a path, a previous escape, or form data.
 pub trait PercentEncodeExt {
     fn percent_encode(&self) -> String;
 }
@@ -36,5 +40,13 @@ mod tests {
     #[test]
     fn preserves_unreserved_characters() {
         assert_eq!("abc-._~123".percent_encode(), "abc-._~123");
+    }
+
+    #[test]
+    fn encodes_utf8_and_delimiters_without_treating_existing_escapes_as_encoded() {
+        assert_eq!(
+            "é/雪+ %2F".percent_encode(),
+            "%C3%A9%2F%E9%9B%AA%2B%20%252F"
+        );
     }
 }

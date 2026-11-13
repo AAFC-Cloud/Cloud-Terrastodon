@@ -2,17 +2,31 @@ use crate::AzureAuditPasswordCredentialStatus;
 use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
+use cloud_terrastodon_azure::AzureStorageAccount;
+use cloud_terrastodon_azure::AzureStorageAccountBlobContainer;
 use cloud_terrastodon_azure::EntraPrincipalId;
 use cloud_terrastodon_azure::EntraServicePrincipalObjectId;
 use cloud_terrastodon_azure::EntraUserId;
 use cloud_terrastodon_azure::RoleAssignmentId;
+use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::ScopeImpl;
+use cloud_terrastodon_command::CancellationScope;
 use facet::Facet;
+use std::io::Write;
+use std::sync::Arc;
 
 /// A policy finding with the identities and observations needed to investigate it.
 #[derive(Debug, Arbitrary, Facet)]
 #[repr(u8)]
 pub enum AzureAuditFinding {
+    StorageAccountUnusedAnonymousAccess {
+        account: Arc<AzureStorageAccount>,
+        containers: Vec<Arc<AzureStorageAccountBlobContainer>>,
+    },
+    StorageAccountAnonymousAccessInconclusive {
+        account: Arc<AzureStorageAccount>,
+        reason: String,
+    },
     UnknownRoleAssignmentPrincipal {
         principal_id: EntraPrincipalId,
         role_definition_name: String,
@@ -41,8 +55,69 @@ pub enum AzureAuditFinding {
 }
 
 impl AzureAuditFinding {
+    pub fn write_text(
+        &self,
+        writer: &mut dyn Write,
+        cancellation: &CancellationScope,
+    ) -> eyre::Result<()> {
+        let account = match self {
+            Self::StorageAccountUnusedAnonymousAccess {
+                account,
+                containers,
+            } => {
+                writeln!(writer, "{}: {}", self.message(), account.id.expanded_form())?;
+                writeln!(
+                    writer,
+                    "  {} live containers; all private",
+                    containers.len()
+                )?;
+                for container in containers {
+                    cancellation.bail_if_cancelled()?;
+                    writeln!(
+                        writer,
+                        "    {}: {:?}",
+                        container.name, container.properties.public_access
+                    )?;
+                }
+                account
+            }
+            Self::StorageAccountAnonymousAccessInconclusive { account, reason } => {
+                writeln!(writer, "{}: {}", self.message(), account.id.expanded_form())?;
+                writeln!(writer, "  {reason}")?;
+                account
+            }
+            _ => {
+                writeln!(writer, "{}: {self:?}", self.message())?;
+                return Ok(());
+            }
+        };
+        writeln!(
+            writer,
+            "  allowBlobPublicAccess: {:?}",
+            account.properties.allow_blob_public_access
+        )?;
+        writeln!(
+            writer,
+            "  publicNetworkAccess: {:?}",
+            account.properties.public_network_access
+        )?;
+        writeln!(
+            writer,
+            "  networkAcls: {:?}",
+            account.properties.network_acls
+        )?;
+        writeln!(writer, "  tags: {:?}", account.tags)?;
+        Ok(())
+    }
+
     pub fn message(&self) -> &'static str {
         match self {
+            Self::StorageAccountUnusedAnonymousAccess { .. } => {
+                "Storage account allows anonymous blob access but has no containers configured for it"
+            }
+            Self::StorageAccountAnonymousAccessInconclusive { .. } => {
+                "Storage account anonymous-access audit is inconclusive"
+            }
             Self::UnknownRoleAssignmentPrincipal { .. } => {
                 "Found role assignment with unknown principal"
             }

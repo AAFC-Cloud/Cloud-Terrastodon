@@ -1,5 +1,13 @@
 # Unreleased
 
+- Add `ct az storage account list` and `show`, reusing the shared storage-account inventory for listing and a direct ARM request for individual accounts. Both support `--no-cache` and shared output formats.
+
+- Add `ct az storage blob container list` and `show` with typed storage-account/container selection, shared output formats, and `--no-cache`. Container listing reuses the audit inventory; showing a container fetches its properties directly through ARM.
+
+- Add `ct az storage account audit` and include its findings in `ct az audit`. Report storage accounts that enable anonymous blob access while every container is private (including empty accounts), retaining network settings and tags. Surface missing settings and failed inventories as inconclusive, and support `--clean` for refreshing account settings and container pages.
+
+- Replace opaque storage-account properties with the typed `AzureStorageAccountProperties` model and nested service records. Storage audits reuse the normal account inventory and cache instead of maintaining a separate access-settings projection.
+
 - Coordinate independent cache owners with a lazy exclusive filesystem lock retained by the shared `WorkCache` lifetime. Commands waiting for the same root remain cancellable and reuse valid disk results after ownership transfers; executor clones retain concurrent per-entry execution.
 
 - Recover interrupted cache owners by discarding reusable selections while retaining diagnostic artifacts. Publish metadata through same-directory temporary files, and retain recovery markers after failed invalidation or publication. These guarantees cover cooperating processes on local filesystems, not power-loss durability or older binaries that ignore locking.

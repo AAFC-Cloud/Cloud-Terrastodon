@@ -20,7 +20,7 @@ impl AzureAuditReport {
         let mut counts = BTreeMap::new();
         for finding in &self.findings {
             cancellation.bail_if_cancelled()?;
-            writeln!(writer, "{}: {finding:?}", finding.message())?;
+            finding.write_text(writer, cancellation)?;
             *counts.entry(finding.message()).or_insert(0_usize) += 1;
         }
         if self.findings.is_empty() {

@@ -16,6 +16,7 @@ pub mod public_ip;
 pub mod resource;
 pub mod resource_group;
 pub mod role;
+pub mod storage;
 pub mod subscription;
 pub mod tag;
 pub mod tenant;
@@ -32,6 +33,10 @@ mod browse_users;
 mod pim_activate;
 mod pim_kind;
 mod policy_compliance_row;
+#[cfg(test)]
+mod storage_audit_invalidation_tests;
+#[cfg(test)]
+mod storage_audit_policy_tests;
 
 pub use audit_azure::audit_azure;
 pub use azure_command_cli::AzureArgs;
@@ -65,3 +70,9 @@ pub use azure_resource_tag_audit_request::AzureResourceTagAuditRequest;
 
 mod azure_admin_correspondence_audit_request;
 pub use azure_admin_correspondence_audit_request::AzureAdminCorrespondenceAuditRequest;
+
+mod azure_storage_account_audit_request;
+pub use azure_storage_account_audit_request::AzureStorageAccountAuditRequest;
+
+mod azure_storage_account_audit_report;
+pub use azure_storage_account_audit_report::AzureStorageAccountAuditReport;

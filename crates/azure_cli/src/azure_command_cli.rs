@@ -12,6 +12,7 @@ use super::public_ip::AzurePublicIpArgs;
 use super::resource::AzureResourceArgs;
 use super::resource_group::AzureResourceGroupArgs;
 use super::role::AzureRoleArgs;
+use super::storage::AzureStorageArgs;
 use super::subscription::AzureSubscriptionArgs;
 use super::tag::AzureTagArgs;
 use super::tenant::AzureTenantArgs;
@@ -89,6 +90,8 @@ pub enum AzureCommand {
     /// Manage subscriptions across tracked tenants.
     #[facet(figue::alias = "sub")]
     Subscription(AzureSubscriptionArgs),
+    /// Inspect Azure Storage accounts and services.
+    Storage(AzureStorageArgs),
     /// Manage tracked tenants for later login flows.
     Tenant(AzureTenantArgs),
     /// Azure DevOps-specific commands.
@@ -121,6 +124,7 @@ impl AzureCommand {
             AzureCommand::Entra(args) => Box::pin(args.invoke(executor)).await,
             AzureCommand::Vm(args) => Box::pin(args.invoke(executor)).await,
             AzureCommand::Subscription(args) => Box::pin(args.invoke(executor)).await,
+            AzureCommand::Storage(args) => Box::pin(args.invoke(executor)).await,
         }
     }
 }

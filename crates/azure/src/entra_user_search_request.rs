@@ -1,8 +1,8 @@
 use crate::MicrosoftGraphHelper;
-use crate::PercentEncodeExt;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure_types::EntraUser;
+use cloud_terrastodon_azure_types::PercentEncodeExt;
 use cloud_terrastodon_cache::CacheKey;
 use cloud_terrastodon_cache::CacheScope;
 use cloud_terrastodon_cache::HasCacheKey;

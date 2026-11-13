@@ -659,3 +659,236 @@ mod azure_resource_tags_patch_operation;
 pub use azure_resource_tags_patch_operation::*;
 mod azure_resource_tags_patch;
 pub use azure_resource_tags_patch::*;
+mod azure_storage_account_public_network_access;
+pub use azure_storage_account_public_network_access::*;
+mod azure_storage_account_network_default_action;
+pub use azure_storage_account_network_default_action::*;
+mod azure_storage_account_network_rule_action;
+pub use azure_storage_account_network_rule_action::*;
+mod azure_storage_account_virtual_network_rule_state;
+pub use azure_storage_account_virtual_network_rule_state::*;
+mod azure_storage_account_network_bypass_service;
+pub use azure_storage_account_network_bypass_service::*;
+mod azure_storage_account_network_bypass;
+pub use azure_storage_account_network_bypass::*;
+mod azure_storage_account_ip_range;
+pub use azure_storage_account_ip_range::*;
+mod azure_storage_account_ip_rule;
+pub use azure_storage_account_ip_rule::*;
+mod azure_storage_account_virtual_network_rule;
+pub use azure_storage_account_virtual_network_rule::*;
+mod azure_storage_account_resource_access_rule;
+pub use azure_storage_account_resource_access_rule::*;
+mod azure_storage_account_network_rule_set;
+pub use azure_storage_account_network_rule_set::*;
+
+mod azure_storage_account_access_tier;
+pub use azure_storage_account_access_tier::*;
+
+mod azure_storage_account_active_directory_account_type;
+pub use azure_storage_account_active_directory_account_type::*;
+
+mod azure_storage_account_active_directory_properties;
+pub use azure_storage_account_active_directory_properties::*;
+
+mod azure_storage_account_allowed_copy_scope;
+pub use azure_storage_account_allowed_copy_scope::*;
+
+mod azure_storage_account_azure_files_identity_based_authentication;
+pub use azure_storage_account_azure_files_identity_based_authentication::*;
+
+mod azure_storage_account_blob_restore_id;
+pub use azure_storage_account_blob_restore_id::*;
+
+mod azure_storage_account_blob_restore_parameters;
+pub use azure_storage_account_blob_restore_parameters::*;
+
+mod azure_storage_account_blob_restore_progress_status;
+pub use azure_storage_account_blob_restore_progress_status::*;
+
+mod azure_storage_account_blob_restore_range;
+pub use azure_storage_account_blob_restore_range::*;
+
+mod azure_storage_account_blob_restore_range_boundary;
+pub use azure_storage_account_blob_restore_range_boundary::*;
+
+mod azure_storage_account_blob_restore_status;
+pub use azure_storage_account_blob_restore_status::*;
+
+mod azure_storage_account_custom_domain;
+pub use azure_storage_account_custom_domain::*;
+
+mod azure_storage_account_default_share_permission;
+pub use azure_storage_account_default_share_permission::*;
+
+mod azure_storage_account_directory_service;
+pub use azure_storage_account_directory_service::*;
+
+mod azure_storage_account_dns_endpoint_type;
+pub use azure_storage_account_dns_endpoint_type::*;
+
+mod azure_storage_account_dual_stack_endpoint_preference;
+pub use azure_storage_account_dual_stack_endpoint_preference::*;
+
+mod azure_storage_account_encryption;
+pub use azure_storage_account_encryption::*;
+
+mod azure_storage_account_encryption_identity;
+pub use azure_storage_account_encryption_identity::*;
+
+mod azure_storage_account_encryption_key_source;
+pub use azure_storage_account_encryption_key_source::*;
+
+mod azure_storage_account_encryption_key_type;
+pub use azure_storage_account_encryption_key_type::*;
+
+mod azure_storage_account_encryption_key_vault_properties;
+pub use azure_storage_account_encryption_key_vault_properties::*;
+
+mod azure_storage_account_encryption_service;
+pub use azure_storage_account_encryption_service::*;
+
+mod azure_storage_account_encryption_services;
+pub use azure_storage_account_encryption_services::*;
+
+mod azure_storage_account_endpoints;
+pub use azure_storage_account_endpoints::*;
+
+mod azure_storage_account_geo_priority_replication_status;
+pub use azure_storage_account_geo_priority_replication_status::*;
+
+mod azure_storage_account_geo_replication_stats;
+pub use azure_storage_account_geo_replication_stats::*;
+
+mod azure_storage_account_geo_replication_status;
+pub use azure_storage_account_geo_replication_status::*;
+
+mod azure_storage_account_immutability_policy;
+pub use azure_storage_account_immutability_policy::*;
+
+mod azure_storage_account_immutability_policy_state;
+pub use azure_storage_account_immutability_policy_state::*;
+
+mod azure_storage_account_immutability_retention_days;
+pub use azure_storage_account_immutability_retention_days::*;
+
+mod azure_storage_account_immutable_storage_with_versioning;
+pub use azure_storage_account_immutable_storage_with_versioning::*;
+
+mod azure_storage_account_internet_endpoints;
+pub use azure_storage_account_internet_endpoints::*;
+
+mod azure_storage_account_ipv6_endpoints;
+pub use azure_storage_account_ipv6_endpoints::*;
+
+mod azure_storage_account_key_creation_time;
+pub use azure_storage_account_key_creation_time::*;
+
+mod azure_storage_account_key_policy;
+pub use azure_storage_account_key_policy::*;
+
+mod azure_storage_account_large_file_shares_state;
+pub use azure_storage_account_large_file_shares_state::*;
+
+mod azure_storage_account_microsoft_endpoints;
+pub use azure_storage_account_microsoft_endpoints::*;
+
+mod azure_storage_account_minimum_tls_version;
+pub use azure_storage_account_minimum_tls_version::*;
+
+mod azure_storage_account_post_failover_redundancy;
+pub use azure_storage_account_post_failover_redundancy::*;
+
+mod azure_storage_account_post_planned_failover_redundancy;
+pub use azure_storage_account_post_planned_failover_redundancy::*;
+
+mod azure_storage_account_private_endpoint_connection;
+pub use azure_storage_account_private_endpoint_connection::*;
+
+mod azure_storage_account_private_endpoint_connection_properties;
+pub use azure_storage_account_private_endpoint_connection_properties::*;
+
+mod azure_storage_account_private_endpoint_connection_provisioning_state;
+pub use azure_storage_account_private_endpoint_connection_provisioning_state::*;
+
+mod azure_storage_account_private_endpoint_reference;
+pub use azure_storage_account_private_endpoint_reference::*;
+
+mod azure_storage_account_private_endpoint_service_connection_status;
+pub use azure_storage_account_private_endpoint_service_connection_status::*;
+
+mod azure_storage_account_private_link_service_connection_state;
+pub use azure_storage_account_private_link_service_connection_state::*;
+
+mod azure_storage_account_properties;
+pub use azure_storage_account_properties::*;
+
+mod azure_storage_account_provisioning_state;
+pub use azure_storage_account_provisioning_state::*;
+
+mod azure_storage_account_routing_choice;
+pub use azure_storage_account_routing_choice::*;
+
+mod azure_storage_account_routing_preference;
+pub use azure_storage_account_routing_preference::*;
+
+mod azure_storage_account_sas_expiration_action;
+pub use azure_storage_account_sas_expiration_action::*;
+
+mod azure_storage_account_sas_policy;
+pub use azure_storage_account_sas_policy::*;
+
+mod azure_storage_account_service_endpoint;
+pub use azure_storage_account_service_endpoint::*;
+
+mod azure_storage_account_sku_conversion_state;
+pub use azure_storage_account_sku_conversion_state::*;
+
+mod azure_storage_account_sku_conversion_status;
+pub use azure_storage_account_sku_conversion_status::*;
+
+mod azure_storage_account_sku_name;
+pub use azure_storage_account_sku_name::*;
+
+mod azure_storage_account_smb_oauth_settings;
+pub use azure_storage_account_smb_oauth_settings::*;
+
+mod azure_storage_account_status;
+pub use azure_storage_account_status::*;
+
+mod azure_storage_account_sas_expiration_period;
+pub use azure_storage_account_sas_expiration_period::*;
+
+mod azure_key_vault_key_name;
+pub use azure_key_vault_key_name::*;
+
+mod azure_key_vault_endpoint;
+pub use azure_key_vault_endpoint::*;
+
+mod azure_key_vault_key_version_url;
+pub use azure_key_vault_key_version_url::*;
+mod percent_encode_ext;
+pub use percent_encode_ext::*;
+mod percent_decode_ext;
+pub use percent_decode_ext::*;
+
+mod azure_storage_account_identity;
+pub use azure_storage_account_identity::*;
+
+mod azure_storage_account_identity_type;
+pub use azure_storage_account_identity_type::*;
+
+mod azure_storage_account_user_assigned_identity;
+pub use azure_storage_account_user_assigned_identity::*;
+
+mod azure_storage_account_extended_location;
+pub use azure_storage_account_extended_location::*;
+
+mod azure_storage_account_extended_location_type;
+pub use azure_storage_account_extended_location_type::*;
+
+mod azure_storage_account_placement;
+pub use azure_storage_account_placement::*;
+
+mod azure_storage_account_zone_placement_policy;
+pub use azure_storage_account_zone_placement_policy::*;

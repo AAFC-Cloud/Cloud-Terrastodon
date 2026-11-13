@@ -13,6 +13,11 @@ use indoc::indoc;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+/// Inventory storage accounts with their typed properties and tags through
+/// [Azure Resource Graph](https://learn.microsoft.com/en-us/azure/governance/resource-graph/concepts/query-language).
+///
+/// The same account inventory serves browsing and storage audits. Property fields
+/// follow the [Storage RP 2025-06-01 schema](https://learn.microsoft.com/en-us/rest/api/storagerp/storage-accounts/get-properties?view=rest-storagerp-2025-06-01#storageaccount).
 #[must_use = "This is a future request, you must .execute it"]
 #[derive(Arbitrary, Debug, Clone, Facet)]
 #[facet(traits(Clone))]

@@ -1,8 +1,14 @@
-use crate::ArbitraryJson;
+use crate::AzureResourceSystemData;
+use crate::AzureStorageAccountExtendedLocation;
 use crate::AzureStorageAccountId;
+use crate::AzureStorageAccountIdentity;
 use crate::AzureStorageAccountKind;
 use crate::AzureStorageAccountName;
+use crate::AzureStorageAccountPlacement;
+use crate::AzureStorageAccountProperties;
 use crate::AzureStorageAccountSku;
+use crate::ResourceType;
+use crate::StringMapDefaultNullProxy;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
 use arbitrary::Arbitrary;
@@ -14,15 +20,30 @@ use cloud_terrastodon_hcl_types::Sanitizable;
 use facet::Facet;
 use std::collections::HashMap;
 
+/// An ARM storage account, also used by the Resource Graph inventory projection.
+///
+/// [Storage Resource Provider 2025-06-01 account schema](https://learn.microsoft.com/en-us/rest/api/storagerp/storage-accounts/get-properties?view=rest-storagerp-2025-06-01#storageaccount).
+/// Resource Graph selects the resource ID, name, kind, location, SKU, properties,
+/// and tags. Fields not selected by that projection remain absent; the direct
+/// ARM get-properties response can report them.
 #[derive(Debug, PartialEq, Eq, Arbitrary, Facet)]
+#[facet(rename_all = "camelCase")]
+#[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct AzureStorageAccount {
     pub id: AzureStorageAccountId,
     pub name: AzureStorageAccountName,
+    #[facet(rename = "type")]
+    pub resource_type: Option<ResourceType>,
     pub kind: AzureStorageAccountKind,
     pub location: String,
+    pub extended_location: Option<AzureStorageAccountExtendedLocation>,
+    pub identity: Option<AzureStorageAccountIdentity>,
+    pub placement: Option<AzureStorageAccountPlacement>,
+    pub zones: Option<Vec<String>>,
     pub sku: AzureStorageAccountSku,
-    pub properties: ArbitraryJson,
-    #[facet(default)]
+    pub properties: AzureStorageAccountProperties,
+    pub system_data: Option<AzureResourceSystemData>,
+    #[facet(default, proxy = StringMapDefaultNullProxy)]
     pub tags: HashMap<String, String>,
 }
 

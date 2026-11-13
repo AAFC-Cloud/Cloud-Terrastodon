@@ -1,5 +1,6 @@
 use crate::AzureStorageAccountBlobContainer;
 use facet::Facet;
+use std::sync::Arc;
 use url::Url;
 
 /// One ARM inventory page of the account's blob containers.
@@ -11,7 +12,7 @@ use url::Url;
 #[facet(rename_all = "camelCase")]
 #[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 pub struct AzureStorageAccountBlobContainerListResponse {
-    pub value: Vec<AzureStorageAccountBlobContainer>,
+    pub value: Vec<Arc<AzureStorageAccountBlobContainer>>,
     /// Present only when another page exists; the ListDeletedContainers example omits it.
     pub next_link: Option<Url>,
 }

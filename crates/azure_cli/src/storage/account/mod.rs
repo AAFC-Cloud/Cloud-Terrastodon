@@ -1,0 +1,10 @@
+mod azure_storage_account_audit_cli;
+mod azure_storage_account_cli;
+mod azure_storage_account_list_cli;
+mod azure_storage_account_show_cli;
+
+pub use azure_storage_account_audit_cli::AzureStorageAccountAuditArgs;
+pub use azure_storage_account_cli::AzureStorageAccountArgs;
+pub use azure_storage_account_cli::AzureStorageAccountCommand;
+pub use azure_storage_account_list_cli::AzureStorageAccountListArgs;
+pub use azure_storage_account_show_cli::AzureStorageAccountShowArgs;

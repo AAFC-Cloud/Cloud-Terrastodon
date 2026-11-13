@@ -6,9 +6,10 @@ use crate::ResourceType;
 use arbitrary::Arbitrary;
 use facet::Facet;
 
-/// A container returned by the ARM storage inventory.
+/// A blob container returned by Azure Resource Manager.
 ///
-/// [Storage Resource Provider 2025-06-01 schema](https://learn.microsoft.com/en-us/rest/api/storagerp/blob-containers/list?view=rest-storagerp-2025-06-01#listcontaineritem).
+/// Shared by the [2025-06-01 list inventory](https://learn.microsoft.com/en-us/rest/api/storagerp/blob-containers/list?view=rest-storagerp-2025-06-01#listcontaineritem)
+/// and [get-container operation](https://learn.microsoft.com/en-us/rest/api/storagerp/blob-containers/get?view=rest-storagerp-2025-06-01#blobcontainer).
 /// The inventory identity and properties are required; ARM provenance is separate.
 #[derive(Debug, Clone, PartialEq, Eq, Arbitrary, Facet)]
 #[facet(rename_all = "camelCase")]
