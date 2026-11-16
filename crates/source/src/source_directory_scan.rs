@@ -12,7 +12,7 @@ use std::fs::Metadata;
 use std::io::ErrorKind;
 use std::path::Path;
 use std::path::PathBuf;
-use teamy_cancellation::CancellationReportExt;
+use teamy_cancellation::CancellationErrorExt;
 use teamy_cancellation::CancellationScope;
 
 /// The bounded unit of blocking filesystem work and its aggregated findings.

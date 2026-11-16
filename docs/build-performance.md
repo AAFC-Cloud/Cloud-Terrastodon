@@ -6,19 +6,21 @@ default features, and the existing dependency lockfile. No production requests,
 credentials, or response data were used. No compiler-profile or dependency-version
 changes are needed for the picker refactor.
 
-The workspace now uses the sibling Facet checkout directly through the root
-manifest's development path overrides. Ordinary Cargo commands consume new fork
-edits without publishing. See [local Facet development](UPDATING_FACET.md#local-facet-development-2026-11-16)
-for setup and the eventual return to registry dependencies. The measurements
-below describe the earlier controlled comparison, whose staged package copy
-is retained only as local evidence.
+The workspace manifest consumes the coordinated published
+Facet/cancellation releases without development overrides. See
+[the release record](UPDATING_FACET.md#coordinated-performance-release-2026-11-16)
+for package versions and qualification status, and
+[local Facet development](UPDATING_FACET.md#local-facet-development) to enable
+local sources for another iteration. The measurements below describe controlled
+prepublication comparisons; their staged package copies remain local evidence.
 
 ## Controlled results
 
 The implementation is in the Facet fork checkout, in
 `facet-macros-impl/src/process_enum.rs`, with its regression in
-`facet/tests/enum_metadata.rs`. Both changes are uncommitted. Cargo's registry
-source cache was not edited.
+`facet/tests/enum_metadata.rs`. Both are included in the Facet rc.9 release at
+[`9b8f11e12a0a4a0c377b3d394c6e4187248e416c`](https://github.com/TeamDman/facet/commit/9b8f11e12a0a4a0c377b3d394c6e4187248e416c).
+Cargo's registry source cache was not edited.
 
 For measurement, the published macro implementation package was copied into
 `target/perf-investigation/facet-macro-patch`, then its implementation file was
@@ -89,10 +91,10 @@ be attributed entirely to the resource-type arrays and names.
 
 The source change and regression test live in the Facet fork's
 `facet-macros-impl/src/process_enum.rs` and `facet/tests/enum_metadata.rs`.
-They are not published. Cloud Terrastodon's development path overrides now read
-the actual fork checkout, including this fix. Publication and verification of
-the resulting registry graph remain separate release work; the development
-overrides are temporary.
+They are published with the rc.9 derive. Cloud Terrastodon's coordinated
+dependency update removes the temporary development overrides. These physical
+measurements describe the captured comparison executables, not a newly measured
+registry-release executable.
 
 ## Picker code sharing
 
@@ -114,6 +116,140 @@ Holding the Facet patch constant, the picker change removes another 11,011,584
 EXE bytes (10.50 MiB). This is a linked binary measurement rather than an
 estimate from IR. The `.text` section falls from 96.03 MiB to 88.51 MiB in that
 comparison, with additional reductions in read-only data and other sections.
+
+## Cancellation lifecycle sharing (2026-11-16)
+
+The next experiment extracts the common admission, cancellation checks, wakeup
+registration, and completion work from `CancellableScopeFuture<C, F>` into a
+private `CancellableScopeLifecycle`. The typed wrapper still invokes the callback,
+polls its concrete future, and returns its original result/error type. It retains
+the same allocations, borrowed/non-Send support, and user-destructor ordering.
+Substantial lifecycle methods stay out of line so consumers share their code.
+
+The comparison used the actual `teamy-cancellation` checkout on its then-current
+0.8.1 line, with the same change backported into the 0.7.2 maintenance worktree.
+CT temporarily patched that maintenance source to preserve its API during the
+experiment. The coordinated release publishes the fix as `0.8.2` for both CT
+and the template, migrating CT to the `0.8` error-helper API without a backport
+publication or consumer source overrides. The captured `0.7.2` comparison
+remains historical evidence rather than a measurement of that API migration. See the
+[release record](UPDATING_FACET.md#coordinated-performance-release-2026-11-16)
+for publication and final registry-verification status.
+
+The control and refactored builds hold the local dependency paths, all 851 package
+identities, resolved feature sets, and normal release settings constant. Only
+the cancellation implementation changes. One-time dependency rebuilds are
+excluded from the warm UI-edit timings. Each timed run changes only the GUI
+source timestamp and restores it afterward; no other build/test jobs run during
+those measurements on the agent's behalf. The user subsequently reported
+additional builds around the second refactored measurement; that observation is
+retained below but excluded from conclusions about build speed.
+
+| Implementation | UI edit, run 1 | UI edit, run 2 |
+| --- | ---: | ---: |
+| Current control | 98.32 s | 95.29 s |
+| Shared cancellation lifecycle | 91.10 s | 126.29 s (possible concurrent builds) |
+
+A repeat after the other builds finished took 99.44 s. These observations do
+**not** establish a reliable speed improvement from lifecycle sharing alone.
+Entrypoint compilation remains dominant. Runtime throughput was not benchmarked.
+
+The control EXE is 169,326,080 bytes (161.48 MiB); the refactored EXE is
+165,409,280 bytes (157.75 MiB), a reduction of 3,916,800 bytes (3.74 MiB).
+The `.text` section shrinks by 2,954,752 bytes and `.rdata` by 769,536 bytes.
+ResourceType still has one canonical metadata table.
+
+PE unwind ranges and matching EXE/PDB public symbols confirm six retained
+lifecycle methods with one implementation each. The 1,231 distinct retained
+generic poll functions remain typed; their combined ranges shrink from
+5,616,938 to 5,513,208 bytes. These bodies also include inner-future polling,
+while other wrappers inline into their callers. This partial symbol attribution
+does not explain the entire executable delta or measure pure cancellation cost.
+
+Prepublication validation passed on the main library line: 33 async-only tests, 60 with
+deferral/inheritance, and 90 with all features. Strict all-target/all-feature
+Clippy passed on Rust 1.96.0. The maintenance line passed 84 all-feature tests;
+CT passed all 28 scoped-join, concurrent-map, and execution-contract tests with
+the override. These tests exercise cancellation and destructor ordering with
+synthetic values. An initial main all-feature run hit an existing synchronous
+tracing test flake; both its isolated rerun and the complete retry passed.
+
+Raw evidence and analysis helpers are under
+`target/perf-investigation/cancellation-sharing`, including captured EXE/PDB pairs,
+source snapshots, metadata, timings, and matched physical function ranges.
+
+## Incremental release compilation for the entrypoint
+
+The root manifest now enables incremental compilation only for
+`cloud_terrastodon_entrypoint`, with 16 codegen units. Optimization remains at
+release level 3, and dependencies retain their release settings. This lets the
+existing `update.ps1` command reuse entrypoint compilation after small edits.
+
+Lowering only entrypoint optimization to level 1 was tried first: its setup
+build took 86.36 s and produced a slightly larger 165,863,936-byte EXE. That
+setting was not retained. Incremental compilation at level 3 proved more useful:
+
+These observations use Windows/MSVC and Rust 1.99.1 with the same locked
+dependency graph. The rows distinguish different edit workloads and cache states;
+they are observations of this checkout, rather than a general build-time guarantee.
+
+| Incremental entrypoint measurement | Time |
+| --- | ---: |
+| First build to populate the cache | 88.07 s |
+| Warm timestamp-only GUI edit | 33.59 s |
+| Actual GUI function-body edit | 12.35 s |
+| Restore and rebuild the original function body | 12.92 s |
+
+The body-edit experiment temporarily changed the Logs button's literal from
+`Logs (on)` to `Logs (ON)`. The changed label appeared in the captured EXE;
+the original label returned after restoration. Original source bytes and
+timestamp are restored, and the restored body was rebuilt. No GUI was launched.
+This tests a small implementation edit, not changes to public types or a
+guarantee for every edit. The two body-edit observations follow earlier cache
+warmup; the 33.59-second observation shows that cache state still matters.
+
+The resulting EXE is 162,608,128 bytes (155.08 MiB), versus this phase's
+169,326,080-byte control (161.48 MiB). The combined lifecycle/profile difference
+is 6.41 MiB; do not attribute all of it to the lifecycle extraction. Binary
+layout and code sharing can change with incremental partitioning.
+
+The entrypoint cache occupies about 1.43 GiB in this checkout. Clean builds,
+`cargo clean`, profile/toolchain changes, and broad dependency changes can lose
+the reuse benefit; the initial build remains expensive. The override applies to
+this workspace's entrypoint build rather than downstream SDK consumers.
+
+An isolated `cargo install --path . --locked --offline --root <evidence-dir>`
+with the normal manifest settings succeeded in 5.28 s after warmup. Top-level
+help matches the control apart from its embedded build timestamp. The globally
+installed executable was not replaced.
+
+To compare a nonincremental release while preserving the source graph:
+
+```powershell
+cargo build --release --locked --offline --bin cloud_terrastodon --timings --config 'profile.release.package.cloud_terrastodon_entrypoint.incremental=false'
+```
+
+## Published dependency verification (2026-11-16)
+
+The fresh registry-only release build succeeds on Rust 1.99.1 with the normal
+release flags and entrypoint incremental settings. Its EXE is 162,647,552 bytes
+(155.11 MiB). PE inspection still finds exactly one complete ResourceType
+variant/name set, occupying 941,517 bytes, with all 5,468 ordinal names checked
+against the source. The size benefit survives publication and the migration to
+Cancellation 0.8.2 without any Cargo patches.
+
+This is a verification point after changing dependency versions and the
+cancellation error-helper API, rather than another controlled timing comparison.
+The source switch rebuilds dependencies; no new warm-edit timing is claimed.
+The freshly built top-level help, storage list/audit help and version checks
+pass. Top-level help matches the control after normalizing its build timestamp.
+No installed executable was replaced.
+
+The [release record](UPDATING_FACET.md#coordinated-performance-release-2026-11-16)
+documents the consumer tests, strict Clippy, registry identity checks, and the
+test-only Azure debug-symbol workaround required for the oversized debug archive.
+Captured EXE/PDB, PE measurements, logs, graph audits and publication receipts
+remain under `target/perf-investigation/coordinated-release` until Cargo cleanup.
 
 ## Resource-type lookup and PHF
 

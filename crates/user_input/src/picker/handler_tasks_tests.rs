@@ -9,14 +9,45 @@ use futures::FutureExt;
 use rustc_hash::FxHashSet;
 use std::cell::Cell;
 use std::future::pending;
+use std::io;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
+use teamy_cancellation::CancellationError;
 use teamy_cancellation::CancellationToken;
 use tokio::sync::Notify;
 use tokio::sync::mpsc;
+
+#[tokio::test]
+async fn a_handlers_nested_io_cancellation_does_not_fail_the_generation() {
+    CancellationToken::new()
+        .with_async_scope(async |scope| {
+            let cancelled = EventHandler::<()>::new(async |_, _, _| {
+                Err(eyre::Report::new(io::Error::other(CancellationError::new(
+                    "handler output was cancelled",
+                )))
+                .wrap_err("writing handler output"))
+            });
+            let (sender, _receiver) = mpsc::unbounded_channel();
+            let mut tasks = HandlerTasks::new(scope.clone());
+            tasks.spawn(&[cancelled], PickerEvent::InitialLoad, true, &sender);
+            tasks.next().await.unwrap()?;
+            assert_eq!(tasks.pending(), 0);
+            assert_eq!(tasks.startup(), 0);
+
+            let following = EventHandler::new(async |_, _, _| eyre::Ok(()));
+            tasks.spawn(&[following], PickerEvent::QueryCleared, false, &sender);
+            assert_eq!(tasks.pending(), 1);
+            tasks.next().await.unwrap()?;
+            assert!(tasks.is_empty());
+            assert!(!scope.is_cancelled());
+            eyre::Ok(())
+        })
+        .await
+        .unwrap();
+}
 
 #[tokio::test]
 async fn reload_keeps_required_old_work_and_isolates_its_candidates_errors_and_counts() {

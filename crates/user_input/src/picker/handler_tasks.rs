@@ -10,7 +10,7 @@ use futures::StreamExt;
 use futures::stream::FuturesUnordered;
 use std::panic::AssertUnwindSafe;
 use std::sync::Arc;
-use teamy_cancellation::CancellationError;
+use teamy_cancellation::CancellationErrorExt;
 use teamy_cancellation::CancellationScope;
 use tokio::sync::mpsc;
 use tracing::Instrument;
@@ -140,7 +140,7 @@ impl<'a> HandlerTasks<'a> {
             }
         }
         if let Err(error) = completion.result {
-            if error.downcast_ref::<CancellationError>().is_some() {
+            if error.is_cancellation() {
                 return Some(Ok(()));
             }
             if completion.generation != self.generation {

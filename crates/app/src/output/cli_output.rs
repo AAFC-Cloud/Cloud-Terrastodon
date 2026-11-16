@@ -9,7 +9,6 @@ use std::io;
 use std::io::IsTerminal;
 use std::io::Write;
 use teamy_cancellation::CancellableWriter;
-use teamy_cancellation::CancellationReportExt;
 use teamy_cancellation::CancellationScope;
 
 /// A command's output and optional result to return after emission.
@@ -128,13 +127,11 @@ impl CliOutput {
         let format = OutputFormat::resolve(requested_format, stdout_is_terminal);
         let mut bytes = Vec::new();
         cancellation.bail_if_cancelled()?;
-        output
-            .write_to(
-                format,
-                &mut CancellableWriter::new(&mut bytes, cancellation),
-                cancellation,
-            )
-            .map_err(CancellationReportExt::normalize_cancellation)?;
+        output.write_to(
+            format,
+            &mut CancellableWriter::new(&mut bytes, cancellation),
+            cancellation,
+        )?;
         cancellation.bail_if_cancelled()?;
         String::from_utf8(bytes)
             .map(Some)
@@ -163,12 +160,8 @@ impl CliOutput {
                 let format = OutputFormat::resolve(requested_format, stdout_is_terminal);
                 let mut writer = OutputWriter::new(&mut writer, cancellation);
                 cancellation.bail_if_cancelled()?;
-                output
-                    .write_to(format, &mut writer, cancellation)
-                    .map_err(CancellationReportExt::normalize_cancellation)?;
-                writer
-                    .finish()
-                    .map_err(CancellationReportExt::normalize_cancellation)?;
+                output.write_to(format, &mut writer, cancellation)?;
+                writer.finish()?;
             }
             self.result
         };

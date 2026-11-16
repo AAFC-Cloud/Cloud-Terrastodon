@@ -1,5 +1,9 @@
 # Unreleased
 
+- Use the coordinated registry Facet rc.9, JSON rc.11, Figue rc.7 and Cancellation 0.8.2 releases without Cargo patches. Adopt the unified cancellation error helper while retaining original error contexts, keep one Core/reflection identity, and enable incremental release compilation for the entrypoint at optimization level 3.
+
+- Share cancellation scope lifecycle code across typed futures to reduce repeated code generation, preserving deferrals, borrowed futures, and result/destructor ordering.
+
 - Share the picker's terminal lifecycle, event loop, matching, and rendering across candidate types. Keep typed candidate ownership and results behind a private adapter, preserving borrowed values, reload handling, partial errors, and required-work draining without additional candidate clones or `'static` bounds.
 
 - Preserve numeric AADSTS codes and validated request identifiers in browser token errors without exposing credentials or raw response descriptions. Give saved-session refresh failures explicit browser logout/login recovery instructions.

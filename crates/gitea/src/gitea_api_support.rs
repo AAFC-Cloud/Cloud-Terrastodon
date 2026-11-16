@@ -6,7 +6,7 @@ use cloud_terrastodon_auth_types::AuthenticationSelection;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountId;
 use cloud_terrastodon_cache::CacheKey;
 use cloud_terrastodon_cache::CacheScope;
-use cloud_terrastodon_command::CancellationReportExt;
+use cloud_terrastodon_command::CancellationErrorExt;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::CommandOutput;

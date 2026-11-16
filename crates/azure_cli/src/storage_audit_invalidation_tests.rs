@@ -17,7 +17,7 @@ use cloud_terrastodon_cache::WorkCache;
 use cloud_terrastodon_cache::WorkOutput;
 use cloud_terrastodon_cache::WorkReuse;
 use cloud_terrastodon_command::CancellationError;
-use cloud_terrastodon_command::CancellationReportExt;
+use cloud_terrastodon_command::CancellationErrorExt;
 use cloud_terrastodon_command::CancellationToken;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;

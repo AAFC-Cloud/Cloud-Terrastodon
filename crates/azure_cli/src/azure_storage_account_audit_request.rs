@@ -8,7 +8,7 @@ use cloud_terrastodon_azure::AzureStorageAccountBlobContainerListRequest;
 use cloud_terrastodon_azure::AzureStorageAccountBlobContainerPublicAccess;
 use cloud_terrastodon_azure::AzureStorageAccountKind;
 use cloud_terrastodon_azure::AzureStorageAccountListRequest;
-use cloud_terrastodon_command::CancellationReportExt;
+use cloud_terrastodon_command::CancellationErrorExt;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_execution::CacheInvalidatableRequest;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;

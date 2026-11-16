@@ -1,5 +1,5 @@
 use super::WorkHandle;
-use crate::CancellationReportExt;
+use crate::CancellationErrorExt;
 use eyre::Report;
 use eyre::Result;
 use std::collections::HashMap;

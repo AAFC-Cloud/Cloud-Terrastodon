@@ -42,7 +42,7 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
-use teamy_cancellation::CancellationReportExt;
+use teamy_cancellation::CancellationErrorExt;
 use tokio::task::spawn_blocking;
 use tokio::time::sleep;
 use tracing::Instrument;

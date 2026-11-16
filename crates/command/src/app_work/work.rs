@@ -1,7 +1,7 @@
 use super::AppWorkTracker;
 use super::AppboundWorkFinishedMessage;
 use super::StateMutator;
-use crate::CancellationReportExt;
+use crate::CancellationErrorExt;
 use cloud_terrastodon_relative_location::RelativeLocation;
 use eyre::eyre;
 use std::future::Future;

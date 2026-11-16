@@ -334,10 +334,10 @@ buffered output after an error; a failure can retain an emitted prefix. Pass
 chosen explicitly for that writer too. Custom text callbacks stream through the same
 cancellation-aware writer; they need explicit scope checkpoints for long
 computation that does not emit output.
-Convert I/O failures into Eyre reports and use `CancellationReportExt` for
-cancellation recognition. At error boundaries, `normalize_cancellation()` exposes
-typed cancellation to native Eyre downcasts while preserving the original error
-chain; `CliOutput` already performs this normalization for its renderers.
+Convert I/O failures into Eyre reports and use `CancellationErrorExt` for
+cancellation recognition through typed contexts, error sources, and I/O payloads.
+`CliOutput` preserves the original report; use `is_cancellation()` or
+`as_cancellation()` rather than relying on native downcasts of nested errors.
 
 The standalone `audit` command partitions resource groups by name: exactly five
 occurrences of ASCII `a`, `e`, `i`, `o`, or `u`, ignoring case, belong in

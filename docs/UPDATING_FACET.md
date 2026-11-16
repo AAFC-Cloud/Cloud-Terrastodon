@@ -13,12 +13,92 @@ registry dependencies. Both graphs must keep interacting Facet traits and shapes
 on one compatible core package identity. Run checks with `--offline --locked`
 after resolving the graph being tested.
 
+## Coordinated performance release (2026-11-16)
+
+The consumer manifests use the following published registry releases,
+without root development patches. The Facet enum-metadata fix is published in
+the five rc.9 core packages from
+[`9b8f11e12a0a4a0c377b3d394c6e4187248e416c`](https://github.com/TeamDman/facet/commit/9b8f11e12a0a4a0c377b3d394c6e4187248e416c).
+All 11 packages are published, with annotated release tags and pushed source
+commits. Each normalized archive was inspected for registry dependencies, license
+files and VCS provenance, then built by Cargo before publication.
+
+| Package group | Release version |
+| --- | --- |
+| Facet facade, Macros, Macros Impl, Error, Default | `0.50.0-rc.9` |
+| JSON, CSV | `0.50.0-rc.11` |
+| Figue | `6.0.0-rc.7` |
+| Figue Attrs | `6.0.0-rc.5` |
+| Cancellation | `0.8.2` |
+| Tracing compatibility release | `0.2.2` |
+
+Unchanged Core, Reflect, Path, Pretty, Solver, macro parsing/types, test helpers,
+and Dessert retain `0.50.0-rc.7`; Format and Value retain `0.50.0-rc.10`.
+The mixed package versions preserve one identity per participating package;
+unchanged packages do not need a new release merely to share a version number.
+JSON, CSV, Figue, and the other facade consumers receive new exact pins so an
+older Facet derive does not remain in the same consumer graph.
+
+Cloud Terrastodon and the template both select Cancellation `0.8.2`, which
+contains the shared lifecycle implementation. Cloud Terrastodon migrates to the
+`0.8` error-helper API instead of publishing a `0.7.3` backport. The coordinated
+release contains 11 packages. The enum and lifecycle changes preserve their
+behavioral contracts; the measured benefits and qualifications are recorded in
+[the performance investigation](build-performance.md).
+
+Both consumer graphs resolve one registry identity per participating package,
+without patches or upstream Facet/Figue packages. CT's lockfile changes eight
+targeted package versions; the template changes ten. Other package versions and
+sources remain unchanged.
+
+CT's workspace/all-target check, strict all-target Clippy for the app, command,
+picker and group-management packages, and 122 selected tests pass: 21 output tests,
+four Cow/reflected-request tests, 66 picker tests, three plan-persistence tests,
+and 28 concurrent execution tests. These exercise original I/O error retention,
+nested cancellation, required completion, and the migrated helper API with
+synthetic values and temporary files. No live service verification was run.
+
+The selected debug test build initially produced a 6,175,788,904-byte Azure
+archive that LLD rejected with a malformed long-name-table error. Rebuilding
+with `--config 'profile.test.package.cloud_terrastodon_azure.debug=0'` allowed
+the tests to link and pass. This qualification disables debug symbols for that
+test dependency only; debug assertions, optimization, production code and the
+release profile are unchanged.
+
+The template passes its Rust 1.96 all-target/all-feature check, strict Clippy
+and 29 offline tests. Its normal/build graph remains free of Serde. The released
+cancellation package passes all 90 feature-enabled tests, strict Clippy and
+example compilation; Tracing passes its Windows gate, comparison tests,
+documentation, examples and runtime graph inspection.
+
+CT's fresh registry-only release EXE is 162,647,552 bytes (155.11 MiB). PE
+inspection confirms one complete ResourceType metadata set. The newly built CLI
+passes help/version checks, with top-level help matching the control except its
+build timestamp. The installed executable was not replaced. See the
+[performance receipt](build-performance.md#published-dependency-verification-2026-11-16).
+
+Release source checkpoints:
+
+- Core: [`9b8f11e12`](https://github.com/TeamDman/facet/commit/9b8f11e12a0a4a0c377b3d394c6e4187248e416c).
+- JSON/CSV: [`d10601e`](https://github.com/TeamDman/facet-format/commit/d10601e1734b41b0f731ab4e05fe35d26868d495).
+- Figue: [`892bf12`](https://github.com/TeamDman/figue/commit/892bf121cfabe289ff30d37aa58b64f587ff04e5).
+- Cancellation: [`838beb8`](https://github.com/TeamDman/teamy-cancellation/commit/838beb82d4a95f4272e2a1dc72b6d4396bbf95f5).
+- Tracing: [`7f15dfe`](https://github.com/TeamDman/teamy-tracing/commit/7f15dfe7da2a84cd1b6975b5b36cbb6ad0b1c26a).
+- CLI template: [`212ed2d`](https://github.com/TeamDman/teamy-rust-cli/commit/212ed2d8377ef551685e6f0b2adb53a8ad3bbcd6).
+
 ## Local Facet development
 
-As of 2026-11-16, Cloud Terrastodon uses the sibling `../facet` checkout through
-root manifest patches. Ordinary `cargo build`, `cargo test`, and `update.ps1`
-consume fork edits directly. No extra configuration flags, source copies, or
-publications are needed for iteration.
+Cloud Terrastodon's release manifest uses registry dependencies.
+For another development iteration, enable the recipe below to make ordinary
+`cargo build`, `cargo test`, and `update.ps1` consume the sibling Facet checkout
+directly, without publishing each experimental change.
+
+Cancellation can be patched independently when its implementation also needs
+iteration. Select a checkout whose package version and API match the consumer:
+Cloud Terrastodon and the template both use the `0.8` line. During the
+performance comparison, `.codex-cancellation-0.7.2` held the maintenance source
+worktree; it was source, not generated diagnostic data. No cancellation patch
+is needed for the coordinated registry release.
 
 ### Switch between local and published sources
 
@@ -94,22 +174,27 @@ the dependency feature graph fixed instead of rebuilding it for three separate
 package selections. Inspect selected tests before execution: Cargo's `--offline`
 prevents downloads, not service access from test code.
 
-The 2026-11-16 cutover passed the workspace/all-target check and all 25 selected
+The 2026-11-16 local-source cutover passed the workspace/all-target check and all 25 selected
 tests (21 output, two Cow, two reflected request-clone), using synthetic values.
 Metadata confirmed one local identity for each of the 11 packages, without
 version or unrelated source changes.
 
-## Nongeneric enum metadata experiment (2026-11-16)
+## Nongeneric enum metadata fix (2026-11-16)
 
-The Facet fork has an uncommitted, tested derive change that gives nongeneric
+The Facet rc.9 release contains the tested derive change that gives nongeneric
 enums one canonical static shape. It removes repeated promoted metadata in
 downstream consumers while preserving generic enum behavior and full reflection.
 The [build-performance report](build-performance.md) records the controlled
-Cloud Terrastodon binary and build-time comparison. This change is not published;
-the local development overrides above now consume it directly. The published
-versions below remain the release baseline.
+Cloud Terrastodon binary and build-time comparison. Those measurements used
+controlled local sources before publication; the coordinated release above
+carries the fix into the registry graph. The older versions below are historical
+checkpoints rather than current consumer pins.
 
 ## Cow request refinement (2026-11-06)
+
+This section records the earlier Cow release and its validation results. Its
+versions and source checkpoints are historical; the coordinated performance
+release above defines the published consumer graph.
 
 The Cow fixes were published and verified against the complete registry graph
 before the local build-performance overrides described above. The release also
@@ -134,10 +219,10 @@ Tracing release. Unchanged
 Core, Reflect, Path, Pretty, Solver, macro parsing/types, test helpers, and Dessert
 remain at `0.50.0-rc.7`. Distinct packages need not share one version number;
 interacting code must share one source/version identity for each package.
-Cloud Terrastodon uses Cancellation `0.7.2`, retaining its existing error-helper
-API. The template's `0.8` API line has the separate `0.8.1` maintenance release.
+Cloud Terrastodon used Cancellation `0.7.2`, retaining its existing error-helper
+API. The template's `0.8` API line had the separate `0.8.1` maintenance release.
 
-Current release source checkpoints:
+Cow release source checkpoints:
 
 - Core: [`2d6d06e1d9a0ab47cd68547f5a0a4dbb60d36afa`](https://github.com/TeamDman/facet/commit/2d6d06e1d9a0ab47cd68547f5a0a4dbb60d36afa).
 - Format: [`55dd746345382b81a8e9eb1652cddcd4b7cb2fda`](https://github.com/TeamDman/facet-format/commit/55dd746345382b81a8e9eb1652cddcd4b7cb2fda).
@@ -169,7 +254,7 @@ workspace/all targets, both reflected request-clone scenarios, and 14 DevOps
 inventory/discovery tests; the template passed its all-target check and 13
 selected output/CLI tests. These checks used synthetic/offline inputs.
 
-Ordinary registry compilation now passes for Cloud Terrastodon's
+At the Cow release checkpoint, ordinary registry compilation passed for Cloud Terrastodon's
 `cargo check --offline --locked --workspace --all-targets` and the template's
 `cargo check --offline --locked --all-targets`. The template retains only its two
 existing macro-semicolon warnings. Their lockfiles update ten and eleven targeted
@@ -182,7 +267,7 @@ verification is complete for both consumers.
 
 **Template dependency release:** `teamy-rust-cli` also uses `teamy-tracing`,
 whose Facet dependencies needed alignment with the new graph.
-`teamy-tracing 0.2.1` is published; its current release source is committed and
+`teamy-tracing 0.2.1` was published; its release source was committed and
 pushed as [`d099c486804ae7fe18d2acf5d2e74a3e4c48ff10`](https://github.com/TeamDman/teamy-tracing/commit/d099c486804ae7fe18d2acf5d2e74a3e4c48ff10)
 on `release/0.2.1-facet`. Its 37 tests, two comparison checks, Clippy,
 documentation, and examples passed. Template registry pin/lock updates,

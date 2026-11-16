@@ -41,7 +41,7 @@ use std::panic::Location;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
-use teamy_cancellation::CancellationReportExt;
+use teamy_cancellation::CancellationErrorExt;
 use tracing::Instrument;
 use tracing::Span;
 use tracing::info_span;

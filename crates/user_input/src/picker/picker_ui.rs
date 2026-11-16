@@ -58,6 +58,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
 use teamy_cancellation::CancellationError;
+use teamy_cancellation::CancellationErrorExt;
 use teamy_cancellation::CancellationScope;
 
 #[cfg(feature = "extended_observability")]
@@ -694,9 +695,7 @@ impl<'a> PickerUi<'a> {
         if let Err(error) = drain_result {
             let cancelled = match &return_reason {
                 Err(PickError::Cancelled) => true,
-                Err(PickError::Eyre(error, _)) => {
-                    error.downcast_ref::<CancellationError>().is_some()
-                }
+                Err(PickError::Eyre(error, _)) => error.is_cancellation(),
                 _ => false,
             };
             if return_reason.is_ok() || cancelled {

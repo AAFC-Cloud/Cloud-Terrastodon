@@ -80,13 +80,12 @@ Cancellation or another error can leave a partial prefix. Pass `&mut Vec<u8>`
 when a complete in-memory result is needed; a plain vector supplies no
 cancellation checkpoints itself.
 
-`CancellationReportExt`, re-exported by `app` and `command`, recognizes typed
+`CancellationErrorExt`, re-exported by `app` and `command`, recognizes typed
 cancellation through Eyre contexts, exposed error sources, and I/O payloads.
 Use `is_cancellation()` for control flow or `as_cancellation()` to read the reason.
-`CliOutput` uses `normalize_cancellation()` to expose recovered cancellation to
-native Eyre downcasts while retaining the original report and its source chain.
-Other artifact writers can convert I/O errors into Eyre reports and normalize
-cancellation at their error boundary in the same way.
+`CliOutput` and artifact writers preserve original reports and their source chains.
+Use these helpers to recognize nested cancellation without rewriting the report;
+native Eyre downcasting alone does not traverse boxed I/O payloads.
 
 The runner defaults to `AnonymousAuthenticationProvider`, which supports local
 work and rejects credential use. Authenticated applications inject one shared

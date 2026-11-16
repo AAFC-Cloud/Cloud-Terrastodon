@@ -1,7 +1,7 @@
 use super::excalidraw_target_picker::pick_planning_targets;
 use crate::cli::command::dump::DumpPlanReport;
 use crate::cli::command::dump::DumpPlanSession;
-use cloud_terrastodon_app::CancellationReportExt;
+use cloud_terrastodon_app::CancellationErrorExt;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_excalidraw::ExcalidrawInteractiveDocument;
 use cloud_terrastodon_excalidraw::ExcalidrawLogLevel;

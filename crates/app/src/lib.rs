@@ -39,7 +39,7 @@ pub use output::OutputFormat;
 pub use output::write_facet;
 pub use startup::install_error_hook;
 pub use startup::prepare_process;
-pub use teamy_cancellation::CancellationReportExt;
+pub use teamy_cancellation::CancellationErrorExt;
 pub use teamy_cancellation::CancellationScope;
 pub use tracing;
 

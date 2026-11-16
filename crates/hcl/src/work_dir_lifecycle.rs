@@ -1,7 +1,7 @@
 use crate::ProviderManager;
 use crate::discovery::DiscoveryDepth;
 use crate::discovery::discover_hcl;
-use cloud_terrastodon_command::CancellationReportExt;
+use cloud_terrastodon_command::CancellationErrorExt;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;

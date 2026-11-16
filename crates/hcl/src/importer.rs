@@ -1,5 +1,5 @@
 use crate::ProviderManager;
-use cloud_terrastodon_command::CancellationReportExt;
+use cloud_terrastodon_command::CancellationErrorExt;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;

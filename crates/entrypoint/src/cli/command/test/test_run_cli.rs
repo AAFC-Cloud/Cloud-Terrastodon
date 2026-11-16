@@ -1,4 +1,4 @@
-use cloud_terrastodon_app::CancellationReportExt;
+use cloud_terrastodon_app::CancellationErrorExt;
 use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_auth_types::AuthSource;
 use cloud_terrastodon_azure::AzureTenantArgument;

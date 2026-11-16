@@ -111,7 +111,7 @@ mod tests {
     use cloud_terrastodon_cache::WorkCache;
     use cloud_terrastodon_execution::AnonymousAuthenticationProvider;
     use std::fs;
-    use teamy_cancellation::CancellationReportExt;
+    use teamy_cancellation::CancellationErrorExt;
     use teamy_cancellation::CancellationScope;
     use teamy_cancellation::CancellationToken;
 

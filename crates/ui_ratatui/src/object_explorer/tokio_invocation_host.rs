@@ -1,7 +1,7 @@
 use super::invocation_host::InvocationHost;
 use super::invocation_host::InvocationHostPoll;
 use super::invocation_host::InvocationId;
-use cloud_terrastodon_command::CancellationReportExt;
+use cloud_terrastodon_command::CancellationErrorExt;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CancellationToken;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;

@@ -6,7 +6,7 @@ use std::io;
 use std::io::Write;
 use std::rc::Rc;
 use teamy_cancellation::CancellationError;
-use teamy_cancellation::CancellationReportExt;
+use teamy_cancellation::CancellationErrorExt;
 use teamy_cancellation::CancellationScope;
 use teamy_cancellation::CancellationToken;
 
@@ -413,7 +413,7 @@ fn cancellation_is_recovered_through_a_renderers_custom_error_source() -> eyre::
             .unwrap_err();
         assert_eq!(writer.bytes, b"ent");
         assert_eq!(
-            error.downcast_ref::<CancellationError>().unwrap().reason,
+            error.as_cancellation().unwrap().reason,
             "output prefix was sufficient"
         );
         assert!(error.downcast_ref::<RendererWriteError>().is_some());
@@ -643,7 +643,7 @@ fn cancellation_inside_a_flush_io_error_remains_a_typed_cancellation() -> eyre::
             )
             .unwrap_err();
         assert_eq!(
-            error.downcast_ref::<CancellationError>().unwrap().reason,
+            error.as_cancellation().unwrap().reason,
             "flush was cancelled"
         );
         assert_eq!(
@@ -703,7 +703,7 @@ fn json_output_stops_when_its_destination_requests_cancellation() -> eyre::Resul
         );
         assert!(!writer.flushed);
         assert_eq!(
-            error.downcast_ref::<CancellationError>().unwrap().reason,
+            error.as_cancellation().unwrap().reason,
             "output prefix was sufficient"
         );
         assert!(error.downcast_ref::<io::Error>().is_some());

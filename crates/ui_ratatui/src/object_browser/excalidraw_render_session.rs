@@ -1,4 +1,4 @@
-use cloud_terrastodon_command::CancellationReportExt;
+use cloud_terrastodon_command::CancellationErrorExt;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CancellationToken;
 use cloud_terrastodon_excalidraw::ExcalidrawScene;

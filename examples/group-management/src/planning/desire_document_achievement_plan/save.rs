@@ -1,14 +1,12 @@
 use super::DesireDocumentAchievementPlan;
 use cloud_terrastodon::app::CancellationScope;
 use eyre::Context;
-use eyre::Report;
 use eyre::Result;
 use facet_json::to_writer_std_pretty;
 use std::io::BufWriter;
 use std::io::Write;
 use std::path::Path;
 use teamy_cancellation::CancellableWriter;
-use teamy_cancellation::CancellationReportExt;
 
 impl DesireDocumentAchievementPlan {
     /// Persist a complete JSON artifact without replacing an existing reviewed plan.
@@ -30,7 +28,7 @@ impl DesireDocumentAchievementPlan {
             // Discard any unfinished buffer without BufWriter's implicit drop-time
             // flush. Only explicit successful flushing can proceed to publication.
             drop(buffered.into_parts());
-            written.map_err(|error| Report::new(error).normalize_cancellation())?;
+            written?;
         }
         cancellation.bail_if_cancelled()?;
         temporary.as_file().sync_all()?;
@@ -53,7 +51,7 @@ mod tests {
     use super::DesireDocumentAchievementPlan;
     use crate::DesireDocument;
     use std::io;
-    use teamy_cancellation::CancellationError;
+    use teamy_cancellation::CancellationErrorExt;
     use teamy_cancellation::CancellationToken;
 
     #[test]
@@ -90,7 +88,7 @@ mod tests {
                 let error = plan.save(&path, &cancellation).unwrap_err();
 
                 assert_eq!(
-                    error.downcast_ref::<CancellationError>().unwrap().reason,
+                    error.as_cancellation().unwrap().reason,
                     "plan saving cancelled"
                 );
                 assert!(error.downcast_ref::<io::Error>().is_some());

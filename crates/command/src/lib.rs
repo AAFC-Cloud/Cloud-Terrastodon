@@ -34,7 +34,7 @@ pub use crate::retry_behaviour::RetryBehaviour;
 // Re-export async_trait for use in command implementations
 pub use async_trait::async_trait;
 pub use teamy_cancellation::CancellationError;
-pub use teamy_cancellation::CancellationReportExt;
+pub use teamy_cancellation::CancellationErrorExt;
 pub use teamy_cancellation::CancellationScope;
 pub use teamy_cancellation::CancellationToken;
 
