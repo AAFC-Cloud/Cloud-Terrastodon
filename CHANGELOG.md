@@ -1,5 +1,7 @@
 # Unreleased
 
+- Keep Azure and entrypoint debug archives below the Windows archive-format transition that breaks linking on Rust 1.99.1. Use limited debug information for those two crates in development and test builds, retaining source-line diagnostics and the existing release settings.
+
 - Use the coordinated registry Facet rc.9, JSON rc.11, Figue rc.7 and Cancellation 0.8.2 releases without Cargo patches. Adopt the unified cancellation error helper while retaining original error contexts, keep one Core/reflection identity, and enable incremental release compilation for the entrypoint at optimization level 3.
 
 - Share cancellation scope lifecycle code across typed futures to reduce repeated code generation, preserving deferrals, borrowed futures, and result/destructor ordering.

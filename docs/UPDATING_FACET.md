@@ -61,9 +61,13 @@ synthetic values and temporary files. No live service verification was run.
 The selected debug test build initially produced a 6,175,788,904-byte Azure
 archive that LLD rejected with a malformed long-name-table error. Rebuilding
 with `--config 'profile.test.package.cloud_terrastodon_azure.debug=0'` allowed
-the tests to link and pass. This qualification disables debug symbols for that
-test dependency only; debug assertions, optimization, production code and the
-release profile are unchanged.
+the tests to link and pass. That was a qualification of this initial test run,
+not a required release flag. The subsequent
+[Windows debug archive fix](build-performance.md#windows-debug-archive-linking-2026-11-16)
+sets limited debug information for the Azure and entrypoint crates in the normal
+development profile, inherited by tests, replacing this command-line workaround.
+Debug assertions, optimization, production code and the release profile are
+unchanged.
 
 The template passes its Rust 1.96 all-target/all-feature check, strict Clippy
 and 29 offline tests. Its normal/build graph remains free of Serde. The released

@@ -247,9 +247,64 @@ No installed executable was replaced.
 
 The [release record](UPDATING_FACET.md#coordinated-performance-release-2026-11-16)
 documents the consumer tests, strict Clippy, registry identity checks, and the
-test-only Azure debug-symbol workaround required for the oversized debug archive.
+initial test-only Azure debug-symbol workaround. The persistent development
+profile fix below supersedes that command-line workaround.
 Captured EXE/PDB, PE measurements, logs, graph audits and publication receipts
 remain under `target/perf-investigation/coordinated-release` until Cargo cleanup.
+
+## Windows debug archive linking (2026-11-16)
+
+Normal `cargo run -- egui` failed during linking on Rust 1.99.1 with
+`truncated or malformed archive (string table at long name offset 6177 not
+terminated)`. The failure reproduced with `cargo build --offline --locked
+--bin cloud_terrastodon`; it occurs before application startup.
+
+Archive sizes before and after the targeted profile change:
+
+| Crate | Full debug info (bytes) | Limited debug info (bytes) |
+| --- | ---: | ---: |
+| `cloud_terrastodon_entrypoint` | 4,453,784,302 | 305,431,348 |
+| `cloud_terrastodon_azure` | 6,159,338,904 | 985,631,990 |
+
+A bounded inspection of the original entrypoint's 260 member headers
+found a complete archive ending exactly at a member boundary. Its `/SYM64/`
+header identifies GNU64 format, but its filename table has 256 COFF-style NUL
+terminators and no GNU-style line terminators. Offset 6177 points to an existing
+filename. This explains LLD's diagnostic without assuming disk corruption.
+
+Rust 1.99.1 uses `ar_archive_writer` 0.5.2. Its
+[archive writer](https://github.com/rust-lang/ar_archive_writer/blob/v0.5.2/src/archive_writer.rs#L878-L889)
+switches to GNU64 above the 32-bit member-offset limit after computing the COFF
+filename table, without regenerating it. The
+[LLVM reader](https://github.com/llvm/llvm-project/blob/llvmorg-23.1.1/llvm/lib/Object/Archive.cpp)
+expects GNU filename terminators for that format. The mitigation here avoids
+that compiler defect; it does not repair the upstream writer.
+
+The root manifest sets `debug = 1` for only `cloud_terrastodon_azure` and
+`cloud_terrastodon_entrypoint` in `profile.dev.package`. The
+[test profile inherits dev](https://doc.rust-lang.org/cargo/reference/profiles.html#test),
+so normal builds, runs, and tests share this setting without command-line
+overrides. Limited debug information retains source-line/module information but
+omits type and local-variable debugging in those two crates. All other packages
+retain their existing debug settings; debug assertions, overflow checks,
+optimization and release settings are unchanged.
+
+Cargo detects the profile change and rebuilds affected packages. A full
+`cargo clean` is unnecessary. Do not edit or repack generated archives or Cargo
+registry sources to work around this error. Reconsider the overrides when a
+toolchain with a corrected archive writer is verified, or if these archives
+approach the offset limit again.
+
+The normal debug build links successfully with this setting. Both rebuilt
+archives use the regular COFF index, with no member offsets past the 32-bit
+limit. Cargo's artifact records confirm debug level 1 and active debug assertions
+for both selected crates; the egui crate still uses full debug level 2.
+The normal test profile also links, and 31 selected entrypoint CLI tests pass
+without any profile override on the command line. `cargo run --offline --locked
+-- egui --help` succeeds. No GUI session or live service request was started.
+
+Raw diagnostics and a bounded archive inspector are kept under ignored
+`target/perf-investigation/debug-archive-fix` until Cargo cleanup.
 
 ## Resource-type lookup and PHF
 

@@ -416,6 +416,15 @@ full = [
     "rest",
 ]
 
+# Full debug info makes these archives exceed 4 GiB on Windows, triggering an
+# Rust archive-writer defect. Keep line/module debug info; test inherits
+# these dev overrides. See docs/build-performance.md for evidence and tradeoffs.
+[profile.dev.package.cloud_terrastodon_azure]
+debug = 1
+
+[profile.dev.package.cloud_terrastodon_entrypoint]
+debug = 1
+
 # Reuse the expensive CLI crate's release code generation across local edits.
 # Limit the cache to this crate and retain normal release optimization.
 [profile.release.package.cloud_terrastodon_entrypoint]
