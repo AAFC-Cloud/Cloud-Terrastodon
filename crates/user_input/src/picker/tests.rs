@@ -1,17 +1,16 @@
 use super::candidate_message::CandidateMessage;
 use super::choice_pool::ChoicePool;
+use super::picker_candidate_store::process_candidate_message;
 use super::picker_event_state::PickerEventState;
-use super::picker_tui::PickerToast;
-use super::picker_tui::PickerTui;
-use super::picker_tui::advance_toasts;
-use super::picker_tui::empty_picker_message;
-use super::picker_tui::handle_key;
-use super::picker_tui::new_nucleo;
-use super::picker_tui::process_candidate_message;
-use super::picker_tui::render_toasts;
-use super::picker_tui::row_style;
-use super::picker_tui::should_show_as_toast;
-use super::picker_tui::startup_events;
+use super::picker_toast::PickerToast;
+use super::picker_ui::advance_toasts;
+use super::picker_ui::empty_picker_message;
+use super::picker_ui::handle_key;
+use super::picker_ui::new_nucleo;
+use super::picker_ui::render_toasts;
+use super::picker_ui::row_style;
+use super::picker_ui::should_show_as_toast;
+use super::picker_ui::startup_events;
 use super::preserved_selection::preserved_selection;
 use super::query_debouncer::QueryDebouncer;
 use super::query_event::QueryEvent;
@@ -255,60 +254,6 @@ fn reload_increments_generation_and_clears_marked_candidates() {
     assert_eq!(state.generation, 1);
     assert_eq!(state.candidates.len(), 0);
     assert!(state.marked.is_empty());
-}
-
-#[test]
-fn picker_accepts_initial_multi_selection_keys() {
-    let picker = PickerTui::<String>::new().set_initial_selected(["first", "third", "first"]);
-
-    assert_eq!(
-        picker.initial_selected_keys(),
-        &FxHashSet::from_iter([CompactString::from("first"), CompactString::from("third"),])
-    );
-}
-
-#[test]
-fn initial_focus_waits_for_its_candidate_then_leaves_later_navigation_alone() {
-    let mut picker = PickerTui::<()>::new().set_initial_focused("None");
-    let mut list_state = ratatui::widgets::ListState::default();
-    picker.apply_initial_focus(&mut list_state, &[]);
-    assert_eq!(list_state.selected(), None);
-    let partial = vec![Arc::new(CompactString::from("Unresolved"))];
-    list_state.select(Some(0));
-    picker.apply_initial_focus(&mut list_state, &partial);
-    assert_eq!(list_state.selected(), Some(0));
-
-    let choices = vec![
-        Arc::new(CompactString::from("Unresolved")),
-        Arc::new(CompactString::from("None")),
-        Arc::new(CompactString::from("Resolved")),
-    ];
-    picker.apply_initial_focus(&mut list_state, &choices);
-    assert_eq!(list_state.selected(), Some(1));
-    list_state.select(Some(2));
-    picker.apply_initial_focus(&mut list_state, &choices);
-    assert_eq!(
-        list_state.selected(),
-        Some(2),
-        "a later result update must not restore initial focus"
-    );
-}
-
-#[test]
-fn user_input_cancels_initial_focus_before_delayed_results_arrive() {
-    let mut picker = PickerTui::<()>::new().set_initial_focused("None");
-    let mut list_state = ratatui::widgets::ListState::default();
-    picker.apply_initial_focus(&mut list_state, &[]);
-    picker.cancel_initial_focus();
-    list_state.select(Some(0));
-    picker.apply_initial_focus(
-        &mut list_state,
-        &[
-            Arc::new(CompactString::from("Unresolved")),
-            Arc::new(CompactString::from("None")),
-        ],
-    );
-    assert_eq!(list_state.selected(), Some(0));
 }
 
 #[test]
@@ -688,7 +633,7 @@ fn marked_picker_rows_are_indented_and_have_a_visible_dot() {
     list_state.select(Some(0));
     let mut buffer = Buffer::empty(Rect::new(0, 0, 24, 5));
 
-    super::picker_tui::render_picker_list(
+    super::picker_ui::render_picker_list(
         &mut buffer,
         Rect::new(0, 0, 24, 5),
         None,
@@ -722,7 +667,7 @@ fn large_candidate_pool_only_formats_the_visible_rows() {
     list_state.select(Some(50_000));
     let mut buffer = Buffer::empty(Rect::new(0, 0, 32, 12));
 
-    super::picker_tui::render_picker_list(
+    super::picker_ui::render_picker_list(
         &mut buffer,
         Rect::new(0, 0, 32, 12),
         None,

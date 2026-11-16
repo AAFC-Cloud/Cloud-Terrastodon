@@ -1,5 +1,7 @@
 # Unreleased
 
+- Share the picker's terminal lifecycle, event loop, matching, and rendering across candidate types. Keep typed candidate ownership and results behind a private adapter, preserving borrowed values, reload handling, partial errors, and required-work draining without additional candidate clones or `'static` bounds.
+
 - Preserve numeric AADSTS codes and validated request identifiers in browser token errors without exposing credentials or raw response descriptions. Give saved-session refresh failures explicit browser logout/login recovery instructions.
 
 - Handle browser-login cancellation explicitly, validate callback state before accepting errors, and keep idle browser preconnections from delaying the authorization response. Accept localhost callbacks over IPv4 and IPv6, and bound browser acknowledgements before returning and cleaning up failed login attempts.

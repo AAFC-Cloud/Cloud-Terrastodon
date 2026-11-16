@@ -1,9 +1,9 @@
 use super::event_handler::EventHandler;
 use super::handler_tasks::HandlerTasks;
+use super::picker_candidate_store::process_candidate_message;
 use super::picker_event::PickerEvent;
 use super::picker_event_state::PickerEventState;
-use super::picker_tui::new_nucleo;
-use super::picker_tui::process_candidate_message;
+use super::picker_ui::new_nucleo;
 use crate::Choice;
 use futures::FutureExt;
 use rustc_hash::FxHashSet;
