@@ -30,8 +30,8 @@ mod azure_devops_pat;
 mod azure_devops_rest_client;
 mod azure_token_cache;
 mod browser_access_token;
-mod browser_authorization_callback_response;
 mod browser_authorization_callback_listener;
+mod browser_authorization_callback_response;
 mod browser_opener;
 mod browser_session;
 #[cfg(windows)]
@@ -43,6 +43,7 @@ mod browser_token_session;
 mod cloud_terrastodon_credential_identity;
 mod credential_authentication_provider;
 mod entra_authenticated_user_identity;
+mod entra_token_request_error;
 mod jwt;
 #[cfg(test)]
 mod multi_source_authentication_tests;
@@ -68,6 +69,7 @@ pub use azure_token_cache::*;
 pub use browser_session::BrowserSession;
 pub use browser_token_cache::BrowserTokenCache;
 pub use credential_authentication_provider::CredentialAuthenticationProvider;
+pub use entra_token_request_error::EntraTokenRequestError;
 pub use jwt::*;
 pub use resolved_auth_context::ResolvedAuthContext;
 #[cfg(windows)]

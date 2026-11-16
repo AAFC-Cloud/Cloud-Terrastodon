@@ -1,5 +1,7 @@
 # Unreleased
 
+- Preserve numeric AADSTS codes and validated request identifiers in browser token errors without exposing credentials or raw response descriptions. Give saved-session refresh failures explicit browser logout/login recovery instructions.
+
 - Handle browser-login cancellation explicitly, validate callback state before accepting errors, and keep idle browser preconnections from delaying the authorization response. Accept localhost callbacks over IPv4 and IPv6, and bound browser acknowledgements before returning and cleaning up failed login attempts.
 
 - Add `ct az storage account list` and `show`, reusing the shared storage-account inventory for listing and a direct ARM request for individual accounts. Both support `--no-cache` and shared output formats.

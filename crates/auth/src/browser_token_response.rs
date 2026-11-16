@@ -1,4 +1,5 @@
 use crate::AzureBearerToken;
+use crate::EntraTokenRequestError;
 use crate::browser_access_token::BrowserAccessToken;
 use chrono::Local;
 use chrono::TimeDelta;
@@ -11,6 +12,7 @@ use eyre::Result;
 use eyre::bail;
 use facet::Facet;
 use http::StatusCode;
+use uuid::Uuid;
 
 /// Success or error returned by the Entra v2 token endpoint.
 ///
@@ -58,8 +60,23 @@ impl BrowserTokenResponse {
         resource: AzureCredentialResource,
     ) -> Result<BrowserAccessToken> {
         if !status.is_success() || self.error.is_some() {
-            let error = Self::diagnostic_error(self.error.as_deref());
-            bail!("Entra browser token request for {resource:?} failed with {status} ({error})");
+            return Err(EntraTokenRequestError {
+                resource,
+                status,
+                oauth_error: Self::diagnostic_error(self.error.as_deref()),
+                error_codes: self.error_codes.unwrap_or_default(),
+                // Diagnostic identifiers are optional. Retain only parsed UUIDs
+                // so malformed service text cannot enter either Display or Debug.
+                trace_id: self
+                    .trace_id
+                    .as_deref()
+                    .and_then(|value| Uuid::parse_str(value).ok()),
+                correlation_id: self
+                    .correlation_id
+                    .as_deref()
+                    .and_then(|value| Uuid::parse_str(value).ok()),
+            }
+            .into());
         }
         let access_token = self
             .access_token
@@ -167,5 +184,67 @@ mod tests {
             .unwrap();
             assert!(!format!("{error:?}").contains("synthetic-secret"));
         }
+    }
+
+    #[test]
+    fn retains_actionable_sts_diagnostics_without_retaining_sensitive_response_fields() {
+        let error = BrowserTokenResponse {
+            error: Some("invalid_grant".to_owned()),
+            error_codes: Some(vec![70043]),
+            trace_id: Some("11111111-1111-1111-1111-111111111111".to_owned()),
+            correlation_id: Some("22222222-2222-2222-2222-222222222222".to_owned()),
+            access_token: Some("synthetic-secret-access-token".to_owned()),
+            refresh_token: Some("synthetic-secret-refresh-token".to_owned()),
+            error_description: Some("synthetic-secret-description".to_owned()),
+            suberror: Some("synthetic-secret-suberror".to_owned()),
+            ..Default::default()
+        }
+        .into_access_token(
+            StatusCode::BAD_REQUEST,
+            "33333333-3333-3333-3333-333333333333".parse().unwrap(),
+            AzureCredentialResource::AzureResourceManager,
+        )
+        .err()
+        .unwrap();
+
+        let details = error.downcast_ref::<EntraTokenRequestError>().unwrap();
+        assert_eq!(details.error_codes, [70043]);
+        for diagnostic in [
+            error.to_string(),
+            format!("{error:?}"),
+            format!("{details:?}"),
+        ] {
+            assert!(diagnostic.contains("invalid_grant"));
+            assert!(diagnostic.contains("70043"));
+            assert!(diagnostic.contains("11111111-1111-1111-1111-111111111111"));
+            assert!(diagnostic.contains("22222222-2222-2222-2222-222222222222"));
+            assert!(!diagnostic.contains("synthetic-secret"));
+        }
+        assert!(error.to_string().contains("AADSTS70043"));
+    }
+
+    #[test]
+    fn omits_malformed_request_identifiers_from_error_diagnostics() {
+        let error = BrowserTokenResponse {
+            error: Some("invalid_grant".to_owned()),
+            error_codes: Some(vec![50076]),
+            trace_id: Some("synthetic-secret-trace\ninvalid".to_owned()),
+            correlation_id: Some("synthetic-secret-correlation".to_owned()),
+            ..Default::default()
+        }
+        .into_access_token(
+            StatusCode::BAD_REQUEST,
+            "33333333-3333-3333-3333-333333333333".parse().unwrap(),
+            AzureCredentialResource::AzureResourceManager,
+        )
+        .err()
+        .unwrap();
+
+        let details = error.downcast_ref::<EntraTokenRequestError>().unwrap();
+        assert!(details.trace_id.is_none());
+        assert!(details.correlation_id.is_none());
+        assert!(error.to_string().contains("AADSTS50076"));
+        assert!(!format!("{error:?}").contains("synthetic-secret"));
+        assert!(!format!("{details:?}").contains("synthetic-secret"));
     }
 }

@@ -212,6 +212,20 @@ a replacement session. PAT and Gitea replacements still require a new account
 because their flows do not establish principal continuity. An old request ID
 cannot silently select a different principal.
 
+If Entra rejects a saved browser refresh credential (`invalid_grant`), explicitly
+renew that mechanism before retrying the original command:
+
+```text
+ct account logout <account-id> --source browser
+ct account login <account-id> --source browser
+```
+
+Browser token errors include numeric `AADSTS` codes and validated trace and
+correlation IDs when Entra supplies them. These distinguish policy, consent,
+expiration, and revocation failures; `invalid_grant` alone does not identify the
+cause. Tokens and raw error descriptions are excluded from diagnostics. Requests
+do not automatically prompt for a replacement identity after a refresh failure.
+
 First-login/import generations are durably marked as provisioning before
 credential writes. They cannot authorize requests. Retrying an interrupted
 first attempt cleans that generation; retired generations retain their identifier

@@ -131,7 +131,7 @@ pub(crate) async fn fetch_browser_access_token(
                         &cancellation,
                     )
                     .await
-                    .wrap_err("refreshing the admitted browser session; sign in with a new authentication context if reauthentication is required")?
+                    .wrap_err("refreshing the saved browser session; if interactive sign-in is required, run `ct account logout <account-id> --source browser`, then `ct account login <account-id> --source browser`")?
                 } else {
                     session.begin_initial_login(allow_interactive)?;
                     // Initial consent covers named delegated permissions. ACR
