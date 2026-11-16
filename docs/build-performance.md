@@ -6,6 +6,13 @@ default features, and the existing dependency lockfile. No production requests,
 credentials, or response data were used. No compiler-profile or dependency-version
 changes are needed for the picker refactor.
 
+The workspace now uses the sibling Facet checkout directly through the root
+manifest's development path overrides. Ordinary Cargo commands consume new fork
+edits without publishing. See [local Facet development](UPDATING_FACET.md#local-facet-development-2026-11-16)
+for setup and the eventual return to registry dependencies. The measurements
+below describe the earlier controlled comparison, whose staged package copy
+is retained only as local evidence.
+
 ## Controlled results
 
 The implementation is in the Facet fork checkout, in
@@ -17,15 +24,15 @@ For measurement, the published macro implementation package was copied into
 `target/perf-investigation/facet-macro-patch`, then its implementation file was
 replaced with the identical modified file from the fork. Using this separate
 copy preserves the published package's normalized manifest while testing the
-fork change. The fork file and benchmark copy have matching SHA-256 hashes;
-the registry source retains its original control hash.
+fork change. At measurement time, the fork file and benchmark copy had matching
+SHA-256 hashes; the registry source retained its original control hash.
 
-The Facet experiment uses a development override of **only**
-`teamy-facet-macros-impl`. Its unmodified control and patched version use the same
+The controlled Facet experiment used a development override of **only**
+`teamy-facet-macros-impl`. Its unmodified control and patched version used the same
 local package path and normalized published manifest. Runtime Core, macro parsing,
-and macro types retain their published registry identities; there is one Facet
-core package in the resolved graph. The temporary lockfile change removes only
-the overridden macro implementation's registry source/checksum and is restored
+and macro types retained their published registry identities; there was one Facet
+core package in the resolved graph. The temporary lockfile change removed only
+the overridden macro implementation's registry source/checksum and was restored
 after each build.
 
 | Implementation | EXE bytes | EXE MiB | Simulated UI edit rebuild |
@@ -42,13 +49,13 @@ single observations, not repeated benchmark distributions or a promise for all
 edits. The combined observed change is 50.72 MiB less executable storage and
 35.39 seconds less rebuild time (27.8%).
 
-The normal registry build also succeeds with the picker refactor and no Facet
-override: its EXE is 216,476,672 bytes (206.45 MiB), compared with the earlier
-published-graph baseline of 222,530,560 bytes (212.22 MiB). That is the picker
-improvement available in this checkout before releasing the Facet fix. Its UI-edit
-rebuild takes 92.83 seconds versus the earlier registry baseline's 115.36 seconds;
-this is also a single observation. The old
-derive's duplication is sensitive to consumer code layout: this build retains
+The registry build at that checkpoint also succeeded with the picker refactor
+and no Facet override: its EXE is 216,476,672 bytes (206.45 MiB), compared with the
+earlier published-graph baseline of 222,530,560 bytes (212.22 MiB). That is the
+picker improvement available without the Facet fix. Its UI-edit rebuild takes
+92.83 seconds versus the earlier registry baseline's 115.36 seconds; this is also
+a single observation. The old derive's duplication is sensitive to consumer
+code layout: this build retains
 38 resource-type tables instead of the baseline's 36. Therefore the 10.50 MiB
 picker saving measured with canonical metadata must not be assumed to be its
 standalone saving with the old derive.
@@ -82,10 +89,10 @@ be attributed entirely to the resource-type arrays and names.
 
 The source change and regression test live in the Facet fork's
 `facet-macros-impl/src/process_enum.rs` and `facet/tests/enum_metadata.rs`.
-They are not published. Cloud Terrastodon's normal manifest and lockfile still
-use the existing published packages; the metadata result requires releasing the
-fork fix and updating the resolved macro package. It is not enabled through a
-permanent application patch.
+They are not published. Cloud Terrastodon's development path overrides now read
+the actual fork checkout, including this fix. Publication and verification of
+the resulting registry graph remain separate release work; the development
+overrides are temporary.
 
 ## Picker code sharing
 

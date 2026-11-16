@@ -13,12 +13,108 @@ registry dependencies. Both graphs must keep interacting Facet traits and shapes
 on one compatible core package identity. Run checks with `--offline --locked`
 after resolving the graph being tested.
 
+## Local Facet development
+
+As of 2026-11-16, Cloud Terrastodon uses the sibling `../facet` checkout through
+root manifest patches. Ordinary `cargo build`, `cargo test`, and `update.ps1`
+consume fork edits directly. No extra configuration flags, source copies, or
+publications are needed for iteration.
+
+### Switch between local and published sources
+
+1. **Enable local development:** keep the Facet checkout at `../facet` and add
+   the block below to the workspace root `Cargo.toml`. Merge with any existing
+   `[patch.crates-io]` section. Local package versions must satisfy the workspace
+   and transitive dependency constraints; preserve dependency aliases and features.
+2. **Return to published dependencies:** publish the fixes when ready, update
+   exact workspace pins as necessary, and remove these patch entries. Root
+   patches are not inherited by applications consuming published CT crates.
+3. **After either switch:** resolve the lockfile once, then inspect the graph:
+
+   ```powershell
+   cargo metadata --offline --format-version 1 > $null
+   git diff -- Cargo.toml Cargo.lock
+   cargo tree --offline --locked -i teamy-facet-core --depth 1
+   ```
+
+   The first command intentionally permits lockfile updates. If newly published
+   packages are not cached, omit `--offline` for that resolution. Subsequent
+   builds should use `--locked`. Do not run a broad `cargo update` or `cargo clean`
+   merely to switch sources.
+
+Keep this block in the guide even when the manifest returns to registry sources:
+
+```toml
+[patch.crates-io]
+teamy-facet = { path = "../facet/facet" }
+teamy-facet-core = { path = "../facet/facet-core" }
+teamy-facet-error = { path = "../facet/facet-error" }
+teamy-facet-macro-parse = { path = "../facet/facet-macro-parse" }
+teamy-facet-macro-types = { path = "../facet/facet-macro-types" }
+teamy-facet-macros = { path = "../facet/facet-macros" }
+teamy-facet-macros-impl = { path = "../facet/facet-macros-impl" }
+teamy-facet-path = { path = "../facet/facet-path" }
+teamy-facet-pretty = { path = "../facet/facet-pretty" }
+teamy-facet-reflect = { path = "../facet/facet-reflect" }
+teamy-facet-solver = { path = "../facet/facet-solver" }
+```
+
+Patch the participating core family together: a facade-only path dependency can
+leave transitive registry clients using a different Core/reflection identity.
+Format, JSON, Value, Figue, and Cancellation remain registry packages but resolve
+their core dependencies through these patches. Extend the block only if the
+dependency graph gains another participating package.
+
+With unchanged versions, enabling these 11 patches removes only their registry
+`source` and `checksum` lockfile lines; disabling restores them. Investigate other
+churn. `cargo metadata --offline --locked --format-version 1` gives the full check:
+each participating package must have one identity, with its manifest in the
+sibling checkout for local development, or a registry source after removal.
+Make fixes in the fork checkout; never edit Cargo's downloaded registry sources.
+
+### Verify without repeated rebuilds
+
+A routine source switch needs graph inspection and a check of the affected
+consumer. Broader verification is warranted when fork behavior or APIs change
+and before releasing against the published graph. Changing sources can trigger
+a rebuild; changing package selections or features between Cargo commands can
+also rebuild shared dependencies. Avoid competing Cargo jobs in the same target
+directory and keep the selected package/feature set consistent.
+
+For the existing consumer acceptance checks, prepare all three test binaries in
+one build, then run those binaries with their respective filters `output::tests::`,
+`cow_`, and `reflected_project_`:
+
+```powershell
+cargo test --offline --locked --no-run --lib -p cloud_terrastodon_app -p cloud_terrastodon_registry_execution -p cloud_terrastodon_azure_devops
+```
+
+Cargo prints the test executable paths; invoke each with its filter. This keeps
+the dependency feature graph fixed instead of rebuilding it for three separate
+package selections. Inspect selected tests before execution: Cargo's `--offline`
+prevents downloads, not service access from test code.
+
+The 2026-11-16 cutover passed the workspace/all-target check and all 25 selected
+tests (21 output, two Cow, two reflected request-clone), using synthetic values.
+Metadata confirmed one local identity for each of the 11 packages, without
+version or unrelated source changes.
+
+## Nongeneric enum metadata experiment (2026-11-16)
+
+The Facet fork has an uncommitted, tested derive change that gives nongeneric
+enums one canonical static shape. It removes repeated promoted metadata in
+downstream consumers while preserving generic enum behavior and full reflection.
+The [build-performance report](build-performance.md) records the controlled
+Cloud Terrastodon binary and build-time comparison. This change is not published;
+the local development overrides above now consume it directly. The published
+versions below remain the release baseline.
+
 ## Cow request refinement (2026-11-06)
 
-The fixes are now published. Cloud Terrastodon's ordinary workspace manifest and
-lockfile consume the corrected Facet/Figue registry graph without local patches
-or Git dependencies. The release also includes format packages not used by
-Cloud Terrastodon, as listed below. `teamy-main` remains the integration branch
+The Cow fixes were published and verified against the complete registry graph
+before the local build-performance overrides described above. The release also
+includes format packages not used by Cloud Terrastodon, as listed below.
+`teamy-main` remains the integration branch
 for the three forks; applications select exact published versions rather than
 a moving branch.
 
