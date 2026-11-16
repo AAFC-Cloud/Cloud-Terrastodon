@@ -30,6 +30,8 @@ mod azure_devops_pat;
 mod azure_devops_rest_client;
 mod azure_token_cache;
 mod browser_access_token;
+mod browser_authorization_callback_response;
+mod browser_authorization_callback_listener;
 mod browser_opener;
 mod browser_session;
 #[cfg(windows)]

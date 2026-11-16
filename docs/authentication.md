@@ -120,6 +120,13 @@ callback port. The account owns its refresh credential; resource-specific access
 tokens remain in memory. Windows stores the refresh credential in Credential
 Manager. Unix uses an account-owned file with owner-only permissions.
 
+The localhost callback listens on IPv4 and, when available, IPv6. Idle browser
+preconnections and unrelated requests do not consume the callback. Cancelling
+the Entra login returns a cancellation error after verifying the response state;
+it does not activate an account session. Permission denials remain distinct from
+user cancellation. The browser acknowledgement is bounded so closing the tab
+cannot prevent the CLI from returning and cleaning up failed provisioning.
+
 Ordinary requests only redeem the captured refresh session. They never launch
 another browser login or consult a tenant-wide PIM client setting. Refresh
 rotation preserves the selected account; failed refresh does not switch users.

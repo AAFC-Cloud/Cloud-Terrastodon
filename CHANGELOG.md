@@ -1,5 +1,7 @@
 # Unreleased
 
+- Handle browser-login cancellation explicitly, validate callback state before accepting errors, and keep idle browser preconnections from delaying the authorization response. Accept localhost callbacks over IPv4 and IPv6, and bound browser acknowledgements before returning and cleaning up failed login attempts.
+
 - Add `ct az storage account list` and `show`, reusing the shared storage-account inventory for listing and a direct ARM request for individual accounts. Both support `--no-cache` and shared output formats.
 
 - Add `ct az storage blob container list` and `show` with typed storage-account/container selection, shared output formats, and `--no-cache`. Container listing reuses the audit inventory; showing a container fetches its properties directly through ARM.

@@ -988,6 +988,7 @@ dependencies = [
  "cloud_terrastodon_pathing",
  "cloud_terrastodon_registry",
  "eyre",
+ "futures",
  "http",
  "linkme",
  "reqwest",

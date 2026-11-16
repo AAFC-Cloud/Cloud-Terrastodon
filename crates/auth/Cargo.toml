@@ -24,6 +24,7 @@ linkme = { workspace = true }
 base64.workspace = true
 chrono.workspace = true
 eyre.workspace = true
+futures.workspace = true
 tracing.workspace = true
 reqwest.workspace = true
 http.workspace = true

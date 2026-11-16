@@ -2,6 +2,7 @@ use crate::AzureBearerToken;
 use crate::BrowserSession;
 use crate::BrowserTokenCache;
 use crate::CancellationScope;
+use crate::browser_authorization_callback_listener::BrowserAuthorizationCallbackListener;
 use crate::browser_opener::open_browser_url;
 #[cfg(windows)]
 use crate::browser_session_metadata::BrowserSessionMetadata;
@@ -18,16 +19,11 @@ use eyre::Context;
 use eyre::Result;
 use eyre::bail;
 use reqwest::Client;
+#[cfg(test)]
 use reqwest::Url;
 use sha2::Digest;
 use sha2::Sha256;
 use std::fmt::Write;
-use std::time::Duration;
-use tokio::io::AsyncReadExt;
-use tokio::io::AsyncWriteExt;
-use tokio::net::TcpListener;
-use tokio::time::timeout;
-use tracing::debug;
 use tracing::instrument;
 use uuid::Uuid;
 
@@ -260,13 +256,8 @@ async fn request_with_authorization_code(
 ) -> Result<BrowserAccessToken> {
     cancellation.cancellable_scope(|_| async move {
     let authority = format!("https://login.microsoftonline.com/{tenant_id}");
-    let listener = TcpListener::bind(("127.0.0.1", 0))
-        .await
-        .wrap_err("binding the local OAuth callback listener")?;
-    let callback_port = listener
-        .local_addr()
-        .wrap_err("getting the local OAuth callback address")?
-        .port();
+    let listener = BrowserAuthorizationCallbackListener::bind().await?;
+    let callback_port = listener.port()?;
     let redirect_uri = format!("http://localhost:{callback_port}");
     let state = Uuid::new_v4().to_string();
     let code_verifier = format!("{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple());
@@ -281,17 +272,16 @@ async fn request_with_authorization_code(
         &code_challenge,
     );
 
-    let callback = Box::pin(wait_for_authorization_code(listener, state, resource));
     match open_browser_url(&authorization_url) {
         Ok(()) => eprintln!(
-            "Opened the browser for Cloud Terrastodon authentication. If the callback cannot reach this WSL instance, open this URL after forwarding port {}:\n{authorization_url}",
+            "Opened the browser for Cloud Terrastodon authentication. Waiting for the callback at http://localhost:{}:\n{authorization_url}",
             callback_port
         ),
         Err(error) => eprintln!(
             "Could not open the browser automatically ({error}); open this URL manually:\n{authorization_url}"
         ),
     }
-    let authorization_code = callback.await?;
+    let authorization_code = listener.receive_code(&state, resource).await?;
 
     let client = Client::new();
     let token_url = format!("{authority}/oauth2/v2.0/token");
@@ -355,109 +345,6 @@ async fn parse_token_response(
         .await
         .wrap_err("reading the Entra browser token response")?;
     BrowserTokenResponse::decode(&body)?.into_access_token(status, tenant_id, resource)
-}
-
-#[instrument(level = "debug", skip_all)]
-async fn wait_for_authorization_code(
-    listener: TcpListener,
-    expected_state: String,
-    resource: AzureCredentialResource,
-) -> Result<String> {
-    debug!(
-        ?resource,
-        "Waiting for the browser OAuth callback on {}",
-        listener
-            .local_addr()
-            .wrap_err("getting the local OAuth callback address")?
-    );
-    let accepted = timeout(Duration::from_secs(600), listener.accept())
-        .await
-        .wrap_err("waiting for the browser OAuth callback")?;
-    let (mut stream, _) = accepted?;
-    let mut request_buffer = vec![0_u8; 16 * 1024];
-    let mut request_length = 0;
-    loop {
-        let bytes_read = timeout(
-            Duration::from_secs(30),
-            stream.read(&mut request_buffer[request_length..]),
-        )
-        .await
-        .wrap_err("reading the browser OAuth callback")??;
-        request_length += bytes_read;
-        if bytes_read == 0
-            || request_buffer[..request_length]
-                .windows(4)
-                .any(|window| window == b"\r\n\r\n")
-        {
-            break;
-        }
-        if request_length == request_buffer.len() {
-            bail!("browser OAuth callback request exceeded the 16 KiB limit");
-        }
-    }
-    let request = String::from_utf8_lossy(&request_buffer[..request_length]);
-    let request_target = request
-        .lines()
-        .next()
-        .and_then(|line| line.split_whitespace().nth(1))
-        .ok_or_else(|| {
-            eyre::eyre!("browser OAuth callback did not contain an HTTP request target")
-        })?;
-    let code = match parse_authorization_callback(request_target, &expected_state, resource) {
-        Ok(code) => code,
-        Err(error) => {
-            write_callback_response(&mut stream, false).await?;
-            return Err(error);
-        }
-    };
-    write_callback_response(&mut stream, true).await?;
-    Ok(code)
-}
-
-fn parse_authorization_callback(
-    request_target: &str,
-    expected_state: &str,
-    resource: AzureCredentialResource,
-) -> Result<String> {
-    let callback_url = Url::parse(&format!("http://localhost{request_target}"))
-        .wrap_err("parsing the browser OAuth callback URL")?;
-    let query = callback_url
-        .query_pairs()
-        .map(|(key, value)| (key.into_owned(), value.into_owned()))
-        .collect::<Vec<_>>();
-    let query_value = |name: &str| {
-        query
-            .iter()
-            .find(|(key, _)| key == name)
-            .map(|(_, value)| value.as_str())
-    };
-
-    if let Some(error) = query_value("error") {
-        let error = BrowserTokenResponse::diagnostic_error(Some(error));
-        bail!("Entra browser authentication for {resource:?} failed ({error})");
-    }
-    if query_value("state") != Some(expected_state) {
-        bail!("Entra browser authentication for {resource:?} returned an invalid state");
-    }
-    query_value("code")
-        .map(str::to_owned)
-        .ok_or_else(|| eyre::eyre!("Entra browser authentication callback did not contain a code"))
-}
-
-async fn write_callback_response(stream: &mut tokio::net::TcpStream, success: bool) -> Result<()> {
-    let body = if success {
-        "<!doctype html><title>Cloud Terrastodon</title><p>Authentication complete. You can close this tab.</p>"
-    } else {
-        "<!doctype html><title>Cloud Terrastodon</title><p>Authentication failed. You can close this tab.</p>"
-    };
-    let response = format!(
-        "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-        body.len(),
-        body
-    );
-    stream.write_all(response.as_bytes()).await?;
-    stream.shutdown().await?;
-    Ok(())
 }
 
 fn build_authorization_url(
@@ -620,41 +507,6 @@ mod tests {
             token_exchange_scopes(AzureCredentialResource::AzureDevOps, &scopes),
             "499b84ac-1321-427f-aa17-267ca6975798/user_impersonation offline_access"
         );
-    }
-
-    #[test]
-    fn callback_parser_accepts_encoded_code_and_matching_state() {
-        let code = parse_authorization_callback(
-            "/?code=code%2Bvalue&state=expected%20state",
-            "expected state",
-            AzureCredentialResource::MicrosoftGraph,
-        )
-        .unwrap();
-        assert_eq!(code, "code+value");
-    }
-
-    #[test]
-    fn callback_parser_rejects_invalid_state() {
-        let error = parse_authorization_callback(
-            "/?code=code&state=unexpected",
-            "expected",
-            AzureCredentialResource::MicrosoftGraph,
-        )
-        .unwrap_err();
-        assert!(error.to_string().contains("invalid state"));
-    }
-
-    #[test]
-    fn callback_parser_reports_known_errors_without_untrusted_descriptions() {
-        let error = parse_authorization_callback(
-            "/?error=access_denied&error_description=cancelled%20by%20user&state=expected",
-            "expected",
-            AzureCredentialResource::AzureDevOps,
-        )
-        .unwrap_err();
-        let message = error.to_string();
-        assert!(message.contains("access_denied"));
-        assert!(!message.contains("cancelled by user"));
     }
 
     #[test]
