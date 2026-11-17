@@ -34,7 +34,7 @@ pub fn load_resource_groups(app: &mut MyApp) {
         });
     if let Err(error) = work {
         app.resource_groups = Loadable::Failed {
-            error,
+            error: error.into(),
             started_at,
             finished_at: Instant::now(),
         };

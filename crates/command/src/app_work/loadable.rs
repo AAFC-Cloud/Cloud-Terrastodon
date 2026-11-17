@@ -1,7 +1,9 @@
+use cloud_terrastodon_tracing::DiagnosticReport;
 use std::time::Instant;
 
+/// An application's loading state, sharing failure diagnostics with its log records.
 #[derive(Debug, Default)]
-pub enum Loadable<T, E = eyre::Error> {
+pub enum Loadable<T, E = DiagnosticReport> {
     #[default]
     NotLoaded,
     Loading {

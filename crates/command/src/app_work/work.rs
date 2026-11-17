@@ -3,6 +3,7 @@ use super::AppboundWorkFinishedMessage;
 use super::StateMutator;
 use crate::CancellationErrorExt;
 use cloud_terrastodon_relative_location::RelativeLocation;
+use cloud_terrastodon_tracing::DiagnosticReport;
 use eyre::eyre;
 use std::future::Future;
 use std::marker::PhantomData;
@@ -22,7 +23,7 @@ use tracing::error;
 pub struct Work<State, OnEnqueue, OnWork, WorkFailureMutator, OnFailure>
 where
     OnEnqueue: Fn(&mut State),
-    OnFailure: Fn(eyre::Error) -> WorkFailureMutator + Send + 'static,
+    OnFailure: Fn(DiagnosticReport) -> WorkFailureMutator + Send + 'static,
     WorkFailureMutator: StateMutator<State> + 'static,
 {
     pub location: &'static Location<'static>,
@@ -40,7 +41,7 @@ where
     OnWork: FnOnce(CancellationScope) -> WorkFuture + Send + 'static,
     WorkFuture: Future<Output = eyre::Result<WorkSuccess>> + Send + 'static,
     WorkSuccess: StateMutator<State> + 'static,
-    OnFailure: Fn(eyre::Error) -> WorkFailureMutator + Send + 'static,
+    OnFailure: Fn(DiagnosticReport) -> WorkFailureMutator + Send + 'static,
     WorkFailureMutator: StateMutator<State> + 'static,
 {
     #[track_caller]
@@ -76,8 +77,11 @@ where
                                 RelativeLocation::from(self.location)
                             ))
                             .wrap_err("Error encountered in worker thread");
-                        error!(?error);
-                        let state_mutator = (self.on_failure)(error);
+                        // Logging and the UI retain the same report so its handler
+                        // and typed causes survive until each surface renders it.
+                        let report = DiagnosticReport::new(error);
+                        error!(error = report.as_error(), "Background work failed");
+                        let state_mutator = (self.on_failure)(report);
                         sender.send(AppboundWorkFinishedMessage::<State>::StateChange(Box::new(
                             state_mutator,
                         )))

@@ -1299,6 +1299,7 @@ dependencies = [
  "cloud_terrastodon_pathing",
  "cloud_terrastodon_registry",
  "cloud_terrastodon_relative_location",
+ "cloud_terrastodon_tracing",
  "cloud_terrastodon_user_input",
  "compact_str",
  "eyre",

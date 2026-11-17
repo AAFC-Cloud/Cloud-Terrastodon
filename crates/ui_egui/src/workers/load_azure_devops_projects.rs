@@ -42,7 +42,7 @@ pub fn load_azure_devops_projects(app: &mut MyApp) {
         });
     if let Err(error) = work {
         app.azure_devops_projects = Loadable::Failed {
-            error,
+            error: error.into(),
             started_at,
             finished_at: Instant::now(),
         };

@@ -3,6 +3,7 @@ use super::FieldUpdaterWorkSuccessMutator;
 use super::Loadable;
 use super::Work;
 use cloud_terrastodon_execution::ExecutionFuture;
+use cloud_terrastodon_tracing::DiagnosticReport;
 use eyre::bail;
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -13,7 +14,7 @@ use std::time::Instant;
 use teamy_cancellation::CancellationScope;
 
 pub type Setter<State, FinishedWorkData> =
-    Arc<dyn Fn(&mut State, Loadable<FinishedWorkData, eyre::Error>) + Send + Sync>;
+    Arc<dyn Fn(&mut State, Loadable<FinishedWorkData>) + Send + Sync>;
 type LoadableWorkFactory<T> =
     Box<dyn FnOnce(CancellationScope) -> ExecutionFuture<'static, T> + Send>;
 
@@ -58,7 +59,7 @@ where
 
     pub fn setter<G>(mut self, setter: G) -> Self
     where
-        G: Fn(&mut State, Loadable<FinishedWorkData, eyre::Error>) + Send + Sync + 'static,
+        G: Fn(&mut State, Loadable<FinishedWorkData>) + Send + Sync + 'static,
     {
         self.setter = Some(Arc::new(setter));
         self
@@ -92,7 +93,7 @@ where
                 FieldUpdaterWorkSuccessMutator<State, FinishedWorkData>,
             > + Send,
             FieldUpdaterWorkFailureMutator<State, FinishedWorkData>,
-            impl Fn(eyre::Error) -> FieldUpdaterWorkFailureMutator<State, FinishedWorkData> + Send,
+            impl Fn(DiagnosticReport) -> FieldUpdaterWorkFailureMutator<State, FinishedWorkData> + Send,
         >,
     > {
         let Some(setter) = self.setter else {

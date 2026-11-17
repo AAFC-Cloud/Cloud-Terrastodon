@@ -36,7 +36,7 @@ pub fn load_subscriptions(app: &mut MyApp) {
         });
     if let Err(error) = work {
         app.subscriptions = Loadable::Failed {
-            error,
+            error: error.into(),
             started_at,
             finished_at: Instant::now(),
         };

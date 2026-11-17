@@ -46,7 +46,7 @@ pub fn resources_ui(app: &mut MyApp, ui: &mut Ui) {
                 Err(error) => {
                     ui.label(format!("Failed to prepare resource loading: {error:#}"));
                     app.resources = Loadable::Failed {
-                        error,
+                        error: error.into(),
                         started_at,
                         finished_at: Instant::now(),
                     };
@@ -57,7 +57,7 @@ pub fn resources_ui(app: &mut MyApp, ui: &mut Ui) {
             ui.label("Loading resources...");
         }
         Loadable::Failed { error: err, .. } => {
-            ui.label(format!("Failed to load resources: {:#?}", err));
+            ui.label(format!("Failed to load resources: {err}"));
         }
         Loadable::Loaded {
             value: resources_rc,
