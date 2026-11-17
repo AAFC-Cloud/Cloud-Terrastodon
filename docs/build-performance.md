@@ -6,8 +6,10 @@ default features, and the existing dependency lockfile. No production requests,
 credentials, or response data were used. No compiler-profile or dependency-version
 changes are needed for the picker refactor.
 
-The workspace manifest consumes the coordinated published
-Facet/cancellation releases without development overrides. See
+The performance release consumed the coordinated published
+Facet/cancellation releases without development overrides. The subsequent
+[borrowed path proxy release](UPDATING_FACET.md#borrowed-path-proxy-release-2026-11-17)
+also uses registry packages and removes its temporary sibling overrides. See
 [the release record](UPDATING_FACET.md#coordinated-performance-release-2026-11-16)
 for package versions and qualification status, and
 [local Facet development](UPDATING_FACET.md#local-facet-development) to enable

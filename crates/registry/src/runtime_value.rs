@@ -453,11 +453,12 @@ impl RuntimeValue {
         if let Some(proxy) = self.shape.effective_proxy(None) {
             let peek = self.peek();
             if let Ok(owned) = peek.custom_serialization_with_proxy(proxy) {
-                let proxied = owned.as_peek();
-                if let Some(text) = proxied.as_str() {
-                    return text.to_owned();
-                }
-                return proxied.to_string();
+                return owned.with_peek(|proxied| {
+                    proxied
+                        .as_str()
+                        .map(ToOwned::to_owned)
+                        .unwrap_or_else(|| proxied.to_string())
+                });
             }
         }
         if let Ok(enum_value) = self.peek().into_enum()

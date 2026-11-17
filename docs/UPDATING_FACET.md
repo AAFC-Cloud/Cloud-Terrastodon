@@ -13,9 +13,118 @@ registry dependencies. Both graphs must keep interacting Facet traits and shapes
 on one compatible core package identity. Run checks with `--offline --locked`
 after resolving the graph being tested.
 
+## Borrowed path proxy release (2026-11-17)
+
+Cloud Terrastodon selects the registry family below without root Cargo patches.
+The release preserves one identity per participating Core/reflection package;
+unchanged derive packages do not need a version bump merely to match the facade.
+The temporary sibling overrides used to develop and test this fix are removed.
+Cargo's downloaded source cache was not edited.
+
+| Package group | Release version |
+| --- | --- |
+| Core, Path, Reflect, Solver, Pretty | `0.50.0-rc.8` |
+| Facet facade, Error, Default | `0.50.0-rc.10` |
+| Dessert, DOM | `0.50.0-rc.8` |
+| Format, Value | `0.50.0-rc.11` |
+| JSON, CSV | `0.50.0-rc.12` |
+| XML, XML Node | `0.50.0-rc.9` |
+| Figue | `6.0.0-rc.8` |
+| Figue Attrs | `6.0.0-rc.6` |
+| Cancellation | `0.8.3` |
+| Tracing | `0.2.3` |
+
+Macros/Macros Impl retain `0.50.0-rc.9`; macro parsing/types and test helpers retain
+`0.50.0-rc.7`. CT does not use every format above, but the matching XML and template
+consumers are included so they can adopt the changed reflection API coherently.
+
+`PathBuf` now declares a type-level `Cow<str>` proxy in Facet Core. Serialization
+borrows UTF-8 path text instead of allocating a separate string; deserialization
+constructs an owned path. The generic proxy-holder allocation remains. Invalid
+UTF-8 paths fail with field context rather than being replaced lossily. The
+shared serializer has no path-specific dispatch branches. Map keys still use
+the serializer's existing owned key representation, which copies their text;
+the proxy change removes the additional path-to-string copy.
+
+Borrowed proxies also require safe reflection access. `OwnedPeek::with_peek`
+replaces `as_peek` with a higher-ranked callback whose result cannot export the
+proxy's borrows. Construction rejects invariant and contravariant proxy shapes
+before conversion, since their lifetimes cannot safely shrink. CT's three proxy
+inspection sites now return owned text from this callback; the Format/DOM and
+reflection consumers are updated in their forks.
+
+For another Core/Format development iteration, use the local-development recipe
+below and add this entry when the shared serializer also needs local changes:
+
+```toml
+teamy-facet-format = { path = "../facet-format/facet-format" }
+```
+
+Patching Format alone is insufficient: its sibling Core dependencies and CT's
+registry dependencies would have distinct trait/shape identities. The resolved
+graph must contain one identity per participating package. JSON, Value, Figue,
+and Cancellation can remain registry packages while resolving their Core/Format
+dependencies through the root patches. The published graph needs no overrides.
+
+The 20 normalized candidate archives were assembled into an isolated local
+registry and built together by a synthetic acceptance consumer. Each final
+archive is checked for registry dependencies, licensing, clean Git provenance,
+and matching tested Rust sources before Cargo builds it again for publication.
+Do not reuse prepublication lockfile checksums after rebuilding committed
+archives: VCS metadata changes their archive hashes.
+
+Release source checkpoints:
+
+- Core: [`e575c42ea`](https://github.com/TeamDman/facet/commit/e575c42eaffe6ef4057d884b6e3258e4cd3f2f71).
+- Format: [`af0858f`](https://github.com/TeamDman/facet-format/commit/af0858f39c51324f5b3df04763529586756973a5).
+- Figue: [`69fe8b6`](https://github.com/TeamDman/figue/commit/69fe8b6815c19dafdf3569d77b813319e1c9a99b).
+- Cancellation: [`7a06612`](https://github.com/TeamDman/teamy-cancellation/commit/7a06612270f6ea3b8b4a4b87525f80ffcf2b2ae7).
+- Tracing: [`2726e9c`](https://github.com/TeamDman/teamy-tracing/commit/2726e9c3b64547ad3b4da36f4ecd77c2ed10b5c2).
+- CLI template: [`51c2c26`](https://github.com/TeamDman/teamy-rust-cli/commit/51c2c26).
+
+Validation uses synthetic values and temporary directories: four path-proxy
+regressions, 33 existing JSON proxy tests, nine reflection serialization tests,
+and compiler failures for both dropping a borrowed proxy owner and exporting a
+borrowed Cow as `'static`. CT's four config tests and its terminal/JSON error
+report regression pass. Strict all-target Clippy passes for the affected CT
+application, config, registry, egui, and Ratatui crates; the fork gates also
+cover the shared serializer and migrated DOM consumers. CT's workspace/all-target
+check and formatting checks also pass on the published graph. Metadata confirms one
+identity per participating Facet package. No live service requests or real
+settings were used.
+
+Cancellation passes its 90 all-feature tests with `--test-threads=1` and strict
+all-target/all-feature Clippy. One parallel run of its existing log-capture test
+missed the late-cleanup acknowledgment; that test passes alone and serially.
+Other tests can register the shared tracing callsite without a subscriber while
+the capturing test is running. This qualification does not change cancellation
+execution code. Tracing passes its full Windows gate, including examples,
+rustdoc, comparison tests, both strict Clippy checks, and its Serde-free normal
+and build graph.
+
+The template passes its Rust 1.96 all-target/all-feature check, strict Clippy,
+and 29 selected offline tests. Its normal/build graph remains free of Serde.
+CT and template lockfiles contain only 14 and 15 targeted family version
+updates, respectively, with no unrelated package-version changes. Their
+checksums match the audited clean release archives, rather than the temporary
+prepublication candidates.
+
+The CT error-formatting fix is independent of Facet's path support.
+`DiagnosticReport` retains an `Arc<eyre::Report>` in typed log fields until
+presentation. Pass `error = report.as_error()` to tracing so the capture layer
+can retain it; `?error` still records ordinary debug text. The app retains the
+normal color-eyre theme. Terminal rendering honors the stderr color policy and
+allows cosmetic styling while escaping terminal commands; JSON and GUI text
+receive the complete plain report, including sections and traces. Regressions
+check report identity after capture, no formatting during buffering or cloning,
+source and span details, and a single valid JSON event. Replay formats outside
+the buffer lock so error formatting can emit further logs. Config decoding
+retains its source error, and GUI shutdown returns primary failures once while
+logging otherwise-lost secondary failures.
+
 ## Coordinated performance release (2026-11-16)
 
-The consumer manifests use the following published registry releases,
+The coordinated release used the following published registry releases,
 without root development patches. The Facet enum-metadata fix is published in
 the five rc.9 core packages from
 [`9b8f11e12a0a4a0c377b3d394c6e4187248e416c`](https://github.com/TeamDman/facet/commit/9b8f11e12a0a4a0c377b3d394c6e4187248e416c).
@@ -92,8 +201,9 @@ Release source checkpoints:
 
 ## Local Facet development
 
-Cloud Terrastodon's release manifest uses registry dependencies.
-For another development iteration, enable the recipe below to make ordinary
+Cloud Terrastodon's manifest uses registry dependencies. For another development
+iteration, enable the recipe below, extending it with the Format entry above
+when needed, to make ordinary
 `cargo build`, `cargo test`, and `update.ps1` consume the sibling Facet checkout
 directly, without publishing each experimental change.
 
@@ -145,9 +255,10 @@ teamy-facet-solver = { path = "../facet/facet-solver" }
 
 Patch the participating core family together: a facade-only path dependency can
 leave transitive registry clients using a different Core/reflection identity.
-Format, JSON, Value, Figue, and Cancellation remain registry packages but resolve
-their core dependencies through these patches. Extend the block only if the
-dependency graph gains another participating package.
+Without an active Format change, Format, JSON, Value, Figue, and Cancellation
+remain registry packages but resolve their core dependencies through these
+patches. Extend the block when another participating package needs local changes,
+as Format did during the path-persistence iteration.
 
 With unchanged versions, enabling these 11 patches removes only their registry
 `source` and `checksum` lockfile lines; disabling restores them. Investigate other

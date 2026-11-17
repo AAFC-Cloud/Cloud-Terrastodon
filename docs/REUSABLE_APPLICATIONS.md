@@ -339,6 +339,21 @@ cancellation recognition through typed contexts, error sources, and I/O payloads
 `CliOutput` preserves the original report; use `is_cancellation()` or
 `as_cancellation()` rather than relying on native downcasts of nested errors.
 
+For an error that must be logged, `cloud_terrastodon_tracing::DiagnosticReport`
+owns a shared `eyre::Report` and retains its typed sources, sections, and traces
+through terminal buffering. Log the typed value with
+`tracing::error!(error = report.as_error(), "Settings save failed")` after
+constructing `DiagnosticReport::new(error)`. Terminal presentation preserves
+color-eyre styling according to the stderr color policy; JSON and GUI text use
+the full plain report. No process-global color overrides are used. Ordinary
+`?error` and `%error` fields remain tracing text values and cannot retain an
+owned report. Use event fields for report retention: span fields project to text
+to avoid owning their own captured span. The application owns its
+`TerminalLogBuffer`; capture layers borrow it weakly to avoid a cycle through
+reports' captured tracing subscribers. Return primary failures to the runner;
+use diagnostic logging for otherwise-lost secondary failures to avoid displaying
+the same failure twice.
+
 The standalone `audit` command partitions resource groups by name: exactly five
 occurrences of ASCII `a`, `e`, `i`, `o`, or `u`, ignoring case, belong in
 `with_five_vowels`; every other name belongs in `without_five_vowels`. Repeated

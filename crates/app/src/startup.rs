@@ -1,10 +1,12 @@
 #[cfg(windows)]
 use crate::windows_support;
+use color_eyre::config::HookBuilder;
+use color_eyre::config::PanicHook;
 use eyre::Result;
 use std::sync::Arc;
 use std::sync::OnceLock;
 
-static PANIC_HOOK: OnceLock<Arc<color_eyre::config::PanicHook>> = OnceLock::new();
+static PANIC_HOOK: OnceLock<Arc<PanicHook>> = OnceLock::new();
 
 /// Prepare process output before parsing can print help or errors and exit.
 ///
@@ -31,12 +33,12 @@ pub fn install_error_hook() -> Result<()> {
     Ok(())
 }
 
-fn panic_hook() -> Result<Arc<color_eyre::config::PanicHook>> {
+fn panic_hook() -> Result<Arc<PanicHook>> {
     if let Some(panic_hook) = PANIC_HOOK.get() {
         return Ok(Arc::clone(panic_hook));
     }
 
-    let (panic_hook, error_hook) = color_eyre::config::HookBuilder::default().try_into_hooks()?;
+    let (panic_hook, error_hook) = HookBuilder::default().try_into_hooks()?;
     if let Err(error) = error_hook.install() {
         eprintln!("Failed to install the eyre error hook: {error}");
     }

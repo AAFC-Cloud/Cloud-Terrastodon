@@ -48,3 +48,4 @@ workspace = true
 [dev-dependencies]
 cloud_terrastodon_auth_types.workspace = true
 cloud_terrastodon_execution = { workspace = true, features = ["test-support"] }
+tracing-error.workspace = true

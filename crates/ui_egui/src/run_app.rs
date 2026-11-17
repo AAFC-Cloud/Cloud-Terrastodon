@@ -5,9 +5,11 @@ use cloud_terrastodon_command::app_work::AppWorkTracker;
 use cloud_terrastodon_config::Config;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_pathing::AppDir;
+use cloud_terrastodon_tracing::DiagnosticReport;
 use eframe::NativeOptions;
 use eframe::egui::ViewportCommand;
 use eframe::egui::ViewportId;
+use eyre::WrapErr;
 use eyre::eyre;
 use std::panic::AssertUnwindSafe;
 use std::panic::catch_unwind;
@@ -84,26 +86,50 @@ pub async fn run_app(
                 .finish_required("save final GUI settings", async |_cleanup| {
                     if let Ok((egui_config, work_dirs_config)) = settings_receiver.try_recv() {
                         // Attempt both saves even if one fails.
-                        let egui_saved = egui_config.save().await;
-                        let work_dirs_saved = work_dirs_config.save().await;
-                        if let Err(error) = &work_dirs_saved {
-                            tracing::error!(?error, "Failed to save final work-directory settings");
+                        let egui_saved = egui_config
+                            .save()
+                            .await
+                            .wrap_err("Failed to save final GUI settings");
+                        let work_dirs_saved = work_dirs_config
+                            .save()
+                            .await
+                            .wrap_err("Failed to save final work-directory settings");
+                        // The returned error owns primary-error presentation.
+                        // Log only another failure that would otherwise be lost.
+                        match (egui_saved, work_dirs_saved) {
+                            (Err(primary), Err(secondary)) => {
+                                let report = DiagnosticReport::new(secondary);
+                                tracing::error!(
+                                    error = report.as_error(),
+                                    "Work-directory settings also failed to save"
+                                );
+                                return Err(primary);
+                            }
+                            (Err(error), Ok(())) | (Ok(()), Err(error)) => return Err(error),
+                            (Ok(()), Ok(())) => {}
                         }
-                        egui_saved?;
-                        work_dirs_saved?;
                     }
                     eyre::Ok(())
                 })
                 .await;
-            if let Err(error) = &saved {
-                tracing::error!(?error, "Failed to save final GUI settings");
-            }
-            let drained = drained.and(saved);
+            let drained = match (drained, saved) {
+                (Err(primary), Err(secondary)) => {
+                    let report = DiagnosticReport::new(secondary);
+                    tracing::error!(
+                        error = report.as_error(),
+                        "Settings also failed to save while background work failed"
+                    );
+                    Err(primary)
+                }
+                (Err(error), Ok(())) | (Ok(()), Err(error)) => Err(error),
+                (Ok(()), Ok(())) => Ok(()),
+            };
             match (result, drained) {
                 (Err(panic), drain) => {
                     if let Err(drain_error) = drain {
+                        let report = DiagnosticReport::new(drain_error);
                         tracing::error!(
-                            ?drain_error,
+                            error = report.as_error(),
                             "Background work failed while draining after a GUI panic"
                         );
                     }
@@ -111,8 +137,9 @@ pub async fn run_app(
                 }
                 (Ok(Err(error)), drain) => {
                     if let Err(drain_error) = drain {
+                        let report = DiagnosticReport::new(drain_error);
                         tracing::error!(
-                            ?drain_error,
+                            error = report.as_error(),
                             "Background work also failed during GUI shutdown"
                         );
                     }

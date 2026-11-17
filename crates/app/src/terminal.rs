@@ -130,7 +130,7 @@ fn picker_log_record(record: StructuredLogRecord) -> PickerLogRecord {
         fields: record
             .fields
             .into_iter()
-            .map(|(name, value)| (name.into(), value.into()))
+            .map(|(name, value)| (name.into(), value.to_string().into()))
             .collect(),
         spans: record
             .spans
@@ -140,7 +140,7 @@ fn picker_log_record(record: StructuredLogRecord) -> PickerLogRecord {
                 fields: span
                     .fields
                     .into_iter()
-                    .map(|(name, value)| (name.into(), value.into()))
+                    .map(|(name, value)| (name.into(), value.to_string().into()))
                     .collect(),
             })
             .collect(),

@@ -3,7 +3,6 @@ use chrono::Local;
 // use egui_tracing::tracing::collector::EventCollector;
 use eyre::Result;
 use std::fs::OpenOptions;
-use std::io::IsTerminal;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -18,11 +17,17 @@ use tracing_subscriber::layer::Layer;
 use tracing_subscriber::prelude::*;
 use tracing_subscriber::util::SubscriberInitExt;
 
+mod diagnostic_report;
+mod diagnostic_report_display;
 mod structured_log;
+mod structured_log_value;
 mod terminal_log_buffer;
 mod terminal_log_buffer_state;
+mod weak_terminal_log_buffer;
 
+pub use diagnostic_report::DiagnosticReport;
 pub use structured_log::*;
+pub use structured_log_value::StructuredLogValue;
 pub use terminal_log_buffer::TerminalLogBuffer;
 
 type InactiveWriter = Arc<dyn Fn(&StructuredLogRecord) + Send + Sync>;
@@ -71,6 +76,11 @@ pub fn init_tracing(
     )
 }
 
+/// Initialize tracing with optional caller-owned terminal capture.
+///
+/// Keep a `TerminalLogBuffer` handle alive for the capture lifetime. Layers use
+/// weak writers so retained reports cannot own their buffers through captured
+/// span traces. The application runner manages that ownership automatically.
 pub fn init_tracing_with_terminal(
     level: impl Into<Directive>,
     file_level: Option<impl Into<Directive>>,
@@ -124,42 +134,24 @@ fn build_subscriber(
         .as_ref()
         .and_then(TerminalLogBuffer::debug_capture)
         .map(|buffer| {
-            TerminalEventLayer::new(buffer, Arc::new(|| true)).with_filter(
+            TerminalEventLayer::new(&buffer, Arc::new(|| true)).with_filter(
                 tracing_subscriber::filter::LevelFilter::DEBUG
                     .and(filter_fn(exclude_tracy_frame_mark)),
             )
         });
-    let human_layer = if let (Some(buffer), Some(active)) = (terminal_log_buffer, terminal_active) {
-        let layer = TerminalEventLayer::new(buffer, active);
-        let layer = if let Some(inactive_writer) = inactive_writer {
-            layer.with_inactive_writer(move |record| inactive_writer(record))
-        } else {
-            layer
-        };
-        layer
-            .boxed()
-            .with_filter(
-                stderr_filter
-                    .clone()
-                    .and(filter_fn(exclude_tracy_frame_mark)),
-            )
-            .boxed()
+    // Use the same report-aware renderer with and without an interactive
+    // terminal owner. Only buffering differs between the two modes.
+    let buffer = terminal_log_buffer.unwrap_or_default();
+    let human_layer = TerminalEventLayer::new(
+        &buffer,
+        terminal_active.unwrap_or_else(|| Arc::new(|| false)),
+    );
+    let human_layer = if let Some(inactive_writer) = inactive_writer {
+        human_layer.with_inactive_writer(move |record| inactive_writer(record))
     } else {
-        tracing_subscriber::fmt::layer()
-            // Keep the human-readable field cache distinct from the JSON layer's
-            // `DefaultFields`; otherwise the stderr layer's ANSI-formatted fields can be
-            // reparsed by the JSON formatter as though they were JSON.
-            .fmt_fields(tracing_subscriber::fmt::format::PrettyFields::default())
-            .with_file(cfg!(debug_assertions))
-            .with_target(false)
-            .with_line_number(cfg!(debug_assertions))
-            .with_writer(std::io::stderr)
-            .pretty()
-            .without_time()
-            .with_ansi(std::io::stderr().is_terminal())
-            .with_filter(stderr_filter.and(filter_fn(exclude_tracy_frame_mark)))
-            .boxed()
-    };
+        human_layer
+    }
+    .with_filter(stderr_filter.and(filter_fn(exclude_tracy_frame_mark)));
 
     let subscriber = tracing_subscriber::registry()
         .with(debug_capture_layer)
@@ -239,11 +231,11 @@ mod tests {
         // anything, and changing that environment variable races other tests.
         let subscriber = tracing_subscriber::registry()
             .with(
-                TerminalEventLayer::new(buffer.debug_capture().unwrap(), Arc::new(|| true))
+                TerminalEventLayer::new(&buffer.debug_capture().unwrap(), Arc::new(|| true))
                     .with_filter(tracing_subscriber::filter::LevelFilter::DEBUG),
             )
             .with(
-                TerminalEventLayer::new(buffer.clone(), Arc::new(|| true))
+                TerminalEventLayer::new(&buffer, Arc::new(|| true))
                     .with_filter(tracing_subscriber::filter::LevelFilter::INFO),
             );
 
@@ -269,7 +261,11 @@ mod tests {
         );
         assert_eq!(captured[1].level, StructuredLogLevel::Debug);
         assert_eq!(
-            captured[1].spans[0].fields,
+            captured[1].spans[0]
+                .fields
+                .iter()
+                .map(|(name, value)| (name.clone(), value.to_string()))
+                .collect::<Vec<_>>(),
             [("phase".to_owned(), "running".to_owned())]
         );
         assert!(
@@ -404,7 +400,7 @@ mod tests {
         let active = Arc::new(AtomicBool::new(true));
         let buffer = TerminalLogBuffer::new();
         let layer = TerminalEventLayer::new(
-            buffer.clone(),
+            &buffer,
             Arc::new({
                 let active = Arc::clone(&active);
                 move || active.load(Ordering::Acquire)
@@ -427,12 +423,20 @@ mod tests {
         assert_eq!(records.len(), 1);
         assert_eq!(records[0].message.as_ref(), "search failed");
         assert_eq!(
-            records[0].fields,
+            records[0]
+                .fields
+                .iter()
+                .map(|(name, value)| (name.clone(), value.to_string()))
+                .collect::<Vec<_>>(),
             [("query".to_string(), "smith".to_string())]
         );
         assert_eq!(records[0].spans[0].name.as_ref(), "picker_handler");
         assert_eq!(
-            records[0].spans[0].fields,
+            records[0].spans[0]
+                .fields
+                .iter()
+                .map(|(name, value)| (name.clone(), value.to_string()))
+                .collect::<Vec<_>>(),
             [
                 ("event".to_string(), "query_changed".to_string()),
                 ("message".to_string(), "handler scope".to_string())
@@ -507,7 +511,7 @@ mod tests {
         let active = Arc::new(AtomicBool::new(true));
         let buffer = TerminalLogBuffer::new();
         let layer = TerminalEventLayer::new(
-            buffer.clone(),
+            &buffer,
             Arc::new({
                 let active = Arc::clone(&active);
                 move || active.load(Ordering::Acquire)

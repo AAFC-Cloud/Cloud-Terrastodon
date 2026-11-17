@@ -1,4 +1,7 @@
+use crate::DiagnosticReport;
+use crate::StructuredLogValue;
 use crate::TerminalLogBuffer;
+use crate::weak_terminal_log_buffer::WeakTerminalLogBuffer;
 use color_eyre::owo_colors::OwoColorize;
 use color_eyre::owo_colors::Stream;
 use color_eyre::owo_colors::Style;
@@ -31,10 +34,10 @@ impl StructuredLogLevel {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct StructuredSpan {
     pub name: Arc<str>,
-    pub fields: Vec<(String, String)>,
+    pub fields: Vec<(String, StructuredLogValue)>,
 }
 
 #[derive(Clone, Debug)]
@@ -43,7 +46,7 @@ pub struct StructuredLogRecord {
     pub level: StructuredLogLevel,
     pub target: Arc<str>,
     pub message: Arc<str>,
-    pub fields: Vec<(String, String)>,
+    pub fields: Vec<(String, StructuredLogValue)>,
     pub spans: Vec<StructuredSpan>,
     pub file: Option<Arc<str>>,
     pub line: Option<u32>,
@@ -51,29 +54,52 @@ pub struct StructuredLogRecord {
 
 pub type TerminalActivityProbe = Arc<dyn Fn() -> bool + Send + Sync>;
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 struct CapturedFields {
     message: Option<String>,
-    fields: Vec<(String, String)>,
+    fields: Vec<(String, StructuredLogValue)>,
+    retain_reports: bool,
+}
+
+impl Default for CapturedFields {
+    fn default() -> Self {
+        Self {
+            message: None,
+            fields: Vec::new(),
+            retain_reports: true,
+        }
+    }
 }
 
 impl CapturedFields {
-    fn merge(&mut self, other: &Self) {
+    fn for_span() -> Self {
+        Self {
+            // A report can capture this same span in its SpanTrace. Retaining
+            // it in the span's extensions would create a strong ownership cycle.
+            retain_reports: false,
+            ..Self::default()
+        }
+    }
+
+    fn merge(&mut self, other: &Self) -> Vec<StructuredLogValue> {
+        let mut replaced = Vec::new();
         if other.message.is_some() {
             self.message = other.message.clone();
         }
         for (name, value) in &other.fields {
             if let Some(existing) = self.fields.iter_mut().find(|(key, _)| key == name) {
-                existing.1.clone_from(value);
+                replaced.push(std::mem::replace(&mut existing.1, value.clone()));
             } else {
                 self.fields.push((name.clone(), value.clone()));
             }
         }
+        replaced
     }
 
-    fn record_value(&mut self, field: &Field, value: String) {
+    fn record_value(&mut self, field: &Field, value: impl Into<StructuredLogValue>) {
+        let value = value.into();
         if field.name() == "message" {
-            self.message = Some(value);
+            self.message = Some(value.to_string());
         } else {
             self.fields.push((field.name().to_string(), value));
         }
@@ -114,13 +140,19 @@ impl Visit for CapturedFields {
     }
 
     fn record_error(&mut self, field: &Field, value: &(dyn std::error::Error + 'static)) {
-        self.record_value(field, value.to_string());
+        if self.retain_reports
+            && let Some(report) = value.downcast_ref::<DiagnosticReport>()
+        {
+            self.record_value(field, StructuredLogValue::Report(report.clone()));
+        } else {
+            self.record_value(field, value.to_string());
+        }
     }
 }
 
 #[derive(Clone)]
 pub struct TerminalEventLayer {
-    buffer: TerminalLogBuffer,
+    buffer: WeakTerminalLogBuffer,
     active: TerminalActivityProbe,
     inactive_writer: InactiveLogWriter,
 }
@@ -128,9 +160,17 @@ pub struct TerminalEventLayer {
 type InactiveLogWriter = Arc<dyn Fn(&StructuredLogRecord) + Send + Sync>;
 
 impl TerminalEventLayer {
-    pub fn new(buffer: TerminalLogBuffer, active: TerminalActivityProbe) -> Self {
+    /// Capture while `active` reports an interactive owner; otherwise render
+    /// through the inactive writer.
+    ///
+    /// Keep a separate `TerminalLogBuffer` handle alive while capture is needed.
+    /// The layer holds only a weak writer: reports can retain this subscriber
+    /// through their span traces, so owning the buffer here would form a cycle.
+    /// After its owner drops the buffer, active events are no longer retained;
+    /// inactive events still render normally.
+    pub fn new(buffer: &TerminalLogBuffer, active: TerminalActivityProbe) -> Self {
         Self {
-            buffer,
+            buffer: buffer.downgrade(),
             active,
             inactive_writer: Arc::new(|record| {
                 eprintln!("{}", format_record(record));
@@ -160,7 +200,7 @@ where
         let Some(span) = ctx.span(id) else {
             return;
         };
-        let mut fields = CapturedFields::default();
+        let mut fields = CapturedFields::for_span();
         attrs.record(&mut fields);
         // The independent canvas capture and human-output layers can share a
         // registry. Both observe the same span fields; do not insert twice.
@@ -174,13 +214,18 @@ where
         let Some(span) = ctx.span(id) else {
             return;
         };
-        let mut extensions = span.extensions_mut();
-        let Some(fields) = extensions.get_mut::<CapturedFields>() else {
-            return;
-        };
-        let mut update = CapturedFields::default();
+        let mut update = CapturedFields::for_span();
         values.record(&mut update);
-        fields.merge(&update);
+        let replaced = {
+            let mut extensions = span.extensions_mut();
+            let Some(fields) = extensions.get_mut::<CapturedFields>() else {
+                return;
+            };
+            fields.merge(&update)
+        };
+        // The final retained report can run an error destructor that emits a
+        // log and reads this span's extensions again.
+        drop(replaced);
     }
 
     fn on_event(&self, event: &tracing::Event<'_>, ctx: Context<'_, S>) {
@@ -198,7 +243,7 @@ where
                     .unwrap_or_default();
                 let mut fields = captured_fields.fields;
                 if let Some(message) = captured_fields.message {
-                    fields.push(("message".to_string(), message));
+                    fields.push(("message".to_string(), message.into()));
                 }
                 StructuredSpan {
                     name: Arc::from(span.name()),
@@ -256,6 +301,9 @@ fn format_record_with_style(
         escape_terminal_controls(&record.message)
     );
     for (name, value) in &record.fields {
+        let StructuredLogValue::Text(value) = value else {
+            continue;
+        };
         let _ = write!(
             event,
             ", {}: {}",
@@ -299,13 +347,26 @@ fn format_record_with_style(
                 if index != 0 {
                     output.push_str(", ");
                 }
-                let _ = write!(
-                    output,
-                    "{}: {}",
-                    escape_terminal_controls(name),
-                    escape_terminal_controls(value)
-                );
+                let _ = write!(output, "{}: ", escape_terminal_controls(name));
+                match value {
+                    StructuredLogValue::Text(text) => {
+                        output.push_str(&escape_terminal_controls(text))
+                    }
+                    StructuredLogValue::Report(report) => {
+                        let _ = write!(output, "{}", report.terminal());
+                    }
+                }
             }
+        }
+    }
+    for (name, value) in &record.fields {
+        if let StructuredLogValue::Report(report) = value {
+            let _ = write!(
+                output,
+                "\n    {}:\n{}",
+                escape_terminal_controls(name),
+                report.terminal()
+            );
         }
     }
     output
@@ -323,7 +384,8 @@ fn format_level(level: StructuredLogLevel) -> &'static str {
 
 // The formatter is the trust boundary for terminal output. Preserve multiline
 // messages, but escape content-provided ANSI/control sequences before applying
-// our own styles. This applies equally to live stderr, inline output and replay.
+// our own styles. Typed reports allow only supported ANSI colors and text styles.
+// Both policies apply equally to live stderr, inline output and replay.
 fn escape_terminal_controls(value: &str) -> Cow<'_, str> {
     if !value
         .chars()
@@ -357,12 +419,42 @@ mod tests {
     }
 
     #[test]
+    fn span_report_fields_do_not_retain_the_span_captured_by_the_report() {
+        let buffer = TerminalLogBuffer::new();
+        let subscriber = tracing_subscriber::registry()
+            .with(TerminalEventLayer::new(&buffer, Arc::new(|| true)))
+            .with(tracing_error::ErrorLayer::default());
+        tracing::subscriber::with_default(subscriber, || {
+            let span = tracing::info_span!("report_owning_span", error = tracing::field::Empty);
+            let _entered = span.enter();
+            let report =
+                DiagnosticReport::new(eyre::Report::new(tracing_error::TracedError::from(
+                    std::io::Error::other("Synthetic span field failure"),
+                )));
+            let retained = Arc::downgrade(&report.report);
+            span.record("error", report.as_error());
+            drop(report);
+            assert!(
+                retained.upgrade().is_none(),
+                "a span must not retain a report that can own that same span"
+            );
+            tracing::info!("Record with plain span diagnostics");
+        });
+        let records = buffer.records_since(&mut 0);
+        assert_eq!(records.len(), 1);
+        assert!(matches!(
+            &records[0].spans[0].fields[0].1,
+            StructuredLogValue::Text(text) if text.contains("Synthetic span field failure")
+        ));
+    }
+
+    #[test]
     fn inactive_events_are_written_but_not_buffered() {
         let active = Arc::new(AtomicBool::new(false));
         let buffer = TerminalLogBuffer::new();
         let output = Arc::new(Mutex::new(Vec::<String>::new()));
         let subscriber = tracing_subscriber::registry().with(
-            TerminalEventLayer::new(buffer.clone(), active_probe(&active)).with_inactive_writer({
+            TerminalEventLayer::new(&buffer, active_probe(&active)).with_inactive_writer({
                 let output = Arc::clone(&output);
                 move |record| {
                     output
@@ -390,7 +482,7 @@ mod tests {
         let buffer = TerminalLogBuffer::new();
         let output = Arc::new(Mutex::new(Vec::<String>::new()));
         let subscriber = tracing_subscriber::registry().with(
-            TerminalEventLayer::new(buffer.clone(), active_probe(&active)).with_inactive_writer({
+            TerminalEventLayer::new(&buffer, active_probe(&active)).with_inactive_writer({
                 let output = Arc::clone(&output);
                 move |record| {
                     output
@@ -416,10 +508,8 @@ mod tests {
     fn replay_preserves_later_presentation_of_structured_records() {
         let active = Arc::new(AtomicBool::new(true));
         let buffer = TerminalLogBuffer::new();
-        let subscriber = tracing_subscriber::registry().with(TerminalEventLayer::new(
-            buffer.clone(),
-            active_probe(&active),
-        ));
+        let subscriber = tracing_subscriber::registry()
+            .with(TerminalEventLayer::new(&buffer, active_probe(&active)));
 
         tracing::subscriber::with_default(subscriber, || {
             let span = tracing::info_span!("picker_handler", stage = "initial_load");
@@ -448,7 +538,7 @@ mod tests {
             let active = Arc::clone(&active);
             threads.push(thread::spawn(move || {
                 let subscriber = tracing_subscriber::registry()
-                    .with(TerminalEventLayer::new(buffer, active_probe(&active)));
+                    .with(TerminalEventLayer::new(&buffer, active_probe(&active)));
                 tracing::subscriber::with_default(subscriber, || {
                     for event in 0..32 {
                         tracing::info!(worker, event, "concurrent event");
@@ -477,7 +567,7 @@ mod tests {
             level: StructuredLogLevel::Info,
             target: Arc::from("cloud_terrastodon_entrypoint"),
             message: Arc::from("hello world"),
-            fields: vec![("answer".to_string(), "42".to_string())],
+            fields: vec![("answer".to_string(), "42".into())],
             spans: Vec::new(),
             file: Some(Arc::from("crates/entrypoint/src/echo.rs")),
             line: Some(12),
@@ -537,7 +627,7 @@ mod tests {
         let buffer = TerminalLogBuffer::new();
         let immediate = Arc::new(Mutex::new(Vec::new()));
         let subscriber = tracing_subscriber::registry().with(
-            TerminalEventLayer::new(buffer.clone(), active_probe(&active)).with_inactive_writer({
+            TerminalEventLayer::new(&buffer, active_probe(&active)).with_inactive_writer({
                 let immediate = Arc::clone(&immediate);
                 move |record| immediate.lock().unwrap().push(format_record(record))
             }),
@@ -566,10 +656,10 @@ mod tests {
             level: StructuredLogLevel::Warn,
             target: Arc::from("test"),
             message: Arc::from("unsafe\x1b[2J\nsecond line"),
-            fields: vec![("key\r".to_owned(), "value\x07".to_owned())],
+            fields: vec![("key\r".to_owned(), "value\x07".into())],
             spans: vec![StructuredSpan {
                 name: Arc::from("span\x1b[2J"),
-                fields: vec![("scope".to_owned(), "value\x08".to_owned())],
+                fields: vec![("scope".to_owned(), "value\x08".into())],
             }],
             file: Some(Arc::from("file\x1b[2J.rs")),
             line: Some(42),

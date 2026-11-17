@@ -12,6 +12,7 @@ use cloud_terrastodon_config::Config;
 use cloud_terrastodon_config::EguiConfig;
 use cloud_terrastodon_config::WorkDirsConfig;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_tracing::DiagnosticReport;
 // use cloud_terrastodon_tracing::event_collector; // TODO(EGUI-TRACING)
 use eframe::App;
 use eframe::egui::Align2;
@@ -138,10 +139,18 @@ impl App for MyApp {
         self.handle_messages();
         self.draw_app(ctx);
         if let Err(error) = self.enqueue_auto_save() {
-            error!(?error, "Could not enqueue configuration autosave");
+            let report = DiagnosticReport::new(error);
+            error!(
+                error = report.as_error(),
+                "Could not enqueue configuration autosave"
+            );
         }
         if let Err(error) = self.work_tracker.prune() {
-            error!(?error, "Could not inspect background work");
+            let report = DiagnosticReport::new(error);
+            error!(
+                error = report.as_error(),
+                "Could not inspect background work"
+            );
         }
     }
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {

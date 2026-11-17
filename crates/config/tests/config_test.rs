@@ -1,6 +1,8 @@
 #![cfg(test)]
 
 use cloud_terrastodon_config::Config;
+use cloud_terrastodon_config::EguiConfig;
+use cloud_terrastodon_config::WorkDirsConfig;
 use facet::Facet;
 use std::path::PathBuf;
 
@@ -102,6 +104,45 @@ pub async fn upgrade_works() -> eyre::Result<()> {
             assert_eq!(config.bleep, MyTestConfigV2::default().bleep);
             assert_ne!(config, MyTestConfigV2::default());
             Ok(())
+        })
+        .await
+}
+
+#[derive(Debug, Default, Facet, Clone, PartialEq)]
+struct GuiSettingsFixture {
+    pub directories: WorkDirsConfig,
+    pub windows: EguiConfig,
+}
+
+#[async_trait::async_trait]
+impl Config for GuiSettingsFixture {
+    const FILE_SLUG: &'static str = "gui_settings";
+
+    fn config_path() -> PathBuf {
+        TEST_CONFIG_ROOT.with(|root| root.join(format!("{}.json", Self::FILE_SLUG)))
+    }
+}
+
+#[tokio::test]
+async fn gui_paths_survive_saving_and_loading_configuration() -> eyre::Result<()> {
+    let directory = tempfile::tempdir()?;
+    TEST_CONFIG_ROOT
+        .scope(directory.path().to_owned(), async {
+            let mut config = GuiSettingsFixture::default();
+            for path in [
+                PathBuf::from(r"C:\synthetic\work directory\Équipe"),
+                PathBuf::from("relative workspace").join("資料"),
+            ] {
+                config.directories.work_dirs.insert(path.clone());
+                config
+                    .windows
+                    .open_dirs
+                    .insert(path, config.windows.starting_points_window);
+            }
+
+            config.save().await?;
+            assert_eq!(GuiSettingsFixture::load().await?, config);
+            eyre::Ok(())
         })
         .await
 }

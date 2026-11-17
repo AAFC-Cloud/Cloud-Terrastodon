@@ -647,11 +647,12 @@ fn scalar_text(value: Peek<'_, 'static>) -> Option<String> {
     if let Some(proxy) = value.shape().effective_proxy(None)
         && let Ok(owned) = value.custom_serialization_with_proxy(proxy)
     {
-        let proxied = owned.as_peek();
-        return proxied
-            .as_str()
-            .map(ToOwned::to_owned)
-            .or_else(|| Some(proxied.to_string()));
+        return owned.with_peek(|proxied| {
+            proxied
+                .as_str()
+                .map(ToOwned::to_owned)
+                .or_else(|| Some(proxied.to_string()))
+        });
     }
     let value = value.innermost_peek();
     if value.into_list_like().is_ok()

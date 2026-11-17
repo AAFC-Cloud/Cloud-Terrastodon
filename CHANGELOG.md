@@ -1,5 +1,9 @@
 # Unreleased
 
+- Serialize `PathBuf` through a borrowed `Cow<str>` Facet proxy, restoring GUI settings persistence without an extra path-text copy. Reject non-UTF-8 paths with field context. Adopt the coordinated published Core/Reflect rc.8, Facet rc.10, JSON rc.12, Figue rc.8 and Cancellation 0.8.3 releases without Cargo patches; use bounded proxy inspection at CT's reflection sites.
+
+- Retain shared, typed error reports in diagnostic log fields until presentation. Preserve color-eyre terminal styling and full plain reports in JSON and GUI text; escape terminal commands. Preserve config-decoding error sources, and return primary GUI shutdown failures once while logging otherwise-lost secondary failures.
+
 - Keep Azure and entrypoint debug archives below the Windows archive-format transition that breaks linking on Rust 1.99.1. Use limited debug information for those two crates in development and test builds, retaining source-line diagnostics and the existing release settings.
 
 - Use the coordinated registry Facet rc.9, JSON rc.11, Figue rc.7 and Cancellation 0.8.2 releases without Cargo patches. Adopt the unified cancellation error helper while retaining original error contexts, keep one Core/reflection identity, and enable incremental release compilation for the entrypoint at optimization level 3.

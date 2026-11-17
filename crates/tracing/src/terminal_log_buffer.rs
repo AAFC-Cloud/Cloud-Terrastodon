@@ -1,6 +1,7 @@
 use crate::StructuredLogRecord;
 use crate::format_record;
 use crate::terminal_log_buffer_state::TerminalLogBufferState;
+use crate::weak_terminal_log_buffer::WeakTerminalLogBuffer;
 use std::io::Write;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -23,6 +24,17 @@ impl TerminalLogBuffer {
             })),
             debug_capture: None,
         }
+    }
+
+    pub(crate) fn from_state(inner: Arc<Mutex<TerminalLogBufferState>>) -> Self {
+        Self {
+            inner,
+            debug_capture: None,
+        }
+    }
+
+    pub(crate) fn downgrade(&self) -> WeakTerminalLogBuffer {
+        WeakTerminalLogBuffer::new(Arc::downgrade(&self.inner))
     }
 
     /// Attach a bounded, independently filtered Debug-through-Error capture.
@@ -74,18 +86,26 @@ impl TerminalLogBuffer {
     /// Call only after successful output using the cursor returned by
     /// `records_since`. Events received after that read remain available.
     pub fn acknowledge_through(&self, cursor: usize) {
-        let mut state = self.lock_state();
-        let count = cursor
-            .saturating_sub(state.first_index)
-            .min(state.records.len());
-        state.records.drain(..count);
-        state.first_index += count;
+        let removed = {
+            let mut state = self.lock_state();
+            let count = cursor
+                .saturating_sub(state.first_index)
+                .min(state.records.len());
+            let removed: Vec<_> = state.records.drain(..count).collect();
+            state.first_index += count;
+            removed
+        };
+        // Releasing the final report can invoke an error's destructor, which
+        // may emit another log. Do not run it under the buffer's lock.
+        drop(removed);
     }
 
     pub fn replay_to<W: Write>(&self, mut writer: W) -> std::io::Result<()> {
-        let state = self.lock_state();
-        for record in &state.records {
-            writeln!(writer, "{}", format_record(record))?;
+        // Formatting a retained error can run user-provided Display code and
+        // emit more logs. Snapshot first so neither that code nor the writer
+        // executes under the buffer's lock.
+        for record in self.records_since(&mut 0) {
+            writeln!(writer, "{}", format_record(&record))?;
         }
         Ok(())
     }
@@ -99,22 +119,29 @@ impl TerminalLogBuffer {
     }
 
     pub(crate) fn push(&self, record: StructuredLogRecord) {
-        let mut state = self.lock_state();
-        state.records.push_back(record);
-        if let Some(capacity) = state.capacity {
-            while state.records.len() > capacity {
-                state.records.pop_front();
+        let removed = {
+            let mut state = self.lock_state();
+            state.records.push_back(record);
+            // Capacity is fixed at construction, so one insertion can exceed
+            // the bound by at most one record.
+            if state
+                .capacity
+                .is_some_and(|capacity| state.records.len() > capacity)
+            {
                 state.first_index += 1;
+                state.records.pop_front()
+            } else {
+                None
             }
-        }
+        };
+        drop(removed);
     }
 }
 
 impl TerminalLogBuffer {
     fn lock_state(&self) -> MutexGuard<'_, TerminalLogBufferState> {
         // The buffer owns all mutations and invokes no user code while changing
-        // its records or cursor. A replay writer can panic while this lock is
-        // held, but replay only reads the state, so retained logs remain usable.
+        // its records or cursor. Recover retained records after poisoning.
         self.inner
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
@@ -130,8 +157,160 @@ impl Default for TerminalLogBuffer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::DiagnosticReport;
     use crate::TerminalEventLayer;
+    use std::fmt;
     use tracing_subscriber::layer::SubscriberExt;
+
+    #[derive(Debug)]
+    struct LoggingDropError;
+
+    impl fmt::Display for LoggingDropError {
+        fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+            formatter.write_str("Synthetic retained error")
+        }
+    }
+
+    impl std::error::Error for LoggingDropError {}
+
+    impl Drop for LoggingDropError {
+        fn drop(&mut self) {
+            tracing::warn!("Emitted while dropping a retained error");
+        }
+    }
+
+    fn report_record() -> StructuredLogRecord {
+        StructuredLogRecord {
+            timestamp: std::time::SystemTime::UNIX_EPOCH,
+            level: crate::StructuredLogLevel::Error,
+            target: Arc::from("test"),
+            message: Arc::from("Retained error"),
+            fields: vec![(
+                "error".to_owned(),
+                crate::StructuredLogValue::Report(DiagnosticReport::new(eyre::Report::new(
+                    LoggingDropError,
+                ))),
+            )],
+            spans: Vec::new(),
+            file: None,
+            line: None,
+        }
+    }
+
+    #[test]
+    fn dropping_the_buffer_releases_reports_that_retain_their_subscriber() {
+        let buffer = TerminalLogBuffer::new();
+        let subscriber = tracing_subscriber::registry()
+            .with(TerminalEventLayer::new(&buffer, Arc::new(|| true)))
+            .with(tracing_error::ErrorLayer::default());
+        let dispatch = tracing::Dispatch::new(subscriber);
+        let retained_subscriber = dispatch.downgrade();
+        let retained_report = tracing::dispatcher::with_default(&dispatch, || {
+            let span = tracing::info_span!("retained_report_context");
+            let _entered = span.enter();
+            let report =
+                DiagnosticReport::new(eyre::Report::new(tracing_error::TracedError::from(
+                    std::io::Error::other("Synthetic captured failure"),
+                )));
+            tracing::error!(error = report.as_error(), "Buffered diagnostic");
+            Arc::downgrade(&report.report)
+        });
+        drop(dispatch);
+        assert!(retained_subscriber.upgrade().is_some());
+        let records = buffer.records_since(&mut 0);
+        assert_eq!(records.len(), 1);
+        drop(buffer);
+        assert!(
+            retained_report.upgrade().is_some(),
+            "a cloned record must still own its shared diagnostic"
+        );
+        drop(records);
+        assert!(retained_report.upgrade().is_none());
+        assert!(retained_subscriber.upgrade().is_none());
+    }
+
+    #[test]
+    fn acknowledging_a_report_allows_its_destructor_to_emit_logs() {
+        let buffer = TerminalLogBuffer::new();
+        let subscriber = tracing_subscriber::registry()
+            .with(TerminalEventLayer::new(&buffer, Arc::new(|| true)));
+        tracing::subscriber::with_default(subscriber, || {
+            buffer.push(report_record());
+            let mut cursor = 0;
+            assert_eq!(buffer.records_since(&mut cursor).len(), 1);
+            buffer.acknowledge_through(cursor);
+            let records = buffer.records_since(&mut cursor);
+            assert_eq!(records.len(), 1);
+            assert_eq!(
+                records[0].message.as_ref(),
+                "Emitted while dropping a retained error"
+            );
+        });
+    }
+
+    #[test]
+    fn evicting_a_report_allows_its_destructor_to_emit_logs() {
+        let buffer = TerminalLogBuffer::new()
+            .with_debug_capture(1)
+            .debug_capture()
+            .expect("debug capture must be enabled");
+        let subscriber = tracing_subscriber::registry()
+            .with(TerminalEventLayer::new(&buffer, Arc::new(|| true)));
+        tracing::subscriber::with_default(subscriber, || {
+            buffer.push(report_record());
+            // Push directly to exercise destruction outside the dispatcher,
+            // whose scoped reentrancy guard can suppress nested log events.
+            buffer.push(StructuredLogRecord {
+                timestamp: std::time::SystemTime::UNIX_EPOCH,
+                level: crate::StructuredLogLevel::Info,
+                target: Arc::from("test"),
+                message: Arc::from("Eviction trigger"),
+                fields: Vec::new(),
+                spans: Vec::new(),
+                file: None,
+                line: None,
+            });
+            let records = buffer.records_since(&mut 0);
+            assert_eq!(records.len(), 1);
+            assert_eq!(
+                records[0].message.as_ref(),
+                "Emitted while dropping a retained error"
+            );
+        });
+    }
+
+    #[test]
+    fn report_rendering_can_emit_logs_during_replay() {
+        #[derive(Debug)]
+        struct LoggingError;
+
+        impl fmt::Display for LoggingError {
+            fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                tracing::warn!("Emitted while rendering a retained error");
+                formatter.write_str("Synthetic error detail")
+            }
+        }
+
+        impl std::error::Error for LoggingError {}
+
+        let buffer = TerminalLogBuffer::new();
+        let subscriber = tracing_subscriber::registry()
+            .with(TerminalEventLayer::new(&buffer, Arc::new(|| true)));
+        tracing::subscriber::with_default(subscriber, || {
+            let report = DiagnosticReport::new(eyre::Report::new(LoggingError));
+            tracing::error!(error = report.as_error(), "Retained error");
+            let mut output = Vec::new();
+            buffer.replay_to(&mut output).unwrap();
+            assert!(
+                String::from_utf8(output)
+                    .unwrap()
+                    .contains("Synthetic error detail")
+            );
+            assert!(buffer.records_since(&mut 0).iter().any(|record| {
+                record.message.as_ref() == "Emitted while rendering a retained error"
+            }));
+        });
+    }
 
     #[test]
     fn a_panicking_replay_writer_does_not_discard_or_break_buffered_logs() {
@@ -149,7 +328,7 @@ mod tests {
 
         let buffer = TerminalLogBuffer::new();
         let subscriber = tracing_subscriber::registry()
-            .with(TerminalEventLayer::new(buffer.clone(), Arc::new(|| true)));
+            .with(TerminalEventLayer::new(&buffer, Arc::new(|| true)));
         tracing::subscriber::with_default(subscriber, || {
             tracing::info!("retained before replay");
             assert!(std::panic::catch_unwind(|| buffer.replay_to(PanickingWriter)).is_err());
@@ -174,7 +353,7 @@ mod tests {
     fn acknowledging_printed_logs_keeps_events_arriving_during_output() {
         let buffer = TerminalLogBuffer::new();
         let subscriber = tracing_subscriber::registry()
-            .with(TerminalEventLayer::new(buffer.clone(), Arc::new(|| true)));
+            .with(TerminalEventLayer::new(&buffer, Arc::new(|| true)));
         tracing::subscriber::with_default(subscriber, || {
             tracing::info!("printed");
             let mut cursor = 0;

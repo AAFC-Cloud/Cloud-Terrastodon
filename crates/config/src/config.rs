@@ -1,7 +1,7 @@
 use chrono::Utc;
 use cloud_terrastodon_pathing::AppDir;
 use eyre::Result;
-use eyre::eyre;
+use eyre::WrapErr;
 use facet_value::Destructured;
 use facet_value::Value;
 use std::path::PathBuf;
@@ -97,8 +97,7 @@ where
     // deserialization knows how to parse newtype map keys such as
     // AzureTenantId.
     let merged_json = facet_json::to_string(&merged_json)?;
-    facet_json::from_str(&merged_json)
-        .map_err(|e| eyre!("Failed to deserialize merged config: {}", e))
+    facet_json::from_str(&merged_json).wrap_err("Failed to deserialize merged config")
 }
 
 /// A recursive merge function that takes the `default` value and overrides
