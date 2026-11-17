@@ -1,7 +1,12 @@
 use crate::app::MyApp;
 use crate::windows::dir_window::ui_dir_windows;
+use eframe::egui::Color32;
+use eframe::egui::CornerRadius;
+use eframe::egui::Frame;
 use eframe::egui::MenuBar;
+use eframe::egui::Sense;
 use eframe::egui::TopBottomPanel;
+use eframe::egui::Vec2;
 use eframe::egui::Window;
 #[expect(unused)] // TODO(EGUI-TRACING)
 use egui_toast::Toast;
@@ -16,36 +21,75 @@ impl MyApp {
         let app = self;
 
         // Top menu bar with About and Logs
-        TopBottomPanel::top("top_panel").show(ctx, |ui| {
-            MenuBar::new().ui(ui, |ui| {
-                // Logs toggle button
-                if ui
-                    .button(if app.logs_visible {
-                        "Logs (on)"
-                    } else {
-                        "Logs"
-                    })
-                    .clicked()
-                {
-                    app.logs_visible = !app.logs_visible;
-                }
+        TopBottomPanel::top("top_panel")
+            .exact_height(40.0)
+            .frame(Frame::new().fill(Color32::from_rgb(0x00, 0x78, 0xd4)))
+            .show_separator_line(false)
+            .show(ctx, |ui| {
+                ui.spacing_mut().interact_size.y = ui.available_height();
+                MenuBar::new().ui(ui, |ui| {
+                    ui.spacing_mut().item_spacing.x = 0.0;
+                    ui.spacing_mut().button_padding.x = 12.0;
+                    let visuals = ui.visuals_mut();
+                    visuals.override_text_color = Some(Color32::WHITE);
+                    for widget in [
+                        &mut visuals.widgets.hovered,
+                        &mut visuals.widgets.active,
+                        &mut visuals.widgets.open,
+                    ] {
+                        widget.bg_fill = Color32::from_rgb(0x10, 0x6e, 0xbe);
+                        widget.weak_bg_fill = widget.bg_fill;
+                        widget.corner_radius = CornerRadius::ZERO;
+                        widget.expansion = 0.0;
+                    }
 
-                // About button
-                if ui.button("About").clicked() {
-                    app.about_open = !app.about_open;
-                }
-
-                // Right-align Quit (if desired) placeholder
-                ui.with_layout(
-                    eframe::egui::Layout::right_to_left(eframe::egui::Align::Center),
-                    |ui| {
-                        if ui.button("Quit").clicked() {
-                            ctx.send_viewport_cmd(eframe::egui::ViewportCommand::Close);
+                    let (icon_rect, icon_response) =
+                        ui.allocate_exact_size(Vec2::splat(40.0), Sense::hover());
+                    if icon_response.hovered() {
+                        ui.painter().rect_filled(
+                            icon_rect,
+                            CornerRadius::ZERO,
+                            ui.visuals().widgets.hovered.weak_bg_fill,
+                        );
+                    }
+                    for x in [-6.0, 0.0, 6.0] {
+                        for y in [-6.0, 0.0, 6.0] {
+                            ui.painter().circle_filled(
+                                icon_rect.center() + Vec2::new(x, y),
+                                1.25,
+                                Color32::WHITE,
+                            );
                         }
-                    },
-                );
+                    }
+
+                    // Logs toggle button
+                    if ui
+                        .button(if app.logs_visible {
+                            "Logs (on)"
+                        } else {
+                            "Logs"
+                        })
+                        .clicked()
+                    {
+                        app.logs_visible = !app.logs_visible;
+                    }
+
+                    // About button
+                    if ui.button("About").clicked() {
+                        app.about_open = !app.about_open;
+                    }
+
+                    // Right-align Quit (if desired) placeholder
+                    ui.with_layout(
+                        eframe::egui::Layout::right_to_left(eframe::egui::Align::Center),
+                        |ui| {
+                            if ui.button("Quit").clicked() {
+                                ctx.send_viewport_cmd(eframe::egui::ViewportCommand::Close);
+                            }
+                        },
+                    );
+                });
             });
-        });
 
         // Draw existing windows as tiles in the central panel
         eframe::egui::CentralPanel::default().show(ctx, |ui| {
