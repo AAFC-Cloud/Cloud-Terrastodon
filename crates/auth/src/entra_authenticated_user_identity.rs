@@ -34,6 +34,8 @@ impl EntraAuthenticatedUserIdentity {
                 .send().await.wrap_err("verifying the authenticated account identity")?;
             ensure!(response.status().is_success(), "Graph could not verify the authenticated account identity ({})", response.status());
             let bytes = response.bytes().await.wrap_err("reading the authenticated account identity")?;
+            // Keep source excerpts and authenticated identity details out of
+            // diagnostics at this credential verification boundary.
             let identity: Self = facet_json::from_slice(&bytes)
                 .map_err(|_| eyre::eyre!("Graph returned an invalid authenticated account identity; response suppressed"))?;
             Ok(identity.id)

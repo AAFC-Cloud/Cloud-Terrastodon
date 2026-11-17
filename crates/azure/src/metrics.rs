@@ -13,6 +13,7 @@ use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_pathing::AppDir;
 use cloud_terrastodon_pathing::Existy;
 use eyre::OptionExt;
+use eyre::WrapErr;
 use tempfile::Builder;
 use tokio::io::AsyncWriteExt;
 use tracing::info;
@@ -55,7 +56,7 @@ pub async fn fetch_metrics(
         .tempfile_in(dir)?
         .keep()?;
     let mut file = tokio::fs::File::from_std(file);
-    let json = facet_json::to_string_pretty(&resp).map_err(|error| eyre::eyre!("{error:?}"))?;
+    let json = facet_json::to_string_pretty(&resp).wrap_err("Serializing metrics for preview")?;
     file.write_all(json.as_bytes()).await?;
     println!("Dumped info for previewing to {}", file_path.display());
 

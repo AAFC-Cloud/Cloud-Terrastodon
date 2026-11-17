@@ -18,6 +18,7 @@ use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::PickerTui;
 use cloud_terrastodon_user_input::are_you_sure;
 use eyre::Result;
+use eyre::WrapErr;
 use eyre::bail;
 use facet::Facet;
 use std::collections::HashMap;
@@ -61,7 +62,8 @@ pub async fn browse_security_groups(
 
     info!(
         "You chose:\n{}",
-        facet_json::to_string_pretty(&security_groups).map_err(|error| eyre::eyre!("{error:?}"))?
+        facet_json::to_string_pretty(&security_groups)
+            .wrap_err("serializing selected security groups")?
     );
     maybe_error?;
 
@@ -207,7 +209,8 @@ pub async fn browse_security_groups(
     }
     info!(
         "You chose:\n{}",
-        facet_json::to_string_pretty(&rows).map_err(|error| eyre::eyre!("{error:?}"))?
+        facet_json::to_string_pretty(&rows)
+            .wrap_err("serializing security-group membership results")?
     );
 
     Ok(())

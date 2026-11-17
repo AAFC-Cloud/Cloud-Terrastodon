@@ -491,6 +491,8 @@ impl CloudTerrastodonAccountStore {
                             .await?;
                     // Refresh may rotate the credential. Retain the successor
                     // which the token cache published instead of the old import.
+                    // Decoder excerpts can contain the refresh credential;
+                    // intentionally exclude that source from diagnostics.
                     let session = facet_json::from_str(&store.read()?).map_err(|_| {
                         eyre::eyre!("decoding refreshed imported credentials failed")
                     })?;
@@ -503,6 +505,7 @@ impl CloudTerrastodonAccountStore {
                     )
                     .await?
                 };
+                // Keep serialization failures from exposing session credentials.
                 let encoded = facet_json::to_string(&session).map_err(|_| {
                     eyre::eyre!("serializing the browser account credential failed")
                 })?;
@@ -590,6 +593,8 @@ impl CloudTerrastodonAccountStore {
                     .args(["logins", "list", "--output", "json"])
                     .run_raw(cancellation)
                     .await?;
+                // Decoding diagnostics may quote credential configuration or
+                // account details from the isolated tea session.
                 let logins: Vec<crate::gitea_account_login_metadata::GiteaAccountLoginMetadata> =
                     facet_json::from_slice(&output.stdout).map_err(|_| {
                         eyre::eyre!(
@@ -862,6 +867,7 @@ impl CloudTerrastodonAccountStore {
                 tenant_id,
                 client_id,
             } => {
+                // Decoder excerpts can include the persisted refresh credential.
                 let session: BrowserSession = facet_json::from_str(&store.read()?)
                     .map_err(|_| eyre::eyre!("decoding the selected browser credential failed"))?;
                 ensure!(

@@ -3,6 +3,7 @@ use super::revision::RootRevision;
 use super::slot_id::SlotId;
 use super::value_address::ValueAddress;
 use super::value_path::ValuePathSegment;
+use facet_reflect::VariantError;
 use std::error::Error;
 use std::fmt;
 
@@ -36,6 +37,11 @@ pub(crate) enum ValueResolutionError {
         shape: String,
     },
     Reflection {
+        parent: ValueAddress,
+        operation: &'static str,
+        source: VariantError,
+    },
+    SnapshotInvariantViolation {
         parent: ValueAddress,
         operation: &'static str,
         message: String,
@@ -82,6 +88,14 @@ impl fmt::Display for ValueResolutionError {
             Self::Reflection {
                 parent,
                 operation,
+                source,
+            } => write!(
+                formatter,
+                "could not {operation} while resolving {parent}: {source}"
+            ),
+            Self::SnapshotInvariantViolation {
+                parent,
+                operation,
                 message,
             } => write!(
                 formatter,
@@ -95,6 +109,7 @@ impl Error for ValueResolutionError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
             Self::Root(error) => Some(error),
+            Self::Reflection { source, .. } => Some(source),
             _ => None,
         }
     }

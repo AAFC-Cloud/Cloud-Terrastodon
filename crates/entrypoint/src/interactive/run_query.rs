@@ -7,6 +7,7 @@ use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_pathing::AppDir;
 use cloud_terrastodon_pathing::Existy;
 use cloud_terrastodon_user_input::PickerTui;
+use eyre::WrapErr;
 use std::sync::Arc;
 use tracing::debug;
 use tracing::info;
@@ -57,8 +58,8 @@ resources
             ResourceGraphHelper::new(query.clone(), None, *authentication)
                 .collect_all(executor)
                 .await?;
-        let rows_json =
-            facet_json::to_string_pretty(&rows).map_err(|error| eyre::eyre!("{error:?}"))?;
+        let rows_json = facet_json::to_string_pretty(&rows)
+            .wrap_err("serializing Resource Graph query results")?;
 
         debug!("Writing results to temp file");
         let results_path = tempfile::Builder::new()

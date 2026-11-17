@@ -188,9 +188,7 @@ where
 }
 
 pub fn parse_command_output<T: Facet<'static>>(output: &CommandOutput) -> Result<T> {
-    facet_json::from_slice(&output.stdout)
-        .map_err(|error| eyre::eyre!("{error:?}"))
-        .wrap_err("Failed to deserialize command output as JSON")
+    facet_json::from_slice(&output.stdout).wrap_err("Failed to deserialize command output as JSON")
 }
 
 pub fn dedupe_repositories(mut repositories: Vec<GiteaRepo>) -> Vec<GiteaRepo> {

@@ -117,7 +117,7 @@ impl ResourceGraphHelper {
                     result_format: QueryRestResultFormat::Table,
                 },
             })
-            .map_err(|error| eyre::eyre!("{error:?}"))?;
+            .wrap_err("Serializing Azure Resource Graph query")?;
             let mut request = self.get_request(body)?;
 
             // Set up caching

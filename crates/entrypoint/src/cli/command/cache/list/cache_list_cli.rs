@@ -1,6 +1,7 @@
 use cloud_terrastodon_cache::CacheInventorySelection;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eyre::Result;
+use eyre::WrapErr;
 use facet::Facet;
 
 /// List execution artifact identities and their selected observation timestamps.
@@ -18,7 +19,7 @@ impl CacheListArgs {
         });
         println!(
             "{}",
-            facet_json::to_string_pretty(&entries).map_err(|error| eyre::eyre!("{error:?}"))?
+            facet_json::to_string_pretty(&entries).wrap_err("serializing cache inventory")?
         );
         Ok(())
     }

@@ -1,6 +1,7 @@
 use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_types::ArbitraryJson;
 use eyre::Result;
+use eyre::WrapErr;
 use eyre::ensure;
 use facet::Facet;
 use std::collections::BTreeMap;
@@ -101,7 +102,7 @@ impl TryFrom<AzureDevOpsJsonPatchOperationObject> for AzureDevOpsJsonPatchOperat
                 .remove(name)
                 .ok_or_else(|| eyre::eyre!("Missing patch member {name}"))?;
             facet_json::from_str(value.as_ref())
-                .map_err(|_| eyre::eyre!("Invalid patch member {name}"))
+                .wrap_err_with(|| format!("Invalid patch member {name}"))
         }
 
         let name = required::<String>(&mut wire, "op")?;

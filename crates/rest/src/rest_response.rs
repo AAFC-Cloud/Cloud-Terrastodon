@@ -70,7 +70,6 @@ impl SerializableRestResponse {
         match self.body {
             RestResponseBody::Json(body) => Ok(body),
             RestResponseBody::Text(content) => facet_json::from_str::<RawJson<'static>>(&content)
-                .map_err(|error| eyre::eyre!("{error:?}"))
                 .wrap_err("Expected REST response body to contain JSON"),
         }
     }
@@ -142,7 +141,8 @@ impl SerializableRestResponse {
                 writeln!(
                     writer,
                     "{}",
-                    facet_json::to_string_pretty(self).map_err(|error| eyre::eyre!("{error:?}"))?
+                    facet_json::to_string_pretty(self)
+                        .wrap_err("Serializing REST response for JSON output")?
                 )?;
             }
         }

@@ -5,6 +5,7 @@
 //! resuming its own backend before acknowledging them.
 
 use eyre::Result;
+use eyre::WrapErr;
 use futures::Future;
 use futures::FutureExt;
 use std::any::Any;
@@ -86,9 +87,8 @@ impl TerminalCoordinator {
 
     #[track_caller]
     pub fn try_new_with_activity(activity: TerminalActivity) -> Result<Self> {
-        tokio::runtime::Handle::try_current().map_err(|error| {
-            eyre::eyre!("terminal coordinator requires a Tokio runtime: {error}")
-        })?;
+        tokio::runtime::Handle::try_current()
+            .wrap_err("terminal coordinator requires a Tokio runtime")?;
 
         let (sender, receiver) = mpsc::unbounded_channel();
         let commands = Arc::new(CommandBus { sender });
@@ -202,11 +202,11 @@ impl TerminalCoordinator {
                     response: response_sender,
                     caller: _caller,
                 })
-                .map_err(|_| eyre::eyre!("terminal coordinator actor has stopped"))?;
+                .wrap_err("terminal coordinator actor has stopped")?;
 
             response_receiver
                 .await
-                .map_err(|_| eyre::eyre!("terminal coordinator actor stopped while acquiring"))?
+                .wrap_err("terminal coordinator actor stopped while acquiring")?
                 .map_err(|message| eyre::eyre!(message))
         }
     }
@@ -231,7 +231,7 @@ impl TerminalCoordinator {
                 frame_id,
                 request_id,
             })
-            .map_err(|_| eyre::eyre!("terminal coordinator actor has stopped"))
+            .wrap_err("terminal coordinator actor has stopped")
     }
 
     fn release(&self, frame_id: u64) -> impl Future<Output = Result<()>> + Send + 'static {
@@ -245,10 +245,10 @@ impl TerminalCoordinator {
                     frame_id,
                     response: Some(response_sender),
                 })
-                .map_err(|_| eyre::eyre!("terminal coordinator actor has stopped"))?;
+                .wrap_err("terminal coordinator actor has stopped")?;
             response_receiver
                 .await
-                .map_err(|_| eyre::eyre!("terminal coordinator actor stopped while releasing"))?
+                .wrap_err("terminal coordinator actor stopped while releasing")?
                 .map_err(|message| eyre::eyre!(message))
         }
     }
@@ -988,10 +988,15 @@ impl Drop for Actor {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio::runtime::TryCurrentError;
 
     #[test]
     fn construction_without_a_runtime_returns_an_error() {
-        assert!(TerminalCoordinator::new().is_err());
+        let error = TerminalCoordinator::new()
+            .err()
+            .expect("construction outside a runtime must fail");
+        assert!(error.to_string().contains("requires a Tokio runtime"));
+        assert!(error.downcast_ref::<TryCurrentError>().is_some());
     }
 
     #[cfg(feature = "terminal_coordinator_debug")]

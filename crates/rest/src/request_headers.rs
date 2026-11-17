@@ -48,7 +48,6 @@ impl RequestHeaders {
     )]
     pub fn from_json_str(headers: &str) -> Result<Self> {
         let raw_headers = facet_json::from_str::<BTreeMap<String, RawJson<'static>>>(headers)
-            .map_err(|error| eyre::eyre!("{error:?}"))
             .wrap_err("Parsing request headers JSON")?;
         let mut parsed = BTreeMap::new();
         for (name, values) in raw_headers {
@@ -56,7 +55,6 @@ impl RequestHeaders {
                 RequestHeaderValues::One(value)
             } else {
                 let values = facet_json::from_str::<Vec<String>>(values.as_str())
-                    .map_err(|error| eyre::eyre!("{error:?}"))
                     .wrap_err_with(|| format!("Parsing values for header {name:?}"))?;
                 RequestHeaderValues::Many(values)
             };
@@ -128,7 +126,7 @@ impl RequestHeaders {
                 (name.clone(), values)
             })
             .collect::<BTreeMap<_, _>>();
-        facet_json::to_string_pretty(&values).map_err(|error| eyre::eyre!("{error:?}"))
+        facet_json::to_string_pretty(&values).wrap_err("Serializing request headers")
     }
 
     pub fn to_header_map(&self) -> Result<HeaderMap> {

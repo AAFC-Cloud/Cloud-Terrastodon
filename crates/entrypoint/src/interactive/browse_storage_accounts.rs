@@ -7,6 +7,7 @@ use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::PickerTui;
 use eyre::Result;
+use eyre::WrapErr;
 
 pub async fn browse_storage_accounts(
     authentication: &AzureBearerAuthenticationSelection,
@@ -29,7 +30,7 @@ pub async fn browse_storage_accounts(
         .into_chosen_and_maybe_error()?;
     println!(
         "You chose: {}",
-        facet_json::to_string_pretty(&chosen).map_err(|error| eyre::eyre!("{error:?}"))?
+        facet_json::to_string_pretty(&chosen).wrap_err("serializing selected storage accounts")?
     );
     maybe_error
 }

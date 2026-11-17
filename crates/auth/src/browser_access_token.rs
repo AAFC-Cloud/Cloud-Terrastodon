@@ -163,6 +163,8 @@ pub(crate) async fn fetch_browser_access_token(
                                     refresh_token: refresh_token.to_owned(),
                                 };
                                 if let Some(store) = &cache.credential_store {
+                                    // Serialization errors must not retain the
+                                    // refresh credential in their diagnostics.
                                     store.write(&facet_json::to_string(&saved).map_err(|_| eyre::eyre!("serializing the refreshed account credential failed"))?)?;
                                 }
                             }

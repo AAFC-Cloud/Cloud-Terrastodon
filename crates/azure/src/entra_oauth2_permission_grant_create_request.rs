@@ -15,6 +15,7 @@ use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_rest::RestRequest;
+use eyre::WrapErr;
 use facet::Facet;
 use http::Method;
 use std::path::PathBuf;
@@ -84,15 +85,15 @@ impl ExecutableRequest for EntraOAuth2PermissionGrantCreateRequest {
                             principal_id: Some(self.principal_id),
                             scope: self.scope,
                         };
-                        let execution = RestRequest::new(Method::POST, url)?
-                            .authentication(self.authentication.into())
-                            .cache(cache_key)
-                            .body(
-                                facet_json::to_string_pretty(&body)
-                                    .map_err(|error| eyre::eyre!("{error:?}"))?,
-                            )
-                            .receive::<OAuth2PermissionGrant>(&executor)
-                            .await;
+                        let execution =
+                            RestRequest::new(Method::POST, url)?
+                                .authentication(self.authentication.into())
+                                .cache(cache_key)
+                                .body(facet_json::to_string_pretty(&body).wrap_err(
+                                    "Serializing OAuth2 permission grant creation request",
+                                )?)
+                                .receive::<OAuth2PermissionGrant>(&executor)
+                                .await;
                         let invalidation = EntraOAuth2PermissionGrantListRequest {
                             authentication: self.authentication,
                         }

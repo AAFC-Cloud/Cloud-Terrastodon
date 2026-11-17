@@ -9,6 +9,7 @@ use chrono::Utc;
 use cloud_terrastodon_azure_devops_types::*;
 use cloud_terrastodon_azure_types::ArbitraryJson;
 use eyre::Result;
+use eyre::WrapErr;
 use eyre::ensure;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
@@ -416,7 +417,7 @@ pub fn build_work_item_copy_plan(
 impl AzureDevOpsWorkItemCopyJournal {
     pub fn load(path: &Path) -> Result<Self> {
         let journal: Self = facet_json::from_str(&std::fs::read_to_string(path)?)
-            .map_err(|_| eyre::eyre!("Invalid copy journal"))?;
+            .wrap_err("Invalid copy journal")?;
         ensure!(journal.version == 1, "Unsupported copy journal version");
         Ok(journal)
     }
@@ -431,7 +432,8 @@ impl AzureDevOpsWorkItemCopyJournal {
         temporary.as_file().sync_all()?;
         temporary
             .persist(path)
-            .map_err(|error| eyre::eyre!("Saving copy journal: {}", error.error))?;
+            .map_err(|error| error.error)
+            .wrap_err("Saving copy journal")?;
         Ok(())
     }
 }

@@ -151,6 +151,8 @@ impl AzureCliSession {
     }
 
     pub(crate) fn decode<T: Facet<'static>>(bytes: &[u8]) -> Result<T> {
+        // Credential and identity payloads must not enter diagnostic source
+        // chains; JSON errors can retain excerpts of the original output.
         let text = std::str::from_utf8(bytes).map_err(|_| {
             eyre::eyre!("Azure CLI credential output is not UTF-8; output suppressed")
         })?;

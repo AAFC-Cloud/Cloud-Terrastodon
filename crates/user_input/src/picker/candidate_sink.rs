@@ -15,6 +15,8 @@ impl<T> CandidateSink<T> {
                 generation: self.generation,
                 choices: choices.into_choices(),
             })
+            // The send error owns choices that may be borrowed or non-Sync;
+            // preserve that input contract rather than retaining its payload.
             .map_err(|_| eyre::eyre!("picker has already shut down"))
     }
 }

@@ -262,7 +262,7 @@ impl InvocationController {
         let source_value =
             RuntimeValue::from_box(Box::new(ArbitraryBytes::new(bytes))).map_err(|error| {
                 InvocationControllerError::new(format!(
-                    "could not create the arbitrary byte source: {error}"
+                    "could not create the arbitrary byte source: {error:#}"
                 ))
             })?;
         let source = arena

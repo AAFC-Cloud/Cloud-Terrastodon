@@ -12,6 +12,7 @@ use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_rest::RestRequest;
+use eyre::WrapErr;
 use facet::Facet;
 use http::Method;
 use std::path::PathBuf;
@@ -71,21 +72,21 @@ impl ExecutableRequest for EntraOAuth2PermissionGrantUpdateRequest {
                         );
 
                         let body = OAuth2PermissionGrantUpdateBody { scope: self.scope };
-                        let execution = RestRequest::new(Method::PATCH, &url)?
-                            .authentication(self.authentication.into())
-                            .cache(cache_key)
-                            .body(
-                                facet_json::to_string_pretty(&body)
-                                    .map_err(|error| eyre::eyre!("{error:?}"))?,
-                            )
-                            .receive_raw_with_decoder(
-                                |response| {
-                                    response.error_for_status()?;
-                                    Ok(())
-                                },
-                                &executor,
-                            )
-                            .await;
+                        let execution =
+                            RestRequest::new(Method::PATCH, &url)?
+                                .authentication(self.authentication.into())
+                                .cache(cache_key)
+                                .body(facet_json::to_string_pretty(&body).wrap_err(
+                                    "Serializing OAuth2 permission grant update request",
+                                )?)
+                                .receive_raw_with_decoder(
+                                    |response| {
+                                        response.error_for_status()?;
+                                        Ok(())
+                                    },
+                                    &executor,
+                                )
+                                .await;
                         let invalidation = EntraOAuth2PermissionGrantListRequest {
                             authentication: self.authentication,
                         }

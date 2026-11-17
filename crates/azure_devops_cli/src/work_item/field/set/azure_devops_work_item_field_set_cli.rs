@@ -6,6 +6,7 @@ use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemUpdateRequest;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
+use eyre::WrapErr;
 use facet::Facet;
 use std::borrow::Cow;
 
@@ -38,8 +39,7 @@ impl AzureDevOpsWorkItemFieldSetArgs {
                 let body = cloud_terrastodon_rest::read_optional_body(Some(self.value))
                     .await?
                     .ok_or_else(|| eyre::eyre!("Missing JSON input"))?;
-                facet_json::from_str(&body)
-                    .map_err(|error| eyre::eyre!("Invalid JSON input: {error}"))?
+                facet_json::from_str(&body).wrap_err("Invalid JSON input")?
             },
         }])?;
         let auth_selection = self

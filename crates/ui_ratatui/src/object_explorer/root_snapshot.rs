@@ -17,6 +17,7 @@ use super::value_resolution_error::ValueResolutionError;
 use facet::Shape;
 use facet::Type;
 use facet::UserType;
+use std::error::Error;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum RootLifecycleSnapshot {
@@ -267,7 +268,15 @@ impl std::fmt::Display for RootSnapshotError {
     }
 }
 
-impl std::error::Error for RootSnapshotError {}
+impl Error for RootSnapshotError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            Self::Builder(error) => Some(error),
+            Self::Arena(error) => Some(error),
+            Self::Resolve(error) => Some(error),
+        }
+    }
+}
 
 impl From<ArenaError> for RootSnapshotError {
     fn from(value: ArenaError) -> Self {

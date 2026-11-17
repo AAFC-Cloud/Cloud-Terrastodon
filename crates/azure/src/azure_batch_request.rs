@@ -82,7 +82,7 @@ where
                 .authentication(request.authentication.into())
                 .body(
                     facet_json::to_string_pretty(&BatchRequestUpstream { requests: chunk })
-                        .map_err(|error| eyre::eyre!("{error:?}"))?,
+                        .wrap_err("Serializing Azure batch request")?,
                 );
 
             let rest_request = if request.cancellation_safe {

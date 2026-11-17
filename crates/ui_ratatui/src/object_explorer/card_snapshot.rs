@@ -123,7 +123,7 @@ impl CardSnapshot {
                 CardRowKey::Value,
                 "value",
                 CardRowContent::Text(scalar_summary(resolved).ok_or_else(|| {
-                    ValueResolutionError::Reflection {
+                    ValueResolutionError::SnapshotInvariantViolation {
                         parent: address.clone(),
                         operation: "display registry handle",
                         message: "registry handle has no scalar summary".to_owned(),
@@ -239,16 +239,13 @@ fn relationship_row(
 ) -> Result<CardRowSnapshot, ValueResolutionError> {
     let resolved = source.resolve(&address)?;
     let type_name = cloud_terrastodon_registry::describe_shape(resolved.shape()).to_owned();
-    let segment =
-        address
-            .path()
-            .segments()
-            .last()
-            .ok_or_else(|| ValueResolutionError::Reflection {
-                parent: address.clone(),
-                operation: "describe reflected child",
-                message: "reflected child has an empty path".to_owned(),
-            })?;
+    let segment = address.path().segments().last().ok_or_else(|| {
+        ValueResolutionError::SnapshotInvariantViolation {
+            parent: address.clone(),
+            operation: "describe reflected child",
+            message: "reflected child has an empty path".to_owned(),
+        }
+    })?;
     let (key, label) = match segment {
         ValuePathSegment::Field(field) => (CardRowKey::Field(field.clone()), field.clone()),
         ValuePathSegment::Index(index) => (CardRowKey::Element(*index), format!("[{index}]")),

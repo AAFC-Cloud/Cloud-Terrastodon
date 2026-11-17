@@ -12,6 +12,7 @@ use cloud_terrastodon_hcl_types::ProviderVersionConstraintClause;
 use cloud_terrastodon_hcl_types::SemVer;
 use cloud_terrastodon_hcl_types::TerraformBlock;
 use cloud_terrastodon_hcl_types::TerraformProviderInfo;
+use eyre::WrapErr;
 use hcl::edit::expr::Expression;
 use hcl::edit::expr::ObjectKey;
 use hcl::edit::structure::Body;
@@ -303,8 +304,10 @@ async fn audit_latest_provider_versions(
                 .await?
                 .text()
                 .await?;
-            let json = facet_json::from_str::<TerraformProviderInfo>(&json)
-                .map_err(|error| eyre::eyre!("{error:?}"))?;
+            let json =
+                facet_json::from_str::<TerraformProviderInfo>(&json).wrap_err_with(|| {
+                    format!("Deserializing Terraform provider information for {key}")
+                })?;
             let latest_version = json
                 .versions
                 .last()

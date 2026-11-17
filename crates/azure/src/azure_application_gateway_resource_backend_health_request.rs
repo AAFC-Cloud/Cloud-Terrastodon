@@ -191,7 +191,6 @@ fn parse_backend_health_response(
     response: SerializableRestResponse,
 ) -> Result<AzureApplicationGatewayResourceBackendHealthResponse> {
     facet_json::from_str(response.into_json_body()?.as_str())
-        .map_err(|error| eyre::eyre!("{error:?}"))
         .wrap_err("Deserializing Azure application gateway backend health response")
 }
 

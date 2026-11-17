@@ -252,7 +252,7 @@ fn field<'mem>(
                 .map_err(|error| ValueResolutionError::Reflection {
                     parent: parent.clone(),
                     operation: "read the active enum variant",
-                    message: error.to_string(),
+                    source: error,
                 })?;
         let index = variant
             .data
@@ -269,7 +269,7 @@ fn field<'mem>(
             .map_err(|error| ValueResolutionError::Reflection {
                 parent: parent.clone(),
                 operation: "read an enum field",
-                message: error.to_string(),
+                source: error,
             })?
             .ok_or_else(|| ValueResolutionError::MissingField {
                 parent: parent.clone(),

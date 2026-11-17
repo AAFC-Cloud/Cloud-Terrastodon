@@ -3,6 +3,7 @@ use cloud_terrastodon_azure::ArbitraryJson;
 use cloud_terrastodon_azure::ResourceGraphHelper;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_user_input::PickerTui;
+use eyre::WrapErr;
 use std::path::PathBuf;
 use tokio::fs::OpenOptions;
 use tokio::fs::try_exists;
@@ -58,7 +59,7 @@ resources
 
     file.write_all(
         facet_json::to_vec_pretty(&data)
-            .map_err(|error| eyre::eyre!("{error:?}"))?
+            .wrap_err("serializing resource tags for export")?
             .as_slice(),
     )
     .await?;

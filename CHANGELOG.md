@@ -1,5 +1,7 @@
 # Unreleased
 
+- Preserve original JSON, reflection, CLI-input, credential-store, and terminal-coordination errors beneath operation context instead of replacing their causes with formatted strings. Retain deliberate suppression of sensitive authentication and request details.
+
 - Serialize `PathBuf` through a borrowed `Cow<str>` Facet proxy, restoring GUI settings persistence without an extra path-text copy. Reject non-UTF-8 paths with field context. Adopt the coordinated published Core/Reflect rc.8, Facet rc.10, JSON rc.12, Figue rc.8 and Cancellation 0.8.3 releases without Cargo patches; use bounded proxy inspection at CT's reflection sites.
 
 - Retain shared, typed error reports in diagnostic log fields until presentation. Preserve color-eyre terminal styling and full plain reports in JSON and GUI text; escape terminal commands. Preserve config-decoding error sources, and return primary GUI shutdown failures once while logging otherwise-lost secondary failures.

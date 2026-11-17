@@ -1012,7 +1012,7 @@ fn apply_mutation(
         } => {
             let result = binding
                 .into_binding()
-                .map_err(|error| format!("could not ingest builder field value: {error}"))
+                .map_err(|error| format!("could not ingest builder field value: {error:#}"))
                 .and_then(|binding| {
                     builders
                         .set_field_and_finalize(arena, borrow_graph, slot, field, binding)
@@ -1038,7 +1038,7 @@ fn apply_mutation(
         } => {
             let result = binding
                 .into_binding()
-                .map_err(|error| format!("could not ingest producer field value: {error}"))
+                .map_err(|error| format!("could not ingest producer field value: {error:#}"))
                 .and_then(|binding| {
                     builders
                         .complete_pending_field_and_finalize(
@@ -1069,7 +1069,7 @@ fn apply_mutation(
         } => {
             let result = value
                 .into_runtime()
-                .map_err(|error| format!("could not ingest builder scalar value: {error}"))
+                .map_err(|error| format!("could not ingest builder scalar value: {error:#}"))
                 .and_then(|value| {
                     builders
                         .set_scalar_and_finalize(arena, borrow_graph, slot, value)
@@ -1087,7 +1087,7 @@ fn apply_mutation(
                 .ok_or_else(|| format!("slot {slot} has no defined builder"))
                 .and_then(|builder| {
                     cloud_terrastodon_registry::RuntimeValue::from_text(builder.shape(), &text)
-                        .map_err(|error| format!("could not parse builder scalar: {error}"))
+                        .map_err(|error| format!("could not parse builder scalar: {error:#}"))
                 })
                 .and_then(|value| {
                     builders
@@ -1187,7 +1187,7 @@ fn apply_mutation(
                 .and_then(|mut tab| {
                     tab.apply(update)?;
                     let value = RuntimeValue::from_box(Box::new(tab.clone()))
-                        .map_err(|error| format!("could not reflect updated Tab: {error}"))?;
+                        .map_err(|error| format!("could not reflect updated Tab: {error:#}"))?;
                     let previous = arena
                         .replace_ready(slot, value)
                         .map_err(|error| error.to_string())?;
@@ -1208,7 +1208,7 @@ fn apply_mutation(
         ArenaMutationCommand::InsertReady { value, response } => {
             let result = value
                 .into_runtime()
-                .map_err(|error| format!("could not ingest invocation output: {error}"))
+                .map_err(|error| format!("could not ingest invocation output: {error:#}"))
                 .and_then(|value| arena.insert_ready(value).map_err(|error| error.to_string()));
             let _ = response.send(result);
         }
@@ -1219,7 +1219,7 @@ fn apply_mutation(
         } => {
             let result = value
                 .into_runtime()
-                .map_err(|error| format!("could not ingest invocation output: {error}"))
+                .map_err(|error| format!("could not ingest invocation output: {error:#}"))
                 .and_then(|value| {
                     builders
                         .complete_pending(arena, borrow_graph, slot, value)
@@ -1393,7 +1393,7 @@ fn clone_tab(arena: &Arena, slot: super::slot_id::SlotId) -> Result<Tab, String>
     }
     let value = value
         .try_clone()
-        .map_err(|error| format!("could not clone Tab in slot {slot}: {error}"))?;
+        .map_err(|error| format!("could not clone Tab in slot {slot}: {error:#}"))?;
     value
         .into_box::<Tab>()
         .map_err(|error| format!("could not recover Tab in slot {slot}: {error}"))?

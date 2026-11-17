@@ -68,13 +68,13 @@ async fn run_with_terminal(
     let mut terminal = match ObjectBrowserTerminal::new(logs) {
         Ok(terminal) => terminal,
         Err(error) => {
-            coordinator.poison(format!("Ratatui terminal setup failed: {error}"));
+            coordinator.poison(format!("Ratatui terminal setup failed: {error:#}"));
             let release_result = guard.release().await;
             return match release_result {
                 Ok(()) => Err(error),
-                Err(release_error) => Err(eyre::eyre!(
-                    "Ratatui terminal setup failed: {error}; guard release also failed: {release_error}"
-                )),
+                Err(release_error) => Err(error.wrap_err(format!(
+                    "Ratatui terminal setup failed; guard release also failed: {release_error:#}"
+                ))),
             };
         }
     };

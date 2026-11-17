@@ -4,6 +4,7 @@ use crate::AzureDevOpsWorkItemRelation;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_azure_types::ArbitraryJson;
 use eyre::Result;
+use eyre::WrapErr;
 use facet::Facet;
 use std::collections::BTreeMap;
 use url::Url;
@@ -49,7 +50,7 @@ impl AzureDevOpsWorkItem {
             .field(field)?
             .ok_or_else(|| eyre::eyre!("Missing field {field}"))?;
         facet_json::from_str(value.as_ref())
-            .map_err(|_| eyre::eyre!("Expected a string in {field}"))
+            .wrap_err_with(|| format!("Expected a string in {field}"))
     }
 }
 

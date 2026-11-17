@@ -10,6 +10,7 @@ use cloud_terrastodon_app::GlobalArgs;
 use cloud_terrastodon_app::OutputFormat;
 use cloud_terrastodon_app::Result;
 use cloud_terrastodon_cache::WorkCache;
+use eyre::WrapErr;
 use facet::Facet;
 use std::cell::Cell;
 use std::future::pending;
@@ -518,7 +519,7 @@ fn run_cancellation_probe(mode: &str) {
             }
         })
         .await
-        .map_err(|_| eyre::eyre!("cancellation probe handler exceeded its watchdog"))??;
+        .wrap_err("cancellation probe handler exceeded its watchdog")??;
         Ok(CliOutput::none())
     });
 

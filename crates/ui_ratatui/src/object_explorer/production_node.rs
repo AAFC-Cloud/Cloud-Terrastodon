@@ -129,7 +129,7 @@ impl ProductionNode {
                     return root_state(arena, output);
                 }
                 match RuntimeValue::from_default(shape)
-                    .map_err(|error| error.to_string())
+                    .map_err(|error| format!("{error:#}"))
                     .and_then(|value| arena.insert_ready(value).map_err(|error| error.to_string()))
                 {
                     Ok(slot) => {
@@ -153,7 +153,7 @@ impl ProductionNode {
                     );
                 };
                 match RuntimeValue::from_box(Box::new(ArbitraryBytes::new(bytes)))
-                    .map_err(|error| error.to_string())
+                    .map_err(|error| format!("{error:#}"))
                     .and_then(|value| arena.insert_ready(value).map_err(|error| error.to_string()))
                 {
                     Ok(slot) => {

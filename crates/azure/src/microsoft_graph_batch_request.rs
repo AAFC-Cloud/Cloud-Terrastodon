@@ -8,6 +8,7 @@ use cloud_terrastodon_cache::CacheOperationOwner;
 use cloud_terrastodon_command::FromCommandOutput;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_rest::RestRequest;
+use eyre::WrapErr;
 use facet::Facet;
 use http::Method;
 use std::sync::Arc;
@@ -142,7 +143,7 @@ impl<REQ> MicrosoftGraphBatchRequest<REQ> {
                     .authentication(authentication.into())
                     .body(
                         facet_json::to_string_pretty(&body)
-                            .map_err(|error| eyre::eyre!("{error:?}"))?,
+                            .wrap_err("Serializing Microsoft Graph batch request")?,
                     );
             if cancellation_safe {
                 request = request.cancellation_safe();

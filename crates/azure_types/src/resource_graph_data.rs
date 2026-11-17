@@ -74,12 +74,7 @@ impl ResourceGraphData {
         for (index, row) in self.rows.into_iter().enumerate() {
             let json = Self::row_json(&self.columns, row, index)?;
             let record = facet_json::from_str::<T>(&json).map_err(|error| {
-                ResourceGraphEntryDeserializeError::new(
-                    index,
-                    type_name::<T>(),
-                    json,
-                    eyre::eyre!("{error:?}"),
-                )
+                ResourceGraphEntryDeserializeError::new(index, type_name::<T>(), json, error.into())
             })?;
             records.push(record);
         }
@@ -102,13 +97,16 @@ impl ResourceGraphData {
             .iter()
             .zip(row)
             .map(|(column, value)| {
-                let value = facet_json::from_str::<Value>(value.as_str())
-                    .map_err(|error| eyre::eyre!("{error:?}"))?;
+                let value = facet_json::from_str::<Value>(value.as_str()).wrap_err_with(|| {
+                    format!(
+                        "Decoding Resource Graph entry {index} column {}",
+                        column.name
+                    )
+                })?;
                 Ok((column.name.as_str(), value))
             })
             .collect::<Result<_>>()?;
         facet_json::to_string_pretty(&record_value)
-            .map_err(|error| eyre::eyre!("{error:?}"))
             .wrap_err_with(|| format!("failed to serialize entry {index} before deserializing"))
     }
 }

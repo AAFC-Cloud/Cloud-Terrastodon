@@ -15,6 +15,7 @@ use cloud_terrastodon_command::async_trait;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
+use eyre::WrapErr;
 use std::borrow::Cow;
 
 /// Executes copy operations through the SDK using each phase's supplied scope.
@@ -46,7 +47,7 @@ impl WorkItemCopyWriter for RestWorkItemCopyWriter {
         .execute(executor)
         .await?;
         facet_json::from_str(response.as_ref())
-            .map_err(|error| eyre::eyre!("Created item response could not be decoded: {error}"))
+            .wrap_err("Created item response could not be decoded")
     }
     async fn relate(
         &self,

@@ -11,14 +11,13 @@ fn command_output_bstrings_serialize_as_byte_arrays_without_proxies() -> eyre::R
         status: 0,
     };
 
-    let json = facet_json::to_string(&output).map_err(|error| eyre::eyre!("{error:?}"))?;
+    let json = facet_json::to_string(&output)?;
     assert_eq!(
         json,
         r#"{"stdout":[104,105,255],"stderr":[0,1,2],"status":0}"#
     );
 
-    let round_trip: CommandOutput =
-        facet_json::from_str(&json).map_err(|error| eyre::eyre!("{error:?}"))?;
+    let round_trip: CommandOutput = facet_json::from_str(&json)?;
     assert_eq!(round_trip, output);
     Ok(())
 }

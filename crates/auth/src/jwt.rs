@@ -7,6 +7,7 @@ use base64::prelude::BASE64_URL_SAFE_NO_PAD;
 use cloud_terrastodon_auth_types::AZURE_DEVOPS_RESOURCE_ID;
 use cloud_terrastodon_auth_types::AzureCredentialResource;
 use cloud_terrastodon_azure_types::AzureTenantId;
+use eyre::WrapErr;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DecodedJwt {
@@ -76,9 +77,9 @@ fn decode_azure_claims(token: &str) -> eyre::Result<AzureClaims> {
 fn decode_jwt_segment(segment: &str, label: &str) -> eyre::Result<String> {
     let bytes = BASE64_URL_SAFE_NO_PAD
         .decode(segment)
-        .map_err(|error| eyre::eyre!("failed to base64url-decode JWT {label}: {error}"))?;
-    let json = std::str::from_utf8(&bytes)
-        .map_err(|error| eyre::eyre!("JWT {label} was not valid UTF-8: {error}"))?;
+        .wrap_err_with(|| format!("failed to base64url-decode JWT {label}"))?;
+    let json =
+        std::str::from_utf8(&bytes).wrap_err_with(|| format!("JWT {label} was not valid UTF-8"))?;
     Ok(json.to_string())
 }
 

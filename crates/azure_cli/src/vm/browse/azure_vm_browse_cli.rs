@@ -10,6 +10,7 @@ use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_user_input::Choice;
 use cloud_terrastodon_user_input::PickResultExt;
 use cloud_terrastodon_user_input::PickerTui;
+use eyre::WrapErr;
 use facet::Facet;
 use strum::VariantArray;
 use tracing::info;
@@ -68,7 +69,7 @@ impl AzureVmBrowseArgs {
                         info!(%chosen_subscription.name, %chosen_subscription.id, "Fetching VM SKUs, this may take a while" );
                         let skus = AzureVirtualMachineSkuRequest { authentication, subscription_id: (chosen_subscription.id) }.execute(executor).with_invalidation(invalidate).await?;
                         skus.into_iter().map(|sku| eyre::Ok(Choice {
-                            key: format!("{} - {} - {}", sku.resource_type, sku.name, facet_json::to_string(&sku.locations).map_err(|error| eyre::eyre!("{error:?}"))?),
+                            key: format!("{} - {} - {}", sku.resource_type, sku.name, facet_json::to_string(&sku.locations).wrap_err("Serializing VM SKU locations for picker")?),
                             value: sku,
                         })).collect::<eyre::Result<Vec<_>>>()
                 }).await.into_chosen_and_maybe_error()?;

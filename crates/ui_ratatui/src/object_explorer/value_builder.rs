@@ -11,6 +11,8 @@ use super::borrow_materializer::validate_borrow;
 use super::field_binding::FieldBinding;
 use super::slot_id::SlotId;
 use cloud_terrastodon_registry::RuntimeValue;
+use eyre::Report;
+use eyre::WrapErr;
 use facet::Shape;
 use facet::Type;
 use facet::UserType;
@@ -111,7 +113,7 @@ pub(crate) enum ValueBuilderError {
         expected: &'static str,
         actual: &'static str,
     },
-    Reflection(String),
+    Reflection(Report),
     Arena(ArenaError),
     Borrow(BorrowError),
 }
@@ -178,14 +180,23 @@ impl fmt::Display for ValueBuilderError {
                 formatter,
                 "slot {slot} must be {expected} to transfer borrow leases, but it is {actual}"
             ),
-            Self::Reflection(message) => formatter.write_str(message),
+            Self::Reflection(error) => write!(formatter, "{error:#}"),
             Self::Arena(error) => error.fmt(formatter),
             Self::Borrow(error) => error.fmt(formatter),
         }
     }
 }
 
-impl Error for ValueBuilderError {}
+impl Error for ValueBuilderError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            Self::Reflection(error) => Some(error.as_ref()),
+            Self::Arena(error) => Some(error),
+            Self::Borrow(error) => Some(error),
+            _ => None,
+        }
+    }
+}
 
 impl From<ArenaError> for ValueBuilderError {
     fn from(value: ArenaError) -> Self {
@@ -538,9 +549,9 @@ impl BuilderStore {
             let selected = current
                 .peek()
                 .into_enum()
-                .map_err(|error| ValueBuilderError::Reflection(error.to_string()))?
+                .map_err(|error| ValueBuilderError::Reflection(error.into()))?
                 .variant_index()
-                .map_err(|error| ValueBuilderError::Reflection(error.to_string()))?;
+                .map_err(|error| ValueBuilderError::Reflection(error.into()))?;
             if selected == variant {
                 return Ok(BuilderTransition::Ready);
             }
@@ -1096,20 +1107,14 @@ impl BuilderStore {
             FieldBinding::CloneFrom(address) => {
                 let value = ArenaAddressSource::new(arena)
                     .resolve(address)
-                    .map_err(|error| {
-                        ValueBuilderError::Reflection(format!(
-                            "clone source {address} does not resolve: {error}"
-                        ))
-                    })?;
+                    .wrap_err_with(|| format!("clone source {address} does not resolve"))
+                    .map_err(ValueBuilderError::Reflection)?;
                 ensure_owned_source_shape(field, value.shape())?;
             }
             FieldBinding::BorrowFrom(address) => {
-                validate_borrow(arena, address, field.shape).map_err(|error| {
-                    ValueBuilderError::Reflection(format!(
-                        "could not borrow {address} into {}: {error}",
-                        field.name
-                    ))
-                })?;
+                validate_borrow(arena, address, field.shape)
+                    .wrap_err_with(|| format!("could not borrow {address} into {}", field.name))
+                    .map_err(ValueBuilderError::Reflection)?;
                 if fields.iter().enumerate().any(|(other_index, other)| {
                     other_index != index
                         && matches!(
@@ -1191,12 +1196,14 @@ fn adapt_owned_source(
     }
     let actual = value.shape();
     if RuntimeValue::can_own_pointee(expected, actual) {
-        return RuntimeValue::from_owned_pointee(expected, value).map_err(|error| {
-            ValueBuilderError::Reflection(format!(
-                "could not wrap owned {} for {field}: {error}",
-                cloud_terrastodon_registry::describe_shape(actual)
-            ))
-        });
+        return RuntimeValue::from_owned_pointee(expected, value)
+            .wrap_err_with(|| {
+                format!(
+                    "could not wrap owned {} for {field}",
+                    cloud_terrastodon_registry::describe_shape(actual)
+                )
+            })
+            .map_err(ValueBuilderError::Reflection);
     }
     Err(ValueBuilderError::ShapeMismatch {
         field: field.to_owned(),
@@ -1271,17 +1278,13 @@ fn materialize_fields(
                     Some(adapt_owned_source(field.shape, &field.name, value)?)
                 }
                 FieldBinding::CloneFrom(address) => {
-                    let value = source.resolve(&address).map_err(|error| {
-                        ValueBuilderError::Reflection(format!(
-                            "clone source {address} does not resolve: {error}"
-                        ))
-                    })?;
-                    let cloned = RuntimeValue::clone_from_peek(value.peek()).map_err(|error| {
-                        ValueBuilderError::Reflection(format!(
-                            "could not clone {address} into {}: {error}",
-                            field.name
-                        ))
-                    })?;
+                    let value = source
+                        .resolve(&address)
+                        .wrap_err_with(|| format!("clone source {address} does not resolve"))
+                        .map_err(ValueBuilderError::Reflection)?;
+                    let cloned = RuntimeValue::clone_from_peek(value.peek())
+                        .wrap_err_with(|| format!("could not clone {address} into {}", field.name))
+                        .map_err(ValueBuilderError::Reflection)?;
                     Some(adapt_owned_source(field.shape, &field.name, cloned)?)
                 }
                 FieldBinding::BorrowFrom(address) => {
@@ -1306,12 +1309,10 @@ fn materialize_fields(
                     // dependent values die, including on cancellation/shutdown.
                     let pointer =
                         unsafe { materialize_borrow(arena, borrow_graph, &lease, field.shape) }
-                            .map_err(|error| {
-                                ValueBuilderError::Reflection(format!(
-                                    "could not borrow {address} into {}: {error}",
-                                    field.name
-                                ))
-                            });
+                            .wrap_err_with(|| {
+                                format!("could not borrow {address} into {}", field.name)
+                            })
+                            .map_err(ValueBuilderError::Reflection);
                     leases.push(lease);
                     let pointer = pointer?;
                     Some(pointer)
@@ -1365,9 +1366,9 @@ fn materialize_fields(
     };
     let built = RuntimeValue::build_with(shape, |mut partial| {
         if let Some(variant) = variant {
-            partial = partial.select_nth_variant(variant).map_err(|error| {
-                eyre::eyre!("could not select variant {variant} while building: {error}")
-            })?;
+            partial = partial
+                .select_nth_variant(variant)
+                .wrap_err_with(|| format!("could not select variant {variant} while building"))?;
         }
         for field in prepared {
             match field {
@@ -1380,18 +1381,17 @@ fn materialize_fields(
                     source,
                     field_shape,
                 } => {
-                    let value = arena.consume(source).map_err(|error| {
-                        eyre::eyre!("{name}: could not consume move source {source}: {error}")
+                    let value = arena.consume(source).wrap_err_with(|| {
+                        format!("{name}: could not consume move source {source}")
                     })?;
-                    let value = adapt_owned_source(field_shape, &name, value)
-                        .map_err(|error| eyre::eyre!(error.to_string()))?;
+                    let value = adapt_owned_source(field_shape, &name, value)?;
                     partial = set_runtime_field(partial, index, &name, value)?;
                 }
             }
         }
         Ok(partial)
     })
-    .map_err(|error| ValueBuilderError::Reflection(error.to_string()));
+    .map_err(ValueBuilderError::Reflection);
 
     match built {
         Ok(value) => Ok(BuilderMaterialization {
@@ -1414,7 +1414,7 @@ fn set_runtime_field(
 ) -> eyre::Result<Partial<'static, false>> {
     let partial = partial
         .begin_nth_field(index)
-        .map_err(|error| eyre::eyre!("{field}: could not begin field: {error}"))?;
+        .wrap_err_with(|| format!("{field}: could not begin field"))?;
     let peek = value.peek();
     // SAFETY: ValueBuilder validated the destination field shape against this
     // RuntimeValue before materialization. Facet transfers the initialized
@@ -1426,9 +1426,9 @@ fn set_runtime_field(
             value.deallocate_after_move();
             partial
                 .end()
-                .map_err(|error| eyre::eyre!("{field}: could not finish field: {error}"))
+                .wrap_err_with(|| format!("{field}: could not finish field"))
         }
-        Err(error) => Err(eyre::eyre!("{field}: could not set field: {error}")),
+        Err(error) => Err(error).wrap_err_with(|| format!("{field}: could not set field")),
     }
 }
 
@@ -1446,6 +1446,7 @@ mod tests {
     use crate::object_explorer::tab::Tab;
     use crate::object_explorer::value_address::ValueAddress;
     use crate::object_explorer::value_path::ValuePathSegment;
+    use crate::object_explorer::value_resolution_error::ValueResolutionError;
     use arbitrary::Arbitrary;
     use arbitrary::Unstructured;
     use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
@@ -1520,6 +1521,37 @@ mod tests {
         T: Facet<'static> + Send + 'static,
     {
         RuntimeValue::from_box(Box::new(value)).expect("test value is representable")
+    }
+
+    #[test]
+    fn failed_clone_binding_preserves_the_typed_resolution_cause() {
+        let mut arena = Arena::default();
+        let source = arena.reserve_builder().unwrap();
+        let mut builders = BuilderStore::default();
+        let mut borrows = BorrowGraph::default();
+        let (target, _) = builders
+            .create_and_finalize(&mut arena, &mut borrows, BindingFixture::SHAPE)
+            .unwrap();
+
+        let error = builders
+            .validate_field_binding(
+                &arena,
+                &borrows,
+                target,
+                0,
+                &FieldBinding::CloneFrom(ValueAddress::root(source)),
+            )
+            .expect_err("an unfinished source cannot supply a cloned field");
+
+        assert!(error.to_string().contains("clone source"));
+        assert!(error.to_string().contains("not Ready"));
+        assert!(Report::new(error).chain().any(|cause| {
+            matches!(
+                cause.downcast_ref::<ValueResolutionError>(),
+                Some(ValueResolutionError::Root(ArenaError::RootNotReady { slot, .. }))
+                    if *slot == source
+            )
+        }));
     }
 
     #[test]
@@ -1885,7 +1917,7 @@ mod tests {
         assert!(matches!(
             error,
             ValueBuilderError::Reflection(ref message)
-                if message.contains("could not clone")
+                if message.to_string().contains("could not clone")
         ));
         assert_eq!(borrows.edge_count(), 0);
         assert!(!borrows.protects_root(source));

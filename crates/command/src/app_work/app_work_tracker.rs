@@ -18,6 +18,8 @@ use tracing::info;
 pub struct AppWorkTracker {
     // The lock makes admission and closing atomic. None means shutdown owns
     // the tasks; clones cannot enqueue more work behind the drain.
+    // Poison errors own a borrowed, non-Send guard, so failure paths report the
+    // poisoned admission lock without retaining that guard in an eyre report.
     work: Arc<Mutex<Option<TrackedAppWork>>>,
 }
 
@@ -58,7 +60,7 @@ impl AppWorkTracker {
         let mut work = self
             .work
             .lock()
-            .map_err(|error| eyre!("Failed to lock background work: {error}"))?;
+            .map_err(|_| eyre!("Background work lock was poisoned by a panic while it was held"))?;
         let work = work
             .as_mut()
             .ok_or_else(|| eyre!("Cannot enqueue background work after shutdown has begun"))?;
@@ -81,7 +83,7 @@ impl AppWorkTracker {
         let work = self
             .work
             .lock()
-            .map_err(|error| eyre!("Failed to lock background work: {error}"))?;
+            .map_err(|_| eyre!("Background work lock was poisoned by a panic while it was held"))?;
         Ok(work.as_ref().map_or(0, |work| work.tasks.len()))
     }
 
@@ -94,7 +96,7 @@ impl AppWorkTracker {
         let mut work = self
             .work
             .lock()
-            .map_err(|error| eyre!("Failed to lock background work: {error}"))?;
+            .map_err(|_| eyre!("Background work lock was poisoned by a panic while it was held"))?;
         if let Some(work) = work.as_mut() {
             while let Some(result) = work.tasks.try_join_next_with_id() {
                 work.record_completion(result);
@@ -113,7 +115,9 @@ impl AppWorkTracker {
                 let work = self
                     .work
                     .lock()
-                    .map_err(|error| eyre!("Failed to lock background work: {error}"))?
+                    .map_err(|_| {
+                        eyre!("Background work lock was poisoned by a panic while it was held")
+                    })?
                     .take();
                 let Some(mut work) = work else {
                     return Ok(());

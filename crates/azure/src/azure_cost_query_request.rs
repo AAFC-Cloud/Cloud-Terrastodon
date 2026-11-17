@@ -52,7 +52,7 @@ impl ExecutableRequest for AzureCostQueryRequest<'_> {
                 .authentication(self.authentication.into())
                 .body(
                     facet_json::to_string_pretty(self.query.as_ref())
-                        .map_err(|error| eyre::eyre!("{error:?}"))?,
+                        .wrap_err("Serializing Azure cost query request")?,
                 );
             receive_cost_management_response(request, &executor).await
         })
@@ -76,7 +76,6 @@ async fn receive_cost_management_response(
                         let parsed = facet_json::from_str::<CostManagementQueryResult>(
                             response.into_json_body()?.as_str(),
                         )
-                        .map_err(|error| eyre::eyre!("{error:?}"))
                         .wrap_err_with(|| {
                             format!(
                                 "Deserializing REST response into {}",

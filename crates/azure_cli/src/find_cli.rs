@@ -5,6 +5,7 @@ use cloud_terrastodon_azure::Resource;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
+use eyre::WrapErr;
 use facet::Facet;
 use nucleo::Nucleo;
 use nucleo::pattern::CaseMatching;
@@ -35,8 +36,9 @@ impl AzureFindArgs {
 
         let serialized_resources = resources
             .iter()
-            .map(|value| facet_json::to_string(value).map_err(|error| eyre::eyre!("{error:?}")))
-            .collect::<Result<Vec<_>, _>>()?;
+            .map(facet_json::to_string)
+            .collect::<Result<Vec<_>, _>>()
+            .wrap_err("Serializing Azure resources for text search")?;
 
         let mut nucleo: Nucleo<usize> =
             Nucleo::new(nucleo::Config::DEFAULT, Arc::new(|| {}), None, 1);

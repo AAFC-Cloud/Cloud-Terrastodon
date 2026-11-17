@@ -241,7 +241,7 @@ impl RestRequest {
             body: self.body.clone(),
             headers,
         };
-        let bytes = facet_json::to_vec(&value).map_err(|error| eyre::eyre!("{error:?}"))?;
+        let bytes = facet_json::to_vec(&value).wrap_err("Serializing REST request fingerprint")?;
         NonEmptyString::new(blake3::hash(&bytes).to_hex().to_string())
     }
     fn artifact_key(&self, caller: &'static Location<'static>) -> Result<CacheKey> {
@@ -294,7 +294,7 @@ impl RestRequest {
             files.insert(
                 ArtifactFilePath::new("response.headers.json")?,
                 facet_json::to_vec_pretty(&response.headers)
-                    .map_err(|error| eyre::eyre!("{error:?}"))?,
+                    .wrap_err("Serializing REST response headers for diagnostics")?,
             );
             files.insert(
                 ArtifactFilePath::new("status.txt")?,
@@ -422,6 +422,8 @@ impl RestRequest {
                 span.in_scope(|| {
                     let decoded = decoder(&response).map_err(|mut error| {
                         if sensitive {
+                            // Decoder errors may include response data. Do not
+                            // retain their source across this redaction boundary.
                             return eyre::eyre!(
                                 "sensitive REST response could not be decoded as {}",
                                 std::any::type_name::<T>()
@@ -454,7 +456,7 @@ impl RestRequest {
                         let decoded = facet_json::from_slice::<SerializableRestResponse>(
                             &loaded.artifacts.payload,
                         )
-                        .map_err(|error| eyre::eyre!("{error:?}"))
+                        .wrap_err("Deserializing cached REST response")
                         .and_then(|response| decoder(&response))
                         .map_err(|mut error| {
                             error.handler_mut().track_caller(caller);
@@ -497,7 +499,7 @@ impl RestRequest {
             let diagnostics = self.diagnostics(response.as_ref(), decoded.as_ref().err());
             let stored = async {
                 if let Some(attempt) = attempt {
-                    let payload = response.as_ref().map(facet_json::to_vec).transpose().map_err(|error| eyre::eyre!("{error:?}"))?.unwrap_or_default();
+                    let payload = response.as_ref().map(facet_json::to_vec).transpose().wrap_err("Serializing REST response for artifact retention")?.unwrap_or_default();
                     eyre::Ok(Some(attempt.finish(ArtifactSet { payload, diagnostics: diagnostics? }, observed, &scope).await?))
                 } else { Ok(None) }
             }.await;
@@ -736,8 +738,9 @@ impl RestRequest {
                 attempt
                     .finish(
                         ArtifactSet {
-                            payload: facet_json::to_vec(response)
-                                .map_err(|error| eyre::eyre!("{error:?}"))?,
+                            payload: facet_json::to_vec(response).wrap_err(
+                                "Serializing REST response for caller-policy diagnostics",
+                            )?,
                             diagnostics: self.diagnostics(Some(response), Some(&error))?,
                         },
                         ArtifactObservation::now(),

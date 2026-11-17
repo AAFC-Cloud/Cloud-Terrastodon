@@ -1493,7 +1493,6 @@ where
     let file =
         std::fs::File::create(&path).with_context(|| format!("creating '{}'", path.display()))?;
     facet_json::to_writer_std_pretty(file, value)
-        .map_err(|error| eyre::eyre!("{error:?}"))
         .with_context(|| format!("writing '{}'", path.display()))?;
     Ok(())
 }
@@ -1526,8 +1525,7 @@ mod tests {
         let directory = tempfile::tempdir()?;
         write_investigation_artifacts(directory.path(), &report)?;
         let json = std::fs::read(directory.path().join("report.json"))?;
-        let restored: OutageInvestigationReport =
-            facet_json::from_slice(&json).map_err(|error| eyre::eyre!("{error:?}"))?;
+        let restored: OutageInvestigationReport = facet_json::from_slice(&json)?;
         assert_eq!(restored.dns.addresses, report.dns.addresses);
         let text = std::str::from_utf8(&json)?;
         assert!(text.contains("\"192.0.2.1\""), "{text}");

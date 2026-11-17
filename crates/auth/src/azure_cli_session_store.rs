@@ -146,6 +146,8 @@ impl AzureCliSessionStore {
         // A fresh directory contains only this login. Its recorded account is
         // checked again before and after token subprocesses; login and
         // account-changing commands cannot execute through a bound session.
+        // Keep identity serialization diagnostics outside the error chain to
+        // preserve this credential boundary's suppression of account details.
         let serialized = facet_json::to_vec(&identity).map_err(|_| {
             eyre::eyre!("serializing the bound Azure CLI identity failed; details suppressed")
         })?;

@@ -393,7 +393,8 @@ impl CommandBuilder {
                 .map(|(path, contents)| (path.to_string_lossy().into_owned(), contents.clone()))
                 .collect(),
         };
-        let bytes = facet_json::to_vec(&fingerprint).map_err(|error| eyre::eyre!("{error:?}"))?;
+        let bytes =
+            facet_json::to_vec(&fingerprint).wrap_err("Serializing command cache fingerprint")?;
         Ok(blake3::hash(&bytes).to_hex().to_string())
     }
 
@@ -560,6 +561,8 @@ impl CommandBuilder {
                 } else {
                     decoder(&output).map_err(|error| {
                         if sensitive {
+                            // Decoder errors may include command output. Do not
+                            // retain their source across this redaction boundary.
                             eyre::eyre!(
                                 "sensitive command output could not be decoded as {}",
                                 type_name::<T>()
@@ -600,7 +603,7 @@ impl CommandBuilder {
                     let _entered = span.enter();
                     let decoded =
                         facet_json::from_slice::<CommandOutput>(&loaded.artifacts.payload)
-                            .map_err(|error| eyre::eyre!("{error:?}"))
+                            .wrap_err("Deserializing cached command output")
                             .and_then(|output| {
                                 if output.success() {
                                     decoder(&output)
@@ -659,7 +662,7 @@ impl CommandBuilder {
                         .as_ref()
                         .map(facet_json::to_vec)
                         .transpose()
-                        .map_err(|error| eyre::eyre!("{error:?}"))?
+                        .wrap_err("Serializing command output for artifact retention")?
                         .unwrap_or_default();
                     let artifacts = ArtifactSet {
                         payload,
@@ -688,7 +691,7 @@ impl CommandBuilder {
 
     fn decode_json<T: FromCommandOutput>(output: &CommandOutput) -> Result<T> {
         facet_json::from_slice(output.stdout.to_str_lossy().as_bytes())
-            .map_err(|error| eyre::eyre!("{error:?}"))
+            .wrap_err_with(|| format!("Deserializing command output as {}", type_name::<T>()))
     }
 
     // Local execution has no work identity, provider, cache root, or persistent

@@ -4,7 +4,7 @@ use cloud_terrastodon_entrypoint::GitRevision;
 use cloud_terrastodon_entrypoint::Version;
 use cloud_terrastodon_entrypoint::entrypoint;
 
-/// https://microsoft.github.io/rust-guidelines/guidelines/apps/index.html?highlight=alloc#M-MIMALLOC-APPS
+/// <https://microsoft.github.io/rust-guidelines/guidelines/apps/index.html?highlight=alloc#M-MIMALLOC-APPS>
 #[cfg(not(feature = "tracy-alloc"))]
 #[global_allocator]
 static GLOBAL_ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;

@@ -1,6 +1,7 @@
 use crate::borrowed_pointer_kind_for_shape;
 use crate::describe_shape;
 use crate::runtime_display_value::RuntimeDisplayValue;
+use eyre::WrapErr;
 use facet::Def;
 use facet::Facet;
 use facet::PtrConst;
@@ -82,7 +83,7 @@ impl RuntimeValue {
         shape
             .layout
             .sized_layout()
-            .map_err(|_| eyre::eyre!("{} is not a sized runtime value", describe_shape(shape)))
+            .wrap_err_with(|| format!("{} is not a sized runtime value", describe_shape(shape)))
     }
 
     fn allocate(shape: &'static Shape) -> eyre::Result<(facet::PtrUninit, Layout)> {
@@ -124,12 +125,12 @@ impl RuntimeValue {
     ) -> eyre::Result<Self> {
         let (ptr, layout) = Self::allocate(shape)?;
         let result = unsafe { Partial::<'static, false>::from_raw_with_shape(ptr, shape) }
-            .map_err(|error| eyre::eyre!("could not allocate {}: {error}", describe_shape(shape)))
+            .wrap_err_with(|| format!("could not allocate {}", describe_shape(shape)))
             .and_then(build)
             .and_then(|partial| {
-                partial.finish_in_place().map_err(|error| {
-                    eyre::eyre!("could not finish {}: {error}", describe_shape(shape))
-                })
+                partial
+                    .finish_in_place()
+                    .wrap_err_with(|| format!("could not finish {}", describe_shape(shape)))
             });
         Self::from_partial_result(shape, ptr, layout, result)
     }
@@ -138,19 +139,16 @@ impl RuntimeValue {
     pub fn from_default(shape: &'static Shape) -> eyre::Result<Self> {
         let (ptr, layout) = Self::allocate(shape)?;
         let result = unsafe { Partial::<'static, false>::from_raw_with_shape(ptr, shape) }
-            .map_err(|error| eyre::eyre!("could not allocate {}: {error}", describe_shape(shape)))
+            .wrap_err_with(|| format!("could not allocate {}", describe_shape(shape)))
             .and_then(|partial| {
-                partial.set_default().map_err(|error| {
-                    eyre::eyre!("could not default {}: {error}", describe_shape(shape))
-                })
+                partial
+                    .set_default()
+                    .wrap_err_with(|| format!("could not default {}", describe_shape(shape)))
             })
             .and_then(|partial| {
-                partial.finish_in_place().map_err(|error| {
-                    eyre::eyre!(
-                        "could not finish default {}: {error}",
-                        describe_shape(shape)
-                    )
-                })
+                partial
+                    .finish_in_place()
+                    .wrap_err_with(|| format!("could not finish default {}", describe_shape(shape)))
             });
         Self::from_partial_result(shape, ptr, layout, result)
     }
@@ -160,16 +158,16 @@ impl RuntimeValue {
         let (ptr, layout) = Self::allocate(shape)?;
         let text = text.to_owned();
         let result = unsafe { Partial::<'static, false>::from_raw_with_shape(ptr, shape) }
-            .map_err(|error| eyre::eyre!("could not allocate {}: {error}", describe_shape(shape)))
+            .wrap_err_with(|| format!("could not allocate {}", describe_shape(shape)))
             .and_then(|partial| {
-                partial.parse_from_str(&text).map_err(|error| {
-                    eyre::eyre!("could not parse {}: {error}", describe_shape(shape))
-                })
+                partial
+                    .parse_from_str(&text)
+                    .wrap_err_with(|| format!("could not parse {}", describe_shape(shape)))
             })
             .and_then(|partial| {
-                partial.finish_in_place().map_err(|error| {
-                    eyre::eyre!("could not finish {}: {error}", describe_shape(shape))
-                })
+                partial
+                    .finish_in_place()
+                    .wrap_err_with(|| format!("could not finish {}", describe_shape(shape)))
             });
         Self::from_partial_result(shape, ptr, layout, result)
     }
@@ -367,19 +365,17 @@ impl RuntimeValue {
         Self::build_with(peek.shape(), |partial| {
             let mut partial = partial
                 .init_list_with_capacity(length)
-                .map_err(|error| eyre::eyre!("could not initialize list clone: {error}"))?;
+                .wrap_err("could not initialize list clone")?;
 
             for item in source.iter() {
                 let cloned_item = Self::clone_from_peek(item)?;
                 partial = partial
                     .begin_list_item()
-                    .map_err(|error| eyre::eyre!("could not begin list clone item: {error}"))?;
+                    .wrap_err("could not begin list clone item")?;
                 partial = unsafe { partial.set_from_peek(&cloned_item.peek()) }
-                    .map_err(|error| eyre::eyre!("could not set list clone item: {error}"))?;
+                    .wrap_err("could not set list clone item")?;
                 cloned_item.deallocate_after_move();
-                partial = partial
-                    .end()
-                    .map_err(|error| eyre::eyre!("could not finish list clone item: {error}"))?;
+                partial = partial.end().wrap_err("could not finish list clone item")?;
             }
 
             Ok(partial)
@@ -572,4 +568,18 @@ where
     T: Facet<'static> + Any + Send + 'static,
 {
     value.into_box::<T>()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use facet_reflect::ReflectError;
+
+    #[test]
+    fn parser_failures_retain_their_reflection_error_and_operation_context() {
+        let error = RuntimeValue::from_text(u32::SHAPE, "invalid integer")
+            .expect_err("the runtime parser must reject a nonnumeric integer");
+        assert!(error.to_string().contains("could not parse"));
+        assert!(error.downcast_ref::<ReflectError>().is_some());
+    }
 }

@@ -1,6 +1,7 @@
 use cloud_terrastodon_auth::decode_jwt;
 use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
+use eyre::WrapErr;
 use facet::Facet;
 use facet_value::Value;
 use std::io::Read;
@@ -25,7 +26,7 @@ impl JwtDecodeArgs {
         let token = read_token(&self.input)?;
         let decoded = decode_token_to_output(&token)?;
         facet_json::to_writer_std_pretty(std::io::stdout(), &decoded)
-            .map_err(|error| eyre::eyre!("{error:?}"))?;
+            .wrap_err("writing decoded JWT output")?;
         println!();
         Ok(())
     }

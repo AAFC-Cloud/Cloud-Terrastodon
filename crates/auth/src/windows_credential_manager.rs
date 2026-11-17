@@ -53,6 +53,8 @@ pub fn read_credential_from_manager(
         CredFree(credential_ptr.cast());
         bytes
     };
+    // Owned encoding errors can retain the credential bytes. Keep them outside
+    // the diagnostic source chain at this secret-bearing boundary.
     let password = if bytes.len().is_multiple_of(2)
         && bytes.iter().skip(1).step_by(2).all(|byte| *byte == 0)
     {
@@ -98,7 +100,7 @@ pub fn write_credential_to_manager(
     };
 
     unsafe { CredWriteA(&credential_record, 0) }
-        .map_err(|error| eyre::eyre!("writing credential {target_name:?}: {error}"))?;
+        .wrap_err_with(|| format!("writing credential {target_name:?}"))?;
     Ok(())
 }
 
@@ -129,8 +131,6 @@ pub(crate) fn read_azure_devops_pat_from_credential_manager()
         Ok(None) => {
             bail!("No default credential found");
         }
-        Err(e) => {
-            bail!("Failed to read default credential: {}", e);
-        }
+        Err(error) => Err(error).wrap_err("Failed to read default credential"),
     }
 }
