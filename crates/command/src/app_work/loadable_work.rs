@@ -3,7 +3,6 @@ use super::FieldUpdaterWorkSuccessMutator;
 use super::Loadable;
 use super::Work;
 use cloud_terrastodon_execution::ExecutionFuture;
-use cloud_terrastodon_tracing::DiagnosticReport;
 use eyre::bail;
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -12,6 +11,7 @@ use std::panic::Location;
 use std::sync::Arc;
 use std::time::Instant;
 use teamy_cancellation::CancellationScope;
+use teamy_tracing::DiagnosticReport;
 
 pub type Setter<State, FinishedWorkData> =
     Arc<dyn Fn(&mut State, Loadable<FinishedWorkData>) + Send + Sync>;

@@ -1,5 +1,7 @@
 # Unreleased
 
+- Move retained reports, live log capture, buffer ownership, and diagnostic widgets into locally patched `teamy-tracing`; add a shared-buffer Logs view to the GUI. Upgrade the coordinated GUI stack to egui 0.36.2 while retaining glow, and use Allo variable-font weights.
+
 - Share GUI background-load error reports between logging and application state, preserving terminal colors and typed causes while rendering plain diagnostics in GUI labels.
 
 - Preserve original JSON, reflection, CLI-input, credential-store, and terminal-coordination errors beneath operation context instead of replacing their causes with formatted strings. Retain deliberate suppression of sensitive authentication and request details.

@@ -1,5 +1,6 @@
 use arbitrary::Arbitrary;
 use facet::Facet;
+use teamy_tracing::capture::LogBuffer;
 pub mod account;
 pub mod add_work_dir;
 pub mod test;
@@ -140,6 +141,7 @@ impl CloudTerrastodonCommand {
         self,
         cancellation: &CancellationScope,
         executor: &CloudTerrastodonExecutor,
+        log_capture: Option<LogBuffer>,
     ) -> Result<CliOutput> {
         // Box child futures so large commands do not enlarge every dispatcher stack frame.
         match self {
@@ -150,7 +152,15 @@ impl CloudTerrastodonCommand {
                 return Box::pin(args.invoke(executor)).await;
             }
             CloudTerrastodonCommand::Ratatui(args) => Box::pin(args.invoke(executor)).await,
-            CloudTerrastodonCommand::Egui(args) => Box::pin(args.invoke(executor)).await,
+            CloudTerrastodonCommand::Egui(args) => {
+                Box::pin(args.invoke(
+                    executor,
+                    log_capture.ok_or_else(|| {
+                        eyre::eyre!("egui requires application-owned log capture")
+                    })?,
+                ))
+                .await
+            }
             CloudTerrastodonCommand::Excalidraw(args) => {
                 return Box::pin(args.invoke(cancellation)).await;
             }

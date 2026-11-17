@@ -2,10 +2,6 @@ use super::AppWorkState;
 use super::AppWorkTracker;
 use super::Loadable;
 use super::LoadableWorkBuilder;
-use cloud_terrastodon_tracing::StructuredLogValue;
-use cloud_terrastodon_tracing::TerminalEventLayer;
-use cloud_terrastodon_tracing::TerminalLogBuffer;
-use cloud_terrastodon_tracing::format_record;
 use eyre::Report;
 use std::future::pending;
 use std::io::Error;
@@ -15,6 +11,10 @@ use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 use teamy_cancellation::CancellationToken;
+use teamy_tracing::capture::CaptureLayer;
+use teamy_tracing::capture::LogBuffer;
+use teamy_tracing::capture::LogValue;
+use teamy_tracing::capture::format_record;
 use tokio::runtime::Handle;
 use tokio::sync::oneshot;
 use tokio::time::timeout;
@@ -243,9 +243,9 @@ async fn loadable_work_receives_a_linked_scope_and_publishes_required_success() 
 
 #[tokio::test(flavor = "current_thread")]
 async fn failed_loadable_work_shares_its_report_with_logging_and_application_state() {
-    let buffer = TerminalLogBuffer::new();
+    let buffer = LogBuffer::new();
     let subscriber =
-        tracing_subscriber::registry().with(TerminalEventLayer::new(&buffer, Arc::new(|| true)));
+        tracing_subscriber::registry().with(CaptureLayer::new(&buffer, Arc::new(|| true), |_| {}));
     // The current-thread runtime keeps spawned work within this thread-local
     // subscriber without installing a process-global logger for other tests.
     let _subscriber = tracing::subscriber::set_default(subscriber);
@@ -291,7 +291,7 @@ async fn failed_loadable_work_shares_its_report_with_logging_and_application_sta
                     .iter()
                     .find(|record| record.fields.iter().any(|(name, _)| name == "error"))
                     .expect("failed work must emit an error event");
-                let (_, StructuredLogValue::Report(logged)) = record
+                let (_, LogValue::Report(logged)) = record
                     .fields
                     .iter()
                     .find(|(name, _)| name == "error")

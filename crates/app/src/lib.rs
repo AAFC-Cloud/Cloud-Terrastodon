@@ -22,7 +22,9 @@ mod global_args;
 pub mod output;
 mod startup;
 #[cfg(feature = "terminal")]
-mod terminal;
+mod terminal_session;
+#[cfg(feature = "terminal")]
+mod tracing_picker_log_buffer;
 #[cfg(windows)]
 mod windows_support;
 

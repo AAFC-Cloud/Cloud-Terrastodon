@@ -3,11 +3,15 @@ use cloud_terrastodon_execution::AuthenticationProvider;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use std::sync::Arc;
 use teamy_cancellation::CancellationScope;
+use teamy_tracing::capture::LogBuffer;
 
 /// Facilities owned by this invocation, not process-global application state.
 pub struct AppContext {
     /// The handler's execution scope, including the installed Ctrl-C handler.
     pub cancellation: CancellationScope,
+    // Retain the same history installed in the subscriber. Replacing this field
+    // would disconnect consumers from capture, whose layer holds only a Weak.
+    log_capture: Option<LogBuffer>,
     // Keep the application-owned provider shared; requests select accounts, while
     // every executor observes the same credential sessions and retirement state.
     authentication: Arc<dyn AuthenticationProvider>,
@@ -21,10 +25,12 @@ impl AppContext {
         cache: WorkCache,
         cancellation: CancellationScope,
         authentication: Arc<dyn AuthenticationProvider>,
+        log_capture: Option<LogBuffer>,
     ) -> Self {
         Self {
             cancellation,
             authentication,
+            log_capture,
             cache,
         }
     }
@@ -40,6 +46,11 @@ impl AppContext {
             Arc::clone(&self.authentication),
             self.cancellation.clone(),
         )
+    }
+
+    /// Share this invocation's optional bounded debug history with a viewer.
+    pub fn log_capture(&self) -> Option<LogBuffer> {
+        self.log_capture.clone()
     }
 }
 
@@ -67,6 +78,7 @@ mod tests {
                     WorkCache::temporary()?,
                     cancellation,
                     authentication.clone(),
+                    None,
                 );
                 let selection = AuthenticationSelection::Anonymous;
                 let partition = context.executor().admit(&selection)?;
@@ -91,6 +103,7 @@ mod tests {
                             WorkCache::temporary()?,
                             original_scope,
                             Arc::new(cloud_terrastodon_execution::AnonymousAuthenticationProvider),
+                            None,
                         );
                         let original = context.executor();
                         context.cancellation = replacement_scope;

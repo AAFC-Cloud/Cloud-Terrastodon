@@ -1,10 +1,10 @@
 use super::Loadable;
 use super::Setter;
 use super::StateMutator;
-use cloud_terrastodon_tracing::DiagnosticReport;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::time::Instant;
+use teamy_tracing::DiagnosticReport;
 
 /// Publishes a background failure to its application field.
 pub struct FieldUpdaterWorkFailureMutator<State, FinishedWorkData> {

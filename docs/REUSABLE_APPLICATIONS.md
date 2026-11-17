@@ -339,20 +339,35 @@ cancellation recognition through typed contexts, error sources, and I/O payloads
 `CliOutput` preserves the original report; use `is_cancellation()` or
 `as_cancellation()` rather than relying on native downcasts of nested errors.
 
-For an error that must be logged, `cloud_terrastodon_tracing::DiagnosticReport`
+For an error that must be logged, `teamy_tracing::DiagnosticReport`
 owns a shared `eyre::Report` and retains its typed sources, sections, and traces
 through terminal buffering. Log the typed value with
 `tracing::error!(error = report.as_error(), "Settings save failed")` after
 constructing `DiagnosticReport::new(error)`. Terminal presentation preserves
-color-eyre styling according to the stderr color policy; JSON and GUI text use
-the full plain report. No process-global color overrides are used. Ordinary
+color-eyre styling according to the stderr color policy; JSON and clipboard text
+use the full plain report. The optional `teamy_tracing::gui::DiagnosticReportView`
+translates supported styles into egui text. No process-global color overrides are used. Ordinary
 `?error` and `%error` fields remain tracing text values and cannot retain an
 owned report. Use event fields for report retention: span fields project to text
 to avoid owning their own captured span. The application owns its
-`TerminalLogBuffer`; capture layers borrow it weakly to avoid a cycle through
+`teamy_tracing::capture::LogBuffer`; capture layers borrow it weakly to avoid a cycle through
 reports' captured tracing subscribers. Return primary failures to the runner;
 use diagnostic logging for otherwise-lost secondary failures to avoid displaying
 the same failure twice.
+
+Enable `App::log_capture(true)` for an interactive debug history. The invocation
+owns a buffer of the latest 2,048 Debug-through-Error events, supplied explicitly
+as `AppContext::log_capture`. That record-count limit is not a strict memory bound
+for arbitrary error reports. History is independent of stderr/file filters and
+terminal replay: printing or acknowledging a terminal event does not consume it
+from the GUI. Pass the handle to `teamy_tracing::gui::LogView`; the application
+owns repaint scheduling. The view never installs its own subscriber or collector.
+
+During this review, CT uses a relative `[patch.crates-io]` entry pointing to the
+adjacent `teamy-tracing` checkout. Both repositories must be present. Capture,
+reports, and GUI views are optional features of that library; CT enables `eyre`
+for report transport and `egui` only in its GUI crate. No compatibility exports
+remain in CT's tracing crate, which now owns CT subscriber and destination policy.
 
 The standalone `audit` command partitions resource groups by name: exactly five
 occurrences of ASCII `a`, `e`, `i`, `o`, or `u`, ignoring case, belong in

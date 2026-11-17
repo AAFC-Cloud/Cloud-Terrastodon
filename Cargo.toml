@@ -115,12 +115,7 @@ liquid = "0.26.11"
 hickory-resolver = "0.26.1"
 blake3 = "1.8"
 same-file = "1.0.6"
-# egui_tracing = "0.2.6"
-# egui_tracing = { git = "https://github.com/TeamDman/egui_tracing", branch = "dev", version = "0.2.6" } # TODO(EGUI-TRACING)
-eframe = { version = "0.33.0", features = ["persistence"] }
-egui_extras = { version = "0.33.0", features = ["default", "image"] }
-egui-toast = "0.19.1"
-egui_tiles = "0.14.1"
+teamy-tracing = { version = "0.2.3", default-features = false, features = ["eyre"] }
 # TeamDman's independently published forks. Keep Rust dependency aliases for
 # generated Facet/Figue macro paths and pin the compatible registry releases.
 facet = { package = "teamy-facet", version = "=0.50.0-rc.10", features = ["uuid", "compact_str", "chrono", "net", "url", "indexmap", "bstr"] }

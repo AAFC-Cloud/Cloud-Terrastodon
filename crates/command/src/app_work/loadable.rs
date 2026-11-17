@@ -1,5 +1,5 @@
-use cloud_terrastodon_tracing::DiagnosticReport;
 use std::time::Instant;
+use teamy_tracing::DiagnosticReport;
 
 /// An application's loading state, sharing failure diagnostics with its log records.
 #[derive(Debug, Default)]

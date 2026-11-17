@@ -52,10 +52,14 @@ pub fn entrypoint(
         cli.command.as_ref(),
         Some(CloudTerrastodonCommand::Excalidraw(_))
     );
-    app.egui_collector(enable_egui)
-        .terminal_debug_capture(capture_canvas_logs)
+    app.log_capture(enable_egui || capture_canvas_logs)
         .run_parsed(cli, |cli, context| async move {
-            cli.invoke(&context.cancellation, &context.executor()).await
+            cli.invoke(
+                &context.cancellation,
+                &context.executor(),
+                context.log_capture(),
+            )
+            .await
         })
 }
 

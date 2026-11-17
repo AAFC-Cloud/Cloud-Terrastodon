@@ -14,6 +14,7 @@ use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 pub use command::*;
 pub use global_args::GlobalArgs;
+use teamy_tracing::capture::LogBuffer;
 
 /// The primary entrypoint for command-line parsing.
 #[derive(Facet, Debug)]
@@ -47,11 +48,12 @@ impl Cli {
         self,
         cancellation: &CancellationScope,
         executor: &CloudTerrastodonExecutor,
+        log_capture: Option<LogBuffer>,
     ) -> eyre::Result<CliOutput> {
         // Keep command and interactive-menu futures out of this outer future's
         // inline state; nested debug poll frames otherwise exhaust small stacks.
         match self.command {
-            Some(cmd) => Box::pin(cmd.invoke(cancellation, executor)).await,
+            Some(cmd) => Box::pin(cmd.invoke(cancellation, executor, log_capture)).await,
             None => {
                 Box::pin(menu_loop(executor)).await?;
                 Ok(CliOutput::none())
@@ -177,7 +179,7 @@ mod tests {
                                 ),
                                 cancellation.clone(),
                             );
-                            cli.invoke(&cancellation, &executor).await
+                            cli.invoke(&cancellation, &executor, None).await
                         },
                     )))
                     .expect_err("disabled authentication should fail locally");

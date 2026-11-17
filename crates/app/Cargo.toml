@@ -11,6 +11,7 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
+teamy-tracing.workspace = true
 cloud_terrastodon_tracing.workspace = true
 cloud_terrastodon_cache.workspace = true
 cloud_terrastodon_execution.workspace = true

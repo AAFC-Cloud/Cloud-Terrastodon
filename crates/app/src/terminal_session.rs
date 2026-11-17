@@ -1,12 +1,5 @@
-use cloud_terrastodon_tracing::StructuredLogLevel;
-use cloud_terrastodon_tracing::StructuredLogRecord;
-use cloud_terrastodon_tracing::TerminalActivityProbe;
-use cloud_terrastodon_tracing::TerminalLogBuffer;
-use cloud_terrastodon_user_input::PickerLogBuffer;
+use crate::tracing_picker_log_buffer::TracingPickerLogBuffer;
 use cloud_terrastodon_user_input::PickerLogBufferHandle;
-use cloud_terrastodon_user_input::PickerLogLevel;
-use cloud_terrastodon_user_input::PickerLogRecord;
-use cloud_terrastodon_user_input::PickerLogSpan;
 use cloud_terrastodon_user_input::TerminalActivity;
 use cloud_terrastodon_user_input::TerminalCoordinator;
 use cloud_terrastodon_user_input::TerminalCoordinatorFutureExt;
@@ -14,6 +7,7 @@ use cloud_terrastodon_user_input::TerminalLogBufferFutureExt;
 use eyre::Result;
 use std::future::Future;
 use std::sync::Arc;
+use teamy_tracing::capture::LogBuffer;
 
 /// Connects application tracing and invocation task locals to one terminal owner.
 ///
@@ -21,29 +15,24 @@ use std::sync::Arc;
 /// and log buffer before the application's runtime is created.
 pub(crate) struct TerminalSession {
     activity: TerminalActivity,
-    log_buffer: TerminalLogBuffer,
+    log_buffer: LogBuffer,
+    capture: Option<LogBuffer>,
 }
 
 impl TerminalSession {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(log_buffer: LogBuffer, capture: Option<LogBuffer>) -> Self {
         Self {
             activity: TerminalActivity::new(),
-            log_buffer: TerminalLogBuffer::new(),
+            log_buffer,
+            capture,
         }
     }
 
-    pub(crate) fn log_buffer(&self) -> TerminalLogBuffer {
+    pub(crate) fn log_buffer(&self) -> LogBuffer {
         self.log_buffer.clone()
     }
 
-    pub(crate) fn debug_capture(mut self, enable: bool) -> Self {
-        if enable {
-            self.log_buffer = self.log_buffer.with_debug_capture(2_048);
-        }
-        self
-    }
-
-    pub(crate) fn activity_probe(&self) -> TerminalActivityProbe {
+    pub(crate) fn activity_probe(&self) -> Arc<dyn Fn() -> bool + Send + Sync> {
         let activity = self.activity.clone();
         Arc::new(move || activity.is_active())
     }
@@ -69,6 +58,7 @@ impl TerminalSession {
         let _debug_application_root = coordinator.debug_register_as_application_root()?;
         let picker_log_buffer: PickerLogBufferHandle = Arc::new(TracingPickerLogBuffer {
             buffer: self.log_buffer.clone(),
+            capture: self.capture.clone(),
         });
 
         // Keep potentially large CLI dispatch futures off the main-thread stack.
@@ -80,74 +70,15 @@ impl TerminalSession {
             std::panic::resume_unwind(payload);
         }
         if replay_logs {
-            self.log_buffer.replay_to_stderr();
+            // Exit replay remains best effort: an unavailable stderr must not
+            // replace the invocation's original result with a secondary error.
+            // Reporting that failure to the same destination would fail again.
+            let _ = self.log_buffer.replay_to(std::io::stderr());
         }
         Ok(output)
     }
 }
 
-struct TracingPickerLogBuffer {
-    buffer: TerminalLogBuffer,
-}
-
-impl PickerLogBuffer for TracingPickerLogBuffer {
-    fn records_since(&self, cursor: &mut usize) -> Vec<PickerLogRecord> {
-        self.buffer
-            .records_since(cursor)
-            .into_iter()
-            .map(picker_log_record)
-            .collect()
-    }
-
-    fn formatted_records_since(&self, cursor: &mut usize) -> Vec<String> {
-        self.buffer.formatted_records_since(cursor)
-    }
-
-    fn acknowledge_through(&self, cursor: usize) {
-        self.buffer.acknowledge_through(cursor);
-    }
-
-    fn captured_records_since(&self, cursor: &mut usize) -> Vec<PickerLogRecord> {
-        self.buffer
-            .captured_records_since(cursor)
-            .into_iter()
-            .map(picker_log_record)
-            .collect()
-    }
-}
-
-fn picker_log_record(record: StructuredLogRecord) -> PickerLogRecord {
-    PickerLogRecord {
-        level: match record.level {
-            StructuredLogLevel::Debug | StructuredLogLevel::Trace => PickerLogLevel::Debug,
-            StructuredLogLevel::Info => PickerLogLevel::Info,
-            StructuredLogLevel::Warn => PickerLogLevel::Warn,
-            StructuredLogLevel::Error => PickerLogLevel::Error,
-        },
-        message: record.message,
-        target: record.target,
-        timestamp: record.timestamp,
-        fields: record
-            .fields
-            .into_iter()
-            .map(|(name, value)| (name.into(), value.to_string().into()))
-            .collect(),
-        spans: record
-            .spans
-            .into_iter()
-            .map(|span| PickerLogSpan {
-                name: span.name,
-                fields: span
-                    .fields
-                    .into_iter()
-                    .map(|(name, value)| (name.into(), value.to_string().into()))
-                    .collect(),
-            })
-            .collect(),
-        file: record.file,
-        line: record.line,
-    }
-}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -157,7 +88,7 @@ mod tests {
 
     #[test]
     fn scopes_terminal_state_for_a_borrowed_non_send_invocation() -> Result<()> {
-        let terminal = TerminalSession::new();
+        let terminal = TerminalSession::new(LogBuffer::new(), None);
         let active = terminal.activity_probe();
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()

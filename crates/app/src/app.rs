@@ -7,7 +7,7 @@ use crate::cancel_on_drop::CancelOnDrop;
 use crate::prepare_process;
 use crate::startup::install_panic_hook;
 #[cfg(feature = "terminal")]
-use crate::terminal;
+use crate::terminal_session::TerminalSession;
 #[cfg(windows)]
 use crate::windows_support;
 use cloud_terrastodon_cache::WorkCache;
@@ -17,11 +17,13 @@ use cloud_terrastodon_pathing::AppDir;
 use eyre::Result;
 use std::ffi::OsString;
 use std::future::Future;
+use std::num::NonZeroUsize;
 use std::process::ExitCode;
 use std::process::Termination;
 use std::str::FromStr;
 use std::sync::Arc;
 use teamy_cancellation::CancellationScope;
+use teamy_tracing::capture::LogBuffer;
 use tracing::Instrument;
 use tracing_subscriber::filter::Directive;
 
@@ -32,12 +34,10 @@ pub struct App {
     version: String,
     implementation: Option<(String, String)>,
     implementation_source_file: bool,
-    egui_collector: bool,
+    log_capture: bool,
     automatic_cancellation: bool,
     work_cache: Option<WorkCache>,
     authentication: Arc<dyn AuthenticationProvider>,
-    #[cfg(feature = "terminal")]
-    terminal_debug_capture: bool,
 }
 
 impl App {
@@ -48,12 +48,10 @@ impl App {
             version: version.into(),
             implementation: None,
             implementation_source_file: false,
-            egui_collector: false,
+            log_capture: false,
             automatic_cancellation: true,
             work_cache: None,
             authentication: Arc::new(AnonymousAuthenticationProvider),
-            #[cfg(feature = "terminal")]
-            terminal_debug_capture: false,
         }
     }
 
@@ -81,10 +79,13 @@ impl App {
         self
     }
 
-    /// Preserve the application's existing optional GUI collector selection.
-    /// The underlying tracing crate currently leaves that collector disabled.
-    pub fn egui_collector(mut self, enable: bool) -> Self {
-        self.egui_collector = enable;
+    /// Retain the latest 2,048 Debug-through-Error events for an interactive view.
+    ///
+    /// Independent of stderr and file filters. The invocation owns the buffer,
+    /// available through `AppContext::log_capture`; layers retain it weakly.
+    /// This is a record-count limit, not a strict bound on report memory size.
+    pub fn log_capture(mut self, enable: bool) -> Self {
+        self.log_capture = enable;
         self
     }
 
@@ -107,17 +108,6 @@ impl App {
     /// resolve accounts or acquire credentials; requests select their own identity.
     pub fn authentication_provider(mut self, provider: Arc<dyn AuthenticationProvider>) -> Self {
         self.authentication = provider;
-        self
-    }
-
-    /// Capture a bounded Debug-through-Error stream for an interactive log surface.
-    ///
-    /// Independent from the user's stderr/file filters. Enable only for commands
-    /// that consume `PickerLogBuffer::captured_records_since`; retained events are
-    /// limited to the latest 2,048 records and never replayed to stderr on exit.
-    #[cfg(feature = "terminal")]
-    pub fn terminal_debug_capture(mut self, enable: bool) -> Self {
-        self.terminal_debug_capture = enable;
         self
     }
 
@@ -211,8 +201,11 @@ impl App {
 
         let (log_filter, file_filter) = logging_filters(globals)?;
 
+        let log_capture = self
+            .log_capture
+            .then(|| LogBuffer::bounded(NonZeroUsize::MIN.saturating_add(2_047)));
         #[cfg(feature = "terminal")]
-        let terminal = terminal::TerminalSession::new().debug_capture(self.terminal_debug_capture);
+        let terminal = TerminalSession::new(LogBuffer::new(), log_capture.clone());
         #[cfg(feature = "terminal")]
         let (terminal_buffer, terminal_activity) =
             (Some(terminal.log_buffer()), Some(terminal.activity_probe()));
@@ -223,9 +216,9 @@ impl App {
             log_filter,
             file_filter,
             globals.log_file.as_ref(),
-            self.egui_collector,
             terminal_buffer,
             terminal_activity,
+            log_capture.clone(),
         )?;
         #[cfg(windows)]
         windows_support::warn_if_not_utf8();
@@ -247,6 +240,7 @@ impl App {
                         },
                         cancellation.clone(),
                         self.authentication,
+                        log_capture,
                     );
                     invoke(cli, context)
                         .await?

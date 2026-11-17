@@ -3,10 +3,6 @@
 //! Keep the process-global report hook isolated from other application tests.
 
 use cloud_terrastodon_app::install_error_hook;
-use cloud_terrastodon_tracing::DiagnosticReport;
-use cloud_terrastodon_tracing::StructuredLogValue;
-use cloud_terrastodon_tracing::TerminalEventLayer;
-use cloud_terrastodon_tracing::TerminalLogBuffer;
 use color_eyre::Section;
 use eyre::Report;
 use facet::Facet;
@@ -16,6 +12,10 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
+use teamy_tracing::DiagnosticReport;
+use teamy_tracing::capture::CaptureLayer;
+use teamy_tracing::capture::LogBuffer;
+use teamy_tracing::capture::LogValue;
 use tracing_error::ErrorLayer;
 use tracing_error::TracedError;
 use tracing_subscriber::layer::SubscriberExt;
@@ -52,11 +52,11 @@ struct LoggedFields {
 fn reports_remain_readable_in_terminal_records_and_json() {
     install_error_hook().expect("install the actual application report hook");
 
-    let buffer = TerminalLogBuffer::new();
+    let buffer = LogBuffer::new();
     let json = Arc::new(Mutex::new(Vec::<u8>::new()));
     let writer = CapturedWriter(Arc::clone(&json));
     let subscriber = tracing_subscriber::registry()
-        .with(TerminalEventLayer::new(&buffer, Arc::new(|| true)))
+        .with(CaptureLayer::new(&buffer, Arc::new(|| true), |_| {}))
         .with(
             tracing_subscriber::fmt::layer()
                 .json()
@@ -87,7 +87,7 @@ fn reports_remain_readable_in_terminal_records_and_json() {
         .iter()
         .find(|(name, _)| name == "error")
         .expect("the report must be retained as an event field");
-    let StructuredLogValue::Report(report) = value else {
+    let LogValue::Report(report) = value else {
         panic!("logging must retain the actual report rather than a formatted string");
     };
     assert!(Arc::ptr_eq(&report.report, &retained));
@@ -130,9 +130,10 @@ fn buffering_and_cloning_reports_do_not_render_them() {
     impl std::error::Error for CountedError {}
 
     let calls = Arc::new(AtomicUsize::new(0));
-    let buffer = TerminalLogBuffer::new();
+    let buffer = LogBuffer::new();
+    // Always buffer so the test can check that recording defers formatting.
     let subscriber =
-        tracing_subscriber::registry().with(TerminalEventLayer::new(&buffer, Arc::new(|| true)));
+        tracing_subscriber::registry().with(CaptureLayer::new(&buffer, Arc::new(|| true), |_| {}));
     let report = DiagnosticReport::new(Report::new(CountedError(Arc::clone(&calls))));
     let before = calls.load(Ordering::Relaxed);
     tracing::subscriber::with_default(subscriber, || {
@@ -142,10 +143,7 @@ fn buffering_and_cloning_reports_do_not_render_them() {
     let records = buffer.records_since(&mut 0);
     let cloned = records.clone();
     assert_eq!(calls.load(Ordering::Relaxed), before);
-    assert!(matches!(
-        cloned[0].fields[0].1,
-        StructuredLogValue::Report(_)
-    ));
+    assert!(matches!(cloned[0].fields[0].1, LogValue::Report(_)));
 
     let rendered = buffer.formatted_records_since(&mut 0);
     assert!(rendered[0].contains("rendered only by a presentation surface"));
