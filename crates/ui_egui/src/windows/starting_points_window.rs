@@ -25,6 +25,9 @@ pub fn draw_starting_points_window(app: &mut MyApp, ctx: &Context) {
 /// Tile-friendly UI for the Starting Points pane
 pub fn starting_points_ui(app: &mut MyApp, ui: &mut eframe::egui::Ui) {
     use eframe::egui::ScrollArea;
+    if app.show_azure_authentication_required(ui) {
+        return;
+    }
     ui.vertical_centered(|ui| {
         ScrollArea::both().show(ui, |ui| {
             draw_subscription_list_expando(app, ui);

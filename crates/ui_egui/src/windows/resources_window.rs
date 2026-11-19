@@ -30,11 +30,15 @@ use teamy_tracing::gui::DiagnosticReportView;
 
 /// Browse the current account's resource inventory using local search and scope filters.
 pub fn resources_ui(app: &mut MyApp, ui: &mut Ui) {
+    if app.show_azure_authentication_required(ui) {
+        return;
+    }
     if matches!(app.resources, Loadable::NotLoaded) {
         load_resources(app, false);
     }
 
     let mut refresh = false;
+    let mut sign_in = false;
     ui.horizontal(|ui| {
         refresh = ui
             .add_enabled(
@@ -121,10 +125,10 @@ pub fn resources_ui(app: &mut MyApp, ui: &mut Ui) {
                 Color32::from_rgb(164, 38, 44),
                 "Resources could not be loaded.",
             );
-            ui.label("Check the selected account and its login session, then retry.");
-            if ui.button("Retry").clicked() {
-                refresh = true;
-            }
+            ui.horizontal(|ui| {
+                refresh |= ui.button("Retry").clicked();
+                sign_in = ui.button("Sign in again").clicked();
+            });
             ui.collapsing("Error details", |ui| {
                 DiagnosticReportView::new(error).show(ui);
             });
@@ -297,13 +301,18 @@ pub fn resources_ui(app: &mut MyApp, ui: &mut Ui) {
             }
         }
     }
+    if sign_in {
+        app.open_selected_account_sign_in();
+    }
     if refresh {
         load_resources(app, true);
     }
 }
 
 fn load_resources(app: &mut MyApp, refresh: bool) {
-    let authentication = app.authentication;
+    let Some(authentication) = app.ready_azure_authentication() else {
+        return;
+    };
     let executor = app.executor.clone();
     let cancellation = executor.cancellation().clone();
     let generation = app.account_generation;

@@ -92,11 +92,12 @@ impl MyApp {
                         );
                     }
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        if let Some(authentication) =
-                            self.account_picker
-                                .show(ui, self.authentication, &self.executor)
-                        {
-                            self.select_account(authentication);
+                        if let Some(action) = self.account_picker.show(
+                            ui,
+                            self.authentication,
+                            self.account_operation.is_some(),
+                        ) {
+                            self.handle_account_picker_action(action, ui.ctx());
                         }
                         if ui.add_sized([56.0, 40.0], Button::new("Quit")).clicked() {
                             ui.ctx().send_viewport_cmd(ViewportCommand::Close);

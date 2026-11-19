@@ -9,7 +9,9 @@ use tracing::info;
 
 pub fn load_resource_groups(app: &mut MyApp) {
     let account_generation = app.account_generation;
-    let authentication = app.authentication;
+    let Some(authentication) = app.ready_azure_authentication() else {
+        return;
+    };
     let executor = app.executor.clone();
     let cancellation = executor.cancellation().clone();
     let started_at = Instant::now();

@@ -1,3 +1,4 @@
+use crate::AccountSignInPrompt;
 use crate::AzureBearerToken;
 use crate::BrowserSession;
 use crate::BrowserTokenCache;
@@ -131,7 +132,7 @@ pub(crate) async fn fetch_browser_access_token(
                         &cancellation,
                     )
                     .await
-                    .wrap_err("refreshing the saved browser session; if interactive sign-in is required, run `ct account logout <account-id> --source browser`, then `ct account login <account-id> --source browser`")?
+                    .wrap_err("refreshing the saved browser session; sign in again if Entra requires interactive authentication")?
                 } else {
                     session.begin_initial_login(allow_interactive)?;
                     // Initial consent covers named delegated permissions. ACR
@@ -142,6 +143,7 @@ pub(crate) async fn fetch_browser_access_token(
                         client_id,
                         acquisition_resource,
                         &delegated_login_scopes(),
+                        &AccountSignInPrompt::print,
                         &cancellation,
                     )
                     .await?
@@ -203,6 +205,7 @@ fn initial_browser_resource(resource: AzureCredentialResource) -> AzureCredentia
 pub(crate) async fn acquire_browser_session(
     tenant_id: AzureTenantId,
     client_id: EntraApplicationClientId,
+    prompt: &(dyn Fn(AccountSignInPrompt) + Send + Sync),
     cancellation: &CancellationScope,
 ) -> Result<(BrowserSession, EntraUserId)> {
     let token = request_with_authorization_code(
@@ -210,6 +213,7 @@ pub(crate) async fn acquire_browser_session(
         client_id,
         AzureCredentialResource::MicrosoftGraph,
         &delegated_login_scopes(),
+        prompt,
         cancellation,
     )
     .await?;
@@ -254,56 +258,54 @@ async fn request_with_authorization_code(
     client_id: EntraApplicationClientId,
     resource: AzureCredentialResource,
     scopes: &str,
+    prompt: &(dyn Fn(AccountSignInPrompt) + Send + Sync),
     cancellation: &CancellationScope,
 ) -> Result<BrowserAccessToken> {
-    cancellation.cancellable_scope(|_| async move {
-    let authority = format!("https://login.microsoftonline.com/{tenant_id}");
-    let listener = BrowserAuthorizationCallbackListener::bind().await?;
-    let callback_port = listener.port()?;
-    let redirect_uri = format!("http://localhost:{callback_port}");
-    let state = Uuid::new_v4().to_string();
-    let code_verifier = format!("{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple());
-    let code_challenge = base64::engine::general_purpose::URL_SAFE_NO_PAD
-        .encode(Sha256::digest(code_verifier.as_bytes()));
-    let authorization_url = build_authorization_url(
-        &authority,
-        &client_id,
-        &redirect_uri,
-        scopes,
-        &state,
-        &code_challenge,
-    );
+    cancellation
+        .cancellable_scope(|_| async move {
+            let authority = format!("https://login.microsoftonline.com/{tenant_id}");
+            let listener = BrowserAuthorizationCallbackListener::bind().await?;
+            let callback_port = listener.port()?;
+            let redirect_uri = format!("http://localhost:{callback_port}");
+            let state = Uuid::new_v4().to_string();
+            let code_verifier = format!("{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple());
+            let code_challenge = base64::engine::general_purpose::URL_SAFE_NO_PAD
+                .encode(Sha256::digest(code_verifier.as_bytes()));
+            let authorization_url = build_authorization_url(
+                &authority,
+                &client_id,
+                &redirect_uri,
+                scopes,
+                &state,
+                &code_challenge,
+            );
 
-    match open_browser_url(&authorization_url) {
-        Ok(()) => eprintln!(
-            "Opened the browser for Cloud Terrastodon authentication. Waiting for the callback at http://localhost:{}:\n{authorization_url}",
-            callback_port
-        ),
-        Err(error) => eprintln!(
-            "Could not open the browser automatically ({error}); open this URL manually:\n{authorization_url}"
-        ),
-    }
-    let authorization_code = listener.receive_code(&state, resource).await?;
+            if open_browser_url(&authorization_url).is_err() {
+                prompt(AccountSignInPrompt::BrowserAuthorization {
+                    url: authorization_url,
+                });
+            }
+            let authorization_code = listener.receive_code(&state, resource).await?;
 
-    let client = Client::new();
-    let token_url = format!("{authority}/oauth2/v2.0/token");
-    let token_response = client
-        .post(token_url)
-        .header("Content-Type", "application/x-www-form-urlencoded")
-        .body(form_urlencoded(&[
-            ("client_id", client_id.to_string().as_str()),
-            ("grant_type", "authorization_code"),
-            ("code", authorization_code.as_str()),
-            ("redirect_uri", redirect_uri.as_str()),
-            ("code_verifier", code_verifier.as_str()),
-            ("scope", token_exchange_scopes(resource, scopes).as_str()),
-        ]))
-        .send()
+            let client = Client::new();
+            let token_url = format!("{authority}/oauth2/v2.0/token");
+            let token_response = client
+                .post(token_url)
+                .header("Content-Type", "application/x-www-form-urlencoded")
+                .body(form_urlencoded(&[
+                    ("client_id", client_id.to_string().as_str()),
+                    ("grant_type", "authorization_code"),
+                    ("code", authorization_code.as_str()),
+                    ("redirect_uri", redirect_uri.as_str()),
+                    ("code_verifier", code_verifier.as_str()),
+                    ("scope", token_exchange_scopes(resource, scopes).as_str()),
+                ]))
+                .send()
+                .await
+                .wrap_err("requesting an Entra browser access token")?;
+            parse_token_response(token_response, tenant_id, resource).await
+        })
         .await
-        .wrap_err("requesting an Entra browser access token")?;
-    parse_token_response(token_response, tenant_id, resource).await
-
-    }).await
 }
 
 async fn request_with_refresh_token(

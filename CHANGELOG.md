@@ -1,5 +1,7 @@
 # Unreleased
 
+- Manage account registrations, credential sources, and tracked Azure tenants from the desktop account menu. Switch signed-in Entra sources, sign in or renew a session with in-window prompts, and reload account changes made in the CLI without restarting the app.
+
 - Use `teamy-tracing 0.3.0` from crates.io for retained reports, live log capture, and diagnostic widgets. Add a Logs view, upgrade to egui 0.36.2 with glow, and use Allo variable-font weights.
 
 - Bundle the OFL-licensed Allo variable font for GUI typography and arrows, render the header brand in white, reuse the executable's Windows icon, and replace missing navigation glyphs. Show retained error reports with terminal colors and a plain-text Copy error action; keep account aliases, source details, and the picker chevron readable in the header.

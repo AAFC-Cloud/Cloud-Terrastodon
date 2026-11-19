@@ -71,7 +71,7 @@ impl BrowserAuthorizationCallbackResponse {
                 "<!doctype html><title>Cloud Terrastodon</title><p>Login cancelled. You can close this tab.</p>"
             }
             Self::Denied { .. } => {
-                "<!doctype html><title>Cloud Terrastodon</title><p>Login denied. See the terminal for details. You can close this tab.</p>"
+                "<!doctype html><title>Cloud Terrastodon</title><p>Login denied. Return to Cloud Terrastodon for details. You can close this tab.</p>"
             }
         }
     }

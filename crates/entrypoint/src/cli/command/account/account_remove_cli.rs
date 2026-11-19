@@ -11,15 +11,8 @@ pub struct AccountRemoveArgs {
 }
 impl AccountRemoveArgs {
     pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
-        executor
-            .cancellation()
-            .deferred("retiring and removing an account", async |scope| {
-                let executor = executor.with_cancellation_scope(scope);
-                executor.retire_account(self.account_id, None).await?;
-                CloudTerrastodonAccountStore::configured()
-                    .remove(self.account_id, executor.cancellation())
-                    .await
-            })
+        CloudTerrastodonAccountStore::configured()
+            .remove_with_executor(self.account_id, executor)
             .await?;
         Ok(CliOutput::facet(self.account_id))
     }

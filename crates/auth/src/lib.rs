@@ -3,6 +3,8 @@
 
 mod azure_cli_local_accounts;
 pub use azure_cli_local_accounts::read_azure_cli_local_accounts;
+mod account_credential_provisioning;
+mod account_sign_in_prompt;
 mod auth_bearer_ext;
 pub use cloud_terrastodon_command::CancellationScope;
 mod auth_context;
@@ -56,6 +58,7 @@ mod workload_identity;
 mod workload_identity_config;
 mod workload_identity_token_response;
 
+pub use account_sign_in_prompt::AccountSignInPrompt;
 pub use auth_bearer_ext::*;
 pub use auth_context::*;
 pub use azure_access_token::*;
@@ -83,6 +86,7 @@ mod container_registry_authorization;
 mod container_registry_refresh_token_response;
 
 mod cloud_terrastodon_account_binding;
+mod cloud_terrastodon_account_bindings;
 
 #[cfg(test)]
 mod direct_work_retirement_tests;

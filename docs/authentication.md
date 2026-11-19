@@ -12,6 +12,29 @@ can acquire the Graph, ARM, Azure DevOps, Key Vault, and Container Registry
 audiences supported by their provider. An organization or project remains request
 scope, independently of the tenant that issues a bearer token.
 
+## Managing accounts in the desktop app
+
+Run `ct egui` and open the account menu at the top right. **Add account**
+registers a credential mechanism, and **Sign in** provisions its session.
+**Manage** lets you add Browser or Azure CLI to an existing Entra user account,
+change its preferred source, set or clear its namespace default, import a legacy
+session, sign out, or remove the account. **Manage all accounts** also shows
+Azure DevOps PAT and Gitea registrations. The portal uses an Entra account and
+source for its Azure and Azure DevOps inventory views.
+
+Choose any signed-in source under an Entra account to use it in the current
+window. Use **Sign in again** to replace an expired session for the same
+principal. The app shows any required browser link or Azure CLI device code.
+After signing in, you can retry in the same window. Use **Reload** to pick up
+account changes made in the CLI.
+
+Open **Tenants** from the account menu to track tenant IDs, edit aliases, set the
+default tenant, or forget a tracked tenant. Track a new tenant before
+registering an account in it. **Discover from Azure CLI** reads the local Azure
+CLI account list. **Load directory details** uses the selected Azure account if
+it matches that tenant, or the tenant's configured default account and preferred
+source.
+
 ## Registering and selecting accounts
 
 Register an acquisition source, then explicitly provision its credential session:

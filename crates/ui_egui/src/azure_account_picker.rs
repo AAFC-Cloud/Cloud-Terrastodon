@@ -1,12 +1,13 @@
+use crate::azure_account_picker_action::AzureAccountPickerAction;
+use crate::azure_account_registration_form::source_label;
 use cloud_terrastodon_auth::CloudTerrastodonAccountCatalogue;
 use cloud_terrastodon_auth::CloudTerrastodonAccountStore;
+use cloud_terrastodon_auth_types::AzureBearerAuthSource;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountNamespace;
-use cloud_terrastodon_auth_types::CloudTerrastodonAccountPrincipal;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountSession;
-use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_auth_types::CloudTerrastodonCredentialSource;
 use eframe::egui::Align2;
-use eframe::egui::Button;
 use eframe::egui::Color32;
 use eframe::egui::CursorIcon;
 use eframe::egui::FontId;
@@ -28,56 +29,61 @@ use eframe::egui::WidgetInfo;
 use eframe::egui::WidgetText;
 use eframe::egui::WidgetType;
 use teamy_tracing::DiagnosticReport;
+use teamy_tracing::gui::DiagnosticReportView;
 
-/// Selects an explicitly registered Azure account and credential mechanism.
-///
-/// The catalogue contains inspectable account metadata only. Opening or refreshing
-/// the picker never reads credentials, acquires a token, or starts a login flow.
-/// Selection stays local to this GUI and does not change configured CLI defaults.
+/// Account selection over a local catalogue snapshot.
 pub struct AzureAccountPicker {
     pub catalogue: Result<CloudTerrastodonAccountCatalogue, DiagnosticReport>,
     pub selection_error: Option<DiagnosticReport>,
-}
-
-impl Default for AzureAccountPicker {
-    fn default() -> Self {
-        Self::new()
-    }
+    open_requested: bool,
 }
 
 impl AzureAccountPicker {
-    pub fn new() -> Self {
+    pub fn new(store: &CloudTerrastodonAccountStore) -> Self {
         Self {
-            catalogue: CloudTerrastodonAccountStore::configured()
-                .load()
-                .map_err(DiagnosticReport::new),
+            catalogue: store.load().map_err(DiagnosticReport::new),
             selection_error: None,
+            open_requested: false,
         }
     }
 
-    /// Draw the header button and account menu, returning an explicit selection.
-    /// The caller owns resetting account-specific UI data before starting new work.
-    pub fn show(
+    pub fn open(&mut self) {
+        self.open_requested = true;
+    }
+
+    pub(crate) fn show(
         &mut self,
         ui: &mut Ui,
-        authentication: AzureBearerAuthenticationSelection,
-        executor: &CloudTerrastodonExecutor,
-    ) -> Option<AzureBearerAuthenticationSelection> {
-        let alias = self
-            .catalogue
-            .as_ref()
-            .ok()
-            .and_then(|catalogue| {
-                catalogue
-                    .accounts
-                    .iter()
-                    .find(|account| account.id == authentication.account_id)
-            })
-            .map(|account| account.alias.to_string())
-            .unwrap_or_else(|| authentication.account_id.to_string());
-        let mut requested = None;
-        let mut refresh = false;
-        let response = Self::header_button(ui, &alias, authentication);
+        authentication: Option<AzureBearerAuthenticationSelection>,
+        busy: bool,
+    ) -> Option<AzureAccountPickerAction> {
+        use AzureAccountPickerAction::*;
+
+        let selected_account = authentication.and_then(|selection| {
+            self.catalogue
+                .as_ref()
+                .ok()?
+                .by_id(selection.account_id)
+                .ok()
+        });
+        let alias = selected_account.map_or("Choose account", |account| account.alias.as_str());
+        let detail = authentication.map_or_else(
+            || "Not signed in".to_owned(),
+            |selection| {
+                let tenant = selection.tenant_id.to_string();
+                format!(
+                    "{} · {}",
+                    source_label(Self::selected_source(selection)),
+                    &tenant[..8]
+                )
+            },
+        );
+        let response = Self::header_button(ui, alias, &detail);
+        let popup_id = Popup::default_response_id(&response);
+        if std::mem::take(&mut self.open_requested) {
+            Popup::open_id(ui.ctx(), popup_id);
+        }
+        let mut action = None;
         Popup::menu(&response)
             .close_behavior(PopupCloseBehavior::CloseOnClickOutside)
             .style(|style: &mut Style| {
@@ -87,138 +93,133 @@ impl AzureAccountPicker {
                 style.spacing.button_padding = Vec2::new(10.0, 6.0);
             })
             .show(|ui| {
-            ui.set_width(340.0);
-            ui.heading("Cloud Terrastodon accounts");
-            ui.small("Select an account and authentication source for this window.");
-            ui.separator();
-            if let Some(error) = &self.selection_error {
-                ui.colored_label(Color32::DARK_RED, error.to_string());
-                ui.separator();
-            }
-            match &self.catalogue {
-                Err(error) => {
-                    ui.colored_label(Color32::DARK_RED, error.to_string());
-                }
-                Ok(catalogue) if catalogue.accounts.is_empty() => {
-                    ui.label("No Cloud Terrastodon accounts are registered.");
-                    ui.small("Use ct account add to register an account, then refresh this list.");
-                }
-                Ok(catalogue) => {
-                    ScrollArea::vertical().max_height(420.0).show(ui, |ui| {
-                        for account in &catalogue.accounts {
-                            ui.push_id(account.id, |ui| {
-                                ui.strong(account.alias.as_str());
-                                match &account.namespace {
-                                    CloudTerrastodonAccountNamespace::Entra { tenant_id } => {
-                                        ui.small(format!("Tenant: {tenant_id}"));
-                                    }
-                                    CloudTerrastodonAccountNamespace::AzureDevOps {
-                                        organization,
-                                    } => {
-                                        ui.small(format!("Azure DevOps: {organization}"));
-                                    }
-                                    CloudTerrastodonAccountNamespace::Gitea { instance } => {
-                                        ui.small(format!("Gitea: {instance}"));
-                                    }
-                                }
-                                if catalogue
-                                    .defaults
-                                    .iter()
-                                    .any(|default| default.account_id == account.id)
-                                {
-                                    ui.small("Configured default account");
-                                }
-                                match account.principal {
-                                    Some(CloudTerrastodonAccountPrincipal::EntraUser(id)) => {
-                                        ui.small(format!("User ID: {id}"));
-                                    }
-                                    Some(CloudTerrastodonAccountPrincipal::EntraApplication(id)) => {
-                                        ui.small(format!("Application ID: {id}"));
-                                    }
-                                    None => {}
-                                }
-                                if let CloudTerrastodonAccountNamespace::Entra { tenant_id } =
-                                    account.namespace
-                                {
-                                    for registration in &account.credentials {
-                                        let source = registration.credential.source();
-                                        let Some(auth_source) = source.auth_source() else {
-                                            continue;
-                                        };
-                                        let current = account.id == authentication.account_id
-                                            && auth_source == authentication.auth_source.into();
-                                        let active = matches!(
-                                            registration.session,
-                                            CloudTerrastodonAccountSession::Active { .. }
-                                        );
-                                        let mut label = source.to_string();
-                                        if source == account.preferred_source {
-                                            label.push_str(" (preferred)");
-                                        }
-                                        if current {
-                                            label.push_str(" · selected");
-                                        }
-                                        if ui
-                                            .add_enabled(active, Button::selectable(current, label))
-                                            .on_hover_text(if active {
-                                                "Use this account and authentication source"
-                                            } else {
-                                                "This source is not signed in; use ct account login first"
-                                            })
-                                            .clicked()
-                                        {
-                                            requested = Some((tenant_id, account.id, auth_source));
-                                        }
-                                    }
-                                } else {
-                                    ui.small("This service account cannot browse Azure resources.");
-                                }
-                                ui.separator();
-                            });
-                        }
+                ui.set_width(360.0);
+                ui.heading("Accounts");
+                if let Some(error) = &self.selection_error {
+                    ui.collapsing("Account error", |ui| {
+                        DiagnosticReportView::new(error).show(ui)
                     });
                 }
-            }
-            refresh = ui.button("Refresh accounts").clicked();
-            ui.small("After signing in again from the CLI, restart this window to use the new session.");
+                ui.add_enabled_ui(!busy, |ui| {
+                    ui.horizontal(|ui| {
+                        if ui.button("Add account").clicked() {
+                            action = Some(Add);
+                        }
+                        if ui.button("Reload").clicked() {
+                            action = Some(Reload);
+                        }
+                        if ui.button("Tenants").clicked() {
+                            action = Some(ManageTenants);
+                        }
+                    });
+                    ui.separator();
+                    match &self.catalogue {
+                        Err(error) => {
+                            ui.label("Could not load accounts.");
+                            ui.collapsing("Error details", |ui| {
+                                DiagnosticReportView::new(error).show(ui)
+                            });
+                        }
+                        Ok(catalogue) => {
+                            let mut any_azure_accounts = false;
+                            ScrollArea::vertical().max_height(390.0).show(ui, |ui| {
+                                for account in &catalogue.accounts {
+                                    let CloudTerrastodonAccountNamespace::Entra { tenant_id } =
+                                        account.namespace
+                                    else {
+                                        continue;
+                                    };
+                                    any_azure_accounts = true;
+                                    ui.push_id(account.id, |ui| {
+                                        ui.horizontal(|ui| {
+                                            ui.strong(account.alias.as_str());
+                                            if ui.small_button("Manage").clicked() {
+                                                action = Some(Manage(account.id));
+                                            }
+                                        });
+                                        ui.small(tenant_id.to_string());
+                                        for registration in &account.credentials {
+                                            let source = registration.credential.source();
+                                            let Some(auth_source) = source
+                                                .auth_source()
+                                                .and_then(|source| source.try_into().ok())
+                                            else {
+                                                continue;
+                                            };
+                                            let selection = AzureBearerAuthenticationSelection {
+                                                account_id: account.id,
+                                                auth_source,
+                                                tenant_id,
+                                            };
+                                            let current = authentication == Some(selection);
+                                            let active = matches!(
+                                                registration.session,
+                                                CloudTerrastodonAccountSession::Active { .. }
+                                            );
+                                            let mut label = source_label(source).to_owned();
+                                            if source == account.preferred_source {
+                                                label.push_str(" (preferred)");
+                                            }
+                                            ui.horizontal(|ui| {
+                                                if active {
+                                                    if ui.selectable_label(current, label).clicked()
+                                                    {
+                                                        action = Some(Select(selection));
+                                                    }
+                                                    if ui.small_button("Sign in again").clicked() {
+                                                        action = Some(Reauthenticate(selection));
+                                                    }
+                                                } else {
+                                                    ui.label(label);
+                                                    if ui.small_button("Sign in").clicked() {
+                                                        action = Some(SignIn(selection));
+                                                    }
+                                                }
+                                            });
+                                        }
+                                        ui.separator();
+                                    });
+                                }
+                            });
+                            if !any_azure_accounts {
+                                ui.label("No Azure accounts");
+                            }
+                        }
+                    }
+                    if ui.button("Manage all accounts").clicked() {
+                        action = Some(ManageAccounts);
+                    }
+                });
             });
-        let response = response.on_hover_text(format!(
-            "Account: {}\nTenant: {}\nSource: {}",
-            authentication.account_id, authentication.tenant_id, authentication.auth_source
-        ));
-        if refresh {
-            self.catalogue = CloudTerrastodonAccountStore::configured()
-                .load()
-                .map_err(DiagnosticReport::new);
-            self.selection_error = None;
-            ui.ctx().request_repaint();
+        if let Some(selection) = authentication {
+            response.on_hover_text(format!(
+                "Account: {}
+Tenant: {}
+Source: {}",
+                selection.account_id, selection.tenant_id, selection.auth_source
+            ));
         }
-        let (tenant_id, account_id, source) = requested?;
-        match executor.resolve_azure_authentication(
-            tenant_id,
-            Some(&account_id.to_string()),
-            source,
-        ) {
-            Ok(selected) => {
-                self.selection_error = None;
-                Popup::close_id(ui.ctx(), Popup::default_response_id(&response));
-                (selected != authentication).then_some(selected)
-            }
-            Err(error) => {
-                self.selection_error = Some(DiagnosticReport::new(error));
-                ui.ctx().request_repaint();
-                None
+        if !matches!(action, None | Some(Reload)) {
+            Popup::close_id(ui.ctx(), popup_id);
+        }
+        action
+    }
+
+    pub(crate) fn selected_source(
+        selection: AzureBearerAuthenticationSelection,
+    ) -> CloudTerrastodonCredentialSource {
+        match selection.auth_source {
+            AzureBearerAuthSource::AzureCli => CloudTerrastodonCredentialSource::AzureCli,
+            AzureBearerAuthSource::Browser => CloudTerrastodonCredentialSource::Browser,
+            AzureBearerAuthSource::WorkloadIdentity => {
+                CloudTerrastodonCredentialSource::WorkloadIdentity
             }
         }
     }
 
     /// Keep the two text rows and vector affordances in fixed, independent regions.
     /// A single truncated multi-line button label can discard its second row.
-    fn header_button(
-        ui: &mut Ui,
-        alias: &str,
-        authentication: AzureBearerAuthenticationSelection,
-    ) -> Response {
+    fn header_button(ui: &mut Ui, alias: &str, detail: &str) -> Response {
         let (rect, response) = ui.allocate_exact_size(Vec2::new(236.0, 40.0), Sense::click());
         response.widget_info(|| {
             WidgetInfo::labeled(
@@ -251,26 +252,13 @@ impl AzureAccountPicker {
             text_rect.width(),
             TextStyle::Button,
         );
-        let subtitle = WidgetText::from(
-            RichText::new(format!(
-                "{} | {}",
-                authentication.auth_source,
-                authentication
-                    .tenant_id
-                    .to_string()
-                    .chars()
-                    .take(8)
-                    .collect::<String>()
-            ))
-            .size(11.0)
-            .color(Color32::WHITE),
-        )
-        .into_galley(
-            ui,
-            Some(TextWrapMode::Truncate),
-            text_rect.width(),
-            TextStyle::Small,
-        );
+        let subtitle = WidgetText::from(RichText::new(detail).size(11.0).color(Color32::WHITE))
+            .into_galley(
+                ui,
+                Some(TextWrapMode::Truncate),
+                text_rect.width(),
+                TextStyle::Small,
+            );
         let painter = ui
             .painter()
             .with_clip_rect(text_rect.intersect(ui.clip_rect()));

@@ -1,6 +1,11 @@
 use crate::autosave_info::AutoSaveBehaviour;
+use crate::azure_account_manager::AzureAccountManager;
+use crate::azure_account_operation::AzureAccountOperation;
 use crate::azure_account_picker::AzureAccountPicker;
+use crate::azure_tenant_manager::AzureTenantManager;
 use crate::portal_page::PortalPage;
+use cloud_terrastodon_auth::CloudTerrastodonAccountStore;
+use cloud_terrastodon_auth::CredentialAuthenticationProvider;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure::AzureResourceGroupMap;
 use cloud_terrastodon_azure::Resource;
@@ -39,8 +44,13 @@ use tracing::info;
 pub struct MyApp {
     pub executor: CloudTerrastodonExecutor,
     pub azure_devops_organization: Option<AzureDevOpsOrganizationUrl>,
-    pub authentication: AzureBearerAuthenticationSelection,
+    pub authentication: Option<AzureBearerAuthenticationSelection>,
     pub account_picker: AzureAccountPicker,
+    pub(crate) account_store: CloudTerrastodonAccountStore,
+    pub(crate) account_authentication: Arc<CredentialAuthenticationProvider>,
+    pub(crate) account_manager: AzureAccountManager,
+    pub(crate) account_operation: Option<AzureAccountOperation>,
+    pub(crate) tenant_manager: AzureTenantManager,
     /// Shared bounded history owned by the application, not a second GUI collector.
     pub log_capture: LogBuffer,
     pub log_view: LogView,
@@ -73,9 +83,14 @@ pub struct MyApp {
 }
 
 impl MyApp {
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "explicit GUI startup dependencies"
+    )]
     pub async fn new(
         azure_devops_organization: Option<AzureDevOpsOrganizationUrl>,
-        authentication: AzureBearerAuthenticationSelection,
+        authentication: eyre::Result<Option<AzureBearerAuthenticationSelection>>,
+        account_store: CloudTerrastodonAccountStore,
         log_capture: LogBuffer,
         work_tracker: AppWorkTracker,
         shutdown_settings: SyncSender<(EguiConfig, WorkDirsConfig)>,
@@ -83,11 +98,28 @@ impl MyApp {
         executor: &CloudTerrastodonExecutor,
     ) -> eyre::Result<Self> {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<AppboundWorkFinishedMessage<MyApp>>();
+        let mut account_picker = AzureAccountPicker::new(&account_store);
+        let authentication = match authentication {
+            Ok(selection) => selection,
+            Err(error) => {
+                account_picker.selection_error = Some(DiagnosticReport::new(error));
+                None
+            }
+        };
+        let account_authentication = Arc::new(CredentialAuthenticationProvider::from_store(
+            account_store.clone(),
+        ));
+        let executor = executor.with_authentication(account_authentication.clone())?;
         Ok(Self {
-            executor: executor.clone(),
+            executor,
             azure_devops_organization,
             authentication,
-            account_picker: AzureAccountPicker::new(),
+            account_picker,
+            account_store,
+            account_authentication,
+            account_manager: AzureAccountManager::default(),
+            account_operation: None,
+            tenant_manager: AzureTenantManager::default(),
             log_capture,
             log_view: LogView::default(),
             account_generation: 0,
@@ -115,11 +147,8 @@ impl MyApp {
             app_info,
         })
     }
-    pub fn select_account(&mut self, authentication: AzureBearerAuthenticationSelection) {
-        if authentication == self.authentication {
-            return;
-        }
-        self.authentication = authentication;
+    pub(crate) fn clear_account_inventory(&mut self) {
+        self.tenant_manager.account_selection_changed();
         self.account_generation += 1;
         self.resources = Loadable::NotLoaded;
         self.subscriptions = Loadable::NotLoaded;
@@ -166,8 +195,10 @@ impl App for MyApp {
             ui.ctx()
                 .send_viewport_cmd(eframe::egui::ViewportCommand::Close);
         }
+        self.poll_account_operation();
         self.handle_messages();
         self.draw_app(ui);
+        self.show_account_management(ui.ctx());
         // Channel delivery does not wake eframe. Continue receiving results even
         // when the active page has no animated spinner or is showing other data.
         if matches!(self.resources, Loadable::Loading { .. })

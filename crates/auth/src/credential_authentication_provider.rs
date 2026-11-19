@@ -3,6 +3,7 @@ use crate::CloudTerrastodonAccountStore;
 use crate::cloud_terrastodon_account_admission::CloudTerrastodonAccountAdmission;
 use crate::cloud_terrastodon_account_authentication::CloudTerrastodonAccountAuthentication;
 use crate::cloud_terrastodon_account_binding::CloudTerrastodonAccountBinding;
+use crate::cloud_terrastodon_account_bindings::CloudTerrastodonAccountBindings;
 use crate::cloud_terrastodon_account_lease::CloudTerrastodonAccountLease;
 use crate::cloud_terrastodon_credential_identity::CloudTerrastodonCredentialIdentity;
 use crate::fetch_azure_bearer_access_token;
@@ -42,9 +43,7 @@ use uuid::Uuid;
 #[derive(Clone, Default)]
 pub struct CredentialAuthenticationProvider {
     store: Option<CloudTerrastodonAccountStore>,
-    accounts: Arc<
-        Mutex<HashMap<CloudTerrastodonCredentialIdentity, Arc<CloudTerrastodonAccountBinding>>>,
-    >,
+    accounts: Arc<Mutex<CloudTerrastodonAccountBindings>>,
     // Lock before accounts while initializing; retirement closes every mechanism,
     // including a source that has not yet been initialized in this invocation.
     retired: Arc<Mutex<HashSet<CloudTerrastodonAccountId>>>,
@@ -80,6 +79,7 @@ impl CredentialAuthenticationProvider {
                 .accounts
                 .lock()
                 .map_err(|_| eyre::eyre!("account session map poisoned"))?
+                .entries
                 .iter()
             {
                 ensure!(
@@ -89,7 +89,10 @@ impl CredentialAuthenticationProvider {
             }
         }
         Ok(Self {
-            accounts: Arc::new(Mutex::new(accounts)),
+            accounts: Arc::new(Mutex::new(CloudTerrastodonAccountBindings {
+                entries: accounts,
+                ..Default::default()
+            })),
             ..Self::default()
         })
     }
@@ -124,7 +127,10 @@ impl CredentialAuthenticationProvider {
             );
         }
         Ok(Self {
-            accounts: Arc::new(Mutex::new(accounts)),
+            accounts: Arc::new(Mutex::new(CloudTerrastodonAccountBindings {
+                entries: accounts,
+                ..Default::default()
+            })),
             ..Self::default()
         })
     }
@@ -149,7 +155,10 @@ impl CredentialAuthenticationProvider {
             profile: None,
         });
         Ok(Self {
-            accounts: Arc::new(Mutex::new(HashMap::from([(key, entry)]))),
+            accounts: Arc::new(Mutex::new(CloudTerrastodonAccountBindings {
+                entries: HashMap::from([(key, entry)]),
+                ..Default::default()
+            })),
             ..Self::default()
         })
     }
@@ -181,7 +190,11 @@ impl CredentialAuthenticationProvider {
             .accounts
             .lock()
             .map_err(|_| eyre::eyre!("account session map poisoned"))?;
-        if let Some(entry) = accounts.get(&key) {
+        ensure!(
+            !accounts.closed,
+            "the authentication provider has closed account admission"
+        );
+        if let Some(entry) = accounts.entries.get(&key) {
             if let (Some(store), Some(captured)) = (&self.store, &entry.profile) {
                 let catalogue = store.load()?;
                 let current = catalogue.by_id(key.account_id)?;
@@ -190,7 +203,7 @@ impl CredentialAuthenticationProvider {
                         && current.principal == captured.principal
                         && current.registration(key.source)?
                             == captured.registration(key.source)?,
-                    "the selected account credential changed or retired; start a new invocation for its current generation"
+                    "the selected account credential changed or retired; reload the current account session before retrying"
                 );
             }
             return Ok(entry.clone());
@@ -220,6 +233,7 @@ impl CredentialAuthenticationProvider {
             .accounts
             .lock()
             .map_err(|_| eyre::eyre!("account session map poisoned"))?
+            .entries
             .get(&key)
             .cloned()
             .ok_or_else(|| eyre::eyre!("account provider did not supply the selected mechanism"))?;
@@ -229,7 +243,7 @@ impl CredentialAuthenticationProvider {
             admission: entry.admission.clone(),
             profile: Some(profile.clone()),
         });
-        accounts.insert(key, entry.clone());
+        accounts.entries.insert(key, entry.clone());
         Ok(entry)
     }
 
@@ -285,6 +299,52 @@ impl CredentialAuthenticationProvider {
             }),
         );
         Ok(leased)
+    }
+
+    /// Permanently close account admission, cancel optional credential work,
+    /// and wait for required completion through existing leases.
+    ///
+    /// The owner can replace this provider once the drain completes. Closing
+    /// leaves the persistent accounts and their cache entries available to
+    /// the replacement under their current credential generations.
+    pub async fn close_and_drain(&self, cancellation: &CancellationScope) -> Result<()> {
+        ensure!(
+            self.leases.is_empty(),
+            "an operation cannot close the provider whose account lease it currently owns"
+        );
+        cancellation
+            .deferred("closing authentication provider admission", async |_| {
+                let admissions = {
+                    let mut accounts = self
+                        .accounts
+                        .lock()
+                        .map_err(|_| eyre::eyre!("account session map poisoned"))?;
+                    accounts.closed = true;
+                    let mut admissions = Vec::with_capacity(accounts.entries.len());
+                    for binding in accounts.entries.values() {
+                        let admission = &binding.admission;
+                        admission
+                            .state
+                            .lock()
+                            .map_err(|_| eyre::eyre!("account admission lock poisoned"))?
+                            .open = false;
+                        admissions.push(Arc::clone(admission));
+                    }
+                    admissions
+                };
+                // Cancellation may wake lease owners, so notify them only
+                // after releasing the admission registry lock.
+                for admission in &admissions {
+                    admission
+                        .cancellation
+                        .request_cancel("the authentication provider has closed");
+                }
+                for admission in admissions {
+                    admission.drain().await?;
+                }
+                Ok(())
+            })
+            .await
     }
 
     /// Close all sources before draining required completion. Uninitialized sources
@@ -343,6 +403,7 @@ impl CredentialAuthenticationProvider {
                         .lock()
                         .map_err(|_| eyre::eyre!("account session map poisoned"))?;
                     let entries = accounts
+                        .entries
                         .iter()
                         .filter(|(key, _)| {
                             key.account_id == account_id
@@ -387,21 +448,7 @@ impl CredentialAuthenticationProvider {
                             failures.push(error);
                         }
                     }
-                    loop {
-                        let notified = admission.drained.notified();
-                        tokio::pin!(notified);
-                        notified.as_mut().enable();
-                        if admission
-                            .state
-                            .lock()
-                            .map_err(|_| eyre::eyre!("account admission lock poisoned"))?
-                            .active
-                            == 0
-                        {
-                            break;
-                        }
-                        notified.await;
-                    }
+                    admission.drain().await?;
                     let partitions = admission
                         .state
                         .lock()
@@ -762,6 +809,40 @@ mod tests {
                             .is_err()
                     );
                 }
+                eyre::Ok(())
+            })
+            .await
+    }
+
+    #[tokio::test]
+    async fn closing_provider_drains_leases_and_blocks_fresh_admissions() -> Result<()> {
+        let context = synthetic_pat()?;
+        let selection = AuthenticationSelection::AzureDevOpsPersonalAccessToken {
+            account_id: context.account_id()?,
+        };
+        let provider = CredentialAuthenticationProvider::new(context)?;
+        let clone = provider.clone();
+        let retained = provider.leased(&selection)?;
+        CancellationToken::new()
+            .with_async_scope(async |scope| {
+                let closing = provider.close_and_drain(&scope);
+                tokio::pin!(closing);
+                tokio::select! {
+                    result = &mut closing => panic!("provider closed before its existing lease finished: {result:?}"),
+                    _ = tokio::task::yield_now() => {}
+                }
+                assert!(clone.leased(&selection).is_err());
+                assert!(
+                    retained
+                        .retirement_tokens()
+                        .iter()
+                        .all(CancellationToken::is_cancelled)
+                );
+                assert!(retained.admit(&selection).is_ok());
+                drop(retained);
+                closing.await?;
+                assert!(clone.admit(&selection).is_err());
+                assert!(!scope.is_cancelled());
                 eyre::Ok(())
             })
             .await

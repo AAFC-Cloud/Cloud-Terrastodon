@@ -15,17 +15,8 @@ pub struct AccountLogoutArgs {
 }
 impl AccountLogoutArgs {
     pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
-        executor
-            .cancellation()
-            .deferred("retiring and removing account credentials", async |scope| {
-                let executor = executor.with_cancellation_scope(scope);
-                executor
-                    .retire_account(self.account_id, self.source)
-                    .await?;
-                CloudTerrastodonAccountStore::configured()
-                    .logout_source(self.account_id, self.source, executor.cancellation())
-                    .await
-            })
+        CloudTerrastodonAccountStore::configured()
+            .logout_with_executor(self.account_id, self.source, executor)
             .await?;
         Ok(CliOutput::facet(self.account_id))
     }

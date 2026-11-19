@@ -1,5 +1,7 @@
 use crate::version::full_version;
+use cloud_terrastodon_auth::CloudTerrastodonAccountStore;
 use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
+use cloud_terrastodon_auth_types::AuthSource;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_ui_egui::egui_main;
@@ -22,11 +24,17 @@ impl EguiArgs {
         executor: &CloudTerrastodonExecutor,
         log_capture: LogBuffer,
     ) -> eyre::Result<()> {
-        let authentication = self.authentication.resolve(executor).await?;
+        let account_store = CloudTerrastodonAccountStore::configured();
+        let authentication = if self.authentication.auth_source == AuthSource::None {
+            Ok(None)
+        } else {
+            self.authentication.resolve(executor).await.map(Some)
+        };
         egui_main(
             full_version()?.to_string(),
             self.org,
             authentication,
+            account_store,
             log_capture,
             executor,
         )

@@ -1,3 +1,4 @@
+use crate::AccountSignInPrompt;
 use crate::AzureBearerToken;
 use crate::azure_cli_account_identity::AzureCliAccountIdentity;
 use chrono::Local;
@@ -20,6 +21,8 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::process::Stdio;
 use std::time::Duration;
+use tokio::io::AsyncReadExt;
+use tokio::process::ChildStderr;
 use tokio::process::Command;
 use tokio::sync::Mutex;
 
@@ -103,14 +106,14 @@ impl AzureCliSession {
         ])
     }
 
-    /// Credential subprocess output bypasses general command artifacts entirely.
-    /// Errors discard stdout/stderr and decoder context, which can contain secrets.
-    pub(crate) async fn credential_command(
+    async fn credential_process(
         directory: &Path,
-        args: &[&str],
         cancellation: &CancellationScope,
-    ) -> Result<Vec<u8>> {
-        let mut command = Command::new(CommandKind::AzureCLI.program().await?);
+    ) -> Result<Command> {
+        let program = cancellation
+            .cancellable_scope(|_| async { CommandKind::AzureCLI.program().await })
+            .await?;
+        let mut command = Command::new(program);
         for (name, _) in std::env::vars_os() {
             if name
                 .to_string_lossy()
@@ -122,12 +125,22 @@ impl AzureCliSession {
         }
         command
             .envs(Self::environment(directory)?)
-            .args(args)
-            .args(["--only-show-errors"])
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .kill_on_drop(true);
+        Ok(command)
+    }
+
+    /// Credential subprocess output bypasses general command artifacts entirely.
+    /// Errors discard stdout/stderr and decoder context, which can contain secrets.
+    pub(crate) async fn credential_command(
+        directory: &Path,
+        args: &[&str],
+        cancellation: &CancellationScope,
+    ) -> Result<Vec<u8>> {
+        let mut command = Self::credential_process(directory, cancellation).await?;
+        command.args(args).arg("--only-show-errors");
         // Keep the session lease until the CLI launcher has finished. In
         // particular, cancelling az.cmd must not release a lease while its
         // Python child is still updating the credential cache.
@@ -148,6 +161,120 @@ impl AzureCliSession {
             output.status
         );
         Ok(output.stdout)
+    }
+
+    /// Azure CLI opens a browser if available, otherwise emitting its MSAL
+    /// device-flow prompt directly to stderr. Forward only the validated
+    /// device code to the sign-in owner. All other output stays suppressed.
+    ///
+    /// <https://github.com/Azure/azure-cli/blob/dev/src/azure-cli-core/azure/cli/core/auth/identity.py>
+    pub(crate) async fn login_command(
+        directory: &Path,
+        tenant: AzureTenantId,
+        prompt: &(dyn Fn(AccountSignInPrompt) + Send + Sync),
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
+        let mut command = Self::credential_process(directory, cancellation).await?;
+        command
+            .env("AZURE_CORE_NO_COLOR", "true")
+            .args([
+                "login",
+                "--tenant",
+                &tenant.to_string(),
+                "--allow-no-subscriptions",
+                "--output",
+                "none",
+            ])
+            .stdout(Stdio::null());
+        cancellation
+            .deferred("finishing isolated Azure CLI sign-in", |_| async {
+                // az.cmd launches a Python child on Windows. Retain the session
+                // directory lease until the process and its output have drained.
+                let mut child = command
+                    .spawn()
+                    .wrap_err("starting isolated Azure CLI sign-in")?;
+                let stderr = child.stderr.take();
+                let (status, notifications) = tokio::join!(child.wait(), async {
+                    let stderr = stderr.ok_or_else(|| {
+                        eyre::eyre!("the Azure CLI sign-in process did not expose its prompt pipe")
+                    })?;
+                    Self::forward_sign_in_prompts(stderr, prompt).await
+                });
+                let status = status.wrap_err("waiting for isolated Azure CLI sign-in")?;
+                ensure!(
+                    status.success(),
+                    "Azure CLI sign-in failed ({status}); credential output was suppressed"
+                );
+                notifications
+            })
+            .await
+    }
+
+    async fn forward_sign_in_prompts(
+        mut stderr: ChildStderr,
+        prompt: &(dyn Fn(AccountSignInPrompt) + Send + Sync),
+    ) -> Result<()> {
+        const MAX_PROMPT_BYTES: usize = 512;
+        let mut bytes = [0; MAX_PROMPT_BYTES];
+        let mut line = Vec::with_capacity(MAX_PROMPT_BYTES + 1);
+        loop {
+            let count = stderr
+                .read(&mut bytes)
+                .await
+                .wrap_err("reading the Azure CLI sign-in prompt pipe")?;
+            for &byte in &bytes[..count] {
+                if byte == b'\n' {
+                    if line.len() <= MAX_PROMPT_BYTES
+                        && let Some(code) = Self::device_sign_in_code(&line)
+                    {
+                        prompt(AccountSignInPrompt::AzureCliDeviceCode {
+                            code: code.to_owned(),
+                        });
+                    }
+                    line.clear();
+                } else if line.len() <= MAX_PROMPT_BYTES {
+                    line.push(byte);
+                }
+            }
+            if count == 0 {
+                // Older Azure CLI versions may emit the prompt without a final
+                // newline. Check the final bounded candidate at EOF.
+                if line.len() <= MAX_PROMPT_BYTES
+                    && let Some(code) = Self::device_sign_in_code(&line)
+                {
+                    prompt(AccountSignInPrompt::AzureCliDeviceCode {
+                        code: code.to_owned(),
+                    });
+                }
+                return Ok(());
+            }
+        }
+    }
+
+    fn device_sign_in_code(line: &[u8]) -> Option<&str> {
+        let line = std::str::from_utf8(line).ok()?.trim_end();
+        let message = line.strip_prefix("WARNING: ").unwrap_or(line);
+        let (page, code) = message
+            .strip_prefix("To sign in, use a web browser to open the page ")?
+            .strip_suffix(" to authenticate.")?
+            .split_once(" and enter the code ")?;
+        let valid_code = |segment: &str| {
+            !segment.is_empty()
+                && segment
+                    .bytes()
+                    .all(|byte| byte.is_ascii_uppercase() || byte.is_ascii_digit())
+        };
+        (matches!(
+            page,
+            "https://microsoft.com/devicelogin"
+                | "https://www.microsoft.com/devicelogin"
+                | AccountSignInPrompt::AZURE_CLI_DEVICE_SIGN_IN_URL
+        ) && (6..=14).contains(&code.len())
+            && match code.split_once('-') {
+                Some((first, second)) => valid_code(first) && valid_code(second),
+                None => valid_code(code),
+            })
+        .then_some(code)
     }
 
     pub(crate) fn decode<T: Facet<'static>>(bytes: &[u8]) -> Result<T> {
@@ -246,6 +373,23 @@ impl std::fmt::Debug for AzureCliSession {
 mod tests {
     use super::*;
     use cloud_terrastodon_command::CancellationToken;
+
+    #[test]
+    fn only_admits_a_device_prompt_for_the_microsoft_sign_in_page() {
+        let prompt = "WARNING: To sign in, use a web browser to open the page https://microsoft.com/devicelogin and enter the code TEST-CODE to authenticate.";
+        assert_eq!(
+            AzureCliSession::device_sign_in_code(prompt.as_bytes()),
+            Some("TEST-CODE")
+        );
+        let untrusted_url = prompt.replace("microsoft.com", "example.invalid");
+        let additional_output = format!("{prompt} access_token=synthetic-secret");
+        for rejected in [untrusted_url, additional_output] {
+            assert_eq!(
+                AzureCliSession::device_sign_in_code(rejected.as_bytes()),
+                None
+            );
+        }
+    }
 
     #[test]
     fn credential_decode_failure_does_not_retain_secret_input() {

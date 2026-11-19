@@ -1,5 +1,6 @@
 use crate::app::MyApp;
 use crate::portal_typography;
+use cloud_terrastodon_auth::CloudTerrastodonAccountStore;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_command::app_work::AppWorkTracker;
@@ -28,7 +29,8 @@ use tracing::info;
 pub async fn run_app(
     app_info: String,
     azure_devops_organization: Option<AzureDevOpsOrganizationUrl>,
-    authentication: AzureBearerAuthenticationSelection,
+    authentication: eyre::Result<Option<AzureBearerAuthenticationSelection>>,
+    account_store: CloudTerrastodonAccountStore,
     log_capture: LogBuffer,
     executor: &CloudTerrastodonExecutor,
 ) -> eyre::Result<()> {
@@ -90,6 +92,7 @@ pub async fn run_app(
                                 MyApp::new(
                                     azure_devops_organization,
                                     authentication,
+                                    account_store,
                                     log_capture,
                                     work_tracker2,
                                     shutdown_settings,

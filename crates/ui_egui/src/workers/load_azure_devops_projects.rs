@@ -15,7 +15,9 @@ pub fn load_azure_devops_projects(app: &mut MyApp) {
         return;
     };
     info!("Queueing work to fetch Azure DevOps projects...");
-    let authentication = app.authentication;
+    let Some(authentication) = app.ready_azure_authentication() else {
+        return;
+    };
     let executor = app.executor.clone();
     let cancellation = executor.cancellation().clone();
     let started_at = Instant::now();

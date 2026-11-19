@@ -1,3 +1,4 @@
+use crate::AccountSignInPrompt;
 use crate::auth_logout_error::AuthLogoutError;
 use crate::azure_cli_account_identity::AzureCliAccountIdentity;
 use crate::azure_cli_session::AzureCliSession;
@@ -94,7 +95,7 @@ impl AzureCliSessionStore {
     ) -> Result<AzureCliSession> {
         ensure!(
             self.root.try_exists()?,
-            "no Cloud Terrastodon Azure CLI session exists; run ct account login for the registered Azure CLI account"
+            "no Cloud Terrastodon Azure CLI session exists; sign in to the registered Azure CLI account"
         );
         let _lease = AzureCliSession::lock(&self.root.join("store.lock"), cancellation).await?;
         let generation = std::fs::read_to_string(
@@ -117,6 +118,7 @@ impl AzureCliSessionStore {
     pub(crate) async fn login(
         &self,
         tenant: AzureTenantId,
+        prompt: &(dyn Fn(AccountSignInPrompt) + Send + Sync),
         cancellation: &CancellationScope,
     ) -> Result<AzureCliSession> {
         Self::prepare_directory(&self.root)?;
@@ -129,19 +131,7 @@ impl AzureCliSessionStore {
         Self::prepare_directory(&directory)?;
         let _generation_lease =
             AzureCliSession::lock(&directory.join("session.lock"), cancellation).await?;
-        AzureCliSession::credential_command(
-            &directory,
-            &[
-                "login",
-                "--tenant",
-                &tenant.to_string(),
-                "--allow-no-subscriptions",
-                "--output",
-                "none",
-            ],
-            cancellation,
-        )
-        .await?;
+        AzureCliSession::login_command(&directory, tenant, prompt, cancellation).await?;
         let identity = AzureCliSession::read_identity(&directory, tenant, cancellation).await?;
         // A fresh directory contains only this login. Its recorded account is
         // checked again before and after token subprocesses; login and

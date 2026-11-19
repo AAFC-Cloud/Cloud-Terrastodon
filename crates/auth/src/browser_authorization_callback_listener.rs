@@ -106,7 +106,7 @@ impl BrowserAuthorizationCallbackListener {
                         let callback = BrowserAuthorizationCallbackResponse::parse(&request_target, expected_state);
                         let (status, body) = match &callback {
                             Ok(callback) => ("200 OK", callback.response_body()),
-                            Err(_) => ("400 Bad Request", "Invalid authentication callback. See the terminal for details."),
+                            Err(_) => ("400 Bad Request", "Invalid authentication callback. Return to Cloud Terrastodon for details."),
                         };
                         // Browser delivery is bounded and cannot hide a denial or
                         // cancellation if the tab disconnects before reading it.

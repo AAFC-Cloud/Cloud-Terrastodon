@@ -1,3 +1,4 @@
+use crate::AccountSignInPrompt;
 use crate::AuthContext;
 use crate::AzureCliSessions;
 use crate::BrowserSession;
@@ -6,6 +7,7 @@ use crate::CloudTerrastodonAccountDefault;
 use crate::CredentialAuthenticationProvider;
 use crate::ResolvedAuthContext;
 use crate::WorkloadIdentityConfig;
+use crate::account_credential_provisioning::AccountCredentialProvisioning;
 use crate::azure_cli_session::AzureCliSession;
 use crate::azure_cli_session_store::AzureCliSessionStore;
 use crate::cloud_terrastodon_account_secret_store::CloudTerrastodonAccountSecretStore;
@@ -29,6 +31,7 @@ use cloud_terrastodon_cache::ArtifactRetention;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandBuilder;
 use cloud_terrastodon_command::CommandKind;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::GiteaCommandSession;
 use cloud_terrastodon_pathing::AppDir;
 use eyre::Result;
@@ -282,12 +285,96 @@ impl CloudTerrastodonAccountStore {
         personal_access_token: Option<&str>,
         cancellation: &CancellationScope,
     ) -> Result<CloudTerrastodonAccountProfile> {
-        self.provision(
+        self.sign_in(
             account_id,
             source,
             personal_access_token,
-            false,
+            &AccountSignInPrompt::print,
             cancellation,
+        )
+        .await
+    }
+
+    /// Sign in using the application's interactive prompt renderer.
+    ///
+    /// Browser sign-in opens the system browser. The callback receives a URL
+    /// when browser launch fails or a code when Azure CLI uses device sign-in.
+    /// Prompts must be scoped to the invoking application and kept out of logs.
+    pub async fn sign_in(
+        &self,
+        account_id: CloudTerrastodonAccountId,
+        source: Option<CloudTerrastodonCredentialSource>,
+        personal_access_token: Option<&str>,
+        prompt: &(dyn Fn(AccountSignInPrompt) + Send + Sync),
+        cancellation: &CancellationScope,
+    ) -> Result<CloudTerrastodonAccountProfile> {
+        self.provision(
+            account_id,
+            source,
+            AccountCredentialProvisioning::SignIn {
+                personal_access_token,
+                prompt,
+            },
+            cancellation,
+        )
+        .await
+    }
+
+    /// Retire the selected Entra session, then sign in and verify that its
+    /// replacement belongs to the same tenant-local principal.
+    ///
+    /// If sign-in fails after retirement, this credential remains signed out.
+    /// Install a fresh provider for later work after a session change.
+    pub async fn reauthenticate(
+        &self,
+        account_id: CloudTerrastodonAccountId,
+        source: CloudTerrastodonCredentialSource,
+        prompt: &(dyn Fn(AccountSignInPrompt) + Send + Sync),
+        executor: &CloudTerrastodonExecutor,
+    ) -> Result<CloudTerrastodonAccountProfile> {
+        let previous = {
+            let catalogue = self.load()?;
+            let profile = catalogue.by_id(account_id)?;
+            ensure!(
+                matches!(
+                    profile.namespace,
+                    CloudTerrastodonAccountNamespace::Entra { .. }
+                ),
+                "reauthentication requires a registered Entra credential"
+            );
+            profile.registration(source)?.session
+        };
+        if let CloudTerrastodonAccountSession::Active { generation } = previous {
+            executor
+                .cancellation()
+                .deferred(
+                    "retiring the Entra session before signing in again",
+                    async |scope| {
+                        let executor = executor.with_cancellation_scope(scope);
+                        // Drain admitted work before taking the catalogue lock.
+                        // Recheck the observed generation under that lock so we
+                        // cannot retire a newer session published by another owner.
+                        executor.retire_account(account_id, Some(source)).await?;
+                        self.logout_generation(
+                            account_id,
+                            Some(source),
+                            Some(generation),
+                            executor.cancellation(),
+                        )
+                        .await
+                    },
+                )
+                .await?;
+            // Ownership of the old session has ended. A new interactive
+            // operation can now be skipped if its caller was cancelled.
+            executor.cancellation().bail_if_cancelled()?;
+        }
+        self.sign_in(
+            account_id,
+            Some(source),
+            None,
+            prompt,
+            executor.cancellation(),
         )
         .await
     }
@@ -300,16 +387,20 @@ impl CloudTerrastodonAccountStore {
         source: Option<CloudTerrastodonCredentialSource>,
         cancellation: &CancellationScope,
     ) -> Result<CloudTerrastodonAccountProfile> {
-        self.provision(account_id, source, None, true, cancellation)
-            .await
+        self.provision(
+            account_id,
+            source,
+            AccountCredentialProvisioning::ImportLegacy,
+            cancellation,
+        )
+        .await
     }
 
     async fn provision(
         &self,
         account_id: CloudTerrastodonAccountId,
         source: Option<CloudTerrastodonCredentialSource>,
-        personal_access_token: Option<&str>,
-        import: bool,
+        provisioning: AccountCredentialProvisioning<'_>,
         cancellation: &CancellationScope,
     ) -> Result<CloudTerrastodonAccountProfile> {
         let _lease = self.lock(cancellation).await?;
@@ -317,15 +408,24 @@ impl CloudTerrastodonAccountStore {
         let mut profile = catalogue.by_id(account_id)?.clone();
         let source = source.unwrap_or(profile.preferred_source);
         let previous = profile.registration(source)?.session;
+        let personal_access_token = match &provisioning {
+            AccountCredentialProvisioning::SignIn {
+                personal_access_token,
+                ..
+            } => *personal_access_token,
+            AccountCredentialProvisioning::ImportLegacy => None,
+        };
         ensure!(
             personal_access_token.is_none()
                 || source == CloudTerrastodonCredentialSource::PersonalAccessToken,
             "only PAT accounts accept a personal access token"
         );
-        if source == CloudTerrastodonCredentialSource::PersonalAccessToken && !import {
+        if source == CloudTerrastodonCredentialSource::PersonalAccessToken
+            && !matches!(provisioning, AccountCredentialProvisioning::ImportLegacy)
+        {
             ensure!(
                 personal_access_token.is_some_and(|token| !token.trim().is_empty()),
-                "PAT login requires a nonempty credential supplied over standard input"
+                "PAT login requires a nonempty credential"
             );
         }
         ensure!(
@@ -367,14 +467,7 @@ impl CloudTerrastodonAccountStore {
             profile.clone();
         cancellation.with_deferral("recording account provisioning", |_| self.save(&catalogue))?;
         let result = self
-            .acquire_credential(
-                &profile,
-                source,
-                &store,
-                personal_access_token,
-                import,
-                cancellation,
-            )
+            .acquire_credential(&profile, source, &store, provisioning, cancellation)
             .await;
         let result = result.and_then(|principal| {
             if let Some(principal) = principal {
@@ -443,18 +536,25 @@ impl CloudTerrastodonAccountStore {
         profile: &CloudTerrastodonAccountProfile,
         source: CloudTerrastodonCredentialSource,
         store: &CloudTerrastodonAccountSecretStore,
-        personal_access_token: Option<&str>,
-        import: bool,
+        provisioning: AccountCredentialProvisioning<'_>,
         cancellation: &CancellationScope,
     ) -> Result<Option<CloudTerrastodonAccountPrincipal>> {
+        let (personal_access_token, prompt) = match provisioning {
+            AccountCredentialProvisioning::SignIn {
+                personal_access_token,
+                prompt,
+            } => (personal_access_token, Some(prompt)),
+            AccountCredentialProvisioning::ImportLegacy => (None, None),
+        };
+        let import = prompt.is_none();
         match &profile.registration(source)?.credential {
             CloudTerrastodonAccountCredential::AzureCli { tenant_id } => {
                 let sessions = AzureCliSessionStore::at(store.directory.join("azure-cli"));
-                let session = if import {
+                let session = if let Some(prompt) = prompt {
+                    sessions.login(*tenant_id, prompt, cancellation).await?
+                } else {
                     sessions.import_legacy(*tenant_id, cancellation).await?;
                     sessions.load(*tenant_id, cancellation).await?
-                } else {
-                    sessions.login(*tenant_id, cancellation).await?
                 };
                 let token = session
                     .fetch_token(AzureCredentialResource::MicrosoftGraph, cancellation)
@@ -468,7 +568,15 @@ impl CloudTerrastodonAccountStore {
                 tenant_id,
                 client_id,
             } => {
-                let (session, principal) = if import {
+                let (session, principal) = if let Some(prompt) = prompt {
+                    crate::browser_access_token::acquire_browser_session(
+                        *tenant_id,
+                        *client_id,
+                        prompt,
+                        cancellation,
+                    )
+                    .await?
+                } else {
                     let session = crate::browser_access_token::load_browser_session()?
                         .ok_or_else(|| eyre::eyre!("no legacy CT browser credential exists"))?;
                     ensure!(
@@ -497,13 +605,6 @@ impl CloudTerrastodonAccountStore {
                         eyre::eyre!("decoding refreshed imported credentials failed")
                     })?;
                     (session, principal)
-                } else {
-                    crate::browser_access_token::acquire_browser_session(
-                        *tenant_id,
-                        *client_id,
-                        cancellation,
-                    )
-                    .await?
                 };
                 // Keep serialization failures from exposing session credentials.
                 let encoded = facet_json::to_string(&session).map_err(|_| {
@@ -551,11 +652,7 @@ impl CloudTerrastodonAccountStore {
                         .to_owned()
                 } else {
                     personal_access_token
-                        .ok_or_else(|| {
-                            eyre::eyre!(
-                                "PAT login requires a credential supplied over standard input"
-                            )
-                        })?
+                        .ok_or_else(|| eyre::eyre!("PAT login requires a credential"))?
                         .to_owned()
                 };
                 ensure!(
@@ -613,6 +710,40 @@ impl CloudTerrastodonAccountStore {
         }
     }
 
+    /// Drain the executor's admitted work before removing the selected credentials.
+    pub async fn logout_with_executor(
+        &self,
+        account_id: CloudTerrastodonAccountId,
+        source: Option<CloudTerrastodonCredentialSource>,
+        executor: &CloudTerrastodonExecutor,
+    ) -> Result<()> {
+        executor
+            .cancellation()
+            .deferred("retiring and removing account credentials", async |scope| {
+                let executor = executor.with_cancellation_scope(scope);
+                executor.retire_account(account_id, source).await?;
+                self.logout_source(account_id, source, executor.cancellation())
+                    .await
+            })
+            .await
+    }
+
+    /// Drain the executor's admitted work before deleting the account registration.
+    pub async fn remove_with_executor(
+        &self,
+        account_id: CloudTerrastodonAccountId,
+        executor: &CloudTerrastodonExecutor,
+    ) -> Result<()> {
+        executor
+            .cancellation()
+            .deferred("retiring and removing an account", async |scope| {
+                let executor = executor.with_cancellation_scope(scope);
+                executor.retire_account(account_id, None).await?;
+                self.remove(account_id, executor.cancellation()).await
+            })
+            .await
+    }
+
     /// Retire every source before cleanup. One damaged credential must not leave
     /// another source active, and every cleanup failure is retained for retry.
     pub async fn logout(
@@ -629,11 +760,33 @@ impl CloudTerrastodonAccountStore {
         source: Option<CloudTerrastodonCredentialSource>,
         cancellation: &CancellationScope,
     ) -> Result<()> {
+        self.logout_generation(account_id, source, None, cancellation)
+            .await
+    }
+
+    async fn logout_generation(
+        &self,
+        account_id: CloudTerrastodonAccountId,
+        source: Option<CloudTerrastodonCredentialSource>,
+        expected_generation: Option<Uuid>,
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         let _lease = self.lock(cancellation).await?;
         let mut catalogue = self.load()?;
         let mut profile = catalogue.by_id(account_id)?.clone();
         if let Some(source) = source {
-            profile.registration(source)?;
+            let session = profile.registration(source)?.session;
+            if let Some(expected_generation) = expected_generation {
+                ensure!(
+                    matches!(
+                        session,
+                        CloudTerrastodonAccountSession::Active { generation }
+                            | CloudTerrastodonAccountSession::Retired { generation }
+                            if generation == expected_generation
+                    ),
+                    "the account session changed during reauthentication; reload and retry"
+                );
+            }
         }
         cancellation
             .deferred("retiring account credential sessions", async |protected| {
@@ -1134,6 +1287,30 @@ mod tests {
                     generation: Uuid::from_u128(11),
                 };
                 store.save(&catalogue)?;
+                let stale = store
+                    .logout_generation(
+                        account.id,
+                        Some(CloudTerrastodonCredentialSource::AzureCli),
+                        Some(Uuid::from_u128(9)),
+                        &scope,
+                    )
+                    .await
+                    .unwrap_err();
+                assert!(
+                    stale
+                        .to_string()
+                        .contains("changed during reauthentication")
+                );
+                assert_eq!(
+                    store
+                        .load()?
+                        .by_id(account.id)?
+                        .registration(CloudTerrastodonCredentialSource::AzureCli)?
+                        .session,
+                    CloudTerrastodonAccountSession::Active {
+                        generation: Uuid::from_u128(10),
+                    }
+                );
                 // The synthetic CLI slot has no nested sessions, so cleanup requires
                 // only temporary files and never launches a process.
                 store
