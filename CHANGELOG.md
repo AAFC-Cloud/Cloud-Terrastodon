@@ -1,6 +1,10 @@
 # Unreleased
 
-- Move retained reports, live log capture, buffer ownership, and diagnostic widgets into locally patched `teamy-tracing`; add a shared-buffer Logs view to the GUI. Upgrade the coordinated GUI stack to egui 0.36.2 while retaining glow, and use Allo variable-font weights.
+- Use `teamy-tracing 0.3.0` from crates.io for retained reports, live log capture, and diagnostic widgets. Add a Logs view, upgrade to egui 0.36.2 with glow, and use Allo variable-font weights.
+
+- Bundle the OFL-licensed Allo variable font for GUI typography and arrows, render the header brand in white, reuse the executable's Windows icon, and replace missing navigation glyphs. Show retained error reports with terminal colors and a plain-text Copy error action; keep account aliases, source details, and the picker chevron readable in the header.
+
+- Add a portal-style GUI with a blue header, resource search, account/source switching, left navigation, service tiles, and a filtered resource inventory. Integrate the iconography catalogue and maintenance tool with embedded SVG service icons, and prevent earlier account loads from replacing the selected account's data.
 
 - Share GUI background-load error reports between logging and application state, preserving terminal colors and typed causes while rendering plain diagnostics in GUI labels.
 

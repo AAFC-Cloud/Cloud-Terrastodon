@@ -15,7 +15,7 @@ after resolving the graph being tested.
 
 ## Borrowed path proxy release (2026-11-17)
 
-Cloud Terrastodon selects the registry family below without root Cargo patches.
+Cloud Terrastodon adopted the registry family below without root Cargo patches.
 The release preserves one identity per participating Core/reflection package;
 unchanged derive packages do not need a version bump merely to match the facade.
 The temporary sibling overrides used to develop and test this fix are removed.
@@ -33,6 +33,8 @@ Cargo's downloaded source cache was not edited.
 | Figue Attrs | `6.0.0-rc.6` |
 | Cancellation | `0.8.3` |
 | Tracing | `0.2.3` |
+
+The later tracing capture release, `teamy-tracing 0.3.0`, uses the same Facet pins.
 
 Macros/Macros Impl retain `0.50.0-rc.9`; macro parsing/types and test helpers retain
 `0.50.0-rc.7`. CT does not use every format above, but the matching XML and template

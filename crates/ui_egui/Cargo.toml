@@ -11,6 +11,8 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
+teamy-tracing = { workspace = true, features = ["egui"] }
+cloud_terrastodon_auth.workspace = true
 cloud_terrastodon_execution.workspace = true
 cloud_terrastodon_azure_devops.workspace = true
 cloud_terrastodon_azure.workspace = true
@@ -18,15 +20,15 @@ cloud_terrastodon_command.workspace = true
 cloud_terrastodon_config.workspace = true
 cloud_terrastodon_auth_types.workspace = true
 cloud_terrastodon_hcl.workspace = true
+cloud_terrastodon_iconography.workspace = true
+cloud_terrastodon_iconography_azure = { workspace = true, features = ["resources", "storage", "containers", "security", "resource-types"] }
 cloud_terrastodon_pathing.workspace = true
-cloud_terrastodon_tracing.workspace = true
 cloud_terrastodon_user_input.workspace = true
 cloud_terrastodon_zombies.workspace = true
 crossterm.workspace = true
 eframe.workspace = true
-egui_extras.workspace = true
-egui_tiles.workspace = true
-# egui_tracing.workspace = true # TODO(EGUI-TRACING)
+egui_extras = { workspace = true, features = ["svg"] }
+
 egui-toast.workspace = true
 eyre.workspace = true
 facet.workspace = true
@@ -35,6 +37,10 @@ itertools.workspace = true
 tokio.workspace = true
 teamy-cancellation.workspace = true
 tracing.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+raw-window-handle = "0.6.2"
+windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_System_LibraryLoader", "Win32_UI_WindowsAndMessaging"] }
 
 [dev-dependencies]
 async-trait.workspace = true

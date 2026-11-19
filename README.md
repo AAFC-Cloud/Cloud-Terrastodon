@@ -47,6 +47,14 @@ Azure DevOps bearer requests need a tenant; PAT authentication can omit it.
 See [authentication sources](docs/authentication.md) and the
 [crate migration](docs/auth-execution-migration.md).
 
+Launch the graphical resource browser with `ct egui --tenant example-tenant --account admin`.
+Its header searches the resource inventory, and its account
+picker switches between registered, signed-in Azure accounts and credential
+sources without changing CLI defaults. The left navigation and service tiles
+filter the same inventory. Use Refresh to acquire fresh resource data; search
+and subscription filters otherwise operate locally. After signing in again
+from the CLI, restart the GUI to use the replacement session.
+
 `cloud_terrastodon az subscription list` lists subscriptions grouped by tracked
 tenant, with tenant IDs, names, aliases, and links to subscriptions in the Azure
 portal. Tenants with unavailable authentication appear with an error while other

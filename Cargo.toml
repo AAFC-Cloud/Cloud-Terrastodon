@@ -78,7 +78,7 @@ strip-ansi-escapes = "0.2.1"
 gix = { version = "0.84.0", default-features = false, features = ["sha1", "sha256"] }
 opener = "0.8.3"
 webbrowser = "1.2.1"
-emath = "0.33.0"
+emath = "0.36.2"
 crossterm = { version = "0.29.0", features = ["event-stream"] }
 futures = "0.3.31"
 strum = { version = "0.27.2", features = ["derive"] }
@@ -115,7 +115,11 @@ liquid = "0.26.11"
 hickory-resolver = "0.26.1"
 blake3 = "1.8"
 same-file = "1.0.6"
-teamy-tracing = { version = "0.2.3", default-features = false, features = ["eyre"] }
+# Keep the GUI stack coherent and retain the existing glow renderer explicitly.
+eframe = { version = "0.36.2", default-features = false, features = ["accesskit", "default_fonts", "glow", "links", "persistence", "wayland", "x11"] }
+egui_extras = { version = "0.36.2", features = ["default", "image"] }
+egui-toast = "0.22.0"
+teamy-tracing = { version = "0.3.0", default-features = false, features = ["eyre"] }
 # TeamDman's independently published forks. Keep Rust dependency aliases for
 # generated Facet/Figue macro paths and pin the compatible registry releases.
 facet = { package = "teamy-facet", version = "=0.50.0-rc.10", features = ["uuid", "compact_str", "chrono", "net", "url", "indexmap", "bstr"] }

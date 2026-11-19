@@ -1,20 +1,26 @@
 use crate::app::MyApp;
+use crate::portal_typography;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_command::app_work::AppWorkTracker;
 use cloud_terrastodon_config::Config;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_pathing::AppDir;
-use cloud_terrastodon_tracing::DiagnosticReport;
 use eframe::NativeOptions;
+#[cfg(windows)]
+use eframe::egui::IconData;
+use eframe::egui::ViewportBuilder;
 use eframe::egui::ViewportCommand;
 use eframe::egui::ViewportId;
+use eframe::egui::Visuals;
 use eyre::WrapErr;
 use eyre::eyre;
 use std::panic::AssertUnwindSafe;
 use std::panic::catch_unwind;
 use std::panic::resume_unwind;
 use std::sync::mpsc::sync_channel;
+use teamy_tracing::DiagnosticReport;
+use teamy_tracing::capture::LogBuffer;
 use tokio::runtime;
 use tokio::task::block_in_place;
 use tracing::info;
@@ -23,10 +29,19 @@ pub async fn run_app(
     app_info: String,
     azure_devops_organization: Option<AzureDevOpsOrganizationUrl>,
     authentication: AzureBearerAuthenticationSelection,
+    log_capture: LogBuffer,
     executor: &CloudTerrastodonExecutor,
 ) -> eyre::Result<()> {
     let (_shutdown, run) = executor.with_async_child_scope(move |executor| async move {
+        let viewport = ViewportBuilder::default()
+            .with_inner_size([1280.0, 800.0])
+            .with_min_inner_size([640.0, 480.0]);
+        // Eframe installs its default icon again on the first frame unless an
+        // explicit icon is supplied. Windows uses the executable resource below.
+        #[cfg(windows)]
+        let viewport = viewport.with_icon(IconData::default());
         let native_options = NativeOptions {
+            viewport,
             persist_window: true,
             persistence_path: Some(AppDir::Config.join("egui_window_state.ron")),
             run_and_return: true,
@@ -45,9 +60,18 @@ pub async fn run_app(
                     // exits, including while no UI frame is otherwise due.
                     let mut _shutdown_listener = None;
                     eframe::run_native(
-                        "MyApp",
+                        "Cloud Terrastodon",
                         native_options,
                         Box::new(|cc: &eframe::CreationContext<'_>| {
+                            #[cfg(windows)]
+                            if let Err(error) = crate::bundled_window_icon::apply(cc) {
+                                // Other SDK hosts may own different executable resources.
+                                let report = DiagnosticReport::new(error);
+                                tracing::debug!(
+                                    error = report.as_error(),
+                                    "No bundled window icon is available"
+                                );
+                            }
                             let gui = cc.egui_ctx.clone();
                             _shutdown_listener =
                                 Some(app_executor.cancellation().register_listener(move |_| {
@@ -60,10 +84,13 @@ pub async fn run_app(
                                 }));
                             // This gives us image support:
                             egui_extras::install_image_loaders(&cc.egui_ctx);
+                            portal_typography::install(&cc.egui_ctx);
+                            cc.egui_ctx.set_visuals(Visuals::light());
                             let app = runtime::Handle::current().block_on(async move {
                                 MyApp::new(
                                     azure_devops_organization,
                                     authentication,
+                                    log_capture,
                                     work_tracker2,
                                     shutdown_settings,
                                     app_info,

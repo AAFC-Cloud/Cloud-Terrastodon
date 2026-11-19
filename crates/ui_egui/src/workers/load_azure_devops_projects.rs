@@ -10,6 +10,7 @@ use std::time::Instant;
 use tracing::info;
 
 pub fn load_azure_devops_projects(app: &mut MyApp) {
+    let account_generation = app.account_generation;
     let Some(org_url) = app.azure_devops_organization.clone() else {
         return;
     };
@@ -20,7 +21,11 @@ pub fn load_azure_devops_projects(app: &mut MyApp) {
     let started_at = Instant::now();
     let work = LoadableWorkBuilder::<MyApp, Arc<Vec<Arc<AzureDevOpsProject>>>>::new()
         .description("loading Azure DevOps projects")
-        .setter(|app, data| app.azure_devops_projects = data)
+        .setter(move |app, data| {
+            if app.account_generation == account_generation {
+                app.azure_devops_projects = data;
+            }
+        })
         .work(async move |scope| {
             let executor = executor.with_cancellation_scope(scope);
             let projects = AzureDevOpsProjectsListRequest {

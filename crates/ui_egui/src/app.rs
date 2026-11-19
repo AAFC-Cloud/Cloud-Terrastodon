@@ -1,4 +1,6 @@
 use crate::autosave_info::AutoSaveBehaviour;
+use crate::azure_account_picker::AzureAccountPicker;
+use crate::portal_page::PortalPage;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure::AzureResourceGroupMap;
 use cloud_terrastodon_azure::Resource;
@@ -12,19 +14,23 @@ use cloud_terrastodon_config::Config;
 use cloud_terrastodon_config::EguiConfig;
 use cloud_terrastodon_config::WorkDirsConfig;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
-use cloud_terrastodon_tracing::DiagnosticReport;
-// use cloud_terrastodon_tracing::event_collector; // TODO(EGUI-TRACING)
 use eframe::App;
 use eframe::egui::Align2;
 use eframe::egui::Direction;
 use eframe::egui::Id;
+use eframe::egui::Ui;
 use egui_toast::Toasts;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::fmt::Debug;
 use std::hash::Hash;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::mpsc::SyncSender;
+use std::time::Duration;
+use teamy_tracing::DiagnosticReport;
+use teamy_tracing::capture::LogBuffer;
+use teamy_tracing::gui::LogView;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::mpsc::UnboundedSender;
 use tracing::error;
@@ -34,6 +40,15 @@ pub struct MyApp {
     pub executor: CloudTerrastodonExecutor,
     pub azure_devops_organization: Option<AzureDevOpsOrganizationUrl>,
     pub authentication: AzureBearerAuthenticationSelection,
+    pub account_picker: AzureAccountPicker,
+    /// Shared bounded history owned by the application, not a second GUI collector.
+    pub log_capture: LogBuffer,
+    pub log_view: LogView,
+    /// Results from an earlier selection must not replace the current account's data.
+    pub account_generation: u64,
+    pub page: PortalPage,
+    pub navigation_expanded: bool,
+    pub resource_search: String,
     pub toggle_intents: HashSet<Id>,
     pub checkboxes: HashMap<Id, bool>,
     pub subscriptions: Loadable<Rc<Vec<Arc<Subscription>>>>,
@@ -48,27 +63,20 @@ pub struct MyApp {
     pub work_dirs_config_auto_save: AutoSaveBehaviour<WorkDirsConfig>,
     /// Whether the About window is open
     pub about_open: bool,
-    /// Whether the Logs window is visible
-    pub logs_visible: bool,
     /// Toasts manager for transient notifications
     pub toasts: Toasts,
-    /// Number of events we've already processed for toasts
-    pub last_seen_event_count: usize,
     pub work_tracker: AppWorkTracker,
     /// Transfers final settings to the owner for saving after earlier jobs drain.
     pub shutdown_settings: SyncSender<(EguiConfig, WorkDirsConfig)>,
     /// Formatted application info (version + revision) shown in About window
     pub app_info: String,
-
-    pub tiles: egui_tiles::Tree<crate::tiles::Pane>,
-
-    pub tiles_behavior: crate::tiles::TreeBehavior,
 }
 
 impl MyApp {
     pub async fn new(
         azure_devops_organization: Option<AzureDevOpsOrganizationUrl>,
         authentication: AzureBearerAuthenticationSelection,
+        log_capture: LogBuffer,
         work_tracker: AppWorkTracker,
         shutdown_settings: SyncSender<(EguiConfig, WorkDirsConfig)>,
         app_info: String,
@@ -79,6 +87,13 @@ impl MyApp {
             executor: executor.clone(),
             azure_devops_organization,
             authentication,
+            account_picker: AzureAccountPicker::new(),
+            log_capture,
+            log_view: LogView::default(),
+            account_generation: 0,
+            page: PortalPage::Home,
+            navigation_expanded: false,
+            resource_search: String::new(),
             toggle_intents: Default::default(),
             checkboxes: Default::default(),
             subscriptions: Default::default(),
@@ -92,19 +107,33 @@ impl MyApp {
             work_dirs_config: WorkDirsConfig::load().await?,
             work_dirs_config_auto_save: Default::default(),
             about_open: false,
-            logs_visible: false,
             toasts: Toasts::new()
                 .anchor(Align2::RIGHT_BOTTOM, (-10.0, -10.0))
                 .direction(Direction::BottomUp),
-            last_seen_event_count: 0, //event_collector().events().len(), // TODO(EGUI-TRACING)
             work_tracker,
             shutdown_settings,
             app_info,
-            tiles: crate::tiles::create_tree(),
-            tiles_behavior: Default::default(),
         })
     }
-    pub fn checkbox_for(&mut self, key: impl Hash) -> &mut bool {
+    pub fn select_account(&mut self, authentication: AzureBearerAuthenticationSelection) {
+        if authentication == self.authentication {
+            return;
+        }
+        self.authentication = authentication;
+        self.account_generation += 1;
+        self.resources = Loadable::NotLoaded;
+        self.subscriptions = Loadable::NotLoaded;
+        self.resource_groups = Loadable::NotLoaded;
+        self.azure_devops_projects = Loadable::NotLoaded;
+        self.checkboxes.clear();
+        self.toggle_intents.clear();
+    }
+
+    pub fn navigate(&mut self, page: PortalPage) {
+        self.page = page;
+        self.resource_search.clear();
+    }
+    pub fn checkbox_for(&mut self, key: impl Hash + Debug) -> &mut bool {
         self.checkboxes.entry(Id::new(key)).or_default()
     }
     pub fn enqueue_auto_save(&mut self) -> eyre::Result<()> {
@@ -132,12 +161,22 @@ impl MyApp {
 }
 
 impl App for MyApp {
-    fn update(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut Ui, _frame: &mut eframe::Frame) {
         if self.executor.cancellation().is_cancelled() {
-            ctx.send_viewport_cmd(eframe::egui::ViewportCommand::Close);
+            ui.ctx()
+                .send_viewport_cmd(eframe::egui::ViewportCommand::Close);
         }
         self.handle_messages();
-        self.draw_app(ctx);
+        self.draw_app(ui);
+        // Channel delivery does not wake eframe. Continue receiving results even
+        // when the active page has no animated spinner or is showing other data.
+        if matches!(self.resources, Loadable::Loading { .. })
+            || matches!(self.subscriptions, Loadable::Loading { .. })
+            || matches!(self.resource_groups, Loadable::Loading { .. })
+            || matches!(self.azure_devops_projects, Loadable::Loading { .. })
+        {
+            ui.ctx().request_repaint_after(Duration::from_millis(100));
+        }
         if let Err(error) = self.enqueue_auto_save() {
             let report = DiagnosticReport::new(error);
             error!(

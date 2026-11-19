@@ -37,7 +37,7 @@ pub fn ui_file_drag_and_drop(app: &mut MyApp, ctx: &Context) {
             screen_rect.center(),
             Align2::CENTER_CENTER,
             text,
-            TextStyle::Heading.resolve(&ctx.style()),
+            TextStyle::Heading.resolve(&ctx.global_style()),
             Color32::WHITE,
         );
     }
@@ -47,9 +47,9 @@ pub fn ui_file_drag_and_drop(app: &mut MyApp, ctx: &Context) {
     if !dropped_files.is_empty() {
         info!("Dropped files: {:?}", dropped_files);
         for file in dropped_files {
-            if let Some(path) = file.path {
-                app.work_dirs_config.work_dirs.insert(path);
-            }
+            app.work_dirs_config
+                .work_dirs
+                .insert(file.path().to_owned());
         }
     }
 }
@@ -91,7 +91,7 @@ pub fn file_drag_ui(app: &mut MyApp, ui: &mut eframe::egui::Ui) {
             screen_rect.center(),
             Align2::CENTER_CENTER,
             text,
-            TextStyle::Heading.resolve(&ctx.style()),
+            TextStyle::Heading.resolve(&ctx.global_style()),
             Color32::WHITE,
         );
     }
@@ -101,9 +101,9 @@ pub fn file_drag_ui(app: &mut MyApp, ui: &mut eframe::egui::Ui) {
     if !dropped_files.is_empty() {
         info!("Dropped files: {:?}", dropped_files);
         for file in dropped_files {
-            if let Some(path) = file.path {
-                app.work_dirs_config.work_dirs.insert(path);
-            }
+            app.work_dirs_config
+                .work_dirs
+                .insert(file.path().to_owned());
         }
     }
 }

@@ -10,6 +10,7 @@ use std::time::Instant;
 use tracing::info;
 
 pub fn load_subscriptions(app: &mut MyApp) {
+    let account_generation = app.account_generation;
     let authentication = app.authentication;
     let executor = app.executor.clone();
     let cancellation = executor.cancellation().clone();
@@ -17,7 +18,11 @@ pub fn load_subscriptions(app: &mut MyApp) {
     info!("Queueing work to fetch subscriptions");
     let work = LoadableWorkBuilder::<MyApp, Vec<Arc<Subscription>>>::new()
         .description("Loading Subscriptions")
-        .setter(|app, data| app.subscriptions = data.map(Rc::new))
+        .setter(move |app, data| {
+            if app.account_generation == account_generation {
+                app.subscriptions = data.map(Rc::new);
+            }
+        })
         .work(async move |scope| {
             let executor = executor.with_cancellation_scope(scope);
             let subs = AzureSubscriptionListRequest { authentication }

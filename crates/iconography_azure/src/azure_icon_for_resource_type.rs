@@ -16,6 +16,7 @@ use cloud_terrastodon_iconography::SvgIcon;
 ///
 /// Unmapped types and categories disabled at compile time return `None`.
 pub fn icon_for_resource_type(resource_type: &ResourceType) -> Option<&'static dyn SvgIcon> {
+    // TODO: match against enum variants instead of strings
     match resource_type.as_ref() {
         #[cfg(feature = "containers")]
         value if value.eq_ignore_ascii_case("Microsoft.ContainerRegistry/registries") => {

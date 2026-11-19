@@ -8,6 +8,7 @@ use std::time::Instant;
 use tracing::info;
 
 pub fn load_resource_groups(app: &mut MyApp) {
+    let account_generation = app.account_generation;
     let authentication = app.authentication;
     let executor = app.executor.clone();
     let cancellation = executor.cancellation().clone();
@@ -15,7 +16,11 @@ pub fn load_resource_groups(app: &mut MyApp) {
     info!("Queueing work to fetch resource groups");
     let work = LoadableWorkBuilder::<MyApp, _>::new()
         .description("Loading Resource Groups")
-        .setter(|app, data| app.resource_groups = data.map(Rc::new))
+        .setter(move |app, data| {
+            if app.account_generation == account_generation {
+                app.resource_groups = data.map(Rc::new);
+            }
+        })
         .work(async move |scope| {
             let executor = executor.with_cancellation_scope(scope);
             let resource_groups = AzureResourceGroupListRequest { authentication }

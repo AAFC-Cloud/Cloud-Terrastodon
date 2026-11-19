@@ -363,11 +363,9 @@ terminal replay: printing or acknowledging a terminal event does not consume it
 from the GUI. Pass the handle to `teamy_tracing::gui::LogView`; the application
 owns repaint scheduling. The view never installs its own subscriber or collector.
 
-During this review, CT uses a relative `[patch.crates-io]` entry pointing to the
-adjacent `teamy-tracing` checkout. Both repositories must be present. Capture,
-reports, and GUI views are optional features of that library; CT enables `eyre`
-for report transport and `egui` only in its GUI crate. No compatibility exports
-remain in CT's tracing crate, which now owns CT subscriber and destination policy.
+CT uses the crates.io release of `teamy-tracing`. It enables `eyre` for report
+transport and `egui` in its GUI crate for the shared views. CT's tracing crate
+owns subscriber setup, filtering, and output destinations.
 
 The standalone `audit` command partitions resource groups by name: exactly five
 occurrences of ASCII `a`, `e`, `i`, `o`, or `u`, ignoring case, belong in

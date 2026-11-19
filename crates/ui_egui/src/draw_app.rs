@@ -1,215 +1,92 @@
 use crate::app::MyApp;
+use crate::file_drag_and_drop::file_drag_ui;
+use crate::portal_home::portal_home;
+use crate::portal_page::PortalPage;
+use crate::portal_typography;
 use crate::windows::dir_window::ui_dir_windows;
+use crate::windows::resources_window::resources_ui;
+use crate::windows::selected_items_window::selected_items_ui;
+use crate::windows::starting_points_window::starting_points_ui;
+use crate::windows::work_dirs_window::DNDResponse;
+use crate::windows::work_dirs_window::work_dirs_ui;
+use eframe::egui::Align2;
+use eframe::egui::CentralPanel;
 use eframe::egui::Color32;
-use eframe::egui::CornerRadius;
 use eframe::egui::Frame;
-use eframe::egui::MenuBar;
-use eframe::egui::Sense;
-use eframe::egui::TopBottomPanel;
-use eframe::egui::Vec2;
+use eframe::egui::Margin;
+use eframe::egui::RichText;
+use eframe::egui::ScrollArea;
+use eframe::egui::Ui;
 use eframe::egui::Window;
-#[expect(unused)] // TODO(EGUI-TRACING)
-use egui_toast::Toast;
-#[expect(unused)] // TODO(EGUI-TRACING)
-use egui_toast::ToastKind;
-#[expect(unused)] // TODO(EGUI-TRACING)
-use egui_toast::ToastOptions;
-#[expect(unused)] // TODO(EGUI-TRACING)
-use tracing::Level;
+
 impl MyApp {
-    pub fn draw_app(&mut self, ctx: &eframe::egui::Context) {
-        let app = self;
-
-        // Top menu bar with About and Logs
-        TopBottomPanel::top("top_panel")
-            .exact_height(40.0)
-            .frame(Frame::new().fill(Color32::from_rgb(0x00, 0x78, 0xd4)))
-            .show_separator_line(false)
-            .show(ctx, |ui| {
-                ui.spacing_mut().interact_size.y = ui.available_height();
-                MenuBar::new().ui(ui, |ui| {
-                    ui.spacing_mut().item_spacing.x = 0.0;
-                    ui.spacing_mut().button_padding.x = 12.0;
-                    let visuals = ui.visuals_mut();
-                    visuals.override_text_color = Some(Color32::WHITE);
-                    for widget in [
-                        &mut visuals.widgets.hovered,
-                        &mut visuals.widgets.active,
-                        &mut visuals.widgets.open,
-                    ] {
-                        widget.bg_fill = Color32::from_rgb(0x10, 0x6e, 0xbe);
-                        widget.weak_bg_fill = widget.bg_fill;
-                        widget.corner_radius = CornerRadius::ZERO;
-                        widget.expansion = 0.0;
+    pub fn draw_app(&mut self, ui: &mut Ui) {
+        self.portal_header(ui);
+        self.portal_navigation(ui);
+        CentralPanel::default()
+            .frame(Frame::new().fill(Color32::WHITE).inner_margin(Margin::symmetric(32, 24)))
+            .show(ui, |ui| {
+                if self.page != PortalPage::Home {
+                    ui.label(RichText::new(self.page.title()).strong().size(22.0));
+                    ui.add_space(20.0);
+                }
+                match self.page {
+                    PortalPage::Home => portal_home(self, ui),
+                    PortalPage::Logs => {
+                        self.log_view.show(ui, &self.log_capture);
+                        // UI refresh is CT policy; capture has no dependency on a window.
+                        ui.ctx().request_repaint_after(std::time::Duration::from_millis(250));
                     }
-
-                    let (icon_rect, icon_response) =
-                        ui.allocate_exact_size(Vec2::splat(40.0), Sense::hover());
-                    if icon_response.hovered() {
-                        ui.painter().rect_filled(
-                            icon_rect,
-                            CornerRadius::ZERO,
-                            ui.visuals().widgets.hovered.weak_bg_fill,
-                        );
-                    }
-                    for x in [-6.0, 0.0, 6.0] {
-                        for y in [-6.0, 0.0, 6.0] {
-                            ui.painter().circle_filled(
-                                icon_rect.center() + Vec2::new(x, y),
-                                1.25,
-                                Color32::WHITE,
-                            );
-                        }
-                    }
-
-                    // Logs toggle button
-                    if ui
-                        .button(if app.logs_visible {
-                            "Logs (on)"
-                        } else {
-                            "Logs"
-                        })
-                        .clicked()
-                    {
-                        app.logs_visible = !app.logs_visible;
-                    }
-
-                    // About button
-                    if ui.button("About").clicked() {
-                        app.about_open = !app.about_open;
-                    }
-
-                    // Right-align Quit (if desired) placeholder
-                    ui.with_layout(
-                        eframe::egui::Layout::right_to_left(eframe::egui::Align::Center),
-                        |ui| {
-                            if ui.button("Quit").clicked() {
-                                ctx.send_viewport_cmd(eframe::egui::ViewportCommand::Close);
+                    PortalPage::Resources
+                    | PortalPage::Subscriptions
+                    | PortalPage::ResourceGroups
+                    | PortalPage::StorageAccounts
+                    | PortalPage::ContainerRegistries
+                    | PortalPage::KeyVaults => resources_ui(self, ui),
+                    PortalPage::StartingPoints => starting_points_ui(self, ui),
+                    PortalPage::SelectedItems => selected_items_ui(self, ui),
+                    PortalPage::WorkDirs => {
+                        let mut response = None;
+                        work_dirs_ui(self, ui, &mut response);
+                        if let Some(DNDResponse { source_index, destination_index }) = response {
+                            if let Some(item) = self.work_dirs_config.work_dirs.remove_index(source_index) {
+                                let destination_index = destination_index
+                                    .saturating_sub(usize::from(source_index < destination_index))
+                                    .min(self.work_dirs_config.work_dirs.len());
+                                self.work_dirs_config.work_dirs.shift_insert(destination_index, item);
+                            } else {
+                                tracing::warn!(source_index, "Dragged work directory no longer exists");
                             }
-                        },
-                    );
-                });
-            });
-
-        // Draw existing windows as tiles in the central panel
-        eframe::egui::CentralPanel::default().show(ctx, |ui| {
-            // Compute app pointer first, then borrow the behavior.
-            let app_ptr = app as *mut _;
-            let behavior = &mut app.tiles_behavior;
-            behavior.set_app(app_ptr);
-            app.tiles.ui(behavior, ui);
-            behavior.clear_app();
-
-            // Handle pending behavior requests that must be done outside of the tree UI pass
-            use egui_tiles::Tile;
-            use egui_tiles::Container;
-
-            // Add requested Home tabs
-            let add_count = behavior.take_pending_new_home_tabs();
-            if add_count > 0 {
-                for _ in 0..add_count {
-                    let new_pane = app.tiles.tiles.insert_pane(crate::tiles::Pane::Home);
-                    if let Some(root) = app.tiles.root && let Some(Tile::Container(Container::Tabs(tabs))) = app.tiles.tiles.get_mut(root) {
-                        tabs.add_child(new_pane);
-                        tabs.set_active(new_pane);
-                    }
-                }
-            }
-
-            // Open a resources tab if requested
-            if behavior.take_pending_open_resources_tab() {
-                let new_pane = app.tiles.tiles.insert_pane(crate::tiles::Pane::Resources);
-                if let Some(root) = app.tiles.root && let Some(Tile::Container(Container::Tabs(tabs))) = app.tiles.tiles.get_mut(root) {
-                    tabs.add_child(new_pane);
-                    tabs.set_active(new_pane);
-                }
-            }
-
-            // Ensure there is at least one Home tab if requested
-            if behavior.take_ensure_home_tab() {
-                if app.tiles.root.is_none() {
-                    let home = app.tiles.tiles.insert_pane(crate::tiles::Pane::Home);
-                    let root = app.tiles.tiles.insert_tab_tile(vec![home]);
-                    app.tiles.root = Some(root);
-                } else if let Some(root) = app.tiles.root {
-                    // Check empty using an immutable borrow first to avoid double mutable borrows.
-                    let need_home = matches!(app.tiles.tiles.get(root), Some(Tile::Container(Container::Tabs(tabs))) if tabs.children.is_empty());
-                    if need_home {
-                        let new_child = app.tiles.tiles.insert_pane(crate::tiles::Pane::Home);
-                        if let Some(Tile::Container(Container::Tabs(tabs_mut))) = app.tiles.tiles.get_mut(root) {
-                            tabs_mut.add_child(new_child);
-                            tabs_mut.set_active(new_child);
                         }
                     }
+                    PortalPage::FileDrop => {
+                        ui.label("Drop Terraform files or directories into this window to add work directories.");
+                        file_drag_ui(self, ui);
+                    }
                 }
-            }
-        });
+            });
+        ui_dir_windows(self, ui.ctx());
 
-        // Keep directory pop-out windows for now
-        ui_dir_windows(app, ctx);
-
-        // About window
-        if app.about_open {
-            Window::new("About")
+        if self.about_open {
+            Window::new("About Cloud Terrastodon")
                 .resizable(false)
                 .collapsible(false)
-                .anchor(eframe::egui::Align2::CENTER_CENTER, [0.0, 0.0])
-                .open(&mut app.about_open)
-                .show(ctx, |ui| {
-                    ui.vertical_centered(|ui| {
-                        ui.heading("cloud_terrastodon_ui_egui");
-                        ui.add_space(10.0);
-                        ui.label(app.app_info.to_string());
-                        ui.add_space(10.0);
-                        ui.label("UI for the Cloud Terrastodon project.");
-                        ui.add_space(10.0);
-                        ui.hyperlink_to("GitHub", "https://github.com/TeamDman/cloud-terrastodon");
+                .anchor(Align2::CENTER_CENTER, [0.0, 0.0])
+                .open(&mut self.about_open)
+                .show(ui.ctx(), |ui| {
+                    ui.heading("Cloud Terrastodon");
+                    ui.add_space(10.0);
+                    ui.label(&self.app_info);
+                    ui.add_space(10.0);
+                    ui.hyperlink_to("GitHub", "https://github.com/AAFC-Cloud/Cloud-Terrastodon");
+                    ui.add_space(10.0);
+                    ui.collapsing("Allo font license", |ui| {
+                        ScrollArea::vertical().max_height(240.0).show(ui, |ui| {
+                            ui.label(portal_typography::LICENSE);
+                        });
                     });
                 });
         }
-
-        // TODO(EGUI-TRACING)
-        // Logs window (egui_tracing widget)
-        // if app.logs_visible {
-        //     Window::new("Logs")
-        //         .default_size([800.0, 400.0])
-        //         .open(&mut app.logs_visible)
-        //         .show(ctx, |ui| {
-        //             let collector = cloud_terrastodon_tracing::event_collector();
-        //             ui.add(egui_tracing::Logs::new(collector));
-        //         });
-        // }
-
-        // TODO(EGUI-TRACING)
-        // Process new tracing events and create toasts for INFO and ERROR levels
-        // let collector = cloud_terrastodon_tracing::event_collector();
-        // let events = collector.events();
-        // let new_events = &events[app.last_seen_event_count..];
-        // for event in new_events {
-        //     let kind = match event.level {
-        //         Level::INFO => Some(ToastKind::Info),
-        //         Level::ERROR => Some(ToastKind::Error),
-        //         _ => None,
-        //     };
-        //     if let Some(kind) = kind {
-        //         let message = event
-        //             .fields
-        //             .get("message")
-        //             .map_or("", std::string::String::as_str)
-        //             .to_string();
-        //         app.toasts.add(
-        //             Toast::default().kind(kind).text(message).options(
-        //                 ToastOptions::default()
-        //                     .duration_in_seconds(5.0)
-        //                     .show_progress(true)
-        //                     .show_icon(true),
-        //             ),
-        //         );
-        //     }
-        // }
-        // app.last_seen_event_count = events.len();
-
-        // Show toasts
-        app.toasts.show(ctx);
+        self.toasts.show(ui);
     }
 }
