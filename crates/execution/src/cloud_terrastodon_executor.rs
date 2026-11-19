@@ -178,6 +178,21 @@ impl CloudTerrastodonExecutor {
         })
     }
 
+    /// Bind an explicit cache owner before starting a top-level unit of work.
+    ///
+    /// The returned executor retains the provider, cancellation scope, and
+    /// observer. Children of a cache initializer inherit its existing owner.
+    pub fn with_work_cache(&self, cache: WorkCache) -> Result<Self> {
+        ensure!(
+            matches!(self.mode, ExecutionMode::Normal(None)),
+            "a cache owner can only be replaced outside cached work and credential infrastructure"
+        );
+        Ok(Self {
+            cache,
+            ..self.clone()
+        })
+    }
+
     /// The bounded scope for checkpoints and lower transport operations.
     pub fn cancellation(&self) -> &CancellationScope {
         &self.cancellation

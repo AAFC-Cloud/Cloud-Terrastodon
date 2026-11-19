@@ -1,4 +1,5 @@
 use crate::app::MyApp;
+use crate::gui_work_cache::GuiWorkCache;
 use crate::portal_typography;
 use cloud_terrastodon_auth::CloudTerrastodonAccountStore;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
@@ -33,6 +34,27 @@ pub async fn run_app(
     account_store: CloudTerrastodonAccountStore,
     log_capture: LogBuffer,
     executor: &CloudTerrastodonExecutor,
+) -> eyre::Result<()> {
+    run_app_with_work_cache(
+        app_info,
+        azure_devops_organization,
+        authentication,
+        account_store,
+        log_capture,
+        executor,
+        GuiWorkCache::CallerOwned,
+    )
+    .await
+}
+
+pub(crate) async fn run_app_with_work_cache(
+    app_info: String,
+    azure_devops_organization: Option<AzureDevOpsOrganizationUrl>,
+    authentication: eyre::Result<Option<AzureBearerAuthenticationSelection>>,
+    account_store: CloudTerrastodonAccountStore,
+    log_capture: LogBuffer,
+    executor: &CloudTerrastodonExecutor,
+    work_cache: GuiWorkCache,
 ) -> eyre::Result<()> {
     let (_shutdown, run) = executor.with_async_child_scope(move |executor| async move {
         let viewport = ViewportBuilder::default()
@@ -88,7 +110,7 @@ pub async fn run_app(
                             egui_extras::install_image_loaders(&cc.egui_ctx);
                             portal_typography::install(&cc.egui_ctx);
                             cc.egui_ctx.set_visuals(Visuals::light());
-                            let app = runtime::Handle::current().block_on(async move {
+                            let mut app = runtime::Handle::current().block_on(async move {
                                 MyApp::new(
                                     azure_devops_organization,
                                     authentication,
@@ -101,6 +123,7 @@ pub async fn run_app(
                                 )
                                 .await
                             })?;
+                            app.work_cache = work_cache;
                             Ok(Box::new(app))
                         }),
                     )

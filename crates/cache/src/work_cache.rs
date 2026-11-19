@@ -11,7 +11,7 @@ use crate::NonEmptyString;
 use crate::WorkAttempt;
 use crate::WorkOutput;
 use crate::WorkReuse;
-use crate::cache_ownership_claim::CacheOwnershipClaim;
+use crate::cache_ownership_claims::CacheOwnershipClaims;
 use crate::cache_root_lease::CacheRootLease;
 use crate::cache_state::CacheState;
 use crate::work_cache_root::WorkCacheRoot;
@@ -19,14 +19,9 @@ use crate::work_cache_state::WorkCacheState;
 use crate::work_child_guard::WorkChildGuard;
 use eyre::Context;
 use eyre::Result;
-use eyre::ensure;
 use eyre::eyre;
-use std::any::TypeId;
-use std::any::type_name;
 use std::future::Future;
 use std::marker::PhantomData;
-use std::panic::Location;
-use std::path::Component;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -49,7 +44,7 @@ use tempfile::TempDir;
 /// generation invalidation and transitive semantic dependency freshness.
 #[derive(Clone, Debug)]
 pub struct WorkCache {
-    // One shared owner keeps the root and all accepted claims together.
+    // The strong owner retains the acquired lock and reusable values.
     pub(crate) state: Arc<WorkCacheState>,
 }
 
@@ -206,25 +201,20 @@ impl WorkCache {
     }
 
     fn from_root(root: WorkCacheRoot) -> Result<Self> {
-        ensure!(
-            root.path().is_absolute(),
-            "cache root must be absolute: {root:?}"
-        );
-        ensure!(
-            !root
-                .path()
-                .components()
-                .any(|component| component == Component::ParentDir),
-            "cache root must not contain unresolved parent traversal: {root:?}"
-        );
-        Ok(Self {
+        WorkCacheRoot::validate_path(root.path())?;
+        Ok(Self::with_claims(root, Arc::default()))
+    }
+
+    pub(crate) fn with_claims(root: WorkCacheRoot, claims: Arc<CacheOwnershipClaims>) -> Self {
+        Self {
             state: Arc::new(WorkCacheState {
+                claims,
                 registry: Mutex::new(CacheState::default()),
                 artifact_gate: Arc::new(tokio::sync::Mutex::new(())),
                 root,
                 ownership: tokio::sync::OnceCell::new(),
             }),
-        })
+        }
     }
 
     /// The explicit root, without any filesystem inspection or normalization.
@@ -250,45 +240,7 @@ impl WorkCache {
         key: &CacheKey,
         owner: CacheOperationOwner,
     ) -> Result<()> {
-        let caller = Location::caller();
-        let mut state = self.state.registry.lock().map_err(|_| {
-            eyre!("cache ownership registry was poisoned by a panic while holding its lock")
-        })?;
-        let address = (kind, key.scope.clone());
-        if let Some(existing) = state.claims.get(&address) {
-            ensure!(
-                existing.owner == owner,
-                "cache operation owner conflict for {:?} scope {:?}: {} first claimed at {}; {} attempted at {}",
-                address.0,
-                address.1,
-                existing.owner.name(),
-                existing.first_claim,
-                owner.name(),
-                caller,
-            );
-            ensure!(
-                existing.output_type_id == TypeId::of::<T>(),
-                "cache output type conflict for {:?} scope {:?}, owner {}: {} first claimed at {}; {} attempted at {}",
-                address.0,
-                address.1,
-                owner.name(),
-                existing.output_type_name,
-                existing.first_claim,
-                type_name::<T>(),
-                caller,
-            );
-        } else {
-            state.claims.insert(
-                address,
-                CacheOwnershipClaim {
-                    owner,
-                    output_type_id: TypeId::of::<T>(),
-                    output_type_name: type_name::<T>(),
-                    first_claim: caller,
-                },
-            );
-        }
-        Ok(())
+        self.state.claims.claim::<T>(kind, key, owner)
     }
 }
 
@@ -296,6 +248,7 @@ impl WorkCache {
 mod tests {
     use super::*;
     use crate::CacheScope;
+    use std::any::type_name;
     use std::cell::Cell;
     use std::sync::Barrier;
     use std::thread;

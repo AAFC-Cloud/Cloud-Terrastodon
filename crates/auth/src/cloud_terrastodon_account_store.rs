@@ -325,6 +325,8 @@ impl CloudTerrastodonAccountStore {
     ///
     /// If sign-in fails after retirement, this credential remains signed out.
     /// Install a fresh provider for later work after a session change.
+    /// With a job-scoped cache, use [`Self::retire_for_reauthentication`] and
+    /// release the executor before waiting for sign-in.
     pub async fn reauthenticate(
         &self,
         account_id: CloudTerrastodonAccountId,
@@ -332,6 +334,30 @@ impl CloudTerrastodonAccountStore {
         prompt: &(dyn Fn(AccountSignInPrompt) + Send + Sync),
         executor: &CloudTerrastodonExecutor,
     ) -> Result<CloudTerrastodonAccountProfile> {
+        self.retire_for_reauthentication(account_id, source, executor)
+            .await?;
+        self.sign_in(
+            account_id,
+            Some(source),
+            None,
+            prompt,
+            executor.cancellation(),
+        )
+        .await
+    }
+
+    /// Finish retiring an active Entra session before interactive sign-in.
+    ///
+    /// The executor owns cache invalidation and drains admitted work. Callers
+    /// with a job-scoped cache can release that executor before calling
+    /// [`Self::sign_in`] with the same account and source. The catalogue
+    /// preserves the verified principal so sign-in can check the replacement.
+    pub async fn retire_for_reauthentication(
+        &self,
+        account_id: CloudTerrastodonAccountId,
+        source: CloudTerrastodonCredentialSource,
+        executor: &CloudTerrastodonExecutor,
+    ) -> Result<()> {
         let previous = {
             let catalogue = self.load()?;
             let profile = catalogue.by_id(account_id)?;
@@ -369,14 +395,7 @@ impl CloudTerrastodonAccountStore {
             // operation can now be skipped if its caller was cancelled.
             executor.cancellation().bail_if_cancelled()?;
         }
-        self.sign_in(
-            account_id,
-            Some(source),
-            None,
-            prompt,
-            executor.cancellation(),
-        )
-        .await
+        Ok(())
     }
 
     /// Explicitly adopt application-owned legacy credentials. Never imports an
@@ -1247,10 +1266,18 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn source_logout_preserves_other_source_and_principal() -> Result<()> {
+    async fn reauthentication_retires_one_source_and_releases_cache_before_sign_in() -> Result<()> {
+        use cloud_terrastodon_auth_types::AuthenticationSelection;
+        use cloud_terrastodon_cache::WorkCache;
+        use std::future::ready;
+        use std::time::Duration;
+        use tokio::time::timeout;
+
         let directory = tempfile::tempdir()?;
         let store = CloudTerrastodonAccountStore::new(directory.path().join("accounts"))?;
+        let cache_root = directory.path().join("work");
         let tenant_id = AzureTenantId::new(Uuid::from_u128(1));
+        let source = CloudTerrastodonCredentialSource::AzureCli;
         CancellationToken::new()
             .with_async_scope(async |scope| {
                 let account = store
@@ -1313,13 +1340,53 @@ mod tests {
                 );
                 // The synthetic CLI slot has no nested sessions, so cleanup requires
                 // only temporary files and never launches a process.
-                store
-                    .logout_source(
-                        account.id,
-                        Some(CloudTerrastodonCredentialSource::AzureCli),
-                        &scope,
-                    )
-                    .await?;
+                {
+                    let executor = CloudTerrastodonExecutor::new(
+                        WorkCache::new(&cache_root)?,
+                        Arc::new(CredentialAuthenticationProvider::from_store(store.clone())),
+                        scope.clone(),
+                    );
+                    // Register the partition so retirement exercises the cache.
+                    executor.admit(&AuthenticationSelection::AzureBearer(
+                        AzureBearerAuthenticationSelection {
+                            account_id: account.id,
+                            auth_source: AzureBearerAuthSource::AzureCli,
+                            tenant_id,
+                        },
+                    ))?;
+                    store.retire_for_reauthentication(account.id, source, &executor).await?;
+                }
+                assert!(cache_root.exists(), "retirement did not open the cache");
+
+                // Keep sign-in waiting at the catalogue lock. The invalid PAT
+                // argument also guarantees it cannot launch Azure CLI if the
+                // lock ever stops excluding this second catalogue owner.
+                let _catalogue_lease = store.lock(&scope).await?;
+                let (cancel, sign_in) = scope.with_async_child_scope(async |sign_in_scope| {
+                    store
+                        .sign_in(
+                            account.id,
+                            Some(source),
+                            Some("synthetic-invalid-pat-argument"),
+                            &|_| unreachable!("the fixture cannot acquire credentials"),
+                            &sign_in_scope,
+                        )
+                        .await
+                });
+                tokio::pin!(sign_in);
+                tokio::select! {
+                    biased;
+                    result = &mut sign_in => panic!("sign-in did not wait for the catalogue: {result:?}"),
+                    () = ready(()) => {}
+                }
+                timeout(
+                    Duration::from_secs(10),
+                    WorkCache::new(&cache_root)?.acquire(&scope),
+                )
+                .await??;
+                cancel.request_cancel("the synthetic sign-in wait is complete");
+                assert!(sign_in.await.is_err());
+
                 let catalogue = store.load()?;
                 let profile = catalogue.by_id(account.id)?;
                 assert!(matches!(

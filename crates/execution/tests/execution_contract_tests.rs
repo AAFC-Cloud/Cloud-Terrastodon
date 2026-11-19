@@ -72,6 +72,10 @@ impl AuthenticationProvider for CredentialLineageProbe {
                     let assert_restricted = |branch: CloudTerrastodonExecutor| async move {
                         assert!(branch.cache().is_err());
                         assert!(
+                            branch.with_work_cache(WorkCache::temporary()?).is_err(),
+                            "credential infrastructure cannot replace its cache owner"
+                        );
+                        assert!(
                             branch
                                 .with_authentication(Arc::new(TestAuthenticationProvider::new(
                                     "synthetic-test-session",
@@ -662,6 +666,51 @@ async fn authentication_rebinding_preserves_partitioned_reuse_dependencies_and_c
             token.request_cancel("end the lifetime shared by both provider bindings");
             assert!(executor.cancellation().bail_if_cancelled().is_err());
             assert!(rebound.cancellation().bail_if_cancelled().is_err());
+            Ok(())
+        })
+        .await
+}
+
+#[tokio::test]
+async fn cache_owner_binding_preserves_provider_and_scope_and_rejects_nested_rebinding()
+-> Result<()> {
+    let token = CancellationToken::new();
+    token
+        .with_async_scope(async |scope| {
+            let provider = Arc::new(TestAuthenticationProvider::new(
+                "synthetic-test-session",
+                Authorization::personal_access_token("synthetic-offline-credential")?,
+            )?);
+            let executor =
+                CloudTerrastodonExecutor::new(WorkCache::temporary()?, provider.clone(), scope);
+            let isolated_cache = WorkCache::temporary()?;
+            let rebound = executor.with_work_cache(isolated_cache.clone())?;
+            assert_eq!(rebound.cache()?.root(), isolated_cache.root());
+            assert_ne!(executor.cache()?.root(), rebound.cache()?.root());
+            let decodes = AtomicUsize::new(0);
+            let original = executor.execute(CachedNumber::new("21", &decodes)).await?;
+            let isolated = rebound.execute(CachedNumber::new("30", &decodes)).await?;
+            assert_eq!((*original, *isolated), (21, 30));
+            assert_eq!(provider.authorizations.load(Ordering::SeqCst), 2);
+
+            rebound
+                .cached_work(
+                    ExecutorKind::InProcess,
+                    key("cache-owner-binding"),
+                    CacheOperationOwner::of::<CompositionOperation>(),
+                    &AUTHENTICATION,
+                    NonEmptyString::new("synthetic-cache-owner-binding")?,
+                    WorkReuse::ReusableRead,
+                    async |child| {
+                        assert!(child.with_work_cache(executor.cache()?.clone()).is_err());
+                        assert_eq!(child.cache()?.root(), isolated_cache.root());
+                        Ok(output(()))
+                    },
+                )?
+                .await?;
+            token.request_cancel("end the scope shared by both cache owners");
+            assert!(executor.cancellation().is_cancelled());
+            assert!(rebound.cancellation().is_cancelled());
             Ok(())
         })
         .await

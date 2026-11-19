@@ -1,6 +1,7 @@
 use crate::azure_tenant_management_target::AzureTenantManagementTarget;
 use crate::azure_tenant_management_update::AzureTenantManagementUpdate;
 use crate::azure_tracked_tenant_catalogue::AzureTrackedTenantCatalogue;
+use crate::gui_work_cache::GuiWorkCache;
 use cloud_terrastodon_auth::read_azure_cli_local_accounts;
 use cloud_terrastodon_auth_types::AuthSource;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
@@ -58,6 +59,7 @@ impl AzureTenantManagementAction {
     pub async fn run(
         self,
         executor: &CloudTerrastodonExecutor,
+        work_cache: &GuiWorkCache,
     ) -> eyre::Result<AzureTenantManagementUpdate> {
         let cancellation = executor.cancellation();
         match self {
@@ -115,8 +117,9 @@ impl AzureTenantManagementAction {
                                 "Select an account for this tenant or configure a default account.",
                             )?,
                     };
+                let executor = work_cache.job_executor(executor)?;
                 let details = AzureTenantDetailsRequest { authentication }
-                    .execute(executor)
+                    .execute(&executor)
                     .await?;
                 return Ok(AzureTenantManagementUpdate::Details(details));
             }

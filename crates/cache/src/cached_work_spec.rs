@@ -467,14 +467,12 @@ mod tests {
                     let state = cache.lock_state()?;
                     assert!(state.coordination[&identity()].upgrade().is_none());
                     assert_eq!(state.values.len(), 1);
-                    assert_eq!(state.claims.len(), 1);
                 }
                 cache.release_memory()?;
                 {
                     let state = cache.lock_state()?;
                     assert!(state.coordination.is_empty());
                     assert!(state.values.is_empty());
-                    assert_eq!(state.claims.len(), 1);
                 }
                 assert!(
                     cache

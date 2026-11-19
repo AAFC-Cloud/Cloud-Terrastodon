@@ -3,6 +3,7 @@ use crate::azure_tenant_management_target::AzureTenantManagementTarget;
 use crate::azure_tenant_management_update::AzureTenantManagementResult;
 use crate::azure_tenant_management_update::AzureTenantManagementUpdate;
 use crate::azure_tracked_tenant_catalogue::AzureTrackedTenantCatalogue;
+use crate::gui_work_cache::GuiWorkCache;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure::AzureTenantAlias;
 use cloud_terrastodon_azure::AzureTenantId;
@@ -60,11 +61,12 @@ impl AzureTenantManager {
         }
     }
 
-    pub fn show(
+    pub(crate) fn show(
         &mut self,
         ctx: &Context,
         tracker: &AppWorkTracker,
         executor: &CloudTerrastodonExecutor,
+        work_cache: &GuiWorkCache,
         authentication: Option<AzureBearerAuthenticationSelection>,
     ) {
         self.receive_update();
@@ -72,7 +74,13 @@ impl AzureTenantManager {
             return;
         }
         if self.catalogue.is_none() && self.pending.is_none() && self.error.is_none() {
-            self.start(AzureTenantManagementAction::Reload, tracker, executor, ctx);
+            self.start(
+                AzureTenantManagementAction::Reload,
+                tracker,
+                executor,
+                work_cache,
+                ctx,
+            );
         }
         let mut open = self.open;
         let mut action = None;
@@ -103,7 +111,7 @@ impl AzureTenantManager {
             self.forget_confirmation = None;
         }
         if let Some(action) = action {
-            self.start(action, tracker, executor, ctx);
+            self.start(action, tracker, executor, work_cache, ctx);
         }
     }
 
@@ -339,11 +347,13 @@ impl AzureTenantManager {
         action: AzureTenantManagementAction,
         tracker: &AppWorkTracker,
         executor: &CloudTerrastodonExecutor,
+        work_cache: &GuiWorkCache,
         ctx: &Context,
     ) {
         let (mut send, receive) = oneshot::channel();
         let ctx = ctx.clone();
         let job_executor = executor.clone();
+        let work_cache = work_cache.clone();
         let description = action.description();
         let target = action.target();
         let task = tracker.spawn(
@@ -353,7 +363,9 @@ impl AzureTenantManager {
             async move |scope| {
                 let executor = job_executor.with_cancellation_scope(scope);
                 let (cancellation, operation) =
-                    executor.cancellable_child_scope(async |executor| action.run(&executor).await);
+                    executor.cancellable_child_scope(async |executor| {
+                        action.run(&executor, &work_cache).await
+                    });
                 tokio::pin!(operation);
                 let result = tokio::select! {
                     biased;

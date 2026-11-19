@@ -1,5 +1,6 @@
 use crate::azure_account_action::AzureAccountAction;
 use crate::azure_account_operation_event::AzureAccountOperationEvent;
+use crate::gui_work_cache::GuiWorkCache;
 use cloud_terrastodon_auth::AccountSignInPrompt;
 use cloud_terrastodon_auth::CloudTerrastodonAccountStore;
 use cloud_terrastodon_auth::CredentialAuthenticationProvider;
@@ -34,12 +35,14 @@ impl AzureAccountOperation {
         store: CloudTerrastodonAccountStore,
         authentication: Arc<CredentialAuthenticationProvider>,
         executor: &CloudTerrastodonExecutor,
+        work_cache: &GuiWorkCache,
         work_tracker: &AppWorkTracker,
         ctx: &Context,
     ) -> Result<Self> {
         let login_target = action.login_target();
         let (tx, events) = mpsc::unbounded_channel();
         let job_executor = executor.clone();
+        let work_cache = work_cache.clone();
         let ctx = ctx.clone();
         work_tracker.spawn(
             executor.cancellation(),
@@ -54,7 +57,7 @@ impl AzureAccountOperation {
                 let executor = job_executor.with_cancellation_scope(scope);
                 let (cancel, job) = executor.with_async_child_scope(async |executor| {
                     action
-                        .run(&store, &executor, &|prompt| {
+                        .run(&store, &executor, &work_cache, &|prompt| {
                             publish(AzureAccountOperationEvent::Prompt(prompt));
                         })
                         .await

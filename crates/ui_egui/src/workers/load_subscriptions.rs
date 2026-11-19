@@ -15,6 +15,7 @@ pub fn load_subscriptions(app: &mut MyApp) {
         return;
     };
     let executor = app.executor.clone();
+    let work_cache = app.work_cache.clone();
     let cancellation = executor.cancellation().clone();
     let started_at = Instant::now();
     info!("Queueing work to fetch subscriptions");
@@ -26,7 +27,7 @@ pub fn load_subscriptions(app: &mut MyApp) {
             }
         })
         .work(async move |scope| {
-            let executor = executor.with_cancellation_scope(scope);
+            let executor = work_cache.job_executor(&executor.with_cancellation_scope(scope))?;
             let subs = AzureSubscriptionListRequest { authentication }
                 .execute(&executor)
                 .await?;

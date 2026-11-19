@@ -12,6 +12,8 @@ use cloud_terrastodon_cache::CacheScope;
 use cloud_terrastodon_cache::ExecutorKind;
 use cloud_terrastodon_cache::NonEmptyString;
 use cloud_terrastodon_cache::WorkCache;
+use cloud_terrastodon_cache::WorkCacheActivity;
+use cloud_terrastodon_cache::WorkCacheStatus;
 use cloud_terrastodon_cache::WorkOutput;
 use cloud_terrastodon_cache::WorkReuse;
 use eyre::Result;
@@ -32,6 +34,7 @@ use std::time::Instant;
 use teamy_cancellation::CancellationScope;
 use teamy_cancellation::CancellationToken;
 use tokio::sync::Barrier;
+use tokio::sync::Notify;
 use tokio::time::timeout;
 
 const DEADLOCK_GUARD: Duration = Duration::from_secs(45);
@@ -250,6 +253,8 @@ fn ownership_process_child() -> Result<()> {
                 .with_async_scope(async |scope| {
                     match role.as_str() {
                         "owner" | "crash" => {
+                            let active = WorkCacheActivity::new(cache.root())?;
+                            let cache = active.work_cache()?;
                             assert_eq!(
                                 read(&cache, &signals, "original", &scope).await?.as_str(),
                                 "original"
@@ -327,6 +332,42 @@ fn ownership_process_child() -> Result<()> {
                                 }
                             );
                         }
+                        "activity" => {
+                            let activity = WorkCacheActivity::new(cache.root())?;
+                            let snapshot = {
+                                let active = activity.work_cache()?;
+                                let value = read(&active, &signals, "original", &scope).await?;
+                                signal(&signals, &label, "ready")?;
+                                wait_for_signal(&signals, &label, "idle").await?;
+                                value
+                            };
+                            signal(&signals, &label, "idle-ready")?;
+                            wait_for_signal(&signals, &label, "reload").await?;
+                            let reloaded = read(
+                                &activity.work_cache()?,
+                                &signals,
+                                "unexpected transport on reload",
+                                &scope,
+                            )
+                            .await?;
+                            assert_eq!(snapshot.as_str(), "original");
+                            assert_eq!(reloaded.as_str(), "cli replacement");
+                        }
+                        "replace" => {
+                            assert_eq!(
+                                read(&cache, &signals, "unexpected transport on reuse", &scope)
+                                    .await?
+                                    .as_str(),
+                                "original"
+                            );
+                            cache.invalidate(&identity("shared").scope, &scope).await?;
+                            assert_eq!(
+                                read(&cache, &signals, "cli replacement", &scope)
+                                    .await?
+                                    .as_str(),
+                                "cli replacement"
+                            );
+                        }
                         _ => {
                             bail!("unknown synthetic subprocess role {role}");
                         }
@@ -335,6 +376,30 @@ fn ownership_process_child() -> Result<()> {
                 })
                 .await
         })
+}
+
+#[test]
+fn a_live_idle_activity_releases_ownership_and_rechecks_external_changes() -> Result<()> {
+    let temporary = tempfile::tempdir()?;
+    let mut activity = TestProcess::spawn(temporary.path(), "activity", "activity")?;
+    activity.wait_for("ready")?;
+    let mut follower = TestProcess::spawn(temporary.path(), "read", "follower")?;
+    follower.wait_for("waiting")?;
+    activity.signal("idle")?;
+    activity.wait_for("idle-ready")?;
+    follower.finish()?;
+    assert!(activity.child.try_wait()?.is_none());
+
+    let mut invalidator = TestProcess::spawn(temporary.path(), "replace", "invalidator")?;
+    invalidator.finish()?;
+    assert!(activity.child.try_wait()?.is_none());
+    activity.signal("reload")?;
+    activity.finish()?;
+    assert_eq!(
+        fs::read_to_string(temporary.path().join("executions"))?,
+        "original\ncli replacement\n"
+    );
+    Ok(())
 }
 
 #[test]
@@ -381,7 +446,7 @@ fn a_cancelled_process_waiter_cannot_acquire_the_root_later() -> Result<()> {
 }
 
 #[test]
-fn a_killed_owner_releases_the_os_lock_and_recovery_rejects_old_selections() -> Result<()> {
+fn a_killed_activity_releases_the_os_lock_and_recovery_rejects_old_selections() -> Result<()> {
     let temporary = tempfile::tempdir()?;
     let mut owner = TestProcess::spawn(temporary.path(), "crash", "owner")?;
     owner.wait_for("ready")?;
@@ -476,12 +541,16 @@ async fn dropped_acquisition_does_not_poison_shared_initialization() -> Result<(
 }
 
 #[tokio::test]
-async fn shared_owners_keep_different_initializers_concurrent() -> Result<()> {
+async fn overlapping_activity_jobs_share_an_owner_and_keep_initializers_concurrent() -> Result<()> {
     CancellationToken::new()
         .with_async_scope(async |scope| {
-            let cache = WorkCache::temporary()?;
-            let clone = cache.clone();
+            let temporary = tempfile::tempdir()?;
+            let activity = WorkCacheActivity::new(temporary.path().join("cache"))?;
+            let cache = activity.work_cache()?;
+            let overlapping = activity.work_cache()?;
             let admitted = Barrier::new(2);
+            let first_started = Notify::new();
+            let duplicate_waiting = Notify::new();
             let first = cache.cached_work(
                 identity("first"),
                 CacheOperationOwner::of::<SyntheticRead>(),
@@ -490,11 +559,13 @@ async fn shared_owners_keep_different_initializers_concurrent() -> Result<()> {
                 None,
                 &scope,
                 async |_, _| {
+                    first_started.notify_one();
                     admitted.wait().await;
+                    duplicate_waiting.notified().await;
                     eyre::Ok(WorkOutput::new(1_u64, ArtifactObservation::now()))
                 },
             )?;
-            let second = clone.cached_work(
+            let second = overlapping.cached_work(
                 identity("second"),
                 CacheOperationOwner::of::<SyntheticRead>(),
                 WorkReuse::ReusableRead,
@@ -506,12 +577,32 @@ async fn shared_owners_keep_different_initializers_concurrent() -> Result<()> {
                     eyre::Ok(WorkOutput::new(2_u64, ArtifactObservation::now()))
                 },
             )?;
-            let (first, second) = timeout(DEADLOCK_GUARD, async {
-                tokio::join!(async { first.await }, async { second.await })
+            let duplicate = overlapping
+                .cached_work(
+                    identity("first"),
+                    CacheOperationOwner::of::<SyntheticRead>(),
+                    WorkReuse::ReusableRead,
+                    VALID_FOR,
+                    None,
+                    &scope,
+                    async |_, _| eyre::Ok(WorkOutput::new(3_u64, ArtifactObservation::now())),
+                )?
+                .observe(|status| {
+                    if matches!(status, WorkCacheStatus::Waiting) {
+                        duplicate_waiting.notify_one();
+                    }
+                });
+            let (first, second, duplicate) = timeout(DEADLOCK_GUARD, async {
+                tokio::join!(async { first.await }, async { second.await }, async {
+                    first_started.notified().await;
+                    duplicate.await
+                })
             })
             .await?;
-            assert_eq!(*first?, 1);
+            let first = first?;
+            assert_eq!(*first, 1);
             assert_eq!(*second?, 2);
+            assert!(Arc::ptr_eq(&first, &duplicate?));
             Ok(())
         })
         .await

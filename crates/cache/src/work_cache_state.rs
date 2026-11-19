@@ -1,3 +1,4 @@
+use crate::cache_ownership_claims::CacheOwnershipClaims;
 use crate::cache_root_lease::CacheRootLease;
 use crate::cache_state::CacheState;
 use crate::work_cache_root::WorkCacheRoot;
@@ -9,6 +10,7 @@ use std::sync::Mutex;
 /// coordinates artifact I/O; per-entry initializer mutexes coalesce execution.
 #[derive(Debug)]
 pub(crate) struct WorkCacheState {
+    pub claims: Arc<CacheOwnershipClaims>,
     pub registry: Mutex<CacheState>,
     pub artifact_gate: Arc<tokio::sync::Mutex<()>>,
     // Drop cached values before removing an owned temporary directory. Their
@@ -26,6 +28,7 @@ impl Drop for WorkCacheState {
         if let Ok(state) = self.registry.get_mut() {
             drop(std::mem::take(&mut state.values));
             if !std::thread::panicking()
+                && !self.claims.is_poisoned()
                 && state.invalidations.is_empty()
                 && state.publication_quarantine.is_empty()
                 && let Some(lease) = self.ownership.get()

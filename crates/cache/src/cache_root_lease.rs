@@ -159,6 +159,7 @@ mod tests {
     use crate::ExecutorKind;
     use crate::NonEmptyString;
     use crate::WorkCache;
+    use crate::WorkCacheActivity;
     use crate::artifact_io_guard::ArtifactIoGuard;
     use eyre::Result;
     use std::collections::BTreeMap;
@@ -265,7 +266,8 @@ mod tests {
         CancellationToken::new()
             .with_async_scope(async |scope| {
                 let temporary = tempfile::tempdir()?;
-                let cache = WorkCache::new(temporary.path())?;
+                let activity = WorkCacheActivity::new(temporary.path())?;
+                let cache = activity.work_cache()?;
                 cache.acquire(&scope).await?;
                 let gate = ArtifactIoGuard::acquire(&cache.state.artifact_gate).await;
                 let (started, ready) = oneshot::channel();
@@ -300,7 +302,7 @@ mod tests {
                 release.send(())?;
                 timeout(DEADLOCK_GUARD, completed).await??;
 
-                let next = WorkCache::new(temporary.path())?;
+                let next = activity.work_cache()?;
                 timeout(DEADLOCK_GUARD, next.acquire(&scope)).await??;
                 assert_eq!(fs::read(next.root().join("worker-result"))?, b"finished");
                 Ok(())

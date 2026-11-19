@@ -116,6 +116,7 @@ impl MyApp {
             self.account_store.clone(),
             self.account_authentication.clone(),
             &self.executor,
+            &self.work_cache,
             &self.work_tracker,
             ctx,
         ) {
@@ -141,8 +142,13 @@ impl MyApp {
         }
         if self.account_operation.is_none() {
             let authentication = self.ready_azure_authentication();
-            self.tenant_manager
-                .show(ctx, &self.work_tracker, &self.executor, authentication);
+            self.tenant_manager.show(
+                ctx,
+                &self.work_tracker,
+                &self.executor,
+                &self.work_cache,
+                authentication,
+            );
         }
     }
 

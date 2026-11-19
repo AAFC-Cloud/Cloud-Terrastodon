@@ -15,6 +15,10 @@ are established foundation, not work to repeat. The completed changes are
 authorized for a local commit; publication and production-data access are outside
 this request.
 
+The [GUI cache ownership follow-up](gui-cache-ownership.md) applies this
+contract to shorter-lived standalone GUI owners. The lock remains exclusive
+for each owner and can transfer while the window is idle.
+
 ## How to update this plan
 
 - `[ ]` Not started

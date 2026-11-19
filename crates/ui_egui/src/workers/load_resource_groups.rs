@@ -13,6 +13,7 @@ pub fn load_resource_groups(app: &mut MyApp) {
         return;
     };
     let executor = app.executor.clone();
+    let work_cache = app.work_cache.clone();
     let cancellation = executor.cancellation().clone();
     let started_at = Instant::now();
     info!("Queueing work to fetch resource groups");
@@ -24,7 +25,7 @@ pub fn load_resource_groups(app: &mut MyApp) {
             }
         })
         .work(async move |scope| {
-            let executor = executor.with_cancellation_scope(scope);
+            let executor = work_cache.job_executor(&executor.with_cancellation_scope(scope))?;
             let resource_groups = AzureResourceGroupListRequest { authentication }
                 .execute(&executor)
                 .await?;

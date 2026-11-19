@@ -19,6 +19,7 @@ pub fn load_azure_devops_projects(app: &mut MyApp) {
         return;
     };
     let executor = app.executor.clone();
+    let work_cache = app.work_cache.clone();
     let cancellation = executor.cancellation().clone();
     let started_at = Instant::now();
     let work = LoadableWorkBuilder::<MyApp, Arc<Vec<Arc<AzureDevOpsProject>>>>::new()
@@ -29,7 +30,7 @@ pub fn load_azure_devops_projects(app: &mut MyApp) {
             }
         })
         .work(async move |scope| {
-            let executor = executor.with_cancellation_scope(scope);
+            let executor = work_cache.job_executor(&executor.with_cancellation_scope(scope))?;
             let projects = AzureDevOpsProjectsListRequest {
                 org_url: Cow::Borrowed(&org_url),
                 auth_selection: (authentication.into()),

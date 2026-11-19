@@ -8,7 +8,9 @@ use crate::git_revision::set_git_revision;
 use crate::version::full_version;
 use crate::version::set_version;
 use cloud_terrastodon_app::App;
+use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_auth::CredentialAuthenticationProvider;
+use cloud_terrastodon_cache::WorkCacheActivity;
 use eyre::Result;
 use std::process::ExitCode;
 use std::process::Termination;
@@ -54,12 +56,29 @@ pub fn entrypoint(
     );
     app.log_capture(enable_egui || capture_canvas_logs)
         .run_parsed(cli, |cli, context| async move {
-            cli.invoke(
-                &context.cancellation,
-                &context.executor(),
-                context.log_capture(),
-            )
-            .await
+            let executor = context.executor();
+            let log_capture = context.log_capture();
+            match cli {
+                Cli {
+                    command: Some(CloudTerrastodonCommand::Egui(args)),
+                    ..
+                } => {
+                    // The standalone invocation's cache is still unacquired.
+                    // Cache-backed GUI jobs own their own shared activity here.
+                    let activity = WorkCacheActivity::new(executor.cache()?.root())?;
+                    let log_capture = log_capture.ok_or_else(|| {
+                        eyre::eyre!("egui requires application-owned log capture")
+                    })?;
+                    Box::pin(args.invoke_with_cache_activity(
+                        &executor,
+                        log_capture,
+                        Some(activity),
+                    ))
+                    .await?;
+                    Ok(CliOutput::none())
+                }
+                cli => Box::pin(cli.invoke(&context.cancellation, &executor, log_capture)).await,
+            }
         })
 }
 

@@ -1,4 +1,5 @@
 use crate::azure_account_registration::AzureAccountRegistration;
+use crate::gui_work_cache::GuiWorkCache;
 use cloud_terrastodon_auth::AccountSignInPrompt;
 use cloud_terrastodon_auth::AzureDevOpsPersonalAccessToken;
 use cloud_terrastodon_auth::CloudTerrastodonAccountStore;
@@ -77,6 +78,7 @@ impl AzureAccountAction {
         self,
         store: &CloudTerrastodonAccountStore,
         executor: &CloudTerrastodonExecutor,
+        work_cache: &GuiWorkCache,
         prompt: &(dyn Fn(AccountSignInPrompt) + Send + Sync),
     ) -> Result<Option<CloudTerrastodonAccountId>> {
         let cancellation = executor.cancellation();
@@ -126,17 +128,26 @@ impl AzureAccountAction {
                     .await?;
             }
             Self::Reauthenticate { account_id, source } => {
+                {
+                    let retirement = work_cache.job_executor(executor)?;
+                    store
+                        .retire_for_reauthentication(account_id, source, &retirement)
+                        .await?;
+                }
+                // The sign-in prompt can stay open independently of cache ownership.
                 store
-                    .reauthenticate(account_id, source, prompt, executor)
+                    .sign_in(account_id, Some(source), None, prompt, cancellation)
                     .await?;
             }
             Self::Logout { account_id, source } => {
+                let executor = work_cache.job_executor(executor)?;
                 store
-                    .logout_with_executor(account_id, source, executor)
+                    .logout_with_executor(account_id, source, &executor)
                     .await?;
             }
             Self::Remove(account_id) => {
-                store.remove_with_executor(account_id, executor).await?;
+                let executor = work_cache.job_executor(executor)?;
+                store.remove_with_executor(account_id, &executor).await?;
             }
             Self::ImportLegacy { account_id, source } => {
                 store

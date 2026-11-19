@@ -193,7 +193,7 @@ account ID, concrete source, tenant, and operation data; the executor owns
 credentials, cancellation, and the shared cache. Local file/process helpers
 continue accepting only a cancellation scope when that is all they need.
 
-An invocation owns one `WorkCache`. Use `App::work_cache(cache)` to provide an
+By default, an invocation owns one `WorkCache`. Use `App::work_cache(cache)` to provide an
 explicit owner, including `WorkCache::temporary()?` for an isolated application
 or test. Every `AppContext::executor()` clone shares that owner; the temporary
 directory lives until its last owner is dropped.
@@ -209,9 +209,22 @@ operation. A separate handle in the same process also waits, so do not await tha
 handle while retaining the first owner.
 
 Ownership lasts until the final cache handle, artifact handle, or filesystem
-worker drops; it is not released between operations. A second command can then
-reuse valid disk results. This does not memoize mutations or bypass explicit
-refresh requests, and strict waiter ordering is not promised.
+worker drops. A second command can then reuse valid disk results. Mutations
+and explicit refresh requests follow their normal execution policies, and
+waiter order can vary.
+
+The standalone `ct egui` creates one owner for overlapping cache-backed jobs
+on the default persistent root. When those jobs and their artifact workers
+finish, the CLI can use that root while the window stays open. A CLI request
+can still wait during active GUI cache work. Disk reuse requires a matching
+cache identity, including the authentication partition. Values already
+displayed in the window are snapshots. A later GUI load checks disk state
+again, so it sees invalidations that apply to its requests.
+
+Embedded `egui_main` uses the caller's cache owner. Hosts may explicitly use
+`egui_main_with_shared_cache` with a `WorkCacheActivity` over a persistent root.
+The host must keep its idle executor from holding that root's lease because
+independent owners of the same path contend in the same process too.
 
 If a process terminates or finishes with unresolved publication/invalidation
 errors, the next owner removes all reusable selections before admitting work.

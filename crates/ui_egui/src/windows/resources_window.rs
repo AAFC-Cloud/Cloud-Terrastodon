@@ -314,6 +314,7 @@ fn load_resources(app: &mut MyApp, refresh: bool) {
         return;
     };
     let executor = app.executor.clone();
+    let work_cache = app.work_cache.clone();
     let cancellation = executor.cancellation().clone();
     let generation = app.account_generation;
     let started_at = Instant::now();
@@ -325,7 +326,7 @@ fn load_resources(app: &mut MyApp, refresh: bool) {
             }
         })
         .work(async move |scope| {
-            let executor = executor.with_cancellation_scope(scope);
+            let executor = work_cache.job_executor(&executor.with_cancellation_scope(scope))?;
             Ok(Arc::new(
                 AzureResourceListRequest { authentication }
                     .execute(&executor)

@@ -3,6 +3,7 @@ use crate::azure_account_manager::AzureAccountManager;
 use crate::azure_account_operation::AzureAccountOperation;
 use crate::azure_account_picker::AzureAccountPicker;
 use crate::azure_tenant_manager::AzureTenantManager;
+use crate::gui_work_cache::GuiWorkCache;
 use crate::portal_page::PortalPage;
 use cloud_terrastodon_auth::CloudTerrastodonAccountStore;
 use cloud_terrastodon_auth::CredentialAuthenticationProvider;
@@ -42,7 +43,10 @@ use tracing::error;
 use tracing::info;
 
 pub struct MyApp {
+    /// In standalone mode, this executor supplies the provider and scope while
+    /// cache jobs bind their own active owner through `work_cache`.
     pub executor: CloudTerrastodonExecutor,
+    pub(crate) work_cache: GuiWorkCache,
     pub azure_devops_organization: Option<AzureDevOpsOrganizationUrl>,
     pub authentication: Option<AzureBearerAuthenticationSelection>,
     pub account_picker: AzureAccountPicker,
@@ -112,6 +116,7 @@ impl MyApp {
         let executor = executor.with_authentication(account_authentication.clone())?;
         Ok(Self {
             executor,
+            work_cache: GuiWorkCache::CallerOwned,
             azure_devops_organization,
             authentication,
             account_picker,

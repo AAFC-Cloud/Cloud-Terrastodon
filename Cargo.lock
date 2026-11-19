@@ -1737,6 +1737,7 @@ dependencies = [
  "cloud_terrastodon_auth_types",
  "cloud_terrastodon_azure",
  "cloud_terrastodon_azure_devops",
+ "cloud_terrastodon_cache",
  "cloud_terrastodon_command",
  "cloud_terrastodon_config",
  "cloud_terrastodon_execution",

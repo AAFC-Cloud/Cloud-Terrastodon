@@ -1,5 +1,7 @@
 # Unreleased
 
+- Release the shared work-cache lock when the standalone egui window finishes its cache-backed jobs. CLI commands can reuse or invalidate the same disk cache while the window is idle. Overlapping GUI jobs share one cache owner.
+
 - Manage account registrations, credential sources, and tracked Azure tenants from the desktop account menu. Switch signed-in Entra sources, sign in or renew a session with in-window prompts, and reload account changes made in the CLI without restarting the app.
 
 - Use `teamy-tracing 0.3.0` from crates.io for retained reports, live log capture, and diagnostic widgets. Add a Logs view, upgrade to egui 0.36.2 with glow, and use Allo variable-font weights.
