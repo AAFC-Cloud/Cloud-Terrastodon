@@ -1,4 +1,5 @@
 use crate::app::MyApp;
+use crate::portal_page::PortalPage;
 use crate::portal_tab_target::PortalTabTarget;
 use crate::workers::load_subscriptions::load_subscriptions;
 use cloud_terrastodon_azure::ManagementGroup;
@@ -30,7 +31,7 @@ impl MyApp {
         }
     }
 
-    /// Build the Azure scope path from structural IDs and the current account's
+    /// Build the path from Home through the Azure scope IDs and the current account's
     /// [Resource Graph management group ancestry](https://learn.microsoft.com/en-us/azure/governance/resource-graph/samples/samples-by-category#management-groups).
     pub(crate) fn portal_hierarchy(&self, target: &PortalTabTarget) -> Vec<PortalTabTarget> {
         let ancestors = match target {
@@ -107,20 +108,26 @@ fn hierarchy_from_ancestors(
     target: &PortalTabTarget,
     ancestors: &[ManagementGroupAncestorsChainEntry],
 ) -> Vec<PortalTabTarget> {
-    // Resource Graph reports these from the immediate parent toward the root.
-    let mut hierarchy: Vec<_> = ancestors
-        .iter()
-        .rev()
-        .map(|ancestor| PortalTabTarget::ManagementGroup(ancestor.id()))
-        .collect();
     let overview = match target {
         PortalTabTarget::ScopeView { scope, .. } => Some(scope.overview()),
         PortalTabTarget::ResourceOutput { resource, .. } => Some(resource.overview()),
         _ => None,
     };
     let resource = overview.as_ref().unwrap_or(target);
+    let subscription = resource.containing_subscription();
+    let mut hierarchy = Vec::new();
+    if subscription.is_some() || matches!(resource, PortalTabTarget::ManagementGroup(_)) {
+        hierarchy.push(PortalTabTarget::Page(PortalPage::Home));
+    }
+    // Resource Graph reports these from the immediate parent toward the root.
+    hierarchy.extend(
+        ancestors
+            .iter()
+            .rev()
+            .map(|ancestor| PortalTabTarget::ManagementGroup(ancestor.id())),
+    );
     if !matches!(resource, PortalTabTarget::Subscription(_))
-        && let Some(id) = resource.containing_subscription()
+        && let Some(id) = subscription
     {
         hierarchy.push(PortalTabTarget::Subscription(id));
     }
@@ -143,6 +150,23 @@ mod tests {
     use cloud_terrastodon_azure::AzureStorageAccountId;
 
     #[test]
+    fn tenant_root_has_a_home_breadcrumb() {
+        let root = PortalTabTarget::ManagementGroup(ManagementGroupId::from_name("root"));
+        assert_eq!(
+            hierarchy_from_ancestors(&root, &[]),
+            [PortalTabTarget::Page(PortalPage::Home), root],
+        );
+    }
+
+    #[test]
+    fn pages_without_a_resource_hierarchy_have_no_parent_breadcrumb() {
+        for page in [PortalPage::Home, PortalPage::Accounts] {
+            let target = PortalTabTarget::Page(page);
+            assert_eq!(hierarchy_from_ancestors(&target, &[]), [target]);
+        }
+    }
+
+    #[test]
     fn scoped_view_keeps_its_overview_as_the_nearest_breadcrumb() -> eyre::Result<()> {
         let group = AzureResourceGroupId::try_new(
             "00000000-0000-0000-0000-000000000001",
@@ -155,6 +179,7 @@ mod tests {
         assert_eq!(
             hierarchy_from_ancestors(&view, &[]),
             [
+                PortalTabTarget::Page(PortalPage::Home),
                 PortalTabTarget::Subscription(group.subscription_id),
                 PortalTabTarget::ResourceGroup(group),
                 view,
@@ -178,7 +203,11 @@ mod tests {
         };
         assert_eq!(
             hierarchy_from_ancestors(&subscription_output, &[]),
-            [subscription.clone(), subscription_output],
+            [
+                PortalTabTarget::Page(PortalPage::Home),
+                subscription.clone(),
+                subscription_output,
+            ],
         );
 
         let group_output = PortalTabTarget::ResourceOutput {
@@ -190,9 +219,10 @@ mod tests {
         assert_eq!(
             hierarchy_from_ancestors(&group_output, &[]),
             [
+                PortalTabTarget::Page(PortalPage::Home),
                 subscription,
                 PortalTabTarget::ResourceGroup(group),
-                group_output
+                group_output,
             ],
         );
         Ok(())
@@ -220,6 +250,7 @@ mod tests {
             },
         ];
         let without_ancestry = vec![
+            PortalTabTarget::Page(PortalPage::Home),
             PortalTabTarget::Subscription(group_id.subscription_id),
             PortalTabTarget::ResourceGroup(group_id),
             PortalTabTarget::StorageAccount(storage_id),
@@ -229,11 +260,12 @@ mod tests {
         assert_eq!(
             hierarchy_from_ancestors(&output, &nearest_parent_first),
             [
+                PortalTabTarget::Page(PortalPage::Home),
                 PortalTabTarget::ManagementGroup(ManagementGroupId::from_name("root")),
                 PortalTabTarget::ManagementGroup(ManagementGroupId::from_name("workloads")),
             ]
             .into_iter()
-            .chain(without_ancestry)
+            .chain(without_ancestry.into_iter().skip(1))
             .collect::<Vec<_>>()
         );
 
@@ -248,6 +280,7 @@ mod tests {
         assert_eq!(
             hierarchy_from_ancestors(&target, ancestors),
             [
+                PortalTabTarget::Page(PortalPage::Home),
                 PortalTabTarget::ManagementGroup(ManagementGroupId::from_name("root")),
                 target,
             ]

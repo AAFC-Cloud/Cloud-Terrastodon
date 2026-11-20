@@ -18,10 +18,10 @@ impl MyApp {
         ui: &mut Ui,
         target: &PortalTabTarget,
     ) -> bool {
-        let hierarchy = self.portal_hierarchy(target);
-        if hierarchy.len() < 2 {
+        let mut hierarchy = self.portal_hierarchy(target).into_iter();
+        let Some(home) = hierarchy.next().filter(|_| hierarchy.len() > 0) else {
             return false;
-        }
+        };
         let parent = Frame::new()
             .inner_margin(Margin {
                 left: 12,
@@ -29,25 +29,32 @@ impl MyApp {
                 ..Margin::ZERO
             })
             .show(ui, |ui| {
-                ScrollArea::horizontal()
-                    .id_salt("portal-hierarchy")
-                    .stick_to_right(true)
-                    .show(ui, |ui| {
-                        ui.horizontal(|ui| {
-                            let mut parent = None;
-                            for (position, scope) in hierarchy.into_iter().enumerate() {
-                                if position > 0 {
-                                    ui.label("›");
+                ui.horizontal(|ui| {
+                    // Keep Home reachable when the rest of the hierarchy overflows.
+                    let open_home = self.portal_breadcrumb(ui, &home, false);
+                    ui.label("›");
+                    let parent = ScrollArea::horizontal()
+                        .id_salt("portal-hierarchy")
+                        .stick_to_right(true)
+                        .show(ui, |ui| {
+                            ui.horizontal(|ui| {
+                                let mut parent = None;
+                                for (position, scope) in hierarchy.enumerate() {
+                                    if position > 0 {
+                                        ui.label("›");
+                                    }
+                                    if self.portal_breadcrumb(ui, &scope, &scope == target) {
+                                        parent = Some(scope);
+                                    }
                                 }
-                                if self.portal_breadcrumb(ui, &scope, &scope == target) {
-                                    parent = Some(scope);
-                                }
-                            }
-                            parent
+                                parent
+                            })
+                            .inner
                         })
-                        .inner
-                    })
-                    .inner
+                        .inner;
+                    if open_home { Some(home) } else { parent }
+                })
+                .inner
             })
             .inner;
         if let Some(parent) = parent {
