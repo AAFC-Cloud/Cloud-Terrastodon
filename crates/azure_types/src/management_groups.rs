@@ -46,8 +46,8 @@ impl FromStr for ManagementGroupId {
     type Err = uuid::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let s = s.strip_prefix(MANAGEMENT_GROUP_ID_PREFIX).unwrap_or(s);
-        Ok(Self::from_name(s))
+        let name = strip_prefix_case_insensitive(s, MANAGEMENT_GROUP_ID_PREFIX).unwrap_or(s);
+        Ok(Self::from_name(name))
     }
 }
 impl NameValidatable for ManagementGroupId {
@@ -62,9 +62,7 @@ impl Scope for ManagementGroupId {
         // this doesn't use TryFromManagementGroupScoped because it itself is the scope, the management group isn't a prefix
         let name = strip_prefix_case_insensitive(expanded, MANAGEMENT_GROUP_ID_PREFIX)?;
         validate_management_group_name(name)?;
-        Ok(ManagementGroupId {
-            expanded: expanded.to_string(),
-        })
+        Ok(Self::from_name(name))
     }
 
     fn expanded_form(&self) -> String {
@@ -137,6 +135,15 @@ mod tests {
         let id = ManagementGroupId::from_name("bruh");
         let name = id.name();
         assert_eq!(name, "bruh");
+        Ok(())
+    }
+
+    #[test]
+    fn provider_prefix_casing_does_not_change_management_group_identity() -> Result<()> {
+        let incoming_id = "/providers/microsoft.management/managementgroups/example";
+        let expected = ManagementGroupId::from_name("example");
+        assert_eq!(incoming_id.parse::<ManagementGroupId>()?, expected);
+        assert_eq!(ManagementGroupId::try_from_expanded(incoming_id)?, expected);
         Ok(())
     }
 
