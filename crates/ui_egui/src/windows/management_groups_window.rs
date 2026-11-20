@@ -3,18 +3,14 @@ use crate::icons::page_icon;
 use crate::inventory_table::show_inventory_table;
 use crate::portal_page::PortalPage;
 use crate::portal_tab_target::PortalTabTarget;
-use crate::reflected_value::ReflectedValue;
-use crate::resource_detail_header::resource_detail_header;
 use crate::table_row_background::TableRowBackground;
 use cloud_terrastodon_azure::AzureManagementGroupListRequest;
-use cloud_terrastodon_azure::ManagementGroupId;
 use cloud_terrastodon_command::app_work::Loadable;
 use cloud_terrastodon_command::app_work::LoadableWorkBuilder;
 use cloud_terrastodon_execution::ExecutableRequest;
 use eframe::egui::Button;
 use eframe::egui::Image;
 use eframe::egui::Label;
-use eframe::egui::ScrollArea;
 use eframe::egui::Ui;
 use eframe::egui::Vec2;
 use egui_extras::Column;
@@ -111,49 +107,6 @@ pub(crate) fn management_groups_ui(app: &mut MyApp, ui: &mut Ui) {
     }
     if let Some(group) = next {
         app.navigate_tab(PortalTabTarget::ManagementGroup(group));
-    }
-}
-
-pub(crate) fn management_group_details_ui(app: &mut MyApp, ui: &mut Ui, id: &ManagementGroupId) {
-    if resource_detail_header(
-        ui,
-        app.management_group_title(id).unwrap_or(id.name()),
-        "Management group",
-        PortalPage::ManagementGroups,
-    ) {
-        app.navigate(PortalPage::ManagementGroups);
-        return;
-    }
-    if app.show_azure_authentication_required(ui) {
-        return;
-    }
-    if matches!(app.management_groups, Loadable::NotLoaded) {
-        load_management_groups(app, false);
-    }
-    if let Some(group) = app.management_group(id) {
-        ui.push_id(id, |ui| {
-            ScrollArea::vertical().show(ui, |ui| ReflectedValue::new(group).show(ui));
-        });
-        return;
-    }
-    ui.horizontal_wrapped(|ui| {
-        ui.monospace(id.to_string());
-        if ui.small_button("Copy resource ID").clicked() {
-            ui.ctx().copy_text(id.to_string());
-        }
-    });
-    match &app.management_groups {
-        Loadable::NotLoaded | Loadable::Loading { .. } => {
-            ui.spinner();
-        }
-        Loadable::Loaded { .. } => {
-            ui.label("Group details are unavailable for the selected account.");
-        }
-        Loadable::Failed { error, .. } => {
-            ui.collapsing("Error details", |ui| {
-                DiagnosticReportView::new(error).show(ui)
-            });
-        }
     }
 }
 

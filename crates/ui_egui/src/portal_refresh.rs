@@ -35,10 +35,14 @@ impl MyApp {
                 self.ready_azure_authentication().is_some()
                     && !matches!(self.resource_groups, Loadable::Loading { .. })
             }
-            PortalTabTarget::Page(PortalPage::ManagementGroups)
-            | PortalTabTarget::ManagementGroup(_) => {
+            PortalTabTarget::Page(PortalPage::ManagementGroups) => {
                 self.ready_azure_authentication().is_some()
                     && !matches!(self.management_groups, Loadable::Loading { .. })
+            }
+            PortalTabTarget::ManagementGroup(_) => {
+                self.ready_azure_authentication().is_some()
+                    && !matches!(self.management_groups, Loadable::Loading { .. })
+                    && !matches!(self.subscriptions, Loadable::Loading { .. })
             }
             PortalTabTarget::ResourceGroup(_) => {
                 self.ready_azure_authentication().is_some()
@@ -121,8 +125,13 @@ impl MyApp {
             PortalTabTarget::Page(PortalPage::ResourceGroups) => {
                 load_resource_groups(self, true);
             }
-            PortalTabTarget::Page(PortalPage::ManagementGroups)
-            | PortalTabTarget::ManagementGroup(_) => load_management_groups(self, true),
+            PortalTabTarget::Page(PortalPage::ManagementGroups) => {
+                load_management_groups(self, true)
+            }
+            PortalTabTarget::ManagementGroup(_) => {
+                load_management_groups(self, true);
+                load_subscriptions_with_invalidation(self, true);
+            }
             PortalTabTarget::ResourceGroup(_) => {
                 load_resource_groups(self, true);
                 load_resources(self, true);

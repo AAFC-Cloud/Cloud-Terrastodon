@@ -1,5 +1,6 @@
 use crate::app::MyApp;
 use crate::file_drag_and_drop::ui_file_drag_and_drop;
+use crate::management_group_overview::management_group_details_ui;
 use crate::portal_home::portal_home;
 use crate::portal_page::PortalPage;
 use crate::portal_resource_scope::PortalResourceScope;
@@ -9,7 +10,6 @@ use crate::scope_detail::scope_detail_ui;
 use crate::windows::azure_devops_organizations_window::azure_devops_organizations_ui;
 use crate::windows::azure_devops_projects_window::azure_devops_projects_ui;
 use crate::windows::dir_window::local_path_ui;
-use crate::windows::management_groups_window::management_group_details_ui;
 use crate::windows::management_groups_window::management_groups_ui;
 use crate::windows::resource_groups_window::resource_groups_ui;
 use crate::windows::resources_window::resources_of_type_ui;

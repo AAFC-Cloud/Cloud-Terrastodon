@@ -62,7 +62,7 @@ pub(crate) fn scope_navigation(
         .inner
 }
 
-fn navigation_tile(
+pub(crate) fn navigation_tile(
     ui: &mut Ui,
     title: &str,
     icon: ImageSource<'static>,
