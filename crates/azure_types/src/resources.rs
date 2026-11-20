@@ -1,5 +1,6 @@
 use crate::ArbitraryJson;
 use crate::AsScope;
+use crate::AzureLocationName;
 use crate::AzureResourceGroupId;
 use crate::ResourceType;
 use crate::Scope;
@@ -137,6 +138,10 @@ pub struct Resource {
     #[facet(proxy = crate::ResourceTypeProxy)]
     pub kind: ResourceType,
     pub name: String,
+    /// Region projected by [Azure Resource Graph](https://learn.microsoft.com/en-us/rest/api/azureresourcegraph/resourcegraph/resources/resources?view=rest-azureresourcegraph-resourcegraph-2024-04-01).
+    /// Older snapshots and resources with no reported location can omit it.
+    #[facet(default)]
+    pub location: Option<AzureLocationName>,
     #[facet(default, proxy = crate::StringMapDefaultNullProxy)]
     pub tags: HashMap<String, String>,
     #[facet(
@@ -158,6 +163,7 @@ impl<'a> Arbitrary<'a> for Resource {
             id: ScopeImpl::arbitrary(u)?,
             kind: ResourceType::MICROSOFT_DOT_NETWORK_SLASH_VIRTUALNETWORKS,
             name,
+            location: Option::arbitrary(u)?,
             tags: HashMap::arbitrary(u)?,
             properties,
         })

@@ -410,6 +410,7 @@ mod tests {
             id: ScopeImpl::from_str("/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/my-resource-group/providers/Microsoft.Network/virtualNetworks/my-vnet/subnets/my-subnet").unwrap(),
             kind: ResourceType::MICROSOFT_DOT_NETWORK_SLASH_VIRTUALNETWORKS,
             name: "my-vnet/my-subnet".to_owned(),
+            location: None,
             tags: HashMap::new(),
             properties: HashMap::new(),
         };
@@ -417,6 +418,7 @@ mod tests {
             id: ScopeImpl::from_str("/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/other-resource-group/providers/Microsoft.Network/virtualNetworks/other-vnet/subnets/my-subnet").unwrap(),
             kind: ResourceType::MICROSOFT_DOT_NETWORK_SLASH_VIRTUALNETWORKS,
             name: "other-vnet/my-subnet".to_owned(),
+            location: None,
             tags: HashMap::new(),
             properties: HashMap::new(),
         };
@@ -529,6 +531,7 @@ mod tests {
             id: ScopeImpl::from_str("/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/my-resource-group/providers/Microsoft.Network/virtualNetworks/my-vnet").unwrap(),
             kind: ResourceType::MICROSOFT_DOT_NETWORK_SLASH_VIRTUALNETWORKS,
             name: "my-vnet".to_owned(),
+            location: None,
             tags: HashMap::new(),
             properties: HashMap::new(),
         };

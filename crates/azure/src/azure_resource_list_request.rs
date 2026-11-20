@@ -58,6 +58,7 @@ resources
     id,
     ['kind'] = type,
     name,
+    location = iff(isempty(location), dynamic(null), todynamic(location)),
     tags,
     properties
 "#,

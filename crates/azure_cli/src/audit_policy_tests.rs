@@ -207,6 +207,7 @@ fn audit_policy_tests_compare_only_existing_tags_with_the_nearest_inventoried_pa
                 id: path.parse().unwrap(),
                 kind: ResourceType::MICROSOFT_DOT_NETWORK_SLASH_VIRTUALNETWORKS,
                 name: "fixture".into(),
+                location: None,
                 tags: tags
                     .into_iter()
                     .map(|(key, value)| (key.into(), value.into()))
