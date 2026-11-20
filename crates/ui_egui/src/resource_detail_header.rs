@@ -4,7 +4,6 @@ use eframe::egui::Button;
 use eframe::egui::CursorIcon;
 use eframe::egui::Frame;
 use eframe::egui::Image;
-use eframe::egui::Link;
 use eframe::egui::Margin;
 use eframe::egui::RichText;
 use eframe::egui::Ui;
@@ -40,14 +39,15 @@ pub(crate) fn resource_detail_header(
                 let type_link = ui
                     .vertical(|ui| {
                         ui.spacing_mut().item_spacing.y = 2.0;
-                        let name_color = ui
-                            .visuals()
-                            .text_color()
-                            .lerp_to_gamma(ui.visuals().weak_text_color(), 0.35);
-                        ui.label(RichText::new(name).strong().size(19.0).color(name_color));
-                        ui.add(Link::new(RichText::new(resource_type).size(12.0)))
-                            .on_hover_text(inventory.title())
-                            .clicked()
+                        ui.label(RichText::new(name).strong().size(22.0));
+                        ui.add(
+                            Button::new(RichText::new(resource_type).size(12.0).weak())
+                                .small()
+                                .frame(false),
+                        )
+                        .on_hover_cursor(CursorIcon::PointingHand)
+                        .on_hover_text(inventory.title())
+                        .clicked()
                     })
                     .inner;
                 icon.clicked() || type_link

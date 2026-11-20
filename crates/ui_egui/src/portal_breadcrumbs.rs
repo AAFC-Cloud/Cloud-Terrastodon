@@ -6,9 +6,7 @@ use eframe::egui::CursorIcon;
 use eframe::egui::Frame;
 use eframe::egui::Image;
 use eframe::egui::Margin;
-use eframe::egui::RichText;
 use eframe::egui::ScrollArea;
-use eframe::egui::Stroke;
 use eframe::egui::TextWrapMode;
 use eframe::egui::Ui;
 use eframe::egui::Vec2;
@@ -72,27 +70,15 @@ impl MyApp {
             });
             false
         } else {
-            let color = ui.visuals().hyperlink_color;
-            let label = RichText::new(title.as_ref()).color(color);
-            let response = ui
-                .add(
-                    Button::new((icon, label))
-                        .small()
-                        .frame(false)
-                        .gap(ICON_GAP)
-                        .wrap_mode(TextWrapMode::Extend),
-                )
-                .on_hover_cursor(CursorIcon::PointingHand);
-            if response.hovered() || response.has_focus() {
-                let mut label_rect = response.rect;
-                label_rect.min.x += ICON_SIZE + ICON_GAP;
-                ui.painter().hline(
-                    label_rect.x_range(),
-                    label_rect.bottom(),
-                    Stroke::new(1.0, color),
-                );
-            }
-            response.clicked()
+            ui.add(
+                Button::new((icon, title.as_ref()))
+                    .small()
+                    .frame(false)
+                    .gap(ICON_GAP)
+                    .wrap_mode(TextWrapMode::Extend),
+            )
+            .on_hover_cursor(CursorIcon::PointingHand)
+            .clicked()
         }
     }
 }
