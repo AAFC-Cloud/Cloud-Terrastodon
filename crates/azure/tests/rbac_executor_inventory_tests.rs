@@ -59,6 +59,8 @@ fn assignment(definition: &RoleDefinition, principal: u8) -> Arc<RoleAssignment>
         scope: "/subscriptions/00000000-0000-0000-0000-000000000004".parse().unwrap(),
         role_definition_id: definition.id.clone(),
         principal_id: format!("00000000-0000-0000-0000-{principal:012}").parse().unwrap(),
+        principal_type: None,
+        condition: None,
     })
 }
 

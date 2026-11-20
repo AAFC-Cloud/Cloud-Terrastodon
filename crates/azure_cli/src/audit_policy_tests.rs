@@ -240,6 +240,8 @@ fn audit_policy_tests_report_only_unknown_assignment_principals() -> eyre::Resul
             scope: "/".parse().unwrap(),
             role_definition_id: definition.id.clone(),
             principal_id: EntraPrincipalId::new(uuid::Uuid::from_u128(id)),
+            principal_type: None,
+            condition: None,
         })
     });
     let rbac = RoleDefinitionsAndAssignments::try_new([definition], assignments)?;

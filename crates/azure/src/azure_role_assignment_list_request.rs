@@ -80,7 +80,9 @@ authorizationresources
     id,
     scope=properties.scope,
     role_definition_id=properties.roleDefinitionId,
-    principal_id=properties.principalId
+    principal_id=properties.principalId,
+    principal_type=properties.principalType,
+    condition=properties.condition
 "#,
                             Some(self.cache_key()?),
                             self.authentication,

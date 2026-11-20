@@ -1,5 +1,6 @@
 use crate::EntraPrincipalId;
 use crate::RoleAssignmentId;
+use crate::RoleAssignmentPrincipalType;
 use crate::RoleDefinitionId;
 use crate::scopes::AsScope;
 use crate::scopes::Scope;
@@ -21,6 +22,12 @@ pub struct RoleAssignment {
     pub scope: ScopeImpl,
     pub role_definition_id: RoleDefinitionId,
     pub principal_id: EntraPrincipalId,
+    /// Principal type when present in the Resource Graph inventory.
+    #[facet(default)]
+    pub principal_type: Option<RoleAssignmentPrincipalType>,
+    /// The optional expression restricting the assignment.
+    #[facet(default)]
+    pub condition: Option<String>,
 }
 
 impl<'a> Arbitrary<'a> for RoleAssignment {
@@ -30,6 +37,8 @@ impl<'a> Arbitrary<'a> for RoleAssignment {
             scope: ScopeImpl::arbitrary(u)?,
             role_definition_id: RoleDefinitionId::arbitrary(u)?,
             principal_id: EntraPrincipalId::arbitrary(u)?,
+            principal_type: Option::arbitrary(u)?,
+            condition: Option::arbitrary(u)?,
         })
     }
 }

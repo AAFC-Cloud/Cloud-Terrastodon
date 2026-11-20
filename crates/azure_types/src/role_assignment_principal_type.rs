@@ -2,7 +2,7 @@ use arbitrary::Arbitrary;
 use facet::Facet;
 
 /// [Azure RBAC principal type](https://learn.microsoft.com/rest/api/authorization/role-assignments/create?view=rest-authorization-2022-04-01#principaltype).
-#[derive(Debug, Clone, Arbitrary, Facet)]
+#[derive(Debug, Eq, PartialEq, Clone, Arbitrary, Facet)]
 #[facet(proxy = String)]
 #[repr(C)]
 pub enum RoleAssignmentPrincipalType {
