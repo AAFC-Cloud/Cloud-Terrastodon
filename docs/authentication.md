@@ -41,7 +41,7 @@ Register an acquisition source, then explicitly provision its credential session
 
 ```text
 ct account add azure-cli --name admin --tenant <tenant-or-alias>
-ct account login <account-id>
+ct account login admin
 ct az devops project list --org <organization> --tenant <tenant-or-alias> --account admin
 ```
 
@@ -51,9 +51,13 @@ arguments. `--account` accepts an ID or an alias within the command's explicit
 tenant/service namespace. No account is selected merely because it is first or
 is the only account available. The alias `default` is reserved, ignoring case.
 
+Account management commands accept a UUID or an alias. If the same alias is
+registered in multiple scopes, use the UUID shown by `ct account list`.
+`account credential add` can resolve an alias within its `--tenant`.
+
 ```text
 ct account list
-ct account show <account-id>
+ct account show admin
 ct account default set <account-id>
 ct account default clear <account-id>
 ```
@@ -219,11 +223,14 @@ result reuse remains disabled under the existing external-provider policy.
 ```text
 ct account logout <account-id>
 ct account logout <account-id> --source browser
+ct account logout --all
 ct account remove <account-id>
 ```
 
 Logout without `--source` retires every registered source; supplying it retires
-only that mechanism. Removal retires all sources. They do not log out ambient
+only that mechanism. `--all` signs out every registered account and preserves
+its registration and configured defaults. Use it on its own, without an account
+selector or `--source`. Removal retires all sources. They do not log out ambient
 Azure CLI accounts, revoke credentials remotely, or clear browser cookies.
 Removal also deletes the registration and any default referring to it; reusing
 its alias produces a new account ID.

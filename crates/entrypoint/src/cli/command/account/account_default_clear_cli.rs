@@ -1,18 +1,20 @@
 use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_auth::CloudTerrastodonAccountStore;
-use cloud_terrastodon_auth_types::CloudTerrastodonAccountId;
+use cloud_terrastodon_cli_types::CloudTerrastodonAccountArgument;
 use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 use facet::Facet;
 #[derive(Debug, Facet)]
 pub struct AccountDefaultClearArgs {
-    #[facet(figue::positional, proxy = String)]
-    pub account_id: CloudTerrastodonAccountId,
+    /// Account UUID or alias.
+    #[facet(figue::positional)]
+    pub account: CloudTerrastodonAccountArgument,
 }
 impl AccountDefaultClearArgs {
     pub async fn invoke(self, cancellation: &CancellationScope) -> Result<CliOutput> {
         let store = CloudTerrastodonAccountStore::configured();
-        store.clear_default(self.account_id, cancellation).await?;
-        Ok(CliOutput::facet(self.account_id))
+        let account_id = store.load()?.resolve(Some(&self.account), None)?.id;
+        store.clear_default(account_id, cancellation).await?;
+        Ok(CliOutput::facet(account_id))
     }
 }

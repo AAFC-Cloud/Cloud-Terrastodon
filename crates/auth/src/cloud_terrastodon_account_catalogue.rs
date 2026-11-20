@@ -1,8 +1,10 @@
 use crate::CloudTerrastodonAccountDefault;
+use cloud_terrastodon_auth_types::CloudTerrastodonAccountArgument;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountId;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountNamespace;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountProfile;
 use eyre::Result;
+use eyre::bail;
 use eyre::ensure;
 use facet::Facet;
 use std::collections::HashSet;
@@ -50,26 +52,70 @@ impl CloudTerrastodonAccountCatalogue {
             .ok_or_else(|| eyre::eyre!("account {id} is not registered"))
     }
 
+    /// Resolve an account ID or alias, optionally limiting it to a namespace.
+    /// Aliases must be unique in the searched registrations. Omitting the
+    /// account uses the configured default for the supplied namespace.
     pub fn resolve(
         &self,
-        namespace: &CloudTerrastodonAccountNamespace,
-        selector: Option<&str>,
+        account: Option<&CloudTerrastodonAccountArgument>,
+        namespace: Option<&CloudTerrastodonAccountNamespace>,
     ) -> Result<&CloudTerrastodonAccountProfile> {
-        let account = if let Some(selector) = selector {
-            if let Ok(id) = selector.parse::<CloudTerrastodonAccountId>() {
-                self.by_id(id)?
-            } else {
-                self.accounts.iter().find(|account| account.namespace == *namespace && account.alias.as_str() == selector)
-                    .ok_or_else(|| eyre::eyre!("account alias {selector:?} is not registered in the requested namespace"))?
+        let account = match account {
+            Some(CloudTerrastodonAccountArgument::Id(id)) => self.by_id(*id)?,
+            Some(CloudTerrastodonAccountArgument::Alias(alias)) => {
+                let alias = alias.as_str();
+                let mut matches = self.accounts.iter().filter(|account| {
+                    account.alias.as_str() == alias
+                        && namespace.is_none_or(|namespace| account.namespace == *namespace)
+                });
+                let first = matches.next().ok_or_else(|| {
+                    let qualifier = namespace.map_or("", |_| " in the requested namespace");
+                    eyre::eyre!("account alias {alias:?} is not registered{qualifier}")
+                })?;
+                if let Some(second) = matches.next() {
+                    let candidates = [first, second]
+                        .into_iter()
+                        .chain(matches)
+                        .map(|account| {
+                            let namespace = match &account.namespace {
+                                CloudTerrastodonAccountNamespace::Entra { tenant_id } => {
+                                    format!("Entra tenant {tenant_id}")
+                                }
+                                CloudTerrastodonAccountNamespace::AzureDevOps { organization } => {
+                                    format!("Azure DevOps organization {organization}")
+                                }
+                                CloudTerrastodonAccountNamespace::Gitea { instance } => {
+                                    format!("Gitea instance {instance}")
+                                }
+                            };
+                            format!("  {} ({namespace})", account.id)
+                        })
+                        .collect::<Vec<_>>()
+                        .join("\n");
+                    bail!(
+                        "account alias {alias:?} matches multiple registrations. Use one of these account IDs.\n{candidates}"
+                    );
+                }
+                first
             }
-        } else {
-            let id = self.defaults.iter().find(|default| default.namespace == *namespace)
-                .map(|default| default.account_id)
-                .ok_or_else(|| eyre::eyre!("no account was specified and this namespace has no configured account default"))?;
-            self.by_id(id)?
+            None => {
+                let namespace = namespace.ok_or_else(|| {
+                    eyre::eyre!("an account ID or alias is required without a namespace")
+                })?;
+                let default = self
+                    .defaults
+                    .iter()
+                    .find(|default| default.namespace == *namespace)
+                    .ok_or_else(|| {
+                        eyre::eyre!(
+                            "no account was specified and this namespace has no configured account default"
+                        )
+                    })?;
+                self.by_id(default.account_id)?
+            }
         };
         ensure!(
-            account.namespace == *namespace,
+            namespace.is_none_or(|namespace| account.namespace == *namespace),
             "selected account belongs to another tenant or service"
         );
         Ok(account)
@@ -101,14 +147,29 @@ mod tests {
         let namespace = CloudTerrastodonAccountNamespace::Entra {
             tenant_id: tenants[0],
         };
-        assert!(catalogue.resolve(&namespace, None).is_err());
+        let admin: CloudTerrastodonAccountArgument = "admin".parse()?;
+        let ambiguous = catalogue
+            .resolve(Some(&admin), None)
+            .unwrap_err()
+            .to_string();
+        assert!(ambiguous.contains("matches multiple registrations"));
+        for account in &catalogue.accounts {
+            assert!(ambiguous.contains(&account.id.to_string()));
+        }
+        assert!(catalogue.resolve(Some(&"Admin".parse()?), None).is_err());
         assert_eq!(
-            catalogue.resolve(&namespace, Some("admin"))?.id,
+            catalogue.resolve(Some(&admin), Some(&namespace))?.id,
             catalogue.accounts[0].id
+        );
+        assert!(catalogue.resolve(None, Some(&namespace)).is_err());
+        let other_account = CloudTerrastodonAccountArgument::Id(catalogue.accounts[1].id);
+        assert_eq!(
+            catalogue.resolve(Some(&other_account), None)?.id,
+            catalogue.accounts[1].id
         );
         assert!(
             catalogue
-                .resolve(&namespace, Some(&catalogue.accounts[1].id.to_string()))
+                .resolve(Some(&other_account), Some(&namespace))
                 .is_err()
         );
         catalogue.defaults.push(CloudTerrastodonAccountDefault {
@@ -116,11 +177,17 @@ mod tests {
             account_id: catalogue.accounts[0].id,
         });
         assert_eq!(
-            catalogue.resolve(&namespace, None)?.id,
+            catalogue.resolve(None, Some(&namespace))?.id,
             catalogue.accounts[0].id
         );
+        assert!(catalogue.resolve(None, None).is_err());
         catalogue.accounts.remove(0);
-        assert!(catalogue.resolve(&namespace, None).is_err());
+        assert_eq!(
+            catalogue.resolve(Some(&admin), None)?.id,
+            catalogue.accounts[0].id
+        );
+        assert!(catalogue.resolve(Some(&admin), Some(&namespace)).is_err());
+        assert!(catalogue.resolve(None, Some(&namespace)).is_err());
         Ok(())
     }
 }

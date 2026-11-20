@@ -1,12 +1,12 @@
+use crate::CloudTerrastodonAccountAlias;
+use crate::CloudTerrastodonAccountId;
 use arbitrary::Arbitrary;
-use cloud_terrastodon_auth_types::CloudTerrastodonAccountAlias;
-use cloud_terrastodon_auth_types::CloudTerrastodonAccountId;
 use facet::Facet;
 use std::fmt;
 use std::str::FromStr;
 
-/// Explicit account selection by stable identity or an alias in the command's scope.
-/// Parsing does not resolve defaults, configuration, credentials, or service scope.
+/// An explicit selector for a registered account by stable ID or alias.
+/// The account catalogue resolves aliases within any supplied namespace.
 #[derive(Debug, Clone, Eq, PartialEq, Facet, Arbitrary)]
 #[facet(proxy = String)]
 #[repr(u8)]

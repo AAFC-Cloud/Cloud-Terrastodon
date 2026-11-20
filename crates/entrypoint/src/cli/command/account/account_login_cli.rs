@@ -1,7 +1,7 @@
 use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_auth::CloudTerrastodonAccountStore;
-use cloud_terrastodon_auth_types::CloudTerrastodonAccountId;
 use cloud_terrastodon_auth_types::CloudTerrastodonCredentialSource;
+use cloud_terrastodon_cli_types::CloudTerrastodonAccountArgument;
 use cloud_terrastodon_command::CancellationScope;
 use eyre::Result;
 use facet::Facet;
@@ -11,8 +11,9 @@ use std::io::Read;
 /// principal after explicit logout. PATs are accepted through a pipe.
 #[derive(Debug, Facet)]
 pub struct AccountLoginArgs {
-    #[facet(figue::positional, proxy = String)]
-    pub account_id: CloudTerrastodonAccountId,
+    /// Account UUID or alias.
+    #[facet(figue::positional)]
+    pub account: CloudTerrastodonAccountArgument,
     /// Credential mechanism to provision; omission uses the account preference.
     #[facet(figue::named)]
     pub source: Option<CloudTerrastodonCredentialSource>,
@@ -21,6 +22,8 @@ pub struct AccountLoginArgs {
 }
 impl AccountLoginArgs {
     pub async fn invoke(self, cancellation: &CancellationScope) -> Result<CliOutput> {
+        let store = CloudTerrastodonAccountStore::configured();
+        let account_id = store.load()?.resolve(Some(&self.account), None)?.id;
         let mut token = String::new();
         if self.pat_stdin {
             eyre::ensure!(
@@ -29,9 +32,9 @@ impl AccountLoginArgs {
             );
             std::io::stdin().read_to_string(&mut token)?;
         }
-        let profile = CloudTerrastodonAccountStore::configured()
+        let profile = store
             .login(
-                self.account_id,
+                account_id,
                 self.source,
                 self.pat_stdin.then(|| token.trim_end()),
                 cancellation,

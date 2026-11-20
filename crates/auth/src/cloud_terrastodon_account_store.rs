@@ -8,6 +8,7 @@ use crate::CredentialAuthenticationProvider;
 use crate::ResolvedAuthContext;
 use crate::WorkloadIdentityConfig;
 use crate::account_credential_provisioning::AccountCredentialProvisioning;
+use crate::auth_logout_error::AuthLogoutError;
 use crate::azure_cli_session::AzureCliSession;
 use crate::azure_cli_session_store::AzureCliSessionStore;
 use crate::azure_cli_sign_in_mode::AzureCliSignInMode;
@@ -18,6 +19,7 @@ use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_auth_types::AzureCredentialResource;
 use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountAlias;
+use cloud_terrastodon_auth_types::CloudTerrastodonAccountArgument;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountCredential;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountId;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountNamespace;
@@ -776,6 +778,36 @@ impl CloudTerrastodonAccountStore {
             .await
     }
 
+    /// Sign out the accounts currently registered, retaining their registrations
+    /// and configured defaults. Let admitted retirement finish before stopping
+    /// on cancellation and attempt the remaining accounts after a cleanup error.
+    pub async fn logout_all_with_executor(
+        &self,
+        executor: &CloudTerrastodonExecutor,
+    ) -> Result<Vec<CloudTerrastodonAccountId>> {
+        let account_ids = self
+            .load()?
+            .accounts
+            .into_iter()
+            .map(|account| account.id)
+            .collect::<Vec<_>>();
+        let mut errors = Vec::new();
+        for &id in &account_ids {
+            executor.cancellation().bail_if_cancelled()?;
+            if let Err(error) = self
+                .logout_with_executor(id, None, executor)
+                .await
+                .wrap_err_with(|| format!("signing out account {id}"))
+            {
+                errors.push(error);
+            }
+        }
+        if !errors.is_empty() {
+            return Err(AuthLogoutError { errors }.into());
+        }
+        Ok(account_ids)
+    }
+
     /// Drain the executor's admitted work before deleting the account registration.
     pub async fn remove_with_executor(
         &self,
@@ -917,9 +949,12 @@ impl CloudTerrastodonAccountStore {
             "authentication is disabled by auth source none"
         );
         let catalogue = self.load()?;
+        let account = account
+            .map(str::parse::<CloudTerrastodonAccountArgument>)
+            .transpose()?;
         let profile = catalogue.resolve(
-            &CloudTerrastodonAccountNamespace::Entra { tenant_id },
-            account,
+            account.as_ref(),
+            Some(&CloudTerrastodonAccountNamespace::Entra { tenant_id }),
         )?;
         let source = profile
             .select_source(source)?
@@ -959,11 +994,14 @@ impl CloudTerrastodonAccountStore {
             "Entra authentication requires an explicit tenant"
         );
         let catalogue = self.load()?;
+        let account = account
+            .map(str::parse::<CloudTerrastodonAccountArgument>)
+            .transpose()?;
         let profile = catalogue.resolve(
-            &CloudTerrastodonAccountNamespace::AzureDevOps {
+            account.as_ref(),
+            Some(&CloudTerrastodonAccountNamespace::AzureDevOps {
                 organization: organization.clone(),
-            },
-            account,
+            }),
         )?;
         ensure!(
             profile.select_source(source)? == CloudTerrastodonCredentialSource::PersonalAccessToken,
@@ -978,14 +1016,15 @@ impl CloudTerrastodonAccountStore {
         instance: &str,
         account: Option<&str>,
     ) -> Result<CloudTerrastodonAccountProfile> {
-        Ok(self
-            .load()?
-            .resolve(
-                &CloudTerrastodonAccountNamespace::Gitea {
-                    instance: instance.parse()?,
-                },
-                account,
-            )?
+        let catalogue = self.load()?;
+        let namespace = CloudTerrastodonAccountNamespace::Gitea {
+            instance: instance.parse()?,
+        };
+        let account = account
+            .map(str::parse::<CloudTerrastodonAccountArgument>)
+            .transpose()?;
+        Ok(catalogue
+            .resolve(account.as_ref(), Some(&namespace))?
             .clone())
     }
 
@@ -1110,6 +1149,7 @@ mod tests {
     use super::*;
     use cloud_terrastodon_auth_types::AzureBearerAuthSource;
     use cloud_terrastodon_azure_types::EntraApplicationClientId;
+    use cloud_terrastodon_cache::WorkCache;
     use cloud_terrastodon_command::CancellationToken;
 
     #[tokio::test]
@@ -1323,6 +1363,74 @@ mod tests {
                 )));
                 assert!(store.context_for(profile, AuthSource::AzureCli).is_err());
                 assert!(store.context_for(profile, AuthSource::Browser).is_err());
+                eyre::Ok(())
+            })
+            .await
+    }
+
+    #[tokio::test]
+    async fn bulk_logout_keeps_registrations_and_continues_after_a_cleanup_failure() -> Result<()> {
+        let directory = tempfile::tempdir()?;
+        let store = CloudTerrastodonAccountStore::new(directory.path().join("accounts"))?;
+        let tenant_id = AzureTenantId::new(Uuid::from_u128(1));
+        let client_id = EntraApplicationClientId::new(Uuid::from_u128(2));
+        let source = CloudTerrastodonCredentialSource::WorkloadIdentity;
+        let generation = Uuid::from_u128(3);
+        CancellationToken::new()
+            .with_async_scope(async |scope| {
+                for alias in ["first", "second"] {
+                    store
+                        .add(
+                            alias.parse()?,
+                            CloudTerrastodonAccountCredential::WorkloadIdentity {
+                                tenant_id,
+                                client_id,
+                                assertion_file: directory
+                                    .path()
+                                    .join("unused-assertion")
+                                    .try_into()?,
+                            },
+                            &scope,
+                        )
+                        .await?;
+                }
+                let mut catalogue = store.load()?;
+                for profile in &mut catalogue.accounts {
+                    profile.verify_principal(
+                        CloudTerrastodonAccountPrincipal::EntraApplication(client_id),
+                    )?;
+                    profile.registration_mut(source)?.session =
+                        CloudTerrastodonAccountSession::Active { generation };
+                }
+                let first = &catalogue.accounts[0];
+                std::fs::create_dir_all(
+                    store
+                        .credential_store(first, source, generation)
+                        .directory
+                        .join("retired"),
+                )?;
+                store.save(&catalogue)?;
+                store.set_default(first.id, &scope).await?;
+                let executor = CloudTerrastodonExecutor::new(
+                    WorkCache::temporary()?,
+                    Arc::new(CredentialAuthenticationProvider::from_store(store.clone())),
+                    scope,
+                );
+
+                let error = store.logout_all_with_executor(&executor).await.unwrap_err();
+                let failures = &error.downcast_ref::<AuthLogoutError>().unwrap().errors;
+                assert_eq!(failures.len(), 1);
+                assert!(failures[0].to_string().contains(&first.id.to_string()));
+                let after = store.load()?;
+                assert_eq!(after.defaults[0].account_id, first.id);
+                for original in &catalogue.accounts {
+                    let retained = after.by_id(original.id)?;
+                    assert_eq!(retained.alias, original.alias);
+                    assert_eq!(
+                        retained.registration(source)?.session,
+                        CloudTerrastodonAccountSession::Retired { generation }
+                    );
+                }
                 eyre::Ok(())
             })
             .await
