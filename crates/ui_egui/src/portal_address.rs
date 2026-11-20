@@ -1,5 +1,6 @@
 use crate::app::MyApp;
 use crate::portal_page::PortalPage;
+use crate::portal_resource_output_target::PortalResourceOutputTarget;
 use crate::portal_tab_target::PortalTabTarget;
 use crate::resource_group_list_command::resource_group_list_command;
 use crate::storage_account_show_command::storage_account_show_command;
@@ -66,16 +67,25 @@ impl PortalAddress {
                 })
                 .transpose()?
                 .and_then(cli),
-            PortalTabTarget::StorageAccount(id)
-            | PortalTabTarget::StorageAccountOutput { id, .. } => {
+            PortalTabTarget::StorageAccount(id) => {
                 if let Some(selection) = authentication {
-                    let format = match target {
-                        PortalTabTarget::StorageAccountOutput { format, .. } => Some(*format),
-                        _ => None,
-                    };
-                    cli(storage_account_show_command(selection, id, false, format)?)
+                    cli(storage_account_show_command(selection, id, false, None)?)
                 } else {
                     resource_id(id.expanded_form())
+                }
+            }
+            PortalTabTarget::ResourceOutput { resource, format } => {
+                if let (PortalResourceOutputTarget::StorageAccount(id), Some(selection)) =
+                    (resource, authentication)
+                {
+                    cli(storage_account_show_command(
+                        selection,
+                        id,
+                        false,
+                        Some(*format),
+                    )?)
+                } else {
+                    resource_id(resource.resource_id())
                 }
             }
             PortalTabTarget::ManagementGroup(id) => resource_id(id.expanded_form()),
@@ -96,8 +106,8 @@ impl PortalAddress {
             PortalTabTarget::Subscription(id) => id.expanded_form(),
             PortalTabTarget::ResourceGroup(id) => id.expanded_form(),
             PortalTabTarget::ScopeView { scope, .. } => scope.arm_scope().expanded_form(),
-            PortalTabTarget::StorageAccount(id)
-            | PortalTabTarget::StorageAccountOutput { id, .. } => id.expanded_form(),
+            PortalTabTarget::StorageAccount(id) => id.expanded_form(),
+            PortalTabTarget::ResourceOutput { resource, .. } => resource.resource_id(),
             _ => return None,
         };
         // Escape the ARM ID's components while keeping the portal fragment's separators.
@@ -119,7 +129,7 @@ impl PortalAddress {
     ) {
         let output_view = matches!(
             target,
-            PortalTabTarget::StorageAccountOutput { .. } | PortalTabTarget::ScopeView { .. }
+            PortalTabTarget::ResourceOutput { .. } | PortalTabTarget::ScopeView { .. }
         );
         let local = local_address.as_ref().ok().and_then(Option::as_ref);
         let title = target.title();
@@ -227,10 +237,12 @@ impl MyApp {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::portal_resource_scope::PortalResourceScope;
     use cloud_terrastodon_app::OutputFormat;
     use cloud_terrastodon_auth_types::AzureBearerAuthSource;
     use cloud_terrastodon_azure::AzureResourceGroupId;
     use cloud_terrastodon_azure::AzureStorageAccountId;
+    use cloud_terrastodon_azure::SubscriptionId;
 
     #[test]
     fn resource_overview_link_uses_the_selected_tenant_and_escapes_the_id() -> Result<()> {
@@ -267,9 +279,13 @@ mod tests {
             tenant_id: "00000000-0000-0000-0000-000000000003".parse()?,
             auth_source: AzureBearerAuthSource::AzureCli,
         });
-        for (format, flag) in [(OutputFormat::Json, "json"), (OutputFormat::Text, "text")] {
-            let target = PortalTabTarget::StorageAccountOutput {
-                id: id.clone(),
+        for (format, flag) in [
+            (OutputFormat::Json, "json"),
+            (OutputFormat::FacetPretty, "facet-pretty"),
+            (OutputFormat::Text, "text"),
+        ] {
+            let target = PortalTabTarget::ResourceOutput {
+                resource: PortalResourceOutputTarget::StorageAccount(id.clone()),
                 format,
             };
             let (kind, address) = PortalAddress::resolve(&target, authentication)?.unwrap();
@@ -278,6 +294,43 @@ mod tests {
                 "ct --output-format {flag} az storage account show "
             )));
             assert!(address.contains(&id.expanded_form()));
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn scoped_output_keeps_the_resource_id_and_overview_url() -> Result<()> {
+        let subscription: SubscriptionId = "00000000-0000-0000-0000-000000000001".parse()?;
+        let group = AzureResourceGroupId::try_new(subscription, "synthetic-group")?;
+        let tenant_id = "00000000-0000-0000-0000-000000000002".parse()?;
+        let authentication = AzureBearerAuthenticationSelection {
+            account_id: "00000000-0000-0000-0000-000000000003".parse()?,
+            tenant_id,
+            auth_source: AzureBearerAuthSource::AzureCli,
+        };
+        for (scope, id) in [
+            (
+                PortalResourceScope::Subscription(subscription),
+                subscription.expanded_form(),
+            ),
+            (
+                PortalResourceScope::ResourceGroup(group.clone()),
+                group.expanded_form(),
+            ),
+        ] {
+            let overview = scope.overview();
+            let output = PortalTabTarget::ResourceOutput {
+                resource: PortalResourceOutputTarget::Scope(scope),
+                format: OutputFormat::Text,
+            };
+            assert_eq!(
+                PortalAddress::resolve(&output, Some(authentication))?,
+                Some(("Resource ID", id))
+            );
+            assert_eq!(
+                PortalAddress::azure_portal_url(&output, tenant_id),
+                PortalAddress::azure_portal_url(&overview, tenant_id)
+            );
         }
         Ok(())
     }

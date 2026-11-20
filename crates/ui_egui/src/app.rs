@@ -13,6 +13,7 @@ use crate::portal_resource_scope::PortalResourceScope;
 use crate::portal_tab_target::PortalTabTarget;
 use crate::portal_tabs::PortalTabs;
 use crate::resource_group_browser::ResourceGroupBrowser;
+use crate::resource_output::ResourceOutput;
 use crate::scope_iam_snapshot::ScopeIamSnapshot;
 use crate::storage_account_browser::StorageAccountBrowser;
 use cloud_terrastodon_auth::CloudTerrastodonAccountStore;
@@ -89,6 +90,7 @@ pub struct MyApp {
     pub resource_groups: Loadable<Rc<AzureResourceGroupMap>>,
     pub(crate) resource_group_browser: ResourceGroupBrowser,
     pub(crate) storage_account_browser: StorageAccountBrowser,
+    pub(crate) resource_output: ResourceOutput,
     pub(crate) management_groups: Loadable<Vec<Arc<ManagementGroup>>>,
     pub resources: Loadable<Arc<Vec<Arc<Resource>>>>,
     pub(crate) scope_activity:
@@ -176,6 +178,7 @@ impl MyApp {
             resource_groups: Default::default(),
             resource_group_browser: Default::default(),
             storage_account_browser: Default::default(),
+            resource_output: Default::default(),
             management_groups: Default::default(),
             resources: Default::default(),
             scope_activity: Default::default(),
@@ -207,6 +210,7 @@ impl MyApp {
         self.resource_groups = Loadable::NotLoaded;
         self.resource_group_browser = Default::default();
         self.storage_account_browser = Default::default();
+        self.resource_output = Default::default();
         self.management_groups = Loadable::NotLoaded;
         self.azure_devops_projects = Loadable::NotLoaded;
         self.checkboxes.clear();

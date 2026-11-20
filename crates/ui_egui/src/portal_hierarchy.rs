@@ -14,9 +14,8 @@ impl PortalTabTarget {
             Self::Subscription(id) => Some(*id),
             Self::ResourceGroup(id) => Some(id.subscription_id),
             Self::ScopeView { scope, .. } => scope.overview().containing_subscription(),
-            Self::StorageAccount(id) | Self::StorageAccountOutput { id, .. } => {
-                Some(id.resource_group_id.subscription_id)
-            }
+            Self::ResourceOutput { resource, .. } => resource.overview().containing_subscription(),
+            Self::StorageAccount(id) => Some(id.resource_group_id.subscription_id),
             _ => None,
         }
     }
@@ -114,25 +113,21 @@ fn hierarchy_from_ancestors(
         .rev()
         .map(|ancestor| PortalTabTarget::ManagementGroup(ancestor.id()))
         .collect();
-    if !matches!(target, PortalTabTarget::Subscription(_))
-        && let Some(id) = target.containing_subscription()
+    let overview = match target {
+        PortalTabTarget::ScopeView { scope, .. } => Some(scope.overview()),
+        PortalTabTarget::ResourceOutput { resource, .. } => Some(resource.overview()),
+        _ => None,
+    };
+    let resource = overview.as_ref().unwrap_or(target);
+    if !matches!(resource, PortalTabTarget::Subscription(_))
+        && let Some(id) = resource.containing_subscription()
     {
         hierarchy.push(PortalTabTarget::Subscription(id));
     }
-    if let PortalTabTarget::StorageAccount(id) | PortalTabTarget::StorageAccountOutput { id, .. } =
-        target
-    {
+    if let PortalTabTarget::StorageAccount(id) = resource {
         hierarchy.push(PortalTabTarget::ResourceGroup(id.resource_group_id.clone()));
     }
-    if let PortalTabTarget::StorageAccountOutput { id, .. } = target {
-        hierarchy.push(PortalTabTarget::StorageAccount(id.clone()));
-    }
-    if let PortalTabTarget::ScopeView { scope, .. } = target {
-        let overview = scope.overview();
-        if hierarchy.last() != Some(&overview) {
-            hierarchy.push(overview);
-        }
-    }
+    hierarchy.extend(overview);
     hierarchy.push(target.clone());
     hierarchy
 }
@@ -140,6 +135,7 @@ fn hierarchy_from_ancestors(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::portal_resource_output_target::PortalResourceOutputTarget;
     use crate::portal_resource_scope::PortalResourceScope;
     use crate::portal_scope_view::PortalScopeView;
     use cloud_terrastodon_app::OutputFormat;
@@ -154,7 +150,7 @@ mod tests {
         )?;
         let view = PortalTabTarget::ScopeView {
             scope: PortalResourceScope::ResourceGroup(group.clone()),
-            view: PortalScopeView::Json,
+            view: PortalScopeView::ActivityLog,
         };
         assert_eq!(
             hierarchy_from_ancestors(&view, &[]),
@@ -168,14 +164,49 @@ mod tests {
     }
 
     #[test]
+    fn scoped_output_has_the_overview_as_its_nearest_breadcrumb() -> eyre::Result<()> {
+        let group = AzureResourceGroupId::try_new(
+            "00000000-0000-0000-0000-000000000001",
+            "synthetic-group",
+        )?;
+        let subscription = PortalTabTarget::Subscription(group.subscription_id);
+        let subscription_output = PortalTabTarget::ResourceOutput {
+            resource: PortalResourceOutputTarget::Scope(PortalResourceScope::Subscription(
+                group.subscription_id,
+            )),
+            format: OutputFormat::FacetPretty,
+        };
+        assert_eq!(
+            hierarchy_from_ancestors(&subscription_output, &[]),
+            [subscription.clone(), subscription_output],
+        );
+
+        let group_output = PortalTabTarget::ResourceOutput {
+            resource: PortalResourceOutputTarget::Scope(PortalResourceScope::ResourceGroup(
+                group.clone(),
+            )),
+            format: OutputFormat::Text,
+        };
+        assert_eq!(
+            hierarchy_from_ancestors(&group_output, &[]),
+            [
+                subscription,
+                PortalTabTarget::ResourceGroup(group),
+                group_output
+            ],
+        );
+        Ok(())
+    }
+
+    #[test]
     fn storage_output_hierarchy_uses_structural_ids_and_root_first_ancestry() -> eyre::Result<()> {
         let group_id = AzureResourceGroupId::try_new(
             "00000000-0000-0000-0000-000000000001",
             "synthetic-group",
         )?;
         let storage_id = AzureStorageAccountId::try_new(group_id.clone(), "syntheticstorage")?;
-        let output = PortalTabTarget::StorageAccountOutput {
-            id: storage_id.clone(),
+        let output = PortalTabTarget::ResourceOutput {
+            resource: PortalResourceOutputTarget::StorageAccount(storage_id.clone()),
             format: OutputFormat::Json,
         };
         let nearest_parent_first = [

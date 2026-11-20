@@ -3,7 +3,6 @@
 pub enum PortalScopeView {
     ActivityLog,
     AccessControl,
-    Json,
 }
 
 impl PortalScopeView {
@@ -11,7 +10,6 @@ impl PortalScopeView {
         match self {
             Self::ActivityLog => "Activity log",
             Self::AccessControl => "Access control (IAM)",
-            Self::Json => "JSON",
         }
     }
 }

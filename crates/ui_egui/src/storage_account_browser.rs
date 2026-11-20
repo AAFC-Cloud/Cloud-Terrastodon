@@ -47,13 +47,11 @@ pub(crate) fn load_storage_account(app: &mut MyApp, id: &AzureStorageAccountId, 
         authentication,
         storage_account_id: Cow::Owned(id.clone()),
     };
-    let previous = entries.remove(id);
     entries.insert(
         id.clone(),
         StorageAccountInspection {
             request: request.clone(),
             response: Loadable::NotLoaded,
-            output: previous.map(|entry| entry.output).unwrap_or_default(),
         },
     );
 
@@ -101,6 +99,7 @@ pub(crate) fn load_storage_account(app: &mut MyApp, id: &AzureStorageAccountId, 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::portal_resource_output_target::PortalResourceOutputTarget;
     use crate::portal_tab_target::PortalTabTarget;
     use cloud_terrastodon_app::OutputFormat;
     use cloud_terrastodon_auth_types::AzureBearerAuthSource;
@@ -115,8 +114,8 @@ mod tests {
         let mut browser = StorageAccountBrowser::default();
         let mut tabs = PortalTabs::default();
         let account_tab = PortalTabTarget::StorageAccount(id.clone());
-        let output_tab = PortalTabTarget::StorageAccountOutput {
-            id: id.clone(),
+        let output_tab = PortalTabTarget::ResourceOutput {
+            resource: PortalResourceOutputTarget::StorageAccount(id.clone()),
             format: OutputFormat::Json,
         };
         tabs.open(account_tab.clone());
@@ -133,7 +132,6 @@ mod tests {
                     storage_account_id: Cow::Owned(id.clone()),
                 },
                 response: Loadable::NotLoaded,
-                output: Default::default(),
             },
         );
 

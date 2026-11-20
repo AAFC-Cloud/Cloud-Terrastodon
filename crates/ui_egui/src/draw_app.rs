@@ -6,6 +6,7 @@ use crate::portal_page::PortalPage;
 use crate::portal_resource_scope::PortalResourceScope;
 use crate::portal_tab_target::PortalTabTarget;
 use crate::portal_typography;
+use crate::resource_output_ui::resource_output_ui;
 use crate::scope_detail::scope_detail_ui;
 use crate::windows::azure_devops_organizations_window::azure_devops_organizations_ui;
 use crate::windows::azure_devops_projects_window::azure_devops_projects_ui;
@@ -16,7 +17,6 @@ use crate::windows::resources_window::resources_of_type_ui;
 use crate::windows::resources_window::resources_ui;
 use crate::windows::selected_items_window::selected_items_ui;
 use crate::windows::starting_points_window::starting_points_ui;
-use crate::windows::storage_account_output_window::storage_account_output_ui;
 use crate::windows::storage_account_window::storage_account_ui;
 use crate::windows::work_dirs_window::DNDResponse;
 use crate::windows::work_dirs_window::work_dirs_ui;
@@ -84,8 +84,8 @@ impl MyApp {
                         management_group_details_ui(self, ui, &id)
                     }
                     PortalTabTarget::StorageAccount(id) => storage_account_ui(self, ui, &id),
-                    PortalTabTarget::StorageAccountOutput { id, format } => {
-                        storage_account_output_ui(self, ui, &id, format)
+                    PortalTabTarget::ResourceOutput { resource, format } => {
+                        resource_output_ui(self, ui, &resource, format)
                     }
                     PortalTabTarget::LocalPath(path) => local_path_ui(self, ui, &path),
                     PortalTabTarget::Page(PortalPage::Home) => portal_home(self, ui),

@@ -1,7 +1,8 @@
 use crate::portal_page::PortalPage;
+use crate::portal_resource_output_target::PortalResourceOutputTarget;
 use crate::portal_resource_scope::PortalResourceScope;
 use crate::portal_scope_view::PortalScopeView;
-use crate::storage_account_output::format_label;
+use crate::resource_output::format_label;
 use cloud_terrastodon_app::OutputFormat;
 use cloud_terrastodon_azure::AzureResourceGroupId;
 use cloud_terrastodon_azure::AzureStorageAccountId;
@@ -24,8 +25,8 @@ pub enum PortalTabTarget {
     ResourcesOfType(ResourceType),
     ManagementGroup(ManagementGroupId),
     StorageAccount(AzureStorageAccountId),
-    StorageAccountOutput {
-        id: AzureStorageAccountId,
+    ResourceOutput {
+        resource: PortalResourceOutputTarget,
         format: OutputFormat,
     },
     LocalPath(PathBuf),
@@ -43,9 +44,9 @@ impl PortalTabTarget {
             Self::ResourcesOfType(kind) => Cow::Borrowed(kind.as_ref()),
             Self::ManagementGroup(id) => Cow::Borrowed(id.name()),
             Self::StorageAccount(id) => Cow::Borrowed(id.storage_account_name.as_str()),
-            Self::StorageAccountOutput { id, format } => Cow::Owned(format!(
+            Self::ResourceOutput { resource, format } => Cow::Owned(format!(
                 "{} · {}",
-                id.storage_account_name,
+                resource.overview().title(),
                 format_label(*format)
             )),
             Self::LocalPath(path) => path
@@ -62,9 +63,8 @@ impl PortalTabTarget {
             Self::ScopeView { scope, .. } => scope.inventory(),
             Self::ResourcesOfType(_) => PortalPage::Resources,
             Self::ManagementGroup(_) => PortalPage::ManagementGroups,
-            Self::StorageAccount(_) | Self::StorageAccountOutput { .. } => {
-                PortalPage::StorageAccounts
-            }
+            Self::StorageAccount(_) => PortalPage::StorageAccounts,
+            Self::ResourceOutput { resource, .. } => resource.inventory(),
             Self::LocalPath(_) => PortalPage::WorkDirs,
         }
     }

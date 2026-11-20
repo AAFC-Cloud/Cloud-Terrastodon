@@ -2,6 +2,7 @@ use crate::app::MyApp;
 use crate::icons::portal_target_icon;
 use crate::portal_page::PortalPage;
 use crate::portal_tab_target::PortalTabTarget;
+use crate::resource_output::format_label;
 use crate::sidebar_expansion_toggle::sidebar_expansion_toggle;
 use eframe::egui::Align;
 use eframe::egui::Atom;
@@ -213,6 +214,13 @@ impl MyApp {
     }
 
     pub(crate) fn portal_tab_title<'a>(&'a self, target: &'a PortalTabTarget) -> Cow<'a, str> {
+        if let PortalTabTarget::ResourceOutput { resource, format } = target {
+            return Cow::Owned(format!(
+                "{} · {}",
+                self.portal_tab_title(&resource.overview()),
+                format_label(*format)
+            ));
+        }
         if let PortalTabTarget::ScopeView { scope, view } = target {
             return Cow::Owned(format!(
                 "{} · {}",

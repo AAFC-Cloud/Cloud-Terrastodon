@@ -6,6 +6,5 @@ pub mod resource_groups_window;
 pub mod resources_window;
 pub mod selected_items_window;
 pub mod starting_points_window;
-pub(crate) mod storage_account_output_window;
 pub(crate) mod storage_account_window;
 pub mod work_dirs_window;

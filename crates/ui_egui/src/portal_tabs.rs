@@ -1,4 +1,5 @@
 use crate::portal_page::PortalPage;
+use crate::portal_resource_output_target::PortalResourceOutputTarget;
 use crate::portal_tab::PortalTab;
 use crate::portal_tab_target::PortalTabTarget;
 use cloud_terrastodon_azure::AzureStorageAccountId;
@@ -77,7 +78,11 @@ impl PortalTabs {
         self.tabs.iter().any(|tab| {
             matches!(
                 tab.target(),
-                PortalTabTarget::StorageAccount(other) | PortalTabTarget::StorageAccountOutput { id: other, .. }
+                PortalTabTarget::StorageAccount(other)
+                    | PortalTabTarget::ResourceOutput {
+                        resource: PortalResourceOutputTarget::StorageAccount(other),
+                        ..
+                    }
                     if other == id
             )
         })
@@ -369,8 +374,8 @@ mod tests {
         )?;
         let storage_id = AzureStorageAccountId::try_new(group_id.clone(), "syntheticstore")?;
         let detail = PortalTabTarget::ResourceGroup(group_id);
-        let output = PortalTabTarget::StorageAccountOutput {
-            id: storage_id.clone(),
+        let output = PortalTabTarget::ResourceOutput {
+            resource: PortalResourceOutputTarget::StorageAccount(storage_id.clone()),
             format: OutputFormat::Json,
         };
         let folder = PortalTabTarget::LocalPath("example".into());
@@ -419,8 +424,8 @@ mod tests {
     #[test]
     fn storage_account_output_uses_preview_navigation() -> eyre::Result<()> {
         use PortalTabTarget::Page;
+        use PortalTabTarget::ResourceOutput;
         use PortalTabTarget::StorageAccount;
-        use PortalTabTarget::StorageAccountOutput;
 
         let id = concat!(
             "/subscriptions/00000000-0000-0000-0000-000000000001",
@@ -430,8 +435,8 @@ mod tests {
         .parse::<AzureStorageAccountId>()?;
         let mut tabs = PortalTabs::default();
         let detail = StorageAccount(id.clone());
-        let output = StorageAccountOutput {
-            id: id.clone(),
+        let output = ResourceOutput {
+            resource: PortalResourceOutputTarget::StorageAccount(id.clone()),
             format: OutputFormat::Json,
         };
 
@@ -466,8 +471,8 @@ mod tests {
         assert_eq!(tabs.active, 1);
         assert_eq!(tabs.tabs.len(), 2);
 
-        let text_output = StorageAccountOutput {
-            id: id.clone(),
+        let text_output = ResourceOutput {
+            resource: PortalResourceOutputTarget::StorageAccount(id.clone()),
             format: OutputFormat::Text,
         };
         assert!(tabs.navigate_current(text_output.clone()));

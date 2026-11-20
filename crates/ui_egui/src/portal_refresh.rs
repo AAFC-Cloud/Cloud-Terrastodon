@@ -1,6 +1,7 @@
 use crate::app::MyApp;
 use crate::azure_account_picker_action::AzureAccountPickerAction;
 use crate::portal_page::PortalPage;
+use crate::portal_resource_output_target::PortalResourceOutputTarget;
 use crate::portal_resource_scope::PortalResourceScope;
 use crate::portal_scope_view::PortalScopeView;
 use crate::portal_tab_target::PortalTabTarget;
@@ -65,18 +66,27 @@ impl MyApp {
                             self.scope_iam.get(&scope.arm_scope()),
                             Some(Loadable::Loading { .. })
                         ),
-                        PortalScopeView::Json => match scope {
-                            PortalResourceScope::ResourceGroup(_) => {
-                                !matches!(self.resource_groups, Loadable::Loading { .. })
-                            }
-                            PortalResourceScope::Subscription(_) => {
-                                !matches!(self.subscriptions, Loadable::Loading { .. })
-                            }
-                        },
+                    }
+            }
+            PortalTabTarget::ResourceOutput {
+                resource: PortalResourceOutputTarget::Scope(scope),
+                ..
+            } => {
+                self.ready_azure_authentication().is_some()
+                    && match scope {
+                        PortalResourceScope::ResourceGroup(_) => {
+                            !matches!(self.resource_groups, Loadable::Loading { .. })
+                        }
+                        PortalResourceScope::Subscription(_) => {
+                            !matches!(self.subscriptions, Loadable::Loading { .. })
+                        }
                     }
             }
             PortalTabTarget::StorageAccount(id)
-            | PortalTabTarget::StorageAccountOutput { id, .. } => {
+            | PortalTabTarget::ResourceOutput {
+                resource: PortalResourceOutputTarget::StorageAccount(id),
+                ..
+            } => {
                 self.ready_azure_authentication().is_some()
                     && !self
                         .storage_account_browser
@@ -143,15 +153,21 @@ impl MyApp {
             PortalTabTarget::ScopeView { scope, view } => match view {
                 PortalScopeView::ActivityLog => load_scope_activity(self, scope, true),
                 PortalScopeView::AccessControl => load_scope_iam(self, &scope.arm_scope(), true),
-                PortalScopeView::Json => match scope {
-                    PortalResourceScope::ResourceGroup(_) => load_resource_groups(self, true),
-                    PortalResourceScope::Subscription(_) => {
-                        load_subscriptions_with_invalidation(self, true)
-                    }
-                },
+            },
+            PortalTabTarget::ResourceOutput {
+                resource: PortalResourceOutputTarget::Scope(scope),
+                ..
+            } => match scope {
+                PortalResourceScope::ResourceGroup(_) => load_resource_groups(self, true),
+                PortalResourceScope::Subscription(_) => {
+                    load_subscriptions_with_invalidation(self, true)
+                }
             },
             PortalTabTarget::StorageAccount(id)
-            | PortalTabTarget::StorageAccountOutput { id, .. } => {
+            | PortalTabTarget::ResourceOutput {
+                resource: PortalResourceOutputTarget::StorageAccount(id),
+                ..
+            } => {
                 load_storage_account(self, id, true);
             }
             PortalTabTarget::Page(PortalPage::AzureDevOpsProjects) => {

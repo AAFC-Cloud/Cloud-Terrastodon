@@ -1,14 +1,14 @@
 use crate::app::MyApp;
 use crate::portal_page::PortalPage;
+use crate::portal_resource_output_target::PortalResourceOutputTarget;
 use crate::portal_tab_target::PortalTabTarget;
 use crate::reflected_value::ReflectedValue;
-use crate::resource_detail_header::resource_detail_header;
+use crate::resource_detail_header::resource_detail_header_with_output;
 use crate::storage_account_browser::load_storage_account;
 use cloud_terrastodon_app::OutputFormat;
 use cloud_terrastodon_azure::AzureStorageAccount;
 use cloud_terrastodon_azure::AzureStorageAccountId;
 use cloud_terrastodon_command::app_work::Loadable;
-use eframe::egui::Button;
 use eframe::egui::CollapsingHeader;
 use eframe::egui::Grid;
 use eframe::egui::ScrollArea;
@@ -18,13 +18,21 @@ use teamy_tracing::gui::DiagnosticReportView;
 
 /// Inspect the same typed request and response as the storage account show command.
 pub(crate) fn storage_account_ui(app: &mut MyApp, ui: &mut Ui, id: &AzureStorageAccountId) {
-    if resource_detail_header(
+    let (inventory, view_output) = resource_detail_header_with_output(
         ui,
         id.storage_account_name.as_str(),
         "Storage account",
         PortalPage::StorageAccounts,
-    ) {
+    );
+    if inventory {
         app.navigate(PortalPage::StorageAccounts);
+        return;
+    }
+    if view_output {
+        app.navigate_tab(PortalTabTarget::ResourceOutput {
+            resource: PortalResourceOutputTarget::StorageAccount(id.clone()),
+            format: OutputFormat::Json,
+        });
         return;
     }
     if app.show_azure_authentication_required(ui) {
@@ -36,25 +44,6 @@ pub(crate) fn storage_account_ui(app: &mut MyApp, ui: &mut Ui, id: &AzureStorage
     let Some(inspection) = app.storage_account_browser.entries.get(id) else {
         return;
     };
-    let view_output = ui
-        .horizontal_wrapped(|ui| {
-            ui.strong("Overview");
-            ui.add_enabled(
-                inspection.response.as_loaded().is_some(),
-                Button::new("View output"),
-            )
-            .on_hover_text("JSON, Facet Pretty, or Text")
-            .clicked()
-        })
-        .inner;
-    if view_output {
-        app.navigate_tab(PortalTabTarget::StorageAccountOutput {
-            id: id.clone(),
-            format: OutputFormat::Json,
-        });
-        return;
-    }
-
     let mut next_tab = None;
     let mut sign_in = false;
     ui.separator();

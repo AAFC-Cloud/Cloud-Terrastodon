@@ -1,15 +1,36 @@
 use crate::icons::page_icon;
 use crate::portal_page::PortalPage;
+use eframe::egui::Align;
 use eframe::egui::Button;
 use eframe::egui::CursorIcon;
 use eframe::egui::Frame;
 use eframe::egui::Image;
+use eframe::egui::Layout;
 use eframe::egui::Margin;
 use eframe::egui::RichText;
 use eframe::egui::Ui;
 use eframe::egui::Vec2;
 use eframe::egui::WidgetInfo;
 use eframe::egui::WidgetType;
+
+/// Returns whether the user opened the inventory or the resource output.
+pub(crate) fn resource_detail_header_with_output(
+    ui: &mut Ui,
+    name: &str,
+    resource_type: &str,
+    inventory: PortalPage,
+) -> (bool, bool) {
+    ui.horizontal(|ui| {
+        let inventory = resource_detail_header(ui, name, resource_type, inventory);
+        let output = ui
+            .with_layout(Layout::right_to_left(Align::Center), |ui| {
+                ui.button("View output").clicked()
+            })
+            .inner;
+        (inventory, output)
+    })
+    .inner
+}
 
 /// Returns whether the user opened the inventory linked from the icon and type.
 pub(crate) fn resource_detail_header(
