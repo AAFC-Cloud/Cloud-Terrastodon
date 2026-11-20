@@ -1,0 +1,224 @@
+use arbitrary::Arbitrary;
+use arbitrary::Unstructured;
+use chrono::DateTime;
+use chrono::DurationRound;
+use chrono::SecondsFormat;
+use chrono::TimeDelta;
+use chrono::Utc;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
+use cloud_terrastodon_azure_types::AzureActivityLogEvent;
+use cloud_terrastodon_azure_types::AzureActivityLogPage;
+use cloud_terrastodon_azure_types::AzureActivityLogScope;
+use cloud_terrastodon_cache::CacheKey;
+use cloud_terrastodon_cache::CacheOperationOwner;
+use cloud_terrastodon_cache::HasCacheKey;
+use cloud_terrastodon_cache::InvalidatesOwnCacheKey;
+use cloud_terrastodon_execution::CloudTerrastodonExecutor;
+use cloud_terrastodon_execution::ExecutableRequest;
+use cloud_terrastodon_execution::ExecutionFuture;
+use cloud_terrastodon_pathing::sanitize_windows_path_component;
+use cloud_terrastodon_rest::RestRequest;
+use eyre::Result;
+use eyre::WrapErr;
+use eyre::ensure;
+use facet::Facet;
+use http::Method;
+use std::collections::HashSet;
+use std::fmt::Write;
+use std::path::PathBuf;
+use std::sync::Arc;
+use std::time::Duration;
+use url::Url;
+
+const API_VERSION: &str = "2015-04-01";
+
+/// Read the scoped [Azure Monitor activity log](https://learn.microsoft.com/en-us/rest/api/monitor/activity-logs/list?view=rest-monitor-2015-04-01).
+/// The requested period is inclusive and uses UTC. The projection omits caller,
+/// claims and other fields that are unnecessary for an activity inventory.
+#[must_use = "Bind this request to an executor and await its execution"]
+#[derive(Debug, Facet)]
+pub struct AzureActivityLogListRequest {
+    pub authentication: AzureBearerAuthenticationSelection,
+    pub scope: AzureActivityLogScope,
+    pub from: DateTime<Utc>,
+    pub until: DateTime<Utc>,
+}
+
+impl AzureActivityLogListRequest {
+    /// A 24-hour window ending at the start of the current UTC minute.
+    /// The minute boundary lets consecutive opens share the same window and cache entries.
+    pub fn last_day(
+        authentication: AzureBearerAuthenticationSelection,
+        scope: AzureActivityLogScope,
+    ) -> Result<Self> {
+        let until = Utc::now()
+            .duration_trunc(TimeDelta::minutes(1))
+            .wrap_err("rounding the activity log time window")?;
+        Ok(Self {
+            authentication,
+            scope,
+            from: until - TimeDelta::hours(24),
+            until,
+        })
+    }
+
+    fn validate_page_url(url: &Url, collection_path: &str) -> Result<()> {
+        // Keep the token on the same subscription's ARM collection. Azure may
+        // change route segment casing when constructing its continuation URL.
+        ensure!(
+            url.scheme() == "https"
+                && url.host_str() == Some("management.azure.com")
+                && url.port_or_known_default() == Some(443)
+                && url.username().is_empty()
+                && url.password().is_none()
+                && url.fragment().is_none()
+                && url.path().eq_ignore_ascii_case(collection_path),
+            "activity log continuation URL leaves the selected ARM collection"
+        );
+        Ok(())
+    }
+}
+
+impl<'a> Arbitrary<'a> for AzureActivityLogListRequest {
+    fn arbitrary(input: &mut Unstructured<'a>) -> arbitrary::Result<Self> {
+        let [first, second]: [DateTime<Utc>; 2] = input.arbitrary()?;
+        Ok(Self {
+            authentication: input.arbitrary()?,
+            scope: input.arbitrary()?,
+            from: first.min(second),
+            until: first.max(second),
+        })
+    }
+}
+
+impl HasCacheKey for AzureActivityLogListRequest {
+    fn cache_key(&self) -> Result<CacheKey> {
+        let mut path = PathBuf::from("az/arm/tenant")
+            .join(self.authentication.tenant_id.to_string())
+            .join("subscriptions")
+            .join(self.scope.subscription_id().to_string());
+        if let AzureActivityLogScope::ResourceGroup(group) = &self.scope {
+            path = path
+                .join("resource-groups")
+                .join(sanitize_windows_path_component(
+                    &group.resource_group_name.to_ascii_lowercase(),
+                ));
+        }
+        let mut key = CacheKey::from_relative_path(path.join("activity-log"))?;
+        key.valid_for = Duration::from_secs(60);
+        Ok(key)
+    }
+}
+
+impl InvalidatesOwnCacheKey for AzureActivityLogListRequest {}
+
+impl ExecutableRequest for AzureActivityLogListRequest {
+    type Error = eyre::Report;
+    type Output = Vec<Arc<AzureActivityLogEvent>>;
+
+    fn bind_authentication(
+        &self,
+        executor: CloudTerrastodonExecutor,
+    ) -> Result<CloudTerrastodonExecutor> {
+        executor.with_authentication_lease(&self.authentication.into())
+    }
+
+    fn run<'exec>(self, executor: CloudTerrastodonExecutor) -> ExecutionFuture<'exec, Self::Output>
+    where
+        Self: 'exec,
+        Self::Output: 'exec,
+    {
+        Box::pin(async move {
+            // TODO(jiff): Store a start time and a nonnegative duration so a
+            // reversed window cannot be constructed.
+            ensure!(
+                self.from <= self.until,
+                "activity log end time must be at or after its start time"
+            );
+            let mut url = Url::parse(&format!(
+                "https://management.azure.com/subscriptions/{}/providers/Microsoft.Insights/eventtypes/management/values",
+                self.scope.subscription_id(),
+            ))
+            .wrap_err("constructing the ARM activity log endpoint")?;
+            let mut filter = format!(
+                "eventTimestamp ge '{}' and eventTimestamp le '{}'",
+                self.from.to_rfc3339_opts(SecondsFormat::AutoSi, true),
+                self.until.to_rfc3339_opts(SecondsFormat::AutoSi, true),
+            );
+            if let AzureActivityLogScope::ResourceGroup(group) = &self.scope {
+                write!(
+                    filter,
+                    " and resourceGroupName eq '{}'",
+                    group.resource_group_name.replace('\'', "''"),
+                )?;
+            }
+            url.query_pairs_mut()
+                .append_pair("api-version", API_VERSION)
+                .append_pair("$filter", &filter)
+                .append_pair(
+                    "$select",
+                    "eventDataId,eventTimestamp,operationName,status,resourceId",
+                );
+
+            let collection_path = url.path().to_owned();
+            let page_cache = self.cache_key()?.join("rest/pages")?;
+            let mut next_url = Some(url);
+            let mut visited = HashSet::new();
+            let mut events = Vec::new();
+            while let Some(url) = next_url {
+                executor.cancellation().bail_if_cancelled()?;
+                Self::validate_page_url(&url, &collection_path)?;
+                ensure!(
+                    visited.insert(url.clone()),
+                    "activity log pagination repeated a page"
+                );
+                let page_key =
+                    page_cache.join(blake3::hash(url.as_str().as_bytes()).to_hex().as_str())?;
+                let page = RestRequest::from_method_and_url(Method::GET, url)?
+                    .authentication(self.authentication.into())
+                    .cache(page_key)
+                    .receive_cached::<AzureActivityLogPage>(
+                        &executor,
+                        CacheOperationOwner::of::<Self>(),
+                    )
+                    .await?;
+                executor.cancellation().bail_if_cancelled()?;
+                events.extend(page.value.iter().cloned());
+                next_url = page.next_link.clone();
+            }
+            Ok(events)
+        })
+    }
+}
+
+cloud_terrastodon_registry::register_thing!(AzureActivityLogListRequest);
+cloud_terrastodon_registry::register_arbitrary!(AzureActivityLogListRequest);
+cloud_terrastodon_registry_execution::register_executable_request!(AzureActivityLogListRequest => Vec<Arc<AzureActivityLogEvent>>, effects = [Read]);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn continuation_stays_on_the_same_subscription_collection() -> Result<()> {
+        let collection = "/subscriptions/00000000-0000-0000-0000-000000000001/providers/Microsoft.Insights/eventtypes/management/values";
+        let next = format!(
+            "https://management.azure.com{}?$skiptoken=synthetic",
+            collection.to_ascii_lowercase()
+        )
+        .parse()?;
+        AzureActivityLogListRequest::validate_page_url(&next, collection)?;
+        for destination in [
+            format!("https://example.invalid{collection}?$skiptoken=synthetic"),
+            format!("http://management.azure.com{collection}?$skiptoken=synthetic"),
+            format!(
+                "https://management.azure.com{}?$skiptoken=synthetic",
+                collection.replace("000000000001", "000000000002")
+            ),
+        ] {
+            let next = destination.parse()?;
+            assert!(AzureActivityLogListRequest::validate_page_url(&next, collection).is_err());
+        }
+        Ok(())
+    }
+}

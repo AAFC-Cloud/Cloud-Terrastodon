@@ -2,6 +2,7 @@ mod azure_tenant_id_resolve_request;
 mod entra_group_id_list_by_member_request;
 pub use azure_tenant_id_resolve_request::*;
 pub use entra_group_id_list_by_member_request::*;
+mod azure_activity_log_list_request;
 mod azure_app_service_list_request;
 mod azure_application_gateway_list_request;
 mod azure_application_gateway_resource_backend_health_request;
@@ -134,6 +135,7 @@ mod tenant_default;
 mod test_authentication;
 mod tracked_tenants;
 
+pub use crate::azure_activity_log_list_request::*;
 pub use crate::azure_app_service_list_request::*;
 pub use crate::azure_application_gateway_list_request::*;
 pub use crate::azure_application_gateway_resource_backend_health_request::*;
