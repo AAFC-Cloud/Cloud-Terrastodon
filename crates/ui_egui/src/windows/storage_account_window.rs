@@ -1,8 +1,8 @@
 use crate::app::MyApp;
-use crate::icons::page_icon;
 use crate::portal_page::PortalPage;
 use crate::portal_tab_target::PortalTabTarget;
 use crate::reflected_value::ReflectedValue;
+use crate::resource_detail_header::resource_detail_header;
 use crate::storage_account_browser::load_storage_account;
 use cloud_terrastodon_app::OutputFormat;
 use cloud_terrastodon_azure::AzureStorageAccount;
@@ -11,7 +11,6 @@ use cloud_terrastodon_command::app_work::Loadable;
 use eframe::egui::Button;
 use eframe::egui::CollapsingHeader;
 use eframe::egui::Grid;
-use eframe::egui::Image;
 use eframe::egui::ScrollArea;
 use eframe::egui::Ui;
 use eframe::egui::Vec2;
@@ -19,6 +18,15 @@ use teamy_tracing::gui::DiagnosticReportView;
 
 /// Inspect the same typed request and response as the storage account show command.
 pub(crate) fn storage_account_ui(app: &mut MyApp, ui: &mut Ui, id: &AzureStorageAccountId) {
+    if resource_detail_header(
+        ui,
+        id.storage_account_name.as_str(),
+        "Storage account",
+        PortalPage::StorageAccounts,
+    ) {
+        app.navigate(PortalPage::StorageAccounts);
+        return;
+    }
     if app.show_azure_authentication_required(ui) {
         return;
     }
@@ -30,10 +38,6 @@ pub(crate) fn storage_account_ui(app: &mut MyApp, ui: &mut Ui, id: &AzureStorage
     };
     let (refresh, view_output) = ui
         .horizontal_wrapped(|ui| {
-            ui.add(
-                Image::new(page_icon(PortalPage::StorageAccounts))
-                    .fit_to_exact_size(Vec2::splat(20.0)),
-            );
             ui.strong("Overview");
             let refresh = ui
                 .add_enabled(

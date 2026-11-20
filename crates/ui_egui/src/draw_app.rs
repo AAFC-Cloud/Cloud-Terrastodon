@@ -62,6 +62,8 @@ impl MyApp {
                         | PortalTabTarget::ResourceGroup(_)
                         | PortalTabTarget::Subscription(_)
                         | PortalTabTarget::ScopeView { .. }
+                        | PortalTabTarget::ManagementGroup(_)
+                        | PortalTabTarget::StorageAccount(_)
                 ) {
                     let title = self.portal_tab_title(&target);
                     ui.label(RichText::new(title.as_ref()).strong().size(22.0));

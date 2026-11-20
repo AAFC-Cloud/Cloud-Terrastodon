@@ -51,6 +51,7 @@ mod reflected_table;
 mod reflected_table_column;
 mod reflected_table_sort;
 mod reflected_value;
+mod resource_detail_header;
 mod resource_group_browser;
 mod resource_group_filters;
 mod resource_group_list_command;

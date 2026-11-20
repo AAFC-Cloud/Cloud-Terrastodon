@@ -1,9 +1,9 @@
 use crate::app::MyApp;
-use crate::icons::page_icon;
 use crate::portal_resource_scope::PortalResourceScope;
 use crate::portal_scope_view::PortalScopeView;
 use crate::portal_tab_target::PortalTabTarget;
 use crate::reflected_value::ReflectedValue;
+use crate::resource_detail_header::resource_detail_header;
 use crate::scope_activity::scope_activity_ui;
 use crate::scope_iam::scope_iam_ui;
 use crate::scope_navigation::scope_navigation;
@@ -15,16 +15,13 @@ use cloud_terrastodon_app::OutputFormat;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_command::app_work::Loadable;
 use eframe::egui::Align;
-use eframe::egui::Button;
 use eframe::egui::CentralPanel;
 use eframe::egui::Frame;
-use eframe::egui::Image;
 use eframe::egui::Label;
 use eframe::egui::Layout;
 use eframe::egui::ScrollArea;
 use eframe::egui::TextWrapMode;
 use eframe::egui::Ui;
-use eframe::egui::Vec2;
 use teamy_tracing::gui::DiagnosticReportView;
 
 pub(crate) fn scope_detail_ui(
@@ -34,29 +31,19 @@ pub(crate) fn scope_detail_ui(
     view: Option<PortalScopeView>,
 ) {
     let overview = scope.overview();
-    let name = app.portal_tab_title(&overview).into_owned();
-    let mut inventory = false;
-    let mut open_json = false;
-    ui.horizontal(|ui| {
-        let icon = Image::new(page_icon(scope.inventory())).fit_to_exact_size(Vec2::splat(26.0));
-        inventory |= ui
-            .add(Button::image(icon).frame(false))
-            .on_hover_text(scope.inventory().title())
-            .clicked();
-        ui.vertical(|ui| {
-            ui.heading(name);
-            inventory |= ui
-                .link(scope.label())
-                .on_hover_text(scope.inventory().title())
-                .clicked();
-        });
-        if view != Some(PortalScopeView::Json) {
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                open_json = ui.button("View JSON").clicked();
-            });
-        }
-    });
-    ui.add_space(8.0);
+    let name = app.portal_tab_title(&overview);
+    let (inventory, open_json) = ui
+        .horizontal(|ui| {
+            let inventory = resource_detail_header(ui, &name, scope.label(), scope.inventory());
+            let open_json = view != Some(PortalScopeView::Json)
+                && ui
+                    .with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        ui.button("View JSON").clicked()
+                    })
+                    .inner;
+            (inventory, open_json)
+        })
+        .inner;
     if inventory {
         app.navigate(scope.inventory());
         return;

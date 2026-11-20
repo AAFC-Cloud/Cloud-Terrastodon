@@ -4,7 +4,7 @@
 
 - Add an icon toolbar and rounded address field to desktop tabs. Refresh the current view and open or copy Azure Portal links for supported resources. Use vertical tabs with resource icons, middle-click to close a tab, and return to a fresh Home preview after closing the last tab.
 
-- Navigate desktop tabs with Back, Forward, and clickable visit breadcrumbs. Browse Azure resource ancestry in a separate breadcrumb row, follow reflected resource IDs, and copy the CLI address for supported views.
+- Navigate desktop tabs with Back and Forward. Browse Azure resource ancestry through clickable breadcrumbs, follow reflected resource IDs, and copy the CLI address for supported views.
 
 - Switch Azure accounts from header cards with credential-source chips and optional directory profile details. Restore the last desktop account and source at launch, show the active account first, and mask displayed email addresses with the account picker's Demo mode. Manage registered accounts and tracked Azure tenants in their own tabs.
 

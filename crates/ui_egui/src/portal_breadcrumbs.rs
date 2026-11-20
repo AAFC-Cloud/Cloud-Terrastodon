@@ -3,7 +3,9 @@ use crate::icons::portal_target_icon;
 use crate::portal_tab_target::PortalTabTarget;
 use eframe::egui::Button;
 use eframe::egui::CursorIcon;
+use eframe::egui::Frame;
 use eframe::egui::Image;
+use eframe::egui::Margin;
 use eframe::egui::PointerButton;
 use eframe::egui::RichText;
 use eframe::egui::ScrollArea;
@@ -31,47 +33,17 @@ impl MyApp {
         ui: &mut Ui,
         target: &PortalTabTarget,
     ) -> bool {
-        let (visits, current) = self.tabs.history();
-        if visits.len() > 1 {
-            let jump = ui
-                .horizontal(|ui| {
-                    ui.small("History");
-                    ScrollArea::horizontal()
-                        .id_salt("portal-history")
-                        .stick_to_right(true)
-                        .show(ui, |ui| {
-                            ui.horizontal(|ui| {
-                                let mut index = None;
-                                for (position, visit) in visits[..=current].iter().enumerate() {
-                                    if position > 0 {
-                                        ui.label("›");
-                                    }
-                                    if self.portal_breadcrumb(ui, visit, position == current) {
-                                        index = Some(position);
-                                    }
-                                }
-                                index
-                            })
-                            .inner
-                        })
-                        .inner
-                })
-                .inner;
-            if let Some(jump) = jump
-                && self.tabs.go_to(jump)
-            {
-                self.after_history_navigation();
-                return true;
-            }
-        }
-
         let hierarchy = self.portal_hierarchy(target);
         if hierarchy.len() < 2 {
             return false;
         }
-        let parent = ui
-            .horizontal(|ui| {
-                ui.small("Hierarchy");
+        let parent = Frame::new()
+            .inner_margin(Margin {
+                left: 12,
+                top: 8,
+                ..Margin::ZERO
+            })
+            .show(ui, |ui| {
                 ScrollArea::horizontal()
                     .id_salt("portal-hierarchy")
                     .stick_to_right(true)

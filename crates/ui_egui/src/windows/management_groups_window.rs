@@ -4,6 +4,7 @@ use crate::inventory_table::show_inventory_table;
 use crate::portal_page::PortalPage;
 use crate::portal_tab_target::PortalTabTarget;
 use crate::reflected_value::ReflectedValue;
+use crate::resource_detail_header::resource_detail_header;
 use crate::table_row_background::TableRowBackground;
 use cloud_terrastodon_azure::AzureManagementGroupListRequest;
 use cloud_terrastodon_azure::ManagementGroupId;
@@ -114,6 +115,15 @@ pub(crate) fn management_groups_ui(app: &mut MyApp, ui: &mut Ui) {
 }
 
 pub(crate) fn management_group_details_ui(app: &mut MyApp, ui: &mut Ui, id: &ManagementGroupId) {
+    if resource_detail_header(
+        ui,
+        app.management_group_title(id).unwrap_or(id.name()),
+        "Management group",
+        PortalPage::ManagementGroups,
+    ) {
+        app.navigate(PortalPage::ManagementGroups);
+        return;
+    }
     if app.show_azure_authentication_required(ui) {
         return;
     }
