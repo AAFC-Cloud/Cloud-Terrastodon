@@ -1,5 +1,6 @@
 use crate::azure_account_action::AzureAccountAction;
 use crate::azure_account_registration_form::source_label;
+use crate::azure_account_sign_in_method::AzureAccountSignInMethod;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountId;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountProfile;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountSession;
@@ -56,14 +57,28 @@ impl AzureAccountConfirmation {
                     source_label(source)
                 ),
                 "Replace session",
-                AzureAccountAction::Reauthenticate { account_id, source },
+                AzureAccountAction::Reauthenticate {
+                    account_id,
+                    method: AzureAccountSignInMethod::RegisteredSource(source),
+                },
             ),
         };
         ui.label(question);
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
             if ui.button(button).clicked() {
                 *pending = None;
                 return Some(action);
+            }
+            if matches!(
+                self,
+                Self::Reauthenticate(CloudTerrastodonCredentialSource::AzureCli)
+            ) && ui.button("Replace using device code").clicked()
+            {
+                *pending = None;
+                return Some(AzureAccountAction::Reauthenticate {
+                    account_id,
+                    method: AzureAccountSignInMethod::AzureCliDeviceCode,
+                });
             }
             if ui.button("Cancel").clicked() {
                 *pending = None;

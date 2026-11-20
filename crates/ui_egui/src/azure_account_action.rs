@@ -1,4 +1,5 @@
 use crate::azure_account_registration::AzureAccountRegistration;
+use crate::azure_account_sign_in_method::AzureAccountSignInMethod;
 use crate::gui_work_cache::GuiWorkCache;
 use cloud_terrastodon_auth::AccountSignInPrompt;
 use cloud_terrastodon_auth::AzureDevOpsPersonalAccessToken;
@@ -29,7 +30,7 @@ pub(crate) enum AzureAccountAction {
     ClearDefault(CloudTerrastodonAccountId),
     Login {
         account_id: CloudTerrastodonAccountId,
-        source: CloudTerrastodonCredentialSource,
+        method: AzureAccountSignInMethod,
     },
     SavePersonalAccessToken {
         account_id: CloudTerrastodonAccountId,
@@ -37,7 +38,7 @@ pub(crate) enum AzureAccountAction {
     },
     Reauthenticate {
         account_id: CloudTerrastodonAccountId,
-        source: CloudTerrastodonCredentialSource,
+        method: AzureAccountSignInMethod,
     },
     Logout {
         account_id: CloudTerrastodonAccountId,
@@ -55,18 +56,22 @@ impl AzureAccountAction {
         account_id: CloudTerrastodonAccountId,
         source: CloudTerrastodonCredentialSource,
     ) -> Self {
-        Self::Login { account_id, source }
+        Self::Login {
+            account_id,
+            method: AzureAccountSignInMethod::RegisteredSource(source),
+        }
     }
 
     pub fn login_target(
         &self,
     ) -> Option<(CloudTerrastodonAccountId, CloudTerrastodonCredentialSource)> {
-        match *self {
-            Self::Login { account_id, source }
-            | Self::Reauthenticate { account_id, source }
-            | Self::ImportLegacy { account_id, source } => Some((account_id, source)),
+        match self {
+            Self::Login { account_id, method } | Self::Reauthenticate { account_id, method } => {
+                Some((*account_id, method.source()))
+            }
+            Self::ImportLegacy { account_id, source } => Some((*account_id, *source)),
             Self::SavePersonalAccessToken { account_id, .. } => Some((
-                account_id,
+                *account_id,
                 CloudTerrastodonCredentialSource::PersonalAccessToken,
             )),
             _ => None,
@@ -111,9 +116,9 @@ impl AzureAccountAction {
             Self::ClearDefault(account_id) => {
                 store.clear_default(account_id, cancellation).await?;
             }
-            Self::Login { account_id, source } => {
-                store
-                    .sign_in(account_id, Some(source), None, prompt, cancellation)
+            Self::Login { account_id, method } => {
+                method
+                    .sign_in(store, account_id, prompt, cancellation)
                     .await?;
             }
             Self::SavePersonalAccessToken { account_id, token } => {
@@ -127,16 +132,16 @@ impl AzureAccountAction {
                     )
                     .await?;
             }
-            Self::Reauthenticate { account_id, source } => {
+            Self::Reauthenticate { account_id, method } => {
                 {
                     let retirement = work_cache.job_executor(executor)?;
                     store
-                        .retire_for_reauthentication(account_id, source, &retirement)
+                        .retire_for_reauthentication(account_id, method.source(), &retirement)
                         .await?;
                 }
                 // The sign-in prompt can stay open independently of cache ownership.
-                store
-                    .sign_in(account_id, Some(source), None, prompt, cancellation)
+                method
+                    .sign_in(store, account_id, prompt, cancellation)
                     .await?;
             }
             Self::Logout { account_id, source } => {

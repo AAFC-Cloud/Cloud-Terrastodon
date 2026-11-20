@@ -1,6 +1,24 @@
 # Unreleased
 
+- Browse resource group and subscription workspaces with scoped resource inventories, an Activity Log, read-only access control, and copyable JSON. Open a fresh preview with New tab or Ctrl+T. Desktop inventory tables use horizontal dividers, sortable headers, and selection checkboxes.
+
+- Add an icon toolbar and rounded address field to desktop tabs. Refresh the current view and open or copy Azure Portal links for supported resources. Use vertical tabs with resource icons, middle-click to close a tab, and return to a fresh Home preview after closing the last tab.
+
+- Navigate desktop tabs with Back, Forward, and clickable visit breadcrumbs. Browse Azure resource ancestry in a separate breadcrumb row, follow reflected resource IDs, and copy the CLI address for supported views.
+
+- Switch Azure accounts from header cards with credential-source chips and optional directory profile details. Restore the last desktop account and source at launch, show the active account first, and mask displayed email addresses with the account picker's Demo mode. Manage registered accounts and tracked Azure tenants in their own tabs.
+
+- Choose device-code sign-in explicitly for Azure CLI accounts in the desktop app.
+
+- Cancel interactive Azure CLI sign-in from the desktop and clean up incomplete sessions. Require an explicit tenant UUID or tracked alias when registering an Entra account in the GUI.
+
 - Accept account aliases alongside UUIDs in `ct account` commands. Use `ct account logout --all` to retire all registered credential sessions while keeping account registrations and defaults.
+
+- Open linked storage accounts in preview tabs with the matching `ct az storage account show` command and a reflected request and response. View and copy the resource ID and CLI-formatted output from a separate tab.
+
+- Browse resource groups with a dedicated request, a copyable CLI command, response filters, linked details, and row selection. Use preview tabs and Keep Open for navigation, rearrange the sidebar, and open dropped files in tabs.
+
+- Add management-group icons and inventory. Browse Azure DevOps organizations and projects from separate desktop sidebar pages and choose credentials in the window.
 
 - Release the shared work-cache lock when the standalone egui window finishes its cache-backed jobs. CLI commands can reuse or invalidate the same disk cache while the window is idle. Overlapping GUI jobs share one cache owner.
 

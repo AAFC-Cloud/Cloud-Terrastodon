@@ -14,26 +14,40 @@ scope, independently of the tenant that issues a bearer token.
 
 ## Managing accounts in the desktop app
 
-Run `ct egui` and open the account menu at the top right. **Add account**
-registers a credential mechanism, and **Sign in** provisions its session.
-**Manage** lets you add Browser or Azure CLI to an existing Entra user account,
-change its preferred source, set or clear its namespace default, import a legacy
-session, sign out, or remove the account. **Manage all accounts** also shows
-Azure DevOps PAT and Gitea registrations. The portal uses an Entra account and
-source for its Azure and Azure DevOps inventory views.
+Run `ct egui` and open the account menu at the top right. Select an account card
+to use its preferred source, or pick a source on the card. A signed-out source
+starts sign-in. Azure CLI also offers **Device code**. Azure pages use the selected
+Entra account and source. The header shows its alias, tenant, and email and photo
+when Microsoft Graph supplies them. The email and photo stay in memory.
 
-Choose any signed-in source under an Entra account to use it in the current
-window. Use **Sign in again** to replace an expired session for the same
-principal. The app shows any required browser link or Azure CLI device code.
+**Manage accounts** opens the **Accounts** tab. It lists every registration,
+including Azure DevOps PAT and Gitea accounts. **Add account** registers a
+credential mechanism. Select an account in the tab to sign in, add or change its
+preferred source, set or clear its default, import a legacy session, sign out,
+or remove it. Open **DevOps organizations** from the sidebar to choose an
+organization. **DevOps projects** lets you use an Azure account or a signed-in
+PAT account for that organization.
+
+Choose **Sign in with device code** when signing into an Azure CLI registration
+from the Accounts tab. The sign-in window shows the code, a copy button, and the
+Microsoft sign-in link.
+For an existing Azure CLI session, choose **Replace using device code** in the
+**Sign in again** confirmation.
 After signing in, you can retry in the same window. Use **Reload** to pick up
 account changes made in the CLI.
 
-Open **Tenants** from the account menu to track tenant IDs, edit aliases, set the
+Open **Tenants** from the Accounts tab to track tenant IDs, edit aliases, set the
 default tenant, or forget a tracked tenant. Track a new tenant before
 registering an account in it. **Discover from Azure CLI** reads the local Azure
 CLI account list. **Load directory details** uses the selected Azure account if
 it matches that tenant, or the tenant's configured default account and preferred
 source.
+
+When registering an Entra account in the GUI, choose a tracked tenant or enter
+its UUID or alias. **Manage tenants** opens the tenant tab from the registration form.
+An account keeps the tenant selected at registration, even if the configured
+default changes later. If you registered it for the wrong tenant, register the
+account with the intended tenant before signing in.
 
 ## Registering and selecting accounts
 

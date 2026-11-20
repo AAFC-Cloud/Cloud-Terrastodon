@@ -1,5 +1,11 @@
+pub(crate) mod azure_devops_organizations_window;
+pub(crate) mod azure_devops_projects_window;
 pub mod dir_window;
+pub(crate) mod management_groups_window;
+pub mod resource_groups_window;
 pub mod resources_window;
 pub mod selected_items_window;
 pub mod starting_points_window;
+pub(crate) mod storage_account_output_window;
+pub(crate) mod storage_account_window;
 pub mod work_dirs_window;

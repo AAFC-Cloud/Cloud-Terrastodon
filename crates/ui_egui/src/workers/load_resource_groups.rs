@@ -7,7 +7,7 @@ use std::rc::Rc;
 use std::time::Instant;
 use tracing::info;
 
-pub fn load_resource_groups(app: &mut MyApp) {
+pub fn load_resource_groups(app: &mut MyApp, refresh: bool) {
     let account_generation = app.account_generation;
     let Some(authentication) = app.ready_azure_authentication() else {
         return;
@@ -28,6 +28,7 @@ pub fn load_resource_groups(app: &mut MyApp) {
             let executor = work_cache.job_executor(&executor.with_cancellation_scope(scope))?;
             let resource_groups = AzureResourceGroupListRequest { authentication }
                 .execute(&executor)
+                .with_invalidation(refresh)
                 .await?;
             Ok(resource_groups.into())
         })

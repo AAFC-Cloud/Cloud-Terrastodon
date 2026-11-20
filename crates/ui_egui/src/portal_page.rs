@@ -8,9 +8,14 @@ pub enum PortalPage {
     Resources,
     Subscriptions,
     ResourceGroups,
+    ManagementGroups,
     StorageAccounts,
     ContainerRegistries,
     KeyVaults,
+    AzureDevOpsOrganizations,
+    AzureDevOpsProjects,
+    Accounts,
+    AzureTenants,
     StartingPoints,
     SelectedItems,
     WorkDirs,
@@ -25,9 +30,14 @@ impl PortalPage {
             Self::Resources => "All resources",
             Self::Subscriptions => "Subscriptions",
             Self::ResourceGroups => "Resource groups",
+            Self::ManagementGroups => "Management groups",
             Self::StorageAccounts => "Storage accounts",
             Self::ContainerRegistries => "Container registries",
             Self::KeyVaults => "Key vaults",
+            Self::AzureDevOpsOrganizations => "DevOps organizations",
+            Self::AzureDevOpsProjects => "DevOps projects",
+            Self::Accounts => "Accounts",
+            Self::AzureTenants => "Azure tenants",
             Self::StartingPoints => "Starting points",
             Self::SelectedItems => "Selected items",
             Self::WorkDirs => "Work directories",
@@ -41,6 +51,9 @@ impl PortalPage {
             Self::Subscriptions => Some(ResourceType::MICROSOFT_DOT_RESOURCES_SLASH_SUBSCRIPTIONS),
             Self::ResourceGroups => {
                 Some(ResourceType::MICROSOFT_DOT_RESOURCES_SLASH_SUBSCRIPTIONS_SLASH_RESOURCEGROUPS)
+            }
+            Self::ManagementGroups => {
+                Some(ResourceType::MICROSOFT_DOT_MANAGEMENT_SLASH_MANAGEMENTGROUPS)
             }
             Self::StorageAccounts => {
                 Some(ResourceType::MICROSOFT_DOT_STORAGE_SLASH_STORAGEACCOUNTS)

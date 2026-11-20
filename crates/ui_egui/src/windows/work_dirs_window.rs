@@ -1,15 +1,13 @@
 use crate::app::MyApp;
+use crate::portal_tab_target::PortalTabTarget;
 use eframe::egui::Color32;
 use eframe::egui::Context;
 use eframe::egui::DragAndDrop;
 use eframe::egui::Id;
-use eframe::egui::Rect;
 use eframe::egui::Stroke;
 use eframe::egui::Ui;
-use eframe::egui::Vec2;
 use eframe::egui::Window;
 use std::path::PathBuf;
-use tracing::info;
 
 pub fn draw_work_dirs_window(app: &mut MyApp, ctx: &Context) {
     // Keep the existing floating-window behavior for backwards compatibility
@@ -50,14 +48,7 @@ pub fn draw_work_dirs_window(app: &mut MyApp, ctx: &Context) {
             );
             return;
         };
-        let pointer_pos = ctx.pointer_interact_pos();
-        let new_window_pos = pointer_pos.unwrap_or_default();
-        let new_window_size = Vec2::new(500., 500.);
-        info!("Opening window at {new_window_pos}");
-        app.egui_config.open_dirs.insert(
-            work_dir,
-            Rect::from_min_size(new_window_pos, new_window_size),
-        );
+        app.navigate_tab(PortalTabTarget::LocalPath(work_dir));
     }
 }
 
@@ -110,7 +101,10 @@ fn ui_work_dir_row(
         .horizontal(|ui| {
             let rtn = ui
                 .dnd_drag_source(id, index, |ui| {
-                    ui.label(work_dir.display().to_string());
+                    let response = ui.link(work_dir.display().to_string());
+                    if response.clicked() {
+                        app.navigate_tab(PortalTabTarget::LocalPath(work_dir.clone()));
+                    }
                 })
                 .response;
             if ui.button("-").clicked() {

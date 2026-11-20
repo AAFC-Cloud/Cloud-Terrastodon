@@ -1,5 +1,5 @@
 use crate::app::MyApp;
-use crate::icons::DEVOPS_ICON;
+use crate::icons::DEVOPS_PROJECT_ICON;
 use crate::workers::load_azure_devops_projects::load_azure_devops_projects;
 use cloud_terrastodon_azure_devops::AzureDevOpsProject;
 use cloud_terrastodon_command::app_work::Loadable;
@@ -17,13 +17,6 @@ pub fn draw_devops_project_list_expando(app: &mut MyApp, ui: &mut Ui) {
     if app.toggle_intents.remove(&toggle_key) {
         expando.toggle(ui);
     }
-    let is_open = expando.is_open();
-    if app.azure_devops_organization.is_some()
-        && is_open
-        && matches!(app.azure_devops_projects, Loadable::NotLoaded)
-    {
-        load_azure_devops_projects(app);
-    }
     expando
         .clone()
         .show_header(ui, |ui| draw_expando_header(app, ui, toggle_key))
@@ -36,7 +29,7 @@ fn draw_expando_header(app: &mut MyApp, ui: &mut Ui, toggle_key: Id) {
             value: projects, ..
         } => {
             let projects = projects.clone();
-            if ui.image(DEVOPS_ICON).clicked() {
+            if ui.image(DEVOPS_PROJECT_ICON).clicked() {
                 app.toggle_intents.insert(toggle_key);
             }
 
@@ -53,7 +46,7 @@ fn draw_expando_header(app: &mut MyApp, ui: &mut Ui, toggle_key: Id) {
             }
         }
         _ => {
-            if ui.image(DEVOPS_ICON).clicked() {
+            if ui.image(DEVOPS_PROJECT_ICON).clicked() {
                 debug!("Clicked on Azure DevOps Projects header icon");
                 app.toggle_intents.insert(toggle_key);
             }
@@ -67,9 +60,13 @@ fn draw_expando_header(app: &mut MyApp, ui: &mut Ui, toggle_key: Id) {
 }
 
 fn draw_expando_body(app: &mut MyApp, ui: &mut Ui) {
-    if app.azure_devops_organization.is_none() {
-        ui.label("Launch with egui --org to browse Azure DevOps projects.");
+    app.show_azure_devops_organization_picker(ui);
+    if app.azure_devops_organization.is_none() || app.show_azure_devops_authentication_required(ui)
+    {
         return;
+    }
+    if matches!(app.azure_devops_projects, Loadable::NotLoaded) {
+        load_azure_devops_projects(app);
     }
     ui.vertical(|ui| match &app.azure_devops_projects {
         Loadable::NotLoaded => {
@@ -86,6 +83,9 @@ fn draw_expando_body(app: &mut MyApp, ui: &mut Ui) {
         }
         Loadable::Failed { error: err, .. } => {
             ui.label(format!("Error: {err}"));
+            if ui.button("Retry").clicked() {
+                load_azure_devops_projects(app);
+            }
         }
     });
 }
@@ -94,7 +94,7 @@ fn draw_entry(app: &mut MyApp, ui: &mut Ui, project: &AzureDevOpsProject) {
     ui.horizontal(|ui| {
         let label = format!("{}", project.name);
         let checked = app.checkbox_for(project.id);
-        if ui.image(DEVOPS_ICON).clicked() {
+        if ui.image(DEVOPS_PROJECT_ICON).clicked() {
             debug!("Clicked on Azure DevOps Project icon");
             *checked ^= true;
         }

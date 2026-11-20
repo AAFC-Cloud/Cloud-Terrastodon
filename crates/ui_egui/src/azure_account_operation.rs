@@ -1,7 +1,10 @@
 use crate::azure_account_action::AzureAccountAction;
+use crate::azure_account_details::AzureAccountDetails;
 use crate::azure_account_operation_event::AzureAccountOperationEvent;
+use crate::azure_account_registration_form::source_label;
 use crate::gui_work_cache::GuiWorkCache;
 use cloud_terrastodon_auth::AccountSignInPrompt;
+use cloud_terrastodon_auth::CloudTerrastodonAccountCatalogue;
 use cloud_terrastodon_auth::CloudTerrastodonAccountStore;
 use cloud_terrastodon_auth::CredentialAuthenticationProvider;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountId;
@@ -121,7 +124,7 @@ impl AzureAccountOperation {
         }
     }
 
-    pub fn show(&self, ctx: &Context) {
+    pub fn show(&self, ctx: &Context, catalogue: Option<&CloudTerrastodonAccountCatalogue>) {
         Window::new(if self.login_target.is_some() {
             "Account sign-in"
         } else {
@@ -130,6 +133,13 @@ impl AzureAccountOperation {
         .id(Id::new("account_operation"))
         .collapsible(false)
         .show(ctx, |ui| {
+            if let Some((account_id, source)) = self.login_target
+                && let Some(account) = catalogue.and_then(|value| value.by_id(account_id).ok())
+            {
+                ui.strong(account.alias.as_str());
+                ui.label(AzureAccountDetails::namespace_label(&account.namespace));
+                ui.label(source_label(source));
+            }
             let cancelling = self
                 .cancellation
                 .as_ref()
@@ -146,9 +156,7 @@ impl AzureAccountOperation {
                     "Saving account changes…"
                 });
             });
-            // Azure CLI can still need the device code while cancellation is
-            // pending. Its subprocess keeps the credential directory until exit.
-            match &self.prompt {
+            match self.prompt.as_ref().filter(|_| !cancelling) {
                 Some(AccountSignInPrompt::AzureCliDeviceCode { code }) => {
                     ui.label("Enter this code in your browser.");
                     ui.horizontal(|ui| {

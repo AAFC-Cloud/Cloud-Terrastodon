@@ -5,11 +5,11 @@ use crate::azure_account_manager_page::AzureAccountManagerPage;
 use cloud_terrastodon_auth::CloudTerrastodonAccountCatalogue;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountId;
 use cloud_terrastodon_auth_types::CloudTerrastodonCredentialSource;
-use eframe::egui::Context;
-use eframe::egui::Id;
+use cloud_terrastodon_azure::AzureTenantAlias;
+use cloud_terrastodon_azure::AzureTenantId;
+use eframe::egui::Frame;
 use eframe::egui::ScrollArea;
 use eframe::egui::Ui;
-use eframe::egui::Window;
 use eyre::Result;
 use teamy_tracing::DiagnosticReport;
 use teamy_tracing::gui::DiagnosticReportView;
@@ -17,14 +17,19 @@ use teamy_tracing::gui::DiagnosticReportView;
 /// Manage local account registrations and their credentials from the GUI.
 #[derive(Default)]
 pub(crate) struct AzureAccountManager {
-    open: bool,
     page: AzureAccountManagerPage,
     error: Option<DiagnosticReport>,
 }
 
 impl AzureAccountManager {
-    pub fn is_open(&self) -> bool {
-        self.open
+    pub(crate) fn cli_command(&self) -> Option<String> {
+        match &self.page {
+            AzureAccountManagerPage::Accounts => Some("ct account list".into()),
+            AzureAccountManagerPage::Account(details) => {
+                Some(format!("ct account show {}", details.account_id()))
+            }
+            AzureAccountManagerPage::Add(_) => None,
+        }
     }
 
     pub fn open(&mut self) {
@@ -55,33 +60,26 @@ impl AzureAccountManager {
     }
 
     pub fn show_error(&mut self, error: DiagnosticReport) {
-        self.open = true;
         self.error = Some(error);
     }
 
     fn navigate(&mut self, page: AzureAccountManagerPage) {
-        self.open = true;
         self.page = page;
         self.error = None;
     }
 
     pub fn show(
         &mut self,
-        ctx: &Context,
+        ui: &mut Ui,
         catalogue: Option<&CloudTerrastodonAccountCatalogue>,
         busy: bool,
+        tracked_tenants: &[(AzureTenantId, Vec<AzureTenantAlias>)],
+        open_tenants: &mut bool,
     ) -> Option<AzureAccountAction> {
-        if !self.open {
-            return None;
-        }
-
-        let mut open = true;
-        let mut action = None;
-        Window::new("Accounts")
-            .id(Id::new("account_manager"))
-            .default_width(540.0)
-            .open(&mut open)
-            .show(ctx, |ui| {
+        ScrollArea::vertical()
+            .id_salt("account-management")
+            .show(ui, |ui| {
+                ui.set_max_width(ui.available_width().min(820.0));
                 if let Some(error) = &self.error {
                     ui.collapsing(error.report.to_string(), |ui| {
                         DiagnosticReportView::new(error).show(ui);
@@ -89,39 +87,48 @@ impl AzureAccountManager {
                 }
                 let response = ui
                     .add_enabled_ui(!busy, |ui| {
-                        ScrollArea::vertical()
-                            .max_height(560.0)
-                            .show(ui, |ui| self.show_page(ui, catalogue))
-                            .inner
+                        self.show_page(ui, catalogue, tracked_tenants, open_tenants)
                     })
                     .inner;
                 match response {
                     Ok(Some(next)) => {
                         self.error = None;
-                        action = Some(next);
+                        Some(next)
                     }
-                    Ok(None) => {}
-                    Err(error) => self.show_error(DiagnosticReport::new(error)),
+                    Ok(None) => None,
+                    Err(error) => {
+                        self.show_error(DiagnosticReport::new(error));
+                        None
+                    }
                 }
-            });
-        if !open {
-            // Clear any credentials still being entered and abandon pending confirmations.
-            *self = Self::default();
-            return None;
-        }
-        action
+            })
+            .inner
     }
 
     fn show_page(
         &mut self,
         ui: &mut Ui,
         catalogue: Option<&CloudTerrastodonAccountCatalogue>,
+        tracked_tenants: &[(AzureTenantId, Vec<AzureTenantAlias>)],
+        open_tenants: &mut bool,
     ) -> Result<Option<AzureAccountAction>> {
         if matches!(self.page, AzureAccountManagerPage::Accounts) {
-            if ui.button("Add account").clicked() {
-                self.open_add();
+            let reload = ui
+                .horizontal_wrapped(|ui| {
+                    if ui.button("Add account").clicked() {
+                        self.open_add();
+                    }
+                    if ui.button("Tenants").clicked() {
+                        *open_tenants = true;
+                    }
+                    ui.button("Reload").clicked()
+                })
+                .inner;
+            if reload {
+                return Ok(Some(AzureAccountAction::Reload));
             }
-        } else if ui.button("All accounts").clicked() {
+            ui.add_space(8.0);
+        } else if ui.link("Back to accounts").clicked() {
             self.open();
         }
 
@@ -133,12 +140,16 @@ impl AzureAccountManager {
                     }
                     for account in &catalogue.accounts {
                         let open = ui.push_id(account.id, |ui| {
-                            ui.horizontal_wrapped(|ui| {
-                                let open = ui.button(account.alias.as_str()).clicked();
-                                ui.label(AzureAccountDetails::namespace_label(&account.namespace));
-                                open
-                            })
-                            .inner
+                            Frame::group(ui.style())
+                                .show(ui, |ui| {
+                                    ui.set_min_width(ui.available_width());
+                                    let open = ui.link(account.alias.as_str()).clicked();
+                                    ui.small(AzureAccountDetails::namespace_label(
+                                        &account.namespace,
+                                    ));
+                                    open
+                                })
+                                .inner
                         });
                         if open.inner {
                             self.open_account(account.id);
@@ -146,11 +157,14 @@ impl AzureAccountManager {
                         }
                     }
                 } else {
-                    ui.label("Reload accounts from the account menu.");
+                    ui.label("Could not load accounts. Select Reload to try again.");
                 }
                 Ok(None)
             }
-            AzureAccountManagerPage::Add(form) => form.show(ui),
+            AzureAccountManagerPage::Add(form) => {
+                ui.heading("Add account");
+                form.show(ui, tracked_tenants, open_tenants)
+            }
             AzureAccountManagerPage::Account(details) => {
                 let Some(catalogue) = catalogue else {
                     // Do not retain a secret while the catalogue is unavailable.

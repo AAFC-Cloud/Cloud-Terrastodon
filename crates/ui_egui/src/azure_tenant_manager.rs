@@ -17,18 +17,17 @@ use eframe::egui::Context;
 use eframe::egui::ScrollArea;
 use eframe::egui::TextEdit;
 use eframe::egui::Ui;
-use eframe::egui::Window;
 use std::sync::Arc;
 use teamy_tracing::DiagnosticReport;
 use teamy_tracing::gui::DiagnosticReportView;
 use tokio::runtime::Handle;
 use tokio::sync::oneshot;
 use tokio::sync::oneshot::error::TryRecvError;
+use tracing::Instrument;
 
 /// Manage the local tenant catalogue shared with `ct az tenant`.
 #[derive(Default)]
 pub struct AzureTenantManager {
-    pub open: bool,
     catalogue: Option<AzureTrackedTenantCatalogue>,
     pending: Option<(
         AzureTenantManagementTarget,
@@ -43,6 +42,11 @@ pub struct AzureTenantManager {
 }
 
 impl AzureTenantManager {
+    pub(crate) fn close_view(&mut self) {
+        self.forget_confirmation = None;
+        self.account_selection_changed();
+    }
+
     /// Clear directory results tied to the previous account or session.
     pub fn account_selection_changed(&mut self) {
         self.details = None;
@@ -61,19 +65,37 @@ impl AzureTenantManager {
         }
     }
 
-    pub(crate) fn show(
+    pub(crate) fn tracked_tenants(&self) -> &[(AzureTenantId, Vec<AzureTenantAlias>)] {
+        self.catalogue
+            .as_ref()
+            .map(|catalogue| catalogue.tenants.as_slice())
+            .unwrap_or_default()
+    }
+
+    pub(crate) fn load_catalogue_if_needed(
         &mut self,
-        ctx: &Context,
         tracker: &AppWorkTracker,
         executor: &CloudTerrastodonExecutor,
         work_cache: &GuiWorkCache,
-        authentication: Option<AzureBearerAuthenticationSelection>,
+        ctx: &Context,
     ) {
-        self.receive_update();
-        if !self.open {
-            return;
+        if self.catalogue.is_none() && self.error.is_none() {
+            self.reload_catalogue(tracker, executor, work_cache, ctx);
         }
-        if self.catalogue.is_none() && self.pending.is_none() && self.error.is_none() {
+    }
+
+    pub(crate) fn can_reload_catalogue(&self) -> bool {
+        self.pending.is_none()
+    }
+
+    pub(crate) fn reload_catalogue(
+        &mut self,
+        tracker: &AppWorkTracker,
+        executor: &CloudTerrastodonExecutor,
+        work_cache: &GuiWorkCache,
+        ctx: &Context,
+    ) {
+        if self.can_reload_catalogue() {
             self.start(
                 AzureTenantManagementAction::Reload,
                 tracker,
@@ -82,12 +104,21 @@ impl AzureTenantManager {
                 ctx,
             );
         }
-        let mut open = self.open;
-        let mut action = None;
-        Window::new("Azure tenants")
-            .open(&mut open)
-            .default_width(560.0)
-            .show(ctx, |ui| {
+    }
+
+    pub(crate) fn show(
+        &mut self,
+        ui: &mut Ui,
+        tracker: &AppWorkTracker,
+        executor: &CloudTerrastodonExecutor,
+        work_cache: &GuiWorkCache,
+        authentication: Option<AzureBearerAuthenticationSelection>,
+    ) {
+        self.load_catalogue_if_needed(tracker, executor, work_cache, ui.ctx());
+        let action = ScrollArea::vertical()
+            .id_salt("tenant-management")
+            .show(ui, |ui| {
+                ui.set_max_width(ui.available_width().min(820.0));
                 if self.pending.is_some() {
                     ui.horizontal(|ui| {
                         ui.spinner();
@@ -100,18 +131,14 @@ impl AzureTenantManager {
                         DiagnosticReportView::new(error).show(ui);
                     });
                 }
-                action = ui
-                    .add_enabled_ui(self.pending.is_none(), |ui| {
-                        self.show_panel(ui, authentication)
-                    })
-                    .inner;
-            });
-        self.open = open;
-        if !open {
-            self.forget_confirmation = None;
-        }
+                ui.add_enabled_ui(self.pending.is_none(), |ui| {
+                    self.show_panel(ui, authentication)
+                })
+                .inner
+            })
+            .inner;
         if let Some(action) = action {
-            self.start(action, tracker, executor, work_cache, ctx);
+            self.start(action, tracker, executor, work_cache, ui.ctx());
         }
     }
 
@@ -145,7 +172,7 @@ impl AzureTenantManager {
 
     fn show_toolbar(&mut self, ui: &mut Ui) -> Option<AzureTenantManagementAction> {
         let action = ui
-            .horizontal(|ui| {
+            .horizontal_wrapped(|ui| {
                 if ui.button("Reload").clicked() {
                     return Some(AzureTenantManagementAction::Reload);
                 }
@@ -158,9 +185,12 @@ impl AzureTenantManager {
         if action.is_some() {
             return action;
         }
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
             ui.label("Tenant ID");
-            ui.add(TextEdit::singleline(&mut self.tenant_input).desired_width(310.0));
+            ui.add(
+                TextEdit::singleline(&mut self.tenant_input)
+                    .desired_width(ui.available_width().min(310.0)),
+            );
             let tenant = self.tenant_input.trim().parse::<AzureTenantId>().ok();
             if ui
                 .add_enabled(tenant.is_some(), Button::new("Track tenant"))
@@ -356,6 +386,7 @@ impl AzureTenantManager {
         let work_cache = work_cache.clone();
         let description = action.description();
         let target = action.target();
+        let span = tracing::info_span!("tenant_operation", operation = description);
         let task = tracker.spawn(
             executor.cancellation(),
             &Handle::current(),
@@ -366,6 +397,7 @@ impl AzureTenantManager {
                     executor.cancellable_child_scope(async |executor| {
                         action.run(&executor, &work_cache).await
                     });
+                let operation = operation.instrument(span);
                 tokio::pin!(operation);
                 let result = tokio::select! {
                     biased;
@@ -397,7 +429,8 @@ impl AzureTenantManager {
         }
     }
 
-    fn receive_update(&mut self) {
+    /// Consume an outstanding job even when another portal tab is selected.
+    pub(crate) fn poll(&mut self) {
         let Some((target, pending)) = &mut self.pending else {
             return;
         };
@@ -439,7 +472,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn changing_accounts_only_discards_directory_work() {
+    fn switching_accounts_or_closing_tenants_preserves_catalogue_work() -> eyre::Result<()> {
         let (directory, receive) = oneshot::channel();
         let mut manager = AzureTenantManager {
             pending: Some((AzureTenantManagementTarget::Directory, receive)),
@@ -452,5 +485,11 @@ mod tests {
         manager.pending = Some((AzureTenantManagementTarget::Catalogue, receive));
         manager.account_selection_changed();
         assert!(!catalogue.is_closed());
+
+        manager.forget_confirmation = Some("00000000-0000-0000-0000-000000000001".parse()?);
+        manager.close_view();
+        assert!(manager.forget_confirmation.is_none());
+        assert!(!catalogue.is_closed());
+        Ok(())
     }
 }

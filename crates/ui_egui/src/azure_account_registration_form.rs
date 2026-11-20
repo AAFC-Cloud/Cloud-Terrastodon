@@ -3,8 +3,12 @@ use crate::azure_account_registration::AzureAccountRegistration;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountCredential;
 use cloud_terrastodon_auth_types::CloudTerrastodonCredentialFile;
 use cloud_terrastodon_auth_types::CloudTerrastodonCredentialSource;
+use cloud_terrastodon_azure::AzureTenantAlias;
+use cloud_terrastodon_azure::AzureTenantArgument;
+use cloud_terrastodon_azure::AzureTenantId;
 use cloud_terrastodon_azure::EntraApplicationClientId;
 use eframe::egui::ComboBox;
+use eframe::egui::ScrollArea;
 use eframe::egui::Ui;
 use eyre::Result;
 use eyre::WrapErr;
@@ -41,10 +45,19 @@ impl Default for AzureAccountRegistrationForm {
 }
 
 impl AzureAccountRegistrationForm {
-    pub fn show(&mut self, ui: &mut Ui) -> Result<Option<AzureAccountAction>> {
+    pub fn show(
+        &mut self,
+        ui: &mut Ui,
+        tracked_tenants: &[(AzureTenantId, Vec<AzureTenantAlias>)],
+        open_tenants: &mut bool,
+    ) -> Result<Option<AzureAccountAction>> {
+        let registration_source_label = |source| match source {
+            CloudTerrastodonCredentialSource::AzureCli => "Azure CLI (supports device code)",
+            _ => source_label(source),
+        };
         ui.label("Authentication source");
         ComboBox::from_id_salt("account_registration_source")
-            .selected_text(source_label(self.source))
+            .selected_text(registration_source_label(self.source))
             .show_ui(ui, |ui| {
                 for source in [
                     CloudTerrastodonCredentialSource::Browser,
@@ -53,20 +66,49 @@ impl AzureAccountRegistrationForm {
                     CloudTerrastodonCredentialSource::PersonalAccessToken,
                     CloudTerrastodonCredentialSource::Gitea,
                 ] {
-                    ui.selectable_value(&mut self.source, source, source_label(source));
+                    ui.selectable_value(
+                        &mut self.source,
+                        source,
+                        registration_source_label(source),
+                    );
                 }
             });
         text_input(ui, "Account alias", &mut self.alias);
+        if matches!(
+            self.source,
+            CloudTerrastodonCredentialSource::Browser
+                | CloudTerrastodonCredentialSource::AzureCli
+                | CloudTerrastodonCredentialSource::WorkloadIdentity
+        ) {
+            text_input(ui, "Tenant UUID or tracked alias", &mut self.tenant);
+            ui.horizontal_wrapped(|ui| {
+                if !tracked_tenants.is_empty() {
+                    ui.menu_button("Choose tracked tenant", |ui| {
+                        ScrollArea::vertical().max_height(240.0).show(ui, |ui| {
+                            for (id, aliases) in tracked_tenants {
+                                let label = aliases.first().map_or_else(
+                                    || id.to_string(),
+                                    |alias| format!("{alias} · {id}"),
+                                );
+                                if ui.button(label).clicked() {
+                                    self.tenant = id.to_string();
+                                    ui.close();
+                                }
+                            }
+                        });
+                    });
+                }
+                if ui.button("Manage tenants").clicked() {
+                    *open_tenants = true;
+                }
+            });
+        }
         match self.source {
             CloudTerrastodonCredentialSource::Browser => {
-                text_input(ui, "Tenant ID, alias, or default", &mut self.tenant);
                 text_input(ui, "Application client ID", &mut self.client_id);
             }
-            CloudTerrastodonCredentialSource::AzureCli => {
-                text_input(ui, "Tenant ID, alias, or default", &mut self.tenant);
-            }
+            CloudTerrastodonCredentialSource::AzureCli => {}
             CloudTerrastodonCredentialSource::WorkloadIdentity => {
-                text_input(ui, "Tenant ID, alias, or default", &mut self.tenant);
                 text_input(ui, "Application client ID", &mut self.client_id);
                 text_input(ui, "Assertion file path", &mut self.assertion_file);
             }
@@ -102,15 +144,15 @@ impl AzureAccountRegistrationForm {
             .wrap_err("Enter a valid account alias")?;
         let registration = match self.source {
             CloudTerrastodonCredentialSource::AzureCli => {
-                AzureAccountRegistration::AzureCli(self.tenant.trim().parse()?)
+                AzureAccountRegistration::AzureCli(self.tenant_argument()?)
             }
             CloudTerrastodonCredentialSource::Browser => AzureAccountRegistration::Browser {
-                tenant: self.tenant.trim().parse()?,
+                tenant: self.tenant_argument()?,
                 client_id: parse_client_id(&self.client_id)?,
             },
             CloudTerrastodonCredentialSource::WorkloadIdentity => {
                 AzureAccountRegistration::WorkloadIdentity {
-                    tenant: self.tenant.trim().parse()?,
+                    tenant: self.tenant_argument()?,
                     client_id: parse_client_id(&self.client_id)?,
                     assertion_file: credential_file(&self.assertion_file)
                         .wrap_err("Enter an assertion file path")?,
@@ -136,6 +178,19 @@ impl AzureAccountRegistrationForm {
             alias,
             registration,
         })
+    }
+
+    fn tenant_argument(&self) -> Result<AzureTenantArgument<'static>> {
+        let tenant = self
+            .tenant
+            .trim()
+            .parse()
+            .wrap_err("Enter a tenant UUID or tracked alias")?;
+        ensure!(
+            !matches!(tenant, AzureTenantArgument::Default),
+            "'default' selects Cloud Terrastodon's configured tenant. Enter the tenant UUID or tracked alias for this account."
+        );
+        Ok(tenant)
     }
 }
 
@@ -165,4 +220,41 @@ pub(crate) fn source_label(source: CloudTerrastodonCredentialSource) -> &'static
 pub(crate) fn text_input(ui: &mut Ui, label: &str, value: &mut String) {
     let label = ui.label(label);
     ui.text_edit_singleline(value).labelled_by(label.id);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn registration_requires_an_explicit_entra_tenant() -> Result<()> {
+        let mut form = AzureAccountRegistrationForm {
+            source: CloudTerrastodonCredentialSource::AzureCli,
+            alias: "synthetic-account".to_owned(),
+            tenant: " DeFaUlT ".to_owned(),
+            ..Default::default()
+        };
+        assert!(matches!(
+            form.action(),
+            Err(error) if error.to_string().contains("configured tenant")
+        ));
+
+        form.tenant = "00000000-0000-0000-0000-000000000001".to_owned();
+        assert!(matches!(
+            form.action()?,
+            AzureAccountAction::Add {
+                registration: AzureAccountRegistration::AzureCli(AzureTenantArgument::Id(_)),
+                ..
+            }
+        ));
+        form.tenant = "synthetic-tenant".to_owned();
+        assert!(matches!(
+            form.action()?,
+            AzureAccountAction::Add {
+                registration: AzureAccountRegistration::AzureCli(AzureTenantArgument::Alias(_)),
+                ..
+            }
+        ));
+        Ok(())
+    }
 }

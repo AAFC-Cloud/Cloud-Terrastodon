@@ -10,6 +10,10 @@ use std::time::Instant;
 use tracing::info;
 
 pub fn load_subscriptions(app: &mut MyApp) {
+    load_subscriptions_with_invalidation(app, false);
+}
+
+pub(crate) fn load_subscriptions_with_invalidation(app: &mut MyApp, refresh: bool) {
     let account_generation = app.account_generation;
     let Some(authentication) = app.ready_azure_authentication() else {
         return;
@@ -30,6 +34,7 @@ pub fn load_subscriptions(app: &mut MyApp) {
             let executor = work_cache.job_executor(&executor.with_cancellation_scope(scope))?;
             let subs = AzureSubscriptionListRequest { authentication }
                 .execute(&executor)
+                .with_invalidation(refresh)
                 .await?;
             Ok(subs)
         })

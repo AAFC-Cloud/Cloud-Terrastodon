@@ -2,14 +2,27 @@ use crate::autosave_info::AutoSaveBehaviour;
 use crate::azure_account_manager::AzureAccountManager;
 use crate::azure_account_operation::AzureAccountOperation;
 use crate::azure_account_picker::AzureAccountPicker;
+use crate::azure_account_profiles::AzureAccountProfiles;
+use crate::azure_devops_organization_picker::AzureDevOpsOrganizationPicker;
 use crate::azure_tenant_manager::AzureTenantManager;
 use crate::gui_work_cache::GuiWorkCache;
+use crate::local_path_preview::LocalPathPreview;
+use crate::portal_address::PortalAddress;
 use crate::portal_page::PortalPage;
+use crate::portal_resource_scope::PortalResourceScope;
+use crate::portal_tab_target::PortalTabTarget;
+use crate::portal_tabs::PortalTabs;
+use crate::resource_group_browser::ResourceGroupBrowser;
+use crate::scope_iam_snapshot::ScopeIamSnapshot;
+use crate::storage_account_browser::StorageAccountBrowser;
 use cloud_terrastodon_auth::CloudTerrastodonAccountStore;
 use cloud_terrastodon_auth::CredentialAuthenticationProvider;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
+use cloud_terrastodon_azure::AzureActivityLogEvent;
 use cloud_terrastodon_azure::AzureResourceGroupMap;
+use cloud_terrastodon_azure::ManagementGroup;
 use cloud_terrastodon_azure::Resource;
+use cloud_terrastodon_azure::ScopeImpl;
 use cloud_terrastodon_azure::Subscription;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProject;
@@ -30,6 +43,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::hash::Hash;
+use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::mpsc::SyncSender;
@@ -48,8 +62,10 @@ pub struct MyApp {
     pub executor: CloudTerrastodonExecutor,
     pub(crate) work_cache: GuiWorkCache,
     pub azure_devops_organization: Option<AzureDevOpsOrganizationUrl>,
+    pub(crate) azure_devops_organization_picker: AzureDevOpsOrganizationPicker,
     pub authentication: Option<AzureBearerAuthenticationSelection>,
     pub account_picker: AzureAccountPicker,
+    pub(crate) account_profiles: AzureAccountProfiles,
     pub(crate) account_store: CloudTerrastodonAccountStore,
     pub(crate) account_authentication: Arc<CredentialAuthenticationProvider>,
     pub(crate) account_manager: AzureAccountManager,
@@ -60,7 +76,8 @@ pub struct MyApp {
     pub log_view: LogView,
     /// Results from an earlier selection must not replace the current account's data.
     pub account_generation: u64,
-    pub page: PortalPage,
+    pub(crate) tabs: PortalTabs,
+    pub(crate) portal_address: Option<PortalAddress>,
     pub navigation_expanded: bool,
     pub resource_search: String,
     pub toggle_intents: HashSet<Id>,
@@ -68,7 +85,14 @@ pub struct MyApp {
     pub subscriptions: Loadable<Rc<Vec<Arc<Subscription>>>>,
     pub azure_devops_projects: Loadable<Arc<Vec<Arc<AzureDevOpsProject>>>>,
     pub resource_groups: Loadable<Rc<AzureResourceGroupMap>>,
+    pub(crate) resource_group_browser: ResourceGroupBrowser,
+    pub(crate) storage_account_browser: StorageAccountBrowser,
+    pub(crate) management_groups: Loadable<Vec<Arc<ManagementGroup>>>,
     pub resources: Loadable<Arc<Vec<Arc<Resource>>>>,
+    pub(crate) scope_activity:
+        HashMap<PortalResourceScope, Loadable<Vec<Arc<AzureActivityLogEvent>>>>,
+    pub(crate) scope_iam: HashMap<ScopeImpl, Loadable<Arc<ScopeIamSnapshot>>>,
+    pub(crate) local_path_previews: HashMap<PathBuf, Loadable<LocalPathPreview>>,
     pub tx: UnboundedSender<AppboundWorkFinishedMessage<MyApp>>,
     pub rx: UnboundedReceiver<AppboundWorkFinishedMessage<MyApp>>,
     pub egui_config: EguiConfig,
@@ -114,12 +138,22 @@ impl MyApp {
             account_store.clone(),
         ));
         let executor = executor.with_authentication(account_authentication.clone())?;
+        let egui_config = EguiConfig::load().await?;
+        let mut tabs = PortalTabs::default();
+        let mut open_dirs: Vec<_> = egui_config.open_dirs.keys().cloned().collect();
+        open_dirs.sort();
+        for path in open_dirs {
+            tabs.open_kept(PortalTabTarget::LocalPath(path));
+        }
+        tabs.select(0);
         Ok(Self {
             executor,
             work_cache: GuiWorkCache::CallerOwned,
             azure_devops_organization,
+            azure_devops_organization_picker: AzureDevOpsOrganizationPicker::default(),
             authentication,
             account_picker,
+            account_profiles: Default::default(),
             account_store,
             account_authentication,
             account_manager: AzureAccountManager::default(),
@@ -128,18 +162,25 @@ impl MyApp {
             log_capture,
             log_view: LogView::default(),
             account_generation: 0,
-            page: PortalPage::Home,
+            tabs,
+            portal_address: None,
             navigation_expanded: false,
             resource_search: String::new(),
             toggle_intents: Default::default(),
             checkboxes: Default::default(),
             subscriptions: Default::default(),
             resource_groups: Default::default(),
+            resource_group_browser: Default::default(),
+            storage_account_browser: Default::default(),
+            management_groups: Default::default(),
             resources: Default::default(),
+            scope_activity: Default::default(),
+            scope_iam: Default::default(),
+            local_path_previews: Default::default(),
             azure_devops_projects: Default::default(),
             tx,
             rx,
-            egui_config: EguiConfig::load().await?,
+            egui_config,
             egui_config_auto_save: Default::default(),
             work_dirs_config: WorkDirsConfig::load().await?,
             work_dirs_config_auto_save: Default::default(),
@@ -156,16 +197,52 @@ impl MyApp {
         self.tenant_manager.account_selection_changed();
         self.account_generation += 1;
         self.resources = Loadable::NotLoaded;
+        self.scope_activity.clear();
+        self.scope_iam.clear();
         self.subscriptions = Loadable::NotLoaded;
         self.resource_groups = Loadable::NotLoaded;
+        self.resource_group_browser = Default::default();
+        self.storage_account_browser = Default::default();
+        self.management_groups = Loadable::NotLoaded;
         self.azure_devops_projects = Loadable::NotLoaded;
         self.checkboxes.clear();
         self.toggle_intents.clear();
     }
 
     pub fn navigate(&mut self, page: PortalPage) {
-        self.page = page;
-        self.resource_search.clear();
+        self.navigate_tab(PortalTabTarget::Page(page));
+    }
+
+    pub fn navigate_tab(&mut self, target: PortalTabTarget) {
+        if self.tabs.active() != &target {
+            self.resource_search.clear();
+        }
+        if matches!(
+            target,
+            PortalTabTarget::Page(_) | PortalTabTarget::LocalPath(_)
+        ) {
+            self.tabs.open(target);
+        } else {
+            self.tabs.follow(target);
+        }
+        self.retain_open_tab_data();
+    }
+
+    pub(crate) fn navigate_current_tab(&mut self, target: PortalTabTarget) {
+        if self.tabs.navigate_current(target) {
+            self.resource_search.clear();
+            self.retain_open_tab_data();
+        }
+    }
+
+    pub fn current_page(&self) -> PortalPage {
+        self.tabs.active().page()
+    }
+
+    pub(crate) fn retain_open_tab_data(&mut self) {
+        self.local_path_previews
+            .retain(|path, _| self.tabs.has_local_path(path));
+        self.storage_account_browser.retain_open(&self.tabs);
     }
     pub fn checkbox_for(&mut self, key: impl Hash + Debug) -> &mut bool {
         self.checkboxes.entry(Id::new(key)).or_default()
@@ -201,15 +278,31 @@ impl App for MyApp {
                 .send_viewport_cmd(eframe::egui::ViewportCommand::Close);
         }
         self.poll_account_operation();
+        self.tenant_manager.poll();
         self.handle_messages();
+        self.update_account_profile(ui.ctx());
         self.draw_app(ui);
-        self.show_account_management(ui.ctx());
+        self.show_account_operation(ui.ctx());
         // Channel delivery does not wake eframe. Continue receiving results even
         // when the active page has no animated spinner or is showing other data.
         if matches!(self.resources, Loadable::Loading { .. })
+            || self
+                .scope_activity
+                .values()
+                .any(|load| matches!(load, Loadable::Loading { .. }))
+            || self
+                .scope_iam
+                .values()
+                .any(|load| matches!(load, Loadable::Loading { .. }))
             || matches!(self.subscriptions, Loadable::Loading { .. })
             || matches!(self.resource_groups, Loadable::Loading { .. })
+            || matches!(self.management_groups, Loadable::Loading { .. })
             || matches!(self.azure_devops_projects, Loadable::Loading { .. })
+            || self.storage_account_browser.is_loading()
+            || self
+                .local_path_previews
+                .values()
+                .any(|preview| matches!(preview, Loadable::Loading { .. }))
         {
             ui.ctx().request_repaint_after(Duration::from_millis(100));
         }

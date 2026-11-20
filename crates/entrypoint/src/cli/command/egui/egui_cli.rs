@@ -2,8 +2,11 @@ use crate::version::full_version;
 use cloud_terrastodon_auth::CloudTerrastodonAccountStore;
 use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
 use cloud_terrastodon_auth_types::AuthSource;
+use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_cache::WorkCacheActivity;
+use cloud_terrastodon_config::Config;
+use cloud_terrastodon_config::EguiConfig;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_ui_egui::egui_main;
 use cloud_terrastodon_ui_egui::egui_main_with_shared_cache;
@@ -37,8 +40,20 @@ impl EguiArgs {
         cache_activity: Option<WorkCacheActivity>,
     ) -> eyre::Result<()> {
         let account_store = CloudTerrastodonAccountStore::configured();
+        // Revalidate the remembered registration when the CLI leaves account selection to the window.
         let authentication = if self.authentication.auth_source == AuthSource::None {
             Ok(None)
+        } else if self.authentication.account.is_none()
+            && self.authentication.tenant == AzureTenantArgument::Default
+            && self.authentication.auth_source == AuthSource::Auto
+            && let Some(saved) = EguiConfig::load().await?.azure_authentication
+            && let Ok(selection) = account_store.resolve_azure_selection(
+                saved.tenant_id,
+                Some(&saved.account_id.to_string()),
+                saved.auth_source.into(),
+            )
+        {
+            Ok(Some(selection))
         } else {
             self.authentication.resolve(executor).await.map(Some)
         };

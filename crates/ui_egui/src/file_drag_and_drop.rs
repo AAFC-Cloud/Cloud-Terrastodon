@@ -1,109 +1,44 @@
 use crate::app::MyApp;
-use eframe::egui;
+use crate::portal_tab_target::PortalTabTarget;
+use eframe::egui::Align2;
+use eframe::egui::Color32;
 use eframe::egui::Context;
-use tracing::info;
+use eframe::egui::Id;
+use eframe::egui::LayerId;
+use eframe::egui::Order;
+use eframe::egui::TextStyle;
 
 pub fn ui_file_drag_and_drop(app: &mut MyApp, ctx: &Context) {
-    use egui::Align2;
-    use egui::Color32;
-    use egui::Id;
-    use egui::LayerId;
-    use egui::Order;
-    use egui::TextStyle;
-
-    // Preview hovering files:
-    if !ctx.input(|i| i.raw.hovered_files.is_empty()) {
-        let text = ctx.input(|i| {
-            let mut text = "Dropping files:\n".to_owned();
-            for file in &i.raw.hovered_files {
-                if let Some(path) = &file.path {
-                    text.push_str(&format!("\n{}", path.display()));
-                } else if !file.mime.is_empty() {
-                    text.push('\n');
-                    text.push_str(&file.mime);
-                } else {
-                    text += "\n???";
-                }
-            }
-            text
-        });
-
+    if !ctx.input(|input| input.raw.hovered_files.is_empty()) {
         let painter =
             ctx.layer_painter(LayerId::new(Order::Foreground, Id::new("file_drop_target")));
-
-        let screen_rect = ctx.content_rect();
-        painter.rect_filled(screen_rect, 0.0, Color32::from_black_alpha(192));
+        let rect = ctx.content_rect();
+        painter.rect_filled(rect, 0.0, Color32::from_black_alpha(192));
         painter.text(
-            screen_rect.center(),
+            rect.center(),
             Align2::CENTER_CENTER,
-            text,
+            "Drop to open files or directories",
             TextStyle::Heading.resolve(&ctx.global_style()),
             Color32::WHITE,
         );
     }
 
-    // Collect dropped files:
-    let dropped_files = ctx.input(|i| i.raw.dropped_files.clone());
-    if !dropped_files.is_empty() {
-        info!("Dropped files: {:?}", dropped_files);
-        for file in dropped_files {
-            app.work_dirs_config
-                .work_dirs
-                .insert(file.path().to_owned());
-        }
+    let paths: Vec<_> = ctx.input(|input| {
+        input
+            .raw
+            .dropped_files
+            .iter()
+            .map(|file| file.path().to_owned())
+            .collect()
+    });
+    if paths.is_empty() {
+        return;
     }
-}
-
-/// Tile-friendly UI for file drag-and-drop (uses ui.ctx())
-pub fn file_drag_ui(app: &mut MyApp, ui: &mut eframe::egui::Ui) {
-    use egui::Align2;
-    use egui::Color32;
-    use egui::Id;
-    use egui::LayerId;
-    use egui::Order;
-    use egui::TextStyle;
-
-    let ctx = ui.ctx();
-
-    // Preview hovering files:
-    if !ctx.input(|i| i.raw.hovered_files.is_empty()) {
-        let text = ctx.input(|i| {
-            let mut text = "Dropping files:\n".to_owned();
-            for file in &i.raw.hovered_files {
-                if let Some(path) = &file.path {
-                    text.push_str(&format!("\n{}", path.display()));
-                } else if !file.mime.is_empty() {
-                    text.push('\n');
-                    text.push_str(&file.mime);
-                } else {
-                    text += "\n???";
-                }
-            }
-            text
-        });
-
-        let painter =
-            ctx.layer_painter(LayerId::new(Order::Foreground, Id::new("file_drop_target")));
-
-        let screen_rect = ctx.content_rect();
-        painter.rect_filled(screen_rect, 0.0, Color32::from_black_alpha(192));
-        painter.text(
-            screen_rect.center(),
-            Align2::CENTER_CENTER,
-            text,
-            TextStyle::Heading.resolve(&ctx.global_style()),
-            Color32::WHITE,
-        );
+    for path in paths {
+        app.work_dirs_config.work_dirs.insert(path.clone());
+        // Keep every path when a user drops several items together.
+        app.tabs.open_kept(PortalTabTarget::LocalPath(path));
     }
-
-    // Collect dropped files:
-    let dropped_files = ctx.input(|i| i.raw.dropped_files.clone());
-    if !dropped_files.is_empty() {
-        info!("Dropped files: {:?}", dropped_files);
-        for file in dropped_files {
-            app.work_dirs_config
-                .work_dirs
-                .insert(file.path().to_owned());
-        }
-    }
+    app.resource_search.clear();
+    app.retain_open_tab_data();
 }

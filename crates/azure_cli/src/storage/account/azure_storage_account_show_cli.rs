@@ -1,5 +1,6 @@
 use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
+use cloud_terrastodon_azure::AzureStorageAccount;
 use cloud_terrastodon_azure::AzureStorageAccountGetRequest;
 use cloud_terrastodon_azure::AzureStorageAccountId;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
@@ -7,6 +8,7 @@ use cloud_terrastodon_execution::ExecutableRequest;
 use eyre::Result;
 use facet::Facet;
 use std::borrow::Cow;
+use std::sync::Arc;
 
 /// Show one storage account's typed properties directly through Azure Resource Manager.
 #[derive(Debug, Clone, Facet)]
@@ -30,6 +32,11 @@ impl AzureStorageAccountShowArgs {
         .execute(executor)
         .with_invalidation(self.no_cache)
         .await?;
-        Ok(CliOutput::facet(account))
+        Ok(Self::output(account))
+    }
+
+    /// Preserve the show command's presentation when previewing an already-loaded account.
+    pub fn output(account: Arc<AzureStorageAccount>) -> CliOutput {
+        CliOutput::facet(account)
     }
 }

@@ -1,26 +1,23 @@
 use crate::app::MyApp;
-use crate::icons::resource_icon;
+use crate::reflected_table::ReflectedTable;
+use crate::reflected_table_column::ReflectedTableColumn;
+use crate::resource_inventory_row::ResourceInventoryRow;
 use crate::workers::load_subscriptions::load_subscriptions;
 use cloud_terrastodon_azure::AzureResourceListRequest;
+use cloud_terrastodon_azure::Resource;
 use cloud_terrastodon_azure::ResourceType;
 use cloud_terrastodon_azure::Scope;
+use cloud_terrastodon_azure::ScopeImpl;
 use cloud_terrastodon_azure::SubscriptionId;
 use cloud_terrastodon_command::app_work::Loadable;
 use cloud_terrastodon_command::app_work::LoadableWorkBuilder;
 use cloud_terrastodon_execution::ExecutableRequest;
-use cloud_terrastodon_iconography_azure::icon_for_resource_type;
 use eframe::egui::Button;
 use eframe::egui::Color32;
 use eframe::egui::Id;
-use eframe::egui::Image;
-use eframe::egui::Label;
-use eframe::egui::RichText;
 use eframe::egui::ScrollArea;
+use eframe::egui::TextEdit;
 use eframe::egui::Ui;
-use eframe::egui::vec2;
-use egui_extras::Column;
-use egui_extras::TableBuilder;
-use std::borrow::Cow;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::rc::Rc;
@@ -28,8 +25,17 @@ use std::sync::Arc;
 use std::time::Instant;
 use teamy_tracing::gui::DiagnosticReportView;
 
-/// Browse the current account's resource inventory using local search and scope filters.
+/// Browse the current account's inventory using local search and scope filters.
 pub fn resources_ui(app: &mut MyApp, ui: &mut Ui) {
+    let kind = app.current_page().resource_type();
+    resources_filtered_ui(app, ui, kind.as_ref());
+}
+
+pub(crate) fn resources_of_type_ui(app: &mut MyApp, ui: &mut Ui, kind: &ResourceType) {
+    resources_filtered_ui(app, ui, Some(kind));
+}
+
+fn resources_filtered_ui(app: &mut MyApp, ui: &mut Ui, kind: Option<&ResourceType>) {
     if app.show_azure_authentication_required(ui) {
         return;
     }
@@ -38,7 +44,6 @@ pub fn resources_ui(app: &mut MyApp, ui: &mut Ui) {
     }
 
     let mut refresh = false;
-    let mut sign_in = false;
     ui.horizontal(|ui| {
         refresh = ui
             .add_enabled(
@@ -111,205 +116,196 @@ pub fn resources_ui(app: &mut MyApp, ui: &mut Ui) {
             app.resource_search.clear();
         }
     });
-    ui.add_space(8.0);
-
-    match &app.resources {
-        Loadable::NotLoaded | Loadable::Loading { .. } => {
-            ui.horizontal(|ui| {
-                ui.spinner();
-                ui.label("Loading resources…");
-            });
-        }
-        Loadable::Failed { error, .. } => {
-            ui.colored_label(
-                Color32::from_rgb(164, 38, 44),
-                "Resources could not be loaded.",
-            );
-            ui.horizontal(|ui| {
-                refresh |= ui.button("Retry").clicked();
-                sign_in = ui.button("Sign in again").clicked();
-            });
-            ui.collapsing("Error details", |ui| {
-                DiagnosticReportView::new(error).show(ui);
-            });
-        }
-        Loadable::Loaded {
-            value: resources, ..
-        } => {
-            // Resource Graph already supplies subscription containers alongside
-            // resources, so their display names need no extra network request.
-            let subscription_names: HashMap<_, _> = resources
-                .iter()
-                .filter(|resource| {
-                    resource.kind == ResourceType::MICROSOFT_DOT_RESOURCES_SLASH_SUBSCRIPTIONS
-                })
-                .filter_map(|resource| {
-                    resource_scope_columns(&resource.id.expanded_form())
-                        .0
-                        .map(|id| (id, resource.display_name().unwrap_or(&resource.name)))
-                })
-                .collect();
-            let selected_subscriptions: HashSet<SubscriptionId> = app
-                .subscriptions
-                .as_loaded()
-                .into_iter()
-                .flat_map(|subscriptions| subscriptions.iter())
-                .filter(|subscription| {
-                    app.checkboxes
-                        .get(&Id::new(subscription.id))
-                        .copied()
-                        .unwrap_or(false)
-                })
-                .map(|subscription| subscription.id)
-                .collect();
-            let search = app.resource_search.trim().to_lowercase();
-            let resource_kind_filter = app.page.resource_type();
-            let visible_resources: Vec<_> = resources
-                .iter()
-                .filter(|resource| {
-                    if resource_kind_filter
-                        .as_ref()
-                        .is_some_and(|kind| kind != &resource.kind)
-                    {
-                        return false;
-                    }
-                    if search.is_empty() && selected_subscriptions.is_empty() {
-                        return true;
-                    }
-                    let id = resource.id.expanded_form();
-                    if !selected_subscriptions.is_empty()
-                        && !resource_scope_columns(&id).0.is_some_and(|subscription| {
-                            selected_subscriptions.contains(&subscription)
-                        })
-                    {
-                        return false;
-                    }
-                    search.is_empty()
-                        || resource.name.to_lowercase().contains(&search)
-                        || resource.kind.as_ref().to_lowercase().contains(&search)
-                        || id.to_lowercase().contains(&search)
-                        || resource
-                            .display_name()
-                            .is_some_and(|name| name.to_lowercase().contains(&search))
-                })
-                .collect();
-
-            ui.weak(format!(
-                "Showing {} of {} resources",
-                visible_resources.len(),
-                resources.len()
-            ));
-            ui.add_space(8.0);
-            if visible_resources.is_empty() {
-                if resources.is_empty() {
-                    ui.label("This account has no visible resources in the selected tenant.");
-                } else {
-                    ui.label("No resources match the selected service, search, and subscription filters.");
-                }
-            } else {
-                let available_height = ui.available_height();
-                ScrollArea::horizontal().show(ui, |ui| {
-                    ui.set_min_width(840.0);
-                    TableBuilder::new(ui)
-                        .striped(false)
-                        .resizable(true)
-                        .column(Column::remainder().at_least(180.0).clip(true))
-                        .column(Column::initial(210.0).at_least(120.0).clip(true))
-                        .column(Column::initial(200.0).at_least(100.0).clip(true))
-                        .column(Column::initial(220.0).at_least(120.0).clip(true))
-                        .min_scrolled_height(0.0)
-                        .max_scroll_height((available_height - 16.0).max(0.0))
-                        .header(30.0, |mut header| {
-                            for title in ["Name", "Type", "Resource group", "Subscription"] {
-                                header.col(|ui| {
-                                    ui.strong(title);
-                                });
-                            }
-                        })
-                        .body(|body| {
-                            body.rows(32.0, visible_resources.len(), |mut row| {
-                                let resource = visible_resources[row.index()];
-                                let id = resource.id.expanded_form();
-                                let (subscription_id, resource_group) = resource_scope_columns(&id);
-                                row.col(|ui| {
-                                    ui.horizontal(|ui| {
-                                        ui.add(
-                                            Image::new(resource_icon(&resource.kind))
-                                                .fit_to_exact_size(vec2(18.0, 18.0)),
-                                        );
-                                        ui.add(
-                                            Label::new(
-                                                RichText::new(
-                                                    resource
-                                                        .display_name()
-                                                        .unwrap_or(&resource.name),
-                                                )
-                                                .color(Color32::from_rgb(0, 120, 212)),
-                                            )
-                                            .truncate(),
-                                        )
-                                        .on_hover_text(&id)
-                                        .context_menu(
-                                            |ui| {
-                                                if ui.button("Copy resource ID").clicked() {
-                                                    ui.ctx().copy_text(id.clone());
-                                                    ui.close();
-                                                }
-                                                if ui.button("Copy resource name").clicked() {
-                                                    ui.ctx().copy_text(resource.name.clone());
-                                                    ui.close();
-                                                }
-                                            },
-                                        );
-                                    });
-                                });
-                                row.col(|ui| {
-                                    let type_label: Cow<'_, str> =
-                                        match icon_for_resource_type(&resource.kind) {
-                                            Some(icon) => icon.name(),
-                                            None => Cow::Borrowed(resource.kind.as_ref()),
-                                        };
-                                    ui.add(Label::new(type_label.as_ref()).truncate())
-                                        .on_hover_text(resource.kind.as_ref());
-                                });
-                                row.col(|ui| {
-                                    ui.add(Label::new(resource_group.unwrap_or("—")).truncate());
-                                });
-                                row.col(|ui| {
-                                    let subscription_name = app
-                                        .subscriptions
-                                        .as_loaded()
-                                        .into_iter()
-                                        .flat_map(|subscriptions| subscriptions.iter())
-                                        .find(|subscription| {
-                                            Some(subscription.id) == subscription_id
-                                        })
-                                        .map(|subscription| subscription.name.as_str())
-                                        .or_else(|| {
-                                            subscription_id
-                                                .and_then(|id| subscription_names.get(&id).copied())
-                                        });
-                                    let label = subscription_name
-                                        .map(str::to_owned)
-                                        .or_else(|| subscription_id.map(|id| id.to_string()))
-                                        .unwrap_or_else(|| "—".to_owned());
-                                    ui.add(Label::new(label).truncate());
-                                });
-                            });
-                        });
-                });
-            }
-        }
-    }
-    if sign_in {
-        app.open_selected_account_sign_in();
+    let search = app.resource_search.trim().to_lowercase();
+    if let Some(resources) = inventory(app, ui) {
+        let selected_subscriptions: HashSet<_> = app
+            .subscriptions
+            .as_loaded()
+            .into_iter()
+            .flat_map(|subscriptions| subscriptions.iter())
+            .filter(|subscription| app.checkboxes.get(&Id::new(subscription.id)) == Some(&true))
+            .map(|subscription| subscription.id)
+            .collect();
+        show_inventory(
+            app,
+            ui,
+            &resources,
+            kind,
+            None,
+            &search,
+            &selected_subscriptions,
+        );
     }
     if refresh {
         load_resources(app, true);
     }
 }
 
-fn load_resources(app: &mut MyApp, refresh: bool) {
+pub(crate) fn scoped_resources_ui(app: &mut MyApp, ui: &mut Ui, scope: &ScopeImpl) {
+    if matches!(app.resources, Loadable::NotLoaded) {
+        load_resources(app, false);
+    }
+    let filter_id = ui.id().with(("scoped-resource-filter", scope));
+    let mut search = ui
+        .data(|data| data.get_temp::<String>(filter_id))
+        .unwrap_or_default();
+    ui.heading("Resources");
+    if ui
+        .add(TextEdit::singleline(&mut search).hint_text("Filter resources"))
+        .changed()
+    {
+        ui.data_mut(|data| data.insert_temp(filter_id, search.clone()));
+    }
+    if let Some(resources) = inventory(app, ui) {
+        show_inventory(
+            app,
+            ui,
+            &resources,
+            None,
+            Some(scope),
+            &search.trim().to_lowercase(),
+            &HashSet::new(),
+        );
+    }
+}
+
+fn inventory(app: &mut MyApp, ui: &mut Ui) -> Option<Arc<Vec<Arc<Resource>>>> {
+    match &app.resources {
+        Loadable::Loaded { value, .. } => Some(Arc::clone(value)),
+        Loadable::NotLoaded | Loadable::Loading { .. } => {
+            ui.horizontal(|ui| {
+                ui.spinner();
+                ui.label("Loading resources…");
+            });
+            None
+        }
+        Loadable::Failed { error, .. } => {
+            ui.colored_label(
+                Color32::from_rgb(164, 38, 44),
+                "Resources could not be loaded.",
+            );
+            let (retry, sign_in) = ui
+                .horizontal(|ui| {
+                    (
+                        ui.button("Retry").clicked(),
+                        ui.button("Sign in again").clicked(),
+                    )
+                })
+                .inner;
+            ui.collapsing("Error details", |ui| {
+                DiagnosticReportView::new(error).show(ui);
+            });
+            if retry {
+                load_resources(app, true);
+            } else if sign_in {
+                app.open_selected_account_sign_in();
+            }
+            None
+        }
+    }
+}
+
+fn show_inventory(
+    app: &mut MyApp,
+    ui: &mut Ui,
+    resources: &[Arc<Resource>],
+    kind: Option<&ResourceType>,
+    scope: Option<&ScopeImpl>,
+    search: &str,
+    selected_subscriptions: &HashSet<SubscriptionId>,
+) {
+    let mut subscription_names: HashMap<_, _> = resources
+        .iter()
+        .filter_map(|resource| match &resource.id {
+            ScopeImpl::Subscription(id) => {
+                Some((*id, resource.display_name().unwrap_or(&resource.name)))
+            }
+            _ => None,
+        })
+        .collect();
+    if let Some(subscriptions) = app.subscriptions.as_loaded() {
+        subscription_names.extend(
+            subscriptions
+                .iter()
+                .map(|subscription| (subscription.id, subscription.name.as_str())),
+        );
+    }
+    let rows: Vec<_> = resources
+        .iter()
+        .filter_map(|resource| {
+            if kind.is_some_and(|kind| kind != &resource.kind) {
+                return None;
+            }
+            let id = resource.id.expanded_form();
+            let (subscription, group) = ResourceInventoryRow::ancestors(&id);
+            if scope.is_some_and(|scope| {
+                !ResourceInventoryRow::belongs_to(&resource.id, subscription, group.as_ref(), scope)
+            }) || (!selected_subscriptions.is_empty()
+                && !subscription.is_some_and(|id| selected_subscriptions.contains(&id)))
+            {
+                return None;
+            }
+            let row = ResourceInventoryRow::new(
+                resource,
+                subscription,
+                subscription.and_then(|id| subscription_names.get(&id).copied()),
+                group,
+            );
+            (search.is_empty()
+                || row.name.to_lowercase().contains(search)
+                || row.type_label.to_lowercase().contains(search)
+                || resource.kind.as_ref().to_lowercase().contains(search)
+                || row
+                    .location
+                    .as_ref()
+                    .is_some_and(|location| location.to_string().to_lowercase().contains(search))
+                || id.to_lowercase().contains(search))
+            .then_some(row)
+        })
+        .collect();
+
+    ui.weak(format!("{} resources", rows.len()));
+    if rows.is_empty() {
+        ui.label("No resources match this view.");
+    }
+    let mut columns = vec![
+        ReflectedTableColumn::new("Name", "name")
+            .with_link("id")
+            .with_icon(ResourceInventoryRow::icon),
+        ReflectedTableColumn::new("Type", "type_label")
+            .with_width(176.0)
+            .with_link("kind"),
+    ];
+    if !matches!(scope, Some(ScopeImpl::ResourceGroup(_))) {
+        columns.push(
+            ReflectedTableColumn::new("Resource group", "group_name")
+                .with_width(168.0)
+                .with_link("group_id"),
+        );
+    }
+    columns.push(ReflectedTableColumn::new("Location", "location").with_width(134.0));
+    if scope.is_none() {
+        columns.push(
+            ReflectedTableColumn::new("Subscription", "subscription_name")
+                .with_width(168.0)
+                .with_link("subscription_id"),
+        );
+    }
+    let table = ReflectedTable::new(
+        ("resource-inventory", scope, kind, app.account_generation),
+        &columns,
+    );
+    if let Some(navigation) = table.show(
+        ui,
+        rows.iter(),
+        |row| Id::new(("resource-row", &row.id)),
+        &mut app.checkboxes,
+    ) {
+        app.navigate_tab(navigation);
+    }
+}
+
+pub(crate) fn load_resources(app: &mut MyApp, refresh: bool) {
     let Some(authentication) = app.ready_azure_authentication() else {
         return;
     };
@@ -350,22 +346,4 @@ fn load_resources(app: &mut MyApp, refresh: bool) {
             finished_at: Instant::now(),
         };
     }
-}
-
-/// Read table labels from the resource's scope, retaining absent scope as unknown.
-/// Management-group and tenant resources do not acquire invented subscription identities.
-fn resource_scope_columns(id: &str) -> (Option<SubscriptionId>, Option<&str>) {
-    let mut parts = id.trim_start_matches('/').split('/');
-    if !parts
-        .next()
-        .is_some_and(|part| part.eq_ignore_ascii_case("subscriptions"))
-    {
-        return (None, None);
-    }
-    let subscription_id = parts.next().and_then(|part| part.parse().ok());
-    let resource_group = match (parts.next(), parts.next()) {
-        (Some(segment), Some(name)) if segment.eq_ignore_ascii_case("resourceGroups") => Some(name),
-        _ => None,
-    };
-    (subscription_id, resource_group)
 }

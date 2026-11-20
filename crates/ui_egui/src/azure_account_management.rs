@@ -4,6 +4,9 @@ use crate::azure_account_operation::AzureAccountOperation;
 use crate::azure_account_operation_event::AzureAccountOperationEvent;
 use crate::azure_account_picker::AzureAccountPicker;
 use crate::azure_account_picker_action::AzureAccountPickerAction;
+use crate::azure_account_sign_in_method::AzureAccountSignInMethod;
+use crate::portal_page::PortalPage;
+use crate::portal_tab_target::PortalTabTarget;
 use cloud_terrastodon_auth::CloudTerrastodonAccountCatalogue;
 use cloud_terrastodon_auth::CredentialAuthenticationProvider;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
@@ -13,6 +16,7 @@ use cloud_terrastodon_auth_types::CloudTerrastodonCredentialRegistration;
 use eframe::egui::Context;
 use eframe::egui::Ui;
 use std::sync::Arc;
+use teamy_cancellation::CancellationError;
 use teamy_tracing::DiagnosticReport;
 
 impl MyApp {
@@ -32,25 +36,30 @@ impl MyApp {
                     ctx,
                 );
             }
-            AzureAccountPickerAction::Reauthenticate(selection) => {
-                self.account_manager.open_reauthentication(
-                    selection.account_id,
-                    AzureAccountPicker::selected_source(selection),
+            AzureAccountPickerAction::SignInWithDeviceCode(account_id) => {
+                self.start_account_operation(
+                    AzureAccountAction::Login {
+                        account_id,
+                        method: AzureAccountSignInMethod::AzureCliDeviceCode,
+                    },
+                    ctx,
                 );
             }
-            AzureAccountPickerAction::Manage(id) => self.account_manager.open_account(id),
-            AzureAccountPickerAction::Add => self.account_manager.open_add(),
             AzureAccountPickerAction::Reload => {
                 self.start_account_operation(AzureAccountAction::Reload, ctx)
             }
-            AzureAccountPickerAction::ManageAccounts => self.account_manager.open(),
-            AzureAccountPickerAction::ManageTenants => self.tenant_manager.open = true,
+            AzureAccountPickerAction::ManageAccounts => {
+                self.tabs
+                    .open_kept(PortalTabTarget::Page(PortalPage::Accounts));
+            }
         }
     }
 
     fn select_account(&mut self, selection: AzureBearerAuthenticationSelection) {
         self.account_picker.selection_error = None;
+        self.egui_config.azure_authentication = Some(selection);
         if self.authentication != Some(selection) {
+            self.tabs.clear_azure_details();
             self.authentication = Some(selection);
             self.clear_account_inventory();
         }
@@ -104,6 +113,8 @@ impl MyApp {
                 selection.account_id,
                 AzureAccountPicker::selected_source(selection),
             );
+            self.tabs
+                .open_kept(PortalTabTarget::Page(PortalPage::Accounts));
         }
     }
 
@@ -123,33 +134,56 @@ impl MyApp {
             Ok(operation) => {
                 self.account_picker.selection_error = None;
                 self.account_operation = Some(operation);
+                self.account_profiles = Default::default();
                 self.clear_account_inventory();
             }
             Err(error) => self.show_account_error(DiagnosticReport::new(error)),
         }
     }
 
-    pub(crate) fn show_account_management(&mut self, ctx: &Context) {
+    pub(crate) fn show_accounts_page(&mut self, ui: &mut Ui) {
         let busy = self.account_operation.is_some();
-        if let Some(action) =
-            self.account_manager
-                .show(ctx, self.account_picker.catalogue.as_ref().ok(), busy)
-        {
-            self.start_account_operation(action, ctx);
+        self.tenant_manager.load_catalogue_if_needed(
+            &self.work_tracker,
+            &self.executor,
+            &self.work_cache,
+            ui.ctx(),
+        );
+        let mut open_tenants = false;
+        if let Some(action) = self.account_manager.show(
+            ui,
+            self.account_picker.catalogue.as_ref().ok(),
+            busy,
+            self.tenant_manager.tracked_tenants(),
+            &mut open_tenants,
+        ) {
+            self.start_account_operation(action, ui.ctx());
         }
+        if open_tenants {
+            self.tabs
+                .open_kept(PortalTabTarget::Page(PortalPage::AzureTenants));
+        }
+    }
+
+    pub(crate) fn show_account_operation(&self, ctx: &Context) {
         if let Some(operation) = &self.account_operation {
-            operation.show(ctx);
+            operation.show(ctx, self.account_picker.catalogue.as_ref().ok());
         }
-        if self.account_operation.is_none() {
-            let authentication = self.ready_azure_authentication();
-            self.tenant_manager.show(
-                ctx,
-                &self.work_tracker,
-                &self.executor,
-                &self.work_cache,
-                authentication,
-            );
+    }
+
+    pub(crate) fn show_azure_tenants_page(&mut self, ui: &mut Ui) {
+        if self.account_operation.is_some() {
+            ui.spinner();
+            return;
         }
+        let authentication = self.ready_azure_authentication();
+        self.tenant_manager.show(
+            ui,
+            &self.work_tracker,
+            &self.executor,
+            &self.work_cache,
+            authentication,
+        );
     }
 
     pub(crate) fn poll_account_operation(&mut self) {
@@ -170,7 +204,11 @@ impl MyApp {
             .and_then(|operation| operation.login_target);
         self.apply_account_catalogue(catalogue, provider_closed);
         match outcome {
-            Ok(Some(new_account)) if self.account_manager.is_open() => {
+            Ok(Some(new_account))
+                if self
+                    .tabs
+                    .contains(&PortalTabTarget::Page(PortalPage::Accounts)) =>
+            {
                 self.account_manager.open_account(new_account);
             }
             Ok(Some(_)) => {}
@@ -190,12 +228,20 @@ impl MyApp {
                     });
                 }
             }
+            // Cleanup failures wrap the original cancellation and still need to
+            // be shown. Only a bare cancellation is a normal dismissal.
+            Err(error)
+                if error
+                    .report
+                    .chain()
+                    .next()
+                    .is_some_and(|cause| cause.is::<CancellationError>()) => {}
             Err(error) => self.show_account_error(error),
         }
     }
 
     fn show_account_error(&mut self, report: DiagnosticReport) {
-        if self.account_manager.is_open() {
+        if self.current_page() == PortalPage::Accounts {
             self.account_manager.show_error(report);
         } else {
             self.account_picker.selection_error = Some(report);
@@ -220,17 +266,31 @@ impl MyApp {
                     self.account_authentication = authentication;
                 }
                 Err(error) => {
+                    self.tabs.clear_azure_details();
                     self.account_picker.catalogue = Err(DiagnosticReport::new(error));
                     return;
                 }
             }
         }
-        if let Ok(next) = &catalogue
-            && self
-                .authentication
-                .is_some_and(|old| selected_registration(next, old).is_none())
-        {
-            self.authentication = None;
+        if let Some(selection) = self.authentication {
+            let registration = catalogue
+                .as_ref()
+                .ok()
+                .and_then(|next| selected_registration(next, selection));
+            if !registration.is_some_and(|registration| {
+                matches!(
+                    registration.session,
+                    CloudTerrastodonAccountSession::Active { .. }
+                )
+            }) {
+                self.tabs.clear_azure_details();
+            }
+            if catalogue.is_ok() && registration.is_none() {
+                self.authentication = None;
+                if self.egui_config.azure_authentication == Some(selection) {
+                    self.egui_config.azure_authentication = None;
+                }
+            }
         }
         self.account_picker.catalogue = catalogue;
     }

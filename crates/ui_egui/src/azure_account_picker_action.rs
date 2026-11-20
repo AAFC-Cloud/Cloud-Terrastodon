@@ -5,10 +5,7 @@ use cloud_terrastodon_auth_types::CloudTerrastodonAccountId;
 pub(crate) enum AzureAccountPickerAction {
     Select(AzureBearerAuthenticationSelection),
     SignIn(AzureBearerAuthenticationSelection),
-    Reauthenticate(AzureBearerAuthenticationSelection),
-    Manage(CloudTerrastodonAccountId),
-    Add,
+    SignInWithDeviceCode(CloudTerrastodonAccountId),
     Reload,
     ManageAccounts,
-    ManageTenants,
 }

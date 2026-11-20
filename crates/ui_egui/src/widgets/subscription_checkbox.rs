@@ -18,7 +18,7 @@ pub fn draw_subscription_checkbox(app: &mut MyApp, ui: &mut Ui, subscription: &S
     }
     let is_open = expando.is_open();
     if is_open && matches!(app.resource_groups, Loadable::NotLoaded) {
-        load_resource_groups(app);
+        load_resource_groups(app, false);
     }
     expando
         .clone()

@@ -12,12 +12,16 @@ categories.workspace = true
 
 [dependencies]
 teamy-tracing = { workspace = true, features = ["egui"] }
+cloud_terrastodon_app.workspace = true
 cloud_terrastodon_auth.workspace = true
+cloud_terrastodon_auth_cli.workspace = true
 cloud_terrastodon_execution.workspace = true
 cloud_terrastodon_azure_devops.workspace = true
 cloud_terrastodon_azure.workspace = true
+cloud_terrastodon_azure_cli.workspace = true
 cloud_terrastodon_cache.workspace = true
 cloud_terrastodon_command.workspace = true
+cloud_terrastodon_cli_types.workspace = true
 cloud_terrastodon_config.workspace = true
 cloud_terrastodon_auth_types.workspace = true
 cloud_terrastodon_hcl.workspace = true
@@ -33,8 +37,12 @@ egui_extras = { workspace = true, features = ["svg"] }
 egui-toast.workspace = true
 eyre.workspace = true
 facet.workspace = true
+facet-reflect.workspace = true
+figue.workspace = true
+image = { version = "0.25.10", default-features = false, features = ["jpeg", "png"] }
 indexmap.workspace = true
 itertools.workspace = true
+strip-ansi-escapes.workspace = true
 tokio.workspace = true
 teamy-cancellation.workspace = true
 tracing.workspace = true

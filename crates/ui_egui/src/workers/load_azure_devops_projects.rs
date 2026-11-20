@@ -10,14 +10,19 @@ use std::time::Instant;
 use tracing::info;
 
 pub fn load_azure_devops_projects(app: &mut MyApp) {
+    load_azure_devops_projects_with_invalidation(app, false);
+}
+
+pub(crate) fn load_azure_devops_projects_with_invalidation(app: &mut MyApp, refresh: bool) {
     let account_generation = app.account_generation;
+    let organization_generation = app.azure_devops_organization_picker.generation;
     let Some(org_url) = app.azure_devops_organization.clone() else {
         return;
     };
-    info!("Queueing work to fetch Azure DevOps projects...");
-    let Some(authentication) = app.ready_azure_authentication() else {
+    let Some(auth_selection) = app.ready_azure_devops_authentication() else {
         return;
     };
+    info!("Queueing work to fetch Azure DevOps projects...");
     let executor = app.executor.clone();
     let work_cache = app.work_cache.clone();
     let cancellation = executor.cancellation().clone();
@@ -25,19 +30,21 @@ pub fn load_azure_devops_projects(app: &mut MyApp) {
     let work = LoadableWorkBuilder::<MyApp, Arc<Vec<Arc<AzureDevOpsProject>>>>::new()
         .description("loading Azure DevOps projects")
         .setter(move |app, data| {
-            if app.account_generation == account_generation {
+            if app.account_generation == account_generation
+                && app.azure_devops_organization_picker.generation == organization_generation
+            {
                 app.azure_devops_projects = data;
             }
         })
         .work(async move |scope| {
             let executor = work_cache.job_executor(&executor.with_cancellation_scope(scope))?;
-            let projects = AzureDevOpsProjectsListRequest {
+            AzureDevOpsProjectsListRequest {
                 org_url: Cow::Borrowed(&org_url),
-                auth_selection: (authentication.into()),
+                auth_selection,
             }
             .execute(&executor)
-            .await?;
-            Ok(projects)
+            .with_invalidation(refresh)
+            .await
         })
         .build()
         .and_then(|work| {

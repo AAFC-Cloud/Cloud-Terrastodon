@@ -1,7 +1,7 @@
 use crate::app::MyApp;
 use crate::portal_page::PortalPage;
+use crate::portal_tab_target::PortalTabTarget;
 use eframe::egui::Align;
-use eframe::egui::Button;
 use eframe::egui::Color32;
 use eframe::egui::CornerRadius;
 use eframe::egui::Frame;
@@ -16,7 +16,6 @@ use eframe::egui::TextEdit;
 use eframe::egui::TextStyle;
 use eframe::egui::Ui;
 use eframe::egui::Vec2;
-use eframe::egui::ViewportCommand;
 use eframe::egui::WidgetInfo;
 use eframe::egui::WidgetType;
 
@@ -95,15 +94,16 @@ impl MyApp {
                         if let Some(action) = self.account_picker.show(
                             ui,
                             self.authentication,
+                            &self.account_profiles,
                             self.account_operation.is_some(),
+                            &mut self.egui_config.demo_mode,
                         ) {
                             self.handle_account_picker_action(action, ui.ctx());
                         }
-                        if ui.add_sized([56.0, 40.0], Button::new("Quit")).clicked() {
-                            ui.ctx().send_viewport_cmd(ViewportCommand::Close);
-                        }
                         ui.add_space(16.0);
-                        let search_width = (ui.available_width() - 16.0).max(80.0);
+                        let search_space = (ui.available_width() - 16.0).max(0.0);
+                        let search_width = search_space.min(560.0);
+                        ui.add_space((search_space - search_width) * 0.5);
                         ui.scope(|ui| {
                             ui.spacing_mut().interact_size.y = 28.0;
                             ui.visuals_mut().override_text_color =
@@ -122,7 +122,8 @@ impl MyApp {
                                 response.request_focus();
                             }
                             if response.changed() {
-                                self.page = PortalPage::Resources;
+                                self.tabs.open(PortalTabTarget::Page(PortalPage::Resources));
+                                self.retain_open_tab_data();
                             }
                         });
                     });

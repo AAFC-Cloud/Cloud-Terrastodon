@@ -3,6 +3,7 @@ use crate::azure_account_confirmation::AzureAccountConfirmation;
 use crate::azure_account_registration_form::parse_client_id;
 use crate::azure_account_registration_form::source_label;
 use crate::azure_account_registration_form::text_input;
+use crate::azure_account_sign_in_method::AzureAccountSignInMethod;
 use cloud_terrastodon_auth::AzureDevOpsPersonalAccessToken;
 use cloud_terrastodon_auth::CloudTerrastodonAccountCatalogue;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountCredential;
@@ -29,6 +30,10 @@ pub(crate) struct AzureAccountDetails {
 }
 
 impl AzureAccountDetails {
+    pub(crate) fn account_id(&self) -> CloudTerrastodonAccountId {
+        self.id
+    }
+
     pub fn new(id: CloudTerrastodonAccountId) -> Self {
         Self {
             id,
@@ -231,6 +236,15 @@ impl AzureAccountDetails {
                     } else {
                         return Some(AzureAccountAction::sign_in(account.id, source));
                     }
+                }
+                if can_sign_in
+                    && source == Source::AzureCli
+                    && ui.button("Sign in with device code").clicked()
+                {
+                    return Some(AzureAccountAction::Login {
+                        account_id: account.id,
+                        method: AzureAccountSignInMethod::AzureCliDeviceCode,
+                    });
                 }
                 if can_sign_in
                     && matches!(

@@ -1,4 +1,5 @@
 use crate::app::MyApp;
+use crate::icons::DEVOPS_PROJECT_ICON;
 use crate::icons::RESOURCE_GROUP_ICON;
 use crate::icons::SUBSCRIPTION_ICON;
 use cloud_terrastodon_command::app_work::Loadable;
@@ -66,12 +67,7 @@ pub fn selected_items_ui(app: &mut MyApp, ui: &mut egui::Ui) {
                     continue;
                 }
                 ui.horizontal(|ui| {
-                    if ui
-                        .image(egui::include_image!(
-                            "../../assets/10261-icon-service-Azure-DevOps-4x.png"
-                        ))
-                        .clicked()
-                    {
+                    if ui.image(DEVOPS_PROJECT_ICON).clicked() {
                         debug!("Clicked on Azure DevOps Project icon");
                         *checked ^= true;
                     }
