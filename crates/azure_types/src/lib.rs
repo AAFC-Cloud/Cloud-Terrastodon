@@ -149,6 +149,8 @@ mod entra_service_principal_application_resource_specific_permission;
 mod entra_service_principal_application_role;
 mod entra_service_principal_application_role_id;
 mod entra_service_principal_object_id;
+mod entra_profile_thumbnail;
+mod entra_signed_in_user;
 mod entra_user;
 mod entra_user_argument;
 mod entra_user_external_user_state;
@@ -443,6 +445,8 @@ pub use crate::entra_service_principal_application_resource_specific_permission:
 pub use crate::entra_service_principal_application_role::*;
 pub use crate::entra_service_principal_application_role_id::*;
 pub use crate::entra_service_principal_object_id::*;
+pub use crate::entra_profile_thumbnail::*;
+pub use crate::entra_signed_in_user::*;
 pub use crate::entra_user::*;
 pub use crate::entra_user_argument::*;
 pub use crate::entra_user_external_user_state::*;
