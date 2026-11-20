@@ -2,9 +2,30 @@ use crate::app::MyApp;
 use crate::portal_browser_control::PortalBrowserControl;
 use crate::portal_page::PortalPage;
 use crate::portal_tab_target::PortalTabTarget;
+use eframe::egui::Key;
+use eframe::egui::Modifiers;
+use eframe::egui::PointerButton;
 use eframe::egui::Ui;
 
 impl MyApp {
+    pub(crate) fn handle_history_input(&mut self, ui: &Ui) {
+        let (back, forward) = ui.input_mut(|input| {
+            let back = input.consume_key(Modifiers::ALT, Key::ArrowLeft)
+                || input.pointer.button_pressed(PointerButton::Extra1);
+            let forward = input.consume_key(Modifiers::ALT, Key::ArrowRight)
+                || input.pointer.button_pressed(PointerButton::Extra2);
+            (back, forward)
+        });
+        if (back && self.tabs.back()) || (forward && self.tabs.forward()) {
+            self.after_history_navigation();
+        }
+    }
+
+    pub(crate) fn after_history_navigation(&mut self) {
+        self.resource_search.clear();
+        self.retain_open_tab_data();
+    }
+
     /// Render browser controls and the address for the current tab.
     pub(crate) fn show_portal_browser_toolbar(&mut self, ui: &mut Ui, target: &PortalTabTarget) {
         let (visits, current) = self.tabs.history();

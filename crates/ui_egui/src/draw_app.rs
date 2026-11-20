@@ -33,7 +33,7 @@ use eframe::egui::Window;
 
 impl MyApp {
     pub fn draw_app(&mut self, ui: &mut Ui) {
-        self.handle_mouse_history(ui);
+        self.handle_history_input(ui);
         ui_file_drag_and_drop(self, ui.ctx());
         self.portal_header(ui);
         self.portal_navigation(ui);

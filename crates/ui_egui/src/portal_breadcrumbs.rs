@@ -6,7 +6,6 @@ use eframe::egui::CursorIcon;
 use eframe::egui::Frame;
 use eframe::egui::Image;
 use eframe::egui::Margin;
-use eframe::egui::PointerButton;
 use eframe::egui::RichText;
 use eframe::egui::ScrollArea;
 use eframe::egui::Stroke;
@@ -15,18 +14,6 @@ use eframe::egui::Ui;
 use eframe::egui::Vec2;
 
 impl MyApp {
-    pub(crate) fn handle_mouse_history(&mut self, ui: &Ui) {
-        let (back, forward) = ui.input(|input| {
-            (
-                input.pointer.button_pressed(PointerButton::Extra1),
-                input.pointer.button_pressed(PointerButton::Extra2),
-            )
-        });
-        if (back && self.tabs.back()) || (forward && self.tabs.forward()) {
-            self.after_history_navigation();
-        }
-    }
-
     /// Returns whether a breadcrumb moved to a different destination.
     pub(crate) fn show_portal_breadcrumbs(
         &mut self,
@@ -107,10 +94,5 @@ impl MyApp {
             }
             response.clicked()
         }
-    }
-
-    pub(crate) fn after_history_navigation(&mut self) {
-        self.resource_search.clear();
-        self.retain_open_tab_data();
     }
 }
