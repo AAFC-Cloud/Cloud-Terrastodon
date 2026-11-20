@@ -1,6 +1,7 @@
 use crate::app::MyApp;
 use crate::reflected_table::ReflectedTable;
 use crate::reflected_table_column::ReflectedTableColumn;
+use crate::resource_inventory_grouping::ResourceInventoryGrouping;
 use crate::resource_inventory_row::ResourceInventoryRow;
 use crate::workers::load_subscriptions::load_subscriptions;
 use cloud_terrastodon_azure::AzureResourceListRequest;
@@ -12,9 +13,12 @@ use cloud_terrastodon_azure::SubscriptionId;
 use cloud_terrastodon_command::app_work::Loadable;
 use cloud_terrastodon_command::app_work::LoadableWorkBuilder;
 use cloud_terrastodon_execution::ExecutableRequest;
+use eframe::egui::Align;
 use eframe::egui::Button;
 use eframe::egui::Color32;
+use eframe::egui::ComboBox;
 use eframe::egui::Id;
+use eframe::egui::Layout;
 use eframe::egui::ScrollArea;
 use eframe::egui::TextEdit;
 use eframe::egui::Ui;
@@ -264,7 +268,37 @@ fn show_inventory(
         })
         .collect();
 
-    ui.weak(format!("{} resources", rows.len()));
+    let inventory_id = Id::new((
+        "resource-inventory",
+        app.current_page().title(),
+        scope,
+        kind,
+    ));
+    let grouping_id = ui.make_persistent_id(inventory_id.with("grouping"));
+    let previous_grouping = ui.data(|data| data.get_temp::<ResourceInventoryGrouping>(grouping_id));
+    let mut grouping = previous_grouping;
+    ui.horizontal(|ui| {
+        ui.weak(format!("{} resources", rows.len()));
+        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            ComboBox::from_id_salt(grouping_id)
+                .selected_text(grouping.map_or("None", ResourceInventoryGrouping::label))
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(&mut grouping, None, "None");
+                    for option in ResourceInventoryGrouping::ALL {
+                        ui.selectable_value(&mut grouping, Some(option), option.label());
+                    }
+                });
+            ui.label("Group by");
+        });
+    });
+    if grouping != previous_grouping {
+        ui.data_mut(|data| match grouping {
+            Some(grouping) => {
+                data.insert_temp(grouping_id, grouping);
+            }
+            None => data.remove::<ResourceInventoryGrouping>(grouping_id),
+        });
+    }
     if rows.is_empty() {
         ui.label("No resources match this view.");
     }
@@ -291,16 +325,19 @@ fn show_inventory(
                 .with_link("subscription_id"),
         );
     }
-    let table = ReflectedTable::new(
-        ("resource-inventory", scope, kind, app.account_generation),
-        &columns,
-    );
-    if let Some(navigation) = table.show(
-        ui,
-        rows.iter(),
-        |row| Id::new(("resource-row", &row.id)),
-        &mut app.checkboxes,
-    ) {
+    let table = ReflectedTable::new(inventory_id.with(app.account_generation), &columns);
+    if grouping != previous_grouping {
+        table.reset_selection_anchor(ui);
+    }
+    let row_id = |row: &ResourceInventoryRow| Id::new(("resource-row", &row.id));
+    let navigation = if let Some(grouping) = grouping {
+        table.show_grouped(ui, rows.iter(), row_id, &mut app.checkboxes, |row| {
+            grouping.group(row)
+        })
+    } else {
+        table.show(ui, rows.iter(), row_id, &mut app.checkboxes)
+    };
+    if let Some(navigation) = navigation {
         app.navigate_tab(navigation);
     }
 }

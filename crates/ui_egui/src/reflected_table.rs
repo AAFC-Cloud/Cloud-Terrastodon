@@ -1,6 +1,8 @@
 use crate::inventory_table::show_inventory_table;
 use crate::portal_tab_target::PortalTabTarget;
 use crate::reflected_table_column::ReflectedTableColumn;
+use crate::reflected_table_group::ReflectedTableGroup;
+use crate::reflected_table_group_heading::ReflectedTableGroupHeading;
 use crate::reflected_table_sort::ReflectedTableSort;
 use crate::reflected_value::ReflectedValue;
 use crate::table_row_background::TableRowBackground;
@@ -50,11 +52,36 @@ impl<'a> ReflectedTable<'a> {
         row_id: impl Fn(&T) -> Id,
         checked_rows: &mut HashMap<Id, bool>,
     ) -> Option<PortalTabTarget> {
+        self.show_rows(ui, rows, row_id, checked_rows, None)
+    }
+
+    /// Render an expandable heading and its matching rows for each group.
+    pub fn show_grouped<'row, T: Facet<'static> + 'row>(
+        &self,
+        ui: &mut Ui,
+        rows: impl IntoIterator<Item = &'row T>,
+        row_id: impl Fn(&T) -> Id,
+        checked_rows: &mut HashMap<Id, bool>,
+        group: impl Fn(&T) -> ReflectedTableGroup,
+    ) -> Option<PortalTabTarget> {
+        self.show_rows(ui, rows, row_id, checked_rows, Some(&group))
+    }
+
+    fn show_rows<'row, T: Facet<'static> + 'row>(
+        &self,
+        ui: &mut Ui,
+        rows: impl IntoIterator<Item = &'row T>,
+        row_id: impl Fn(&T) -> Id,
+        checked_rows: &mut HashMap<Id, bool>,
+        group: Option<&dyn Fn(&T) -> ReflectedTableGroup>,
+    ) -> Option<PortalTabTarget> {
         if self.columns.is_empty() {
             return None;
         }
         let mut rows: Vec<_> = rows.into_iter().map(|row| (row_id(row), row)).collect();
         let table_id = ui.id().with(self.id);
+        let headings =
+            group.map_or_else(Vec::new, |group| group_rows(ui, table_id, &mut rows, group));
         let sort_id = table_id.with("sort");
         let anchor_id = table_id.with("anchor");
         let mut sort = ui
@@ -113,19 +140,30 @@ impl<'a> ReflectedTable<'a> {
                         }
                     })
                     .body(|mut body| {
-                        let key = self.columns[sort.column].field;
-                        rows.sort_by_cached_key(|(id, value)| {
-                            let key = ReflectedValue::new(*value)
-                                .column(key)
-                                .map(ReflectedValue::table_sort_key);
-                            (key, id.value())
-                        });
-                        if sort.descending {
-                            rows.reverse();
+                        let field = self.columns[sort.column].field;
+                        if headings.is_empty() {
+                            sort_rows(&mut rows, field, sort.descending);
+                        } else {
+                            for heading in &headings {
+                                sort_rows(
+                                    &mut rows[heading.visible_rows.clone()],
+                                    field,
+                                    sort.descending,
+                                );
+                            }
                         }
                         let background = TableRowBackground::new(&mut body);
-                        body.rows(29.0, rows.len(), |mut row| {
-                            let index = row.index();
+                        body.rows(29.0, rows.len() + headings.len(), |mut row| {
+                            let display_index = row.index();
+                            let headings_before = headings
+                                .partition_point(|heading| heading.display_index < display_index);
+                            if let Some(heading) = headings.get(headings_before)
+                                && heading.display_index == display_index
+                            {
+                                heading.show(&mut row, &background, table_id);
+                                return;
+                            }
+                            let index = display_index - headings_before;
                             let (id, value) = rows[index];
                             let reflected = ReflectedValue::new(value);
                             let mut checked = checked_rows.get(&id) == Some(&true);
@@ -211,5 +249,99 @@ impl<'a> ReflectedTable<'a> {
             ui.ctx().request_repaint();
         }
         navigation
+    }
+}
+
+fn group_rows<T>(
+    ui: &Ui,
+    table_id: Id,
+    rows: &mut Vec<(Id, &T)>,
+    group_for: &dyn Fn(&T) -> ReflectedTableGroup,
+) -> Vec<ReflectedTableGroupHeading> {
+    let mut groups = HashMap::new();
+    for (id, value) in rows.drain(..) {
+        let group = group_for(value);
+        let (_, items) = groups
+            .entry(group.id)
+            .or_insert_with(|| (group, Vec::new()));
+        items.push((id, value));
+    }
+    let mut groups: Vec<_> = groups.into_values().collect();
+    groups.sort_by_cached_key(|(group, _)| (group.label.to_lowercase(), group.id.value()));
+    let mut headings = Vec::with_capacity(groups.len());
+    for (group, items) in groups {
+        let start = rows.len();
+        let count = items.len();
+        let id = ReflectedTableGroupHeading::expansion_id(table_id, group.id);
+        let expanded = ui.data(|data| data.get_temp::<bool>(id)).unwrap_or(true);
+        if expanded {
+            rows.extend(items);
+        }
+        headings.push(ReflectedTableGroupHeading {
+            group,
+            display_index: start + headings.len(),
+            visible_rows: start..rows.len(),
+            count,
+            expanded,
+        });
+    }
+    headings
+}
+
+fn sort_rows<T: Facet<'static>>(rows: &mut [(Id, &T)], field: &str, descending: bool) {
+    rows.sort_by_cached_key(|(id, value)| {
+        let key = ReflectedValue::new(*value)
+            .column(field)
+            .map(ReflectedValue::table_sort_key);
+        (key, id.value())
+    });
+    if descending {
+        rows.reverse();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use eframe::egui::Context;
+
+    #[test]
+    fn collapsing_a_group_preserves_its_heading_and_excludes_its_rows_from_selection() {
+        let mut alpha_ids = [Id::new("alpha tenant one"), Id::new("alpha tenant two")];
+        alpha_ids.sort_by_key(|id| id.value());
+        let [collapsed, expanded] = alpha_ids;
+        let zulu = Id::new("zulu");
+        let source = [
+            (zulu, "Zulu", "four"),
+            (expanded, "Alpha", "three"),
+            (collapsed, "Alpha", "one"),
+            (collapsed, "Alpha", "two"),
+        ];
+        let mut rows: Vec<_> = source.iter().map(|row| (Id::new(row.2), row)).collect();
+        let table_id = Id::new("test-grouping");
+        let mut frame = Context::default().run_ui(Default::default(), |ui| {
+            ui.data_mut(|data| {
+                data.insert_temp(
+                    ReflectedTableGroupHeading::expansion_id(table_id, collapsed),
+                    false,
+                );
+            });
+            let headings = group_rows(ui, table_id, &mut rows, &|row| ReflectedTableGroup {
+                id: row.0,
+                label: row.1.to_owned(),
+            });
+            assert_eq!(
+                headings
+                    .iter()
+                    .map(|heading| (heading.group.id, heading.display_index, heading.count))
+                    .collect::<Vec<_>>(),
+                [(collapsed, 0, 2), (expanded, 1, 1), (zulu, 3, 1)]
+            );
+            assert_eq!(
+                rows.iter().map(|(_, row)| row.2).collect::<Vec<_>>(),
+                ["three", "four"]
+            );
+        });
+        frame.textures_delta.clear();
     }
 }
