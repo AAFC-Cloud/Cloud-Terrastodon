@@ -23,7 +23,7 @@ pub(crate) fn load_subscriptions_with_invalidation(app: &mut MyApp, refresh: boo
     let cancellation = executor.cancellation().clone();
     let started_at = Instant::now();
     info!("Queueing work to fetch subscriptions");
-    let work = LoadableWorkBuilder::<MyApp, Vec<Arc<Subscription>>>::new()
+    let enqueue_result = LoadableWorkBuilder::<MyApp, Vec<Arc<Subscription>>>::new()
         .description("Loading Subscriptions")
         .setter(move |app, data| {
             if app.account_generation == account_generation {
@@ -39,15 +39,13 @@ pub(crate) fn load_subscriptions_with_invalidation(app: &mut MyApp, refresh: boo
             Ok(subs)
         })
         .build()
-        .and_then(|work| {
-            work.enqueue(
-                &app.work_tracker.clone(),
-                app.tx.clone(),
-                app,
-                &cancellation,
-            )
-        });
-    if let Err(error) = work {
+        .enqueue(
+            &app.work_tracker.clone(),
+            app.tx.clone(),
+            app,
+            &cancellation,
+        );
+    if let Err(error) = enqueue_result {
         app.subscriptions = Loadable::Failed {
             error: error.into(),
             started_at,

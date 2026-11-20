@@ -314,7 +314,7 @@ pub(crate) fn load_resources(app: &mut MyApp, refresh: bool) {
     let cancellation = executor.cancellation().clone();
     let generation = app.account_generation;
     let started_at = Instant::now();
-    let work = LoadableWorkBuilder::<MyApp, _>::new()
+    let enqueue_result = LoadableWorkBuilder::<MyApp, _>::new()
         .description("Fetch resources")
         .setter(move |app, resources| {
             if app.account_generation == generation {
@@ -331,15 +331,13 @@ pub(crate) fn load_resources(app: &mut MyApp, refresh: bool) {
             ))
         })
         .build()
-        .and_then(|work| {
-            work.enqueue(
-                &app.work_tracker.clone(),
-                app.tx.clone(),
-                app,
-                &cancellation,
-            )
-        });
-    if let Err(error) = work {
+        .enqueue(
+            &app.work_tracker.clone(),
+            app.tx.clone(),
+            app,
+            &cancellation,
+        );
+    if let Err(error) = enqueue_result {
         app.resources = Loadable::Failed {
             error: error.into(),
             started_at,

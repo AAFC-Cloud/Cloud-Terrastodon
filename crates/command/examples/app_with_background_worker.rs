@@ -44,7 +44,7 @@ impl MyApp {
                 let thingies = fetch_all_thingies().await?;
                 Ok(thingies)
             })
-            .build()?
+            .build()
             .enqueue(
                 &self.work.work_tracker,
                 self.work.work_response_sender.clone(),

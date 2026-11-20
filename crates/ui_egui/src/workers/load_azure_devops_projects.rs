@@ -27,7 +27,7 @@ pub(crate) fn load_azure_devops_projects_with_invalidation(app: &mut MyApp, refr
     let work_cache = app.work_cache.clone();
     let cancellation = executor.cancellation().clone();
     let started_at = Instant::now();
-    let work = LoadableWorkBuilder::<MyApp, Arc<Vec<Arc<AzureDevOpsProject>>>>::new()
+    let enqueue_result = LoadableWorkBuilder::<MyApp, Arc<Vec<Arc<AzureDevOpsProject>>>>::new()
         .description("loading Azure DevOps projects")
         .setter(move |app, data| {
             if app.account_generation == account_generation
@@ -47,15 +47,13 @@ pub(crate) fn load_azure_devops_projects_with_invalidation(app: &mut MyApp, refr
             .await
         })
         .build()
-        .and_then(|work| {
-            work.enqueue(
-                &app.work_tracker.clone(),
-                app.tx.clone(),
-                app,
-                &cancellation,
-            )
-        });
-    if let Err(error) = work {
+        .enqueue(
+            &app.work_tracker.clone(),
+            app.tx.clone(),
+            app,
+            &cancellation,
+        );
+    if let Err(error) = enqueue_result {
         app.azure_devops_projects = Loadable::Failed {
             error: error.into(),
             started_at,

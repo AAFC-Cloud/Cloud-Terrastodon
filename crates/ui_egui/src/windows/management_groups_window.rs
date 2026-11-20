@@ -156,7 +156,7 @@ pub(crate) fn load_management_groups(app: &mut MyApp, refresh: bool) {
     let cancellation = executor.cancellation().clone();
     let work_cache = app.work_cache.clone();
     let started_at = Instant::now();
-    let work = LoadableWorkBuilder::<MyApp, _>::new()
+    let enqueue_result = LoadableWorkBuilder::<MyApp, _>::new()
         .description("Load management groups")
         .setter(move |app, groups| {
             if app.account_generation == account_generation {
@@ -171,15 +171,13 @@ pub(crate) fn load_management_groups(app: &mut MyApp, refresh: bool) {
                 .await
         })
         .build()
-        .and_then(|work| {
-            work.enqueue(
-                &app.work_tracker.clone(),
-                app.tx.clone(),
-                app,
-                &cancellation,
-            )
-        });
-    if let Err(error) = work {
+        .enqueue(
+            &app.work_tracker.clone(),
+            app.tx.clone(),
+            app,
+            &cancellation,
+        );
+    if let Err(error) = enqueue_result {
         app.management_groups = Loadable::Failed {
             error: error.into(),
             started_at,

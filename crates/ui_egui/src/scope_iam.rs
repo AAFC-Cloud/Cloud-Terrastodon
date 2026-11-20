@@ -103,7 +103,7 @@ pub(crate) fn load_scope_iam(app: &mut MyApp, scope: &ScopeImpl, refresh: bool) 
     let view_scope = scope.clone();
     let load_scope = scope.clone();
     let started_at = Instant::now();
-    let work = LoadableWorkBuilder::<MyApp, Arc<ScopeIamSnapshot>>::new()
+    let enqueue_result = LoadableWorkBuilder::<MyApp, Arc<ScopeIamSnapshot>>::new()
         .description("Load access control")
         .setter(move |app, value| {
             if app.account_generation == account_generation {
@@ -121,15 +121,13 @@ pub(crate) fn load_scope_iam(app: &mut MyApp, scope: &ScopeImpl, refresh: bool) 
                 .map(Arc::new)
         })
         .build()
-        .and_then(|work| {
-            work.enqueue(
-                &app.work_tracker.clone(),
-                app.tx.clone(),
-                app,
-                &cancellation,
-            )
-        });
-    if let Err(error) = work {
+        .enqueue(
+            &app.work_tracker.clone(),
+            app.tx.clone(),
+            app,
+            &cancellation,
+        );
+    if let Err(error) = enqueue_result {
         app.scope_iam.insert(
             scope.clone(),
             Loadable::Failed {

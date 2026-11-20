@@ -63,7 +63,7 @@ pub(crate) fn load_storage_account(app: &mut MyApp, id: &AzureStorageAccountId, 
     let cancellation = executor.cancellation().clone();
     let work_cache = app.work_cache.clone();
     let started_at = Instant::now();
-    let work = LoadableWorkBuilder::<MyApp, _>::new()
+    let enqueue_result = LoadableWorkBuilder::<MyApp, _>::new()
         .description("Load storage account")
         .setter(move |app, response| {
             if app.account_generation != account_generation {
@@ -81,15 +81,13 @@ pub(crate) fn load_storage_account(app: &mut MyApp, id: &AzureStorageAccountId, 
             request.execute(&executor).with_invalidation(refresh).await
         })
         .build()
-        .and_then(|work| {
-            work.enqueue(
-                &app.work_tracker.clone(),
-                app.tx.clone(),
-                app,
-                &cancellation,
-            )
-        });
-    if let Err(error) = work
+        .enqueue(
+            &app.work_tracker.clone(),
+            app.tx.clone(),
+            app,
+            &cancellation,
+        );
+    if let Err(error) = enqueue_result
         && let Some(entry) = app.storage_account_browser.entries.get_mut(id)
     {
         entry.response = Loadable::Failed {

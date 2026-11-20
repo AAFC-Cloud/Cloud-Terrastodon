@@ -211,7 +211,7 @@ async fn loadable_work_receives_a_linked_scope_and_publishes_required_success() 
                             })
                             .await
                     })
-                    .build()?
+                    .build()
                     .enqueue(
                         &app.work_tracker,
                         app.work_response_sender.clone(),
@@ -257,14 +257,14 @@ async fn failed_loadable_work_shares_its_report_with_logging_and_application_sta
                 let mut state = Loadable::NotLoaded;
                 LoadableWorkBuilder::new()
                     .description("synthetic failed load")
-                    .setter(|state, result| *state = result)
                     .work(async |_child| {
                         Err::<usize, _>(Report::new(Error::new(
                             ErrorKind::PermissionDenied,
                             "\x1b[91msynthetic offline failure\x1b[0m",
                         )))
                     })
-                    .build()?
+                    .setter(|state, result| *state = result)
+                    .build()
                     .enqueue(
                         &app.work_tracker,
                         app.work_response_sender.clone(),
@@ -356,7 +356,7 @@ async fn closed_receiver_ignores_success_but_reports_failure_after_draining_sibl
                             }
                             eyre::Ok(1)
                         })
-                        .build()?
+                        .build()
                         .enqueue(
                             &app.work_tracker,
                             app.work_response_sender.clone(),

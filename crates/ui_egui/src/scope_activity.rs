@@ -79,7 +79,7 @@ pub(crate) fn load_scope_activity(app: &mut MyApp, scope: &PortalResourceScope, 
     let cancellation = executor.cancellation().clone();
     let work_cache = app.work_cache.clone();
     let started_at = Instant::now();
-    let job = LoadableWorkBuilder::<MyApp, _>::new()
+    let enqueue_result = LoadableWorkBuilder::<MyApp, _>::new()
         .description("Load activity log")
         .setter(move |app, response| {
             if app.account_generation == account_generation {
@@ -94,15 +94,13 @@ pub(crate) fn load_scope_activity(app: &mut MyApp, scope: &PortalResourceScope, 
                 .await
         })
         .build()
-        .and_then(|work| {
-            work.enqueue(
-                &app.work_tracker.clone(),
-                app.tx.clone(),
-                app,
-                &cancellation,
-            )
-        });
-    if let Err(error) = job {
+        .enqueue(
+            &app.work_tracker.clone(),
+            app.tx.clone(),
+            app,
+            &cancellation,
+        );
+    if let Err(error) = enqueue_result {
         app.scope_activity.insert(
             scope.clone(),
             Loadable::Failed {

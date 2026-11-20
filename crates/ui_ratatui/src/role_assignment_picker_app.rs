@@ -196,7 +196,7 @@ impl RoleAssignmentPickerApp {
                     .await?;
                 Ok(RoleDefinitionsHolder(data))
             })
-            .build()?;
+            .build();
         role_work.enqueue(
             &self.work.work_tracker,
             self.work.work_response_sender.clone(),
@@ -218,7 +218,7 @@ impl RoleAssignmentPickerApp {
                     .await?;
                 Ok(PrincipalCollectionHolder(data))
             })
-            .build()?;
+            .build();
         principals_work.enqueue(
             &self.work.work_tracker,
             self.work.work_response_sender.clone(),

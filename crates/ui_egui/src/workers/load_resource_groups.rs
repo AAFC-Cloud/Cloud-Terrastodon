@@ -17,7 +17,7 @@ pub fn load_resource_groups(app: &mut MyApp, refresh: bool) {
     let cancellation = executor.cancellation().clone();
     let started_at = Instant::now();
     info!("Queueing work to fetch resource groups");
-    let work = LoadableWorkBuilder::<MyApp, _>::new()
+    let enqueue_result = LoadableWorkBuilder::<MyApp, _>::new()
         .description("Loading Resource Groups")
         .setter(move |app, data| {
             if app.account_generation == account_generation {
@@ -33,15 +33,13 @@ pub fn load_resource_groups(app: &mut MyApp, refresh: bool) {
             Ok(resource_groups.into())
         })
         .build()
-        .and_then(|work| {
-            work.enqueue(
-                &app.work_tracker.clone(),
-                app.tx.clone(),
-                app,
-                &cancellation,
-            )
-        });
-    if let Err(error) = work {
+        .enqueue(
+            &app.work_tracker.clone(),
+            app.tx.clone(),
+            app,
+            &cancellation,
+        );
+    if let Err(error) = enqueue_result {
         app.resource_groups = Loadable::Failed {
             error: error.into(),
             started_at,
