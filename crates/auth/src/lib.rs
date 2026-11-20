@@ -28,6 +28,7 @@ mod azure_cli_account_identity;
 mod azure_cli_session;
 mod azure_cli_session_store;
 mod azure_cli_sessions;
+mod azure_cli_sign_in_mode;
 mod azure_cli_sign_in_process;
 mod azure_devops_pat;
 mod azure_devops_rest_client;

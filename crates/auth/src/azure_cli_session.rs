@@ -1,6 +1,7 @@
 use crate::AccountSignInPrompt;
 use crate::AzureBearerToken;
 use crate::azure_cli_account_identity::AzureCliAccountIdentity;
+use crate::azure_cli_sign_in_mode::AzureCliSignInMode;
 use crate::azure_cli_sign_in_process::AzureCliSignInProcess;
 use chrono::Local;
 use chrono::TimeDelta;
@@ -165,14 +166,15 @@ impl AzureCliSession {
         Ok(output.stdout)
     }
 
-    /// Azure CLI opens a browser if available, otherwise emitting its MSAL
-    /// device-flow prompt directly to stderr. Forward only the validated
-    /// device code to the sign-in owner. All other output stays suppressed.
+    /// Azure CLI writes its device-flow prompt to stderr when explicitly
+    /// requested or when automatic sign-in falls back to a device code. Forward
+    /// only the validated device code and suppress the remaining output.
     ///
     /// <https://github.com/Azure/azure-cli/blob/dev/src/azure-cli-core/azure/cli/core/auth/identity.py>
     pub(crate) async fn login_command(
         directory: &Path,
         tenant: AzureTenantId,
+        mode: AzureCliSignInMode,
         prompt: &(dyn Fn(AccountSignInPrompt) + Send + Sync),
         cancellation: &CancellationScope,
     ) -> Result<()> {
@@ -188,6 +190,9 @@ impl AzureCliSession {
                 "none",
             ])
             .stdout(Stdio::null());
+        if matches!(mode, AzureCliSignInMode::DeviceCode) {
+            command.arg("--use-device-code");
+        }
         Self::run_sign_in_process(&mut command, prompt, cancellation).await
     }
 

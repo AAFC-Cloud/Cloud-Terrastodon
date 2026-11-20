@@ -2,6 +2,7 @@ use crate::AccountSignInPrompt;
 use crate::auth_logout_error::AuthLogoutError;
 use crate::azure_cli_account_identity::AzureCliAccountIdentity;
 use crate::azure_cli_session::AzureCliSession;
+use crate::azure_cli_sign_in_mode::AzureCliSignInMode;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_pathing::AppDir;
@@ -118,6 +119,7 @@ impl AzureCliSessionStore {
     pub(crate) async fn login(
         &self,
         tenant: AzureTenantId,
+        mode: AzureCliSignInMode,
         prompt: &(dyn Fn(AccountSignInPrompt) + Send + Sync),
         cancellation: &CancellationScope,
     ) -> Result<AzureCliSession> {
@@ -131,7 +133,7 @@ impl AzureCliSessionStore {
         Self::prepare_directory(&directory)?;
         let _generation_lease =
             AzureCliSession::lock(&directory.join("session.lock"), cancellation).await?;
-        AzureCliSession::login_command(&directory, tenant, prompt, cancellation).await?;
+        AzureCliSession::login_command(&directory, tenant, mode, prompt, cancellation).await?;
         let identity = AzureCliSession::read_identity(&directory, tenant, cancellation).await?;
         // A fresh directory contains only this login. Its recorded account is
         // checked again before and after token subprocesses; login and

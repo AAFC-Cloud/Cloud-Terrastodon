@@ -5,7 +5,7 @@
 pub enum AccountSignInPrompt {
     /// The application could not open the browser automatically.
     BrowserAuthorization { url: String },
-    /// Azure CLI selected device authentication because a browser is unavailable.
+    /// Azure CLI is waiting for an explicit or automatic device-code sign-in.
     AzureCliDeviceCode { code: String },
 }
 

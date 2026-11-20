@@ -10,6 +10,7 @@ use crate::WorkloadIdentityConfig;
 use crate::account_credential_provisioning::AccountCredentialProvisioning;
 use crate::azure_cli_session::AzureCliSession;
 use crate::azure_cli_session_store::AzureCliSessionStore;
+use crate::azure_cli_sign_in_mode::AzureCliSignInMode;
 use crate::cloud_terrastodon_account_secret_store::CloudTerrastodonAccountSecretStore;
 use crate::entra_authenticated_user_identity::EntraAuthenticatedUserIdentity;
 use cloud_terrastodon_auth_types::AuthSource;
@@ -314,6 +315,31 @@ impl CloudTerrastodonAccountStore {
             AccountCredentialProvisioning::SignIn {
                 personal_access_token,
                 prompt,
+                azure_cli_mode: AzureCliSignInMode::Automatic,
+            },
+            cancellation,
+        )
+        .await
+    }
+
+    /// Sign in to a registered Azure CLI credential using an explicit device code.
+    ///
+    /// The application renders the code from `prompt` for this sign-in. The
+    /// resulting session must still match the registered tenant and identity.
+    /// See [`az login --use-device-code`](https://learn.microsoft.com/cli/azure/reference-index?view=azure-cli-latest#az-login).
+    pub async fn sign_in_with_azure_cli_device_code(
+        &self,
+        account_id: CloudTerrastodonAccountId,
+        prompt: &(dyn Fn(AccountSignInPrompt) + Send + Sync),
+        cancellation: &CancellationScope,
+    ) -> Result<CloudTerrastodonAccountProfile> {
+        self.provision(
+            account_id,
+            Some(CloudTerrastodonCredentialSource::AzureCli),
+            AccountCredentialProvisioning::SignIn {
+                personal_access_token: None,
+                prompt,
+                azure_cli_mode: AzureCliSignInMode::DeviceCode,
             },
             cancellation,
         )
@@ -558,19 +584,22 @@ impl CloudTerrastodonAccountStore {
         provisioning: AccountCredentialProvisioning<'_>,
         cancellation: &CancellationScope,
     ) -> Result<Option<CloudTerrastodonAccountPrincipal>> {
-        let (personal_access_token, prompt) = match provisioning {
+        let (personal_access_token, sign_in) = match provisioning {
             AccountCredentialProvisioning::SignIn {
                 personal_access_token,
                 prompt,
-            } => (personal_access_token, Some(prompt)),
+                azure_cli_mode,
+            } => (personal_access_token, Some((prompt, azure_cli_mode))),
             AccountCredentialProvisioning::ImportLegacy => (None, None),
         };
-        let import = prompt.is_none();
+        let import = sign_in.is_none();
         match &profile.registration(source)?.credential {
             CloudTerrastodonAccountCredential::AzureCli { tenant_id } => {
                 let sessions = AzureCliSessionStore::at(store.directory.join("azure-cli"));
-                let session = if let Some(prompt) = prompt {
-                    sessions.login(*tenant_id, prompt, cancellation).await?
+                let session = if let Some((prompt, azure_cli_mode)) = sign_in {
+                    sessions
+                        .login(*tenant_id, azure_cli_mode, prompt, cancellation)
+                        .await?
                 } else {
                     sessions.import_legacy(*tenant_id, cancellation).await?;
                     sessions.load(*tenant_id, cancellation).await?
@@ -587,7 +616,7 @@ impl CloudTerrastodonAccountStore {
                 tenant_id,
                 client_id,
             } => {
-                let (session, principal) = if let Some(prompt) = prompt {
+                let (session, principal) = if let Some((prompt, _)) = sign_in {
                     crate::browser_access_token::acquire_browser_session(
                         *tenant_id,
                         *client_id,
@@ -1082,6 +1111,40 @@ mod tests {
     use cloud_terrastodon_auth_types::AzureBearerAuthSource;
     use cloud_terrastodon_azure_types::EntraApplicationClientId;
     use cloud_terrastodon_command::CancellationToken;
+
+    #[tokio::test]
+    async fn device_code_sign_in_requires_registered_azure_cli_credentials() -> Result<()> {
+        let directory = tempfile::tempdir()?;
+        let store = CloudTerrastodonAccountStore::new(directory.path().join("accounts"))?;
+        CancellationToken::new()
+            .with_async_scope(async |scope| {
+                let profile = store
+                    .add(
+                        "synthetic".parse()?,
+                        CloudTerrastodonAccountCredential::AzureDevOpsPersonalAccessToken {
+                            organization: "synthetic".parse()?,
+                        },
+                        &scope,
+                    )
+                    .await?;
+                let error = store
+                    .sign_in_with_azure_cli_device_code(
+                        profile.id,
+                        &|_| panic!("an unregistered source must never issue a prompt"),
+                        &scope,
+                    )
+                    .await
+                    .unwrap_err();
+                assert!(
+                    error
+                        .to_string()
+                        .contains("no azure-cli credential registration")
+                );
+                assert_eq!(store.load()?.by_id(profile.id)?, &profile);
+                eyre::Ok(())
+            })
+            .await
+    }
 
     #[tokio::test]
     async fn metadata_resolution_keeps_account_identity_and_explicit_source_without_credentials()
