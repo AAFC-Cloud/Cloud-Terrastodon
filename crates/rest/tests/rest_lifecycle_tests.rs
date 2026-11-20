@@ -751,6 +751,44 @@ async fn failures_keep_http_metadata_and_raw_artifacts_without_becoming_hits() -
 }
 
 #[tokio::test]
+async fn bounded_private_body_reads_enforce_limits_and_leave_no_artifacts() -> Result<()> {
+    CancellationToken::new()
+        .with_async_scope(async |scope| {
+            let body = "synthetic private response";
+            let server = LocalServer::start(200, body, None).await?;
+            let executor = CloudTerrastodonExecutor::new(
+                WorkCache::temporary()?,
+                Arc::new(TestAuthenticationProvider::new(
+                    "synthetic-test-session",
+                    Authorization::bearer("synthetic-test-credential")?,
+                )?),
+                scope,
+            );
+
+            let request = server.request(Method::GET)?.use_cache(None);
+            let bytes = request
+                .clone()
+                .receive_limited_bytes(&executor, body.len())
+                .await?;
+            assert_eq!(bytes, body.as_bytes());
+
+            let error = request
+                .receive_limited_bytes(&executor, body.len() - 1)
+                .await
+                .unwrap_err();
+            assert!(error.to_string().contains("byte limit"));
+            assert!(!format!("{error:?}").contains(body));
+            assert!(
+                std::fs::read_dir(executor.cache()?.root())?
+                    .next()
+                    .is_none()
+            );
+            Ok(())
+        })
+        .await
+}
+
+#[tokio::test]
 async fn sensitive_failures_and_credential_header_rejection_leave_no_artifacts() -> Result<()> {
     CancellationToken::new()
         .with_async_scope(|scope| async move {

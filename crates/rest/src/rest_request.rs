@@ -1,5 +1,6 @@
 use crate::MicrosoftContinuationToken;
 use crate::RequestHeaders;
+use crate::RestHttpError;
 use crate::RestOutputFormat;
 use crate::RestResponseBody;
 use crate::RestService;
@@ -33,6 +34,7 @@ use eyre::Result;
 use eyre::ensure;
 use facet::Facet;
 use http::Method;
+use reqwest::Response;
 use reqwest::Url;
 use std::collections::BTreeMap;
 use std::future::Future;
@@ -377,7 +379,10 @@ impl RestRequest {
         &self,
         executor: &CloudTerrastodonExecutor,
     ) -> Result<SerializableRestResponse> {
-        let response = execute_rest_request(
+        SerializableRestResponse::from_response(self.execute_http(executor).await?).await
+    }
+    async fn execute_http(&self, executor: &CloudTerrastodonExecutor) -> Result<Response> {
+        execute_rest_request(
             self.service,
             self.method.clone(),
             self.url.clone(),
@@ -387,8 +392,7 @@ impl RestRequest {
             &self.authentication,
             executor,
         )
-        .await?;
-        SerializableRestResponse::from_response(response).await
+        .await
     }
     fn decode_owned<T: Facet<'static>>(
         response: &SerializableRestResponse,
@@ -613,6 +617,70 @@ impl RestRequest {
             |response| Ok(response.clone()),
             Location::caller(),
         )
+    }
+    /// Read a bounded binary body from a GET. This path keeps the response,
+    /// including unsuccessful bodies and headers, outside of work artifacts.
+    #[track_caller]
+    pub fn receive_limited_bytes<'a>(
+        self,
+        executor: &'a CloudTerrastodonExecutor,
+        limit: usize,
+    ) -> impl Future<Output = Result<Vec<u8>>> + Send + 'a {
+        let location = RelativeLocation::from(Location::caller());
+        async move {
+            ensure!(
+                self.method == Method::GET
+                    && !self.complete_on_cancellation
+                    && self.cache_key.is_none(),
+                "bounded REST byte reads require an uncached, cancellable GET"
+            );
+            self.artifact_retention(ArtifactRetention::Disabled)
+                .with_policy(
+                    executor,
+                    WorkReuse::ExecuteEveryTime,
+                    move |request, child| async move {
+                        let selection = request.authentication;
+                        child
+                            .uncached_work(&selection, |attempt| async move {
+                                let mut response =
+                                    request.execute_http(&attempt).await.map_err(|error| {
+                                        if error.is_cancellation() {
+                                            error
+                                        } else {
+                                            eyre::eyre!("private REST exchange failed")
+                                        }
+                                    })?;
+                                let status = response.status();
+                                if !status.is_success() {
+                                    return Err(RestHttpError {
+                                        status,
+                                        reason_phrase: status.canonical_reason().map(str::to_owned),
+                                        headers: Default::default(),
+                                    }
+                                    .into());
+                                }
+                                const TOO_LARGE: &str = "REST response exceeds its byte limit";
+                                ensure!(
+                                    response
+                                        .content_length()
+                                        .is_none_or(|size| size <= limit as u64),
+                                    "{TOO_LARGE}"
+                                );
+                                let mut bytes = Vec::new();
+                                while let Some(chunk) = response.chunk().await.map_err(|_| {
+                                    eyre::eyre!("private REST response body could not be read")
+                                })? {
+                                    ensure!(chunk.len() <= limit - bytes.len(), "{TOO_LARGE}");
+                                    bytes.extend_from_slice(&chunk);
+                                }
+                                Ok(bytes)
+                            })?
+                            .await
+                    },
+                )
+                .await
+        }
+        .instrument(info_span!("rest_receive_limited_bytes", %location))
     }
     /// Share one accepted JSON body. Warm hits perform no token lookup or decoding.
     #[track_caller]
