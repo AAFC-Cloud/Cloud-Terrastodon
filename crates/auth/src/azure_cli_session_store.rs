@@ -190,12 +190,20 @@ impl AzureCliSessionStore {
                 {
                     return Ok(());
                 }
-                let _lease =
-                    AzureCliSession::lock(&entry.path().join("session.lock"), cancellation).await?;
-                std::fs::write(entry.path().join("revoked"), b"explicit logout")
+                let path = entry.path();
+                let lease = AzureCliSession::lock(&path.join("session.lock"), cancellation).await?;
+                std::fs::write(path.join("revoked"), b"explicit logout")
                     .wrap_err("revoking an isolated Azure CLI session")?;
+                if !path.join("identity.json").try_exists()? {
+                    // A failed sign-in can leave a partial CLI cache. Nothing can
+                    // load this generation without its verified identity, and the
+                    // store lease prevents publication while we remove it.
+                    drop(lease);
+                    return std::fs::remove_dir_all(&path)
+                        .wrap_err("discarding an incomplete Azure CLI sign-in");
+                }
                 AzureCliSession::credential_command(
-                    &entry.path(),
+                    &path,
                     &["account", "clear", "--output", "none"],
                     cancellation,
                 )
@@ -299,5 +307,24 @@ mod tests {
                 Ok(())
             })
             .await
+    }
+
+    #[tokio::test]
+    async fn logout_discards_incomplete_sign_in_files() -> Result<()> {
+        let directory = tempfile::tempdir()?;
+        let store = AzureCliSessionStore::at(directory.path().to_path_buf());
+        let candidate = directory
+            .path()
+            .join("generations")
+            .join(Uuid::from_u128(1).to_string());
+        AzureCliSessionStore::prepare_directory(&candidate)?;
+        std::fs::write(candidate.join("synthetic-cli-cache"), b"partial login")?;
+
+        CancellationToken::new()
+            .with_async_scope(async |scope| store.logout_all(&scope).await)
+            .await?;
+
+        assert!(!candidate.try_exists()?);
+        Ok(())
     }
 }

@@ -1,11 +1,13 @@
 use crate::AccountSignInPrompt;
 use crate::AzureBearerToken;
 use crate::azure_cli_account_identity::AzureCliAccountIdentity;
+use crate::azure_cli_sign_in_process::AzureCliSignInProcess;
 use chrono::Local;
 use chrono::TimeDelta;
 use cloud_terrastodon_auth_types::AzureCredentialResource;
 use cloud_terrastodon_azure_types::AzureAccessToken;
 use cloud_terrastodon_azure_types::AzureTenantId;
+use cloud_terrastodon_command::CancellationError;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandKind;
 use eyre::Result;
@@ -186,27 +188,49 @@ impl AzureCliSession {
                 "none",
             ])
             .stdout(Stdio::null());
+        Self::run_sign_in_process(&mut command, prompt, cancellation).await
+    }
+
+    async fn run_sign_in_process(
+        command: &mut Command,
+        prompt: &(dyn Fn(AccountSignInPrompt) + Send + Sync),
+        cancellation: &CancellationScope,
+    ) -> Result<()> {
         cancellation
-            .deferred("finishing isolated Azure CLI sign-in", |_| async {
-                // az.cmd launches a Python child on Windows. Retain the session
-                // directory lease until the process and its output have drained.
-                let mut child = command
-                    .spawn()
-                    .wrap_err("starting isolated Azure CLI sign-in")?;
-                let stderr = child.stderr.take();
-                let (status, notifications) = tokio::join!(child.wait(), async {
-                    let stderr = stderr.ok_or_else(|| {
-                        eyre::eyre!("the Azure CLI sign-in process did not expose its prompt pipe")
-                    })?;
-                    Self::forward_sign_in_prompts(stderr, prompt).await
-                });
-                let status = status.wrap_err("waiting for isolated Azure CLI sign-in")?;
-                ensure!(
-                    status.success(),
-                    "Azure CLI sign-in failed ({status}); credential output was suppressed"
-                );
-                notifications
-            })
+            .deferred(
+                "stopping or finishing the Azure CLI sign-in process",
+                async |protected| {
+                    // Keep the enclosing generation lease alive until the
+                    // credential-writing process tree has finished. Raw intent
+                    // still interrupts the interactive wait inside the deferral.
+                    let mut process = AzureCliSignInProcess::spawn(command)?;
+                    let outcome = tokio::select! {
+                        biased;
+                        () = protected.cancelled() => Err(CancellationError::new(
+                            protected.cancellation_reason()
+                                .unwrap_or_else(|| "Azure CLI sign-in cancelled".to_owned())
+                        ).into()),
+                        outcome = async {
+                            Self::forward_sign_in_prompts(process.take_stderr()?, prompt).await?;
+                            process.wait().await
+                        } => outcome,
+                    };
+                    let status = match outcome {
+                        Ok(status) => status,
+                        Err(error) => {
+                            process.terminate().await.wrap_err_with(|| {
+                                format!("stopping interrupted Azure CLI sign-in ({error})")
+                            })?;
+                            return Err(error);
+                        }
+                    };
+                    ensure!(
+                        status.success(),
+                        "Azure CLI sign-in failed ({status}); credential output was suppressed"
+                    );
+                    Ok(())
+                },
+            )
             .await
     }
 
@@ -397,6 +421,86 @@ mod tests {
         let error =
             AzureCliSession::decode::<AzureAccessToken<AzureBearerToken>>(secret).unwrap_err();
         assert!(!format!("{error:#?}").contains("synthetic-secret"));
+    }
+
+    #[tokio::test]
+    async fn cancelled_sign_in_stops_launcher_and_descendant() -> Result<()> {
+        const ROLE: &str = "CT_SYNTHETIC_SIGN_IN_ROLE";
+        const LOCK: &str = "CT_SYNTHETIC_SIGN_IN_LOCK";
+        let mut command = Command::new(std::env::current_exe()?);
+        command
+            .args([
+                "--exact",
+                "azure_cli_session::tests::cancelled_sign_in_stops_launcher_and_descendant",
+                "--nocapture",
+            ])
+            .stdin(Stdio::null())
+            .stdout(Stdio::null());
+        if let Some(role) = std::env::var_os(ROLE) {
+            if role == "launcher" {
+                let status = command.env(ROLE, "descendant").status().await?;
+                ensure!(status.success(), "the synthetic descendant failed");
+            } else {
+                let file = File::create(std::env::var(LOCK)?)?;
+                file.lock()?;
+                eprintln!(
+                    "WARNING: To sign in, use a web browser to open the page https://microsoft.com/devicelogin and enter the code TEST-CODE to authenticate."
+                );
+                tokio::time::sleep(Duration::from_secs(30)).await;
+            }
+            return Ok(());
+        }
+
+        let directory = tempfile::tempdir()?;
+        let path = directory.path().join("synthetic-credential.lock");
+        command
+            .env(ROLE, "launcher")
+            .env(LOCK, &path)
+            .stderr(Stdio::piped());
+        CancellationToken::new()
+            .with_async_scope(async |scope| {
+                let prompt = tokio::sync::Notify::new();
+                let notify = |_| prompt.notify_one();
+                let sign_in = AzureCliSession::run_sign_in_process(&mut command, &notify, &scope);
+                tokio::pin!(sign_in);
+                tokio::select! {
+                    result = &mut sign_in => {
+                        bail!("sign-in exited before its synthetic prompt: {result:?}");
+                    }
+                    fired = tokio::time::timeout(Duration::from_secs(10), prompt.notified()) => fired?,
+                }
+                let lease = OpenOptions::new().read(true).write(true).open(&path)?;
+                assert!(matches!(lease.try_lock(), Err(TryLockError::WouldBlock)));
+
+                scope.request_cancel("synthetic sign-in cancelled");
+                let error = tokio::time::timeout(Duration::from_secs(5), sign_in)
+                    .await?
+                    .unwrap_err();
+                assert_eq!(
+                    error.downcast_ref::<CancellationError>().unwrap().reason,
+                    "synthetic sign-in cancelled"
+                );
+                // The launcher must not finish while its descendant still owns
+                // the credential directory. On Unix a killed orphan may need
+                // a subsequent scheduling turn to release its kernel lock.
+                #[cfg(windows)]
+                lease.try_lock()?;
+                #[cfg(unix)]
+                tokio::time::timeout(Duration::from_secs(5), async {
+                    loop {
+                        match lease.try_lock() {
+                            Ok(()) => break Ok(()),
+                            Err(TryLockError::WouldBlock) => {
+                                tokio::time::sleep(Duration::from_millis(10)).await;
+                            }
+                            Err(TryLockError::Error(error)) => break Err(error),
+                        }
+                    }
+                })
+                .await??;
+                eyre::Ok(())
+            })
+            .await
     }
 
     #[tokio::test]
