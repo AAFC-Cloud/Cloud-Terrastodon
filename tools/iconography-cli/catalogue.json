@@ -92,6 +92,22 @@
     },
     {
       "family": "azure",
+      "variant": "ManagementGroup",
+      "name": "Management group",
+      "category": "resources",
+      "file": "management-group.svg",
+      "source_url": "https://raw.githubusercontent.com/maskati/azure-icons/a2989ad1c5d449ed70b3b8e0fb7128b487a8587e/svg/Microsoft_Azure_Resources/ManagementGroups.svg",
+      "logical_name": "svg/Microsoft_Azure_Resources/ManagementGroups.svg",
+      "discovery_url": "https://api.github.com/repos/maskati/azure-icons/git/ref/heads/main",
+      "sha256": "73525e31083539e5cefe8a41db42be9b70f4db623e2269424e9c7197d299b174",
+      "retrieved_at": "2026-11-19T16:55:51Z",
+      "terms_url": "https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions",
+      "resource_types": [
+        "Microsoft.Management/managementGroups"
+      ]
+    },
+    {
+      "family": "azure",
       "variant": "StorageAccount",
       "name": "Storage account",
       "category": "storage",

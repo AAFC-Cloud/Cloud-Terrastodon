@@ -70,6 +70,7 @@ fn linked_category_icons_support_complete_offline_registry_invocation() -> Resul
 
     for expected in [
         "All resources",
+        "Management group",
         "Resource group",
         "Subscription",
         "Boards",

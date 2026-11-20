@@ -26,6 +26,25 @@ fn disabled_category_does_not_resolve_resource_types() {
         icon_for_resource_type(&ResourceType::MICROSOFT_DOT_RESOURCES_SLASH_RESOURCEGROUPS)
             .is_none()
     );
+    assert!(
+        icon_for_resource_type(&ResourceType::MICROSOFT_DOT_MANAGEMENT_SLASH_MANAGEMENTGROUPS)
+            .is_none()
+    );
+}
+
+#[cfg(feature = "resources")]
+#[test]
+fn management_group_icon_resolves_for_canonical_and_preserved_resource_types() {
+    use crate::AzureManagementGroupIcon;
+    use cloud_terrastodon_iconography::SvgIcon;
+
+    for resource_type in [
+        ResourceType::MICROSOFT_DOT_MANAGEMENT_SLASH_MANAGEMENTGROUPS,
+        ResourceType::Other("microsoft.management/MANAGEMENTGROUPS".to_owned()),
+    ] {
+        let icon = icon_for_resource_type(&resource_type).expect("enabled management-group icon");
+        assert_eq!(icon.svg(), AzureManagementGroupIcon.svg());
+    }
 }
 
 #[test]

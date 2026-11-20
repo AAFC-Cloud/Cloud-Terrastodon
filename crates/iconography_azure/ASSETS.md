@@ -41,6 +41,18 @@ The SVGs are extracted from the Azure Portal by [maskati/azure-icons](https://gi
 - Artwork terms: <https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions>
 - Azure resource-type aliases: `Microsoft.KeyVault/vaults`
 
+## Management group (`AzureManagementGroupIcon`)
+
+- Category feature: `resources`
+- Packaged file: `svg/management-group.svg`
+- Upstream logical name: `svg/Microsoft_Azure_Resources/ManagementGroups.svg`
+- Source URL: <https://raw.githubusercontent.com/maskati/azure-icons/a2989ad1c5d449ed70b3b8e0fb7128b487a8587e/svg/Microsoft_Azure_Resources/ManagementGroups.svg>
+- Discovery URL: <https://api.github.com/repos/maskati/azure-icons/git/ref/heads/main>
+- SHA-256: `73525e31083539e5cefe8a41db42be9b70f4db623e2269424e9c7197d299b174`
+- Retrieved at (UTC): `2026-11-19T16:55:51Z`
+- Artwork terms: <https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions>
+- Azure resource-type aliases: `Microsoft.Management/managementGroups`
+
 ## Resource group (`AzureResourceGroupIcon`)
 
 - Category feature: `resources`

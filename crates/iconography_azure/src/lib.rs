@@ -14,6 +14,8 @@ mod azure_icon_for_resource_type;
 #[cfg(feature = "security")]
 mod azure_key_vault_icon;
 #[cfg(feature = "resources")]
+mod azure_management_group_icon;
+#[cfg(feature = "resources")]
 mod azure_resource_group_icon;
 #[cfg(feature = "storage")]
 mod azure_storage_account_icon;
@@ -27,6 +29,8 @@ pub use azure_container_registry_icon::AzureContainerRegistryIcon;
 pub use azure_icon_for_resource_type::icon_for_resource_type;
 #[cfg(feature = "security")]
 pub use azure_key_vault_icon::AzureKeyVaultIcon;
+#[cfg(feature = "resources")]
+pub use azure_management_group_icon::AzureManagementGroupIcon;
 #[cfg(feature = "resources")]
 pub use azure_resource_group_icon::AzureResourceGroupIcon;
 #[cfg(feature = "storage")]

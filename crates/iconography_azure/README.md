@@ -20,7 +20,8 @@ The public methods belong to `SvgIcon`. Each method returns
 `Cow<'static, str>`; packaged icons borrow their static embedded SVG and metadata.
 
 No categories are enabled by default. `resources` enables
-`AzureAllResourcesIcon`, `AzureResourceGroupIcon`, and `AzureSubscriptionIcon`.
+`AzureAllResourcesIcon`, `AzureManagementGroupIcon`, `AzureResourceGroupIcon`,
+and `AzureSubscriptionIcon`.
 `storage` adds `AzureStorageAccountIcon`, `containers` adds
 `AzureContainerRegistryIcon`, and `security` adds `AzureKeyVaultIcon`.
 `all` enables every category.
