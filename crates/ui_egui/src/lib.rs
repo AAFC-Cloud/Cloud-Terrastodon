@@ -67,6 +67,7 @@ mod scope_iam_snapshot;
 mod scope_navigation;
 mod scope_role_assignment_row;
 mod scope_role_definition_row;
+mod sidebar_expansion_toggle;
 mod storage_account_browser;
 mod storage_account_inspection;
 mod storage_account_output;

@@ -29,6 +29,8 @@ pub fn portal_home(app: &mut MyApp, ui: &mut Ui) {
     ui.scope_builder(UiBuilder::new().max_rect(content), |ui| {
         ui.shrink_clip_rect(content);
         ui.set_min_width(width);
+        ui.label(RichText::new("Azure services").strong().size(19.0));
+        ui.add_space(16.0);
         ui.vertical_centered(|ui| azure_services(app, ui));
         ui.add_space(24.0);
         ui.label(RichText::new("Resources").strong().size(19.0));
@@ -51,8 +53,6 @@ fn azure_services(app: &mut MyApp, ui: &mut Ui) {
         PortalPage::KeyVaults,
     ];
 
-    ui.label(RichText::new("Azure services").strong().size(19.0));
-    ui.add_space(16.0);
     ui.spacing_mut().item_spacing = Vec2::splat(TILE_GAP);
     let tile_width = TILE_WIDTH.min(ui.available_width());
     let tile_size = Vec2::new(tile_width, TILE_HEIGHT);

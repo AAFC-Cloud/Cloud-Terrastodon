@@ -68,7 +68,7 @@ pub(crate) fn scope_detail_ui(
         });
         return;
     }
-    if let Some(next) = scope_navigation(ui, scope, view) {
+    if let Some(next) = scope_navigation(ui, scope, view, &mut app.resource_navigation_expanded) {
         app.tabs.replace_current(next);
         app.after_history_navigation();
         ui.ctx().request_repaint();

@@ -2,6 +2,7 @@ use crate::app::MyApp;
 use crate::icons::ABOUT_ICON;
 use crate::icons::page_icon;
 use crate::portal_page::PortalPage;
+use crate::sidebar_expansion_toggle::sidebar_expansion_toggle;
 use eframe::egui::Align2;
 use eframe::egui::Button;
 use eframe::egui::Color32;
@@ -51,16 +52,8 @@ impl MyApp {
             .show(ui, |ui| {
                 ui.spacing_mut().item_spacing = Vec2::ZERO;
                 ui.spacing_mut().button_padding = Vec2::new(12.0, 8.0);
-                if ui
-                    .add_sized(
-                        [ui.available_width(), 32.0],
-                        Button::new(if self.navigation_expanded { "«" } else { "»" }).frame(false),
-                    )
-                    .on_hover_text("Expand or collapse navigation")
-                    .clicked()
-                {
-                    self.navigation_expanded = !self.navigation_expanded;
-                }
+                let expanded = self.navigation_expanded;
+                sidebar_expansion_toggle(ui, &mut self.navigation_expanded, "main navigation");
                 ScrollArea::vertical().show(ui, |ui| {
                     let id = Id::new("portal_navigation_order");
                     let saved: Vec<String> = ui
@@ -77,7 +70,7 @@ impl MyApp {
                     let mut moved = None;
                     for (page, key) in &items {
                         if let Some((source, before)) = ui
-                            .push_id(key, |ui| self.portal_navigation_item(ui, *page))
+                            .push_id(key, |ui| self.portal_navigation_item(ui, *page, expanded))
                             .inner
                         {
                             moved = Some((source, *page, before));
@@ -99,7 +92,7 @@ impl MyApp {
                     if ui
                         .add_sized(
                             [ui.available_width(), 40.0],
-                            if self.navigation_expanded {
+                            if expanded {
                                 Button::image_and_text(
                                     Image::new(ABOUT_ICON).fit_to_exact_size(Vec2::splat(20.0)),
                                     "About Cloud Terrastodon",
@@ -124,6 +117,7 @@ impl MyApp {
         &mut self,
         ui: &mut Ui,
         page: PortalPage,
+        expanded: bool,
     ) -> Option<(PortalPage, bool)> {
         let (_, response) = ui.allocate_exact_size(
             Vec2::new(ui.available_width(), 40.0),
@@ -148,7 +142,7 @@ impl MyApp {
             Vec2::splat(20.0),
         );
         Image::new(page_icon(page)).paint_at(ui, icon_rect);
-        if self.navigation_expanded {
+        if expanded {
             ui.painter().text(
                 response.rect.left_center() + Vec2::new(44.0, 0.0),
                 Align2::LEFT_CENTER,

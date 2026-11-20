@@ -2,6 +2,7 @@ use crate::app::MyApp;
 use crate::icons::portal_target_icon;
 use crate::portal_page::PortalPage;
 use crate::portal_tab_target::PortalTabTarget;
+use crate::sidebar_expansion_toggle::sidebar_expansion_toggle;
 use eframe::egui::Align;
 use eframe::egui::Atom;
 use eframe::egui::Button;
@@ -31,24 +32,31 @@ impl MyApp {
         let mut select = None;
         let mut keep = None;
         let mut close = None;
-        Panel::left("portal_vertical_tabs")
-            .default_size(188.0)
-            .size_range(142.0..=320.0)
-            .resizable(true)
+        let expanded = self.browser_tabs_expanded;
+        let panel = if expanded {
+            Panel::left("portal_vertical_tabs")
+                .default_size(188.0)
+                .size_range(142.0..=320.0)
+                .resizable(true)
+        } else {
+            Panel::left("portal_vertical_tabs_collapsed")
+                .exact_size(44.0)
+                .resizable(false)
+        };
+        panel
             .frame(
                 Frame::new()
                     .fill(Color32::from_rgb(242, 246, 249))
                     .inner_margin(Margin::same(6)),
             )
             .show(ui, |ui| {
+                sidebar_expansion_toggle(ui, &mut self.browser_tabs_expanded, "browser tabs");
                 ScrollArea::vertical().stick_to_bottom(true).show(ui, |ui| {
                     ui.spacing_mut().item_spacing = Vec2::splat(3.0);
                     for (index, tab, active) in self.tabs.iter() {
                         ui.push_id(index, |ui| {
                             ui.horizontal(|ui| {
                                 let title = self.portal_tab_title(tab.target());
-                                let text = RichText::new(title.as_ref());
-                                let text = if tab.preview { text.italics() } else { text };
                                 let icon = Image::new(portal_target_icon(tab.target()))
                                     .fit_to_exact_size(Vec2::splat(16.0));
                                 let row_size = Vec2::new(ui.available_width(), 32.0);
@@ -57,9 +65,10 @@ impl MyApp {
                                     row_size,
                                 );
                                 let close_id = ui.make_persistent_id("close_tab");
-                                let show_close = active
-                                    || ui.rect_contains_pointer(row_rect)
-                                    || ui.memory(|memory| memory.has_focus(close_id));
+                                let show_close = expanded
+                                    && (active
+                                        || ui.rect_contains_pointer(row_rect)
+                                        || ui.memory(|memory| memory.has_focus(close_id)));
                                 let close_size = Vec2::new(26.0, row_size.y);
                                 let button_size = if show_close {
                                     Vec2::new(
@@ -70,15 +79,28 @@ impl MyApp {
                                 } else {
                                     row_size
                                 };
+                                let button = if expanded {
+                                    let text = RichText::new(title.as_ref());
+                                    let text = if tab.preview { text.italics() } else { text };
+                                    Button::selectable(active, (icon, text, Atom::grow()))
+                                        .gap(8.0)
+                                        .truncate()
+                                } else {
+                                    Button::selectable(active, icon)
+                                };
                                 let response = ui
-                                    .add_sized(
-                                        button_size,
-                                        Button::selectable(active, (icon, text, Atom::grow()))
-                                            .min_size(button_size)
-                                            .gap(8.0)
-                                            .truncate(),
-                                    )
+                                    .add_sized(button_size, button.min_size(button_size))
                                     .on_hover_text(title.as_ref());
+                                if !expanded {
+                                    response.widget_info(|| {
+                                        WidgetInfo::selected(
+                                            WidgetType::Button,
+                                            ui.is_enabled(),
+                                            active,
+                                            title.as_ref(),
+                                        )
+                                    });
+                                }
                                 if response.clicked() {
                                     select = Some(index);
                                 }
@@ -134,14 +156,23 @@ impl MyApp {
                     }
                     ui.separator();
                     let shortcut = ui.ctx().format_shortcut(&NEW_TAB_SHORTCUT);
-                    new_tab |= ui
+                    let button = if expanded {
+                        Button::new(("+", "New tab")).shortcut_text(shortcut.as_str())
+                    } else {
+                        Button::new("+")
+                    };
+                    let response = ui
                         .add_sized(
                             [ui.available_width(), 32.0],
-                            Button::new(("+", "New tab"))
-                                .shortcut_text(shortcut)
-                                .frame_when_inactive(false),
+                            button.frame_when_inactive(false),
                         )
-                        .clicked();
+                        .on_hover_text(format!("New tab ({shortcut})"));
+                    if !expanded {
+                        response.widget_info(|| {
+                            WidgetInfo::labeled(WidgetType::Button, ui.is_enabled(), "New tab")
+                        });
+                    }
+                    new_tab |= response.clicked();
                     if new_tab {
                         ui.scroll_to_cursor(Some(Align::Max));
                     }
