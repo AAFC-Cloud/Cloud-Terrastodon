@@ -1,5 +1,6 @@
 use crate::config::Config;
 use arbitrary::Arbitrary;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use emath::Pos2;
 use emath::Rect;
 use emath::Vec2;
@@ -12,12 +13,20 @@ use std::path::PathBuf;
 pub struct EguiConfig {
     pub starting_points_window: Rect,
     pub open_dirs: HashMap<PathBuf, Rect>,
+    /// Last Azure account and source selected in the window.
+    pub azure_authentication: Option<AzureBearerAuthenticationSelection>,
+    /// Mask email addresses in the account picker.
+    pub demo_mode: bool,
 }
 
 #[derive(Debug, Arbitrary, Facet, Clone, PartialEq)]
 struct EguiConfigProxy {
     pub starting_points_window: RectProxy,
     pub open_dirs: HashMap<PathBuf, RectProxy>,
+    #[facet(default)]
+    pub azure_authentication: Option<AzureBearerAuthenticationSelection>,
+    #[facet(default)]
+    pub demo_mode: bool,
 }
 
 #[derive(Debug, Arbitrary, Facet, Clone, Copy, PartialEq)]
@@ -77,6 +86,8 @@ impl From<EguiConfigProxy> for EguiConfig {
                 .into_iter()
                 .map(|(path, rect)| (path, rect.into()))
                 .collect(),
+            azure_authentication: value.azure_authentication,
+            demo_mode: value.demo_mode,
         }
     }
 }
@@ -90,6 +101,8 @@ impl From<&EguiConfig> for EguiConfigProxy {
                 .iter()
                 .map(|(path, rect)| (path.clone(), rect.into()))
                 .collect(),
+            azure_authentication: value.azure_authentication,
+            demo_mode: value.demo_mode,
         }
     }
 }
@@ -99,6 +112,8 @@ impl Default for EguiConfig {
         Self {
             starting_points_window: Rect::from_min_size(Pos2::new(10., 10.), Vec2::new(500., 500.)),
             open_dirs: HashMap::new(),
+            azure_authentication: None,
+            demo_mode: false,
         }
     }
 }

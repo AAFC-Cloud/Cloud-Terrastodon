@@ -1301,6 +1301,7 @@ dependencies = [
  "arbitrary",
  "async-trait",
  "chrono",
+ "cloud_terrastodon_auth_types",
  "cloud_terrastodon_pathing",
  "cloud_terrastodon_registry",
  "emath",

@@ -134,3 +134,47 @@ fn destructured_to_value(value: Destructured) -> Value {
         _ => unreachable!("unknown facet-value::Destructured variant"),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::EguiConfig;
+    use cloud_terrastodon_auth_types::AzureBearerAuthSource;
+    use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
+    use emath::Pos2;
+    use emath::Rect;
+
+    #[test]
+    fn gui_config_upgrades_older_layouts_and_round_trips_the_account_preference() -> Result<()> {
+        let settings = EguiConfig {
+            open_dirs: [(
+                PathBuf::from("synthetic-workspace"),
+                Rect::from_min_max(Pos2::ZERO, Pos2::new(128.0, 256.0)),
+            )]
+            .into(),
+            azure_authentication: Some(AzureBearerAuthenticationSelection {
+                account_id: "00000000-0000-0000-0000-000000000001".parse()?,
+                tenant_id: "00000000-0000-0000-0000-000000000002".parse()?,
+                auth_source: AzureBearerAuthSource::AzureCli,
+            }),
+            demo_mode: true,
+            ..Default::default()
+        };
+        let defaults = facet_value::to_value(&EguiConfig::default())?;
+        let saved: Value = facet_json::from_str(&facet_json::to_string(&settings)?)?;
+        let merged: EguiConfig =
+            deserialize_merged_config(merge_json(defaults.clone(), saved.clone()))?;
+        assert_eq!(merged, settings);
+
+        let Destructured::Object(mut legacy) = saved.destructure() else {
+            eyre::bail!("GUI settings must serialize as an object");
+        };
+        legacy.remove("azure_authentication");
+        legacy.remove("demo_mode");
+        let upgraded: EguiConfig = deserialize_merged_config(merge_json(defaults, legacy.into()))?;
+        assert_eq!(upgraded.open_dirs, settings.open_dirs);
+        assert!(upgraded.azure_authentication.is_none());
+        assert!(!upgraded.demo_mode);
+        Ok(())
+    }
+}
