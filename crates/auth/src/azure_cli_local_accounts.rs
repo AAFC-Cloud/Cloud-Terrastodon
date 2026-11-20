@@ -1,4 +1,4 @@
-use cloud_terrastodon_azure_types::Account;
+use cloud_terrastodon_azure_types::AzureCliAccount;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CommandKind;
 use cloud_terrastodon_command::CommandOutput;
@@ -15,7 +15,7 @@ use tokio::process::Command;
 /// <https://learn.microsoft.com/cli/azure/account#az-account-list>
 pub async fn read_azure_cli_local_accounts(
     cancellation: &CancellationScope,
-) -> Result<Vec<Account>> {
+) -> Result<Vec<AzureCliAccount>> {
     cancellation
         .cancellable_scope(|scope| async move {
             let program = CommandKind::AzureCLI.program().await?;

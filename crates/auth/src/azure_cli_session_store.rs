@@ -229,9 +229,17 @@ impl AzureCliSessionStore {
 mod tests {
     use super::*;
     use cloud_terrastodon_command::CancellationToken;
+    use facet::Facet;
 
     #[tokio::test]
     async fn generation_selection_does_not_replace_an_existing_binding() -> Result<()> {
+        #[derive(Facet)]
+        struct SavedIdentity<'a> {
+            tenant: AzureTenantId,
+            account: &'a str,
+            kind: &'a str,
+        }
+
         let directory = tempfile::tempdir()?;
         let store = AzureCliSessionStore {
             root: directory.path().to_path_buf(),
@@ -244,10 +252,10 @@ mod tests {
             AzureCliSessionStore::prepare_directory(&path)?;
             std::fs::write(
                 path.join("identity.json"),
-                facet_json::to_vec(&AzureCliAccountIdentity {
+                facet_json::to_vec(&SavedIdentity {
                     tenant,
-                    account: account.into(),
-                    kind: "user".into(),
+                    account,
+                    kind: "user",
                 })?,
             )?;
         }
@@ -260,8 +268,8 @@ mod tests {
                 std::fs::write(&selector, second.to_string())?;
                 let next = store.load(tenant, &scope).await?;
                 assert_ne!(bound.directory, next.directory);
-                assert_eq!(bound.identity.account, "synthetic-first");
-                assert_eq!(next.identity.account, "synthetic-second");
+                assert_eq!(bound.identity.account_name.as_str(), "synthetic-first");
+                assert_eq!(next.identity.account_name.as_str(), "synthetic-second");
                 std::fs::write(bound.directory.join("revoked"), b"synthetic logout")?;
                 assert!(bound.lease(&scope).await.is_err());
                 assert!(next.lease(&scope).await.is_ok());

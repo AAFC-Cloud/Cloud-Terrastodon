@@ -1,4 +1,5 @@
 use crate::AuthContext;
+use crate::AzureCliAccountName;
 use crate::CloudTerrastodonAccountStore;
 use crate::cloud_terrastodon_account_admission::CloudTerrastodonAccountAdmission;
 use crate::cloud_terrastodon_account_authentication::CloudTerrastodonAccountAuthentication;
@@ -299,6 +300,31 @@ impl CredentialAuthenticationProvider {
             }),
         );
         Ok(leased)
+    }
+
+    /// Read the sign-in name from the selected account's isolated Azure CLI session.
+    /// It is private display data. This reads its admitted login generation
+    /// without acquiring a token or consulting the ambient CLI account.
+    pub async fn azure_cli_sign_in_name(
+        &self,
+        selection: AzureBearerAuthenticationSelection,
+        cancellation: &CancellationScope,
+    ) -> Result<AzureCliAccountName> {
+        let authentication = selection.into();
+        let provider = self.leased(&authentication)?;
+        let CloudTerrastodonAccountAuthentication::Azure(AuthContext::Resolved(state)) =
+            provider.binding(&authentication)?
+        else {
+            eyre::bail!("sign-in name requires a provisioned Azure CLI account");
+        };
+        ensure!(
+            state.source == AuthSource::AzureCli && state.credential_store.is_some(),
+            "sign-in name requires a provisioned Azure CLI account"
+        );
+        state
+            .azure_cli_sessions
+            .sign_in_name(selection.tenant_id, cancellation)
+            .await
     }
 
     /// Permanently close account admission, cancel optional credential work,

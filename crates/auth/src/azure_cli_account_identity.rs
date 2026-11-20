@@ -1,3 +1,5 @@
+use crate::azure_cli_account_name::AzureCliAccountName;
+use cloud_terrastodon_azure_types::AzureCliAccountUserType;
 use cloud_terrastodon_azure_types::AzureTenantId;
 use eyre::Result;
 use eyre::ensure;
@@ -12,12 +14,16 @@ use std::fmt;
 #[derive(Clone, PartialEq, Eq, Facet)]
 pub(crate) struct AzureCliAccountIdentity {
     pub(crate) tenant: AzureTenantId,
-    pub(crate) account: String,
-    pub(crate) kind: String,
+    // Accept the original keys in saved session identities.
+    #[facet(alias = "account", sensitive)]
+    pub(crate) account_name: AzureCliAccountName,
+    #[facet(alias = "kind")]
+    pub(crate) account_type: AzureCliAccountUserType,
 }
 
 impl AzureCliAccountIdentity {
-    pub(crate) const QUERY: &str = "{tenant:tenantId,account:user.name,kind:user.type}";
+    pub(crate) const QUERY: &str =
+        "{tenant:tenantId,account_name:user.name,account_type:user.type}";
 
     pub(crate) fn validate(&self, tenant: AzureTenantId) -> Result<()> {
         ensure!(
@@ -25,11 +31,7 @@ impl AzureCliAccountIdentity {
             "Azure CLI session returned a different tenant"
         );
         ensure!(
-            !self.account.trim().is_empty(),
-            "Azure CLI session has no account identity"
-        );
-        ensure!(
-            self.kind == "user",
+            self.account_type == AzureCliAccountUserType::User,
             "isolated Azure CLI login requires an interactive user; use workload identity for applications"
         );
         Ok(())

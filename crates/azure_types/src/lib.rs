@@ -3,7 +3,6 @@
     reason = "Facet proxy and string wrapper conversions intentionally keep TryFrom-compatible patterns across the crate"
 )]
 mod access_token;
-mod accounts;
 mod address_prefix;
 mod address_prefixes;
 mod all_or;
@@ -20,6 +19,9 @@ mod azure_application_gateway_resource_backend_health;
 mod azure_application_gateway_resource_id;
 mod azure_application_gateway_resource_name;
 mod azure_authorization_list_page;
+mod azure_cli_account;
+mod azure_cli_account_user;
+mod azure_cli_account_user_type;
 mod azure_cognitive_services_account_deployment;
 mod azure_cognitive_services_account_deployment_id;
 mod azure_cognitive_services_account_deployment_list_result;
@@ -311,7 +313,6 @@ mod virtual_network_peering_name;
 mod virtual_network_properties;
 
 pub use crate::access_token::*;
-pub use crate::accounts::*;
 pub use crate::address_prefix::*;
 pub use crate::address_prefixes::*;
 pub use crate::all_or::*;
@@ -328,6 +329,9 @@ pub use crate::azure_application_gateway_resource_backend_health::*;
 pub use crate::azure_application_gateway_resource_id::*;
 pub use crate::azure_application_gateway_resource_name::*;
 pub use crate::azure_authorization_list_page::*;
+pub use crate::azure_cli_account::AzureCliAccount;
+pub use crate::azure_cli_account_user::AzureCliAccountUser;
+pub use crate::azure_cli_account_user_type::AzureCliAccountUserType;
 pub use crate::azure_cognitive_services_account_deployment::*;
 pub use crate::azure_cognitive_services_account_deployment_id::*;
 pub use crate::azure_cognitive_services_account_deployment_list_result::*;

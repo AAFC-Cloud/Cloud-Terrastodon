@@ -1,6 +1,6 @@
 use crate::get_default_tenant_id;
 use cloud_terrastodon_auth::read_azure_cli_local_accounts;
-use cloud_terrastodon_azure_types::Account;
+use cloud_terrastodon_azure_types::AzureCliAccount;
 use cloud_terrastodon_azure_types::AzureTenantAlias;
 use cloud_terrastodon_azure_types::AzureTenantArgument;
 use cloud_terrastodon_azure_types::AzureTenantId;
@@ -121,7 +121,7 @@ pub async fn discover_and_track_tenants(
 }
 
 pub async fn discover_tracked_tenants_from_accounts(
-    accounts: Vec<Account>,
+    accounts: Vec<AzureCliAccount>,
 ) -> eyre::Result<Vec<AzureTenantId>> {
     discover_tracked_tenants_in(
         &tracked_tenants_dir(),
