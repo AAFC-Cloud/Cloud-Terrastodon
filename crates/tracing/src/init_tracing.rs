@@ -1,6 +1,7 @@
 //! Install CT's subscriber, destinations, filtering, and terminal policy.
 //!
 //! Reusable capture, retained reports, and presentation live in `teamy-tracing`.
+use crate::simple_css_terminal_filter::SimpleCssTerminalFilter;
 use chrono::Local;
 use eyre::Result;
 use std::fs::OpenOptions;
@@ -109,7 +110,11 @@ fn build_subscriber(
         terminal_active.unwrap_or_else(|| Arc::new(|| false)),
         move |record| inactive_writer(record),
     )
-    .with_filter(stderr_filter.and(filter_fn(exclude_tracy_frame_mark)));
+    .with_filter(
+        stderr_filter
+            .and(filter_fn(exclude_tracy_frame_mark))
+            .and(SimpleCssTerminalFilter::default()),
+    );
 
     let json_layer = if let Some(path) = json_path {
         let timestamp = Local::now().format("%Y-%m-%d_%H-%M-%S");
@@ -194,6 +199,59 @@ mod tests {
         terminal.acknowledge_through(cursor);
         assert!(terminal.records_since(&mut 0).is_empty());
         assert_eq!(history.records_since(&mut 0).len(), 3);
+    }
+
+    #[test]
+    fn simplecss_warning_deduplication_is_shared_by_both_terminal_paths() {
+        let terminal = LogBuffer::new();
+        let history = LogBuffer::new();
+        let active = Arc::new(AtomicBool::new(false));
+        let human = Arc::new(Mutex::new(Vec::new()));
+        let subscriber = build_subscriber(
+            EnvFilter::new("info"),
+            None,
+            None,
+            Some(terminal.clone()),
+            Some({
+                let active = Arc::clone(&active);
+                Arc::new(move || active.load(Ordering::Acquire))
+            }),
+            Some(history.clone()),
+            {
+                let human = Arc::clone(&human);
+                Arc::new(move |record| human.lock().unwrap().push(Arc::clone(&record.message)))
+            },
+        )
+        .unwrap();
+
+        tracing::subscriber::with_default(subscriber, || {
+            for (queued, origin, feature) in [
+                (false, "simplecss::selector", ":nth-child"),
+                (true, "simplecss::selector", ":nth-child"),
+                (true, "simplecss", "@keyframes"),
+                (true, "simplecss", "@keyframes"),
+                (false, "simplecss", "@keyframes"),
+                (false, "simplecss_other", "@keyframes"),
+                (false, "simplecss_other", "@keyframes"),
+            ] {
+                active.store(queued, Ordering::Release);
+                tracing::warn!(target: "log", {"log.target" = origin}, "{feature} is unsupported");
+            }
+        });
+
+        let immediate = human.lock().unwrap();
+        assert_eq!(
+            immediate.iter().map(AsRef::as_ref).collect::<Vec<_>>(),
+            [
+                ":nth-child is unsupported",
+                "@keyframes is unsupported",
+                "@keyframes is unsupported",
+            ],
+        );
+        let queued = terminal.records_since(&mut 0);
+        assert_eq!(queued.len(), 1);
+        assert_eq!(queued[0].message.as_ref(), "@keyframes is unsupported");
+        assert_eq!(history.records_since(&mut 0).len(), 7);
     }
 
     #[test]
