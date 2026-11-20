@@ -14,7 +14,7 @@
 
 - Accept account aliases alongside UUIDs in `ct account` commands. Use `ct account logout --all` to retire all registered credential sessions while keeping account registrations and defaults.
 
-- Open linked storage accounts in preview tabs with the matching `ct az storage account show` command and a reflected request and response. View and copy the resource ID and CLI-formatted output from a separate tab.
+- Open linked storage accounts in preview tabs with the matching `ct az storage account show` command and a reflected request and response. Use View output to inspect and copy the resource ID and CLI-formatted output.
 
 - Browse resource groups with a dedicated request, a copyable CLI command, response filters, linked details, and row selection. Use preview tabs and Keep Open for navigation, rearrange the sidebar, and open dropped files in tabs.
 

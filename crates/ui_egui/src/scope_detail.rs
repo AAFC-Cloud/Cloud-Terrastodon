@@ -49,7 +49,7 @@ pub(crate) fn scope_detail_ui(
         return;
     }
     if open_json {
-        app.tabs.open_link_in_kept_tab(PortalTabTarget::ScopeView {
+        app.navigate_tab(PortalTabTarget::ScopeView {
             scope: scope.clone(),
             view: PortalScopeView::Json,
         });

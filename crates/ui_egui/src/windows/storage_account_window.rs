@@ -36,35 +36,22 @@ pub(crate) fn storage_account_ui(app: &mut MyApp, ui: &mut Ui, id: &AzureStorage
     let Some(inspection) = app.storage_account_browser.entries.get(id) else {
         return;
     };
-    let (refresh, view_output) = ui
+    let view_output = ui
         .horizontal_wrapped(|ui| {
             ui.strong("Overview");
-            let refresh = ui
-                .add_enabled(
-                    !matches!(inspection.response, Loadable::Loading { .. }),
-                    Button::new("Refresh"),
-                )
-                .clicked();
-            let view_output = ui
-                .add_enabled(
-                    inspection.response.as_loaded().is_some(),
-                    Button::new("View output"),
-                )
-                .on_hover_text("JSON, Facet Pretty, or Text")
-                .clicked();
-            (refresh, view_output)
+            ui.add_enabled(
+                inspection.response.as_loaded().is_some(),
+                Button::new("View output"),
+            )
+            .on_hover_text("JSON, Facet Pretty, or Text")
+            .clicked()
         })
         .inner;
-    if refresh {
-        load_storage_account(app, id, true);
-        return;
-    }
     if view_output {
-        app.tabs
-            .open_link_in_kept_tab(PortalTabTarget::StorageAccountOutput {
-                id: id.clone(),
-                format: OutputFormat::Json,
-            });
+        app.navigate_tab(PortalTabTarget::StorageAccountOutput {
+            id: id.clone(),
+            format: OutputFormat::Json,
+        });
         return;
     }
 

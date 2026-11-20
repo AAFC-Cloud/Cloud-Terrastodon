@@ -221,14 +221,7 @@ impl MyApp {
         if self.tabs.active() != &target {
             self.resource_search.clear();
         }
-        if matches!(
-            target,
-            PortalTabTarget::Page(_) | PortalTabTarget::LocalPath(_)
-        ) {
-            self.tabs.open(target);
-        } else {
-            self.tabs.follow(target);
-        }
+        self.tabs.open(target);
         self.retain_open_tab_data();
     }
 

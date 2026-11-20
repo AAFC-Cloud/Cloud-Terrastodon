@@ -91,20 +91,11 @@ impl PortalTabs {
         ));
     }
 
+    /// Focus an open destination or navigate using the active tab's preview policy.
     pub fn open(&mut self, target: PortalTabTarget) {
         if let Some(index) = self.find_target(&target) {
             self.active = index;
-        } else {
-            self.follow(target);
-        }
-    }
-
-    /// Follow a resource link without switching to an unrelated tab's history.
-    pub fn follow(&mut self, target: PortalTabTarget) {
-        if self.active() == &target {
-            return;
-        }
-        if self.tabs[self.active].preview {
+        } else if self.tabs[self.active].preview {
             self.tabs[self.active].navigate(target);
         } else {
             let mut tab = PortalTab::new(self.active().clone(), true);
@@ -119,18 +110,6 @@ impl PortalTabs {
             self.active = index;
         } else {
             self.push(PortalTab::new(target, false));
-        }
-    }
-
-    /// Open a linked destination in its own kept tab with a visit back to its source.
-    pub fn open_link_in_kept_tab(&mut self, target: PortalTabTarget) {
-        if let Some(index) = self.find_target(&target) {
-            self.tabs[index].preview = false;
-            self.active = index;
-        } else {
-            let mut tab = PortalTab::new(self.active().clone(), false);
-            tab.navigate(target);
-            self.push(tab);
         }
     }
 
@@ -203,22 +182,25 @@ mod tests {
     use cloud_terrastodon_azure::AzureResourceGroupId;
 
     #[test]
-    fn following_a_resource_keeps_the_path_even_when_it_is_already_open() -> eyre::Result<()> {
+    fn opening_an_existing_resource_switches_tabs_and_preserves_history() -> eyre::Result<()> {
         let mut tabs = PortalTabs::default();
-        let group =
-            PortalTabTarget::ResourceGroup(cloud_terrastodon_azure::AzureResourceGroupId::try_new(
-                "00000000-0000-0000-0000-000000000001",
-                "synthetic-group",
-            )?);
+        let group = PortalTabTarget::ResourceGroup(AzureResourceGroupId::try_new(
+            "00000000-0000-0000-0000-000000000001",
+            "synthetic-group",
+        )?);
+        let home = PortalTabTarget::Page(PortalPage::Home);
         let inventory = PortalTabTarget::Page(PortalPage::Resources);
-        tabs.open_kept(group.clone());
+        tabs.open(group.clone());
+        tabs.keep_open(0);
         tabs.open_kept(inventory.clone());
-        tabs.follow(group.clone());
-        assert_eq!(tabs.history(), (&[inventory.clone(), group.clone()][..], 1));
-        assert!(tabs.back());
-        assert_eq!(tabs.active(), &inventory);
-        assert!(tabs.forward());
+        tabs.open(group.clone());
+
+        assert_eq!(tabs.tabs.len(), 2);
+        assert_eq!(tabs.active, 0);
         assert_eq!(tabs.active(), &group);
+        assert_eq!(tabs.history(), (&[home, group][..], 1));
+        tabs.select(1);
+        assert_eq!(tabs.history(), (std::slice::from_ref(&inventory), 0));
         Ok(())
     }
 
@@ -353,7 +335,7 @@ mod tests {
         let home = PortalTabTarget::Page(PortalPage::Home);
         let mut tabs = PortalTabs::default();
         tabs.open(inventory.clone());
-        tabs.follow(overview.clone());
+        tabs.open(overview.clone());
         tabs.keep_open(0);
 
         tabs.replace_current(activity);
@@ -435,7 +417,7 @@ mod tests {
     }
 
     #[test]
-    fn storage_account_navigation_keeps_output_separate_from_the_preview() -> eyre::Result<()> {
+    fn storage_account_output_uses_preview_navigation() -> eyre::Result<()> {
         use PortalTabTarget::Page;
         use PortalTabTarget::StorageAccount;
         use PortalTabTarget::StorageAccountOutput;
@@ -447,23 +429,43 @@ mod tests {
         )
         .parse::<AzureStorageAccountId>()?;
         let mut tabs = PortalTabs::default();
-        let inventory = Page(PortalPage::StorageAccounts);
         let detail = StorageAccount(id.clone());
         let output = StorageAccountOutput {
             id: id.clone(),
             format: OutputFormat::Json,
         };
 
-        tabs.open(inventory.clone());
+        tabs.open(Page(PortalPage::StorageAccounts));
         tabs.open(detail.clone());
         assert_eq!(tabs.tabs.len(), 1);
         assert_eq!(tabs.active(), &detail);
         assert!(tabs.tabs[0].preview);
 
-        tabs.open_link_in_kept_tab(output.clone());
+        tabs.open(output.clone());
         assert_eq!(tabs.active(), &output);
-        assert_eq!(tabs.tabs[0].target(), &detail);
+        assert_eq!(tabs.tabs.len(), 1);
+        assert!(tabs.tabs[0].preview);
+        assert!(tabs.back());
+        assert_eq!(tabs.active(), &detail);
+        assert!(tabs.forward());
+        assert_eq!(tabs.active(), &output);
+
+        // The overview breadcrumb replaces the output preview in the same tab.
+        tabs.open(detail.clone());
+        assert_eq!(tabs.tabs.len(), 1);
+        assert_eq!(tabs.active(), &detail);
+
+        tabs.keep_open(0);
+        tabs.open(output.clone());
+        assert_eq!(tabs.tabs.len(), 2);
+        assert!(tabs.tabs[1].preview);
         assert_eq!(tabs.history(), (&[detail.clone(), output.clone()][..], 1));
+        tabs.open(detail.clone());
+        assert_eq!(tabs.active, 0);
+        tabs.open(output.clone());
+        assert_eq!(tabs.active, 1);
+        assert_eq!(tabs.tabs.len(), 2);
+
         let text_output = StorageAccountOutput {
             id: id.clone(),
             format: OutputFormat::Text,
@@ -475,9 +477,6 @@ mod tests {
         assert!(tabs.forward());
         assert_eq!(tabs.active(), &text_output);
         assert!(tabs.back());
-        tabs.open(inventory.clone());
-        assert_eq!(tabs.tabs.len(), 3);
-        assert_eq!(tabs.active(), &inventory);
 
         assert_eq!(tabs.close(0), Some(detail));
         assert!(tabs.has_storage_account(&id));
