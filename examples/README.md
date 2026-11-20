@@ -45,15 +45,15 @@ cargo +1.96.0 run --example resource_group_list -- --help
 These commands list resource groups and may contact Azure:
 
 ```powershell
-cargo +1.96.0 run --example resource_group_list -- --auth-source azure-cli --tenant default --log-filter warn
+cargo +1.96.0 run --example resource_group_list -- --auth-source azure-cli --log-filter warn
 cargo +1.96.0 run --example resource_group_list -- --auth-source azure-cli --tenant YOUR_TENANT_ID_OR_ALIAS --log-filter warn
 ```
 
 `--auth-source` selects a registered credential mechanism; `auto` uses the
-account's preferred source. `--tenant` accepts a tenant ID, tracked alias, or
-`default`. When omitted or set to `default`, it uses the configured Cloud
-Terrastodon default tenant. Use `--account` to select a registered account or
-configure an account default. The authentication argument helper resolves
+account's preferred source. `--tenant` accepts a tenant ID or tracked alias.
+When `--tenant` is omitted, a named `--account` supplies its registered tenant.
+Omitting both selectors uses the configured Cloud Terrastodon tenant and its
+configured account default. The authentication argument helper resolves
 concrete account/source/tenant metadata before constructing the request.
 Running with no arguments also performs the list using these shared defaults.
 `App` automatically wraps the handler in a cancellable scope. The handler passes
@@ -107,9 +107,9 @@ It enables `app`, `auth`, `auth-types`, `azure`, and `execution`, with a direct
 shared argument resolution and direct Azure SDK requests.
 
 Its `audit` command lists resource groups in accessible subscriptions of the
-selected tenant. `--tenant` accepts a tenant ID or tracked alias; when omitted,
-the tenant argument resolves the deliberately configured CT tenant default.
-`--account` or a configured account default selects credentials in that tenant.
+selected tenant. `--tenant` accepts a tenant ID or tracked alias. When it is
+omitted, `--account` supplies its registered tenant. Omitting both uses the
+configured Cloud Terrastodon tenant and its configured account default.
 SDK request caches may supply the inventory.
 
 Names with exactly five ASCII vowel occurrences (`a`, `e`, `i`, `o`, `u`, ignoring

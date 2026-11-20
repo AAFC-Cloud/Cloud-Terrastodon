@@ -60,65 +60,81 @@ impl CloudTerrastodonAccountCatalogue {
         account: Option<&CloudTerrastodonAccountArgument>,
         namespace: Option<&CloudTerrastodonAccountNamespace>,
     ) -> Result<&CloudTerrastodonAccountProfile> {
-        let account = match account {
-            Some(CloudTerrastodonAccountArgument::Id(id)) => self.by_id(*id)?,
-            Some(CloudTerrastodonAccountArgument::Alias(alias)) => {
-                let alias = alias.as_str();
-                let mut matches = self.accounts.iter().filter(|account| {
-                    account.alias.as_str() == alias
-                        && namespace.is_none_or(|namespace| account.namespace == *namespace)
-                });
-                let first = matches.next().ok_or_else(|| {
-                    let qualifier = namespace.map_or("", |_| " in the requested namespace");
-                    eyre::eyre!("account alias {alias:?} is not registered{qualifier}")
-                })?;
-                if let Some(second) = matches.next() {
-                    let candidates = [first, second]
-                        .into_iter()
-                        .chain(matches)
-                        .map(|account| {
-                            let namespace = match &account.namespace {
-                                CloudTerrastodonAccountNamespace::Entra { tenant_id } => {
-                                    format!("Entra tenant {tenant_id}")
-                                }
-                                CloudTerrastodonAccountNamespace::AzureDevOps { organization } => {
-                                    format!("Azure DevOps organization {organization}")
-                                }
-                                CloudTerrastodonAccountNamespace::Gitea { instance } => {
-                                    format!("Gitea instance {instance}")
-                                }
-                            };
-                            format!("  {} ({namespace})", account.id)
-                        })
-                        .collect::<Vec<_>>()
-                        .join("\n");
-                    bail!(
-                        "account alias {alias:?} matches multiple registrations. Use one of these account IDs.\n{candidates}"
-                    );
-                }
-                first
-            }
-            None => {
-                let namespace = namespace.ok_or_else(|| {
-                    eyre::eyre!("an account ID or alias is required without a namespace")
-                })?;
-                let default = self
-                    .defaults
-                    .iter()
-                    .find(|default| default.namespace == *namespace)
-                    .ok_or_else(|| {
-                        eyre::eyre!(
-                            "no account was specified and this namespace has no configured account default"
-                        )
-                    })?;
-                self.by_id(default.account_id)?
-            }
+        if let Some(account) = account {
+            return self.resolve_in_namespaces(
+                account,
+                |candidate| namespace.is_none_or(|namespace| candidate == namespace),
+                namespace.map_or("", |_| " in the requested namespace"),
+            );
+        }
+        let Some(namespace) = namespace else {
+            bail!("an account ID or alias is required without a namespace");
         };
+        let Some(default) = self
+            .defaults
+            .iter()
+            .find(|default| default.namespace == *namespace)
+        else {
+            bail!("no account was specified and this namespace has no configured account default");
+        };
+        let account = self.by_id(default.account_id)?;
         ensure!(
-            namespace.is_none_or(|namespace| account.namespace == *namespace),
+            account.namespace == *namespace,
             "selected account belongs to another tenant or service"
         );
         Ok(account)
+    }
+
+    /// Resolve a named account among the namespaces eligible for an operation.
+    pub(crate) fn resolve_in_namespaces(
+        &self,
+        account: &CloudTerrastodonAccountArgument,
+        eligible: impl Fn(&CloudTerrastodonAccountNamespace) -> bool,
+        qualifier: &str,
+    ) -> Result<&CloudTerrastodonAccountProfile> {
+        let alias = match account {
+            CloudTerrastodonAccountArgument::Id(id) => {
+                let account = self.by_id(*id)?;
+                ensure!(
+                    eligible(&account.namespace),
+                    "selected account belongs to another tenant or service"
+                );
+                return Ok(account);
+            }
+            CloudTerrastodonAccountArgument::Alias(alias) => alias.as_str(),
+        };
+        let mut matches = self
+            .accounts
+            .iter()
+            .filter(|account| account.alias.as_str() == alias && eligible(&account.namespace));
+        let first = matches
+            .next()
+            .ok_or_else(|| eyre::eyre!("account alias {alias:?} is not registered{qualifier}"))?;
+        if let Some(second) = matches.next() {
+            let candidates = [first, second]
+                .into_iter()
+                .chain(matches)
+                .map(|account| {
+                    let namespace = match &account.namespace {
+                        CloudTerrastodonAccountNamespace::Entra { tenant_id } => {
+                            format!("Entra tenant {tenant_id}")
+                        }
+                        CloudTerrastodonAccountNamespace::AzureDevOps { organization } => {
+                            format!("Azure DevOps organization {organization}")
+                        }
+                        CloudTerrastodonAccountNamespace::Gitea { instance } => {
+                            format!("Gitea instance {instance}")
+                        }
+                    };
+                    format!("  {} ({namespace})", account.id)
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
+            bail!(
+                "account alias {alias:?} matches multiple registrations. Use one of these account IDs.\n{candidates}"
+            );
+        }
+        Ok(first)
     }
 }
 

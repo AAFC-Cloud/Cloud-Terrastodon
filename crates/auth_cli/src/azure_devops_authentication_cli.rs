@@ -11,17 +11,16 @@ use facet::Facet;
 
 /// Resolve CLI authentication preferences to an explicit request identity.
 ///
-/// Tenant-scoped Entra accounts and organization-scoped PAT accounts have
-/// separate defaults. Resolving one never searches the other namespace.
+/// Entra accounts are scoped to tenants, and PAT accounts to organizations.
+/// An explicit account can supply its tenant when the tenant flag is omitted.
 #[derive(Debug, Clone, Default, Facet)]
 pub struct AzureDevOpsAuthenticationArgs {
-    /// Tenant ID or tracked alias for Entra authentication; omit for PAT authentication.
-    /// Use `--tenant default` to select the configured Cloud Terrastodon tenant.
+    /// Restrict Entra authentication to this tenant ID or tracked alias.
     #[facet(figue::named)]
     pub tenant: Option<AzureTenantArgument<'static>>,
 
-    /// Account ID or alias within the selected tenant or organization.
-    /// Omission uses that scope's explicitly configured account default.
+    /// Account ID or alias. Use --tenant or an account ID to disambiguate shared aliases.
+    /// Omission uses the explicitly configured default for the selected tenant or organization.
     #[facet(figue::named)]
     pub account: Option<CloudTerrastodonAccountArgument>,
 
@@ -53,11 +52,12 @@ impl AzureDevOpsAuthenticationArgs {
             }
             None => {
                 ensure!(
-                    matches!(
-                        self.auth_source,
-                        AuthSource::Auto | AuthSource::PersonalAccessToken
-                    ),
-                    "bearer authentication requires an explicit tenant; use --tenant default to select the configured tenant"
+                    self.account.is_some()
+                        || matches!(
+                            self.auth_source,
+                            AuthSource::Auto | AuthSource::PersonalAccessToken
+                        ),
+                    "bearer authentication requires an explicit tenant or account"
                 );
                 None
             }

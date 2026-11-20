@@ -56,7 +56,7 @@ impl PortalAddress {
                         _ => "storage account list",
                     };
                     let args = AzureAuthenticationArgs {
-                        tenant: selection.tenant_id.into(),
+                        tenant: Some(selection.tenant_id.into()),
                         account: Some(CloudTerrastodonAccountArgument::Id(selection.account_id)),
                         auth_source: selection.auth_source.into(),
                     };

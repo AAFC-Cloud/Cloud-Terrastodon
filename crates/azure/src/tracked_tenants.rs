@@ -70,17 +70,26 @@ impl AzureTenantAliasExt for AzureTenantAlias {
 
 #[expect(async_fn_in_trait)]
 pub trait AzureTenantArgumentExt {
+    /// Resolve the specified tenant or use the configured default for an absent selector.
     async fn resolve(&self, cancellation: &CancellationScope) -> eyre::Result<AzureTenantId>;
 }
 
 impl AzureTenantArgumentExt for AzureTenantArgument<'_> {
     async fn resolve(&self, cancellation: &CancellationScope) -> eyre::Result<AzureTenantId> {
         match self {
-            AzureTenantArgument::Default => get_default_tenant_id(cancellation).await,
             AzureTenantArgument::Id(id) => {
                 resolve_tracked_tenant_id(*id.as_ref(), cancellation).await
             }
             AzureTenantArgument::Alias(alias) => alias.resolve(cancellation).await,
+        }
+    }
+}
+
+impl AzureTenantArgumentExt for Option<AzureTenantArgument<'_>> {
+    async fn resolve(&self, cancellation: &CancellationScope) -> eyre::Result<AzureTenantId> {
+        match self {
+            Some(tenant) => tenant.resolve(cancellation).await,
+            None => get_default_tenant_id(cancellation).await,
         }
     }
 }

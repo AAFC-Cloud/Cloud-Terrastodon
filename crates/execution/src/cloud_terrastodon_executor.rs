@@ -12,6 +12,7 @@ use cloud_terrastodon_auth_types::Authorization;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_auth_types::AzureCredentialResource;
 use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
+use cloud_terrastodon_auth_types::CloudTerrastodonAccountArgument;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountId;
 use cloud_terrastodon_auth_types::CloudTerrastodonCredentialSource;
 use cloud_terrastodon_auth_types::ContainerRegistryBearerChallenge;
@@ -99,7 +100,22 @@ impl CloudTerrastodonExecutor {
             .resolve_azure_authentication(tenant_id, account, source)
     }
 
-    /// Resolve a bearer/PAT account within the explicitly selected namespace.
+    /// Resolve a named Entra account and infer the tenant from its registration.
+    pub fn resolve_azure_account_authentication(
+        &self,
+        account: &CloudTerrastodonAccountArgument,
+        source: AuthSource,
+    ) -> Result<AzureBearerAuthenticationSelection> {
+        ensure!(
+            matches!(self.mode, ExecutionMode::Normal(_)),
+            "credential infrastructure cannot resolve account selectors"
+        );
+        self.authentication
+            .resolve_azure_account_authentication(account, source)
+    }
+
+    /// Resolve a bearer account in an Entra tenant or a PAT account in the
+    /// requested organization. A named bearer account can supply the tenant.
     pub fn resolve_azure_devops_authentication(
         &self,
         organization: &AzureDevOpsOrganizationUrl,

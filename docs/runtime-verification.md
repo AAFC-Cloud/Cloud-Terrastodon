@@ -7,7 +7,7 @@ verification against a selected service belongs to `ct test`.
 ```text
 ct test list
 ct test list "*resource-group*"
-ct test run resource-group-list --tenant example --account admin
+ct test run resource-group-list --account personal
 ct test run resource-group-list --tenant example --account admin --clean
 ct test run azure-devops-projects-list --org example --tenant example --account admin
 ```
@@ -18,10 +18,14 @@ character across the full name; quote patterns to avoid shell expansion.
 No matching cases is an error. Listing inspects registration metadata without
 resolving accounts or executing requests, and includes effects and input fields.
 
-Service execution requires a registered account. An explicit `--account` or a
-deliberately configured account default selects it within the supplied tenant or
-service scope. `--auth-source none` rejects authenticated cases before account
-lookup. See [authentication](authentication.md) for provisioning and selection.
+Service execution requires a registered account. For Entra authentication,
+`--tenant` scopes account selection. When you omit it, an explicit `--account`
+supplies its registered tenant. Use a tenant or account ID to disambiguate
+aliases shared across tenants. Organization and instance requirements still apply
+to the cases that use them. If you omit `--account`, the runner uses the
+deliberately configured default for the selected scope. `--auth-source none`
+rejects authenticated cases before account lookup.
+See [authentication](authentication.md) for provisioning and selection.
 Authentication arguments belong to `test run`; `test list` has none. `auto`
 chooses the selected account's preferred registered source, while an explicit
 source selects that mechanism without fallback. Resolved request data contains

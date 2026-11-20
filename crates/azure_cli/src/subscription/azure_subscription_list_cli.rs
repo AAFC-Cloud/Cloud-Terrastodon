@@ -1,6 +1,7 @@
 use super::error_summary;
 use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_auth_types::AuthSource;
+use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure::AzureSubscriptionListRequest;
 use cloud_terrastodon_azure::AzureTenantAlias;
 use cloud_terrastodon_azure::AzureTenantArgument;
@@ -32,7 +33,8 @@ const MAX_CONCURRENT_TENANTS: usize = 4;
 /// Arguments for listing Azure subscriptions across tracked tenants.
 #[derive(Facet, Debug, Clone, Default)]
 pub struct AzureSubscriptionListArgs {
-    /// Optional tenant id or tracked alias to query. Defaults to all tracked tenants.
+    /// Tenant ID or tracked alias to query. Omit to use the selected account's
+    /// tenant or list all tracked tenants.
     #[facet(figue::named)]
     pub tenant: Option<AzureTenantArgument<'static>>,
     /// Account ID or scoped alias; omission uses each tenant's configured account default.
@@ -72,19 +74,30 @@ impl AzureSubscriptionListArgs {
             self.auth_source != AuthSource::None,
             "authentication is disabled by auth source none"
         );
-        let cancellation = executor.cancellation();
-        let tenant_ids = match self.tenant {
-            Some(tenant) => vec![tenant.resolve(cancellation).await?],
-            None => list_tracked_tenants().await?,
+        let tenant_ids = match (&self.tenant, &self.account) {
+            (Some(tenant), _) => vec![tenant.resolve(executor.cancellation()).await?],
+            (None, Some(account)) => {
+                let authentication =
+                    executor.resolve_azure_account_authentication(account, self.auth_source)?;
+                let tenant = fetch_tenant_subscriptions(
+                    authentication.tenant_id,
+                    Ok(authentication),
+                    executor,
+                )
+                .await;
+                return Ok(SubscriptionListOutput(vec![tenant]).into_cli_output());
+            }
+            (None, None) => list_tracked_tenants().await?,
         };
         debug!(
-            count = tenant_ids.len(),
+            tenant_id_count = tenant_ids.len(),
             "Fetching subscriptions across Azure tenants"
         );
         let account = self.account.as_ref().map(ToString::to_string);
         let tenants = collect_tenants(tenant_ids, executor, async |child, tenant_id| {
-            fetch_tenant_subscriptions(tenant_id, account.as_deref(), self.auth_source, &child)
-                .await
+            let binding =
+                child.resolve_azure_authentication(tenant_id, account.as_deref(), self.auth_source);
+            fetch_tenant_subscriptions(tenant_id, binding, &child).await
         })
         .await?;
         Ok(SubscriptionListOutput(tenants).into_cli_output())
@@ -121,18 +134,16 @@ where
 
 async fn fetch_tenant_subscriptions(
     tenant_id: AzureTenantId,
-    account: Option<&str>,
-    auth_source: AuthSource,
+    binding: Result<AzureBearerAuthenticationSelection>,
     executor: &CloudTerrastodonExecutor,
 ) -> TenantSubscriptions {
     let aliases = async {
-        // An explicit tenant selector may identify an untracked tenant.
+        // A tenant selected by ID or by account may be untracked.
         if get_tracked_tenant(tenant_id).await?.is_none() {
             return Ok(Vec::new());
         }
         list_tracked_tenant_aliases_for(tenant_id).await
     };
-    let binding = executor.resolve_azure_authentication(tenant_id, account, auth_source);
     let authentication = match binding {
         Ok(context) => context,
         Err(error) => {

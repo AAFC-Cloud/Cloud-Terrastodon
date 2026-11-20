@@ -956,6 +956,36 @@ impl CloudTerrastodonAccountStore {
             account.as_ref(),
             Some(&CloudTerrastodonAccountNamespace::Entra { tenant_id }),
         )?;
+        Self::azure_selection_for_profile(profile, source)
+    }
+
+    /// Resolve an explicit Entra account, using its registered tenant rather
+    /// than a configured tenant default. This reads account metadata only.
+    pub fn resolve_azure_account_selection(
+        &self,
+        account: &CloudTerrastodonAccountArgument,
+        source: AuthSource,
+    ) -> Result<AzureBearerAuthenticationSelection> {
+        ensure!(
+            source != AuthSource::None,
+            "authentication is disabled by auth source none"
+        );
+        let catalogue = self.load()?;
+        let profile = catalogue.resolve_in_namespaces(
+            account,
+            |namespace| matches!(namespace, CloudTerrastodonAccountNamespace::Entra { .. }),
+            " among Entra accounts",
+        )?;
+        Self::azure_selection_for_profile(profile, source)
+    }
+
+    fn azure_selection_for_profile(
+        profile: &CloudTerrastodonAccountProfile,
+        source: AuthSource,
+    ) -> Result<AzureBearerAuthenticationSelection> {
+        let CloudTerrastodonAccountNamespace::Entra { tenant_id } = profile.namespace else {
+            bail!("the selected account does not support Entra authentication");
+        };
         let source = profile
             .select_source(source)?
             .auth_source()
@@ -969,6 +999,8 @@ impl CloudTerrastodonAccountStore {
         })
     }
 
+    /// Resolve an explicit Entra tenant, an account's tenant, or a PAT account
+    /// registered for the requested organization.
     pub fn resolve_devops_selection(
         &self,
         organization: &AzureDevOpsOrganizationUrl,
@@ -990,19 +1022,48 @@ impl CloudTerrastodonAccountStore {
             ));
         }
         ensure!(
-            matches!(source, AuthSource::Auto | AuthSource::PersonalAccessToken),
-            "Entra authentication requires an explicit tenant"
+            account.is_some()
+                || matches!(source, AuthSource::Auto | AuthSource::PersonalAccessToken),
+            "Entra authentication requires an explicit account or tenant"
         );
         let catalogue = self.load()?;
         let account = account
             .map(str::parse::<CloudTerrastodonAccountArgument>)
             .transpose()?;
-        let profile = catalogue.resolve(
-            account.as_ref(),
-            Some(&CloudTerrastodonAccountNamespace::AzureDevOps {
-                organization: organization.clone(),
-            }),
-        )?;
+        let profile = match &account {
+            Some(account) if source != AuthSource::PersonalAccessToken => {
+                let qualifier = if source == AuthSource::Auto {
+                    " among Entra accounts or PAT accounts for the requested organization"
+                } else {
+                    " among Entra accounts"
+                };
+                catalogue.resolve_in_namespaces(
+                    account,
+                    |namespace| match namespace {
+                        CloudTerrastodonAccountNamespace::Entra { .. } => true,
+                        CloudTerrastodonAccountNamespace::AzureDevOps {
+                            organization: registered,
+                        } => source == AuthSource::Auto && registered == organization,
+                        CloudTerrastodonAccountNamespace::Gitea { .. } => false,
+                    },
+                    qualifier,
+                )?
+            }
+            _ => catalogue.resolve(
+                account.as_ref(),
+                Some(&CloudTerrastodonAccountNamespace::AzureDevOps {
+                    organization: organization.clone(),
+                }),
+            )?,
+        };
+        if matches!(
+            profile.namespace,
+            CloudTerrastodonAccountNamespace::Entra { .. }
+        ) {
+            return Ok(AzureDevOpsAuthSelection::Bearer(
+                Self::azure_selection_for_profile(profile, source)?,
+            ));
+        }
         ensure!(
             profile.select_source(source)? == CloudTerrastodonCredentialSource::PersonalAccessToken,
             "selected account is not a PAT account"
@@ -1221,6 +1282,24 @@ mod tests {
                 assert_eq!(selection.account_id, account.id);
                 assert_eq!(selection.tenant_id, tenant_id);
                 assert_eq!(selection.auth_source, AzureBearerAuthSource::AzureCli);
+                let ambiguous = store
+                    .resolve_azure_account_selection(&"admin".parse()?, AuthSource::Auto)
+                    .unwrap_err()
+                    .to_string();
+                assert!(ambiguous.contains("matches multiple registrations"));
+                assert!(ambiguous.contains(&account.id.to_string()));
+                assert!(ambiguous.contains(&other.id.to_string()));
+                assert_eq!(
+                    store.resolve_azure_account_selection(
+                        &CloudTerrastodonAccountArgument::Id(other.id),
+                        AuthSource::Auto,
+                    )?,
+                    AzureBearerAuthenticationSelection {
+                        tenant_id: other_tenant,
+                        account_id: other.id,
+                        auth_source: AzureBearerAuthSource::AzureCli,
+                    },
+                );
                 assert!(
                     store
                         .resolve_azure_selection(
@@ -1293,6 +1372,95 @@ mod tests {
                 eyre::Ok(())
             })
             .await
+    }
+
+    #[test]
+    fn account_tenant_inference_uses_eligible_namespaces() -> Result<()> {
+        let directory = tempfile::tempdir()?;
+        let store = CloudTerrastodonAccountStore::new(directory.path().join("accounts"))?;
+        let tenant_id = AzureTenantId::new(Uuid::from_u128(1));
+        let organization: AzureDevOpsOrganizationUrl = "synthetic".parse()?;
+        let entra_profile = CloudTerrastodonAccountProfile::new(
+            CloudTerrastodonAccountId::new(Uuid::from_u128(2)),
+            "personal".parse()?,
+            CloudTerrastodonAccountCredential::AzureCli { tenant_id },
+        );
+        let pat_profile = CloudTerrastodonAccountProfile::new(
+            CloudTerrastodonAccountId::new(Uuid::from_u128(3)),
+            "personal".parse()?,
+            CloudTerrastodonAccountCredential::AzureDevOpsPersonalAccessToken {
+                organization: organization.clone(),
+            },
+        );
+        let other_pat_profile = CloudTerrastodonAccountProfile::new(
+            CloudTerrastodonAccountId::new(Uuid::from_u128(4)),
+            "personal".parse()?,
+            CloudTerrastodonAccountCredential::AzureDevOpsPersonalAccessToken {
+                organization: "another".parse()?,
+            },
+        );
+        let mut catalogue = CloudTerrastodonAccountCatalogue {
+            accounts: vec![other_pat_profile, entra_profile.clone()],
+            defaults: Vec::new(),
+        };
+        store.save(&catalogue)?;
+        let entra = AzureBearerAuthenticationSelection {
+            account_id: entra_profile.id,
+            auth_source: AzureBearerAuthSource::AzureCli,
+            tenant_id,
+        };
+        assert_eq!(
+            store.resolve_devops_selection(
+                &organization,
+                None,
+                Some("personal"),
+                AuthSource::Auto
+            )?,
+            AzureDevOpsAuthSelection::Bearer(entra),
+        );
+
+        catalogue.defaults.push(CloudTerrastodonAccountDefault {
+            namespace: pat_profile.namespace.clone(),
+            account_id: pat_profile.id,
+        });
+        catalogue.accounts.push(pat_profile.clone());
+        store.save(&catalogue)?;
+        let pat = AzureDevOpsAuthSelection::PersonalAccessToken {
+            account_id: pat_profile.id,
+        };
+        assert_eq!(
+            store.resolve_azure_account_selection(&"personal".parse()?, AuthSource::Auto)?,
+            entra,
+        );
+        let ambiguous = store
+            .resolve_devops_selection(&organization, None, Some("personal"), AuthSource::Auto)
+            .unwrap_err()
+            .to_string();
+        assert!(ambiguous.contains(&entra_profile.id.to_string()));
+        assert!(ambiguous.contains(&pat_profile.id.to_string()));
+        assert_eq!(
+            store.resolve_devops_selection(
+                &organization,
+                None,
+                Some("personal"),
+                AuthSource::AzureCli,
+            )?,
+            AzureDevOpsAuthSelection::Bearer(entra),
+        );
+        assert_eq!(
+            store.resolve_devops_selection(
+                &organization,
+                None,
+                Some("personal"),
+                AuthSource::PersonalAccessToken,
+            )?,
+            pat,
+        );
+        assert_eq!(
+            store.resolve_devops_selection(&organization, None, None, AuthSource::Auto)?,
+            pat,
+        );
+        Ok(())
     }
 
     #[tokio::test]

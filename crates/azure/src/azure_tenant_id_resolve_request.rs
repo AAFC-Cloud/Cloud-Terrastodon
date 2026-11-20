@@ -10,7 +10,7 @@ use facet::Facet;
 /// Resolve an explicit tenant ID, tracked alias, or configured Cloud Terrastodon default.
 #[derive(Debug, Clone, Arbitrary, Facet)]
 pub struct AzureTenantIdResolveRequest {
-    pub tenant: AzureTenantArgument<'static>,
+    pub tenant: Option<AzureTenantArgument<'static>>,
 }
 
 impl ExecutableRequest for AzureTenantIdResolveRequest {

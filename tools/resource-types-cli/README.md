@@ -26,10 +26,10 @@ Refresh the input only when live access to the selected tenant is intended:
 cargo run --offline --locked -p cloud_terrastodon_resource_types_cli -- refresh --tenant example-lab --account admin --auth-source azure-cli
 ```
 
-Omitting `--tenant`, or passing `--tenant default`, uses the explicitly configured
-Cloud Terrastodon default tenant. Select another tracked tenant with
-`--tenant example-lab` or a tenant UUID. `--account` selects a registered account
-within that tenant; omission requires a configured account default. Refresh's
+With `--account` and no `--tenant`, refresh uses the account's registered tenant.
+Omit both flags to use the configured Cloud Terrastodon tenant and its account
+default. Pass `--tenant example-lab` or a tenant UUID to
+restrict account selection to that tenant. Refresh's
 `--auth-source` selects a registered mechanism; `auto` uses its preferred
 source. Register and log in through `ct account` first. No ambient Azure CLI
 login, subscription, or tenant is selected. `--auth-source none` rejects refresh

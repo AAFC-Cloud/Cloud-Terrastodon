@@ -45,11 +45,12 @@ cargo +1.96.0 run --offline --locked -p cloud-terrastodon-standalone-cli -- audi
 ```
 
 `audit` owns its authentication arguments through the shared
-`AzureAuthenticationArgs` schema. `--tenant` accepts an ID, tracked tenant alias,
-or `default`. The default uses the configured Cloud Terrastodon tenant.
-`--account` selects a registered account in that tenant;
-omission requires a deliberately configured account default. The SDK fetches groups across accessible subscriptions in that tenant
-and uses its existing cache. `--auth-source auto` selects the account's preferred
+`AzureAuthenticationArgs` schema. `--tenant` accepts an ID or tracked tenant
+alias. `--account` accepts an ID or alias and supplies its registered
+tenant when `--tenant` is omitted. Omitting both uses the configured tenant and
+its configured account default. The SDK fetches groups across accessible
+subscriptions in that tenant and uses its existing cache.
+`--auth-source auto` selects the account's preferred
 registered mechanism; an explicit source overrides it without fallback.
 Application startup installs one lazy credential provider. Resolving the args
 produces pure request data, and execution uses the same shared executor.

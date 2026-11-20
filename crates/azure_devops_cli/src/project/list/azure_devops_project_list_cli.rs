@@ -36,7 +36,6 @@ impl AzureDevOpsProjectListArgs {
 mod tests {
     use super::*;
     use cloud_terrastodon_auth_types::AuthSource;
-    use cloud_terrastodon_azure::AzureTenantArgument;
     use cloud_terrastodon_cache::WorkCache;
     use cloud_terrastodon_command::CancellationToken;
     use cloud_terrastodon_execution::UnreachableAuthenticationProvider;
@@ -54,12 +53,12 @@ mod tests {
                 );
                 for (tenant, auth_source, expected) in [
                     (
-                        Some(AzureTenantArgument::default()),
+                        Some("synthetic-tenant".parse()?),
                         AuthSource::None,
                         "disabled",
                     ),
                     (
-                        Some(AzureTenantArgument::default()),
+                        Some("synthetic-tenant".parse()?),
                         AuthSource::PersonalAccessToken,
                         "cannot be combined",
                     ),

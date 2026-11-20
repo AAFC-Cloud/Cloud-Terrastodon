@@ -30,10 +30,10 @@ pub struct TestRunArgs {
     /// Full-name registry glob, not a per-test subcommand.
     #[facet(figue::positional)]
     pub pattern: String,
-    /// Resolve an explicitly tracked tenant ID or alias for Entra authentication.
+    /// Restrict Entra authentication to this tracked tenant ID or alias.
     #[facet(figue::named)]
     pub tenant: Option<AzureTenantArgument<'static>>,
-    /// Account ID or alias in the selected tenant or service instance.
+    /// Account ID or alias. An Entra account supplies its tenant when omitted.
     /// Omission uses that scope's configured account default.
     #[facet(figue::named)]
     pub account: Option<CloudTerrastodonAccountArgument>,
@@ -185,13 +185,13 @@ impl TestRunArgs {
                     || (has_field("auth_selection") && self.tenant.is_none()),
                 "PAT authentication requires an Azure DevOps test without --tenant"
             );
-            if has_field("auth_selection") && self.tenant.is_none() {
+            if has_field("auth_selection") && self.tenant.is_none() && self.account.is_none() {
                 ensure!(
                     matches!(
                         self.auth_source,
                         AuthSource::Auto | AuthSource::PersonalAccessToken
                     ),
-                    "bearer authentication requires an explicit tenant; use --tenant default to select the configured tenant"
+                    "bearer authentication requires an explicit tenant or account"
                 );
             }
             let tenant = match &self.tenant {
@@ -212,13 +212,19 @@ impl TestRunArgs {
                 let selection = serde_json::from_str(&facet_json::to_string(&selection)?)?;
                 Self::insert_explicit(&mut fields, "auth_selection", selection)?;
             } else {
-                let tenant =
-                    tenant.ok_or_else(|| eyre::eyre!("--tenant is required for this test"))?;
-                let selection = executor.resolve_azure_authentication(
-                    tenant,
-                    account.as_deref(),
-                    self.auth_source,
-                )?;
+                let selection = match (tenant, &self.account) {
+                    (Some(tenant), _) => executor.resolve_azure_authentication(
+                        tenant,
+                        account.as_deref(),
+                        self.auth_source,
+                    )?,
+                    (None, Some(account)) => {
+                        executor.resolve_azure_account_authentication(account, self.auth_source)?
+                    }
+                    (None, None) => {
+                        eyre::bail!("--tenant or --account is required for this test");
+                    }
+                };
                 let selection = serde_json::from_str(&facet_json::to_string(&selection)?)?;
                 Self::insert_explicit(&mut fields, "authentication", selection)?;
             }
@@ -392,7 +398,7 @@ mod tests {
             .await
     }
     #[tokio::test]
-    async fn incompatible_azure_authentication_fails_before_default_tenant_lookup() -> Result<()> {
+    async fn incompatible_azure_authentication_fails_before_tenant_lookup() -> Result<()> {
         CancellationToken::new()
             .with_async_scope(async |scope| {
                 let executor = CloudTerrastodonExecutor::new(
@@ -403,19 +409,19 @@ mod tests {
                 for (name, tenant, auth_source, expected) in [
                     (
                         "resource-group-list",
-                        Some(AzureTenantArgument::default()),
+                        None,
                         AuthSource::None,
                         "auth source none",
                     ),
                     (
                         "resource-group-list",
-                        Some(AzureTenantArgument::default()),
+                        None,
                         AuthSource::PersonalAccessToken,
                         "PAT authentication",
                     ),
                     (
                         "azure-devops-projects-list",
-                        Some(AzureTenantArgument::default()),
+                        Some("synthetic-tenant".parse()?),
                         AuthSource::PersonalAccessToken,
                         "PAT authentication",
                     ),

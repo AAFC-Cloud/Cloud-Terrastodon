@@ -5,7 +5,7 @@ use cloud_terrastodon_azure::set_default_tenant_id;
 use cloud_terrastodon_command::CancellationScope;
 use facet::Facet;
 
-/// Configure the Cloud Terrastodon tenant used by an explicit default selector.
+/// Configure the Cloud Terrastodon tenant used when a command resolves an omitted tenant.
 #[derive(Debug, Clone, Facet)]
 pub struct AzureTenantDefaultArgs {
     /// Tracked tenant ID or alias. This never changes the active Azure CLI account.

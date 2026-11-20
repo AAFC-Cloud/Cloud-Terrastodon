@@ -33,10 +33,12 @@ appear in a serialized request. Source `none` rejects service operations before
 configuration lookup.
 
 For Azure DevOps, a supplied tenant selects the Entra account namespace and a
-bearer mechanism. Without a tenant, selection uses the organization/collection
-namespace and PAT authentication. Explicit bearer sources require `--tenant`
-(which can be `default`); PAT and tenant cannot be combined. Organization/project
-scope stays on the leaf schema and request independently of authentication.
+bearer mechanism. A supplied account can select its registered Entra tenant or
+a PAT for the requested organization. Omitting both selectors uses the
+organization/collection's configured PAT default. Explicit bearer sources
+require `--tenant` or `--account`. PAT and tenant cannot be combined.
+Organization/project scope stays on the leaf schema and request independently
+of authentication.
 
 ## Executing requests
 

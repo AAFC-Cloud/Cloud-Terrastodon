@@ -6,9 +6,8 @@ use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_user_input::prompt_line;
 use eyre::Result;
 
-/// Choose an organization PAT or an explicit tenant's Entra account before
-/// resolving its non-secret metadata. Empty selectors use configured defaults
-/// only within the chosen scope; resolution never probes another scope.
+/// Select an account for the organization, optionally scoped to an Entra tenant.
+/// Leaving both selectors blank uses the organization's configured PAT default.
 pub async fn prompt_azure_devops_authentication(
     organization: &AzureDevOpsOrganizationUrl,
     executor: &CloudTerrastodonExecutor,
@@ -17,7 +16,7 @@ pub async fn prompt_azure_devops_authentication(
         .cancellation()
         .cancellable_scope(async |_scope| {
             let tenant = prompt_line(
-                "Entra tenant ID or alias (blank for organization PAT; 'default' for configured tenant): ",
+                "Entra tenant ID or alias (blank to use the account's tenant or organization PAT): ",
             )
             .await?;
             let tenant = match tenant.trim() {

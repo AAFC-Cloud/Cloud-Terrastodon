@@ -121,10 +121,10 @@ For a tool with just one operation, omit the `command` field and enum entirely.
 The [resource-group listing example](../examples/resource_group_list.rs) does this:
 its root contains globals and operation-specific authentication selectors, and its
 handler lists resource groups. `--auth-source` selects a registered mechanism;
-`--tenant` accepts a tenant ID, tracked alias, or `default`. When omitted or set
-to `default`, it uses the deliberately configured Cloud Terrastodon default tenant.
-`--account` selects an account within that tenant, or uses its configured account
-default. Run `ct account add` and `ct account login` to provision it first.
+`--tenant` accepts a tenant ID or tracked alias. An explicit `--account`
+supplies its registered tenant when `--tenant` is omitted. Omitting both
+selectors uses the configured tenant and its configured account default.
+Run `ct account add` and `ct account login` to provision the account first.
 
 ```powershell
 cargo +1.96.0 run --example resource_group_list -- --account admin --auth-source azure-cli --tenant YOUR_TENANT_ID_OR_ALIAS
@@ -183,9 +183,9 @@ features disabled. Consumers can instead use the facade's `auth-cli` feature and
 project recipe above, use `features = ["app", "auth", "auth-cli", "azure", "execution"]`.
 Its `--tenant` accepts a tenant ID or tracked alias through `AzureTenantArgument`.
 The shared `AzureAuthenticationArgs` helper from `cloud_terrastodon_auth_cli`
-resolves that explicit tenant/alias or configured tenant default, then asks the
-executor for the concrete account/source selection. It does not replace the
-executor's provider or acquire a token.
+uses the tenant selector, the named account's registered tenant, or the
+configured tenant default in that order. It returns a concrete selection with
+the account ID, source, and tenant.
 The handler constructs `AzureResourceGroupListRequest` with the resolved
 `AzureBearerAuthenticationSelection` and calls `.execute(executor)`. Cached
 results remain partitioned by the admitted account/session. Requests serialize

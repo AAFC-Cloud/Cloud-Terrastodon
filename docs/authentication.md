@@ -59,11 +59,13 @@ ct account login admin
 ct az devops project list --org <organization> --tenant <tenant-or-alias> --account admin
 ```
 
-The `add` result includes the stable account ID. Authenticated command leaves own
-`--account`, `--auth-source`, and their tenant selector; these are not global
-arguments. `--account` accepts an ID or an alias within the command's explicit
-tenant/service namespace. No account is selected merely because it is first or
-is the only account available. The alias `default` is reserved, ignoring case.
+The `add` result includes the stable account ID. Authenticated commands accept
+`--account` as an ID or alias. With `--account` and no `--tenant`, an Entra account
+supplies its registered tenant. For example, `ct az resource list --account personal`
+uses the tenant bound to `personal`. If an alias matches multiple eligible accounts,
+specify a tenant or use the account ID from `ct account list`. An explicit `--tenant`
+restricts selection to that tenant. The account alias `default` is reserved,
+ignoring case.
 
 Account management commands accept a UUID or an alias. If the same alias is
 registered in multiple scopes, use the UUID shown by `ct account list`.
@@ -91,11 +93,10 @@ selected source fails; another source is never tried implicitly.
 tenant-default lookup. Local commands do not need authentication arguments.
 Account provisioning and cleanup have their own explicit command surfaces.
 
-Interactive Azure DevOps menu actions prompt for the organization, then the
-authentication scope, account, and source. A blank tenant selects that
-organization's PAT namespace; an explicit tenant ID or alias selects Entra.
-Blank account/source choices use only that scope's configured account default
-and its preferred source, with no probing or fallback between PAT and Entra.
+Interactive Azure DevOps menu actions prompt for the organization, tenant,
+account, and source. A blank tenant lets an explicit account supply its tenant
+or select an organization PAT. Leaving both selectors blank uses the
+organization's configured PAT account default.
 
 Tenant tracking keeps aliases and an explicitly configured CT tenant default:
 
@@ -105,10 +106,18 @@ ct az tenant default example
 ```
 
 Bearer requests always contain a concrete tenant, including Azure CLI requests.
-An explicit `default` tenant selector resolves the CT setting; it never reads
-Azure CLI's active subscription or tenant. Azure DevOps bearer commands require
-`--tenant`; PAT commands omit it and resolve accounts in their organization
-namespace.
+Azure commands generally use the configured tenant and its configured account
+default when both flags are omitted. `--tenant` takes a tenant UUID or tracked
+alias. The string `default` now resolves only as a tracked tenant alias. To
+explicitly constrain a command to the configured tenant, pass that tenant's UUID
+or alias. `ct az subscription list` lists tracked tenants when neither flag is
+provided.
+
+For Azure DevOps, an explicit Entra account supplies the bearer tenant and a PAT
+account belongs to the selected organization. An alias shared by eligible bearer
+and PAT accounts requires an account ID, `--tenant`, or an explicit auth source
+that disambiguates it. Omitting both selectors uses the organization's configured
+PAT account default.
 
 ## Several mechanisms for one account
 

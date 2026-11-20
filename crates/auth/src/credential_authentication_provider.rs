@@ -14,6 +14,7 @@ use cloud_terrastodon_auth_types::Authorization;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_auth_types::AzureCredentialResource;
 use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
+use cloud_terrastodon_auth_types::CloudTerrastodonAccountArgument;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountId;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountService;
 use cloud_terrastodon_auth_types::CloudTerrastodonCredentialSource;
@@ -529,6 +530,20 @@ impl AuthenticationProvider for CredentialAuthenticationProvider {
             })?
             .resolve_azure_selection(tenant_id, account, source)
     }
+
+    fn resolve_azure_account_authentication(
+        &self,
+        account: &CloudTerrastodonAccountArgument,
+        source: AuthSource,
+    ) -> Result<AzureBearerAuthenticationSelection> {
+        self.store
+            .as_ref()
+            .ok_or_else(|| {
+                eyre::eyre!("this injected provider does not resolve account selectors")
+            })?
+            .resolve_azure_account_selection(account, source)
+    }
+
     fn resolve_azure_devops_authentication(
         &self,
         organization: &AzureDevOpsOrganizationUrl,

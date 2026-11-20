@@ -181,16 +181,10 @@ impl AzureAccountRegistrationForm {
     }
 
     fn tenant_argument(&self) -> Result<AzureTenantArgument<'static>> {
-        let tenant = self
-            .tenant
+        self.tenant
             .trim()
             .parse()
-            .wrap_err("Enter a tenant UUID or tracked alias")?;
-        ensure!(
-            !matches!(tenant, AzureTenantArgument::Default),
-            "'default' selects Cloud Terrastodon's configured tenant. Enter the tenant UUID or tracked alias for this account."
-        );
-        Ok(tenant)
+            .wrap_err("Enter a tenant UUID or tracked alias")
     }
 }
 
@@ -231,12 +225,12 @@ mod tests {
         let mut form = AzureAccountRegistrationForm {
             source: CloudTerrastodonCredentialSource::AzureCli,
             alias: "synthetic-account".to_owned(),
-            tenant: " DeFaUlT ".to_owned(),
+            tenant: " ".to_owned(),
             ..Default::default()
         };
         assert!(matches!(
             form.action(),
-            Err(error) if error.to_string().contains("configured tenant")
+            Err(error) if error.to_string().contains("Enter a tenant UUID or tracked alias")
         ));
 
         form.tenant = "00000000-0000-0000-0000-000000000001".to_owned();

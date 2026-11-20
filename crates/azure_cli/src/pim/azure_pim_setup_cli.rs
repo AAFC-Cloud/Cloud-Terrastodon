@@ -5,7 +5,6 @@ use cloud_terrastodon_app::CliOutput;
 use cloud_terrastodon_auth_cli::AccountAddBrowserArgs;
 use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
-use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure::EntraApplicationClientId;
 use cloud_terrastodon_azure::EntraApplicationRegistration;
 use cloud_terrastodon_azure::EntraApplicationRegistrationSearchRequest;
@@ -45,9 +44,8 @@ pub struct AzurePimSetupArgs {
 
 impl AzurePimSetupArgs {
     pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
-        let cancellation = executor.cancellation();
         if let Some(client_id) = self.client_id {
-            let tenant_id = self.authentication.tenant.resolve(cancellation).await?;
+            let tenant_id = self.authentication.resolve_tenant_id(executor).await?;
 
             let output = AzurePimSetupClientIdOutput {
                 tenant_id,

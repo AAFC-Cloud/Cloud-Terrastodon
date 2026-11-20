@@ -6,14 +6,11 @@ use facet::Facet;
 use std::borrow::Cow;
 use std::str::FromStr;
 
-/// Tenant can be specified as the default tenant, a tenant id, or a Cloud Terrastodon tenant alias.
-#[derive(Debug, Clone, Default, Eq, PartialEq, Hash, Facet)]
+/// An explicit Azure tenant ID or Cloud Terrastodon tenant alias.
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Facet)]
 #[facet(proxy = String)]
-#[facet(default)]
 #[repr(C)]
 pub enum AzureTenantArgument<'a> {
-    #[default]
-    Default,
     Id(Cow<'a, AzureTenantId>),
     Alias(Cow<'a, AzureTenantAlias>),
 }
@@ -21,7 +18,6 @@ pub enum AzureTenantArgument<'a> {
 impl std::fmt::Display for AzureTenantArgument<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            AzureTenantArgument::Default => f.write_str("default"),
             AzureTenantArgument::Id(id) => id.fmt(f),
             AzureTenantArgument::Alias(alias) => alias.fmt(f),
         }
@@ -55,7 +51,6 @@ impl<'a> From<&'a AzureTenantAlias> for AzureTenantArgument<'a> {
 impl AzureTenantArgument<'_> {
     pub fn into_owned(self) -> AzureTenantArgument<'static> {
         match self {
-            AzureTenantArgument::Default => AzureTenantArgument::Default,
             AzureTenantArgument::Id(id) => AzureTenantArgument::Id(Cow::Owned(id.into_owned())),
             AzureTenantArgument::Alias(alias) => {
                 AzureTenantArgument::Alias(Cow::Owned(alias.into_owned()))
@@ -68,16 +63,12 @@ impl<'a> FromStr for AzureTenantArgument<'a> {
     type Err = eyre::Report;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.eq_ignore_ascii_case("default") {
-            Ok(AzureTenantArgument::Default)
-        } else if let Ok(id) = s.parse::<AzureTenantId>() {
+        if let Ok(id) = s.parse::<AzureTenantId>() {
             Ok(AzureTenantArgument::Id(Cow::Owned(id)))
         } else if let Ok(alias) = AzureTenantAlias::try_new(s) {
             Ok(AzureTenantArgument::Alias(Cow::Owned(alias)))
         } else {
-            bail!(
-                "'{s}' is not a valid default tenant selector, Azure tenant id, or Cloud Terrastodon tenant alias"
-            );
+            bail!("'{s}' is not a valid Azure tenant ID or Cloud Terrastodon tenant alias");
         }
     }
 }
@@ -98,9 +89,8 @@ impl From<&AzureTenantArgument<'_>> for String {
 
 impl<'a> Arbitrary<'a> for AzureTenantArgument<'static> {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        Ok(match u.int_in_range(0..=2)? {
-            0 => Self::Default,
-            1 => Self::Id(Cow::Owned(AzureTenantId::arbitrary(u)?)),
+        Ok(match u.int_in_range(0..=1)? {
+            0 => Self::Id(Cow::Owned(AzureTenantId::arbitrary(u)?)),
             _ => Self::Alias(Cow::Owned(AzureTenantAlias::arbitrary(u)?)),
         })
     }
@@ -108,12 +98,15 @@ impl<'a> Arbitrary<'a> for AzureTenantArgument<'static> {
 #[cfg(test)]
 mod tests {
     use super::AzureTenantArgument;
-    use std::str::FromStr;
+    use crate::AzureTenantAlias;
 
     #[test]
-    fn parses_default_selector() {
-        let arg = AzureTenantArgument::from_str("default").unwrap();
-        assert_eq!(arg, AzureTenantArgument::Default);
+    fn parses_default_as_a_tracked_alias() -> eyre::Result<()> {
+        assert_eq!(
+            "DeFaUlT".parse::<AzureTenantArgument>()?,
+            AzureTenantArgument::from(AzureTenantAlias::try_new("default")?),
+        );
+        Ok(())
     }
 }
 

@@ -1,8 +1,9 @@
 use arbitrary::Arbitrary;
 use cloud_terrastodon_app::CliOutput;
+use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
+use cloud_terrastodon_auth_cli::AzureDevOpsAuthenticationArgs;
 use cloud_terrastodon_auth_types::AuthSource;
 use cloud_terrastodon_azure::AzureTenantArgument;
-use cloud_terrastodon_azure::AzureTenantArgumentExt;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_cli_types::CloudTerrastodonAccountArgument;
 use cloud_terrastodon_cli_types::HttpMethodCli;
@@ -45,14 +46,15 @@ pub struct RestArgs {
     #[facet(figue::named, default)]
     pub header: Vec<String>,
 
-    /// Optional tracked tenant id or alias to use when acquiring Azure access tokens.
+    /// Restrict Azure authentication to this tenant ID or tracked alias.
+    /// For Azure, omitting both tenant and account uses the configured defaults.
     #[facet(figue::named)]
     pub tenant: Option<AzureTenantArgument<'static>>,
 
     /// Explicit organization scope for Azure DevOps REST authentication.
     #[facet(figue::named)]
     pub org: Option<AzureDevOpsOrganizationUrl>,
-    /// Named Cloud Terrastodon account; omit for its deliberately configured default.
+    /// Select an account by ID or alias; an Entra account supplies its tenant when omitted.
     #[facet(figue::named)]
     pub account: Option<CloudTerrastodonAccountArgument>,
     /// Credential mechanism; auto uses the selected account preference.
@@ -103,56 +105,30 @@ impl RestArgs {
                 self.auth_source != AuthSource::None,
                 "authentication is disabled by auth source none"
             );
-            let account = self.account.as_ref().map(ToString::to_string);
-            if service == RestService::AzureDevOps {
-                eyre::ensure!(
-                    self.tenant.is_none() || self.auth_source != AuthSource::PersonalAccessToken,
-                    "PAT authentication cannot be combined with --tenant"
-                );
-                eyre::ensure!(
-                    self.tenant.is_some()
-                        || matches!(
-                            self.auth_source,
-                            AuthSource::Auto | AuthSource::PersonalAccessToken
-                        ),
-                    "bearer authentication requires an explicit tenant"
-                );
+            let authentication = if service == RestService::AzureDevOps {
                 let org = self
                     .org
                     .as_ref()
                     .wrap_err("Azure DevOps REST requires --org")?;
-                let tenant_id = match &self.tenant {
-                    Some(tenant) => Some(tenant.resolve(executor.cancellation()).await?),
-                    None => None,
-                };
-                request = request.authentication(
-                    executor
-                        .resolve_azure_devops_authentication(
-                            org,
-                            tenant_id,
-                            account.as_deref(),
-                            self.auth_source,
-                        )?
-                        .into(),
-                );
+                AzureDevOpsAuthenticationArgs {
+                    tenant: self.tenant,
+                    account: self.account,
+                    auth_source: self.auth_source,
+                }
+                .resolve(org, executor)
+                .await?
+                .into()
             } else {
-                eyre::ensure!(
-                    self.auth_source != AuthSource::PersonalAccessToken,
-                    "Azure authentication does not support personal access tokens"
-                );
-                let tenant = self.tenant.as_ref().wrap_err(
-                    "authenticated REST requires --tenant (ID, alias, or configured default)",
-                )?;
-                request = request.authentication(
-                    executor
-                        .resolve_azure_authentication(
-                            tenant.resolve(executor.cancellation()).await?,
-                            account.as_deref(),
-                            self.auth_source,
-                        )?
-                        .into(),
-                );
-            }
+                AzureAuthenticationArgs {
+                    tenant: self.tenant,
+                    account: self.account,
+                    auth_source: self.auth_source,
+                }
+                .resolve(executor)
+                .await?
+                .into()
+            };
+            request = request.authentication(authentication);
         }
         let body = read_optional_body(self.body).await?;
         let headers = read_optional_headers(self.headers).await?;

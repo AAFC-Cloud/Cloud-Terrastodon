@@ -7,6 +7,7 @@ use cloud_terrastodon_auth_types::Authorization;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_auth_types::AzureCredentialResource;
 use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
+use cloud_terrastodon_auth_types::CloudTerrastodonAccountArgument;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountId;
 use cloud_terrastodon_auth_types::CloudTerrastodonCredentialSource;
 use cloud_terrastodon_auth_types::ContainerRegistryBearerChallenge;
@@ -59,7 +60,16 @@ pub trait AuthenticationProvider: Send + Sync {
         eyre::bail!("this authentication provider does not resolve account selectors");
     }
 
-    /// Resolve the explicit organization/tenant namespace before SDK execution.
+    /// Resolve a named Entra account and its registered tenant from metadata.
+    fn resolve_azure_account_authentication(
+        &self,
+        _account: &CloudTerrastodonAccountArgument,
+        _source: AuthSource,
+    ) -> Result<AzureBearerAuthenticationSelection> {
+        eyre::bail!("this authentication provider does not resolve account selectors");
+    }
+
+    /// Resolve an account in the selected organization or Entra tenant.
     fn resolve_azure_devops_authentication(
         &self,
         _organization: &AzureDevOpsOrganizationUrl,

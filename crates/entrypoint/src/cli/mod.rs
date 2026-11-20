@@ -68,6 +68,7 @@ mod tests {
     use crate::cli::azure::AzureArgs;
     use crate::cli::azure::azure_command_cli::AzureCommand;
     use crate::cli::azure::pim::AzurePimCommand;
+    use crate::cli::azure::resource::AzureResourceCommand;
     use crate::cli::azure::subscription::AzureSubscriptionCommand;
     use crate::cli::azure_devops::AzureDevOpsArgs;
     use crate::cli::azure_devops::azure_devops_command_cli::AzureDevOpsCommand;
@@ -80,8 +81,53 @@ mod tests {
     use crate::cli::azure_devops::build::definition::folder::list::AzureDevOpsBuildDefinitionFolderListArgs;
     use crate::cli::azure_devops::project::AzureDevOpsProjectCommand;
     use cloud_terrastodon_app::OutputFormat;
+    use cloud_terrastodon_auth::CloudTerrastodonAccountStore;
+    use cloud_terrastodon_auth::CredentialAuthenticationProvider;
     use cloud_terrastodon_auth_types::AuthSource;
+    use cloud_terrastodon_auth_types::CloudTerrastodonAccountCredential;
+    use cloud_terrastodon_cache::WorkCache;
     use cloud_terrastodon_command::CancellationToken;
+    use std::sync::Arc;
+
+    #[tokio::test]
+    async fn resource_list_resolves_an_account_without_a_tenant_flag() -> eyre::Result<()> {
+        let cli: Cli = figue::from_slice(&["az", "resource", "list", "--account", "personal"])
+            .into_result()
+            .expect("account-only Azure resource list arguments should parse")
+            .get();
+        let Some(CloudTerrastodonCommand::Azure(AzureArgs {
+            command: AzureCommand::Resource(resource),
+        })) = cli.command
+        else {
+            panic!("expected Azure resources");
+        };
+        let AzureResourceCommand::List(args) = resource.command else {
+            panic!("expected resource list");
+        };
+        CancellationToken::new()
+            .with_async_scope(async |scope| {
+                let directory = tempfile::tempdir()?;
+                let store = CloudTerrastodonAccountStore::new(directory.path().join("accounts"))?;
+                let tenant_id = "00000000-0000-0000-0000-000000000001".parse()?;
+                let account = store
+                    .add(
+                        "personal".parse()?,
+                        CloudTerrastodonAccountCredential::AzureCli { tenant_id },
+                        &scope,
+                    )
+                    .await?;
+                let executor = CloudTerrastodonExecutor::new(
+                    WorkCache::temporary()?,
+                    Arc::new(CredentialAuthenticationProvider::from_store(store)),
+                    scope,
+                );
+                let selection = args.authentication.resolve(&executor).await?;
+                assert_eq!(selection.account_id, account.id);
+                assert_eq!(selection.tenant_id, tenant_id);
+                Ok(())
+            })
+            .await
+    }
 
     #[test]
     fn nested_devops_work_item_preserves_leaf_auth_and_tenant_selection() {
@@ -353,7 +399,7 @@ mod tests {
         let AzurePimCommand::Setup(setup) = pim.command else {
             panic!("expected the setup command");
         };
-        assert_eq!(setup.authentication.tenant.to_string(), "agr");
+        assert_eq!(setup.authentication.tenant.unwrap().to_string(), "agr");
         assert_eq!(
             setup.client_id.map(|client_id| client_id.to_string()),
             Some("11111111-1111-1111-1111-111111111111".to_string())

@@ -25,7 +25,7 @@ pub(crate) fn storage_account_show_command(
             command: AzureStorageCommand::Account(AzureStorageAccountArgs {
                 command: AzureStorageAccountCommand::Show(AzureStorageAccountShowArgs {
                     authentication: AzureAuthenticationArgs {
-                        tenant: authentication.tenant_id.into(),
+                        tenant: Some(authentication.tenant_id.into()),
                         account: Some(CloudTerrastodonAccountArgument::Id(
                             authentication.account_id,
                         )),
@@ -135,10 +135,7 @@ mod tests {
             args.authentication.account,
             Some(CloudTerrastodonAccountArgument::Id(account_id))
         );
-        assert_eq!(
-            args.authentication.tenant.to_string(),
-            tenant_id.to_string()
-        );
+        assert_eq!(args.authentication.tenant, Some(tenant_id.into()));
         assert_eq!(args.authentication.auth_source, auth_source.into());
         assert!(args.no_cache);
         Ok(())

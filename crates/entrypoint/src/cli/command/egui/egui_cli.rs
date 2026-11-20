@@ -2,7 +2,6 @@ use crate::version::full_version;
 use cloud_terrastodon_auth::CloudTerrastodonAccountStore;
 use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
 use cloud_terrastodon_auth_types::AuthSource;
-use cloud_terrastodon_azure::AzureTenantArgument;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_cache::WorkCacheActivity;
 use cloud_terrastodon_config::Config;
@@ -44,7 +43,7 @@ impl EguiArgs {
         let authentication = if self.authentication.auth_source == AuthSource::None {
             Ok(None)
         } else if self.authentication.account.is_none()
-            && self.authentication.tenant == AzureTenantArgument::Default
+            && self.authentication.tenant.is_none()
             && self.authentication.auth_source == AuthSource::Auto
             && let Some(saved) = EguiConfig::load().await?.azure_authentication
             && let Ok(selection) = account_store.resolve_azure_selection(
