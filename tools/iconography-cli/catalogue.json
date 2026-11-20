@@ -153,6 +153,262 @@
       "resource_types": [
         "Microsoft.KeyVault/vaults"
       ]
+    },
+    {
+      "family": "azure",
+      "variant": "AppConfiguration",
+      "name": "App Configuration",
+      "category": "configuration",
+      "file": "app-configuration.svg",
+      "source_url": "https://raw.githubusercontent.com/maskati/azure-icons/a2989ad1c5d449ed70b3b8e0fb7128b487a8587e/svg/Microsoft_Azure_AzConfig/StoreResource.svg",
+      "logical_name": "svg/Microsoft_Azure_AzConfig/StoreResource.svg",
+      "discovery_url": "https://api.github.com/repos/maskati/azure-icons/git/ref/heads/main",
+      "sha256": "961327c198688a9bb51062bb9cbf8f65da98da09d45e804986775cc44d49d424",
+      "retrieved_at": "2026-11-20T17:53:31Z",
+      "terms_url": "https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions",
+      "resource_types": [
+        "Microsoft.AppConfiguration/configurationStores"
+      ]
+    },
+    {
+      "family": "azure",
+      "variant": "CognitiveServicesAccount",
+      "name": "Cognitive Services account",
+      "category": "ai",
+      "file": "cognitive-services-account.svg",
+      "source_url": "https://raw.githubusercontent.com/maskati/azure-icons/a2989ad1c5d449ed70b3b8e0fb7128b487a8587e/svg/Microsoft_Azure_ProjectOxford/CognitiveServicesAccount.svg",
+      "logical_name": "svg/Microsoft_Azure_ProjectOxford/CognitiveServicesAccount.svg",
+      "discovery_url": "https://api.github.com/repos/maskati/azure-icons/git/ref/heads/main",
+      "sha256": "6905bddbda107e1e46356dbbaf13858c1f16d3edf33724fd195449cf736795a5",
+      "retrieved_at": "2026-11-20T17:53:31Z",
+      "terms_url": "https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions",
+      "resource_types": [
+        "Microsoft.CognitiveServices/accounts"
+      ]
+    },
+    {
+      "family": "azure",
+      "variant": "ComputeGallery",
+      "name": "Azure compute gallery",
+      "category": "compute",
+      "file": "compute-gallery.svg",
+      "source_url": "https://raw.githubusercontent.com/maskati/azure-icons/a2989ad1c5d449ed70b3b8e0fb7128b487a8587e/svg/Microsoft_Azure_DiskMgmt/SharedImageGallery.svg",
+      "logical_name": "svg/Microsoft_Azure_DiskMgmt/SharedImageGallery.svg",
+      "discovery_url": "https://api.github.com/repos/maskati/azure-icons/git/ref/heads/main",
+      "sha256": "f925eb12c38bf1c1221f644cf07b1f478e93e58cb16ecdabd00e2de605de0f17",
+      "retrieved_at": "2026-11-20T17:53:31Z",
+      "terms_url": "https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions",
+      "resource_types": [
+        "Microsoft.Compute/galleries"
+      ]
+    },
+    {
+      "family": "azure",
+      "variant": "ComputeGalleryImageDefinition",
+      "name": "VM image definition",
+      "category": "compute",
+      "file": "compute-gallery-image-definition.svg",
+      "source_url": "https://raw.githubusercontent.com/maskati/azure-icons/a2989ad1c5d449ed70b3b8e0fb7128b487a8587e/svg/Microsoft_Azure_DiskMgmt/ImageDefinition.svg",
+      "logical_name": "svg/Microsoft_Azure_DiskMgmt/ImageDefinition.svg",
+      "discovery_url": "https://api.github.com/repos/maskati/azure-icons/git/ref/heads/main",
+      "sha256": "9d1a1b11d5ece8fbcbc8fb598ef85e5ea02eca8b4ed1c3214619880a4819b474",
+      "retrieved_at": "2026-11-20T17:53:31Z",
+      "terms_url": "https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions",
+      "resource_types": [
+        "Microsoft.Compute/galleries/images"
+      ]
+    },
+    {
+      "family": "azure",
+      "variant": "ComputeGalleryImageVersion",
+      "name": "VM image version",
+      "category": "compute",
+      "file": "compute-gallery-image-version.svg",
+      "source_url": "https://raw.githubusercontent.com/maskati/azure-icons/a2989ad1c5d449ed70b3b8e0fb7128b487a8587e/svg/Microsoft_Azure_DiskMgmt/ImageVersion.svg",
+      "logical_name": "svg/Microsoft_Azure_DiskMgmt/ImageVersion.svg",
+      "discovery_url": "https://api.github.com/repos/maskati/azure-icons/git/ref/heads/main",
+      "sha256": "efa2068c65bf8c3828a4bde1fa8488e291aabf4892109dcb402012dbd938ea18",
+      "retrieved_at": "2026-11-20T17:53:31Z",
+      "terms_url": "https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions",
+      "resource_types": [
+        "Microsoft.Compute/galleries/images/versions"
+      ]
+    },
+    {
+      "family": "azure",
+      "variant": "VirtualMachineScaleSet",
+      "name": "Virtual machine scale set",
+      "category": "compute",
+      "file": "virtual-machine-scale-set.svg",
+      "source_url": "https://raw.githubusercontent.com/maskati/azure-icons/a2989ad1c5d449ed70b3b8e0fb7128b487a8587e/svg/Microsoft_Azure_Compute/VirtualMachineScaleSet.svg",
+      "logical_name": "svg/Microsoft_Azure_Compute/VirtualMachineScaleSet.svg",
+      "discovery_url": "https://api.github.com/repos/maskati/azure-icons/git/ref/heads/main",
+      "sha256": "f185b7d46ffec5c154fa60bbad20d92ed6e2c3b7563dcde95fc299443eca8862",
+      "retrieved_at": "2026-11-20T17:53:31Z",
+      "terms_url": "https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions",
+      "resource_types": [
+        "Microsoft.Compute/virtualMachineScaleSets"
+      ]
+    },
+    {
+      "family": "azure",
+      "variant": "KubernetesService",
+      "name": "Kubernetes service",
+      "category": "containers",
+      "file": "kubernetes-service.svg",
+      "source_url": "https://raw.githubusercontent.com/maskati/azure-icons/a2989ad1c5d449ed70b3b8e0fb7128b487a8587e/svg/Microsoft_Azure_ContainerService/ManagedClusters.svg",
+      "logical_name": "svg/Microsoft_Azure_ContainerService/ManagedClusters.svg",
+      "discovery_url": "https://api.github.com/repos/maskati/azure-icons/git/ref/heads/main",
+      "sha256": "cee6f363ffb5bf670965bf6fd36e56c5372d85115fa7743a0abf97c02affc07d",
+      "retrieved_at": "2026-11-20T17:53:31Z",
+      "terms_url": "https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions",
+      "resource_types": [
+        "Microsoft.ContainerService/managedClusters"
+      ]
+    },
+    {
+      "family": "azure",
+      "variant": "MachineLearningWorkspace",
+      "name": "Machine Learning workspace",
+      "category": "ai",
+      "file": "machine-learning-workspace.svg",
+      "source_url": "https://raw.githubusercontent.com/maskati/azure-icons/a2989ad1c5d449ed70b3b8e0fb7128b487a8587e/svg/Microsoft_Azure_MLTeamAccounts/MachineLearningServices.svg",
+      "logical_name": "svg/Microsoft_Azure_MLTeamAccounts/MachineLearningServices.svg",
+      "discovery_url": "https://api.github.com/repos/maskati/azure-icons/git/ref/heads/main",
+      "sha256": "bd012179a188a008a10784640e405e4ae46a4b91cb67cb95da2545f989b23b2b",
+      "retrieved_at": "2026-11-20T17:53:31Z",
+      "terms_url": "https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions",
+      "resource_types": [
+        "Microsoft.MachineLearningServices/workspaces"
+      ]
+    },
+    {
+      "family": "azure",
+      "variant": "UserAssignedIdentity",
+      "name": "User-assigned managed identity",
+      "category": "security",
+      "file": "user-assigned-identity.svg",
+      "source_url": "https://raw.githubusercontent.com/maskati/azure-icons/a2989ad1c5d449ed70b3b8e0fb7128b487a8587e/svg/Microsoft_Azure_ManagedServiceIdentity/UserAssignedIdentity.svg",
+      "logical_name": "svg/Microsoft_Azure_ManagedServiceIdentity/UserAssignedIdentity.svg",
+      "discovery_url": "https://api.github.com/repos/maskati/azure-icons/git/ref/heads/main",
+      "sha256": "b1a7aaefef7607163c4de425b02ad290ba33d698dc1e72d6a1a815c44007060d",
+      "retrieved_at": "2026-11-20T17:53:31Z",
+      "terms_url": "https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions",
+      "resource_types": [
+        "Microsoft.ManagedIdentity/userAssignedIdentities"
+      ]
+    },
+    {
+      "family": "azure",
+      "variant": "DnsZone",
+      "name": "DNS zone",
+      "category": "networking",
+      "file": "dns-zone.svg",
+      "source_url": "https://raw.githubusercontent.com/maskati/azure-icons/a2989ad1c5d449ed70b3b8e0fb7128b487a8587e/svg/Microsoft_Azure_Network/DnsZone.svg",
+      "logical_name": "svg/Microsoft_Azure_Network/DnsZone.svg",
+      "discovery_url": "https://api.github.com/repos/maskati/azure-icons/git/ref/heads/main",
+      "sha256": "e5e68a9e847f8ce9732c56b0ba73f86f8c42bbe73b97d20ee80eed8dd97e2552",
+      "retrieved_at": "2026-11-20T17:53:31Z",
+      "terms_url": "https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions",
+      "resource_types": [
+        "Microsoft.Network/dnsZones"
+      ]
+    },
+    {
+      "family": "azure",
+      "variant": "LoadBalancer",
+      "name": "Load balancer",
+      "category": "networking",
+      "file": "load-balancer.svg",
+      "source_url": "https://raw.githubusercontent.com/maskati/azure-icons/a2989ad1c5d449ed70b3b8e0fb7128b487a8587e/svg/Microsoft_Azure_Network/LoadBalancer.svg",
+      "logical_name": "svg/Microsoft_Azure_Network/LoadBalancer.svg",
+      "discovery_url": "https://api.github.com/repos/maskati/azure-icons/git/ref/heads/main",
+      "sha256": "37e63f8ec7a843c582525183e0ad63944a15873f6213f2cedee4cb0a6669b4fc",
+      "retrieved_at": "2026-11-20T17:53:31Z",
+      "terms_url": "https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions",
+      "resource_types": [
+        "Microsoft.Network/loadBalancers"
+      ]
+    },
+    {
+      "family": "azure",
+      "variant": "NetworkSecurityGroup",
+      "name": "Network security group",
+      "category": "networking",
+      "file": "network-security-group.svg",
+      "source_url": "https://raw.githubusercontent.com/maskati/azure-icons/a2989ad1c5d449ed70b3b8e0fb7128b487a8587e/svg/Microsoft_Azure_Network/NetworkSecurityGroup.svg",
+      "logical_name": "svg/Microsoft_Azure_Network/NetworkSecurityGroup.svg",
+      "discovery_url": "https://api.github.com/repos/maskati/azure-icons/git/ref/heads/main",
+      "sha256": "1f3bb346a0fbebff5c65389482735cdcc003b3f5e1059371afc1c25acd4f6f51",
+      "retrieved_at": "2026-11-20T17:53:31Z",
+      "terms_url": "https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions",
+      "resource_types": [
+        "Microsoft.Network/networkSecurityGroups"
+      ]
+    },
+    {
+      "family": "azure",
+      "variant": "NetworkWatcher",
+      "name": "Network Watcher",
+      "category": "networking",
+      "file": "network-watcher.svg",
+      "source_url": "https://raw.githubusercontent.com/maskati/azure-icons/a2989ad1c5d449ed70b3b8e0fb7128b487a8587e/svg/Microsoft_Azure_Network/NetworkWatcherResource.svg",
+      "logical_name": "svg/Microsoft_Azure_Network/NetworkWatcherResource.svg",
+      "discovery_url": "https://api.github.com/repos/maskati/azure-icons/git/ref/heads/main",
+      "sha256": "a2f80004a9a6b156d0fc5bb15be34617c67dafd53c1a1c84bbf9d49900009b1d",
+      "retrieved_at": "2026-11-20T17:53:31Z",
+      "terms_url": "https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions",
+      "resource_types": [
+        "Microsoft.Network/networkWatchers"
+      ]
+    },
+    {
+      "family": "azure",
+      "variant": "PublicIpAddress",
+      "name": "Public IP address",
+      "category": "networking",
+      "file": "public-ip-address.svg",
+      "source_url": "https://raw.githubusercontent.com/maskati/azure-icons/a2989ad1c5d449ed70b3b8e0fb7128b487a8587e/svg/Microsoft_Azure_Network/PublicIpAddress.svg",
+      "logical_name": "svg/Microsoft_Azure_Network/PublicIpAddress.svg",
+      "discovery_url": "https://api.github.com/repos/maskati/azure-icons/git/ref/heads/main",
+      "sha256": "54bd2bf3a7ff587282a79391a8d04980b6ef7975e504847d9477374f29df2f15",
+      "retrieved_at": "2026-11-20T17:53:31Z",
+      "terms_url": "https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions",
+      "resource_types": [
+        "Microsoft.Network/publicIPAddresses"
+      ]
+    },
+    {
+      "family": "azure",
+      "variant": "RouteTable",
+      "name": "Route table",
+      "category": "networking",
+      "file": "route-table.svg",
+      "source_url": "https://raw.githubusercontent.com/maskati/azure-icons/a2989ad1c5d449ed70b3b8e0fb7128b487a8587e/svg/Microsoft_Azure_Network/RouteTable.svg",
+      "logical_name": "svg/Microsoft_Azure_Network/RouteTable.svg",
+      "discovery_url": "https://api.github.com/repos/maskati/azure-icons/git/ref/heads/main",
+      "sha256": "78996b398d5f2f6c42639a442dcbf855d63c87232b77e750b458dfc205875454",
+      "retrieved_at": "2026-11-20T17:53:31Z",
+      "terms_url": "https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions",
+      "resource_types": [
+        "Microsoft.Network/routeTables"
+      ]
+    },
+    {
+      "family": "azure",
+      "variant": "VirtualNetwork",
+      "name": "Virtual network",
+      "category": "networking",
+      "file": "virtual-network.svg",
+      "source_url": "https://raw.githubusercontent.com/maskati/azure-icons/a2989ad1c5d449ed70b3b8e0fb7128b487a8587e/svg/Microsoft_Azure_Network/VirtualNetwork.svg",
+      "logical_name": "svg/Microsoft_Azure_Network/VirtualNetwork.svg",
+      "discovery_url": "https://api.github.com/repos/maskati/azure-icons/git/ref/heads/main",
+      "sha256": "f9da8d9d76c2db8fad76011f2eb2e7a1b14392f0efd05feeb50169aa519b0e35",
+      "retrieved_at": "2026-11-20T17:53:31Z",
+      "terms_url": "https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions",
+      "resource_types": [
+        "Microsoft.Network/virtualNetworks"
+      ]
     }
   ]
 }

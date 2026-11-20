@@ -1,6 +1,37 @@
 use crate::icon_for_resource_type;
 use cloud_terrastodon_azure_resource_types::ResourceType;
 
+#[cfg(feature = "all")]
+#[test]
+fn observed_azure_inventory_kinds_resolve_to_icons() {
+    for kind in [
+        "Microsoft.AppConfiguration/configurationStores",
+        "Microsoft.CognitiveServices/accounts",
+        "Microsoft.Compute/galleries",
+        "Microsoft.Compute/galleries/images",
+        "Microsoft.Compute/galleries/images/versions",
+        "Microsoft.Compute/virtualMachineScaleSets",
+        "Microsoft.ContainerService/managedClusters",
+        "Microsoft.KeyVault/vaults",
+        "Microsoft.MachineLearningServices/workspaces",
+        "Microsoft.ManagedIdentity/userAssignedIdentities",
+        "Microsoft.Management/managementGroups",
+        "Microsoft.Network/dnszones",
+        "Microsoft.Network/loadBalancers",
+        "Microsoft.Network/networkSecurityGroups",
+        "Microsoft.Network/networkWatchers",
+        "Microsoft.Network/publicIPAddresses",
+        "Microsoft.Network/routeTables",
+        "Microsoft.Network/virtualNetworks",
+        "Microsoft.Resources/subscriptions",
+        "Microsoft.Resources/subscriptions/resourceGroups",
+        "Microsoft.Storage/storageAccounts",
+    ] {
+        let resource_type = kind.parse::<ResourceType>().unwrap();
+        assert!(icon_for_resource_type(&resource_type).is_some(), "{kind}");
+    }
+}
+
 #[cfg(feature = "resources")]
 #[test]
 fn resource_group_aliases_resolve_across_known_and_preserved_resource_types() {

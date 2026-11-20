@@ -30,9 +30,9 @@ gallery use local files and do not contact services or resolve credentials.
 
 ## Catalogue
 
-Azure's `resources` category contains All resources, Management group,
-Resource group, and Subscription. `storage` contains Storage account,
-`containers` contains Container registry, and `security` contains Key vault.
+Azure categories include `resources`, `storage`, `containers`, `security`,
+`configuration`, `ai`, `compute`, and `networking`. See the
+[Azure iconography crate](../../crates/iconography_azure/README.md) for details.
 Azure DevOps's `boards` category contains Boards and Plan, and `repos` contains Repos.
 Categories are library-owned names, independent of upstream bundle folders.
 Both asset crates default to no categories; `all` enables every category.

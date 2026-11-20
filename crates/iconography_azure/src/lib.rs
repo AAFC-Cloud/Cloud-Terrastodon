@@ -7,35 +7,99 @@
 //! See the packaged ASSETS.md for artwork sources and terms.
 #[cfg(feature = "resources")]
 mod azure_all_resources_icon;
+#[cfg(feature = "configuration")]
+mod azure_app_configuration_icon;
+#[cfg(feature = "ai")]
+mod azure_cognitive_services_account_icon;
+#[cfg(feature = "compute")]
+mod azure_compute_gallery_icon;
+#[cfg(feature = "compute")]
+mod azure_compute_gallery_image_definition_icon;
+#[cfg(feature = "compute")]
+mod azure_compute_gallery_image_version_icon;
 #[cfg(feature = "containers")]
 mod azure_container_registry_icon;
+#[cfg(feature = "networking")]
+mod azure_dns_zone_icon;
 #[cfg(feature = "resource-types")]
 mod azure_icon_for_resource_type;
 #[cfg(feature = "security")]
 mod azure_key_vault_icon;
+#[cfg(feature = "containers")]
+mod azure_kubernetes_service_icon;
+#[cfg(feature = "networking")]
+mod azure_load_balancer_icon;
+#[cfg(feature = "ai")]
+mod azure_machine_learning_workspace_icon;
 #[cfg(feature = "resources")]
 mod azure_management_group_icon;
+#[cfg(feature = "networking")]
+mod azure_network_security_group_icon;
+#[cfg(feature = "networking")]
+mod azure_network_watcher_icon;
+#[cfg(feature = "networking")]
+mod azure_public_ip_address_icon;
 #[cfg(feature = "resources")]
 mod azure_resource_group_icon;
+#[cfg(feature = "networking")]
+mod azure_route_table_icon;
 #[cfg(feature = "storage")]
 mod azure_storage_account_icon;
 #[cfg(feature = "resources")]
 mod azure_subscription_icon;
+#[cfg(feature = "security")]
+mod azure_user_assigned_identity_icon;
+#[cfg(feature = "compute")]
+mod azure_virtual_machine_scale_set_icon;
+#[cfg(feature = "networking")]
+mod azure_virtual_network_icon;
 #[cfg(feature = "resources")]
 pub use azure_all_resources_icon::AzureAllResourcesIcon;
+#[cfg(feature = "configuration")]
+pub use azure_app_configuration_icon::AzureAppConfigurationIcon;
+#[cfg(feature = "ai")]
+pub use azure_cognitive_services_account_icon::AzureCognitiveServicesAccountIcon;
+#[cfg(feature = "compute")]
+pub use azure_compute_gallery_icon::AzureComputeGalleryIcon;
+#[cfg(feature = "compute")]
+pub use azure_compute_gallery_image_definition_icon::AzureComputeGalleryImageDefinitionIcon;
+#[cfg(feature = "compute")]
+pub use azure_compute_gallery_image_version_icon::AzureComputeGalleryImageVersionIcon;
 #[cfg(feature = "containers")]
 pub use azure_container_registry_icon::AzureContainerRegistryIcon;
+#[cfg(feature = "networking")]
+pub use azure_dns_zone_icon::AzureDnsZoneIcon;
 #[cfg(feature = "resource-types")]
 pub use azure_icon_for_resource_type::icon_for_resource_type;
 #[cfg(feature = "security")]
 pub use azure_key_vault_icon::AzureKeyVaultIcon;
+#[cfg(feature = "containers")]
+pub use azure_kubernetes_service_icon::AzureKubernetesServiceIcon;
+#[cfg(feature = "networking")]
+pub use azure_load_balancer_icon::AzureLoadBalancerIcon;
+#[cfg(feature = "ai")]
+pub use azure_machine_learning_workspace_icon::AzureMachineLearningWorkspaceIcon;
 #[cfg(feature = "resources")]
 pub use azure_management_group_icon::AzureManagementGroupIcon;
+#[cfg(feature = "networking")]
+pub use azure_network_security_group_icon::AzureNetworkSecurityGroupIcon;
+#[cfg(feature = "networking")]
+pub use azure_network_watcher_icon::AzureNetworkWatcherIcon;
+#[cfg(feature = "networking")]
+pub use azure_public_ip_address_icon::AzurePublicIpAddressIcon;
 #[cfg(feature = "resources")]
 pub use azure_resource_group_icon::AzureResourceGroupIcon;
+#[cfg(feature = "networking")]
+pub use azure_route_table_icon::AzureRouteTableIcon;
 #[cfg(feature = "storage")]
 pub use azure_storage_account_icon::AzureStorageAccountIcon;
 #[cfg(feature = "resources")]
 pub use azure_subscription_icon::AzureSubscriptionIcon;
+#[cfg(feature = "security")]
+pub use azure_user_assigned_identity_icon::AzureUserAssignedIdentityIcon;
+#[cfg(feature = "compute")]
+pub use azure_virtual_machine_scale_set_icon::AzureVirtualMachineScaleSetIcon;
+#[cfg(feature = "networking")]
+pub use azure_virtual_network_icon::AzureVirtualNetworkIcon;
 #[cfg(all(test, feature = "resource-types"))]
 mod azure_icon_tests;

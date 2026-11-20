@@ -19,12 +19,13 @@ assert!(svg.contains("<svg"));
 The public methods belong to `SvgIcon`. Each method returns
 `Cow<'static, str>`; packaged icons borrow their static embedded SVG and metadata.
 
-No categories are enabled by default. `resources` enables
-`AzureAllResourcesIcon`, `AzureManagementGroupIcon`, `AzureResourceGroupIcon`,
-and `AzureSubscriptionIcon`.
-`storage` adds `AzureStorageAccountIcon`, `containers` adds
-`AzureContainerRegistryIcon`, and `security` adds `AzureKeyVaultIcon`.
-`all` enables every category.
+No categories are enabled by default. `resources` covers All resources,
+management groups, resource groups, and subscriptions. `storage` covers storage
+accounts, `containers` covers container registries and Kubernetes services, and
+`security` covers key vaults and user-assigned managed identities.
+`configuration` covers App Configuration, `ai` covers Cognitive Services and
+Machine Learning, `compute` covers compute galleries, images, and scale sets,
+and `networking` covers Azure network resources. `all` enables every category.
 Disabled icon types and their SVGs are absent from the compiled API.
 
 The optional `resource-types` feature adds the free `icon_for_resource_type`

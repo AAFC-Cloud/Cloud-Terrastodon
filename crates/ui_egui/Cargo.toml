@@ -26,7 +26,7 @@ cloud_terrastodon_config.workspace = true
 cloud_terrastodon_auth_types.workspace = true
 cloud_terrastodon_hcl.workspace = true
 cloud_terrastodon_iconography.workspace = true
-cloud_terrastodon_iconography_azure = { workspace = true, features = ["resources", "storage", "containers", "security", "resource-types"] }
+cloud_terrastodon_iconography_azure = { workspace = true, features = ["all", "resource-types"] }
 cloud_terrastodon_pathing.workspace = true
 cloud_terrastodon_user_input.workspace = true
 cloud_terrastodon_zombies.workspace = true

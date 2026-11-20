@@ -1,5 +1,7 @@
 # Unreleased
 
+- Add desktop resource inventory icons for Azure App Configuration, AI, compute, Kubernetes, managed identities, and networking.
+
 - Resolve Azure tenants from an explicit ID or alias, an explicitly selected account, or the configured tenant default. For commands that use the configured default, omit `--tenant` and `--account`. The literal `--tenant default` now looks up a tracked alias named `default`.
 
 - Browse resource group and subscription workspaces with scoped resource inventories, an Activity Log, read-only access control, and copyable JSON. Open a fresh preview with New tab or Ctrl+T. Desktop inventory tables use horizontal dividers, sortable headers, and selection checkboxes.

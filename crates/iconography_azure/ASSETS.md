@@ -17,6 +17,66 @@ The SVGs are extracted from the Azure Portal by [maskati/azure-icons](https://gi
 - Retrieved at (UTC): `2026-11-17T18:26:27Z`
 - Artwork terms: <https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions>
 
+## App Configuration (`AzureAppConfigurationIcon`)
+
+- Category feature: `configuration`
+- Packaged file: `svg/app-configuration.svg`
+- Upstream logical name: `svg/Microsoft_Azure_AzConfig/StoreResource.svg`
+- Source URL: <https://raw.githubusercontent.com/maskati/azure-icons/a2989ad1c5d449ed70b3b8e0fb7128b487a8587e/svg/Microsoft_Azure_AzConfig/StoreResource.svg>
+- Discovery URL: <https://api.github.com/repos/maskati/azure-icons/git/ref/heads/main>
+- SHA-256: `961327c198688a9bb51062bb9cbf8f65da98da09d45e804986775cc44d49d424`
+- Retrieved at (UTC): `2026-11-20T17:53:31Z`
+- Artwork terms: <https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions>
+- Azure resource-type aliases: `Microsoft.AppConfiguration/configurationStores`
+
+## Cognitive Services account (`AzureCognitiveServicesAccountIcon`)
+
+- Category feature: `ai`
+- Packaged file: `svg/cognitive-services-account.svg`
+- Upstream logical name: `svg/Microsoft_Azure_ProjectOxford/CognitiveServicesAccount.svg`
+- Source URL: <https://raw.githubusercontent.com/maskati/azure-icons/a2989ad1c5d449ed70b3b8e0fb7128b487a8587e/svg/Microsoft_Azure_ProjectOxford/CognitiveServicesAccount.svg>
+- Discovery URL: <https://api.github.com/repos/maskati/azure-icons/git/ref/heads/main>
+- SHA-256: `6905bddbda107e1e46356dbbaf13858c1f16d3edf33724fd195449cf736795a5`
+- Retrieved at (UTC): `2026-11-20T17:53:31Z`
+- Artwork terms: <https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions>
+- Azure resource-type aliases: `Microsoft.CognitiveServices/accounts`
+
+## Azure compute gallery (`AzureComputeGalleryIcon`)
+
+- Category feature: `compute`
+- Packaged file: `svg/compute-gallery.svg`
+- Upstream logical name: `svg/Microsoft_Azure_DiskMgmt/SharedImageGallery.svg`
+- Source URL: <https://raw.githubusercontent.com/maskati/azure-icons/a2989ad1c5d449ed70b3b8e0fb7128b487a8587e/svg/Microsoft_Azure_DiskMgmt/SharedImageGallery.svg>
+- Discovery URL: <https://api.github.com/repos/maskati/azure-icons/git/ref/heads/main>
+- SHA-256: `f925eb12c38bf1c1221f644cf07b1f478e93e58cb16ecdabd00e2de605de0f17`
+- Retrieved at (UTC): `2026-11-20T17:53:31Z`
+- Artwork terms: <https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions>
+- Azure resource-type aliases: `Microsoft.Compute/galleries`
+
+## VM image definition (`AzureComputeGalleryImageDefinitionIcon`)
+
+- Category feature: `compute`
+- Packaged file: `svg/compute-gallery-image-definition.svg`
+- Upstream logical name: `svg/Microsoft_Azure_DiskMgmt/ImageDefinition.svg`
+- Source URL: <https://raw.githubusercontent.com/maskati/azure-icons/a2989ad1c5d449ed70b3b8e0fb7128b487a8587e/svg/Microsoft_Azure_DiskMgmt/ImageDefinition.svg>
+- Discovery URL: <https://api.github.com/repos/maskati/azure-icons/git/ref/heads/main>
+- SHA-256: `9d1a1b11d5ece8fbcbc8fb598ef85e5ea02eca8b4ed1c3214619880a4819b474`
+- Retrieved at (UTC): `2026-11-20T17:53:31Z`
+- Artwork terms: <https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions>
+- Azure resource-type aliases: `Microsoft.Compute/galleries/images`
+
+## VM image version (`AzureComputeGalleryImageVersionIcon`)
+
+- Category feature: `compute`
+- Packaged file: `svg/compute-gallery-image-version.svg`
+- Upstream logical name: `svg/Microsoft_Azure_DiskMgmt/ImageVersion.svg`
+- Source URL: <https://raw.githubusercontent.com/maskati/azure-icons/a2989ad1c5d449ed70b3b8e0fb7128b487a8587e/svg/Microsoft_Azure_DiskMgmt/ImageVersion.svg>
+- Discovery URL: <https://api.github.com/repos/maskati/azure-icons/git/ref/heads/main>
+- SHA-256: `efa2068c65bf8c3828a4bde1fa8488e291aabf4892109dcb402012dbd938ea18`
+- Retrieved at (UTC): `2026-11-20T17:53:31Z`
+- Artwork terms: <https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions>
+- Azure resource-type aliases: `Microsoft.Compute/galleries/images/versions`
+
 ## Container registry (`AzureContainerRegistryIcon`)
 
 - Category feature: `containers`
@@ -28,6 +88,18 @@ The SVGs are extracted from the Azure Portal by [maskati/azure-icons](https://gi
 - Retrieved at (UTC): `2026-11-17T18:26:28Z`
 - Artwork terms: <https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions>
 - Azure resource-type aliases: `Microsoft.ContainerRegistry/registries`
+
+## DNS zone (`AzureDnsZoneIcon`)
+
+- Category feature: `networking`
+- Packaged file: `svg/dns-zone.svg`
+- Upstream logical name: `svg/Microsoft_Azure_Network/DnsZone.svg`
+- Source URL: <https://raw.githubusercontent.com/maskati/azure-icons/a2989ad1c5d449ed70b3b8e0fb7128b487a8587e/svg/Microsoft_Azure_Network/DnsZone.svg>
+- Discovery URL: <https://api.github.com/repos/maskati/azure-icons/git/ref/heads/main>
+- SHA-256: `e5e68a9e847f8ce9732c56b0ba73f86f8c42bbe73b97d20ee80eed8dd97e2552`
+- Retrieved at (UTC): `2026-11-20T17:53:31Z`
+- Artwork terms: <https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions>
+- Azure resource-type aliases: `Microsoft.Network/dnsZones`
 
 ## Key vault (`AzureKeyVaultIcon`)
 
@@ -41,6 +113,42 @@ The SVGs are extracted from the Azure Portal by [maskati/azure-icons](https://gi
 - Artwork terms: <https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions>
 - Azure resource-type aliases: `Microsoft.KeyVault/vaults`
 
+## Kubernetes service (`AzureKubernetesServiceIcon`)
+
+- Category feature: `containers`
+- Packaged file: `svg/kubernetes-service.svg`
+- Upstream logical name: `svg/Microsoft_Azure_ContainerService/ManagedClusters.svg`
+- Source URL: <https://raw.githubusercontent.com/maskati/azure-icons/a2989ad1c5d449ed70b3b8e0fb7128b487a8587e/svg/Microsoft_Azure_ContainerService/ManagedClusters.svg>
+- Discovery URL: <https://api.github.com/repos/maskati/azure-icons/git/ref/heads/main>
+- SHA-256: `cee6f363ffb5bf670965bf6fd36e56c5372d85115fa7743a0abf97c02affc07d`
+- Retrieved at (UTC): `2026-11-20T17:53:31Z`
+- Artwork terms: <https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions>
+- Azure resource-type aliases: `Microsoft.ContainerService/managedClusters`
+
+## Load balancer (`AzureLoadBalancerIcon`)
+
+- Category feature: `networking`
+- Packaged file: `svg/load-balancer.svg`
+- Upstream logical name: `svg/Microsoft_Azure_Network/LoadBalancer.svg`
+- Source URL: <https://raw.githubusercontent.com/maskati/azure-icons/a2989ad1c5d449ed70b3b8e0fb7128b487a8587e/svg/Microsoft_Azure_Network/LoadBalancer.svg>
+- Discovery URL: <https://api.github.com/repos/maskati/azure-icons/git/ref/heads/main>
+- SHA-256: `37e63f8ec7a843c582525183e0ad63944a15873f6213f2cedee4cb0a6669b4fc`
+- Retrieved at (UTC): `2026-11-20T17:53:31Z`
+- Artwork terms: <https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions>
+- Azure resource-type aliases: `Microsoft.Network/loadBalancers`
+
+## Machine Learning workspace (`AzureMachineLearningWorkspaceIcon`)
+
+- Category feature: `ai`
+- Packaged file: `svg/machine-learning-workspace.svg`
+- Upstream logical name: `svg/Microsoft_Azure_MLTeamAccounts/MachineLearningServices.svg`
+- Source URL: <https://raw.githubusercontent.com/maskati/azure-icons/a2989ad1c5d449ed70b3b8e0fb7128b487a8587e/svg/Microsoft_Azure_MLTeamAccounts/MachineLearningServices.svg>
+- Discovery URL: <https://api.github.com/repos/maskati/azure-icons/git/ref/heads/main>
+- SHA-256: `bd012179a188a008a10784640e405e4ae46a4b91cb67cb95da2545f989b23b2b`
+- Retrieved at (UTC): `2026-11-20T17:53:31Z`
+- Artwork terms: <https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions>
+- Azure resource-type aliases: `Microsoft.MachineLearningServices/workspaces`
+
 ## Management group (`AzureManagementGroupIcon`)
 
 - Category feature: `resources`
@@ -53,6 +161,42 @@ The SVGs are extracted from the Azure Portal by [maskati/azure-icons](https://gi
 - Artwork terms: <https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions>
 - Azure resource-type aliases: `Microsoft.Management/managementGroups`
 
+## Network security group (`AzureNetworkSecurityGroupIcon`)
+
+- Category feature: `networking`
+- Packaged file: `svg/network-security-group.svg`
+- Upstream logical name: `svg/Microsoft_Azure_Network/NetworkSecurityGroup.svg`
+- Source URL: <https://raw.githubusercontent.com/maskati/azure-icons/a2989ad1c5d449ed70b3b8e0fb7128b487a8587e/svg/Microsoft_Azure_Network/NetworkSecurityGroup.svg>
+- Discovery URL: <https://api.github.com/repos/maskati/azure-icons/git/ref/heads/main>
+- SHA-256: `1f3bb346a0fbebff5c65389482735cdcc003b3f5e1059371afc1c25acd4f6f51`
+- Retrieved at (UTC): `2026-11-20T17:53:31Z`
+- Artwork terms: <https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions>
+- Azure resource-type aliases: `Microsoft.Network/networkSecurityGroups`
+
+## Network Watcher (`AzureNetworkWatcherIcon`)
+
+- Category feature: `networking`
+- Packaged file: `svg/network-watcher.svg`
+- Upstream logical name: `svg/Microsoft_Azure_Network/NetworkWatcherResource.svg`
+- Source URL: <https://raw.githubusercontent.com/maskati/azure-icons/a2989ad1c5d449ed70b3b8e0fb7128b487a8587e/svg/Microsoft_Azure_Network/NetworkWatcherResource.svg>
+- Discovery URL: <https://api.github.com/repos/maskati/azure-icons/git/ref/heads/main>
+- SHA-256: `a2f80004a9a6b156d0fc5bb15be34617c67dafd53c1a1c84bbf9d49900009b1d`
+- Retrieved at (UTC): `2026-11-20T17:53:31Z`
+- Artwork terms: <https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions>
+- Azure resource-type aliases: `Microsoft.Network/networkWatchers`
+
+## Public IP address (`AzurePublicIpAddressIcon`)
+
+- Category feature: `networking`
+- Packaged file: `svg/public-ip-address.svg`
+- Upstream logical name: `svg/Microsoft_Azure_Network/PublicIpAddress.svg`
+- Source URL: <https://raw.githubusercontent.com/maskati/azure-icons/a2989ad1c5d449ed70b3b8e0fb7128b487a8587e/svg/Microsoft_Azure_Network/PublicIpAddress.svg>
+- Discovery URL: <https://api.github.com/repos/maskati/azure-icons/git/ref/heads/main>
+- SHA-256: `54bd2bf3a7ff587282a79391a8d04980b6ef7975e504847d9477374f29df2f15`
+- Retrieved at (UTC): `2026-11-20T17:53:31Z`
+- Artwork terms: <https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions>
+- Azure resource-type aliases: `Microsoft.Network/publicIPAddresses`
+
 ## Resource group (`AzureResourceGroupIcon`)
 
 - Category feature: `resources`
@@ -64,6 +208,18 @@ The SVGs are extracted from the Azure Portal by [maskati/azure-icons](https://gi
 - Retrieved at (UTC): `2026-10-26T18:15:30Z`
 - Artwork terms: <https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions>
 - Azure resource-type aliases: `Microsoft.Resources/resourceGroups`, `Microsoft.Resources/subscriptions/resourceGroups`
+
+## Route table (`AzureRouteTableIcon`)
+
+- Category feature: `networking`
+- Packaged file: `svg/route-table.svg`
+- Upstream logical name: `svg/Microsoft_Azure_Network/RouteTable.svg`
+- Source URL: <https://raw.githubusercontent.com/maskati/azure-icons/a2989ad1c5d449ed70b3b8e0fb7128b487a8587e/svg/Microsoft_Azure_Network/RouteTable.svg>
+- Discovery URL: <https://api.github.com/repos/maskati/azure-icons/git/ref/heads/main>
+- SHA-256: `78996b398d5f2f6c42639a442dcbf855d63c87232b77e750b458dfc205875454`
+- Retrieved at (UTC): `2026-11-20T17:53:31Z`
+- Artwork terms: <https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions>
+- Azure resource-type aliases: `Microsoft.Network/routeTables`
 
 ## Storage account (`AzureStorageAccountIcon`)
 
@@ -88,3 +244,39 @@ The SVGs are extracted from the Azure Portal by [maskati/azure-icons](https://gi
 - Retrieved at (UTC): `2026-10-26T18:15:30Z`
 - Artwork terms: <https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions>
 - Azure resource-type aliases: `Microsoft.Resources/subscriptions`
+
+## User-assigned managed identity (`AzureUserAssignedIdentityIcon`)
+
+- Category feature: `security`
+- Packaged file: `svg/user-assigned-identity.svg`
+- Upstream logical name: `svg/Microsoft_Azure_ManagedServiceIdentity/UserAssignedIdentity.svg`
+- Source URL: <https://raw.githubusercontent.com/maskati/azure-icons/a2989ad1c5d449ed70b3b8e0fb7128b487a8587e/svg/Microsoft_Azure_ManagedServiceIdentity/UserAssignedIdentity.svg>
+- Discovery URL: <https://api.github.com/repos/maskati/azure-icons/git/ref/heads/main>
+- SHA-256: `b1a7aaefef7607163c4de425b02ad290ba33d698dc1e72d6a1a815c44007060d`
+- Retrieved at (UTC): `2026-11-20T17:53:31Z`
+- Artwork terms: <https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions>
+- Azure resource-type aliases: `Microsoft.ManagedIdentity/userAssignedIdentities`
+
+## Virtual machine scale set (`AzureVirtualMachineScaleSetIcon`)
+
+- Category feature: `compute`
+- Packaged file: `svg/virtual-machine-scale-set.svg`
+- Upstream logical name: `svg/Microsoft_Azure_Compute/VirtualMachineScaleSet.svg`
+- Source URL: <https://raw.githubusercontent.com/maskati/azure-icons/a2989ad1c5d449ed70b3b8e0fb7128b487a8587e/svg/Microsoft_Azure_Compute/VirtualMachineScaleSet.svg>
+- Discovery URL: <https://api.github.com/repos/maskati/azure-icons/git/ref/heads/main>
+- SHA-256: `f185b7d46ffec5c154fa60bbad20d92ed6e2c3b7563dcde95fc299443eca8862`
+- Retrieved at (UTC): `2026-11-20T17:53:31Z`
+- Artwork terms: <https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions>
+- Azure resource-type aliases: `Microsoft.Compute/virtualMachineScaleSets`
+
+## Virtual network (`AzureVirtualNetworkIcon`)
+
+- Category feature: `networking`
+- Packaged file: `svg/virtual-network.svg`
+- Upstream logical name: `svg/Microsoft_Azure_Network/VirtualNetwork.svg`
+- Source URL: <https://raw.githubusercontent.com/maskati/azure-icons/a2989ad1c5d449ed70b3b8e0fb7128b487a8587e/svg/Microsoft_Azure_Network/VirtualNetwork.svg>
+- Discovery URL: <https://api.github.com/repos/maskati/azure-icons/git/ref/heads/main>
+- SHA-256: `f9da8d9d76c2db8fad76011f2eb2e7a1b14392f0efd05feeb50169aa519b0e35`
+- Retrieved at (UTC): `2026-11-20T17:53:31Z`
+- Artwork terms: <https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/permissions>
+- Azure resource-type aliases: `Microsoft.Network/virtualNetworks`
