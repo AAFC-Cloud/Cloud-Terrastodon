@@ -1,9 +1,10 @@
+use crate::portal_filter_chip::portal_filter_chip;
+use crate::portal_search::portal_search;
 use cloud_terrastodon_azure::AzureLocationName;
 use cloud_terrastodon_azure::AzureResourceGroup;
 use cloud_terrastodon_azure::SubscriptionId;
 use cloud_terrastodon_azure::SubscriptionName;
 use eframe::egui::ScrollArea;
-use eframe::egui::TextEdit;
 use eframe::egui::Ui;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
@@ -25,10 +26,8 @@ impl ResourceGroupFilters {
     ) -> bool {
         let mut changed = false;
         ui.horizontal_wrapped(|ui| {
-            changed |= ui
-                .add(TextEdit::singleline(&mut self.name).hint_text("Filter by name"))
-                .changed();
-            ui.menu_button("Add filter", |ui| {
+            changed |= portal_search(ui, &mut self.name, "Filter by name", 260.0).changed();
+            portal_filter_chip(ui, "Add filter", |ui| {
                 ui.menu_button("Subscription", |ui| {
                     let subscriptions: BTreeMap<_, _> = resource_groups
                         .clone()
