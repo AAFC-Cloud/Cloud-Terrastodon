@@ -897,7 +897,11 @@ impl Scope for ScopeImpl {
         if let Ok(id) = VirtualNetworkPeeringId::try_from_expanded(expanded) {
             return Ok(ScopeImpl::VirtualNetworkPeering(id));
         }
-        if let Ok(id) = ResourceId::try_from_expanded(expanded) {
+        // The generic ResourceId represents a single resource directly under a
+        // resource group. Keep the full ID when its parser extracts only a parent.
+        if let Ok(id) = ResourceId::try_from_expanded(expanded)
+            && id.expanded_form().eq_ignore_ascii_case(expanded)
+        {
             return Ok(ScopeImpl::Resource(id));
         }
         Ok(ScopeImpl::Unknown(expanded.to_compact_string()))
@@ -1070,6 +1074,16 @@ mod tests {
     use super::*;
     use itertools::Itertools;
     use uuid::Uuid;
+
+    #[test]
+    fn generic_nested_resources_keep_their_full_arm_ids() {
+        let parent = "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg/providers/Microsoft.Compute/galleries/gallery";
+        assert!(matches!(ScopeImpl::from(parent), ScopeImpl::Resource(_)));
+        for child in ["/images/image", "/images/image/versions/1.0.0"] {
+            let id = format!("{parent}{child}");
+            assert_eq!(ScopeImpl::from(&id).expanded_form(), id);
+        }
+    }
 
     #[test]
     fn it_works() -> eyre::Result<()> {

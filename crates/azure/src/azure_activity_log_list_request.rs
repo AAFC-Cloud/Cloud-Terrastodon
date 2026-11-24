@@ -9,6 +9,9 @@ use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure_types::AzureActivityLogEvent;
 use cloud_terrastodon_azure_types::AzureActivityLogPage;
 use cloud_terrastodon_azure_types::AzureActivityLogScope;
+use cloud_terrastodon_azure_types::ManagementGroupId;
+use cloud_terrastodon_azure_types::Scope;
+use cloud_terrastodon_azure_types::strip_prefix_case_insensitive;
 use cloud_terrastodon_cache::CacheKey;
 use cloud_terrastodon_cache::CacheOperationOwner;
 use cloud_terrastodon_cache::HasCacheKey;
@@ -21,6 +24,7 @@ use cloud_terrastodon_rest::RestRequest;
 use eyre::Result;
 use eyre::WrapErr;
 use eyre::ensure;
+use eyre::eyre;
 use facet::Facet;
 use http::Method;
 use std::collections::HashSet;
@@ -31,6 +35,7 @@ use std::time::Duration;
 use url::Url;
 
 const API_VERSION: &str = "2015-04-01";
+const MANAGEMENT_GROUP_API_VERSION: &str = "2017-03-01-preview";
 
 /// Read the scoped [Azure Monitor activity log](https://learn.microsoft.com/en-us/rest/api/monitor/activity-logs/list?view=rest-monitor-2015-04-01).
 /// The requested period is inclusive and uses UTC. The projection omits caller,
@@ -63,7 +68,7 @@ impl AzureActivityLogListRequest {
     }
 
     fn validate_page_url(url: &Url, collection_path: &str) -> Result<()> {
-        // Keep the token on the same subscription's ARM collection. Azure may
+        // Keep the token on the same ARM collection. Azure may
         // change route segment casing when constructing its continuation URL.
         ensure!(
             url.scheme() == "https"
@@ -93,16 +98,34 @@ impl<'a> Arbitrary<'a> for AzureActivityLogListRequest {
 
 impl HasCacheKey for AzureActivityLogListRequest {
     fn cache_key(&self) -> Result<CacheKey> {
-        let mut path = PathBuf::from("az/arm/tenant")
-            .join(self.authentication.tenant_id.to_string())
-            .join("subscriptions")
-            .join(self.scope.subscription_id().to_string());
-        if let AzureActivityLogScope::ResourceGroup(group) = &self.scope {
-            path = path
-                .join("resource-groups")
-                .join(sanitize_windows_path_component(
-                    &group.resource_group_name.to_ascii_lowercase(),
-                ));
+        let mut path =
+            PathBuf::from("az/arm/tenant").join(self.authentication.tenant_id.to_string());
+        match &self.scope {
+            AzureActivityLogScope::Subscription(id) => {
+                path.extend(["subscriptions", &id.to_string()]);
+            }
+            AzureActivityLogScope::ResourceGroup(group) => {
+                path.extend([
+                    "subscriptions",
+                    &group.subscription_id.to_string(),
+                    "resource-groups",
+                    &sanitize_windows_path_component(
+                        &group.resource_group_name.to_ascii_lowercase(),
+                    ),
+                ]);
+            }
+            AzureActivityLogScope::ManagementGroup(group) => {
+                path.extend([
+                    "management-groups",
+                    &sanitize_windows_path_component(&group.name().to_ascii_lowercase()),
+                ]);
+            }
+            AzureActivityLogScope::Resource(id) => {
+                path.extend([
+                    "resources",
+                    &sanitize_windows_path_component(&id.expanded_form().to_ascii_lowercase()),
+                ]);
+            }
         }
         let mut key = CacheKey::from_relative_path(path.join("activity-log"))?;
         key.valid_for = Duration::from_secs(60);
@@ -135,29 +158,82 @@ impl ExecutableRequest for AzureActivityLogListRequest {
                 self.from <= self.until,
                 "activity log end time must be at or after its start time"
             );
-            let mut url = Url::parse(&format!(
-                "https://management.azure.com/subscriptions/{}/providers/Microsoft.Insights/eventtypes/management/values",
-                self.scope.subscription_id(),
-            ))
-            .wrap_err("constructing the ARM activity log endpoint")?;
             let mut filter = format!(
                 "eventTimestamp ge '{}' and eventTimestamp le '{}'",
                 self.from.to_rfc3339_opts(SecondsFormat::AutoSi, true),
                 self.until.to_rfc3339_opts(SecondsFormat::AutoSi, true),
             );
-            if let AzureActivityLogScope::ResourceGroup(group) = &self.scope {
-                write!(
-                    filter,
-                    " and resourceGroupName eq '{}'",
-                    group.resource_group_name.replace('\'', "''"),
-                )?;
-            }
+            let (path, api_version) = match &self.scope {
+                AzureActivityLogScope::Subscription(id) => (id.expanded_form(), API_VERSION),
+                AzureActivityLogScope::ResourceGroup(group) => {
+                    write!(
+                        filter,
+                        " and resourceGroupName eq '{}'",
+                        group.resource_group_name.replace('\'', "''"),
+                    )?;
+                    (group.subscription_id.expanded_form(), API_VERSION)
+                }
+                AzureActivityLogScope::ManagementGroup(group) => {
+                    // Management group activity is exposed by the preview collection.
+                    // https://learn.microsoft.com/en-us/azure/azure-monitor/fundamentals/activity-log#list-management-group-level-activity-log-events
+                    let path = group.expanded_form();
+                    ensure!(
+                        !group.name().is_empty(),
+                        "activity log requires a management group ID"
+                    );
+                    ManagementGroupId::try_from_expanded(&path)?;
+                    (path, MANAGEMENT_GROUP_API_VERSION)
+                }
+                AzureActivityLogScope::Resource(resource) => {
+                    let resource_uri = resource.expanded_form();
+                    let resource_path = resource_uri.strip_prefix('/').ok_or_else(|| {
+                        eyre!("activity log requires an absolute ARM resource ID")
+                    })?;
+                    ensure!(
+                        resource_path
+                            .split('/')
+                            .all(|segment| !matches!(segment, "" | "." | "..")),
+                        "ARM resource ID contains an invalid path segment"
+                    );
+                    let path = if let Some(subscription) = self.scope.subscription_id() {
+                        subscription.expanded_form()
+                    } else {
+                        // Tenant Activity Logs - List accepts this resourceUri filter with eventChannels.
+                        // https://learn.microsoft.com/en-us/rest/api/monitor/tenant-activity-logs/list?view=rest-monitor-2015-04-01#uri-parameters
+                        ensure!(
+                            strip_prefix_case_insensitive(&resource_uri, "/providers/").is_ok(),
+                            "activity log requires a subscription- or provider-scoped ARM resource ID"
+                        );
+                        filter.push_str(" and eventChannels eq 'Admin, Operation'");
+                        String::new()
+                    };
+                    write!(
+                        filter,
+                        " and resourceUri eq '{}'",
+                        resource_uri.replace('\'', "''"),
+                    )?;
+                    (path, API_VERSION)
+                }
+            };
+            let mut url = Url::parse("https://management.azure.com")?;
+            url.path_segments_mut()
+                .map_err(|_| eyre!("ARM endpoint cannot contain path segments"))?
+                .extend(path.split('/').filter(|segment| !segment.is_empty()))
+                .extend([
+                    "providers",
+                    "Microsoft.Insights",
+                    "eventtypes",
+                    "management",
+                    "values",
+                ]);
             url.query_pairs_mut()
-                .append_pair("api-version", API_VERSION)
+                .append_pair("api-version", api_version)
                 .append_pair("$filter", &filter)
                 .append_pair(
                     "$select",
-                    "eventDataId,eventTimestamp,operationName,status,resourceId",
+                    // Azure CLI's activity-log list projection also supports category.
+                    // https://learn.microsoft.com/en-us/cli/azure/monitor/activity-log#az-monitor-activity-log-list
+                    "eventDataId,eventTimestamp,operationName,status,resourceId,level,category,subscriptionId,resourceGroupName",
                 );
 
             let collection_path = url.path().to_owned();
