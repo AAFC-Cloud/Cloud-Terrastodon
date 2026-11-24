@@ -1,6 +1,6 @@
 use crate::icons::ACCESS_CONTROL_ICON;
+use crate::icons::ACTIVITY_LOG_ICON;
 use crate::icons::page_icon;
-use crate::portal_page::PortalPage;
 use crate::portal_resource_scope::PortalResourceScope;
 use crate::portal_scope_view::PortalScopeView;
 use crate::portal_tab_target::PortalTabTarget;
@@ -47,7 +47,7 @@ pub(crate) fn scope_navigation(
                 destination = Some(scope.overview());
             }
             for (view, icon) in [
-                (PortalScopeView::ActivityLog, page_icon(PortalPage::Logs)),
+                (PortalScopeView::ActivityLog, ACTIVITY_LOG_ICON),
                 (PortalScopeView::AccessControl, ACCESS_CONTROL_ICON),
             ] {
                 if navigation_tile(ui, view.label(), icon, current == Some(view), show_labels) {

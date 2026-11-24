@@ -1,4 +1,5 @@
 use crate::portal_page::PortalPage;
+use crate::portal_scope_view::PortalScopeView;
 use crate::portal_tab_target::PortalTabTarget;
 use cloud_terrastodon_azure::ResourceType;
 use cloud_terrastodon_iconography::SvgIcon;
@@ -22,6 +23,7 @@ pub const RESOURCE_GROUP_ICON: ImageSource =
     i!("../assets/10007-icon-service-Resource-Groups-4x.png");
 pub const ABOUT_ICON: ImageSource = i!("../assets/about.svg");
 pub(crate) const ACCESS_CONTROL_ICON: ImageSource = i!("../assets/access-control.svg");
+pub(crate) const ACTIVITY_LOG_ICON: ImageSource = i!("../assets/activity-log.svg");
 
 /// Adapt the shared embedded SVG catalogue to egui's image cache. Packaged SVG
 /// bytes stay borrowed; egui rasterizes each URI at the requested display size.
@@ -42,6 +44,10 @@ pub fn resource_icon(kind: &ResourceType) -> ImageSource<'static> {
 pub(crate) fn portal_target_icon(target: &PortalTabTarget) -> ImageSource<'static> {
     match target {
         PortalTabTarget::ResourcesOfType(kind) => resource_icon(kind),
+        PortalTabTarget::ScopeView {
+            view: PortalScopeView::ActivityLog,
+            ..
+        } => ACTIVITY_LOG_ICON,
         target => page_icon(target.page()),
     }
 }
