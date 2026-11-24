@@ -3,7 +3,10 @@ use crate::inventory_table::show_inventory_table;
 use crate::management_group_hierarchy::ManagementGroupHierarchy;
 use crate::management_group_tree_row::ManagementGroupTreeRow;
 use crate::portal_page::PortalPage;
+use crate::portal_search::portal_search;
+use crate::portal_tab_open::PortalTabOpen;
 use crate::portal_tab_target::PortalTabTarget;
+use crate::reflected_table_sort::ReflectedTableSort;
 use crate::table_row_background::TableRowBackground;
 use cloud_terrastodon_azure::ManagementGroupId;
 use cloud_terrastodon_azure::Scope;
@@ -11,7 +14,6 @@ use eframe::egui::Button;
 use eframe::egui::Image;
 use eframe::egui::Label;
 use eframe::egui::ScrollArea;
-use eframe::egui::TextEdit;
 use eframe::egui::Ui;
 use eframe::egui::Vec2;
 use egui_extras::Column;
@@ -23,25 +25,27 @@ pub(crate) fn show_management_group_tree(
     id: &ManagementGroupId,
     subscriptions_only: bool,
     subscriptions_available: bool,
-) -> Option<PortalTabTarget> {
+) -> Option<PortalTabOpen> {
     ui.push_id((id, subscriptions_only), |ui| {
         let tree_id = ui.id();
         let search_id = tree_id.with("search");
+        let sort_id = tree_id.with("sort");
+        let mut sort = ui
+            .data(|data| data.get_temp::<ReflectedTableSort>(sort_id))
+            .unwrap_or(ReflectedTableSort::INITIAL);
         let mut search: String = ui.data(|data| data.get_temp(search_id)).unwrap_or_default();
-        if ui
-            .add(
-                TextEdit::singleline(&mut search)
-                    .hint_text("Search by name or ID")
-                    .desired_width(280.0),
-            )
-            .changed()
-        {
+        if portal_search(ui, &mut search, "Search by name or ID", 280.0).changed() {
             ui.data_mut(|data| data.insert_temp(search_id, search.clone()));
         }
 
         let query = search.trim().to_lowercase();
         let mut rows = Vec::new();
-        append_rows(ui, hierarchy, id, &query, subscriptions_only, 0, &mut rows);
+        if subscriptions_only || !query.is_empty() {
+            append_search_rows(hierarchy, id, &query, subscriptions_only, &mut rows);
+            sort_rows(&mut rows, hierarchy, sort, subscriptions_only);
+        } else {
+            append_open_rows(ui, hierarchy, id, sort, 0, &mut rows);
+        }
         if rows.is_empty() {
             ui.label(
                 match (
@@ -79,9 +83,9 @@ pub(crate) fn show_management_group_tree(
                 };
                 table
                     .header(28.0, |mut header| {
-                        for heading in headings {
+                        for (column, heading) in headings.iter().enumerate() {
                             header.col(|ui| {
-                                ui.strong(*heading);
+                                sort.show_header(ui, heading, column, sort_id);
                             });
                         }
                     })
@@ -123,13 +127,12 @@ pub(crate) fn show_management_group_tree(
                                         Image::new(page_icon(PortalPage::ManagementGroups))
                                             .fit_to_exact_size(Vec2::splat(18.0)),
                                     );
-                                    if ui
-                                        .link(&group.display_name)
-                                        .on_hover_text(&group.display_name)
-                                        .clicked()
-                                    {
-                                        destination =
-                                            Some(PortalTabTarget::ManagementGroup(group.id()));
+                                    if let Some(action) = PortalTabOpen::from_response(
+                                        &ui.link(&group.display_name)
+                                            .on_hover_text(&group.display_name),
+                                        || PortalTabTarget::ManagementGroup(group.id()),
+                                    ) {
+                                        destination = Some(action);
                                     }
                                     false
                                 });
@@ -161,13 +164,12 @@ pub(crate) fn show_management_group_tree(
                                         Image::new(page_icon(PortalPage::Subscriptions))
                                             .fit_to_exact_size(Vec2::splat(18.0)),
                                     );
-                                    if ui
-                                        .link(subscription.name.as_str())
-                                        .on_hover_text(subscription.name.as_str())
-                                        .clicked()
-                                    {
-                                        destination =
-                                            Some(PortalTabTarget::Subscription(subscription.id));
+                                    if let Some(action) = PortalTabOpen::from_response(
+                                        &ui.link(subscription.name.as_str())
+                                            .on_hover_text(subscription.name.as_str()),
+                                        || PortalTabTarget::Subscription(subscription.id),
+                                    ) {
+                                        destination = Some(action);
                                     }
                                     false
                                 });
@@ -180,13 +182,13 @@ pub(crate) fn show_management_group_tree(
                                     if subscriptions_only {
                                         if let Some(parent) =
                                             subscription.management_group_ancestors_chain.first()
-                                            && ui
-                                                .link(&parent.display_name)
-                                                .on_hover_text(&parent.display_name)
-                                                .clicked()
+                                            && let Some(action) = PortalTabOpen::from_response(
+                                                &ui.link(&parent.display_name)
+                                                    .on_hover_text(&parent.display_name),
+                                                || PortalTabTarget::ManagementGroup(parent.id()),
+                                            )
                                         {
-                                            destination =
-                                                Some(PortalTabTarget::ManagementGroup(parent.id()));
+                                            destination = Some(action);
                                         }
                                     } else {
                                         ui.label("Subscription");
@@ -205,53 +207,77 @@ pub(crate) fn show_management_group_tree(
     .inner
 }
 
-fn append_rows<'a>(
+/// Sort each level before visiting its expanded branches so subtrees stay together.
+fn append_open_rows<'a>(
     ui: &Ui,
     hierarchy: &'a ManagementGroupHierarchy<'_>,
     id: &ManagementGroupId,
-    query: &str,
-    subscriptions_only: bool,
+    sort: ReflectedTableSort,
     depth: usize,
     rows: &mut Vec<ManagementGroupTreeRow<'a>>,
 ) {
-    let searching = !query.is_empty();
-    let tree = !subscriptions_only && !searching;
-    for group in hierarchy.child_groups(id) {
+    let groups = hierarchy.child_groups(id).map(|group| {
         let child_id = group.id();
-        let expandable = tree
-            && (hierarchy.child_groups(&child_id).next().is_some()
-                || !hierarchy.subscriptions(&child_id).is_empty());
+        let expandable = hierarchy.child_groups(&child_id).next().is_some()
+            || !hierarchy.subscriptions(&child_id).is_empty();
         let expanded = expandable.then(|| {
             ui.data(|data| data.get_temp(ui.id().with(group.name.as_str())))
                 .unwrap_or(false)
         });
-        if !subscriptions_only
-            && (!searching || matches_query(&group.display_name, &child_id.to_string(), query))
-        {
+        ManagementGroupTreeRow::Group {
+            group,
+            depth,
+            expanded,
+        }
+    });
+    let subscriptions = hierarchy.subscriptions(id).iter().map(|&subscription| {
+        ManagementGroupTreeRow::Subscription {
+            subscription,
+            depth,
+        }
+    });
+    let mut siblings = groups.chain(subscriptions).collect::<Vec<_>>();
+    sort_rows(&mut siblings, hierarchy, sort, false);
+    for sibling in siblings {
+        let expanded_group = match &sibling {
+            ManagementGroupTreeRow::Group {
+                group,
+                expanded: Some(true),
+                ..
+            } => Some(*group),
+            _ => None,
+        };
+        rows.push(sibling);
+        if let Some(group) = expanded_group {
+            append_open_rows(ui, hierarchy, &group.id(), sort, depth + 1, rows);
+        }
+    }
+}
+
+fn append_search_rows<'a>(
+    hierarchy: &'a ManagementGroupHierarchy<'_>,
+    id: &ManagementGroupId,
+    query: &str,
+    subscriptions_only: bool,
+    rows: &mut Vec<ManagementGroupTreeRow<'a>>,
+) {
+    for group in hierarchy.child_groups(id) {
+        let child_id = group.id();
+        if !subscriptions_only && matches_query(&group.display_name, &child_id.to_string(), query) {
             rows.push(ManagementGroupTreeRow::Group {
                 group,
-                depth,
-                expanded,
+                depth: 0,
+                expanded: None,
             });
         }
-        if !tree || expanded == Some(true) {
-            append_rows(
-                ui,
-                hierarchy,
-                &child_id,
-                query,
-                subscriptions_only,
-                if tree { depth + 1 } else { 0 },
-                rows,
-            );
-        }
+        append_search_rows(hierarchy, &child_id, query, subscriptions_only, rows);
     }
     rows.extend(
         hierarchy
             .subscriptions(id)
             .iter()
             .filter_map(|&subscription| {
-                (!searching
+                (query.is_empty()
                     || matches_query(
                         subscription.name.as_str(),
                         &subscription.id.expanded_form(),
@@ -259,10 +285,35 @@ fn append_rows<'a>(
                     ))
                 .then_some(ManagementGroupTreeRow::Subscription {
                     subscription,
-                    depth,
+                    depth: 0,
                 })
             }),
     );
+}
+
+fn sort_rows(
+    rows: &mut [ManagementGroupTreeRow<'_>],
+    hierarchy: &ManagementGroupHierarchy<'_>,
+    sort: ReflectedTableSort,
+    subscriptions_only: bool,
+) {
+    match sort.column {
+        1 => rows.sort_by_cached_key(|row| row.identifier().to_lowercase()),
+        2 if subscriptions_only => {
+            rows.sort_by_cached_key(|row| row.parent_name().to_lowercase());
+        }
+        2 => rows.sort_by_key(|row| matches!(row, ManagementGroupTreeRow::Subscription { .. })),
+        3 => rows.sort_by_cached_key(|row| match row {
+            ManagementGroupTreeRow::Group { group, .. } => {
+                Some(hierarchy.subscription_count(&group.id()))
+            }
+            ManagementGroupTreeRow::Subscription { .. } => None,
+        }),
+        _ => rows.sort_by_cached_key(|row| row.name().to_lowercase()),
+    }
+    if sort.descending {
+        rows.reverse();
+    }
 }
 
 fn matches_query(name: &str, id: &str, query: &str) -> bool {
@@ -278,4 +329,65 @@ fn copyable_id(ui: &mut Ui, value: &str, expanded: impl FnOnce() -> String) {
                 ui.close();
             }
         });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use cloud_terrastodon_azure::ManagementGroup;
+    use cloud_terrastodon_azure::ManagementGroupAncestorsChain;
+    use cloud_terrastodon_azure::ManagementGroupAncestorsChainEntry;
+    use eframe::egui::Context;
+    use facet_reflect::Partial;
+    use std::sync::Arc;
+
+    fn group(name: &str, parent: &str) -> eyre::Result<Arc<ManagementGroup>> {
+        let ancestors = vec![ManagementGroupAncestorsChainEntry {
+            name: parent.into(),
+            display_name: parent.into(),
+        }];
+        Ok(Arc::new(ManagementGroup {
+            id: ManagementGroupId::from_name(name),
+            display_name: name.into(),
+            tenant_id: "00000000-0000-0000-0000-000000000001".parse()?,
+            management_group_ancestors_chain: Partial::alloc::<ManagementGroupAncestorsChain>()?
+                .begin_inner()?
+                .set(ancestors)?
+                .end()?
+                .build()?
+                .materialize()?,
+        }))
+    }
+
+    #[test]
+    fn descending_sort_keeps_an_expanded_child_with_its_parent() -> eyre::Result<()> {
+        let groups = [
+            group("Bravo", "Root")?,
+            group("Zulu", "Root")?,
+            group("Alpha", "Zulu")?,
+        ];
+        let hierarchy = ManagementGroupHierarchy::new(&groups, &[]);
+        let mut rows = Vec::new();
+        let mut output = Context::default().run_ui(Default::default(), |ui| {
+            ui.data_mut(|data| data.insert_temp(ui.id().with("Zulu"), true));
+            append_open_rows(
+                ui,
+                &hierarchy,
+                &ManagementGroupId::from_name("Root"),
+                ReflectedTableSort {
+                    column: 0,
+                    descending: true,
+                },
+                0,
+                &mut rows,
+            );
+        });
+        output.textures_delta.clear();
+        let names = rows
+            .iter()
+            .map(ManagementGroupTreeRow::name)
+            .collect::<Vec<_>>();
+        assert_eq!(names, ["Zulu", "Alpha", "Bravo"]);
+        Ok(())
+    }
 }

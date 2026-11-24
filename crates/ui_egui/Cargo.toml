@@ -17,6 +17,7 @@ cloud_terrastodon_auth.workspace = true
 cloud_terrastodon_auth_cli.workspace = true
 cloud_terrastodon_execution.workspace = true
 cloud_terrastodon_azure_devops.workspace = true
+cloud_terrastodon_azure_devops_cli.workspace = true
 cloud_terrastodon_azure.workspace = true
 cloud_terrastodon_azure_cli.workspace = true
 cloud_terrastodon_cache.workspace = true
@@ -30,6 +31,7 @@ cloud_terrastodon_iconography_azure = { workspace = true, features = ["all", "re
 cloud_terrastodon_pathing.workspace = true
 cloud_terrastodon_user_input.workspace = true
 cloud_terrastodon_zombies.workspace = true
+chrono.workspace = true
 crossterm.workspace = true
 eframe.workspace = true
 egui_extras = { workspace = true, features = ["svg"] }
@@ -37,6 +39,7 @@ egui_extras = { workspace = true, features = ["svg"] }
 egui-toast.workspace = true
 eyre.workspace = true
 facet.workspace = true
+facet-json.workspace = true
 facet-reflect.workspace = true
 figue.workspace = true
 image = { version = "0.25.10", default-features = false, features = ["jpeg", "png"] }

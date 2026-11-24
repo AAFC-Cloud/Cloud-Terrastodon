@@ -1,43 +1,46 @@
 use crate::app::MyApp;
 use crate::icons::DEVOPS_PROJECT_ICON;
-use crate::inventory_table::show_inventory_table;
-use crate::reflected_value::ReflectedValue;
-use crate::table_row_background::TableRowBackground;
-use crate::workers::load_azure_devops_projects::load_azure_devops_projects_with_invalidation;
+use crate::inventory_table::show_inventory_result_count;
+use crate::portal_tab_open::PortalTabOpen;
+use crate::reflected_table::ReflectedTable;
+use crate::reflected_table_column::ReflectedTableColumn;
+use crate::windows::azure_devops_project_row::AzureDevOpsProjectRow;
+use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
+use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
 use cloud_terrastodon_azure_devops::AzureDevOpsProject;
-use cloud_terrastodon_azure_devops::AzureDevOpsProjectId;
-use cloud_terrastodon_azure_devops::AzureDevOpsProjectVisibility;
 use cloud_terrastodon_command::app_work::Loadable;
-use eframe::egui::Button;
-use eframe::egui::Checkbox;
 use eframe::egui::Id;
-use eframe::egui::Image;
-use eframe::egui::ScrollArea;
 use eframe::egui::Ui;
-use eframe::egui::Vec2;
-use egui_extras::Column;
+use std::collections::HashMap;
 use std::sync::Arc;
 use teamy_tracing::gui::DiagnosticReportView;
 
 /// Browse projects in the selected organization with its chosen credential.
-pub(crate) fn azure_devops_projects_ui(app: &mut MyApp, ui: &mut Ui) {
-    app.show_azure_devops_organization_picker(ui);
-    if app.azure_devops_organization.is_none() || app.show_azure_devops_authentication_required(ui)
-    {
+pub(crate) fn azure_devops_projects_ui(
+    app: &mut MyApp,
+    ui: &mut Ui,
+    organization: &AzureDevOpsOrganizationUrl,
+) {
+    app.show_azure_devops_credentials_for(ui, organization);
+    let Some(authentication) = app.ready_azure_devops_authentication_for(organization) else {
+        app.show_azure_devops_authentication_required(ui, organization);
         return;
+    };
+
+    if matches!(
+        app.azure
+            .azure_devops_projects
+            .get(organization, authentication),
+        Loadable::NotLoaded
+    ) {
+        app.load_azure_devops_projects_for(organization, false);
     }
 
-    let refresh = ui
-        .add_enabled(
-            !matches!(app.azure_devops_projects, Loadable::Loading { .. }),
-            Button::new("Refresh"),
-        )
-        .clicked();
-    if refresh || matches!(app.azure_devops_projects, Loadable::NotLoaded) {
-        load_azure_devops_projects_with_invalidation(app, refresh);
-    }
-
-    match &app.azure_devops_projects {
+    match app
+        .azure
+        .azure_devops_projects
+        .get(organization, authentication)
+    {
         Loadable::NotLoaded | Loadable::Loading { .. } => {
             ui.horizontal(|ui| {
                 ui.spinner();
@@ -50,107 +53,63 @@ pub(crate) fn azure_devops_projects_ui(app: &mut MyApp, ui: &mut Ui) {
                 DiagnosticReportView::new(error).show(ui);
             });
         }
-        Loadable::Loaded { value, .. } => {
-            let projects = Arc::clone(value);
-            let detail = ui.id().with((
-                "project_details",
-                app.account_generation,
-                app.azure_devops_organization_picker.generation,
+        Loadable::Loaded {
+            value: projects, ..
+        } => {
+            let project_table = ui.make_persistent_id((
+                "azure_devops_projects",
+                app.azure.account_generation,
+                organization,
+                authentication,
             ));
-            let project_id = ui.data(|data| data.get_temp::<AzureDevOpsProjectId>(detail));
-            if let Some(project) =
-                project_id.and_then(|id| projects.iter().find(|project| project.id == id))
-            {
-                ui.horizontal_wrapped(|ui| {
-                    if ui.link("All projects").clicked() {
-                        ui.data_mut(|data| data.remove::<AzureDevOpsProjectId>(detail));
-                    }
-                    ui.heading(project.name.as_ref());
-                });
-                ui.push_id(project.id, |ui| {
-                    ScrollArea::vertical()
-                        .show(ui, |ui| ReflectedValue::new(project.as_ref()).show(ui));
-                });
-            } else if projects.is_empty() {
-                ui.label("No projects are visible in this organization.");
-            } else {
-                show_projects_table(app, ui, &projects, detail);
+            if let Some(open) = show_projects_table(
+                ui,
+                organization,
+                authentication,
+                projects,
+                project_table,
+                &mut app.azure.checkboxes,
+            ) {
+                open.apply(app);
             }
         }
     }
 }
 
 fn show_projects_table(
-    app: &mut MyApp,
     ui: &mut Ui,
+    organization: &AzureDevOpsOrganizationUrl,
+    authentication: AzureDevOpsAuthSelection,
     projects: &[Arc<AzureDevOpsProject>],
-    detail: Id,
-) {
-    let selected_count = projects
+    id: Id,
+    checked_rows: &mut HashMap<Id, bool>,
+) -> Option<PortalTabOpen> {
+    if projects.is_empty() {
+        show_inventory_result_count(ui, id, 0, 0);
+        ui.label("No projects are visible in this organization.");
+        return None;
+    }
+    let columns = [
+        ReflectedTableColumn::new("Name", "name")
+            .with_icon(|_, _| Some(DEVOPS_PROJECT_ICON))
+            .with_identifier("id")
+            .with_link("target"),
+        ReflectedTableColumn::new("Visibility", "visibility")
+            .with_width(106.0)
+            .groupable(),
+        ReflectedTableColumn::new("Last updated", "last_updated").with_width(206.0),
+    ];
+    let rows: Vec<_> = projects
         .iter()
-        .filter(|project| {
-            app.checkboxes
-                .get(&Id::new(project.id))
-                .copied()
-                .unwrap_or(false)
-        })
-        .count();
-    show_inventory_table(ui, |table| {
-        table
-            .id_salt("azure_devops_projects")
-            .column(Column::exact(32.0))
-            .column(Column::remainder().at_least(140.0).clip(true))
-            .column(Column::initial(106.0).at_least(75.0).clip(true))
-            .column(Column::initial(125.0).at_least(100.0).clip(true))
-            .header(27.0, |mut header| {
-                header.col(|ui| {
-                    let mut checked = selected_count == projects.len();
-                    let indeterminate = selected_count > 0 && !checked;
-                    if ui
-                        .add(Checkbox::without_text(&mut checked).indeterminate(indeterminate))
-                        .on_hover_text("Select all projects")
-                        .changed()
-                    {
-                        for project in projects {
-                            *app.checkbox_for(project.id) = checked;
-                        }
-                    }
-                });
-                for title in ["Name", "Visibility", "Last updated"] {
-                    header.col(|ui| {
-                        ui.strong(title);
-                    });
-                }
-            })
-            .body(|mut body| {
-                let background = TableRowBackground::new(&mut body);
-                body.rows(28.0, projects.len(), |mut row| {
-                    let project = &projects[row.index()];
-                    let checked = app.checkbox_for(project.id);
-                    background.first_cell(&mut row, |ui| {
-                        ui.add(Checkbox::without_text(checked))
-                            .on_hover_text(format!("Select {}", project.name));
-                        *checked
-                    });
-                    row.col(|ui| {
-                        ui.add(
-                            Image::new(DEVOPS_PROJECT_ICON).fit_to_exact_size(Vec2::splat(16.0)),
-                        );
-                        if ui.link(project.name.as_ref()).clicked() {
-                            ui.data_mut(|data| data.insert_temp(detail, project.id));
-                        }
-                    });
-                    row.col(|ui| {
-                        ui.label(match project.visibility {
-                            AzureDevOpsProjectVisibility::Private => "Private",
-                            AzureDevOpsProjectVisibility::Public => "Public",
-                        });
-                    });
-                    row.col(|ui| {
-                        ui.label(project.last_update_time.format("%Y-%m-%d").to_string())
-                            .on_hover_text(project.last_update_time.to_rfc3339());
-                    });
-                });
-            });
-    });
+        .map(|project| AzureDevOpsProjectRow::new(organization, project))
+        .collect();
+    ReflectedTable::new(id, &columns)
+        .with_search_hint("Search projects")
+        .with_result_count()
+        .show_explorable(
+            ui,
+            &rows,
+            |row| Id::new((organization, authentication, row.id)),
+            checked_rows,
+        )
 }

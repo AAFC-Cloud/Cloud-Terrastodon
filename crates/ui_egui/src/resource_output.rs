@@ -12,13 +12,17 @@ use std::sync::Weak;
 use teamy_cancellation::CancellationScope;
 
 /// Last rendered representation of a resource snapshot.
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub(crate) struct ResourceOutput {
-    rendered: Option<(OutputFormat, Weak<dyn Any>, Result<Option<String>>)>,
+    rendered: Option<(
+        OutputFormat,
+        Weak<dyn Any + Send + Sync>,
+        Arc<Result<Option<String>>>,
+    )>,
 }
 
 impl ResourceOutput {
-    pub(crate) fn show<T: 'static>(
+    pub(crate) fn show<T: Send + Sync + 'static>(
         &mut self,
         ui: &mut Ui,
         format: OutputFormat,
@@ -26,7 +30,7 @@ impl ResourceOutput {
         output: impl FnOnce(Arc<T>) -> CliOutput,
         cancellation: &CancellationScope,
     ) {
-        let identity: Weak<dyn Any> = Arc::<T>::downgrade(value);
+        let identity: Weak<dyn Any + Send + Sync> = Arc::<T>::downgrade(value);
         if self
             .rendered
             .as_ref()
@@ -45,10 +49,14 @@ impl ResourceOutput {
                         }
                     })
                 });
-            self.rendered = Some((format, identity, rendered));
+            self.rendered = Some((format, identity, Arc::new(rendered)));
         }
-        match &self.rendered {
-            Some((_, _, Ok(Some(text)))) => {
+        match self
+            .rendered
+            .as_ref()
+            .map(|(_, _, preview)| preview.as_ref())
+        {
+            Some(Ok(Some(text))) => {
                 if ui.button("Copy output").clicked() {
                     ui.ctx().copy_text(text.clone());
                 }
@@ -63,10 +71,10 @@ impl ResourceOutput {
                         );
                     });
             }
-            Some((_, _, Ok(None))) => {
+            Some(Ok(None)) => {
                 ui.label("No output");
             }
-            Some((_, _, Err(error))) => {
+            Some(Err(error)) => {
                 ui.label(format!("Could not render the output · {error}"));
             }
             None => {}

@@ -1,11 +1,10 @@
-use crate::icons::page_icon;
-use crate::portal_page::PortalPage;
-use eframe::egui::Align;
+use crate::portal_tab_open::PortalTabOpen;
+use crate::portal_tab_target::PortalTabTarget;
 use eframe::egui::Button;
 use eframe::egui::CursorIcon;
 use eframe::egui::Frame;
 use eframe::egui::Image;
-use eframe::egui::Layout;
+use eframe::egui::ImageSource;
 use eframe::egui::Margin;
 use eframe::egui::RichText;
 use eframe::egui::Ui;
@@ -13,32 +12,15 @@ use eframe::egui::Vec2;
 use eframe::egui::WidgetInfo;
 use eframe::egui::WidgetType;
 
-/// Returns whether the user opened the inventory or the resource output.
-pub(crate) fn resource_detail_header_with_output(
-    ui: &mut Ui,
-    name: &str,
-    resource_type: &str,
-    inventory: PortalPage,
-) -> (bool, bool) {
-    ui.horizontal(|ui| {
-        let inventory = resource_detail_header(ui, name, resource_type, inventory);
-        let output = ui
-            .with_layout(Layout::right_to_left(Align::Center), |ui| {
-                ui.button("View output").clicked()
-            })
-            .inner;
-        (inventory, output)
-    })
-    .inner
-}
-
-/// Returns whether the user opened the inventory linked from the icon and type.
+/// Link to the inventory from the resource icon and type label.
 pub(crate) fn resource_detail_header(
     ui: &mut Ui,
     name: &str,
     resource_type: &str,
-    inventory: PortalPage,
-) -> bool {
+    inventory_title: &str,
+    icon: ImageSource<'static>,
+    inventory: &PortalTabTarget,
+) -> Option<PortalTabOpen> {
     Frame::NONE
         .inner_margin(Margin {
             left: 12,
@@ -49,13 +31,13 @@ pub(crate) fn resource_detail_header(
         .show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.spacing_mut().item_spacing.x = 12.0;
-                let icon = Image::new(page_icon(inventory)).fit_to_exact_size(Vec2::splat(38.0));
+                let icon = Image::new(icon).fit_to_exact_size(Vec2::splat(38.0));
                 let icon = ui
                     .add(Button::image(icon).frame_when_inactive(false))
                     .on_hover_cursor(CursorIcon::PointingHand)
-                    .on_hover_text(inventory.title());
+                    .on_hover_text(inventory_title);
                 icon.widget_info(|| {
-                    WidgetInfo::labeled(WidgetType::Button, ui.is_enabled(), inventory.title())
+                    WidgetInfo::labeled(WidgetType::Button, ui.is_enabled(), inventory_title)
                 });
                 let type_link = ui
                     .vertical(|ui| {
@@ -67,11 +49,11 @@ pub(crate) fn resource_detail_header(
                                 .frame(false),
                         )
                         .on_hover_cursor(CursorIcon::PointingHand)
-                        .on_hover_text(inventory.title())
-                        .clicked()
+                        .on_hover_text(inventory_title)
                     })
                     .inner;
-                icon.clicked() || type_link
+                PortalTabOpen::from_response(&icon, || inventory.clone())
+                    .or_else(|| PortalTabOpen::from_response(&type_link, || inventory.clone()))
             })
             .inner
         })

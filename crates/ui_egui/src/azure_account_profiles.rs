@@ -3,6 +3,7 @@ use crate::azure_account_profile::AzureAccountProfile;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountPrincipal;
 use eframe::egui::Context;
+use std::collections::HashMap;
 use std::collections::VecDeque;
 use tokio::runtime::Handle;
 use tokio::sync::oneshot;
@@ -13,10 +14,7 @@ use tokio::sync::oneshot::error::TryRecvError;
 #[derive(Default)]
 pub(crate) struct AzureAccountProfiles {
     completed: VecDeque<(AzureBearerAuthenticationSelection, AzureAccountProfile)>,
-    pending: Option<(
-        AzureBearerAuthenticationSelection,
-        oneshot::Receiver<AzureAccountProfile>,
-    )>,
+    pending: HashMap<AzureBearerAuthenticationSelection, oneshot::Receiver<AzureAccountProfile>>,
 }
 
 impl AzureAccountProfiles {
@@ -41,34 +39,32 @@ impl AzureAccountProfiles {
         self.completed.push_back((selection, profile));
     }
 
-    fn poll(&mut self, selection: Option<AzureBearerAuthenticationSelection>) {
-        let Some((pending_selection, receiver)) = &mut self.pending else {
-            return;
-        };
-        if Some(*pending_selection) != selection {
-            // Dropping the receiver cancels the worker's linked optional read.
-            self.pending = None;
-            return;
+    fn poll(&mut self) {
+        let mut completed = Vec::new();
+        self.pending.retain(|&selection, receiver| {
+            let profile = match receiver.try_recv() {
+                Ok(profile) => profile,
+                Err(TryRecvError::Closed) => AzureAccountProfile::default(),
+                Err(TryRecvError::Empty) => return true,
+            };
+            completed.push((selection, profile));
+            false
+        });
+        for (selection, profile) in completed {
+            self.finish(selection, profile);
         }
-        let completed = match receiver.try_recv() {
-            Ok(profile) => profile,
-            Err(TryRecvError::Closed) => AzureAccountProfile::default(),
-            Err(TryRecvError::Empty) => return,
-        };
-        let pending_selection = *pending_selection;
-        self.pending = None;
-        self.finish(pending_selection, completed);
     }
 }
 
 impl MyApp {
     pub(crate) fn update_account_profile(&mut self, ctx: &Context) {
         let selection = self.ready_azure_authentication();
-        self.account_profiles.poll(selection);
+        self.account_profiles.poll();
         let Some(selection) = selection else {
             return;
         };
-        if self.account_profiles.pending.is_some() || self.account_profiles.get(selection).is_some()
+        if self.account_profiles.pending.contains_key(&selection)
+            || self.account_profiles.get(selection).is_some()
         {
             return;
         }
@@ -119,7 +115,7 @@ impl MyApp {
             },
         );
         if task.is_ok() {
-            self.account_profiles.pending = Some((selection, receive));
+            self.account_profiles.pending.insert(selection, receive);
         } else {
             self.account_profiles
                 .finish(selection, AzureAccountProfile::default());

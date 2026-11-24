@@ -8,7 +8,7 @@ use std::time::Instant;
 use tracing::info;
 
 pub fn load_resource_groups(app: &mut MyApp, refresh: bool) {
-    let account_generation = app.account_generation;
+    let account_generation = app.azure.account_generation;
     let Some(authentication) = app.ready_azure_authentication() else {
         return;
     };
@@ -20,8 +20,8 @@ pub fn load_resource_groups(app: &mut MyApp, refresh: bool) {
     let enqueue_result = LoadableWorkBuilder::<MyApp, _>::new()
         .description("Loading Resource Groups")
         .setter(move |app, data| {
-            if app.account_generation == account_generation {
-                app.resource_groups = data.map(Rc::new);
+            if let Some(azure) = app.azure_content_mut(account_generation) {
+                azure.resource_groups = data.map(Rc::new);
             }
         })
         .work(async move |scope| {
@@ -40,7 +40,7 @@ pub fn load_resource_groups(app: &mut MyApp, refresh: bool) {
             &cancellation,
         );
     if let Err(error) = enqueue_result {
-        app.resource_groups = Loadable::Failed {
+        app.azure.resource_groups = Loadable::Failed {
             error: error.into(),
             started_at,
             finished_at: Instant::now(),

@@ -1,5 +1,6 @@
 use crate::app::MyApp;
 use crate::local_path_preview::LocalPathPreview;
+use crate::portal_tab_open::PortalTabOpen;
 use crate::portal_tab_target::PortalTabTarget;
 use cloud_terrastodon_command::app_work::Loadable;
 use cloud_terrastodon_command::app_work::LoadableWorkBuilder;
@@ -35,8 +36,11 @@ pub(crate) fn local_path_ui(app: &mut MyApp, ui: &mut Ui, path: &Path) {
                         let name = entry
                             .file_name()
                             .map_or_else(|| entry.to_string_lossy(), |name| name.to_string_lossy());
-                        if ui.link(name.as_ref()).clicked() {
-                            open = Some(entry.clone());
+                        let response = ui.link(name.as_ref());
+                        if let Some(action) = PortalTabOpen::from_response(&response, || {
+                            PortalTabTarget::LocalPath(entry.clone())
+                        }) {
+                            open = Some(action);
                         }
                     }
                     if *truncated {
@@ -73,8 +77,8 @@ pub(crate) fn local_path_ui(app: &mut MyApp, ui: &mut Ui, path: &Path) {
         }
     }
 
-    if let Some(path) = open {
-        app.navigate_tab(PortalTabTarget::LocalPath(path));
+    if let Some(action) = open {
+        action.apply(app);
     }
     if retry {
         load_local_path(app, path);

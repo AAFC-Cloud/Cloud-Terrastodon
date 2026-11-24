@@ -1735,6 +1735,7 @@ name = "cloud_terrastodon_ui_egui"
 version = "0.37.0"
 dependencies = [
  "async-trait",
+ "chrono",
  "cloud_terrastodon_app",
  "cloud_terrastodon_auth",
  "cloud_terrastodon_auth_cli",
@@ -1742,6 +1743,7 @@ dependencies = [
  "cloud_terrastodon_azure",
  "cloud_terrastodon_azure_cli",
  "cloud_terrastodon_azure_devops",
+ "cloud_terrastodon_azure_devops_cli",
  "cloud_terrastodon_cache",
  "cloud_terrastodon_cli_types",
  "cloud_terrastodon_command",
@@ -1765,6 +1767,7 @@ dependencies = [
  "strip-ansi-escapes",
  "teamy-cancellation",
  "teamy-facet",
+ "teamy-facet-json",
  "teamy-facet-reflect",
  "teamy-figue",
  "teamy-tracing",

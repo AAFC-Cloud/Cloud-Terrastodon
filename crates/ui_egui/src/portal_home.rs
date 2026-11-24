@@ -1,6 +1,8 @@
 use crate::app::MyApp;
 use crate::icons::page_icon;
 use crate::portal_page::PortalPage;
+use crate::portal_tab_open::PortalTabOpen;
+use crate::portal_tab_target::PortalTabTarget;
 use crate::windows::resources_window::resources_ui;
 use eframe::egui::Align;
 use eframe::egui::Color32;
@@ -9,6 +11,7 @@ use eframe::egui::Image;
 use eframe::egui::Layout;
 use eframe::egui::Pos2;
 use eframe::egui::Rect;
+use eframe::egui::Response;
 use eframe::egui::RichText;
 use eframe::egui::Sense;
 use eframe::egui::Ui;
@@ -29,7 +32,14 @@ pub fn portal_home(app: &mut MyApp, ui: &mut Ui) {
     ui.scope_builder(UiBuilder::new().max_rect(content), |ui| {
         ui.shrink_clip_rect(content);
         ui.set_min_width(width);
-        ui.label(RichText::new("Azure services").strong().size(19.0));
+        ui.add_space(24.0);
+        let tab = app.tabs.active_id();
+        app.account_page_header(ui, |_, ui| {
+            ui.label(RichText::new("Azure services").strong().size(19.0));
+        });
+        if app.tabs.active_id() != tab {
+            return;
+        }
         ui.add_space(16.0);
         ui.vertical_centered(|ui| azure_services(app, ui));
         ui.add_space(24.0);
@@ -51,6 +61,7 @@ fn azure_services(app: &mut MyApp, ui: &mut Ui) {
         PortalPage::StorageAccounts,
         PortalPage::ContainerRegistries,
         PortalPage::KeyVaults,
+        PortalPage::Entra,
     ];
 
     ui.spacing_mut().item_spacing = Vec2::splat(TILE_GAP);
@@ -64,8 +75,11 @@ fn azure_services(app: &mut MyApp, ui: &mut Ui) {
             Layout::left_to_right(Align::Center),
             |ui| {
                 for &page in row {
-                    if service_tile(ui, page, tile_size) {
-                        app.navigate(page);
+                    let response = service_tile(ui, page, tile_size);
+                    if let Some(action) =
+                        PortalTabOpen::from_response(&response, || PortalTabTarget::Page(page))
+                    {
+                        action.apply(app);
                     }
                 }
             },
@@ -73,7 +87,7 @@ fn azure_services(app: &mut MyApp, ui: &mut Ui) {
     }
 }
 
-fn service_tile(ui: &mut Ui, page: PortalPage, size: Vec2) -> bool {
+fn service_tile(ui: &mut Ui, page: PortalPage, size: Vec2) -> Response {
     let (rect, response) = ui.allocate_exact_size(size, Sense::click());
     response.widget_info(|| WidgetInfo::labeled(WidgetType::Button, ui.is_enabled(), page.title()));
     if response.hovered() || response.has_focus() {
@@ -98,7 +112,5 @@ fn service_tile(ui: &mut Ui, page: PortalPage, size: Vec2) -> bool {
         title,
         Color32::from_rgb(0, 95, 184),
     );
-    response
-        .on_hover_text(format!("Browse {}", page.title().to_lowercase()))
-        .clicked()
+    response.on_hover_text(format!("Browse {}", page.title().to_lowercase()))
 }

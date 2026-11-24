@@ -1,7 +1,9 @@
+use crate::app::MyApp;
 use crate::azure_account_picker_action::AzureAccountPickerAction;
 use crate::azure_account_profile::AzureAccountProfile;
 use crate::azure_account_profiles::AzureAccountProfiles;
 use crate::azure_account_registration_form::source_label;
+use crate::portal_tab_id::PortalTabId;
 use cloud_terrastodon_auth::CloudTerrastodonAccountCatalogue;
 use cloud_terrastodon_auth::CloudTerrastodonAccountStore;
 use cloud_terrastodon_auth_types::AzureBearerAuthSource;
@@ -12,11 +14,14 @@ use cloud_terrastodon_auth_types::CloudTerrastodonAccountSession;
 use cloud_terrastodon_auth_types::CloudTerrastodonCredentialRegistration;
 use cloud_terrastodon_auth_types::CloudTerrastodonCredentialSource;
 use cloud_terrastodon_azure::AzureTenantId;
+use eframe::egui::Align;
 use eframe::egui::Button;
 use eframe::egui::Color32;
 use eframe::egui::CursorIcon;
 use eframe::egui::Frame;
+use eframe::egui::Id;
 use eframe::egui::Image;
+use eframe::egui::Layout;
 use eframe::egui::Popup;
 use eframe::egui::PopupCloseBehavior;
 use eframe::egui::Rect;
@@ -24,7 +29,6 @@ use eframe::egui::Response;
 use eframe::egui::RichText;
 use eframe::egui::ScrollArea;
 use eframe::egui::Sense;
-use eframe::egui::Shape;
 use eframe::egui::Stroke;
 use eframe::egui::StrokeKind;
 use eframe::egui::Style;
@@ -37,32 +41,60 @@ use eframe::egui::Visuals;
 use eframe::egui::WidgetInfo;
 use eframe::egui::WidgetText;
 use eframe::egui::WidgetType;
+use eframe::egui::include_image;
+use std::collections::HashMap;
+use std::collections::HashSet;
 use teamy_tracing::DiagnosticReport;
 use teamy_tracing::gui::DiagnosticReportView;
+
+const ACCOUNT_CONTROL_HEIGHT: f32 = 36.0;
 
 /// Account selection over a local catalogue snapshot.
 pub struct AzureAccountPicker {
     pub catalogue: Result<CloudTerrastodonAccountCatalogue, DiagnosticReport>,
-    pub selection_error: Option<DiagnosticReport>,
-    open_requested: bool,
+    selection_errors: HashMap<(PortalTabId, Id), DiagnosticReport>,
+    open_requested: HashSet<(PortalTabId, Id)>,
 }
 
 impl AzureAccountPicker {
     pub fn new(store: &CloudTerrastodonAccountStore) -> Self {
         Self {
             catalogue: store.load().map_err(DiagnosticReport::new),
-            selection_error: None,
-            open_requested: false,
+            selection_errors: HashMap::new(),
+            open_requested: HashSet::new(),
         }
     }
 
-    pub fn open(&mut self) {
-        self.open_requested = true;
+    pub(crate) fn open(&mut self, tab: PortalTabId) {
+        self.open_requested.insert(Self::page_instance(tab));
+    }
+
+    pub(crate) fn set_selection_error(
+        &mut self,
+        tab: PortalTabId,
+        error: Option<DiagnosticReport>,
+    ) {
+        if let Some(error) = error {
+            self.selection_errors
+                .insert(Self::page_instance(tab), error);
+        } else {
+            self.selection_errors.remove(&Self::page_instance(tab));
+        }
+    }
+
+    pub(crate) fn retain_tabs(&mut self, is_open: impl Fn(PortalTabId) -> bool) {
+        self.selection_errors.retain(|&(tab, _), _| is_open(tab));
+        self.open_requested.retain(|&(tab, _)| is_open(tab));
+    }
+
+    fn page_instance(tab: PortalTabId) -> (PortalTabId, Id) {
+        (tab, Id::new("page-azure-account"))
     }
 
     pub(crate) fn show(
         &mut self,
         ui: &mut Ui,
+        instance: (PortalTabId, Id),
         authentication: Option<AzureBearerAuthenticationSelection>,
         profiles: &AzureAccountProfiles,
         busy: bool,
@@ -81,7 +113,7 @@ impl AzureAccountPicker {
         let selected_profile = authentication.and_then(|selection| profiles.get(selection));
         let email = selected_profile.and_then(|profile| profile.display_email(*demo_mode));
         let tenant = authentication.map(|selection| selection.tenant_id.to_string());
-        let response = Self::header_button(
+        let response = Self::account_button(
             ui,
             Self::display_alias(alias, *demo_mode),
             tenant.as_deref(),
@@ -89,7 +121,7 @@ impl AzureAccountPicker {
             selected_profile,
         );
         let popup_id = Popup::default_response_id(&response);
-        let open_requested = std::mem::take(&mut self.open_requested);
+        let open_requested = self.open_requested.remove(&instance);
         let opening =
             open_requested || (response.clicked() && !Popup::is_id_open(ui.ctx(), popup_id));
         if open_requested {
@@ -107,7 +139,7 @@ impl AzureAccountPicker {
             .show(|ui| {
                 ui.set_width(382.0);
                 ui.heading("Accounts");
-                if let Some(error) = &self.selection_error {
+                if let Some(error) = self.selection_errors.get(&instance) {
                     ui.collapsing("Account error", |ui| {
                         DiagnosticReportView::new(error).show(ui)
                     });
@@ -358,16 +390,41 @@ impl AzureAccountPicker {
         }
     }
 
-    /// Give each line its own clip region within the fixed-height portal header.
-    fn header_button(
+    fn account_button(
         ui: &mut Ui,
         alias: &str,
         tenant: Option<&str>,
         email: Option<&str>,
         profile: Option<&AzureAccountProfile>,
     ) -> Response {
-        let width = ui.available_width().clamp(64.0, 280.0);
-        let (rect, response) = ui.allocate_exact_size(Vec2::new(width, 40.0), Sense::click());
+        const LEFT_INSET: f32 = 8.0;
+        const RIGHT_INSET: f32 = 49.0;
+
+        let secondary_color = ui.visuals().weak_text_color();
+        let tenant_text =
+            tenant.map(|tenant| RichText::new(tenant).size(9.0).color(secondary_color));
+        let tenant_width = tenant_text.as_ref().map_or(0.0, |text| {
+            WidgetText::from(text.clone())
+                .into_galley(
+                    ui,
+                    Some(TextWrapMode::Extend),
+                    f32::INFINITY,
+                    TextStyle::Small,
+                )
+                .size()
+                .x
+                .ceil()
+                + LEFT_INSET
+                + RIGHT_INSET
+                + 1.0
+        });
+        let available = ui.available_width();
+        let width = (available * 0.42)
+            .clamp(56.0, 236.0)
+            .max(tenant_width.min(available * 0.58))
+            .min(available);
+        let (rect, response) =
+            ui.allocate_exact_size(Vec2::new(width, ACCOUNT_CONTROL_HEIGHT), Sense::click());
         response.widget_info(|| {
             WidgetInfo::labeled(
                 WidgetType::Button,
@@ -375,50 +432,64 @@ impl AzureAccountPicker {
                 format!("Choose account: {alias}"),
             )
         });
+        let visuals = ui.style().interact(&response);
         if response.hovered()
             || response.has_focus()
             || Popup::is_id_open(ui.ctx(), Popup::default_response_id(&response))
         {
+            ui.painter().rect_filled(rect, 6, visuals.weak_bg_fill);
+        }
+        if response.has_focus() {
             ui.painter()
-                .rect_filled(rect, 0.0, Color32::from_rgb(0x10, 0x6e, 0xbe));
+                .rect_stroke(rect, 6, visuals.fg_stroke, StrokeKind::Inside);
         }
 
         if width > 80.0 {
+            let text_color = ui.visuals().text_color();
             let text_rect = Rect::from_min_max(
-                rect.min + Vec2::new(10.0, 0.0),
-                rect.max - Vec2::new(62.0, 0.0),
+                rect.min + Vec2::new(LEFT_INSET, 0.0),
+                rect.max - Vec2::new(RIGHT_INSET, 0.0),
             );
             let painter = ui
                 .painter()
                 .with_clip_rect(text_rect.intersect(ui.clip_rect()));
-            let text = |value: RichText, top| {
-                let value = WidgetText::from(value.color(Color32::WHITE)).into_galley(
+            let lines = [
+                (
+                    Some(RichText::new(alias).size(12.0).strong().color(text_color)),
+                    14.0,
+                ),
+                (
+                    email.map(|email| RichText::new(email).size(10.0).color(secondary_color)),
+                    11.0,
+                ),
+                (tenant_text, 10.0),
+            ];
+            let height: f32 = lines
+                .iter()
+                .filter_map(|(text, height)| text.as_ref().map(|_| *height))
+                .sum();
+            let mut top = rect.center().y - height * 0.5;
+            for (text, height) in lines {
+                let Some(text) = text else {
+                    continue;
+                };
+                let value = WidgetText::from(text).into_galley(
                     ui,
                     Some(TextWrapMode::Truncate),
                     text_rect.width(),
                     TextStyle::Small,
                 );
-                painter.galley(text_rect.min + Vec2::new(0.0, top), value, Color32::WHITE);
-            };
-            let title = RichText::new(alias).size(13.0).strong();
-            match (email, tenant) {
-                (Some(email), Some(tenant)) => {
-                    text(title, 0.0);
-                    text(RichText::new(email).size(11.0), 13.0);
-                    text(RichText::new(tenant).size(10.0), 26.0);
-                }
-                (_, Some(tenant)) => {
-                    text(title, 4.0);
-                    text(RichText::new(tenant).size(10.0), 23.0);
-                }
-                _ => text(title, 11.0),
+                let mut position = text_rect.min;
+                position.y = top + (height - value.size().y) * 0.5;
+                painter.galley(position, value, text_color);
+                top += height;
             }
         }
         Self::paint_avatar(
             ui,
             Rect::from_center_size(
-                rect.right_center() - Vec2::new(40.0, 0.0),
-                Vec2::splat(28.0),
+                rect.right_center() - Vec2::new(32.0, 0.0),
+                Vec2::splat(24.0),
             ),
             profile.and_then(|profile| profile.photo.as_ref()),
         );
@@ -428,14 +499,14 @@ impl AzureAccountPicker {
                 arrow_center + Vec2::new(-4.0, -2.0),
                 arrow_center + Vec2::new(0.0, 2.0),
             ],
-            Stroke::new(1.5_f32, Color32::WHITE),
+            Stroke::new(1.5, visuals.fg_stroke.color),
         );
         ui.painter().line_segment(
             [
                 arrow_center + Vec2::new(0.0, 2.0),
                 arrow_center + Vec2::new(4.0, -2.0),
             ],
-            Stroke::new(1.5_f32, Color32::WHITE),
+            Stroke::new(1.5, visuals.fg_stroke.color),
         );
         response.on_hover_cursor(CursorIcon::PointingHand)
     }
@@ -445,26 +516,114 @@ impl AzureAccountPicker {
             Image::new(photo).corner_radius(16_u8).paint_at(ui, rect);
             return;
         }
-        let center = rect.center();
-        let width = rect.width();
-        let foreground = Color32::from_rgb(35, 83, 119);
-        let stroke = Stroke::new(1.35, foreground);
-        let painter = ui.painter();
-        painter.circle_filled(center, width * 0.5, Color32::from_rgb(224, 237, 248));
-        painter.circle_stroke(center + Vec2::new(0.0, -width * 0.13), width * 0.10, stroke);
-        painter.add(Shape::line(
-            [
-                (-0.23, 0.24),
-                (-0.18, 0.14),
-                (-0.09, 0.09),
-                (0.09, 0.09),
-                (0.18, 0.14),
-                (0.23, 0.24),
-            ]
-            .into_iter()
-            .map(|(x, y)| center + width * Vec2::new(x, y))
-            .collect(),
-            stroke,
-        ));
+        Image::new(include_image!("../assets/iam-user.svg")).paint_at(ui, rect);
+    }
+}
+
+impl MyApp {
+    /// Draw the account control for pages whose data depends on an Azure account.
+    pub(crate) fn show_page_account_picker(&mut self, ui: &mut Ui) {
+        self.update_account_profile(ui.ctx());
+        let instance = AzureAccountPicker::page_instance(self.tabs.active_id());
+        let action = ui
+            .push_id(instance, |ui| {
+                self.account_picker.show(
+                    ui,
+                    instance,
+                    self.azure.authentication,
+                    &self.account_profiles,
+                    self.account_operation.is_some(),
+                    &mut self.egui_config.demo_mode,
+                )
+            })
+            .inner;
+        if let Some(action) = action {
+            self.handle_account_picker_action(action, ui.ctx());
+        }
+    }
+
+    pub(crate) fn account_page_header<R>(
+        &mut self,
+        ui: &mut Ui,
+        heading: impl FnOnce(&mut Self, &mut Ui) -> R,
+    ) -> R {
+        ui.allocate_ui_with_layout(
+            Vec2::new(ui.available_width(), ACCOUNT_CONTROL_HEIGHT),
+            Layout::right_to_left(Align::Center),
+            |ui| {
+                self.show_page_account_picker(ui);
+                ui.add_space(12.0);
+                ui.with_layout(Layout::left_to_right(Align::Center), |ui| heading(self, ui))
+                    .inner
+            },
+        )
+        .inner
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::portal_typography;
+    use eframe::egui::Context;
+    use eframe::egui::Pos2;
+    use eframe::egui::RawInput;
+    use eframe::egui::Shape;
+
+    #[test]
+    fn page_account_control_shows_the_full_tenant_id() {
+        const TENANT: &str = "bdbdbdbd-bdbd-4bdb-abdb-bdbdbdbdbdbd";
+        let context = Context::default();
+        portal_typography::install(&context);
+        let mut output = context.run_ui(
+            RawInput {
+                screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(480.0, 60.0))),
+                ..Default::default()
+            },
+            |ui| {
+                AzureAccountPicker::account_button(ui, "admin", Some(TENANT), None, None);
+            },
+        );
+        output.textures_delta.clear();
+        assert!(output.shapes.iter().any(|clipped| {
+            matches!(&clipped.shape, Shape::Text(text)
+                if text.galley.text() == TENANT && !text.galley.elided
+                    && clipped.clip_rect.contains_rect(text.visual_bounding_rect()))
+        }));
+    }
+
+    #[test]
+    fn account_popup_request_waits_for_the_originating_tab() {
+        let context = Context::default();
+        let mut picker = AzureAccountPicker {
+            catalogue: Ok(CloudTerrastodonAccountCatalogue::default()),
+            selection_errors: HashMap::new(),
+            open_requested: HashSet::new(),
+        };
+        let profiles = AzureAccountProfiles::default();
+        let requested = PortalTabId(1);
+        picker.open(requested);
+
+        let mut demo_mode = false;
+        let expected_instance = AzureAccountPicker::page_instance(requested);
+        for instance in [
+            AzureAccountPicker::page_instance(PortalTabId(2)),
+            (requested, Id::new("comparison-account")),
+            expected_instance,
+        ] {
+            let mut output = context.run_ui(
+                RawInput {
+                    screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(700.0, 480.0))),
+                    ..Default::default()
+                },
+                |ui| {
+                    ui.push_id(instance, |ui| {
+                        picker.show(ui, instance, None, &profiles, false, &mut demo_mode);
+                    });
+                },
+            );
+            output.textures_delta.clear();
+            assert_eq!(Popup::is_any_open(&context), instance == expected_instance);
+        }
     }
 }

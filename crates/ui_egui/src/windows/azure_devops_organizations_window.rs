@@ -1,66 +1,65 @@
 use crate::app::MyApp;
 use crate::icons::DEVOPS_ICON;
-use crate::inventory_table::show_inventory_table;
-use crate::portal_page::PortalPage;
-use crate::table_row_background::TableRowBackground;
-use eframe::egui::Image;
-use eframe::egui::Label;
+use crate::inventory_table::show_inventory_result_count;
+use crate::portal_azure_devops_organization_view::PortalAzureDevOpsOrganizationView;
+use crate::reflected_table::ReflectedTable;
+use crate::reflected_table_column::ReflectedTableColumn;
+use crate::windows::azure_devops_organization_row::AzureDevOpsOrganizationRow;
+use eframe::egui::Id;
 use eframe::egui::Ui;
-use eframe::egui::Vec2;
-use egui_extras::Column;
+use std::collections::HashMap;
 
 pub(crate) fn azure_devops_organizations_ui(app: &mut MyApp, ui: &mut Ui) {
-    let mut selected = app.azure_devops_organization_picker.organization_input(ui);
-    let organizations = app.azure_devops_organization_picker.known_organizations(
-        app.azure_devops_organization.as_ref(),
-        app.account_picker.catalogue.as_ref().ok(),
-    );
-    if organizations.is_empty() && selected.is_none() {
-        ui.label("No known Azure DevOps organizations.");
+    let tracked_organizations_loaded = app.show_tracked_azure_devops_organizations_status(ui);
+    if let Some(organization) = app.azure_devops_organization_picker.organization_input(ui) {
+        app.navigate_tab(PortalAzureDevOpsOrganizationView::Projects.target(&organization));
         return;
     }
-
-    if selected.is_none() {
-        show_inventory_table(ui, |table| {
-            table
-                .id_salt("azure_devops_organizations")
-                .column(Column::initial(220.0).at_least(120.0).clip(true))
-                .column(Column::remainder().at_least(130.0).clip(true))
-                .header(26.0, |mut header| {
-                    header.col(|ui| {
-                        ui.strong("Organization");
-                    });
-                    header.col(|ui| {
-                        ui.strong("URL");
-                    });
-                })
-                .body(|mut body| {
-                    let background = TableRowBackground::new(&mut body);
-                    body.rows(28.0, organizations.len(), |mut row| {
-                        let organization = organizations[row.index()];
-                        let is_selected =
-                            app.azure_devops_organization.as_ref() == Some(organization);
-                        background.first_cell(&mut row, |ui| {
-                            ui.add(Image::new(DEVOPS_ICON).fit_to_exact_size(Vec2::splat(16.0)));
-                            if ui
-                                .link(organization.name())
-                                .on_hover_text("Browse projects")
-                                .clicked()
-                            {
-                                selected = Some(organization.clone());
-                            }
-                            is_selected
-                        });
-                        row.col(|ui| {
-                            ui.add(Label::new(organization.to_string()).truncate());
-                        });
-                    });
-                });
-        });
+    let organizations = app.azure_devops_organization_picker.known_organizations(
+        app.azure.azure_devops_organization.as_ref(),
+        app.account_picker.catalogue.as_ref().ok(),
+    );
+    let id = "azure_devops_organizations";
+    if organizations.is_empty() {
+        if tracked_organizations_loaded {
+            show_inventory_result_count(ui, id, 0, 0);
+            ui.label("No known Azure DevOps organizations.");
+        }
+        return;
     }
-
-    if let Some(organization) = selected {
-        app.select_azure_devops_organization(organization);
-        app.navigate(PortalPage::AzureDevOpsProjects);
+    let columns = [
+        ReflectedTableColumn::new("Organization", "name")
+            .with_width(220.0)
+            .with_icon(|_, _| Some(DEVOPS_ICON))
+            .with_link("organization"),
+        ReflectedTableColumn::new("URL", "url"),
+        ReflectedTableColumn::new("Tenant ID", "tenant_id").with_width(292.0),
+    ];
+    let account_tenant = app
+        .azure
+        .authentication
+        .map(|selection| selection.tenant_id);
+    let rows: Vec<_> = organizations
+        .into_iter()
+        .map(|(organization, tenant_id)| {
+            AzureDevOpsOrganizationRow::new(organization, tenant_id, account_tenant)
+        })
+        .collect();
+    if let Some(open) = ReflectedTable::new(id, &columns)
+        .without_selection()
+        .with_deemphasized_rows(|row| {
+            row.get::<AzureDevOpsOrganizationRow>()
+                .is_some_and(|row| row.different_tenant)
+        })
+        .with_search_hint("Search organizations")
+        .with_result_count()
+        .show_explorable(
+            ui,
+            &rows,
+            |row| Id::new(&row.organization),
+            &mut HashMap::new(),
+        )
+    {
+        open.apply(app);
     }
 }

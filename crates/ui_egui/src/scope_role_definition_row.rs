@@ -24,11 +24,3 @@ impl From<Arc<RoleDefinition>> for ScopeRoleDefinitionRow {
         }
     }
 }
-
-impl ScopeRoleDefinitionRow {
-    pub fn matches(&self, filter: &str) -> bool {
-        self.role.to_lowercase().contains(filter)
-            || self.kind.to_lowercase().contains(filter)
-            || self.description.to_lowercase().contains(filter)
-    }
-}

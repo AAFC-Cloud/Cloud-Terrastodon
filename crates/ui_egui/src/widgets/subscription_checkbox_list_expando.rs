@@ -10,13 +10,16 @@ use eframe::egui::Widget;
 use eframe::egui::collapsing_header::CollapsingState;
 
 pub fn draw_subscription_list_expando(app: &mut MyApp, ui: &mut Ui) {
-    let mut expando =
-        CollapsingState::load_with_default_open(ui.ctx(), "subscriptions".into(), false);
+    let mut expando = CollapsingState::load_with_default_open(
+        ui.ctx(),
+        ui.make_persistent_id("subscriptions-expando"),
+        false,
+    );
     let toggle_key = expando.id();
-    if app.toggle_intents.remove(&toggle_key) {
+    if app.azure.toggle_intents.remove(&toggle_key) {
         expando.toggle(ui);
     }
-    if expando.is_open() && matches!(app.subscriptions, Loadable::NotLoaded) {
+    if expando.is_open() && matches!(app.azure.subscriptions, Loadable::NotLoaded) {
         load_subscriptions(app);
     }
     expando
@@ -26,11 +29,11 @@ pub fn draw_subscription_list_expando(app: &mut MyApp, ui: &mut Ui) {
 }
 
 fn draw_header(app: &mut MyApp, ui: &mut Ui, toggle_key: Id) {
-    match &app.subscriptions {
+    match &app.azure.subscriptions {
         Loadable::Loaded { value: subs, .. } => {
             let subs = subs.clone();
             if ui.image(SUBSCRIPTION_ICON).clicked() {
-                app.toggle_intents.insert(toggle_key);
+                app.azure.toggle_intents.insert(toggle_key);
             }
 
             let mut all = subs.iter().all(|sub| *app.checkbox_for(sub.id));
@@ -47,11 +50,11 @@ fn draw_header(app: &mut MyApp, ui: &mut Ui, toggle_key: Id) {
         }
         _ => {
             if ui.image(SUBSCRIPTION_ICON).clicked() {
-                app.toggle_intents.insert(toggle_key);
+                app.azure.toggle_intents.insert(toggle_key);
             }
             let elem = ui.label("Subscriptions");
             if elem.clicked() {
-                app.toggle_intents.insert(toggle_key);
+                app.azure.toggle_intents.insert(toggle_key);
             };
         }
     }

@@ -14,7 +14,7 @@ pub fn load_subscriptions(app: &mut MyApp) {
 }
 
 pub(crate) fn load_subscriptions_with_invalidation(app: &mut MyApp, refresh: bool) {
-    let account_generation = app.account_generation;
+    let account_generation = app.azure.account_generation;
     let Some(authentication) = app.ready_azure_authentication() else {
         return;
     };
@@ -26,8 +26,8 @@ pub(crate) fn load_subscriptions_with_invalidation(app: &mut MyApp, refresh: boo
     let enqueue_result = LoadableWorkBuilder::<MyApp, Vec<Arc<Subscription>>>::new()
         .description("Loading Subscriptions")
         .setter(move |app, data| {
-            if app.account_generation == account_generation {
-                app.subscriptions = data.map(Rc::new);
+            if let Some(azure) = app.azure_content_mut(account_generation) {
+                azure.subscriptions = data.map(Rc::new);
             }
         })
         .work(async move |scope| {
@@ -46,7 +46,7 @@ pub(crate) fn load_subscriptions_with_invalidation(app: &mut MyApp, refresh: boo
             &cancellation,
         );
     if let Err(error) = enqueue_result {
-        app.subscriptions = Loadable::Failed {
+        app.azure.subscriptions = Loadable::Failed {
             error: error.into(),
             started_at,
             finished_at: Instant::now(),

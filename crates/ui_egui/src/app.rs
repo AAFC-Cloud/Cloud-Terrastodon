@@ -8,25 +8,16 @@ use crate::azure_tenant_manager::AzureTenantManager;
 use crate::gui_work_cache::GuiWorkCache;
 use crate::local_path_preview::LocalPathPreview;
 use crate::portal_address::PortalAddress;
+use crate::portal_azure_content::PortalAzureContent;
+use crate::portal_history::PortalHistory;
 use crate::portal_page::PortalPage;
-use crate::portal_resource_scope::PortalResourceScope;
+use crate::portal_tab_id::PortalTabId;
 use crate::portal_tab_target::PortalTabTarget;
 use crate::portal_tabs::PortalTabs;
-use crate::resource_group_browser::ResourceGroupBrowser;
-use crate::resource_output::ResourceOutput;
-use crate::scope_iam_snapshot::ScopeIamSnapshot;
-use crate::storage_account_browser::StorageAccountBrowser;
 use cloud_terrastodon_auth::CloudTerrastodonAccountStore;
 use cloud_terrastodon_auth::CredentialAuthenticationProvider;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
-use cloud_terrastodon_azure::AzureActivityLogEvent;
-use cloud_terrastodon_azure::AzureResourceGroupMap;
-use cloud_terrastodon_azure::ManagementGroup;
-use cloud_terrastodon_azure::Resource;
-use cloud_terrastodon_azure::ScopeImpl;
-use cloud_terrastodon_azure::Subscription;
 use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
-use cloud_terrastodon_azure_devops::AzureDevOpsProject;
 use cloud_terrastodon_command::app_work::AppWorkTracker;
 use cloud_terrastodon_command::app_work::AppboundWorkFinishedMessage;
 use cloud_terrastodon_command::app_work::Loadable;
@@ -35,17 +26,15 @@ use cloud_terrastodon_config::EguiConfig;
 use cloud_terrastodon_config::WorkDirsConfig;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use eframe::App;
-use eframe::egui::Align2;
+use eframe::Storage;
 use eframe::egui::Direction;
 use eframe::egui::Id;
 use eframe::egui::Ui;
 use egui_toast::Toasts;
 use std::collections::HashMap;
-use std::collections::HashSet;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::path::PathBuf;
-use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::mpsc::SyncSender;
 use std::time::Duration;
@@ -62,9 +51,12 @@ pub struct MyApp {
     /// cache jobs bind their own active owner through `work_cache`.
     pub executor: CloudTerrastodonExecutor,
     pub(crate) work_cache: GuiWorkCache,
-    pub azure_devops_organization: Option<AzureDevOpsOrganizationUrl>,
     pub(crate) azure_devops_organization_picker: AzureDevOpsOrganizationPicker,
-    pub authentication: Option<AzureBearerAuthenticationSelection>,
+    pub(crate) azure: PortalAzureContent,
+    // The displayed content is attached while invoking its existing page widgets.
+    azure_tab: PortalTabId,
+    azure_tabs: HashMap<PortalTabId, PortalAzureContent>,
+    next_account_generation: u64,
     pub account_picker: AzureAccountPicker,
     pub(crate) account_profiles: AzureAccountProfiles,
     pub(crate) account_store: CloudTerrastodonAccountStore,
@@ -75,27 +67,12 @@ pub struct MyApp {
     /// Shared bounded history owned by the application, not a second GUI collector.
     pub log_capture: LogBuffer,
     pub log_view: LogView,
-    /// Results from an earlier selection must not replace the current account's data.
-    pub account_generation: u64,
+    pub(crate) log_toast_cursor: usize,
     pub(crate) tabs: PortalTabs,
     pub(crate) portal_address: Option<PortalAddress>,
+    pub(crate) portal_history: PortalHistory,
     pub navigation_expanded: bool,
-    pub(crate) browser_tabs_expanded: bool,
     pub(crate) resource_navigation_expanded: bool,
-    pub resource_search: String,
-    pub toggle_intents: HashSet<Id>,
-    pub checkboxes: HashMap<Id, bool>,
-    pub subscriptions: Loadable<Rc<Vec<Arc<Subscription>>>>,
-    pub azure_devops_projects: Loadable<Arc<Vec<Arc<AzureDevOpsProject>>>>,
-    pub resource_groups: Loadable<Rc<AzureResourceGroupMap>>,
-    pub(crate) resource_group_browser: ResourceGroupBrowser,
-    pub(crate) storage_account_browser: StorageAccountBrowser,
-    pub(crate) resource_output: ResourceOutput,
-    pub(crate) management_groups: Loadable<Vec<Arc<ManagementGroup>>>,
-    pub resources: Loadable<Arc<Vec<Arc<Resource>>>>,
-    pub(crate) scope_activity:
-        HashMap<PortalResourceScope, Loadable<Vec<Arc<AzureActivityLogEvent>>>>,
-    pub(crate) scope_iam: HashMap<ScopeImpl, Loadable<Arc<ScopeIamSnapshot>>>,
     pub(crate) local_path_previews: HashMap<PathBuf, Loadable<LocalPathPreview>>,
     pub tx: UnboundedSender<AppboundWorkFinishedMessage<MyApp>>,
     pub rx: UnboundedReceiver<AppboundWorkFinishedMessage<MyApp>>,
@@ -103,14 +80,12 @@ pub struct MyApp {
     pub egui_config_auto_save: AutoSaveBehaviour<EguiConfig>,
     pub work_dirs_config: WorkDirsConfig,
     pub work_dirs_config_auto_save: AutoSaveBehaviour<WorkDirsConfig>,
-    /// Whether the About window is open
-    pub about_open: bool,
     /// Toasts manager for transient notifications
     pub toasts: Toasts,
     pub work_tracker: AppWorkTracker,
     /// Transfers final settings to the owner for saving after earlier jobs drain.
     pub shutdown_settings: SyncSender<(EguiConfig, WorkDirsConfig)>,
-    /// Formatted application info (version + revision) shown in About window
+    /// Formatted application version and revision for the About page.
     pub app_info: String,
 }
 
@@ -134,7 +109,8 @@ impl MyApp {
         let authentication = match authentication {
             Ok(selection) => selection,
             Err(error) => {
-                account_picker.selection_error = Some(DiagnosticReport::new(error));
+                account_picker
+                    .set_selection_error(PortalTabId(0), Some(DiagnosticReport::new(error)));
                 None
             }
         };
@@ -150,12 +126,21 @@ impl MyApp {
             tabs.open_kept(PortalTabTarget::LocalPath(path));
         }
         tabs.select(0);
+        let mut log_toast_cursor = 0;
+        log_capture.records_since(&mut log_toast_cursor);
         Ok(Self {
             executor,
             work_cache: GuiWorkCache::CallerOwned,
-            azure_devops_organization,
-            azure_devops_organization_picker: AzureDevOpsOrganizationPicker::default(),
-            authentication,
+            azure_devops_organization_picker: AzureDevOpsOrganizationPicker::new(
+                azure_devops_organization.as_ref(),
+            ),
+            azure: PortalAzureContent {
+                azure_devops_organization,
+                ..PortalAzureContent::new(authentication, 0)
+            },
+            azure_tab: tabs.active_id(),
+            azure_tabs: HashMap::new(),
+            next_account_generation: 1,
             account_picker,
             account_profiles: Default::default(),
             account_store,
@@ -165,56 +150,99 @@ impl MyApp {
             tenant_manager: AzureTenantManager::default(),
             log_capture,
             log_view: LogView::default(),
-            account_generation: 0,
+            log_toast_cursor,
             tabs,
             portal_address: None,
+            portal_history: PortalHistory::default(),
             navigation_expanded: false,
-            browser_tabs_expanded: true,
             resource_navigation_expanded: true,
-            resource_search: String::new(),
-            toggle_intents: Default::default(),
-            checkboxes: Default::default(),
-            subscriptions: Default::default(),
-            resource_groups: Default::default(),
-            resource_group_browser: Default::default(),
-            storage_account_browser: Default::default(),
-            resource_output: Default::default(),
-            management_groups: Default::default(),
-            resources: Default::default(),
-            scope_activity: Default::default(),
-            scope_iam: Default::default(),
             local_path_previews: Default::default(),
-            azure_devops_projects: Default::default(),
             tx,
             rx,
             egui_config,
             egui_config_auto_save: Default::default(),
             work_dirs_config: WorkDirsConfig::load().await?,
             work_dirs_config_auto_save: Default::default(),
-            about_open: false,
-            toasts: Toasts::new()
-                .anchor(Align2::RIGHT_BOTTOM, (-10.0, -10.0))
-                .direction(Direction::BottomUp),
+            toasts: Toasts::new().direction(Direction::BottomUp),
             work_tracker,
             shutdown_settings,
             app_info,
         })
     }
-    pub(crate) fn clear_account_inventory(&mut self) {
+    pub(crate) fn sync_azure_content(&mut self) {
+        let tab = self.tabs.active_id();
+        if self.azure_tab == tab {
+            return;
+        }
+        let content = self.azure_tabs.remove(&tab).unwrap_or_else(|| {
+            let content = self.azure.fork(self.next_account_generation);
+            self.next_account_generation += 1;
+            content
+        });
+        let previous = std::mem::replace(&mut self.azure, content);
+        let previous_tab = std::mem::replace(&mut self.azure_tab, tab);
+        self.azure_tabs.insert(previous_tab, previous);
+    }
+
+    pub(crate) fn seed_azure_content(&mut self, tab: PortalTabId, source: PortalTabId) {
+        if self.azure_tab != tab && !self.azure_tabs.contains_key(&tab) {
+            let content = self
+                .azure_content_for_tab(source)
+                .unwrap_or(&self.azure)
+                .fork(self.next_account_generation);
+            self.next_account_generation += 1;
+            self.azure_tabs.insert(tab, content);
+        }
+    }
+
+    pub(crate) fn azure_content_for_tab(&self, tab: PortalTabId) -> Option<&PortalAzureContent> {
+        if self.azure_tab == tab {
+            Some(&self.azure)
+        } else {
+            self.azure_tabs.get(&tab)
+        }
+    }
+
+    pub(crate) fn azure_content_for_tab_mut(
+        &mut self,
+        tab: PortalTabId,
+    ) -> Option<&mut PortalAzureContent> {
+        self.tabs.tab(tab)?;
+        if self.azure_tab == tab {
+            Some(&mut self.azure)
+        } else {
+            self.azure_tabs.get_mut(&tab)
+        }
+    }
+
+    pub(crate) fn azure_content_mut(&mut self, generation: u64) -> Option<&mut PortalAzureContent> {
+        if self.azure.account_generation == generation {
+            return Some(&mut self.azure);
+        }
+        self.azure_tabs
+            .values_mut()
+            .find(|content| content.account_generation == generation)
+    }
+
+    pub(crate) fn reset_azure_content_for_tab(&mut self, tab: PortalTabId) {
+        let generation = self.next_account_generation;
+        if let Some(content) = self.azure_content_for_tab_mut(tab) {
+            content.reset_inventory(generation);
+            self.next_account_generation += 1;
+        }
+    }
+
+    pub(crate) fn invalidate_azure_accounts(
+        &mut self,
+        changed: impl Fn(&PortalAzureContent) -> bool,
+    ) {
         self.tenant_manager.account_selection_changed();
-        self.account_generation += 1;
-        self.resources = Loadable::NotLoaded;
-        self.scope_activity.clear();
-        self.scope_iam.clear();
-        self.subscriptions = Loadable::NotLoaded;
-        self.resource_groups = Loadable::NotLoaded;
-        self.resource_group_browser = Default::default();
-        self.storage_account_browser = Default::default();
-        self.resource_output = Default::default();
-        self.management_groups = Loadable::NotLoaded;
-        self.azure_devops_projects = Loadable::NotLoaded;
-        self.checkboxes.clear();
-        self.toggle_intents.clear();
+        for content in std::iter::once(&mut self.azure).chain(self.azure_tabs.values_mut()) {
+            if changed(content) {
+                content.reset_inventory(self.next_account_generation);
+                self.next_account_generation += 1;
+            }
+        }
     }
 
     pub fn navigate(&mut self, page: PortalPage) {
@@ -222,18 +250,32 @@ impl MyApp {
     }
 
     pub fn navigate_tab(&mut self, target: PortalTabTarget) {
-        if self.tabs.active() != &target {
-            self.resource_search.clear();
+        self.sync_azure_content();
+        let previous = self.tabs.active_id();
+        if !self.tabs.open(target) {
+            return;
         }
-        self.tabs.open(target);
+        self.sync_azure_content();
+        if previous == self.tabs.active_id() {
+            self.azure.resource_search.clear();
+        }
+        self.record_portal_visit();
         self.retain_open_tab_data();
     }
 
     pub(crate) fn navigate_current_tab(&mut self, target: PortalTabTarget) {
         if self.tabs.navigate_current(target) {
-            self.resource_search.clear();
+            self.record_portal_visit();
+            self.azure.resource_search.clear();
             self.retain_open_tab_data();
         }
+    }
+
+    pub(crate) fn open_background_tab(&mut self, target: PortalTabTarget) {
+        let source = self.tabs.active_id();
+        let tab = self.tabs.open_background(target.clone());
+        self.seed_azure_content(tab, source);
+        self.record_portal_visit_to(target);
     }
 
     pub fn current_page(&self) -> PortalPage {
@@ -241,12 +283,37 @@ impl MyApp {
     }
 
     pub(crate) fn retain_open_tab_data(&mut self) {
+        self.sync_azure_content();
+        self.azure_tabs.retain(|id, _| self.tabs.retains_tab(*id));
+        self.account_picker
+            .retain_tabs(|id| self.tabs.tab(id).is_some());
         self.local_path_previews
             .retain(|path, _| self.tabs.has_local_path(path));
-        self.storage_account_browser.retain_open(&self.tabs);
+        for content in std::iter::once(&mut self.azure).chain(self.azure_tabs.values_mut()) {
+            content.storage_account_browser.retain_open(&self.tabs);
+            content.storage_explorer.retain_open(&self.tabs);
+        }
+    }
+
+    pub(crate) fn open_azure_contents_mut(
+        &mut self,
+    ) -> impl Iterator<Item = &mut PortalAzureContent> {
+        let tabs = &self.tabs;
+        std::iter::once(&mut self.azure).chain(
+            self.azure_tabs
+                .iter_mut()
+                .filter_map(move |(id, content)| tabs.tab(*id).map(|_| content)),
+        )
+    }
+
+    pub(crate) fn pending_principal_lookups(&self) -> usize {
+        std::iter::once(&self.azure)
+            .chain(self.azure_tabs.values())
+            .map(|content| content.scope_iam.principals.pending_count())
+            .sum()
     }
     pub fn checkbox_for(&mut self, key: impl Hash + Debug) -> &mut bool {
-        self.checkboxes.entry(Id::new(key)).or_default()
+        self.azure.checkboxes.entry(Id::new(key)).or_default()
     }
     pub fn enqueue_auto_save(&mut self) -> eyre::Result<()> {
         self.egui_config_auto_save.apply(
@@ -273,7 +340,12 @@ impl MyApp {
 }
 
 impl App for MyApp {
+    fn save(&mut self, storage: &mut dyn Storage) {
+        self.portal_history.save(storage);
+    }
+
     fn ui(&mut self, ui: &mut Ui, _frame: &mut eframe::Frame) {
+        self.sync_azure_content();
         if self.executor.cancellation().is_cancelled() {
             ui.ctx()
                 .send_viewport_cmd(eframe::egui::ViewportCommand::Close);
@@ -281,25 +353,22 @@ impl App for MyApp {
         self.poll_account_operation();
         self.tenant_manager.poll();
         self.handle_messages();
-        self.update_account_profile(ui.ctx());
+        if let Err(error) = self.work_tracker.prune() {
+            let report = DiagnosticReport::new(error);
+            error!(
+                error = report.as_error(),
+                "Could not inspect background work"
+            );
+        }
         self.draw_app(ui);
         self.show_account_operation(ui.ctx());
         // Channel delivery does not wake eframe. Continue receiving results even
         // when the active page has no animated spinner or is showing other data.
-        if matches!(self.resources, Loadable::Loading { .. })
+        if self.azure.is_loading()
+            || self.azure_tabs.values().any(PortalAzureContent::is_loading)
             || self
-                .scope_activity
-                .values()
-                .any(|load| matches!(load, Loadable::Loading { .. }))
-            || self
-                .scope_iam
-                .values()
-                .any(|load| matches!(load, Loadable::Loading { .. }))
-            || matches!(self.subscriptions, Loadable::Loading { .. })
-            || matches!(self.resource_groups, Loadable::Loading { .. })
-            || matches!(self.management_groups, Loadable::Loading { .. })
-            || matches!(self.azure_devops_projects, Loadable::Loading { .. })
-            || self.storage_account_browser.is_loading()
+                .azure_devops_organization_picker
+                .is_loading_tracked_organizations()
             || self
                 .local_path_previews
                 .values()
@@ -312,13 +381,6 @@ impl App for MyApp {
             error!(
                 error = report.as_error(),
                 "Could not enqueue configuration autosave"
-            );
-        }
-        if let Err(error) = self.work_tracker.prune() {
-            let report = DiagnosticReport::new(error);
-            error!(
-                error = report.as_error(),
-                "Could not inspect background work"
             );
         }
     }

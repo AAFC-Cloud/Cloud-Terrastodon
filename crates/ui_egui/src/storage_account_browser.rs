@@ -36,7 +36,7 @@ pub(crate) fn load_storage_account(app: &mut MyApp, id: &AzureStorageAccountId, 
     let Some(authentication) = app.ready_azure_authentication() else {
         return;
     };
-    let entries = &mut app.storage_account_browser.entries;
+    let entries = &mut app.azure.storage_account_browser.entries;
     if entries
         .get(id)
         .is_some_and(|entry| matches!(entry.response, Loadable::Loading { .. }))
@@ -55,7 +55,7 @@ pub(crate) fn load_storage_account(app: &mut MyApp, id: &AzureStorageAccountId, 
         },
     );
 
-    let account_generation = app.account_generation;
+    let account_generation = app.azure.account_generation;
     let entry_id = id.clone();
     let executor = app.executor.clone();
     let cancellation = executor.cancellation().clone();
@@ -64,11 +64,12 @@ pub(crate) fn load_storage_account(app: &mut MyApp, id: &AzureStorageAccountId, 
     let enqueue_result = LoadableWorkBuilder::<MyApp, _>::new()
         .description("Load storage account")
         .setter(move |app, response| {
-            if app.account_generation != account_generation {
+            let retain = app.tabs.has_storage_account(&entry_id);
+            let Some(azure) = app.azure_content_mut(account_generation) else {
                 return;
-            }
-            let entries = &mut app.storage_account_browser.entries;
-            if !app.tabs.has_storage_account(&entry_id) {
+            };
+            let entries = &mut azure.storage_account_browser.entries;
+            if !retain {
                 entries.remove(&entry_id);
             } else if let Some(entry) = entries.get_mut(&entry_id) {
                 entry.response = response;
@@ -86,7 +87,7 @@ pub(crate) fn load_storage_account(app: &mut MyApp, id: &AzureStorageAccountId, 
             &cancellation,
         );
     if let Err(error) = enqueue_result
-        && let Some(entry) = app.storage_account_browser.entries.get_mut(id)
+        && let Some(entry) = app.azure.storage_account_browser.entries.get_mut(id)
     {
         entry.response = Loadable::Failed {
             error: error.into(),

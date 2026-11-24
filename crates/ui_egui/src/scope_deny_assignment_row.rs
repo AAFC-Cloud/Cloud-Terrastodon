@@ -33,16 +33,12 @@ impl ScopeDenyAssignmentRow {
         })
     }
 
-    pub fn matches(&self, filter: &str) -> bool {
-        self.name.to_lowercase().contains(filter)
-            || self.inheritance.to_lowercase().contains(filter)
-            || self.scope.expanded_form().to_lowercase().contains(filter)
-            || self
-                .assignment
-                .properties
-                .principals
-                .iter()
-                .any(|principal| principal.id.to_string().contains(filter))
+    pub fn matches_principal_id(&self, search: &str) -> bool {
+        self.assignment
+            .properties
+            .principals
+            .iter()
+            .any(|principal| principal.id.to_string().contains(search))
     }
 }
 

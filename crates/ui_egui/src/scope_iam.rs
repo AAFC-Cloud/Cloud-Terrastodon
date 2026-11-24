@@ -1,12 +1,17 @@
 use crate::app::MyApp;
+use crate::portal_section_tabs::portal_section_tabs;
 use crate::reflected_table::ReflectedTable;
 use crate::reflected_table_column::ReflectedTableColumn;
 use crate::reflected_value::ReflectedValue;
-use crate::scope_deny_assignment_row::ScopeDenyAssignmentRow;
 use crate::scope_iam_comparison::compare_scope_iam;
+use crate::scope_iam_denies::load_scope_iam_denies;
+use crate::scope_iam_denies::show_scope_iam_denies;
+use crate::scope_iam_inventory::ScopeIamInventory;
+use crate::scope_iam_principals::load_scope_iam_principals;
 use crate::scope_iam_section::ScopeIamSection;
 use crate::scope_iam_snapshot::ScopeIamSnapshot;
-use crate::scope_role_assignment_row::ScopeRoleAssignmentRow;
+use crate::scope_role_assignments_view::show_check_access;
+use crate::scope_role_assignments_view::show_role_assignments;
 use crate::scope_role_definition_row::ScopeRoleDefinitionRow;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure::Scope;
@@ -14,9 +19,7 @@ use cloud_terrastodon_azure::ScopeImpl;
 use cloud_terrastodon_command::CancellationErrorExt;
 use cloud_terrastodon_command::app_work::Loadable;
 use cloud_terrastodon_command::app_work::LoadableWorkBuilder;
-use eframe::egui::Button;
 use eframe::egui::Id;
-use eframe::egui::TextEdit;
 use eframe::egui::Ui;
 use std::sync::Arc;
 use std::time::Instant;
@@ -26,97 +29,136 @@ use tokio::runtime::Handle;
 use tracing::warn;
 
 pub(crate) fn scope_iam_ui(app: &mut MyApp, ui: &mut Ui, scope: &ScopeImpl) {
-    let view = ui.id().with(("scope-iam", scope, app.account_generation));
-    let section_key = view.with("section");
-    let mut section = ui
-        .data(|data| data.get_temp(section_key))
-        .unwrap_or_default();
-    let loading = matches!(app.scope_iam.get(scope), Some(Loadable::Loading { .. }));
-    let refresh = ui
-        .horizontal_wrapped(|ui| {
-            for next in ScopeIamSection::ALL {
-                ui.selectable_value(&mut section, next, next.label());
-            }
-            ui.add_enabled(!loading, Button::new("Refresh")).clicked()
-        })
-        .inner;
-    ui.data_mut(|data| data.insert_temp(section_key, section));
-    if refresh || !app.scope_iam.contains_key(scope) {
-        load_scope_iam(app, scope, refresh);
+    let view = ui
+        .id()
+        .with(("scope-iam", scope, app.azure.account_generation));
+    let previous = app.azure.scope_iam.section(scope);
+    let mut section = previous;
+    ui.horizontal_wrapped(|ui| {
+        portal_section_tabs(
+            ui,
+            &mut section,
+            ScopeIamSection::ALL,
+            ScopeIamSection::label,
+        );
+    });
+    if section != previous {
+        app.azure.scope_iam.select_section(scope, section);
+    }
+    let id = view.with(section.label());
+    if section == ScopeIamSection::DenyAssignments {
+        show_scope_iam_denies(app, ui, id, scope);
+        return;
+    }
+    if matches!(app.azure.scope_iam.inventory, Loadable::NotLoaded) {
+        load_scope_iam(app, scope, false);
     }
 
-    match app.scope_iam.get(scope) {
-        Some(Loadable::Loaded { value, .. }) => {
-            let snapshot = Arc::clone(value);
-            let id = view.with(section.label());
-            let filter_key = id.with("filter");
-            let mut filter: String = ui
-                .data(|data| data.get_temp(filter_key))
-                .unwrap_or_default();
-            let hint = match section {
-                ScopeIamSection::RoleAssignments => "Filter by principal ID, role, or scope",
-                ScopeIamSection::Roles => "Filter roles",
-                ScopeIamSection::DenyAssignments => "Filter deny assignments",
-            };
-            if ui
-                .add(TextEdit::singleline(&mut filter).hint_text(hint))
-                .changed()
-            {
-                ui.data_mut(|data| data.insert_temp(filter_key, filter.clone()));
-            }
-            let filter = filter.trim().to_lowercase();
-            match section {
-                ScopeIamSection::RoleAssignments => match &snapshot.assignments {
-                    Ok(rows) => show_assignments(app, ui, id, rows, &filter),
-                    Err(error) => DiagnosticReportView::new(error).show(ui),
-                },
-                ScopeIamSection::Roles => match &snapshot.roles {
-                    Ok(rows) => show_roles(app, ui, id, rows, &filter),
-                    Err(error) => DiagnosticReportView::new(error).show(ui),
-                },
-                ScopeIamSection::DenyAssignments => match &snapshot.denies {
-                    Ok(rows) => show_denies(app, ui, id, rows, &filter),
-                    Err(error) => DiagnosticReportView::new(error).show(ui),
-                },
-            }
-        }
-        Some(Loadable::Failed { error, .. }) => {
+    let inventory = match &app.azure.scope_iam.inventory {
+        Loadable::Loaded { value, .. } => value,
+        Loadable::Failed { error, .. } => {
             DiagnosticReportView::new(error).show(ui);
+            return;
         }
-        _ => {
+        Loadable::Loading { .. } | Loadable::NotLoaded => {
             ui.spinner();
+            return;
         }
+    };
+    // A new scope needs only a local projection once the account inventory is loaded.
+    let (snapshot, projected) = if let Some(snapshot) = app.azure.scope_iam.snapshots.get(scope) {
+        (Arc::clone(snapshot), false)
+    } else {
+        let mut snapshot = inventory.at_scope(scope);
+        app.azure.scope_iam.principals.apply(&mut snapshot);
+        let snapshot = Arc::new(snapshot);
+        app.azure
+            .scope_iam
+            .snapshots
+            .insert(scope.clone(), Arc::clone(&snapshot));
+        (snapshot, true)
+    };
+    let refresh = projected
+        && app
+            .azure
+            .scope_iam
+            .refresh_scope
+            .take_if(|requested| requested == scope)
+            .is_some();
+    if projected
+        && app.azure.scope_iam.compared.insert(scope.clone())
+        && let Some(authentication) = app.ready_azure_authentication()
+    {
+        verify_scope_iam(app, authentication, scope, refresh, Arc::clone(&snapshot));
+    }
+    match section {
+        ScopeIamSection::CheckAccess | ScopeIamSection::RoleAssignments => {
+            match &snapshot.assignments {
+                Ok(rows) => {
+                    if projected || section != previous {
+                        load_scope_iam_principals(app, &snapshot, refresh);
+                    }
+                    let pending = app.azure.scope_iam.principals.pending_for(rows);
+                    if pending > 0 {
+                        ui.horizontal(|ui| {
+                            ui.spinner();
+                            ui.label(if pending == 1 {
+                                "Resolving 1 principal…".to_owned()
+                            } else {
+                                format!("Resolving {pending} principals…")
+                            });
+                        });
+                    }
+                    if section == ScopeIamSection::CheckAccess {
+                        show_check_access(app, ui, id, rows);
+                    } else {
+                        show_role_assignments(app, ui, id, rows);
+                    }
+                }
+                Err(error) => DiagnosticReportView::new(error).show(ui),
+            }
+        }
+        ScopeIamSection::Roles => match &snapshot.roles {
+            Ok(rows) => show_roles(app, ui, id, rows),
+            Err(error) => DiagnosticReportView::new(error).show(ui),
+        },
+        ScopeIamSection::DenyAssignments => {}
     }
 }
 
 pub(crate) fn load_scope_iam(app: &mut MyApp, scope: &ScopeImpl, refresh: bool) {
+    if app.azure.scope_iam.section(scope) == ScopeIamSection::DenyAssignments {
+        load_scope_iam_denies(app, scope, refresh);
+        return;
+    }
     let Some(authentication) = app.ready_azure_authentication() else {
         return;
     };
-    if matches!(app.scope_iam.get(scope), Some(Loadable::Loading { .. })) {
+    if matches!(app.azure.scope_iam.inventory, Loadable::Loading { .. })
+        || (!refresh && !matches!(app.azure.scope_iam.inventory, Loadable::NotLoaded))
+    {
         return;
     }
-    let account_generation = app.account_generation;
+    app.azure.scope_iam.refresh_scope = refresh.then(|| scope.clone());
+    let account_generation = app.azure.account_generation;
     let executor = app.executor.clone();
     let cancellation = executor.cancellation().clone();
     let work_cache = app.work_cache.clone();
-    let view_scope = scope.clone();
-    let load_scope = scope.clone();
     let started_at = Instant::now();
-    let enqueue_result = LoadableWorkBuilder::<MyApp, Arc<ScopeIamSnapshot>>::new()
-        .description("Load access control")
+    let enqueue_result = LoadableWorkBuilder::<MyApp, Arc<ScopeIamInventory>>::new()
+        .description("Load Azure RBAC inventory")
         .setter(move |app, value| {
-            if app.account_generation == account_generation {
-                let snapshot = value.as_loaded().cloned();
-                app.scope_iam.insert(view_scope.clone(), value);
-                if let Some(snapshot) = snapshot {
-                    verify_scope_iam(app, authentication, &view_scope, refresh, snapshot);
+            if let Some(azure) = app.azure_content_mut(account_generation) {
+                if value.as_loaded().is_some() {
+                    azure.scope_iam.snapshots.clear();
+                    azure.scope_iam.compared.clear();
                 }
+                azure.scope_iam.inventory = value;
             }
         })
         .work(async move |scope| {
             let executor = work_cache.job_executor(&executor.with_cancellation_scope(scope))?;
-            ScopeIamSnapshot::load(&executor, authentication, &load_scope, refresh)
+            ScopeIamInventory::load(&executor, authentication, refresh)
                 .await
                 .map(Arc::new)
         })
@@ -128,14 +170,11 @@ pub(crate) fn load_scope_iam(app: &mut MyApp, scope: &ScopeImpl, refresh: bool) 
             &cancellation,
         );
     if let Err(error) = enqueue_result {
-        app.scope_iam.insert(
-            scope.clone(),
-            Loadable::Failed {
-                error: error.into(),
-                started_at,
-                finished_at: Instant::now(),
-            },
-        );
+        app.azure.scope_iam.inventory = Loadable::Failed {
+            error: error.into(),
+            started_at,
+            finished_at: Instant::now(),
+        };
     }
 }
 
@@ -199,56 +238,18 @@ fn verify_scope_iam(
     }
 }
 
-fn show_assignments(
-    app: &mut MyApp,
-    ui: &mut Ui,
-    id: Id,
-    rows: &[ScopeRoleAssignmentRow],
-    filter: &str,
-) {
-    let columns = [
-        ReflectedTableColumn::new("Principal ID", "principal_id").with_width(174.0),
-        ReflectedTableColumn::new("Type", "principal_type").with_width(100.0),
-        ReflectedTableColumn::new("Role", "role").with_width(140.0),
-        ReflectedTableColumn::new("Access", "inheritance").with_width(88.0),
-        ReflectedTableColumn::new("Scope", "scope")
-            .with_link("scope")
-            .with_width(140.0),
-        ReflectedTableColumn::new("Condition", "condition").with_width(110.0),
-    ];
-    let row_id = |row: &ScopeRoleAssignmentRow| id.with(&row.assignment.id);
-    if let Some(row) = rows
-        .iter()
-        .find(|row| app.checkboxes.get(&row_id(row)) == Some(&true))
-    {
-        ui.collapsing("Assignment details", |ui| {
-            ReflectedValue::new(row.assignment.as_ref()).show(ui)
-        });
-    }
-    if rows.is_empty() {
-        ui.label("No role assignments were returned for this scope.");
-    }
-    if let Some(target) = ReflectedTable::new(id, &columns).show(
-        ui,
-        rows.iter()
-            .filter(|row| filter.is_empty() || row.matches(filter)),
-        row_id,
-        &mut app.checkboxes,
-    ) {
-        app.navigate_tab(target);
-    }
-}
-
-fn show_roles(app: &mut MyApp, ui: &mut Ui, id: Id, rows: &[ScopeRoleDefinitionRow], filter: &str) {
+fn show_roles(app: &mut MyApp, ui: &mut Ui, id: Id, rows: &[ScopeRoleDefinitionRow]) {
     let columns = [
         ReflectedTableColumn::new("Role", "role").with_width(180.0),
-        ReflectedTableColumn::new("Type", "kind").with_width(110.0),
+        ReflectedTableColumn::new("Type", "kind")
+            .with_width(110.0)
+            .groupable(),
         ReflectedTableColumn::new("Description", "description"),
     ];
     let row_id = |row: &ScopeRoleDefinitionRow| id.with(&row.definition.id);
     if let Some(row) = rows
         .iter()
-        .find(|row| app.checkboxes.get(&row_id(row)) == Some(&true))
+        .find(|row| app.azure.checkboxes.get(&row_id(row)) == Some(&true))
     {
         ui.collapsing("Role details", |ui| {
             ReflectedValue::new(row.definition.as_ref()).show(ui)
@@ -257,49 +258,10 @@ fn show_roles(app: &mut MyApp, ui: &mut Ui, id: Id, rows: &[ScopeRoleDefinitionR
     if rows.is_empty() {
         ui.label("No role definitions were returned for this scope.");
     }
-    if let Some(target) = ReflectedTable::new(id, &columns).show(
-        ui,
-        rows.iter()
-            .filter(|row| filter.is_empty() || row.matches(filter)),
-        row_id,
-        &mut app.checkboxes,
-    ) {
-        app.navigate_tab(target);
-    }
-}
-
-fn show_denies(
-    app: &mut MyApp,
-    ui: &mut Ui,
-    id: Id,
-    rows: &[ScopeDenyAssignmentRow],
-    filter: &str,
-) {
-    let columns = [
-        ReflectedTableColumn::new("Name", "name").with_width(180.0),
-        ReflectedTableColumn::new("Access", "inheritance").with_width(88.0),
-        ReflectedTableColumn::new("Scope", "scope").with_link("scope"),
-        ReflectedTableColumn::new("Principals", "principal_count").with_width(80.0),
-    ];
-    let row_id = |row: &ScopeDenyAssignmentRow| id.with(&row.assignment.id);
-    if let Some(row) = rows
-        .iter()
-        .find(|row| app.checkboxes.get(&row_id(row)) == Some(&true))
+    if let Some(target) = ReflectedTable::new(id, &columns)
+        .with_search_hint("Filter roles")
+        .show_explorable(ui, rows, row_id, &mut app.azure.checkboxes)
     {
-        ui.collapsing("Deny assignment details", |ui| {
-            ReflectedValue::new(row.assignment.as_ref()).show(ui)
-        });
-    }
-    if rows.is_empty() {
-        ui.label("No deny assignments were returned for this scope.");
-    }
-    if let Some(target) = ReflectedTable::new(id, &columns).show(
-        ui,
-        rows.iter()
-            .filter(|row| filter.is_empty() || row.matches(filter)),
-        row_id,
-        &mut app.checkboxes,
-    ) {
-        app.navigate_tab(target);
+        target.apply(app);
     }
 }

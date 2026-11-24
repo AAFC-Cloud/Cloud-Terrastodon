@@ -1,9 +1,9 @@
 use crate::app::MyApp;
+use crate::portal_tab_open::PortalTabOpen;
 use crate::portal_tab_target::PortalTabTarget;
 use eframe::egui::Color32;
 use eframe::egui::Context;
 use eframe::egui::DragAndDrop;
-use eframe::egui::Id;
 use eframe::egui::Stroke;
 use eframe::egui::Ui;
 use eframe::egui::Window;
@@ -96,14 +96,16 @@ fn ui_work_dir_row(
     index: usize,
     work_dir: &PathBuf,
 ) -> Option<DNDResponse> {
-    let id = Id::new(work_dir);
+    let id = ui.make_persistent_id(("work-directory-drag", work_dir));
     let response = ui
         .horizontal(|ui| {
             let rtn = ui
                 .dnd_drag_source(id, index, |ui| {
                     let response = ui.link(work_dir.display().to_string());
-                    if response.clicked() {
-                        app.navigate_tab(PortalTabTarget::LocalPath(work_dir.clone()));
+                    if let Some(action) = PortalTabOpen::from_response(&response, || {
+                        PortalTabTarget::LocalPath(work_dir.clone())
+                    }) {
+                        action.apply(app);
                     }
                 })
                 .response;

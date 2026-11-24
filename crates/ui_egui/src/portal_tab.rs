@@ -1,20 +1,32 @@
+use crate::portal_pane_id::PortalPaneId;
+use crate::portal_tab_group_id::PortalTabGroupId;
+use crate::portal_tab_id::PortalTabId;
 use crate::portal_tab_target::PortalTabTarget;
 
 const MAX_VISITS: usize = 64;
 
 /// A tab's visits, active destination, and preview replacement policy.
+#[derive(Clone)]
 pub(crate) struct PortalTab {
     visits: Vec<PortalTabTarget>,
     position: usize,
+    pub id: PortalTabId,
+    pub pane: PortalPaneId,
     pub preview: bool,
+    pub pinned: bool,
+    pub group: Option<PortalTabGroupId>,
 }
 
 impl PortalTab {
-    pub fn new(target: PortalTabTarget, preview: bool) -> Self {
+    pub fn new(id: PortalTabId, target: PortalTabTarget, preview: bool) -> Self {
         Self {
             visits: vec![target],
             position: 0,
+            id,
+            pane: PortalPaneId::default(),
             preview,
+            pinned: false,
+            group: None,
         }
     }
 
@@ -51,31 +63,6 @@ impl PortalTab {
         self.position = position;
         true
     }
-
-    pub fn retain_after_account_change(&mut self) -> bool {
-        if !Self::is_unscoped(self.target()) {
-            return false;
-        }
-        self.position = self.visits[..self.position]
-            .iter()
-            .filter(|target| Self::is_unscoped(target))
-            .count();
-        self.visits.retain(Self::is_unscoped);
-        true
-    }
-
-    pub fn into_target(mut self) -> PortalTabTarget {
-        self.visits.swap_remove(self.position)
-    }
-
-    fn is_unscoped(target: &PortalTabTarget) -> bool {
-        matches!(
-            target,
-            PortalTabTarget::Page(_)
-                | PortalTabTarget::ResourcesOfType(_)
-                | PortalTabTarget::LocalPath(_)
-        )
-    }
 }
 
 #[cfg(test)]
@@ -84,7 +71,11 @@ mod tests {
 
     #[test]
     fn history_evicts_oldest_visits_at_capacity() {
-        let mut tab = PortalTab::new(PortalTabTarget::LocalPath("origin".into()), true);
+        let mut tab = PortalTab::new(
+            PortalTabId(0),
+            PortalTabTarget::LocalPath("origin".into()),
+            true,
+        );
         for index in 0..MAX_VISITS {
             tab.navigate(PortalTabTarget::LocalPath(index.to_string().into()));
         }

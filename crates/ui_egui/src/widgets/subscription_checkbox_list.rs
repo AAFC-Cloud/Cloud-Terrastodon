@@ -4,7 +4,7 @@ use cloud_terrastodon_command::app_work::Loadable;
 use eframe::egui::Ui;
 
 pub fn draw_subscription_checkbox_list(app: &mut MyApp, ui: &mut Ui) {
-    ui.vertical(|ui| match &app.subscriptions {
+    ui.vertical(|ui| match &app.azure.subscriptions {
         Loadable::NotLoaded => {
             ui.label("Not loaded");
         }

@@ -1,6 +1,7 @@
 use crate::azure_account_action::AzureAccountAction;
 use crate::azure_account_details::AzureAccountDetails;
 use crate::azure_account_operation_event::AzureAccountOperationEvent;
+use crate::azure_account_operation_origin::AzureAccountOperationOrigin;
 use crate::azure_account_registration_form::source_label;
 use crate::gui_work_cache::GuiWorkCache;
 use cloud_terrastodon_auth::AccountSignInPrompt;
@@ -25,6 +26,7 @@ use tokio::sync::mpsc::error::TryRecvError;
 
 /// Owns one local account operation and its private sign-in prompts.
 pub(crate) struct AzureAccountOperation {
+    pub origin: AzureAccountOperationOrigin,
     pub login_target: Option<(CloudTerrastodonAccountId, CloudTerrastodonCredentialSource)>,
     events: UnboundedReceiver<AzureAccountOperationEvent>,
     cancellation: Option<CancellationToken>,
@@ -33,8 +35,13 @@ pub(crate) struct AzureAccountOperation {
 }
 
 impl AzureAccountOperation {
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "explicit account operation dependencies"
+    )]
     pub fn start(
         action: AzureAccountAction,
+        origin: AzureAccountOperationOrigin,
         store: CloudTerrastodonAccountStore,
         authentication: Arc<CredentialAuthenticationProvider>,
         executor: &CloudTerrastodonExecutor,
@@ -86,6 +93,7 @@ impl AzureAccountOperation {
             },
         )?;
         Ok(Self {
+            origin,
             login_target,
             events,
             cancellation: None,

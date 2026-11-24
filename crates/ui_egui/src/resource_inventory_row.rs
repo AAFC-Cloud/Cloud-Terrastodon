@@ -1,15 +1,20 @@
+use crate::app::MyApp;
 use crate::icons::resource_icon;
+use crate::portal_azure_content::PortalAzureContent;
 use crate::reflected_value::ReflectedValue;
 use cloud_terrastodon_azure::AzureLocationName;
 use cloud_terrastodon_azure::AzureResourceGroupId;
 use cloud_terrastodon_azure::Resource;
 use cloud_terrastodon_azure::ResourceType;
+use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::ScopeImpl;
 use cloud_terrastodon_azure::SubscriptionId;
 use cloud_terrastodon_iconography_azure::icon_for_resource_type;
 use eframe::egui::ImageSource;
+use eframe::egui::Ui;
 use facet::Facet;
 use std::str::Split;
+use std::sync::Arc;
 
 /// The user-facing labels and exact ARM identities of an inventory result.
 #[derive(Facet)]
@@ -28,7 +33,32 @@ pub(crate) struct ResourceInventoryRow {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cloud_terrastodon_azure::Scope;
+    use crate::portal_tab_target::PortalTabTarget;
+
+    #[test]
+    fn inventory_name_can_link_to_a_nested_resource() {
+        let id = ScopeImpl::from(concat!(
+            "/subscriptions/00000000-0000-0000-0000-000000000001",
+            "/resourceGroups/synthetic",
+            "/providers/Microsoft.Compute/galleries/gallery/images/image/versions/1.0.0",
+        ));
+        let resource = Resource {
+            id: id.clone(),
+            kind: ResourceType::MICROSOFT_DOT_COMPUTE_SLASH_GALLERIES_SLASH_IMAGES_SLASH_VERSIONS,
+            name: "1.0.0".to_owned(),
+            location: None,
+            tags: Default::default(),
+            properties: Default::default(),
+        };
+        let (subscription, group) = ResourceInventoryRow::ancestors(&resource.id.expanded_form());
+        let row = ResourceInventoryRow::new(&resource, subscription, None, group);
+        assert_eq!(
+            ReflectedValue::new(&row)
+                .column("id")
+                .and_then(ReflectedValue::navigation_target),
+            Some(PortalTabTarget::Resource(Box::new(id)))
+        );
+    }
 
     #[test]
     fn scoped_inventory_excludes_containers_and_uses_exact_typed_ancestry() -> eyre::Result<()> {
@@ -57,6 +87,26 @@ mod tests {
             &scope
         ));
         Ok(())
+    }
+}
+
+impl MyApp {
+    pub(crate) fn inventory_resource(&self, id: &ScopeImpl) -> Option<&Arc<Resource>> {
+        self.azure.inventory_resource(id)
+    }
+}
+
+impl PortalAzureContent {
+    pub(crate) fn inventory_resource(&self, id: &ScopeImpl) -> Option<&Arc<Resource>> {
+        let resources = self.resources.as_loaded()?;
+        if let Some(resource) = resources.iter().find(|resource| resource.id == *id) {
+            return Some(resource);
+        }
+        // The same resource may be linked using different casing in other ARM responses.
+        let id = id.expanded_form();
+        resources
+            .iter()
+            .find(|resource| resource.id.expanded_form().eq_ignore_ascii_case(&id))
     }
 }
 
@@ -91,7 +141,7 @@ impl ResourceInventoryRow {
         }
     }
 
-    pub fn icon(row: ReflectedValue<'_>) -> Option<ImageSource<'static>> {
+    pub fn icon(_ui: &Ui, row: ReflectedValue<'_>) -> Option<ImageSource<'static>> {
         row.field("kind")?.get::<ResourceType>().map(resource_icon)
     }
 
@@ -111,7 +161,7 @@ impl ResourceInventoryRow {
         }
     }
 
-    /// Extract typed ancestors even when the resource itself has no detail page.
+    /// Extract the subscription and resource group from an ARM ID's path.
     pub fn ancestors(id: &str) -> (Option<SubscriptionId>, Option<AzureResourceGroupId>) {
         let Some((subscription_id, mut parts)) = Self::subscription(id) else {
             return (None, None);

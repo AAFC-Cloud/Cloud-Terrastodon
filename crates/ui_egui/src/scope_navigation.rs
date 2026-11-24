@@ -1,9 +1,13 @@
 use crate::icons::ACCESS_CONTROL_ICON;
 use crate::icons::ACTIVITY_LOG_ICON;
-use crate::icons::page_icon;
+use crate::icons::STORAGE_EXPLORER_ICON;
+use crate::icons::TAG_ICON;
+use crate::icons::networking_icon;
 use crate::portal_resource_scope::PortalResourceScope;
 use crate::portal_scope_view::PortalScopeView;
+use crate::portal_tab_open::PortalTabOpen;
 use crate::portal_tab_target::PortalTabTarget;
+use crate::scope_tags_browser::supports_tags;
 use crate::sidebar_expansion_toggle::sidebar_expansion_toggle;
 use eframe::egui::Align2;
 use eframe::egui::Color32;
@@ -27,34 +31,52 @@ pub(crate) fn scope_navigation(
     scope: &PortalResourceScope,
     current: Option<PortalScopeView>,
     expanded: &mut bool,
-) -> Option<PortalTabTarget> {
+    overview_icon: ImageSource<'static>,
+) -> Option<PortalTabOpen> {
     let show_labels = *expanded;
-    Panel::left("scope_details_navigation")
+    Panel::left(ui.make_persistent_id("scope_details_navigation"))
         .exact_size(if show_labels { 174.0 } else { 44.0 })
         .resizable(false)
         .frame(Frame::new().fill(Color32::WHITE))
         .show(ui, |ui| {
             ui.spacing_mut().item_spacing.y = 0.0;
             sidebar_expansion_toggle(ui, expanded, "resource navigation");
-            let mut destination = None;
-            if navigation_tile(
+            let mut destination = navigation_tile(
                 ui,
                 "Overview",
-                page_icon(scope.inventory()),
+                overview_icon,
                 current.is_none(),
                 show_labels,
-            ) {
-                destination = Some(scope.overview());
-            }
+                || scope.overview(),
+            );
             for (view, icon) in [
                 (PortalScopeView::ActivityLog, ACTIVITY_LOG_ICON),
                 (PortalScopeView::AccessControl, ACCESS_CONTROL_ICON),
+                (PortalScopeView::Tags, TAG_ICON),
+                (PortalScopeView::StorageExplorer, STORAGE_EXPLORER_ICON),
+                (PortalScopeView::Networking, networking_icon()),
             ] {
-                if navigation_tile(ui, view.label(), icon, current == Some(view), show_labels) {
-                    destination = Some(PortalTabTarget::ScopeView {
+                match view {
+                    PortalScopeView::Tags if !supports_tags(scope) => continue,
+                    PortalScopeView::StorageExplorer | PortalScopeView::Networking
+                        if !matches!(scope, PortalResourceScope::StorageAccount(_)) =>
+                    {
+                        continue;
+                    }
+                    _ => {}
+                }
+                if let Some(open) = navigation_tile(
+                    ui,
+                    view.label(),
+                    icon,
+                    current == Some(view),
+                    show_labels,
+                    || PortalTabTarget::ScopeView {
                         scope: scope.clone(),
                         view,
-                    });
+                    },
+                ) {
+                    destination = Some(open);
                 }
             }
             destination
@@ -68,7 +90,8 @@ pub(crate) fn navigation_tile(
     icon: ImageSource<'static>,
     selected: bool,
     show_label: bool,
-) -> bool {
+    target: impl FnOnce() -> PortalTabTarget,
+) -> Option<PortalTabOpen> {
     let (rect, response) =
         ui.allocate_exact_size(Vec2::new(ui.available_width(), 34.0), Sense::click());
     let response = response.on_hover_cursor(CursorIcon::PointingHand);
@@ -127,5 +150,6 @@ pub(crate) fn navigation_tile(
         );
     }
     let response = response.on_hover_text(title);
-    !selected && response.clicked()
+    PortalTabOpen::from_response(&response, target)
+        .filter(|open| !selected || matches!(open, PortalTabOpen::Background(_)))
 }

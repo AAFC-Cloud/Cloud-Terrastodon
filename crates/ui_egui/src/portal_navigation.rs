@@ -1,7 +1,8 @@
 use crate::app::MyApp;
-use crate::icons::ABOUT_ICON;
 use crate::icons::page_icon;
 use crate::portal_page::PortalPage;
+use crate::portal_tab_open::PortalTabOpen;
+use crate::portal_tab_target::PortalTabTarget;
 use crate::sidebar_expansion_toggle::sidebar_expansion_toggle;
 use eframe::egui::Align2;
 use eframe::egui::Button;
@@ -20,22 +21,24 @@ use eframe::egui::Vec2;
 use eframe::egui::WidgetInfo;
 use eframe::egui::WidgetType;
 
-const NAVIGATION_PAGES: [(PortalPage, &str); 15] = [
+const NAVIGATION_PAGES: [(PortalPage, &str); 17] = [
     (PortalPage::Home, "home"),
     (PortalPage::Resources, "resources"),
     (PortalPage::Subscriptions, "subscriptions"),
     (PortalPage::ResourceGroups, "resource-groups"),
+    (PortalPage::Tags, "tags"),
     (PortalPage::ManagementGroups, "management-groups"),
     (PortalPage::StorageAccounts, "storage-accounts"),
     (PortalPage::ContainerRegistries, "container-registries"),
     (PortalPage::KeyVaults, "key-vaults"),
+    (PortalPage::Entra, "entra"),
+    (PortalPage::Pim, "pim"),
     (PortalPage::AzureDevOpsOrganizations, "devops-organizations"),
-    (PortalPage::AzureDevOpsProjects, "devops-projects"),
+    (PortalPage::Auditing, "auditing"),
     (PortalPage::StartingPoints, "starting-points"),
     (PortalPage::SelectedItems, "selected-items"),
     (PortalPage::WorkDirs, "work-directories"),
     (PortalPage::FileDrop, "import-files"),
-    (PortalPage::Logs, "logs"),
 ];
 
 impl MyApp {
@@ -89,25 +92,24 @@ impl MyApp {
                     }
                     ui.add_space(8.0);
                     ui.separator();
-                    if ui
+                    let page = PortalPage::About;
+                    let icon = Image::new(page_icon(page)).fit_to_exact_size(Vec2::splat(20.0));
+                    let response = ui
                         .add_sized(
                             [ui.available_width(), 40.0],
                             if expanded {
-                                Button::image_and_text(
-                                    Image::new(ABOUT_ICON).fit_to_exact_size(Vec2::splat(20.0)),
-                                    "About Cloud Terrastodon",
-                                )
+                                Button::image_and_text(icon, page.title())
                             } else {
-                                Button::image(
-                                    Image::new(ABOUT_ICON).fit_to_exact_size(Vec2::splat(20.0)),
-                                )
+                                Button::image(icon)
                             }
-                            .frame(false),
+                            .frame(false)
+                            .selected(self.current_page().is_about_section()),
                         )
-                        .on_hover_text("About Cloud Terrastodon")
-                        .clicked()
+                        .on_hover_text("About Cloud Terrastodon");
+                    if let Some(action) =
+                        PortalTabOpen::from_response(&response, || PortalTabTarget::Page(page))
                     {
-                        self.about_open = !self.about_open;
+                        action.apply(self);
                     }
                 });
             });
@@ -125,7 +127,11 @@ impl MyApp {
         );
         response
             .widget_info(|| WidgetInfo::labeled(WidgetType::Button, ui.is_enabled(), page.title()));
-        let active = self.current_page() == page;
+        let current = self.current_page();
+        let active = current == page
+            || (page == PortalPage::Entra && current.is_entra())
+            || (page == PortalPage::Auditing && current.is_audit_section())
+            || (page == PortalPage::Pim && current.is_pim_section());
         if active || response.hovered() || response.has_focus() {
             ui.painter().rect_filled(
                 response.rect,
@@ -146,7 +152,11 @@ impl MyApp {
             ui.painter().text(
                 response.rect.left_center() + Vec2::new(44.0, 0.0),
                 Align2::LEFT_CENTER,
-                page.title(),
+                if page == PortalPage::Pim {
+                    "PIM"
+                } else {
+                    page.title()
+                },
                 FontId::proportional(13.0),
                 Color32::from_rgb(50, 49, 48),
             );
@@ -178,8 +188,11 @@ impl MyApp {
                 moved = Some((*source, before));
             }
         }
-        if response.on_hover_text(page.title()).clicked() {
-            self.navigate(page);
+        let response = response.on_hover_text(page.title());
+        if let Some(action) =
+            PortalTabOpen::from_response(&response, || PortalTabTarget::Page(page))
+        {
+            action.apply(self);
         }
         moved
     }

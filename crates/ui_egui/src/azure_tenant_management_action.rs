@@ -38,7 +38,14 @@ pub(crate) enum AzureTenantManagementAction {
 impl AzureTenantManagementAction {
     pub const fn target(&self) -> AzureTenantManagementTarget {
         match self {
-            Self::Details { .. } => AzureTenantManagementTarget::Directory,
+            Self::Details { tenant, selected } => AzureTenantManagementTarget::Directory {
+                tenant: *tenant,
+                selected: *selected,
+            },
+            Self::SetDefault(tenant)
+            | Self::Forget(tenant)
+            | Self::AddAlias(tenant, _)
+            | Self::RemoveAlias(tenant, _) => AzureTenantManagementTarget::Tenant(*tenant),
             _ => AzureTenantManagementTarget::Catalogue,
         }
     }
@@ -121,6 +128,11 @@ impl AzureTenantManagementAction {
                 let details = AzureTenantDetailsRequest { authentication }
                     .execute(&executor)
                     .await?;
+                ensure!(
+                    details.entity.id == tenant,
+                    "Azure tenant details returned directory {} for {tenant}",
+                    details.entity.id
+                );
                 return Ok(AzureTenantManagementUpdate::Details(details));
             }
         }

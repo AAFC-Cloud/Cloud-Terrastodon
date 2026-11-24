@@ -1,6 +1,20 @@
 # Unreleased
 
-- Track Azure DevOps organizations on this device with `ct az devops org list`, `add`, `show`, and `remove`.
+- Choose Azure accounts in each page's header. Open duplicate resource or directory tabs side by side with independent selections and results.
+
+- Find Accounts and Azure tenants alongside Logs and Background work under About. Browse them in searchable tables and open tenant details to edit aliases.
+
+- Browse Projects inside each Azure DevOps organization's workspace, with an Overview and hierarchy breadcrumbs. Ctrl-click navigation items and links to open background preview tabs.
+
+- Track Azure DevOps organizations on this device with `ct az devops org list`, `add`, `show`, and `remove`. The desktop organization list deemphasizes organizations associated with a different Azure tenant.
+
+- Browse Entra users and groups from the desktop sidebar and from role assignments. Scope links display subscription and management group names when available.
+
+- Choose which address the desktop toolbar displays, open available portal links in a browser, and refresh views from the toolbar.
+
+- Choose an Azure request scope and timespan in the desktop Activity Log. Search, filter, sort, and group the returned events in the Facet table.
+
+- Open any Azure resource from desktop inventories in an Overview with Activity Log and access control. Essentials offers Copy ID and Azure, Tree, JSON, Facet Pretty, and Text representations.
 
 - Add desktop resource inventory icons for Azure App Configuration, AI, compute, Kubernetes, managed identities, and networking.
 

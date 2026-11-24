@@ -1,5 +1,6 @@
 use crate::app::MyApp;
 use crate::gui_work_cache::GuiWorkCache;
+use crate::portal_history::PortalHistory;
 use crate::portal_typography;
 use cloud_terrastodon_auth::CloudTerrastodonAccountStore;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
@@ -124,6 +125,8 @@ pub(crate) async fn run_app_with_work_cache(
                                 .await
                             })?;
                             app.work_cache = work_cache;
+                            app.portal_history = PortalHistory::restore(cc.storage);
+                            app.record_portal_visit();
                             Ok(Box::new(app))
                         }),
                     )

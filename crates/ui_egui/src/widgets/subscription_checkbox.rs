@@ -4,20 +4,22 @@ use crate::icons::SUBSCRIPTION_ICON;
 use crate::workers::load_resource_groups::load_resource_groups;
 use cloud_terrastodon_azure::Subscription;
 use cloud_terrastodon_command::app_work::Loadable;
-use eframe::egui::Id;
 use eframe::egui::Ui;
 use eframe::egui::collapsing_header::CollapsingState;
 use tracing::debug;
 
 pub fn draw_subscription_checkbox(app: &mut MyApp, ui: &mut Ui, subscription: &Subscription) {
-    let mut expando =
-        CollapsingState::load_with_default_open(ui.ctx(), Id::new(subscription.id), false);
+    let mut expando = CollapsingState::load_with_default_open(
+        ui.ctx(),
+        ui.make_persistent_id(("subscription-expando", subscription.id)),
+        false,
+    );
     let toggle_key = expando.id();
-    if app.toggle_intents.remove(&toggle_key) {
+    if app.azure.toggle_intents.remove(&toggle_key) {
         expando.toggle(ui);
     }
     let is_open = expando.is_open();
-    if is_open && matches!(app.resource_groups, Loadable::NotLoaded) {
+    if is_open && matches!(app.azure.resource_groups, Loadable::NotLoaded) {
         load_resource_groups(app, false);
     }
     expando
@@ -30,7 +32,7 @@ pub fn draw_subscription_checkbox(app: &mut MyApp, ui: &mut Ui, subscription: &S
 
 fn draw_header(app: &mut MyApp, subscription: &Subscription, ui: &mut Ui) {
     ui.horizontal(|ui| {
-        let resource_group_count = app
+        let resource_group_count = app.azure
             .resource_groups
             .as_loaded()
             .map(|resource_groups| resource_groups.get_for_subscription(&subscription.id))
@@ -53,7 +55,7 @@ fn draw_header(app: &mut MyApp, subscription: &Subscription, ui: &mut Ui) {
 }
 
 fn draw_body(app: &mut MyApp, subscription: &Subscription, ui: &mut Ui) {
-    match &app.resource_groups {
+    match &app.azure.resource_groups {
         Loadable::NotLoaded => {
             ui.label("Not loaded");
         }

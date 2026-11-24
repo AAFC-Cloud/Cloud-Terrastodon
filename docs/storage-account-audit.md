@@ -11,6 +11,16 @@ The commands use the normal account authentication selection, including an
 optional `--auth-source` override and deliberately configured defaults. The
 standard output format selection supports text, JSON, and Facet Pretty.
 
+In egui, open **Auditing → Storage accounts**. The Findings tab shows confirmed
+and inconclusive findings with expandable evidence and links to storage accounts,
+resource groups, and individual blob containers.
+The JSON, Facet Pretty, and Text tabs render the same completed report.
+
+Open a storage account to browse its blob containers in **Storage Explorer**
+and inspect its firewall, private endpoints, routing, and custom domain in
+**Networking**. Networking can check an address you enter against the account's
+configured IP rules. The check runs locally and reports rule matches.
+
 Inspect storage accounts independently of the audit with:
 
 ```text

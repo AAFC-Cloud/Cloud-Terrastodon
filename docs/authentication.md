@@ -14,19 +14,24 @@ scope, independently of the tenant that issues a bearer token.
 
 ## Managing accounts in the desktop app
 
-Run `ct egui` and open the account menu at the top right. Select an account card
+Run `ct egui` and open the account menu at the top right of an Azure page. Select an account card
 to use its preferred source, or pick a source on the card. A signed-out source
 starts sign-in. Azure CLI also offers **Device code**. Azure pages use the selected
-Entra account and source. The header shows its alias, tenant, and email and photo
-when Microsoft Graph supplies them. The email and photo stay in memory.
+Entra account and source for that tab. The header shows its alias, tenant, and
+email and photo when Microsoft Graph supplies them. The email and photo stay in
+memory. Ctrl-click **Resource groups** or duplicate the tab to open a second view,
+then choose a different account in that view. New tabs start with their opener's
+selection and can change independently.
 
-**Manage accounts** opens the **Accounts** tab. It lists every registration,
+**Manage accounts** opens **About → Accounts**. The table lists every registration,
 including Azure DevOps PAT and Gitea accounts. **Add account** registers a
 credential mechanism. Select an account in the tab to sign in, add or change its
 preferred source, set or clear its default, import a legacy session, sign out,
-or remove it. Open **DevOps organizations** from the sidebar to choose an
-organization. **DevOps projects** lets you use an Azure account or a signed-in
-PAT account for that organization.
+or remove it. Open **DevOps organizations** from the sidebar and select an
+organization to browse its **Projects**. The organization workspace lets you use
+an Azure account or a signed-in PAT account for that organization. Its breadcrumbs
+lead back to the organization and the organization list. Ctrl-click a navigation
+item or link to open it in a background preview tab.
 
 Choose **Sign in with device code** when signing into an Azure CLI registration
 from the Accounts tab. The sign-in window shows the code, a copy button, and the
@@ -36,8 +41,9 @@ For an existing Azure CLI session, choose **Replace using device code** in the
 After signing in, you can retry in the same window. Use **Reload** to pick up
 account changes made in the CLI.
 
-Open **Tenants** from the Accounts tab to track tenant IDs, edit aliases, set the
-default tenant, or forget a tracked tenant. Track a new tenant before
+Open **About → Azure tenants** to browse tracked tenant IDs and their aliases.
+Select a row to edit aliases, set the default tenant, or forget that tenant.
+Track a new tenant before
 registering an account in it. **Discover from Azure CLI** reads the local Azure
 CLI account list. **Load directory details** uses the selected Azure account if
 it matches that tenant, or the tenant's configured default account and preferred
@@ -126,6 +132,9 @@ PAT account default.
 
 ## Tracking Azure DevOps organizations
 
+Use the local organization list to keep frequently used Azure DevOps
+organizations or Server collections available in the desktop picker:
+
 ```text
 ct az devops org add <organization> --tenant <tenant-id>
 ct az devops org list
@@ -137,7 +146,9 @@ Pass a cloud organization name or the full organization or collection URL.
 `--tenant` is optional. Running `add` again updates the saved tenant and
 omitting it clears the association. These commands manage the local catalogue.
 Azure DevOps requests still select credentials and organization scope
-explicitly.
+explicitly. The desktop **DevOps organizations** page dims organizations with a
+known tenant different from the selected Azure account's tenant. Use the desktop
+toolbar refresh to reload the catalogue after CLI changes.
 
 ## Several mechanisms for one account
 

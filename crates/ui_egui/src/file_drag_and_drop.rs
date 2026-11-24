@@ -37,8 +37,13 @@ pub fn ui_file_drag_and_drop(app: &mut MyApp, ctx: &Context) {
     for path in paths {
         app.work_dirs_config.work_dirs.insert(path.clone());
         // Keep every path when a user drops several items together.
-        app.tabs.open_kept(PortalTabTarget::LocalPath(path));
+        let target = PortalTabTarget::LocalPath(path);
+        let new_visit = !app.tabs.contains(&target);
+        app.tabs.open_kept(target);
+        if new_visit {
+            app.record_portal_visit();
+        }
     }
-    app.resource_search.clear();
+    app.azure.resource_search.clear();
     app.retain_open_tab_data();
 }

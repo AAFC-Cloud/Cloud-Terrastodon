@@ -1,6 +1,10 @@
 use crate::app::MyApp;
+use crate::inventory_table::show_inventory_result_count;
+use crate::portal_filter_chip::portal_filter_chip;
+use crate::portal_search::portal_search;
 use crate::reflected_table::ReflectedTable;
 use crate::reflected_table_column::ReflectedTableColumn;
+use crate::resource_inventory::ResourceInventory;
 use crate::resource_inventory_grouping::ResourceInventoryGrouping;
 use crate::resource_inventory_row::ResourceInventoryRow;
 use crate::workers::load_subscriptions::load_subscriptions;
@@ -14,13 +18,11 @@ use cloud_terrastodon_command::app_work::Loadable;
 use cloud_terrastodon_command::app_work::LoadableWorkBuilder;
 use cloud_terrastodon_execution::ExecutableRequest;
 use eframe::egui::Align;
-use eframe::egui::Button;
 use eframe::egui::Color32;
 use eframe::egui::ComboBox;
 use eframe::egui::Id;
 use eframe::egui::Layout;
 use eframe::egui::ScrollArea;
-use eframe::egui::TextEdit;
 use eframe::egui::Ui;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -43,28 +45,21 @@ fn resources_filtered_ui(app: &mut MyApp, ui: &mut Ui, kind: Option<&ResourceTyp
     if app.show_azure_authentication_required(ui) {
         return;
     }
-    if matches!(app.resources, Loadable::NotLoaded) {
+    if matches!(app.azure.resources, Loadable::NotLoaded) {
         load_resources(app, false);
     }
 
-    let mut refresh = false;
     ui.horizontal(|ui| {
-        refresh = ui
-            .add_enabled(
-                !matches!(app.resources, Loadable::Loading { .. }),
-                Button::new("Refresh"),
-            )
-            .on_hover_text("Fetch a fresh inventory from Azure")
-            .clicked();
-
         let selected_count = app
+            .azure
             .subscriptions
             .as_loaded()
             .map(|subscriptions| {
                 subscriptions
                     .iter()
                     .filter(|subscription| {
-                        app.checkboxes
+                        app.azure
+                            .checkboxes
                             .get(&Id::new(subscription.id))
                             .copied()
                             .unwrap_or(false)
@@ -77,11 +72,11 @@ fn resources_filtered_ui(app: &mut MyApp, ui: &mut Ui, kind: Option<&ResourceTyp
             1 => "1 subscription selected".to_owned(),
             count => format!("{count} subscriptions selected"),
         };
-        ui.menu_button(subscription_label, |ui| {
-            if matches!(app.subscriptions, Loadable::NotLoaded) {
+        portal_filter_chip(ui, subscription_label, |ui| {
+            if matches!(app.azure.subscriptions, Loadable::NotLoaded) {
                 load_subscriptions(app);
             }
-            match &app.subscriptions {
+            match &app.azure.subscriptions {
                 Loadable::Loaded {
                     value: subscriptions,
                     ..
@@ -116,18 +111,21 @@ fn resources_filtered_ui(app: &mut MyApp, ui: &mut Ui, kind: Option<&ResourceTyp
                 }
             }
         });
-        if !app.resource_search.is_empty() && ui.button("Clear search").clicked() {
-            app.resource_search.clear();
+        if !app.azure.resource_search.is_empty() && ui.button("Clear search").clicked() {
+            app.azure.resource_search.clear();
         }
     });
-    let search = app.resource_search.trim().to_lowercase();
+    let search = app.azure.resource_search.trim().to_lowercase();
     if let Some(resources) = inventory(app, ui) {
         let selected_subscriptions: HashSet<_> = app
+            .azure
             .subscriptions
             .as_loaded()
             .into_iter()
             .flat_map(|subscriptions| subscriptions.iter())
-            .filter(|subscription| app.checkboxes.get(&Id::new(subscription.id)) == Some(&true))
+            .filter(|subscription| {
+                app.azure.checkboxes.get(&Id::new(subscription.id)) == Some(&true)
+            })
             .map(|subscription| subscription.id)
             .collect();
         show_inventory(
@@ -140,13 +138,10 @@ fn resources_filtered_ui(app: &mut MyApp, ui: &mut Ui, kind: Option<&ResourceTyp
             &selected_subscriptions,
         );
     }
-    if refresh {
-        load_resources(app, true);
-    }
 }
 
 pub(crate) fn scoped_resources_ui(app: &mut MyApp, ui: &mut Ui, scope: &ScopeImpl) {
-    if matches!(app.resources, Loadable::NotLoaded) {
+    if matches!(app.azure.resources, Loadable::NotLoaded) {
         load_resources(app, false);
     }
     let filter_id = ui.id().with(("scoped-resource-filter", scope));
@@ -154,10 +149,7 @@ pub(crate) fn scoped_resources_ui(app: &mut MyApp, ui: &mut Ui, scope: &ScopeImp
         .data(|data| data.get_temp::<String>(filter_id))
         .unwrap_or_default();
     ui.heading("Resources");
-    if ui
-        .add(TextEdit::singleline(&mut search).hint_text("Filter resources"))
-        .changed()
-    {
+    if portal_search(ui, &mut search, "Filter resources", 260.0).changed() {
         ui.data_mut(|data| data.insert_temp(filter_id, search.clone()));
     }
     if let Some(resources) = inventory(app, ui) {
@@ -174,7 +166,7 @@ pub(crate) fn scoped_resources_ui(app: &mut MyApp, ui: &mut Ui, scope: &ScopeImp
 }
 
 fn inventory(app: &mut MyApp, ui: &mut Ui) -> Option<Arc<Vec<Arc<Resource>>>> {
-    match &app.resources {
+    match &app.azure.resources {
         Loadable::Loaded { value, .. } => Some(Arc::clone(value)),
         Loadable::NotLoaded | Loadable::Loading { .. } => {
             ui.horizontal(|ui| {
@@ -212,96 +204,18 @@ fn inventory(app: &mut MyApp, ui: &mut Ui) -> Option<Arc<Vec<Arc<Resource>>>> {
 fn show_inventory(
     app: &mut MyApp,
     ui: &mut Ui,
-    resources: &[Arc<Resource>],
+    resources: &Arc<Vec<Arc<Resource>>>,
     kind: Option<&ResourceType>,
     scope: Option<&ScopeImpl>,
     search: &str,
     selected_subscriptions: &HashSet<SubscriptionId>,
 ) {
-    let mut subscription_names: HashMap<_, _> = resources
-        .iter()
-        .filter_map(|resource| match &resource.id {
-            ScopeImpl::Subscription(id) => {
-                Some((*id, resource.display_name().unwrap_or(&resource.name)))
-            }
-            _ => None,
-        })
-        .collect();
-    if let Some(subscriptions) = app.subscriptions.as_loaded() {
-        subscription_names.extend(
-            subscriptions
-                .iter()
-                .map(|subscription| (subscription.id, subscription.name.as_str())),
-        );
-    }
-    let rows: Vec<_> = resources
-        .iter()
-        .filter_map(|resource| {
-            if kind.is_some_and(|kind| kind != &resource.kind) {
-                return None;
-            }
-            let id = resource.id.expanded_form();
-            let (subscription, group) = ResourceInventoryRow::ancestors(&id);
-            if scope.is_some_and(|scope| {
-                !ResourceInventoryRow::belongs_to(&resource.id, subscription, group.as_ref(), scope)
-            }) || (!selected_subscriptions.is_empty()
-                && !subscription.is_some_and(|id| selected_subscriptions.contains(&id)))
-            {
-                return None;
-            }
-            let row = ResourceInventoryRow::new(
-                resource,
-                subscription,
-                subscription.and_then(|id| subscription_names.get(&id).copied()),
-                group,
-            );
-            (search.is_empty()
-                || row.name.to_lowercase().contains(search)
-                || row.type_label.to_lowercase().contains(search)
-                || resource.kind.as_ref().to_lowercase().contains(search)
-                || row
-                    .location
-                    .as_ref()
-                    .is_some_and(|location| location.to_string().to_lowercase().contains(search))
-                || id.to_lowercase().contains(search))
-            .then_some(row)
-        })
-        .collect();
-
     let inventory_id = Id::new((
         "resource-inventory",
         app.current_page().title(),
         scope,
         kind,
     ));
-    let grouping_id = ui.make_persistent_id(inventory_id.with("grouping"));
-    let previous_grouping = ui.data(|data| data.get_temp::<ResourceInventoryGrouping>(grouping_id));
-    let mut grouping = previous_grouping;
-    ui.horizontal(|ui| {
-        ui.weak(format!("{} resources", rows.len()));
-        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-            ComboBox::from_id_salt(grouping_id)
-                .selected_text(grouping.map_or("None", ResourceInventoryGrouping::label))
-                .show_ui(ui, |ui| {
-                    ui.selectable_value(&mut grouping, None, "None");
-                    for option in ResourceInventoryGrouping::ALL {
-                        ui.selectable_value(&mut grouping, Some(option), option.label());
-                    }
-                });
-            ui.label("Group by");
-        });
-    });
-    if grouping != previous_grouping {
-        ui.data_mut(|data| match grouping {
-            Some(grouping) => {
-                data.insert_temp(grouping_id, grouping);
-            }
-            None => data.remove::<ResourceInventoryGrouping>(grouping_id),
-        });
-    }
-    if rows.is_empty() {
-        ui.label("No resources match this view.");
-    }
     let mut columns = vec![
         ReflectedTableColumn::new("Name", "name")
             .with_link("id")
@@ -325,20 +239,106 @@ fn show_inventory(
                 .with_link("subscription_id"),
         );
     }
-    let table = ReflectedTable::new(inventory_id.with(app.account_generation), &columns);
+    let view = inventory_id.with(app.azure.account_generation);
+    let table = ReflectedTable::new(view, &columns);
+    let subscriptions = app.azure.subscriptions.as_loaded();
+    let inventory = ResourceInventory::get_or_build(
+        app.azure
+            .resource_inventories
+            .entry(app.tabs.active_pane())
+            .or_default(),
+        resources,
+        subscriptions,
+        view,
+        search,
+        selected_subscriptions,
+        || {
+            let mut subscription_names: HashMap<_, _> = resources
+                .iter()
+                .filter_map(|resource| match &resource.id {
+                    ScopeImpl::Subscription(id) => {
+                        Some((*id, resource.display_name().unwrap_or(&resource.name)))
+                    }
+                    _ => None,
+                })
+                .collect();
+            subscription_names.extend(
+                subscriptions
+                    .into_iter()
+                    .flat_map(|subscriptions| subscriptions.iter())
+                    .map(|subscription| (subscription.id, subscription.name.as_str())),
+            );
+            let mut total = 0;
+            let rows = resources
+                .iter()
+                .filter_map(|resource| {
+                    if kind.is_some_and(|kind| kind != &resource.kind) {
+                        return None;
+                    }
+                    let id = resource.id.expanded_form();
+                    let (subscription, group) = ResourceInventoryRow::ancestors(&id);
+                    if scope.is_some_and(|scope| {
+                        !ResourceInventoryRow::belongs_to(
+                            &resource.id,
+                            subscription,
+                            group.as_ref(),
+                            scope,
+                        )
+                    }) {
+                        return None;
+                    }
+                    total += 1;
+                    if !selected_subscriptions.is_empty()
+                        && !subscription.is_some_and(|id| selected_subscriptions.contains(&id))
+                    {
+                        return None;
+                    }
+                    let row = ResourceInventoryRow::new(
+                        resource,
+                        subscription,
+                        subscription.and_then(|id| subscription_names.get(&id).copied()),
+                        group,
+                    );
+                    table.matches_search(&row, search).then_some(row)
+                })
+                .collect();
+            (rows, total)
+        },
+    );
+
+    let grouping_id = ui.make_persistent_id(inventory_id.with("grouping"));
+    let previous_grouping = ui.data(|data| data.get_temp::<ResourceInventoryGrouping>(grouping_id));
+    let mut grouping = previous_grouping;
+    ui.horizontal(|ui| {
+        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            ComboBox::from_id_salt(grouping_id)
+                .selected_text(grouping.map_or("None", ResourceInventoryGrouping::label))
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(&mut grouping, None, "None");
+                    for option in ResourceInventoryGrouping::ALL {
+                        ui.selectable_value(&mut grouping, Some(option), option.label());
+                    }
+                });
+            ui.label("Group by");
+        });
+    });
+    if grouping != previous_grouping {
+        ui.data_mut(|data| match grouping {
+            Some(grouping) => {
+                data.insert_temp(grouping_id, grouping);
+            }
+            None => data.remove::<ResourceInventoryGrouping>(grouping_id),
+        });
+    }
+    show_inventory_result_count(ui, inventory_id, inventory.row_count(), inventory.total);
+    if inventory.row_count() == 0 {
+        ui.label("No resources match this view.");
+    }
     if grouping != previous_grouping {
         table.reset_selection_anchor(ui);
     }
-    let row_id = |row: &ResourceInventoryRow| Id::new(("resource-row", &row.id));
-    let navigation = if let Some(grouping) = grouping {
-        table.show_grouped(ui, rows.iter(), row_id, &mut app.checkboxes, |row| {
-            grouping.group(row)
-        })
-    } else {
-        table.show(ui, rows.iter(), row_id, &mut app.checkboxes)
-    };
-    if let Some(navigation) = navigation {
-        app.navigate_tab(navigation);
+    if let Some(navigation) = inventory.show(ui, &table, &mut app.azure.checkboxes, grouping) {
+        navigation.apply(app);
     }
 }
 
@@ -349,13 +349,14 @@ pub(crate) fn load_resources(app: &mut MyApp, refresh: bool) {
     let executor = app.executor.clone();
     let work_cache = app.work_cache.clone();
     let cancellation = executor.cancellation().clone();
-    let generation = app.account_generation;
+    let generation = app.azure.account_generation;
     let started_at = Instant::now();
     let enqueue_result = LoadableWorkBuilder::<MyApp, _>::new()
         .description("Fetch resources")
         .setter(move |app, resources| {
-            if app.account_generation == generation {
-                app.resources = resources;
+            if let Some(azure) = app.azure_content_mut(generation) {
+                azure.resources = resources;
+                azure.resource_inventories.clear();
             }
         })
         .work(async move |scope| {
@@ -375,7 +376,8 @@ pub(crate) fn load_resources(app: &mut MyApp, refresh: bool) {
             &cancellation,
         );
     if let Err(error) = enqueue_result {
-        app.resources = Loadable::Failed {
+        app.azure.resource_inventories.clear();
+        app.azure.resources = Loadable::Failed {
             error: error.into(),
             started_at,
             finished_at: Instant::now(),

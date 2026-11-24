@@ -168,12 +168,7 @@ impl AzureAccountDetails {
             if source == account.preferred_source {
                 ui.label("Preferred");
             }
-            ui.label(match registration.session {
-                Session::Unprovisioned => "Signed out",
-                Session::Provisioning { .. } => "Sign-in incomplete",
-                Session::Active { .. } => "Saved session",
-                Session::Retired { .. } => "Session retired",
-            });
+            ui.label(Self::session_label(registration.session));
         });
         match &registration.credential {
             CloudTerrastodonAccountCredential::Browser { client_id, .. } => {
@@ -374,6 +369,15 @@ impl AzureAccountDetails {
                 format!("Azure DevOps · {organization}")
             }
             CloudTerrastodonAccountNamespace::Gitea { instance } => format!("Gitea · {instance}"),
+        }
+    }
+
+    pub fn session_label(session: CloudTerrastodonAccountSession) -> &'static str {
+        match session {
+            CloudTerrastodonAccountSession::Unprovisioned => "Signed out",
+            CloudTerrastodonAccountSession::Provisioning { .. } => "Sign-in incomplete",
+            CloudTerrastodonAccountSession::Active { .. } => "Saved session",
+            CloudTerrastodonAccountSession::Retired { .. } => "Session retired",
         }
     }
 }

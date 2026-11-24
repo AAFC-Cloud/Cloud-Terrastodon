@@ -3,9 +3,11 @@ use crate::portal_resource_scope::PortalResourceScope;
 use crate::portal_tab_target::PortalTabTarget;
 use cloud_terrastodon_azure::AzureStorageAccountId;
 use cloud_terrastodon_azure::Scope;
+use facet::Facet;
 
 /// A resource whose typed details can be rendered in the desktop output viewer.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, Facet, PartialEq)]
+#[repr(C)]
 pub enum PortalResourceOutputTarget {
     Scope(PortalResourceScope),
     StorageAccount(AzureStorageAccountId),

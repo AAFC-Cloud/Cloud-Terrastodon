@@ -1,6 +1,6 @@
+use crate::portal_address::format_shell_command;
 use cloud_terrastodon_app::OutputFormat;
 use cloud_terrastodon_auth_cli::AzureAuthenticationArgs;
-use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_azure::AzureStorageAccountId;
 use cloud_terrastodon_azure_cli::AzureArgs;
 use cloud_terrastodon_azure_cli::AzureCommand;
@@ -9,13 +9,11 @@ use cloud_terrastodon_azure_cli::storage::AzureStorageCommand;
 use cloud_terrastodon_azure_cli::storage::account::AzureStorageAccountArgs;
 use cloud_terrastodon_azure_cli::storage::account::AzureStorageAccountCommand;
 use cloud_terrastodon_azure_cli::storage::account::AzureStorageAccountShowArgs;
-use cloud_terrastodon_cli_types::CloudTerrastodonAccountArgument;
 use eyre::Result;
-use figue::ToArgs;
 
 /// Format the CLI equivalent of the typed get request with its resolved identity.
 pub(crate) fn storage_account_show_command(
-    authentication: AzureBearerAuthenticationSelection,
+    authentication: AzureAuthenticationArgs,
     id: &AzureStorageAccountId,
     no_cache: bool,
     format: Option<OutputFormat>,
@@ -24,13 +22,7 @@ pub(crate) fn storage_account_show_command(
         command: AzureCommand::Storage(AzureStorageArgs {
             command: AzureStorageCommand::Account(AzureStorageAccountArgs {
                 command: AzureStorageAccountCommand::Show(AzureStorageAccountShowArgs {
-                    authentication: AzureAuthenticationArgs {
-                        tenant: Some(authentication.tenant_id.into()),
-                        account: Some(CloudTerrastodonAccountArgument::Id(
-                            authentication.account_id,
-                        )),
-                        auth_source: authentication.auth_source.into(),
-                    },
+                    authentication,
                     storage_account: id.clone(),
                     no_cache,
                 }),
@@ -44,20 +36,7 @@ pub(crate) fn storage_account_show_command(
         Some(OutputFormat::Text) => " --output-format text",
         Some(OutputFormat::Auto) => " --output-format auto",
     };
-    let mut command = format!("ct{format_flag} az");
-    for arg in args.to_args()? {
-        let arg = arg.to_string_lossy();
-        command.push(' ');
-        // Parentheses are valid in resource-group names and special to shells.
-        if arg.contains(['(', ')']) {
-            command.push('"');
-            command.push_str(&arg);
-            command.push('"');
-        } else {
-            command.push_str(&arg);
-        }
-    }
-    Ok(command)
+    format_shell_command(format!("ct{format_flag} az"), &args)
 }
 
 #[cfg(test)]
@@ -65,6 +44,8 @@ mod tests {
     use super::*;
     use cloud_terrastodon_app::GlobalArgs;
     use cloud_terrastodon_auth_types::AzureBearerAuthSource;
+    use cloud_terrastodon_azure::AzureTenantId;
+    use cloud_terrastodon_cli_types::CloudTerrastodonAccountArgument;
     use facet::Facet;
 
     #[derive(Facet)]
@@ -84,13 +65,13 @@ mod tests {
 
     #[test]
     fn storage_show_command_preserves_resource_identity_and_output_format() -> Result<()> {
-        let account_id = "00000000-0000-0000-0000-000000000001".parse()?;
-        let tenant_id = "00000000-0000-0000-0000-000000000002".parse()?;
+        let account: CloudTerrastodonAccountArgument = "personal".parse()?;
+        let tenant_id: AzureTenantId = "00000000-0000-0000-0000-000000000002".parse()?;
         let auth_source = AzureBearerAuthSource::AzureCli;
-        let authentication = AzureBearerAuthenticationSelection {
-            account_id,
-            tenant_id,
-            auth_source,
+        let authentication = AzureAuthenticationArgs {
+            account: Some(account.clone()),
+            tenant: Some(tenant_id.into()),
+            auth_source: auth_source.into(),
         };
         let id = concat!(
             "/subscriptions/00000000-0000-0000-0000-000000000003",
@@ -104,11 +85,11 @@ mod tests {
             true,
             Some(OutputFormat::FacetPretty),
         )?;
-        assert!(command.contains("\"/subscriptions/"));
+        assert!(command.contains("'/subscriptions/"));
         let tokens = command
             .split_whitespace()
             .skip(1)
-            .map(|token| token.trim_matches('"'))
+            .map(|token| token.trim_matches('\''))
             .collect::<Vec<_>>();
         let cli: Cli = figue::from_slice(&tokens)
             .into_result()
@@ -131,10 +112,7 @@ mod tests {
             Some(OutputFormat::FacetPretty)
         );
         assert_eq!(args.storage_account, id);
-        assert_eq!(
-            args.authentication.account,
-            Some(CloudTerrastodonAccountArgument::Id(account_id))
-        );
+        assert_eq!(args.authentication.account, Some(account));
         assert_eq!(args.authentication.tenant, Some(tenant_id.into()));
         assert_eq!(args.authentication.auth_source, auth_source.into());
         assert!(args.no_cache);

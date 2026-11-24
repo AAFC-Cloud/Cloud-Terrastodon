@@ -96,7 +96,7 @@ impl AzureAccountProfile {
         .then(|| name.into())
     }
 
-    fn decode_photo(bytes: &[u8]) -> Option<ColorImage> {
+    pub(crate) fn decode_photo(bytes: &[u8]) -> Option<ColorImage> {
         let mut reader = ImageReader::new(Cursor::new(bytes))
             .with_guessed_format()
             .ok()?;

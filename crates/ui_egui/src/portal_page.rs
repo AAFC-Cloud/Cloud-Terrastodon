@@ -1,8 +1,10 @@
 use cloud_terrastodon_azure::ResourceType;
+use facet::Facet;
 
 /// A destination in the GUI's service navigation. Resource destinations share
 /// the inventory view while keeping their service filter explicit.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Facet, PartialEq)]
+#[repr(u8)]
 pub enum PortalPage {
     Home,
     Resources,
@@ -12,8 +14,12 @@ pub enum PortalPage {
     StorageAccounts,
     ContainerRegistries,
     KeyVaults,
+    Entra,
+    EntraUsers,
+    EntraGroups,
+    // The former global Projects page restores as the organization list.
+    #[facet(alias = "AzureDevOpsProjects")]
     AzureDevOpsOrganizations,
-    AzureDevOpsProjects,
     Accounts,
     AzureTenants,
     StartingPoints,
@@ -21,6 +27,17 @@ pub enum PortalPage {
     WorkDirs,
     FileDrop,
     Logs,
+    About,
+    History,
+    Tags,
+    EntraAppRegistrations,
+    BackgroundWork,
+    Auditing,
+    AzureDevOpsAudit,
+    StorageAccountAudit,
+    Pim,
+    PimEntraRoles,
+    PimAzureResources,
 }
 
 impl PortalPage {
@@ -34,8 +51,11 @@ impl PortalPage {
             Self::StorageAccounts => "Storage accounts",
             Self::ContainerRegistries => "Container registries",
             Self::KeyVaults => "Key vaults",
+            Self::Entra => "Microsoft Entra",
+            Self::EntraUsers => "Users",
+            Self::EntraGroups => "Groups",
+            Self::EntraAppRegistrations => "App registrations",
             Self::AzureDevOpsOrganizations => "DevOps organizations",
-            Self::AzureDevOpsProjects => "DevOps projects",
             Self::Accounts => "Accounts",
             Self::AzureTenants => "Azure tenants",
             Self::StartingPoints => "Starting points",
@@ -43,7 +63,45 @@ impl PortalPage {
             Self::WorkDirs => "Work directories",
             Self::FileDrop => "Import files",
             Self::Logs => "Logs",
+            Self::BackgroundWork => "Background work",
+            Self::About => "About",
+            Self::History => "History",
+            Self::Tags => "Tags",
+            Self::Auditing => "Auditing",
+            Self::AzureDevOpsAudit => "Azure DevOps audit",
+            Self::StorageAccountAudit => "Storage account audit",
+            Self::Pim => "Privileged Identity Management",
+            Self::PimEntraRoles => "Microsoft Entra roles",
+            Self::PimAzureResources => "Azure resources",
         }
+    }
+
+    pub(crate) fn is_entra(self) -> bool {
+        matches!(
+            self,
+            Self::Entra | Self::EntraUsers | Self::EntraGroups | Self::EntraAppRegistrations
+        )
+    }
+
+    pub(crate) fn is_about_section(self) -> bool {
+        matches!(
+            self,
+            Self::About | Self::Logs | Self::BackgroundWork | Self::Accounts | Self::AzureTenants
+        )
+    }
+
+    pub(crate) fn is_audit_section(self) -> bool {
+        matches!(
+            self,
+            Self::Auditing | Self::AzureDevOpsAudit | Self::StorageAccountAudit
+        )
+    }
+
+    pub(crate) fn is_pim_section(self) -> bool {
+        matches!(
+            self,
+            Self::Pim | Self::PimEntraRoles | Self::PimAzureResources
+        )
     }
 
     pub fn resource_type(self) -> Option<ResourceType> {

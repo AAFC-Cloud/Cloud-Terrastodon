@@ -1,12 +1,27 @@
+use crate::portal_azure_devops_organization_view::PortalAzureDevOpsOrganizationView;
+use crate::portal_tab_open::PortalTabOpen;
 use crate::portal_tab_target::PortalTabTarget;
+use crate::scope_role_assignment_principal_link::ScopeRoleAssignmentPrincipalLink;
+use cloud_terrastodon_auth_types::CloudTerrastodonAccountId;
+use cloud_terrastodon_azure::AzureActivityLogEventLevel;
 use cloud_terrastodon_azure::AzureLocationName;
 use cloud_terrastodon_azure::AzureResourceGroupId;
+use cloud_terrastodon_azure::AzureStorageAccountBlobContainerId;
 use cloud_terrastodon_azure::AzureStorageAccountId;
+use cloud_terrastodon_azure::AzureTenantId;
+use cloud_terrastodon_azure::EntraApplicationClientId;
+use cloud_terrastodon_azure::EntraApplicationObjectId;
+use cloud_terrastodon_azure::EntraGroupId;
+use cloud_terrastodon_azure::EntraUserId;
 use cloud_terrastodon_azure::ManagementGroupId;
 use cloud_terrastodon_azure::ResourceType;
 use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::ScopeImpl;
 use cloud_terrastodon_azure::SubscriptionId;
+use cloud_terrastodon_azure_devops::AzureDevOpsBuildDefinitionQueueStatus;
+use cloud_terrastodon_azure_devops::AzureDevOpsOrganizationUrl;
+use cloud_terrastodon_azure_devops::AzureDevOpsServiceEndpointKind;
+use cloud_terrastodon_azure_devops::AzureDevOpsWorkItemId;
 use eframe::egui::Ui;
 use facet::Def;
 use facet::Facet;
@@ -51,7 +66,12 @@ impl<'a> ReflectedValue<'a> {
             .or_else(|| value.get::<u64>().map(|&number| i128::from(number)))
             .or_else(|| value.get::<u32>().map(|&number| i128::from(number)))
             .or_else(|| value.get::<i64>().map(|&number| i128::from(number)))
-            .or_else(|| value.get::<i32>().map(|&number| i128::from(number)));
+            .or_else(|| value.get::<i32>().map(|&number| i128::from(number)))
+            .or_else(|| {
+                value
+                    .get::<AzureDevOpsWorkItemId>()
+                    .map(|id| i128::from(id.get()))
+            });
         if number.is_some() {
             (number, String::new())
         } else {
@@ -68,6 +88,9 @@ impl<'a> ReflectedValue<'a> {
     pub fn table_text(self) -> Option<String> {
         let mut value = self.table_value()?;
         for _ in 0..8 {
+            if let Some(level) = value.get::<AzureActivityLogEventLevel>() {
+                return Some(level.as_str().to_owned());
+            }
             if let Some(location) = value.get::<AzureLocationName>() {
                 return Some(location.to_string());
             }
@@ -77,11 +100,41 @@ impl<'a> ReflectedValue<'a> {
             if let Some(id) = value.get::<AzureResourceGroupId>() {
                 return Some(id.expanded_form());
             }
+            if let Some(id) = value.get::<AzureStorageAccountBlobContainerId>() {
+                return Some(id.to_string());
+            }
             if let Some(id) = value.get::<SubscriptionId>() {
                 return Some(id.expanded_form());
             }
+            if let Some(id) = value.get::<AzureTenantId>() {
+                return Some(id.to_string());
+            }
+            if let Some(id) = value.get::<CloudTerrastodonAccountId>() {
+                return Some(id.to_string());
+            }
+            if let Some(id) = value.get::<EntraUserId>() {
+                return Some(id.to_string());
+            }
+            if let Some(id) = value.get::<EntraGroupId>() {
+                return Some(id.to_string());
+            }
+            if let Some(id) = value.get::<EntraApplicationObjectId>() {
+                return Some(id.to_string());
+            }
+            if let Some(id) = value.get::<EntraApplicationClientId>() {
+                return Some(id.to_string());
+            }
+            if let Some(link) = value.get::<ScopeRoleAssignmentPrincipalLink>() {
+                return Some(link.identifier());
+            }
             if let Some(kind) = value.get::<ResourceType>() {
                 return Some(kind.to_string());
+            }
+            if let Some(kind) = value.get::<AzureDevOpsServiceEndpointKind>() {
+                return Some(String::from(kind));
+            }
+            if let Some(status) = value.get::<AzureDevOpsBuildDefinitionQueueStatus>() {
+                return Some(status.to_string());
             }
             if matches!(value.0.shape().def, Def::Scalar) && value.0.shape().vtable.has_display() {
                 return Some(value.0.to_string());
@@ -124,11 +177,32 @@ impl<'a> ReflectedValue<'a> {
     pub fn navigation_target(self) -> Option<PortalTabTarget> {
         let mut value = self;
         for _ in 0..8 {
+            if let Some(id) = value.get::<AzureTenantId>() {
+                return Some(PortalTabTarget::AzureTenant(*id));
+            }
+            if let Some(target) = value.get::<PortalTabTarget>() {
+                return Some(target.clone());
+            }
+            if let Some(organization) = value.get::<AzureDevOpsOrganizationUrl>() {
+                return Some(PortalAzureDevOpsOrganizationView::Projects.target(organization));
+            }
             if let Some(id) = value.get::<AzureResourceGroupId>() {
                 return Some(PortalTabTarget::ResourceGroup(id.clone()));
             }
             if let Some(id) = value.get::<SubscriptionId>() {
                 return Some(PortalTabTarget::Subscription(*id));
+            }
+            if let Some(id) = value.get::<EntraUserId>() {
+                return Some(PortalTabTarget::EntraUser(*id));
+            }
+            if let Some(id) = value.get::<EntraGroupId>() {
+                return Some(PortalTabTarget::EntraGroup(*id));
+            }
+            if let Some(id) = value.get::<EntraApplicationObjectId>() {
+                return Some(PortalTabTarget::EntraAppRegistration(*id));
+            }
+            if let Some(link) = value.get::<ScopeRoleAssignmentPrincipalLink>() {
+                return Some(link.navigation_target());
             }
             if let Some(id) = value.get::<ManagementGroupId>() {
                 return Some(PortalTabTarget::ManagementGroup(id.clone()));
@@ -136,23 +210,18 @@ impl<'a> ReflectedValue<'a> {
             if let Some(id) = value.get::<AzureStorageAccountId>() {
                 return Some(PortalTabTarget::StorageAccount(id.clone()));
             }
+            if let Some(id) = value.get::<AzureStorageAccountBlobContainerId>() {
+                return Some(PortalTabTarget::StorageContainer(id.clone()));
+            }
             if let Some(kind) = value.get::<ResourceType>() {
                 return Some(PortalTabTarget::ResourcesOfType(kind.clone()));
             }
             if let Some(scope) = value.get::<ScopeImpl>() {
-                return match scope {
-                    ScopeImpl::ResourceGroup(id) => {
-                        Some(PortalTabTarget::ResourceGroup(id.clone()))
-                    }
-                    ScopeImpl::Subscription(id) => Some(PortalTabTarget::Subscription(*id)),
-                    ScopeImpl::ManagementGroup(id) => {
-                        Some(PortalTabTarget::ManagementGroup(id.clone()))
-                    }
-                    ScopeImpl::StorageAccount(id) => {
-                        Some(PortalTabTarget::StorageAccount(id.clone()))
-                    }
-                    _ => None,
-                };
+                if matches!(scope, ScopeImpl::Unknown(id) if !id.starts_with('/') || id.as_str() == "/")
+                {
+                    return None;
+                }
+                return Some(PortalTabTarget::from_arm_scope(scope));
             }
             value = if let Ok(option) = value.0.into_option() {
                 Self(option.value()?)
@@ -171,7 +240,7 @@ impl<'a> ReflectedValue<'a> {
     }
 
     /// Present supported identities as links to their other portal views.
-    pub fn show_links(self, ui: &mut Ui, current: &PortalTabTarget) -> Option<PortalTabTarget> {
+    pub fn show_links(self, ui: &mut Ui, current: &PortalTabTarget) -> Option<PortalTabOpen> {
         let mut navigation = None;
         self.show_value(ui, Some(current), &mut navigation);
         navigation
@@ -181,7 +250,7 @@ impl<'a> ReflectedValue<'a> {
         self,
         ui: &mut Ui,
         current: Option<&PortalTabTarget>,
-        navigation: &mut Option<PortalTabTarget>,
+        navigation: &mut Option<PortalTabOpen>,
     ) {
         if let Ok(record) = self.0.into_struct() {
             Self::show_record(ui, record, 0, current, navigation);
@@ -195,7 +264,7 @@ impl<'a> ReflectedValue<'a> {
         record: PeekStruct<'a, 'static>,
         depth: usize,
         current: Option<&PortalTabTarget>,
-        navigation: &mut Option<PortalTabTarget>,
+        navigation: &mut Option<PortalTabOpen>,
     ) {
         for (index, field) in record.ty().fields.iter().enumerate() {
             let label = field.effective_name().replace('_', " ");
@@ -213,7 +282,7 @@ impl<'a> ReflectedValue<'a> {
         label: &str,
         depth: usize,
         current: Option<&PortalTabTarget>,
-        navigation: &mut Option<PortalTabTarget>,
+        navigation: &mut Option<PortalTabOpen>,
     ) {
         if depth >= 8 {
             ui.label(format!("{label} · {}", self.0.shape().effective_name()));
@@ -225,8 +294,9 @@ impl<'a> ReflectedValue<'a> {
         {
             ui.horizontal_wrapped(|ui| {
                 ui.strong(label);
-                if ui.link(target.title().as_ref()).clicked() {
-                    *navigation = Some(target);
+                let response = ui.link(target.title().as_ref());
+                if let Some(open) = PortalTabOpen::from_response(&response, || target) {
+                    *navigation = Some(open);
                 }
             });
         } else if let Ok(option) = self.0.into_option() {
@@ -360,6 +430,27 @@ mod tests {
     }
 
     #[test]
+    fn reflected_work_item_ids_sort_numerically() -> eyre::Result<()> {
+        let mut ids = [
+            AzureDevOpsWorkItemId::new(42)?,
+            AzureDevOpsWorkItemId::new(7)?,
+        ];
+        ids.sort_by_cached_key(|id| ReflectedValue::new(id).table_sort_key());
+        assert_eq!(ids.map(AzureDevOpsWorkItemId::get), [7, 42]);
+        Ok(())
+    }
+
+    #[test]
+    fn reflected_service_connection_type_retains_its_service_value() -> eyre::Result<()> {
+        let kind: AzureDevOpsServiceEndpointKind = "github".parse()?;
+        assert_eq!(
+            ReflectedValue::new(&kind).table_text().as_deref(),
+            Some("github")
+        );
+        Ok(())
+    }
+
+    #[test]
     fn navigation_uses_the_reflected_identity_instead_of_display_text() -> eyre::Result<()> {
         let id = AzureResourceGroupId::try_new(
             "00000000-0000-0000-0000-000000000001",
@@ -372,6 +463,22 @@ mod tests {
             ReflectedValue::new(&reflected).navigation_target(),
             Some(PortalTabTarget::ResourceGroup(id))
         );
+        Ok(())
+    }
+
+    #[test]
+    fn application_lookup_uses_object_identity_even_when_client_id_has_the_same_text()
+    -> eyre::Result<()> {
+        let id = "00000000-0000-0000-0000-000000000001";
+        let object: EntraApplicationObjectId = id.parse()?;
+        let client: EntraApplicationClientId = id.parse()?;
+        assert_eq!(
+            ReflectedValue::new(&object).navigation_target(),
+            Some(PortalTabTarget::EntraAppRegistration(object))
+        );
+        let client = ReflectedValue::new(&client);
+        assert_eq!(client.table_text().as_deref(), Some(id));
+        assert!(client.navigation_target().is_none());
         Ok(())
     }
 }
