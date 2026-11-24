@@ -46,7 +46,6 @@ use cloud_terrastodon_execution::CacheInvalidatableRequest;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::TestAuthenticationProvider;
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
@@ -212,7 +211,7 @@ fn audit_policy_tests_compare_only_existing_tags_with_the_nearest_inventoried_pa
                     .into_iter()
                     .map(|(key, value)| (key.into(), value.into()))
                     .collect(),
-                properties: HashMap::new(),
+                properties: Default::default(),
             })
         })
         .collect::<Vec<_>>();

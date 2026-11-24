@@ -412,7 +412,7 @@ mod tests {
             name: "my-vnet/my-subnet".to_owned(),
             location: None,
             tags: HashMap::new(),
-            properties: HashMap::new(),
+            properties: Default::default(),
         };
         let wrong_parent_resource = Resource {
             id: ScopeImpl::from_str("/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/other-resource-group/providers/Microsoft.Network/virtualNetworks/other-vnet/subnets/my-subnet").unwrap(),
@@ -420,7 +420,7 @@ mod tests {
             name: "other-vnet/my-subnet".to_owned(),
             location: None,
             tags: HashMap::new(),
-            properties: HashMap::new(),
+            properties: Default::default(),
         };
         let resources = HashMap::from([
             (
@@ -533,7 +533,7 @@ mod tests {
             name: "my-vnet".to_owned(),
             location: None,
             tags: HashMap::new(),
-            properties: HashMap::new(),
+            properties: Default::default(),
         };
         let resources = HashMap::from([("my-vnet".to_owned(), vec![Arc::new(vnet_resource)])]);
 

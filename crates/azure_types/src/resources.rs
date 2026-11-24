@@ -1,7 +1,7 @@
-use crate::ArbitraryJson;
 use crate::AsScope;
 use crate::AzureLocationName;
 use crate::AzureResourceGroupId;
+use crate::ResourceProperties;
 use crate::ResourceType;
 use crate::Scope;
 use crate::ScopeImpl;
@@ -95,43 +95,6 @@ impl FromStr for ResourceId {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Facet)]
-#[facet(proxy = ArbitraryJson)]
-pub struct ResourcePropertyValue {
-    raw: ArbitraryJson,
-    string: Option<String>,
-}
-
-impl ResourcePropertyValue {
-    pub fn as_str(&self) -> Option<&str> {
-        self.string.as_deref()
-    }
-}
-
-impl<'a> Arbitrary<'a> for ResourcePropertyValue {
-    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        let string = String::arbitrary(u)?;
-        let raw = ArbitraryJson::from_text(&string);
-        Ok(Self {
-            raw,
-            string: Some(string),
-        })
-    }
-}
-
-impl From<ArbitraryJson> for ResourcePropertyValue {
-    fn from(raw: ArbitraryJson) -> Self {
-        let string = facet_json::from_str::<String>(raw.as_str()).ok();
-        Self { raw, string }
-    }
-}
-
-impl From<&ResourcePropertyValue> for ArbitraryJson {
-    fn from(value: &ResourcePropertyValue) -> Self {
-        value.raw.clone()
-    }
-}
-
 #[derive(Debug, Eq, PartialEq, Facet)]
 pub struct Resource {
     pub id: ScopeImpl,
@@ -144,28 +107,23 @@ pub struct Resource {
     pub location: Option<AzureLocationName>,
     #[facet(default, proxy = crate::StringMapDefaultNullProxy)]
     pub tags: HashMap<String, String>,
-    #[facet(
-        default,
-                proxy = crate::HashMapDefaultNullProxy<ResourcePropertyValue>
-    )]
-    pub properties: HashMap<String, ResourcePropertyValue>,
+    #[facet(default, proxy = Option<ResourceProperties>)]
+    pub properties: ResourceProperties,
 }
 
 impl<'a> Arbitrary<'a> for Resource {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
         let name = String::arbitrary(u)?;
-        let mut properties = HashMap::new();
-        properties.insert(
-            "displayName".to_string(),
-            ResourcePropertyValue::from(ArbitraryJson::from_text(&name)),
-        );
         Ok(Self {
             id: ScopeImpl::arbitrary(u)?,
             kind: ResourceType::MICROSOFT_DOT_NETWORK_SLASH_VIRTUALNETWORKS,
+            properties: ResourceProperties {
+                display_name: Some(name.clone()),
+                ..ResourceProperties::default()
+            },
             name,
             location: Option::arbitrary(u)?,
             tags: HashMap::arbitrary(u)?,
-            properties,
         })
     }
 }
@@ -177,7 +135,7 @@ impl AsScope for Resource {
 impl Resource {
     #[must_use]
     pub fn display_name(&self) -> Option<&str> {
-        self.properties.get("displayName")?.as_str()
+        self.properties.display_name.as_deref()
     }
 }
 impl std::fmt::Display for Resource {
@@ -197,6 +155,7 @@ cloud_terrastodon_registry::register_arbitrary!(Resource);
 
 #[cfg(test)]
 mod test {
+    use crate::ArbitraryJson;
     use crate::AzureResourceGroupId;
     use crate::AzureResourceGroupName;
     use crate::ResourceId;
@@ -268,25 +227,24 @@ mod test {
 
         assert_eq!(resource.display_name(), Some("My IP"));
         assert_eq!(
-            resource
-                .properties
-                .get("provisioningState")
-                .and_then(crate::ResourcePropertyValue::as_str),
+            resource.properties.provisioning_state.as_deref(),
             Some("Succeeded")
         );
         assert_eq!(
-            resource
-                .properties
-                .get("ipAddress")
-                .and_then(crate::ResourcePropertyValue::as_str),
-            Some("203.0.113.10")
+            resource.properties.other.get("ipAddress"),
+            Some(&ArbitraryJson::from_text("203.0.113.10"))
         );
+        assert!(!resource.properties.other.contains_key("displayName"));
+        assert!(!resource.properties.other.contains_key("provisioningState"));
+        let round_tripped: crate::Resource =
+            facet_json::from_str(&facet_json::to_string(&resource)?)?;
+        assert_eq!(round_tripped, resource);
 
         Ok(())
     }
 
     #[test]
-    fn deserializes_null_properties_to_empty_map() -> eyre::Result<()> {
+    fn deserializes_null_properties_to_empty_object() -> eyre::Result<()> {
         let id = format!(
             "/subscriptions/{nil}/resourceGroups/my-rg/providers/Contoso.Widgets/widgets/my-widget",
             nil = Uuid::nil()
@@ -302,7 +260,7 @@ mod test {
         ))?;
 
         assert_eq!(resource.display_name(), None);
-        assert!(resource.properties.is_empty());
+        assert_eq!(resource.properties, crate::ResourceProperties::default());
         assert!(resource.tags.is_empty());
 
         Ok(())

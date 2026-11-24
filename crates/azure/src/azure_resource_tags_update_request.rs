@@ -5,6 +5,8 @@ use crate::AzureCognitiveServicesAccountListRequest;
 use crate::AzureContainerInstanceListRequest;
 use crate::AzureKeyVaultListRequest;
 use crate::AzureNetworkInterfaceListRequest;
+use crate::AzureNetworkSecurityGroupGetRequest;
+use crate::AzureNetworkSecurityGroupListRequest;
 use crate::AzurePrivateEndpointListRequest;
 use crate::AzurePublicIpListRequest;
 use crate::AzureResourceGroupListRequest;
@@ -209,6 +211,13 @@ impl ExecutableRequest for AzureResourceTagsUpdateRequest<'_> {
                         authentication: self.authentication,
                     }.execute(&child).invalidate().await,
                     ScopeImpl::Resource(resource)
+                        if resource.resource_type == ResourceType::MICROSOFT_DOT_NETWORK_SLASH_NETWORKSECURITYGROUPS =>
+                    {
+                        AzureNetworkSecurityGroupListRequest {
+                            authentication: self.authentication,
+                        }.execute(&child).invalidate().await
+                    }
+                    ScopeImpl::Resource(resource)
                         if resource.resource_type == ResourceType::MICROSOFT_DOT_COMPUTE_SLASH_VIRTUALMACHINES =>
                     {
                         AzureVirtualMachineListRequest {
@@ -217,11 +226,19 @@ impl ExecutableRequest for AzureResourceTagsUpdateRequest<'_> {
                     }
                     _ => Ok(()),
                 };
-                let storage_account = match &tagged_scope {
+                let resource_detail = match &tagged_scope {
                     ScopeImpl::StorageAccount(id) => AzureStorageAccountGetRequest {
                         authentication: self.authentication,
                         storage_account_id: Cow::Borrowed(id),
                     }.execute(&child).invalidate().await,
+                    ScopeImpl::Resource(id)
+                        if id.resource_type == ResourceType::MICROSOFT_DOT_NETWORK_SLASH_NETWORKSECURITYGROUPS =>
+                    {
+                        AzureNetworkSecurityGroupGetRequest {
+                            authentication: self.authentication,
+                            network_security_group_id: id.clone(),
+                        }.execute(&child).invalidate().await
+                    }
                     _ => Ok(()),
                 };
                 let expanded = tagged_scope.expanded_form();
@@ -244,7 +261,7 @@ impl ExecutableRequest for AzureResourceTagsUpdateRequest<'_> {
                     AzureResourceTagsGetRequest { authentication: self.authentication, id: Cow::Borrowed(&self.id) }.execute(&child).invalidate().await,
                     AzureResourceListRequest { authentication: self.authentication }.execute(&child).invalidate().await,
                     inventory,
-                    storage_account,
+                    resource_detail,
                     deployment_inventory,
                 ];
                 let mut failures = invalidations.into_iter().filter_map(Result::err);
