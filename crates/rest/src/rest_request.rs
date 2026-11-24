@@ -46,6 +46,7 @@ use std::time::Duration;
 use teamy_cancellation::CancellationErrorExt;
 use tracing::Instrument;
 use tracing::Span;
+use tracing::debug;
 use tracing::info_span;
 
 type ResponseFailureExtraFiles = fn(&Report) -> BTreeMap<PathBuf, bstr::BString>;
@@ -473,7 +474,10 @@ impl RestRequest {
             .await
             .wrap_err("cached REST decoding worker failed")?;
             return match decoded {
-                Ok(value) => Ok(loaded.decoded(value)),
+                Ok(value) => {
+                    debug!("Replayed cached REST response");
+                    Ok(loaded.decoded(value))
+                }
                 Err(error) => executor.cancellation().finish_required("reject invalid REST artifact and retain diagnostics", |scope| async move {
                     let retained = async {
                         entry.reject(&scope).await?;

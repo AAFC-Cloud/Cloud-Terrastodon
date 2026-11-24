@@ -99,7 +99,7 @@ pub async fn execute_rest_request(
             | (AuthenticationSelection::AzureDevOpsPersonalAccessToken { .. }, Authorization::PersonalAccessToken(_))),
             "the credential provider returned authorization inconsistent with the request selection");
         child.cancellation().bail_if_cancelled()?;
-        debug!(?method, %url, ?service, "Executing REST request");
+        debug!(?method, %url, ?service, network_request = true, "Executing REST request");
         let has_content_type = headers.contains_key(CONTENT_TYPE);
         // A redirect can move to another organization on the same host. Keep
         // credential delivery within the destination validated above.

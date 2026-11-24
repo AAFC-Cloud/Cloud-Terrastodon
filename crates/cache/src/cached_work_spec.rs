@@ -18,6 +18,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
 use teamy_cancellation::CancellationScope;
+use tracing::debug;
 
 /// Awaitable canonical work bound to an explicit cache owner and caller scope.
 ///
@@ -166,9 +167,16 @@ where
                 (Some(coordination), waiting)
             }
         };
+        let retired_before_waiting = retired.is_some();
         drop(retired);
 
         let Some(coordination) = coordination else {
+            let reason = if self.validity.is_zero() {
+                "cache validity is zero"
+            } else {
+                "operation always executes"
+            };
+            debug!(reason, "Memory cache bypassed: {reason}");
             self.notify(WorkCacheStatus::Initializing);
             let output = (self.initialize)(self.parent.cloned(), scope.clone()).await?;
             scope.bail_if_cancelled()?;
@@ -183,7 +191,7 @@ where
         };
         scope.bail_if_cancelled()?;
         let mut retired = None;
-        {
+        let reason = {
             let mut state = self.cache.lock_state()?;
             if let Some(parent) = self.parent {
                 parent.entry(&self.cache, &state)?;
@@ -196,19 +204,28 @@ where
             {
                 retired = state.values.remove(&self.identity);
             }
-            if let Some(value) = state.values.get(&self.identity)
-                && let Some((value, certificate)) = value.load::<T>(&state, self.validity)?
-            {
-                if let Some(child) = &mut self.child {
-                    child.complete(&mut state, &certificate)?;
+            if let Some(value) = state.values.get(&self.identity) {
+                if let Some((value, certificate)) = value.load::<T>(&state, self.validity)? {
+                    if let Some(child) = &mut self.child {
+                        child.complete(&mut state, &certificate)?;
+                    }
+                    drop(state);
+                    self.notify(WorkCacheStatus::Hit);
+                    return Ok(value);
                 }
-                drop(state);
-                self.notify(WorkCacheStatus::Hit);
-                return Ok(value);
+                "cached result does not satisfy this request's freshness bound"
+            } else if retired_before_waiting || retired.is_some() {
+                "cached result or dependency expired or was invalidated"
+            } else {
+                "no decoded result for this request identity"
             }
-        }
+        };
         drop(retired);
         let attempt = WorkAttemptGuard::new(&self.cache, self.identity.clone(), self.parent)?;
+        debug!(
+            output_type = std::any::type_name::<T>(),
+            reason, "Memory cache miss: {reason}"
+        );
         self.notify(WorkCacheStatus::Initializing);
         let output = (self.initialize)(Some(attempt.attempt()), scope.clone()).await?;
         scope.bail_if_cancelled()?;

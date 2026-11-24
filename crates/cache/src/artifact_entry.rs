@@ -27,6 +27,7 @@ use std::sync::MutexGuard;
 use std::time::Duration;
 use std::time::Instant;
 use teamy_cancellation::CancellationScope;
+use tracing::debug;
 
 /// A claimed raw artifact entry bound to one explicit cache owner.
 /// Canonical decoding and transport execution remain owned by the operation.
@@ -147,7 +148,12 @@ impl ArtifactEntry {
     /// [`Self::for_work`] before loading to import its decoded value into that
     /// initializer. An unbound load is only a raw inspection snapshot.
     pub async fn load(&self, cancellation: &CancellationScope) -> Result<Option<LoadedArtifact>> {
-        if self.retention == ArtifactRetention::Disabled || self.validity.is_zero() {
+        if self.retention == ArtifactRetention::Disabled {
+            debug!("Disk cache bypassed: artifact retention is disabled");
+            return Ok(None);
+        }
+        if self.validity.is_zero() {
+            debug!("Disk cache bypassed: cache validity is zero");
             return Ok(None);
         }
         self.cache.acquire(cancellation).await?;
@@ -158,34 +164,54 @@ impl ArtifactEntry {
             if let Some(attempt) = &self.work {
                 attempt.entry(&self.cache, &state)?;
             }
-            if state.publication_quarantine.contains(&self.identity)
-                || state
-                    .invalidations
-                    .values()
-                    .any(|target| target.covers(&self.identity))
+            if state.publication_quarantine.contains(&self.identity) {
+                Err("artifact publication is quarantined")
+            } else if state
+                .invalidations
+                .values()
+                .any(|target| target.covers(&self.identity))
             {
+                Err("artifact invalidation is pending or quarantined")
+            } else {
+                let generation = state.generations.capture(&self.identity);
+                if state.generations.matches(&self.identity, &generation) {
+                    Ok(generation)
+                } else {
+                    Err("cache generation cannot be reused")
+                }
+            }
+        };
+        let generation = match generation {
+            Ok(generation) => generation,
+            Err(reason) => {
+                drop(gate);
+                self.log_cache_miss(reason);
                 return Ok(None);
             }
-            let generation = state.generations.capture(&self.identity);
-            if !state.generations.matches(&self.identity, &generation) {
-                return Ok(None);
-            }
-            generation
         };
         let entry = self.clone();
-        let (_gate, result) = gate
+        let (gate, result) = gate
             .run_blocking(move || {
                 let Some(selection) = ArtifactSelection::read(&entry)? else {
-                    return Ok(None);
+                    return Ok(Err("no valid artifact selection for this request identity"));
                 };
-                selection.load_artifacts(&entry)
+                Ok(selection
+                    .load_artifacts(&entry)?
+                    .ok_or("selected artifact is missing, damaged, or unsupported"))
             })
             .await?;
         cancellation.bail_if_cancelled()?;
-        let Some((manifest, artifacts)) = result? else {
-            return Ok(None);
+        let (manifest, artifacts) = match result? {
+            Ok(artifact) => artifact,
+            Err(reason) => {
+                drop(gate);
+                self.log_cache_miss(reason);
+                return Ok(None);
+            }
         };
         if !self.admit_age(&manifest)? {
+            drop(gate);
+            self.log_cache_miss("selected artifact is outside the freshness window");
             return Ok(None);
         }
         let mut freshness = manifest.freshness;
@@ -209,6 +235,10 @@ impl ArtifactEntry {
             age,
             work: self.work.as_ref().map(|attempt| attempt.id),
         }))
+    }
+
+    fn log_cache_miss(&self, reason: &str) {
+        debug!(operation = %self.metadata.operation_owner_type_name, reason, "Disk cache miss: {reason}");
     }
 
     pub(crate) fn admit_age(&self, manifest: &ArtifactManifest) -> Result<bool> {

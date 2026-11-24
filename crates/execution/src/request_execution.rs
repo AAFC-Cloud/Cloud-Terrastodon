@@ -8,8 +8,10 @@ use cloud_terrastodon_cache::CacheKey;
 use cloud_terrastodon_cache::HasCacheKey;
 use eyre::Result;
 use std::future::IntoFuture;
+use std::time::Instant;
 use tracing::Instrument;
 use tracing::Span;
+use tracing::debug;
 
 /// A request bound to its caller's executor and tracing context, ready to await.
 #[must_use = "A bound request does nothing until awaited"]
@@ -90,24 +92,53 @@ where
         executor: CloudTerrastodonExecutor,
         observe_admission: bool,
     ) -> ExecutionFuture<'a, R::Output, R::Error> {
+        let Self {
+            request,
+            span,
+            invalidation,
+            ..
+        } = self;
         Box::pin(
-            executor
-                .cancellable_scope(move |child| async move {
-                    let child = self.request.bind_authentication(child)?;
-                    child
-                        .with_account_cancellation(move |child| async move {
-                            if observe_admission {
-                                child.report_event(ExecutionEvent::Admitted);
-                            }
-                            if let Some(invalidate) = self.invalidation {
-                                invalidate(&self.request, &child).await?;
-                                child.cancellation().bail_if_cancelled()?;
-                            }
-                            self.request.run(child).await
-                        })
-                        .await
-                })
-                .instrument(self.span),
+            async move {
+                let request_type = std::any::type_name::<R>();
+                let base_type = request_type
+                    .split_once('<')
+                    .map_or(request_type, |(base, _)| base);
+                let request_name = base_type
+                    .rsplit_once("::")
+                    .map_or(base_type, |(_, name)| name);
+                let started = Instant::now();
+                debug!(request = request_type, "Executing {request_name}");
+                let result = executor
+                    .cancellable_scope(move |child| async move {
+                        let child = request.bind_authentication(child)?;
+                        child
+                            .with_account_cancellation(move |child| async move {
+                                if observe_admission {
+                                    child.report_event(ExecutionEvent::Admitted);
+                                }
+                                if let Some(invalidate) = invalidation {
+                                    debug!(
+                                        request = request_type,
+                                        "Invalidating request cache before execution"
+                                    );
+                                    invalidate(&request, &child).await?;
+                                    child.cancellation().bail_if_cancelled()?;
+                                }
+                                request.run(child).await
+                            })
+                            .await
+                    })
+                    .await;
+                debug!(
+                    request = request_type,
+                    elapsed_ms = started.elapsed().as_millis(),
+                    success = result.is_ok(),
+                    "Finished {request_name}"
+                );
+                result
+            }
+            .instrument(span),
         )
     }
 }

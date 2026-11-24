@@ -39,6 +39,8 @@ use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpListener;
 use tokio::sync::Notify;
+use tracing::Level;
+use tracing::instrument::WithSubscriber;
 
 struct Operation;
 struct Wrapper;
@@ -175,6 +177,52 @@ impl LocalServer {
         ))
         .cache(key()))
     }
+}
+
+#[tokio::test]
+async fn cold_rest_lookup_explains_the_disk_miss_before_sending() -> Result<()> {
+    let log = tempfile::NamedTempFile::new()?;
+    let subscriber = tracing_subscriber::fmt()
+        .with_max_level(Level::DEBUG)
+        .with_ansi(false)
+        .with_writer(log.reopen()?)
+        .finish();
+    CancellationToken::new()
+        .with_async_scope(|scope| async move {
+            let server = LocalServer::start(200, "[7]", None).await?;
+            let executor = CloudTerrastodonExecutor::new(
+                WorkCache::temporary()?,
+                Arc::new(TestAuthenticationProvider::new(
+                    "synthetic-test-session",
+                    Authorization::bearer("synthetic-test-credential")?,
+                )?),
+                scope,
+            );
+            let owner = CacheOperationOwner::of::<Operation>();
+            let request = server.request(Method::GET)?;
+            request
+                .clone()
+                .receive_cached::<Vec<u64>>(&executor, owner)
+                .await?;
+            executor.cache()?.release_memory()?;
+            request.receive_cached::<Vec<u64>>(&executor, owner).await?;
+
+            assert_eq!(server.requests.load(Ordering::SeqCst), 1);
+            eyre::Ok(())
+        })
+        .with_subscriber(subscriber)
+        .await?;
+
+    let log = std::fs::read_to_string(log.path())?;
+    let memory_miss = log.find("Memory cache miss: no decoded result").unwrap();
+    let disk_miss = log
+        .find("Disk cache miss: no valid artifact selection")
+        .unwrap();
+    let sent = log.find("Executing REST request").unwrap();
+    let replayed = log.find("Replayed cached REST response").unwrap();
+    assert!(memory_miss < disk_miss && disk_miss < sent && sent < replayed);
+    assert_eq!(log.matches("Disk cache miss:").count(), 1);
+    Ok(())
 }
 
 #[tokio::test]
