@@ -124,6 +124,21 @@ and PAT accounts requires an account ID, `--tenant`, or an explicit auth source
 that disambiguates it. Omitting both selectors uses the organization's configured
 PAT account default.
 
+## Tracking Azure DevOps organizations
+
+```text
+ct az devops org add <organization> --tenant <tenant-id>
+ct az devops org list
+ct az devops org show <organization>
+ct az devops org remove <organization>
+```
+
+Pass a cloud organization name or the full organization or collection URL.
+`--tenant` is optional. Running `add` again updates the saved tenant and
+omitting it clears the association. These commands manage the local catalogue.
+Azure DevOps requests still select credentials and organization scope
+explicitly.
+
 ## Several mechanisms for one account
 
 An Entra user account can register both Azure CLI and delegated browser

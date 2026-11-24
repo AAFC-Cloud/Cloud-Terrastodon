@@ -4,6 +4,7 @@ use crate::agent::AzureDevOpsAgentArgs;
 use crate::build::AzureDevOpsBuildArgs;
 use crate::group::AzureDevOpsGroupArgs;
 use crate::license_entitlement::AzureDevOpsLicenseEntitlementArgs;
+use crate::organization::AzureDevOpsOrganizationArgs;
 use crate::project::AzureDevOpsProjectArgs;
 use crate::repo::AzureDevOpsRepoArgs;
 use crate::service_endpoint::AzureDevOpsServiceEndpointArgs;
@@ -38,6 +39,9 @@ pub enum AzureDevOpsCommand {
     Audit(AzureDevOpsAuditArgs),
     /// Issue raw Azure DevOps REST requests.
     Rest(AzureDevOpsRestArgs),
+    /// Manage Azure DevOps organizations tracked on this device.
+    #[facet(figue::alias = "org")]
+    Organization(AzureDevOpsOrganizationArgs),
     /// Project-level operations (list, show, ...)
     Project(AzureDevOpsProjectArgs),
     /// Group-related operations.
@@ -66,6 +70,9 @@ impl AzureDevOpsCommand {
             AzureDevOpsCommand::Project(args) => Box::pin(args.invoke(executor)).await,
             AzureDevOpsCommand::Audit(args) => Box::pin(args.invoke(executor)).await,
             AzureDevOpsCommand::Rest(args) => Box::pin(args.invoke(executor)).await,
+            AzureDevOpsCommand::Organization(args) => {
+                Box::pin(args.invoke(executor.cancellation())).await
+            }
             AzureDevOpsCommand::Group(args) => Box::pin(args.invoke(executor)).await,
             AzureDevOpsCommand::Team(args) => Box::pin(args.invoke(executor)).await,
             AzureDevOpsCommand::Repo(args) => Box::pin(args.invoke(executor)).await,

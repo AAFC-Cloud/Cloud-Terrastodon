@@ -69,6 +69,7 @@ mod azure_devops_work_items_get_request;
 mod rest_work_item_copy_writer;
 #[cfg(test)]
 mod test_executor;
+mod tracked_azure_devops_organization_store;
 mod work_item_copy;
 mod work_item_copy_writer;
 #[cfg(test)]
@@ -139,6 +140,7 @@ pub use crate::azure_devops_work_item_type_list_request::*;
 pub use crate::azure_devops_work_item_update_request::*;
 pub use crate::azure_devops_work_items_for_query_request::*;
 pub use crate::azure_devops_work_items_get_request::*;
+pub use crate::tracked_azure_devops_organization_store::*;
 pub use crate::work_item_copy::*;
 pub use cloud_terrastodon_azure_devops_types::*;
 

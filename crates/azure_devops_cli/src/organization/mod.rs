@@ -1,0 +1,12 @@
+mod azure_devops_organization_add_cli;
+mod azure_devops_organization_cli;
+mod azure_devops_organization_list_cli;
+mod azure_devops_organization_remove_cli;
+mod azure_devops_organization_show_cli;
+
+pub use azure_devops_organization_add_cli::AzureDevOpsOrganizationAddArgs;
+pub use azure_devops_organization_cli::AzureDevOpsOrganizationArgs;
+pub use azure_devops_organization_cli::AzureDevOpsOrganizationCommand;
+pub use azure_devops_organization_list_cli::AzureDevOpsOrganizationListArgs;
+pub use azure_devops_organization_remove_cli::AzureDevOpsOrganizationRemoveArgs;
+pub use azure_devops_organization_show_cli::AzureDevOpsOrganizationShowArgs;

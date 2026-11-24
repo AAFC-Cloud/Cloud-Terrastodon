@@ -10,6 +10,7 @@ pub mod azure_devops_rest_command_cli;
 pub mod build;
 pub mod group;
 pub mod license_entitlement;
+pub mod organization;
 pub mod project;
 pub mod repo;
 pub mod service_endpoint;

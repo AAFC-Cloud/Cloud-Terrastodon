@@ -1,5 +1,7 @@
 # Unreleased
 
+- Track Azure DevOps organizations on this device with `ct az devops org list`, `add`, `show`, and `remove`.
+
 - Add desktop resource inventory icons for Azure App Configuration, AI, compute, Kubernetes, managed identities, and networking.
 
 - Resolve Azure tenants from an explicit ID or alias, an explicitly selected account, or the configured tenant default. For commands that use the configured default, omit `--tenant` and `--account`. The literal `--tenant default` now looks up a tracked alias named `default`.
