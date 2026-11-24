@@ -32,6 +32,43 @@ impl Drop for NotifyDrop {
     }
 }
 
+#[tokio::test]
+async fn active_work_disappears_when_its_completion_is_observed() -> eyre::Result<()> {
+    timeout(DEADLOCK_GUARD, async {
+        CancellationToken::new()
+            .with_async_scope(async |scope| {
+                let tracker = AppWorkTracker::new();
+                let (release, released) = oneshot::channel();
+                tracker.spawn(
+                    &scope,
+                    &Handle::current(),
+                    "Load inventory".to_owned(),
+                    async move |_child| {
+                        released.await?;
+                        Ok(())
+                    },
+                )?;
+
+                let jobs = tracker.active_work()?;
+                assert_eq!(jobs.len(), 1);
+                assert_eq!(jobs[0].description, "Load inventory");
+                tracker.prune()?;
+                let pending = tracker.active_work()?;
+                assert_eq!(pending[0].id, jobs[0].id);
+                assert_eq!(pending[0].started_at, jobs[0].started_at);
+
+                release.send(()).unwrap();
+                while !tracker.active_work()?.is_empty() {
+                    tokio::task::yield_now().await;
+                    tracker.prune()?;
+                }
+                tracker.finish(&scope).await
+            })
+            .await
+    })
+    .await?
+}
+
 #[tokio::test(flavor = "current_thread")]
 async fn cancellation_before_the_first_poll_does_not_invoke_the_factory() {
     timeout(DEADLOCK_GUARD, async {

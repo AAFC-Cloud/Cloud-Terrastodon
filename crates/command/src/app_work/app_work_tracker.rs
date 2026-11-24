@@ -1,3 +1,4 @@
+use super::ActiveAppWork;
 use super::TrackedAppWork;
 use super::WorkHandle;
 use eyre::Result;
@@ -5,6 +6,7 @@ use eyre::eyre;
 use std::future::Future;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::time::Instant;
 use teamy_cancellation::CancellationScope;
 use tokio::runtime::Handle;
 use tracing::info;
@@ -67,12 +69,14 @@ impl AppWorkTracker {
         // Scheduling owns admission; the factory itself receives the child
         // scope and needs no redundant entry cancellation check.
         cancellation.bail_if_cancelled()?;
+        let started_at = Instant::now();
         let (cancellation, future) = cancellation.cancellable_child_scope(factory);
         let task = work.tasks.spawn_on(future, runtime);
         work.handles.insert(
             task.id(),
             WorkHandle {
                 description,
+                started_at,
                 cancellation,
             },
         );
@@ -89,6 +93,26 @@ impl AppWorkTracker {
 
     pub fn is_empty(&self) -> Result<bool> {
         Ok(self.len()? == 0)
+    }
+
+    /// Snapshot admitted work that the UI has yet to observe completing.
+    pub fn active_work(&self) -> Result<Vec<ActiveAppWork>> {
+        let mut active: Vec<_> = {
+            let work = self.work.lock().map_err(|_| {
+                eyre!("Background work lock was poisoned by a panic while it was held")
+            })?;
+            work.as_ref()
+                .into_iter()
+                .flat_map(|work| work.handles.iter())
+                .map(|(&id, handle)| ActiveAppWork {
+                    id,
+                    description: handle.description.clone(),
+                    started_at: handle.started_at,
+                })
+                .collect()
+        };
+        active.sort_by_key(|job| job.started_at);
+        Ok(active)
     }
 
     /// Reap completed tasks without losing errors or panics before shutdown.

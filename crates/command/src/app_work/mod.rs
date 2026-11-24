@@ -1,3 +1,4 @@
+mod active_app_work;
 mod app_state_mutator;
 mod app_work_message;
 mod app_work_state;
@@ -12,6 +13,7 @@ mod tracked_app_work;
 mod work;
 mod work_handle;
 
+pub use active_app_work::*;
 pub use app_state_mutator::*;
 pub use app_work_message::*;
 pub use app_work_state::*;
