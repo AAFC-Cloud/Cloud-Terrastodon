@@ -30,7 +30,8 @@ use facet::Facet;
 
 /// Storage account properties, including access controls and service configuration.
 ///
-/// Models the complete [Storage Resource Provider 2025-06-01 properties schema](https://learn.microsoft.com/en-us/rest/api/storagerp/storage-accounts/get-properties?view=rest-storagerp-2025-06-01#storageaccount).
+/// Models the [Storage Resource Provider 2025-06-01 properties schema](https://learn.microsoft.com/en-us/rest/api/storagerp/storage-accounts/get-properties?view=rest-storagerp-2025-06-01#storageaccount)
+/// and newer fields reported by Azure Resource Graph.
 /// Account kind, enabled features, creation history, and API expansion determine
 /// which properties are reported. These fields are optional in the
 /// [official SDK's schema-derived model](https://github.com/Azure/azure-sdk-for-go/blob/main/sdk/resourcemanager/storage/armstorage/models.go#L247).
@@ -44,6 +45,9 @@ pub struct AzureStorageAccountProperties {
     /// Null when no customer-initiated migration is in progress.
     pub account_migration_in_progress: Option<bool>,
     pub allow_blob_public_access: Option<bool>,
+    /// Whether the account permits cross-tenant user delegation SAS.
+    /// See the [Storage Resource Provider 2026-06-01 schema](https://learn.microsoft.com/en-us/rest/api/storagerp/storage-accounts/get-properties?view=rest-storagerp-2026-06-01#storageaccount).
+    pub allow_cross_tenant_delegation_sas: Option<bool>,
     pub allow_cross_tenant_replication: Option<bool>,
     /// Preserve null separately from the service's interpretation of shared-key access.
     pub allow_shared_key_access: Option<bool>,
