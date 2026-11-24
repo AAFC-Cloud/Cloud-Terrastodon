@@ -1,6 +1,7 @@
 use crate::AuthContext;
 use crate::AzureCliAccountName;
 use crate::CloudTerrastodonAccountStore;
+use crate::auth_context::azure_account_cache_partition;
 use crate::cloud_terrastodon_account_admission::CloudTerrastodonAccountAdmission;
 use crate::cloud_terrastodon_account_authentication::CloudTerrastodonAccountAuthentication;
 use crate::cloud_terrastodon_account_binding::CloudTerrastodonAccountBinding;
@@ -11,12 +12,15 @@ use crate::fetch_azure_bearer_access_token;
 use cloud_terrastodon_auth_types::AuthSource;
 use cloud_terrastodon_auth_types::AuthenticationSelection;
 use cloud_terrastodon_auth_types::Authorization;
+use cloud_terrastodon_auth_types::AzureBearerAuthSource;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_auth_types::AzureCredentialResource;
 use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountArgument;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountId;
+use cloud_terrastodon_auth_types::CloudTerrastodonAccountNamespace;
 use cloud_terrastodon_auth_types::CloudTerrastodonAccountService;
+use cloud_terrastodon_auth_types::CloudTerrastodonAccountSession;
 use cloud_terrastodon_auth_types::CloudTerrastodonCredentialSource;
 use cloud_terrastodon_auth_types::ContainerRegistryBearerChallenge;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsOrganizationUrl;
@@ -398,6 +402,34 @@ impl CredentialAuthenticationProvider {
             .await
     }
 
+    fn stored_azure_partition(
+        &self,
+        account_id: CloudTerrastodonAccountId,
+        source: Option<CloudTerrastodonCredentialSource>,
+    ) -> Result<Option<AuthPartition>> {
+        let Some(store) = &self.store else {
+            return Ok(None);
+        };
+        let catalogue = store.load()?;
+        if let Some(profile) = catalogue
+            .accounts
+            .iter()
+            .find(|profile| profile.id == account_id)
+            && let CloudTerrastodonAccountNamespace::Entra { tenant_id } = profile.namespace
+            && profile.credentials.iter().any(|registration| {
+                let registered_source = registration.credential.source();
+                matches!(
+                    registered_source,
+                    CloudTerrastodonCredentialSource::AzureCli
+                        | CloudTerrastodonCredentialSource::Browser
+                ) && source.is_none_or(|source| source == registered_source)
+            })
+        {
+            return azure_account_cache_partition(account_id, tenant_id).map(Some);
+        }
+        Ok(None)
+    }
+
     async fn retire_mechanisms(
         &self,
         account_id: CloudTerrastodonAccountId,
@@ -412,6 +444,8 @@ impl CredentialAuthenticationProvider {
         );
         cancellation
             .deferred("retiring admitted account work", async |protected| {
+                let persistent_partition = self.stored_azure_partition(account_id, source)?;
+                let mut partitions = HashSet::new();
                 let entries = {
                     let mut retired = self
                         .retired
@@ -439,12 +473,13 @@ impl CredentialAuthenticationProvider {
                         .map(|(_, entry)| entry.clone())
                         .collect::<Vec<_>>();
                     for entry in &entries {
-                        entry
+                        let mut admission = entry
                             .admission
                             .state
                             .lock()
-                            .map_err(|_| eyre::eyre!("account admission lock poisoned"))?
-                            .open = false;
+                            .map_err(|_| eyre::eyre!("account admission lock poisoned"))?;
+                        admission.open = false;
+                        partitions.extend(admission.partitions.iter().cloned());
                     }
                     entries
                 };
@@ -457,40 +492,43 @@ impl CredentialAuthenticationProvider {
                         .request_cancel("the selected account is being retired");
                 }
                 let mut failures = Vec::new();
+                for partition in &partitions {
+                    if let Err(error) = cache.invalidate_authentication(partition, &protected).await
+                    {
+                        failures.push(error);
+                    }
+                }
                 for entry in entries {
                     let admission = &entry.admission;
-                    let partitions = admission
-                        .state
-                        .lock()
-                        .map_err(|_| eyre::eyre!("account admission lock poisoned"))?
-                        .partitions
-                        .iter()
-                        .cloned()
-                        .collect::<Vec<_>>();
-                    for partition in partitions {
-                        if let Err(error) = cache
-                            .invalidate_authentication(&partition, &protected)
-                            .await
-                        {
-                            failures.push(error);
-                        }
-                    }
                     admission.drain().await?;
-                    let partitions = admission
-                        .state
-                        .lock()
-                        .map_err(|_| eyre::eyre!("account admission lock poisoned"))?
-                        .partitions
-                        .iter()
-                        .cloned()
-                        .collect::<Vec<_>>();
-                    for partition in partitions {
-                        if let Err(error) = cache
-                            .invalidate_authentication(&partition, &protected)
-                            .await
-                        {
-                            failures.push(error);
-                        }
+                    partitions.extend(
+                        admission
+                            .state
+                            .lock()
+                            .map_err(|_| eyre::eyre!("account admission lock poisoned"))?
+                            .partitions
+                            .iter()
+                            .cloned(),
+                    );
+                    // An embedding may supply a named context directly without
+                    // installing a catalogue-backed provider.
+                    if let CloudTerrastodonAccountAuthentication::Azure(AuthContext::Resolved(
+                        state,
+                    )) = &entry.authentication
+                        && matches!(state.source, AuthSource::AzureCli | AuthSource::Browser)
+                        && state.credential_store.is_some()
+                        && let Some(tenant_id) = state.tenant_id
+                    {
+                        partitions.insert(azure_account_cache_partition(account_id, tenant_id)?);
+                    }
+                }
+                // This applies even when the current process never admitted the
+                // account, such as a fresh CLI invocation of account logout.
+                partitions.extend(persistent_partition);
+                for partition in &partitions {
+                    if let Err(error) = cache.invalidate_authentication(partition, &protected).await
+                    {
+                        failures.push(error);
                     }
                 }
                 if failures.is_empty() {
@@ -644,6 +682,44 @@ impl AuthenticationProvider for CredentialAuthenticationProvider {
     ) -> Result<Option<Arc<dyn AuthenticationProvider>>> {
         Ok(Some(Arc::new(self.leased(selection)?)))
     }
+
+    fn validate_cache_reuse(&self, selection: &AuthenticationSelection) -> Result<()> {
+        if let AuthenticationSelection::AzureBearer(azure) = selection
+            && matches!(
+                azure.auth_source,
+                AzureBearerAuthSource::AzureCli | AzureBearerAuthSource::Browser
+            )
+            && let CloudTerrastodonAccountAuthentication::Azure(AuthContext::Resolved(state)) =
+                self.binding(selection)?
+            && let Some(credential_store) = &state.credential_store
+        {
+            // Another process may have retired the generation while this
+            // binding was waiting to acquire cache root ownership.
+            ensure!(
+                !credential_store.directory.join("retired").try_exists()?,
+                "the selected account session was retired while waiting for cache ownership; reload and retry"
+            );
+            // Logout saves the retired catalogue state before deleting the
+            // credential. The durable state also covers interrupted cleanup.
+            if let Some(store) = &self.store {
+                let catalogue = store.load()?;
+                let profile = catalogue.by_id(azure.account_id)?;
+                ensure!(
+                    profile.namespace
+                        == CloudTerrastodonAccountNamespace::Entra {
+                            tenant_id: azure.tenant_id,
+                        }
+                        && profile.registration(state.source.try_into()?)?.session
+                            == CloudTerrastodonAccountSession::Active {
+                                generation: credential_store.generation,
+                            },
+                    "the selected account session changed or retired while waiting for cache ownership; reload and retry"
+                );
+            }
+        }
+        Ok(())
+    }
+
     fn admit(&self, selection: &AuthenticationSelection) -> Result<AuthPartition> {
         if *selection == AuthenticationSelection::Anonymous {
             return AuthPartition::new("anonymous");
@@ -777,9 +853,21 @@ impl AuthenticationProvider for CredentialAuthenticationProvider {
 mod tests {
     use super::*;
     use crate::AzureDevOpsPersonalAccessToken;
+    use crate::cloud_terrastodon_account_secret_store::CloudTerrastodonAccountSecretStore;
     use cloud_terrastodon_auth_types::AuthSource;
-    use cloud_terrastodon_auth_types::AzureBearerAuthSource;
+    use cloud_terrastodon_auth_types::CloudTerrastodonAccountCredential;
+    use cloud_terrastodon_cache::ArtifactObservation;
+    use cloud_terrastodon_cache::ArtifactRetention;
+    use cloud_terrastodon_cache::ArtifactSet;
+    use cloud_terrastodon_cache::CacheKey;
+    use cloud_terrastodon_cache::CacheOperationOwner;
+    use cloud_terrastodon_cache::CacheScope;
+    use cloud_terrastodon_cache::ExecutorKind;
+    use cloud_terrastodon_cache::NonEmptyString;
+    use cloud_terrastodon_cache::WorkOutput;
+    use cloud_terrastodon_cache::WorkReuse;
     use cloud_terrastodon_command::CancellationToken;
+    use std::time::Duration;
 
     fn synthetic_pat() -> Result<AuthContext> {
         let context = AuthContext::explicit(AuthSource::PersonalAccessToken);
@@ -918,6 +1006,149 @@ mod tests {
             assert!(provider.admit(&selection).is_err());
             eyre::Ok(())
         }).await
+    }
+
+    #[tokio::test]
+    async fn retiring_one_source_from_a_fresh_provider_invalidates_only_its_account_cache()
+    -> Result<()> {
+        let directory = tempfile::tempdir()?;
+        let cache_root = directory.path().join("cache");
+        let store = CloudTerrastodonAccountStore::new(directory.path().join("accounts"))?;
+        let tenant_id = AzureTenantId::new(Uuid::from_u128(1));
+        CancellationToken::new()
+            .with_async_scope(async |scope| {
+                let first = store
+                    .add(
+                        "first".parse()?,
+                        CloudTerrastodonAccountCredential::AzureCli { tenant_id },
+                        &scope,
+                    )
+                    .await?;
+                let second = store
+                    .add(
+                        "second".parse()?,
+                        CloudTerrastodonAccountCredential::AzureCli { tenant_id },
+                        &scope,
+                    )
+                    .await?;
+                let artifact = |cache: &WorkCache, account_id| {
+                    cache.artifacts::<String>(
+                        ExecutorKind::Rest,
+                        CacheKey {
+                            scope: CacheScope::try_from_components(["synthetic", "retirement"])?,
+                            valid_for: Duration::from_secs(60),
+                        },
+                        CacheOperationOwner::of::<CredentialAuthenticationProvider>(),
+                        azure_account_cache_partition(account_id, tenant_id)?,
+                        NonEmptyString::new("retirement")?,
+                        ArtifactRetention::Full,
+                    )
+                };
+                {
+                    let previous = WorkCache::new(&cache_root)?;
+                    for account_id in [first.id, second.id] {
+                        let entry = artifact(&previous, account_id)?;
+                        let stored = entry
+                            .begin_attempt(Default::default(), &scope)
+                            .await?
+                            .unwrap()
+                            .finish(
+                                ArtifactSet {
+                                    payload: b"synthetic response".to_vec(),
+                                    diagnostics: Default::default(),
+                                },
+                                ArtifactObservation::now(),
+                                &scope,
+                            )
+                            .await?;
+                        assert!(entry.publish(&stored, &scope).await?);
+                    }
+                }
+                let retirement = WorkCache::new(&cache_root)?;
+                let provider = CredentialAuthenticationProvider::from_store(store);
+                provider
+                    .retire_source(
+                        first.id,
+                        CloudTerrastodonCredentialSource::AzureCli,
+                        &retirement,
+                        &scope,
+                    )
+                    .await?;
+                assert!(
+                    artifact(&retirement, first.id)?
+                        .load(&scope)
+                        .await?
+                        .is_none()
+                );
+                assert!(
+                    artifact(&retirement, second.id)?
+                        .load(&scope)
+                        .await?
+                        .is_some()
+                );
+                eyre::Ok(())
+            })
+            .await
+    }
+
+    #[tokio::test]
+    async fn cached_work_waiting_for_root_ownership_rejects_a_retired_generation() -> Result<()> {
+        let directory = tempfile::tempdir()?;
+        let cache_root = directory.path().join("cache");
+        let credential_directory = directory.path().join("credential");
+        std::fs::create_dir(&credential_directory)?;
+        let tenant_id = AzureTenantId::new(Uuid::from_u128(1));
+        let mut context = AuthContext::explicit(AuthSource::AzureCli);
+        let AuthContext::Resolved(state) = &mut context else {
+            panic!("explicit Azure CLI context is resolved");
+        };
+        let state = Arc::get_mut(state).unwrap();
+        state.tenant_id = Some(tenant_id);
+        state.credential_store = Some(CloudTerrastodonAccountSecretStore {
+            directory: credential_directory.clone(),
+            account_id: state.account_id,
+            generation: Uuid::from_u128(2),
+        });
+        let selection = AuthenticationSelection::AzureBearer(AzureBearerAuthenticationSelection {
+            account_id: state.account_id,
+            auth_source: AzureBearerAuthSource::AzureCli,
+            tenant_id,
+        });
+        let provider = CredentialAuthenticationProvider::new(context)?;
+        CancellationToken::new()
+            .with_async_scope(async |scope| {
+                let previous = WorkCache::new(&cache_root)?;
+                previous.acquire(&scope).await?;
+                let executor = CloudTerrastodonExecutor::new(
+                    WorkCache::new(&cache_root)?,
+                    Arc::new(provider.leased(&selection)?),
+                    scope.clone(),
+                );
+                let work = executor.cached_work(
+                    ExecutorKind::InProcess,
+                    CacheKey {
+                        scope: CacheScope::try_from_components(["synthetic", "retired-waiter"])?,
+                        valid_for: Duration::from_secs(60),
+                    },
+                    CacheOperationOwner::of::<CredentialAuthenticationProvider>(),
+                    &selection,
+                    NonEmptyString::new("retired-waiter")?,
+                    WorkReuse::ReusableRead,
+                    async |_| eyre::Ok(WorkOutput::new(42, ArtifactObservation::now())),
+                )?;
+                tokio::pin!(work);
+                tokio::select! {
+                    biased;
+                    result = &mut work => panic!("cache request did not wait for the owner: {result:?}"),
+                    _ = tokio::task::yield_now() => {}
+                }
+                std::fs::write(credential_directory.join("retired"), b"synthetic retirement")?;
+                drop(previous);
+                let failure = tokio::time::timeout(Duration::from_secs(10), work).await?.unwrap_err();
+                assert!(format!("{failure:#}").contains("retired while waiting for cache ownership"));
+                eyre::Ok(())
+            })
+            .await
     }
 
     #[test]

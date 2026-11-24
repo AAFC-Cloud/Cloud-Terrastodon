@@ -26,7 +26,6 @@ use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::TestAuthenticationProvider;
 use eyre::Result;
-use facet::Facet;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
@@ -35,7 +34,7 @@ struct SyntheticPage;
 // Populate the real category request contract through the public cache boundary.
 // Each category consumes a synthetic page so the real principal assembly must
 // retain dependencies even when every child itself is already a memory hit.
-async fn seed_category<R: HasCacheKey + Facet<'static> + 'static, T: Send + Sync + 'static>(
+async fn seed_category<R: HasCacheKey + 'static, T: Send + Sync + 'static>(
     executor: &CloudTerrastodonExecutor,
     request: &R,
     selection: &AuthenticationSelection,
@@ -48,7 +47,7 @@ async fn seed_category<R: HasCacheKey + Facet<'static> + 'static, T: Send + Sync
             key.clone(),
             CacheOperationOwner::of::<R>(),
             selection,
-            NonEmptyString::new(facet_json::to_string(request)?)?,
+            NonEmptyString::new("list")?,
             WorkReuse::ReusableRead,
             move |child| async move {
                 let page =

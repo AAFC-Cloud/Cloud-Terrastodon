@@ -68,19 +68,24 @@ selected namespace and mechanism rather than changing to another account.
 
 One Entra user account can have independently provisioned CLI and browser
 mechanisms after login verifies the same principal. Source preferences and
-defaults do not change requests already resolved to concrete selections. Cache
-partitions include the admitted session identity, while recorded dependencies
-connect composed work to its actual child requests.
-Azure CLI, browser, PAT, and workload-identity partitions remain isolated to the
-invocation: a stored credential generation does not enable response reuse across
-separate CT runs. Within an invocation, requests for the same account/source
-share its loaded session, token cache, and eligible work results.
+defaults do not change requests already resolved to concrete selections. For a
+saved Entra account, Azure CLI and browser share a result cache partition by
+account ID and tenant. Matching requests from independent CLI and GUI runs can
+reuse valid disk results on the same cache root. Credential sessions, tokens, and
+leases stay specific to the selected source. PAT, workload identity, and
+standalone Azure contexts without a saved account retain invocation-scoped
+partitions. Recorded dependencies connect composed work to its actual child
+requests.
 
 Account admission happens before result reuse. Service-bound PAT accounts also
 validate the request organization/collection before semantic or REST cache
 lookup. Entra tenant identity remains separate from Azure DevOps organization
 scope. Gitea validates its configured instance and supplies an immutable private
-tea session snapshot.
+tea session snapshot. Exclusive [cache-root ownership](plans/cache-root-ownership.md)
+coordinates disk lookups and publication across processes. After acquiring
+ownership, reusable work checks the selected credential's retirement marker and
+the active generation in the account catalogue, when available. A request
+waiting for another process therefore detects a retirement during the wait.
 
 ## Leases and cancellation
 
@@ -106,9 +111,12 @@ may exit early, while deferred units retain response/decoding/artifact completio
 Coordinators must continue polling those children.
 
 Retirement invalidates authentication partitions before and after draining.
+Explicitly retiring either Azure CLI or browser invalidates the saved account's
+shared Azure partition, including disk results from earlier invocations. Closing
+an invocation or switching a selected source preserves that partition.
 Parent dependency generations advance even across account boundaries. Already
-returned values remain readable. This guarantees coordination among owners
-sharing the provider/cache, not arbitrary separate processes.
+returned values remain readable. Live leases and cancellation are coordinated
+among owners of the same provider and cache.
 
 Operations needing only cancellation still take a cancellation scope.
 Local formatting, filesystem work, and ordinary uncached subprocesses do not

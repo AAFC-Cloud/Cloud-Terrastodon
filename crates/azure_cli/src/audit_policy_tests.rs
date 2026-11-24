@@ -277,7 +277,7 @@ async fn audit_policy_tests_independent_activities_join_one_shared_principal_fil
                     rbac.cache_key()?,
                     CacheOperationOwner::of::<AzureRoleDefinitionsAndAssignmentsListRequest>(),
                     &selection,
-                    NonEmptyString::new(facet_json::to_string(&rbac)?)?,
+                    NonEmptyString::new("list")?,
                     WorkReuse::ReusableRead,
                     |_| async {
                         Ok(WorkOutput::new(
@@ -297,7 +297,7 @@ async fn audit_policy_tests_independent_activities_join_one_shared_principal_fil
                                 request.cache_key()?,
                                 CacheOperationOwner::of::<EntraPrincipalListRequest>(),
                                 &selection,
-                                NonEmptyString::new(facet_json::to_string(&request)?)?,
+                                NonEmptyString::new("list")?,
                                 WorkReuse::ReusableRead,
                                 |_| async {
                                     fills.fetch_add(1, Ordering::SeqCst);

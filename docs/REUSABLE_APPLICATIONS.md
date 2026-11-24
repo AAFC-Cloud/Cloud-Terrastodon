@@ -188,10 +188,12 @@ configured tenant default in that order. It returns a concrete selection with
 the account ID, source, and tenant.
 The handler constructs `AzureResourceGroupListRequest` with the resolved
 `AzureBearerAuthenticationSelection` and calls `.execute(executor)`. Cached
-results remain partitioned by the admitted account/session. Requests serialize
-account ID, concrete source, tenant, and operation data; the executor owns
-credentials, cancellation, and the shared cache. Local file/process helpers
-continue accepting only a cancellation scope when that is all they need.
+results for a saved Entra account can be reused across processes that use the
+same cache root. Azure CLI and browser share that partition by account ID and
+tenant after the selected source passes admission. Requests serialize account
+ID, concrete source, tenant, and operation data. The executor owns credentials,
+cancellation, and the shared cache. Local file/process helpers continue accepting
+only a cancellation scope when that is all they need.
 
 By default, an invocation owns one `WorkCache`. Use `App::work_cache(cache)` to provide an
 explicit owner, including `WorkCache::temporary()?` for an isolated application

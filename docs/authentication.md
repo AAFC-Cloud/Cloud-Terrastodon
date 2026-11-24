@@ -89,6 +89,11 @@ ambient Azure CLI account. Explicit `azure-cli`, `browser`, `workload-identity`,
 or `pat` selects that registered mechanism. An unavailable preferred or explicitly
 selected source fails; another source is never tried implicitly.
 
+Azure CLI and browser share cached results for the same registered Entra
+account and tenant. Separate CLI and GUI runs can reuse valid results from the
+same disk cache after the selected mechanism passes account admission.
+Each mechanism keeps its own sign-in session.
+
 `--auth-source none` rejects authenticated service operations before account or
 tenant-default lookup. Local commands do not need authentication arguments.
 Account provisioning and cleanup have their own explicit command surfaces.
@@ -292,6 +297,11 @@ already perform this step before durable cleanup.
 It closes new admission, cancels optional work, drains admitted deferred work,
 and invalidates affected authentication partitions before and after draining.
 Only then should the owner remove durable credentials through the account store.
+Retiring either Azure CLI or browser invalidates the shared cached results for
+that account and tenant. Other credential registrations remain available on a
+source-specific logout. Normal process exit and switching sources preserve
+eligible cached results.
+
 Already returned `Arc` values cannot be retracted. The cache root's exclusive
 ownership coordinates independent cache users, but does not make credential-store
 updates a cross-process transaction or instantly cancel another process's admitted

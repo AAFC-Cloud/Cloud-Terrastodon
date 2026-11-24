@@ -73,14 +73,13 @@ impl ExecutableRequest for AzureRoleDefinitionsAndAssignmentsListRequest {
     {
         Box::pin(async move {
             let selection = self.authentication.into();
-            let fingerprint = NonEmptyString::new(facet_json::to_string(&self)?)?;
             executor
                 .cached_work(
                     ExecutorKind::InProcess,
                     self.cache_key()?,
                     CacheOperationOwner::of::<Self>(),
                     &selection,
-                    fingerprint,
+                    NonEmptyString::new("list")?,
                     WorkReuse::ReusableRead,
                     move |child| async move {
                         let (definitions, assignments) = child

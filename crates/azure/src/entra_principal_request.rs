@@ -149,7 +149,7 @@ impl ExecutableRequest for EntraPrincipalRequest {
         Box::pin(async move {
             let cache_key = self.cache_key()?;
             let selection = self.authentication.into();
-            let fingerprint = NonEmptyString::new(facet_json::to_string(&self)?)?;
+            let fingerprint = NonEmptyString::new(facet_json::to_string(&self.lookup)?)?;
             executor
                 .cached_work(
                     ExecutorKind::InProcess,
@@ -269,7 +269,7 @@ mod tests {
                 request.cache_key()?,
                 CacheOperationOwner::of::<EntraPrincipalRequest>(),
                 &selection,
-                NonEmptyString::new(facet_json::to_string(&request)?)?,
+                NonEmptyString::new(facet_json::to_string(&request.lookup)?)?,
                 WorkReuse::ReusableRead,
                 move |_child| async move {
                     decodes.fetch_add(1, Ordering::SeqCst);

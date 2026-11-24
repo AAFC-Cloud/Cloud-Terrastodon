@@ -73,7 +73,7 @@ async fn seed<R, T>(
     value: T,
 ) -> Result<Arc<T>>
 where
-    R: HasCacheKey + facet::Facet<'static> + 'static,
+    R: HasCacheKey + 'static,
     T: Send + Sync + 'static,
 {
     executor
@@ -82,7 +82,7 @@ where
             request.cache_key()?,
             CacheOperationOwner::of::<R>(),
             &authentication.into(),
-            NonEmptyString::new(facet_json::to_string(request)?)?,
+            NonEmptyString::new("list")?,
             WorkReuse::ReusableRead,
             |_| async move { Ok(WorkOutput::new(value, ArtifactObservation::now())) },
         )?

@@ -29,7 +29,7 @@ const PROVIDERS_API_VERSION: &str = "2021-04-01";
 /// and follows its `nextLink` values. This public-cloud request does not include
 /// the optional metadata/alias expansions. Use `with_invalidation(true)` or
 /// [`CacheInvalidatable::invalidate`] to refresh all cached pages for this
-/// tenant and authentication source.
+/// tenant.
 ///
 /// Tenant metadata does not establish registration readiness in a particular
 /// subscription. Subscription registration queries and changes require their
@@ -46,8 +46,6 @@ impl HasCacheKey for AzureResourceProviderListRequest {
         CacheKey::from_relative_path(
             PathBuf::from("az/arm/tenant")
                 .join(self.authentication.tenant_id.to_string())
-                .join("auth-source")
-                .join(self.authentication.auth_source.to_string())
                 .join("providers/list"),
         )
     }
@@ -152,7 +150,6 @@ mod tests {
     use cloud_terrastodon_auth_types::AzureBearerAuthSource;
     use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
     use cloud_terrastodon_cache::HasCacheKey;
-    use cloud_terrastodon_command::CancellationToken;
     use eyre::Result;
 
     #[test]
@@ -180,48 +177,28 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn cache_scopes_separate_tenants_and_authentication_sources() -> Result<()> {
-        CancellationToken::new()
-            .cancellable_scope(|_cancellation| async move {
-                let first_tenant = "11111111-1111-1111-1111-111111111111".parse()?;
-                let second_tenant = "22222222-2222-2222-2222-222222222222".parse()?;
-                let first_cli = AzureBearerAuthenticationSelection {
-                    tenant_id: first_tenant,
-                    ..test_authentication()
-                };
-                let second_cli = AzureBearerAuthenticationSelection {
-                    tenant_id: second_tenant,
-                    ..test_authentication()
-                };
-                let first_browser = AzureBearerAuthenticationSelection {
-                    tenant_id: first_tenant,
-                    auth_source: AzureBearerAuthSource::Browser,
-                    ..test_authentication()
-                };
-                let key = AzureResourceProviderListRequest {
-                    authentication: first_cli,
-                }
-                .cache_key()?;
-                assert_ne!(
-                    key.scope,
-                    AzureResourceProviderListRequest {
-                        authentication: second_cli
-                    }
-                    .cache_key()?
-                    .scope
-                );
-                assert_ne!(
-                    key.scope,
-                    AzureResourceProviderListRequest {
-                        authentication: first_browser
-                    }
-                    .cache_key()?
-                    .scope
-                );
-                Ok(())
-            })
-            .await
+    #[test]
+    fn cache_scopes_are_shared_by_source_and_separate_by_tenant() -> Result<()> {
+        let authentication = test_authentication();
+        let key = |authentication| AzureResourceProviderListRequest { authentication }.cache_key();
+        let scope = key(authentication)?.scope;
+        assert_eq!(
+            scope,
+            key(AzureBearerAuthenticationSelection {
+                auth_source: AzureBearerAuthSource::Browser,
+                ..authentication
+            })?
+            .scope
+        );
+        assert_ne!(
+            scope,
+            key(AzureBearerAuthenticationSelection {
+                tenant_id: "11111111-1111-1111-1111-111111111111".parse()?,
+                ..authentication
+            })?
+            .scope
+        );
+        Ok(())
     }
 }
 

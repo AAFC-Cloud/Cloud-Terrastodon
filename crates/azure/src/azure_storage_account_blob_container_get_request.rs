@@ -48,8 +48,6 @@ impl HasCacheKey for AzureStorageAccountBlobContainerGetRequest<'_> {
         CacheKey::from_relative_path(
             PathBuf::from("az/arm/tenant")
                 .join(self.authentication.tenant_id.to_string())
-                .join("auth-source")
-                .join(self.authentication.auth_source.to_string())
                 .join("subscriptions")
                 .join(
                     self.container_id

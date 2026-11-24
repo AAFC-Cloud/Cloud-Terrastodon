@@ -217,7 +217,7 @@ async fn assembled_projects_share_records_and_track_page_invalidation() -> Resul
                 CacheOperationOwner::of::<AzureDevOpsProjectsListRequest<'static>>(),
                 auth.admit(&request.auth_selection.into())?,
                 NonEmptyString::new(
-                    blake3::hash(&facet_json::to_vec(&request)?)
+                    blake3::hash(&facet_json::to_vec(request.org_url.as_ref())?)
                         .to_hex()
                         .to_string(),
                 )?,

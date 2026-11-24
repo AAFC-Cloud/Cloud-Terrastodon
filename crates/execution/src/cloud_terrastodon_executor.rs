@@ -636,6 +636,7 @@ impl CloudTerrastodonExecutor {
             .observer
             .clone()
             .map(|observer| (observer, identity.clone()));
+        let reusable = reuse == WorkReuse::ReusableRead && !key.valid_for.is_zero();
         let spec = self.cache.cached_work(
             identity,
             owner,
@@ -674,6 +675,12 @@ impl CloudTerrastodonExecutor {
             spec
         };
         Ok(self.await_account_work(selection, move |child| async move {
+            if reusable {
+                // Another owner may have retired this credential and invalidated
+                // its partition while we were waiting for the root.
+                child.cache.acquire(child.cancellation()).await?;
+                child.authentication.validate_cache_reuse(selection)?;
+            }
             initialization_binding.set(child.clone()).map_err(|_| {
                 eyre::eyre!("cached work account admission was installed more than once")
             })?;

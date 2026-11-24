@@ -25,9 +25,9 @@ use url::Url;
 ///
 /// Selector resolution reads account metadata. Admission may load the explicitly
 /// selected local credential session, but never acquires tokens or selects an
-/// ambient account. Clones of a runtime
-/// provider must preserve the admitted identity; independent sessions must not
-/// silently share its partition. Credential bytes never form cache identities.
+/// ambient account. Clones preserve the admitted identity. Independent sessions
+/// may share a result partition when the provider establishes their stable
+/// identity. Credential bytes never form cache identities.
 ///
 /// Applications may implement and inject this trait, but its selections,
 /// audiences, and the built-in account catalogue currently describe the supported
@@ -123,6 +123,13 @@ pub trait AuthenticationProvider: Send + Sync {
     }
     /// Admit the explicit selection before any shared result can be reused.
     fn admit(&self, selection: &AuthenticationSelection) -> Result<AuthPartition>;
+
+    /// Check whether an admitted credential can still use its reusable partition.
+    /// The executor calls this after acquiring cache ownership so providers can
+    /// detect retirement by another owner while this invocation was waiting.
+    fn validate_cache_reuse(&self, _selection: &AuthenticationSelection) -> Result<()> {
+        Ok(())
+    }
 
     /// Acquire sensitive authorization only when execution actually needs it.
     ///

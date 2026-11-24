@@ -58,8 +58,6 @@ impl HasCacheKey for AzureStorageAccountBlobContainerListRequest<'_> {
         CacheKey::from_relative_path(
             PathBuf::from("az/arm/tenant")
                 .join(self.authentication.tenant_id.to_string())
-                .join("auth-source")
-                .join(self.authentication.auth_source.to_string())
                 .join("subscriptions")
                 .join(
                     self.storage_account_id
@@ -205,7 +203,6 @@ mod tests {
     use cloud_terrastodon_auth_types::AzureBearerAuthSource;
     use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
     use cloud_terrastodon_cache::HasCacheKey;
-    use cloud_terrastodon_command::CancellationToken;
     use eyre::Result;
     use std::borrow::Cow;
 
@@ -235,27 +232,35 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn cache_identity_separates_tenant_source_and_storage_account() -> Result<()> {
-        CancellationToken::new()
-            .cancellable_scope(|_cancellation| async move {
-                let first_tenant = "11111111-1111-1111-1111-111111111111".parse()?;
-                let second_tenant = "22222222-2222-2222-2222-222222222222".parse()?;
-                let first_cli = AzureBearerAuthenticationSelection { tenant_id: first_tenant, ..test_authentication() };
-                let second_cli = AzureBearerAuthenticationSelection { tenant_id: second_tenant, ..test_authentication() };
-                let first_browser = AzureBearerAuthenticationSelection { tenant_id: first_tenant, auth_source: AzureBearerAuthSource::Browser, ..test_authentication() };
-                let account = "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/synthetic/providers/Microsoft.Storage/storageAccounts/syntheticaccount".parse()?;
-                let other = "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/synthetic/providers/Microsoft.Storage/storageAccounts/otheraccount".parse()?;
-                let key = AzureStorageAccountBlobContainerListRequest { authentication: first_cli, storage_account_id: Cow::Borrowed(&account) }.cache_key()?;
-                for (account, context) in [(&account, &second_cli), (&account, &first_browser), (&other, &first_cli)] {
-                    let distinct = AzureStorageAccountBlobContainerListRequest { authentication: *context, storage_account_id: Cow::Borrowed(account) }.cache_key()?;
-                    assert_ne!(key.scope, distinct.scope);
-                    assert!(!key.scope.starts_with(&distinct.scope));
-                    assert!(!distinct.scope.starts_with(&key.scope));
-                }
-                Ok(())
-            })
-            .await
+    #[test]
+    fn cache_scopes_are_shared_by_source_and_separate_by_tenant_and_storage_account() -> Result<()>
+    {
+        let authentication = test_authentication();
+        let other_tenant = AzureBearerAuthenticationSelection {
+            tenant_id: "11111111-1111-1111-1111-111111111111".parse()?,
+            ..authentication
+        };
+        let browser = AzureBearerAuthenticationSelection {
+            auth_source: AzureBearerAuthSource::Browser,
+            ..authentication
+        };
+        let account = "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/synthetic/providers/Microsoft.Storage/storageAccounts/syntheticaccount".parse()?;
+        let other = "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/synthetic/providers/Microsoft.Storage/storageAccounts/otheraccount".parse()?;
+        let key = |account, authentication| {
+            AzureStorageAccountBlobContainerListRequest {
+                authentication,
+                storage_account_id: Cow::Borrowed(account),
+            }
+            .cache_key()
+        };
+        let scope = key(&account, authentication)?.scope;
+        assert_eq!(scope, key(&account, browser)?.scope);
+        for (account, authentication) in [(&account, other_tenant), (&other, authentication)] {
+            let distinct = key(account, authentication)?.scope;
+            assert!(!scope.starts_with(&distinct));
+            assert!(!distinct.starts_with(&scope));
+        }
+        Ok(())
     }
 }
 

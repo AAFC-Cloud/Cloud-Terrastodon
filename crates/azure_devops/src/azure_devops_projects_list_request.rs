@@ -94,7 +94,7 @@ impl ExecutableRequest for AzureDevOpsProjectsListRequest<'_> {
             let cache_key = self.cache_key()?;
             let selection = AuthenticationSelection::from(self.auth_selection);
             let fingerprint = NonEmptyString::new(
-                blake3::hash(&facet_json::to_vec(&self)?)
+                blake3::hash(&facet_json::to_vec(self.org_url.as_ref())?)
                     .to_hex()
                     .to_string(),
             )?;

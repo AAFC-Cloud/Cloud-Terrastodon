@@ -19,8 +19,9 @@ use std::sync::Arc;
 
 /// Captured authentication policy, credentials and identity partition for one mechanism.
 ///
-/// A resolved context shares its immutable credential session and sensitive
-/// caches with clones. Independent contexts never share a session partition.
+/// Clones share their credential session and sensitive caches. Resolved
+/// browser and Azure CLI contexts for a saved account share reusable request
+/// results for that account and tenant across invocations.
 #[derive(Debug, Clone, Default, Facet)]
 #[repr(u8)]
 pub enum AuthContext {
@@ -174,31 +175,31 @@ impl AuthContext {
                             configured.tenant_id == tenant_id,
                             "requested tenant does not match the workload identity tenant"
                         );
-                        AuthPartition::new(format!(
+                        return AuthPartition::new(format!(
                             "account/{}/session/{}/workload-identity/authority/login.microsoftonline.com/tenant/{}/client/{}",
                             state.account_id,
                             state.session_id,
                             configured.tenant_id,
                             configured.client_id,
-                        ))
+                        ));
                     }
                     AzureBearerAuthSource::Browser => {
                         state.browser_token_cache.admit_tenant(tenant_id)?;
-                        AuthPartition::new(format!(
-                            "account/{}/session/{}/source/browser/tenant/{tenant_id}",
-                            state.account_id, state.session_id,
-                        ))
                     }
                     AzureBearerAuthSource::AzureCli => {
                         ensure!(
                             !state.headless || state.credential_store.is_some(),
                             "headless Azure CLI authentication requires an explicitly provisioned named-account session"
                         );
-                        AuthPartition::new(format!(
-                            "account/{}/session/{}/source/azure-cli/tenant/{tenant_id}",
-                            state.account_id, state.session_id,
-                        ))
                     }
+                }
+                if state.credential_store.is_some() {
+                    azure_account_cache_partition(state.account_id, tenant_id)
+                } else {
+                    AuthPartition::new(format!(
+                        "account/{}/session/{}/source/{auth_source}/tenant/{tenant_id}",
+                        state.account_id, state.session_id,
+                    ))
                 }
             }
             AuthenticationSelection::Gitea { .. } => {
@@ -277,6 +278,13 @@ impl AuthContext {
     pub fn allows_interactive_browser_login(&self) -> bool {
         matches!(self.source(), Some(AuthSource::Browser)) && !self.is_headless()
     }
+}
+
+pub(crate) fn azure_account_cache_partition(
+    account_id: CloudTerrastodonAccountId,
+    tenant_id: AzureTenantId,
+) -> eyre::Result<AuthPartition> {
+    AuthPartition::new(format!("azure-account/{account_id}/tenant/{tenant_id}"))
 }
 
 #[cfg(test)]

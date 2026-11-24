@@ -580,12 +580,16 @@ cannot hide a domain write or user solicitation.
 
 ### Auth partitions and their lifetime
 
-The admitted account/session determines a non-secret `AuthPartition`.
-Independent CLI/browser/PAT provider sessions keep conservative partitioning;
-naming accounts does not automatically promise persistent cross-invocation result
-reuse. Workload identity includes its configured identity and account binding.
-Gitea remains nonreusable under its external-provider policy. No partition uses
-tokens, assertions, PATs, refresh credentials, or secret-derived printable keys.
+Admission supplies a non-secret `AuthPartition`. For a saved Entra account,
+Azure CLI and browser share `azure-account/{account_id}/tenant/{tenant_id}`
+across CT runs. The selected source and its credential generation still govern
+admission and leases. Azure logical cache scopes distinguish the tenant and
+operation, including the targeted resource where applicable. Standalone Azure
+contexts without a saved account, PAT, and workload identity retain
+invocation-scoped partitions. Workload identity also
+includes its configured identity and account binding. Gitea remains nonreusable
+under its external-provider policy. No partition uses tokens, assertions, PATs,
+refresh credentials, or secret-derived printable keys.
 
 Selected account ID, source, and tenant survive request serialization and alias or
 default changes. Credentials may renew within the captured identity. Explicit
@@ -603,21 +607,22 @@ CLI service runner.
 
 Retirement closes new admission, signals optional jobs, drains admitted deferred
 jobs, and invalidates the authentication partition before and after draining.
+The shared Azure partition is invalidated when either Azure CLI or browser is
+retired, including by a process that has yet to admit a request for that account.
 Required response decoding, artifact persistence, and affected-read invalidation
 retain the old binding until completion. Cache generations reject stale
 publication, and recorded cross-account dependencies invalidate aggregate results.
 Previously returned `Arc` snapshots remain readable.
 
-Account retirement and ordinary resource invalidation have different scopes:
-retirement targets that credential partition, while mutation invalidation reaches
-all account variants of the affected resource. The inner shared-handle protocol
-alone does not imply cross-process cache coherence. Phase 8's
-[exclusive cache-root ownership](cache-root-ownership.md) serializes independent
-cache owners and recovers interrupted disk transitions; it does not turn the
-credential store into a cross-process transaction. Durable retirement prevents
-new invocations reopening retired generations; separately running processes are
-not instantly cancelled. Existing authentication-partition and retirement
-admission rules remain necessary inside cache-root ownership.
+Account retirement targets affected authentication partitions. Mutation
+invalidation reaches all account variants of the affected resource.
+[Exclusive cache-root ownership](cache-root-ownership.md) serializes independent
+cache owners and recovers interrupted disk transitions. Reusable work checks the
+selected credential's durable retirement marker and, when available, its active
+catalogue generation after acquiring cache-root ownership. Credential-store
+updates follow their own locking rules. Durable
+retirement prevents new invocations reopening retired generations. Processes
+coordinate work cancellation through their own authentication providers.
 
 `AnonymousAuthenticationProvider` admits anonymous/local work and rejects
 credential-requiring selections. The default-off `test-support` sentinel

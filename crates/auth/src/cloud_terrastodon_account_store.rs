@@ -1159,7 +1159,6 @@ impl CloudTerrastodonAccountStore {
             _ => None,
         };
         state.credential_store = Some(store.clone());
-        state.session_id = Uuid::new_v4();
         match &registration.credential {
             CloudTerrastodonAccountCredential::AzureCli { .. } => {
                 state.azure_cli_sessions = AzureCliSessions::at(store.directory.join("azure-cli"));
@@ -1204,6 +1203,10 @@ impl CloudTerrastodonAccountStore {
         Ok(AuthContext::Resolved(Arc::new(state)))
     }
 }
+
+#[cfg(test)]
+#[path = "named_azure_cache_reuse_tests.rs"]
+mod named_azure_cache_reuse_tests;
 
 #[cfg(test)]
 mod tests {
@@ -1949,6 +1952,7 @@ mod tests {
                 store.save(&catalogue)?;
                 assert_eq!(provider.admit(&selection)?, partition);
                 assert_eq!(retained.admit(&selection)?, partition);
+                retained.validate_cache_reuse(&selection)?;
                 // A durable generation change is different: fresh executions fail
                 // closed, while already admitted required completion keeps its owner.
                 catalogue.accounts[0]
@@ -1960,6 +1964,7 @@ mod tests {
                 assert!(provider.admit(&selection).is_err());
                 assert!(provider.lease(&selection).is_err());
                 assert_eq!(retained.admit(&selection)?, partition);
+                assert!(retained.validate_cache_reuse(&selection).is_err());
                 assert!(
                     !store.root.join("credentials").exists(),
                     "this exercises metadata and lease policy without token acquisition"

@@ -81,7 +81,7 @@ impl ExecutableRequest for EntraPrincipalListRequest {
                     self.cache_key()?,
                     CacheOperationOwner::of::<Self>(),
                     &selection,
-                    NonEmptyString::new(facet_json::to_string(&self)?)?,
+                    NonEmptyString::new("list")?,
                     WorkReuse::ReusableRead,
                     move |executor| async move {
                         debug!(

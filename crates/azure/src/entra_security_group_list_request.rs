@@ -67,14 +67,13 @@ impl ExecutableRequest for EntraSecurityGroupListRequest {
         Box::pin(async move {
             let key = self.cache_key()?;
             let selection = self.authentication.into();
-            let fingerprint = NonEmptyString::new(facet_json::to_string(&self)?)?;
             executor
                 .cached_work(
                     ExecutorKind::InProcess,
                     key.clone(),
                     CacheOperationOwner::of::<Self>(),
                     &selection,
-                    fingerprint,
+                    NonEmptyString::new("list")?,
                     WorkReuse::ReusableRead,
                     move |executor| async move {
                         debug!("Fetching security groups");

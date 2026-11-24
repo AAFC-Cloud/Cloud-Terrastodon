@@ -232,12 +232,12 @@ idle handoff with a retained snapshot, synthetic prompt wait, and caller-owned
 embedding. The synthetic auth test also exercised the real retirement and
 invalidation path.
 
-Named Azure providers can use different authentication partitions between
-invocations. The process fixture uses a matching identity so it isolates
-ownership and result reuse from provider policy. Validation used temporary
-roots, local synthetic requests, and no live sign-in. Unix runtime validation
-was unavailable. The installed Rust target is Windows and WSL enumeration
-returned access denied in this environment.
+Saved Azure CLI and browser credentials for the same account and tenant share
+a persistent result partition. The process fixture uses a synthetic matching
+identity to isolate ownership and result reuse from provider policy. Validation
+used temporary roots, local synthetic requests, and no live sign-in. Unix
+runtime validation was unavailable. The installed Rust target is Windows and
+WSL enumeration returned access denied in this environment.
 
 **Work.** Extend the existing process harness with isolated temporary roots and
 barriers. Keep the simulated GUI coordinator and a rendered result alive after
