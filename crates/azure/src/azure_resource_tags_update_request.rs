@@ -11,6 +11,7 @@ use crate::AzureResourceGroupListRequest;
 use crate::AzureResourceListRequest;
 use crate::AzureResourceTagsGetRequest;
 use crate::AzureRouteTableListRequest;
+use crate::AzureStorageAccountGetRequest;
 use crate::AzureStorageAccountListRequest;
 use crate::AzureSubscriptionListRequest;
 use crate::AzureVirtualMachineListRequest;
@@ -216,6 +217,13 @@ impl ExecutableRequest for AzureResourceTagsUpdateRequest<'_> {
                     }
                     _ => Ok(()),
                 };
+                let storage_account = match &tagged_scope {
+                    ScopeImpl::StorageAccount(id) => AzureStorageAccountGetRequest {
+                        authentication: self.authentication,
+                        storage_account_id: Cow::Borrowed(id),
+                    }.execute(&child).invalidate().await,
+                    _ => Ok(()),
+                };
                 let expanded = tagged_scope.expanded_form();
                 let mut parts = expanded.rsplitn(3, '/');
                 let _deployment_name = parts.next();
@@ -236,6 +244,7 @@ impl ExecutableRequest for AzureResourceTagsUpdateRequest<'_> {
                     AzureResourceTagsGetRequest { authentication: self.authentication, id: Cow::Borrowed(&self.id) }.execute(&child).invalidate().await,
                     AzureResourceListRequest { authentication: self.authentication }.execute(&child).invalidate().await,
                     inventory,
+                    storage_account,
                     deployment_inventory,
                 ];
                 let mut failures = invalidations.into_iter().filter_map(Result::err);
