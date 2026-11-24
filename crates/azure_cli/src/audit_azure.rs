@@ -1,4 +1,5 @@
 use crate::AzureAdminCorrespondenceAuditRequest;
+use crate::AzureAuditFinding;
 use crate::AzureAuditReport;
 use crate::AzureResourceTagAuditRequest;
 use crate::AzureServicePrincipalPasswordAuditRequest;
@@ -45,6 +46,6 @@ pub async fn audit_azure(
     unknown.extend(passwords);
     unknown.extend(tags);
     unknown.extend(admins);
-    unknown.extend(storage.findings);
+    unknown.extend(storage.findings.into_iter().map(AzureAuditFinding::from));
     Ok(AzureAuditReport { findings: unknown })
 }

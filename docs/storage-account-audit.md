@@ -47,14 +47,14 @@ This finding identifies an unused configuration capability; it does not test
 network reachability, static website endpoints, SAS tokens, or actual anonymous
 traffic, and it makes no changes to Azure.
 
-Each finding includes the account identity, anonymous-access setting, public
-network access, network rules, tags, and observed container configurations.
-Network restrictions provide context; they do not suppress this configuration
-finding. Inconclusive findings preserve missing account settings, failed
-container inventories, and unrecognized container access levels. A read failure
-is never interpreted as an empty or private account. Cancellation aborts the
-audit. Accounts are limited to the inventory visible to the selected identity;
-an empty result does not establish tenant-wide permissions or coverage.
+Each finding includes the storage account and its configuration. An unused
+access finding also includes the complete live container inventory. Network
+restrictions provide context independently of the anonymous access setting.
+Inconclusive findings include a structured reason in JSON and Facet Pretty.
+The reason distinguishes missing account settings, failed inventory reads,
+foreign or soft-deleted containers, and unrecognized container access levels.
+Cancellation aborts the audit. The observed account count describes the
+inventory visible to the selected identity.
 
 The audit reuses `AzureStorageAccountListRequest` and its cached inventory.
 `AzureStorageAccount.properties` contains `AzureStorageAccountProperties`, with

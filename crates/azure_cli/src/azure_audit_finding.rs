@@ -1,4 +1,6 @@
 use crate::AzureAuditPasswordCredentialStatus;
+use crate::AzureStorageAccountAuditFinding;
+use crate::AzureStorageAccountAuditInconclusiveReason;
 use arbitrary::Arbitrary;
 use chrono::DateTime;
 use chrono::Utc;
@@ -8,7 +10,6 @@ use cloud_terrastodon_azure::EntraPrincipalId;
 use cloud_terrastodon_azure::EntraServicePrincipalObjectId;
 use cloud_terrastodon_azure::EntraUserId;
 use cloud_terrastodon_azure::RoleAssignmentId;
-use cloud_terrastodon_azure::Scope;
 use cloud_terrastodon_azure::ScopeImpl;
 use cloud_terrastodon_command::CancellationScope;
 use facet::Facet;
@@ -25,7 +26,7 @@ pub enum AzureAuditFinding {
     },
     StorageAccountAnonymousAccessInconclusive {
         account: Arc<AzureStorageAccount>,
-        reason: String,
+        reason: AzureStorageAccountAuditInconclusiveReason,
     },
     UnknownRoleAssignmentPrincipal {
         principal_id: EntraPrincipalId,
@@ -60,63 +61,33 @@ impl AzureAuditFinding {
         writer: &mut dyn Write,
         cancellation: &CancellationScope,
     ) -> eyre::Result<()> {
-        let account = match self {
+        match self {
             Self::StorageAccountUnusedAnonymousAccess {
                 account,
                 containers,
-            } => {
-                writeln!(writer, "{}: {}", self.message(), account.id.expanded_form())?;
-                writeln!(
-                    writer,
-                    "  {} live containers; all private",
-                    containers.len()
-                )?;
-                for container in containers {
-                    cancellation.bail_if_cancelled()?;
-                    writeln!(
-                        writer,
-                        "    {}: {:?}",
-                        container.name, container.properties.public_access
-                    )?;
-                }
-                account
-            }
+            } => AzureStorageAccountAuditFinding::write_unused_anonymous_access(
+                account,
+                containers,
+                writer,
+                cancellation,
+            ),
             Self::StorageAccountAnonymousAccessInconclusive { account, reason } => {
-                writeln!(writer, "{}: {}", self.message(), account.id.expanded_form())?;
-                writeln!(writer, "  {reason}")?;
-                account
+                AzureStorageAccountAuditFinding::write_inconclusive(account, reason, writer)
             }
             _ => {
                 writeln!(writer, "{}: {self:?}", self.message())?;
-                return Ok(());
+                Ok(())
             }
-        };
-        writeln!(
-            writer,
-            "  allowBlobPublicAccess: {:?}",
-            account.properties.allow_blob_public_access
-        )?;
-        writeln!(
-            writer,
-            "  publicNetworkAccess: {:?}",
-            account.properties.public_network_access
-        )?;
-        writeln!(
-            writer,
-            "  networkAcls: {:?}",
-            account.properties.network_acls
-        )?;
-        writeln!(writer, "  tags: {:?}", account.tags)?;
-        Ok(())
+        }
     }
 
     pub fn message(&self) -> &'static str {
         match self {
             Self::StorageAccountUnusedAnonymousAccess { .. } => {
-                "Storage account allows anonymous blob access but has no containers configured for it"
+                AzureStorageAccountAuditFinding::UNUSED_ANONYMOUS_ACCESS_MESSAGE
             }
             Self::StorageAccountAnonymousAccessInconclusive { .. } => {
-                "Storage account anonymous-access audit is inconclusive"
+                AzureStorageAccountAuditFinding::INCONCLUSIVE_MESSAGE
             }
             Self::UnknownRoleAssignmentPrincipal { .. } => {
                 "Found role assignment with unknown principal"
@@ -137,6 +108,23 @@ impl AzureAuditFinding {
             }
             Self::AdminWithoutCorrespondingAccount { .. } => {
                 "Admin user account does not have a corresponding non-admin account according to other_mails property"
+            }
+        }
+    }
+}
+
+impl From<AzureStorageAccountAuditFinding> for AzureAuditFinding {
+    fn from(finding: AzureStorageAccountAuditFinding) -> Self {
+        match finding {
+            AzureStorageAccountAuditFinding::UnusedAnonymousAccess {
+                account,
+                containers,
+            } => Self::StorageAccountUnusedAnonymousAccess {
+                account,
+                containers,
+            },
+            AzureStorageAccountAuditFinding::Inconclusive { account, reason } => {
+                Self::StorageAccountAnonymousAccessInconclusive { account, reason }
             }
         }
     }

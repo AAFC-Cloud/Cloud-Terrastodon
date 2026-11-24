@@ -1,4 +1,5 @@
-use crate::AzureAuditFinding;
+use crate::AzureStorageAccountAuditFinding;
+use crate::AzureStorageAccountAuditInconclusiveReason;
 use crate::AzureStorageAccountAuditReport;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
@@ -36,45 +37,47 @@ impl AzureStorageAccountAuditRequest {
         account: Arc<AzureStorageAccount>,
         containers: eyre::Result<Vec<Arc<AzureStorageAccountBlobContainer>>>,
         cancellation: &CancellationScope,
-    ) -> eyre::Result<Option<AzureAuditFinding>> {
+    ) -> eyre::Result<Option<AzureStorageAccountAuditFinding>> {
         if matches!(account.kind, AzureStorageAccountKind::FileStorage)
             || account.properties.allow_blob_public_access == Some(false)
         {
             return Ok(None);
         }
         if account.properties.allow_blob_public_access.is_none() {
-            return Ok(Some(
-                AzureAuditFinding::StorageAccountAnonymousAccessInconclusive {
-                    account,
-                    reason: "The account's allowBlobPublicAccess setting was not returned".into(),
-                },
-            ));
+            return Ok(Some(AzureStorageAccountAuditFinding::Inconclusive {
+                account,
+                reason: AzureStorageAccountAuditInconclusiveReason::MissingAccountSetting,
+            }));
         }
         let containers = match containers {
             Ok(containers) => containers,
             Err(error) if error.is_cancellation() => return Err(error),
             Err(error) => {
-                return Ok(Some(
-                    AzureAuditFinding::StorageAccountAnonymousAccessInconclusive {
-                        account,
-                        reason: format!("Could not enumerate every blob container: {error:#}"),
+                return Ok(Some(AzureStorageAccountAuditFinding::Inconclusive {
+                    account,
+                    reason: AzureStorageAccountAuditInconclusiveReason::ContainerInventoryFailed {
+                        error: format!("{error:#}"),
                     },
-                ));
+                }));
             }
         };
         let mut has_public_container = false;
         for container in &containers {
             cancellation.bail_if_cancelled()?;
             if container.id.storage_account_id != account.id {
-                return Ok(Some(AzureAuditFinding::StorageAccountAnonymousAccessInconclusive {
+                return Ok(Some(AzureStorageAccountAuditFinding::Inconclusive {
                     account,
-                    reason: "Container inventory included an identity from a different storage account".into(),
+                    reason: AzureStorageAccountAuditInconclusiveReason::ForeignContainer {
+                        container_id: container.id.clone(),
+                    },
                 }));
             }
             if container.properties.deleted == Some(true) {
-                return Ok(Some(AzureAuditFinding::StorageAccountAnonymousAccessInconclusive {
+                return Ok(Some(AzureStorageAccountAuditFinding::Inconclusive {
                     account,
-                    reason: "Live container inventory unexpectedly included a soft-deleted container".into(),
+                    reason: AzureStorageAccountAuditInconclusiveReason::DeletedContainer {
+                        container_id: container.id.clone(),
+                    },
                 }));
             }
             match &container.properties.public_access {
@@ -84,16 +87,14 @@ impl AzureStorageAccountAuditRequest {
                     has_public_container = true
                 }
                 AzureStorageAccountBlobContainerPublicAccess::Unknown(value) => {
-                    let reason = format!(
-                        "Container {} has an unrecognized publicAccess setting: {value:?}",
-                        container.name
-                    );
-                    return Ok(Some(
-                        AzureAuditFinding::StorageAccountAnonymousAccessInconclusive {
-                            account,
-                            reason,
-                        },
-                    ));
+                    return Ok(Some(AzureStorageAccountAuditFinding::Inconclusive {
+                        account,
+                        reason:
+                            AzureStorageAccountAuditInconclusiveReason::UnknownContainerAccess {
+                                container_id: container.id.clone(),
+                                value: value.clone(),
+                            },
+                    }));
                 }
             }
         }
@@ -101,7 +102,7 @@ impl AzureStorageAccountAuditRequest {
             Ok(None)
         } else {
             Ok(Some(
-                AzureAuditFinding::StorageAccountUnusedAnonymousAccess {
+                AzureStorageAccountAuditFinding::UnusedAnonymousAccess {
                     account,
                     containers,
                 },

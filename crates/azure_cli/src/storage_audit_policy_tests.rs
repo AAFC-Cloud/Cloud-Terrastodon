@@ -1,4 +1,5 @@
-use crate::AzureAuditFinding;
+use crate::AzureStorageAccountAuditFinding;
+use crate::AzureStorageAccountAuditInconclusiveReason;
 use crate::AzureStorageAccountAuditRequest;
 use cloud_terrastodon_azure::AzureStorageAccount;
 use cloud_terrastodon_azure::AzureStorageAccountBlobContainer;
@@ -92,7 +93,7 @@ fn storage_audit_flags_private_and_empty_accounts_regardless_of_network_restrict
                 &scope,
             )?
             .unwrap();
-            let AzureAuditFinding::StorageAccountUnusedAnonymousAccess {
+            let AzureStorageAccountAuditFinding::UnusedAnonymousAccess {
                 account: observed,
                 containers,
             } = finding
@@ -158,17 +159,26 @@ fn storage_audit_excludes_disabled_file_only_and_accounts_with_any_public_contai
 #[test]
 fn storage_audit_keeps_missing_settings_and_failed_inventory_inconclusive() -> eyre::Result<()> {
     CancellationToken::new().with_scope(|scope| {
-        for (account, containers) in [
-            (account(None)?, Ok(vec![])),
+        for (account, containers, expected_reason) in [
+            (
+                account(None)?,
+                Ok(vec![]),
+                AzureStorageAccountAuditInconclusiveReason::MissingAccountSetting,
+            ),
             (
                 account(Some(true))?,
                 Err(eyre::eyre!("a later container page was denied")),
+                AzureStorageAccountAuditInconclusiveReason::ContainerInventoryFailed {
+                    error: "a later container page was denied".into(),
+                },
             ),
         ] {
-            assert!(matches!(
-                AzureStorageAccountAuditRequest::evaluate(Arc::new(account), containers, &scope)?,
-                Some(AzureAuditFinding::StorageAccountAnonymousAccessInconclusive { .. })
-            ));
+            let finding =
+                AzureStorageAccountAuditRequest::evaluate(Arc::new(account), containers, &scope)?;
+            let Some(AzureStorageAccountAuditFinding::Inconclusive { reason, .. }) = finding else {
+                panic!("expected an inconclusive storage finding");
+            };
+            assert_eq!(reason, expected_reason);
         }
         Ok(())
     })
@@ -185,15 +195,31 @@ fn storage_audit_rejects_unknown_deleted_and_cross_account_container_observation
         deleted.properties.deleted = Some(true);
         let mut wrong_account = container(AzureStorageAccountBlobContainerPublicAccess::None)?;
         wrong_account.id.storage_account_id.storage_account_name = "otheraccount".parse()?;
-        for container in [unknown, deleted, wrong_account] {
-            assert!(matches!(
-                AzureStorageAccountAuditRequest::evaluate(
-                    Arc::new(account(Some(true))?),
-                    Ok(vec![Arc::new(container)]),
-                    &scope
-                )?,
-                Some(AzureAuditFinding::StorageAccountAnonymousAccessInconclusive { .. })
-            ));
+        let expected_reasons = [
+            AzureStorageAccountAuditInconclusiveReason::UnknownContainerAccess {
+                container_id: unknown.id.clone(),
+                value: "future-access".into(),
+            },
+            AzureStorageAccountAuditInconclusiveReason::DeletedContainer {
+                container_id: deleted.id.clone(),
+            },
+            AzureStorageAccountAuditInconclusiveReason::ForeignContainer {
+                container_id: wrong_account.id.clone(),
+            },
+        ];
+        for (container, expected_reason) in [unknown, deleted, wrong_account]
+            .into_iter()
+            .zip(expected_reasons)
+        {
+            let finding = AzureStorageAccountAuditRequest::evaluate(
+                Arc::new(account(Some(true))?),
+                Ok(vec![Arc::new(container)]),
+                &scope,
+            )?;
+            let Some(AzureStorageAccountAuditFinding::Inconclusive { reason, .. }) = finding else {
+                panic!("expected an inconclusive storage finding");
+            };
+            assert_eq!(reason, expected_reason);
         }
         Ok(())
     })

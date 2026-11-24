@@ -71,8 +71,14 @@ pub use azure_resource_tag_audit_request::AzureResourceTagAuditRequest;
 mod azure_admin_correspondence_audit_request;
 pub use azure_admin_correspondence_audit_request::AzureAdminCorrespondenceAuditRequest;
 
-mod azure_storage_account_audit_request;
-pub use azure_storage_account_audit_request::AzureStorageAccountAuditRequest;
+mod azure_storage_account_audit_finding;
+pub use azure_storage_account_audit_finding::AzureStorageAccountAuditFinding;
+
+mod azure_storage_account_audit_inconclusive_reason;
+pub use azure_storage_account_audit_inconclusive_reason::AzureStorageAccountAuditInconclusiveReason;
 
 mod azure_storage_account_audit_report;
 pub use azure_storage_account_audit_report::AzureStorageAccountAuditReport;
+
+mod azure_storage_account_audit_request;
+pub use azure_storage_account_audit_request::AzureStorageAccountAuditRequest;

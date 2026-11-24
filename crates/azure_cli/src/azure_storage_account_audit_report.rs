@@ -1,4 +1,4 @@
-use crate::AzureAuditFinding;
+use crate::AzureStorageAccountAuditFinding;
 use arbitrary::Arbitrary;
 use cloud_terrastodon_command::CancellationScope;
 use facet::Facet;
@@ -9,7 +9,7 @@ use std::io::Write;
 #[derive(Debug, Arbitrary, Facet)]
 pub struct AzureStorageAccountAuditReport {
     pub accounts_observed: usize,
-    pub findings: Vec<AzureAuditFinding>,
+    pub findings: Vec<AzureStorageAccountAuditFinding>,
 }
 
 impl AzureStorageAccountAuditReport {
