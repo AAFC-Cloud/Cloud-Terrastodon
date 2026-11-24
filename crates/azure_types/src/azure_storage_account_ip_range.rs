@@ -18,6 +18,26 @@ pub enum AzureStorageAccountIpRange {
     Network(IpNetwork),
 }
 
+impl AzureStorageAccountIpRange {
+    /// Check whether an address is included in the configured rule.
+    pub fn contains(self, address: IpAddr) -> bool {
+        match self {
+            Self::Address(rule) => rule == address,
+            Self::Network(rule) => match (rule.ip(), address) {
+                (IpAddr::V4(network), IpAddr::V4(address)) => {
+                    let mask = !u32::MAX.checked_shr(u32::from(rule.prefix())).unwrap_or(0);
+                    u32::from(network) & mask == u32::from(address) & mask
+                }
+                (IpAddr::V6(network), IpAddr::V6(address)) => {
+                    let mask = !u128::MAX.checked_shr(u32::from(rule.prefix())).unwrap_or(0);
+                    u128::from(network) & mask == u128::from(address) & mask
+                }
+                _ => false,
+            },
+        }
+    }
+}
+
 impl FromStr for AzureStorageAccountIpRange {
     type Err = eyre::Report;
 
@@ -78,6 +98,24 @@ mod tests {
         ));
         for invalid in ["AzureCloud", "192.0.2.0/33", "2001:db8::/129", ""] {
             assert!(invalid.parse::<AzureStorageAccountIpRange>().is_err());
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn matches_only_addresses_within_the_same_ip_rule_family() -> eyre::Result<()> {
+        for (rule, matching, outside) in [
+            ("192.0.2.8", "192.0.2.8", "192.0.2.9"),
+            ("192.0.2.8/28", "192.0.2.15", "192.0.2.16"),
+            ("192.0.2.8/32", "192.0.2.8", "192.0.2.9"),
+            ("0.0.0.0/0", "192.0.2.8", "::ffff:192.0.2.8"),
+            ("2001:db8::1/64", "2001:db8::f", "2001:db8:0:1::1"),
+            ("2001:db8::1/128", "2001:db8::1", "2001:db8::2"),
+            ("::/0", "2001:db8::1", "192.0.2.8"),
+        ] {
+            let rule: AzureStorageAccountIpRange = rule.parse()?;
+            assert!(rule.contains(matching.parse()?));
+            assert!(!rule.contains(outside.parse()?));
         }
         Ok(())
     }
