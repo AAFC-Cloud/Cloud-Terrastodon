@@ -9,6 +9,7 @@ use cloud_terrastodon_source::SourceHuntRequest;
 use eyre::Result;
 use eyre::WrapErr;
 use std::fs;
+use std::num::NonZeroUsize;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
@@ -136,7 +137,7 @@ async fn hunt(
                     .iter()
                     .map(|value| (*value).to_owned())
                     .collect(),
-                jobs,
+                jobs: NonZeroUsize::try_from(jobs)?,
             }
             .scan(&cancellation, None)
             .await
@@ -577,8 +578,7 @@ async fn discovers_git_file_worktrees_and_reads_their_common_remote_configuratio
 }
 
 #[tokio::test]
-async fn publishes_complete_final_progress_and_rejects_invalid_roots_and_job_limits() -> Result<()>
-{
+async fn publishes_complete_final_progress_and_rejects_invalid_roots() -> Result<()> {
     let fixture = Fixture::new()?;
     fixture.repository("repo")?;
     fixture.write("repo/app.php", "php")?;
@@ -589,7 +589,7 @@ async fn publishes_complete_final_progress_and_rejects_invalid_roots_and_job_lim
                 root: fixture.root().to_owned(),
                 extensions: Vec::new(),
                 exclude_dirs: Vec::new(),
-                jobs: 2,
+                jobs: NonZeroUsize::try_from(2)?,
             }
             .scan(&cancellation, Some(progress))
             .await
@@ -611,7 +611,6 @@ async fn publishes_complete_final_progress_and_rejects_invalid_roots_and_job_lim
     let repository = fixture.repository("repo")?;
     assert!(hunt(&fixture.path("missing"), &[], &[], 1).await.is_err());
     assert!(hunt(&fixture.path("file.txt"), &[], &[], 1).await.is_err());
-    assert!(hunt(fixture.root(), &[], &[], 0).await.is_err());
     assert!(hunt(&repository.join(".git"), &[], &[], 1).await.is_err());
     assert!(
         hunt(&repository.join(".git/objects"), &[], &[], 1)
@@ -636,7 +635,7 @@ async fn cancellation_stops_a_scan_with_queued_descendants() -> Result<()> {
                 root: fixture.root().to_owned(),
                 extensions: Vec::new(),
                 exclude_dirs: Vec::new(),
-                jobs: 1,
+                jobs: NonZeroUsize::MIN,
             }
             .scan(&cancellation, Some(progress));
             tokio::pin!(hunt);

@@ -18,7 +18,7 @@ chrono.workspace = true
 cloud_terrastodon_registry.workspace = true
 cloud_terrastodon_source_types.workspace = true
 eyre.workspace = true
-facet.workspace = true
+facet = { workspace = true, features = ["nonzero"] }
 futures.workspace = true
 gix.workspace = true
 linkme.workspace = true

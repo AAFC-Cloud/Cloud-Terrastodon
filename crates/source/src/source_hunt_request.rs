@@ -18,6 +18,7 @@ use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::collections::HashSet;
 use std::collections::VecDeque;
+use std::num::NonZeroUsize;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
@@ -49,8 +50,8 @@ pub struct SourceHuntRequest {
     pub extensions: Vec<SourceFileExtension>,
     /// Exact directory basenames to skip, in addition to the mandatory `.git`.
     pub exclude_dirs: Vec<String>,
-    /// Maximum simultaneous blocking directory jobs; must be greater than zero.
-    pub jobs: usize,
+    /// Maximum simultaneous blocking directory jobs.
+    pub jobs: NonZeroUsize,
 }
 
 impl<'a> Arbitrary<'a> for SourceHuntRequest {
@@ -59,7 +60,7 @@ impl<'a> Arbitrary<'a> for SourceHuntRequest {
             root: PathBuf::arbitrary(input)?,
             extensions: Vec::arbitrary(input)?,
             exclude_dirs: Vec::arbitrary(input)?,
-            jobs: input.int_in_range(1..=64)?,
+            jobs: NonZeroUsize::MIN.saturating_add(input.int_in_range(0..=63)?),
         })
     }
 }
@@ -73,7 +74,6 @@ impl SourceHuntRequest {
         progress: Option<watch::Sender<SourceHuntProgress>>,
     ) -> Result<SourceHuntReport> {
         cancellation.cancellable_scope(move |scan| async move {
-            eyre::ensure!(self.jobs > 0, "Source hunt requires at least one directory job");
             if let Some(progress) = &progress {
                 progress.send_replace(SourceHuntProgress {
                     active_paths: vec![self.root.clone()],
@@ -111,7 +111,7 @@ impl SourceHuntRequest {
             refresh.set_missed_tick_behavior(MissedTickBehavior::Skip);
             while !pending.is_empty() || !active.is_empty() {
                 scan.bail_if_cancelled()?;
-                while active.len() < self.jobs {
+                while active.len() < self.jobs.get() {
                     let Some((path, inherited_repository)) = pending.pop_front() else {
                         break;
                     };

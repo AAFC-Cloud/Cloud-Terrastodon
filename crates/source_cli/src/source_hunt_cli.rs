@@ -7,6 +7,7 @@ use cloud_terrastodon_source::SourceHuntProgress;
 use cloud_terrastodon_source::SourceHuntRequest;
 use eyre::Result;
 use facet::Facet;
+use std::num::NonZeroUsize;
 use std::path::PathBuf;
 use std::time::Duration;
 use tokio::sync::watch;
@@ -27,23 +28,23 @@ pub struct SourceHuntArgs {
     pub exclude_dir: Vec<String>,
     /// Maximum concurrent directory scans. Defaults to four per CPU, bounded to 8..64.
     #[facet(figue::named, default = default_jobs())]
-    pub jobs: usize,
+    pub jobs: NonZeroUsize,
     /// Disable the live stderr progress display.
     #[facet(figue::named, default = false)]
     pub no_progress: bool,
 }
 
-fn default_jobs() -> usize {
-    std::thread::available_parallelism()
+fn default_jobs() -> NonZeroUsize {
+    let jobs = std::thread::available_parallelism()
         .map(usize::from)
         .unwrap_or(2)
         .saturating_mul(4)
-        .clamp(8, 64)
+        .clamp(8, 64);
+    NonZeroUsize::MIN.saturating_add(jobs - 1)
 }
 
 impl SourceHuntArgs {
     pub async fn invoke(self, cancellation: &CancellationScope) -> Result<CliOutput> {
-        eyre::ensure!(self.jobs > 0, "--jobs must be greater than zero");
         let mut terminal = if !self.no_progress && SourceHuntProgressTerminal::is_supported() {
             Some(SourceHuntProgressTerminal::new().await?)
         } else {
