@@ -26,7 +26,7 @@ cloud_terrastodon_rest.workspace = true
 cloud_terrastodon_registry.workspace = true
 linkme.workspace = true
 eyre.workspace = true
-facet.workspace = true
+facet = { workspace = true, features = ["nonzero"] }
 facet-json.workspace = true
 tokio.workspace = true
 tempfile.workspace = true

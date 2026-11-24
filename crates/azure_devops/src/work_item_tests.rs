@@ -7,6 +7,13 @@ use cloud_terrastodon_auth_types::AzureBearerAuthSource;
 use cloud_terrastodon_auth_types::AzureBearerAuthenticationSelection;
 use cloud_terrastodon_auth_types::AzureDevOpsAuthSelection;
 use cloud_terrastodon_azure_types::ArbitraryJson;
+use cloud_terrastodon_cache::ArtifactObservation;
+use cloud_terrastodon_cache::CacheKey;
+use cloud_terrastodon_cache::CacheOperationOwner;
+use cloud_terrastodon_cache::ExecutorKind;
+use cloud_terrastodon_cache::NonEmptyString;
+use cloud_terrastodon_cache::WorkOutput;
+use cloud_terrastodon_cache::WorkReuse;
 use cloud_terrastodon_command::CancellationError;
 use cloud_terrastodon_command::CancellationScope;
 use cloud_terrastodon_command::CancellationToken;
@@ -190,6 +197,76 @@ async fn batch_read_rejects_an_empty_selection_before_authentication_or_network(
                 error
                     .to_string()
                     .contains("Specify at least one work item ID")
+            );
+            Ok(())
+        })
+        .await
+}
+
+#[tokio::test]
+async fn project_work_item_list_admits_its_wiql_read_inside_the_cache_initializer() -> Result<()> {
+    CancellationToken::new()
+        .with_async_scope(|cancellation| async move {
+            let (organization, _, auth_selection) = scope()?;
+            let executor = crate::test_executor::test_executor(&cancellation)?;
+            let error = AzureDevOpsProjectWorkItemListRequest {
+                org_url: Cow::Owned(organization),
+                project_id: "00000000-0000-0000-0000-000000000002".parse()?,
+                auth_selection,
+                limit: 200u16.try_into()?,
+            }
+            .execute(&executor)
+            .await
+            .unwrap_err();
+
+            // Reaching the credential boundary proves the executor admitted the
+            // nested REST read. The provider stops execution before network I/O.
+            assert!(
+                error.chain().any(|cause| cause.to_string() == "offline test forbids credential acquisition"),
+                "expected the offline provider to stop the WIQL read: {error:#}"
+            );
+            Ok(())
+        })
+        .await
+}
+
+#[tokio::test]
+async fn cached_work_item_batch_can_run_inside_a_reusable_initializer() -> Result<()> {
+    CancellationToken::new()
+        .with_async_scope(|cancellation| async move {
+            let (organization, project, auth_selection) = scope()?;
+            let executor = crate::test_executor::test_executor(&cancellation)?;
+            let selection = auth_selection.into();
+            let key = CacheKey::from_relative_path("synthetic-work-item-inventory")?;
+            let batch_key = key.join("batches")?;
+            let batch = AzureDevOpsWorkItemsGetRequest {
+                org_url: Cow::Owned(organization),
+                project: Some(project),
+                auth_selection,
+                ids: ids(1),
+                expand: AzureDevOpsWorkItemExpand::None,
+                fields: vec!["System.Title".to_owned()],
+                as_of: Some(chrono::Utc::now()),
+            };
+            let error = executor
+                .cached_work(
+                    ExecutorKind::InProcess,
+                    key,
+                    CacheOperationOwner::of::<AzureDevOpsProjectWorkItemListRequest<'static>>(),
+                    &selection,
+                    NonEmptyString::new("synthetic-batch")?,
+                    WorkReuse::ReusableRead,
+                    move |child| async move {
+                        let items = batch.load_cached(&child, batch_key).await?;
+                        Ok(WorkOutput::new(items, ArtifactObservation::now()))
+                    },
+                )?
+                .await
+                .unwrap_err();
+
+            assert!(
+                error.chain().any(|cause| cause.to_string() == "offline test forbids credential acquisition"),
+                "expected the offline provider to stop batch hydration: {error:#}"
             );
             Ok(())
         })

@@ -47,6 +47,7 @@ impl AzureDevOpsWorkItemQueryInvokeArgs {
             project: Some(self.project),
             auth_selection,
             query,
+            top: None,
         }
         .execute(executor)
         .await?;

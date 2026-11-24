@@ -8,17 +8,23 @@ use cloud_terrastodon_azure_devops_types::AzureDevOpsProjectArgument;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItem;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemExpand;
 use cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemId;
+use cloud_terrastodon_cache::CacheKey;
+use cloud_terrastodon_cache::CacheOperationOwner;
 use cloud_terrastodon_execution::CloudTerrastodonExecutor;
 use cloud_terrastodon_execution::ExecutableRequest;
 use cloud_terrastodon_execution::ExecutionFuture;
 use cloud_terrastodon_rest::RestRequest;
+use eyre::Result;
 use eyre::ensure;
 use facet::Facet;
 use reqwest::Method;
 use reqwest::Url;
+use std::borrow::Borrow;
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
+use std::future::Future;
+use std::sync::Arc;
 
 #[derive(Debug, Clone, Facet)]
 #[facet(traits(Clone))]
@@ -51,6 +57,107 @@ impl<'a> Arbitrary<'a> for AzureDevOpsWorkItemsGetRequest<'static> {
     }
 }
 
+impl AzureDevOpsWorkItemsGetRequest<'_> {
+    /// Read reusable batches within the scope of a project work item listing.
+    pub(crate) async fn load_cached(
+        self,
+        executor: &CloudTerrastodonExecutor,
+        key: CacheKey,
+    ) -> Result<Vec<Arc<AzureDevOpsWorkItem>>> {
+        self.load_batches(executor, |request, index| {
+            let batch_key = key.join(index.to_string());
+            async move {
+                let response = request
+                    .cache(batch_key?)
+                    .receive_cached::<WorkItemListResponse<Arc<AzureDevOpsWorkItem>>>(
+                        executor,
+                        CacheOperationOwner::of::<AzureDevOpsWorkItemsGetRequest<'static>>(),
+                    )
+                    .await?;
+                Ok(response.value.clone())
+            }
+        })
+        .await
+    }
+
+    async fn load_batches<T, F>(
+        self,
+        executor: &CloudTerrastodonExecutor,
+        mut receive: impl FnMut(RestRequest, usize) -> F,
+    ) -> Result<Vec<T>>
+    where
+        T: Borrow<AzureDevOpsWorkItem>,
+        F: Future<Output = Result<Vec<T>>>,
+    {
+        ensure!(!self.ids.is_empty(), "Specify at least one work item ID");
+        let mut seen = BTreeSet::new();
+        let ids: Vec<_> = self
+            .ids
+            .iter()
+            .copied()
+            .filter(|id| seen.insert(*id))
+            .collect();
+        let mut items = BTreeMap::new();
+        for (index, chunk) in ids.chunks(200).enumerate() {
+            executor.cancellation().bail_if_cancelled()?;
+            #[derive(Facet)]
+            #[facet(rename_all = "camelCase")]
+            struct Body {
+                ids: Vec<AzureDevOpsWorkItemId>,
+                #[facet(rename = "$expand")]
+                expand: AzureDevOpsWorkItemExpand,
+                #[facet(skip_serializing_if = Vec::is_empty)]
+                fields: Vec<String>,
+                #[facet(skip_serializing_if = Option::is_none)]
+                as_of: Option<String>,
+                error_policy: String,
+            }
+
+            let body = Body {
+                ids: chunk.to_vec(),
+                expand: self.expand,
+                fields: self.fields.clone(),
+                as_of: self.as_of.as_ref().map(DateTime::to_rfc3339),
+                error_policy: "fail".to_owned(),
+            };
+            let mut url = Url::parse(&self.org_url.to_string())?;
+            {
+                let mut path = url
+                    .path_segments_mut()
+                    .map_err(|_| eyre::eyre!("Invalid organization URL"))?;
+                path.pop_if_empty();
+                if let Some(project) = &self.project {
+                    path.push(&project.to_string());
+                }
+                path.extend(["_apis", "wit", "workitemsbatch"]);
+            }
+            url.query_pairs_mut().append_pair("api-version", "7.1");
+            let request = RestRequest::from_method_and_url(Method::POST, url)?
+                .cancellation_safe()
+                .body(facet_json::to_string(&body)?)
+                .authentication(self.auth_selection.into());
+            for item in receive(request, index).await? {
+                let id = item.borrow().id;
+                ensure!(
+                    seen.contains(&id),
+                    "Batch response contained an unrequested work item"
+                );
+                ensure!(
+                    items.insert(id, item).is_none(),
+                    "Batch response contained a duplicate work item"
+                );
+            }
+        }
+        ids.into_iter()
+            .map(|id| {
+                items.remove(&id).ok_or_else(|| {
+                    eyre::eyre!("A requested work item was missing from the response")
+                })
+            })
+            .collect()
+    }
+}
+
 impl<'a> ExecutableRequest for AzureDevOpsWorkItemsGetRequest<'a> {
     fn bind_authentication(
         &self,
@@ -72,74 +179,12 @@ impl<'a> ExecutableRequest for AzureDevOpsWorkItemsGetRequest<'a> {
         Self::Output: 'exec,
     {
         Box::pin(async move {
-            ensure!(!self.ids.is_empty(), "Specify at least one work item ID");
-            let mut seen = BTreeSet::new();
-            let ids: Vec<_> = self
-                .ids
-                .iter()
-                .copied()
-                .filter(|id| seen.insert(*id))
-                .collect();
-            let mut items = BTreeMap::new();
-            for chunk in ids.chunks(200) {
-                executor.cancellation().bail_if_cancelled()?;
-                #[derive(Facet)]
-                #[facet(rename_all = "camelCase")]
-                struct Body {
-                    ids: Vec<AzureDevOpsWorkItemId>,
-                    #[facet(rename = "$expand")]
-                    expand: cloud_terrastodon_azure_devops_types::AzureDevOpsWorkItemExpand,
-                    #[facet(skip_serializing_if = Vec::is_empty)]
-                    fields: Vec<String>,
-                    #[facet(skip_serializing_if = Option::is_none)]
-                    as_of: Option<String>,
-                    error_policy: String,
-                }
-
-                let body = Body {
-                    ids: chunk.to_vec(),
-                    expand: self.expand,
-                    fields: self.fields.clone(),
-                    as_of: self.as_of.as_ref().map(DateTime::to_rfc3339),
-                    error_policy: "fail".to_owned(),
-                };
-                let mut url = Url::parse(&self.org_url.to_string())?;
-                {
-                    let mut path = url
-                        .path_segments_mut()
-                        .map_err(|_| eyre::eyre!("Invalid organization URL"))?;
-                    path.pop_if_empty();
-                    if let Some(project) = &self.project {
-                        path.push(&project.to_string());
-                    }
-                    path.extend(["_apis", "wit", "workitemsbatch"]);
-                }
-                url.query_pairs_mut().append_pair("api-version", "7.1");
-                let request = RestRequest::from_method_and_url(Method::POST, url)?
-                    .cancellation_safe()
-                    .body(facet_json::to_string(&body)?);
-                let response: WorkItemListResponse<AzureDevOpsWorkItem> = request
-                    .authentication(self.auth_selection.into())
-                    .receive(&executor)
-                    .await?;
-                for item in response.value {
-                    ensure!(
-                        seen.contains(&item.id),
-                        "Batch response contained an unrequested work item"
-                    );
-                    ensure!(
-                        items.insert(item.id, item).is_none(),
-                        "Batch response contained a duplicate work item"
-                    );
-                }
-            }
-            ids.into_iter()
-                .map(|id| {
-                    items.remove(&id).ok_or_else(|| {
-                        eyre::eyre!("A requested work item was missing from the response")
-                    })
-                })
-                .collect()
+            self.load_batches(&executor, |request, _| {
+                let response =
+                    request.receive::<WorkItemListResponse<AzureDevOpsWorkItem>>(&executor);
+                async move { Ok(response.await?.value) }
+            })
+            .await
         })
     }
 }

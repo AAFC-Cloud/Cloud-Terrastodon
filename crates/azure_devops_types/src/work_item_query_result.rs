@@ -13,14 +13,15 @@ use facet::Facet;
 /// https://learn.microsoft.com/en-us/rest/api/azure/devops/wit/wiql/query-by-id?view=azure-devops-rest-7.1
 /// https://learn.microsoft.com/en-us/rest/api/azure/devops/wit/wiql/query-by-wiql?view=azure-devops-rest-7.1&tabs=HTTP#workitemqueryresult
 #[derive(Debug, Arbitrary, Facet)]
+#[cfg_attr(debug_assertions, facet(deny_unknown_fields))]
 #[facet(rename_all = "camelCase")]
 pub struct WorkItemQueryResult {
     /// The date the query was run in the context of.
     pub as_of: DateTime<Utc>,
     /// The columns of the query.
     pub columns: Vec<WorkItemFieldReference>,
-    /// The result type.
-    pub query_result_type: QueryResultType,
+    /// The result type, omitted in the documented WIQL flat-query example.
+    pub query_result_type: Option<QueryResultType>,
     /// The type of the query.
     pub query_type: QueryType,
     /// The sort columns of the query.
