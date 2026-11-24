@@ -201,9 +201,12 @@ pub async fn audit_azure_devops(
         .into_iter()
         .collect::<eyre::Result<HashMap<_, _>>>()?;
 
-    let test_suites = project_test_plans
+    let suite_plans: Vec<_> = project_test_plans
         .iter()
-        .flat_map(|(project, plans)| plans.iter().map(move |plan| (project, plan.id)))
+        .flat_map(|(&project, plans)| plans.iter().map(move |plan| (project, plan.id)))
+        .collect();
+    let test_suites = suite_plans
+        .into_iter()
         .map_concurrent(
             executor,
             NonZeroUsize::MIN.saturating_add(3),
@@ -218,7 +221,7 @@ pub async fn audit_azure_devops(
                 .with_invalidation(clean)
                 .await;
                 info!(%project_id, %plan_id, "Finished fetching project test suites");
-                eyre::Ok(suites.map(|suites| ((*project_id, plan_id), suites)))
+                eyre::Ok(suites.map(|suites| ((project_id, plan_id), suites)))
             },
         )
         .await?

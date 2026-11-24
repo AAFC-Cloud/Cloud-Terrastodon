@@ -8,6 +8,12 @@ use eyre::Result;
 use facet::Facet;
 use std::time::Duration;
 
+/// Default inactivity threshold for paid licenses, using two humantime months.
+pub const DEFAULT_PAID_LICENSE_INACTIVITY_THRESHOLD: Duration = Duration::from_secs(2 * 2_630_016);
+/// Default inactivity threshold for Test Plans licenses, using 60 days.
+pub const DEFAULT_TEST_LICENSE_INACTIVITY_THRESHOLD: Duration =
+    Duration::from_secs(60 * 24 * 60 * 60);
+
 /// Arguments for auditing Azure DevOps resources.
 #[derive(Facet, Debug, Clone)]
 pub struct AzureDevOpsAuditArgs {
@@ -24,15 +30,30 @@ pub struct AzureDevOpsAuditArgs {
 
     /// The amount of time until an Azure DevOps paid license is considered unused.
     /// Defaults to two humantime months (30.44 days each).
-    #[facet(figue::named, default = HumantimeDurationCli(Duration::from_secs(2 * 2_630_016).into()))]
-    paid_license_inactivity_threshold: HumantimeDurationCli,
+    #[facet(figue::named, default = HumantimeDurationCli(DEFAULT_PAID_LICENSE_INACTIVITY_THRESHOLD.into()))]
+    pub paid_license_inactivity_threshold: HumantimeDurationCli,
     /// The amount of time until an Azure DevOps "Test Plan" license is considered unused.
     /// This is more aggressive than the paid license threshold because test plan licenses are expensive.
-    #[facet(figue::named, default = HumantimeDurationCli(Duration::from_secs(60 * 24 * 60 * 60).into()))]
-    test_license_inactivity_threshold: HumantimeDurationCli,
+    #[facet(figue::named, default = HumantimeDurationCli(DEFAULT_TEST_LICENSE_INACTIVITY_THRESHOLD.into()))]
+    pub test_license_inactivity_threshold: HumantimeDurationCli,
 }
 
 impl AzureDevOpsAuditArgs {
+    /// Select the organization and Azure account, using the normal inactivity thresholds.
+    pub fn new(org: AzureDevOpsOrganizationUrl, authentication: AzureAuthenticationArgs) -> Self {
+        Self {
+            org,
+            authentication,
+            clean: false,
+            paid_license_inactivity_threshold: HumantimeDurationCli(
+                DEFAULT_PAID_LICENSE_INACTIVITY_THRESHOLD.into(),
+            ),
+            test_license_inactivity_threshold: HumantimeDurationCli(
+                DEFAULT_TEST_LICENSE_INACTIVITY_THRESHOLD.into(),
+            ),
+        }
+    }
+
     pub async fn invoke(self, executor: &CloudTerrastodonExecutor) -> Result<CliOutput> {
         let authentication = self.authentication.resolve(executor).await?;
         audit_azure_devops(

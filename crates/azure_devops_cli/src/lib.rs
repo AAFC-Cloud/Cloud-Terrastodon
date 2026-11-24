@@ -19,5 +19,6 @@ pub mod test;
 pub mod work_item;
 
 pub use audit_azure_devops::audit_azure_devops;
+pub use audit_cli::AzureDevOpsAuditArgs;
 pub use azure_devops_command_cli::AzureDevOpsArgs;
 pub use azure_devops_command_cli::AzureDevOpsCommand;
